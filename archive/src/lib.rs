@@ -1,5 +1,6 @@
+#![cfg_attr(any(feature = "const_generics", feature = "specialization"), allow(incomplete_features))]
 #![cfg_attr(feature = "const_generics", feature(const_generics))]
-#![cfg_attr(feature = "const_generics", allow(incomplete_features))]
+#![cfg_attr(feature = "specialization", feature(specialization))]
 
 mod core_impls;
 #[cfg(not(feature = "no_std"))]
@@ -9,6 +10,19 @@ use core::{
     marker::PhantomData,
     ops::Deref,
 };
+pub use memoffset::offset_of;
+
+#[cfg(feature = "specialization")]
+#[macro_export]
+macro_rules! default {
+    ($($rest:tt)*) => { default $($rest)* };
+}
+
+#[cfg(not(feature = "specialization"))]
+#[macro_export]
+macro_rules! default {
+    ($($rest:tt)*) => { $($rest)* };
+}
 
 pub trait Write {
     type Error;
@@ -91,9 +105,7 @@ pub trait ArchiveRef {
     fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error>;
 }
 
-pub struct Identity;
-
-impl<T: Archive + Copy> Resolve<T> for Identity {
+impl<T: Archive + Copy> Resolve<T> for () {
     type Archived = T;
 
     fn resolve(self, _pos: usize, value: &T) -> Self::Archived {
@@ -138,13 +150,6 @@ impl<T: Archive> Resolve<T> for usize {
     }
 }
 
-#[macro_export]
-macro_rules! rel_ptr {
-    ($from:expr, $to:expr, $parent:path, $field:ident) => (
-        RelPtr::new($from + memoffset::offset_of!($parent, $field), $to)
-    )
-}
-
 impl<T: Archive> ArchiveRef for T {
     type Archived = <T::Resolver as Resolve<T>>::Archived;
     type Reference = RelPtr<Self::Archived>;
@@ -152,6 +157,57 @@ impl<T: Archive> ArchiveRef for T {
 
     fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
         Ok(writer.archive(self)?)
+    }
+}
+
+pub struct ArchiveBuffer<T> {
+    inner: T,
+    pos: usize,
+}
+
+impl<T> ArchiveBuffer<T> {
+    pub fn new(inner: T) -> Self {
+        Self::with_pos(inner, 0)
+    }
+
+    pub fn with_pos(inner: T, pos: usize) -> Self {
+        Self {
+            inner,
+            pos,
+        }
+    }
+
+    pub fn into_inner(self) -> T {
+        self.inner
+    }
+}
+
+#[derive(Debug)]
+pub enum ArchiveBufferError {
+    Overflow,
+}
+
+impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
+    type Error = ArchiveBufferError;
+
+    fn pos(&self) -> usize {
+        self.pos
+    }
+
+    fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
+        let end_pos = self.pos + bytes.len();
+        if end_pos > self.inner.as_ref().len() {
+            Err(ArchiveBufferError::Overflow)
+        } else {
+            unsafe {
+                core::ptr::copy_nonoverlapping(
+                    bytes.as_ptr(),
+                    self.inner.as_mut().as_mut_ptr().offset(self.pos as isize),
+                    bytes.len());
+            }
+            self.pos = end_pos;
+            Ok(())
+        }
     }
 }
 
@@ -164,10 +220,7 @@ pub struct ArchiveWriter<W: std::io::Write> {
 #[cfg(not(feature = "no_std"))]
 impl<W: std::io::Write> ArchiveWriter<W> {
     pub fn new(inner: W) -> Self {
-        Self {
-            inner,
-            pos: 0,
-        }
+        Self::with_pos(inner, 0)
     }
 
     pub fn with_pos(inner: W, pos: usize) -> Self {
@@ -191,7 +244,6 @@ impl<W: std::io::Write> Write for ArchiveWriter<W> {
     }
 
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
-        println!("Wrote {} bytes: {:?}", bytes.len(), bytes);
         self.pos += self.inner.write(bytes)?;
         Ok(())
     }
@@ -199,16 +251,17 @@ impl<W: std::io::Write> Write for ArchiveWriter<W> {
 
 #[cfg(test)]
 mod tests {
-    use core::ops::Deref;
     use crate::{
         Archive,
+        ArchiveBuffer,
         ArchiveRef,
-        ArchiveWriter,
         Write,
     };
 
+    const BUFFER_SIZE: usize = 256;
+
     fn test_archive<T: Archive<Archived = U> + PartialEq<U>, U>(value: &T) {
-        let mut writer = ArchiveWriter::new(Vec::new());
+        let mut writer = ArchiveBuffer::new([0u8; BUFFER_SIZE]);
         let pos = writer.archive(value).expect("failed to archive value");
         let buf = writer.into_inner();
         let archived_value = unsafe { &*buf.as_ptr().offset(pos as isize).cast::<U>() };
@@ -216,15 +269,16 @@ mod tests {
     }
 
     fn test_archive_ref<T: ArchiveRef<Archived = U> + PartialEq<U> + ?Sized, U: ?Sized>(value: &T) {
-        let mut writer = ArchiveWriter::new(Vec::new());
+        let mut writer = ArchiveBuffer::new([0u8; BUFFER_SIZE]);
         let pos = writer.archive_ref(value).expect("failed to archive ref");
         let buf = writer.into_inner();
         let archived_ref = unsafe { &*buf.as_ptr().offset(pos as isize).cast::<T::Reference>() };
         assert!(value.eq(archived_ref));
     }
 
-    fn test_archive_container<T: Archive<Archived = U> + Deref<Target = TV>, TV: PartialEq<TU> + ?Sized, U: Deref<Target = TU>, TU: ?Sized>(value: &T) {
-        let mut writer = ArchiveWriter::new(Vec::new());
+    #[cfg(not(feature = "no_std"))]
+    fn test_archive_container<T: Archive<Archived = U> + core::ops::Deref<Target = TV>, TV: PartialEq<TU> + ?Sized, U: core::ops::Deref<Target = TU>, TU: ?Sized>(value: &T) {
+        let mut writer = ArchiveBuffer::new([0u8; BUFFER_SIZE]);
         let pos = writer.archive(value).expect("failed to archive ref");
         let buf = writer.into_inner();
         let archived_ref = unsafe { &*buf.as_ptr().offset(pos as isize).cast::<U>() };
@@ -258,6 +312,7 @@ mod tests {
         test_archive_ref::<[i32], _>([1, 2, 3, 4].as_ref());
     }
 
+    #[cfg(not(feature = "no_std"))]
     #[test]
     fn archive_containers() {
         test_archive_container(&Box::new(42));
@@ -267,6 +322,7 @@ mod tests {
         test_archive_container(&vec![1, 2, 3, 4]);
     }
 
+    #[cfg(not(feature = "no_std"))]
     #[test]
     fn archive_composition() {
         test_archive(&Some(Box::new(42)));

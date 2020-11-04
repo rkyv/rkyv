@@ -2,8 +2,8 @@ use core::ops::Deref;
 use crate::{
     Archive,
     ArchiveRef,
-    rel_ptr,
-    RelPtr,
+    core_impls::ArchivedSliceRef,
+    default,
     Resolve,
     Write,
 };
@@ -84,40 +84,18 @@ impl<T: ArchiveRef + ?Sized> Archive for Box<T> {
     }
 }
 
-pub struct ArchivedSliceRef<T> {
-    ptr: RelPtr<T>,
-    len: u32,
-}
-
-impl<T> ArchivedSliceRef<T> {
-    pub fn as_ptr(&self) -> *const T {
-        self.ptr.as_ptr()
+fn slice_archive_ref<T: Archive, W: Write + ?Sized>(slice: &[T], writer: &mut W) -> Result<<[T] as ArchiveRef>::Resolver, W::Error> {
+    let mut resolvers = Vec::with_capacity(slice.len());
+    for i in 0..slice.len() {
+        resolvers.push(slice[i].archive(writer)?);
     }
-
-    pub fn as_slice(&self) -> &[T] {
-        unsafe {
-            core::slice::from_raw_parts(self.as_ptr(), self.len as usize)
+    let result = writer.align_for::<T::Archived>()?;
+    unsafe {
+        for (i, resolver) in resolvers.drain(..).enumerate() {
+            writer.resolve_aligned(&slice[i], resolver)?;
         }
     }
-}
-
-impl<T> Deref for ArchivedSliceRef<T> {
-    type Target = [T];
-
-    fn deref(&self) -> &Self::Target {
-        self.as_slice()
-    }
-}
-
-impl<T: Archive> Resolve<[T]> for usize {
-    type Archived = ArchivedSliceRef<T::Archived>;
-
-    fn resolve(self, pos: usize, value: &[T]) -> Self::Archived {
-        Self::Archived {
-            ptr: rel_ptr!(pos, self, Self::Archived, ptr),
-            len: value.len() as u32,
-        }
-    }
+    Ok(result)
 }
 
 impl<T: Archive> ArchiveRef for [T] {
@@ -125,18 +103,10 @@ impl<T: Archive> ArchiveRef for [T] {
     type Reference = ArchivedSliceRef<T::Archived>;
     type Resolver = usize;
 
-    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        let mut resolvers = Vec::with_capacity(self.len());
-        for i in 0..self.len() {
-            resolvers.push(self[i].archive(writer)?);
+    default! {
+        fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+            slice_archive_ref(self, writer)
         }
-        let result = writer.align_for::<T::Archived>()?;
-        unsafe {
-            for (i, resolver) in resolvers.drain(..).enumerate() {
-                writer.resolve_aligned(&self[i], resolver)?;
-            }
-        }
-        Ok(result)
     }
 }
 

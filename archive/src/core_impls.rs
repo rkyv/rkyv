@@ -2,8 +2,6 @@ use core::ops::Deref;
 use crate::{
     Archive,
     ArchiveRef,
-    Identity,
-    rel_ptr,
     RelPtr,
     Resolve,
     Write,
@@ -16,10 +14,10 @@ macro_rules! impl_primitive {
             $type: Copy
         {
             type Archived = Self;
-            type Resolver = Identity;
+            type Resolver = ();
 
             fn archive<W: Write + ?Sized>(&self, _writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                Ok(Identity)
+                Ok(())
             }
         }
     )
@@ -124,14 +122,14 @@ macro_rules! impl_array {
 impl_array! { 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, }
 
 #[cfg(feature = "const_generics")]
-impl<T: Archive, const N: usize> Resolve<[T; N]> for [Resolver<T>; N] {
-    type Archived = [Archived<T>; N];
+impl<T: Resolve<U>, U, const N: usize> Resolve<[U; N]> for [T; N] {
+    type Archived = [T::Archived; N];
 
-    fn resolve(self, pos: usize, value: &[T; N]) -> Self::Archived {
+    fn resolve(self, pos: usize, value: &[U; N]) -> Self::Archived {
         let mut resolvers = core::mem::MaybeUninit::new(self);
-        let resolvers_ptr = resolvers.as_mut_ptr().cast::<Resolver<T>>();
+        let resolvers_ptr = resolvers.as_mut_ptr().cast::<T>();
         let mut result = core::mem::MaybeUninit::<Self::Archived>::uninit();
-        let result_ptr = result.as_mut_ptr().cast::<Archived<T>>();
+        let result_ptr = result.as_mut_ptr().cast::<T::Archived>();
         for i in 0..N {
             unsafe {
                 result_ptr.add(i).write(resolvers_ptr.add(i).read().resolve(pos + i * core::mem::size_of::<T>(), &value[i]));
@@ -145,11 +143,12 @@ impl<T: Archive, const N: usize> Resolve<[T; N]> for [Resolver<T>; N] {
 
 #[cfg(feature = "const_generics")]
 impl<T: Archive, const N: usize> Archive for [T; N] {
-    type Resolver = [Resolver<T>; N];
+    type Archived = [T::Archived; N];
+    type Resolver = [T::Resolver; N];
 
-    fn archive<W: Write>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        let mut result = core::mem::MaybeUninit::<[Resolver<T>; N]>::uninit();
-        let result_ptr = result.as_mut_ptr().cast::<Resolver<T>>();
+    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        let mut result = core::mem::MaybeUninit::<[T::Resolver; N]>::uninit();
+        let result_ptr = result.as_mut_ptr().cast::<T::Resolver>();
         for i in 0..N {
             unsafe {
                 result_ptr.add(i).write(self[i].archive(writer)?);
@@ -197,7 +196,7 @@ impl Resolve<str> for usize {
 
     fn resolve(self, pos: usize, value: &str) -> Self::Archived {
         Self::Archived {
-            ptr: rel_ptr!(pos, self, Self::Archived, ptr),
+            ptr: RelPtr::new(pos + crate::offset_of!(Self::Archived, ptr), self),
             len: value.len() as u32,
         }
     }
@@ -211,6 +210,59 @@ impl ArchiveRef for str {
     fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
         let result = writer.pos();
         writer.write(self.as_bytes())?;
+        Ok(result)
+    }
+}
+
+pub struct ArchivedSliceRef<T> {
+    ptr: RelPtr<T>,
+    len: u32,
+}
+
+impl<T> ArchivedSliceRef<T> {
+    pub fn as_ptr(&self) -> *const T {
+        self.ptr.as_ptr()
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        unsafe {
+            core::slice::from_raw_parts(self.as_ptr(), self.len as usize)
+        }
+    }
+}
+
+impl<T> Deref for ArchivedSliceRef<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+impl<T: Archive> Resolve<[T]> for usize {
+    type Archived = ArchivedSliceRef<T::Archived>;
+
+    fn resolve(self, pos: usize, value: &[T]) -> Self::Archived {
+        Self::Archived {
+            ptr: RelPtr::new(pos + crate::offset_of!(Self::Archived, ptr), self),
+            len: value.len() as u32,
+        }
+    }
+}
+
+#[cfg(any(feature = "no_std", feature = "specialization"))]
+impl<T: Archive<Archived = T, Resolver = ()>> ArchiveRef for [T] {
+    #[cfg(feature = "no_std")]
+    type Archived = [T];
+    #[cfg(feature = "no_std")]
+    type Reference = ArchivedSliceRef<T>;
+    #[cfg(feature = "no_std")]
+    type Resolver = usize;
+
+    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        let result = writer.align_for::<T>()?;
+        let bytes = unsafe { core::slice::from_raw_parts(self.as_ptr().cast::<u8>(), core::mem::size_of::<T>() * self.len()) };
+        writer.write(bytes)?;
         Ok(result)
     }
 }
@@ -286,7 +338,7 @@ impl<T: Archive> Resolve<Option<T>> for Option<T::Resolver> {
     fn resolve(self, pos: usize, value: &Option<T>) -> Self::Archived {
         match self {
             None => ArchivedOption::None,
-            Some(resolver) => ArchivedOption::Some(resolver.resolve(pos + memoffset::offset_of!(ArchivedOptionVariantSome<T::Archived>, 1), value.as_ref().unwrap())),
+            Some(resolver) => ArchivedOption::Some(resolver.resolve(pos + crate::offset_of!(ArchivedOptionVariantSome<T::Archived>, 1), value.as_ref().unwrap())),
         }
     }
 }
