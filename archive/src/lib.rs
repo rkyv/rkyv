@@ -43,9 +43,9 @@ pub trait Write {
     }
 
     // This is only safe to call when the writer is already aligned for an Archived<T>
-    unsafe fn resolve_aligned<T: Archive + ?Sized, R: Resolve<T>>(&mut self, value: &T, resolver: R) -> Result<usize, Self::Error> {
+    unsafe fn resolve_aligned<T: ?Sized, R: Resolve<T>>(&mut self, value: &T, resolver: R) -> Result<usize, Self::Error> {
         let pos = self.pos();
-        debug_assert!(pos & (core::mem::align_of::<Archived<T>>() - 1) == 0);
+        debug_assert!(pos & (core::mem::align_of::<R::Archived>() - 1) == 0);
         let archived = &resolver.resolve(pos, value);
         let data = (archived as *const R::Archived).cast::<u8>();
         let len = core::mem::size_of::<R::Archived>();
@@ -53,43 +53,47 @@ pub trait Write {
         Ok(pos)
     }
 
-    fn archive<T: Archive + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error> {
+    fn archive<T: Archive>(&mut self, value: &T) -> Result<usize, Self::Error> {
         let resolver = value.archive(self)?;
-        self.align_for::<Archived<T>>()?;
+        self.align_for::<T::Archived>()?;
+        unsafe {
+            self.resolve_aligned(value, resolver)
+        }
+    }
+
+    fn archive_ref<T: ArchiveRef + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error> {
+        let resolver = value.archive_ref(self)?;
+        self.align_for::<T::Reference>()?;
         unsafe {
             self.resolve_aligned(value, resolver)
         }
     }
 }
 
-pub trait Resolve<T: Archive + ?Sized> {
+pub trait Resolve<T: ?Sized> {
     type Archived;
 
     fn resolve(self, pos: usize, value: &T) -> Self::Archived;
 }
 
 pub trait Archive {
-    type Resolver: Resolve<Self>;
+    type Archived;
+    type Resolver: Resolve<Self, Archived = Self::Archived>;
 
     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error>;
 }
 
-pub type Resolver<T> = <T as Archive>::Resolver;
-pub type Archived<T> = <<T as Archive>::Resolver as Resolve<T>>::Archived;
+pub trait ArchiveRef {
+    type Archived: ?Sized;
+    type Reference: Deref<Target = Self::Archived>;
+    type Resolver: Resolve<Self, Archived = Self::Reference>;
 
-pub struct Identity<T> {
-    _phantom: core::marker::PhantomData<T>,
+    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error>;
 }
 
-impl<T> Identity<T> {
-    pub fn new() -> Self {
-        Self {
-            _phantom: core::marker::PhantomData,
-        }
-    }
-}
+pub struct Identity;
 
-impl<T: Archive + Copy> Resolve<T> for Identity<T> {
+impl<T: Archive + Copy> Resolve<T> for Identity {
     type Archived = T;
 
     fn resolve(self, _pos: usize, value: &T) -> Self::Archived {
@@ -98,15 +102,15 @@ impl<T: Archive + Copy> Resolve<T> for Identity<T> {
 }
 
 #[repr(transparent)]
-pub struct RelativePointer<T> {
+pub struct RelPtr<T> {
     offset: i32,
     _phantom: PhantomData<T>,
 }
 
-impl<T> RelativePointer<T> {
-    pub fn new(offset: i32) -> Self {
+impl<T> RelPtr<T> {
+    pub fn new(from: usize, to: usize) -> Self {
         Self {
-            offset,
+            offset: (to as isize - from as isize) as i32,
             _phantom: PhantomData,
         }
     }
@@ -118,7 +122,7 @@ impl<T> RelativePointer<T> {
     }
 }
 
-impl<T> Deref for RelativePointer<T> {
+impl<T> Deref for RelPtr<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -126,11 +130,29 @@ impl<T> Deref for RelativePointer<T> {
     }
 }
 
+impl<T: Archive> Resolve<T> for usize {
+    type Archived = RelPtr<T::Archived>;
+
+    fn resolve(self, pos: usize, _value: &T) -> Self::Archived {
+        RelPtr::new(pos, self)
+    }
+}
+
 #[macro_export]
 macro_rules! rel_ptr {
-    ($base:expr, $parent:path, $field:ident, $dest:expr) => (
-        RelativePointer::new(($dest as isize - $base as isize + memoffset::offset_of!($parent, $field) as isize) as i32)
+    ($from:expr, $to:expr, $parent:path, $field:ident) => (
+        RelPtr::new($from + memoffset::offset_of!($parent, $field), $to)
     )
+}
+
+impl<T: Archive> ArchiveRef for T {
+    type Archived = <T::Resolver as Resolve<T>>::Archived;
+    type Reference = RelPtr<Self::Archived>;
+    type Resolver = usize;
+
+    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        Ok(writer.archive(self)?)
+    }
 }
 
 #[cfg(not(feature = "no_std"))]
@@ -154,6 +176,10 @@ impl<W: std::io::Write> ArchiveWriter<W> {
             pos,
         }
     }
+
+    pub fn into_inner(self) -> W {
+        self.inner
+    }
 }
 
 #[cfg(not(feature = "no_std"))]
@@ -165,6 +191,7 @@ impl<W: std::io::Write> Write for ArchiveWriter<W> {
     }
 
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
+        println!("Wrote {} bytes: {:?}", bytes.len(), bytes);
         self.pos += self.inner.write(bytes)?;
         Ok(())
     }
@@ -172,9 +199,81 @@ impl<W: std::io::Write> Write for ArchiveWriter<W> {
 
 #[cfg(test)]
 mod tests {
-    // TODO: write tests and make sure nothing is broken
+    use core::ops::Deref;
+    use crate::{
+        Archive,
+        ArchiveRef,
+        ArchiveWriter,
+        Write,
+    };
+
+    fn test_archive<T: Archive<Archived = U> + PartialEq<U>, U>(value: &T) {
+        let mut writer = ArchiveWriter::new(Vec::new());
+        let pos = writer.archive(value).expect("failed to archive value");
+        let buf = writer.into_inner();
+        let archived_value = unsafe { &*buf.as_ptr().offset(pos as isize).cast::<U>() };
+        assert!(value.eq(archived_value));
+    }
+
+    fn test_archive_ref<T: ArchiveRef<Archived = U> + PartialEq<U> + ?Sized, U: ?Sized>(value: &T) {
+        let mut writer = ArchiveWriter::new(Vec::new());
+        let pos = writer.archive_ref(value).expect("failed to archive ref");
+        let buf = writer.into_inner();
+        let archived_ref = unsafe { &*buf.as_ptr().offset(pos as isize).cast::<T::Reference>() };
+        assert!(value.eq(archived_ref.deref()));
+    }
+
+    fn test_archive_container<T: Archive<Archived = U> + Deref<Target = TV>, TV: PartialEq<TU> + ?Sized, U: Deref<Target = TU>, TU: ?Sized>(value: &T) {
+        let mut writer = ArchiveWriter::new(Vec::new());
+        let pos = writer.archive(value).expect("failed to archive ref");
+        let buf = writer.into_inner();
+        let archived_ref = unsafe { &*buf.as_ptr().offset(pos as isize).cast::<U>() };
+        assert!(value.deref().eq(archived_ref.deref()));
+    }
+
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn archive_primitives() {
+        test_archive(&());
+        test_archive(&true);
+        test_archive(&false);
+        test_archive(&1234567f32);
+        test_archive(&12345678901234f64);
+        test_archive(&123i8);
+        test_archive(&123456i32);
+        test_archive(&1234567890i128);
+        test_archive(&123u8);
+        test_archive(&123456u32);
+        test_archive(&1234567890u128);
+        test_archive(&(24, true, 16f32));
+        test_archive(&[1, 2, 3, 4, 5, 6]);
+
+        test_archive(&Option::<()>::None);
+        test_archive(&Some(42));
+    }
+
+    #[test]
+    fn archive_refs() {
+        test_archive_ref::<[i32; 4], _>(&[1, 2, 3, 4]);
+        test_archive_ref::<str, _>("hello world");
+        test_archive_ref::<[i32], _>([1, 2, 3, 4].as_ref());
+    }
+
+    #[test]
+    fn archive_containers() {
+        test_archive_container(&Box::new(42));
+        test_archive_container(&"hello world".to_string().into_boxed_str());
+        test_archive_container(&vec![1, 2, 3, 4].into_boxed_slice());
+        test_archive_container(&"hello world".to_string());
+        test_archive_container(&vec![1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn archive_composition() {
+        test_archive(&Some(Box::new(42)));
+        test_archive(&Some("hello world".to_string().into_boxed_str()));
+        test_archive(&Some(vec![1, 2, 3, 4].into_boxed_slice()));
+        test_archive(&Some("hello world".to_string()));
+        test_archive(&Some(vec![1, 2, 3, 4]));
+        test_archive(&Some(Box::new(vec![1, 2, 3, 4])));
     }
 }
