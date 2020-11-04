@@ -8,6 +8,7 @@ use crate::{
     Write,
 };
 
+#[repr(transparent)]
 pub struct ArchivedString(<str as ArchiveRef>::Reference);
 
 impl Deref for ArchivedString {
@@ -49,6 +50,7 @@ impl Archive for String {
     }
 }
 
+#[repr(transparent)]
 pub struct ArchivedBox<T>(T);
 
 impl<T: Deref> Deref for ArchivedBox<T> {
@@ -110,6 +112,7 @@ impl<T: Archive> ArchiveRef for [T] {
     }
 }
 
+#[repr(transparent)]
 pub struct ArchivedVec<T>(T);
 
 impl<T: Deref> Deref for ArchivedVec<T> {

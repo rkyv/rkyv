@@ -105,7 +105,7 @@ pub trait ArchiveRef {
     fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error>;
 }
 
-impl<T: Archive + Copy> Resolve<T> for () {
+impl<T: Archive<Archived = T> + Copy> Resolve<T> for () {
     type Archived = T;
 
     fn resolve(self, _pos: usize, value: &T) -> Self::Archived {
