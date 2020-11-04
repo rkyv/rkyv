@@ -220,7 +220,7 @@ mod tests {
         let pos = writer.archive_ref(value).expect("failed to archive ref");
         let buf = writer.into_inner();
         let archived_ref = unsafe { &*buf.as_ptr().offset(pos as isize).cast::<T::Reference>() };
-        assert!(value.eq(archived_ref.deref()));
+        assert!(value.eq(archived_ref));
     }
 
     fn test_archive_container<T: Archive<Archived = U> + Deref<Target = TV>, TV: PartialEq<TU> + ?Sized, U: Deref<Target = TU>, TU: ?Sized>(value: &T) {
@@ -228,7 +228,7 @@ mod tests {
         let pos = writer.archive(value).expect("failed to archive ref");
         let buf = writer.into_inner();
         let archived_ref = unsafe { &*buf.as_ptr().offset(pos as isize).cast::<U>() };
-        assert!(value.deref().eq(archived_ref.deref()));
+        assert!(value.eq(archived_ref));
     }
 
     #[test]
