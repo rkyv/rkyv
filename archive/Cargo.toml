@@ -7,10 +7,14 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ahash = { version = "0.5", optional = true }
+cfg-if = { version = "1.0", optional = true }
 memoffset = "0.6"
 
 [features]
-default = []
+default = ["std", "inline_more"]
 const_generics = []
-no_std = []
+inline_more = []
+more_portable = []
 specialization = []
+std = ["ahash", "cfg-if"]

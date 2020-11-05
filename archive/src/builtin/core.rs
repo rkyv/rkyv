@@ -1,4 +1,11 @@
-use core::ops::Deref;
+use core::{
+    borrow::Borrow,
+    hash::{
+        Hash,
+        Hasher,
+    },
+    ops::Deref,
+};
 use crate::{
     Archive,
     ArchiveRef,
@@ -183,14 +190,6 @@ impl ArchivedStrRef {
     }
 }
 
-impl Deref for ArchivedStrRef {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.as_str()
-    }
-}
-
 impl Resolve<str> for usize {
     type Archived = ArchivedStrRef;
 
@@ -214,6 +213,34 @@ impl ArchiveRef for str {
     }
 }
 
+impl Deref for ArchivedStrRef {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_str()
+    }
+}
+
+impl Borrow<str> for ArchivedStrRef {
+    fn borrow(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl Hash for ArchivedStrRef {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state)
+    }
+}
+
+impl PartialEq for ArchivedStrRef {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str().eq(other.as_str())
+    }
+}
+
+impl Eq for ArchivedStrRef {}
+
 pub struct ArchivedSliceRef<T> {
     ptr: RelPtr<T>,
     len: u32,
@@ -231,14 +258,6 @@ impl<T> ArchivedSliceRef<T> {
     }
 }
 
-impl<T> Deref for ArchivedSliceRef<T> {
-    type Target = [T];
-
-    fn deref(&self) -> &Self::Target {
-        self.as_slice()
-    }
-}
-
 impl<T: Archive> Resolve<[T]> for usize {
     type Archived = ArchivedSliceRef<T::Archived>;
 
@@ -250,13 +269,13 @@ impl<T: Archive> Resolve<[T]> for usize {
     }
 }
 
-#[cfg(any(feature = "no_std", feature = "specialization"))]
-impl<T: Archive<Archived = T, Resolver = ()>> ArchiveRef for [T] {
-    #[cfg(feature = "no_std")]
+#[cfg(any(not(feature = "std"), feature = "specialization"))]
+impl<T: Archive<Archived = T, Resolver = ()> + Copy> ArchiveRef for [T] {
+    #[cfg(not(feature = "std"))]
     type Archived = [T];
-    #[cfg(feature = "no_std")]
+    #[cfg(not(feature = "std"))]
     type Reference = ArchivedSliceRef<T>;
-    #[cfg(feature = "no_std")]
+    #[cfg(not(feature = "std"))]
     type Resolver = usize;
 
     fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
@@ -267,7 +286,29 @@ impl<T: Archive<Archived = T, Resolver = ()>> ArchiveRef for [T] {
     }
 }
 
-#[derive(PartialEq)]
+impl<T> Deref for ArchivedSliceRef<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+impl<T: Hash> Hash for ArchivedSliceRef<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_slice().hash(state)
+    }
+}
+
+impl<T: PartialEq> PartialEq for ArchivedSliceRef<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T: Eq> Eq for ArchivedSliceRef<T> {}
+
+#[derive(PartialEq, Eq)]
 #[repr(u8)]
 pub enum ArchivedOption<T> {
     None,
@@ -296,29 +337,8 @@ impl<T> ArchivedOption<T> {
         }
     }
 
-    pub fn unwrawp(&self) -> &T {
+    pub fn unwrap(&self) -> &T {
         self.as_ref().unwrap()
-    }
-}
-
-impl<T, U: PartialEq<T>> PartialEq<Option<T>> for ArchivedOption<U> {
-    fn eq(&self, other: &Option<T>) -> bool {
-        match self {
-            ArchivedOption::None => other.is_none(),
-            ArchivedOption::Some(self_value) => {
-                if let Some(other_value) = other {
-                    self_value.eq(other_value)
-                } else {
-                    false
-                }
-            }
-        }
-    }
-}
-
-impl<T: PartialEq<U>, U> PartialEq<ArchivedOption<T>> for Option<U> {
-    fn eq(&self, other: &ArchivedOption<T>) -> bool {
-        other.eq(self)
     }
 }
 
@@ -349,5 +369,31 @@ impl<T: Archive> Archive for Option<T> {
 
     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
         self.as_ref().map(|value| value.archive(writer)).transpose()
+    }
+}
+
+impl<T: Hash> Hash for ArchivedOption<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_ref().hash(state)
+    }
+}
+
+impl<T, U: PartialEq<T>> PartialEq<Option<T>> for ArchivedOption<U> {
+    fn eq(&self, other: &Option<T>) -> bool {
+        if let ArchivedOption::Some(self_value) = self {
+            if let Some(other_value) = other {
+                self_value.eq(other_value)
+            } else {
+                false
+            }
+        } else {
+            other.is_none()
+        }
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<ArchivedOption<T>> for Option<U> {
+    fn eq(&self, other: &ArchivedOption<T>) -> bool {
+        other.eq(self)
     }
 }

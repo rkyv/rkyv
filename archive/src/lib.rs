@@ -2,11 +2,13 @@
 #![cfg_attr(feature = "const_generics", feature(const_generics))]
 #![cfg_attr(feature = "specialization", feature(specialization))]
 
-mod core_impls;
-#[cfg(not(feature = "no_std"))]
-mod std_impls;
+mod builtin;
 
 use core::{
+    hash::{
+        Hash,
+        Hasher,
+    },
     marker::PhantomData,
     ops::Deref,
 };
@@ -142,6 +144,20 @@ impl<T> Deref for RelPtr<T> {
     }
 }
 
+impl<T: Hash> Hash for RelPtr<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.deref().hash(state)
+    }
+}
+
+impl<T: PartialEq> PartialEq for RelPtr<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.deref().eq(other.deref())
+    }
+}
+
+impl<T: Eq> Eq for RelPtr<T> {}
+
 impl<T: Archive> Resolve<T> for usize {
     type Archived = RelPtr<T::Archived>;
 
@@ -211,13 +227,13 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
     }
 }
 
-#[cfg(not(feature = "no_std"))]
+#[cfg(feature = "std")]
 pub struct ArchiveWriter<W: std::io::Write> {
     inner: W,
     pos: usize,
 }
 
-#[cfg(not(feature = "no_std"))]
+#[cfg(feature = "std")]
 impl<W: std::io::Write> ArchiveWriter<W> {
     pub fn new(inner: W) -> Self {
         Self::with_pos(inner, 0)
@@ -235,7 +251,7 @@ impl<W: std::io::Write> ArchiveWriter<W> {
     }
 }
 
-#[cfg(not(feature = "no_std"))]
+#[cfg(feature = "std")]
 impl<W: std::io::Write> Write for ArchiveWriter<W> {
     type Error = std::io::Error;
 
@@ -258,30 +274,45 @@ mod tests {
         Write,
     };
 
+    #[repr(align(16))]
+    struct Aligned<T>(T);
+
+    impl<T: AsRef<[U]>, U> AsRef<[U]> for Aligned<T> {
+        fn as_ref(&self) -> &[U] {
+            self.0.as_ref()
+        }
+    }
+
+    impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
+        fn as_mut(&mut self) -> &mut [U] {
+            self.0.as_mut()
+        }
+    }
+
     const BUFFER_SIZE: usize = 256;
 
     fn test_archive<T: Archive<Archived = U> + PartialEq<U>, U>(value: &T) {
-        let mut writer = ArchiveBuffer::new([0u8; BUFFER_SIZE]);
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(value).expect("failed to archive value");
         let buf = writer.into_inner();
-        let archived_value = unsafe { &*buf.as_ptr().offset(pos as isize).cast::<U>() };
+        let archived_value = unsafe { &*buf.as_ref().as_ptr().offset(pos as isize).cast::<U>() };
         assert!(value.eq(archived_value));
     }
 
     fn test_archive_ref<T: ArchiveRef<Archived = U> + PartialEq<U> + ?Sized, U: ?Sized>(value: &T) {
-        let mut writer = ArchiveBuffer::new([0u8; BUFFER_SIZE]);
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive_ref(value).expect("failed to archive ref");
         let buf = writer.into_inner();
-        let archived_ref = unsafe { &*buf.as_ptr().offset(pos as isize).cast::<T::Reference>() };
+        let archived_ref = unsafe { &*buf.as_ref().as_ptr().offset(pos as isize).cast::<T::Reference>() };
         assert!(value.eq(archived_ref));
     }
 
-    #[cfg(not(feature = "no_std"))]
+    #[cfg(feature = "std")]
     fn test_archive_container<T: Archive<Archived = U> + core::ops::Deref<Target = TV>, TV: PartialEq<TU> + ?Sized, U: core::ops::Deref<Target = TU>, TU: ?Sized>(value: &T) {
-        let mut writer = ArchiveBuffer::new([0u8; BUFFER_SIZE]);
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(value).expect("failed to archive ref");
         let buf = writer.into_inner();
-        let archived_ref = unsafe { &*buf.as_ptr().offset(pos as isize).cast::<U>() };
+        let archived_ref = unsafe { &*buf.as_ref().as_ptr().offset(pos as isize).cast::<U>() };
         assert!(value.eq(archived_ref));
     }
 
@@ -312,7 +343,7 @@ mod tests {
         test_archive_ref::<[i32], _>([1, 2, 3, 4].as_ref());
     }
 
-    #[cfg(not(feature = "no_std"))]
+    #[cfg(feature = "std")]
     #[test]
     fn archive_containers() {
         test_archive_container(&Box::new(42));
@@ -322,7 +353,7 @@ mod tests {
         test_archive_container(&vec![1, 2, 3, 4]);
     }
 
-    #[cfg(not(feature = "no_std"))]
+    #[cfg(feature = "std")]
     #[test]
     fn archive_composition() {
         test_archive(&Some(Box::new(42)));
@@ -331,5 +362,43 @@ mod tests {
         test_archive(&Some("hello world".to_string()));
         test_archive(&Some(vec![1, 2, 3, 4]));
         test_archive(&Some(Box::new(vec![1, 2, 3, 4])));
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn archive_hash_map() {
+        use std::collections::HashMap;
+
+        test_archive(&HashMap::<i32, i32>::new());
+
+        let mut hash_map = HashMap::new();
+        hash_map.insert(1, 2);
+        hash_map.insert(3, 4);
+        hash_map.insert(5, 6);
+        hash_map.insert(7, 8);
+
+        test_archive(&hash_map);
+
+        let mut hash_map = HashMap::new();
+        hash_map.insert("hello".to_string(), "world".to_string());
+        hash_map.insert("foo".to_string(), "bar".to_string());
+        hash_map.insert("baz".to_string(), "bat".to_string());
+
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
+        let pos = writer.archive(&hash_map).expect("failed to archive value");
+        let buf = writer.into_inner();
+        let archived_value = unsafe { &*buf.as_ref().as_ptr().offset(pos as isize).cast::<<HashMap<String, String> as Archive>::Archived>() };
+
+        assert!(archived_value.len() == hash_map.len());
+
+        for (key, value) in hash_map.iter() {
+            assert!(archived_value.contains_key(key.as_str()));
+            assert!(archived_value[key.as_str()].eq(value));
+        }
+
+        for (key, value) in archived_value.iter() {
+            assert!(hash_map.contains_key(key.as_str()));
+            assert!(hash_map[key.as_str()].eq(value));
+        }
     }
 }

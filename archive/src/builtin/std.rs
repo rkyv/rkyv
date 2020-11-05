@@ -1,21 +1,37 @@
-use core::ops::Deref;
+use core::{
+    borrow::Borrow,
+    ops::Deref,
+};
 use crate::{
     Archive,
     ArchiveRef,
-    core_impls::ArchivedSliceRef,
+    builtin::core::ArchivedSliceRef,
     default,
     Resolve,
     Write,
 };
 
+#[derive(Hash, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct ArchivedString(<str as ArchiveRef>::Reference);
+
+impl ArchivedString {
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+}
 
 impl Deref for ArchivedString {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
         self.0.deref()
+    }
+}
+
+impl Borrow<str> for ArchivedString {
+    fn borrow(&self) -> &str {
+        self.0.borrow()
     }
 }
 
@@ -50,6 +66,7 @@ impl Archive for String {
     }
 }
 
+#[derive(Hash, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct ArchivedBox<T>(T);
 
@@ -112,6 +129,7 @@ impl<T: Archive> ArchiveRef for [T] {
     }
 }
 
+#[derive(Eq, Hash, PartialEq)]
 #[repr(transparent)]
 pub struct ArchivedVec<T>(T);
 
