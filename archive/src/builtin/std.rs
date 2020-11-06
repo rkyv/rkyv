@@ -7,13 +7,15 @@ use crate::{
     ArchiveRef,
     builtin::core::ArchivedSliceRef,
     default,
+    Reference,
+    ReferenceResolver,
     Resolve,
     Write,
 };
 
 #[derive(Hash, Eq, PartialEq)]
 #[repr(transparent)]
-pub struct ArchivedString(<str as ArchiveRef>::Reference);
+pub struct ArchivedString(Reference<str>);
 
 impl ArchivedString {
     pub fn as_str(&self) -> &str {
@@ -47,7 +49,7 @@ impl PartialEq<ArchivedString> for String {
     }
 }
 
-pub struct StringResolver(<str as ArchiveRef>::Resolver);
+pub struct StringResolver(ReferenceResolver<str>);
 
 impl Resolve<String> for StringResolver {
     type Archived = ArchivedString;
@@ -95,15 +97,15 @@ impl<T: ArchiveRef + ?Sized> Resolve<Box<T>> for BoxResolver<T::Resolver> {
 }
 
 impl<T: ArchiveRef + ?Sized> Archive for Box<T> {
-    type Archived = ArchivedBox<T::Reference>;
-    type Resolver = BoxResolver<T::Resolver>;
+    type Archived = ArchivedBox<Reference<T>>;
+    type Resolver = BoxResolver<ReferenceResolver<T>>;
 
     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
         Ok(BoxResolver(self.as_ref().archive_ref(writer)?))
     }
 }
 
-fn slice_archive_ref<T: Archive, W: Write + ?Sized>(slice: &[T], writer: &mut W) -> Result<<[T] as ArchiveRef>::Resolver, W::Error> {
+fn slice_archive_ref<T: Archive, W: Write + ?Sized>(slice: &[T], writer: &mut W) -> Result<ReferenceResolver<[T]>, W::Error> {
     let mut resolvers = Vec::with_capacity(slice.len());
     for i in 0..slice.len() {
         resolvers.push(slice[i].archive(writer)?);
@@ -152,8 +154,8 @@ impl<T: Resolve<[U]>, U> Resolve<Vec<U>> for VecResolver<T> {
 }
 
 impl<T: Archive> Archive for Vec<T> {
-    type Archived = ArchivedVec<<[T] as ArchiveRef>::Reference>;
-    type Resolver = VecResolver<<[T] as ArchiveRef>::Resolver>;
+    type Archived = ArchivedVec<Reference<[T]>>;
+    type Resolver = VecResolver<ReferenceResolver<[T]>>;
 
     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
         Ok(VecResolver(self.as_slice().archive_ref(writer)?))

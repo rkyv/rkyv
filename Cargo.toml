@@ -1,4 +1,6 @@
 [workspace]
 members = [
-    "archive"
+    "archive",
+    "archive_derive",
+    "archive_test",
 ]
