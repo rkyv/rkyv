@@ -215,7 +215,7 @@ mod tests {
             c: String,
             d: Option<i32>,
         }
-    
+
         impl<T: TestTrait> PartialEq<Test<T>> for Archived<Test<T>>
         where
             <T as TestTrait>::Associated: Archive,
@@ -245,6 +245,82 @@ mod tests {
                 c: "hello world".to_string(),
                 d: Some(42),
             }
+        ]);
+    }
+
+    #[test]
+    fn archive_enum() {
+        #[derive(Archive)]
+        enum Test {
+            A,
+            B(String),
+            C {
+                a: i32,
+                b: String,
+            }
+        }
+
+        impl PartialEq<Test> for Archived<Test> {
+            fn eq(&self, other: &Test) -> bool {
+                match self {
+                    Self::A => if let Test::A = other { true } else { false },
+                    Self::B(self_value) => if let Test::B(other_value) = other { self_value == other_value } else { false },
+                    Self::C { a, b } => if let Test::C { a: _a, b: _b } = other { a == _a && b == _b } else { false },
+                }
+            }
+        }
+
+        test_archive(&Test::A);
+        test_archive(&Test::B("hello_world".to_string()));
+        test_archive(&Test::C { a: 42, b: "hello world".to_string() });
+        test_archive(&vec![
+            Test::A,
+            Test::B("hello world".to_string()),
+            Test::C { a: 42, b: "hello world".to_string() },
+        ]);
+    }
+
+    #[test]
+    fn archive_generic_enum() {
+        trait TestTrait {
+            type Associated;
+        }
+
+        impl TestTrait for () {
+            type Associated = i32;
+        }
+
+        #[derive(Archive)]
+        enum Test<T: TestTrait> {
+            A,
+            B(String),
+            C {
+                a: <T as TestTrait>::Associated,
+                b: String,
+            }
+        }
+
+        impl<T: TestTrait> PartialEq<Test<T>> for Archived<Test<T>>
+        where
+            <T as TestTrait>::Associated: Archive,
+            Archived<<T as TestTrait>::Associated>: PartialEq<<T as TestTrait>::Associated>,
+        {
+            fn eq(&self, other: &Test<T>) -> bool {
+                match self {
+                    Self::A => if let Test::A = other { true } else { false },
+                    Self::B(self_value) => if let Test::B(other_value) = other { self_value == other_value } else { false },
+                    Self::C { a, b } => if let Test::C { a: _a, b: _b } = other { a == _a && b == _b } else { false },
+                }
+            }
+        }
+
+        test_archive(&Test::<()>::A);
+        test_archive(&Test::<()>::B("hello_world".to_string()));
+        test_archive(&Test::<()>::C { a: 42, b: "hello world".to_string() });
+        test_archive(&vec![
+            Test::<()>::A,
+            Test::<()>::B("hello world".to_string()),
+            Test::<()>::C { a: 42, b: "hello world".to_string() },
         ]);
     }
 }

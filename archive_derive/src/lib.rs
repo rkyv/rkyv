@@ -8,7 +8,9 @@ use quote::{
 use syn::{
     Data,
     DeriveInput,
+    Error,
     Fields,
+    Ident,
     Index,
     parse_macro_input,
     spanned::Spanned,
@@ -220,11 +222,285 @@ fn derive_archive_impl(input: &DeriveInput) -> TokenStream {
                 }
             }
         },
-        _ => quote! {},
+        Data::Enum(ref data) => {
+            let field_wheres = data.variants.iter().map(|v| {
+                match v.fields {
+                    Fields::Named(ref fields) => {
+                        let field_wheres = fields.named.iter().map(|f| {
+                            let ty = &f.ty;
+                            quote_spanned! { f.span() =>  #ty: Archive }
+                        });
+                        quote! { #(#field_wheres,)* }
+                    },
+                    Fields::Unnamed(ref fields) => {
+                        let field_wheres = fields.unnamed.iter().map(|f| {
+                            let ty = &f.ty;
+                            quote_spanned! { f.span() => #ty: Archive }
+                        });
+                        quote! { #(#field_wheres,)* }
+                    },
+                    Fields::Unit => quote! {},
+                }
+            });
+            let field_wheres = quote! { #(#field_wheres)* };
+
+            let resolver_variants = data.variants.iter().map(|v| {
+                let variant = &v.ident;
+                match v.fields {
+                    Fields::Named(ref fields) => {
+                        let fields = fields.named.iter().map(|f| {
+                            let name = &f.ident;
+                            let ty = &f.ty;
+                            quote_spanned! { f.span() => #name: archive::Resolver<#ty> }
+                        });
+                        quote_spanned! { variant.span() =>
+                            #variant {
+                                #(#fields,)*
+                            }
+                        }
+                    },
+                    Fields::Unnamed(ref fields) => {
+                        let fields = fields.unnamed.iter().map(|f| {
+                            let ty = &f.ty;
+                            quote_spanned! { f.span() => archive::Resolver<#ty> }
+                        });
+                        quote_spanned! { variant.span() =>
+                            #variant(#(#fields,)*)
+                        }
+                    },
+                    Fields::Unit => quote_spanned! { variant.span() => #variant },
+                }
+            });
+
+            let resolve_arms = data.variants.iter().map(|v| {
+                let variant = &v.ident;
+                let archived_variant_name = Ident::new(&format!("ArchivedVariant{}", variant.to_string()), v.span());
+                match v.fields {
+                    Fields::Named(ref fields) => {
+                        let self_bindings = fields.named.iter().map(|f| {
+                            let name = &f.ident;
+                            let binding = Ident::new(&format!("self_{}", name.as_ref().unwrap().to_string()), name.span());
+                            quote_spanned! { name.span() => #name: #binding }
+                        });
+                        let value_bindings = fields.named.iter().map(|f| {
+                            let name = &f.ident;
+                            let binding = Ident::new(&format!("value_{}", name.as_ref().unwrap().to_string()), name.span());
+                            quote_spanned! { binding.span() => #name: #binding }
+                        });
+                        let fields = fields.named.iter().map(|f| {
+                            let name = &f.ident;
+                            let self_binding = Ident::new(&format!("self_{}", name.as_ref().unwrap().to_string()), name.span());
+                            let value_name = Ident::new(&format!("value_{}", name.as_ref().unwrap().to_string()), name.span());
+                            quote! {
+                                #name: #self_binding.resolve(pos + offset_of!(#archived_variant_name<#generic_args>, #name), #value_name)
+                            }
+                        });
+                        quote_spanned! { name.span() =>
+                            Self::#variant { #(#self_bindings,)* } => {
+                                if let #name::#variant { #(#value_bindings,)* } = value { Archived::#variant { #(#fields,)* } } else { panic!("enum resolver variant does not match value variant") }
+                            }
+                        }
+                    },
+                    Fields::Unnamed(ref fields) => {
+                        let self_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                            let name = Ident::new(&format!("self_{}", i), f.span());
+                            quote_spanned! { f.span() => #name }
+                        });
+                        let value_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                            let name = Ident::new(&format!("value_{}", i), f.span());
+                            quote_spanned! { f.span() => #name }
+                        });
+                        let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                            let index = Index::from(i + 1);
+                            let self_binding = Ident::new(&format!("self_{}", i), f.span());
+                            let value_binding = Ident::new(&format!("value_{}", i), f.span());
+                            quote! {
+                                #self_binding.resolve(pos + offset_of!(#archived_variant_name<#generic_args>, #index), #value_binding)
+                            }
+                        });
+                        quote_spanned! { name.span() =>
+                            Self::#variant( #(#self_bindings,)* ) => {
+                                if let #name::#variant(#(#value_bindings,)*) = value { Archived::#variant(#(#fields,)*) } else { panic!("enum resolver variant does not match value variant") }
+                            }
+                        }
+                    },
+                    Fields::Unit => quote_spanned! { name.span() => Self::#variant => Archived::#variant },
+                }
+            });
+
+            let archived_variants = data.variants.iter().map(|v| {
+                let variant = &v.ident;
+                match v.fields {
+                    Fields::Named(ref fields) => {
+                        let fields = fields.named.iter().map(|f| {
+                            let name = &f.ident;
+                            let ty = &f.ty;
+                            quote_spanned! { f.span() => #name: archive::Archived<#ty> }
+                        });
+                        quote_spanned! { variant.span() =>
+                            #variant {
+                                #(#fields,)*
+                            }
+                        }
+                    },
+                    Fields::Unnamed(ref fields) => {
+                        let fields = fields.unnamed.iter().map(|f| {
+                            let ty = &f.ty;
+                            quote_spanned! { f.span() => archive::Archived<#ty> }
+                        });
+                        quote_spanned! { variant.span() =>
+                            #variant(#(#fields,)*)
+                        }
+                    },
+                    Fields::Unit => quote_spanned! { variant.span() => #variant },
+                }
+            });
+
+            let archived_variant_tags = data.variants.iter().map(|v| {
+                let variant = &v.ident;
+                quote_spanned! { variant.span() => #variant }
+            });
+
+            let archived_variant_structs = data.variants.iter().map(|v| {
+                let variant = &v.ident;
+                let archived_variant_name = Ident::new(&format!("ArchivedVariant{}", variant.to_string()), v.span());
+                match v.fields {
+                    Fields::Named(ref fields) => {
+                        let fields = fields.named.iter().map(|f| {
+                            let name = &f.ident;
+                            let ty = &f.ty;
+                            quote_spanned! { f.span() => #name: archive::Archived<#ty> }
+                        });
+                        quote_spanned! { name.span() =>
+                            #[repr(C)]
+                            struct #archived_variant_name<#generic_params>
+                            where
+                                #generic_predicates
+                                #field_wheres
+                            {
+                                __tag: ArchivedTag,
+                                #(#fields,)*
+                                __phantom: PhantomData<(#generic_args)>,
+                            }
+                        }
+                    },
+                    Fields::Unnamed(ref fields) => {
+                        let fields = fields.unnamed.iter().map(|f| {
+                            let ty = &f.ty;
+                            quote_spanned! { f.span() => archive::Archived<#ty> }
+                        });
+                        quote_spanned! { name.span() =>
+                            #[repr(C)]
+                            struct #archived_variant_name<#generic_params>(ArchivedTag, #(#fields,)* PhantomData<(#generic_args)>)
+                            where
+                                #generic_predicates
+                                #field_wheres;
+                        }
+                    },
+                    Fields::Unit => quote! {},
+                }
+            });
+
+            let archive_arms = data.variants.iter().map(|v| {
+                let variant = &v.ident;
+                match v.fields {
+                    Fields::Named(ref fields) => {
+                        let bindings = fields.named.iter().map(|f| {
+                            let name = &f.ident;
+                            quote_spanned! { name.span() => #name }
+                        });
+                        let fields = fields.named.iter().map(|f| {
+                            let name = &f.ident;
+                            quote! {
+                                #name: #name.archive(writer)?
+                            }
+                        });
+                        quote_spanned! { name.span() =>
+                            Self::#variant { #(#bindings,)* } => Resolver::#variant {
+                                #(#fields,)*
+                            }
+                        }
+                    },
+                    Fields::Unnamed(ref fields) => {
+                        let bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                            let name = Ident::new(&format!("_{}", i), f.span());
+                            quote_spanned! { f.span() => #name }
+                        });
+                        let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                            let binding = Ident::new(&format!("_{}", i), f.span());
+                            quote! {
+                                #binding.archive(writer)?
+                            }
+                        });
+                        quote_spanned! { name.span() =>
+                            Self::#variant( #(#bindings,)* ) => Resolver::#variant(#(#fields,)*)
+                        }
+                    },
+                    Fields::Unit => quote_spanned! { name.span() => Self::#variant => Resolver::#variant },
+                }
+            });
+
+            quote! {
+                enum Resolver<#generic_params>
+                where
+                    #generic_predicates
+                    #field_wheres
+                {
+                    #(#resolver_variants,)*
+                }
+
+                impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
+                where
+                    #generic_predicates
+                    #field_wheres
+                {
+                    type Archived = Archived<#generic_args>;
+
+                    fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
+                        match self {
+                            #(#resolve_arms,)*
+                        }
+                    }
+                }
+
+                #[repr(u8)]
+                enum Archived<#generic_params>
+                where
+                    #generic_predicates
+                    #field_wheres
+                {
+                    #(#archived_variants,)*
+                }
+
+                #[repr(u8)]
+                enum ArchivedTag {
+                    #(#archived_variant_tags,)*
+                }
+
+                #(#archived_variant_structs)*
+
+                impl<#generic_params> Archive for #name<#generic_args>
+                where
+                    #generic_predicates
+                    #field_wheres
+                {
+                    type Archived = Archived<#generic_args>;
+                    type Resolver = Resolver<#generic_args>;
+
+                    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                        Ok(match self {
+                            #(#archive_arms,)*
+                        })
+                    }
+                }
+            }
+        },
+        Data::Union(_) => Error::new(input.span(), "Archive cannot be derived for unions").to_compile_error(),
     };
 
     quote! {
         const _: () = {
+            use core::marker::PhantomData;
             use archive::{
                 Archive,
                 offset_of,
