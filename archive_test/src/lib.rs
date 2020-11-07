@@ -132,47 +132,119 @@ mod tests {
         }
     }
 
-    #[derive(Archive)]
-    struct TestSimple {
-        a: (),
-        b: i32,
-        c: String,
-        d: Option<i32>,
-    }
+    #[test]
+    fn archive_unit_struct() {
+        #[derive(Archive, PartialEq)]
+        struct Test;
 
-    impl PartialEq<TestSimple> for Archived<TestSimple> {
-        fn eq(&self, other: &TestSimple) -> bool {
-            self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
-        }
+        test_archive(&Test);
+        test_archive(&vec![Test, Test]);
     }
+    
+    #[test]
+    fn archive_tuple_struct() {
+        #[derive(Archive)]
+        struct Test((), i32, String, Option<i32>);
 
-    impl PartialEq<Archived<TestSimple>> for TestSimple {
-        fn eq(&self, other: &Archived<TestSimple>) -> bool {
-            other.eq(self)
+        impl PartialEq<Test> for Archived<Test> {
+            fn eq(&self, other: &Test) -> bool {
+                self.0 == other.0 && self.1 == other.1 && self.2 == other.2 && self.3 == other.3
+            }
         }
+
+        test_archive(&Test(
+            (),
+            42,
+            "hello world".to_string(),
+            Some(42),
+        ));
     }
 
     #[test]
     fn archive_simple_struct() {
-        test_archive(&TestSimple {
+        #[derive(Archive)]
+        struct Test {
+            a: (),
+            b: i32,
+            c: String,
+            d: Option<i32>,
+        }
+    
+        impl PartialEq<Test> for Archived<Test> {
+            fn eq(&self, other: &Test) -> bool {
+                self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
+            }
+        }
+
+        test_archive(&Test {
             a: (),
             b: 42,
             c: "hello world".to_string(),
             d: Some(42),
         });
         test_archive(&vec![
-            TestSimple {
+            Test {
                 a: (),
                 b: 42,
                 c: "hello world".to_string(),
                 d: Some(42),
             },
-            TestSimple {
+            Test {
                 a: (),
                 b: 42,
                 c: "hello world".to_string(),
                 d: Some(42),
             }
-        ])
+        ]);
+    }
+
+    #[test]
+    fn archive_generic_struct() {
+        trait TestTrait {
+            type Associated;
+        }
+
+        impl TestTrait for () {
+            type Associated = i32;
+        }
+
+        #[derive(Archive)]
+        struct Test<T: TestTrait> {
+            a: (),
+            b: <T as TestTrait>::Associated,
+            c: String,
+            d: Option<i32>,
+        }
+    
+        impl<T: TestTrait> PartialEq<Test<T>> for Archived<Test<T>>
+        where
+            <T as TestTrait>::Associated: Archive,
+            Archived<<T as TestTrait>::Associated>: PartialEq<<T as TestTrait>::Associated>,
+        {
+            fn eq(&self, other: &Test<T>) -> bool {
+                self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
+            }
+        }
+
+        test_archive(&Test::<()> {
+            a: (),
+            b: 42,
+            c: "hello world".to_string(),
+            d: Some(42),
+        });
+        test_archive(&vec![
+            Test::<()> {
+                a: (),
+                b: 42,
+                c: "hello world".to_string(),
+                d: Some(42),
+            },
+            Test::<()> {
+                a: (),
+                b: 42,
+                c: "hello world".to_string(),
+                d: Some(42),
+            }
+        ]);
     }
 }
