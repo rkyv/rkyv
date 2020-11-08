@@ -8,3 +8,11 @@ edition = "2018"
 
 [dev-dependencies]
 archive = { path = "../archive" }
+
+[features]
+default = ["std", "inline_more"]
+const_generics = ["archive/const_generics"]
+inline_more = ["archive/inline_more"]
+more_portable = ["archive/more_portable"]
+specialization = ["archive/specialization"]
+std = ["archive/std"]

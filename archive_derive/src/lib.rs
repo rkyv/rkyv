@@ -6,12 +6,15 @@ use quote::{
     quote_spanned,
 };
 use syn::{
+    AttrStyle,
     Data,
     DeriveInput,
     Error,
     Fields,
     Ident,
     Index,
+    Meta,
+    NestedMeta,
     parse_macro_input,
     spanned::Spanned,
 };
@@ -328,6 +331,14 @@ fn derive_archive_impl(input: &DeriveInput) -> TokenStream {
                 }
             });
 
+            let archived_repr = match data.variants.len() {
+                0..=255 => quote! { u8 },
+                256..=65_535 => quote! { u16 },
+                65_536..=4_294_967_295 => quote! { u32 },
+                4_294_967_296..=18_446_744_073_709_551_615 => quote! { u64 },
+                _ => quote! { u128 },
+            };
+
             let archived_variants = data.variants.iter().map(|v| {
                 let variant = &v.ident;
                 match v.fields {
@@ -463,7 +474,7 @@ fn derive_archive_impl(input: &DeriveInput) -> TokenStream {
                     }
                 }
 
-                #[repr(u8)]
+                #[repr(#archived_repr)]
                 enum Archived<#generic_params>
                 where
                     #generic_predicates
@@ -472,7 +483,7 @@ fn derive_archive_impl(input: &DeriveInput) -> TokenStream {
                     #(#archived_variants,)*
                 }
 
-                #[repr(u8)]
+                #[repr(#archived_repr)]
                 enum ArchivedTag {
                     #(#archived_variant_tags,)*
                 }
@@ -509,5 +520,175 @@ fn derive_archive_impl(input: &DeriveInput) -> TokenStream {
             };
             #archive_impl
         };
+    }
+}
+
+#[proc_macro_derive(ArchiveCopy, attributes(archive))]
+pub fn archive_copy_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    let impl_archive_copy = derive_archive_copy_impl(&input);
+
+    let def = quote! {
+        const _: () = {
+            use archive::{
+                Archive,
+                ArchiveCopy,
+                CopyResolver,
+                Write,
+            };
+
+            #impl_archive_copy
+        };
+    };
+
+    proc_macro::TokenStream::from(def)
+}
+
+fn derive_archive_copy_impl(input: &DeriveInput) -> TokenStream {
+    let repr_set = input.attrs.iter().filter_map(|a| {
+        match a.style {
+            AttrStyle::Outer => match a.parse_meta() {
+                Ok(meta) => match meta {
+                    Meta::List(meta) => if meta.path.is_ident("archive") {
+                        let repr_set = meta.nested.iter().any(|n| {
+                            match n {
+                                NestedMeta::Meta(meta) => match meta {
+                                    Meta::Path(path) => {
+                                        path.is_ident("repr_set")
+                                    },
+                                    _ => false,
+                                },
+                                _ => false,
+                            }
+                        });
+                        if repr_set {
+                            Some(Ok(()))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    },
+                    _ => Some(Err(Error::new(meta.span(), "unsupported attribute type, expected path").to_compile_error()))
+                },
+                _ => Some(Err(Error::new(a.span(), "unable to parse attribute").to_compile_error())),
+            },
+            _ => Some(Err(Error::new(a.span(), "attributes must be outer").to_compile_error()))
+        }
+    }).next();
+
+    let name = &input.ident;
+
+    let generic_params = input.generics.params.iter().map(|p| quote! { #p });
+    let generic_params = quote! { #(#generic_params,)* };
+
+    let generic_args = input.generics.type_params().map(|p| {
+        let name = &p.ident;
+        quote_spanned! { p.ident.span() => #name }
+    });
+    let generic_args = quote! { #(#generic_args,)* };
+
+    let generic_predicates = match input.generics.where_clause {
+        Some(ref clause) => {
+            let predicates = clause.predicates.iter().map(|p| quote! { #p });
+            quote! { #(#predicates,)* }
+        },
+        None => quote! {},
+    };
+
+    match input.data {
+        Data::Struct(ref data) => {
+            let field_wheres = match data.fields {
+                Fields::Named(ref fields) => {
+                    let field_wheres = fields.named.iter().map(|f| {
+                        let ty = &f.ty;
+                        quote_spanned! { f.span() => #ty: ArchiveCopy }
+                    });
+
+                    quote! { #(#field_wheres,)* }
+                },
+                Fields::Unnamed(ref fields) => {
+                    let field_wheres = fields.unnamed.iter().map(|f| {
+                        let ty = &f.ty;
+                        quote_spanned! { f.span() => #ty: ArchiveCopy }
+                    });
+
+                    quote! { #(#field_wheres,)* }
+                },
+                Fields::Unit => quote! {},
+            };
+
+            quote! {
+                unsafe impl<#generic_params> ArchiveCopy for #name<#generic_args>
+                where
+                    #generic_predicates
+                    #field_wheres
+                {}
+
+                impl<#generic_params> Archive for #name<#generic_args>
+                where
+                    #generic_predicates
+                    #field_wheres
+                {
+                    type Archived = Self;
+                    type Resolver = CopyResolver;
+
+                    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                        Ok(CopyResolver)
+                    }
+                }
+            }
+        },
+        Data::Enum(ref data) => {
+            match repr_set {
+                Some(Ok(())) => (),
+                Some(Err(error)) => return error,
+                None => return Error::new(input.span(), "enum may be an invalid repr, make sure the enum has #[repr(u*)] or #[repr(i*)] then add #[archive(repr_set)]").to_compile_error(),
+            }
+
+            let field_wheres = data.variants.iter().map(|v| {
+                match v.fields {
+                    Fields::Named(ref fields) => {
+                        let field_wheres = fields.named.iter().map(|f| {
+                            let ty = &f.ty;
+                            quote_spanned! { f.span() => #ty: ArchiveCopy }
+                        });
+                        quote! { #(#field_wheres,)* }
+                    },
+                    Fields::Unnamed(ref fields) => {
+                        let field_wheres = fields.unnamed.iter().map(|f| {
+                            let ty = &f.ty;
+                            quote_spanned! { f.span() => #ty: ArchiveCopy }
+                        });
+                        quote! { #(#field_wheres,)* }
+                    },
+                    Fields::Unit => quote! {},
+                }
+            });
+            let field_wheres = quote! { #(#field_wheres)* };
+
+            quote! {
+                unsafe impl<#generic_params> ArchiveCopy for #name<#generic_args>
+                where
+                    #generic_predicates
+                    #field_wheres
+                {}
+
+                impl<#generic_params> Archive for #name<#generic_args>
+                where
+                    #generic_predicates
+                    #field_wheres
+                {
+                    type Archived = Self;
+                    type Resolver = CopyResolver;
+
+                    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                        Ok(CopyResolver)
+                    }
+                }
+            }
+        },
+        Data::Union(_) => Error::new(input.span(), "Archive cannot be derived for unions").to_compile_error(),
     }
 }

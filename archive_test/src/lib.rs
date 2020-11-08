@@ -3,6 +3,7 @@ mod tests {
     use archive::{
         Archive,
         ArchiveBuffer,
+        ArchiveCopy,
         Archived,
         ArchiveRef,
         Write,
@@ -322,5 +323,44 @@ mod tests {
             Test::<()>::B("hello world".to_string()),
             Test::<()>::C { a: 42, b: "hello world".to_string() },
         ]);
+    }
+
+    #[test]
+    fn archive_copy() {
+        #[derive(ArchiveCopy, Clone, Copy, PartialEq)]
+        struct TestUnit;
+
+        test_archive(&TestUnit);
+
+        #[derive(ArchiveCopy, Clone, Copy, PartialEq)]
+        struct TestStruct {
+            a: (),
+            b: i32,
+            c: bool,
+            d: f32,
+            e: TestUnit,
+        }
+
+        test_archive(&TestStruct {
+            a: (),
+            b: 42,
+            c: true,
+            d: 3.14f32,
+            e: TestUnit,
+        });
+
+        #[derive(ArchiveCopy, Clone, Copy, PartialEq)]
+        struct TestTuple((), i32, bool, f32, TestUnit);
+
+        test_archive(&TestTuple((), 42, true, 3.14f32, TestUnit));
+
+        #[derive(ArchiveCopy, Clone, Copy, PartialEq)]
+        #[repr(u8)]
+        #[archive(repr_set)]
+        enum TestEnum {
+            A((), i32, bool, f32, TestUnit),
+        }
+
+        test_archive(&TestEnum::A((), 42, true, 3.14f32, TestUnit));
     }
 }

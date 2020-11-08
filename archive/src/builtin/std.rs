@@ -167,5 +167,3 @@ impl<T: Deref<Target = [U]>, U: PartialEq<V>, V> PartialEq<Vec<V>> for ArchivedV
         self.deref().eq(other.deref())
     }
 }
-
-// TODO: impl Archive for HashMap/Set, etc
