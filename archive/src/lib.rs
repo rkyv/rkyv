@@ -14,10 +14,7 @@ use core::{
 };
 pub use memoffset::offset_of;
 
-pub use archive_derive::{
-    Archive,
-    ArchiveCopy,
-};
+pub use archive_derive::Archive;
 
 #[cfg(feature = "specialization")]
 #[macro_export]
@@ -112,11 +109,11 @@ pub trait ArchiveRef {
     fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error>;
 }
 
-pub unsafe trait ArchiveCopy: Archive<Archived = Self> + Copy {}
+pub unsafe trait ArchiveSelf: Archive<Archived = Self> + Copy {}
 
-pub struct CopyResolver;
+pub struct SelfResolver;
 
-impl<T: ArchiveCopy> Resolve<T> for CopyResolver {
+impl<T: ArchiveSelf> Resolve<T> for SelfResolver {
     type Archived = T;
 
     fn resolve(self, _pos: usize, value: &T) -> T {

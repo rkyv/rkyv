@@ -8,27 +8,27 @@ use core::{
 };
 use crate::{
     Archive,
-    ArchiveCopy,
     ArchiveRef,
-    CopyResolver,
+    ArchiveSelf,
     RelPtr,
     Resolve,
+    SelfResolver,
     Write,
 };
 
 macro_rules! impl_primitive {
     ($type:ty) => (
-        unsafe impl ArchiveCopy for $type {}
+        unsafe impl ArchiveSelf for $type {}
 
         impl Archive for $type
         where
             $type: Copy
         {
             type Archived = Self;
-            type Resolver = CopyResolver;
+            type Resolver = SelfResolver;
 
             fn archive<W: Write + ?Sized>(&self, _writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                Ok(CopyResolver)
+                Ok(SelfResolver)
             }
         }
     )
@@ -57,7 +57,7 @@ macro_rules! peel_tuple {
 macro_rules! impl_tuple {
     () => ();
     ($($type:ident $index:tt,)+) => {
-        unsafe impl<$($type: ArchiveCopy),+> ArchiveCopy for ($($type,)+) {}
+        unsafe impl<$($type: ArchiveSelf),+> ArchiveSelf for ($($type,)+) {}
 
         #[allow(non_snake_case)]
         impl<$($type: Archive),+> Resolve<($($type,)+)> for ($($type::Resolver,)+) {
@@ -90,7 +90,7 @@ impl_tuple! { T11 11, T10 10, T9 9, T8 8, T7 7, T6 6, T5 5, T4 4, T3 3, T2 2, T1
 macro_rules! impl_array {
     () => ();
     ($len:literal, $($rest:literal,)*) => {
-        unsafe impl<T: ArchiveCopy> ArchiveCopy for [T; $len] {}
+        unsafe impl<T: ArchiveSelf> ArchiveSelf for [T; $len] {}
 
         impl<T: Archive> Resolve<[T; $len]> for [T::Resolver; $len] {
             type Archived = [T::Archived; $len];
@@ -137,7 +137,7 @@ macro_rules! impl_array {
 impl_array! { 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, }
 
 #[cfg(feature = "const_generics")]
-unsafe impl<T: ArchiveCopy, const N: usize> ArchiveCopy for [T; N] {}
+unsafe impl<T: ArchiveSelf, const N: usize> ArchiveSelf for [T; N] {}
 
 #[cfg(feature = "const_generics")]
 impl<T: Resolve<U>, U, const N: usize> Resolve<[U; N]> for [T; N] {
@@ -281,7 +281,7 @@ impl<T: Archive> Resolve<[T]> for usize {
 }
 
 #[cfg(any(not(feature = "std"), feature = "specialization"))]
-impl<T: Archive<Archived = T, Resolver = ()> + Copy> ArchiveRef for [T] {
+impl<T: ArchiveSelf> ArchiveRef for [T] {
     #[cfg(not(feature = "std"))]
     type Archived = [T];
     #[cfg(not(feature = "std"))]

@@ -3,7 +3,6 @@ mod tests {
     use archive::{
         Archive,
         ArchiveBuffer,
-        ArchiveCopy,
         Archived,
         ArchiveRef,
         Write,
@@ -326,13 +325,15 @@ mod tests {
     }
 
     #[test]
-    fn archive_copy() {
-        #[derive(ArchiveCopy, Clone, Copy, PartialEq)]
+    fn archive_self() {
+        #[derive(Archive, Clone, Copy, PartialEq)]
+        #[archive(self)]
         struct TestUnit;
 
         test_archive(&TestUnit);
 
-        #[derive(ArchiveCopy, Clone, Copy, PartialEq)]
+        #[derive(Archive, Clone, Copy, PartialEq)]
+        #[archive(self)]
         struct TestStruct {
             a: (),
             b: i32,
@@ -349,18 +350,25 @@ mod tests {
             e: TestUnit,
         });
 
-        #[derive(ArchiveCopy, Clone, Copy, PartialEq)]
+        #[derive(Archive, Clone, Copy, PartialEq)]
+        #[archive(self)]
         struct TestTuple((), i32, bool, f32, TestUnit);
 
         test_archive(&TestTuple((), 42, true, 3.14f32, TestUnit));
 
-        #[derive(ArchiveCopy, Clone, Copy, PartialEq)]
+        #[derive(Archive, Clone, Copy, PartialEq)]
         #[repr(u8)]
-        #[archive(repr_set)]
+        #[archive(self)]
         enum TestEnum {
             A((), i32, bool, f32, TestUnit),
         }
 
         test_archive(&TestEnum::A((), 42, true, 3.14f32, TestUnit));
+
+        #[derive(Archive, Clone, Copy, PartialEq)]
+        #[archive(self)]
+        struct TestGeneric<T>(T);
+
+        test_archive(&TestGeneric(42));
     }
 }
