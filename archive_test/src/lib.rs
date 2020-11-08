@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use archive::{
         Archive,
         ArchiveBuffer,
@@ -97,8 +98,6 @@ mod tests {
 
     #[test]
     fn archive_hash_map() {
-        use std::collections::HashMap;
-
         test_archive(&HashMap::<i32, i32>::new());
 
         let mut hash_map = HashMap::new();
@@ -136,6 +135,12 @@ mod tests {
     fn archive_unit_struct() {
         #[derive(Archive, PartialEq)]
         struct Test;
+
+        impl PartialEq<Test> for Archived<Test> {
+            fn eq(&self, _other: &Test) -> bool {
+                true
+            }
+        }
 
         test_archive(&Test);
         test_archive(&vec![Test, Test]);
@@ -370,5 +375,21 @@ mod tests {
         struct TestGeneric<T>(T);
 
         test_archive(&TestGeneric(42));
+    }
+
+    #[test]
+    fn archive_derives() {
+        #[derive(Archive, Clone)]
+        #[archive(derive(Clone, Debug, PartialEq))]
+        struct Test(i32);
+
+        let value = Test(42);
+
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
+        let pos = writer.archive(&value).expect("failed to archive value");
+        let buf = writer.into_inner();
+        let archived_value = unsafe { &*buf.as_ref().as_ptr().offset(pos as isize).cast::<Archived<Test>>() };
+
+        assert_eq!(archived_value, &archived_value.clone());
     }
 }

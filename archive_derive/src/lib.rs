@@ -17,6 +17,7 @@ use syn::{
     Ident,
     Index,
     Meta,
+    MetaList,
     NestedMeta,
     parse_macro_input,
     spanned::Spanned,
@@ -45,6 +46,7 @@ impl Default for Repr {
 struct Attributes {
     archive_self: Option<Span>,
     repr: Repr,
+    derives: Option<MetaList>,
 }
 
 impl Default for Attributes {
@@ -52,6 +54,7 @@ impl Default for Attributes {
         Self {
             archive_self: None,
             repr: Default::default(),
+            derives: None,
         }
     }
 }
@@ -72,6 +75,9 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                                         } else {
                                             return Err(Error::new(path.span(), "unrecognized archive attribute").to_compile_error());
                                         }
+                                    },
+                                    Meta::List(meta) => if meta.path.is_ident("derive") {
+                                        result.derives = Some(meta.clone());
                                     },
                                     _ => (),
                                 },
@@ -129,7 +135,7 @@ pub fn archive_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     proc_macro::TokenStream::from(archive_impl)
 }
 
-fn derive_archive_impl(input: &DeriveInput, _attributes: &Attributes) -> TokenStream {
+fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStream {
     let name = &input.ident;
 
     let generic_params = input.generics.params.iter().map(|p| quote! { #p });
@@ -147,6 +153,12 @@ fn derive_archive_impl(input: &DeriveInput, _attributes: &Attributes) -> TokenSt
             quote! { #(#predicates,)* }
         },
         None => quote! {},
+    };
+
+    let archive_derives = if let Some(derives) = attributes.derives.as_ref() {
+        quote! { #[#derives] }
+    } else {
+        quote! {}
     };
 
     let archive_impl = match input.data {
@@ -204,6 +216,7 @@ fn derive_archive_impl(input: &DeriveInput, _attributes: &Attributes) -> TokenSt
                             }
                         }
 
+                        #archive_derives
                         struct Archived<#generic_params>
                         where
                             #generic_predicates
@@ -275,6 +288,7 @@ fn derive_archive_impl(input: &DeriveInput, _attributes: &Attributes) -> TokenSt
                             }
                         }
 
+                        #archive_derives
                         struct Archived<#generic_params>(#(#archived_fields,)*)
                         where
                             #generic_predicates
@@ -304,18 +318,23 @@ fn derive_archive_impl(input: &DeriveInput, _attributes: &Attributes) -> TokenSt
                         where
                             #generic_predicates
                         {
-                            type Archived = #name<#generic_args>;
+                            type Archived = Archived<#generic_args>;
 
                             fn resolve(self, _pos: usize, _value: &#name<#generic_args>) -> Self::Archived {
-                                #name::<#generic_args>
+                                Archived::<#generic_args>
                             }
                         }
+
+                        #archive_derives
+                        struct Archived<#generic_params>
+                        where
+                            #generic_predicates;
 
                         impl<#generic_params> Archive for #name<#generic_args>
                         where
                             #generic_predicates
                         {
-                            type Archived = #name<#generic_args>;
+                            type Archived = Archived;
                             type Resolver = Resolver;
 
                             fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
@@ -575,6 +594,7 @@ fn derive_archive_impl(input: &DeriveInput, _attributes: &Attributes) -> TokenSt
                     }
                 }
 
+                #archive_derives
                 #[repr(#archived_repr)]
                 enum Archived<#generic_params>
                 where
