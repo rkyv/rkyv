@@ -6,7 +6,22 @@ mod tests {
         ArchiveBuffer,
         Archived,
         ArchiveRef,
+        Resolve,
         Write,
+        WriteExt,
+    };
+    use archive_dyn::{
+        ArchiveDyn,
+        ArchivedDyn,
+        ArchiveDynImpl,
+        ArchiveDynImplVTable,
+        DynError,
+        DynResolver,
+        DynWrite,
+        DynWriter,
+        inventory,
+        TraitObject,
+        vtable,
     };
 
     #[repr(align(16))]
@@ -205,7 +220,7 @@ mod tests {
 
     #[test]
     fn archive_generic_struct() {
-        trait TestTrait {
+        pub trait TestTrait {
             type Associated;
         }
 
@@ -287,7 +302,7 @@ mod tests {
 
     #[test]
     fn archive_generic_enum() {
-        trait TestTrait {
+        pub trait TestTrait {
             type Associated;
         }
 
@@ -391,5 +406,92 @@ mod tests {
         let archived_value = unsafe { &*buf.as_ref().as_ptr().offset(pos as isize).cast::<Archived<Test>>() };
 
         assert_eq!(archived_value, &archived_value.clone());
+    }
+
+    #[test]
+    fn archive_dyn() {
+        pub trait TestTrait {
+            fn get_id(&self) -> i32;
+        }
+
+        // trait macro
+        pub trait ArchiveTestTrait: TestTrait + ArchiveDyn {}
+
+        impl<T: TestTrait + ArchiveDyn> ArchiveTestTrait for T {}
+
+        impl<'a> From<TraitObject> for &'a (dyn TestTrait + 'static) {
+            fn from(trait_object: TraitObject) -> &'a (dyn TestTrait + 'static) {
+                unsafe { core::mem::transmute(trait_object) }
+            }
+        }
+
+        impl Resolve<dyn ArchiveTestTrait> for DynResolver {
+            type Archived = ArchivedDyn<dyn TestTrait>;
+
+            fn resolve(self, pos: usize, _value: &dyn ArchiveTestTrait) -> Self::Archived {
+                ArchivedDyn::new(pos, self)
+            }
+        }
+
+        impl ArchiveRef for dyn ArchiveTestTrait {
+            type Archived = dyn TestTrait;
+            type Reference = ArchivedDyn<dyn TestTrait>;
+            type Resolver = DynResolver;
+
+            fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                self.archive_dyn(&mut DynWriter::new(writer)).map_err(|e| *e.downcast().unwrap())
+            }
+        }
+        // end trait macro
+
+        #[derive(Archive)]
+        pub struct Test {
+            id: i32,
+        }
+
+        impl TestTrait for Test {
+            fn get_id(&self) -> i32 {
+                self.id
+            }
+        }
+
+        impl TestTrait for Archived<Test> {
+            fn get_id(&self) -> i32 {
+                self.id
+            }
+        }
+
+        // impl macro
+        impl ArchiveDyn for Test
+        where
+            Test: Archive,
+        {
+            fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError> {
+                Ok(DynResolver::new(
+                    writer.archive(self)?,
+                    ArchiveDynImpl::new::<Archived<Test>>("TestTrait")
+                ))
+            }
+        }
+
+        inventory::submit! {
+            ArchiveDynImplVTable::new(
+                ArchiveDynImpl::new::<Archived<Test>>("TestTrait"),
+                vtable!(Archived<Test>, TestTrait).into()
+            )
+        }
+        // end impl macro
+
+        let value: Box<dyn ArchiveTestTrait> = Box::new(Test { id: 42 });
+
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
+        let pos = writer.archive(&value).expect("failed to archive value");
+        let buf = writer.into_inner();
+        let archived_value = unsafe { &*buf.as_ref().as_ptr().offset(pos as isize).cast::<Archived<Box<dyn ArchiveTestTrait>>>() };
+        assert_eq!(value.get_id(), archived_value.get_id());
+
+        // exercise vtable cache
+        assert_eq!(value.get_id(), archived_value.get_id());
+        assert_eq!(value.get_id(), archived_value.get_id());
     }
 }

@@ -194,7 +194,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     });
 
                     quote! {
-                        struct Resolver<#generic_params>
+                        pub struct Resolver<#generic_params>
                         where
                             #generic_predicates
                             #field_wheres
@@ -217,7 +217,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         }
 
                         #archive_derives
-                        struct Archived<#generic_params>
+                        pub struct Archived<#generic_params>
                         where
                             #generic_predicates
                             #field_wheres
@@ -269,7 +269,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     });
 
                     quote! {
-                        struct Resolver<#generic_params>(#(#resolver_fields,)*)
+                        pub struct Resolver<#generic_params>(#(#resolver_fields,)*)
                         where
                             #generic_predicates
                             #field_wheres;
@@ -289,7 +289,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         }
 
                         #archive_derives
-                        struct Archived<#generic_params>(#(#archived_fields,)*)
+                        pub struct Archived<#generic_params>(#(#archived_fields,)*)
                         where
                             #generic_predicates
                             #field_wheres;
@@ -312,7 +312,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 },
                 Fields::Unit => {
                     quote! {
-                        struct Resolver;
+                        pub struct Resolver;
 
                         impl<#generic_params> Resolve<#name<#generic_args>> for Resolver
                         where
@@ -326,7 +326,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         }
 
                         #archive_derives
-                        struct Archived<#generic_params>
+                        pub struct Archived<#generic_params>
                         where
                             #generic_predicates;
 
@@ -572,7 +572,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
             });
 
             quote! {
-                enum Resolver<#generic_params>
+                pub enum Resolver<#generic_params>
                 where
                     #generic_predicates
                     #field_wheres
@@ -596,7 +596,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
 
                 #archive_derives
                 #[repr(#archived_repr)]
-                enum Archived<#generic_params>
+                pub enum Archived<#generic_params>
                 where
                     #generic_predicates
                     #field_wheres

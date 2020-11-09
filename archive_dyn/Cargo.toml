@@ -1,0 +1,16 @@
+[package]
+name = "archive_dyn"
+version = "0.1.0"
+authors = ["David Koloski <djkoloski@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+archive = { path = "../archive" }
+lazy_static = "1.4"
+inventory = "0.1"
+
+[features]
+default = []
+vtable_cache = []

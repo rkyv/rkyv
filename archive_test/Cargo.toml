@@ -8,6 +8,7 @@ edition = "2018"
 
 [dev-dependencies]
 archive = { path = "../archive" }
+archive_dyn = { path = "../archive_dyn" }
 
 [features]
 default = ["std", "inline_more"]
@@ -16,3 +17,4 @@ inline_more = ["archive/inline_more"]
 more_portable = ["archive/more_portable"]
 specialization = ["archive/specialization"]
 std = ["archive/std"]
+vtable_cache = ["archive_dyn/vtable_cache"]

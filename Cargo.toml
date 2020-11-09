@@ -2,5 +2,6 @@
 members = [
     "archive",
     "archive_derive",
+    "archive_dyn",
     "archive_test",
 ]

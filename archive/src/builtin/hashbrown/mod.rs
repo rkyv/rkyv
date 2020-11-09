@@ -39,6 +39,7 @@ use crate::{
     RelPtr,
     Resolve,
     Write,
+    WriteExt,
 };
 use self::bitmask::BitMask;
 use self::imp::Group;

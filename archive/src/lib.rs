@@ -29,12 +29,14 @@ macro_rules! default {
 }
 
 pub trait Write {
-    type Error;
+    type Error: 'static;
 
     fn pos(&self) -> usize;
 
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error>;
+}
 
+pub trait WriteExt: Write {
     fn align(&mut self, align: usize) -> Result<usize, Self::Error> {
         debug_assert!(align & (align - 1) == 0);
 
@@ -87,6 +89,8 @@ pub trait Write {
         }
     }
 }
+
+impl<W: Write + ?Sized> WriteExt for W {}
 
 pub trait Resolve<T: ?Sized> {
     type Archived;

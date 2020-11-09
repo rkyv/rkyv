@@ -11,6 +11,7 @@ use crate::{
     ReferenceResolver,
     Resolve,
     Write,
+    WriteExt,
 };
 
 #[derive(Hash, Eq, PartialEq)]
