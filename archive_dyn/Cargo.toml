@@ -14,4 +14,3 @@ inventory = "0.1"
 [features]
 default = []
 vtable_cache = []
-nightly = ["archive/nightly"]

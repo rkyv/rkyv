@@ -409,6 +409,13 @@ mod tests {
     }
 
     #[test]
+    fn archived_dyn_size() {
+        pub trait Test {}
+
+        assert_eq!(core::mem::size_of::<ArchivedDyn<dyn Test>>(), 16);
+    }
+
+    #[test]
     fn archive_dyn() {
         pub trait TestTrait {
             fn get_id(&self) -> i32;

@@ -12,6 +12,11 @@ use core::{
     marker::PhantomData,
     ops::Deref,
 };
+#[cfg(feature = "vtable_cache")]
+use core::sync::atomic::{
+    AtomicU64,
+    Ordering,
+};
 use std::{
     collections::{
         hash_map::DefaultHasher,
@@ -91,28 +96,24 @@ impl DynResolver {
 
 pub struct TraitObject(*const (), *const ());
 
-#[cfg(feature = "vtable_cache")]
-#[derive(Clone, Copy)]
-union CachedVTable {
-    int: u64,
-    ptr: *const (),
-}
-
 pub struct ArchivedDyn<T: ?Sized> {
     ptr: RelPtr<()>,
-    impl_id: u64,
+    #[cfg(not(feature = "vtable_cache"))]
+    id: u64,
     #[cfg(feature = "vtable_cache")]
-    vtable_cache: core::cell::Cell<CachedVTable>,
+    vtable: core::sync::atomic::AtomicU64,
     _phantom: PhantomData<T>,
 }
 
 impl<T: ?Sized> ArchivedDyn<T> {
     pub fn new(from: usize, resolver: DynResolver) -> ArchivedDyn<T> {
+        let id = TypeRegistry::impl_id(&resolver.key);
         ArchivedDyn {
             ptr: RelPtr::new(from + offset_of!(ArchivedDyn<T>, ptr), resolver.pos),
-            impl_id: TypeRegistry::impl_id(&resolver.key),
+            #[cfg(not(feature = "vtable_cache"))]
+            id,
             #[cfg(feature = "vtable_cache")]
-            vtable_cache: core::cell::Cell::new(CachedVTable { int: 0 }),
+            vtable: AtomicU64::new(id),
             _phantom: PhantomData,
         }
     }
@@ -123,19 +124,19 @@ impl<T: ?Sized> ArchivedDyn<T> {
 
     #[cfg(feature = "vtable_cache")]
     pub fn vtable(&self) -> *const () {
-        let cache = self.vtable_cache.get();
-        if archive::likely(unsafe { cache.int } != 0) {
-            unsafe { cache.ptr }
+        let vtable = self.vtable.load(Ordering::Relaxed);
+        if archive::likely(vtable & 1 == 0) {
+            vtable as usize as *const ()
         } else {
-            let vtable = TYPE_REGISTRY.get_vtable(self.impl_id);
-            self.vtable_cache.set(CachedVTable { ptr: vtable });
-            vtable
+            let ptr = TYPE_REGISTRY.get_vtable(vtable);
+            self.vtable.store(ptr as usize as u64, Ordering::Relaxed);
+            ptr
         }
     }
 
     #[cfg(not(feature = "vtable_cache"))]
     pub fn vtable(&self) -> *const () {
-        TYPE_REGISTRY.get_vtable(self.impl_id)
+        TYPE_REGISTRY.get_vtable(self.id)
     }
 }
 
@@ -208,6 +209,8 @@ impl TypeRegistry {
     }
 
     fn add_impl(&mut self, impl_vtable: &ArchiveDynImplVTable) {
+        #[cfg(feature = "vtable_cache")]
+        debug_assert!((impl_vtable.1.0 as usize) & 1 == 0, "vtable has a non-zero least significant bit which breaks vtable caching");
         let id = Self::impl_id(&impl_vtable.0);
         let old_value = self.id_to_vtable.insert(id, impl_vtable.1.clone());
         debug_assert!(old_value.is_none(), "impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
@@ -216,7 +219,9 @@ impl TypeRegistry {
     fn impl_id(key: &ArchiveDynImpl) -> u64 {
         let mut hasher = DefaultHasher::new();
         key.0.hash(&mut hasher);
-        hasher.finish()
+        // The lowest significant bit of the impl id must be set so we can determine if a vtable
+        // has been cached when the feature is enabled.
+        hasher.finish() | 1
     }
 
     fn get_vtable(&self, id: u64) -> *const () {
