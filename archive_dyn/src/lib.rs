@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "nightly", feature(core_intrinsics))]
+
 use core::{
     any::{
         Any,
@@ -122,8 +124,7 @@ impl<T: ?Sized> ArchivedDyn<T> {
     #[cfg(feature = "vtable_cache")]
     pub fn vtable(&self) -> *const () {
         let cache = self.vtable_cache.get();
-        // TODO: likely(...) this
-        if unsafe { cache.int } != 0 {
+        if archive::likely(unsafe { cache.int } != 0) {
             unsafe { cache.ptr }
         } else {
             let vtable = TYPE_REGISTRY.get_vtable(self.impl_id);

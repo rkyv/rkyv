@@ -1,6 +1,7 @@
 #![cfg_attr(any(feature = "const_generics", feature = "specialization"), allow(incomplete_features))]
 #![cfg_attr(feature = "const_generics", feature(const_generics))]
 #![cfg_attr(feature = "specialization", feature(specialization))]
+#![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
 mod builtin;
 
@@ -15,6 +16,22 @@ use core::{
 pub use memoffset::offset_of;
 
 pub use archive_derive::Archive;
+
+#[cfg(feature = "nightly")]
+pub use core::intrinsics::{
+    likely,
+    unlikely,
+};
+#[cfg(not(feature = "nightly"))]
+#[inline]
+pub fn likely(b: bool) -> bool {
+    b
+}
+#[cfg(not(feature = "nightly"))]
+#[inline]
+pub fn unlikely(b: bool) -> bool {
+    b
+}
 
 #[cfg(feature = "specialization")]
 #[macro_export]

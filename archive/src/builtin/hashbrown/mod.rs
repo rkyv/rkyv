@@ -36,29 +36,15 @@ use std::collections::{
 use memoffset::offset_of;
 use crate::{
     Archive,
+    likely,
     RelPtr,
     Resolve,
+    unlikely,
     Write,
     WriteExt,
 };
 use self::bitmask::BitMask;
 use self::imp::Group;
-
-#[cfg(feature = "nightly")]
-use core::intrinsics::{
-    likely,
-    unlikely,
-};
-#[cfg(not(feature = "nightly"))]
-#[inline]
-fn likely(b: bool) -> bool {
-    b
-}
-#[cfg(not(feature = "nightly"))]
-#[inline]
-fn unlikely(b: bool) -> bool {
-    b
-}
 
 const EMPTY: u8 = 0b1111_1111;
 
