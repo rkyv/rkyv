@@ -13,15 +13,6 @@ mod tests {
     use archive_dyn::{
         ArchiveDyn,
         ArchivedDyn,
-        ArchiveDynImpl,
-        ArchiveDynImplVTable,
-        DynError,
-        DynResolver,
-        DynWrite,
-        DynWriter,
-        inventory,
-        TraitObject,
-        vtable,
     };
 
     #[repr(align(16))]
@@ -424,31 +415,40 @@ mod tests {
         // trait macro
         pub trait ArchiveTestTrait: TestTrait + ArchiveDyn {}
 
-        impl<T: TestTrait + ArchiveDyn> ArchiveTestTrait for T {}
+        const _: () = {
+            use archive_dyn::{
+                ArchiveDyn,
+                DynResolver,
+                DynWriter,
+                TraitObject,
+            };
 
-        impl<'a> From<TraitObject> for &'a (dyn TestTrait + 'static) {
-            fn from(trait_object: TraitObject) -> &'a (dyn TestTrait + 'static) {
-                unsafe { core::mem::transmute(trait_object) }
+            impl<T: TestTrait + ArchiveDyn> ArchiveTestTrait for T {}
+
+            impl<'a> From<TraitObject> for &'a (dyn TestTrait + 'static) {
+                fn from(trait_object: TraitObject) -> &'a (dyn TestTrait + 'static) {
+                    unsafe { core::mem::transmute(trait_object) }
+                }
             }
-        }
 
-        impl Resolve<dyn ArchiveTestTrait> for DynResolver {
-            type Archived = ArchivedDyn<dyn TestTrait>;
+            impl Resolve<dyn ArchiveTestTrait> for DynResolver {
+                type Archived = ArchivedDyn<dyn TestTrait>;
 
-            fn resolve(self, pos: usize, _value: &dyn ArchiveTestTrait) -> Self::Archived {
-                ArchivedDyn::new(pos, self)
+                fn resolve(self, pos: usize, _value: &dyn ArchiveTestTrait) -> Self::Archived {
+                    ArchivedDyn::new(pos, self)
+                }
             }
-        }
 
-        impl ArchiveRef for dyn ArchiveTestTrait {
-            type Archived = dyn TestTrait;
-            type Reference = ArchivedDyn<dyn TestTrait>;
-            type Resolver = DynResolver;
+            impl ArchiveRef for dyn ArchiveTestTrait {
+                type Archived = dyn TestTrait;
+                type Reference = ArchivedDyn<dyn TestTrait>;
+                type Resolver = DynResolver;
 
-            fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                self.archive_dyn(&mut DynWriter::new(writer)).map_err(|e| *e.downcast().unwrap())
+                fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                    self.archive_dyn(&mut DynWriter::new(writer)).map_err(|e| *e.downcast().unwrap())
+                }
             }
-        }
+        };
         // end trait macro
 
         #[derive(Archive)]
@@ -469,24 +469,37 @@ mod tests {
         }
 
         // impl macro
-        impl ArchiveDyn for Test
-        where
-            Test: Archive,
-        {
-            fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError> {
-                Ok(DynResolver::new(
-                    writer.archive(self)?,
-                    ArchiveDynImpl::new::<Archived<Test>>("TestTrait")
-                ))
-            }
-        }
+        const _: () = {
+            use core::any::TypeId;
+            use archive_dyn::{
+                DynError,
+                DynResolver,
+                DynWrite,
+                ImplId,
+                ImplVTable,
+                inventory,
+                vtable,
+            };
 
-        inventory::submit! {
-            ArchiveDynImplVTable::new(
-                ArchiveDynImpl::new::<Archived<Test>>("TestTrait"),
-                vtable!(Archived<Test>, TestTrait).into()
-            )
-        }
+            impl ArchiveDyn for Test
+            where
+                Test: Archive,
+            {
+                fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError> {
+                    Ok(DynResolver::new(
+                        writer.archive(self)?,
+                        ImplId::new("TestTrait", &TypeId::of::<Archived<Test>>())
+                    ))
+                }
+            }
+
+            inventory::submit! {
+                ImplVTable::new(
+                    ImplId::new("TestTrait", &TypeId::of::<Archived<Test>>()),
+                    vtable!(Archived<Test>, TestTrait).into()
+                )
+            }
+        };
         // end impl macro
 
         let value: Box<dyn ArchiveTestTrait> = Box::new(Test { id: 42 });

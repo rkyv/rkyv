@@ -1,10 +1,7 @@
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
 use core::{
-    any::{
-        Any,
-        TypeId,
-    },
+    any::Any,
     hash::{
         Hash,
         Hasher,
@@ -82,14 +79,14 @@ pub trait ArchiveDyn {
 
 pub struct DynResolver {
     pos: usize,
-    key: ArchiveDynImpl,
+    id: ImplId,
 }
 
 impl DynResolver {
-    pub fn new(pos: usize, key: ArchiveDynImpl) -> Self {
+    pub fn new(pos: usize, id: ImplId) -> Self {
         Self {
             pos,
-            key,
+            id,
         }
     }
 }
@@ -107,13 +104,12 @@ pub struct ArchivedDyn<T: ?Sized> {
 
 impl<T: ?Sized> ArchivedDyn<T> {
     pub fn new(from: usize, resolver: DynResolver) -> ArchivedDyn<T> {
-        let id = TypeRegistry::impl_id(&resolver.key);
         ArchivedDyn {
             ptr: RelPtr::new(from + offset_of!(ArchivedDyn<T>, ptr), resolver.pos),
             #[cfg(not(feature = "vtable_cache"))]
-            id,
+            id: resolver.id.0,
             #[cfg(feature = "vtable_cache")]
-            vtable: AtomicU64::new(id),
+            vtable: AtomicU64::new(resolver.id),
             _phantom: PhantomData,
         }
     }
@@ -136,7 +132,7 @@ impl<T: ?Sized> ArchivedDyn<T> {
 
     #[cfg(not(feature = "vtable_cache"))]
     pub fn vtable(&self) -> *const () {
-        TYPE_REGISTRY.get_vtable(self.id)
+        TYPE_REGISTRY.get_vtable(ImplId(self.id))
     }
 }
 
@@ -151,24 +147,37 @@ where
     }
 }
 
-#[derive(Clone, Eq, Hash, PartialEq)]
-pub struct ArchiveDynImpl(&'static str, TypeId);
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+pub struct ImplId(u64);
 
-impl ArchiveDynImpl {
-    pub fn new<T: 'static>(trait_name: &'static str) -> Self {
-        Self(trait_name, TypeId::of::<T>())
+impl ImplId {
+    pub fn new<T: Hash + ?Sized, U: Hash + ?Sized>(trait_name: &T, type_name: &U) -> Self {
+        let mut hasher = DefaultHasher::new();
+        trait_name.hash(&mut hasher);
+        type_name.hash(&mut hasher);
+
+        // The lowest significant bit of the impl id must be set so we can determine if a vtable
+        // has been cached when the feature is enabled. This can't just be when the feature is on
+        // so that impls have the same id across all builds.
+        Self(hasher.finish() | 1)
     }
 }
 
-pub struct ArchiveDynImplVTable(ArchiveDynImpl, VTable);
+pub struct ImplVTable {
+    id: ImplId,
+    vtable: VTable,
+}
 
-impl ArchiveDynImplVTable {
-    pub fn new(key: ArchiveDynImpl, vtable: VTable) -> Self {
-        Self(key, vtable)
+impl ImplVTable {
+    pub fn new(id: ImplId, vtable: VTable) -> Self {
+        Self {
+            id,
+            vtable,
+        }
     }
 }
 
-inventory::collect!(ArchiveDynImplVTable);
+inventory::collect!(ImplVTable);
 
 #[macro_export]
 macro_rules! vtable {
@@ -185,7 +194,7 @@ macro_rules! vtable {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct VTable(pub *const ());
 
 impl From<*const ()> for VTable {
@@ -198,7 +207,7 @@ unsafe impl Send for VTable {}
 unsafe impl Sync for VTable {}
 
 struct TypeRegistry {
-    id_to_vtable: HashMap<u64, VTable>,
+    id_to_vtable: HashMap<ImplId, VTable>,
 }
 
 impl TypeRegistry {
@@ -208,23 +217,14 @@ impl TypeRegistry {
         }
     }
 
-    fn add_impl(&mut self, impl_vtable: &ArchiveDynImplVTable) {
+    fn add_impl(&mut self, impl_vtable: &ImplVTable) {
         #[cfg(feature = "vtable_cache")]
         debug_assert!((impl_vtable.1.0 as usize) & 1 == 0, "vtable has a non-zero least significant bit which breaks vtable caching");
-        let id = Self::impl_id(&impl_vtable.0);
-        let old_value = self.id_to_vtable.insert(id, impl_vtable.1.clone());
+        let old_value = self.id_to_vtable.insert(impl_vtable.id, impl_vtable.vtable);
         debug_assert!(old_value.is_none(), "impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
     }
 
-    fn impl_id(key: &ArchiveDynImpl) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        key.0.hash(&mut hasher);
-        // The lowest significant bit of the impl id must be set so we can determine if a vtable
-        // has been cached when the feature is enabled.
-        hasher.finish() | 1
-    }
-
-    fn get_vtable(&self, id: u64) -> *const () {
+    fn get_vtable(&self, id: ImplId) -> *const () {
         self.id_to_vtable.get(&id).expect("attempted to get vtable for an unregistered type").0
     }
 }
@@ -232,7 +232,7 @@ impl TypeRegistry {
 lazy_static::lazy_static! {
     static ref TYPE_REGISTRY: TypeRegistry = {
         let mut result = TypeRegistry::new();
-        for impl_vtable in inventory::iter::<ArchiveDynImplVTable> {
+        for impl_vtable in inventory::iter::<ImplVTable> {
             result.add_impl(impl_vtable);
         }
         result
