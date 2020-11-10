@@ -21,9 +21,11 @@ use std::{
     },
 };
 use archive::{
+    Archive,
     offset_of,
     RelPtr,
     Write,
+    WriteExt,
 };
 
 pub use inventory;
@@ -73,9 +75,14 @@ impl<'a> Write for dyn DynWrite + 'a {
     }
 }
 
-pub trait ArchiveDyn {
+pub trait ArchiveDyn: DynTypeName {
     fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError>;
-    fn hash_type_name(&self, hasher: &mut dyn Hasher);
+}
+
+impl<T: Archive + TypeName> ArchiveDyn for T {
+    fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError> {
+        Ok(DynResolver::new(writer.archive(self)?))
+    }
 }
 
 pub struct DynResolver {
@@ -146,21 +153,31 @@ where
     }
 }
 
-pub trait HashTypeName {
-    fn hash_type_name<H: Hasher>(hasher: &mut H);
+pub trait TypeName {
+    fn build_type_name<F: FnMut(&'static str)>(f: F);
 }
 
-// TODO: expand to more impls
-impl HashTypeName for i32 {
-    fn hash_type_name<H: Hasher>(hasher: &mut H) {
-        "i32".hash(hasher);
+pub trait DynTypeName {
+    fn build_type_name(&self, f: &mut dyn FnMut(&'static str));
+}
+
+impl<T: TypeName> DynTypeName for T {
+    fn build_type_name(&self, mut f: &mut dyn FnMut(&'static str)) {
+        Self::build_type_name(&mut f)
     }
 }
 
 // TODO: expand to more impls
-impl HashTypeName for bool {
-    fn hash_type_name<H: Hasher>(hasher: &mut H) {
-        "bool".hash(hasher);
+impl TypeName for i32 {
+    fn build_type_name<F: FnMut(&'static str)>(mut f: F) {
+        f("i32")
+    }
+}
+
+// TODO: expand to more impls
+impl TypeName for bool {
+    fn build_type_name<F: FnMut(&'static str)>(mut f: F) {
+        f("bool")
     }
 }
 
@@ -175,17 +192,17 @@ impl ImplId {
         Self(hasher.finish() | 1)
     }
 
-    pub fn resolve<T: ArchiveDyn + HashTypeName + ?Sized>(archive_dyn: &T) -> Self {
+    pub fn resolve<T: ArchiveDyn + TypeName + ?Sized>(archive_dyn: &T) -> Self {
         let mut hasher = DefaultHasher::new();
-        <T as HashTypeName>::hash_type_name(&mut hasher);
-        archive_dyn.hash_type_name(&mut hasher);
+        <T as TypeName>::build_type_name(|piece| piece.hash(&mut hasher));
+        archive_dyn.build_type_name(&mut |piece| piece.hash(&mut hasher));
         Self::from_hasher(hasher)
     }
 
-    pub fn register<TR: HashTypeName + ?Sized, TY: HashTypeName + ?Sized>() -> Self {
+    pub fn register<TR: TypeName + ?Sized, TY: TypeName + ?Sized>() -> Self {
         let mut hasher = DefaultHasher::new();
-        TR::hash_type_name(&mut hasher);
-        TY::hash_type_name(&mut hasher);
+        TR::build_type_name(|piece| piece.hash(&mut hasher));
+        TY::build_type_name(|piece| piece.hash(&mut hasher));
         Self::from_hasher(hasher)
     }
 }

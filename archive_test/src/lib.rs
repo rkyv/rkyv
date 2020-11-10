@@ -414,23 +414,25 @@ mod tests {
         pub trait ArchiveTestTrait: TestTrait + archive_dyn::ArchiveDyn {}
 
         const _: () = {
-            use core::hash::{
-                Hash,
-                Hasher,
-            };
             use archive_dyn::{
                 ArchiveDyn,
                 ArchivedDyn,
                 DynResolver,
                 DynWriter,
-                HashTypeName,
+                TypeName,
                 ImplId,
                 TraitObject,
             };
 
-            impl HashTypeName for dyn ArchiveTestTrait + '_ {
-                fn hash_type_name<H: Hasher>(hasher: &mut H) {
-                    "TestTrait".hash(hasher);
+            impl TypeName for dyn TestTrait + '_ {
+                fn build_type_name<F: FnMut(&'static str)>(mut f: F) {
+                    f("dyn TestTrait")
+                }
+            }
+
+            impl TypeName for dyn ArchiveTestTrait + '_ {
+                fn build_type_name<F: FnMut(&'static str)>(f: F) {
+                    <dyn TestTrait>::build_type_name(f);
                 }
             }
 
@@ -467,21 +469,17 @@ mod tests {
             id: i32,
         }
 
-        // derive HashTypeName macro
+        // derive TypeName macro
         const _: () = {
-            use core::hash::{
-                Hash,
-                Hasher,
-            };
-            use archive_dyn::HashTypeName;
+            use archive_dyn::TypeName;
 
-            impl HashTypeName for Test {
-                fn hash_type_name<H: Hasher>(hasher: &mut H) {
-                    "Test".hash(hasher);
+            impl TypeName for Test {
+                fn build_type_name<F: FnMut(&'static str)>(mut f: F) {
+                    f("Test")
                 }
             }
         };
-        // end derive HashTypeName macro
+        // end derive TypeName macro
 
         impl TestTrait for Test {
             fn get_id(&self) -> i32 {
@@ -497,35 +495,16 @@ mod tests {
 
         // impl macro
         const _: () = {
-            use core::hash::Hasher;
             use archive_dyn::{
-                ArchiveDyn,
-                DynError,
-                DynResolver,
-                DynWrite,
-                HashTypeName,
                 ImplId,
                 ImplVTable,
                 inventory,
                 vtable,
             };
 
-            impl ArchiveDyn for Test
-            where
-                Self: Archive + HashTypeName,
-            {
-                fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError> {
-                    Ok(DynResolver::new(writer.archive(self)?))
-                }
-
-                fn hash_type_name(&self, mut hasher: &mut dyn Hasher) {
-                    <Self as HashTypeName>::hash_type_name(&mut hasher);
-                }
-            }
-
             inventory::submit! {
                 ImplVTable::new(
-                    ImplId::register::<dyn ArchiveTestTrait, Test>(),
+                    ImplId::register::<dyn TestTrait, Test>(),
                     vtable!(Archived<Test>, &dyn TestTrait).into()
                 )
             }
@@ -557,24 +536,27 @@ mod tests {
         pub trait ArchiveTestTrait<T>: TestTrait<T> + archive_dyn::ArchiveDyn {}
 
         const _: () = {
-            use core::hash::{
-                Hash,
-                Hasher,
-            };
             use archive_dyn::{
                 ArchiveDyn,
                 ArchivedDyn,
                 DynResolver,
                 DynWriter,
-                HashTypeName,
                 ImplId,
                 TraitObject,
+                TypeName,
             };
 
-            impl<T: HashTypeName> HashTypeName for dyn ArchiveTestTrait<T> + '_ {
-                fn hash_type_name<H: Hasher>(hasher: &mut H) {
-                    "TestTrait".hash(hasher);
-                    T::hash_type_name(hasher);
+            impl<T: TypeName> TypeName for dyn TestTrait<T> + '_ {
+                fn build_type_name<F: FnMut(&'static str)>(mut f: F) {
+                    f("dyn TestTrait<");
+                    T::build_type_name(&mut f);
+                    f(">");
+                }
+            }
+
+            impl<T: TypeName> TypeName for dyn ArchiveTestTrait<T> + '_ {
+                fn build_type_name<F: FnMut(&'static str)>(f: F) {
+                    <dyn TestTrait<T>>::build_type_name(f);
                 }
             }
 
@@ -586,7 +568,7 @@ mod tests {
                 }
             }
 
-            impl<T: HashTypeName> Resolve<dyn ArchiveTestTrait<T>> for DynResolver {
+            impl<T: TypeName> Resolve<dyn ArchiveTestTrait<T>> for DynResolver {
                 type Archived = ArchivedDyn<dyn TestTrait<T>>;
 
                 fn resolve(self, pos: usize, value: &dyn ArchiveTestTrait<T>) -> Self::Archived {
@@ -594,7 +576,7 @@ mod tests {
                 }
             }
 
-            impl<T: HashTypeName> ArchiveRef for dyn ArchiveTestTrait<T> {
+            impl<T: TypeName> ArchiveRef for dyn ArchiveTestTrait<T> {
                 type Archived = dyn TestTrait<T>;
                 type Reference = ArchivedDyn<dyn TestTrait<T>>;
                 type Resolver = DynResolver;
@@ -611,22 +593,19 @@ mod tests {
             value: T,
         }
 
-        // derive HashTypeName macro
+        // derive TypeName macro
         const _: () = {
-            use core::hash::{
-                Hash,
-                Hasher,
-            };
-            use archive_dyn::HashTypeName;
+            use archive_dyn::TypeName;
 
-            impl<T: HashTypeName> HashTypeName for Test<T> {
-                fn hash_type_name<H: Hasher>(hasher: &mut H) {
-                    "Test".hash(hasher);
-                    T::hash_type_name(hasher);
+            impl<T: TypeName> TypeName for Test<T> {
+                fn build_type_name<F: FnMut(&'static str)>(mut f: F) {
+                    f("Test<");
+                    T::build_type_name(&mut f);
+                    f(">");
                 }
             }
         };
-        // end derive HashTypeName macro
+        // end derive TypeName macro
 
         impl<T: Copy> TestTrait<T> for Test<T> {
             fn get_value(&self) -> T {
@@ -642,44 +621,24 @@ mod tests {
 
         // impl macro
         const _: () = {
-            use core::hash::Hasher;
             use archive_dyn::{
-                ArchiveDyn,
-                DynError,
-                DynResolver,
-                DynWrite,
-                HashTypeName,
                 ImplId,
                 ImplVTable,
                 inventory,
                 vtable,
             };
 
-            impl<T> ArchiveDyn for Test<T>
-            where
-                Self: Archive + HashTypeName,
-                Archived<Test<T>>: 'static,
-            {
-                fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError> {
-                    Ok(DynResolver::new(writer.archive(self)?))
-                }
-
-                fn hash_type_name(&self, mut hasher: &mut dyn Hasher) {
-                    <Self as HashTypeName>::hash_type_name(&mut hasher);
-                }
-            }
-
             // TODO: these might have to get split out into a separate macro
             // for explicit generic impl registration
             inventory::submit! {
                 ImplVTable::new(
-                    ImplId::register::<dyn ArchiveTestTrait<i32>, Test<i32>>(),
+                    ImplId::register::<dyn TestTrait<i32>, Test<i32>>(),
                     vtable!(Archived<Test<i32>>, &dyn TestTrait<i32>).into()
                 )
             }
             inventory::submit! {
                 ImplVTable::new(
-                    ImplId::register::<dyn ArchiveTestTrait<bool>, Test<bool>>(),
+                    ImplId::register::<dyn TestTrait<bool>, Test<bool>>(),
                     vtable!(Archived<Test<bool>>, &dyn TestTrait<bool>).into()
                 )
             }
