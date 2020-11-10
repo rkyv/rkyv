@@ -5,7 +5,7 @@ use core::{
 use crate::{
     Archive,
     ArchiveRef,
-    builtin::core::ArchivedSliceRef,
+    core_impl::ArchivedSliceRef,
     default,
     Reference,
     ReferenceResolver,

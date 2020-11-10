@@ -3,7 +3,11 @@
 #![cfg_attr(feature = "specialization", feature(specialization))]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
-mod builtin;
+mod core_impl;
+#[cfg(feature = "std")]
+mod hashmap_impl;
+#[cfg(feature = "std")]
+mod std_impl;
 
 use core::{
     hash::{
@@ -11,8 +15,13 @@ use core::{
         Hasher,
     },
     marker::PhantomData,
+    mem,
     ops::Deref,
+    ptr,
+    slice,
 };
+#[cfg(feature = "std")]
+use std::io;
 pub use memoffset::offset_of;
 
 pub use archive_derive::Archive;
@@ -76,17 +85,17 @@ pub trait WriteExt: Write {
     }
 
     fn align_for<T>(&mut self) -> Result<usize, Self::Error> {
-        self.align(core::mem::align_of::<T>())
+        self.align(mem::align_of::<T>())
     }
 
     // This is only safe to call when the writer is already aligned for an Archived<T>
     unsafe fn resolve_aligned<T: ?Sized, R: Resolve<T>>(&mut self, value: &T, resolver: R) -> Result<usize, Self::Error> {
         let pos = self.pos();
-        debug_assert!(pos & (core::mem::align_of::<R::Archived>() - 1) == 0);
+        debug_assert!(pos & (mem::align_of::<R::Archived>() - 1) == 0);
         let archived = &resolver.resolve(pos, value);
         let data = (archived as *const R::Archived).cast::<u8>();
-        let len = core::mem::size_of::<R::Archived>();
-        self.write(core::slice::from_raw_parts(data, len))?;
+        let len = mem::size_of::<R::Archived>();
+        self.write(slice::from_raw_parts(data, len))?;
         Ok(pos)
     }
 
@@ -248,7 +257,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
             Err(ArchiveBufferError::Overflow)
         } else {
             unsafe {
-                core::ptr::copy_nonoverlapping(
+                ptr::copy_nonoverlapping(
                     bytes.as_ptr(),
                     self.inner.as_mut().as_mut_ptr().offset(self.pos as isize),
                     bytes.len());
@@ -260,13 +269,13 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
 }
 
 #[cfg(feature = "std")]
-pub struct ArchiveWriter<W: std::io::Write> {
+pub struct ArchiveWriter<W: io::Write> {
     inner: W,
     pos: usize,
 }
 
 #[cfg(feature = "std")]
-impl<W: std::io::Write> ArchiveWriter<W> {
+impl<W: io::Write> ArchiveWriter<W> {
     pub fn new(inner: W) -> Self {
         Self::with_pos(inner, 0)
     }
@@ -284,8 +293,8 @@ impl<W: std::io::Write> ArchiveWriter<W> {
 }
 
 #[cfg(feature = "std")]
-impl<W: std::io::Write> Write for ArchiveWriter<W> {
-    type Error = std::io::Error;
+impl<W: io::Write> Write for ArchiveWriter<W> {
+    type Error = io::Error;
 
     fn pos(&self) -> usize {
         self.pos
