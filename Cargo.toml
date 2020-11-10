@@ -3,5 +3,6 @@ members = [
     "archive",
     "archive_derive",
     "archive_dyn",
+    "archive_dyn_derive",
     "archive_test",
 ]

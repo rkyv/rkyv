@@ -1,7 +1,7 @@
 #![cfg_attr(any(feature = "const_generics", feature = "specialization"), allow(incomplete_features))]
 #![cfg_attr(feature = "const_generics", feature(const_generics))]
-#![cfg_attr(feature = "specialization", feature(specialization))]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
+#![cfg_attr(feature = "specialization", feature(specialization))]
 
 mod core_impl;
 #[cfg(feature = "std")]

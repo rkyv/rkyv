@@ -1,17 +1,15 @@
 [package]
-name = "archive_dyn"
+name = "archive_dyn_derive"
 version = "0.1.0"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
-archive = { path = "../archive" }
-lazy_static = "1.4"
-inventory = "0.1"
+[lib]
+proc-macro = true
 
-[features]
-default = []
-vtable_cache = []
-nightly = ["archive/nightly"]
+[dependencies]
+proc-macro2 = "1.0"
+syn = "1.0"
+quote = "1.0"

@@ -75,18 +75,17 @@ impl<'a> Write for dyn DynWrite + 'a {
 
 pub trait ArchiveDyn {
     fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError>;
+    fn hash_type_name(&self, hasher: &mut dyn Hasher);
 }
 
 pub struct DynResolver {
     pos: usize,
-    id: ImplId,
 }
 
 impl DynResolver {
-    pub fn new(pos: usize, id: ImplId) -> Self {
+    pub fn new(pos: usize) -> Self {
         Self {
             pos,
-            id,
         }
     }
 }
@@ -103,13 +102,13 @@ pub struct ArchivedDyn<T: ?Sized> {
 }
 
 impl<T: ?Sized> ArchivedDyn<T> {
-    pub fn new(from: usize, resolver: DynResolver) -> ArchivedDyn<T> {
+    pub fn new(from: usize, resolver: DynResolver, id: &ImplId) -> ArchivedDyn<T> {
         ArchivedDyn {
             ptr: RelPtr::new(from + offset_of!(ArchivedDyn<T>, ptr), resolver.pos),
             #[cfg(not(feature = "vtable_cache"))]
-            id: resolver.id.0,
+            id: id.0,
             #[cfg(feature = "vtable_cache")]
-            vtable: AtomicU64::new(resolver.id.0),
+            vtable: AtomicU64::new(id.0),
             _phantom: PhantomData,
         }
     }
@@ -147,19 +146,47 @@ where
     }
 }
 
+pub trait HashTypeName {
+    fn hash_type_name<H: Hasher>(hasher: &mut H);
+}
+
+// TODO: expand to more impls
+impl HashTypeName for i32 {
+    fn hash_type_name<H: Hasher>(hasher: &mut H) {
+        "i32".hash(hasher);
+    }
+}
+
+// TODO: expand to more impls
+impl HashTypeName for bool {
+    fn hash_type_name<H: Hasher>(hasher: &mut H) {
+        "bool".hash(hasher);
+    }
+}
+
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct ImplId(u64);
 
 impl ImplId {
-    pub fn new<T: Hash + ?Sized, U: Hash + ?Sized>(trait_name: &T, type_name: &U) -> Self {
-        let mut hasher = DefaultHasher::new();
-        trait_name.hash(&mut hasher);
-        type_name.hash(&mut hasher);
-
+    fn from_hasher<H: Hasher>(hasher: H) -> Self {
         // The lowest significant bit of the impl id must be set so we can determine if a vtable
         // has been cached when the feature is enabled. This can't just be when the feature is on
         // so that impls have the same id across all builds.
         Self(hasher.finish() | 1)
+    }
+
+    pub fn resolve<T: ArchiveDyn + HashTypeName + ?Sized>(archive_dyn: &T) -> Self {
+        let mut hasher = DefaultHasher::new();
+        <T as HashTypeName>::hash_type_name(&mut hasher);
+        archive_dyn.hash_type_name(&mut hasher);
+        Self::from_hasher(hasher)
+    }
+
+    pub fn register<TR: HashTypeName + ?Sized, TY: HashTypeName + ?Sized>() -> Self {
+        let mut hasher = DefaultHasher::new();
+        TR::hash_type_name(&mut hasher);
+        TY::hash_type_name(&mut hasher);
+        Self::from_hasher(hasher)
     }
 }
 
