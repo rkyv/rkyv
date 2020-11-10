@@ -27,6 +27,7 @@ use archive::{
     Write,
     WriteExt,
 };
+use type_name::TypeName;
 
 pub use inventory;
 
@@ -75,7 +76,17 @@ impl<'a> Write for dyn DynWrite + 'a {
     }
 }
 
-pub trait ArchiveDyn: DynTypeName {
+pub trait TypeNameDyn {
+    fn build_type_name(&self, f: &mut dyn FnMut(&str));
+}
+
+impl<T: TypeName> TypeNameDyn for T {
+    fn build_type_name(&self, mut f: &mut dyn FnMut(&str)) {
+        Self::build_type_name(&mut f);
+    }
+}
+
+pub trait ArchiveDyn: TypeNameDyn {
     fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError>;
 }
 
@@ -153,34 +164,6 @@ where
     }
 }
 
-pub trait TypeName {
-    fn build_type_name<F: FnMut(&'static str)>(f: F);
-}
-
-pub trait DynTypeName {
-    fn build_type_name(&self, f: &mut dyn FnMut(&'static str));
-}
-
-impl<T: TypeName> DynTypeName for T {
-    fn build_type_name(&self, mut f: &mut dyn FnMut(&'static str)) {
-        Self::build_type_name(&mut f)
-    }
-}
-
-// TODO: expand to more impls
-impl TypeName for i32 {
-    fn build_type_name<F: FnMut(&'static str)>(mut f: F) {
-        f("i32")
-    }
-}
-
-// TODO: expand to more impls
-impl TypeName for bool {
-    fn build_type_name<F: FnMut(&'static str)>(mut f: F) {
-        f("bool")
-    }
-}
-
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct ImplId(u64);
 
@@ -228,9 +211,11 @@ macro_rules! vtable {
     ($type:ty, $trait:ty) => {
         (
             unsafe {
+                let uninit = core::mem::MaybeUninit::<$type>::uninit();
+
                 core::mem::transmute::<$trait, (*const (), *const ())>(
                     core::mem::transmute::<*const $type, &$type>(
-                        core::ptr::null::<$type>()
+                        uninit.as_ptr()
                     ) as $trait
                 ).1
             }

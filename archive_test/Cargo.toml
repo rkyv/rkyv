@@ -9,6 +9,7 @@ edition = "2018"
 [dev-dependencies]
 archive = { path = "../archive" }
 archive_dyn = { path = "../archive_dyn" }
+type_name = { path = "../type_name" }
 
 [features]
 default = ["std", "inline_more"]

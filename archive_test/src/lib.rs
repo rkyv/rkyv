@@ -147,7 +147,7 @@ mod tests {
         test_archive(&Test);
         test_archive(&vec![Test, Test]);
     }
-    
+
     #[test]
     fn archive_tuple_struct() {
         #[derive(Archive)]
@@ -419,19 +419,19 @@ mod tests {
                 ArchivedDyn,
                 DynResolver,
                 DynWriter,
-                TypeName,
                 ImplId,
                 TraitObject,
             };
+            use type_name::TypeName;
 
             impl TypeName for dyn TestTrait + '_ {
-                fn build_type_name<F: FnMut(&'static str)>(mut f: F) {
+                fn build_type_name<F: FnMut(&str)>(mut f: F) {
                     f("dyn TestTrait")
                 }
             }
 
             impl TypeName for dyn ArchiveTestTrait + '_ {
-                fn build_type_name<F: FnMut(&'static str)>(f: F) {
+                fn build_type_name<F: FnMut(&str)>(f: F) {
                     <dyn TestTrait>::build_type_name(f);
                 }
             }
@@ -471,10 +471,10 @@ mod tests {
 
         // derive TypeName macro
         const _: () = {
-            use archive_dyn::TypeName;
+            use type_name::TypeName;
 
             impl TypeName for Test {
-                fn build_type_name<F: FnMut(&'static str)>(mut f: F) {
+                fn build_type_name<F: FnMut(&str)>(mut f: F) {
                     f("Test")
                 }
             }
@@ -543,11 +543,11 @@ mod tests {
                 DynWriter,
                 ImplId,
                 TraitObject,
-                TypeName,
             };
+            use type_name::TypeName;
 
             impl<T: TypeName> TypeName for dyn TestTrait<T> + '_ {
-                fn build_type_name<F: FnMut(&'static str)>(mut f: F) {
+                fn build_type_name<F: FnMut(&str)>(mut f: F) {
                     f("dyn TestTrait<");
                     T::build_type_name(&mut f);
                     f(">");
@@ -555,7 +555,7 @@ mod tests {
             }
 
             impl<T: TypeName> TypeName for dyn ArchiveTestTrait<T> + '_ {
-                fn build_type_name<F: FnMut(&'static str)>(f: F) {
+                fn build_type_name<F: FnMut(&str)>(f: F) {
                     <dyn TestTrait<T>>::build_type_name(f);
                 }
             }
@@ -595,10 +595,10 @@ mod tests {
 
         // derive TypeName macro
         const _: () = {
-            use archive_dyn::TypeName;
+            use type_name::TypeName;
 
             impl<T: TypeName> TypeName for Test<T> {
-                fn build_type_name<F: FnMut(&'static str)>(mut f: F) {
+                fn build_type_name<F: FnMut(&str)>(mut f: F) {
                     f("Test<");
                     T::build_type_name(&mut f);
                     f(">");
