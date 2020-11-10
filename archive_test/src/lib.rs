@@ -6,13 +6,10 @@ mod tests {
         ArchiveBuffer,
         Archived,
         ArchiveRef,
+        ArchiveSelf,
         Resolve,
         Write,
         WriteExt,
-    };
-    use archive_dyn::{
-        ArchiveDyn,
-        ArchivedDyn,
     };
 
     #[repr(align(16))]
@@ -401,6 +398,8 @@ mod tests {
 
     #[test]
     fn archived_dyn_size() {
+        use archive_dyn::ArchivedDyn;
+
         pub trait Test {}
 
         assert_eq!(core::mem::size_of::<ArchivedDyn<dyn Test>>(), 16);
@@ -413,11 +412,12 @@ mod tests {
         }
 
         // trait macro
-        pub trait ArchiveTestTrait: TestTrait + ArchiveDyn {}
+        pub trait ArchiveTestTrait: TestTrait + archive_dyn::ArchiveDyn {}
 
         const _: () = {
             use archive_dyn::{
                 ArchiveDyn,
+                ArchivedDyn,
                 DynResolver,
                 DynWriter,
                 TraitObject,
@@ -472,6 +472,7 @@ mod tests {
         const _: () = {
             use core::any::TypeId;
             use archive_dyn::{
+                ArchiveDyn,
                 DynError,
                 DynResolver,
                 DynWrite,
@@ -496,7 +497,7 @@ mod tests {
             inventory::submit! {
                 ImplVTable::new(
                     ImplId::new("TestTrait", &TypeId::of::<Archived<Test>>()),
-                    vtable!(Archived<Test>, TestTrait).into()
+                    vtable!(Archived<Test>, &dyn TestTrait).into()
                 )
             }
         };
@@ -513,5 +514,131 @@ mod tests {
         // exercise vtable cache
         assert_eq!(value.get_id(), archived_value.get_id());
         assert_eq!(value.get_id(), archived_value.get_id());
+    }
+
+    #[test]
+    fn archive_dyn_generic() {
+        pub trait TestTrait<T> {
+            fn get_value(&self) -> T;
+        }
+
+        // trait macro
+        pub trait ArchiveTestTrait<T>: TestTrait<T> + archive_dyn::ArchiveDyn {}
+
+        const _: () = {
+            use archive_dyn::{
+                ArchiveDyn,
+                ArchivedDyn,
+                DynResolver,
+                DynWriter,
+                TraitObject,
+            };
+
+            impl<T, __T: TestTrait<T> + ArchiveDyn> ArchiveTestTrait<T> for __T {}
+
+            impl<'a, T> From<TraitObject> for &'a (dyn TestTrait<T> + 'static) {
+                fn from(trait_object: TraitObject) -> &'a (dyn TestTrait<T> + 'static) {
+                    unsafe { core::mem::transmute(trait_object) }
+                }
+            }
+
+            impl<T> Resolve<dyn ArchiveTestTrait<T>> for DynResolver {
+                type Archived = ArchivedDyn<dyn TestTrait<T>>;
+
+                fn resolve(self, pos: usize, _value: &dyn ArchiveTestTrait<T>) -> Self::Archived {
+                    ArchivedDyn::new(pos, self)
+                }
+            }
+
+            impl<T> ArchiveRef for dyn ArchiveTestTrait<T> {
+                type Archived = dyn TestTrait<T>;
+                type Reference = ArchivedDyn<dyn TestTrait<T>>;
+                type Resolver = DynResolver;
+
+                fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                    self.archive_dyn(&mut DynWriter::new(writer)).map_err(|e| *e.downcast().unwrap())
+                }
+            }
+        };
+        // end trait macro
+
+        #[derive(Archive)]
+        pub struct Test<T> {
+            value: T,
+        }
+
+        impl<T: Copy> TestTrait<T> for Test<T> {
+            fn get_value(&self) -> T {
+                self.value
+            }
+        }
+
+        impl<T: ArchiveSelf> TestTrait<T> for Archived<Test<T>> {
+            fn get_value(&self) -> T {
+                self.value
+            }
+        }
+
+        // impl macro
+        const _: () = {
+            use core::any::TypeId;
+            use archive_dyn::{
+                ArchiveDyn,
+                DynError,
+                DynResolver,
+                DynWrite,
+                ImplId,
+                ImplVTable,
+                inventory,
+                vtable,
+            };
+
+            impl<T> ArchiveDyn for Test<T>
+            where
+                Test<T>: Archive,
+                Archived<Test<T>>: 'static,
+            {
+                fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError> {
+                    Ok(DynResolver::new(
+                        writer.archive(self)?,
+                        ImplId::new("TestTrait", &TypeId::of::<Archived<Test<T>>>())
+                    ))
+                }
+            }
+
+            inventory::submit! {
+                // i32, bool
+                ImplVTable::new(
+                    ImplId::new("TestTrait", &TypeId::of::<Archived<Test<i32>>>()),
+                    vtable!(Archived<Test<i32>>, &dyn TestTrait<i32>).into()
+                )
+            }
+            inventory::submit! {
+                ImplVTable::new(
+                    ImplId::new("TestTrait", &TypeId::of::<Archived<Test<bool>>>()),
+                    vtable!(Archived<Test<bool>>, &dyn TestTrait<bool>).into()
+                )
+            }
+        };
+        // end impl macro
+
+        let i32_value: Box<dyn ArchiveTestTrait<i32>> = Box::new(Test { value: 42 });
+        let bool_value: Box<dyn ArchiveTestTrait<bool>> = Box::new(Test { value: true });
+
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
+        let i32_pos = writer.archive(&i32_value).expect("failed to archive value");
+        let bool_pos = writer.archive(&bool_value).expect("failed to archive value");
+        let buf = writer.into_inner();
+        let i32_archived_value = unsafe { &*buf.as_ref().as_ptr().offset(i32_pos as isize).cast::<Archived<Box<dyn ArchiveTestTrait<i32>>>>() };
+        let bool_archived_value = unsafe { &*buf.as_ref().as_ptr().offset(bool_pos as isize).cast::<Archived<Box<dyn ArchiveTestTrait<bool>>>>() };
+        assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
+        assert_eq!(bool_value.get_value(), bool_archived_value.get_value());
+
+        // exercise vtable cache
+        assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
+        assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
+
+        assert_eq!(bool_value.get_value(), bool_archived_value.get_value());
+        assert_eq!(bool_value.get_value(), bool_archived_value.get_value());
     }
 }

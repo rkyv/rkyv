@@ -109,7 +109,7 @@ impl<T: ?Sized> ArchivedDyn<T> {
             #[cfg(not(feature = "vtable_cache"))]
             id: resolver.id.0,
             #[cfg(feature = "vtable_cache")]
-            vtable: AtomicU64::new(resolver.id),
+            vtable: AtomicU64::new(resolver.id.0),
             _phantom: PhantomData,
         }
     }
@@ -124,7 +124,7 @@ impl<T: ?Sized> ArchivedDyn<T> {
         if archive::likely(vtable & 1 == 0) {
             vtable as usize as *const ()
         } else {
-            let ptr = TYPE_REGISTRY.get_vtable(vtable);
+            let ptr = TYPE_REGISTRY.get_vtable(ImplId(vtable));
             self.vtable.store(ptr as usize as u64, Ordering::Relaxed);
             ptr
         }
@@ -181,13 +181,13 @@ inventory::collect!(ImplVTable);
 
 #[macro_export]
 macro_rules! vtable {
-    ($type:ty, $trait:tt) => {
+    ($type:ty, $trait:ty) => {
         (
             unsafe {
-                core::mem::transmute::<&dyn $trait, (*const (), *const ())>(
+                core::mem::transmute::<$trait, (*const (), *const ())>(
                     core::mem::transmute::<*const $type, &$type>(
                         core::ptr::null::<$type>()
-                    ) as &dyn $trait
+                    ) as $trait
                 ).1
             }
         )
@@ -219,7 +219,7 @@ impl TypeRegistry {
 
     fn add_impl(&mut self, impl_vtable: &ImplVTable) {
         #[cfg(feature = "vtable_cache")]
-        debug_assert!((impl_vtable.1.0 as usize) & 1 == 0, "vtable has a non-zero least significant bit which breaks vtable caching");
+        debug_assert!((impl_vtable.vtable.0 as usize) & 1 == 0, "vtable has a non-zero least significant bit which breaks vtable caching");
         let old_value = self.id_to_vtable.insert(impl_vtable.id, impl_vtable.vtable);
         debug_assert!(old_value.is_none(), "impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
     }

@@ -7,6 +7,7 @@
 - [x] Start thinking about archiving trait objects (`dyn Trait`)
 - [x] Add nightly feature and fix likely TODO
 - [x] Add option to fix trait and type identifiers for stable hashes
-- [ ] Test out generic trait objects and figure out if they work (if not, is it feasible to add support?)
+- [x] Test out generic trait objects and figure out if they work (if not, is it feasible to add support?)
 - [ ] Write macros for trait and impl generation
+- [ ] Figure out what sort of shape generic trait object archiving should take
 - [ ] Documentation
