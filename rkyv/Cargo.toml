@@ -3,6 +3,8 @@ name = "rkyv"
 version = "0.0.0"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
+description = "Zero-copy deserialization framework for Rust"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
