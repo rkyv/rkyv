@@ -1,6 +1,6 @@
 [package]
-name = "archive"
-version = "0.1.0"
+name = "rkyv"
+version = "0.0.0"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 
@@ -8,12 +8,12 @@ edition = "2018"
 
 [dependencies]
 ahash = { version = "0.5", optional = true }
-archive_derive = { version = "=0.1.0", path = "../archive_derive" }
 cfg-if = { version = "1.0", optional = true }
 memoffset = "0.6"
+rkyv_derive = { version = "=0.0.0", path = "../rkyv_derive" }
 
 [dev-dependencies]
-archive_derive = { version = "0.1", path = "../archive_derive" }
+rkyv_derive = { version = "0.0", path = "../rkyv_derive" }
 
 [features]
 default = ["std", "inline_more"]

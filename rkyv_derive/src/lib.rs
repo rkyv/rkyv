@@ -196,7 +196,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     let resolver_fields = fields.named.iter().map(|f| {
                         let name = &f.ident;
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => #name: archive::Resolver<#ty> }
+                        quote_spanned! { f.span() => #name: rkyv::Resolver<#ty> }
                     });
 
                     let resolver_values = fields.named.iter().map(|f| {
@@ -207,7 +207,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     let archived_fields = fields.named.iter().map(|f| {
                         let name = &f.ident;
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => #name: archive::Archived<#ty> }
+                        quote_spanned! { f.span() => #name: rkyv::Archived<#ty> }
                     });
 
                     let archived_values = fields.named.iter().map(|f| {
@@ -275,7 +275,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
 
                     let resolver_fields = fields.unnamed.iter().map(|f| {
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => archive::Resolver<#ty> }
+                        quote_spanned! { f.span() => rkyv::Resolver<#ty> }
                     });
 
                     let resolver_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
@@ -285,7 +285,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
 
                     let archived_fields = fields.unnamed.iter().map(|f| {
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => archive::Archived<#ty> }
+                        quote_spanned! { f.span() => rkyv::Archived<#ty> }
                     });
 
                     let archived_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
@@ -405,7 +405,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             let ty = &f.ty;
-                            quote_spanned! { f.span() => #name: archive::Resolver<#ty> }
+                            quote_spanned! { f.span() => #name: rkyv::Resolver<#ty> }
                         });
                         quote_spanned! { variant.span() =>
                             #variant {
@@ -416,7 +416,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().map(|f| {
                             let ty = &f.ty;
-                            quote_spanned! { f.span() => archive::Resolver<#ty> }
+                            quote_spanned! { f.span() => rkyv::Resolver<#ty> }
                         });
                         quote_spanned! { variant.span() =>
                             #variant(#(#fields,)*)
@@ -497,7 +497,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             let ty = &f.ty;
-                            quote_spanned! { f.span() => #name: archive::Archived<#ty> }
+                            quote_spanned! { f.span() => #name: rkyv::Archived<#ty> }
                         });
                         quote_spanned! { variant.span() =>
                             #variant {
@@ -508,7 +508,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().map(|f| {
                             let ty = &f.ty;
-                            quote_spanned! { f.span() => archive::Archived<#ty> }
+                            quote_spanned! { f.span() => rkyv::Archived<#ty> }
                         });
                         quote_spanned! { variant.span() =>
                             #variant(#(#fields,)*)
@@ -531,7 +531,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             let ty = &f.ty;
-                            quote_spanned! { f.span() => #name: archive::Archived<#ty> }
+                            quote_spanned! { f.span() => #name: rkyv::Archived<#ty> }
                         });
                         quote_spanned! { name.span() =>
                             #[repr(C)]
@@ -549,7 +549,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().map(|f| {
                             let ty = &f.ty;
-                            quote_spanned! { f.span() => archive::Archived<#ty> }
+                            quote_spanned! { f.span() => rkyv::Archived<#ty> }
                         });
                         quote_spanned! { name.span() =>
                             #[repr(C)]
@@ -670,7 +670,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
 
             const _: () = {
                 use core::marker::PhantomData;
-                use archive::{
+                use rkyv::{
                     Archive,
                     offset_of,
                     Resolve,
@@ -684,7 +684,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
         quote! {
             const _: () = {
                 use core::marker::PhantomData;
-                use archive::{
+                use rkyv::{
                     Archive,
                     offset_of,
                     Resolve,
@@ -816,7 +816,7 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
 
     quote! {
         const _: () = {
-            use archive::{
+            use rkyv::{
                 Archive,
                 ArchiveSelf,
                 SelfResolver,

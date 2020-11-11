@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use archive::{
+    use rkyv::{
         Archive,
         ArchiveBuffer,
         Archived,
@@ -10,11 +10,11 @@ mod tests {
         Write,
         WriteExt,
     };
-    use archive_dyn::{
+    use rkyv_dyn::{
         archive_dyn,
         register_vtable,
     };
-    use type_name::TypeName;
+    use rkyv_typename::TypeName;
 
     #[repr(align(16))]
     struct Aligned<T>(T);
@@ -402,7 +402,7 @@ mod tests {
 
     #[test]
     fn archived_dyn_size() {
-        use archive_dyn::ArchivedDyn;
+        use rkyv_dyn::ArchivedDyn;
 
         pub trait Test {}
 

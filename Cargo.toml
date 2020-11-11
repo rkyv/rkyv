@@ -1,10 +1,10 @@
 [workspace]
 members = [
-    "archive",
-    "archive_derive",
-    "archive_dyn",
-    "archive_dyn_derive",
-    "archive_test",
-    "type_name",
-    "type_name_derive",
+    "rkyv",
+    "rkyv_derive",
+    "rkyv_dyn",
+    "rkyv_dyn_derive",
+    "rkyv_test",
+    "rkyv_typename",
+    "rkyv_typename_derive",
 ]

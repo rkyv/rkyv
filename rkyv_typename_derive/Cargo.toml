@@ -1,6 +1,6 @@
 [package]
-name = "archive_dyn_derive"
-version = "0.1.0"
+name = "rkyv_typename_derive"
+version = "0.0.0"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 
@@ -11,5 +11,5 @@ proc-macro = true
 
 [dependencies]
 proc-macro2 = "1.0"
-syn = { version = "1.0", features = ["full"] }
+syn = "1.0"
 quote = "1.0"

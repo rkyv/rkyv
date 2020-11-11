@@ -5,7 +5,7 @@ mod core_impl;
 #[cfg(feature = "std")]
 mod std_impl;
 
-pub use type_name_derive::TypeName;
+pub use rkyv_typename_derive::TypeName;
 
 pub trait TypeName {
     fn build_type_name<F: FnMut(&str)>(f: F);
@@ -13,7 +13,7 @@ pub trait TypeName {
 
 #[cfg(test)]
 mod tests {
-    use crate as type_name;
+    use crate as rkyv_typename;
     use crate::TypeName;
 
     fn type_name_string<T: TypeName>() -> String {

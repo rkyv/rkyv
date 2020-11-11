@@ -24,7 +24,7 @@ use core::{
 use std::io;
 pub use memoffset::offset_of;
 
-pub use archive_derive::Archive;
+pub use rkyv_derive::Archive;
 
 #[cfg(feature = "nightly")]
 pub use core::intrinsics::{

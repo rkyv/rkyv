@@ -92,7 +92,7 @@ pub fn archive_dyn(attr: proc_macro::TokenStream, item: proc_macro::TokenStream)
                 quote! {
                     #input
 
-                    archive_dyn::register_vtable!(dyn #trait_, #ty);
+                    rkyv_dyn::register_vtable!(dyn #trait_, #ty);
                 }
             } else {
                 Error::new(input.span(), "#[archive_dyn] is only valid on trait implementations").to_compile_error()
@@ -142,17 +142,17 @@ pub fn archive_dyn(attr: proc_macro::TokenStream, item: proc_macro::TokenStream)
             quote! {
                 #input
 
-                pub trait #archive_trait<#generic_params>: #name<#generic_args> + archive_dyn::ArchiveDyn {}
+                pub trait #archive_trait<#generic_params>: #name<#generic_args> + rkyv_dyn::ArchiveDyn {}
 
                 const _: ()  = {
-                    use archive_dyn::{
+                    use rkyv_dyn::{
                         ArchiveDyn,
                         ArchivedDyn,
                         DynResolver,
                         ImplId,
                         TraitObject,
                     };
-                    use type_name::TypeName;
+                    use rkyv_typename::TypeName;
 
                     impl<#generic_params> TypeName for dyn #name<#generic_args> + '_
                     where

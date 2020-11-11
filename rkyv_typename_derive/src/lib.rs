@@ -36,7 +36,7 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
 
     let type_wheres = input.generics.type_params().map(|p| {
         let name = &p.ident;
-        quote_spanned! { name.span() => #name: type_name::TypeName }
+        quote_spanned! { name.span() => #name: rkyv_typename::TypeName }
     });
 
     let name = &input.ident;
@@ -64,7 +64,7 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
 
     quote! {
         const _: () = {
-            use type_name::TypeName;
+            use rkyv_typename::TypeName;
 
             impl<#(#generic_params,)*> TypeName for #name<#(#generic_args,)*>
             where

@@ -1,6 +1,6 @@
 [package]
-name = "type_name_derive"
-version = "0.1.0"
+name = "rkyv_derive"
+version = "0.0.0"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 

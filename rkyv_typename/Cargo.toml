@@ -1,16 +1,16 @@
 [package]
-name = "type_name"
-version = "0.1.0"
+name = "rkyv_typename"
+version = "0.0.0"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-type_name_derive = { version = "=0.1.0", path = "../type_name_derive" }
+rkyv_typename_derive = { version = "=0.0.0", path = "../rkyv_typename_derive" }
 
 [dev-dependencies]
-type_name_derive = { version = "0.1", path = "../type_name_derive" }
+rkyv_typename_derive = { version = "0.0", path = "../rkyv_typename_derive" }
 
 [features]
 default = ["std"]

@@ -18,16 +18,16 @@ use std::collections::{
     hash_map::DefaultHasher,
     HashMap,
 };
-use archive::{
+use rkyv::{
     Archive,
     offset_of,
     RelPtr,
     Write,
     WriteExt,
 };
-use type_name::TypeName;
+use rkyv_typename::TypeName;
 
-pub use archive_dyn_derive::archive_dyn;
+pub use rkyv_dyn_derive::archive_dyn;
 pub use inventory;
 
 pub type DynError = Box<dyn Any>;
@@ -125,7 +125,7 @@ impl<T: ?Sized> ArchivedDyn<T> {
     #[cfg(feature = "vtable_cache")]
     pub fn vtable(&self) -> *const () {
         let vtable = self.vtable.load(Ordering::Relaxed);
-        if archive::likely(vtable & 1 == 0) {
+        if rkyv::likely(vtable & 1 == 0) {
             vtable as usize as *const ()
         } else {
             let ptr = TYPE_REGISTRY.get_vtable(ImplId(vtable)).expect("attempted to get vtable for an unregistered type");
@@ -251,8 +251,8 @@ lazy_static::lazy_static! {
 macro_rules! register_vtable {
     ($trait:ty, $type:ty) => {
         const _: () = {
-            use archive::Archived;
-            use archive_dyn::{
+            use rkyv::Archived;
+            use rkyv_dyn::{
                 ImplId,
                 ImplVTable,
                 inventory,
