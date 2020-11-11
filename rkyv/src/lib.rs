@@ -259,7 +259,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
             unsafe {
                 ptr::copy_nonoverlapping(
                     bytes.as_ptr(),
-                    self.inner.as_mut().as_mut_ptr().offset(self.pos as isize),
+                    self.inner.as_mut().as_mut_ptr().add(self.pos),
                     bytes.len());
             }
             self.pos = end_pos;

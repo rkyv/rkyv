@@ -65,22 +65,24 @@ impl Default for Attributes {
 fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
     let mut result = Attributes::default();
     for a in input.attrs.iter() {
-        match a.style {
-            AttrStyle::Outer => match a.parse_meta() {
-                Ok(meta) => match meta {
-                    Meta::List(meta) => if meta.path.is_ident("archive") {
+        if let AttrStyle::Outer = a.style {
+            if let Ok(meta) = a.parse_meta() {
+                if let Meta::List(meta) = meta {
+                    if meta.path.is_ident("archive") {
                         for n in meta.nested.iter() {
-                            match n {
-                                NestedMeta::Meta(meta) => match meta {
+                            if let NestedMeta::Meta(meta) = n {
+                                match meta {
                                     Meta::Path(path) => {
                                         if path.is_ident("self") {
                                             result.archive_self = Some(path.span());
                                         } else {
-                                            return Err(Error::new(path.span(), "unrecognized archive attribute").to_compile_error());
+                                            return Err(Error::new(path.span(), "unrecognized archive parameter").to_compile_error());
                                         }
                                     },
                                     Meta::List(meta) => if meta.path.is_ident("derive") {
                                         result.derives = Some(meta.clone());
+                                    } else {
+                                        return Err(Error::new(meta.path.span(), "unrecognized archive parameter").to_compile_error());
                                     },
                                     Meta::NameValue(meta) => {
                                         if meta.path.is_ident("archived") {
@@ -94,41 +96,33 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                                                 return Err(Error::new(meta.span(), "archived must be a string").to_compile_error());
                                             }
                                         } else {
-                                            return Err(Error::new(meta.span(), "unrecognized archive attribute").to_compile_error());
+                                            return Err(Error::new(meta.span(), "unrecognized archive parameter").to_compile_error());
                                         }
                                     }
-                                },
-                                _ => (),
+                                }
                             }
                         }
                     } else if meta.path.is_ident("repr") {
                         for n in meta.nested.iter() {
-                            match n {
-                                NestedMeta::Meta(meta) => match meta {
-                                    Meta::Path(path) => {
-                                        if path.is_ident("rust") {
-                                            result.repr.rust = Some(path.span());
-                                        } else if path.is_ident("transparent") {
-                                            result.repr.transparent = Some(path.span());
-                                        } else if path.is_ident("packed") {
-                                            result.repr.packed = Some(path.span());
-                                        } else if path.is_ident("C") {
-                                            result.repr.c = Some(path.span());
-                                        } else {
-                                            result.repr.int = Some(path.span());
-                                        }
-                                    },
-                                    _ => (),
-                                },
-                                _ => (),
+                            if let NestedMeta::Meta(meta) = n {
+                                if let Meta::Path(path) = meta {
+                                    if path.is_ident("rust") {
+                                        result.repr.rust = Some(path.span());
+                                    } else if path.is_ident("transparent") {
+                                        result.repr.transparent = Some(path.span());
+                                    } else if path.is_ident("packed") {
+                                        result.repr.packed = Some(path.span());
+                                    } else if path.is_ident("C") {
+                                        result.repr.c = Some(path.span());
+                                    } else {
+                                        result.repr.int = Some(path.span());
+                                    }
+                                }
                             }
                         }
-                    },
-                    _ => ()
-                },
-                _ => (),
-            },
-            _ => (),
+                    }
+                }
+            }
         }
     }
     Ok(result)

@@ -60,17 +60,16 @@ macro_rules! impl_tuple {
     ($($type:ident $index:tt,)+) => {
         unsafe impl<$($type: ArchiveSelf),+> ArchiveSelf for ($($type,)+) {}
 
-        #[allow(non_snake_case)]
         impl<$($type: Archive),+> Resolve<($($type,)+)> for ($($type::Resolver,)+) {
             type Archived = ($($type::Archived,)+);
 
             fn resolve(self, pos: usize, value: &($($type,)+)) -> Self::Archived {
+                #[allow(clippy::unneeded_wildcard_pattern)]
                 let rev = ($(self.$index.resolve(pos + memoffset::offset_of_tuple!(Self::Archived, $index), &value.$index),)+);
                 ($(rev.$index,)+)
             }
         }
 
-        #[allow(non_snake_case)]
         impl<$($type: Archive),+> Archive for ($($type,)+) {
             type Archived = ($($type::Archived,)+);
             type Resolver = ($($type::Resolver,)+);
@@ -101,6 +100,7 @@ macro_rules! impl_array {
                 let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
                 let mut result = core::mem::MaybeUninit::<Self::Archived>::uninit();
                 let result_ptr = result.as_mut_ptr().cast::<T::Archived>();
+                #[allow(clippy::reversed_empty_ranges)]
                 for i in 0..$len {
                     unsafe {
                         result_ptr.add(i).write(resolvers_ptr.add(i).read().resolve(pos + i * core::mem::size_of::<T>(), &value[i]));
@@ -119,6 +119,7 @@ macro_rules! impl_array {
             fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
                 let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
                 let result_ptr = result.as_mut_ptr().cast::<T::Resolver>();
+                #[allow(clippy::reversed_empty_ranges)]
                 for i in 0..$len {
                     unsafe {
                         result_ptr.add(i).write(self[i].archive(writer)?);
@@ -328,7 +329,6 @@ impl<T: PartialEq> PartialEq for ArchivedSliceRef<T> {
 
 impl<T: Eq> Eq for ArchivedSliceRef<T> {}
 
-#[derive(Eq, PartialEq)]
 #[repr(u8)]
 pub enum ArchivedOption<T> {
     None,
@@ -392,9 +392,25 @@ impl<T: Archive> Archive for Option<T> {
     }
 }
 
+impl<T: Eq> Eq for ArchivedOption<T> {}
+
 impl<T: Hash> Hash for ArchivedOption<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_ref().hash(state)
+    }
+}
+
+impl<T: PartialEq> PartialEq for ArchivedOption<T> {
+    fn eq(&self, other: &Self) -> bool {
+        if let ArchivedOption::Some(self_value) = self {
+            if let ArchivedOption::Some(other_value) = other {
+                self_value.eq(other_value)
+            } else {
+                false
+            }
+        } else {
+            other.is_none()
+        }
     }
 }
 

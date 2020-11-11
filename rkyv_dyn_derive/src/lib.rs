@@ -122,7 +122,7 @@ pub fn archive_dyn(attr: proc_macro::TokenStream, item: proc_macro::TokenStream)
             });
             let type_name_wheres = quote! { #(#type_name_wheres,)* };
 
-            let build_type_name = if input.generics.params.len() > 0 {
+            let build_type_name = if !input.generics.params.is_empty() {
                 let dyn_name = format!("dyn {}<", name);
                 let mut results = input.generics.type_params().map(|p| {
                     let name = &p.ident;

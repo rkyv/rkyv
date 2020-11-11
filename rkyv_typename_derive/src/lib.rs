@@ -30,10 +30,10 @@ impl Default for Attributes {
 fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
     let mut result = Attributes::default();
     for a in input.attrs.iter() {
-        match a.style {
-            AttrStyle::Outer => match a.parse_meta() {
-                Ok(meta) => match meta {
-                    Meta::NameValue(meta) => if meta.path.is_ident("typename") {
+        if let AttrStyle::Outer = a.style {
+            if let Ok(meta) = a.parse_meta() {
+                if let Meta::NameValue(meta) = meta {
+                    if meta.path.is_ident("typename") {
                         if result.typename.is_none() {
                             if let Lit::Str(ref lit_str) = meta.lit {
                                 result.typename = Some(lit_str.value());
@@ -43,12 +43,9 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                         } else {
                             return Err(Error::new(meta.span(), "typename attribute already specified").to_compile_error());
                         }
-                    },
-                    _ => ()
-                },
-                _ => (),
-            },
-            _ => (),
+                    }
+                }
+            }
         }
     }
     Ok(result)
@@ -88,9 +85,9 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
     });
 
     let name = &input.ident;
-    let name_str = attributes.typename.unwrap_or(input.ident.to_string());
+    let name_str = attributes.typename.unwrap_or_else(|| input.ident.to_string());
 
-    let build_args = if input.generics.params.len() > 0 {
+    let build_args = if !input.generics.params.is_empty() {
         let mut results = input.generics.type_params().map(|p| {
             let name = &p.ident;
             quote_spanned! { name.span() => #name::build_type_name(&mut f) }

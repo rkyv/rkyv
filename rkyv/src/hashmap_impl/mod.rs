@@ -195,10 +195,10 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
             let ctrl = self.ctrl.as_ptr();
             let data = self.data.as_ptr();
             for pos in probe_seq(self.bucket_mask, hash) {
-                let group = Group::load(ctrl.offset(pos as isize));
+                let group = Group::load(ctrl.add(pos));
                 for bit in group.match_byte(h2(hash)) {
                     let index = (pos + bit) & self.bucket_mask as usize;
-                    let bucket = &*data.offset(index as isize);
+                    let bucket = &*data.add(index);
                     if likely(k.eq(bucket.key.borrow())) {
                         return Some(bucket);
                     }

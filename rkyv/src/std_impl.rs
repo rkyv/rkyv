@@ -115,8 +115,8 @@ impl<T: ArchiveRef + ?Sized> Archive for Box<T> {
 
 fn slice_archive_ref<T: Archive, W: Write + ?Sized>(slice: &[T], writer: &mut W) -> Result<ReferenceResolver<[T]>, W::Error> {
     let mut resolvers = Vec::with_capacity(slice.len());
-    for i in 0..slice.len() {
-        resolvers.push(slice[i].archive(writer)?);
+    for value in slice {
+        resolvers.push(value.archive(writer)?);
     }
     let result = writer.align_for::<T::Archived>()?;
     unsafe {
