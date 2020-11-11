@@ -487,8 +487,8 @@ mod tests {
             }
         }
 
-        register_vtable!(dyn TestTrait<i32>, Test<i32>);
-        register_vtable!(dyn TestTrait<String>, Test<String>);
+        register_vtable!(Test<i32> as dyn TestTrait<i32>);
+        register_vtable!(Test<String> as dyn TestTrait<String>);
 
         let i32_value: Box<dyn ArchiveableTestTrait<i32>> = Box::new(Test { value: 42 });
         let string_value: Box<dyn ArchiveableTestTrait<String>> = Box::new(Test { value: "hello world".to_string() });

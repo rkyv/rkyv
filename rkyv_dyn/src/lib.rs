@@ -97,6 +97,7 @@ impl DynResolver {
 
 pub struct TraitObject(*const (), *const ());
 
+#[derive(Debug)]
 pub struct ArchivedDyn<T: ?Sized> {
     ptr: RelPtr<()>,
     #[cfg(not(feature = "vtable_cache"))]
@@ -128,7 +129,7 @@ impl<T: ?Sized> ArchivedDyn<T> {
         if rkyv::likely(vtable & 1 == 0) {
             vtable as usize as *const ()
         } else {
-            let ptr = TYPE_REGISTRY.get_vtable(ImplId(vtable)).expect("attempted to get vtable for an unregistered type");
+            let ptr = TYPE_REGISTRY.vtable(ImplId(vtable)).expect("attempted to get vtable for an unregistered type");
             self.vtable.store(ptr as usize as u64, Ordering::Relaxed);
             ptr
         }
@@ -136,7 +137,7 @@ impl<T: ?Sized> ArchivedDyn<T> {
 
     #[cfg(not(feature = "vtable_cache"))]
     pub fn vtable(&self) -> *const () {
-        TYPE_REGISTRY.get_vtable(ImplId(self.id)).expect("attempted to get vtable for an unregistered type")
+        TYPE_REGISTRY.vtable(ImplId(self.id)).expect("attempted to get vtable for an unregistered type")
     }
 }
 
@@ -168,7 +169,7 @@ impl ImplId {
         archive_dyn.build_type_name(&mut |piece| piece.hash(&mut hasher));
         let result = Self::from_hasher(hasher);
         #[cfg(debug_assertions)]
-        if TYPE_REGISTRY.get_vtable(result).is_none() {
+        if TYPE_REGISTRY.vtable(result).is_none() {
             let mut trait_name = String::new();
             <T as TypeName>::build_type_name(|piece| trait_name += piece);
             let mut type_name = String::new();
@@ -232,7 +233,7 @@ impl TypeRegistry {
         debug_assert!(old_value.is_none(), "impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
     }
 
-    fn get_vtable(&self, id: ImplId) -> Option<*const ()> {
+    fn vtable(&self, id: ImplId) -> Option<*const ()> {
         self.id_to_vtable.get(&id).map(|v| v.0)
     }
 }
@@ -249,7 +250,7 @@ lazy_static::lazy_static! {
 
 #[macro_export]
 macro_rules! register_vtable {
-    ($trait:ty, $type:ty) => {
+    ($type:ty as $trait:ty) => {
         const _: () = {
             use rkyv::Archived;
             use rkyv_dyn::{

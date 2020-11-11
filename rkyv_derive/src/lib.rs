@@ -148,6 +148,7 @@ pub fn archive_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 
 fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStream {
     let name = &input.ident;
+    let vis = &input.vis;
 
     let generic_params = input.generics.params.iter().map(|p| quote_spanned! { p.span() => #p });
     let generic_params = quote! { #(#generic_params,)* };
@@ -212,7 +213,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     (
                         quote! {
                             #archive_derives
-                            pub struct #archived<#generic_params>
+                            #vis struct #archived<#generic_params>
                             where
                                 #generic_predicates
                                 #field_wheres
@@ -221,7 +222,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                             }
                         },
                         quote! {
-                            pub struct Resolver<#generic_params>
+                            #vis struct Resolver<#generic_params>
                             where
                                 #generic_predicates
                                 #field_wheres
@@ -290,13 +291,13 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     (
                         quote! {
                             #archive_derives
-                            pub struct #archived<#generic_params>(#(#archived_fields,)*)
+                            #vis struct #archived<#generic_params>(#(#archived_fields,)*)
                             where
                                 #generic_predicates
                                 #field_wheres;
                         },
                         quote! {
-                            pub struct Resolver<#generic_params>(#(#resolver_fields,)*)
+                            #vis struct Resolver<#generic_params>(#(#resolver_fields,)*)
                             where
                                 #generic_predicates
                                 #field_wheres;
@@ -336,12 +337,12 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     (
                         quote! {
                             #archive_derives
-                            pub struct #archived<#generic_params>
+                            #vis struct #archived<#generic_params>
                             where
                                 #generic_predicates;
                         },
                         quote! {
-                            pub struct Resolver;
+                            #vis struct Resolver;
 
                             impl<#generic_params> Resolve<#name<#generic_args>> for Resolver
                             where
@@ -600,7 +601,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 quote! {
                     #archive_derives
                     #[repr(#archived_repr)]
-                    pub enum #archived<#generic_params>
+                    #vis enum #archived<#generic_params>
                     where
                         #generic_predicates
                         #field_wheres
@@ -609,7 +610,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     }
                 },
                 quote! {
-                    pub enum Resolver<#generic_params>
+                    #vis enum Resolver<#generic_params>
                     where
                         #generic_predicates
                         #field_wheres

@@ -99,6 +99,7 @@ fn capacity_to_buckets(cap: usize) -> Option<usize> {
     Some(adjusted_cap.next_power_of_two())
 }
 
+#[derive(Debug)]
 struct ArchivedBucket<K, V> {
     key: K,
     value: V,
@@ -126,6 +127,7 @@ impl ArchivedHashMapResolver {
 /// An packed `HashMap`. This type is available through the `hash_map` feature
 /// and is a direct port of the standard library `hashbrown` hash map for
 /// embedding.
+#[derive(Debug)]
 pub struct ArchivedHashMap<K, V> {
     bucket_mask: u32,
     ctrl: RelPtr<u8>,
@@ -579,7 +581,7 @@ impl<K: Hash + Eq, V> FusedIterator for Values<'_, K, V> {}
 
 /// An packed `HashSet`. This is a wrapper around a hash map with the same
 /// key and a value of `()`.
-#[derive(Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct ArchivedHashSet<K: Hash + Eq>(ArchivedHashMap<K, ()>);
 

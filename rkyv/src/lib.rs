@@ -152,6 +152,7 @@ impl<T: ArchiveSelf> Resolve<T> for SelfResolver {
 }
 
 #[repr(transparent)]
+#[derive(Debug)]
 pub struct RelPtr<T> {
     offset: i32,
     _phantom: PhantomData<T>,

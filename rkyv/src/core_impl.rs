@@ -1,5 +1,6 @@
 use core::{
     borrow::Borrow,
+    cmp::Ordering,
     fmt,
     hash::{
         Hash,
@@ -180,6 +181,7 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     }
 }
 
+#[derive(Debug)]
 pub struct ArchivedStrRef {
     ptr: RelPtr<u8>,
     len: u32,
@@ -236,30 +238,43 @@ impl Deref for ArchivedStrRef {
 
 impl Borrow<str> for ArchivedStrRef {
     fn borrow(&self) -> &str {
-        self.as_str()
-    }
-}
-
-impl Hash for ArchivedStrRef {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.as_str().hash(state)
-    }
-}
-
-impl PartialEq for ArchivedStrRef {
-    fn eq(&self, other: &Self) -> bool {
-        self.as_str().eq(other.as_str())
+        &**self
     }
 }
 
 impl Eq for ArchivedStrRef {}
 
-impl fmt::Display for ArchivedStrRef {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self.as_str(), f)
+impl Hash for ArchivedStrRef {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (**self).hash(state)
     }
 }
 
+impl Ord for ArchivedStrRef {
+    fn cmp(&self, other: &Self) -> Ordering {
+        Ord::cmp(&**self, &**other)
+    }
+}
+
+impl PartialEq for ArchivedStrRef {
+    fn eq(&self, other: &Self) -> bool {
+        PartialEq::eq(&**self, &**other)
+    }
+}
+
+impl PartialOrd for ArchivedStrRef {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        PartialOrd::partial_cmp(&**self, &**other)
+    }
+}
+
+impl fmt::Display for ArchivedStrRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&**self, f)
+    }
+}
+
+#[derive(Debug)]
 pub struct ArchivedSliceRef<T> {
     ptr: RelPtr<T>,
     len: u32,
@@ -315,20 +330,33 @@ impl<T> Deref for ArchivedSliceRef<T> {
     }
 }
 
+impl<T: Eq> Eq for ArchivedSliceRef<T> {}
+
 impl<T: Hash> Hash for ArchivedSliceRef<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.as_slice().hash(state)
+        (**self).hash(state)
+    }
+}
+
+impl<T: Ord> Ord for ArchivedSliceRef<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        Ord::cmp(&**self, &**other)
     }
 }
 
 impl<T: PartialEq> PartialEq for ArchivedSliceRef<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.as_slice().eq(other.as_slice())
+        PartialEq::eq(&**self, &**other)
     }
 }
 
-impl<T: Eq> Eq for ArchivedSliceRef<T> {}
+impl<T: PartialOrd> PartialOrd for ArchivedSliceRef<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        PartialOrd::partial_cmp(&**self, &**other)
+    }
+}
 
+#[derive(Debug)]
 #[repr(u8)]
 pub enum ArchivedOption<T> {
     None,
@@ -400,17 +428,21 @@ impl<T: Hash> Hash for ArchivedOption<T> {
     }
 }
 
+impl<T: Ord> Ord for ArchivedOption<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_ref().cmp(&other.as_ref())
+    }
+}
+
 impl<T: PartialEq> PartialEq for ArchivedOption<T> {
     fn eq(&self, other: &Self) -> bool {
-        if let ArchivedOption::Some(self_value) = self {
-            if let ArchivedOption::Some(other_value) = other {
-                self_value.eq(other_value)
-            } else {
-                false
-            }
-        } else {
-            other.is_none()
-        }
+        self.as_ref().eq(&other.as_ref())
+    }
+}
+
+impl<T: PartialOrd> PartialOrd for ArchivedOption<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.as_ref().partial_cmp(&other.as_ref())
     }
 }
 

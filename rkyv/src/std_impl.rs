@@ -15,7 +15,7 @@ use crate::{
     WriteExt,
 };
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedString(Reference<str>);
 
@@ -41,19 +41,19 @@ impl Borrow<str> for ArchivedString {
 
 impl PartialEq<String> for ArchivedString {
     fn eq(&self, other: &String) -> bool {
-        self.deref().eq(other.deref())
+        PartialEq::eq(&**self, &**other)
     }
 }
 
 impl PartialEq<ArchivedString> for String {
     fn eq(&self, other: &ArchivedString) -> bool {
-        other.eq(self)
+        PartialEq::eq(&**other, &**self)
     }
 }
 
 impl fmt::Display for ArchivedString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self.as_str(), f)
+        fmt::Display::fmt(&**self, f)
     }
 }
 
@@ -76,7 +76,7 @@ impl Archive for String {
     }
 }
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedBox<T>(T);
 
@@ -139,7 +139,7 @@ impl<T: Archive> ArchiveRef for [T] {
     }
 }
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedVec<T>(T);
 
