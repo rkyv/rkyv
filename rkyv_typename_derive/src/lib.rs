@@ -6,12 +6,55 @@ use quote::{
     quote_spanned,
 };
 use syn::{
+    AttrStyle,
     DeriveInput,
+    Error,
+    Lit,
+    Meta,
     parse_macro_input,
     spanned::Spanned,
 };
 
-#[proc_macro_derive(TypeName)]
+struct Attributes {
+    typename: Option<String>,
+}
+
+impl Default for Attributes {
+    fn default() -> Self {
+        Self {
+            typename: None,
+        }
+    }
+}
+
+fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
+    let mut result = Attributes::default();
+    for a in input.attrs.iter() {
+        match a.style {
+            AttrStyle::Outer => match a.parse_meta() {
+                Ok(meta) => match meta {
+                    Meta::NameValue(meta) => if meta.path.is_ident("typename") {
+                        if result.typename.is_none() {
+                            if let Lit::Str(ref lit_str) = meta.lit {
+                                result.typename = Some(lit_str.value());
+                            } else {
+                                return Err(Error::new(meta.lit.span(), "typename must be set to a string").to_compile_error());
+                            }
+                        } else {
+                            return Err(Error::new(meta.span(), "typename attribute already specified").to_compile_error());
+                        }
+                    },
+                    _ => ()
+                },
+                _ => (),
+            },
+            _ => (),
+        }
+    }
+    Ok(result)
+}
+
+#[proc_macro_derive(TypeName, attributes(typename))]
 pub fn type_name_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -21,6 +64,11 @@ pub fn type_name_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 }
 
 fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
+    let attributes = match parse_attributes(input) {
+        Ok(result) => result,
+        Err(error) => return error,
+    };
+
     let generic_params = input.generics.params.iter().map(|p| quote_spanned! { p.span() => #p });
     let generic_args = input.generics.type_params().map(|p| {
         let name = &p.ident;
@@ -40,6 +88,7 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
     });
 
     let name = &input.ident;
+    let name_str = attributes.typename.unwrap_or(input.ident.to_string());
 
     let build_args = if input.generics.params.len() > 0 {
         let mut results = input.generics.type_params().map(|p| {
@@ -47,7 +96,7 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
             quote_spanned! { name.span() => #name::build_type_name(&mut f) }
         });
         let first = results.next().unwrap();
-        let name_str = format!("{}<", input.ident);
+        let name_str = format!("{}<", name_str);
         quote! {
             f(#name_str);
             #first;
@@ -55,8 +104,6 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
             f(">");
         }
     } else {
-        let name_str = input.ident.to_string();
-
         quote! {
             f(#name_str)
         }

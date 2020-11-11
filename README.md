@@ -13,7 +13,7 @@
 - [x] Do another pass and clean up traits (HashTypeName should hash the type name as literally as possible; think "Test<" + inner + ">")
 - [x] Write macros for trait and impl generation
 - [x] Add macro attributes to name derived archive types and ArchiveDyn traits
-- [x] Rename to something else since the current names are already taken (rkyv/pronoun)
-- [ ] Add macro attributes to type_name to set the used name (to keep data stable across type name changes)
+- [x] Rename to something else since the current names are already taken (rkyv)
+- [x] Add macro attributes to type_name to set the used name (to keep data stable across type name changes)
 - [ ] Documentation
 - [ ] Add crate descriptions and other information

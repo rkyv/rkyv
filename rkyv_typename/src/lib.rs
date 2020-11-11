@@ -47,4 +47,20 @@ mod tests {
 
         assert_eq!(type_name_string::<Test<u8, [i32; 4], Option<String>>>(), "Test<u8, [i32; 4], Option<String>>");
     }
+
+    #[test]
+    fn derive_custom_typename() {
+        #[derive(TypeName)]
+        #[typename = "Custom"]
+        struct Test;
+
+        assert_eq!(type_name_string::<Test>(), "Custom");
+
+        #[derive(TypeName)]
+        #[typename = "GenericCustom"]
+        struct GenericTest<T>(T);
+
+        assert_eq!(type_name_string::<GenericTest<i32>>(), "GenericCustom<i32>");
+        assert_eq!(type_name_string::<GenericTest<Test>>(), "GenericCustom<Custom>");
+    }
 }
