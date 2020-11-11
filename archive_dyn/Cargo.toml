@@ -18,6 +18,5 @@ archive_dyn_derive = { version = "0.1", path = "../archive_dyn_derive" }
 
 [features]
 default = []
-const_generics = ["archive/const_generics"]
 vtable_cache = []
 nightly = ["archive/nightly"]

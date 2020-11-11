@@ -13,7 +13,7 @@ type_name = { path = "../type_name" }
 
 [features]
 default = ["std", "inline_more"]
-const_generics = ["archive/const_generics"]
+const_generics = ["archive/const_generics", "type_name/const_generics"]
 inline_more = ["archive/inline_more"]
 more_portable = ["archive/more_portable"]
 nightly = ["archive/nightly", "archive_dyn/nightly"]

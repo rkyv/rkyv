@@ -138,12 +138,12 @@ pub fn archive_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStream {
     let name = &input.ident;
 
-    let generic_params = input.generics.params.iter().map(|p| quote! { #p });
+    let generic_params = input.generics.params.iter().map(|p| quote_spanned! { p.span() => #p });
     let generic_params = quote! { #(#generic_params,)* };
 
     let generic_args = input.generics.type_params().map(|p| {
         let name = &p.ident;
-        quote_spanned! { p.ident.span() => #name }
+        quote_spanned! { name.span() => #name }
     });
     let generic_args = quote! { #(#generic_args,)* };
 

@@ -9,8 +9,8 @@
 - [x] Add option to fix trait and type identifiers for stable hashes
 - [x] Test out generic trait objects and figure out if they work (if not, is it feasible to add support?)
 - [x] Add TypeName impls for basic types
-- [ ] Add TypeName derive
+- [x] Add TypeName derive
 - [x] Do another pass and clean up traits (HashTypeName should hash the type name as literally as possible; think "Test<" + inner + ">")
-- [ ] Write tests for a type with multiple dyn traits
 - [ ] Write macros for trait and impl generation
+- [ ] Write tests for a type with multiple dyn traits
 - [ ] Documentation

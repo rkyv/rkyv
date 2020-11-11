@@ -10,6 +10,7 @@ mod tests {
         Write,
         WriteExt,
     };
+    use type_name::TypeName;
 
     #[repr(align(16))]
     struct Aligned<T>(T);
@@ -464,22 +465,10 @@ mod tests {
         };
         // end trait macro
 
-        #[derive(Archive)]
+        #[derive(Archive, TypeName)]
         pub struct Test {
             id: i32,
         }
-
-        // derive TypeName macro
-        const _: () = {
-            use type_name::TypeName;
-
-            impl TypeName for Test {
-                fn build_type_name<F: FnMut(&str)>(mut f: F) {
-                    f("Test")
-                }
-            }
-        };
-        // end derive TypeName macro
 
         impl TestTrait for Test {
             fn get_id(&self) -> i32 {
@@ -588,24 +577,10 @@ mod tests {
         };
         // end trait macro
 
-        #[derive(Archive)]
+        #[derive(Archive, TypeName)]
         pub struct Test<T> {
             value: T,
         }
-
-        // derive TypeName macro
-        const _: () = {
-            use type_name::TypeName;
-
-            impl<T: TypeName> TypeName for Test<T> {
-                fn build_type_name<F: FnMut(&str)>(mut f: F) {
-                    f("Test<");
-                    T::build_type_name(&mut f);
-                    f(">");
-                }
-            }
-        };
-        // end derive TypeName macro
 
         impl<T: Copy> TestTrait<T> for Test<T> {
             fn get_value(&self) -> T {
