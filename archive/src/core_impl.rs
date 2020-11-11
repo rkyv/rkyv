@@ -1,5 +1,6 @@
 use core::{
     borrow::Borrow,
+    fmt,
     hash::{
         Hash,
         Hasher,
@@ -252,6 +253,12 @@ impl PartialEq for ArchivedStrRef {
 
 impl Eq for ArchivedStrRef {}
 
+impl fmt::Display for ArchivedStrRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self.as_str(), f)
+    }
+}
+
 pub struct ArchivedSliceRef<T> {
     ptr: RelPtr<T>,
     len: u32,
@@ -321,7 +328,7 @@ impl<T: PartialEq> PartialEq for ArchivedSliceRef<T> {
 
 impl<T: Eq> Eq for ArchivedSliceRef<T> {}
 
-#[derive(PartialEq, Eq)]
+#[derive(Eq, PartialEq)]
 #[repr(u8)]
 pub enum ArchivedOption<T> {
     None,

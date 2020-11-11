@@ -12,6 +12,6 @@
 - [x] Add TypeName derive
 - [x] Do another pass and clean up traits (HashTypeName should hash the type name as literally as possible; think "Test<" + inner + ">")
 - [x] Write macros for trait and impl generation
-- [ ] Write tests for a type with multiple dyn traits
+- [x] Add macro attributes to name derived archive types and ArchiveDyn traits
 - [ ] Documentation
 - [ ] Add crate descriptions and other information

@@ -14,6 +14,7 @@ use syn::{
     Ident,
     ItemImpl,
     ItemTrait,
+    LitStr,
     parse::{
         Parse,
         ParseStream,
@@ -61,8 +62,25 @@ impl Parse for Input {
     }
 }
 
+enum TraitArgs {
+    None,
+    Trait(LitStr),
+}
+
+impl Parse for TraitArgs {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.is_empty() {
+            return Ok(Self::None);
+        }
+        input.parse::<syn::token::Trait>()?;
+        input.parse::<Token![=]>()?;
+        let name = input.parse::<LitStr>()?;
+        Ok(Self::Trait(name))
+    }
+}
+
 #[proc_macro_attribute]
-pub fn archive_dyn(_attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn archive_dyn(attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(item as Input);
 
     let input_impl = match input {
@@ -81,6 +99,8 @@ pub fn archive_dyn(_attr: proc_macro::TokenStream, item: proc_macro::TokenStream
             }
         },
         Input::Trait(input) => {
+            let args = parse_macro_input!(attr as TraitArgs);
+
             let generic_params = input.generics.params.iter().map(|p| quote_spanned! { p.span() => #p });
             let generic_params = quote! { #(#generic_params),* };
 
@@ -91,7 +111,10 @@ pub fn archive_dyn(_attr: proc_macro::TokenStream, item: proc_macro::TokenStream
             let generic_args = quote! { #(#generic_args),* };
 
             let name = &input.ident;
-            let archive_trait = Ident::new(&format!("Archive{}", name), name.span());
+            let archive_trait = match args {
+                TraitArgs::None => Ident::new(&format!("Archive{}", name), name.span()),
+                TraitArgs::Trait(name) => Ident::new(&name.value(), name.span()),
+            };
 
             let type_name_wheres = input.generics.type_params().map(|p| {
                 let name = &p.ident;

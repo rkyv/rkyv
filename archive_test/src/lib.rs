@@ -449,55 +449,64 @@ mod tests {
 
     #[test]
     fn archive_dyn_generic() {
-        use archive::ArchiveSelf;
-
-        #[archive_dyn]
+        #[archive_dyn(trait = "ArchiveableTestTrait")]
         pub trait TestTrait<T> {
-            fn get_value(&self) -> &T;
-        }
-
-        #[archive_dyn]
-        pub trait AnotherTestTrait<T> {
-            fn get_another_value(&self) -> &T;
+            fn get_value(&self) -> T;
         }
 
         #[derive(Archive, TypeName)]
+        #[archive(archived = "ArchivedTest")]
         pub struct Test<T> {
             value: T,
         }
 
-        impl<T> TestTrait<T> for Test<T> {
-            fn get_value(&self) -> &T {
-                &self.value
+        impl TestTrait<i32> for Test<i32> {
+            fn get_value(&self) -> i32 {
+                self.value
             }
         }
 
-        impl<T: ArchiveSelf> TestTrait<T> for Archived<Test<T>> {
-            fn get_value(&self) -> &T {
-                &self.value
+        impl TestTrait<i32> for ArchivedTest<i32> {
+            fn get_value(&self) -> i32 {
+                self.value
+            }
+        }
+
+        impl<T: core::fmt::Display> TestTrait<String> for Test<T> {
+            fn get_value(&self) -> String {
+                format!("{}", self.value)
+            }
+        }
+
+        impl<T: Archive> TestTrait<String> for ArchivedTest<T>
+        where
+            Archived<T>: core::fmt::Display,
+        {
+            fn get_value(&self) -> String {
+                format!("{}", self.value)
             }
         }
 
         register_vtable!(dyn TestTrait<i32>, Test<i32>);
-        register_vtable!(dyn TestTrait<bool>, Test<bool>);
+        register_vtable!(dyn TestTrait<String>, Test<String>);
 
-        let i32_value: Box<dyn ArchiveTestTrait<i32>> = Box::new(Test { value: 42 });
-        let bool_value: Box<dyn ArchiveTestTrait<bool>> = Box::new(Test { value: true });
+        let i32_value: Box<dyn ArchiveableTestTrait<i32>> = Box::new(Test { value: 42 });
+        let string_value: Box<dyn ArchiveableTestTrait<String>> = Box::new(Test { value: "hello world".to_string() });
 
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let i32_pos = writer.archive(&i32_value).expect("failed to archive value");
-        let bool_pos = writer.archive(&bool_value).expect("failed to archive value");
+        let string_pos = writer.archive(&string_value).expect("failed to archive value");
         let buf = writer.into_inner();
-        let i32_archived_value = unsafe { &*buf.as_ref().as_ptr().offset(i32_pos as isize).cast::<Archived<Box<dyn ArchiveTestTrait<i32>>>>() };
-        let bool_archived_value = unsafe { &*buf.as_ref().as_ptr().offset(bool_pos as isize).cast::<Archived<Box<dyn ArchiveTestTrait<bool>>>>() };
+        let i32_archived_value = unsafe { &*buf.as_ref().as_ptr().offset(i32_pos as isize).cast::<Archived<Box<dyn ArchiveableTestTrait<i32>>>>() };
+        let string_archived_value = unsafe { &*buf.as_ref().as_ptr().offset(string_pos as isize).cast::<Archived<Box<dyn ArchiveableTestTrait<String>>>>() };
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
-        assert_eq!(bool_value.get_value(), bool_archived_value.get_value());
+        assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
         // exercise vtable cache
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
 
-        assert_eq!(bool_value.get_value(), bool_archived_value.get_value());
-        assert_eq!(bool_value.get_value(), bool_archived_value.get_value());
+        assert_eq!(string_value.get_value(), string_archived_value.get_value());
+        assert_eq!(string_value.get_value(), string_archived_value.get_value());
     }
 }

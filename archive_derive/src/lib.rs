@@ -16,6 +16,7 @@ use syn::{
     Fields,
     Ident,
     Index,
+    Lit,
     Meta,
     MetaList,
     NestedMeta,
@@ -47,6 +48,7 @@ struct Attributes {
     archive_self: Option<Span>,
     repr: Repr,
     derives: Option<MetaList>,
+    archived: Option<Ident>,
 }
 
 impl Default for Attributes {
@@ -55,6 +57,7 @@ impl Default for Attributes {
             archive_self: None,
             repr: Default::default(),
             derives: None,
+            archived: None,
         }
     }
 }
@@ -79,7 +82,21 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                                     Meta::List(meta) => if meta.path.is_ident("derive") {
                                         result.derives = Some(meta.clone());
                                     },
-                                    _ => (),
+                                    Meta::NameValue(meta) => {
+                                        if meta.path.is_ident("archived") {
+                                            if let Lit::Str(ref lit_str) = meta.lit {
+                                                if result.archived.is_none() {
+                                                    result.archived = Some(Ident::new(&lit_str.value(), lit_str.span()));
+                                                } else {
+                                                    return Err(Error::new(meta.span(), "archived already specified").to_compile_error());
+                                                }
+                                            } else {
+                                                return Err(Error::new(meta.span(), "archived must be a string").to_compile_error());
+                                            }
+                                        } else {
+                                            return Err(Error::new(meta.span(), "unrecognized archive attribute").to_compile_error());
+                                        }
+                                    }
                                 },
                                 _ => (),
                             }
@@ -161,7 +178,12 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
         quote! {}
     };
 
-    let archive_impl = match input.data {
+    let archived = attributes.archived.as_ref().map_or(
+        Ident::new("Archived", input.span()),
+        |name| name.clone()
+    );
+
+    let (archive_type, archive_impl) = match input.data {
         Data::Struct(ref data) => {
             match data.fields {
                 Fields::Named(ref fields) => {
@@ -193,53 +215,56 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         quote_spanned! { f.span() => #name: self.#name.resolve(pos + offset_of!(Archived<#generic_args>, #name), &value.#name) }
                     });
 
-                    quote! {
-                        pub struct Resolver<#generic_params>
-                        where
-                            #generic_predicates
-                            #field_wheres
-                        {
-                            #(#resolver_fields,)*
-                        }
+                    (
+                        quote! {
+                            #archive_derives
+                            pub struct #archived<#generic_params>
+                            where
+                                #generic_predicates
+                                #field_wheres
+                            {
+                                #(#archived_fields,)*
+                            }
+                        },
+                        quote! {
+                            pub struct Resolver<#generic_params>
+                            where
+                                #generic_predicates
+                                #field_wheres
+                            {
+                                #(#resolver_fields,)*
+                            }
 
-                        impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
-                        where
-                            #generic_predicates
-                            #field_wheres
-                        {
-                            type Archived = Archived<#generic_args>;
+                            impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
+                            where
+                                #generic_predicates
+                                #field_wheres
+                            {
+                                type Archived = Archived<#generic_args>;
 
-                            fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
-                                Self::Archived {
-                                    #(#archived_values,)*
+                                fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
+                                    Self::Archived {
+                                        #(#archived_values,)*
+                                    }
+                                }
+                            }
+
+                            impl<#generic_params> Archive for #name<#generic_args>
+                            where
+                                #generic_predicates
+                                #field_wheres
+                            {
+                                type Archived = Archived<#generic_args>;
+                                type Resolver = Resolver<#generic_args>;
+
+                                fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                                    Ok(Self::Resolver {
+                                        #(#resolver_values,)*
+                                    })
                                 }
                             }
                         }
-
-                        #archive_derives
-                        pub struct Archived<#generic_params>
-                        where
-                            #generic_predicates
-                            #field_wheres
-                        {
-                            #(#archived_fields,)*
-                        }
-
-                        impl<#generic_params> Archive for #name<#generic_args>
-                        where
-                            #generic_predicates
-                            #field_wheres
-                        {
-                            type Archived = Archived<#generic_args>;
-                            type Resolver = Resolver<#generic_args>;
-
-                            fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                                Ok(Self::Resolver {
-                                    #(#resolver_values,)*
-                                })
-                            }
-                        }
-                    }
+                    )
                 },
                 Fields::Unnamed(ref fields) => {
                     let field_wheres = fields.unnamed.iter().map(|f| {
@@ -268,80 +293,86 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         quote_spanned! { f.span() => self.#index.resolve(pos + offset_of!(Archived<#generic_args>, #index), &value.#index) }
                     });
 
-                    quote! {
-                        pub struct Resolver<#generic_params>(#(#resolver_fields,)*)
-                        where
-                            #generic_predicates
-                            #field_wheres;
+                    (
+                        quote! {
+                            #archive_derives
+                            pub struct #archived<#generic_params>(#(#archived_fields,)*)
+                            where
+                                #generic_predicates
+                                #field_wheres;
+                        },
+                        quote! {
+                            pub struct Resolver<#generic_params>(#(#resolver_fields,)*)
+                            where
+                                #generic_predicates
+                                #field_wheres;
 
-                        impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
-                        where
-                            #generic_predicates
-                            #field_wheres
-                        {
-                            type Archived = Archived<#generic_args>;
+                            impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
+                            where
+                                #generic_predicates
+                                #field_wheres
+                            {
+                                type Archived = Archived<#generic_args>;
 
-                            fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
-                                Archived::<#generic_args>(
-                                    #(#archived_values,)*
-                                )
+                                fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
+                                    Archived::<#generic_args>(
+                                        #(#archived_values,)*
+                                    )
+                                }
+                            }
+
+                            impl<#generic_params> Archive for #name<#generic_args>
+                            where
+                                #generic_predicates
+                                #field_wheres
+                            {
+                                type Archived = Archived<#generic_args>;
+                                type Resolver = Resolver<#generic_args>;
+
+                                fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                                    Ok(Resolver::<#generic_args>(
+                                        #(#resolver_values,)*
+                                    ))
+                                }
                             }
                         }
-
-                        #archive_derives
-                        pub struct Archived<#generic_params>(#(#archived_fields,)*)
-                        where
-                            #generic_predicates
-                            #field_wheres;
-
-                        impl<#generic_params> Archive for #name<#generic_args>
-                        where
-                            #generic_predicates
-                            #field_wheres
-                        {
-                            type Archived = Archived<#generic_args>;
-                            type Resolver = Resolver<#generic_args>;
-
-                            fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                                Ok(Resolver::<#generic_args>(
-                                    #(#resolver_values,)*
-                                ))
-                            }
-                        }
-                    }
+                    )
                 },
                 Fields::Unit => {
-                    quote! {
-                        pub struct Resolver;
+                    (
+                        quote! {
+                            #archive_derives
+                            pub struct #archived<#generic_params>
+                            where
+                                #generic_predicates;
+                        },
+                        quote! {
+                            pub struct Resolver;
 
-                        impl<#generic_params> Resolve<#name<#generic_args>> for Resolver
-                        where
-                            #generic_predicates
-                        {
-                            type Archived = Archived<#generic_args>;
+                            impl<#generic_params> Resolve<#name<#generic_args>> for Resolver
+                            where
+                                #generic_predicates
+                            {
+                                type Archived = Archived<#generic_args>;
 
-                            fn resolve(self, _pos: usize, _value: &#name<#generic_args>) -> Self::Archived {
-                                Archived::<#generic_args>
+                                fn resolve(self, _pos: usize, _value: &#name<#generic_args>) -> Self::Archived {
+                                    Archived::<#generic_args>
+                                }
+                            }
+
+                            impl<#generic_params> Archive for #name<#generic_args>
+                            where
+                                #generic_predicates
+                            {
+                                type Archived = Archived;
+                                type Resolver = Resolver;
+
+                                fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                                    Ok(Resolver)
+                                }
                             }
                         }
-
-                        #archive_derives
-                        pub struct Archived<#generic_params>
-                        where
-                            #generic_predicates;
-
-                        impl<#generic_params> Archive for #name<#generic_args>
-                        where
-                            #generic_predicates
-                        {
-                            type Archived = Archived;
-                            type Resolver = Resolver;
-
-                            fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                                Ok(Resolver)
-                            }
-                        }
-                    }
+                    )
                 }
             }
         },
@@ -571,76 +602,98 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 }
             });
 
-            quote! {
-                pub enum Resolver<#generic_params>
-                where
-                    #generic_predicates
-                    #field_wheres
-                {
-                    #(#resolver_variants,)*
-                }
+            (
+                quote! {
+                    #archive_derives
+                    #[repr(#archived_repr)]
+                    pub enum #archived<#generic_params>
+                    where
+                        #generic_predicates
+                        #field_wheres
+                    {
+                        #(#archived_variants,)*
+                    }
+                },
+                quote! {
+                    pub enum Resolver<#generic_params>
+                    where
+                        #generic_predicates
+                        #field_wheres
+                    {
+                        #(#resolver_variants,)*
+                    }
 
-                impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
-                where
-                    #generic_predicates
-                    #field_wheres
-                {
-                    type Archived = Archived<#generic_args>;
+                    impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
+                    where
+                        #generic_predicates
+                        #field_wheres
+                    {
+                        type Archived = Archived<#generic_args>;
 
-                    fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
-                        match self {
-                            #(#resolve_arms,)*
+                        fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
+                            match self {
+                                #(#resolve_arms,)*
+                            }
+                        }
+                    }
+
+                    #[repr(#archived_repr)]
+                    enum ArchivedTag {
+                        #(#archived_variant_tags,)*
+                    }
+
+                    #(#archived_variant_structs)*
+
+                    impl<#generic_params> Archive for #name<#generic_args>
+                    where
+                        #generic_predicates
+                        #field_wheres
+                    {
+                        type Archived = Archived<#generic_args>;
+                        type Resolver = Resolver<#generic_args>;
+
+                        fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                            Ok(match self {
+                                #(#archive_arms,)*
+                            })
                         }
                     }
                 }
-
-                #archive_derives
-                #[repr(#archived_repr)]
-                pub enum Archived<#generic_params>
-                where
-                    #generic_predicates
-                    #field_wheres
-                {
-                    #(#archived_variants,)*
-                }
-
-                #[repr(#archived_repr)]
-                enum ArchivedTag {
-                    #(#archived_variant_tags,)*
-                }
-
-                #(#archived_variant_structs)*
-
-                impl<#generic_params> Archive for #name<#generic_args>
-                where
-                    #generic_predicates
-                    #field_wheres
-                {
-                    type Archived = Archived<#generic_args>;
-                    type Resolver = Resolver<#generic_args>;
-
-                    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                        Ok(match self {
-                            #(#archive_arms,)*
-                        })
-                    }
-                }
-            }
+            )
         },
-        Data::Union(_) => Error::new(input.span(), "Archive cannot be derived for unions").to_compile_error(),
+        Data::Union(_) => return Error::new(input.span(), "Archive cannot be derived for unions").to_compile_error(),
     };
 
-    quote! {
-        const _: () = {
-            use core::marker::PhantomData;
-            use archive::{
-                Archive,
-                offset_of,
-                Resolve,
-                Write,
+    if attributes.archived.is_some() {
+        quote! {
+            #archive_type
+
+            const _: () = {
+                use core::marker::PhantomData;
+                use archive::{
+                    Archive,
+                    offset_of,
+                    Resolve,
+                    Write,
+                };
+                type Archived<#generic_params> = #archived<#generic_args>;
+                #archive_impl
             };
-            #archive_impl
-        };
+        }
+    } else {
+        quote! {
+            const _: () = {
+                use core::marker::PhantomData;
+                use archive::{
+                    Archive,
+                    offset_of,
+                    Resolve,
+                    Write,
+                };
+                #archive_type
+                #archive_impl
+            };
+        }
     }
 }
 

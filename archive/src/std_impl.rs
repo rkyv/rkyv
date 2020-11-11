@@ -1,5 +1,6 @@
 use core::{
     borrow::Borrow,
+    fmt,
     ops::Deref,
 };
 use crate::{
@@ -14,7 +15,7 @@ use crate::{
     WriteExt,
 };
 
-#[derive(Hash, Eq, PartialEq)]
+#[derive(Eq, Hash, PartialEq)]
 #[repr(transparent)]
 pub struct ArchivedString(Reference<str>);
 
@@ -50,6 +51,12 @@ impl PartialEq<ArchivedString> for String {
     }
 }
 
+impl fmt::Display for ArchivedString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self.as_str(), f)
+    }
+}
+
 pub struct StringResolver(ReferenceResolver<str>);
 
 impl Resolve<String> for StringResolver {
@@ -69,7 +76,7 @@ impl Archive for String {
     }
 }
 
-#[derive(Hash, Eq, PartialEq)]
+#[derive(Eq, Hash, PartialEq)]
 #[repr(transparent)]
 pub struct ArchivedBox<T>(T);
 
