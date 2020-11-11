@@ -14,11 +14,9 @@ use core::sync::atomic::{
     AtomicU64,
     Ordering,
 };
-use std::{
-    collections::{
-        hash_map::DefaultHasher,
-        HashMap,
-    },
+use std::collections::{
+    hash_map::DefaultHasher,
+    HashMap,
 };
 use archive::{
     Archive,
@@ -29,6 +27,7 @@ use archive::{
 };
 use type_name::TypeName;
 
+pub use archive_dyn_derive::archive_dyn;
 pub use inventory;
 
 pub type DynError = Box<dyn Any>;
@@ -39,25 +38,13 @@ pub trait DynWrite {
     fn write(&mut self, bytes: &[u8]) -> Result<(), DynError>;
 }
 
-pub struct DynWriter<'a, W: Write + ?Sized> {
-    inner: &'a mut W,
-}
-
-impl<'a, W: Write + ?Sized> DynWriter<'a, W> {
-    pub fn new(inner: &'a mut W) -> Self {
-        Self {
-            inner,
-        }
-    }
-}
-
-impl<'a, W: Write + ?Sized> DynWrite for DynWriter<'a, W> {
+impl<'a, W: Write + ?Sized> DynWrite for &'a mut W {
     fn pos(&self) -> usize {
-        self.inner.pos()
+        Write::pos(*self)
     }
 
     fn write(&mut self, bytes: &[u8]) -> Result<(), DynError> {
-        match self.inner.write(bytes) {
+        match Write::write(*self, bytes) {
             Ok(()) => Ok(()),
             Err(e) => Err(Box::new(e)),
         }
@@ -141,7 +128,7 @@ impl<T: ?Sized> ArchivedDyn<T> {
         if archive::likely(vtable & 1 == 0) {
             vtable as usize as *const ()
         } else {
-            let ptr = TYPE_REGISTRY.get_vtable(ImplId(vtable));
+            let ptr = TYPE_REGISTRY.get_vtable(ImplId(vtable)).expect("attempted to get vtable for an unregistered type");
             self.vtable.store(ptr as usize as u64, Ordering::Relaxed);
             ptr
         }
@@ -149,7 +136,7 @@ impl<T: ?Sized> ArchivedDyn<T> {
 
     #[cfg(not(feature = "vtable_cache"))]
     pub fn vtable(&self) -> *const () {
-        TYPE_REGISTRY.get_vtable(ImplId(self.id))
+        TYPE_REGISTRY.get_vtable(ImplId(self.id)).expect("attempted to get vtable for an unregistered type")
     }
 }
 
@@ -179,7 +166,16 @@ impl ImplId {
         let mut hasher = DefaultHasher::new();
         <T as TypeName>::build_type_name(|piece| piece.hash(&mut hasher));
         archive_dyn.build_type_name(&mut |piece| piece.hash(&mut hasher));
-        Self::from_hasher(hasher)
+        let result = Self::from_hasher(hasher);
+        #[cfg(debug_assertions)]
+        if TYPE_REGISTRY.get_vtable(result).is_none() {
+            let mut trait_name = String::new();
+            <T as TypeName>::build_type_name(|piece| trait_name += piece);
+            let mut type_name = String::new();
+            archive_dyn.build_type_name(&mut |piece| type_name += piece);
+            panic!("attempted to resolve an unregistered vtable ({} as {}); if this type is generic, you may be missing an explicit register_vtable! for the type", type_name, trait_name);
+        }
+        result
     }
 
     pub fn register<TR: TypeName + ?Sized, TY: TypeName + ?Sized>() -> Self {
@@ -205,23 +201,6 @@ impl ImplVTable {
 }
 
 inventory::collect!(ImplVTable);
-
-#[macro_export]
-macro_rules! vtable {
-    ($type:ty, $trait:ty) => {
-        (
-            unsafe {
-                let uninit = core::mem::MaybeUninit::<$type>::uninit();
-
-                core::mem::transmute::<$trait, (*const (), *const ())>(
-                    core::mem::transmute::<*const $type, &$type>(
-                        uninit.as_ptr()
-                    ) as $trait
-                ).1
-            }
-        )
-    }
-}
 
 #[derive(Clone, Copy)]
 pub struct VTable(pub *const ());
@@ -253,8 +232,8 @@ impl TypeRegistry {
         debug_assert!(old_value.is_none(), "impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
     }
 
-    fn get_vtable(&self, id: ImplId) -> *const () {
-        self.id_to_vtable.get(&id).expect("attempted to get vtable for an unregistered type").0
+    fn get_vtable(&self, id: ImplId) -> Option<*const ()> {
+        self.id_to_vtable.get(&id).map(|v| v.0)
     }
 }
 
@@ -266,4 +245,35 @@ lazy_static::lazy_static! {
         }
         result
     };
+}
+
+#[macro_export]
+macro_rules! register_vtable {
+    ($trait:ty, $type:ty) => {
+        const _: () = {
+            use archive::Archived;
+            use archive_dyn::{
+                ImplId,
+                ImplVTable,
+                inventory,
+            };
+
+            inventory::submit! {
+                // This is wildly unsafe but someone has to do it
+                let vtable = unsafe {
+                    let uninit = core::mem::MaybeUninit::<Archived<$type>>::uninit();
+    
+                    core::mem::transmute::<&$trait, (*const (), *const ())>(
+                        core::mem::transmute::<*const Archived<$type>, &Archived<$type>>(
+                            uninit.as_ptr()
+                        ) as &$trait
+                    ).1
+                };
+                ImplVTable::new(
+                    ImplId::register::<$trait, $type>(),
+                    vtable.into()
+                )
+            }
+        };
+    }
 }

@@ -4,8 +4,186 @@ extern crate proc_macro;
 //     Span,
 //     TokenStream,
 // };
+use quote::{
+    quote,
+    quote_spanned,
+};
+use syn::{
+    Attribute,
+    Error,
+    Ident,
+    ItemImpl,
+    ItemTrait,
+    parse::{
+        Parse,
+        ParseStream,
+        Result,
+    },
+    parse_macro_input,
+    spanned::Spanned,
+    Token,
+    Visibility,
+};
+
+enum Input {
+    Impl(ItemImpl),
+    Trait(ItemTrait),
+}
+
+impl Parse for Input {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let mut attrs = Attribute::parse_outer(input)?;
+
+        let ahead = input.fork();
+        ahead.parse::<Visibility>()?;
+        ahead.parse::<Option<Token![unsafe]>>()?;
+
+        if ahead.peek(Token![trait]) {
+            let mut item: ItemTrait = input.parse()?;
+            attrs.extend(item.attrs);
+            item.attrs = attrs;
+            Ok(Input::Trait(item))
+        } else if ahead.peek(Token![impl]) {
+            let mut item: ItemImpl = input.parse()?;
+            if item.trait_.is_none() {
+                let impl_token = item.impl_token;
+                let ty = item.self_ty;
+                let span = quote!(#impl_token #ty);
+                let msg = "expected impl Trait for Type";
+                return Err(Error::new_spanned(span, msg));
+            }
+            attrs.extend(item.attrs);
+            item.attrs = attrs;
+            Ok(Input::Impl(item))
+        } else {
+            Err(input.error("expected trait or impl block"))
+        }
+    }
+}
 
 #[proc_macro_attribute]
 pub fn archive_dyn(_attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    item
+    let input = parse_macro_input!(item as Input);
+
+    let input_impl = match input {
+        Input::Impl(ref input) => {
+            if input.generics.params.len() != 0 {
+                Error::new(input.generics.span(), "#[archive_dyn] can only register non-generic impls; use register_vtable! with the concrete types to register").to_compile_error()
+            } else if let Some((_, ref trait_, _)) = input.trait_ {
+                let ty = &input.self_ty;
+                quote! {
+                    #input
+
+                    archive_dyn::register_vtable!(dyn #trait_, #ty);
+                }
+            } else {
+                Error::new(input.span(), "#[archive_dyn] is only valid on trait implementations").to_compile_error()
+            }
+        },
+        Input::Trait(input) => {
+            let generic_params = input.generics.params.iter().map(|p| quote_spanned! { p.span() => #p });
+            let generic_params = quote! { #(#generic_params),* };
+
+            let generic_args = input.generics.type_params().map(|p| {
+                let name = &p.ident;
+                quote_spanned! { name.span() => #name }
+            });
+            let generic_args = quote! { #(#generic_args),* };
+
+            let name = &input.ident;
+            let archive_trait = Ident::new(&format!("Archive{}", name), name.span());
+
+            let type_name_wheres = input.generics.type_params().map(|p| {
+                let name = &p.ident;
+                quote_spanned! { name.span() => #name: TypeName }
+            });
+            let type_name_wheres = quote! { #(#type_name_wheres,)* };
+
+            let build_type_name = if input.generics.params.len() > 0 {
+                let dyn_name = format!("dyn {}<", name);
+                let mut results = input.generics.type_params().map(|p| {
+                    let name = &p.ident;
+                    quote_spanned! { name.span() => #name::build_type_name(&mut f) }
+                });
+                let first = results.next().unwrap();
+                quote! {
+                    f(#dyn_name);
+                    #first;
+                    #(f(", "); #results;)*
+                    f(">");
+                }
+            } else {
+                quote! { f(stringify!(dyn #name)); }
+            };
+
+            quote! {
+                #input
+
+                pub trait #archive_trait<#generic_params>: #name<#generic_args> + archive_dyn::ArchiveDyn {}
+
+                const _: ()  = {
+                    use archive_dyn::{
+                        ArchiveDyn,
+                        ArchivedDyn,
+                        DynResolver,
+                        ImplId,
+                        TraitObject,
+                    };
+                    use type_name::TypeName;
+
+                    impl<#generic_params> TypeName for dyn #name<#generic_args> + '_
+                    where
+                        #type_name_wheres
+                    {
+                        fn build_type_name<F: FnMut(&str)>(mut f: F) {
+                            #build_type_name
+                        }
+                    }
+
+                    impl<#generic_params> TypeName for dyn #archive_trait<#generic_args> + '_
+                    where
+                        #type_name_wheres
+                    {
+                        fn build_type_name<F: FnMut(&str)>(f: F) {
+                            <dyn #name<#generic_args>>::build_type_name(f);
+                        }
+                    }
+
+                    impl<__T: #name<#generic_args> + ArchiveDyn, #generic_params> #archive_trait<#generic_args> for __T {}
+
+                    impl<'a, #generic_params> From<TraitObject> for &'a (dyn #name<#generic_args> + 'static) {
+                        fn from(trait_object: TraitObject) -> &'a (dyn #name<#generic_args> + 'static) {
+                            unsafe { core::mem::transmute(trait_object) }
+                        }
+                    }
+
+                    impl<#generic_params> Resolve<dyn #archive_trait<#generic_args>> for DynResolver
+                    where
+                        #type_name_wheres
+                    {
+                        type Archived = ArchivedDyn<dyn #name<#generic_args>>;
+
+                        fn resolve(self, pos: usize, value: &dyn #archive_trait<#generic_args>) -> Self::Archived {
+                            ArchivedDyn::new(pos, self, &ImplId::resolve(value))
+                        }
+                    }
+
+                    impl<#generic_params> ArchiveRef for dyn #archive_trait<#generic_args>
+                    where
+                        #type_name_wheres
+                    {
+                        type Archived = dyn #name<#generic_args>;
+                        type Reference = ArchivedDyn<dyn #name<#generic_args>>;
+                        type Resolver = DynResolver;
+
+                        fn archive_ref<W: Write + ?Sized>(&self, mut writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                            self.archive_dyn(&mut writer).map_err(|e| *e.downcast().unwrap())
+                        }
+                    } 
+                };
+            }
+        },
+    };
+
+    proc_macro::TokenStream::from(input_impl)
 }

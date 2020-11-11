@@ -26,22 +26,27 @@ impl_primitive!(f32);
 impl_primitive!(f64);
 impl_primitive!(char);
 
-macro_rules! peel_tuple {
-    ($type: ident, $($type_rest:ident,)*) => { impl_tuple! { $($type_rest,)* } };
-}
-
 macro_rules! impl_tuple {
-    () => ();
-    ($($type:ident,)+) => {
-        impl<$($type: TypeName),+> TypeName for ($($type,)+) {
+    ($type:ident,) => {
+        impl<$type: TypeName> TypeName for ($type,) {
             fn build_type_name<F: FnMut(&str)>(mut f: F) {
                 f("(");
-                $($type::build_type_name(&mut f);)+
+                $type::build_type_name(&mut f);
+                f(",)");
+            }
+        }
+    };
+    ($first:ident, $($rest:ident,)+) => {
+        impl<$first: TypeName, $($rest: TypeName),+> TypeName for ($first, $($rest,)+) {
+            fn build_type_name<F: FnMut(&str)>(mut f: F) {
+                f("(");
+                $first::build_type_name(&mut f);
+                $(f(", "); $rest::build_type_name(&mut f);)+
                 f(")");
             }
         }
 
-        peel_tuple! { $($type,)+ }
+        impl_tuple! { $($rest,)+ }
     };
 }
 

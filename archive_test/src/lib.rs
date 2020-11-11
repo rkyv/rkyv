@@ -10,6 +10,10 @@ mod tests {
         Write,
         WriteExt,
     };
+    use archive_dyn::{
+        archive_dyn,
+        register_vtable,
+    };
     use type_name::TypeName;
 
     #[repr(align(16))]
@@ -407,69 +411,17 @@ mod tests {
 
     #[test]
     fn archive_dyn() {
+        #[archive_dyn]
         pub trait TestTrait {
             fn get_id(&self) -> i32;
         }
-
-        // trait macro
-        pub trait ArchiveTestTrait: TestTrait + archive_dyn::ArchiveDyn {}
-
-        const _: () = {
-            use archive_dyn::{
-                ArchiveDyn,
-                ArchivedDyn,
-                DynResolver,
-                DynWriter,
-                ImplId,
-                TraitObject,
-            };
-            use type_name::TypeName;
-
-            impl TypeName for dyn TestTrait + '_ {
-                fn build_type_name<F: FnMut(&str)>(mut f: F) {
-                    f("dyn TestTrait")
-                }
-            }
-
-            impl TypeName for dyn ArchiveTestTrait + '_ {
-                fn build_type_name<F: FnMut(&str)>(f: F) {
-                    <dyn TestTrait>::build_type_name(f);
-                }
-            }
-
-            impl<__T: TestTrait + ArchiveDyn> ArchiveTestTrait for __T {}
-
-            impl<'a> From<TraitObject> for &'a (dyn TestTrait + 'static) {
-                fn from(trait_object: TraitObject) -> &'a (dyn TestTrait + 'static) {
-                    unsafe { core::mem::transmute(trait_object) }
-                }
-            }
-
-            impl Resolve<dyn ArchiveTestTrait> for DynResolver {
-                type Archived = ArchivedDyn<dyn TestTrait>;
-
-                fn resolve(self, pos: usize, value: &dyn ArchiveTestTrait) -> Self::Archived {
-                    ArchivedDyn::new(pos, self, &ImplId::resolve(value))
-                }
-            }
-
-            impl ArchiveRef for dyn ArchiveTestTrait {
-                type Archived = dyn TestTrait;
-                type Reference = ArchivedDyn<dyn TestTrait>;
-                type Resolver = DynResolver;
-
-                fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                    self.archive_dyn(&mut DynWriter::new(writer)).map_err(|e| *e.downcast().unwrap())
-                }
-            }
-        };
-        // end trait macro
 
         #[derive(Archive, TypeName)]
         pub struct Test {
             id: i32,
         }
 
+        #[archive_dyn]
         impl TestTrait for Test {
             fn get_id(&self) -> i32 {
                 self.id
@@ -481,24 +433,6 @@ mod tests {
                 self.id
             }
         }
-
-        // impl macro
-        const _: () = {
-            use archive_dyn::{
-                ImplId,
-                ImplVTable,
-                inventory,
-                vtable,
-            };
-
-            inventory::submit! {
-                ImplVTable::new(
-                    ImplId::register::<dyn TestTrait, Test>(),
-                    vtable!(Archived<Test>, &dyn TestTrait).into()
-                )
-            }
-        };
-        // end impl macro
 
         let value: Box<dyn ArchiveTestTrait> = Box::new(Test { id: 42 });
 
@@ -517,108 +451,35 @@ mod tests {
     fn archive_dyn_generic() {
         use archive::ArchiveSelf;
 
+        #[archive_dyn]
         pub trait TestTrait<T> {
-            fn get_value(&self) -> T;
+            fn get_value(&self) -> &T;
         }
 
-        // trait macro
-        pub trait ArchiveTestTrait<T>: TestTrait<T> + archive_dyn::ArchiveDyn {}
-
-        const _: () = {
-            use archive_dyn::{
-                ArchiveDyn,
-                ArchivedDyn,
-                DynResolver,
-                DynWriter,
-                ImplId,
-                TraitObject,
-            };
-            use type_name::TypeName;
-
-            impl<T: TypeName> TypeName for dyn TestTrait<T> + '_ {
-                fn build_type_name<F: FnMut(&str)>(mut f: F) {
-                    f("dyn TestTrait<");
-                    T::build_type_name(&mut f);
-                    f(">");
-                }
-            }
-
-            impl<T: TypeName> TypeName for dyn ArchiveTestTrait<T> + '_ {
-                fn build_type_name<F: FnMut(&str)>(f: F) {
-                    <dyn TestTrait<T>>::build_type_name(f);
-                }
-            }
-
-            impl<T, __T: TestTrait<T> + ArchiveDyn> ArchiveTestTrait<T> for __T {}
-
-            impl<'a, T> From<TraitObject> for &'a (dyn TestTrait<T> + 'static) {
-                fn from(trait_object: TraitObject) -> &'a (dyn TestTrait<T> + 'static) {
-                    unsafe { core::mem::transmute(trait_object) }
-                }
-            }
-
-            impl<T: TypeName> Resolve<dyn ArchiveTestTrait<T>> for DynResolver {
-                type Archived = ArchivedDyn<dyn TestTrait<T>>;
-
-                fn resolve(self, pos: usize, value: &dyn ArchiveTestTrait<T>) -> Self::Archived {
-                    ArchivedDyn::new(pos, self, &ImplId::resolve(value))
-                }
-            }
-
-            impl<T: TypeName> ArchiveRef for dyn ArchiveTestTrait<T> {
-                type Archived = dyn TestTrait<T>;
-                type Reference = ArchivedDyn<dyn TestTrait<T>>;
-                type Resolver = DynResolver;
-
-                fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                    self.archive_dyn(&mut DynWriter::new(writer)).map_err(|e| *e.downcast().unwrap())
-                }
-            }
-        };
-        // end trait macro
+        #[archive_dyn]
+        pub trait AnotherTestTrait<T> {
+            fn get_another_value(&self) -> &T;
+        }
 
         #[derive(Archive, TypeName)]
         pub struct Test<T> {
             value: T,
         }
 
-        impl<T: Copy> TestTrait<T> for Test<T> {
-            fn get_value(&self) -> T {
-                self.value
+        impl<T> TestTrait<T> for Test<T> {
+            fn get_value(&self) -> &T {
+                &self.value
             }
         }
 
         impl<T: ArchiveSelf> TestTrait<T> for Archived<Test<T>> {
-            fn get_value(&self) -> T {
-                self.value
+            fn get_value(&self) -> &T {
+                &self.value
             }
         }
 
-        // impl macro
-        const _: () = {
-            use archive_dyn::{
-                ImplId,
-                ImplVTable,
-                inventory,
-                vtable,
-            };
-
-            // TODO: these might have to get split out into a separate macro
-            // for explicit generic impl registration
-            inventory::submit! {
-                ImplVTable::new(
-                    ImplId::register::<dyn TestTrait<i32>, Test<i32>>(),
-                    vtable!(Archived<Test<i32>>, &dyn TestTrait<i32>).into()
-                )
-            }
-            inventory::submit! {
-                ImplVTable::new(
-                    ImplId::register::<dyn TestTrait<bool>, Test<bool>>(),
-                    vtable!(Archived<Test<bool>>, &dyn TestTrait<bool>).into()
-                )
-            }
-        };
-        // end impl macro
+        register_vtable!(dyn TestTrait<i32>, Test<i32>);
+        register_vtable!(dyn TestTrait<bool>, Test<bool>);
 
         let i32_value: Box<dyn ArchiveTestTrait<i32>> = Box::new(Test { value: 42 });
         let bool_value: Box<dyn ArchiveTestTrait<bool>> = Box::new(Test { value: true });

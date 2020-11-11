@@ -11,6 +11,7 @@
 - [x] Add TypeName impls for basic types
 - [x] Add TypeName derive
 - [x] Do another pass and clean up traits (HashTypeName should hash the type name as literally as possible; think "Test<" + inner + ">")
-- [ ] Write macros for trait and impl generation
+- [x] Write macros for trait and impl generation
 - [ ] Write tests for a type with multiple dyn traits
 - [ ] Documentation
+- [ ] Add crate descriptions and other information

@@ -24,6 +24,9 @@ mod tests {
 
     #[test]
     fn builtin_types() {
+        assert_eq!(type_name_string::<i32>(), "i32");
+        assert_eq!(type_name_string::<(i32,)>(), "(i32,)");
+        assert_eq!(type_name_string::<(i32, i32)>(), "(i32, i32)");
         assert_eq!(type_name_string::<[[u8; 4]; 8]>(), "[[u8; 4]; 8]");
         assert_eq!(type_name_string::<Option<[String; 1]>>(), "Option<[String; 1]>");
         assert_eq!(type_name_string::<Option<[Option<u8>; 4]>>(), "Option<[Option<u8>; 4]>");
