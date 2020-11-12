@@ -187,7 +187,7 @@ pub trait Resolve<T: ?Sized> {
     fn resolve(self, pos: usize, value: &T) -> Self::Archived;
 }
 
-/// Writes a type to a [`Writer`](Write)) so it can be used without deserializing.
+/// Writes a type to a [`Writer`](Write) so it can be used without deserializing.
 ///
 /// Archiving is done depth-first, writing any data owned by a type before writing
 /// the data for the type itself. The [`Resolver`](Resolve) must be able to create
