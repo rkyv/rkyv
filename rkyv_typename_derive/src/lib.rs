@@ -1,3 +1,5 @@
+//! Procedural macros for rkyv_typename.
+
 extern crate proc_macro;
 
 use proc_macro2::TokenStream;
@@ -51,6 +53,9 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
     Ok(result)
 }
 
+/// Derives `TypeName` for the labeled type.
+///
+/// A custom name can be set using the attribute `#[typename = "..."]`.
 #[proc_macro_derive(TypeName, attributes(typename))]
 pub fn type_name_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);

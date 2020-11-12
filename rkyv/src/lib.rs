@@ -39,9 +39,26 @@
 //! rkyv is designed primarily for loading bulk game data as efficiently
 //! as possible. While rkyv is a great format for final data, it lacks
 //! a full schema system and isn't well equipped for data migration.
-//! Using a serialization library like serde can help fill these gaps.
-//! You can use serde with the same types as rkyv conflict-free.
-//! Hopefully rkyv will get some of these features in the future!
+//! Using a serialization library like serde can help fill these gaps,
+//! and you can use serde with the same types as rkyv conflict-free.
+//!
+//! ## Features
+//!
+//! - `const_generics`: Improves the implementations for some traits
+//! and provides an [`Archive`] implementation for slices with elements
+//! that implement [`ArchiveSelf`]. Ideal for `#[no_std]` environments.
+//! - `inline_more`: Performs more aggressive function inlining.
+//! - `more_portable`: Avoids using sse2-optimized intrinsics since
+//! they may cause alignment issues across machines. This feature may
+//! go away once any portability bugs are identified and fixed.
+//! - `nightly`: Enables some nightly features, such as
+//! [`likely`](std::intrinsics::likely).
+//! - `specialization`: Enables the unfinished specialization feature
+//! and provides more efficient implementations of some functions when
+//! working with [`ArchiveSelf`] types.
+//! - `std`: Enables standard library support.
+//!
+//! By default, the `std` and `inline_more` features are enabled.
 
 #![cfg_attr(any(feature = "const_generics", feature = "specialization"), allow(incomplete_features))]
 #![cfg_attr(feature = "const_generics", feature(const_generics))]
@@ -172,8 +189,8 @@ pub trait Resolve<T: ?Sized> {
 /// Writes a type to a [`Writer`](Write)) so it can be used without deserializing.
 ///
 /// Archiving is done depth-first, writing any data owned by a type before writing
-/// the data for the type itself. The [`Resolver`](Resolve) must be able to create the
-/// archived type from only its own data and the value being archived.
+/// the data for the type itself. The [`Resolver`](Resolve) must be able to create
+/// the archived type from only its own data and the value being archived.
 ///
 /// ## Examples
 ///
@@ -212,10 +229,10 @@ pub trait Resolve<T: ?Sized> {
 /// available, but you may need to implement `Archive` for your own types in some
 /// cases the derive macro cannot handle.
 ///
-/// In this example, we add our own wrapper that serializes a `&'static str` as if it's
-/// owned. Normally you can lean on the archived version of `String` to do most of the work,
-/// but this example does everything to demonstrate how to implement `Archive` for your own
-/// types.
+/// In this example, we add our own wrapper that serializes a `&'static str` as if
+/// it's owned. Normally you can lean on the archived version of `String` to do
+/// most of the work, but this example does everything to demonstrate how to
+/// implement `Archive` for your own types.
 ///
 /// ```
 /// use core::{slice, str};
@@ -353,12 +370,12 @@ pub trait ArchiveRef {
 /// [`Copy`](core::marker::Copy).
 ///
 /// Types that implement `ArchiveSelf` are not guaranteed to have `archive` called
-/// on them to archive their value. Most or all implementations that leverage `ArchiveSelf`
-/// will require the `specialization` feature.
+/// on them to archive their value. Most or all implementations that leverage
+/// `ArchiveSelf` will require the `specialization` feature.
 ///
 /// `ArchiveSelf` must be manually implemented even if a type implements [`Archive`]
-/// and [`Copy`](core::marker::Copy) because some types may transform their data when
-/// writing to an archive.
+/// and [`Copy`](core::marker::Copy) because some types may transform their data
+/// when writing to an archive.
 ///
 /// ## Examples
 /// ```
@@ -403,8 +420,8 @@ pub struct RelPtr<T> {
 }
 
 impl<T> RelPtr<T> {
-    /// Creates a relative pointer from one position to another. `from` must be the location
-    /// where the relative pointer is written.
+    /// Creates a relative pointer from one position to another. `from` must be
+    /// the location where the relative pointer is written.
     pub fn new(from: usize, to: usize) -> Self {
         Self {
             offset: (to as isize - from as isize) as i32,
@@ -469,7 +486,8 @@ pub type ReferenceResolver<T> = <T as ArchiveRef>::Resolver;
 /// Alias for the reference for some [`ArchiveRef`] type.
 pub type Reference<T> = <T as ArchiveRef>::Reference;
 
-/// Wraps a type and aligns it to at least 16 bytes. Mainly used to align byte buffers for [ArchiveBuffer].
+/// Wraps a type and aligns it to at least 16 bytes. Mainly used to align
+/// byte buffers for [ArchiveBuffer].
 ///
 /// ## Examples
 /// ```
@@ -498,8 +516,8 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 
 /// Wraps a byte buffer and writes into it.
 ///
-/// Common uses include archiving in `#[no_std]` environments and archiving small objects
-/// without allocating.
+/// Common uses include archiving in `#[no_std]` environments and archiving
+/// small objects without allocating.
 ///
 /// ## Examples
 /// ```
@@ -536,9 +554,9 @@ impl<T> ArchiveBuffer<T> {
         Self::with_pos(inner, 0)
     }
 
-    /// Creates a new archive buffer from a byte buffer. The buffer will start writing at the
-    /// given position, but the buffer must contain all bytes (otherwise the alignments of
-    /// types may not be correct).
+    /// Creates a new archive buffer from a byte buffer. The buffer will start
+    /// writing at the given position, but the buffer must contain all bytes
+    /// (otherwise the alignments of types may not be correct).
     pub fn with_pos(inner: T, pos: usize) -> Self {
         Self {
             inner,
