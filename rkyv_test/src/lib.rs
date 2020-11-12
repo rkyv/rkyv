@@ -2,6 +2,7 @@
 mod tests {
     use std::collections::HashMap;
     use rkyv::{
+        Aligned,
         Archive,
         ArchiveBuffer,
         Archived,
@@ -15,21 +16,6 @@ mod tests {
         register_vtable,
     };
     use rkyv_typename::TypeName;
-
-    #[repr(align(16))]
-    struct Aligned<T>(T);
-
-    impl<T: AsRef<[U]>, U> AsRef<[U]> for Aligned<T> {
-        fn as_ref(&self) -> &[U] {
-            self.0.as_ref()
-        }
-    }
-
-    impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
-        fn as_mut(&mut self) -> &mut [U] {
-            self.0.as_mut()
-        }
-    }
 
     const BUFFER_SIZE: usize = 256;
 

@@ -30,6 +30,14 @@ use rkyv_typename::TypeName;
 pub use rkyv_dyn_derive::archive_dyn;
 pub use inventory;
 
+#[cfg(all(feature = "vtable_cache", feature = "nightly"))]
+use core::intrinsics::likely;
+#[cfg(all(feature = "vtable_cache", not(feature = "nightly")))]
+#[inline]
+fn likely(b: bool) -> bool {
+    b
+}
+
 pub type DynError = Box<dyn Any>;
 
 pub trait DynWrite {
@@ -126,7 +134,7 @@ impl<T: ?Sized> ArchivedDyn<T> {
     #[cfg(feature = "vtable_cache")]
     pub fn vtable(&self) -> *const () {
         let vtable = self.vtable.load(Ordering::Relaxed);
-        if rkyv::likely(vtable & 1 == 0) {
+        if likely(vtable & 1 == 0) {
             vtable as usize as *const ()
         } else {
             let ptr = TYPE_REGISTRY.vtable(ImplId(vtable)).expect("attempted to get vtable for an unregistered type");

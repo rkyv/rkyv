@@ -26,34 +26,6 @@ pub use memoffset::offset_of;
 
 pub use rkyv_derive::Archive;
 
-#[cfg(feature = "nightly")]
-pub use core::intrinsics::{
-    likely,
-    unlikely,
-};
-#[cfg(not(feature = "nightly"))]
-#[inline]
-pub fn likely(b: bool) -> bool {
-    b
-}
-#[cfg(not(feature = "nightly"))]
-#[inline]
-pub fn unlikely(b: bool) -> bool {
-    b
-}
-
-#[cfg(feature = "specialization")]
-#[macro_export]
-macro_rules! default {
-    ($($rest:tt)*) => { default $($rest)* };
-}
-
-#[cfg(not(feature = "specialization"))]
-#[macro_export]
-macro_rules! default {
-    ($($rest:tt)*) => { $($rest)* };
-}
-
 pub trait Write {
     type Error: 'static;
 
@@ -218,6 +190,49 @@ pub type Resolver<T> = <T as Archive>::Resolver;
 pub type ReferenceResolver<T> = <T as ArchiveRef>::Resolver;
 pub type Reference<T> = <T as ArchiveRef>::Reference;
 
+#[repr(align(16))]
+pub struct Aligned<T>(pub T);
+
+impl<T: AsRef<[U]>, U> AsRef<[U]> for Aligned<T> {
+    fn as_ref(&self) -> &[U] {
+        self.0.as_ref()
+    }
+}
+
+impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
+    fn as_mut(&mut self) -> &mut [U] {
+        self.0.as_mut()
+    }
+}
+
+/// Wraps a byte buffer and writes into it.
+///
+/// Common uses include archiving in `#[no_std]` environments and archiving small objects without allocating.
+///
+/// ## Examples
+/// ```
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, WriteExt};
+///
+/// #[derive(Archive)]
+/// enum Event {
+///     Spawn,
+///     Speak(String),
+///     Die,
+/// }
+/// 
+/// fn main() {
+///     const MAX_MESSAGE_SIZE: usize = 256;
+///     let mut writer = ArchiveBuffer::new(Aligned([0u8; MAX_MESSAGE_SIZE]));
+///     let pos = writer.archive(&Event::Speak("Help me!".to_string())).expect("Failed to archive event");
+///     let buf = writer.into_inner();
+///     let archived = unsafe { &*buf.as_ref().as_ptr().add(pos).cast::<Archived<Event>>() };
+///     if let Archived::<Event>::Speak(message) = archived {
+///         assert_eq!(message.as_str(), "Help me!");
+///     } else {
+///         panic!("archived event was of the wrong type");
+///     }
+/// }
+/// ```
 pub struct ArchiveBuffer<T> {
     inner: T,
     pos: usize,

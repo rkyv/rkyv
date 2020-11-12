@@ -7,7 +7,6 @@ use crate::{
     Archive,
     ArchiveRef,
     core_impl::ArchivedSliceRef,
-    default,
     Reference,
     ReferenceResolver,
     Resolve,
@@ -125,6 +124,16 @@ fn slice_archive_ref<T: Archive, W: Write + ?Sized>(slice: &[T], writer: &mut W)
         }
     }
     Ok(result)
+}
+
+#[cfg(feature = "specialization")]
+macro_rules! default {
+    ($($rest:tt)*) => { default $($rest)* };
+}
+
+#[cfg(not(feature = "specialization"))]
+macro_rules! default {
+    ($($rest:tt)*) => { $($rest)* };
 }
 
 impl<T: Archive> ArchiveRef for [T] {
