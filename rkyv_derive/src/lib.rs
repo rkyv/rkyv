@@ -1,3 +1,5 @@
+//! This crate contains procedural macros for the rkyv crate.
+
 extern crate proc_macro;
 
 use proc_macro2::{
@@ -128,6 +130,13 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
     Ok(result)
 }
 
+/// Derives `Archive` for the labeled type.
+///
+/// Additional arguments can be specified using the `#[archive(...)]` attribute:
+///
+/// - `self`: Implements `ArchiveSelf` as well as `Archive`. Only suitable for types that can be directly archived.
+/// - `derive(...)`: Adds a `#[derive(...)]` attribute to the archived type.
+/// - `archived = "..."`: Exposes the archived type with the given name.
 #[proc_macro_derive(Archive, attributes(archive))]
 pub fn archive_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
