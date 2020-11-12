@@ -1,3 +1,11 @@
+//! Trait object serialization for rkyv.
+//!
+//! With rkyv_dyn, trait objects can be serialized with rkyv then
+//! the methods can be called without deserializing. All it takes
+//! is some macro magic.
+//!
+//! See [`ArchiveDyn`] for an example of how to use rkyv_dyn.
+
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
 use core::{
