@@ -200,7 +200,7 @@ pub trait Resolve<T: ?Sized> {
 /// generated. See the [`Archive`](macro@Archive) derive macro for more details.
 ///
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, WriteExt};
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, WriteExt};
 ///
 /// #[derive(Archive)]
 /// struct Test {
@@ -219,7 +219,7 @@ pub trait Resolve<T: ?Sized> {
 ///     let pos = writer.archive(&value)
 ///         .expect("failed to archive test");
 ///     let buf = writer.into_inner();
-///     let archived = unsafe { &*buf.as_ref().as_ptr().add(pos).cast::<Archived<Test>>() };
+///     let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 ///     assert_eq!(archived.int, value.int);
 ///     assert_eq!(archived.string, value.string);
 ///     assert_eq!(archived.option, value.option);
@@ -240,8 +240,9 @@ pub trait Resolve<T: ?Sized> {
 /// use rkyv::{
 ///     Aligned,
 ///     Archive,
-///     Archived,
 ///     ArchiveBuffer,
+///     Archived,
+///     archived_value,
 ///     offset_of,
 ///     RelPtr,
 ///     Resolve,
@@ -322,7 +323,7 @@ pub trait Resolve<T: ?Sized> {
 ///     let pos = writer.archive(&value)
 ///         .expect("failed to archive test");
 ///     let buf = writer.into_inner();
-///     let archived = unsafe { &*buf.as_ref().as_ptr().add(pos).cast::<Archived<OwnedStr>>() };
+///     let archived = unsafe { archived_value::<OwnedStr>(buf.as_ref(), pos) };
 ///     // Let's make sure our data got written correctly
 ///     assert_eq!(archived.as_str(), STR_VAL);
 /// }
@@ -380,7 +381,7 @@ pub trait ArchiveRef {
 ///
 /// ## Examples
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, Write, WriteExt};
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, archived_value, Write, WriteExt};
 ///
 /// #[derive(Archive, Clone, Copy, Debug, PartialEq)]
 /// #[archive(self)]
@@ -392,7 +393,7 @@ pub trait ArchiveRef {
 ///     let pos = writer.archive(&value)
 ///         .expect("failed to archive Vector4");
 ///     let buf = writer.into_inner();
-///     let archived_value = unsafe { &*buf.as_ref().as_ptr().add(pos).cast::<Vector4<f32>>() };
+///     let archived_value = unsafe { archived_value::<Vector4<f32>>(buf.as_ref(), pos) };
 ///     assert_eq!(&value, archived_value);
 /// }
 /// ```
@@ -522,7 +523,7 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 ///
 /// ## Examples
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, WriteExt};
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, WriteExt};
 ///
 /// #[derive(Archive)]
 /// enum Event {
@@ -536,7 +537,7 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 ///     let pos = writer.archive(&Event::Speak("Help me!".to_string()))
 ///         .expect("failed to archive event");
 ///     let buf = writer.into_inner();
-///     let archived = unsafe { &*buf.as_ref().as_ptr().add(pos).cast::<Archived<Event>>() };
+///     let archived = unsafe { archived_value::<Event>(buf.as_ref(), pos) };
 ///     if let Archived::<Event>::Speak(message) = archived {
 ///         assert_eq!(message.as_str(), "Help me!");
 ///     } else {
@@ -659,4 +660,32 @@ impl<W: io::Write> Write for ArchiveWriter<W> {
         self.pos += self.inner.write(bytes)?;
         Ok(())
     }
+}
+
+/// Casts an archived value from the given byte array at the given position.
+///
+/// This helps avoid situations where lifetimes get inappropriately assigned
+/// and allow buffer mutation after getting archived value references.
+///
+/// # Safety
+///
+/// This is only safe to call if the value is archived at the given position
+/// in the byte array.
+#[inline]
+pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &Archived<T> {
+    &*bytes.as_ptr().add(pos).cast()
+}
+
+/// Casts an archived reference from the given byte array at the given position.
+///
+/// This helps avoid situations where lifetimes get inappropriately assigned
+/// and allow buffer mutation after getting archived value references.
+///
+/// # Safety
+///
+/// This is only safe to call if the reference is archived at the given position
+/// in the byte array.
+#[inline]
+pub unsafe fn archived_ref<T: ArchiveRef + ?Sized>(bytes: &[u8], pos: usize) -> &Reference<T> {
+    &*bytes.as_ptr().add(pos).cast()
 }

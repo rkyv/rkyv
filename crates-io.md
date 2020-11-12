@@ -11,7 +11,7 @@ You may be looking for:
 ## rkyv in action
 
 ```rust
-use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, WriteExt};
+use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, WriteExt};
 
 #[derive(Archive)]
 struct Test {
@@ -30,7 +30,7 @@ fn main() {
     let pos = writer.archive(&value)
         .expect("failed to archive test");
     let buf = writer.into_inner();
-    let archived = unsafe { &*buf.as_ref().as_ptr().add(pos).cast::<Archived<Test>>() };
+    let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
     assert_eq!(archived.int, value.int);
     assert_eq!(archived.string, value.string);
     assert_eq!(archived.option, value.option);

@@ -6,6 +6,8 @@ mod tests {
         Archive,
         ArchiveBuffer,
         Archived,
+        archived_value,
+        archived_ref,
         ArchiveRef,
         WriteExt,
     };
@@ -21,7 +23,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(value).expect("failed to archive value");
         let buf = writer.into_inner();
-        let archived_value = unsafe { &*buf.as_ref().as_ptr().offset(pos as isize).cast::<U>() };
+        let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
     }
 
@@ -29,7 +31,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive_ref(value).expect("failed to archive ref");
         let buf = writer.into_inner();
-        let archived_ref = unsafe { &*buf.as_ref().as_ptr().offset(pos as isize).cast::<T::Reference>() };
+        let archived_ref = unsafe { archived_ref::<T>(buf.as_ref(), pos) };
         assert!(&**archived_ref == value);
     }
 
@@ -37,7 +39,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(value).expect("failed to archive ref");
         let buf = writer.into_inner();
-        let archived_ref = unsafe { &*buf.as_ref().as_ptr().offset(pos as isize).cast::<U>() };
+        let archived_ref = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(&**archived_ref == &**value);
     }
 
@@ -107,7 +109,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(&hash_map).expect("failed to archive value");
         let buf = writer.into_inner();
-        let archived_value = unsafe { &*buf.as_ref().as_ptr().offset(pos as isize).cast::<Archived<HashMap<String, String>>>() };
+        let archived_value = unsafe { archived_value::<HashMap<String, String>>(buf.as_ref(), pos) };
 
         assert!(archived_value.len() == hash_map.len());
 
@@ -379,7 +381,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(&value).expect("failed to archive value");
         let buf = writer.into_inner();
-        let archived_value = unsafe { &*buf.as_ref().as_ptr().offset(pos as isize).cast::<Archived<Test>>() };
+        let archived_value = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 
         assert_eq!(archived_value, &archived_value.clone());
     }
@@ -423,7 +425,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(&value).expect("failed to archive value");
         let buf = writer.into_inner();
-        let archived_value = unsafe { &*buf.as_ref().as_ptr().offset(pos as isize).cast::<Archived<Box<dyn ArchiveTestTrait>>>() };
+        let archived_value = unsafe { archived_value::<Box<dyn ArchiveTestTrait>>(buf.as_ref(), pos) };
         assert_eq!(value.get_id(), archived_value.get_id());
 
         // exercise vtable cache
@@ -481,8 +483,8 @@ mod tests {
         let i32_pos = writer.archive(&i32_value).expect("failed to archive value");
         let string_pos = writer.archive(&string_value).expect("failed to archive value");
         let buf = writer.into_inner();
-        let i32_archived_value = unsafe { &*buf.as_ref().as_ptr().offset(i32_pos as isize).cast::<Archived<Box<dyn ArchiveableTestTrait<i32>>>>() };
-        let string_archived_value = unsafe { &*buf.as_ref().as_ptr().offset(string_pos as isize).cast::<Archived<Box<dyn ArchiveableTestTrait<String>>>>() };
+        let i32_archived_value = unsafe { archived_value::<Box<dyn ArchiveableTestTrait<i32>>>(buf.as_ref(), i32_pos) };
+        let string_archived_value = unsafe { archived_value::<Box<dyn ArchiveableTestTrait<String>>>(buf.as_ref(), string_pos) };
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 

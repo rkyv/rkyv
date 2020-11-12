@@ -132,8 +132,9 @@ impl<T: TypeName> TypeNameDyn for T {
 /// use rkyv::{
 ///     Aligned,
 ///     Archive,
-///     Archived,
 ///     ArchiveBuffer,
+///     Archived,
+///     archived_value,
 ///     WriteExt,
 /// };
 /// use rkyv_dyn::archive_dyn;
@@ -185,8 +186,8 @@ impl<T: TypeName> TypeNameDyn for T {
 ///     let string_pos = writer.archive(&boxed_string)
 ///         .expect("failed to archive boxed string");
 ///     let buf = writer.into_inner();
-///     let archived_int = unsafe { &*buf.as_ref().as_ptr().add(int_pos).cast::<Archived<Box<dyn ArchiveExampleTrait>>>() };
-///     let archived_string = unsafe { &*buf.as_ref().as_ptr().add(string_pos).cast::<Archived<Box<dyn ArchiveExampleTrait>>>() };
+///     let archived_int = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>>(buf.as_ref(), int_pos) };
+///     let archived_string = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>>(buf.as_ref(), string_pos) };
 ///     assert_eq!(archived_int.value(), "42");
 ///     assert_eq!(archived_string.value(), "hello world");
 /// }
