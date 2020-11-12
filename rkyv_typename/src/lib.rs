@@ -32,6 +32,7 @@
 //!
 //! By default, the `std` feature is enabled.
 
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "const_generics", allow(incomplete_features))]
 #![cfg_attr(feature = "const_generics", feature(const_generics))]
 

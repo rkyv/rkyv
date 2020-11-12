@@ -60,6 +60,7 @@
 //!
 //! By default, the `std` and `inline_more` features are enabled.
 
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(any(feature = "const_generics", feature = "specialization"), allow(incomplete_features))]
 #![cfg_attr(feature = "const_generics", feature(const_generics))]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
