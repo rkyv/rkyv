@@ -1,9 +1,11 @@
-# rkyv_dyn &emsp; [![Latest Version]][crates.io] [![License]][license path]
+# rkyv_dyn &emsp; [![Latest Version]][crates.io] [![License]][license path] [![requires: rustc 1.47+]][Rust 1.47]
 
 [Latest Version]: https://img.shields.io/crates/v/rkyv_dyn.svg
 [crates.io]: https://crates.io/crates/rkyv_dyn
 [License]: https://img.shields.io/badge/license-MIT-blue.svg
 [license path]: https://github.com/djkoloski/rkyv/blob/master/LICENSE
+[requires: rustc 1.47+]: https://img.shields.io/badge/rustc-1.47+-lightgray.svg
+[Rust 1.47]: https://blog.rust-lang.org/2020/10/08/Rust-1.47.html
 
 Trait object serialization for rkyv.
 
