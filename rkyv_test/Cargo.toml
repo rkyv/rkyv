@@ -1,17 +1,18 @@
 [package]
 name = "rkyv_test"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Test suite for rkyv crates"
 license = "MIT"
+repository = "https://github.com/djkoloski/rkyv"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dev-dependencies]
-rkyv = { version = "0.0", path = "../rkyv" }
-rkyv_dyn = { version = "0.0", path = "../rkyv_dyn" }
-rkyv_typename = { version = "0.0", path = "../rkyv_typename" }
+rkyv = { version = "0.1", path = "../rkyv" }
+rkyv_dyn = { version = "0.1", path = "../rkyv_dyn" }
+rkyv_typename = { version = "0.1", path = "../rkyv_typename" }
 
 [features]
 default = ["std", "inline_more"]

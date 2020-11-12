@@ -28,6 +28,7 @@ use rkyv::{
 use rkyv_typename::TypeName;
 
 pub use rkyv_dyn_derive::archive_dyn;
+#[doc(hidden)]
 pub use inventory;
 
 #[cfg(all(feature = "vtable_cache", feature = "nightly"))]
@@ -38,11 +39,19 @@ fn likely(b: bool) -> bool {
     b
 }
 
+/// A generic error that can be returned from a [`DynWrite`].
 pub type DynError = Box<dyn Any>;
 
+/// An object-safe version of `Write`.
+///
+/// Instead of an associated error type, `DynWrite` returns the
+/// [`DynError`] type. If you have a writer that already implements
+/// `Write`, then it will automatically implement `DynWrite`.
 pub trait DynWrite {
+    /// Returns the current position of the writer.
     fn pos(&self) -> usize;
 
+    /// Attempts to write the given bytes to the writer.
     fn write(&mut self, bytes: &[u8]) -> Result<(), DynError>;
 }
 
@@ -71,7 +80,12 @@ impl<'a> Write for dyn DynWrite + 'a {
     }
 }
 
+/// An object-safe version of `TypeName`.
+///
+/// This makes it possible to build the type name through a
+/// trait object.
 pub trait TypeNameDyn {
+    /// Submits the pieces of the type name to the given function.
     fn build_type_name(&self, f: &mut dyn FnMut(&str));
 }
 
@@ -81,7 +95,97 @@ impl<T: TypeName> TypeNameDyn for T {
     }
 }
 
+/// A trait object that can be serialized.
+///
+/// To add archive support for a trait object:
+///
+/// 1. Add [`archive_dyn`](macro@archive_dyn) on your trait to
+/// make an archive-compatible version of it. By default, it
+/// will be named "Archive" + your trait name.
+/// 2. Implement `Archive` and `TypeName` for the types you want
+/// to make trait objects of.
+/// 3. Implement your trait for your type and add the attribute
+/// `#[archive_dyn]` to it. Make sure to implement your trait
+/// for your archived type as well.
+///
+/// Then you're ready to serialize boxed trait objects!
+///
+/// Even though your unarchived values are boxed as archive
+/// trait objects, your archived values are boxed as regular
+/// trait objects. This is because your unarchived values have
+/// to implement `ArchiveDyn` but your archived values do not.
+///
+/// ## Examples
+///
+/// See [`archive_dyn`](macro@archive_dyn) for customization
+/// options.
+///
+/// ```
+/// use rkyv::{
+///     Aligned,
+///     Archive,
+///     Archived,
+///     ArchiveBuffer,
+///     WriteExt,
+/// };
+/// use rkyv_dyn::archive_dyn;
+/// use rkyv_typename::TypeName;
+///
+/// #[archive_dyn]
+/// trait ExampleTrait {
+///     fn value(&self) -> String;
+/// }
+///
+/// #[derive(Archive, TypeName)]
+/// struct StringStruct(String);
+///
+/// #[archive_dyn]
+/// impl ExampleTrait for StringStruct {
+///     fn value(&self) -> String {
+///         self.0.clone()
+///     }
+/// }
+///
+/// impl ExampleTrait for Archived<StringStruct> {
+///     fn value(&self) -> String {
+///         self.0.as_str().to_string()
+///     }
+/// }
+///
+/// #[derive(Archive, TypeName)]
+/// struct IntStruct(i32);
+///
+/// #[archive_dyn]
+/// impl ExampleTrait for IntStruct {
+///     fn value(&self) -> String {
+///         format!("{}", self.0)
+///     }
+/// }
+///
+/// impl ExampleTrait for Archived<IntStruct> {
+///     fn value(&self) -> String {
+///         format!("{}", self.0)
+///     }
+/// }
+///
+/// fn main() {
+///     let boxed_int = Box::new(IntStruct(42)) as Box<dyn ArchiveExampleTrait>;
+///     let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn ArchiveExampleTrait>;
+///     let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+///     let int_pos = writer.archive(&boxed_int)
+///         .expect("failed to archive boxed int");
+///     let string_pos = writer.archive(&boxed_string)
+///         .expect("failed to archive boxed string");
+///     let buf = writer.into_inner();
+///     let archived_int = unsafe { &*buf.as_ref().as_ptr().add(int_pos).cast::<Archived<Box<dyn ArchiveExampleTrait>>>() };
+///     let archived_string = unsafe { &*buf.as_ref().as_ptr().add(string_pos).cast::<Archived<Box<dyn ArchiveExampleTrait>>>() };
+///     assert_eq!(archived_int.value(), "42");
+///     assert_eq!(archived_string.value(), "hello world");
+/// }
+/// ```
 pub trait ArchiveDyn: TypeNameDyn {
+    /// Writes the value to the writer and returns a resolver
+    /// that can create a [`ArchivedDyn`] reference.
     fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError>;
 }
 
@@ -91,11 +195,13 @@ impl<T: Archive + TypeName> ArchiveDyn for T {
     }
 }
 
+/// The resolver for an [`ArchivedDyn`].
 pub struct DynResolver {
     pos: usize,
 }
 
 impl DynResolver {
+    /// Creates a new `DynResolver` with a given data position.
     pub fn new(pos: usize) -> Self {
         Self {
             pos,
@@ -103,8 +209,18 @@ impl DynResolver {
     }
 }
 
+#[doc(hidden)]
 pub struct TraitObject(*const (), *const ());
 
+/// A reference to an archived trait object.
+///
+/// This is essentially a pair of a data pointer and a vtable
+/// id. The `vtable_cache` feature is recommended if your
+/// situation allows for it. With `vtable_cache`, the
+/// vtable will only be looked up once and then stored locally
+/// for subsequent lookups when the reference is dereferenced.
+///
+/// `ArchivedDyn` is the trait object extension of `RelPtr`.
 #[derive(Debug)]
 pub struct ArchivedDyn<T: ?Sized> {
     ptr: RelPtr<()>,
@@ -116,6 +232,8 @@ pub struct ArchivedDyn<T: ?Sized> {
 }
 
 impl<T: ?Sized> ArchivedDyn<T> {
+    /// Creates a new `ArchivedDyn` from a data position,
+    /// [`DynResolver`], and an implementation id.
     pub fn new(from: usize, resolver: DynResolver, id: &ImplId) -> ArchivedDyn<T> {
         ArchivedDyn {
             ptr: RelPtr::new(from + offset_of!(ArchivedDyn<T>, ptr), resolver.pos),
@@ -127,6 +245,7 @@ impl<T: ?Sized> ArchivedDyn<T> {
         }
     }
 
+    /// Gets the data pointer of the trait object.
     pub fn data_ptr(&self) -> *const () {
         self.ptr.as_ptr()
     }
@@ -143,6 +262,9 @@ impl<T: ?Sized> ArchivedDyn<T> {
         }
     }
 
+    /// Gets the vtable pointer for this trait object. With the
+    /// `vtable_cache` feature, this will store the vtable
+    /// locally on the first lookup.
     #[cfg(not(feature = "vtable_cache"))]
     pub fn vtable(&self) -> *const () {
         TYPE_REGISTRY.vtable(ImplId(self.id)).expect("attempted to get vtable for an unregistered type")
@@ -160,6 +282,7 @@ where
     }
 }
 
+#[doc(hidden)]
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct ImplId(u64);
 
@@ -195,6 +318,7 @@ impl ImplId {
     }
 }
 
+#[doc(hidden)]
 pub struct ImplVTable {
     id: ImplId,
     vtable: VTable,
@@ -211,6 +335,7 @@ impl ImplVTable {
 
 inventory::collect!(ImplVTable);
 
+#[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct VTable(pub *const ());
 
@@ -256,6 +381,15 @@ lazy_static::lazy_static! {
     };
 }
 
+/// Registers a new vtable with the trait object system.
+///
+/// This is called by `#[archive_dyn]` when attached to trait
+/// impls, but can be called manually to register impls instead.
+/// You might need to do this if you're using generic traits
+/// and types, since each specific instance needs to be
+/// individually registered.
+///
+/// Call it like `register_vtable!(MyType as dyn MyTrait)`.
 #[macro_export]
 macro_rules! register_vtable {
     ($type:ty as $trait:ty) => {

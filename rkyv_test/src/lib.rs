@@ -7,8 +7,6 @@ mod tests {
         ArchiveBuffer,
         Archived,
         ArchiveRef,
-        Resolve,
-        Write,
         WriteExt,
     };
     use rkyv_dyn::{

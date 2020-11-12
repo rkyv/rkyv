@@ -1,9 +1,5 @@
 extern crate proc_macro;
 
-// use proc_macro2::{
-//     Span,
-//     TokenStream,
-// };
 use quote::{
     quote,
     quote_spanned,
@@ -79,6 +75,12 @@ impl Parse for TraitArgs {
     }
 }
 
+/// Creates archiveable trait objects and registers implementations.
+///
+/// Prepend to trait definitions and implementations.
+/// On trait definitions, you can use the form `#[archive_dyn = "..."]`
+/// to choose the name of the archive type. By default, it will be
+/// named "Archive" + your trait name.
 #[proc_macro_attribute]
 pub fn archive_dyn(attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(item as Input);
@@ -147,6 +149,12 @@ pub fn archive_dyn(attr: proc_macro::TokenStream, item: proc_macro::TokenStream)
                 #vis trait #archive_trait<#generic_params>: #name<#generic_args> + rkyv_dyn::ArchiveDyn {}
 
                 const _: ()  = {
+                    use rkyv::{
+                        Archived,
+                        ArchiveRef,
+                        Resolve,
+                        Write,
+                    };
                     use rkyv_dyn::{
                         ArchiveDyn,
                         ArchivedDyn,

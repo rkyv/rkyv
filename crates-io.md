@@ -1,10 +1,3 @@
-# rkyv &emsp; [![Latest Version]][crates.io] [![License]][license path]
-
-[Latest Version]: https://img.shields.io/crates/v/rkyv.svg
-[crates.io]: https://crates.io/crates/rkyv
-[License]: https://img.shields.io/badge/license-MIT-blue.svg
-[license path]: https://github.com/djkoloski/rkyv/blob/master/LICENSE
-
 rkyv (*archive*) is a zero-copy deserialization framework for Rust.
 
 ---

@@ -8,6 +8,21 @@
 //! [`TypeName`], and has options to easily customize your
 //! type's name.
 //!
+//! ## Examples
+//!
+//! ```
+//! use rkyv_typename::TypeName;
+//! #[derive(TypeName)]
+//! #[typename = "CoolType"]
+//! struct Example<T>(T);
+//!
+//! fn main() {
+//!     let mut type_name = String::new();
+//!     Example::<i32>::build_type_name(|piece| type_name += piece);
+//!     assert_eq!(type_name, "CoolType<i32>");
+//! }
+//! ```
+//!
 //! ## Features
 //!
 //! - `const_generics`: Uses the incomplete `const_generics`
@@ -80,6 +95,7 @@ pub use rkyv_typename_derive::TypeName;
 /// }
 /// ```
 pub trait TypeName {
+    /// Submits the pieces of the type name to the given function.
     fn build_type_name<F: FnMut(&str)>(f: F);
 }
 
