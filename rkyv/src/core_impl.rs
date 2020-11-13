@@ -53,7 +53,7 @@ impl_primitive!(f64);
 impl_primitive!(char);
 
 macro_rules! peel_tuple {
-    ($type:ident $value:tt, $($type_rest:ident $value_rest:tt,)*) => { impl_tuple! { $($type_rest $value_rest,)* } };
+    ($type:ident $index:tt, $($type_rest:ident $index_rest:tt,)*) => { impl_tuple! { $($type_rest $index_rest,)* } };
 }
 
 macro_rules! impl_tuple {
