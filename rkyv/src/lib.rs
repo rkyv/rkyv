@@ -209,21 +209,19 @@ pub trait Resolve<T: ?Sized> {
 ///     option: Option<Vec<i32>>,
 /// }
 ///
-/// fn main() {
-///     let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-///     let value = Test {
-///         int: 42,
-///         string: "hello world".to_string(),
-///         option: Some(vec![1, 2, 3, 4]),
-///     };
-///     let pos = writer.archive(&value)
-///         .expect("failed to archive test");
-///     let buf = writer.into_inner();
-///     let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
-///     assert_eq!(archived.int, value.int);
-///     assert_eq!(archived.string, value.string);
-///     assert_eq!(archived.option, value.option);
-/// }
+/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+/// let value = Test {
+///     int: 42,
+///     string: "hello world".to_string(),
+///     option: Some(vec![1, 2, 3, 4]),
+/// };
+/// let pos = writer.archive(&value)
+///     .expect("failed to archive test");
+/// let buf = writer.into_inner();
+/// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+/// assert_eq!(archived.int, value.int);
+/// assert_eq!(archived.string, value.string);
+/// assert_eq!(archived.option, value.option);
 /// ```
 ///
 /// Many of the core and standard library types already have Archive implementations
@@ -387,15 +385,13 @@ pub trait ArchiveRef {
 /// #[archive(self)]
 /// struct Vector4<T>(T, T, T, T);
 ///
-/// fn main() {
-///     let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-///     let value = Vector4(1f32, 2f32, 3f32, 4f32);
-///     let pos = writer.archive(&value)
-///         .expect("failed to archive Vector4");
-///     let buf = writer.into_inner();
-///     let archived_value = unsafe { archived_value::<Vector4<f32>>(buf.as_ref(), pos) };
-///     assert_eq!(&value, archived_value);
-/// }
+/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+/// let value = Vector4(1f32, 2f32, 3f32, 4f32);
+/// let pos = writer.archive(&value)
+///     .expect("failed to archive Vector4");
+/// let buf = writer.into_inner();
+/// let archived_value = unsafe { archived_value::<Vector4<f32>>(buf.as_ref(), pos) };
+/// assert_eq!(&value, archived_value);
 /// ```
 pub unsafe trait ArchiveSelf: Archive<Archived = Self> + Copy {}
 
@@ -496,10 +492,8 @@ pub type Reference<T> = <T as ArchiveRef>::Reference;
 /// use core::mem;
 /// use rkyv::Aligned;
 ///
-/// fn main() {
-///     assert_eq!(mem::align_of::<u8>(), 1);
-///     assert_eq!(mem::align_of::<Aligned<u8>>(), 16);
-/// }
+/// assert_eq!(mem::align_of::<u8>(), 1);
+/// assert_eq!(mem::align_of::<Aligned<u8>>(), 16);
 /// ```
 #[repr(align(16))]
 pub struct Aligned<T>(pub T);
@@ -532,17 +526,15 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 ///     Die,
 /// }
 /// 
-/// fn main() {
-///     let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-///     let pos = writer.archive(&Event::Speak("Help me!".to_string()))
-///         .expect("failed to archive event");
-///     let buf = writer.into_inner();
-///     let archived = unsafe { archived_value::<Event>(buf.as_ref(), pos) };
-///     if let Archived::<Event>::Speak(message) = archived {
-///         assert_eq!(message.as_str(), "Help me!");
-///     } else {
-///         panic!("archived event was of the wrong type");
-///     }
+/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+/// let pos = writer.archive(&Event::Speak("Help me!".to_string()))
+///     .expect("failed to archive event");
+/// let buf = writer.into_inner();
+/// let archived = unsafe { archived_value::<Event>(buf.as_ref(), pos) };
+/// if let Archived::<Event>::Speak(message) = archived {
+///     assert_eq!(message.as_str(), "Help me!");
+/// } else {
+///     panic!("archived event was of the wrong type");
 /// }
 /// ```
 pub struct ArchiveBuffer<T> {
@@ -610,15 +602,13 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
 /// ```
 /// use rkyv::{ArchiveWriter, Write};
 ///
-/// fn main() {
-///     let mut writer = ArchiveWriter::new(Vec::new());
-///     assert_eq!(writer.pos(), 0);
-///     writer.write(&[0u8, 1u8, 2u8, 3u8]);
-///     assert_eq!(writer.pos(), 4);
-///     let buf = writer.into_inner();
-///     assert_eq!(buf.len(), 4);
-///     assert_eq!(buf, vec![0u8, 1u8, 2u8, 3u8]);
-/// }
+/// let mut writer = ArchiveWriter::new(Vec::new());
+/// assert_eq!(writer.pos(), 0);
+/// writer.write(&[0u8, 1u8, 2u8, 3u8]);
+/// assert_eq!(writer.pos(), 4);
+/// let buf = writer.into_inner();
+/// assert_eq!(buf.len(), 4);
+/// assert_eq!(buf, vec![0u8, 1u8, 2u8, 3u8]);
 /// ```
 #[cfg(feature = "std")]
 pub struct ArchiveWriter<W: io::Write> {

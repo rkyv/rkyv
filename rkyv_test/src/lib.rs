@@ -495,4 +495,44 @@ mod tests {
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
     }
+
+    #[test]
+    fn derive_visibility() {
+        mod inner {
+            #[derive(super::Archive)]
+            #[archive(archived = "ArchivedTestTuple")]
+            pub struct TestTuple(pub i32);
+
+            #[derive(super::Archive)]
+            #[archive(archived = "ArchivedTestStruct")]
+            pub struct TestStruct {
+                pub value: i32,
+            }
+
+            #[derive(super::Archive)]
+            #[archive(archived = "ArchivedTestEnum")]
+            pub enum TestEnum {
+                B(i32),
+                C { value: i32 },
+            }
+        }
+
+        use inner::{
+            ArchivedTestEnum,
+            ArchivedTestStruct,
+            ArchivedTestTuple,
+            TestEnum,
+            TestStruct,
+            TestTuple,
+        };
+
+        TestTuple(42);
+        ArchivedTestTuple(42);
+        TestStruct { value: 42 };
+        ArchivedTestStruct { value: 42 };
+        TestEnum::B(42);
+        TestEnum::C { value: 42 };
+        ArchivedTestEnum::B(42);
+        ArchivedTestEnum::C { value: 42 };
+    }
 }

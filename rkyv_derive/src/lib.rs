@@ -194,7 +194,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 Fields::Named(ref fields) => {
                     let field_wheres = fields.named.iter().map(|f| {
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: Archive }
+                        quote_spanned! { f.span() => #ty: rkyv::Archive }
                     });
                     let field_wheres = quote! { #(#field_wheres,)* };
 
@@ -212,12 +212,13 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     let archived_fields = fields.named.iter().map(|f| {
                         let name = &f.ident;
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => #name: rkyv::Archived<#ty> }
+                        let vis = &f.vis;
+                        quote_spanned! { f.span() => #vis #name: rkyv::Archived<#ty> }
                     });
 
                     let archived_values = fields.named.iter().map(|f| {
                         let name = &f.ident;
-                        quote_spanned! { f.span() => #name: self.#name.resolve(pos + offset_of!(Archived<#generic_args>, #name), &value.#name) }
+                        quote_spanned! { f.span() => #name: self.#name.resolve(pos + offset_of!(#archived<#generic_args>, #name), &value.#name) }
                     });
 
                     (
@@ -245,7 +246,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                                 #generic_predicates
                                 #field_wheres
                             {
-                                type Archived = Archived<#generic_args>;
+                                type Archived = #archived<#generic_args>;
 
                                 fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
                                     Self::Archived {
@@ -259,7 +260,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                                 #generic_predicates
                                 #field_wheres
                             {
-                                type Archived = Archived<#generic_args>;
+                                type Archived = #archived<#generic_args>;
                                 type Resolver = Resolver<#generic_args>;
 
                                 fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
@@ -274,7 +275,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 Fields::Unnamed(ref fields) => {
                     let field_wheres = fields.unnamed.iter().map(|f| {
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: Archive }
+                        quote_spanned! { f.span() => #ty: rkyv::Archive }
                     });
                     let field_wheres = quote! { #(#field_wheres,)* };
 
@@ -290,12 +291,13 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
 
                     let archived_fields = fields.unnamed.iter().map(|f| {
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => rkyv::Archived<#ty> }
+                        let vis = &f.vis;
+                        quote_spanned! { f.span() => #vis rkyv::Archived<#ty> }
                     });
 
                     let archived_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
                         let index = Index::from(i);
-                        quote_spanned! { f.span() => self.#index.resolve(pos + offset_of!(Archived<#generic_args>, #index), &value.#index) }
+                        quote_spanned! { f.span() => self.#index.resolve(pos + offset_of!(#archived<#generic_args>, #index), &value.#index) }
                     });
 
                     (
@@ -317,10 +319,10 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                                 #generic_predicates
                                 #field_wheres
                             {
-                                type Archived = Archived<#generic_args>;
+                                type Archived = #archived<#generic_args>;
 
                                 fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
-                                    Archived::<#generic_args>(
+                                    #archived::<#generic_args>(
                                         #(#archived_values,)*
                                     )
                                 }
@@ -331,7 +333,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                                 #generic_predicates
                                 #field_wheres
                             {
-                                type Archived = Archived<#generic_args>;
+                                type Archived = #archived<#generic_args>;
                                 type Resolver = Resolver<#generic_args>;
 
                                 fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
@@ -358,10 +360,10 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                             where
                                 #generic_predicates
                             {
-                                type Archived = Archived<#generic_args>;
+                                type Archived = #archived<#generic_args>;
 
                                 fn resolve(self, _pos: usize, _value: &#name<#generic_args>) -> Self::Archived {
-                                    Archived::<#generic_args>
+                                    #archived::<#generic_args>
                                 }
                             }
 
@@ -369,7 +371,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                             where
                                 #generic_predicates
                             {
-                                type Archived = Archived;
+                                type Archived = #archived<#generic_args>;
                                 type Resolver = Resolver;
 
                                 fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
@@ -387,14 +389,14 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     Fields::Named(ref fields) => {
                         let field_wheres = fields.named.iter().map(|f| {
                             let ty = &f.ty;
-                            quote_spanned! { f.span() =>  #ty: Archive }
+                            quote_spanned! { f.span() =>  #ty: rkyv::Archive }
                         });
                         quote! { #(#field_wheres,)* }
                     },
                     Fields::Unnamed(ref fields) => {
                         let field_wheres = fields.unnamed.iter().map(|f| {
                             let ty = &f.ty;
-                            quote_spanned! { f.span() => #ty: Archive }
+                            quote_spanned! { f.span() => #ty: rkyv::Archive }
                         });
                         quote! { #(#field_wheres,)* }
                     },
@@ -456,7 +458,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         });
                         quote_spanned! { name.span() =>
                             Self::#variant { #(#self_bindings,)* } => {
-                                if let #name::#variant { #(#value_bindings,)* } = value { Archived::#variant { #(#fields,)* } } else { panic!("enum resolver variant does not match value variant") }
+                                if let #name::#variant { #(#value_bindings,)* } = value { #archived::#variant { #(#fields,)* } } else { panic!("enum resolver variant does not match value variant") }
                             }
                         }
                     },
@@ -479,11 +481,11 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         });
                         quote_spanned! { name.span() =>
                             Self::#variant( #(#self_bindings,)* ) => {
-                                if let #name::#variant(#(#value_bindings,)*) = value { Archived::#variant(#(#fields,)*) } else { panic!("enum resolver variant does not match value variant") }
+                                if let #name::#variant(#(#value_bindings,)*) = value { #archived::#variant(#(#fields,)*) } else { panic!("enum resolver variant does not match value variant") }
                             }
                         }
                     },
-                    Fields::Unit => quote_spanned! { name.span() => Self::#variant => Archived::#variant },
+                    Fields::Unit => quote_spanned! { name.span() => Self::#variant => #archived::#variant },
                 }
             });
 
@@ -502,7 +504,8 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             let ty = &f.ty;
-                            quote_spanned! { f.span() => #name: rkyv::Archived<#ty> }
+                            let vis = &f.vis;
+                            quote_spanned! { f.span() => #vis #name: rkyv::Archived<#ty> }
                         });
                         quote_spanned! { variant.span() =>
                             #variant {
@@ -513,7 +516,8 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().map(|f| {
                             let ty = &f.ty;
-                            quote_spanned! { f.span() => rkyv::Archived<#ty> }
+                            let vis = &f.vis;
+                            quote_spanned! { f.span() => #vis rkyv::Archived<#ty> }
                         });
                         quote_spanned! { variant.span() =>
                             #variant(#(#fields,)*)
@@ -633,7 +637,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         #generic_predicates
                         #field_wheres
                     {
-                        type Archived = Archived<#generic_args>;
+                        type Archived = #archived<#generic_args>;
 
                         fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
                             match self {
@@ -654,7 +658,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         #generic_predicates
                         #field_wheres
                     {
-                        type Archived = Archived<#generic_args>;
+                        type Archived = #archived<#generic_args>;
                         type Resolver = Resolver<#generic_args>;
 
                         fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
@@ -681,7 +685,6 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     Resolve,
                     Write,
                 };
-                type Archived<#generic_params> = #archived<#generic_args>;
                 #archive_impl
             };
         }

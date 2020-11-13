@@ -16,11 +16,9 @@
 //! #[typename = "CoolType"]
 //! struct Example<T>(T);
 //!
-//! fn main() {
-//!     let mut type_name = String::new();
-//!     Example::<i32>::build_type_name(|piece| type_name += piece);
-//!     assert_eq!(type_name, "CoolType<i32>");
-//! }
+//! let mut type_name = String::new();
+//! Example::<i32>::build_type_name(|piece| type_name += piece);
+//! assert_eq!(type_name, "CoolType<i32>");
 //! ```
 //!
 //! ## Features
@@ -90,10 +88,8 @@ pub use rkyv_typename_derive::TypeName;
 ///     result
 /// }
 ///
-/// fn main() {
-///     assert_eq!(type_name::<Example>(), "CoolStruct");
-///     assert_eq!(type_name::<GenericExample<i32, Option<String>, Example>>(), "CoolGeneric<i32, Option<String>, CoolStruct>");
-/// }
+/// assert_eq!(type_name::<Example>(), "CoolStruct");
+/// assert_eq!(type_name::<GenericExample<i32, Option<String>, Example>>(), "CoolGeneric<i32, Option<String>, CoolStruct>");
 /// ```
 pub trait TypeName {
     /// Submits the pieces of the type name to the given function.
