@@ -66,12 +66,12 @@ enum TraitArgs {
 impl Parse for TraitArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.is_empty() {
-            return Ok(Self::None);
+            return Ok(TraitArgs::None);
         }
         input.parse::<syn::token::Trait>()?;
         input.parse::<Token![=]>()?;
         let name = input.parse::<LitStr>()?;
-        Ok(Self::Trait(name))
+        Ok(TraitArgs::Trait(name))
     }
 }
 
