@@ -151,8 +151,13 @@ pub struct ArchivedHashMap<K, V> {
 }
 
 #[inline]
-fn hasher() -> ahash::AHasher {
-    ahash::AHasher::new_with_keys(0x1a66a32271f6c1bf, 0xe35f611c9b846ded)
+fn hasher() -> seahash::SeaHasher {
+    seahash::SeaHasher::with_seeds(
+        0x08576fb6170b5f5f,
+        0x587775eeb84a7e46,
+        0xac701115428ee569,
+        0x910feb91b92bb1cd,
+    )
 }
 
 #[cfg_attr(feature = "inline_more", inline)]
@@ -266,7 +271,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
     /// Gets the hasher for the hash map.
     #[inline]
-    pub fn hasher(&self) -> ahash::AHasher {
+    pub fn hasher(&self) -> seahash::SeaHasher {
         hasher()
     }
 
@@ -630,7 +635,7 @@ impl<K: Hash + Eq> ArchivedHashSet<K> {
 
     /// Gets the hasher for the underlying hash map.
     #[inline]
-    pub fn hasher(&self) -> ahash::AHasher {
+    pub fn hasher(&self) -> seahash::SeaHasher {
         self.0.hasher()
     }
 
