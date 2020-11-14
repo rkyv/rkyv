@@ -586,7 +586,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                                 #name: #name.archive(writer)?
                             }
                         });
-                        quote_spanned! { name.span() =>
+                        quote_spanned! { variant.span() =>
                             Self::#variant { #(#bindings,)* } => Resolver::#variant {
                                 #(#fields,)*
                             }
@@ -603,7 +603,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                                 #binding.archive(writer)?
                             }
                         });
-                        quote_spanned! { name.span() =>
+                        quote_spanned! { variant.span() =>
                             Self::#variant( #(#bindings,)* ) => Resolver::#variant(#(#fields,)*)
                         }
                     },
