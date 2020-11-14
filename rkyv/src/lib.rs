@@ -46,7 +46,7 @@
 //!
 //! - `const_generics`: Improves the implementations for some traits
 //! and provides an [`Archive`] implementation for slices with elements
-//! that implement [`ArchiveSelf`]. Ideal for `#[no_std]` environments.
+//! that implement [`ArchiveSelf`]. Ideal for `#![no_std]` environments.
 //! - `inline_more`: Performs more aggressive function inlining.
 //! - `more_portable`: Avoids using sse2-optimized intrinsics since
 //! they may cause alignment issues across machines. This feature may
@@ -89,7 +89,7 @@ use std::io;
 pub use memoffset::offset_of;
 pub use rkyv_derive::Archive;
 
-/// A `#[no_std]` compliant writer that knows where it is.
+/// A `#![no_std]` compliant writer that knows where it is.
 ///
 /// A type that is [`io::Write`](std::io::Write) can be wrapped in an ArchiveWriter
 /// to equip it with `Write`. It's important that the memory for archived objects
@@ -512,8 +512,8 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 
 /// Wraps a byte buffer and writes into it.
 ///
-/// Common uses include archiving in `#[no_std]` environments and archiving
-/// small objects without allocating.
+/// Common uses include archiving in `#![no_std]` environments and
+/// archiving small objects without allocating.
 ///
 /// ## Examples
 /// ```
