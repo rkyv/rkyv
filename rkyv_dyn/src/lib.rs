@@ -340,17 +340,47 @@ impl ImplId {
     }
 }
 
+#[cfg(debug_assertions)]
+#[derive(Copy, Clone)]
+pub struct ImplVTableDebugInfo {
+    pub file: &'static str,
+    pub line: u32,
+    pub column: u32,
+}
+#[cfg(debug_assertions)]
+#[macro_export]
+macro_rules! debug_info {
+    () => {
+        rkyv_dyn::ImplVTableDebugInfo {
+            file: core::file!(),
+            line: core::line!(),
+            column: core::column!(),
+        }
+    }
+}
+
+#[cfg(not(debug_assertions))]
+#[derive(Copy, Clone)]
+pub struct ImplVTableDebugInfo;
+#[cfg(not(debug_assertions))]
+#[macro_export]
+macro_rules! debug_info {
+    () => { rkyv_dyn::ImplVTableDebugInfo }
+}
+
 #[doc(hidden)]
 pub struct ImplVTable {
     id: ImplId,
     vtable: VTable,
+    debug_info: ImplVTableDebugInfo,
 }
 
 impl ImplVTable {
-    pub fn new(id: ImplId, vtable: VTable) -> Self {
+    pub fn new(id: ImplId, vtable: VTable, debug_info: ImplVTableDebugInfo) -> Self {
         Self {
             id,
             vtable,
+            debug_info,
         }
     }
 }
@@ -371,7 +401,7 @@ unsafe impl Send for VTable {}
 unsafe impl Sync for VTable {}
 
 struct TypeRegistry {
-    id_to_vtable: HashMap<ImplId, VTable>,
+    id_to_vtable: HashMap<ImplId, (VTable, ImplVTableDebugInfo)>,
 }
 
 impl TypeRegistry {
@@ -384,12 +414,21 @@ impl TypeRegistry {
     fn add_impl(&mut self, impl_vtable: &ImplVTable) {
         #[cfg(feature = "vtable_cache")]
         debug_assert!((impl_vtable.vtable.0 as usize) & 1 == 0, "vtable has a non-zero least significant bit which breaks vtable caching");
-        let old_value = self.id_to_vtable.insert(impl_vtable.id, impl_vtable.vtable);
-        debug_assert!(old_value.is_none(), "impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
+        let old_value = self.id_to_vtable.insert(impl_vtable.id, (impl_vtable.vtable, impl_vtable.debug_info));
+
+        #[cfg(debug_assertions)]
+        if let Some((_, old_debug)) = old_value {
+            eprintln!("impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
+            eprintln!("existing impl registered at {}:{}:{}", old_debug.file, old_debug.line, old_debug.column);
+            eprintln!("new impl registered at {}:{}:{}", impl_vtable.debug_info.file, impl_vtable.debug_info.line, impl_vtable.debug_info.column);
+            panic!();
+        }
+
+        assert!(old_value.is_none(), "impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
     }
 
     fn vtable(&self, id: ImplId) -> Option<*const ()> {
-        self.id_to_vtable.get(&id).map(|v| v.0)
+        self.id_to_vtable.get(&id).map(|(v, _)| v.0)
     }
 }
 
@@ -418,6 +457,7 @@ macro_rules! register_vtable {
         const _: () = {
             use rkyv::Archived;
             use rkyv_dyn::{
+                debug_info,
                 ImplId,
                 ImplVTable,
                 inventory,
@@ -436,7 +476,8 @@ macro_rules! register_vtable {
                 };
                 ImplVTable::new(
                     ImplId::register::<$trait, $type>(),
-                    vtable.into()
+                    vtable.into(),
+                    debug_info!()
                 )
             }
         };
