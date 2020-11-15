@@ -210,7 +210,7 @@ pub struct TraitObject(*const (), *const ());
 /// `ArchivedDyn` is the trait object extension of `RelPtr`.
 #[derive(Debug)]
 pub struct ArchivedDyn<T: ?Sized> {
-    ptr: RelPtr<()>,
+    ptr: RelPtr,
     #[cfg(not(feature = "vtable_cache"))]
     id: u64,
     #[cfg(feature = "vtable_cache")]

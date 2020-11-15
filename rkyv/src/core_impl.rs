@@ -1,11 +1,165 @@
-use crate::{Archive, ArchiveRef, ArchiveSelf, RelPtr, Resolve, SelfResolver, Write};
+use crate::{Archive, ArchiveRef, ArchiveSelf, RelPtr, Resolve, SelfResolver, Write, WriteExt};
 use core::{
     borrow::Borrow,
     cmp::Ordering,
     fmt,
     hash::{Hash, Hasher},
+    marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+
+#[repr(transparent)]
+#[derive(Debug)]
+pub struct ArchivedRef<T> {
+    ptr: RelPtr,
+    _phantom: PhantomData<T>,
+}
+
+impl<T> ArchivedRef<T> {
+    pub fn new(from: usize, to: usize) -> Self {
+        Self {
+            ptr: RelPtr::new(from, to),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<T> Deref for ArchivedRef<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.ptr.as_ptr() }
+    }
+}
+
+impl<T> DerefMut for ArchivedRef<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut *self.ptr.as_mut_ptr() }
+    }
+}
+
+impl<T: Hash> Hash for ArchivedRef<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.deref().hash(state)
+    }
+}
+
+impl<T: PartialEq> PartialEq for ArchivedRef<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.deref().eq(other.deref())
+    }
+}
+
+impl<T: Eq> Eq for ArchivedRef<T> {}
+
+impl<T: Archive> Resolve<T> for usize {
+    type Archived = ArchivedRef<T::Archived>;
+
+    fn resolve(self, pos: usize, _value: &T) -> Self::Archived {
+        ArchivedRef::new(pos, self)
+    }
+}
+
+impl<T: Archive> ArchiveRef for T {
+    type Archived = T::Archived;
+    type Reference = ArchivedRef<Self::Archived>;
+    type Resolver = usize;
+
+    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        Ok(writer.archive(self)?)
+    }
+}
+
+#[derive(Debug)]
+pub struct ArchivedSlice<T> {
+    ptr: RelPtr,
+    len: u32,
+    _phantom: PhantomData<T>,
+}
+
+impl<T> ArchivedSlice<T> {
+    fn new(from: usize, to: usize, len: usize) -> Self {
+        Self {
+            ptr: RelPtr::new(from + memoffset::offset_of!(Self, ptr), to),
+            len: len as u32,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<T> Deref for ArchivedSlice<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        unsafe {
+            core::slice::from_raw_parts(self.ptr.as_ptr(), self.len as usize)
+        }
+    }
+}
+
+impl<T> DerefMut for ArchivedSlice<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe {
+            core::slice::from_raw_parts_mut(self.ptr.as_mut_ptr(), self.len as usize)
+        }
+    }
+}
+
+impl<T: Eq> Eq for ArchivedSlice<T> {}
+
+impl<T: Hash> Hash for ArchivedSlice<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.deref().hash(state)
+    }
+}
+
+impl<T: Ord> Ord for ArchivedSlice<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        Ord::cmp(&**self, &**other)
+    }
+}
+
+impl<T: PartialEq> PartialEq for ArchivedSlice<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.deref().eq(other.deref())
+    }
+}
+
+impl<T: PartialOrd> PartialOrd for ArchivedSlice<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        PartialOrd::partial_cmp(&**self, &**other)
+    }
+}
+
+impl<T: Archive> Resolve<[T]> for usize {
+    type Archived = ArchivedSlice<T::Archived>;
+
+    fn resolve(self, pos: usize, value: &[T]) -> Self::Archived {
+        ArchivedSlice::new(pos, self, value.len())
+    }
+}
+
+#[cfg(any(not(feature = "std"), feature = "specialization"))]
+impl<T: ArchiveSelf> ArchiveRef for [T] {
+    #[cfg(not(feature = "std"))]
+    type Archived = [T::Archived];
+    #[cfg(not(feature = "std"))]
+    type Reference = ArchivedSlice<T::Archived>;
+    #[cfg(not(feature = "std"))]
+    type Resolver = usize;
+
+    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        let result = writer.align_for::<T>()?;
+        let bytes = unsafe {
+            core::slice::from_raw_parts(
+                self.as_ptr().cast::<u8>(),
+                core::mem::size_of::<T>() * self.len(),
+            )
+        };
+        writer.write(bytes)?;
+        Ok(result)
+    }
+}
 
 macro_rules! impl_primitive {
     ($type:ty) => {
@@ -174,27 +328,27 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     }
 }
 
+#[repr(transparent)]
 #[derive(Debug)]
 pub struct ArchivedStrRef {
-    ptr: RelPtr<u8>,
-    len: u32,
+    slice: ArchivedSlice<u8>,
 }
 
 impl ArchivedStrRef {
     pub fn as_ptr(&self) -> *const u8 {
-        self.ptr.as_ptr()
+        self.slice.as_ptr()
     }
 
     pub fn as_mut_ptr(&mut self) -> *mut u8 {
-        self.ptr.as_mut_ptr()
+        self.slice.as_mut_ptr()
     }
 
     pub fn as_bytes(&self) -> &[u8] {
-        unsafe { core::slice::from_raw_parts(self.as_ptr(), self.len as usize) }
+        &*self.slice
     }
 
     pub unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
-        core::slice::from_raw_parts_mut(self.as_mut_ptr(), self.len as usize)
+        &mut *self.slice
     }
 
     pub fn as_str(&self) -> &str {
@@ -211,8 +365,7 @@ impl Resolve<str> for usize {
 
     fn resolve(self, pos: usize, value: &str) -> Self::Archived {
         Self::Archived {
-            ptr: RelPtr::new(pos + crate::offset_of!(Self::Archived, ptr), self),
-            len: value.len() as u32,
+            slice: ArchivedSlice::new(pos, self, value.len()),
         }
     }
 }
@@ -278,105 +431,6 @@ impl PartialOrd for ArchivedStrRef {
 impl fmt::Display for ArchivedStrRef {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&**self, f)
-    }
-}
-
-#[derive(Debug)]
-pub struct ArchivedSliceRef<T> {
-    ptr: RelPtr<T>,
-    len: u32,
-}
-
-impl<T> ArchivedSliceRef<T> {
-    pub fn as_ptr(&self) -> *const T {
-        self.ptr.as_ptr()
-    }
-
-    pub fn as_mut_ptr(&mut self) -> *mut T {
-        self.ptr.as_mut_ptr()
-    }
-
-    pub fn as_slice(&self) -> &[T] {
-        unsafe { core::slice::from_raw_parts(self.as_ptr(), self.len as usize) }
-    }
-
-    pub fn as_mut_slice(&mut self) -> &mut [T] {
-        unsafe { core::slice::from_raw_parts_mut(self.as_mut_ptr(), self.len as usize) }
-    }
-}
-
-impl<T: Archive> Resolve<[T]> for usize {
-    type Archived = ArchivedSliceRef<T::Archived>;
-
-    fn resolve(self, pos: usize, value: &[T]) -> Self::Archived {
-        Self::Archived {
-            ptr: RelPtr::new(pos + crate::offset_of!(Self::Archived, ptr), self),
-            len: value.len() as u32,
-        }
-    }
-}
-
-#[cfg(any(not(feature = "std"), feature = "specialization"))]
-impl<T: ArchiveSelf> ArchiveRef for [T] {
-    #[cfg(not(feature = "std"))]
-    type Archived = [T];
-    #[cfg(not(feature = "std"))]
-    type Reference = ArchivedSliceRef<T>;
-    #[cfg(not(feature = "std"))]
-    type Resolver = usize;
-
-    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        use crate::WriteExt;
-
-        let result = writer.align_for::<T>()?;
-        let bytes = unsafe {
-            core::slice::from_raw_parts(
-                self.as_ptr().cast::<u8>(),
-                core::mem::size_of::<T>() * self.len(),
-            )
-        };
-        writer.write(bytes)?;
-        Ok(result)
-    }
-}
-
-impl<T> Deref for ArchivedSliceRef<T> {
-    type Target = [T];
-
-    fn deref(&self) -> &Self::Target {
-        self.as_slice()
-    }
-}
-
-impl<T> DerefMut for ArchivedSliceRef<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.as_mut_slice()
-    }
-}
-
-impl<T: Eq> Eq for ArchivedSliceRef<T> {}
-
-impl<T: Hash> Hash for ArchivedSliceRef<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        (**self).hash(state)
-    }
-}
-
-impl<T: Ord> Ord for ArchivedSliceRef<T> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        Ord::cmp(&**self, &**other)
-    }
-}
-
-impl<T: PartialEq> PartialEq for ArchivedSliceRef<T> {
-    fn eq(&self, other: &Self) -> bool {
-        PartialEq::eq(&**self, &**other)
-    }
-}
-
-impl<T: PartialOrd> PartialOrd for ArchivedSliceRef<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        PartialOrd::partial_cmp(&**self, &**other)
     }
 }
 

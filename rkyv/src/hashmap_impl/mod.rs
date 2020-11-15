@@ -129,8 +129,8 @@ impl ArchivedHashMapResolver {
 #[derive(Debug)]
 pub struct ArchivedHashMap<K, V> {
     bucket_mask: u32,
-    ctrl: RelPtr<u8>,
-    data: RelPtr<ArchivedBucket<K, V>>,
+    ctrl: RelPtr,
+    data: RelPtr,
     items: u32,
     marker: PhantomData<(K, V)>,
 }
@@ -198,8 +198,8 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         Q: Hash + Eq,
     {
         unsafe {
-            let ctrl = self.ctrl.as_ptr();
-            let data = self.data.as_ptr();
+            let ctrl = self.ctrl.as_ptr::<u8>();
+            let data = self.data.as_ptr::<ArchivedBucket<K, V>>();
             for pos in probe_seq(self.bucket_mask, hash) {
                 let group = Group::load(ctrl.add(pos));
                 for bit in group.match_byte(h2(hash)) {
@@ -225,8 +225,8 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         Q: Hash + Eq,
     {
         unsafe {
-            let ctrl = self.ctrl.as_ptr();
-            let data = self.data.as_mut_ptr();
+            let ctrl = self.ctrl.as_ptr::<u8>();
+            let data = self.data.as_mut_ptr::<ArchivedBucket<K, V>>();
             for pos in probe_seq(self.bucket_mask, hash) {
                 let group = Group::load(ctrl.add(pos));
                 for bit in group.match_byte(h2(hash)) {

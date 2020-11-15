@@ -75,8 +75,6 @@ mod hashmap_impl;
 mod std_impl;
 
 use core::{
-    hash::{Hash, Hasher},
-    marker::PhantomData,
     mem,
     ops::{Deref, DerefMut},
     ptr, slice,
@@ -255,7 +253,7 @@ pub trait Resolve<T: ?Sized> {
 ///
 /// struct ArchivedOwnedStr {
 ///     // This will be a relative pointer to the bytes of our string.
-///     ptr: RelPtr<u8>,
+///     ptr: RelPtr,
 ///     // The length of the archived version must be explicitly sized for
 ///     // 32/64-bit compatibility. Archive is not implemented for usize and
 ///     // isize to help you avoid making this mistake.
@@ -412,23 +410,21 @@ impl<T: ArchiveSelf> Resolve<T> for SelfResolver {
 /// See [`Archive`] for an example of creating one.
 #[repr(transparent)]
 #[derive(Debug)]
-pub struct RelPtr<T> {
+pub struct RelPtr {
     offset: i32,
-    _phantom: PhantomData<T>,
 }
 
-impl<T> RelPtr<T> {
+impl RelPtr {
     /// Creates a relative pointer from one position to another. `from` must be
     /// the location where the relative pointer is written.
     pub fn new(from: usize, to: usize) -> Self {
         Self {
             offset: (to as isize - from as isize) as i32,
-            _phantom: PhantomData,
         }
     }
 
     /// Calculates the memory address being pointed to by this relative pointer.
-    pub fn as_ptr(&self) -> *const T {
+    pub fn as_ptr<T>(&self) -> *const T {
         unsafe {
             (self as *const Self)
                 .cast::<u8>()
@@ -439,59 +435,13 @@ impl<T> RelPtr<T> {
 
     /// Returns an unsafe mutable pointer to the memory address being pointed to
     /// by this relative pointer.
-    pub fn as_mut_ptr(&mut self) -> *mut T {
+    pub fn as_mut_ptr<T>(&mut self) -> *mut T {
         unsafe {
             (self as *mut Self)
                 .cast::<u8>()
                 .offset(self.offset as isize)
                 .cast::<T>()
         }
-    }
-}
-
-impl<T> Deref for RelPtr<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        unsafe { &*self.as_ptr() }
-    }
-}
-
-impl<T> DerefMut for RelPtr<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.as_mut_ptr() }
-    }
-}
-
-impl<T: Hash> Hash for RelPtr<T> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.deref().hash(state)
-    }
-}
-
-impl<T: PartialEq> PartialEq for RelPtr<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.deref().eq(other.deref())
-    }
-}
-
-impl<T: Eq> Eq for RelPtr<T> {}
-
-impl<T: Archive> Resolve<T> for usize {
-    type Archived = RelPtr<T::Archived>;
-
-    fn resolve(self, pos: usize, _value: &T) -> Self::Archived {
-        RelPtr::new(pos, self)
-    }
-}
-
-impl<T: Archive> ArchiveRef for T {
-    type Archived = T::Archived;
-    type Reference = RelPtr<Self::Archived>;
-    type Resolver = usize;
-
-    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(writer.archive(self)?)
     }
 }
 

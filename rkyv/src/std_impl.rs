@@ -1,5 +1,5 @@
 use crate::{
-    core_impl::ArchivedSliceRef, Archive, ArchiveRef, Reference, ReferenceResolver, Resolve, Write,
+    core_impl::ArchivedSlice, Archive, ArchiveRef, Reference, ReferenceResolver, Resolve, Write,
     WriteExt,
 };
 use core::{
@@ -152,23 +152,6 @@ impl<T: ArchiveRef + ?Sized> Archive for Box<T> {
     }
 }
 
-fn slice_archive_ref<T: Archive, W: Write + ?Sized>(
-    slice: &[T],
-    writer: &mut W,
-) -> Result<ReferenceResolver<[T]>, W::Error> {
-    let mut resolvers = Vec::with_capacity(slice.len());
-    for value in slice {
-        resolvers.push(value.archive(writer)?);
-    }
-    let result = writer.align_for::<T::Archived>()?;
-    unsafe {
-        for (i, resolver) in resolvers.drain(..).enumerate() {
-            writer.resolve_aligned(&slice[i], resolver)?;
-        }
-    }
-    Ok(result)
-}
-
 #[cfg(feature = "specialization")]
 macro_rules! default {
     ($($rest:tt)*) => { default $($rest)* };
@@ -181,12 +164,22 @@ macro_rules! default {
 
 impl<T: Archive> ArchiveRef for [T] {
     type Archived = [T::Archived];
-    type Reference = ArchivedSliceRef<T::Archived>;
+    type Reference = ArchivedSlice<T::Archived>;
     type Resolver = usize;
 
     default! {
         fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-            slice_archive_ref(self, writer)
+            let mut resolvers = Vec::with_capacity(self.len());
+            for value in self {
+                resolvers.push(value.archive(writer)?);
+            }
+            let result = writer.align_for::<T::Archived>()?;
+            unsafe {
+                for (i, resolver) in resolvers.drain(..).enumerate() {
+                    writer.resolve_aligned(&self[i], resolver)?;
+                }
+            }
+            Ok(result)
         }
     }
 }
