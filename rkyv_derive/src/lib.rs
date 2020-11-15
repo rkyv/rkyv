@@ -1,29 +1,12 @@
-//! Procedural macros for rkyv.
+//! Procedural macros for `rkyv`.
 
 extern crate proc_macro;
 
-use proc_macro2::{
-    Span,
-    TokenStream,
-};
-use quote::{
-    quote,
-    quote_spanned,
-};
+use proc_macro2::{Span, TokenStream};
+use quote::{quote, quote_spanned};
 use syn::{
-    AttrStyle,
-    Data,
-    DeriveInput,
-    Error,
-    Fields,
-    Ident,
-    Index,
-    Lit,
-    Meta,
-    MetaList,
-    NestedMeta,
-    parse_macro_input,
-    spanned::Spanned,
+    parse_macro_input, spanned::Spanned, AttrStyle, Data, DeriveInput, Error, Fields, Ident, Index,
+    Lit, Meta, MetaList, NestedMeta,
 };
 
 struct Repr {
@@ -78,27 +61,52 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                                         if path.is_ident("self") {
                                             result.archive_self = Some(path.span());
                                         } else {
-                                            return Err(Error::new(path.span(), "unrecognized archive parameter").to_compile_error());
+                                            return Err(Error::new(
+                                                path.span(),
+                                                "unrecognized archive parameter",
+                                            )
+                                            .to_compile_error());
                                         }
-                                    },
-                                    Meta::List(meta) => if meta.path.is_ident("derive") {
-                                        result.derives = Some(meta.clone());
-                                    } else {
-                                        return Err(Error::new(meta.path.span(), "unrecognized archive parameter").to_compile_error());
-                                    },
+                                    }
+                                    Meta::List(meta) => {
+                                        if meta.path.is_ident("derive") {
+                                            result.derives = Some(meta.clone());
+                                        } else {
+                                            return Err(Error::new(
+                                                meta.path.span(),
+                                                "unrecognized archive parameter",
+                                            )
+                                            .to_compile_error());
+                                        }
+                                    }
                                     Meta::NameValue(meta) => {
                                         if meta.path.is_ident("archived") {
                                             if let Lit::Str(ref lit_str) = meta.lit {
                                                 if result.archived.is_none() {
-                                                    result.archived = Some(Ident::new(&lit_str.value(), lit_str.span()));
+                                                    result.archived = Some(Ident::new(
+                                                        &lit_str.value(),
+                                                        lit_str.span(),
+                                                    ));
                                                 } else {
-                                                    return Err(Error::new(meta.span(), "archived already specified").to_compile_error());
+                                                    return Err(Error::new(
+                                                        meta.span(),
+                                                        "archived already specified",
+                                                    )
+                                                    .to_compile_error());
                                                 }
                                             } else {
-                                                return Err(Error::new(meta.span(), "archived must be a string").to_compile_error());
+                                                return Err(Error::new(
+                                                    meta.span(),
+                                                    "archived must be a string",
+                                                )
+                                                .to_compile_error());
                                             }
                                         } else {
-                                            return Err(Error::new(meta.span(), "unrecognized archive parameter").to_compile_error());
+                                            return Err(Error::new(
+                                                meta.span(),
+                                                "unrecognized archive parameter",
+                                            )
+                                            .to_compile_error());
                                         }
                                     }
                                 }
@@ -160,7 +168,11 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
     let name = &input.ident;
     let vis = &input.vis;
 
-    let generic_params = input.generics.params.iter().map(|p| quote_spanned! { p.span() => #p });
+    let generic_params = input
+        .generics
+        .params
+        .iter()
+        .map(|p| quote_spanned! { p.span() => #p });
     let generic_params = quote! { #(#generic_params,)* };
 
     let generic_args = input.generics.type_params().map(|p| {
@@ -173,7 +185,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
         Some(ref clause) => {
             let predicates = clause.predicates.iter().map(|p| quote! { #p });
             quote! { #(#predicates,)* }
-        },
+        }
         None => quote! {},
     };
 
@@ -183,225 +195,219 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
         quote! {}
     };
 
-    let archived = attributes.archived.as_ref().map_or(
-        Ident::new("Archived", input.span()),
-        |name| name.clone()
-    );
+    let archived = attributes
+        .archived
+        .as_ref()
+        .map_or(Ident::new("Archived", input.span()), |name| name.clone());
 
     let (archive_type, archive_impl) = match input.data {
-        Data::Struct(ref data) => {
-            match data.fields {
-                Fields::Named(ref fields) => {
-                    let field_wheres = fields.named.iter().map(|f| {
-                        let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: rkyv::Archive }
-                    });
-                    let field_wheres = quote! { #(#field_wheres,)* };
+        Data::Struct(ref data) => match data.fields {
+            Fields::Named(ref fields) => {
+                let field_wheres = fields.named.iter().map(|f| {
+                    let ty = &f.ty;
+                    quote_spanned! { f.span() => #ty: rkyv::Archive }
+                });
+                let field_wheres = quote! { #(#field_wheres,)* };
 
-                    let resolver_fields = fields.named.iter().map(|f| {
-                        let name = &f.ident;
-                        let ty = &f.ty;
-                        quote_spanned! { f.span() => #name: rkyv::Resolver<#ty> }
-                    });
+                let resolver_fields = fields.named.iter().map(|f| {
+                    let name = &f.ident;
+                    let ty = &f.ty;
+                    quote_spanned! { f.span() => #name: rkyv::Resolver<#ty> }
+                });
 
-                    let resolver_values = fields.named.iter().map(|f| {
-                        let name = &f.ident;
-                        quote_spanned! { f.span() => #name: self.#name.archive(writer)? }
-                    });
+                let resolver_values = fields.named.iter().map(|f| {
+                    let name = &f.ident;
+                    quote_spanned! { f.span() => #name: self.#name.archive(writer)? }
+                });
 
-                    let archived_fields = fields.named.iter().map(|f| {
-                        let name = &f.ident;
-                        let ty = &f.ty;
-                        let vis = &f.vis;
-                        quote_spanned! { f.span() => #vis #name: rkyv::Archived<#ty> }
-                    });
+                let archived_fields = fields.named.iter().map(|f| {
+                    let name = &f.ident;
+                    let ty = &f.ty;
+                    let vis = &f.vis;
+                    quote_spanned! { f.span() => #vis #name: rkyv::Archived<#ty> }
+                });
 
-                    let archived_values = fields.named.iter().map(|f| {
+                let archived_values = fields.named.iter().map(|f| {
                         let name = &f.ident;
                         quote_spanned! { f.span() => #name: self.#name.resolve(pos + offset_of!(#archived<#generic_args>, #name), &value.#name) }
                     });
 
-                    (
-                        quote! {
-                            #archive_derives
-                            #vis struct #archived<#generic_params>
-                            where
-                                #generic_predicates
-                                #field_wheres
-                            {
-                                #(#archived_fields,)*
-                            }
-                        },
-                        quote! {
-                            #vis struct Resolver<#generic_params>
-                            where
-                                #generic_predicates
-                                #field_wheres
-                            {
-                                #(#resolver_fields,)*
-                            }
+                (
+                    quote! {
+                        #archive_derives
+                        #vis struct #archived<#generic_params>
+                        where
+                            #generic_predicates
+                            #field_wheres
+                        {
+                            #(#archived_fields,)*
+                        }
+                    },
+                    quote! {
+                        #vis struct Resolver<#generic_params>
+                        where
+                            #generic_predicates
+                            #field_wheres
+                        {
+                            #(#resolver_fields,)*
+                        }
 
-                            impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
-                            where
-                                #generic_predicates
-                                #field_wheres
-                            {
-                                type Archived = #archived<#generic_args>;
+                        impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
+                        where
+                            #generic_predicates
+                            #field_wheres
+                        {
+                            type Archived = #archived<#generic_args>;
 
-                                fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
-                                    Self::Archived {
-                                        #(#archived_values,)*
-                                    }
-                                }
-                            }
-
-                            impl<#generic_params> Archive for #name<#generic_args>
-                            where
-                                #generic_predicates
-                                #field_wheres
-                            {
-                                type Archived = #archived<#generic_args>;
-                                type Resolver = Resolver<#generic_args>;
-
-                                fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                                    Ok(Self::Resolver {
-                                        #(#resolver_values,)*
-                                    })
+                            fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
+                                Self::Archived {
+                                    #(#archived_values,)*
                                 }
                             }
                         }
-                    )
+
+                        impl<#generic_params> Archive for #name<#generic_args>
+                        where
+                            #generic_predicates
+                            #field_wheres
+                        {
+                            type Archived = #archived<#generic_args>;
+                            type Resolver = Resolver<#generic_args>;
+
+                            fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                                Ok(Self::Resolver {
+                                    #(#resolver_values,)*
+                                })
+                            }
+                        }
+                    },
+                )
+            }
+            Fields::Unnamed(ref fields) => {
+                let field_wheres = fields.unnamed.iter().map(|f| {
+                    let ty = &f.ty;
+                    quote_spanned! { f.span() => #ty: rkyv::Archive }
+                });
+                let field_wheres = quote! { #(#field_wheres,)* };
+
+                let resolver_fields = fields.unnamed.iter().map(|f| {
+                    let ty = &f.ty;
+                    quote_spanned! { f.span() => rkyv::Resolver<#ty> }
+                });
+
+                let resolver_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                    let index = Index::from(i);
+                    quote_spanned! { f.span() => self.#index.archive(writer)? }
+                });
+
+                let archived_fields = fields.unnamed.iter().map(|f| {
+                    let ty = &f.ty;
+                    let vis = &f.vis;
+                    quote_spanned! { f.span() => #vis rkyv::Archived<#ty> }
+                });
+
+                let archived_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                        let index = Index::from(i);
+                        quote_spanned! { f.span() => self.#index.resolve(pos + offset_of!(#archived<#generic_args>, #index), &value.#index) }
+                    });
+
+                (
+                    quote! {
+                        #archive_derives
+                        #vis struct #archived<#generic_params>(#(#archived_fields,)*)
+                        where
+                            #generic_predicates
+                            #field_wheres;
+                    },
+                    quote! {
+                        #vis struct Resolver<#generic_params>(#(#resolver_fields,)*)
+                        where
+                            #generic_predicates
+                            #field_wheres;
+
+                        impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
+                        where
+                            #generic_predicates
+                            #field_wheres
+                        {
+                            type Archived = #archived<#generic_args>;
+
+                            fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
+                                #archived::<#generic_args>(
+                                    #(#archived_values,)*
+                                )
+                            }
+                        }
+
+                        impl<#generic_params> Archive for #name<#generic_args>
+                        where
+                            #generic_predicates
+                            #field_wheres
+                        {
+                            type Archived = #archived<#generic_args>;
+                            type Resolver = Resolver<#generic_args>;
+
+                            fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                                Ok(Resolver::<#generic_args>(
+                                    #(#resolver_values,)*
+                                ))
+                            }
+                        }
+                    },
+                )
+            }
+            Fields::Unit => (
+                quote! {
+                    #archive_derives
+                    #vis struct #archived<#generic_params>
+                    where
+                        #generic_predicates;
                 },
+                quote! {
+                    #vis struct Resolver;
+
+                    impl<#generic_params> Resolve<#name<#generic_args>> for Resolver
+                    where
+                        #generic_predicates
+                    {
+                        type Archived = #archived<#generic_args>;
+
+                        fn resolve(self, _pos: usize, _value: &#name<#generic_args>) -> Self::Archived {
+                            #archived::<#generic_args>
+                        }
+                    }
+
+                    impl<#generic_params> Archive for #name<#generic_args>
+                    where
+                        #generic_predicates
+                    {
+                        type Archived = #archived<#generic_args>;
+                        type Resolver = Resolver;
+
+                        fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                            Ok(Resolver)
+                        }
+                    }
+                },
+            ),
+        },
+        Data::Enum(ref data) => {
+            let field_wheres = data.variants.iter().map(|v| match v.fields {
+                Fields::Named(ref fields) => {
+                    let field_wheres = fields.named.iter().map(|f| {
+                        let ty = &f.ty;
+                        quote_spanned! { f.span() =>  #ty: rkyv::Archive }
+                    });
+                    quote! { #(#field_wheres,)* }
+                }
                 Fields::Unnamed(ref fields) => {
                     let field_wheres = fields.unnamed.iter().map(|f| {
                         let ty = &f.ty;
                         quote_spanned! { f.span() => #ty: rkyv::Archive }
                     });
-                    let field_wheres = quote! { #(#field_wheres,)* };
-
-                    let resolver_fields = fields.unnamed.iter().map(|f| {
-                        let ty = &f.ty;
-                        quote_spanned! { f.span() => rkyv::Resolver<#ty> }
-                    });
-
-                    let resolver_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                        let index = Index::from(i);
-                        quote_spanned! { f.span() => self.#index.archive(writer)? }
-                    });
-
-                    let archived_fields = fields.unnamed.iter().map(|f| {
-                        let ty = &f.ty;
-                        let vis = &f.vis;
-                        quote_spanned! { f.span() => #vis rkyv::Archived<#ty> }
-                    });
-
-                    let archived_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                        let index = Index::from(i);
-                        quote_spanned! { f.span() => self.#index.resolve(pos + offset_of!(#archived<#generic_args>, #index), &value.#index) }
-                    });
-
-                    (
-                        quote! {
-                            #archive_derives
-                            #vis struct #archived<#generic_params>(#(#archived_fields,)*)
-                            where
-                                #generic_predicates
-                                #field_wheres;
-                        },
-                        quote! {
-                            #vis struct Resolver<#generic_params>(#(#resolver_fields,)*)
-                            where
-                                #generic_predicates
-                                #field_wheres;
-
-                            impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
-                            where
-                                #generic_predicates
-                                #field_wheres
-                            {
-                                type Archived = #archived<#generic_args>;
-
-                                fn resolve(self, pos: usize, value: &#name<#generic_args>) -> Self::Archived {
-                                    #archived::<#generic_args>(
-                                        #(#archived_values,)*
-                                    )
-                                }
-                            }
-
-                            impl<#generic_params> Archive for #name<#generic_args>
-                            where
-                                #generic_predicates
-                                #field_wheres
-                            {
-                                type Archived = #archived<#generic_args>;
-                                type Resolver = Resolver<#generic_args>;
-
-                                fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                                    Ok(Resolver::<#generic_args>(
-                                        #(#resolver_values,)*
-                                    ))
-                                }
-                            }
-                        }
-                    )
-                },
-                Fields::Unit => {
-                    (
-                        quote! {
-                            #archive_derives
-                            #vis struct #archived<#generic_params>
-                            where
-                                #generic_predicates;
-                        },
-                        quote! {
-                            #vis struct Resolver;
-
-                            impl<#generic_params> Resolve<#name<#generic_args>> for Resolver
-                            where
-                                #generic_predicates
-                            {
-                                type Archived = #archived<#generic_args>;
-
-                                fn resolve(self, _pos: usize, _value: &#name<#generic_args>) -> Self::Archived {
-                                    #archived::<#generic_args>
-                                }
-                            }
-
-                            impl<#generic_params> Archive for #name<#generic_args>
-                            where
-                                #generic_predicates
-                            {
-                                type Archived = #archived<#generic_args>;
-                                type Resolver = Resolver;
-
-                                fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                                    Ok(Resolver)
-                                }
-                            }
-                        }
-                    )
+                    quote! { #(#field_wheres,)* }
                 }
-            }
-        },
-        Data::Enum(ref data) => {
-            let field_wheres = data.variants.iter().map(|v| {
-                match v.fields {
-                    Fields::Named(ref fields) => {
-                        let field_wheres = fields.named.iter().map(|f| {
-                            let ty = &f.ty;
-                            quote_spanned! { f.span() =>  #ty: rkyv::Archive }
-                        });
-                        quote! { #(#field_wheres,)* }
-                    },
-                    Fields::Unnamed(ref fields) => {
-                        let field_wheres = fields.unnamed.iter().map(|f| {
-                            let ty = &f.ty;
-                            quote_spanned! { f.span() => #ty: rkyv::Archive }
-                        });
-                        quote! { #(#field_wheres,)* }
-                    },
-                    Fields::Unit => quote! {},
-                }
+                Fields::Unit => quote! {},
             });
             let field_wheres = quote! { #(#field_wheres)* };
 
@@ -419,7 +425,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                                 #(#fields,)*
                             }
                         }
-                    },
+                    }
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().map(|f| {
                             let ty = &f.ty;
@@ -428,7 +434,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         quote_spanned! { variant.span() =>
                             #variant(#(#fields,)*)
                         }
-                    },
+                    }
                     Fields::Unit => quote_spanned! { variant.span() => #variant },
                 }
             });
@@ -512,7 +518,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                                 #(#fields,)*
                             }
                         }
-                    },
+                    }
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().map(|f| {
                             let ty = &f.ty;
@@ -522,7 +528,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         quote_spanned! { variant.span() =>
                             #variant(#(#fields,)*)
                         }
-                    },
+                    }
                     Fields::Unit => quote_spanned! { variant.span() => #variant },
                 }
             });
@@ -591,7 +597,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                                 #(#fields,)*
                             }
                         }
-                    },
+                    }
                     Fields::Unnamed(ref fields) => {
                         let bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let name = Ident::new(&format!("_{}", i), f.span());
@@ -606,8 +612,10 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         quote_spanned! { variant.span() =>
                             Self::#variant( #(#bindings,)* ) => Resolver::#variant(#(#fields,)*)
                         }
-                    },
-                    Fields::Unit => quote_spanned! { name.span() => Self::#variant => Resolver::#variant },
+                    }
+                    Fields::Unit => {
+                        quote_spanned! { name.span() => Self::#variant => Resolver::#variant }
+                    }
                 }
             });
 
@@ -667,10 +675,13 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                             })
                         }
                     }
-                }
+                },
             )
-        },
-        Data::Union(_) => return Error::new(input.span(), "Archive cannot be derived for unions").to_compile_error(),
+        }
+        Data::Union(_) => {
+            return Error::new(input.span(), "Archive cannot be derived for unions")
+                .to_compile_error()
+        }
     };
 
     if attributes.archived.is_some() {
@@ -721,7 +732,7 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
         Some(ref clause) => {
             let predicates = clause.predicates.iter().map(|p| quote! { #p });
             quote! { #(#predicates,)* }
-        },
+        }
         None => quote! {},
     };
 
@@ -735,7 +746,7 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                     });
 
                     quote! { #(#field_wheres,)* }
-                },
+                }
                 Fields::Unnamed(ref fields) => {
                     let field_wheres = fields.unnamed.iter().map(|f| {
                         let ty = &f.ty;
@@ -743,7 +754,7 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                     });
 
                     quote! { #(#field_wheres,)* }
-                },
+                }
                 Fields::Unit => quote! {},
             };
 
@@ -767,34 +778,42 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                     }
                 }
             }
-        },
+        }
         Data::Enum(ref data) => {
-            if let Some(span) = attributes.repr.rust.or(attributes.repr.transparent).or(attributes.repr.packed) {
-                return Error::new(span, "archive self enums must be repr(C) or repr(Int)").to_compile_error();
+            if let Some(span) = attributes
+                .repr
+                .rust
+                .or(attributes.repr.transparent)
+                .or(attributes.repr.packed)
+            {
+                return Error::new(span, "archive self enums must be repr(C) or repr(Int)")
+                    .to_compile_error();
             }
 
             if attributes.repr.c.is_none() && attributes.repr.int.is_none() {
-                return Error::new(input.span(), "archive self enums must be repr(C) or repr(Int)").to_compile_error();
+                return Error::new(
+                    input.span(),
+                    "archive self enums must be repr(C) or repr(Int)",
+                )
+                .to_compile_error();
             }
 
-            let field_wheres = data.variants.iter().map(|v| {
-                match v.fields {
-                    Fields::Named(ref fields) => {
-                        let field_wheres = fields.named.iter().map(|f| {
-                            let ty = &f.ty;
-                            quote_spanned! { f.span() => #ty: ArchiveSelf }
-                        });
-                        quote! { #(#field_wheres,)* }
-                    },
-                    Fields::Unnamed(ref fields) => {
-                        let field_wheres = fields.unnamed.iter().map(|f| {
-                            let ty = &f.ty;
-                            quote_spanned! { f.span() => #ty: ArchiveSelf }
-                        });
-                        quote! { #(#field_wheres,)* }
-                    },
-                    Fields::Unit => quote! {},
+            let field_wheres = data.variants.iter().map(|v| match v.fields {
+                Fields::Named(ref fields) => {
+                    let field_wheres = fields.named.iter().map(|f| {
+                        let ty = &f.ty;
+                        quote_spanned! { f.span() => #ty: ArchiveSelf }
+                    });
+                    quote! { #(#field_wheres,)* }
                 }
+                Fields::Unnamed(ref fields) => {
+                    let field_wheres = fields.unnamed.iter().map(|f| {
+                        let ty = &f.ty;
+                        quote_spanned! { f.span() => #ty: ArchiveSelf }
+                    });
+                    quote! { #(#field_wheres,)* }
+                }
+                Fields::Unit => quote! {},
             });
             let field_wheres = quote! { #(#field_wheres)* };
 
@@ -818,8 +837,10 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                     }
                 }
             }
-        },
-        Data::Union(_) => Error::new(input.span(), "Archive cannot be derived for unions").to_compile_error(),
+        }
+        Data::Union(_) => {
+            Error::new(input.span(), "Archive cannot be derived for unions").to_compile_error()
+        }
     };
 
     quote! {

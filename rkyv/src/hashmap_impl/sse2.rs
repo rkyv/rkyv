@@ -1,8 +1,5 @@
+use super::{bitmask::BitMask, EMPTY};
 use core::mem;
-use super::{
-    bitmask::BitMask,
-    EMPTY,
-};
 
 #[cfg(target_arch = "x86")]
 use core::arch::x86;

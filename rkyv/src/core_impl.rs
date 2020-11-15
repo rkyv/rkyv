@@ -1,42 +1,31 @@
+use crate::{Archive, ArchiveRef, ArchiveSelf, RelPtr, Resolve, SelfResolver, Write};
 use core::{
     borrow::Borrow,
     cmp::Ordering,
     fmt,
-    hash::{
-        Hash,
-        Hasher,
-    },
-    ops::{
-        Deref,
-        DerefMut,
-    },
-};
-use crate::{
-    Archive,
-    ArchiveRef,
-    ArchiveSelf,
-    RelPtr,
-    Resolve,
-    SelfResolver,
-    Write,
+    hash::{Hash, Hasher},
+    ops::{Deref, DerefMut},
 };
 
 macro_rules! impl_primitive {
-    ($type:ty) => (
+    ($type:ty) => {
         unsafe impl ArchiveSelf for $type {}
 
         impl Archive for $type
         where
-            $type: Copy
+            $type: Copy,
         {
             type Archived = Self;
             type Resolver = SelfResolver;
 
-            fn archive<W: Write + ?Sized>(&self, _writer: &mut W) -> Result<Self::Resolver, W::Error> {
+            fn archive<W: Write + ?Sized>(
+                &self,
+                _writer: &mut W,
+            ) -> Result<Self::Resolver, W::Error> {
                 Ok(SelfResolver)
             }
         }
-    )
+    };
 }
 
 impl_primitive!(());
@@ -156,12 +145,15 @@ impl<T: Resolve<U>, U, const N: usize> Resolve<[U; N]> for [T; N] {
         let result_ptr = result.as_mut_ptr().cast::<T::Archived>();
         for i in 0..N {
             unsafe {
-                result_ptr.add(i).write(resolvers_ptr.add(i).read().resolve(pos + i * core::mem::size_of::<T>(), &value[i]));
+                result_ptr.add(i).write(
+                    resolvers_ptr
+                        .add(i)
+                        .read()
+                        .resolve(pos + i * core::mem::size_of::<T>(), &value[i]),
+                );
             }
         }
-        unsafe {
-            result.assume_init()
-        }
+        unsafe { result.assume_init() }
     }
 }
 
@@ -178,9 +170,7 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
                 result_ptr.add(i).write(self[i].archive(writer)?);
             }
         }
-        unsafe {
-            Ok(result.assume_init())
-        }
+        unsafe { Ok(result.assume_init()) }
     }
 }
 
@@ -200,9 +190,7 @@ impl ArchivedStrRef {
     }
 
     pub fn as_bytes(&self) -> &[u8] {
-        unsafe {
-            core::slice::from_raw_parts(self.as_ptr(), self.len as usize)
-        }
+        unsafe { core::slice::from_raw_parts(self.as_ptr(), self.len as usize) }
     }
 
     pub unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
@@ -210,15 +198,11 @@ impl ArchivedStrRef {
     }
 
     pub fn as_str(&self) -> &str {
-        unsafe {
-            core::str::from_utf8_unchecked(self.as_bytes())
-        }
+        unsafe { core::str::from_utf8_unchecked(self.as_bytes()) }
     }
 
     pub fn as_mut_str(&mut self) -> &mut str {
-        unsafe {
-            core::str::from_utf8_unchecked_mut(self.as_bytes_mut())
-        }
+        unsafe { core::str::from_utf8_unchecked_mut(self.as_bytes_mut()) }
     }
 }
 
@@ -313,15 +297,11 @@ impl<T> ArchivedSliceRef<T> {
     }
 
     pub fn as_slice(&self) -> &[T] {
-        unsafe {
-            core::slice::from_raw_parts(self.as_ptr(), self.len as usize)
-        }
+        unsafe { core::slice::from_raw_parts(self.as_ptr(), self.len as usize) }
     }
 
     pub fn as_mut_slice(&mut self) -> &mut [T] {
-        unsafe {
-            core::slice::from_raw_parts_mut(self.as_mut_ptr(), self.len as usize)
-        }
+        unsafe { core::slice::from_raw_parts_mut(self.as_mut_ptr(), self.len as usize) }
     }
 }
 
@@ -349,7 +329,12 @@ impl<T: ArchiveSelf> ArchiveRef for [T] {
         use crate::WriteExt;
 
         let result = writer.align_for::<T>()?;
-        let bytes = unsafe { core::slice::from_raw_parts(self.as_ptr().cast::<u8>(), core::mem::size_of::<T>() * self.len()) };
+        let bytes = unsafe {
+            core::slice::from_raw_parts(
+                self.as_ptr().cast::<u8>(),
+                core::mem::size_of::<T>() * self.len(),
+            )
+        };
         writer.write(bytes)?;
         Ok(result)
     }
@@ -452,7 +437,10 @@ impl<T: Archive> Resolve<Option<T>> for Option<T::Resolver> {
     fn resolve(self, pos: usize, value: &Option<T>) -> Self::Archived {
         match self {
             None => ArchivedOption::None,
-            Some(resolver) => ArchivedOption::Some(resolver.resolve(pos + crate::offset_of!(ArchivedOptionVariantSome<T::Archived>, 1), value.as_ref().unwrap())),
+            Some(resolver) => ArchivedOption::Some(resolver.resolve(
+                pos + crate::offset_of!(ArchivedOptionVariantSome<T::Archived>, 1),
+                value.as_ref().unwrap(),
+            )),
         }
     }
 }

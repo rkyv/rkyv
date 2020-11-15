@@ -1,22 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use rkyv::{
-        Aligned,
-        Archive,
-        ArchiveBuffer,
-        Archived,
-        archived_value,
-        archived_value_mut,
-        archived_ref,
-        ArchiveRef,
-        WriteExt,
+        archived_ref, archived_value, archived_value_mut, Aligned, Archive, ArchiveBuffer,
+        ArchiveRef, Archived, WriteExt,
     };
-    use rkyv_dyn::{
-        archive_dyn,
-        register_vtable,
-    };
+    use rkyv_dyn::{archive_dyn, register_vtable};
     use rkyv_typename::TypeName;
+    use std::collections::HashMap;
 
     const BUFFER_SIZE: usize = 256;
 
@@ -36,7 +26,14 @@ mod tests {
         assert!(&**archived_ref == value);
     }
 
-    fn test_archive_container<T: Archive<Archived = U> + core::ops::Deref<Target = TV>, TV: ?Sized, U: core::ops::Deref<Target = TU>, TU: PartialEq<TV> + ?Sized>(value: &T) {
+    fn test_archive_container<
+        T: Archive<Archived = U> + core::ops::Deref<Target = TV>,
+        TV: ?Sized,
+        U: core::ops::Deref<Target = TU>,
+        TU: PartialEq<TV> + ?Sized,
+    >(
+        value: &T,
+    ) {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(value).expect("failed to archive ref");
         let buf = writer.into_inner();
@@ -110,7 +107,8 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(&hash_map).expect("failed to archive value");
         let buf = writer.into_inner();
-        let archived_value = unsafe { archived_value::<HashMap<String, String>>(buf.as_ref(), pos) };
+        let archived_value =
+            unsafe { archived_value::<HashMap<String, String>>(buf.as_ref(), pos) };
 
         assert!(archived_value.len() == hash_map.len());
 
@@ -151,12 +149,7 @@ mod tests {
             }
         }
 
-        test_archive(&Test(
-            (),
-            42,
-            "hello world".to_string(),
-            Some(42),
-        ));
+        test_archive(&Test((), 42, "hello world".to_string(), Some(42)));
     }
 
     #[test]
@@ -168,7 +161,7 @@ mod tests {
             c: String,
             d: Option<i32>,
         }
-    
+
         impl PartialEq<Test> for Archived<Test> {
             fn eq(&self, other: &Test) -> bool {
                 self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
@@ -193,7 +186,7 @@ mod tests {
                 b: 42,
                 c: "hello world".to_string(),
                 d: Some(42),
-            }
+            },
         ]);
     }
 
@@ -243,7 +236,7 @@ mod tests {
                 b: 42,
                 c: "hello world".to_string(),
                 d: Some(42),
-            }
+            },
         ]);
     }
 
@@ -253,29 +246,50 @@ mod tests {
         enum Test {
             A,
             B(String),
-            C {
-                a: i32,
-                b: String,
-            }
+            C { a: i32, b: String },
         }
 
         impl PartialEq<Test> for Archived<Test> {
             fn eq(&self, other: &Test) -> bool {
                 match self {
-                    Self::A => if let Test::A = other { true } else { false },
-                    Self::B(self_value) => if let Test::B(other_value) = other { self_value == other_value } else { false },
-                    Self::C { a, b } => if let Test::C { a: _a, b: _b } = other { a == _a && b == _b } else { false },
+                    Self::A => {
+                        if let Test::A = other {
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    Self::B(self_value) => {
+                        if let Test::B(other_value) = other {
+                            self_value == other_value
+                        } else {
+                            false
+                        }
+                    }
+                    Self::C { a, b } => {
+                        if let Test::C { a: _a, b: _b } = other {
+                            a == _a && b == _b
+                        } else {
+                            false
+                        }
+                    }
                 }
             }
         }
 
         test_archive(&Test::A);
         test_archive(&Test::B("hello_world".to_string()));
-        test_archive(&Test::C { a: 42, b: "hello world".to_string() });
+        test_archive(&Test::C {
+            a: 42,
+            b: "hello world".to_string(),
+        });
         test_archive(&vec![
             Test::A,
             Test::B("hello world".to_string()),
-            Test::C { a: 42, b: "hello world".to_string() },
+            Test::C {
+                a: 42,
+                b: "hello world".to_string(),
+            },
         ]);
     }
 
@@ -296,7 +310,7 @@ mod tests {
             C {
                 a: <T as TestTrait>::Associated,
                 b: String,
-            }
+            },
         }
 
         impl<T: TestTrait> PartialEq<Test<T>> for Archived<Test<T>>
@@ -306,20 +320,44 @@ mod tests {
         {
             fn eq(&self, other: &Test<T>) -> bool {
                 match self {
-                    Self::A => if let Test::A = other { true } else { false },
-                    Self::B(self_value) => if let Test::B(other_value) = other { self_value == other_value } else { false },
-                    Self::C { a, b } => if let Test::C { a: _a, b: _b } = other { a == _a && b == _b } else { false },
+                    Self::A => {
+                        if let Test::A = other {
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    Self::B(self_value) => {
+                        if let Test::B(other_value) = other {
+                            self_value == other_value
+                        } else {
+                            false
+                        }
+                    }
+                    Self::C { a, b } => {
+                        if let Test::C { a: _a, b: _b } = other {
+                            a == _a && b == _b
+                        } else {
+                            false
+                        }
+                    }
                 }
             }
         }
 
         test_archive(&Test::<()>::A);
         test_archive(&Test::<()>::B("hello_world".to_string()));
-        test_archive(&Test::<()>::C { a: 42, b: "hello world".to_string() });
+        test_archive(&Test::<()>::C {
+            a: 42,
+            b: "hello world".to_string(),
+        });
         test_archive(&vec![
             Test::<()>::A,
             Test::<()>::B("hello world".to_string()),
-            Test::<()>::C { a: 42, b: "hello world".to_string() },
+            Test::<()>::C {
+                a: 42,
+                b: "hello world".to_string(),
+            },
         ]);
     }
 
@@ -426,7 +464,8 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(&value).expect("failed to archive value");
         let buf = writer.into_inner();
-        let archived_value = unsafe { archived_value::<Box<dyn ArchiveTestTrait>>(buf.as_ref(), pos) };
+        let archived_value =
+            unsafe { archived_value::<Box<dyn ArchiveTestTrait>>(buf.as_ref(), pos) };
         assert_eq!(value.get_id(), archived_value.get_id());
 
         // exercise vtable cache
@@ -478,14 +517,21 @@ mod tests {
         register_vtable!(Test<String> as dyn TestTrait<String>);
 
         let i32_value: Box<dyn ArchiveableTestTrait<i32>> = Box::new(Test { value: 42 });
-        let string_value: Box<dyn ArchiveableTestTrait<String>> = Box::new(Test { value: "hello world".to_string() });
+        let string_value: Box<dyn ArchiveableTestTrait<String>> = Box::new(Test {
+            value: "hello world".to_string(),
+        });
 
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let i32_pos = writer.archive(&i32_value).expect("failed to archive value");
-        let string_pos = writer.archive(&string_value).expect("failed to archive value");
+        let string_pos = writer
+            .archive(&string_value)
+            .expect("failed to archive value");
         let buf = writer.into_inner();
-        let i32_archived_value = unsafe { archived_value::<Box<dyn ArchiveableTestTrait<i32>>>(buf.as_ref(), i32_pos) };
-        let string_archived_value = unsafe { archived_value::<Box<dyn ArchiveableTestTrait<String>>>(buf.as_ref(), string_pos) };
+        let i32_archived_value =
+            unsafe { archived_value::<Box<dyn ArchiveableTestTrait<i32>>>(buf.as_ref(), i32_pos) };
+        let string_archived_value = unsafe {
+            archived_value::<Box<dyn ArchiveableTestTrait<String>>>(buf.as_ref(), string_pos)
+        };
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
@@ -519,11 +565,7 @@ mod tests {
         }
 
         use inner::{
-            ArchivedTestEnum,
-            ArchivedTestStruct,
-            ArchivedTestTuple,
-            TestEnum,
-            TestStruct,
+            ArchivedTestEnum, ArchivedTestStruct, ArchivedTestTuple, TestEnum, TestStruct,
             TestTuple,
         };
 

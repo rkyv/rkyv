@@ -1,21 +1,10 @@
-//! Procedural macros for rkyv_typename.
+//! Procedural macros for `rkyv_typename`.
 
 extern crate proc_macro;
 
 use proc_macro2::TokenStream;
-use quote::{
-    quote,
-    quote_spanned,
-};
-use syn::{
-    AttrStyle,
-    DeriveInput,
-    Error,
-    Lit,
-    Meta,
-    parse_macro_input,
-    spanned::Spanned,
-};
+use quote::{quote, quote_spanned};
+use syn::{parse_macro_input, spanned::Spanned, AttrStyle, DeriveInput, Error, Lit, Meta};
 
 struct Attributes {
     typename: Option<String>,
@@ -23,9 +12,7 @@ struct Attributes {
 
 impl Default for Attributes {
     fn default() -> Self {
-        Self {
-            typename: None,
-        }
+        Self { typename: None }
     }
 }
 
@@ -40,10 +27,18 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                             if let Lit::Str(ref lit_str) = meta.lit {
                                 result.typename = Some(lit_str.value());
                             } else {
-                                return Err(Error::new(meta.lit.span(), "typename must be set to a string").to_compile_error());
+                                return Err(Error::new(
+                                    meta.lit.span(),
+                                    "typename must be set to a string",
+                                )
+                                .to_compile_error());
                             }
                         } else {
-                            return Err(Error::new(meta.span(), "typename attribute already specified").to_compile_error());
+                            return Err(Error::new(
+                                meta.span(),
+                                "typename attribute already specified",
+                            )
+                            .to_compile_error());
                         }
                     }
                 }
@@ -71,16 +66,23 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
         Err(error) => return error,
     };
 
-    let generic_params = input.generics.params.iter().map(|p| quote_spanned! { p.span() => #p });
+    let generic_params = input
+        .generics
+        .params
+        .iter()
+        .map(|p| quote_spanned! { p.span() => #p });
     let generic_args = input.generics.type_params().map(|p| {
         let name = &p.ident;
         quote_spanned! { name.span() => #name }
     });
     let generic_predicates = match input.generics.where_clause {
         Some(ref clause) => {
-            let predicates = clause.predicates.iter().map(|p| quote_spanned! { p.span() => #p });
+            let predicates = clause
+                .predicates
+                .iter()
+                .map(|p| quote_spanned! { p.span() => #p });
             quote! { #(#predicates,)* }
-        },
+        }
         None => quote! {},
     };
 
@@ -90,7 +92,9 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
     });
 
     let name = &input.ident;
-    let name_str = attributes.typename.unwrap_or_else(|| input.ident.to_string());
+    let name_str = attributes
+        .typename
+        .unwrap_or_else(|| input.ident.to_string());
 
     let build_args = if !input.generics.params.is_empty() {
         let mut results = input.generics.type_params().map(|p| {

@@ -1,8 +1,4 @@
-use super::imp::{
-    BitMaskWord,
-    BITMASK_MASK,
-    BITMASK_STRIDE,
-};
+use super::imp::{BitMaskWord, BITMASK_MASK, BITMASK_STRIDE};
 #[cfg(feature = "nightly")]
 use core::intrinsics;
 

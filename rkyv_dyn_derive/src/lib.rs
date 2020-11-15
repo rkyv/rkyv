@@ -1,25 +1,13 @@
+//! Procedural macros for `rkyv_dyn`.
+
 extern crate proc_macro;
 
-use quote::{
-    quote,
-    quote_spanned,
-};
+use quote::{quote, quote_spanned};
 use syn::{
-    Attribute,
-    Error,
-    Ident,
-    ItemImpl,
-    ItemTrait,
-    LitStr,
-    parse::{
-        Parse,
-        ParseStream,
-        Result,
-    },
+    parse::{Parse, ParseStream, Result},
     parse_macro_input,
     spanned::Spanned,
-    Token,
-    Visibility,
+    Attribute, Error, Ident, ItemImpl, ItemTrait, LitStr, Token, Visibility,
 };
 
 enum Input {
@@ -77,12 +65,14 @@ impl Parse for TraitArgs {
 
 /// Creates archiveable trait objects and registers implementations.
 ///
-/// Prepend to trait definitions and implementations.
-/// On trait definitions, you can use the form `#[archive_dyn = "..."]`
-/// to choose the name of the archive type. By default, it will be
-/// named "Archive" + your trait name.
+/// Prepend to trait definitions and implementations. On trait definitions, you
+/// can use the form `#[archive_dyn = "..."]` to choose the name of the archive
+/// type. By default, it will be named "Archive" + your trait name.
 #[proc_macro_attribute]
-pub fn archive_dyn(attr: proc_macro::TokenStream, item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn archive_dyn(
+    attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     let input = parse_macro_input!(item as Input);
 
     let input_impl = match input {
@@ -97,15 +87,23 @@ pub fn archive_dyn(attr: proc_macro::TokenStream, item: proc_macro::TokenStream)
                     rkyv_dyn::register_vtable!(#ty as dyn #trait_);
                 }
             } else {
-                Error::new(input.span(), "#[archive_dyn] is only valid on trait implementations").to_compile_error()
+                Error::new(
+                    input.span(),
+                    "#[archive_dyn] is only valid on trait implementations",
+                )
+                .to_compile_error()
             }
-        },
+        }
         Input::Trait(input) => {
             let args = parse_macro_input!(attr as TraitArgs);
 
             let vis = &input.vis;
 
-            let generic_params = input.generics.params.iter().map(|p| quote_spanned! { p.span() => #p });
+            let generic_params = input
+                .generics
+                .params
+                .iter()
+                .map(|p| quote_spanned! { p.span() => #p });
             let generic_params = quote! { #(#generic_params),* };
 
             let generic_args = input.generics.type_params().map(|p| {
@@ -218,10 +216,10 @@ pub fn archive_dyn(attr: proc_macro::TokenStream, item: proc_macro::TokenStream)
                         fn archive_ref<W: Write + ?Sized>(&self, mut writer: &mut W) -> Result<Self::Resolver, W::Error> {
                             self.archive_dyn(&mut writer).map_err(|e| *e.downcast().unwrap())
                         }
-                    } 
+                    }
                 };
             }
-        },
+        }
     };
 
     proc_macro::TokenStream::from(input_impl)

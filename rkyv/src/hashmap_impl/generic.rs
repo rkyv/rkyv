@@ -1,11 +1,5 @@
-use core::{
-    mem,
-    ptr,
-};
-use super::{
-    bitmask::BitMask,
-    EMPTY,
-};
+use super::{bitmask::BitMask, EMPTY};
+use core::{mem, ptr};
 
 #[cfg(any(
     target_pointer_width = "64",

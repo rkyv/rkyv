@@ -1,12 +1,11 @@
 //! Type names for rkyv_dyn.
 //!
-//! The goal of `TypeName` is to avoid allocations if
-//! possible. If all you need is the hash of a type name,
-//! then there's no reason to allocate a string to do it.
+//! The goal of `TypeName` is to avoid allocations if possible. If all you need
+//! is the hash of a type name, then there's no reason to allocate a string to
+//! do it.
 //!
-//! rkyv_typename provides a derive macro to easily implement
-//! [`TypeName`], and has options to easily customize your
-//! type's name.
+//! rkyv_typename provides a derive macro to easily implement [`TypeName`], and
+//! has options to easily customize your type's name.
 //!
 //! ## Examples
 //!
@@ -23,10 +22,9 @@
 //!
 //! ## Features
 //!
-//! - `const_generics`: Uses the incomplete `const_generics`
-//! feature to implement array type names.
-//! - `std`: Implements [`TypeName`] for standard library
-//! types.
+//! - `const_generics`: Uses the incomplete `const_generics` feature to
+//! implement array type names.
+//! - `std`: Implements [`TypeName`] for standard library types.
 //!
 //! By default, the `std` feature is enabled.
 
@@ -42,20 +40,17 @@ pub use rkyv_typename_derive::TypeName;
 
 /// Builds a name for a type.
 ///
-/// An implementation can be derived automatically with
-/// `#[derive(TypeName)]`. See [TypeName](macro@TypeName)
-/// for more details.
+/// An implementation can be derived automatically with `#[derive(TypeName)]`.
+/// See [TypeName](macro@TypeName) for more details.
 ///
-/// Names cannot be guaranteed to be unique and although
-/// they are usually suitable to use as keys, precautions
-/// should be taken to ensure that if name collisions
-/// happen that they are detected and fixable.
+/// Names cannot be guaranteed to be unique and although they are usually
+/// suitable to use as keys, precautions should be taken to ensure that if name
+/// collisions happen that they are detected and fixable.
 ///
 /// ## Examples
 ///
-/// Most of the time, `#[derive(TypeName)]` will suit your
-/// needs. However, if you need more control, you can always
-/// implement it manually:
+/// Most of the time, `#[derive(TypeName)]` will suit your needs. However, if
+/// you need more control, you can always implement it manually:
 ///
 /// ```
 /// use rkyv_typename::TypeName;
@@ -89,7 +84,10 @@ pub use rkyv_typename_derive::TypeName;
 /// }
 ///
 /// assert_eq!(type_name::<Example>(), "CoolStruct");
-/// assert_eq!(type_name::<GenericExample<i32, Option<String>, Example>>(), "CoolGeneric<i32, Option<String>, CoolStruct>");
+/// assert_eq!(
+///     type_name::<GenericExample<i32, Option<String>, Example>>(),
+///     "CoolGeneric<i32, Option<String>, CoolStruct>"
+/// );
 /// ```
 pub trait TypeName {
     /// Submits the pieces of the type name to the given function.
@@ -113,8 +111,14 @@ mod tests {
         assert_eq!(type_name_string::<(i32,)>(), "(i32,)");
         assert_eq!(type_name_string::<(i32, i32)>(), "(i32, i32)");
         assert_eq!(type_name_string::<[[u8; 4]; 8]>(), "[[u8; 4]; 8]");
-        assert_eq!(type_name_string::<Option<[String; 1]>>(), "Option<[String; 1]>");
-        assert_eq!(type_name_string::<Option<[Option<u8>; 4]>>(), "Option<[Option<u8>; 4]>");
+        assert_eq!(
+            type_name_string::<Option<[String; 1]>>(),
+            "Option<[String; 1]>"
+        );
+        assert_eq!(
+            type_name_string::<Option<[Option<u8>; 4]>>(),
+            "Option<[Option<u8>; 4]>"
+        );
     }
 
     #[test]
@@ -130,7 +134,10 @@ mod tests {
         #[derive(TypeName)]
         struct Test<T, U, V>(T, U, V);
 
-        assert_eq!(type_name_string::<Test<u8, [i32; 4], Option<String>>>(), "Test<u8, [i32; 4], Option<String>>");
+        assert_eq!(
+            type_name_string::<Test<u8, [i32; 4], Option<String>>>(),
+            "Test<u8, [i32; 4], Option<String>>"
+        );
     }
 
     #[test]
@@ -146,6 +153,9 @@ mod tests {
         struct GenericTest<T>(T);
 
         assert_eq!(type_name_string::<GenericTest<i32>>(), "GenericCustom<i32>");
-        assert_eq!(type_name_string::<GenericTest<Test>>(), "GenericCustom<Custom>");
+        assert_eq!(
+            type_name_string::<GenericTest<Test>>(),
+            "GenericCustom<Custom>"
+        );
     }
 }

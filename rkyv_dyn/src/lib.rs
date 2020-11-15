@@ -1,46 +1,27 @@
 //! Trait object serialization for rkyv.
 //!
-//! With rkyv_dyn, trait objects can be serialized with rkyv then
-//! the methods can be called without deserializing. All it takes
-//! is some macro magic.
+//! With rkyv_dyn, trait objects can be serialized with rkyv then the methods
+//! can be called without deserializing. All it takes is some macro magic.
 //!
 //! See [`ArchiveDyn`] for an example of how to use rkyv_dyn.
 
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
+#[cfg(feature = "vtable_cache")]
+use core::sync::atomic::{AtomicU64, Ordering};
 use core::{
     any::Any,
-    hash::{
-        Hash,
-        Hasher,
-    },
+    hash::{Hash, Hasher},
     marker::PhantomData,
-    ops::{
-        Deref,
-        DerefMut,
-    },
+    ops::{Deref, DerefMut},
 };
-#[cfg(feature = "vtable_cache")]
-use core::sync::atomic::{
-    AtomicU64,
-    Ordering,
-};
-use std::collections::{
-    hash_map::DefaultHasher,
-    HashMap,
-};
-use rkyv::{
-    Archive,
-    offset_of,
-    RelPtr,
-    Write,
-    WriteExt,
-};
+use rkyv::{offset_of, Archive, RelPtr, Write, WriteExt};
 use rkyv_typename::TypeName;
+use std::collections::{hash_map::DefaultHasher, HashMap};
 
-pub use rkyv_dyn_derive::archive_dyn;
 #[doc(hidden)]
 pub use inventory;
+pub use rkyv_dyn_derive::archive_dyn;
 
 #[cfg(all(feature = "vtable_cache", feature = "nightly"))]
 use core::intrinsics::likely;
@@ -55,9 +36,9 @@ pub type DynError = Box<dyn Any>;
 
 /// An object-safe version of `Write`.
 ///
-/// Instead of an associated error type, `DynWrite` returns the
-/// [`DynError`] type. If you have a writer that already implements
-/// `Write`, then it will automatically implement `DynWrite`.
+/// Instead of an associated error type, `DynWrite` returns the [`DynError`]
+/// type. If you have a writer that already implements `Write`, then it will
+/// automatically implement `DynWrite`.
 pub trait DynWrite {
     /// Returns the current position of the writer.
     fn pos(&self) -> usize;
@@ -93,8 +74,7 @@ impl<'a> Write for dyn DynWrite + 'a {
 
 /// An object-safe version of `TypeName`.
 ///
-/// This makes it possible to build the type name through a
-/// trait object.
+/// This makes it possible to build the type name through a trait object.
 pub trait TypeNameDyn {
     /// Submits the pieces of the type name to the given function.
     fn build_type_name(&self, f: &mut dyn FnMut(&str));
@@ -110,26 +90,24 @@ impl<T: TypeName> TypeNameDyn for T {
 ///
 /// To add archive support for a trait object:
 ///
-/// 1. Add [`archive_dyn`](macro@archive_dyn) on your trait to
-/// make an archive-compatible version of it. By default, it
-/// will be named "Archive" + your trait name.
-/// 2. Implement `Archive` and `TypeName` for the types you want
-/// to make trait objects of.
-/// 3. Implement your trait for your type and add the attribute
-/// `#[archive_dyn]` to it. Make sure to implement your trait
-/// for your archived type as well.
+/// 1. Add [`archive_dyn`](macro@archive_dyn) on your trait to make an
+/// archive-compatible version of it. By default, it will be named "Archive" +
+/// your trait name.
+/// 2. Implement `Archive` and `TypeName` for the types you want to make trait
+/// objects of.
+/// 3. Implement your trait for your type and add the attribute `#[archive_dyn]`
+/// to it. Make sure to implement your trait for your archived type as well.
 ///
 /// Then you're ready to serialize boxed trait objects!
 ///
-/// Even though your unarchived values are boxed as archive
-/// trait objects, your archived values are boxed as regular
-/// trait objects. This is because your unarchived values have
-/// to implement `ArchiveDyn` but your archived values do not.
+/// Even though your unarchived values are boxed as archive trait objects, your
+/// archived values are boxed as regular trait objects. This is because your
+/// unarchived values have to implement `ArchiveDyn` but your archived values do
+/// not.
 ///
 /// ## Examples
 ///
-/// See [`archive_dyn`](macro@archive_dyn) for customization
-/// options.
+/// See [`archive_dyn`](macro@archive_dyn) for customization options.
 ///
 /// ```
 /// use rkyv::{
@@ -196,8 +174,8 @@ impl<T: TypeName> TypeNameDyn for T {
 /// }
 /// ```
 pub trait ArchiveDyn: TypeNameDyn {
-    /// Writes the value to the writer and returns a resolver
-    /// that can create a [`ArchivedDyn`] reference.
+    /// Writes the value to the writer and returns a resolver that can create an
+    /// [`ArchivedDyn`] reference.
     fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError>;
 }
 
@@ -215,9 +193,7 @@ pub struct DynResolver {
 impl DynResolver {
     /// Creates a new `DynResolver` with a given data position.
     pub fn new(pos: usize) -> Self {
-        Self {
-            pos,
-        }
+        Self { pos }
     }
 }
 
@@ -226,11 +202,10 @@ pub struct TraitObject(*const (), *const ());
 
 /// A reference to an archived trait object.
 ///
-/// This is essentially a pair of a data pointer and a vtable
-/// id. The `vtable_cache` feature is recommended if your
-/// situation allows for it. With `vtable_cache`, the
-/// vtable will only be looked up once and then stored locally
-/// for subsequent lookups when the reference is dereferenced.
+/// This is essentially a pair of a data pointer and a vtable id. The
+/// `vtable_cache` feature is recommended if your situation allows for it. With
+/// `vtable_cache`, the vtable will only be looked up once and then stored
+/// locally for subsequent lookups when the reference is dereferenced.
 ///
 /// `ArchivedDyn` is the trait object extension of `RelPtr`.
 #[derive(Debug)]
@@ -244,8 +219,8 @@ pub struct ArchivedDyn<T: ?Sized> {
 }
 
 impl<T: ?Sized> ArchivedDyn<T> {
-    /// Creates a new `ArchivedDyn` from a data position,
-    /// [`DynResolver`], and an implementation id.
+    /// Creates a new `ArchivedDyn` from a data position, [`DynResolver`], and
+    /// an implementation id.
     pub fn new(from: usize, resolver: DynResolver, id: &ImplId) -> ArchivedDyn<T> {
         ArchivedDyn {
             ptr: RelPtr::new(from + offset_of!(ArchivedDyn<T>, ptr), resolver.pos),
@@ -268,18 +243,21 @@ impl<T: ?Sized> ArchivedDyn<T> {
         if likely(vtable & 1 == 0) {
             vtable as usize as *const ()
         } else {
-            let ptr = TYPE_REGISTRY.vtable(ImplId(vtable)).expect("attempted to get vtable for an unregistered type");
+            let ptr = TYPE_REGISTRY
+                .vtable(ImplId(vtable))
+                .expect("attempted to get vtable for an unregistered type");
             self.vtable.store(ptr as usize as u64, Ordering::Relaxed);
             ptr
         }
     }
 
-    /// Gets the vtable pointer for this trait object. With the
-    /// `vtable_cache` feature, this will store the vtable
-    /// locally on the first lookup.
+    /// Gets the vtable pointer for this trait object. With the `vtable_cache`
+    /// feature, this will store the vtable locally on the first lookup.
     #[cfg(not(feature = "vtable_cache"))]
     pub fn vtable(&self) -> *const () {
-        TYPE_REGISTRY.vtable(ImplId(self.id)).expect("attempted to get vtable for an unregistered type")
+        TYPE_REGISTRY
+            .vtable(ImplId(self.id))
+            .expect("attempted to get vtable for an unregistered type")
     }
 }
 
@@ -310,9 +288,10 @@ pub struct ImplId(u64);
 
 impl ImplId {
     fn from_hasher<H: Hasher>(hasher: H) -> Self {
-        // The lowest significant bit of the impl id must be set so we can determine if a vtable
-        // has been cached when the feature is enabled. This can't just be when the feature is on
-        // so that impls have the same id across all builds.
+        // The lowest significant bit of the impl id must be set so we can
+        // determine if a vtable has been cached when the feature is enabled.
+        // This can't just be when the feature is on so that impls have the same
+        // id across all builds.
         Self(hasher.finish() | 1)
     }
 
@@ -356,7 +335,7 @@ macro_rules! debug_info {
             line: core::line!(),
             column: core::column!(),
         }
-    }
+    };
 }
 
 #[cfg(not(debug_assertions))]
@@ -365,7 +344,9 @@ pub struct ImplVTableDebugInfo;
 #[cfg(not(debug_assertions))]
 #[macro_export]
 macro_rules! debug_info {
-    () => { rkyv_dyn::ImplVTableDebugInfo }
+    () => {
+        rkyv_dyn::ImplVTableDebugInfo
+    };
 }
 
 #[doc(hidden)]
@@ -413,14 +394,27 @@ impl TypeRegistry {
 
     fn add_impl(&mut self, impl_vtable: &ImplVTable) {
         #[cfg(feature = "vtable_cache")]
-        debug_assert!((impl_vtable.vtable.0 as usize) & 1 == 0, "vtable has a non-zero least significant bit which breaks vtable caching");
-        let old_value = self.id_to_vtable.insert(impl_vtable.id, (impl_vtable.vtable, impl_vtable.debug_info));
+        debug_assert!(
+            (impl_vtable.vtable.0 as usize) & 1 == 0,
+            "vtable has a non-zero least significant bit which breaks vtable caching"
+        );
+        let old_value = self
+            .id_to_vtable
+            .insert(impl_vtable.id, (impl_vtable.vtable, impl_vtable.debug_info));
 
         #[cfg(debug_assertions)]
         if let Some((_, old_debug)) = old_value {
             eprintln!("impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
-            eprintln!("existing impl registered at {}:{}:{}", old_debug.file, old_debug.line, old_debug.column);
-            eprintln!("new impl registered at {}:{}:{}", impl_vtable.debug_info.file, impl_vtable.debug_info.line, impl_vtable.debug_info.column);
+            eprintln!(
+                "existing impl registered at {}:{}:{}",
+                old_debug.file, old_debug.line, old_debug.column
+            );
+            eprintln!(
+                "new impl registered at {}:{}:{}",
+                impl_vtable.debug_info.file,
+                impl_vtable.debug_info.line,
+                impl_vtable.debug_info.column
+            );
             panic!();
         }
 
@@ -444,11 +438,9 @@ lazy_static::lazy_static! {
 
 /// Registers a new vtable with the trait object system.
 ///
-/// This is called by `#[archive_dyn]` when attached to trait
-/// impls, but can be called manually to register impls instead.
-/// You might need to do this if you're using generic traits
-/// and types, since each specific instance needs to be
-/// individually registered.
+/// This is called by `#[archive_dyn]` when attached to trait You might need to
+/// do this if you're using generic traits and types, since each specific
+/// instance needs to be individually registered.
 ///
 /// Call it like `register_vtable!(MyType as dyn MyTrait)`.
 #[macro_export]
@@ -456,18 +448,13 @@ macro_rules! register_vtable {
     ($type:ty as $trait:ty) => {
         const _: () = {
             use rkyv::Archived;
-            use rkyv_dyn::{
-                debug_info,
-                ImplId,
-                ImplVTable,
-                inventory,
-            };
+            use rkyv_dyn::{debug_info, inventory, ImplId, ImplVTable};
 
             inventory::submit! {
                 // This is wildly unsafe but someone has to do it
                 let vtable = unsafe {
                     let uninit = core::mem::MaybeUninit::<Archived<$type>>::uninit();
-    
+
                     core::mem::transmute::<&$trait, (*const (), *const ())>(
                         core::mem::transmute::<*const Archived<$type>, &Archived<$type>>(
                             uninit.as_ptr()
@@ -481,5 +468,5 @@ macro_rules! register_vtable {
                 )
             }
         };
-    }
+    };
 }

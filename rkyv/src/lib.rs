@@ -4,64 +4,66 @@
 //!
 //! It's similar to other zero-copy deserialization frameworks such as
 //! [Cap'n Proto](https://capnproto.org) and
-//! [FlatBuffers](https://google.github.io/flatbuffers). However, while
-//! the former have external schemas and heavily restricted data types,
-//! rkyv allows all serialized types to be defined in code and can
-//! serialize a wide variety of types that the others cannot. Additionally,
-//! rkyv is designed to have little to no overhead, and in most cases will
-//! perform exactly the same as native types.
+//! [FlatBuffers](https://google.github.io/flatbuffers). However, while the
+//! former have external schemas and heavily restricted data types, rkyv allows
+//! all serialized types to be defined in code and can serialize a wide variety
+//! of types that the others cannot. Additionally, rkyv is designed to have
+//! little to no overhead, and in most cases will perform exactly the same as
+//! native types.
 //!
 //! rkyv has a hashmap implementation that is built for zero-copy
-//! deserialization, so you can serialize your hashmaps with abandon!
-//! The implementation is based off of the standard library's
-//! `hashbrown` crate and should have nearly identical performance.
+//! deserialization, so you can serialize your hashmaps with abandon! The
+//! implementation is based off of the standard library's `hashbrown` crate and
+//! should have nearly identical performance.
 //!
-//! One of the most impactful features made possible by rkyv is the
-//! ability to serialize trait objects and use them *as trait objects*
-//! without deserialization. See the `archive_dyn` crate for more details.
+//! One of the most impactful features made possible by rkyv is the ability to
+//! serialize trait objects and use them *as trait objects* without
+//! deserialization. See the `archive_dyn` crate for more details.
 //!
 //! ## Design
 //!
-//! Like [serde](https://serde.rs), rkyv uses Rust's powerful trait
-//! system to serialize data without the need for reflection. Despite
-//! having a wide array of features, you also only pay for what you
-//! use. If your data checks out, the serialization process can be
-//! as simple as a `memcpy`! Like serde, this allows rkyv to perform
-//! at speeds similar to handwritten serializers.
+//! Like [serde](https://serde.rs), rkyv uses Rust's powerful trait system to
+//! serialize data without the need for reflection. Despite having a wide array
+//! of features, you also only pay for what you use. If your data checks out,
+//! the serialization process can be as simple as a `memcpy`! Like serde, this
+//! allows rkyv to perform at speeds similar to handwritten serializers.
 //!
-//! Unlike serde, rkyv produces data that is guaranteed deserialization
-//! free. If you wrote your data to disk, you can just `mmap` your file
-//! into memory, cast a pointer, and your data is ready to use. This
-//! makes it ideal for high-performance and IO-limited applications.
+//! Unlike serde, rkyv produces data that is guaranteed deserialization free. If
+//! you wrote your data to disk, you can just `mmap` your file into memory, cast
+//! a pointer, and your data is ready to use. This makes it ideal for
+//! high-performance and IO-limited applications.
 //!
 //! ## Tradeoffs
 //!
-//! rkyv is designed primarily for loading bulk game data as efficiently
-//! as possible. While rkyv is a great format for final data, it lacks
-//! a full schema system and isn't well equipped for data migration.
-//! Using a serialization library like serde can help fill these gaps,
-//! and you can use serde with the same types as rkyv conflict-free.
+//! rkyv is designed primarily for loading bulk game data as efficiently as
+//! possible. While rkyv is a great format for final data, it lacks a full
+//! schema system and isn't well equipped for data migration. Using a
+//! serialization library like serde can help fill these gaps, and you can use
+//! serde with the same types as rkyv conflict-free.
 //!
 //! ## Features
 //!
-//! - `const_generics`: Improves the implementations for some traits
-//! and provides an [`Archive`] implementation for slices with elements
-//! that implement [`ArchiveSelf`]. Ideal for `#![no_std]` environments.
+//! - `const_generics`: Improves the implementations for some traits and
+//!   provides an [`Archive`] implementation for slices with elements that
+//!   implement [`ArchiveSelf`]. Ideal for `#![no_std]` environments.
 //! - `inline_more`: Performs more aggressive function inlining.
-//! - `more_portable`: Avoids using sse2-optimized intrinsics since
-//! they may cause alignment issues across machines. This feature may
-//! go away once any portability bugs are identified and fixed.
+//! - `more_portable`: Avoids using sse2-optimized intrinsics since they may
+//!   cause alignment issues across machines. This feature may go away once any
+//!   portability bugs are identified and fixed.
 //! - `nightly`: Enables some nightly features, such as
-//! [`likely`](std::intrinsics::likely).
-//! - `specialization`: Enables the unfinished specialization feature
-//! and provides more efficient implementations of some functions when
-//! working with [`ArchiveSelf`] types.
+//!   [`likely`](std::intrinsics::likely).
+//! - `specialization`: Enables the unfinished specialization feature and
+//!   provides more efficient implementations of some functions when working
+//!   with [`ArchiveSelf`] types.
 //! - `std`: Enables standard library support.
 //!
 //! By default, the `std` and `inline_more` features are enabled.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(any(feature = "const_generics", feature = "specialization"), allow(incomplete_features))]
+#![cfg_attr(
+    any(feature = "const_generics", feature = "specialization"),
+    allow(incomplete_features)
+)]
 #![cfg_attr(feature = "const_generics", feature(const_generics))]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(feature = "specialization", feature(specialization))]
@@ -73,18 +75,11 @@ mod hashmap_impl;
 mod std_impl;
 
 use core::{
-    hash::{
-        Hash,
-        Hasher,
-    },
+    hash::{Hash, Hasher},
     marker::PhantomData,
     mem,
-    ops::{
-        Deref,
-        DerefMut,
-    },
-    ptr,
-    slice,
+    ops::{Deref, DerefMut},
+    ptr, slice,
 };
 #[cfg(feature = "std")]
 use std::io;
@@ -94,10 +89,10 @@ pub use rkyv_derive::Archive;
 
 /// A `#![no_std]` compliant writer that knows where it is.
 ///
-/// A type that is [`io::Write`](std::io::Write) can be wrapped in an ArchiveWriter
-/// to equip it with `Write`. It's important that the memory for archived objects
-/// is properly aligned before attempting to read objects out of it, use the
-/// [`Aligned`] wrapper if it's appropriate.
+/// A type that is [`io::Write`](std::io::Write) can be wrapped in an
+/// ArchiveWriter to equip it with `Write`. It's important that the memory for
+/// archived objects is properly aligned before attempting to read objects out
+/// of it, use the [`Aligned`] wrapper if it's appropriate.
 pub trait Write {
     /// The errors that may occur while writing.
     type Error: 'static;
@@ -133,20 +128,24 @@ pub trait WriteExt: Write {
         Ok(self.pos())
     }
 
-    /// Aligns the position of the writer to be suitable to write
-    /// the given type.
+    /// Aligns the position of the writer to be suitable to write the given
+    /// type.
     fn align_for<T>(&mut self) -> Result<usize, Self::Error> {
         self.align(mem::align_of::<T>())
     }
 
-    /// Resolves the given resolver and writes its archived type, returning
-    /// the position of the written archived type.
+    /// Resolves the given resolver and writes its archived type, returning the
+    /// position of the written archived type.
     ///
     /// # Safety
     ///
     /// This is only safe to call when the writer is already aligned for the
     /// archived version of the given type.
-    unsafe fn resolve_aligned<T: ?Sized, R: Resolve<T>>(&mut self, value: &T, resolver: R) -> Result<usize, Self::Error> {
+    unsafe fn resolve_aligned<T: ?Sized, R: Resolve<T>>(
+        &mut self,
+        value: &T,
+        resolver: R,
+    ) -> Result<usize, Self::Error> {
         let pos = self.pos();
         debug_assert!(pos & (mem::align_of::<R::Archived>() - 1) == 0);
         let archived = &resolver.resolve(pos, value);
@@ -160,19 +159,15 @@ pub trait WriteExt: Write {
     fn archive<T: Archive>(&mut self, value: &T) -> Result<usize, Self::Error> {
         let resolver = value.archive(self)?;
         self.align_for::<T::Archived>()?;
-        unsafe {
-            self.resolve_aligned(value, resolver)
-        }
+        unsafe { self.resolve_aligned(value, resolver) }
     }
 
-    /// Archives a reference to the given object and returns the position it
-    /// was archived at.
+    /// Archives a reference to the given object and returns the position it was
+    /// archived at.
     fn archive_ref<T: ArchiveRef + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error> {
         let resolver = value.archive_ref(self)?;
         self.align_for::<T::Reference>()?;
-        unsafe {
-            self.resolve_aligned(value, resolver)
-        }
+        unsafe { self.resolve_aligned(value, resolver) }
     }
 }
 
@@ -180,27 +175,30 @@ impl<W: Write + ?Sized> WriteExt for W {}
 
 /// Creates an archived value when given a value and position.
 ///
-/// Resolvers are passed the original value, so any information that is already in
-/// them doesn't have to be stored in the resolver.
+/// Resolvers are passed the original value, so any information that is already
+/// in them doesn't have to be stored in the resolver.
 pub trait Resolve<T: ?Sized> {
     /// The type that this resolver resolves to.
     type Archived;
 
-    /// Creates the archived version of the given value at the given position. 
+    /// Creates the archived version of the given value at the given position.
     fn resolve(self, pos: usize, value: &T) -> Self::Archived;
 }
 
-/// Writes a type to a [`Writer`](Write) so it can be used without deserializing.
+/// Writes a type to a [`Writer`](Write) so it can be used without
+/// deserializing.
 ///
-/// Archiving is done depth-first, writing any data owned by a type before writing
-/// the data for the type itself. The [`Resolver`](Resolve) must be able to create
-/// the archived type from only its own data and the value being archived.
+/// Archiving is done depth-first, writing any data owned by a type before
+/// writing the data for the type itself. The [`Resolver`](Resolve) must be able
+/// to create the archived type from only its own data and the value being
+/// archived.
 ///
 /// ## Examples
 ///
-/// Most of the time, `#[derive(Archive)]` will create an acceptable implementation.
-/// You can use the `#[archive(...)]` attribute to control how the implementation is
-/// generated. See the [`Archive`](macro@Archive) derive macro for more details.
+/// Most of the time, `#[derive(Archive)]` will create an acceptable
+/// implementation. You can use the `#[archive(...)]` attribute to control how
+/// the implementation is generated. See the [`Archive`](macro@Archive) derive
+/// macro for more details.
 ///
 /// ```
 /// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, WriteExt};
@@ -227,13 +225,13 @@ pub trait Resolve<T: ?Sized> {
 /// assert_eq!(archived.option, value.option);
 /// ```
 ///
-/// Many of the core and standard library types already have Archive implementations
-/// available, but you may need to implement `Archive` for your own types in some
-/// cases the derive macro cannot handle.
+/// Many of the core and standard library types already have Archive
+/// implementations available, but you may need to implement `Archive` for your
+/// own types in some cases the derive macro cannot handle.
 ///
-/// In this example, we add our own wrapper that serializes a `&'static str` as if
-/// it's owned. Normally you can lean on the archived version of `String` to do
-/// most of the work, but this example does everything to demonstrate how to
+/// In this example, we add our own wrapper that serializes a `&'static str` as
+/// if it's owned. Normally you can lean on the archived version of `String` to
+/// do most of the work, but this example does everything to demonstrate how to
 /// implement `Archive` for your own types.
 ///
 /// ```
@@ -258,9 +256,9 @@ pub trait Resolve<T: ?Sized> {
 /// struct ArchivedOwnedStr {
 ///     // This will be a relative pointer to the bytes of our string.
 ///     ptr: RelPtr<u8>,
-///     // The length of the archived version must be explicitly sized
-///     // for 32/64-bit compatibility. Archive is not implemented for
-///     // usize and isize to help you avoid making this mistake.
+///     // The length of the archived version must be explicitly sized for
+///     // 32/64-bit compatibility. Archive is not implemented for usize and
+///     // isize to help you avoid making this mistake.
 ///     len: u32,
 /// }
 ///
@@ -277,25 +275,23 @@ pub trait Resolve<T: ?Sized> {
 /// }
 ///
 /// struct OwnedStrResolver {
-///     // This will be the position that the bytes of our string are
-///     // are stored at. We'll use this to make the relative pointer
-///     // of our ArchivedOwnedStr.
+///     // This will be the position that the bytes of our string are stored at.
+///     // We'll use this to make the relative pointer of our ArchivedOwnedStr.
 ///     bytes_pos: usize,
 /// }
 ///
 /// impl Resolve<OwnedStr> for OwnedStrResolver {
-///     // This is essentially the output type of the resolver.
-///     // It must match the Archived associated type in our impl of
-///     // Archive for OwnedStr.
+///     // This is essentially the output type of the resolver. It must match
+///     // the Archived associated type in our impl of Archive for OwnedStr.
 ///     type Archived = ArchivedOwnedStr;
 ///
-///     // The resolve function consumes the resolver and produces
-///     // the archived value at the given position.
+///     // The resolve function consumes the resolver and produces the archived
+///     // value at the given position.
 ///     fn resolve(self, pos: usize, value: &OwnedStr) -> Self::Archived {
 ///         Self::Archived {
-///             // We have to be careful to add the offset of the ptr
-///             // field, otherwise we'll be using the position of the
-///             // ArchivedOwnedStr instead of the position of the ptr.
+///             // We have to be careful to add the offset of the ptr field,
+///             // otherwise we'll be using the position of the ArchivedOwnedStr
+///             // instead of the position of the ptr.
 ///             ptr: RelPtr::new(pos + offset_of!(ArchivedOwnedStr, ptr), self.bytes_pos),
 ///             len: value.inner.len() as u32,
 ///         }
@@ -308,8 +304,8 @@ pub trait Resolve<T: ?Sized> {
 ///     type Resolver = OwnedStrResolver;
 ///
 ///     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-///         // This is where we want to write the bytes of our string and
-///         // return a resolver that knows where those bytes were written.
+///         // This is where we want to write the bytes of our string and return
+///         // a resolver that knows where those bytes were written.
 ///         let bytes_pos = writer.pos();
 ///         writer.write(self.inner.as_bytes())?;
 ///         Ok(Self::Resolver { bytes_pos })
@@ -332,26 +328,26 @@ pub trait Resolve<T: ?Sized> {
 pub trait Archive {
     /// The archived version of this type.
     type Archived;
-    /// The resolver for this type. It must contain all the information
-    /// needed to make the archived type from the unarchived type.
+    /// The resolver for this type. It must contain all the information needed
+    /// to make the archived type from the unarchived type.
     type Resolver: Resolve<Self, Archived = Self::Archived>;
 
-    /// Writes the dependencies for the object and returns a resolver
-    /// that can create the archived type.
+    /// Writes the dependencies for the object and returns a resolver that can
+    /// create the archived type.
     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error>;
 }
 
 /// This trait is a counterpart of [`Archive`] that's suitable for unsized
-/// types. Instead of archiving its value directly, `ArchiveRef` archives
-/// a type that dereferences to its archived type. As a consequence, its
-/// `Resolver` resolves to a `Reference` instead of the archived type.
+/// types. Instead of archiving its value directly, `ArchiveRef` archives a type
+/// that dereferences to its archived type. As a consequence, its `Resolver`
+/// resolves to a `Reference` instead of the archived type.
 ///
 /// `ArchiveRef` is automatically implemented for all types that implement
 /// [`Archive`], and uses a [`RelPtr`] as the reference type.
 ///
-/// `ArchiveRef` is already implemented for slices and string slices. Use
-/// the `rkyv_dyn` crate to archive trait objects. Unfortunately, you'll
-/// have to manually implement `ArchiveRef` for your other unsized types.
+/// `ArchiveRef` is already implemented for slices and string slices. Use the
+/// `rkyv_dyn` crate to archive trait objects. Unfortunately, you'll have to
+/// manually implement `ArchiveRef` for your other unsized types.
 pub trait ArchiveRef {
     /// The archived version of this type.
     type Archived: ?Sized;
@@ -360,25 +356,25 @@ pub trait ArchiveRef {
     /// The resolver for the reference of this type.
     type Resolver: Resolve<Self, Archived = Self::Reference>;
 
-    /// Writes the object and returns a resolver that can create the
-    /// reference to the archived type.
+    /// Writes the object and returns a resolver that can create the reference
+    /// to the archived type.
     fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error>;
 }
 
-/// A trait that indicates that some [`Archive`] type can be copied directly to an
-/// archive without additional processing.
+/// A trait that indicates that some [`Archive`] type can be copied directly to
+/// an archive without additional processing.
 ///
-/// You can derive an implementation of `ArchiveSelf` by adding `#[archive(self)]`
-/// to the struct or enum. Types that implement `ArchiveSelf` must also implement
-/// [`Copy`](core::marker::Copy).
+/// You can derive an implementation of `ArchiveSelf` by adding
+/// `#[archive(self)]` to the struct or enum. Types that implement `ArchiveSelf`
+/// must also implement [`Copy`](core::marker::Copy).
 ///
-/// Types that implement `ArchiveSelf` are not guaranteed to have `archive` called
-/// on them to archive their value. Most or all implementations that leverage
-/// `ArchiveSelf` will require the `specialization` feature.
+/// Types that implement `ArchiveSelf` are not guaranteed to have `archive`
+/// called on them to archive their value. Most or all implementations that
+/// leverage `ArchiveSelf` will require the `specialization` feature.
 ///
-/// `ArchiveSelf` must be manually implemented even if a type implements [`Archive`]
-/// and [`Copy`](core::marker::Copy) because some types may transform their data
-/// when writing to an archive.
+/// `ArchiveSelf` must be manually implemented even if a type implements
+/// [`Archive`] and [`Copy`](core::marker::Copy) because some types may
+/// transform their data when writing to an archive.
 ///
 /// ## Examples
 /// ```
@@ -410,7 +406,8 @@ impl<T: ArchiveSelf> Resolve<T> for SelfResolver {
     }
 }
 
-/// A strongly typed pointer which resolves to relative to its position in memory.
+/// A strongly typed pointer which resolves to relative to its position in
+/// memory.
 ///
 /// See [`Archive`] for an example of creating one.
 #[repr(transparent)]
@@ -430,10 +427,13 @@ impl<T> RelPtr<T> {
         }
     }
 
-    /// Calculates the memory address being pointed to by this relative pointer. 
+    /// Calculates the memory address being pointed to by this relative pointer.
     pub fn as_ptr(&self) -> *const T {
         unsafe {
-            (self as *const Self).cast::<u8>().offset(self.offset as isize).cast::<T>()
+            (self as *const Self)
+                .cast::<u8>()
+                .offset(self.offset as isize)
+                .cast::<T>()
         }
     }
 
@@ -441,7 +441,10 @@ impl<T> RelPtr<T> {
     /// by this relative pointer.
     pub fn as_mut_ptr(&mut self) -> *mut T {
         unsafe {
-            (self as *mut Self).cast::<u8>().offset(self.offset as isize).cast::<T>()
+            (self as *mut Self)
+                .cast::<u8>()
+                .offset(self.offset as isize)
+                .cast::<T>()
         }
     }
 }
@@ -501,8 +504,8 @@ pub type ReferenceResolver<T> = <T as ArchiveRef>::Resolver;
 /// Alias for the reference for some [`ArchiveRef`] type.
 pub type Reference<T> = <T as ArchiveRef>::Reference;
 
-/// Wraps a type and aligns it to at least 16 bytes. Mainly used to align
-/// byte buffers for [ArchiveBuffer].
+/// Wraps a type and aligns it to at least 16 bytes. Mainly used to align byte
+/// buffers for [ArchiveBuffer].
 ///
 /// ## Examples
 /// ```
@@ -529,8 +532,8 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 
 /// Wraps a byte buffer and writes into it.
 ///
-/// Common uses include archiving in `#![no_std]` environments and
-/// archiving small objects without allocating.
+/// Common uses include archiving in `#![no_std]` environments and archiving
+/// small objects without allocating.
 ///
 /// ## Examples
 /// ```
@@ -542,7 +545,7 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 ///     Speak(String),
 ///     Die,
 /// }
-/// 
+///
 /// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
 /// let pos = writer.archive(&Event::Speak("Help me!".to_string()))
 ///     .expect("failed to archive event");
@@ -569,10 +572,7 @@ impl<T> ArchiveBuffer<T> {
     /// writing at the given position, but the buffer must contain all bytes
     /// (otherwise the alignments of types may not be correct).
     pub fn with_pos(inner: T, pos: usize) -> Self {
-        Self {
-            inner,
-            pos,
-        }
+        Self { inner, pos }
     }
 
     /// Consumes the buffer and returns the internal buffer used to create it.
@@ -604,7 +604,8 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
                 ptr::copy_nonoverlapping(
                     bytes.as_ptr(),
                     self.inner.as_mut().as_mut_ptr().add(self.pos),
-                    bytes.len());
+                    bytes.len(),
+                );
             }
             self.pos = end_pos;
             Ok(())
@@ -640,13 +641,10 @@ impl<W: io::Write> ArchiveWriter<W> {
         Self::with_pos(inner, 0)
     }
 
-    /// Creates a new archive writer from a writer, and assumes that the underlying
-    /// writer is currently at the given position.
+    /// Creates a new archive writer from a writer, and assumes that the
+    /// underlying writer is currently at the given position.
     pub fn with_pos(inner: W, pos: usize) -> Self {
-        Self {
-            inner,
-            pos,
-        }
+        Self { inner, pos }
     }
 
     /// Consumes the writer and returns the internal writer used to create it.
@@ -671,13 +669,13 @@ impl<W: io::Write> Write for ArchiveWriter<W> {
 
 /// Casts an archived value from the given byte array at the given position.
 ///
-/// This helps avoid situations where lifetimes get inappropriately assigned
-/// and allow buffer mutation after getting archived value references.
+/// This helps avoid situations where lifetimes get inappropriately assigned and
+/// allow buffer mutation after getting archived value references.
 ///
 /// # Safety
 ///
-/// This is only safe to call if the value is archived at the given position
-/// in the byte array.
+/// This is only safe to call if the value is archived at the given position in
+/// the byte array.
 #[inline]
 pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &Archived<T> {
     &*bytes.as_ptr().add(pos).cast()
@@ -686,22 +684,25 @@ pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &
 /// Casts a mutable archived value from the given byte array at the given
 /// position.
 ///
-/// This helps avoid situations where lifetimes get inappropriately assigned
-/// and allow buffer mutation after getting archived value references.
+/// This helps avoid situations where lifetimes get inappropriately assigned and
+/// allow buffer mutation after getting archived value references.
 ///
 /// # Safety
 ///
-/// This is only safe to call if the value is archived at the given position
-/// in the byte array.
+/// This is only safe to call if the value is archived at the given position in
+/// the byte array.
 #[inline]
-pub unsafe fn archived_value_mut<T: Archive + ?Sized>(bytes: &mut [u8], pos: usize) -> &mut Archived<T> {
+pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
+    bytes: &mut [u8],
+    pos: usize,
+) -> &mut Archived<T> {
     &mut *bytes.as_mut_ptr().add(pos).cast()
 }
 
 /// Casts an archived reference from the given byte array at the given position.
 ///
-/// This helps avoid situations where lifetimes get inappropriately assigned
-/// and allow buffer mutation after getting archived value references.
+/// This helps avoid situations where lifetimes get inappropriately assigned and
+/// allow buffer mutation after getting archived value references.
 ///
 /// # Safety
 ///
@@ -715,14 +716,17 @@ pub unsafe fn archived_ref<T: ArchiveRef + ?Sized>(bytes: &[u8], pos: usize) -> 
 /// Casts a mutable archived reference from the given byte array at the given
 /// position.
 ///
-/// This helps avoid situations where lifetimes get inappropriately assigned
-/// and allow buffer mutation after getting archived value references.
+/// This helps avoid situations where lifetimes get inappropriately assigned and
+/// allow buffer mutation after getting archived value references.
 ///
 /// # Safety
 ///
 /// This is only safe to call if the reference is archived at the given position
 /// in the byte array.
 #[inline]
-pub unsafe fn archived_ref_mut<T: ArchiveRef + ?Sized>(bytes: &mut [u8], pos: usize) -> &mut Reference<T> {
+pub unsafe fn archived_ref_mut<T: ArchiveRef + ?Sized>(
+    bytes: &mut [u8],
+    pos: usize,
+) -> &mut Reference<T> {
     &mut *bytes.as_mut_ptr().add(pos).cast()
 }

@@ -1,13 +1,13 @@
 use crate::TypeName;
 
 macro_rules! impl_primitive {
-    ($type:ty) => (
+    ($type:ty) => {
         impl TypeName for $type {
             fn build_type_name<F: FnMut(&'static str)>(mut f: F) {
                 f(stringify!($type));
             }
         }
-    )
+    };
 }
 
 impl_primitive!(());

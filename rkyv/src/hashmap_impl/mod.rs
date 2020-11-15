@@ -16,39 +16,24 @@ cfg_if! {
 }
 mod bitmask;
 
+use self::bitmask::BitMask;
+use self::imp::Group;
+use crate::{Archive, RelPtr, Resolve, Write, WriteExt};
 use core::{
     borrow::Borrow,
     cmp::Eq,
-    hash::{
-        Hash,
-        Hasher,
-    },
+    hash::{Hash, Hasher},
     iter::FusedIterator,
     marker::PhantomData,
     mem,
     ops::Index,
     ptr,
 };
-use std::collections::{
-    HashMap,
-    HashSet,
-};
 use memoffset::offset_of;
-use crate::{
-    Archive,
-    RelPtr,
-    Resolve,
-    Write,
-    WriteExt,
-};
-use self::bitmask::BitMask;
-use self::imp::Group;
+use std::collections::{HashMap, HashSet};
 
 #[cfg(feature = "nightly")]
-use core::intrinsics::{
-    likely,
-    unlikely,
-};
+use core::intrinsics::{likely, unlikely};
 #[cfg(not(feature = "nightly"))]
 #[inline]
 fn likely(b: bool) -> bool {
@@ -189,7 +174,7 @@ fn find_insert_slot(bucket_mask: u32, hash: u64, ctrl: *const u8) -> usize {
                     debug_assert_ne!(pos, 0);
                     return Group::load_aligned(ctrl)
                         .match_empty()
-                        .lowest_set_bit_nonzero()
+                        .lowest_set_bit_nonzero();
                 } else {
                     return result;
                 }
@@ -273,7 +258,8 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.find(make_hash(k), k).map(|bucket| (&bucket.key, &bucket.value))
+        self.find(make_hash(k), k)
+            .map(|bucket| (&bucket.key, &bucket.value))
     }
 
     /// Returns whether a key is present in the hash map.
@@ -303,7 +289,8 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.find_mut(make_hash(k), k).map(|bucket| &mut bucket.value)
+        self.find_mut(make_hash(k), k)
+            .map(|bucket| &mut bucket.value)
     }
 
     /// Gets the hasher for the hash map.
@@ -320,7 +307,12 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
     fn raw_iter(&self) -> RawIter<'_, K, V> {
         if self.items == 0 {
-            RawIter::new(Group::static_empty().as_ptr(), ptr::NonNull::dangling().as_ptr(), self.buckets(), self.items as usize)
+            RawIter::new(
+                Group::static_empty().as_ptr(),
+                ptr::NonNull::dangling().as_ptr(),
+                self.buckets(),
+                self.items as usize,
+            )
         } else {
             let ctrl = self.ctrl.as_ptr();
             let data = self.data.as_ptr();
@@ -330,7 +322,12 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
     fn raw_iter_mut(&mut self) -> RawIterMut<'_, K, V> {
         if self.items == 0 {
-            RawIterMut::new(Group::static_empty().as_ptr(), ptr::NonNull::dangling().as_ptr(), self.buckets(), self.items as usize)
+            RawIterMut::new(
+                Group::static_empty().as_ptr(),
+                ptr::NonNull::dangling().as_ptr(),
+                self.buckets(),
+                self.items as usize,
+            )
         } else {
             let ctrl = self.ctrl.as_ptr();
             let data = self.data.as_mut_ptr();
@@ -380,7 +377,16 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     }
 
     #[inline]
-    fn archive_from_iter<'a, KU: 'a + Archive<Archived = K> + Hash + Eq, VU: 'a + Archive<Archived = V>, W: Write + ?Sized>(items: impl Iterator<Item = (&'a KU, &'a VU)>, len: usize, writer: &mut W) -> Result<ArchivedHashMapResolver, W::Error> {
+    fn archive_from_iter<
+        'a,
+        KU: 'a + Archive<Archived = K> + Hash + Eq,
+        VU: 'a + Archive<Archived = V>,
+        W: Write + ?Sized,
+    >(
+        items: impl Iterator<Item = (&'a KU, &'a VU)>,
+        len: usize,
+        writer: &mut W,
+    ) -> Result<ArchivedHashMapResolver, W::Error> {
         if len == 0 {
             Ok(ArchivedHashMapResolver {
                 ctrl_pos: 0,
@@ -388,7 +394,9 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
             })
         } else {
             // Archive items
-            let items_resolvers = items.map(|(k, v)| Ok(((k, v), (k.archive(writer)?, v.archive(writer)?)))).collect::<Result<Vec<_>, _>>()?;
+            let items_resolvers = items
+                .map(|(k, v)| Ok(((k, v), (k.archive(writer)?, v.archive(writer)?))))
+                .collect::<Result<Vec<_>, _>>()?;
 
             // Initialize with capacity
             let buckets = capacity_to_buckets(len).unwrap();
@@ -398,14 +406,19 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
             let mut ctrl = vec![EMPTY; buckets + Group::WIDTH];
             let mut data = Vec::with_capacity(buckets);
             for _ in 0..buckets {
-                data.push(mem::MaybeUninit::<ArchivedBucket::<K, V>>::zeroed());
+                data.push(mem::MaybeUninit::<ArchivedBucket<K, V>>::zeroed());
             }
 
             // Set up writers
             writer.align(Group::WIDTH)?;
             let ctrl_pos = writer.pos();
             let data_align = usize::max(mem::align_of::<ArchivedBucket<K, V>>(), Group::WIDTH);
-            let data_pos = ctrl_pos.checked_add(ctrl.len()).unwrap().checked_add(data_align - 1).unwrap() & !(data_align - 1);
+            let data_pos = ctrl_pos
+                .checked_add(ctrl.len())
+                .unwrap()
+                .checked_add(data_align - 1)
+                .unwrap()
+                & !(data_align - 1);
 
             // Insert items
             for ((key, value), (key_resolver, value_resolver)) in items_resolvers {
@@ -414,7 +427,8 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
                 // Find insert slot
                 let ctrl_value = h2(hash);
                 let index = find_insert_slot(bucket_mask, hash, ctrl.as_ptr());
-                let index2 = ((index.wrapping_sub(Group::WIDTH)) & bucket_mask as usize) + Group::WIDTH;
+                let index2 =
+                    ((index.wrapping_sub(Group::WIDTH)) & bucket_mask as usize) + Group::WIDTH;
                 ctrl[index] = ctrl_value;
                 ctrl[index2] = ctrl_value;
 
@@ -422,8 +436,10 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
                 let bucket_pos = data_pos + index * mem::size_of::<ArchivedBucket<K, V>>();
                 unsafe {
                     data[index].as_mut_ptr().write(ArchivedBucket {
-                        key: key_resolver.resolve(bucket_pos + offset_of!(ArchivedBucket<K, V>, key), key),
-                        value: value_resolver.resolve(bucket_pos + offset_of!(ArchivedBucket<K, V>, value), value),
+                        key: key_resolver
+                            .resolve(bucket_pos + offset_of!(ArchivedBucket<K, V>, key), key),
+                        value: value_resolver
+                            .resolve(bucket_pos + offset_of!(ArchivedBucket<K, V>, value), value),
                     });
                 }
             }
@@ -431,12 +447,14 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
             // Write blocks
             writer.write(ctrl.as_slice())?;
             writer.align(data_align)?;
-            writer.write(unsafe { core::slice::from_raw_parts(data.as_ptr().cast::<u8>(), mem::size_of::<mem::MaybeUninit::<ArchivedBucket<K, V>>>() * data.len()) })?;
+            writer.write(unsafe {
+                core::slice::from_raw_parts(
+                    data.as_ptr().cast::<u8>(),
+                    mem::size_of::<mem::MaybeUninit<ArchivedBucket<K, V>>>() * data.len(),
+                )
+            })?;
 
-            Ok(ArchivedHashMapResolver {
-                ctrl_pos,
-                data_pos,
-            })
+            Ok(ArchivedHashMapResolver { ctrl_pos, data_pos })
         }
     }
 }
@@ -466,24 +484,30 @@ impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
         if self.len() != other.len() {
             false
         } else {
-            self.iter().all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
+            self.iter()
+                .all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
         }
     }
 }
 
 impl<K: Hash + Eq, V: Eq> Eq for ArchivedHashMap<K, V> {}
 
-impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>> PartialEq<HashMap<K, V>> for ArchivedHashMap<AK, AV> {
+impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>> PartialEq<HashMap<K, V>>
+    for ArchivedHashMap<AK, AV>
+{
     fn eq(&self, other: &HashMap<K, V>) -> bool {
         if self.len() != other.len() {
             false
         } else {
-            self.iter().all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
+            self.iter()
+                .all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
         }
     }
 }
 
-impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>> PartialEq<ArchivedHashMap<AK, AV>> for HashMap<K, V> {
+impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>>
+    PartialEq<ArchivedHashMap<AK, AV>> for HashMap<K, V>
+{
     fn eq(&self, other: &ArchivedHashMap<AK, AV>) -> bool {
         other.eq(self)
     }
@@ -507,7 +531,12 @@ struct RawIter<'a, K: Hash + Eq, V> {
 }
 
 impl<'a, K: Hash + Eq, V> RawIter<'a, K, V> {
-    fn new(ctrl: *const u8, data: *const ArchivedBucket<K, V>, buckets: usize, items: usize) -> Self {
+    fn new(
+        ctrl: *const u8,
+        data: *const ArchivedBucket<K, V>,
+        buckets: usize,
+        items: usize,
+    ) -> Self {
         debug_assert_ne!(buckets, 0);
         debug_assert_eq!(ctrl as usize % Group::WIDTH, 0);
         unsafe {
@@ -538,7 +567,7 @@ impl<'a, K: Hash + Eq, V> Iterator for RawIter<'a, K, V> {
                 if let Some(index) = self.current_group.lowest_set_bit() {
                     self.current_group = self.current_group.remove_lowest_bit();
                     self.items -= 1;
-                    return Some(self.data.add(index))
+                    return Some(self.data.add(index));
                 }
 
                 if self.next_ctrl >= self.end {
@@ -603,7 +632,7 @@ impl<'a, K: Hash + Eq, V> Iterator for RawIterMut<'a, K, V> {
                 if let Some(index) = self.current_group.lowest_set_bit() {
                     self.current_group = self.current_group.remove_lowest_bit();
                     self.items -= 1;
-                    return Some(self.data.add(index))
+                    return Some(self.data.add(index));
                 }
 
                 if self.next_ctrl >= self.end {
@@ -787,8 +816,8 @@ impl<K: Hash + Eq, V> ExactSizeIterator for ValuesMut<'_, K, V> {
 
 impl<K: Hash + Eq, V> FusedIterator for ValuesMut<'_, K, V> {}
 
-/// An packed `HashSet`. This is a wrapper around a hash map with the same
-/// key and a value of `()`.
+/// An packed `HashSet`. This is a wrapper around a hash map with the same key
+/// and a value of `()`.
 #[derive(Debug, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct ArchivedHashSet<K: Hash + Eq>(ArchivedHashMap<K, ()>);
@@ -860,6 +889,10 @@ where
     type Resolver = ArchivedHashSetResolver;
 
     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(ArchivedHashSetResolver(ArchivedHashMap::archive_from_iter(self.iter().map(|x| (x, &())), self.len(), writer)?))
+        Ok(ArchivedHashSetResolver(ArchivedHashMap::archive_from_iter(
+            self.iter().map(|x| (x, &())),
+            self.len(),
+            writer,
+        )?))
     }
 }

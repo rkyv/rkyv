@@ -1,20 +1,11 @@
+use crate::{
+    core_impl::ArchivedSliceRef, Archive, ArchiveRef, Reference, ReferenceResolver, Resolve, Write,
+    WriteExt,
+};
 use core::{
     borrow::Borrow,
     fmt,
-    ops::{
-        Deref,
-        DerefMut,
-    },
-};
-use crate::{
-    Archive,
-    ArchiveRef,
-    core_impl::ArchivedSliceRef,
-    Reference,
-    ReferenceResolver,
-    Resolve,
-    Write,
-    WriteExt,
+    ops::{Deref, DerefMut},
 };
 
 #[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -134,7 +125,9 @@ impl<T: DerefMut> DerefMut for ArchivedBox<T> {
     }
 }
 
-impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Box<V>> for ArchivedBox<T> {
+impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Box<V>>
+    for ArchivedBox<T>
+{
     fn eq(&self, other: &Box<V>) -> bool {
         self.deref().eq(other.deref())
     }
@@ -159,7 +152,10 @@ impl<T: ArchiveRef + ?Sized> Archive for Box<T> {
     }
 }
 
-fn slice_archive_ref<T: Archive, W: Write + ?Sized>(slice: &[T], writer: &mut W) -> Result<ReferenceResolver<[T]>, W::Error> {
+fn slice_archive_ref<T: Archive, W: Write + ?Sized>(
+    slice: &[T],
+    writer: &mut W,
+) -> Result<ReferenceResolver<[T]>, W::Error> {
     let mut resolvers = Vec::with_capacity(slice.len());
     for value in slice {
         resolvers.push(value.archive(writer)?);
