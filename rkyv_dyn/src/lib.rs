@@ -223,7 +223,7 @@ impl<T: ?Sized> ArchivedDyn<T> {
     /// an implementation id.
     pub fn new(from: usize, resolver: DynResolver, id: &ImplId) -> ArchivedDyn<T> {
         ArchivedDyn {
-            ptr: RelPtr::new(from + offset_of!(ArchivedDyn<T>, ptr), resolver.pos),
+            ptr: unsafe { RelPtr::new(from + offset_of!(ArchivedDyn<T>, ptr), resolver.pos) },
             #[cfg(not(feature = "vtable_cache"))]
             id: id.0,
             #[cfg(feature = "vtable_cache")]

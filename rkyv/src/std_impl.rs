@@ -1,3 +1,5 @@
+//! [`Archive`] implementations for std types.
+
 use crate::{
     core_impl::ArchivedSlice, Archive, ArchiveRef, Reference, ReferenceResolver, Resolve, Write,
     WriteExt,
@@ -8,33 +10,23 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
+/// An archived [`String`].
+///
+/// Uses [`ArchivedStringSlice`](crate::core_impl::ArchivedStringSlice) under
+/// the hood.
 #[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedString(Reference<str>);
 
 impl ArchivedString {
-    pub fn as_ptr(&self) -> *const u8 {
-        self.0.as_ptr()
-    }
-
-    pub fn as_mut_ptr(&mut self) -> *mut u8 {
-        self.0.as_mut_ptr()
-    }
-
-    pub fn as_bytes(&self) -> &[u8] {
-        self.0.as_bytes()
-    }
-
-    pub unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
-        self.0.as_bytes_mut()
-    }
-
+    /// Extracts a string slice containing the entire `ArchivedString`.
     pub fn as_str(&self) -> &str {
-        self.0.as_str()
+        &**self
     }
 
+    /// Converts an `ArchivedString` into a mutable string slice.
     pub fn as_mut_str(&mut self) -> &mut str {
-        self.0.as_mut_str()
+        &mut **self
     }
 }
 
@@ -88,6 +80,7 @@ impl fmt::Display for ArchivedString {
     }
 }
 
+#[doc(hidden)]
 pub struct StringResolver(ReferenceResolver<str>);
 
 impl Resolve<String> for StringResolver {
@@ -107,6 +100,10 @@ impl Archive for String {
     }
 }
 
+/// An archived [`Box`].
+///
+/// This is a thin wrapper around the reference type for whatever type was
+/// archived.
 #[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedBox<T>(T);
@@ -133,6 +130,7 @@ impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Box<V>
     }
 }
 
+#[doc(hidden)]
 pub struct BoxResolver<T>(T);
 
 impl<T: ArchiveRef + ?Sized> Resolve<Box<T>> for BoxResolver<T::Resolver> {
@@ -184,6 +182,9 @@ impl<T: Archive> ArchiveRef for [T] {
     }
 }
 
+/// An archived [`Vec`].
+///
+/// Uses [`ArchivedSlice`](crate::core_impl::ArchivedSlice) under the hood.
 #[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedVec<T>(T);
@@ -202,6 +203,7 @@ impl<T: DerefMut> DerefMut for ArchivedVec<T> {
     }
 }
 
+#[doc(hidden)]
 pub struct VecResolver<T>(T);
 
 impl<T: Resolve<[U]>, U> Resolve<Vec<U>> for VecResolver<T> {

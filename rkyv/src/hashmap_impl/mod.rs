@@ -1,3 +1,5 @@
+//! [`Archive`] implementation for [`HashMap`].
+
 use cfg_if::cfg_if;
 
 cfg_if! {
@@ -104,6 +106,7 @@ struct ArchivedBucket<K, V> {
     value: V,
 }
 
+#[doc(hidden)]
 pub struct ArchivedHashMapResolver {
     ctrl_pos: usize,
     data_pos: usize,
@@ -115,17 +118,20 @@ impl ArchivedHashMapResolver {
 
         ArchivedHashMap {
             bucket_mask: buckets as u32 - 1,
-            ctrl: RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, ctrl), self.ctrl_pos),
-            data: RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, data), self.data_pos),
+            ctrl: unsafe {
+                RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, ctrl), self.ctrl_pos)
+            },
+            data: unsafe {
+                RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, data), self.data_pos)
+            },
             items: len as u32,
             marker: PhantomData,
         }
     }
 }
 
-/// An packed `HashMap`. This type is available through the `hash_map` feature
-/// and is a direct port of the standard library `hashbrown` hash map for
-/// embedding.
+/// An archived `HashMap`. This is a direct port of the standard library
+/// `hashbrown` hash map for rkyv.
 #[derive(Debug)]
 pub struct ArchivedHashMap<K, V> {
     bucket_mask: u32,
@@ -688,7 +694,7 @@ impl<K: Hash + Eq, V> ExactSizeIterator for Iter<'_, K, V> {
 
 impl<K: Hash + Eq, V> FusedIterator for Iter<'_, K, V> {}
 
-/// An iterator over the key-value pairs of a hash map.
+/// An iterator over the mutable key-value pairs of a hash map.
 #[repr(transparent)]
 pub struct IterMut<'a, K: Hash + Eq, V> {
     inner: RawIterMut<'a, K, V>,
@@ -784,7 +790,7 @@ impl<K: Hash + Eq, V> ExactSizeIterator for Values<'_, K, V> {
 
 impl<K: Hash + Eq, V> FusedIterator for Values<'_, K, V> {}
 
-/// An iterator over the values of a hash map.
+/// An iterator over the mutable values of a hash map.
 #[repr(transparent)]
 pub struct ValuesMut<'a, K: Hash + Eq, V> {
     inner: RawIterMut<'a, K, V>,
@@ -816,12 +822,13 @@ impl<K: Hash + Eq, V> ExactSizeIterator for ValuesMut<'_, K, V> {
 
 impl<K: Hash + Eq, V> FusedIterator for ValuesMut<'_, K, V> {}
 
-/// An packed `HashSet`. This is a wrapper around a hash map with the same key
+/// An archived `HashSet`. This is a wrapper around a hash map with the same key
 /// and a value of `()`.
 #[derive(Debug, Eq, PartialEq)]
 #[repr(transparent)]
 pub struct ArchivedHashSet<K: Hash + Eq>(ArchivedHashMap<K, ()>);
 
+#[doc(hidden)]
 pub struct ArchivedHashSetResolver(ArchivedHashMapResolver);
 
 impl<K: Hash + Eq> ArchivedHashSet<K> {

@@ -1,3 +1,5 @@
+//! [`Archive`] implementations for core types.
+
 use crate::{Archive, ArchiveRef, ArchiveSelf, RelPtr, Resolve, SelfResolver, Write, WriteExt};
 use core::{
     borrow::Borrow,
@@ -8,6 +10,10 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
+/// A strongly typed relative reference.
+///
+/// This is the reference type for all sized archived types. It uses [`RelPtr`]
+/// under the hood.
 #[repr(transparent)]
 #[derive(Debug)]
 pub struct ArchivedRef<T> {
@@ -16,7 +22,7 @@ pub struct ArchivedRef<T> {
 }
 
 impl<T> ArchivedRef<T> {
-    pub fn new(from: usize, to: usize) -> Self {
+    unsafe fn new(from: usize, to: usize) -> Self {
         Self {
             ptr: RelPtr::new(from, to),
             _phantom: PhantomData,
@@ -56,7 +62,7 @@ impl<T: Archive> Resolve<T> for usize {
     type Archived = ArchivedRef<T::Archived>;
 
     fn resolve(self, pos: usize, _value: &T) -> Self::Archived {
-        ArchivedRef::new(pos, self)
+        unsafe { ArchivedRef::new(pos, self) }
     }
 }
 
@@ -70,6 +76,10 @@ impl<T: Archive> ArchiveRef for T {
     }
 }
 
+/// A strongly typed relative slice reference.
+///
+/// This is the reference type for all archived slices. It uses [`RelPtr`] under
+/// the hood and stores an additional length parameter.
 #[derive(Debug)]
 pub struct ArchivedSlice<T> {
     ptr: RelPtr,
@@ -78,7 +88,7 @@ pub struct ArchivedSlice<T> {
 }
 
 impl<T> ArchivedSlice<T> {
-    fn new(from: usize, to: usize, len: usize) -> Self {
+    unsafe fn new(from: usize, to: usize, len: usize) -> Self {
         Self {
             ptr: RelPtr::new(from + memoffset::offset_of!(Self, ptr), to),
             len: len as u32,
@@ -91,17 +101,13 @@ impl<T> Deref for ArchivedSlice<T> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
-        unsafe {
-            core::slice::from_raw_parts(self.ptr.as_ptr(), self.len as usize)
-        }
+        unsafe { core::slice::from_raw_parts(self.ptr.as_ptr(), self.len as usize) }
     }
 }
 
 impl<T> DerefMut for ArchivedSlice<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe {
-            core::slice::from_raw_parts_mut(self.ptr.as_mut_ptr(), self.len as usize)
-        }
+        unsafe { core::slice::from_raw_parts_mut(self.ptr.as_mut_ptr(), self.len as usize) }
     }
 }
 
@@ -135,7 +141,7 @@ impl<T: Archive> Resolve<[T]> for usize {
     type Archived = ArchivedSlice<T::Archived>;
 
     fn resolve(self, pos: usize, value: &[T]) -> Self::Archived {
-        ArchivedSlice::new(pos, self, value.len())
+        unsafe { ArchivedSlice::new(pos, self, value.len()) }
     }
 }
 
@@ -328,51 +334,29 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     }
 }
 
+/// A reference to an archived string slice.
+///
+/// It implements a handful of helper functions and traits to function similarly
+/// to [`str`].
 #[repr(transparent)]
 #[derive(Debug)]
-pub struct ArchivedStrRef {
+pub struct ArchivedStringSlice {
     slice: ArchivedSlice<u8>,
 }
 
-impl ArchivedStrRef {
-    pub fn as_ptr(&self) -> *const u8 {
-        self.slice.as_ptr()
-    }
-
-    pub fn as_mut_ptr(&mut self) -> *mut u8 {
-        self.slice.as_mut_ptr()
-    }
-
-    pub fn as_bytes(&self) -> &[u8] {
-        &*self.slice
-    }
-
-    pub unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
-        &mut *self.slice
-    }
-
-    pub fn as_str(&self) -> &str {
-        unsafe { core::str::from_utf8_unchecked(self.as_bytes()) }
-    }
-
-    pub fn as_mut_str(&mut self) -> &mut str {
-        unsafe { core::str::from_utf8_unchecked_mut(self.as_bytes_mut()) }
-    }
-}
-
 impl Resolve<str> for usize {
-    type Archived = ArchivedStrRef;
+    type Archived = ArchivedStringSlice;
 
     fn resolve(self, pos: usize, value: &str) -> Self::Archived {
         Self::Archived {
-            slice: ArchivedSlice::new(pos, self, value.len()),
+            slice: unsafe { ArchivedSlice::new(pos, self, value.len()) },
         }
     }
 }
 
 impl ArchiveRef for str {
     type Archived = str;
-    type Reference = ArchivedStrRef;
+    type Reference = ArchivedStringSlice;
     type Resolver = usize;
 
     fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
@@ -382,66 +366,73 @@ impl ArchiveRef for str {
     }
 }
 
-impl Deref for ArchivedStrRef {
+impl Deref for ArchivedStringSlice {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        self.as_str()
+        unsafe { core::str::from_utf8_unchecked(&*self.slice) }
     }
 }
 
-impl DerefMut for ArchivedStrRef {
+impl DerefMut for ArchivedStringSlice {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.as_mut_str()
+        unsafe { core::str::from_utf8_unchecked_mut(&mut *self.slice) }
     }
 }
 
-impl Borrow<str> for ArchivedStrRef {
+impl Borrow<str> for ArchivedStringSlice {
     fn borrow(&self) -> &str {
         &**self
     }
 }
 
-impl Eq for ArchivedStrRef {}
+impl Eq for ArchivedStringSlice {}
 
-impl Hash for ArchivedStrRef {
+impl Hash for ArchivedStringSlice {
     fn hash<H: Hasher>(&self, state: &mut H) {
         (**self).hash(state)
     }
 }
 
-impl Ord for ArchivedStrRef {
+impl Ord for ArchivedStringSlice {
     fn cmp(&self, other: &Self) -> Ordering {
         Ord::cmp(&**self, &**other)
     }
 }
 
-impl PartialEq for ArchivedStrRef {
+impl PartialEq for ArchivedStringSlice {
     fn eq(&self, other: &Self) -> bool {
         PartialEq::eq(&**self, &**other)
     }
 }
 
-impl PartialOrd for ArchivedStrRef {
+impl PartialOrd for ArchivedStringSlice {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         PartialOrd::partial_cmp(&**self, &**other)
     }
 }
 
-impl fmt::Display for ArchivedStrRef {
+impl fmt::Display for ArchivedStringSlice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&**self, f)
     }
 }
 
+/// An archived [`Option`].
+///
+/// It functions identically to [`Option`] but has a different internal
+/// representation to allow for archiving.
 #[derive(Debug)]
 #[repr(u8)]
 pub enum ArchivedOption<T> {
+    /// No value
     None,
+    /// Some value `T`
     Some(T),
 }
 
 impl<T> ArchivedOption<T> {
+    /// Returns `true` if the option is a `None` value.
     pub fn is_none(&self) -> bool {
         match self {
             ArchivedOption::None => true,
@@ -449,6 +440,7 @@ impl<T> ArchivedOption<T> {
         }
     }
 
+    /// Returns `true` if the option is a `Some` value.
     pub fn is_some(&self) -> bool {
         match self {
             ArchivedOption::None => false,
@@ -456,6 +448,7 @@ impl<T> ArchivedOption<T> {
         }
     }
 
+    /// Converts to an `Option<&T>`.
     pub fn as_ref(&self) -> Option<&T> {
         match self {
             ArchivedOption::None => None,
@@ -463,6 +456,7 @@ impl<T> ArchivedOption<T> {
         }
     }
 
+    /// Converts to an `Option<&mut T>`.
     pub fn as_mut(&mut self) -> Option<&mut T> {
         match self {
             ArchivedOption::None => None,
@@ -470,8 +464,21 @@ impl<T> ArchivedOption<T> {
         }
     }
 
-    pub fn unwrap(&self) -> &T {
-        self.as_ref().unwrap()
+    /// Inserts `v` into the option if it is `None`, then returns a mutable
+    /// reference to the contained value.
+    pub fn get_or_insert(&mut self, v: T) -> &mut T {
+        self.get_or_insert_with(move || v)
+    }
+
+    /// Inserts a value computed from `f` into the option if it is `None`, then
+    /// returns a mutable reference to the contained value.
+    pub fn get_or_insert_with<F: FnOnce() -> T>(&mut self, f: F) -> &mut T {
+        if let ArchivedOption::Some(ref mut value) = self {
+            value
+        } else {
+            *self = ArchivedOption::Some(f());
+            self.as_mut().unwrap()
+        }
     }
 }
 

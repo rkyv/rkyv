@@ -68,11 +68,11 @@
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(feature = "specialization", feature(specialization))]
 
-mod core_impl;
+pub mod core_impl;
 #[cfg(feature = "std")]
-mod hashmap_impl;
+pub mod hashmap_impl;
 #[cfg(feature = "std")]
-mod std_impl;
+pub mod std_impl;
 
 use core::{
     mem,
@@ -289,8 +289,11 @@ pub trait Resolve<T: ?Sized> {
 ///         Self::Archived {
 ///             // We have to be careful to add the offset of the ptr field,
 ///             // otherwise we'll be using the position of the ArchivedOwnedStr
-///             // instead of the position of the ptr.
-///             ptr: RelPtr::new(pos + offset_of!(ArchivedOwnedStr, ptr), self.bytes_pos),
+///             // instead of the position of the ptr. That's the reason why
+///             // RelPtr::new is unsafe.
+///             ptr: unsafe {
+///                 RelPtr::new(pos + offset_of!(ArchivedOwnedStr, ptr), self.bytes_pos)
+///             },
 ///             len: value.inner.len() as u32,
 ///         }
 ///     }
@@ -404,8 +407,7 @@ impl<T: ArchiveSelf> Resolve<T> for SelfResolver {
     }
 }
 
-/// A strongly typed pointer which resolves to relative to its position in
-/// memory.
+/// A pointer which resolves to relative to its position in memory.
 ///
 /// See [`Archive`] for an example of creating one.
 #[repr(transparent)]
@@ -415,9 +417,13 @@ pub struct RelPtr {
 }
 
 impl RelPtr {
-    /// Creates a relative pointer from one position to another. `from` must be
-    /// the location where the relative pointer is written.
-    pub fn new(from: usize, to: usize) -> Self {
+    /// Creates a relative pointer from one position to another.
+    ///
+    /// # Safety
+    ///
+    /// `from` must be the position of the relative pointer and `to` must be the
+    /// position of some valid memory.
+    pub unsafe fn new(from: usize, to: usize) -> Self {
         Self {
             offset: (to as isize - from as isize) as i32,
         }
