@@ -79,7 +79,10 @@ use core::{
     },
     marker::PhantomData,
     mem,
-    ops::Deref,
+    ops::{
+        Deref,
+        DerefMut,
+    },
     ptr,
     slice,
 };
@@ -353,7 +356,7 @@ pub trait ArchiveRef {
     /// The archived version of this type.
     type Archived: ?Sized;
     /// The reference to the archived version of this type.
-    type Reference: Deref<Target = Self::Archived>;
+    type Reference: Deref<Target = Self::Archived> + DerefMut<Target = Self::Archived>;
     /// The resolver for the reference of this type.
     type Resolver: Resolve<Self, Archived = Self::Reference>;
 
@@ -433,6 +436,14 @@ impl<T> RelPtr<T> {
             (self as *const Self).cast::<u8>().offset(self.offset as isize).cast::<T>()
         }
     }
+
+    /// Returns an unsafe mutable pointer to the memory address being pointed to
+    /// by this relative pointer.
+    pub fn as_mut_ptr(&mut self) -> *mut T {
+        unsafe {
+            (self as *mut Self).cast::<u8>().offset(self.offset as isize).cast::<T>()
+        }
+    }
 }
 
 impl<T> Deref for RelPtr<T> {
@@ -440,6 +451,12 @@ impl<T> Deref for RelPtr<T> {
 
     fn deref(&self) -> &Self::Target {
         unsafe { &*self.as_ptr() }
+    }
+}
+
+impl<T> DerefMut for RelPtr<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut *self.as_mut_ptr() }
     }
 }
 
@@ -666,6 +683,21 @@ pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &
     &*bytes.as_ptr().add(pos).cast()
 }
 
+/// Casts a mutable archived value from the given byte array at the given
+/// position.
+///
+/// This helps avoid situations where lifetimes get inappropriately assigned
+/// and allow buffer mutation after getting archived value references.
+///
+/// # Safety
+///
+/// This is only safe to call if the value is archived at the given position
+/// in the byte array.
+#[inline]
+pub unsafe fn archived_value_mut<T: Archive + ?Sized>(bytes: &mut [u8], pos: usize) -> &mut Archived<T> {
+    &mut *bytes.as_mut_ptr().add(pos).cast()
+}
+
 /// Casts an archived reference from the given byte array at the given position.
 ///
 /// This helps avoid situations where lifetimes get inappropriately assigned
@@ -678,4 +710,19 @@ pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &
 #[inline]
 pub unsafe fn archived_ref<T: ArchiveRef + ?Sized>(bytes: &[u8], pos: usize) -> &Reference<T> {
     &*bytes.as_ptr().add(pos).cast()
+}
+
+/// Casts a mutable archived reference from the given byte array at the given
+/// position.
+///
+/// This helps avoid situations where lifetimes get inappropriately assigned
+/// and allow buffer mutation after getting archived value references.
+///
+/// # Safety
+///
+/// This is only safe to call if the reference is archived at the given position
+/// in the byte array.
+#[inline]
+pub unsafe fn archived_ref_mut<T: ArchiveRef + ?Sized>(bytes: &mut [u8], pos: usize) -> &mut Reference<T> {
+    &mut *bytes.as_mut_ptr().add(pos).cast()
 }

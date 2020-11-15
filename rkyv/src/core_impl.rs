@@ -6,7 +6,10 @@ use core::{
         Hash,
         Hasher,
     },
-    ops::Deref,
+    ops::{
+        Deref,
+        DerefMut,
+    },
 };
 use crate::{
     Archive,
@@ -192,15 +195,29 @@ impl ArchivedStrRef {
         self.ptr.as_ptr()
     }
 
+    pub fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.ptr.as_mut_ptr()
+    }
+
     pub fn as_bytes(&self) -> &[u8] {
         unsafe {
             core::slice::from_raw_parts(self.as_ptr(), self.len as usize)
         }
     }
 
+    pub unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
+        core::slice::from_raw_parts_mut(self.as_mut_ptr(), self.len as usize)
+    }
+
     pub fn as_str(&self) -> &str {
         unsafe {
             core::str::from_utf8_unchecked(self.as_bytes())
+        }
+    }
+
+    pub fn as_mut_str(&mut self) -> &mut str {
+        unsafe {
+            core::str::from_utf8_unchecked_mut(self.as_bytes_mut())
         }
     }
 }
@@ -233,6 +250,12 @@ impl Deref for ArchivedStrRef {
 
     fn deref(&self) -> &Self::Target {
         self.as_str()
+    }
+}
+
+impl DerefMut for ArchivedStrRef {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut_str()
     }
 }
 
@@ -285,9 +308,19 @@ impl<T> ArchivedSliceRef<T> {
         self.ptr.as_ptr()
     }
 
+    pub fn as_mut_ptr(&mut self) -> *mut T {
+        self.ptr.as_mut_ptr()
+    }
+
     pub fn as_slice(&self) -> &[T] {
         unsafe {
             core::slice::from_raw_parts(self.as_ptr(), self.len as usize)
+        }
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        unsafe {
+            core::slice::from_raw_parts_mut(self.as_mut_ptr(), self.len as usize)
         }
     }
 }
@@ -327,6 +360,12 @@ impl<T> Deref for ArchivedSliceRef<T> {
 
     fn deref(&self) -> &Self::Target {
         self.as_slice()
+    }
+}
+
+impl<T> DerefMut for ArchivedSliceRef<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut_slice()
     }
 }
 
@@ -379,6 +418,13 @@ impl<T> ArchivedOption<T> {
     }
 
     pub fn as_ref(&self) -> Option<&T> {
+        match self {
+            ArchivedOption::None => None,
+            ArchivedOption::Some(value) => Some(value),
+        }
+    }
+
+    pub fn as_mut(&mut self) -> Option<&mut T> {
         match self {
             ArchivedOption::None => None,
             ArchivedOption::Some(value) => Some(value),

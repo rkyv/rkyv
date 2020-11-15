@@ -233,6 +233,33 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         unreachable!();
     }
 
+    #[inline]
+    fn find_mut<Q: ?Sized>(&mut self, hash: u64, k: &Q) -> Option<&mut ArchivedBucket<K, V>>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        unsafe {
+            let ctrl = self.ctrl.as_ptr();
+            let data = self.data.as_mut_ptr();
+            for pos in probe_seq(self.bucket_mask, hash) {
+                let group = Group::load(ctrl.add(pos));
+                for bit in group.match_byte(h2(hash)) {
+                    let index = (pos + bit) & self.bucket_mask as usize;
+                    let bucket = &mut *data.add(index);
+                    if likely(k.eq(bucket.key.borrow())) {
+                        return Some(bucket);
+                    }
+                }
+                if likely(group.match_empty().any_bit_set()) {
+                    return None;
+                }
+            }
+        }
+
+        unreachable!();
+    }
+
     /// Gets the number of items in the hash map.
     #[inline]
     pub fn len(&self) -> usize {
@@ -269,6 +296,16 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         self.find(make_hash(k), k).map(|bucket| &bucket.value)
     }
 
+    /// Get the mutable value associated with the given key.
+    #[inline]
+    pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq,
+    {
+        self.find_mut(make_hash(k), k).map(|bucket| &mut bucket.value)
+    }
+
     /// Gets the hasher for the hash map.
     #[inline]
     pub fn hasher(&self) -> seahash::SeaHasher {
@@ -281,7 +318,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         self.len() == 0
     }
 
-    fn raw_iter(&self) -> RawIter<K, V> {
+    fn raw_iter(&self) -> RawIter<'_, K, V> {
         if self.items == 0 {
             RawIter::new(Group::static_empty().as_ptr(), ptr::NonNull::dangling().as_ptr(), self.buckets(), self.items as usize)
         } else {
@@ -291,21 +328,38 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         }
     }
 
+    fn raw_iter_mut(&mut self) -> RawIterMut<'_, K, V> {
+        if self.items == 0 {
+            RawIterMut::new(Group::static_empty().as_ptr(), ptr::NonNull::dangling().as_ptr(), self.buckets(), self.items as usize)
+        } else {
+            let ctrl = self.ctrl.as_ptr();
+            let data = self.data.as_mut_ptr();
+            RawIterMut::new(ctrl, data, self.buckets(), self.items as usize)
+        }
+    }
+
     /// Gets an iterator over the key-value pairs in the hash map.
     #[inline]
-    pub fn iter(&self) -> Iter<K, V> {
+    pub fn iter(&self) -> Iter<'_, K, V> {
         Iter {
             inner: self.raw_iter(),
-            _phantom: PhantomData,
+        }
+    }
+
+    /// Gets an iterator over the mutable key-value pairs in the hash
+    /// map.
+    #[inline]
+    pub fn iter_mut(&mut self) -> IterMut<'_, K, V> {
+        IterMut {
+            inner: self.raw_iter_mut(),
         }
     }
 
     /// Gets an iterator over the keys in the hash map.
     #[inline]
-    pub fn keys(&self) -> Keys<K, V> {
+    pub fn keys(&self) -> Keys<'_, K, V> {
         Keys {
             inner: self.raw_iter(),
-            _phantom: PhantomData,
         }
     }
 
@@ -314,7 +368,14 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     pub fn values(&self) -> Values<K, V> {
         Values {
             inner: self.raw_iter(),
-            _phantom: PhantomData,
+        }
+    }
+
+    /// Gets an iterator over the mutable values in the hash map.
+    #[inline]
+    pub fn values_mut(&mut self) -> ValuesMut<'_, K, V> {
+        ValuesMut {
+            inner: self.raw_iter_mut(),
         }
     }
 
@@ -436,15 +497,16 @@ impl<K: Eq + Hash + Borrow<Q>, Q: Eq + Hash + ?Sized, V> Index<&'_ Q> for Archiv
     }
 }
 
-struct RawIter<K: Hash + Eq, V> {
+struct RawIter<'a, K: Hash + Eq, V> {
     current_group: BitMask,
     data: *const ArchivedBucket<K, V>,
     next_ctrl: *const u8,
     end: *const u8,
     items: usize,
+    _phantom: PhantomData<(&'a K, &'a V)>,
 }
 
-impl<K: Hash + Eq, V> RawIter<K, V> {
+impl<'a, K: Hash + Eq, V> RawIter<'a, K, V> {
     fn new(ctrl: *const u8, data: *const ArchivedBucket<K, V>, buckets: usize, items: usize) -> Self {
         debug_assert_ne!(buckets, 0);
         debug_assert_eq!(ctrl as usize % Group::WIDTH, 0);
@@ -459,13 +521,14 @@ impl<K: Hash + Eq, V> RawIter<K, V> {
                 data,
                 next_ctrl,
                 end,
-                items
+                items,
+                _phantom: PhantomData,
             }
         }
     }
 }
 
-impl<K: Hash + Eq, V> Iterator for RawIter<K, V> {
+impl<'a, K: Hash + Eq, V> Iterator for RawIter<'a, K, V> {
     type Item = *const ArchivedBucket<K, V>;
 
     #[cfg_attr(feature = "inline_more", inline)]
@@ -496,14 +559,78 @@ impl<K: Hash + Eq, V> Iterator for RawIter<K, V> {
     }
 }
 
-impl<K: Hash + Eq, V> ExactSizeIterator for RawIter<K, V> {}
-impl<K: Hash + Eq, V> FusedIterator for RawIter<K, V> {}
+impl<'a, K: Hash + Eq, V> ExactSizeIterator for RawIter<'a, K, V> {}
+impl<'a, K: Hash + Eq, V> FusedIterator for RawIter<'a, K, V> {}
+
+struct RawIterMut<'a, K: Hash + Eq, V> {
+    current_group: BitMask,
+    data: *mut ArchivedBucket<K, V>,
+    next_ctrl: *const u8,
+    end: *const u8,
+    items: usize,
+    _phantom: PhantomData<(&'a K, &'a V)>,
+}
+
+impl<'a, K: Hash + Eq, V> RawIterMut<'a, K, V> {
+    fn new(ctrl: *const u8, data: *mut ArchivedBucket<K, V>, buckets: usize, items: usize) -> Self {
+        debug_assert_ne!(buckets, 0);
+        debug_assert_eq!(ctrl as usize % Group::WIDTH, 0);
+        unsafe {
+            let end = ctrl.add(buckets);
+
+            let current_group = Group::load_aligned(ctrl).match_full();
+            let next_ctrl = ctrl.add(Group::WIDTH);
+
+            Self {
+                current_group,
+                data,
+                next_ctrl,
+                end,
+                items,
+                _phantom: PhantomData,
+            }
+        }
+    }
+}
+
+impl<'a, K: Hash + Eq, V> Iterator for RawIterMut<'a, K, V> {
+    type Item = *mut ArchivedBucket<K, V>;
+
+    #[cfg_attr(feature = "inline_more", inline)]
+    fn next(&mut self) -> Option<Self::Item> {
+        unsafe {
+            loop {
+                if let Some(index) = self.current_group.lowest_set_bit() {
+                    self.current_group = self.current_group.remove_lowest_bit();
+                    self.items -= 1;
+                    return Some(self.data.add(index))
+                }
+
+                if self.next_ctrl >= self.end {
+                    debug_assert_eq!(self.items, 0);
+                    return None;
+                }
+
+                self.current_group = Group::load_aligned(self.next_ctrl).match_full();
+                self.data = self.data.add(Group::WIDTH);
+                self.next_ctrl = self.next_ctrl.add(Group::WIDTH);
+            }
+        }
+    }
+
+    #[cfg_attr(feature = "inline_more", inline)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.items, Some(self.items))
+    }
+}
+
+impl<'a, K: Hash + Eq, V> ExactSizeIterator for RawIterMut<'a, K, V> {}
+impl<'a, K: Hash + Eq, V> FusedIterator for RawIterMut<'a, K, V> {}
 
 /// An iterator over the key-value pairs of a hash map.
 #[repr(transparent)]
 pub struct Iter<'a, K: Hash + Eq, V> {
-    inner: RawIter<K, V>,
-    _phantom: PhantomData<(&'a K, &'a V)>,
+    inner: RawIter<'a, K, V>,
 }
 
 impl<'a, K: Hash + Eq, V> Iterator for Iter<'a, K, V> {
@@ -532,11 +659,42 @@ impl<K: Hash + Eq, V> ExactSizeIterator for Iter<'_, K, V> {
 
 impl<K: Hash + Eq, V> FusedIterator for Iter<'_, K, V> {}
 
+/// An iterator over the key-value pairs of a hash map.
+#[repr(transparent)]
+pub struct IterMut<'a, K: Hash + Eq, V> {
+    inner: RawIterMut<'a, K, V>,
+}
+
+impl<'a, K: Hash + Eq, V> Iterator for IterMut<'a, K, V> {
+    type Item = (&'a K, &'a mut V);
+
+    #[cfg_attr(feature = "inline_more", inline)]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|x| unsafe {
+            let bucket = &mut *x;
+            (&bucket.key, &mut bucket.value)
+        })
+    }
+
+    #[cfg_attr(feature = "inline_more", inline)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
+impl<K: Hash + Eq, V> ExactSizeIterator for IterMut<'_, K, V> {
+    #[cfg_attr(feature = "inline_more", inline)]
+    fn len(&self) -> usize {
+        self.inner.len()
+    }
+}
+
+impl<K: Hash + Eq, V> FusedIterator for IterMut<'_, K, V> {}
+
 /// An iterator over the keys of a hash map.
 #[repr(transparent)]
 pub struct Keys<'a, K: Hash + Eq, V> {
-    inner: RawIter<K, V>,
-    _phantom: PhantomData<(&'a K, &'a V)>,
+    inner: RawIter<'a, K, V>,
 }
 
 impl<'a, K: Hash + Eq, V> Iterator for Keys<'a, K, V> {
@@ -568,8 +726,7 @@ impl<K: Hash + Eq, V> FusedIterator for Keys<'_, K, V> {}
 /// An iterator over the values of a hash map.
 #[repr(transparent)]
 pub struct Values<'a, K: Hash + Eq, V> {
-    inner: RawIter<K, V>,
-    _phantom: PhantomData<(&'a K, &'a V)>,
+    inner: RawIter<'a, K, V>,
 }
 
 impl<'a, K: Hash + Eq, V> Iterator for Values<'a, K, V> {
@@ -597,6 +754,38 @@ impl<K: Hash + Eq, V> ExactSizeIterator for Values<'_, K, V> {
 }
 
 impl<K: Hash + Eq, V> FusedIterator for Values<'_, K, V> {}
+
+/// An iterator over the values of a hash map.
+#[repr(transparent)]
+pub struct ValuesMut<'a, K: Hash + Eq, V> {
+    inner: RawIterMut<'a, K, V>,
+}
+
+impl<'a, K: Hash + Eq, V> Iterator for ValuesMut<'a, K, V> {
+    type Item = &'a mut V;
+
+    #[cfg_attr(feature = "inline_more", inline)]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|x| unsafe {
+            let bucket = &mut *x;
+            &mut bucket.value
+        })
+    }
+
+    #[cfg_attr(feature = "inline_more", inline)]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
+impl<K: Hash + Eq, V> ExactSizeIterator for ValuesMut<'_, K, V> {
+    #[cfg_attr(feature = "inline_more", inline)]
+    fn len(&self) -> usize {
+        self.inner.len()
+    }
+}
+
+impl<K: Hash + Eq, V> FusedIterator for ValuesMut<'_, K, V> {}
 
 /// An packed `HashSet`. This is a wrapper around a hash map with the same
 /// key and a value of `()`.

@@ -190,6 +190,12 @@ pub fn archive_dyn(attr: proc_macro::TokenStream, item: proc_macro::TokenStream)
                         }
                     }
 
+                    impl<'a, #generic_params> From<TraitObject> for &'a mut (dyn #name<#generic_args> + 'static) {
+                        fn from(trait_object: TraitObject) -> &'a mut (dyn #name<#generic_args> + 'static) {
+                            unsafe { core::mem::transmute(trait_object) }
+                        }
+                    }
+
                     impl<#generic_params> Resolve<dyn #archive_trait<#generic_args>> for DynResolver
                     where
                         #type_name_wheres

@@ -15,7 +15,10 @@ use core::{
         Hasher,
     },
     marker::PhantomData,
-    ops::Deref,
+    ops::{
+        Deref,
+        DerefMut,
+    },
 };
 #[cfg(feature = "vtable_cache")]
 use core::sync::atomic::{
@@ -287,6 +290,16 @@ where
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
+        TraitObject(self.data_ptr(), self.vtable()).into()
+    }
+}
+
+impl<T: ?Sized> DerefMut for ArchivedDyn<T>
+where
+    for<'a> &'a T: From<TraitObject>,
+    for<'a> &'a mut T: From<TraitObject>,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
         TraitObject(self.data_ptr(), self.vtable()).into()
     }
 }

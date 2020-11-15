@@ -7,6 +7,7 @@ mod tests {
         ArchiveBuffer,
         Archived,
         archived_value,
+        archived_value_mut,
         archived_ref,
         ArchiveRef,
         WriteExt,
@@ -534,5 +535,140 @@ mod tests {
         TestEnum::C { value: 42 };
         ArchivedTestEnum::B(42);
         ArchivedTestEnum::C { value: 42 };
+    }
+
+    #[test]
+    fn basic_mutable_refs() {
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+        let pos = writer.archive(&42i32).unwrap();
+        let mut buf = writer.into_inner();
+        let value = unsafe { archived_value_mut::<i32>(buf.as_mut(), pos) };
+        assert_eq!(*value, 42);
+        *value = 11;
+        assert_eq!(*value, 11);
+    }
+
+    #[test]
+    fn struct_mutable_refs() {
+        #[derive(Archive)]
+        struct Test {
+            a: Box<i32>,
+            b: Vec<String>,
+            c: HashMap<i32, [i32; 2]>,
+        }
+
+        let mut value = Test {
+            a: Box::new(10),
+            b: vec!["hello".to_string(), "world".to_string()],
+            c: HashMap::new(),
+        };
+
+        value.c.insert(1, [4, 2]);
+        value.c.insert(5, [17, 24]);
+
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+        let pos = writer.archive(&value).unwrap();
+        let mut buf = writer.into_inner();
+        let value = unsafe { archived_value_mut::<Test>(buf.as_mut(), pos) };
+
+        assert_eq!(*value.a, 10);
+        assert_eq!(value.b.len(), 2);
+        assert_eq!(value.b[0], "hello");
+        assert_eq!(value.b[1], "world");
+        assert_eq!(value.c.len(), 2);
+        assert_eq!(value.c.get(&1).unwrap(), &[4, 2]);
+        assert_eq!(value.c.get(&5).unwrap(), &[17, 24]);
+
+        *value.a = 50;
+        assert_eq!(*value.a, 50);
+
+        value.b[0].make_ascii_uppercase();
+        value.b[1].make_ascii_uppercase();
+        assert_eq!(value.b[0], "HELLO");
+        assert_eq!(value.b[1], "WORLD");
+
+        let c1 = value.c.get_mut(&1).unwrap();
+        c1[0] = 7;
+        c1[1] = 18;
+        assert_eq!(value.c.get(&1).unwrap(), &[7, 18]);
+        let c5 = value.c.get_mut(&5).unwrap();
+        c5[0] = 6;
+        c5[1] = 99;
+        assert_eq!(value.c.get(&5).unwrap(), &[6, 99]);
+    }
+
+    #[test]
+    fn enum_mutable_ref() {
+        #[allow(dead_code)]
+        #[derive(Archive)]
+        enum Test {
+            A,
+            B(String),
+            C(i32),
+        }
+
+        let value = Test::A;
+
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+        let pos = writer.archive(&value).unwrap();
+        let mut buf = writer.into_inner();
+        let value = unsafe { archived_value_mut::<Test>(buf.as_mut(), pos) };
+
+        if let Archived::<Test>::A = value {
+            ()
+        } else {
+            panic!("incorrect enum after archiving");
+        }
+
+        *value = Archived::<Test>::C(42);
+
+        if let Archived::<Test>::C(i) = value {
+            assert_eq!(*i, 42);
+        } else {
+            panic!("incorrect enum after mutation");
+        }
+    }
+
+    #[test]
+    fn mutable_dyn_ref() {
+        #[archive_dyn]
+        trait TestTrait {
+            fn value(&self) -> i32;
+            fn set_value(&mut self, value: i32);
+        }
+
+        #[derive(Archive, TypeName)]
+        #[typename = "Test2"]
+        struct Test(i32);
+
+        #[archive_dyn]
+        impl TestTrait for Test {
+            fn value(&self) -> i32 {
+                self.0
+            }
+            fn set_value(&mut self, value: i32) {
+                self.0 = value;
+            }
+        }
+
+        impl TestTrait for Archived<Test> {
+            fn value(&self) -> i32 {
+                self.0
+            }
+            fn set_value(&mut self, value: i32) {
+                self.0 = value;
+            }
+        }
+
+        let value = Box::new(Test(10)) as Box<dyn ArchiveTestTrait>;
+
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+        let pos = writer.archive(&value).unwrap();
+        let mut buf = writer.into_inner();
+        let value = unsafe { archived_value_mut::<Box<dyn ArchiveTestTrait>>(buf.as_mut(), pos) };
+
+        assert_eq!(value.value(), 10);
+        value.set_value(64);
+        assert_eq!(value.value(), 64);
     }
 }

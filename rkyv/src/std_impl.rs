@@ -1,7 +1,10 @@
 use core::{
     borrow::Borrow,
     fmt,
-    ops::Deref,
+    ops::{
+        Deref,
+        DerefMut,
+    },
 };
 use crate::{
     Archive,
@@ -19,8 +22,28 @@ use crate::{
 pub struct ArchivedString(Reference<str>);
 
 impl ArchivedString {
+    pub fn as_ptr(&self) -> *const u8 {
+        self.0.as_ptr()
+    }
+
+    pub fn as_mut_ptr(&mut self) -> *mut u8 {
+        self.0.as_mut_ptr()
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+
+    pub unsafe fn as_bytes_mut(&mut self) -> &mut [u8] {
+        self.0.as_bytes_mut()
+    }
+
     pub fn as_str(&self) -> &str {
         self.0.as_str()
+    }
+
+    pub fn as_mut_str(&mut self) -> &mut str {
+        self.0.as_mut_str()
     }
 }
 
@@ -32,9 +55,27 @@ impl Deref for ArchivedString {
     }
 }
 
+impl DerefMut for ArchivedString {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.deref_mut()
+    }
+}
+
 impl Borrow<str> for ArchivedString {
     fn borrow(&self) -> &str {
         self.0.borrow()
+    }
+}
+
+impl PartialEq<&str> for ArchivedString {
+    fn eq(&self, other: &&str) -> bool {
+        PartialEq::eq(&**self, *other)
+    }
+}
+
+impl PartialEq<ArchivedString> for &str {
+    fn eq(&self, other: &ArchivedString) -> bool {
+        PartialEq::eq(&**other, *self)
     }
 }
 
@@ -84,6 +125,12 @@ impl<T: Deref> Deref for ArchivedBox<T> {
 
     fn deref(&self) -> &Self::Target {
         self.0.deref()
+    }
+}
+
+impl<T: DerefMut> DerefMut for ArchivedBox<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.deref_mut()
     }
 }
 
@@ -157,6 +204,12 @@ impl<T: Deref> Deref for ArchivedVec<T> {
 
     fn deref(&self) -> &Self::Target {
         self.0.deref()
+    }
+}
+
+impl<T: DerefMut> DerefMut for ArchivedVec<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.deref_mut()
     }
 }
 
