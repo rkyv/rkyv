@@ -167,8 +167,8 @@ impl<T: TypeName> TypeNameDyn for T {
 ///     let string_pos = writer.archive(&boxed_string)
 ///         .expect("failed to archive boxed string");
 ///     let buf = writer.into_inner();
-///     let archived_int = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>>(buf.as_ref(), int_pos) };
-///     let archived_string = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>>(buf.as_ref(), string_pos) };
+///     let archived_int = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>, _>(&buf, int_pos) };
+///     let archived_string = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>, _>(&buf, string_pos) };
 ///     assert_eq!(archived_int.value(), "42");
 ///     assert_eq!(archived_string.value(), "hello world");
 /// }

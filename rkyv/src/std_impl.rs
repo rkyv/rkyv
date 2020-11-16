@@ -7,7 +7,8 @@ use crate::{
 use core::{
     borrow::Borrow,
     fmt,
-    ops::{Deref, DerefMut},
+    ops::{Deref, DerefMut, Index, IndexMut},
+    pin::Pin,
 };
 
 /// An archived [`String`].
@@ -27,6 +28,11 @@ impl ArchivedString {
     /// Converts an `ArchivedString` into a mutable string slice.
     pub fn as_mut_str(&mut self) -> &mut str {
         &mut **self
+    }
+
+    /// Gets the value of this archived string as a pinned mutable reference.
+    pub fn str_pin(self: Pin<&mut Self>) -> Pin<&mut str> {
+        unsafe { self.map_unchecked_mut(|s| &mut **s) }
     }
 }
 
@@ -108,6 +114,13 @@ impl Archive for String {
 #[repr(transparent)]
 pub struct ArchivedBox<T>(T);
 
+impl<T: DerefMut> ArchivedBox<T> {
+    /// Gets the value of this archived box as a pinned mutable reference.
+    pub fn get_pin(self: Pin<&mut Self>) -> Pin<&mut <T as Deref>::Target> {
+        unsafe { self.map_unchecked_mut(|s| &mut **s) }
+    }
+}
+
 impl<T: Deref> Deref for ArchivedBox<T> {
     type Target = T::Target;
 
@@ -188,6 +201,17 @@ impl<T: Archive> ArchiveRef for [T] {
 #[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedVec<T>(T);
+
+impl<T: DerefMut> ArchivedVec<T> {
+    /// Gets the element at the given index ot this archived vec as a pinned
+    /// mutable reference.
+    pub fn index_pin<I>(self: Pin<&mut Self>, index: I) -> Pin<&mut <T::Target as Index<I>>::Output>
+    where
+        T::Target: IndexMut<I>,
+    {
+        unsafe { self.map_unchecked_mut(|s| &mut (**s)[index]) }
+    }
+}
 
 impl<T: Deref> Deref for ArchivedVec<T> {
     type Target = T::Target;

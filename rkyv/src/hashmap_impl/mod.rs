@@ -29,6 +29,7 @@ use core::{
     marker::PhantomData,
     mem,
     ops::Index,
+    pin::Pin,
     ptr,
 };
 use memoffset::offset_of;
@@ -290,13 +291,18 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
     /// Get the mutable value associated with the given key.
     #[inline]
-    pub fn get_mut<Q: ?Sized>(&mut self, k: &Q) -> Option<&mut V>
+    pub fn get_pin<Q: ?Sized>(self: Pin<&mut Self>, k: &Q) -> Option<Pin<&mut V>>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.find_mut(make_hash(k), k)
-            .map(|bucket| &mut bucket.value)
+        unsafe {
+            let result = self
+                .get_unchecked_mut()
+                .find_mut(make_hash(k), k)
+                .map(|bucket| &mut bucket.value);
+            result.map(|value| Pin::new_unchecked(value))
+        }
     }
 
     /// Gets the hasher for the hash map.
@@ -326,18 +332,22 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         }
     }
 
-    fn raw_iter_mut(&mut self) -> RawIterMut<'_, K, V> {
-        if self.items == 0 {
-            RawIterMut::new(
-                Group::static_empty().as_ptr(),
-                ptr::NonNull::dangling().as_ptr(),
-                self.buckets(),
-                self.items as usize,
-            )
-        } else {
-            let ctrl = self.ctrl.as_ptr();
-            let data = self.data.as_mut_ptr();
-            RawIterMut::new(ctrl, data, self.buckets(), self.items as usize)
+    fn raw_iter_pin(self: Pin<&mut Self>) -> RawIterPin<'_, K, V> {
+        unsafe {
+            let s = self.get_unchecked_mut();
+
+            if s.items == 0 {
+                RawIterPin::new(
+                    Group::static_empty().as_ptr(),
+                    ptr::NonNull::dangling().as_ptr(),
+                    s.buckets(),
+                    s.items as usize,
+                )
+            } else {
+                let ctrl = s.ctrl.as_ptr();
+                let data = s.data.as_mut_ptr();
+                RawIterPin::new(ctrl, data, s.buckets(), s.items as usize)
+            }
         }
     }
 
@@ -352,9 +362,9 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     /// Gets an iterator over the mutable key-value pairs in the hash
     /// map.
     #[inline]
-    pub fn iter_mut(&mut self) -> IterMut<'_, K, V> {
-        IterMut {
-            inner: self.raw_iter_mut(),
+    pub fn iter_pin(self: Pin<&mut Self>) -> IterPin<'_, K, V> {
+        IterPin {
+            inner: self.raw_iter_pin(),
         }
     }
 
@@ -376,9 +386,9 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
     /// Gets an iterator over the mutable values in the hash map.
     #[inline]
-    pub fn values_mut(&mut self) -> ValuesMut<'_, K, V> {
-        ValuesMut {
-            inner: self.raw_iter_mut(),
+    pub fn values_pin(self: Pin<&mut Self>) -> ValuesPin<'_, K, V> {
+        ValuesPin {
+            inner: self.raw_iter_pin(),
         }
     }
 
@@ -597,7 +607,7 @@ impl<'a, K: Hash + Eq, V> Iterator for RawIter<'a, K, V> {
 impl<'a, K: Hash + Eq, V> ExactSizeIterator for RawIter<'a, K, V> {}
 impl<'a, K: Hash + Eq, V> FusedIterator for RawIter<'a, K, V> {}
 
-struct RawIterMut<'a, K: Hash + Eq, V> {
+struct RawIterPin<'a, K: Hash + Eq, V> {
     current_group: BitMask,
     data: *mut ArchivedBucket<K, V>,
     next_ctrl: *const u8,
@@ -606,7 +616,7 @@ struct RawIterMut<'a, K: Hash + Eq, V> {
     _phantom: PhantomData<(&'a K, &'a V)>,
 }
 
-impl<'a, K: Hash + Eq, V> RawIterMut<'a, K, V> {
+impl<'a, K: Hash + Eq, V> RawIterPin<'a, K, V> {
     fn new(ctrl: *const u8, data: *mut ArchivedBucket<K, V>, buckets: usize, items: usize) -> Self {
         debug_assert_ne!(buckets, 0);
         debug_assert_eq!(ctrl as usize % Group::WIDTH, 0);
@@ -628,7 +638,7 @@ impl<'a, K: Hash + Eq, V> RawIterMut<'a, K, V> {
     }
 }
 
-impl<'a, K: Hash + Eq, V> Iterator for RawIterMut<'a, K, V> {
+impl<'a, K: Hash + Eq, V> Iterator for RawIterPin<'a, K, V> {
     type Item = *mut ArchivedBucket<K, V>;
 
     #[cfg_attr(feature = "inline_more", inline)]
@@ -659,8 +669,8 @@ impl<'a, K: Hash + Eq, V> Iterator for RawIterMut<'a, K, V> {
     }
 }
 
-impl<'a, K: Hash + Eq, V> ExactSizeIterator for RawIterMut<'a, K, V> {}
-impl<'a, K: Hash + Eq, V> FusedIterator for RawIterMut<'a, K, V> {}
+impl<'a, K: Hash + Eq, V> ExactSizeIterator for RawIterPin<'a, K, V> {}
+impl<'a, K: Hash + Eq, V> FusedIterator for RawIterPin<'a, K, V> {}
 
 /// An iterator over the key-value pairs of a hash map.
 #[repr(transparent)]
@@ -696,18 +706,18 @@ impl<K: Hash + Eq, V> FusedIterator for Iter<'_, K, V> {}
 
 /// An iterator over the mutable key-value pairs of a hash map.
 #[repr(transparent)]
-pub struct IterMut<'a, K: Hash + Eq, V> {
-    inner: RawIterMut<'a, K, V>,
+pub struct IterPin<'a, K: Hash + Eq, V> {
+    inner: RawIterPin<'a, K, V>,
 }
 
-impl<'a, K: Hash + Eq, V> Iterator for IterMut<'a, K, V> {
-    type Item = (&'a K, &'a mut V);
+impl<'a, K: Hash + Eq, V> Iterator for IterPin<'a, K, V> {
+    type Item = (&'a K, Pin<&'a mut V>);
 
     #[cfg_attr(feature = "inline_more", inline)]
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|x| unsafe {
             let bucket = &mut *x;
-            (&bucket.key, &mut bucket.value)
+            (&bucket.key, Pin::new_unchecked(&mut bucket.value))
         })
     }
 
@@ -717,14 +727,14 @@ impl<'a, K: Hash + Eq, V> Iterator for IterMut<'a, K, V> {
     }
 }
 
-impl<K: Hash + Eq, V> ExactSizeIterator for IterMut<'_, K, V> {
+impl<K: Hash + Eq, V> ExactSizeIterator for IterPin<'_, K, V> {
     #[cfg_attr(feature = "inline_more", inline)]
     fn len(&self) -> usize {
         self.inner.len()
     }
 }
 
-impl<K: Hash + Eq, V> FusedIterator for IterMut<'_, K, V> {}
+impl<K: Hash + Eq, V> FusedIterator for IterPin<'_, K, V> {}
 
 /// An iterator over the keys of a hash map.
 #[repr(transparent)]
@@ -792,18 +802,18 @@ impl<K: Hash + Eq, V> FusedIterator for Values<'_, K, V> {}
 
 /// An iterator over the mutable values of a hash map.
 #[repr(transparent)]
-pub struct ValuesMut<'a, K: Hash + Eq, V> {
-    inner: RawIterMut<'a, K, V>,
+pub struct ValuesPin<'a, K: Hash + Eq, V> {
+    inner: RawIterPin<'a, K, V>,
 }
 
-impl<'a, K: Hash + Eq, V> Iterator for ValuesMut<'a, K, V> {
-    type Item = &'a mut V;
+impl<'a, K: Hash + Eq, V> Iterator for ValuesPin<'a, K, V> {
+    type Item = Pin<&'a mut V>;
 
     #[cfg_attr(feature = "inline_more", inline)]
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|x| unsafe {
             let bucket = &mut *x;
-            &mut bucket.value
+            Pin::new_unchecked(&mut bucket.value)
         })
     }
 
@@ -813,14 +823,14 @@ impl<'a, K: Hash + Eq, V> Iterator for ValuesMut<'a, K, V> {
     }
 }
 
-impl<K: Hash + Eq, V> ExactSizeIterator for ValuesMut<'_, K, V> {
+impl<K: Hash + Eq, V> ExactSizeIterator for ValuesPin<'_, K, V> {
     #[cfg_attr(feature = "inline_more", inline)]
     fn len(&self) -> usize {
         self.inner.len()
     }
 }
 
-impl<K: Hash + Eq, V> FusedIterator for ValuesMut<'_, K, V> {}
+impl<K: Hash + Eq, V> FusedIterator for ValuesPin<'_, K, V> {}
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key
 /// and a value of `()`.

@@ -75,8 +75,10 @@ pub mod hashmap_impl;
 pub mod std_impl;
 
 use core::{
+    marker::PhantomPinned,
     mem,
     ops::{Deref, DerefMut},
+    pin::Pin,
     ptr, slice,
 };
 #[cfg(feature = "std")]
@@ -217,7 +219,7 @@ pub trait Resolve<T: ?Sized> {
 /// let pos = writer.archive(&value)
 ///     .expect("failed to archive test");
 /// let buf = writer.into_inner();
-/// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+/// let archived = unsafe { archived_value::<Test, _>(&buf, pos) };
 /// assert_eq!(archived.int, value.int);
 /// assert_eq!(archived.string, value.string);
 /// assert_eq!(archived.option, value.option);
@@ -321,7 +323,7 @@ pub trait Resolve<T: ?Sized> {
 ///     let pos = writer.archive(&value)
 ///         .expect("failed to archive test");
 ///     let buf = writer.into_inner();
-///     let archived = unsafe { archived_value::<OwnedStr>(buf.as_ref(), pos) };
+///     let archived = unsafe { archived_value::<OwnedStr, _>(&buf, pos) };
 ///     // Let's make sure our data got written correctly
 ///     assert_eq!(archived.as_str(), STR_VAL);
 /// }
@@ -390,7 +392,7 @@ pub trait ArchiveRef {
 /// let pos = writer.archive(&value)
 ///     .expect("failed to archive Vector4");
 /// let buf = writer.into_inner();
-/// let archived_value = unsafe { archived_value::<Vector4<f32>>(buf.as_ref(), pos) };
+/// let archived_value = unsafe { archived_value::<Vector4<f32>, _>(&buf, pos) };
 /// assert_eq!(&value, archived_value);
 /// ```
 pub unsafe trait ArchiveSelf: Archive<Archived = Self> + Copy {}
@@ -414,6 +416,7 @@ impl<T: ArchiveSelf> Resolve<T> for SelfResolver {
 #[derive(Debug)]
 pub struct RelPtr {
     offset: i32,
+    _phantom: PhantomPinned,
 }
 
 impl RelPtr {
@@ -426,6 +429,7 @@ impl RelPtr {
     pub unsafe fn new(from: usize, to: usize) -> Self {
         Self {
             offset: (to as isize - from as isize) as i32,
+            _phantom: PhantomPinned,
         }
     }
 
@@ -474,6 +478,20 @@ pub type Reference<T> = <T as ArchiveRef>::Reference;
 #[repr(align(16))]
 pub struct Aligned<T>(pub T);
 
+impl<T: Deref> Deref for Aligned<T> {
+    type Target = T::Target;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0
+    }
+}
+
+impl<T: DerefMut> DerefMut for Aligned<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut *self.0
+    }
+}
+
 impl<T: AsRef<[U]>, U> AsRef<[U]> for Aligned<T> {
     fn as_ref(&self) -> &[U] {
         self.0.as_ref()
@@ -506,7 +524,7 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 /// let pos = writer.archive(&Event::Speak("Help me!".to_string()))
 ///     .expect("failed to archive event");
 /// let buf = writer.into_inner();
-/// let archived = unsafe { archived_value::<Event>(buf.as_ref(), pos) };
+/// let archived = unsafe { archived_value::<Event, _>(&buf, pos) };
 /// if let Archived::<Event>::Speak(message) = archived {
 ///     assert_eq!(message.as_str(), "Help me!");
 /// } else {
@@ -633,8 +651,11 @@ impl<W: io::Write> Write for ArchiveWriter<W> {
 /// This is only safe to call if the value is archived at the given position in
 /// the byte array.
 #[inline]
-pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &Archived<T> {
-    &*bytes.as_ptr().add(pos).cast()
+pub unsafe fn archived_value<T: Archive + ?Sized, U: AsRef<[u8]> + ?Sized>(
+    bytes: &U,
+    pos: usize,
+) -> &Archived<T> {
+    &*bytes.as_ref().as_ptr().add(pos).cast()
 }
 
 /// Casts a mutable archived value from the given byte array at the given
@@ -648,11 +669,18 @@ pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &
 /// This is only safe to call if the value is archived at the given position in
 /// the byte array.
 #[inline]
-pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
-    bytes: &mut [u8],
+pub unsafe fn archived_value_mut<T: Archive + ?Sized, U: AsMut<[u8]> + ?Sized>(
+    bytes: Pin<&mut U>,
     pos: usize,
-) -> &mut Archived<T> {
-    &mut *bytes.as_mut_ptr().add(pos).cast()
+) -> Pin<&mut Archived<T>> {
+    Pin::new_unchecked(
+        &mut *bytes
+            .get_unchecked_mut()
+            .as_mut()
+            .as_mut_ptr()
+            .add(pos)
+            .cast(),
+    )
 }
 
 /// Casts an archived reference from the given byte array at the given position.
@@ -665,8 +693,11 @@ pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
 /// This is only safe to call if the reference is archived at the given position
 /// in the byte array.
 #[inline]
-pub unsafe fn archived_ref<T: ArchiveRef + ?Sized>(bytes: &[u8], pos: usize) -> &Reference<T> {
-    &*bytes.as_ptr().add(pos).cast()
+pub unsafe fn archived_ref<T: ArchiveRef + ?Sized, U: AsRef<[u8]> + ?Sized>(
+    bytes: &U,
+    pos: usize,
+) -> &Reference<T> {
+    &*bytes.as_ref().as_ptr().add(pos).cast()
 }
 
 /// Casts a mutable archived reference from the given byte array at the given
@@ -680,9 +711,16 @@ pub unsafe fn archived_ref<T: ArchiveRef + ?Sized>(bytes: &[u8], pos: usize) -> 
 /// This is only safe to call if the reference is archived at the given position
 /// in the byte array.
 #[inline]
-pub unsafe fn archived_ref_mut<T: ArchiveRef + ?Sized>(
-    bytes: &mut [u8],
+pub unsafe fn archived_ref_mut<T: ArchiveRef + ?Sized, U: AsMut<[u8]> + ?Sized>(
+    bytes: Pin<&mut U>,
     pos: usize,
-) -> &mut Reference<T> {
-    &mut *bytes.as_mut_ptr().add(pos).cast()
+) -> Pin<&mut Reference<T>> {
+    Pin::new_unchecked(
+        &mut *bytes
+            .get_unchecked_mut()
+            .as_mut()
+            .as_mut_ptr()
+            .add(pos)
+            .cast(),
+    )
 }
