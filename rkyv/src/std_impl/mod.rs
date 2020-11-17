@@ -1,7 +1,7 @@
 //! [`Archive`] implementations for std types.
 
 #[cfg(feature = "validation")]
-mod bytecheck_impl;
+mod validation;
 
 use crate::{
     core_impl::ArchivedSlice, Archive, ArchiveRef, Reference, ReferenceResolver, Resolve, Write,

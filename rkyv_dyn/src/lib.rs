@@ -158,20 +158,18 @@ impl<T: TypeName> TypeNameDyn for T {
 ///     }
 /// }
 ///
-/// fn main() {
-///     let boxed_int = Box::new(IntStruct(42)) as Box<dyn ArchiveExampleTrait>;
-///     let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn ArchiveExampleTrait>;
-///     let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-///     let int_pos = writer.archive(&boxed_int)
-///         .expect("failed to archive boxed int");
-///     let string_pos = writer.archive(&boxed_string)
-///         .expect("failed to archive boxed string");
-///     let buf = writer.into_inner();
-///     let archived_int = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>, _>(&buf, int_pos) };
-///     let archived_string = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>, _>(&buf, string_pos) };
-///     assert_eq!(archived_int.value(), "42");
-///     assert_eq!(archived_string.value(), "hello world");
-/// }
+/// let boxed_int = Box::new(IntStruct(42)) as Box<dyn ArchiveExampleTrait>;
+/// let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn ArchiveExampleTrait>;
+/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+/// let int_pos = writer.archive(&boxed_int)
+///     .expect("failed to archive boxed int");
+/// let string_pos = writer.archive(&boxed_string)
+///     .expect("failed to archive boxed string");
+/// let buf = writer.into_inner();
+/// let archived_int = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>, _>(&buf, int_pos) };
+/// let archived_string = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>, _>(&buf, string_pos) };
+/// assert_eq!(archived_int.value(), "42");
+/// assert_eq!(archived_string.value(), "hello world");
 /// ```
 pub trait ArchiveDyn: TypeNameDyn {
     /// Writes the value to the writer and returns a resolver that can create an

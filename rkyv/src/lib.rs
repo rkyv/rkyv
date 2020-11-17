@@ -68,13 +68,13 @@
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(feature = "specialization", feature(specialization))]
 
-#[cfg(feature = "validation")]
-pub mod bytecheck_impl;
 pub mod core_impl;
 #[cfg(feature = "std")]
 pub mod hashmap_impl;
 #[cfg(feature = "std")]
 pub mod std_impl;
+#[cfg(feature = "validation")]
+pub mod validation;
 
 use core::{
     marker::PhantomPinned,
@@ -86,10 +86,10 @@ use core::{
 #[cfg(feature = "std")]
 use std::io;
 
-#[cfg(feature = "validation")]
-pub use bytecheck_impl::{check_archive, ArchiveContext};
 pub use memoffset::offset_of;
 pub use rkyv_derive::Archive;
+#[cfg(feature = "validation")]
+pub use validation::{check_archive, ArchiveContext};
 
 /// A `#![no_std]` compliant writer that knows where it is.
 ///
@@ -345,9 +345,11 @@ pub trait Archive {
 }
 
 /// This trait is a counterpart of [`Archive`] that's suitable for unsized
-/// types. Instead of archiving its value directly, `ArchiveRef` archives a type
-/// that dereferences to its archived type. As a consequence, its `Resolver`
-/// resolves to a `Reference` instead of the archived type.
+/// types.
+///
+/// Instead of archiving its value directly, `ArchiveRef` archives a type that
+/// dereferences to its archived type. As a consequence, its `Resolver` resolves
+/// to a `Reference` instead of the archived type.
 ///
 /// `ArchiveRef` is automatically implemented for all types that implement
 /// [`Archive`], and uses a [`RelPtr`] as the reference type.

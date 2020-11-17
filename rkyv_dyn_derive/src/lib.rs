@@ -77,7 +77,7 @@ pub fn archive_dyn(
 
     let input_impl = match input {
         Input::Impl(ref input) => {
-            if input.generics.params.len() != 0 {
+            if !input.generics.params.is_empty() {
                 Error::new(input.generics.span(), "#[archive_dyn] can only register non-generic impls; use register_vtable! with the concrete types to register").to_compile_error()
             } else if let Some((_, ref trait_, _)) = input.trait_ {
                 let ty = &input.self_ty;

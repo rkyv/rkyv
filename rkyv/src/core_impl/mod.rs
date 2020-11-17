@@ -10,7 +10,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 #[cfg(feature = "validation")]
-pub mod bytecheck_impl;
+pub mod validation;
 
 /// A strongly typed relative reference.
 ///

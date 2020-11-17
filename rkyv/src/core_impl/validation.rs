@@ -1,11 +1,11 @@
-//! `bytecheck` implementations for core types.
+//! Validation implementations for core types.
 
 use crate::{
-    bytecheck_impl::{ArchiveContext, ArchiveMemoryError},
     core_impl::{
         ArchivedOption, ArchivedOptionTag, ArchivedOptionVariantSome, ArchivedRef, ArchivedSlice,
         ArchivedStringSlice,
     },
+    validation::{ArchiveContext, ArchiveMemoryError},
     RelPtr,
 };
 use bytecheck::{CheckBytes, Unreachable};
@@ -53,7 +53,7 @@ impl<T: CheckBytes<ArchiveContext>> CheckBytes<ArchiveContext> for ArchivedRef<T
     ) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::check_bytes(bytes, context)?;
         let target = context.claim_memory::<T>(bytes, rel_ptr.offset as isize, 1)?;
-        T::check_bytes(target, context).map_err(|e| ArchivedRefError::CheckBytes(e))?;
+        T::check_bytes(target, context).map_err(ArchivedRefError::CheckBytes)?;
         Ok(&*bytes.cast())
     }
 }
@@ -157,7 +157,7 @@ impl CheckBytes<ArchiveContext> for ArchivedStringSlice {
             ArchivedSliceError::MemoryError(e) => e,
             ArchivedSliceError::CheckBytes(..) => unreachable!(),
         })?;
-        str::from_utf8(&**slice).map_err(|e| ArchivedStringSliceError::InvalidUtf8(e))?;
+        str::from_utf8(&**slice).map_err(ArchivedStringSliceError::InvalidUtf8)?;
         Ok(&*bytes.cast())
     }
 }
@@ -207,7 +207,7 @@ impl<C, T: CheckBytes<C>> CheckBytes<C> for ArchivedOption<T> {
                     bytes.add(memoffset::offset_of!(ArchivedOptionVariantSome<T>, 1)),
                     context,
                 )
-                .map_err(|e| ArchivedOptionError::CheckBytes(e))?;
+                .map_err(ArchivedOptionError::CheckBytes)?;
             }
             _ => return Err(ArchivedOptionError::InvalidTag(tag)),
         }

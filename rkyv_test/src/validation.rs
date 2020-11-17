@@ -190,6 +190,8 @@ fn derive_enum() {
 
     archive_and_check(&Test::A(42));
     archive_and_check(&Test::B("hello world".to_string()));
-    archive_and_check(&Test::C(Box::new(vec!["yes".to_string(), "no".to_string()])));
+    archive_and_check(&Test::C(Box::new(vec![
+        "yes".to_string(),
+        "no".to_string(),
+    ])));
 }
-

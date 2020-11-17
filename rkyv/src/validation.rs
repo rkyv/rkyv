@@ -1,12 +1,11 @@
-//! `bytecheck` implementations and helper types.
+//! Validation implementations and helper types.
 
 use crate::{Archive, Archived, RelPtr};
 use bytecheck::{CheckBytes, Unreachable};
 use core::{fmt, mem};
-#[cfg(feature = "std")]
 use std::error;
 
-/// A range of bytes in an archive
+/// A range of bytes in an archive.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Interval {
     start: usize,
@@ -26,7 +25,7 @@ impl Interval {
     }
 }
 
-/// Errors that can occur while checking an archive.
+/// Errors that can occur related to archive memory.
 #[derive(Debug)]
 pub enum ArchiveMemoryError {
     /// A pointer pointed outside the bounds of the archive
@@ -98,12 +97,14 @@ impl fmt::Display for ArchiveMemoryError {
     }
 }
 
-#[cfg(feature = "std")]
 impl error::Error for ArchiveMemoryError {}
 
+/// Errors that can occur when checking an archive.
 #[derive(Debug)]
 pub enum CheckArchiveError<T> {
+    /// A memory error
     MemoryError(ArchiveMemoryError),
+    /// An error that occurred while validating an object
     CheckBytes(T),
 }
 
@@ -122,7 +123,6 @@ impl<T: fmt::Display> fmt::Display for CheckArchiveError<T> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<T: fmt::Debug + fmt::Display> error::Error for CheckArchiveError<T> {}
 
 /// Context to perform archive validation.
@@ -144,13 +144,17 @@ impl ArchiveContext {
 
     /// Checks the relative pointer with given `base` and `offset`, then claims
     /// `count` items at the target location.
-    pub fn claim_memory<T: CheckBytes<ArchiveContext>>(
+    ///
+    /// # Safety
+    ///
+    /// `base` must be inside the archive this context was created for.
+    pub unsafe fn claim_memory<T: CheckBytes<ArchiveContext>>(
         &mut self,
         base: *const u8,
         offset: isize,
         count: usize,
     ) -> Result<*const u8, ArchiveMemoryError> {
-        let base_pos = unsafe { base.offset_from(self.begin) };
+        let base_pos = base.offset_from(self.begin);
         if offset < -base_pos || offset > self.len as isize - base_pos {
             Err(ArchiveMemoryError::OutOfBounds {
                 base: base_pos as usize,
@@ -195,7 +199,7 @@ impl ArchiveContext {
                                 })
                             } else {
                                 self.intervals.insert(index, interval);
-                                Ok(unsafe { base.offset(offset) })
+                                Ok(base.offset(offset))
                             }
                         }
                     }
@@ -215,10 +219,9 @@ where
     T::Archived: CheckBytes<ArchiveContext>,
 {
     let mut context = ArchiveContext::new(buf);
-    let bytes = context.claim_memory::<Archived<T>>(buf.as_ptr(), pos as isize, 1)?;
     unsafe {
-        Archived::<T>::check_bytes(bytes, &mut context)
-            .map_err(|e| CheckArchiveError::CheckBytes(e))?;
+        let bytes = context.claim_memory::<Archived<T>>(buf.as_ptr(), pos as isize, 1)?;
+        Archived::<T>::check_bytes(bytes, &mut context).map_err(CheckArchiveError::CheckBytes)?;
         Ok(&*bytes.cast())
     }
 }
