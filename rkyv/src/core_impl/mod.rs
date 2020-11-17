@@ -9,6 +9,8 @@ use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
+#[cfg(feature = "validation")]
+pub mod bytecheck_impl;
 
 /// A strongly typed relative reference.
 ///

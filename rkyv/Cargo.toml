@@ -14,6 +14,7 @@ readme = "crates-io.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bytecheck = { version = "0.1", path = "../../bytecheck/bytecheck", optional = true }
 cfg-if = { version = "1.0", optional = true }
 memoffset = "0.6"
 rkyv_derive = { version = "=0.1.1", path = "../rkyv_derive" }
@@ -23,10 +24,11 @@ seahash = { version = "4.0", optional = true }
 rkyv_derive = { version = "0.1.1", path = "../rkyv_derive" }
 
 [features]
-default = ["std", "inline_more"]
+default = ["inline_more", "std"]
 const_generics = []
 inline_more = []
 more_portable = []
 nightly = []
 specialization = []
 std = ["seahash", "cfg-if"]
+validation = ["bytecheck", "std"]

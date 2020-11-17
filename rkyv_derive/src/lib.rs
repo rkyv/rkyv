@@ -146,7 +146,7 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
 /// types that can be directly archived.
 /// - `derive(...)`: Adds a `#[derive(...)]` attribute to the archived type.
 /// - `archived = "..."`: Exposes the archived type with the given name.
-#[proc_macro_derive(Archive, attributes(archive))]
+#[proc_macro_derive(Archive, attributes(archive, recursive))]
 pub fn archive_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -203,9 +203,13 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
     let (archive_type, archive_impl) = match input.data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
-                let field_wheres = fields.named.iter().map(|f| {
-                    let ty = &f.ty;
-                    quote_spanned! { f.span() => #ty: rkyv::Archive }
+                let field_wheres = fields.named.iter().filter_map(|f| {
+                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                        None
+                    } else {
+                        let ty = &f.ty;
+                        Some(quote_spanned! { f.span() => #ty: rkyv::Archive })
+                    }
                 });
                 let field_wheres = quote! { #(#field_wheres,)* };
 
@@ -228,9 +232,9 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 });
 
                 let archived_values = fields.named.iter().map(|f| {
-                        let name = &f.ident;
-                        quote_spanned! { f.span() => #name: self.#name.resolve(pos + offset_of!(#archived<#generic_args>, #name), &value.#name) }
-                    });
+                    let name = &f.ident;
+                    quote_spanned! { f.span() => #name: self.#name.resolve(pos + offset_of!(#archived<#generic_args>, #name), &value.#name) }
+                });
 
                 (
                     quote! {
@@ -284,9 +288,13 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 )
             }
             Fields::Unnamed(ref fields) => {
-                let field_wheres = fields.unnamed.iter().map(|f| {
-                    let ty = &f.ty;
-                    quote_spanned! { f.span() => #ty: rkyv::Archive }
+                let field_wheres = fields.unnamed.iter().filter_map(|f| {
+                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                        None
+                    } else {
+                        let ty = &f.ty;
+                        Some(quote_spanned! { f.span() => #ty: rkyv::Archive })
+                    }
                 });
                 let field_wheres = quote! { #(#field_wheres,)* };
 
@@ -394,16 +402,24 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
         Data::Enum(ref data) => {
             let field_wheres = data.variants.iter().map(|v| match v.fields {
                 Fields::Named(ref fields) => {
-                    let field_wheres = fields.named.iter().map(|f| {
-                        let ty = &f.ty;
-                        quote_spanned! { f.span() =>  #ty: rkyv::Archive }
+                    let field_wheres = fields.named.iter().filter_map(|f| {
+                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                            None
+                        } else {
+                            let ty = &f.ty;
+                            Some(quote_spanned! { f.span() => #ty: rkyv::Archive })
+                        }
                     });
                     quote! { #(#field_wheres,)* }
                 }
                 Fields::Unnamed(ref fields) => {
-                    let field_wheres = fields.unnamed.iter().map(|f| {
-                        let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: rkyv::Archive }
+                    let field_wheres = fields.unnamed.iter().filter_map(|f| {
+                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                            None
+                        } else {
+                            let ty = &f.ty;
+                            Some(quote_spanned! { f.span() => #ty: rkyv::Archive })
+                        }
                     });
                     quote! { #(#field_wheres,)* }
                 }

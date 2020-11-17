@@ -1,3 +1,6 @@
+#[cfg(all(test, feature = "validation"))]
+mod validation;
+
 #[cfg(test)]
 mod tests {
     use core::pin::Pin;
@@ -11,7 +14,10 @@ mod tests {
 
     const BUFFER_SIZE: usize = 256;
 
-    fn test_archive<T: Archive<Archived = U>, U: PartialEq<T>>(value: &T) {
+    fn test_archive<T: Archive>(value: &T)
+    where
+        T::Archived: PartialEq<T>,
+    {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(value).expect("failed to archive value");
         let buf = writer.into_inner();
@@ -19,7 +25,10 @@ mod tests {
         assert!(archived_value == value);
     }
 
-    fn test_archive_ref<T: ArchiveRef<Archived = U> + ?Sized, U: PartialEq<T> + ?Sized>(value: &T) {
+    fn test_archive_ref<T: ArchiveRef + ?Sized>(value: &T)
+    where
+        T::Archived: PartialEq<T>,
+    {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive_ref(value).expect("failed to archive ref");
         let buf = writer.into_inner();
@@ -64,9 +73,9 @@ mod tests {
 
     #[test]
     fn archive_refs() {
-        test_archive_ref::<[i32; 4], _>(&[1, 2, 3, 4]);
-        test_archive_ref::<str, _>("hello world");
-        test_archive_ref::<[i32], _>([1, 2, 3, 4].as_ref());
+        test_archive_ref::<[i32; 4]>(&[1, 2, 3, 4]);
+        test_archive_ref::<str>("hello world");
+        test_archive_ref::<[i32]>([1, 2, 3, 4].as_ref());
     }
 
     #[test]
@@ -742,5 +751,31 @@ mod tests {
         assert_eq!(value.value(), 10);
         value.as_mut().get_pin().set_value(64);
         assert_eq!(value.value(), 64);
+    }
+
+    #[test]
+    fn recursive_structures() {
+        #[derive(Archive)]
+        enum Node {
+            Nil,
+            Cons(#[recursive] Box<Node>),
+        }
+
+        impl PartialEq<Node> for Archived<Node> {
+            fn eq(&self, other: &Node) -> bool {
+                match self {
+                    Archived::<Node>::Nil => match other {
+                        Node::Nil => true,
+                        _ => false,
+                    },
+                    Archived::<Node>::Cons(ar_inner) => match other {
+                        Node::Nil => false,
+                        Node::Cons(inner) => ar_inner == inner,
+                    },
+                }
+            }
+        }
+
+        test_archive(&Node::Cons(Box::new(Node::Cons(Box::new(Node::Nil)))));
     }
 }

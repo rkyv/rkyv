@@ -68,6 +68,8 @@
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(feature = "specialization", feature(specialization))]
 
+#[cfg(feature = "validation")]
+pub mod bytecheck_impl;
 pub mod core_impl;
 #[cfg(feature = "std")]
 pub mod hashmap_impl;
@@ -84,6 +86,8 @@ use core::{
 #[cfg(feature = "std")]
 use std::io;
 
+#[cfg(feature = "validation")]
+pub use bytecheck_impl::{check_archive, ArchiveContext};
 pub use memoffset::offset_of;
 pub use rkyv_derive::Archive;
 
