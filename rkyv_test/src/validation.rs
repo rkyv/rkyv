@@ -1,7 +1,10 @@
 use bytecheck::CheckBytes;
 use core::fmt;
 use rkyv::{check_archive, Aligned, Archive, ArchiveBuffer, ArchiveContext, WriteExt};
-use std::error::Error;
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+};
 
 const BUFFER_SIZE: usize = 256;
 
@@ -43,7 +46,7 @@ fn basic_functionality() {
     // Out of bounds
     check_archive::<u32>(&[0, 1, 2, 3, 4], 5).unwrap_err();
     // Overrun
-    check_archive::<u32>(&[0, 1, 2, 3, 4], 2).unwrap_err();
+    check_archive::<u32>(&[0, 1, 2, 3, 4], 4).unwrap_err();
     // Unaligned
     check_archive::<u32>(&[0, 1, 2, 3, 4], 1).unwrap_err();
 }
@@ -194,4 +197,23 @@ fn derive_enum() {
         "yes".to_string(),
         "no".to_string(),
     ])));
+}
+
+#[test]
+fn check_hashmap() {
+    let mut map = HashMap::new();
+    map.insert("Hello".to_string(), 12);
+    map.insert("world".to_string(), 34);
+    map.insert("foo".to_string(), 56);
+    map.insert("bar".to_string(), 78);
+    map.insert("baz".to_string(), 90);
+    archive_and_check(&map);
+
+    let mut set = HashSet::new();
+    set.insert("Hello".to_string());
+    set.insert("world".to_string());
+    set.insert("foo".to_string());
+    set.insert("bar".to_string());
+    set.insert("baz".to_string());
+    archive_and_check(&set);
 }

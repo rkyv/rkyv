@@ -1,6 +1,8 @@
 //! [`Archive`] implementations for core types.
 
-use crate::{Archive, ArchiveRef, ArchiveSelf, RelPtr, Resolve, SelfResolver, Write, WriteExt};
+use crate::{
+    offset_of, Archive, ArchiveRef, ArchiveSelf, RelPtr, Resolve, SelfResolver, Write, WriteExt,
+};
 use core::{
     borrow::Borrow,
     cmp::Ordering,
@@ -92,7 +94,7 @@ pub struct ArchivedSlice<T> {
 impl<T> ArchivedSlice<T> {
     unsafe fn new(from: usize, to: usize, len: usize) -> Self {
         Self {
-            ptr: RelPtr::new(from + memoffset::offset_of!(Self, ptr), to),
+            ptr: RelPtr::new(from + offset_of!(Self, ptr), to),
             len: len as u32,
             _phantom: PhantomData,
         }
@@ -501,7 +503,7 @@ impl<T: Archive> Resolve<Option<T>> for Option<T::Resolver> {
         match self {
             None => ArchivedOption::None,
             Some(resolver) => ArchivedOption::Some(resolver.resolve(
-                pos + crate::offset_of!(ArchivedOptionVariantSome<T::Archived>, 1),
+                pos + offset_of!(ArchivedOptionVariantSome<T::Archived>, 1),
                 value.as_ref().unwrap(),
             )),
         }

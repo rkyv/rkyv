@@ -17,10 +17,12 @@ cfg_if! {
     }
 }
 mod bitmask;
+#[cfg(feature = "validation")]
+pub mod validation;
 
 use self::bitmask::BitMask;
 use self::imp::Group;
-use crate::{Archive, RelPtr, Resolve, Write, WriteExt};
+use crate::{offset_of, Archive, RelPtr, Resolve, Write, WriteExt};
 use core::{
     borrow::Borrow,
     cmp::Eq,
@@ -32,7 +34,6 @@ use core::{
     pin::Pin,
     ptr,
 };
-use memoffset::offset_of;
 use std::collections::{HashMap, HashSet};
 
 #[cfg(feature = "nightly")]

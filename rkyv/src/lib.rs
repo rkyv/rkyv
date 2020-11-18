@@ -319,18 +319,16 @@ pub trait Resolve<T: ?Sized> {
 ///     }
 /// }
 ///
-/// fn main() {
-///     let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-///     const STR_VAL: &'static str = "I'm in an OwnedStr!";
-///     let value = OwnedStr { inner: STR_VAL };
-///     // It works!
-///     let pos = writer.archive(&value)
-///         .expect("failed to archive test");
-///     let buf = writer.into_inner();
-///     let archived = unsafe { archived_value::<OwnedStr, _>(&buf, pos) };
-///     // Let's make sure our data got written correctly
-///     assert_eq!(archived.as_str(), STR_VAL);
-/// }
+/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+/// const STR_VAL: &'static str = "I'm in an OwnedStr!";
+/// let value = OwnedStr { inner: STR_VAL };
+/// // It works!
+/// let pos = writer.archive(&value)
+///     .expect("failed to archive test");
+/// let buf = writer.into_inner();
+/// let archived = unsafe { archived_value::<OwnedStr, _>(&buf, pos) };
+/// // Let's make sure our data got written correctly
+/// assert_eq!(archived.as_str(), STR_VAL);
 /// ```
 pub trait Archive {
     /// The archived version of this type.

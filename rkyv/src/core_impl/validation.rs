@@ -5,6 +5,7 @@ use crate::{
         ArchivedOption, ArchivedOptionTag, ArchivedOptionVariantSome, ArchivedRef, ArchivedSlice,
         ArchivedStringSlice,
     },
+    offset_of,
     validation::{ArchiveContext, ArchiveMemoryError},
     RelPtr,
 };
@@ -25,7 +26,7 @@ impl<T: fmt::Display> fmt::Display for ArchivedRefError<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ArchivedRefError::MemoryError(e) => write!(f, "archived ref memory error: {}", e),
-            ArchivedRefError::CheckBytes(e) => write!(f, "archived ref inner error: {}", e),
+            ArchivedRefError::CheckBytes(e) => write!(f, "archived ref check error: {}", e),
         }
     }
 }
@@ -72,7 +73,7 @@ impl<T: fmt::Display> fmt::Display for ArchivedSliceError<T> {
         match self {
             ArchivedSliceError::MemoryError(e) => write!(f, "archived slice memory error: {}", e),
             ArchivedSliceError::CheckBytes(index, e) => {
-                write!(f, "archived slice index {} error: {}", index, e)
+                write!(f, "archived slice index {} check error: {}", index, e)
             }
         }
     }
@@ -99,8 +100,8 @@ impl<T: CheckBytes<ArchiveContext>> CheckBytes<ArchiveContext> for ArchivedSlice
         bytes: *const u8,
         context: &mut ArchiveContext,
     ) -> Result<&'a Self, Self::Error> {
-        let rel_ptr = RelPtr::check_bytes(bytes.add(memoffset::offset_of!(Self, ptr)), context)?;
-        let len = *u32::check_bytes(bytes.add(memoffset::offset_of!(Self, len)), context)? as usize;
+        let rel_ptr = RelPtr::check_bytes(bytes.add(offset_of!(Self, ptr)), context)?;
+        let len = *u32::check_bytes(bytes.add(offset_of!(Self, len)), context)? as usize;
         let target = context.claim_memory::<T>(bytes, rel_ptr.offset as isize, len)?;
         for i in 0..len {
             T::check_bytes(target.add(i * core::mem::size_of::<T>()), context)
@@ -177,7 +178,7 @@ impl<T: fmt::Display> fmt::Display for ArchivedOptionError<T> {
             ArchivedOptionError::InvalidTag(tag) => {
                 write!(f, "archived option had invalid tag: {}", tag)
             }
-            ArchivedOptionError::CheckBytes(e) => write!(f, "archived option inner error: {}", e),
+            ArchivedOptionError::CheckBytes(e) => write!(f, "archived option check error: {}", e),
         }
     }
 }
@@ -204,7 +205,7 @@ impl<C, T: CheckBytes<C>> CheckBytes<C> for ArchivedOption<T> {
             ArchivedOptionTag::TAG_NONE => (),
             ArchivedOptionTag::TAG_SOME => {
                 T::check_bytes(
-                    bytes.add(memoffset::offset_of!(ArchivedOptionVariantSome<T>, 1)),
+                    bytes.add(offset_of!(ArchivedOptionVariantSome<T>, 1)),
                     context,
                 )
                 .map_err(ArchivedOptionError::CheckBytes)?;
