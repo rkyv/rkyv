@@ -53,7 +53,7 @@ impl<T: CheckBytes<ArchiveContext>> CheckBytes<ArchiveContext> for ArchivedRef<T
         context: &mut ArchiveContext,
     ) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::check_bytes(bytes, context)?;
-        let target = context.claim_memory::<T>(bytes, rel_ptr.offset as isize, 1)?;
+        let target = context.claim::<T>(bytes, rel_ptr.offset(), 1)?;
         T::check_bytes(target, context).map_err(ArchivedRefError::CheckBytes)?;
         Ok(&*bytes.cast())
     }
@@ -102,7 +102,7 @@ impl<T: CheckBytes<ArchiveContext>> CheckBytes<ArchiveContext> for ArchivedSlice
     ) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::check_bytes(bytes.add(offset_of!(Self, ptr)), context)?;
         let len = *u32::check_bytes(bytes.add(offset_of!(Self, len)), context)? as usize;
-        let target = context.claim_memory::<T>(bytes, rel_ptr.offset as isize, len)?;
+        let target = context.claim::<T>(bytes, rel_ptr.offset(), len)?;
         for i in 0..len {
             T::check_bytes(target.add(i * core::mem::size_of::<T>()), context)
                 .map_err(|e| ArchivedSliceError::CheckBytes(i, e))?;

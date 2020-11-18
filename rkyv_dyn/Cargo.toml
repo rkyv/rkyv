@@ -14,16 +14,18 @@ readme = "crates-io.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bytecheck = { version = "0.1", path = "../../bytecheck/bytecheck", optional = true }
+inventory = "0.1"
+lazy_static = "1.4"
 rkyv = { version = "0.1.1", path = "../rkyv" }
 rkyv_dyn_derive = { version = "=0.1.1", path = "../rkyv_dyn_derive" }
-lazy_static = "1.4"
-inventory = "0.1"
 rkyv_typename = { version = "0.1.1", path = "../rkyv_typename" }
 
 [dev-dependencies]
 rkyv_dyn_derive = { version = "0.1.1", path = "../rkyv_dyn_derive" }
 
 [features]
-default = []
-vtable_cache = []
+default = ["validation"]
 nightly = ["rkyv/nightly"]
+validation = ["bytecheck", "rkyv/validation"]
+vtable_cache = []

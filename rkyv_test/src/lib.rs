@@ -451,6 +451,7 @@ mod tests {
         }
 
         #[derive(Archive, TypeName)]
+        #[typename = "ArchiveDynTest"]
         pub struct Test {
             id: i32,
         }
@@ -712,7 +713,7 @@ mod tests {
         }
 
         #[derive(Archive, TypeName)]
-        #[typename = "Test2"]
+        #[typename = "MutableDynRefTest"]
         struct Test(i32);
 
         #[archive_dyn]

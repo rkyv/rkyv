@@ -43,9 +43,9 @@ impl<K: CheckBytes<ArchiveContext>, V: CheckBytes<ArchiveContext>> CheckBytes<Ar
         context: &mut ArchiveContext,
     ) -> Result<&'a Self, Self::Error> {
         K::check_bytes(bytes.add(offset_of!(ArchivedBucket<K, V>, key)), context)
-            .map_err(|e| ArchivedBucketError::KeyCheckBytes(e))?;
+            .map_err(ArchivedBucketError::KeyCheckBytes)?;
         V::check_bytes(bytes.add(offset_of!(ArchivedBucket<K, V>, value)), context)
-            .map_err(|e| ArchivedBucketError::ValueCheckBytes(e))?;
+            .map_err(ArchivedBucketError::ValueCheckBytes)?;
         Ok(&*bytes.cast())
     }
 }
@@ -53,13 +53,6 @@ impl<K: CheckBytes<ArchiveContext>, V: CheckBytes<ArchiveContext>> CheckBytes<Ar
 /// Errors that can occur while checking an [`ArchivedHashMap`].
 #[derive(Debug)]
 pub enum ArchivedHashMapError<K, V> {
-    /// The control bytes are not aligned to the group width
-    UnalignedControlBytes {
-        /// The expected alignment of the control bytes
-        expected_alignment: usize,
-        /// The actual alignment of the control bytes
-        actual_alignment: usize,
-    },
     /// The number of items the hashmap claims to have doesn't match the actual
     /// number of items as indicated by the control bytes.
     InvalidItemCount {
@@ -82,14 +75,6 @@ pub enum ArchivedHashMapError<K, V> {
 impl<K: fmt::Display, V: fmt::Display> fmt::Display for ArchivedHashMapError<K, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArchivedHashMapError::UnalignedControlBytes {
-                expected_alignment,
-                actual_alignment,
-            } => write!(
-                f,
-                "unaligned control bytes: expected alignment {}, found alignment {}",
-                expected_alignment, actual_alignment
-            ),
             ArchivedHashMapError::InvalidItemCount {
                 expected_items,
                 actual_items,
@@ -147,25 +132,18 @@ impl<K: CheckBytes<ArchiveContext> + Eq + Hash, V: CheckBytes<ArchiveContext>>
 
         let ctrl_ptr =
             RelPtr::check_bytes(bytes.add(offset_of!(ArchivedHashMap<K, V>, ctrl)), context)?;
-        let ctrl = context.claim_memory::<u8>(
+        let ctrl = context.claim_bytes(
             (ctrl_ptr as *const RelPtr).cast(),
-            ctrl_ptr.offset as isize,
+            ctrl_ptr.offset(),
             buckets + Group::WIDTH,
+            Group::WIDTH,
         )?;
-
-        let ctrl_alignment = ctrl as usize & (Group::WIDTH - 1);
-        if ctrl_alignment != 0 {
-            return Err(ArchivedHashMapError::UnalignedControlBytes {
-                expected_alignment: Group::WIDTH,
-                actual_alignment: ctrl_alignment,
-            });
-        }
 
         let data_ptr =
             RelPtr::check_bytes(bytes.add(offset_of!(ArchivedHashMap<K, V>, data)), context)?;
-        let data = context.claim_memory::<ArchivedBucket<K, V>>(
+        let data = context.claim::<ArchivedBucket<K, V>>(
             (data_ptr as *const RelPtr).cast(),
-            data_ptr.offset as isize,
+            data_ptr.offset(),
             buckets,
         )?;
 
@@ -207,7 +185,7 @@ impl<K: CheckBytes<ArchiveContext> + Eq + Hash, V: CheckBytes<ArchiveContext>>
         if items != actual_items {
             return Err(ArchivedHashMapError::InvalidItemCount {
                 expected_items: items,
-                actual_items: actual_items,
+                actual_items,
             });
         }
 

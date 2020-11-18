@@ -200,7 +200,7 @@ fn derive_enum() {
 }
 
 #[test]
-fn check_hashmap() {
+fn hashmap() {
     let mut map = HashMap::new();
     map.insert("Hello".to_string(), 12);
     map.insert("world".to_string(), 34);
@@ -216,4 +216,68 @@ fn check_hashmap() {
     set.insert("bar".to_string());
     set.insert("baz".to_string());
     archive_and_check(&set);
+}
+
+#[test]
+fn check_dyn() {
+    use rkyv::Archived;
+    use rkyv_dyn::archive_dyn;
+    use rkyv_typename::TypeName;
+
+    #[archive_dyn]
+    pub trait TestTrait {
+        fn get_id(&self) -> i32;
+    }
+
+    #[derive(Archive, TypeName)]
+    #[typename = "CheckDynTest"]
+    #[archive(derive(CheckBytes))]
+    pub struct Test {
+        id: i32,
+    }
+
+    #[archive_dyn]
+    impl TestTrait for Test {
+        fn get_id(&self) -> i32 {
+            self.id
+        }
+    }
+
+    impl TestTrait for Archived<Test> {
+        fn get_id(&self) -> i32 {
+            self.id
+        }
+    }
+
+    let value: Box<dyn ArchiveTestTrait> = Box::new(Test { id: 42 });
+
+    archive_and_check(&value);
+
+    #[derive(Archive, TypeName)]
+    #[typename = "CheckDynTestUnchecked"]
+    pub struct TestUnchecked {
+        id: i32,
+    }
+
+    #[archive_dyn]
+    impl TestTrait for TestUnchecked {
+        fn get_id(&self) -> i32 {
+            self.id
+        }
+    }
+
+    impl TestTrait for Archived<TestUnchecked> {
+        fn get_id(&self) -> i32 {
+            self.id
+        }
+    }
+
+    let value: Box<dyn ArchiveTestTrait> = Box::new(TestUnchecked { id: 42 });
+
+    let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
+    let pos = writer.archive(&value).expect("failed to archive value");
+    let buf = writer.into_inner();
+    if let Ok(_) = check_archive::<Box<dyn ArchiveTestTrait>>(buf.as_ref(), pos) {
+        panic!("check passed for type that does not implement CheckBytes");
+    }
 }

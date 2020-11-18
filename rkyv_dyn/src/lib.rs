@@ -7,7 +7,9 @@
 
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
-#[cfg(feature = "vtable_cache")]
+#[cfg(feature = "validation")]
+pub mod validation;
+
 use core::sync::atomic::{AtomicU64, Ordering};
 use core::{
     any::Any,
@@ -22,6 +24,8 @@ use std::collections::{hash_map::DefaultHasher, HashMap};
 #[doc(hidden)]
 pub use inventory;
 pub use rkyv_dyn_derive::archive_dyn;
+#[cfg(feature = "validation")]
+pub use validation::VTableValidation;
 
 #[cfg(all(feature = "vtable_cache", feature = "nightly"))]
 use core::intrinsics::likely;
@@ -31,15 +35,15 @@ fn likely(b: bool) -> bool {
     b
 }
 
-/// A generic error that can be returned from a [`DynWrite`].
+/// A generic error that can be returned from a [`WriteDyn`].
 pub type DynError = Box<dyn Any>;
 
 /// An object-safe version of `Write`.
 ///
-/// Instead of an associated error type, `DynWrite` returns the [`DynError`]
+/// Instead of an associated error type, `WriteDyn` returns the [`DynError`]
 /// type. If you have a writer that already implements `Write`, then it will
-/// automatically implement `DynWrite`.
-pub trait DynWrite {
+/// automatically implement `WriteDyn`.
+pub trait WriteDyn {
     /// Returns the current position of the writer.
     fn pos(&self) -> usize;
 
@@ -47,7 +51,7 @@ pub trait DynWrite {
     fn write(&mut self, bytes: &[u8]) -> Result<(), DynError>;
 }
 
-impl<'a, W: Write + ?Sized> DynWrite for &'a mut W {
+impl<'a, W: Write + ?Sized> WriteDyn for &'a mut W {
     fn pos(&self) -> usize {
         Write::pos(*self)
     }
@@ -60,15 +64,15 @@ impl<'a, W: Write + ?Sized> DynWrite for &'a mut W {
     }
 }
 
-impl<'a> Write for dyn DynWrite + 'a {
+impl<'a> Write for dyn WriteDyn + 'a {
     type Error = DynError;
 
     fn pos(&self) -> usize {
-        <Self as DynWrite>::pos(self)
+        <Self as WriteDyn>::pos(self)
     }
 
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
-        <Self as DynWrite>::write(self, bytes)
+        <Self as WriteDyn>::write(self, bytes)
     }
 }
 
@@ -174,11 +178,11 @@ impl<T: TypeName> TypeNameDyn for T {
 pub trait ArchiveDyn: TypeNameDyn {
     /// Writes the value to the writer and returns a resolver that can create an
     /// [`ArchivedDyn`] reference.
-    fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError>;
+    fn archive_dyn(&self, writer: &mut dyn WriteDyn) -> Result<DynResolver, DynError>;
 }
 
 impl<T: Archive + TypeName> ArchiveDyn for T {
-    fn archive_dyn(&self, writer: &mut dyn DynWrite) -> Result<DynResolver, DynError> {
+    fn archive_dyn(&self, writer: &mut dyn WriteDyn) -> Result<DynResolver, DynError> {
         Ok(DynResolver::new(writer.archive(self)?))
     }
 }
@@ -209,10 +213,7 @@ pub struct TraitObject(*const (), *const ());
 #[derive(Debug)]
 pub struct ArchivedDyn<T: ?Sized> {
     ptr: RelPtr,
-    #[cfg(not(feature = "vtable_cache"))]
-    id: u64,
-    #[cfg(feature = "vtable_cache")]
-    vtable: core::sync::atomic::AtomicU64,
+    vtable: AtomicU64,
     _phantom: PhantomData<T>,
 }
 
@@ -222,9 +223,6 @@ impl<T: ?Sized> ArchivedDyn<T> {
     pub fn new(from: usize, resolver: DynResolver, id: &ImplId) -> ArchivedDyn<T> {
         ArchivedDyn {
             ptr: unsafe { RelPtr::new(from + offset_of!(ArchivedDyn<T>, ptr), resolver.pos) },
-            #[cfg(not(feature = "vtable_cache"))]
-            id: id.0,
-            #[cfg(feature = "vtable_cache")]
             vtable: AtomicU64::new(id.0),
             _phantom: PhantomData,
         }
@@ -235,27 +233,26 @@ impl<T: ?Sized> ArchivedDyn<T> {
         self.ptr.as_ptr()
     }
 
-    #[cfg(feature = "vtable_cache")]
-    pub fn vtable(&self) -> *const () {
-        let vtable = self.vtable.load(Ordering::Relaxed);
-        if likely(vtable & 1 == 0) {
-            vtable as usize as *const ()
-        } else {
-            let ptr = TYPE_REGISTRY
-                .vtable(ImplId(vtable))
-                .expect("attempted to get vtable for an unregistered type");
-            self.vtable.store(ptr as usize as u64, Ordering::Relaxed);
-            ptr
-        }
-    }
-
     /// Gets the vtable pointer for this trait object. With the `vtable_cache`
     /// feature, this will store the vtable locally on the first lookup.
-    #[cfg(not(feature = "vtable_cache"))]
     pub fn vtable(&self) -> *const () {
-        TYPE_REGISTRY
-            .vtable(ImplId(self.id))
+        let vtable = self.vtable.load(Ordering::Relaxed);
+
+        #[cfg(feature = "vtable_cache")]
+        if likely(vtable & 1 == 0) {
+            return vtable as usize as *const ();
+        }
+
+        let ptr = TYPE_REGISTRY
+            .data(ImplId(vtable))
             .expect("attempted to get vtable for an unregistered type")
+            .vtable
+            .0;
+
+        #[cfg(feature = "vtable_cache")]
+        self.vtable.store(ptr as usize as u64, Ordering::Relaxed);
+
+        ptr
     }
 }
 
@@ -299,7 +296,7 @@ impl ImplId {
         archive_dyn.build_type_name(&mut |piece| piece.hash(&mut hasher));
         let result = Self::from_hasher(hasher);
         #[cfg(debug_assertions)]
-        if TYPE_REGISTRY.vtable(result).is_none() {
+        if TYPE_REGISTRY.data(result).is_none() {
             let mut trait_name = String::new();
             <T as TypeName>::build_type_name(|piece| trait_name += piece);
             let mut type_name = String::new();
@@ -318,17 +315,20 @@ impl ImplId {
 }
 
 #[cfg(debug_assertions)]
+#[doc(hidden)]
 #[derive(Copy, Clone)]
-pub struct ImplVTableDebugInfo {
+pub struct VTableDebugInfo {
     pub file: &'static str,
     pub line: u32,
     pub column: u32,
 }
+
 #[cfg(debug_assertions)]
+#[doc(hidden)]
 #[macro_export]
 macro_rules! debug_info {
     () => {
-        rkyv_dyn::ImplVTableDebugInfo {
+        rkyv_dyn::VTableDebugInfo {
             file: core::file!(),
             line: core::line!(),
             column: core::column!(),
@@ -337,30 +337,50 @@ macro_rules! debug_info {
 }
 
 #[cfg(not(debug_assertions))]
+#[doc(hidden)]
 #[derive(Copy, Clone)]
-pub struct ImplVTableDebugInfo;
+pub struct VTableDebugInfo;
+
 #[cfg(not(debug_assertions))]
+#[doc(hidden)]
 #[macro_export]
 macro_rules! debug_info {
     () => {
-        rkyv_dyn::ImplVTableDebugInfo
+        rkyv_dyn::VTableDebugInfo
     };
+}
+
+#[cfg(not(feature = "validation"))]
+#[doc(hidden)]
+#[derive(Copy, Clone)]
+pub struct VTableValidation;
+
+#[cfg(not(feature = "validation"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! validation {
+    ($type:ty) => {
+        VTableValidation
+    };
+}
+
+#[doc(hidden)]
+#[derive(Clone, Copy)]
+pub struct VTableData {
+    pub vtable: VTable,
+    pub debug_info: VTableDebugInfo,
+    pub validation: VTableValidation,
 }
 
 #[doc(hidden)]
 pub struct ImplVTable {
     id: ImplId,
-    vtable: VTable,
-    debug_info: ImplVTableDebugInfo,
+    data: VTableData,
 }
 
 impl ImplVTable {
-    pub fn new(id: ImplId, vtable: VTable, debug_info: ImplVTableDebugInfo) -> Self {
-        Self {
-            id,
-            vtable,
-            debug_info,
-        }
+    pub fn new(id: ImplId, data: VTableData) -> Self {
+        Self { id, data }
     }
 }
 
@@ -380,7 +400,7 @@ unsafe impl Send for VTable {}
 unsafe impl Sync for VTable {}
 
 struct TypeRegistry {
-    id_to_vtable: HashMap<ImplId, (VTable, ImplVTableDebugInfo)>,
+    id_to_vtable: HashMap<ImplId, VTableData>,
 }
 
 impl TypeRegistry {
@@ -393,25 +413,25 @@ impl TypeRegistry {
     fn add_impl(&mut self, impl_vtable: &ImplVTable) {
         #[cfg(feature = "vtable_cache")]
         debug_assert!(
-            (impl_vtable.vtable.0 as usize) & 1 == 0,
+            (impl_vtable.data.vtable.0 as usize) & 1 == 0,
             "vtable has a non-zero least significant bit which breaks vtable caching"
         );
         let old_value = self
             .id_to_vtable
-            .insert(impl_vtable.id, (impl_vtable.vtable, impl_vtable.debug_info));
+            .insert(impl_vtable.id, impl_vtable.data);
 
         #[cfg(debug_assertions)]
-        if let Some((_, old_debug)) = old_value {
+        if let Some(old_data) = old_value {
             eprintln!("impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
             eprintln!(
                 "existing impl registered at {}:{}:{}",
-                old_debug.file, old_debug.line, old_debug.column
+                old_data.debug_info.file, old_data.debug_info.line, old_data.debug_info.column
             );
             eprintln!(
                 "new impl registered at {}:{}:{}",
-                impl_vtable.debug_info.file,
-                impl_vtable.debug_info.line,
-                impl_vtable.debug_info.column
+                impl_vtable.data.debug_info.file,
+                impl_vtable.data.debug_info.line,
+                impl_vtable.data.debug_info.column
             );
             panic!();
         }
@@ -419,8 +439,8 @@ impl TypeRegistry {
         assert!(old_value.is_none(), "impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
     }
 
-    fn vtable(&self, id: ImplId) -> Option<*const ()> {
-        self.id_to_vtable.get(&id).map(|(v, _)| v.0)
+    fn data(&self, id: ImplId) -> Option<&VTableData> {
+        self.id_to_vtable.get(&id)
     }
 }
 
@@ -446,7 +466,9 @@ macro_rules! register_vtable {
     ($type:ty as $trait:ty) => {
         const _: () = {
             use rkyv::Archived;
-            use rkyv_dyn::{debug_info, inventory, ImplId, ImplVTable};
+            use rkyv_dyn::{
+                debug_info, inventory, validation, ImplId, ImplVTable, VTableData, VTableValidation,
+            };
 
             inventory::submit! {
                 // This is wildly unsafe but someone has to do it
@@ -461,8 +483,11 @@ macro_rules! register_vtable {
                 };
                 ImplVTable::new(
                     ImplId::register::<$trait, $type>(),
-                    vtable.into(),
-                    debug_info!()
+                    VTableData {
+                        vtable: vtable.into(),
+                        debug_info: debug_info!(),
+                        validation: validation!($type),
+                    }
                 )
             }
         };

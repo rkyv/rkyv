@@ -437,6 +437,11 @@ impl RelPtr {
         }
     }
 
+    /// Gets the offset of the relative pointer.
+    pub fn offset(&self) -> isize {
+        self.offset as isize
+    }
+
     /// Calculates the memory address being pointed to by this relative pointer.
     pub fn as_ptr<T>(&self) -> *const T {
         unsafe {

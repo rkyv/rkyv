@@ -148,11 +148,31 @@ impl ArchiveContext {
     /// # Safety
     ///
     /// `base` must be inside the archive this context was created for.
-    pub unsafe fn claim_memory<T: CheckBytes<ArchiveContext>>(
+    pub unsafe fn claim<T: CheckBytes<ArchiveContext>>(
         &mut self,
         base: *const u8,
         offset: isize,
         count: usize,
+    ) -> Result<*const u8, ArchiveMemoryError> {
+        self.claim_bytes(
+            base,
+            offset,
+            count * mem::size_of::<T>(),
+            mem::align_of::<T>(),
+        )
+    }
+
+    /// Checks the memory pointed to by the given relative pointer
+    ///
+    /// # Safety
+    ///
+    /// `base` must be inside the archive this context was created for.
+    pub unsafe fn claim_bytes(
+        &mut self,
+        base: *const u8,
+        offset: isize,
+        count: usize,
+        align: usize,
     ) -> Result<*const u8, ArchiveMemoryError> {
         let base_pos = base.offset_from(self.begin);
         if offset < -base_pos || offset > self.len as isize - base_pos {
@@ -163,44 +183,40 @@ impl ArchiveContext {
             })
         } else {
             let target_pos = (base_pos + offset) as usize;
-            let size = count * mem::size_of::<T>();
-            if self.len - target_pos < size {
+            if self.len - target_pos < count {
                 Err(ArchiveMemoryError::Overrun {
                     pos: target_pos,
-                    size,
+                    size: count,
                     archive_len: self.len,
                 })
+            } else if target_pos & (align - 1) != 0 {
+                Err(ArchiveMemoryError::Unaligned {
+                    pos: target_pos,
+                    align,
+                })
             } else {
-                let align = mem::align_of::<T>();
-                if target_pos & (align - 1) != 0 {
-                    Err(ArchiveMemoryError::Unaligned {
-                        pos: target_pos,
-                        align,
-                    })
-                } else {
-                    let interval = Interval::new(target_pos, size);
-                    match self.intervals.binary_search(&interval) {
-                        Ok(index) => Err(ArchiveMemoryError::ClaimOverlap {
-                            previous: self.intervals[index],
-                            current: interval,
-                        }),
-                        Err(index) => {
-                            if index < self.intervals.len()
-                                && self.intervals[index].overlaps(&interval)
-                            {
-                                Err(ArchiveMemoryError::ClaimOverlap {
-                                    previous: self.intervals[index],
-                                    current: interval,
-                                })
-                            } else if index > 0 && self.intervals[index - 1].overlaps(&interval) {
-                                Err(ArchiveMemoryError::ClaimOverlap {
-                                    previous: self.intervals[index - 1],
-                                    current: interval,
-                                })
-                            } else {
-                                self.intervals.insert(index, interval);
-                                Ok(base.offset(offset))
-                            }
+                let interval = Interval::new(target_pos, count);
+                match self.intervals.binary_search(&interval) {
+                    Ok(index) => Err(ArchiveMemoryError::ClaimOverlap {
+                        previous: self.intervals[index],
+                        current: interval,
+                    }),
+                    Err(index) => {
+                        if index < self.intervals.len()
+                            && self.intervals[index].overlaps(&interval)
+                        {
+                            Err(ArchiveMemoryError::ClaimOverlap {
+                                previous: self.intervals[index],
+                                current: interval,
+                            })
+                        } else if index > 0 && self.intervals[index - 1].overlaps(&interval) {
+                            Err(ArchiveMemoryError::ClaimOverlap {
+                                previous: self.intervals[index - 1],
+                                current: interval,
+                            })
+                        } else {
+                            self.intervals.insert(index, interval);
+                            Ok(base.offset(offset))
                         }
                     }
                 }
@@ -220,7 +236,7 @@ where
 {
     let mut context = ArchiveContext::new(buf);
     unsafe {
-        let bytes = context.claim_memory::<Archived<T>>(buf.as_ptr(), pos as isize, 1)?;
+        let bytes = context.claim::<Archived<T>>(buf.as_ptr(), pos as isize, 1)?;
         Archived::<T>::check_bytes(bytes, &mut context).map_err(CheckArchiveError::CheckBytes)?;
         Ok(&*bytes.cast())
     }
