@@ -1,6 +1,6 @@
 [package]
 name = "rkyv_test"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Test suite for rkyv crates"
@@ -10,10 +10,10 @@ repository = "https://github.com/djkoloski/rkyv"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytecheck = { version = "0.1", path = "../../bytecheck/bytecheck", default-features = false, optional = true }
-rkyv = { version = "0.1.1", path = "../rkyv", default-features = false }
-rkyv_dyn = { version = "0.1.1", path = "../rkyv_dyn" }
-rkyv_typename = { version = "0.1.1", path = "../rkyv_typename" }
+bytecheck = { version = "0.2", default-features = false, optional = true }
+rkyv = { version = "0.2", path = "../rkyv", default-features = false }
+rkyv_dyn = { version = "0.2", path = "../rkyv_dyn" }
+rkyv_typename = { version = "0.2", path = "../rkyv_typename" }
 
 [features]
 default = ["inline_more", "validation"]
