@@ -6,7 +6,7 @@ use std::{
     error::Error,
 };
 
-const BUFFER_SIZE: usize = 256;
+const BUFFER_SIZE: usize = 512;
 
 fn archive_and_check<T: Archive>(value: &T)
 where
@@ -30,11 +30,23 @@ fn basic_functionality() {
     let result = check_archive::<Option<String>>(buf.as_ref(), pos);
     result.unwrap();
 
+    #[cfg(not(feature = "long_rel_ptrs"))]
     // Synthetic archive (correct)
     let synthetic_buf = [
         1u8, 0u8, 0u8, 0u8, // Some + padding
         8u8, 0u8, 0u8, 0u8, // points 8 bytes forward
         11u8, 0u8, 0u8, 0u8, // string is 11 characters long
+        // "Hello world"
+        0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+    ];
+
+    #[cfg(feature = "long_rel_ptrs")]
+    // Synthetic archive (correct)
+    let synthetic_buf = [
+        1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // Some + padding
+        16u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // points 16 bytes forward
+        11u8, 0u8, 0u8, 0u8, // string is 11 characters long
+        0u8, 0u8, 0u8, 0u8, // padding
         // "Hello world"
         0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
     ];

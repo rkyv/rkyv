@@ -47,6 +47,8 @@
 //!   provides an [`Archive`] implementation for slices with elements that
 //!   implement [`ArchiveSelf`]. Ideal for `#![no_std]` environments.
 //! - `inline_more`: Performs more aggressive function inlining.
+//! - `long_rel_ptrs`: Increases the size of relative pointers to 64 bits for
+//!   large archive support
 //! - `more_portable`: Avoids using sse2-optimized intrinsics since they may
 //!   cause alignment issues across machines. This feature may go away once any
 //!   portability bugs are identified and fixed.
@@ -413,13 +415,19 @@ impl<T: ArchiveSelf> Resolve<T> for SelfResolver {
     }
 }
 
+#[cfg(not(feature = "long_rel_ptrs"))]
+type Offset = i32;
+
+#[cfg(feature = "long_rel_ptrs")]
+type Offset = i64;
+
 /// A pointer which resolves to relative to its position in memory.
 ///
 /// See [`Archive`] for an example of creating one.
 #[repr(transparent)]
 #[derive(Debug)]
 pub struct RelPtr {
-    offset: i32,
+    offset: Offset,
     _phantom: PhantomPinned,
 }
 
@@ -432,7 +440,7 @@ impl RelPtr {
     /// position of some valid memory.
     pub unsafe fn new(from: usize, to: usize) -> Self {
         Self {
-            offset: (to as isize - from as isize) as i32,
+            offset: (to as isize - from as isize) as Offset,
             _phantom: PhantomPinned,
         }
     }

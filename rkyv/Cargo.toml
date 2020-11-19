@@ -27,6 +27,7 @@ rkyv_derive = { version = "0.1.1", path = "../rkyv_derive" }
 default = ["inline_more", "std"]
 const_generics = []
 inline_more = []
+long_rel_ptrs = []
 more_portable = []
 nightly = []
 specialization = []

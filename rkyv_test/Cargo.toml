@@ -19,6 +19,7 @@ rkyv_typename = { version = "0.1.1", path = "../rkyv_typename" }
 default = ["inline_more", "validation"]
 const_generics = ["rkyv/const_generics", "rkyv_typename/const_generics"]
 inline_more = ["rkyv/inline_more"]
+long_rel_ptrs = ["rkyv/long_rel_ptrs"]
 more_portable = ["rkyv/more_portable"]
 nightly = ["rkyv/nightly", "rkyv_dyn/nightly"]
 specialization = ["rkyv/specialization"]

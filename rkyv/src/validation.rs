@@ -1,6 +1,6 @@
 //! Validation implementations and helper types.
 
-use crate::{Archive, Archived, RelPtr};
+use crate::{Archive, Archived, Offset, RelPtr};
 use bytecheck::{CheckBytes, Unreachable};
 use core::{fmt, mem};
 use std::error;
@@ -202,8 +202,7 @@ impl ArchiveContext {
                         current: interval,
                     }),
                     Err(index) => {
-                        if index < self.intervals.len()
-                            && self.intervals[index].overlaps(&interval)
+                        if index < self.intervals.len() && self.intervals[index].overlaps(&interval)
                         {
                             Err(ArchiveMemoryError::ClaimOverlap {
                                 previous: self.intervals[index],
@@ -249,7 +248,7 @@ impl CheckBytes<ArchiveContext> for RelPtr {
         bytes: *const u8,
         context: &mut ArchiveContext,
     ) -> Result<&'a Self, Self::Error> {
-        i32::check_bytes(bytes, context)?;
+        Offset::check_bytes(bytes, context)?;
         Ok(&*bytes.cast())
     }
 }
