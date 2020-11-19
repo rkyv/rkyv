@@ -79,6 +79,13 @@ mod tests {
     }
 
     #[test]
+    fn archive_empty_slice() {
+        test_archive_ref::<[i32; 0]>(&[]);
+        test_archive_ref::<[i32]>([].as_ref());
+        test_archive_ref::<str>("");
+    }
+
+    #[test]
     fn archive_containers() {
         test_archive_container(&Box::new(42));
         test_archive_container(&"hello world".to_string().into_boxed_str());
