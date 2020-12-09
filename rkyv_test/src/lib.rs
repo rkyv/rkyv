@@ -6,7 +6,7 @@ mod tests {
     use core::pin::Pin;
     use rkyv::{
         archived_ref, archived_value, archived_value_mut, Aligned, Archive, ArchiveBuffer,
-        ArchiveRef, Archived, WriteExt,
+        ArchiveRef, Archived, SeekExt, WriteExt,
     };
     use rkyv_dyn::{archive_dyn, register_vtable};
     use rkyv_typename::TypeName;
@@ -21,7 +21,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(value).expect("failed to archive value");
         let buf = writer.into_inner();
-        let archived_value = unsafe { archived_value::<T, _>(&buf, pos) };
+        let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
     }
 
@@ -32,7 +32,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive_ref(value).expect("failed to archive ref");
         let buf = writer.into_inner();
-        let archived_ref = unsafe { archived_ref::<T, _>(&buf, pos) };
+        let archived_ref = unsafe { archived_ref::<T>(buf.as_ref(), pos) };
         assert!(&**archived_ref == value);
     }
 
@@ -47,7 +47,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(value).expect("failed to archive ref");
         let buf = writer.into_inner();
-        let archived_ref = unsafe { archived_value::<T, _>(&buf, pos) };
+        let archived_ref = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(&**archived_ref == &**value);
     }
 
@@ -124,7 +124,8 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(&hash_map).expect("failed to archive value");
         let buf = writer.into_inner();
-        let archived_value = unsafe { archived_value::<HashMap<String, String>, _>(&buf, pos) };
+        let archived_value =
+            unsafe { archived_value::<HashMap<String, String>>(buf.as_ref(), pos) };
 
         assert!(archived_value.len() == hash_map.len());
 
@@ -436,7 +437,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(&value).expect("failed to archive value");
         let buf = writer.into_inner();
-        let archived_value = unsafe { archived_value::<Test, _>(&buf, pos) };
+        let archived_value = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 
         assert_eq!(archived_value, &archived_value.clone());
     }
@@ -481,7 +482,8 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(&value).expect("failed to archive value");
         let buf = writer.into_inner();
-        let archived_value = unsafe { archived_value::<Box<dyn ArchiveTestTrait>, _>(&buf, pos) };
+        let archived_value =
+            unsafe { archived_value::<Box<dyn ArchiveTestTrait>>(buf.as_ref(), pos) };
         assert_eq!(value.get_id(), archived_value.get_id());
 
         // exercise vtable cache
@@ -544,9 +546,10 @@ mod tests {
             .expect("failed to archive value");
         let buf = writer.into_inner();
         let i32_archived_value =
-            unsafe { archived_value::<Box<dyn ArchiveableTestTrait<i32>>, _>(&buf, i32_pos) };
-        let string_archived_value =
-            unsafe { archived_value::<Box<dyn ArchiveableTestTrait<String>>, _>(&buf, string_pos) };
+            unsafe { archived_value::<Box<dyn ArchiveableTestTrait<i32>>>(buf.as_ref(), i32_pos) };
+        let string_archived_value = unsafe {
+            archived_value::<Box<dyn ArchiveableTestTrait<String>>>(buf.as_ref(), string_pos)
+        };
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
@@ -599,7 +602,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
         let pos = writer.archive(&42i32).unwrap();
         let mut buf = writer.into_inner();
-        let mut value = unsafe { archived_value_mut::<i32, _>(Pin::new(&mut buf), pos) };
+        let mut value = unsafe { archived_value_mut::<i32>(Pin::new(buf.as_mut()), pos) };
         assert_eq!(*value, 42);
         *value = 11;
         assert_eq!(*value, 11);
@@ -641,7 +644,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
         let pos = writer.archive(&value).unwrap();
         let mut buf = writer.into_inner();
-        let mut value = unsafe { archived_value_mut::<Test, _>(Pin::new(&mut buf), pos) };
+        let mut value = unsafe { archived_value_mut::<Test>(Pin::new(buf.as_mut()), pos) };
 
         assert_eq!(*value.a, 10);
         assert_eq!(value.b.len(), 2);
@@ -694,7 +697,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
         let pos = writer.archive(&value).unwrap();
         let mut buf = writer.into_inner();
-        let mut value = unsafe { archived_value_mut::<Test, _>(Pin::new(&mut buf), pos) };
+        let mut value = unsafe { archived_value_mut::<Test>(Pin::new(buf.as_mut()), pos) };
 
         if let Archived::<Test>::A = *value {
             ()
@@ -754,7 +757,7 @@ mod tests {
         let pos = writer.archive(&value).unwrap();
         let mut buf = writer.into_inner();
         let mut value =
-            unsafe { archived_value_mut::<Box<dyn ArchiveTestTrait>, _>(Pin::new(&mut buf), pos) };
+            unsafe { archived_value_mut::<Box<dyn ArchiveTestTrait>>(Pin::new(buf.as_mut()), pos) };
 
         assert_eq!(value.value(), 10);
         value.as_mut().get_pin().set_value(64);
@@ -785,5 +788,70 @@ mod tests {
         }
 
         test_archive(&Node::Cons(Box::new(Node::Cons(Box::new(Node::Nil)))));
+    }
+
+    #[test]
+    fn archive_root() {
+        #[derive(Archive)]
+        struct Test {
+            a: (),
+            b: i32,
+            c: String,
+            d: Option<i32>,
+        }
+
+        impl PartialEq<Test> for Archived<Test> {
+            fn eq(&self, other: &Test) -> bool {
+                self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
+            }
+        }
+
+        let value = Test {
+            a: (),
+            b: 42,
+            c: "hello world".to_string(),
+            d: Some(42),
+        };
+
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
+        let pos = writer
+            .archive_root(&value)
+            .expect("failed to archive value");
+        assert_eq!(pos, 0);
+        let buf = writer.into_inner();
+        let archived_value = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        assert!(*archived_value == value);
+    }
+
+    #[test]
+    fn archive_more_std() {
+        use core::{
+            num::NonZeroU8,
+            ops::Range,
+            sync::atomic::{AtomicU32, Ordering},
+        };
+
+        #[derive(Archive)]
+        struct Test {
+            a: AtomicU32,
+            b: Range<i32>,
+            c: NonZeroU8,
+        }
+
+        impl PartialEq<Test> for Archived<Test> {
+            fn eq(&self, other: &Test) -> bool {
+                self.a.load(Ordering::Relaxed) == other.a.load(Ordering::Relaxed)
+                    && self.b == other.b
+                    && self.c == other.c
+            }
+        }
+
+        let value = Test {
+            a: AtomicU32::new(42),
+            b: Range { start: 14, end: 46 },
+            c: NonZeroU8::new(8).unwrap(),
+        };
+
+        test_archive(&value);
     }
 }

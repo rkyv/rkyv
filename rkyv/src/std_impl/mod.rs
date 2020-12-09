@@ -1,5 +1,6 @@
 //! [`Archive`] implementations for std types.
 
+pub mod hashbrown;
 #[cfg(feature = "validation")]
 mod validation;
 

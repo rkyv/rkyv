@@ -58,8 +58,9 @@
 //!   provides more efficient implementations of some functions when working
 //!   with [`ArchiveSelf`] types.
 //! - `std`: Enables standard library support.
+//! - `validation`: Enables validation support through `bytecheck`.
 //!
-//! By default, the `std` and `inline_more` features are enabled.
+//! By default, the `inline_more` and `std` features are enabled.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(
@@ -71,8 +72,6 @@
 #![cfg_attr(feature = "specialization", feature(specialization))]
 
 pub mod core_impl;
-#[cfg(feature = "std")]
-pub mod hashmap_impl;
 #[cfg(feature = "std")]
 pub mod std_impl;
 #[cfg(feature = "validation")]
@@ -108,6 +107,20 @@ pub trait Write {
 
     /// Attempts to write the given bytes to the writer.
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error>;
+
+    /// Advances the given number of bytes as padding.
+    fn pad(&mut self, mut padding: usize) -> Result<(), Self::Error> {
+        const ZEROES_LEN: usize = 16;
+        const ZEROES: [u8; ZEROES_LEN] = [0; ZEROES_LEN];
+
+        while padding > 0 {
+            let len = usize::min(ZEROES_LEN, padding);
+            self.write(&ZEROES[0..len])?;
+            padding -= len;
+        }
+
+        Ok(())
+    }
 }
 
 /// Helper functions on [`Write`] objects.
@@ -118,18 +131,7 @@ pub trait WriteExt: Write {
 
         let offset = self.pos() & (align - 1);
         if offset != 0 {
-            const ZEROES_LEN: usize = 16;
-            const ZEROES: [u8; ZEROES_LEN] = [0; ZEROES_LEN];
-
-            let mut padding = align - offset;
-            loop {
-                let len = usize::min(ZEROES_LEN, padding);
-                self.write(&ZEROES[0..len])?;
-                padding -= len;
-                if padding == 0 {
-                    break;
-                }
-            }
+            self.pad(align - offset)?;
         }
         Ok(self.pos())
     }
@@ -179,6 +181,49 @@ pub trait WriteExt: Write {
 
 impl<W: Write + ?Sized> WriteExt for W {}
 
+/// A writer that can seek to an absolute position.
+pub trait Seek: Write {
+    /// Seeks the writer to the given absolute position.
+    fn seek(&mut self, pos: usize) -> Result<(), Self::Error>;
+}
+
+/// Helper functions on [`Seek`] objects.
+pub trait SeekExt: Seek {
+    /// Archives the given value at the nearest available position. If the
+    /// writer is already aligned, it will archive it at the current position.
+    fn archive_root<T: Archive>(&mut self, value: &T) -> Result<usize, Self::Error> {
+        self.align_for::<Archived<T>>()?;
+        let pos = self.pos();
+        self.seek(pos + mem::size_of::<Archived<T>>())?;
+        let resolver = value.archive(self)?;
+        self.seek(pos)?;
+        unsafe {
+            self.resolve_aligned(value, resolver)?;
+        }
+        Ok(pos)
+    }
+
+    /// Archives a reference to the given value at the nearest available
+    /// position. If the writer is already aligned, it will archive it at the
+    /// current position.
+    fn archive_ref_root<T: ArchiveRef + ?Sized>(
+        &mut self,
+        value: &T,
+    ) -> Result<usize, Self::Error> {
+        self.align_for::<Reference<T>>()?;
+        let pos = self.pos();
+        self.seek(pos + mem::size_of::<Reference<T>>())?;
+        let resolver = value.archive_ref(self)?;
+        self.seek(pos)?;
+        unsafe {
+            self.resolve_aligned(value, resolver)?;
+        }
+        Ok(pos)
+    }
+}
+
+impl<W: Seek + ?Sized> SeekExt for W {}
+
 /// Creates an archived value when given a value and position.
 ///
 /// Resolvers are passed the original value, so any information that is already
@@ -225,7 +270,7 @@ pub trait Resolve<T: ?Sized> {
 /// let pos = writer.archive(&value)
 ///     .expect("failed to archive test");
 /// let buf = writer.into_inner();
-/// let archived = unsafe { archived_value::<Test, _>(&buf, pos) };
+/// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 /// assert_eq!(archived.int, value.int);
 /// assert_eq!(archived.string, value.string);
 /// assert_eq!(archived.option, value.option);
@@ -328,7 +373,7 @@ pub trait Resolve<T: ?Sized> {
 /// let pos = writer.archive(&value)
 ///     .expect("failed to archive test");
 /// let buf = writer.into_inner();
-/// let archived = unsafe { archived_value::<OwnedStr, _>(&buf, pos) };
+/// let archived = unsafe { archived_value::<OwnedStr>(buf.as_ref(), pos) };
 /// // Let's make sure our data got written correctly
 /// assert_eq!(archived.as_str(), STR_VAL);
 /// ```
@@ -398,7 +443,7 @@ pub trait ArchiveRef {
 /// let pos = writer.archive(&value)
 ///     .expect("failed to archive Vector4");
 /// let buf = writer.into_inner();
-/// let archived_value = unsafe { archived_value::<Vector4<f32>, _>(&buf, pos) };
+/// let archived_value = unsafe { archived_value::<Vector4<f32>>(buf.as_ref(), pos) };
 /// assert_eq!(&value, archived_value);
 /// ```
 pub unsafe trait ArchiveSelf: Archive<Archived = Self> + Copy {}
@@ -415,11 +460,13 @@ impl<T: ArchiveSelf> Resolve<T> for SelfResolver {
     }
 }
 
+/// The type used for offsets in relative pointers.
 #[cfg(not(feature = "long_rel_ptrs"))]
-type Offset = i32;
+pub type Offset = i32;
 
+/// The type used for offsets in relative pointers.
 #[cfg(feature = "long_rel_ptrs")]
-type Offset = i64;
+pub type Offset = i64;
 
 /// A pointer which resolves to relative to its position in memory.
 ///
@@ -541,7 +588,7 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 /// let pos = writer.archive(&Event::Speak("Help me!".to_string()))
 ///     .expect("failed to archive event");
 /// let buf = writer.into_inner();
-/// let archived = unsafe { archived_value::<Event, _>(&buf, pos) };
+/// let archived = unsafe { archived_value::<Event>(buf.as_ref(), pos) };
 /// if let Archived::<Event>::Speak(message) = archived {
 ///     assert_eq!(message.as_str(), "Help me!");
 /// } else {
@@ -576,7 +623,16 @@ impl<T> ArchiveBuffer<T> {
 #[derive(Debug)]
 pub enum ArchiveBufferError {
     /// Writing has overflowed the internal buffer.
-    Overflow,
+    Overflow {
+        pos: usize,
+        bytes_needed: usize,
+        archive_len: usize,
+    },
+    /// The writer sought past the end of the internal buffer.
+    SoughtPastEnd {
+        seek_position: usize,
+        archive_len: usize,
+    },
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
@@ -588,8 +644,13 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
 
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
         let end_pos = self.pos + bytes.len();
-        if end_pos > self.inner.as_ref().len() {
-            Err(ArchiveBufferError::Overflow)
+        let archive_len = self.inner.as_ref().len();
+        if end_pos > archive_len {
+            Err(ArchiveBufferError::Overflow {
+                pos: self.pos,
+                bytes_needed: bytes.len(),
+                archive_len,
+            })
         } else {
             unsafe {
                 ptr::copy_nonoverlapping(
@@ -599,6 +660,36 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
                 );
             }
             self.pos = end_pos;
+            Ok(())
+        }
+    }
+
+    fn pad(&mut self, padding: usize) -> Result<(), Self::Error> {
+        let end_pos = self.pos + padding;
+        let archive_len = self.inner.as_ref().len();
+        if end_pos > archive_len {
+            Err(ArchiveBufferError::Overflow {
+                pos: self.pos,
+                bytes_needed: padding,
+                archive_len,
+            })
+        } else {
+            self.pos = end_pos;
+            Ok(())
+        }
+    }
+}
+
+impl<T: AsRef<[u8]> + AsMut<[u8]>> Seek for ArchiveBuffer<T> {
+    fn seek(&mut self, pos: usize) -> Result<(), Self::Error> {
+        let len = self.inner.as_ref().len();
+        if pos > len {
+            Err(ArchiveBufferError::SoughtPastEnd {
+                seek_position: pos,
+                archive_len: len,
+            })
+        } else {
+            self.pos = pos;
             Ok(())
         }
     }
@@ -658,6 +749,15 @@ impl<W: io::Write> Write for ArchiveWriter<W> {
     }
 }
 
+#[cfg(feature = "std")]
+impl<W: io::Write + io::Seek> Seek for ArchiveWriter<W> {
+    fn seek(&mut self, offset: usize) -> Result<(), Self::Error> {
+        self.inner.seek(io::SeekFrom::Start(offset as u64))?;
+        self.pos = offset;
+        Ok(())
+    }
+}
+
 /// Casts an archived value from the given byte array at the given position.
 ///
 /// This helps avoid situations where lifetimes get inappropriately assigned and
@@ -668,11 +768,8 @@ impl<W: io::Write> Write for ArchiveWriter<W> {
 /// This is only safe to call if the value is archived at the given position in
 /// the byte array.
 #[inline]
-pub unsafe fn archived_value<T: Archive + ?Sized, U: AsRef<[u8]> + ?Sized>(
-    bytes: &U,
-    pos: usize,
-) -> &Archived<T> {
-    &*bytes.as_ref().as_ptr().add(pos).cast()
+pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &Archived<T> {
+    &*bytes.as_ptr().add(pos).cast()
 }
 
 /// Casts a mutable archived value from the given byte array at the given
@@ -686,18 +783,11 @@ pub unsafe fn archived_value<T: Archive + ?Sized, U: AsRef<[u8]> + ?Sized>(
 /// This is only safe to call if the value is archived at the given position in
 /// the byte array.
 #[inline]
-pub unsafe fn archived_value_mut<T: Archive + ?Sized, U: AsMut<[u8]> + ?Sized>(
-    bytes: Pin<&mut U>,
+pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
+    bytes: Pin<&mut [u8]>,
     pos: usize,
 ) -> Pin<&mut Archived<T>> {
-    Pin::new_unchecked(
-        &mut *bytes
-            .get_unchecked_mut()
-            .as_mut()
-            .as_mut_ptr()
-            .add(pos)
-            .cast(),
-    )
+    Pin::new_unchecked(&mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast())
 }
 
 /// Casts an archived reference from the given byte array at the given position.
@@ -710,11 +800,8 @@ pub unsafe fn archived_value_mut<T: Archive + ?Sized, U: AsMut<[u8]> + ?Sized>(
 /// This is only safe to call if the reference is archived at the given position
 /// in the byte array.
 #[inline]
-pub unsafe fn archived_ref<T: ArchiveRef + ?Sized, U: AsRef<[u8]> + ?Sized>(
-    bytes: &U,
-    pos: usize,
-) -> &Reference<T> {
-    &*bytes.as_ref().as_ptr().add(pos).cast()
+pub unsafe fn archived_ref<T: ArchiveRef + ?Sized>(bytes: &[u8], pos: usize) -> &Reference<T> {
+    &*bytes.as_ptr().add(pos).cast()
 }
 
 /// Casts a mutable archived reference from the given byte array at the given
@@ -728,16 +815,9 @@ pub unsafe fn archived_ref<T: ArchiveRef + ?Sized, U: AsRef<[u8]> + ?Sized>(
 /// This is only safe to call if the reference is archived at the given position
 /// in the byte array.
 #[inline]
-pub unsafe fn archived_ref_mut<T: ArchiveRef + ?Sized, U: AsMut<[u8]> + ?Sized>(
-    bytes: Pin<&mut U>,
+pub unsafe fn archived_ref_mut<T: ArchiveRef + ?Sized>(
+    bytes: Pin<&mut [u8]>,
     pos: usize,
 ) -> Pin<&mut Reference<T>> {
-    Pin::new_unchecked(
-        &mut *bytes
-            .get_unchecked_mut()
-            .as_mut()
-            .as_mut_ptr()
-            .add(pos)
-            .cast(),
-    )
+    Pin::new_unchecked(&mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast())
 }

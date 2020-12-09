@@ -5,11 +5,18 @@ use crate::{
 };
 use core::{
     borrow::Borrow,
-    cmp::Ordering,
-    fmt,
+    cmp, fmt,
     hash::{Hash, Hasher},
     marker::PhantomData,
-    ops::{Deref, DerefMut},
+    num::{
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
+        NonZeroU32, NonZeroU64, NonZeroU8,
+    },
+    ops::{Deref, DerefMut, Range},
+    sync::atomic::{
+        self, AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32,
+        AtomicU64, AtomicU8,
+    },
 };
 #[cfg(feature = "validation")]
 pub mod validation;
@@ -124,7 +131,7 @@ impl<T: Hash> Hash for ArchivedSlice<T> {
 }
 
 impl<T: Ord> Ord for ArchivedSlice<T> {
-    fn cmp(&self, other: &Self) -> Ordering {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
         Ord::cmp(&**self, &**other)
     }
 }
@@ -136,7 +143,7 @@ impl<T: PartialEq> PartialEq for ArchivedSlice<T> {
 }
 
 impl<T: PartialOrd> PartialOrd for ArchivedSlice<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         PartialOrd::partial_cmp(&**self, &**other)
     }
 }
@@ -207,6 +214,52 @@ impl_primitive!(u128);
 impl_primitive!(f32);
 impl_primitive!(f64);
 impl_primitive!(char);
+impl_primitive!(NonZeroI8);
+impl_primitive!(NonZeroI16);
+impl_primitive!(NonZeroI32);
+impl_primitive!(NonZeroI64);
+impl_primitive!(NonZeroI128);
+impl_primitive!(NonZeroU8);
+impl_primitive!(NonZeroU16);
+impl_primitive!(NonZeroU32);
+impl_primitive!(NonZeroU64);
+impl_primitive!(NonZeroU128);
+
+pub struct AtomicResolver;
+
+macro_rules! impl_atomic {
+    ($type:ty) => {
+        impl Resolve<$type> for AtomicResolver {
+            type Archived = $type;
+
+            fn resolve(self, _pos: usize, value: &$type) -> $type {
+                <$type>::new(value.load(atomic::Ordering::Relaxed))
+            }
+        }
+
+        impl Archive for $type {
+            type Archived = Self;
+            type Resolver = AtomicResolver;
+
+            fn archive<W: Write + ?Sized>(
+                &self,
+                _writer: &mut W,
+            ) -> Result<Self::Resolver, W::Error> {
+                Ok(AtomicResolver)
+            }
+        }
+    };
+}
+
+impl_atomic!(AtomicBool);
+impl_atomic!(AtomicI8);
+impl_atomic!(AtomicI16);
+impl_atomic!(AtomicI32);
+impl_atomic!(AtomicI64);
+impl_atomic!(AtomicU8);
+impl_atomic!(AtomicU16);
+impl_atomic!(AtomicU32);
+impl_atomic!(AtomicU64);
 
 macro_rules! peel_tuple {
     ($type:ident $index:tt, $($type_rest:ident $index_rest:tt,)*) => { impl_tuple! { $($type_rest $index_rest,)* } };
@@ -399,7 +452,7 @@ impl Hash for ArchivedStringSlice {
 }
 
 impl Ord for ArchivedStringSlice {
-    fn cmp(&self, other: &Self) -> Ordering {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
         Ord::cmp(&**self, &**other)
     }
 }
@@ -411,7 +464,7 @@ impl PartialEq for ArchivedStringSlice {
 }
 
 impl PartialOrd for ArchivedStringSlice {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         PartialOrd::partial_cmp(&**self, &**other)
     }
 }
@@ -528,7 +581,7 @@ impl<T: Hash> Hash for ArchivedOption<T> {
 }
 
 impl<T: Ord> Ord for ArchivedOption<T> {
-    fn cmp(&self, other: &Self) -> Ordering {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.as_ref().cmp(&other.as_ref())
     }
 }
@@ -540,7 +593,7 @@ impl<T: PartialEq> PartialEq for ArchivedOption<T> {
 }
 
 impl<T: PartialOrd> PartialOrd for ArchivedOption<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.as_ref().partial_cmp(&other.as_ref())
     }
 }
@@ -562,5 +615,32 @@ impl<T, U: PartialEq<T>> PartialEq<Option<T>> for ArchivedOption<U> {
 impl<T: PartialEq<U>, U> PartialEq<ArchivedOption<T>> for Option<U> {
     fn eq(&self, other: &ArchivedOption<T>) -> bool {
         other.eq(self)
+    }
+}
+
+impl<T: Archive> Resolve<Range<T>> for Range<T::Resolver> {
+    type Archived = Range<T::Archived>;
+
+    fn resolve(self, pos: usize, value: &Range<T>) -> Self::Archived {
+        Range {
+            start: self
+                .start
+                .resolve(pos + offset_of!(Self::Archived, start), &value.start),
+            end: self
+                .end
+                .resolve(pos + offset_of!(Self::Archived, end), &value.end),
+        }
+    }
+}
+
+impl<T: Archive> Archive for Range<T> {
+    type Archived = Range<T::Archived>;
+    type Resolver = Range<T::Resolver>;
+
+    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        Ok(Range {
+            start: self.start.archive(writer)?,
+            end: self.end.archive(writer)?,
+        })
     }
 }

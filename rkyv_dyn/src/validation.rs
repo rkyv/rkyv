@@ -135,7 +135,7 @@ impl<T: ?Sized> CheckBytes<ArchiveContext> for ArchivedDyn<T> {
         bytes: *const u8,
         context: &mut ArchiveContext,
     ) -> Result<&'a Self, Self::Error> {
-        let vtable = &*bytes.add(offset_of!(Self, vtable)).cast::<AtomicU64>();
+        let vtable = AtomicU64::check_bytes(bytes.add(offset_of!(Self, vtable)), context)?;
         let id = vtable.load(Ordering::Relaxed);
         if let Some(vtable_data) = TYPE_REGISTRY.data(ImplId(id)) {
             let rel_ptr = RelPtr::check_bytes(bytes.add(offset_of!(Self, ptr)), context)?;

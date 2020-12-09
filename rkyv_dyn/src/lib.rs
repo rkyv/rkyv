@@ -1,6 +1,6 @@
 //! Trait object serialization for rkyv.
 //!
-//! With rkyv_dyn, trait objects can be serialized with rkyv then the methods
+//! With `rkyv_dyn`, trait objects can be serialized with rkyv then the methods
 //! can be called without deserializing. All it takes is some macro magic.
 //!
 //! See [`ArchiveDyn`] for an example of how to use rkyv_dyn.
@@ -170,8 +170,8 @@ impl<T: TypeName> TypeNameDyn for T {
 /// let string_pos = writer.archive(&boxed_string)
 ///     .expect("failed to archive boxed string");
 /// let buf = writer.into_inner();
-/// let archived_int = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>, _>(&buf, int_pos) };
-/// let archived_string = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>, _>(&buf, string_pos) };
+/// let archived_int = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>>(buf.as_ref(), int_pos) };
+/// let archived_string = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>>(buf.as_ref(), string_pos) };
 /// assert_eq!(archived_int.value(), "42");
 /// assert_eq!(archived_string.value(), "hello world");
 /// ```
@@ -416,9 +416,7 @@ impl TypeRegistry {
             (impl_vtable.data.vtable.0 as usize) & 1 == 0,
             "vtable has a non-zero least significant bit which breaks vtable caching"
         );
-        let old_value = self
-            .id_to_vtable
-            .insert(impl_vtable.id, impl_vtable.data);
+        let old_value = self.id_to_vtable.insert(impl_vtable.id, impl_vtable.data);
 
         #[cfg(debug_assertions)]
         if let Some(old_data) = old_value {
