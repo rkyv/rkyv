@@ -1,6 +1,6 @@
 //! Validation implementations and helper types.
 
-use super::{ArchivedDyn, ImplId, TYPE_REGISTRY};
+use super::{ArchivedDyn, hash_type, TYPE_REGISTRY};
 use bytecheck::{CheckBytes, Unreachable};
 use core::{
     fmt,
@@ -13,6 +13,7 @@ use rkyv::{
     validation::{ArchiveContext, ArchiveMemoryError},
     RelPtr,
 };
+use rkyv_typename::TypeName;
 use std::error::Error;
 
 // This error just always says that check bytes isn't implemented for a type
@@ -128,7 +129,7 @@ impl From<Unreachable> for ArchivedDynError {
     }
 }
 
-impl<T: ?Sized> CheckBytes<ArchiveContext> for ArchivedDyn<T> {
+impl<T: TypeName + ?Sized> CheckBytes<ArchiveContext> for ArchivedDyn<T> {
     type Error = ArchivedDynError;
 
     unsafe fn check_bytes<'a>(
@@ -137,7 +138,7 @@ impl<T: ?Sized> CheckBytes<ArchiveContext> for ArchivedDyn<T> {
     ) -> Result<&'a Self, Self::Error> {
         let vtable = AtomicU64::check_bytes(bytes.add(offset_of!(Self, vtable)), context)?;
         let id = vtable.load(Ordering::Relaxed);
-        if let Some(vtable_data) = TYPE_REGISTRY.data(ImplId(id)) {
+        if let Some(vtable_data) = TYPE_REGISTRY.data(hash_type::<T>(), id) {
             let rel_ptr = RelPtr::check_bytes(bytes.add(offset_of!(Self, ptr)), context)?;
             let check_rel_ptr = vtable_data.validation.check_rel_ptr;
             check_rel_ptr(rel_ptr, context).map_err(ArchivedDynError::CheckBytes)?;

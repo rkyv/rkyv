@@ -76,6 +76,13 @@ impl<'a> Write for dyn WriteDyn + 'a {
     }
 }
 
+/// Hashes the given type and returns the result.
+pub fn hash_type<T: TypeName + ?Sized>() -> u64 {
+    let mut hasher = DefaultHasher::new();
+    T::build_type_name(|piece| piece.hash(&mut hasher));
+    hasher.finish()
+}
+
 /// An object-safe version of `TypeName`.
 ///
 /// This makes it possible to build the type name through a trait object.
@@ -88,6 +95,13 @@ impl<T: TypeName> TypeNameDyn for T {
     fn build_type_name(&self, mut f: &mut dyn FnMut(&str)) {
         Self::build_type_name(&mut f);
     }
+}
+
+/// Hashes the given value and returns the result.
+pub fn hash_value<T: TypeNameDyn + ?Sized>(value: &T) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    value.build_type_name(&mut |piece| piece.hash(&mut hasher));
+    hasher.finish()
 }
 
 /// A trait object that can be serialized.
@@ -217,13 +231,15 @@ pub struct ArchivedDyn<T: ?Sized> {
     _phantom: PhantomData<T>,
 }
 
-impl<T: ?Sized> ArchivedDyn<T> {
+impl<T: TypeName + ?Sized> ArchivedDyn<T> {
     /// Creates a new `ArchivedDyn` from a data position, [`DynResolver`], and
-    /// an implementation id.
-    pub fn new(from: usize, resolver: DynResolver, id: &ImplId) -> ArchivedDyn<T> {
+    /// a struct id.
+    pub fn new(from: usize, resolver: DynResolver, type_id: u64) -> ArchivedDyn<T> {
+        debug_assert!(type_id & 1 == 1);
+
         ArchivedDyn {
             ptr: unsafe { RelPtr::new(from + offset_of!(ArchivedDyn<T>, ptr), resolver.pos) },
-            vtable: AtomicU64::new(id.0),
+            vtable: AtomicU64::new(type_id),
             _phantom: PhantomData,
         }
     }
@@ -244,8 +260,8 @@ impl<T: ?Sized> ArchivedDyn<T> {
         }
 
         let ptr = TYPE_REGISTRY
-            .data(ImplId(vtable))
-            .expect("attempted to get vtable for an unregistered type")
+            .data(hash_type::<T>(), vtable)
+            .expect("attempted to get vtable for an unregistered impl")
             .vtable
             .0;
 
@@ -256,7 +272,7 @@ impl<T: ?Sized> ArchivedDyn<T> {
     }
 }
 
-impl<T: ?Sized> Deref for ArchivedDyn<T>
+impl<T: TypeName + ?Sized> Deref for ArchivedDyn<T>
 where
     for<'a> &'a T: From<TraitObject>,
 {
@@ -267,50 +283,13 @@ where
     }
 }
 
-impl<T: ?Sized> DerefMut for ArchivedDyn<T>
+impl<T: TypeName + ?Sized> DerefMut for ArchivedDyn<T>
 where
     for<'a> &'a T: From<TraitObject>,
     for<'a> &'a mut T: From<TraitObject>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         TraitObject(self.data_ptr(), self.vtable()).into()
-    }
-}
-
-#[doc(hidden)]
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
-pub struct ImplId(u64);
-
-impl ImplId {
-    fn from_hasher<H: Hasher>(hasher: H) -> Self {
-        // The lowest significant bit of the impl id must be set so we can
-        // determine if a vtable has been cached when the feature is enabled.
-        // This can't just be when the feature is on so that impls have the same
-        // id across all builds.
-        Self(hasher.finish() | 1)
-    }
-
-    pub fn resolve<T: ArchiveDyn + TypeName + ?Sized>(archive_dyn: &T) -> Self {
-        let mut hasher = DefaultHasher::new();
-        <T as TypeName>::build_type_name(|piece| piece.hash(&mut hasher));
-        archive_dyn.build_type_name(&mut |piece| piece.hash(&mut hasher));
-        let result = Self::from_hasher(hasher);
-        #[cfg(debug_assertions)]
-        if TYPE_REGISTRY.data(result).is_none() {
-            let mut trait_name = String::new();
-            <T as TypeName>::build_type_name(|piece| trait_name += piece);
-            let mut type_name = String::new();
-            archive_dyn.build_type_name(&mut |piece| type_name += piece);
-            panic!("attempted to resolve an unregistered vtable ({} as {}); if this type is generic, you may be missing an explicit register_vtable! for the type", type_name, trait_name);
-        }
-        result
-    }
-
-    pub fn register<TR: TypeName + ?Sized, TY: TypeName + ?Sized>() -> Self {
-        let mut hasher = DefaultHasher::new();
-        TR::build_type_name(|piece| piece.hash(&mut hasher));
-        TY::build_type_name(|piece| piece.hash(&mut hasher));
-        Self::from_hasher(hasher)
     }
 }
 
@@ -374,13 +353,16 @@ pub struct VTableData {
 
 #[doc(hidden)]
 pub struct ImplVTable {
-    id: ImplId,
+    trait_id: u64,
+    type_id: u64,
     data: VTableData,
 }
 
 impl ImplVTable {
-    pub fn new(id: ImplId, data: VTableData) -> Self {
-        Self { id, data }
+    pub fn new(trait_id: u64, type_id: u64, data: VTableData) -> Self {
+        debug_assert!(type_id & 1 == 1);
+
+        Self { trait_id, type_id, data }
     }
 }
 
@@ -392,6 +374,8 @@ pub struct VTable(pub *const ());
 
 impl From<*const ()> for VTable {
     fn from(vtable: *const ()) -> Self {
+        debug_assert!(vtable as usize & 1 == 0);
+
         Self(vtable)
     }
 }
@@ -400,7 +384,7 @@ unsafe impl Send for VTable {}
 unsafe impl Sync for VTable {}
 
 struct TypeRegistry {
-    id_to_vtable: HashMap<ImplId, VTableData>,
+    id_to_vtable: HashMap<(u64, u64), VTableData>,
 }
 
 impl TypeRegistry {
@@ -416,7 +400,7 @@ impl TypeRegistry {
             (impl_vtable.data.vtable.0 as usize) & 1 == 0,
             "vtable has a non-zero least significant bit which breaks vtable caching"
         );
-        let old_value = self.id_to_vtable.insert(impl_vtable.id, impl_vtable.data);
+        let old_value = self.id_to_vtable.insert((impl_vtable.trait_id, impl_vtable.type_id), impl_vtable.data);
 
         #[cfg(debug_assertions)]
         if let Some(old_data) = old_value {
@@ -437,8 +421,8 @@ impl TypeRegistry {
         assert!(old_value.is_none(), "impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
     }
 
-    fn data(&self, id: ImplId) -> Option<&VTableData> {
-        self.id_to_vtable.get(&id)
+    fn data(&self, trait_id: u64, type_id: u64) -> Option<&VTableData> {
+        self.id_to_vtable.get(&(trait_id, type_id))
     }
 }
 
@@ -465,7 +449,7 @@ macro_rules! register_vtable {
         const _: () = {
             use rkyv::Archived;
             use rkyv_dyn::{
-                debug_info, inventory, validation, ImplId, ImplVTable, VTableData, VTableValidation,
+                debug_info, hash_type, inventory, validation, ImplVTable, VTableData, VTableValidation,
             };
 
             inventory::submit! {
@@ -480,7 +464,10 @@ macro_rules! register_vtable {
                     ).1
                 };
                 ImplVTable::new(
-                    ImplId::register::<$trait, $type>(),
+                    hash_type::<$trait>(),
+                    // The last bit of the type hash is set to 1 to make sure we can differentiate
+                    // between cached and uncached vtables when the feature is turned on.
+                    hash_type::<$type>() | 1,
                     VTableData {
                         vtable: vtable.into(),
                         debug_info: debug_info!(),

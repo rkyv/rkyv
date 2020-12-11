@@ -157,7 +157,7 @@ pub fn archive_dyn(
                         ArchiveDyn,
                         ArchivedDyn,
                         DynResolver,
-                        ImplId,
+                        hash_value,
                         TraitObject,
                     };
                     use rkyv_typename::TypeName;
@@ -201,7 +201,7 @@ pub fn archive_dyn(
                         type Archived = ArchivedDyn<dyn #name<#generic_args>>;
 
                         fn resolve(self, pos: usize, value: &dyn #archive_trait<#generic_args>) -> Self::Archived {
-                            ArchivedDyn::new(pos, self, &ImplId::resolve(value))
+                            ArchivedDyn::new(pos, self, hash_value(value) | 1)
                         }
                     }
 
