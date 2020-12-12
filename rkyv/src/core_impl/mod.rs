@@ -168,15 +168,19 @@ impl<T: ArchiveSelf> ArchiveRef for [T] {
     type Resolver = usize;
 
     fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        let result = writer.align_for::<T>()?;
-        let bytes = unsafe {
-            core::slice::from_raw_parts(
-                self.as_ptr().cast::<u8>(),
-                core::mem::size_of::<T>() * self.len(),
-            )
-        };
-        writer.write(bytes)?;
-        Ok(result)
+        if self.len() != 0 {
+            let result = writer.align_for::<T>()?;
+            let bytes = unsafe {
+                core::slice::from_raw_parts(
+                    self.as_ptr().cast::<u8>(),
+                    core::mem::size_of::<T>() * self.len(),
+                )
+            };
+            writer.write(bytes)?;
+            Ok(result)
+        } else {
+            Ok(0)
+        }
     }
 }
 

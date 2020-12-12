@@ -184,17 +184,21 @@ impl<T: Archive> ArchiveRef for [T] {
 
     default! {
         fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-            let mut resolvers = Vec::with_capacity(self.len());
-            for value in self {
-                resolvers.push(value.archive(writer)?);
-            }
-            let result = writer.align_for::<T::Archived>()?;
-            unsafe {
-                for (i, resolver) in resolvers.drain(..).enumerate() {
-                    writer.resolve_aligned(&self[i], resolver)?;
+            if self.len() != 0 {
+                let mut resolvers = Vec::with_capacity(self.len());
+                for value in self {
+                    resolvers.push(value.archive(writer)?);
                 }
+                let result = writer.align_for::<T::Archived>()?;
+                unsafe {
+                    for (i, resolver) in resolvers.drain(..).enumerate() {
+                        writer.resolve_aligned(&self[i], resolver)?;
+                    }
+                }
+                Ok(result)
+            } else {
+                Ok(0)
             }
-            Ok(result)
         }
     }
 }
