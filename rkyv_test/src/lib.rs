@@ -64,6 +64,7 @@ mod tests {
         test_archive(&123u8);
         test_archive(&123456u32);
         test_archive(&1234567890u128);
+        #[cfg(not(feature = "strict"))]
         test_archive(&(24, true, 16f32));
         test_archive(&[1, 2, 3, 4, 5, 6]);
 
@@ -73,6 +74,7 @@ mod tests {
 
     #[test]
     fn archive_refs() {
+        #[cfg(not(feature = "strict"))]
         test_archive_ref::<[i32; 4]>(&[1, 2, 3, 4]);
         test_archive_ref::<str>("hello world");
         test_archive_ref::<[i32]>([1, 2, 3, 4].as_ref());

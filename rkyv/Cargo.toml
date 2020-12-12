@@ -32,6 +32,7 @@ more_portable = []
 nightly = []
 specialization = []
 std = ["seahash", "cfg-if"]
+strict = ["rkyv_derive/strict"]
 validation = ["bytecheck", "std"]
 
 [package.metadata.docs.rs]

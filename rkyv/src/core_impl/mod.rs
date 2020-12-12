@@ -12,12 +12,13 @@ use core::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
         NonZeroU32, NonZeroU64, NonZeroU8,
     },
-    ops::{Deref, DerefMut, Range},
+    ops::{Deref, DerefMut},
     sync::atomic::{
         self, AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32,
         AtomicU64, AtomicU8,
     },
 };
+pub mod range;
 #[cfg(feature = "validation")]
 pub mod validation;
 
@@ -91,6 +92,7 @@ impl<T: Archive> ArchiveRef for T {
 ///
 /// This is the reference type for all archived slices. It uses [`RelPtr`] under
 /// the hood and stores an additional length parameter.
+#[cfg_attr(feature = "strict", repr(C))]
 #[derive(Debug)]
 pub struct ArchivedSlice<T> {
     ptr: RelPtr,
@@ -261,10 +263,12 @@ impl_atomic!(AtomicU16);
 impl_atomic!(AtomicU32);
 impl_atomic!(AtomicU64);
 
+#[cfg(not(feature = "strict"))]
 macro_rules! peel_tuple {
     ($type:ident $index:tt, $($type_rest:ident $index_rest:tt,)*) => { impl_tuple! { $($type_rest $index_rest,)* } };
 }
 
+#[cfg(not(feature = "strict"))]
 macro_rules! impl_tuple {
     () => ();
     ($($type:ident $index:tt,)+) => {
@@ -294,6 +298,7 @@ macro_rules! impl_tuple {
     };
 }
 
+#[cfg(not(feature = "strict"))]
 impl_tuple! { T11 11, T10 10, T9 9, T8 8, T7 7, T6 6, T5 5, T4 4, T3 3, T2 2, T1 1, T0 0, }
 
 #[cfg(not(feature = "const_generics"))]
@@ -615,32 +620,5 @@ impl<T, U: PartialEq<T>> PartialEq<Option<T>> for ArchivedOption<U> {
 impl<T: PartialEq<U>, U> PartialEq<ArchivedOption<T>> for Option<U> {
     fn eq(&self, other: &ArchivedOption<T>) -> bool {
         other.eq(self)
-    }
-}
-
-impl<T: Archive> Resolve<Range<T>> for Range<T::Resolver> {
-    type Archived = Range<T::Archived>;
-
-    fn resolve(self, pos: usize, value: &Range<T>) -> Self::Archived {
-        Range {
-            start: self
-                .start
-                .resolve(pos + offset_of!(Self::Archived, start), &value.start),
-            end: self
-                .end
-                .resolve(pos + offset_of!(Self::Archived, end), &value.end),
-        }
-    }
-}
-
-impl<T: Archive> Archive for Range<T> {
-    type Archived = Range<T::Archived>;
-    type Resolver = Range<T::Resolver>;
-
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(Range {
-            start: self.start.archive(writer)?,
-            end: self.end.archive(writer)?,
-        })
     }
 }

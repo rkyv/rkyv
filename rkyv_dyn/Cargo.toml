@@ -27,6 +27,7 @@ rkyv_dyn_derive = { version = "0.2", path = "../rkyv_dyn_derive" }
 [features]
 default = ["validation"]
 nightly = ["rkyv/nightly"]
+strict = ["rkyv/strict"]
 validation = ["bytecheck", "rkyv/validation"]
 vtable_cache = []
 

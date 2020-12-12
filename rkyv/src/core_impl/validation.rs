@@ -4,12 +4,13 @@ use crate::{
     core_impl::{
         ArchivedOption, ArchivedOptionTag, ArchivedOptionVariantSome, ArchivedRef, ArchivedSlice,
         ArchivedStringSlice,
+        range::{ArchivedRange, ArchivedRangeInclusive},
     },
     offset_of,
     validation::{ArchiveContext, ArchiveMemoryError},
     RelPtr,
 };
-use bytecheck::{CheckBytes, Unreachable};
+use bytecheck::{CheckBytes, StructCheckError, Unreachable};
 use core::{fmt, str};
 use std::error::Error;
 
@@ -212,6 +213,26 @@ impl<C, T: CheckBytes<C>> CheckBytes<C> for ArchivedOption<T> {
             }
             _ => return Err(ArchivedOptionError::InvalidTag(tag)),
         }
+        Ok(&*bytes.cast())
+    }
+}
+
+impl<C, T: CheckBytes<C>> CheckBytes<C> for ArchivedRange<T> {
+    type Error = StructCheckError;
+
+    unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
+        T::check_bytes(bytes.add(offset_of!(ArchivedRange<T>, start)), context).map_err(|e| StructCheckError { field_name: "start", inner: Box::new(e) })?;
+        T::check_bytes(bytes.add(offset_of!(ArchivedRange<T>, end)), context).map_err(|e| StructCheckError { field_name: "end", inner: Box::new(e) })?;
+        Ok(&*bytes.cast())
+    }
+}
+
+impl<C, T: CheckBytes<C>> CheckBytes<C> for ArchivedRangeInclusive<T> {
+    type Error = StructCheckError;
+
+    unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
+        T::check_bytes(bytes.add(offset_of!(ArchivedRangeInclusive<T>, start)), context).map_err(|e| StructCheckError { field_name: "start", inner: Box::new(e) })?;
+        T::check_bytes(bytes.add(offset_of!(ArchivedRangeInclusive<T>, end)), context).map_err(|e| StructCheckError { field_name: "end", inner: Box::new(e) })?;
         Ok(&*bytes.cast())
     }
 }

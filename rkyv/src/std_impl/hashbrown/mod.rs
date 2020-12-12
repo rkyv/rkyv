@@ -102,6 +102,7 @@ fn capacity_to_buckets(cap: usize) -> Option<usize> {
     Some(adjusted_cap.next_power_of_two())
 }
 
+#[cfg_attr(feature = "strict", repr(C))]
 #[derive(Debug)]
 struct ArchivedBucket<K, V> {
     key: K,
@@ -134,6 +135,7 @@ impl ArchivedHashMapResolver {
 
 /// An archived `HashMap`. This is a direct port of the standard library
 /// `hashbrown` hash map for rkyv.
+#[cfg_attr(feature = "strict", repr(C))]
 #[derive(Debug)]
 pub struct ArchivedHashMap<K, V> {
     bucket_mask: u32,

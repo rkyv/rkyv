@@ -224,6 +224,7 @@ pub struct TraitObject(*const (), *const ());
 /// locally for subsequent lookups when the reference is dereferenced.
 ///
 /// `ArchivedDyn` is the trait object extension of `RelPtr`.
+#[cfg_attr(feature = "strict", repr(C))]
 #[derive(Debug)]
 pub struct ArchivedDyn<T: ?Sized> {
     ptr: RelPtr,

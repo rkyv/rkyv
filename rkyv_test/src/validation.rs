@@ -92,6 +92,7 @@ fn overlapping_claims() {
         0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
     ];
 
+    #[cfg(not(feature = "strict"))]
     check_archive::<(String, String)>(&synthetic_buf, 0).unwrap_err();
 }
 

@@ -200,6 +200,11 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
         .as_ref()
         .map_or(Ident::new("Archived", input.span()), |name| name.clone());
 
+    #[cfg(feature = "strict")]
+    let strict = quote! { #[repr(C)] };
+    #[cfg(not(feature = "strict"))]
+    let strict = quote! {};
+
     let (archive_type, archive_impl) = match input.data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
@@ -239,6 +244,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 (
                     quote! {
                         #archive_derives
+                        #strict
                         #vis struct #archived<#generic_params>
                         where
                             #generic_predicates
@@ -322,6 +328,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 (
                     quote! {
                         #archive_derives
+                        #strict
                         #vis struct #archived<#generic_params>(#(#archived_fields,)*)
                         where
                             #generic_predicates
@@ -367,6 +374,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
             Fields::Unit => (
                 quote! {
                     #archive_derives
+                    #strict
                     #vis struct #archived<#generic_params>
                     where
                         #generic_predicates;
