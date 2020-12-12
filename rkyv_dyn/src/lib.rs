@@ -4,6 +4,17 @@
 //! can be called without deserializing. All it takes is some macro magic.
 //!
 //! See [`ArchiveDyn`] for an example of how to use rkyv_dyn.
+//!
+//! ## Features
+//!
+//! - `nightly`: Enables some nightly features, such as
+//!   [`likely`](std::intrinsics::likely).
+//! - `strict`: Guarantees that types will have the same representations across
+//!   platforms and compilations. This is already the case in practice, but this
+//!   feature provides a guarantee.
+//! - `validation`: Enables validation support through `bytecheck`.
+//! - `vtable_cache`: Enables local vtable caching to speed up lookups after the
+//!   first.
 
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 

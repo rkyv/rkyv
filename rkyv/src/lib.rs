@@ -58,6 +58,9 @@
 //!   provides more efficient implementations of some functions when working
 //!   with [`ArchiveSelf`] types.
 //! - `std`: Enables standard library support.
+//! - `strict`: Guarantees that types will have the same representations across
+//!   platforms and compilations. This is already the case in practice, but this
+//!   feature provides a guarantee.
 //! - `validation`: Enables validation support through `bytecheck`.
 //!
 //! By default, the `inline_more` and `std` features are enabled.
