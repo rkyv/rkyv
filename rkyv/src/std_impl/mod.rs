@@ -184,7 +184,7 @@ impl<T: Archive> ArchiveRef for [T] {
 
     default! {
         fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-            if self.len() != 0 {
+            if !self.is_empty() {
                 let mut resolvers = Vec::with_capacity(self.len());
                 for value in self {
                     resolvers.push(value.archive(writer)?);

@@ -2,9 +2,9 @@
 
 use crate::{
     core_impl::{
+        range::{ArchivedRange, ArchivedRangeInclusive},
         ArchivedOption, ArchivedOptionTag, ArchivedOptionVariantSome, ArchivedRef, ArchivedSlice,
         ArchivedStringSlice,
-        range::{ArchivedRange, ArchivedRangeInclusive},
     },
     offset_of,
     validation::{ArchiveContext, ArchiveMemoryError},
@@ -221,8 +221,18 @@ impl<C, T: CheckBytes<C>> CheckBytes<C> for ArchivedRange<T> {
     type Error = StructCheckError;
 
     unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
-        T::check_bytes(bytes.add(offset_of!(ArchivedRange<T>, start)), context).map_err(|e| StructCheckError { field_name: "start", inner: Box::new(e) })?;
-        T::check_bytes(bytes.add(offset_of!(ArchivedRange<T>, end)), context).map_err(|e| StructCheckError { field_name: "end", inner: Box::new(e) })?;
+        T::check_bytes(bytes.add(offset_of!(ArchivedRange<T>, start)), context).map_err(|e| {
+            StructCheckError {
+                field_name: "start",
+                inner: Box::new(e),
+            }
+        })?;
+        T::check_bytes(bytes.add(offset_of!(ArchivedRange<T>, end)), context).map_err(|e| {
+            StructCheckError {
+                field_name: "end",
+                inner: Box::new(e),
+            }
+        })?;
         Ok(&*bytes.cast())
     }
 }
@@ -231,8 +241,22 @@ impl<C, T: CheckBytes<C>> CheckBytes<C> for ArchivedRangeInclusive<T> {
     type Error = StructCheckError;
 
     unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
-        T::check_bytes(bytes.add(offset_of!(ArchivedRangeInclusive<T>, start)), context).map_err(|e| StructCheckError { field_name: "start", inner: Box::new(e) })?;
-        T::check_bytes(bytes.add(offset_of!(ArchivedRangeInclusive<T>, end)), context).map_err(|e| StructCheckError { field_name: "end", inner: Box::new(e) })?;
+        T::check_bytes(
+            bytes.add(offset_of!(ArchivedRangeInclusive<T>, start)),
+            context,
+        )
+        .map_err(|e| StructCheckError {
+            field_name: "start",
+            inner: Box::new(e),
+        })?;
+        T::check_bytes(
+            bytes.add(offset_of!(ArchivedRangeInclusive<T>, end)),
+            context,
+        )
+        .map_err(|e| StructCheckError {
+            field_name: "end",
+            inner: Box::new(e),
+        })?;
         Ok(&*bytes.cast())
     }
 }

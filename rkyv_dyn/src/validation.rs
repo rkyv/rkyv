@@ -1,6 +1,6 @@
 //! Validation implementations and helper types.
 
-use super::{ArchivedDyn, hash_type, TYPE_REGISTRY};
+use super::{hash_type, ArchivedDyn, TYPE_REGISTRY};
 use bytecheck::{CheckBytes, Unreachable};
 use core::{
     fmt,

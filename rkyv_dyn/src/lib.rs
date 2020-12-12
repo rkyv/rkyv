@@ -363,7 +363,11 @@ impl ImplVTable {
     pub fn new(trait_id: u64, type_id: u64, data: VTableData) -> Self {
         debug_assert!(type_id & 1 == 1);
 
-        Self { trait_id, type_id, data }
+        Self {
+            trait_id,
+            type_id,
+            data,
+        }
     }
 }
 
@@ -401,7 +405,10 @@ impl TypeRegistry {
             (impl_vtable.data.vtable.0 as usize) & 1 == 0,
             "vtable has a non-zero least significant bit which breaks vtable caching"
         );
-        let old_value = self.id_to_vtable.insert((impl_vtable.trait_id, impl_vtable.type_id), impl_vtable.data);
+        let old_value = self.id_to_vtable.insert(
+            (impl_vtable.trait_id, impl_vtable.type_id),
+            impl_vtable.data,
+        );
 
         #[cfg(debug_assertions)]
         if let Some(old_data) = old_value {
@@ -450,7 +457,8 @@ macro_rules! register_vtable {
         const _: () = {
             use rkyv::Archived;
             use rkyv_dyn::{
-                debug_info, hash_type, inventory, validation, ImplVTable, VTableData, VTableValidation,
+                debug_info, hash_type, inventory, validation, ImplVTable, VTableData,
+                VTableValidation,
             };
 
             inventory::submit! {

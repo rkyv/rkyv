@@ -1,8 +1,8 @@
+use crate::{offset_of, Archive, ArchiveSelf, Resolve, SelfResolver, Write};
 use core::{
-    fmt,
-    ops::{Bound, Range, RangeFull, RangeInclusive, RangeBounds},
+    cmp, fmt,
+    ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
 };
-use crate::{Archive, ArchiveSelf, offset_of, Resolve, SelfResolver, Write};
 
 impl Archive for RangeFull {
     type Archived = Self;
@@ -41,7 +41,10 @@ impl<T: PartialOrd<T>> ArchivedRange<T> {
     }
 
     pub fn is_empty(&self) -> bool {
-        !(self.start < self.end)
+        match self.start.partial_cmp(&self.end) {
+            None | Some(cmp::Ordering::Greater) | Some(cmp::Ordering::Equal) => true,
+            Some(cmp::Ordering::Less) => false,
+        }
     }
 }
 
@@ -113,7 +116,10 @@ impl<T: PartialOrd<T>> ArchivedRangeInclusive<T> {
     }
 
     pub fn is_empty(&self) -> bool {
-        !(self.start <= self.end)
+        match self.start.partial_cmp(&self.end) {
+            None | Some(cmp::Ordering::Greater) => true,
+            Some(cmp::Ordering::Less) | Some(cmp::Ordering::Equal) => false,
+        }
     }
 }
 
@@ -158,4 +164,3 @@ impl<T: Archive> Archive for RangeInclusive<T> {
         })
     }
 }
-
