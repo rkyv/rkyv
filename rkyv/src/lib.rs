@@ -81,6 +81,7 @@ pub mod std_impl;
 pub mod validation;
 
 use core::{
+    alloc,
     marker::PhantomPinned,
     mem,
     ops::{Deref, DerefMut},
@@ -91,7 +92,7 @@ use core::{
 use std::io;
 
 pub use memoffset::offset_of;
-pub use rkyv_derive::Archive;
+pub use rkyv_derive::{Archive, Unarchive};
 #[cfg(feature = "validation")]
 pub use validation::{check_archive, ArchiveContext};
 
@@ -392,6 +393,42 @@ pub trait Archive {
     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error>;
 }
 
+/// Converts a type back from its archived form.
+///
+/// This can be derived with [`Unarchive`](macro@Unarchive).
+///
+/// ## Examples
+///
+/// ```
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Unarchive, WriteExt};
+///
+/// #[derive(Archive, PartialEq, Unarchive)]
+/// struct Test {
+///     int: u8,
+///     string: String,
+///     option: Option<Vec<i32>>,
+/// }
+///
+/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+/// let value = Test {
+///     int: 42,
+///     string: "hello world".to_string(),
+///     option: Some(vec![1, 2, 3, 4]),
+/// };
+/// let pos = writer.archive(&value)
+///     .expect("failed to archive test");
+/// let buf = writer.into_inner();
+/// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+/// assert_eq!(archived.int, value.int);
+/// assert_eq!(archived.string, value.string);
+/// assert_eq!(archived.option, value.option);
+/// let unarchived = Test::unarchive(archived);
+/// assert_eq!(value, &unarchived);
+/// ```
+pub trait Unarchive: Archive {
+    fn unarchive(archived: &Self::Archived) -> Self;
+}
+
 /// This trait is a counterpart of [`Archive`] that's suitable for unsized
 /// types.
 ///
@@ -416,6 +453,20 @@ pub trait ArchiveRef {
     /// Writes the object and returns a resolver that can create the reference
     /// to the archived type.
     fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error>;
+}
+
+/// This trait is a counterpart of [`Unarchive`] that's suitable for unsized
+/// types.
+///
+/// In addition to the archived value, it also receives an allocator function to
+/// allocate memory with.
+///
+/// # Safety
+///
+/// The return value must be allocated using the given allocator, and care must
+/// be taken to track all memory allocated properly.
+pub trait UnarchiveRef: ArchiveRef {
+    unsafe fn unarchive_ref(archived: &Self::Archived, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut Self;
 }
 
 /// A trait that indicates that some [`Archive`] type can be copied directly to

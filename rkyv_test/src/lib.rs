@@ -6,7 +6,7 @@ mod tests {
     use core::pin::Pin;
     use rkyv::{
         archived_ref, archived_value, archived_value_mut, Aligned, Archive, ArchiveBuffer,
-        ArchiveRef, Archived, SeekExt, WriteExt,
+        ArchiveRef, Archived, SeekExt, Unarchive, WriteExt,
     };
     use rkyv_dyn::{archive_dyn, register_vtable};
     use rkyv_typename::TypeName;
@@ -14,8 +14,9 @@ mod tests {
 
     const BUFFER_SIZE: usize = 256;
 
-    fn test_archive<T: Archive>(value: &T)
+    fn test_archive<T: Archive + Unarchive>(value: &T)
     where
+        T: PartialEq,
         T::Archived: PartialEq<T>,
     {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
@@ -23,6 +24,7 @@ mod tests {
         let buf = writer.into_inner();
         let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
+        assert!(&T::unarchive(archived_value) == value);
     }
 
     fn test_archive_ref<T: ArchiveRef + ?Sized>(value: &T)
@@ -144,7 +146,7 @@ mod tests {
 
     #[test]
     fn archive_unit_struct() {
-        #[derive(Archive, PartialEq)]
+        #[derive(Archive, Unarchive, PartialEq)]
         struct Test;
 
         impl PartialEq<Test> for Archived<Test> {
@@ -159,7 +161,7 @@ mod tests {
 
     #[test]
     fn archive_tuple_struct() {
-        #[derive(Archive)]
+        #[derive(Archive, Unarchive, PartialEq)]
         struct Test((), i32, String, Option<i32>);
 
         impl PartialEq<Test> for Archived<Test> {
@@ -173,7 +175,7 @@ mod tests {
 
     #[test]
     fn archive_simple_struct() {
-        #[derive(Archive)]
+        #[derive(Archive, Unarchive, PartialEq)]
         struct Test {
             a: (),
             b: i32,
@@ -212,14 +214,14 @@ mod tests {
     #[test]
     fn archive_generic_struct() {
         pub trait TestTrait {
-            type Associated;
+            type Associated: PartialEq;
         }
 
         impl TestTrait for () {
             type Associated = i32;
         }
 
-        #[derive(Archive)]
+        #[derive(Archive, Unarchive, PartialEq)]
         struct Test<T: TestTrait> {
             a: (),
             b: <T as TestTrait>::Associated,
@@ -261,7 +263,7 @@ mod tests {
 
     #[test]
     fn archive_enum() {
-        #[derive(Archive)]
+        #[derive(Archive, Unarchive, PartialEq)]
         enum Test {
             A,
             B(String),
@@ -315,14 +317,14 @@ mod tests {
     #[test]
     fn archive_generic_enum() {
         pub trait TestTrait {
-            type Associated;
+            type Associated: PartialEq;
         }
 
         impl TestTrait for () {
             type Associated = i32;
         }
 
-        #[derive(Archive)]
+        #[derive(Archive, Unarchive, PartialEq)]
         enum Test<T: TestTrait> {
             A,
             B(String),
@@ -382,13 +384,13 @@ mod tests {
 
     #[test]
     fn archive_self() {
-        #[derive(Archive, Clone, Copy, PartialEq)]
+        #[derive(Archive, Unarchive, Clone, Copy, PartialEq)]
         #[archive(self)]
         struct TestUnit;
 
         test_archive(&TestUnit);
 
-        #[derive(Archive, Clone, Copy, PartialEq)]
+        #[derive(Archive, Unarchive, Clone, Copy, PartialEq)]
         #[archive(self)]
         struct TestStruct {
             a: (),
@@ -406,13 +408,13 @@ mod tests {
             e: TestUnit,
         });
 
-        #[derive(Archive, Clone, Copy, PartialEq)]
+        #[derive(Archive, Unarchive, Clone, Copy, PartialEq)]
         #[archive(self)]
         struct TestTuple((), i32, bool, f32, TestUnit);
 
         test_archive(&TestTuple((), 42, true, 3.14f32, TestUnit));
 
-        #[derive(Archive, Clone, Copy, PartialEq)]
+        #[derive(Archive, Unarchive, Clone, Copy, PartialEq)]
         #[repr(u8)]
         #[archive(self)]
         enum TestEnum {
@@ -421,7 +423,7 @@ mod tests {
 
         test_archive(&TestEnum::A((), 42, true, 3.14f32, TestUnit));
 
-        #[derive(Archive, Clone, Copy, PartialEq)]
+        #[derive(Archive, Unarchive, Clone, Copy, PartialEq)]
         #[archive(self)]
         struct TestGeneric<T>(T);
 
@@ -768,7 +770,7 @@ mod tests {
 
     #[test]
     fn recursive_structures() {
-        #[derive(Archive)]
+        #[derive(Archive, Unarchive, PartialEq)]
         enum Node {
             Nil,
             Cons(#[recursive] Box<Node>),
@@ -833,11 +835,19 @@ mod tests {
             sync::atomic::{AtomicU32, Ordering},
         };
 
-        #[derive(Archive)]
+        #[derive(Archive, Unarchive)]
         struct Test {
             a: AtomicU32,
             b: Range<i32>,
             c: NonZeroU8,
+        }
+
+        impl PartialEq for Test {
+            fn eq(&self, other: &Self) -> bool {
+                self.a.load(Ordering::Relaxed) == other.a.load(Ordering::Relaxed)
+                    && self.b == other.b
+                    && self.c == other.c
+            }
         }
 
         impl PartialEq<Test> for Archived<Test> {

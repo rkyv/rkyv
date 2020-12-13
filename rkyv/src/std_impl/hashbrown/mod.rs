@@ -22,7 +22,7 @@ pub mod validation;
 
 use self::bitmask::BitMask;
 use self::imp::Group;
-use crate::{offset_of, Archive, RelPtr, Resolve, Write, WriteExt};
+use crate::{offset_of, Archive, RelPtr, Resolve, Unarchive, Write, WriteExt};
 use core::{
     borrow::Borrow,
     cmp::Eq,
@@ -498,6 +498,19 @@ where
     }
 }
 
+impl<K: Unarchive + Hash + Eq, V: Unarchive> Unarchive for HashMap<K, V>
+where
+    K::Archived: Hash + Eq,
+{
+    fn unarchive(archived: &Self::Archived) -> Self {
+        let mut result = HashMap::new();
+        for (k, v) in archived.iter() {
+            result.insert(K::unarchive(k), V::unarchive(v));
+        }
+        result
+    }
+}
+
 impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
     fn eq(&self, other: &Self) -> bool {
         if self.len() != other.len() {
@@ -914,5 +927,18 @@ where
             self.len(),
             writer,
         )?))
+    }
+}
+
+impl<K: Unarchive + Hash + Eq> Unarchive for HashSet<K>
+where
+    K::Archived: Hash + Eq,
+{
+    fn unarchive(archived: &Self::Archived) -> Self {
+        let mut result = HashSet::new();
+        for k in archived.iter() {
+            result.insert(K::unarchive(k));
+        }
+        result
     }
 }

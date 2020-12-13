@@ -1,4 +1,6 @@
-use crate::{offset_of, Archive, ArchiveSelf, Resolve, SelfResolver, Write};
+//! [`Archive`] implementations for ranges.
+
+use crate::{offset_of, Archive, ArchiveSelf, Resolve, SelfResolver, Unarchive, Write};
 use core::{
     cmp, fmt,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
@@ -13,12 +15,21 @@ impl Archive for RangeFull {
     }
 }
 
+impl Unarchive for RangeFull {
+    fn unarchive(_archived: &Self::Archived) -> Self {
+        RangeFull
+    }
+}
+
 unsafe impl ArchiveSelf for RangeFull {}
 
+/// An archived [`Range`].
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedRange<T> {
+    /// The lower bound of the range (inclusive).
     pub start: T,
+    /// The upper bound of the range (inclusive).
     pub end: T,
 }
 
@@ -32,6 +43,7 @@ impl<T: fmt::Debug> fmt::Debug for ArchivedRange<T> {
 }
 
 impl<T: PartialOrd<T>> ArchivedRange<T> {
+    /// Returns `true` if `item` is contained in the range.
     pub fn contains<U>(&self, item: &U) -> bool
     where
         T: PartialOrd<U>,
@@ -40,6 +52,7 @@ impl<T: PartialOrd<T>> ArchivedRange<T> {
         <Self as RangeBounds<T>>::contains(self, item)
     }
 
+    /// Returns `true` if the range contains no items.
     pub fn is_empty(&self) -> bool {
         match self.start.partial_cmp(&self.end) {
             None | Some(cmp::Ordering::Greater) | Some(cmp::Ordering::Equal) => true,
@@ -90,10 +103,22 @@ impl<T: Archive> Archive for Range<T> {
     }
 }
 
+impl<T: Unarchive> Unarchive for Range<T> {
+    fn unarchive(archived: &Self::Archived) -> Self {
+        Range {
+            start: T::unarchive(&archived.start),
+            end: T::unarchive(&archived.end),
+        }
+    }
+}
+
+/// An archived [`RangeInclusive`].
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedRangeInclusive<T> {
+    /// The lower bound of the range (inclusive).
     pub start: T,
+    /// The upper bound of the range (inclusive).
     pub end: T,
 }
 
@@ -162,5 +187,14 @@ impl<T: Archive> Archive for RangeInclusive<T> {
             start: self.start().archive(writer)?,
             end: self.end().archive(writer)?,
         })
+    }
+}
+
+impl<T: Unarchive> Unarchive for RangeInclusive<T> {
+    fn unarchive(archived: &Self::Archived) -> Self {
+        RangeInclusive::new(
+            T::unarchive(&archived.start),
+            T::unarchive(&archived.end),
+        )
     }
 }

@@ -321,9 +321,9 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 });
 
                 let archived_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                        let index = Index::from(i);
-                        quote_spanned! { f.span() => self.#index.resolve(pos + offset_of!(#archived<#generic_args>, #index), &value.#index) }
-                    });
+                    let index = Index::from(i);
+                    quote_spanned! { f.span() => self.#index.resolve(pos + offset_of!(#archived<#generic_args>, #index), &value.#index) }
+                });
 
                 (
                     quote! {
@@ -877,6 +877,357 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
             };
 
             #archive_self_impl
+        };
+    }
+}
+
+#[proc_macro_derive(Unarchive, attributes(recursive))]
+pub fn unarchive_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    let attributes = match parse_attributes(&input) {
+        Ok(attributes) => attributes,
+        Err(errors) => return proc_macro::TokenStream::from(errors),
+    };
+
+    let unarchive_impl = if attributes.archive_self.is_some() {
+        derive_unarchive_self_impl(&input)
+    } else {
+        derive_unarchive_impl(&input)
+    };
+
+    proc_macro::TokenStream::from(unarchive_impl)
+}
+
+fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
+    let name = &input.ident;
+
+    let generic_params = input
+        .generics
+        .params
+        .iter()
+        .map(|p| quote_spanned! { p.span() => #p });
+    let generic_params = quote! { #(#generic_params,)* };
+
+    let generic_args = input.generics.type_params().map(|p| {
+        let name = &p.ident;
+        quote_spanned! { name.span() => #name }
+    });
+    let generic_args = quote! { #(#generic_args,)* };
+
+    let generic_predicates = match input.generics.where_clause {
+        Some(ref clause) => {
+            let predicates = clause.predicates.iter().map(|p| quote! { #p });
+            quote! { #(#predicates,)* }
+        }
+        None => quote! {},
+    };
+
+    let unarchive_impl = match input.data {
+        Data::Struct(ref data) => match data.fields {
+            Fields::Named(ref fields) => {
+                let field_wheres = fields.named.iter().filter_map(|f| {
+                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                        None
+                    } else {
+                        let ty = &f.ty;
+                        Some(quote_spanned! { f.span() => #ty: Unarchive })
+                    }
+                });
+                let field_wheres = quote! { #(#field_wheres,)* };
+
+                let unarchive_fields = fields.named.iter().map(|f| {
+                    let name = &f.ident;
+                    let ty = &f.ty;
+                    quote! { #name: <#ty>::unarchive(&archived.#name) }
+                });
+
+                quote! {
+                    impl<#generic_params> Unarchive for #name<#generic_args>
+                    where
+                        #generic_predicates
+                        #field_wheres
+                    {
+                        fn unarchive(archived: &Self::Archived) -> Self {
+                            Self {
+                                #(#unarchive_fields,)*
+                            }
+                        }
+                    }
+                }
+            },
+            Fields::Unnamed(ref fields) => {
+                let field_wheres = fields.unnamed.iter().filter_map(|f| {
+                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                        None
+                    } else {
+                        let ty = &f.ty;
+                        Some(quote_spanned! { f.span() => #ty: Unarchive })
+                    }
+                });
+                let field_wheres = quote! { #(#field_wheres,)* };
+
+                let unarchive_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                    let index = Index::from(i);
+                    let ty = &f.ty;
+                    quote! { <#ty>::unarchive(&archived.#index) }
+                });
+
+                quote! {
+                    impl<#generic_params> Unarchive for #name<#generic_args>
+                    where
+                        #generic_predicates
+                        #field_wheres
+                    {
+                        fn unarchive(archived: &Self::Archived) -> Self {
+                            Self(
+                                #(#unarchive_fields,)*
+                            )
+                        }
+                    }
+                }
+            },
+            Fields::Unit => quote! {
+                impl<#generic_params> Unarchive for #name<#generic_args>
+                where
+                    #generic_predicates
+                {
+                    fn unarchive(_: &Self::Archived) -> Self {
+                        Self
+                    }
+                }
+            }
+        },
+        Data::Enum(ref data) => {
+            let field_wheres = data.variants.iter().map(|v| match v.fields {
+                Fields::Named(ref fields) => {
+                    let field_wheres = fields.named.iter().filter_map(|f| {
+                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                            None
+                        } else {
+                            let ty = &f.ty;
+                            Some(quote_spanned! { f.span() => #ty: Unarchive })
+                        }
+                    });
+                    quote! { #(#field_wheres,)* }
+                }
+                Fields::Unnamed(ref fields) => {
+                    let field_wheres = fields.unnamed.iter().filter_map(|f| {
+                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                            None
+                        } else {
+                            let ty = &f.ty;
+                            Some(quote_spanned! { f.span() => #ty: Unarchive })
+                        }
+                    });
+                    quote! { #(#field_wheres,)* }
+                }
+                Fields::Unit => quote! {},
+            });
+            let field_wheres = quote! { #(#field_wheres)* };
+
+            let unarchive_variants = data.variants.iter().map(|v| {
+                let variant = &v.ident;
+                match v.fields {
+                    Fields::Named(ref fields) => {
+                        let bindings = fields.named.iter().map(|f| {
+                            let name = &f.ident;
+                            quote_spanned! { name.span() => #name }
+                        });
+                        let fields = fields.named.iter().map(|f| {
+                            let name = &f.ident;
+                            let ty = &f.ty;
+                            quote! {
+                                #name: <#ty>::unarchive(#name)
+                            }
+                        });
+                        quote_spanned! { variant.span() =>
+                            Self::Archived::#variant { #(#bindings,)* } => Self::#variant { #(#fields,)* }
+                        }
+                    },
+                    Fields::Unnamed(ref fields) => {
+                        let bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                            let name = Ident::new(&format!("_{}", i), f.span());
+                            quote_spanned! { name.span() => #name }
+                        });
+                        let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                            let binding = Ident::new(&format!("_{}", i), f.span());
+                            let ty = &f.ty;
+                            quote! {
+                                <#ty>::unarchive(#binding)
+                            }
+                        });
+                        quote_spanned! { variant.span() =>
+                            Self::Archived::#variant( #(#bindings,)* ) => Self::#variant(#(#fields,)*)
+                        }
+                    },
+                    Fields::Unit => {
+                        quote_spanned! { name.span() => Self::Archived::#variant => Self::#variant }
+                    },
+                }
+            });
+
+            quote! {
+                impl<#generic_params> Unarchive for #name<#generic_args>
+                where
+                    #generic_predicates
+                    #field_wheres
+                {
+                    fn unarchive(archived: &Self::Archived) -> Self {
+                        match archived {
+                            #(#unarchive_variants,)*
+                        }
+                    }
+                }
+            }
+        },
+        Data::Union(_) => {
+            return Error::new(input.span(), "Unarchive cannot be derived for unions")
+                .to_compile_error()
+        }
+    };
+
+    quote! {
+        const _: () = {
+            use rkyv::{Archive, Unarchive};
+            #unarchive_impl
+        };
+    }
+}
+
+fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
+    let name = &input.ident;
+
+    let generic_params = input
+        .generics
+        .params
+        .iter()
+        .map(|p| quote_spanned! { p.span() => #p });
+    let generic_params = quote! { #(#generic_params,)* };
+
+    let generic_args = input.generics.type_params().map(|p| {
+        let name = &p.ident;
+        quote_spanned! { name.span() => #name }
+    });
+    let generic_args = quote! { #(#generic_args,)* };
+
+    let generic_predicates = match input.generics.where_clause {
+        Some(ref clause) => {
+            let predicates = clause.predicates.iter().map(|p| quote! { #p });
+            quote! { #(#predicates,)* }
+        }
+        None => quote! {},
+    };
+
+    let unarchive_impl = match input.data {
+        Data::Struct(ref data) => match data.fields {
+            Fields::Named(ref fields) => {
+                let field_wheres = fields.named.iter().filter_map(|f| {
+                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                        None
+                    } else {
+                        let ty = &f.ty;
+                        Some(quote_spanned! { f.span() => #ty: ArchiveSelf })
+                    }
+                });
+                let field_wheres = quote! { #(#field_wheres,)* };
+
+                quote! {
+                    impl<#generic_params> Unarchive for #name<#generic_args>
+                    where
+                        #generic_predicates
+                        #field_wheres
+                    {
+                        fn unarchive(archived: &Self::Archived) -> Self {
+                            *archived
+                        }
+                    }
+                }
+            },
+            Fields::Unnamed(ref fields) => {
+                let field_wheres = fields.unnamed.iter().filter_map(|f| {
+                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                        None
+                    } else {
+                        let ty = &f.ty;
+                        Some(quote_spanned! { f.span() => #ty: ArchiveSelf })
+                    }
+                });
+                let field_wheres = quote! { #(#field_wheres,)* };
+
+                quote! {
+                    impl<#generic_params> Unarchive for #name<#generic_args>
+                    where
+                        #generic_predicates
+                        #field_wheres
+                    {
+                        fn unarchive(archived: &Self::Archived) -> Self {
+                            *archived
+                        }
+                    }
+                }
+            },
+            Fields::Unit => quote! {
+                impl<#generic_params> Unarchive for #name<#generic_args>
+                where
+                    #generic_predicates
+                {
+                    fn unarchive(_: &Self::Archived) -> Self {
+                        Self
+                    }
+                }
+            }
+        },
+        Data::Enum(ref data) => {
+            let field_wheres = data.variants.iter().map(|v| match v.fields {
+                Fields::Named(ref fields) => {
+                    let field_wheres = fields.named.iter().filter_map(|f| {
+                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                            None
+                        } else {
+                            let ty = &f.ty;
+                            Some(quote_spanned! { f.span() => #ty: ArchiveSelf })
+                        }
+                    });
+                    quote! { #(#field_wheres,)* }
+                }
+                Fields::Unnamed(ref fields) => {
+                    let field_wheres = fields.unnamed.iter().filter_map(|f| {
+                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                            None
+                        } else {
+                            let ty = &f.ty;
+                            Some(quote_spanned! { f.span() => #ty: ArchiveSelf })
+                        }
+                    });
+                    quote! { #(#field_wheres,)* }
+                }
+                Fields::Unit => quote! {},
+            });
+            let field_wheres = quote! { #(#field_wheres)* };
+
+            quote! {
+                impl<#generic_params> Unarchive for #name<#generic_args>
+                where
+                    #generic_predicates
+                    #field_wheres
+                {
+                    fn unarchive(archived: &Self::Archived) -> Self {
+                        *archived
+                    }
+                }
+            }
+        },
+        Data::Union(_) => {
+            return Error::new(input.span(), "Unarchive cannot be derived for unions")
+                .to_compile_error()
+        }
+    };
+
+    quote! {
+        const _: () = {
+            use rkyv::{Archive, ArchiveSelf, Unarchive};
+            #unarchive_impl
         };
     }
 }

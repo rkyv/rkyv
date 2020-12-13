@@ -5,7 +5,7 @@ pub mod hashbrown;
 mod validation;
 
 use crate::{
-    core_impl::ArchivedSlice, Archive, ArchiveRef, Reference, ReferenceResolver, Resolve, Write,
+    core_impl::ArchivedSlice, Archive, ArchiveRef, Reference, ReferenceResolver, Resolve, Unarchive, UnarchiveRef, Write,
     WriteExt,
 };
 use core::{
@@ -13,7 +13,9 @@ use core::{
     fmt,
     ops::{Deref, DerefMut, Index, IndexMut},
     pin::Pin,
+    slice,
 };
+use std::alloc;
 
 /// An archived [`String`].
 ///
@@ -110,6 +112,12 @@ impl Archive for String {
     }
 }
 
+impl Unarchive for String {
+    fn unarchive(archived: &Self::Archived) -> Self {
+        archived.as_str().to_string()
+    }
+}
+
 /// An archived [`Box`].
 ///
 /// This is a thin wrapper around the reference type for whatever type was
@@ -167,6 +175,14 @@ impl<T: ArchiveRef + ?Sized> Archive for Box<T> {
     }
 }
 
+impl<T: UnarchiveRef + ?Sized> Unarchive for Box<T> {
+    fn unarchive(archived: &Self::Archived) -> Self {
+        unsafe {
+            Box::from_raw(T::unarchive_ref(&**archived, alloc::alloc))
+        }
+    }
+}
+
 #[cfg(feature = "specialization")]
 macro_rules! default {
     ($($rest:tt)*) => { default $($rest)* };
@@ -199,6 +215,18 @@ impl<T: Archive> ArchiveRef for [T] {
             } else {
                 Ok(0)
             }
+        }
+    }
+}
+
+impl<T: Unarchive> UnarchiveRef for [T] {
+    default! {
+        unsafe fn unarchive_ref(archived: &Self::Archived, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut Self {
+            let result = alloc(alloc::Layout::array::<T>(archived.len()).unwrap()).cast::<T>();
+            for i in 0..archived.len() {
+                result.add(i).write(T::unarchive(&archived[i]));
+            }
+            slice::from_raw_parts_mut(result, archived.len())
         }
     }
 }
@@ -252,6 +280,16 @@ impl<T: Archive> Archive for Vec<T> {
 
     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
         Ok(VecResolver(self.as_slice().archive_ref(writer)?))
+    }
+}
+
+impl<T: Unarchive> Unarchive for Vec<T> {
+    fn unarchive(archived: &Self::Archived) -> Self {
+        let mut result = Vec::with_capacity(archived.len());
+        for i in archived.iter() {
+            result.push(T::unarchive(i));
+        }
+        result
     }
 }
 
