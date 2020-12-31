@@ -1,6 +1,6 @@
 //! Validation implementations and helper types.
 
-use super::{hash_type, ArchivedDyn, TYPE_REGISTRY};
+use super::{ArchivedDyn, IMPL_REGISTRY};
 use bytecheck::{CheckBytes, Unreachable};
 use core::{
     fmt,
@@ -69,7 +69,7 @@ impl<T: CheckBytes<ArchiveContext>> IsCheckBytesDyn<T> {
 
 #[doc(hidden)]
 #[derive(Copy, Clone)]
-pub struct VTableValidation {
+pub struct ImplValidation {
     pub size: usize,
     pub align: usize,
     pub check_rel_ptr: FnCheckRelPtr,
@@ -79,11 +79,11 @@ pub struct VTableValidation {
 #[macro_export]
 macro_rules! validation {
     ($type:ty) => {{
-        use rkyv_dyn::validation::{IsCheckBytesDyn, NotCheckBytesDyn};
-        VTableValidation {
+        use rkyv_dyn::validation::{ImplValidation, IsCheckBytesDyn, NotCheckBytesDyn};
+        ImplValidation {
             size: core::mem::size_of::<$type>(),
             align: core::mem::align_of::<$type>(),
-            check_rel_ptr: IsCheckBytesDyn::<Archived<$type>>::CHECK_REL_PTR,
+            check_rel_ptr: IsCheckBytesDyn::<$type>::CHECK_REL_PTR,
         }
     }};
 }
@@ -136,9 +136,9 @@ impl<T: TypeName + ?Sized> CheckBytes<ArchiveContext> for ArchivedDyn<T> {
         bytes: *const u8,
         context: &mut ArchiveContext,
     ) -> Result<&'a Self, Self::Error> {
-        let vtable = AtomicU64::check_bytes(bytes.add(offset_of!(Self, vtable)), context)?;
-        let id = vtable.load(Ordering::Relaxed);
-        if let Some(vtable_data) = TYPE_REGISTRY.data(hash_type::<T>(), id) {
+        let type_id = AtomicU64::check_bytes(bytes.add(offset_of!(Self, type_id)), context)?;
+        let type_id = type_id.load(Ordering::Relaxed);
+        if let Some(vtable_data) = IMPL_REGISTRY.data::<T>(type_id) {
             let rel_ptr = RelPtr::check_bytes(bytes.add(offset_of!(Self, ptr)), context)?;
             let check_rel_ptr = vtable_data.validation.check_rel_ptr;
             check_rel_ptr(rel_ptr, context).map_err(ArchivedDynError::CheckBytes)?;
@@ -146,7 +146,7 @@ impl<T: TypeName + ?Sized> CheckBytes<ArchiveContext> for ArchivedDyn<T> {
             vtable.store(vtable_data.vtable.0 as usize as u64, Ordering::Relaxed);
             Ok(&*bytes.cast())
         } else {
-            Err(ArchivedDynError::InvalidImplId(id))
+            Err(ArchivedDynError::InvalidImplId(type_id))
         }
     }
 }

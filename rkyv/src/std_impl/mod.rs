@@ -5,7 +5,7 @@ pub mod hashbrown;
 mod validation;
 
 use crate::{
-    core_impl::ArchivedSlice, Archive, ArchiveRef, Reference, ReferenceResolver, Resolve, Unarchive, UnarchiveRef, Write,
+    core_impl::ArchivedSlice, Archive, Archived, ArchiveRef, Reference, ReferenceResolver, Resolve, Unarchive, UnarchiveRef, Write,
     WriteExt,
 };
 use core::{
@@ -112,9 +112,9 @@ impl Archive for String {
     }
 }
 
-impl Unarchive for String {
-    fn unarchive(archived: &Self::Archived) -> Self {
-        archived.as_str().to_string()
+impl Unarchive<String> for Archived<String> {
+    fn unarchive(&self) -> String {
+        self.as_str().to_string()
     }
 }
 
@@ -175,10 +175,13 @@ impl<T: ArchiveRef + ?Sized> Archive for Box<T> {
     }
 }
 
-impl<T: UnarchiveRef + ?Sized> Unarchive for Box<T> {
-    fn unarchive(archived: &Self::Archived) -> Self {
+impl<T: ArchiveRef + ?Sized> Unarchive<Box<T>> for Archived<Box<T>>
+where
+    Reference<T>: UnarchiveRef<T>,
+{
+    fn unarchive(&self) -> Box<T> {
         unsafe {
-            Box::from_raw(T::unarchive_ref(&**archived, alloc::alloc))
+            Box::from_raw(self.0.unarchive_ref(alloc::alloc))
         }
     }
 }
@@ -219,14 +222,17 @@ impl<T: Archive> ArchiveRef for [T] {
     }
 }
 
-impl<T: Unarchive> UnarchiveRef for [T] {
+impl<T: Archive> UnarchiveRef<[T]> for <[T] as ArchiveRef>::Reference
+where
+    T::Archived: Unarchive<T>,
+{
     default! {
-        unsafe fn unarchive_ref(archived: &Self::Archived, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut Self {
-            let result = alloc(alloc::Layout::array::<T>(archived.len()).unwrap()).cast::<T>();
-            for i in 0..archived.len() {
-                result.add(i).write(T::unarchive(&archived[i]));
+        unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut [T] {
+            let result = alloc(alloc::Layout::array::<T>(self.len()).unwrap()).cast::<T>();
+            for i in 0..self.len() {
+                result.add(i).write(self[i].unarchive());
             }
-            slice::from_raw_parts_mut(result, archived.len())
+            slice::from_raw_parts_mut(result, self.len())
         }
     }
 }
@@ -283,11 +289,14 @@ impl<T: Archive> Archive for Vec<T> {
     }
 }
 
-impl<T: Unarchive> Unarchive for Vec<T> {
-    fn unarchive(archived: &Self::Archived) -> Self {
-        let mut result = Vec::with_capacity(archived.len());
-        for i in archived.iter() {
-            result.push(T::unarchive(i));
+impl<T: Archive> Unarchive<Vec<T>> for Archived<Vec<T>>
+where
+    T::Archived: Unarchive<T>,
+{
+    fn unarchive(&self) -> Vec<T> {
+        let mut result = Vec::with_capacity(self.len());
+        for i in self.iter() {
+            result.push(i.unarchive());
         }
         result
     }

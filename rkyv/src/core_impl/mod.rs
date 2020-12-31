@@ -1,7 +1,7 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    offset_of, Archive, ArchiveRef, ArchiveSelf, RelPtr, Resolve, SelfResolver, Unarchive, UnarchiveRef, Write, WriteExt,
+    offset_of, Archive, Archived, ArchiveRef, ArchiveSelf, RelPtr, Resolve, SelfResolver, Unarchive, UnarchiveRef, Write, WriteExt,
 };
 use core::{
     alloc,
@@ -92,10 +92,13 @@ impl<T: Archive> ArchiveRef for T {
     }
 }
 
-impl<T: Unarchive> UnarchiveRef for T {
-    unsafe fn unarchive_ref(archived: &Self::Archived, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut Self {
-        let ptr = alloc(alloc::Layout::new::<Self>()).cast::<Self>();
-        let unarchived = Self::unarchive(archived);
+impl<T: Archive> UnarchiveRef<T> for <T as ArchiveRef>::Reference
+where
+    T::Archived: Unarchive<T>,
+{
+    unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T {
+        let ptr = alloc(alloc::Layout::new::<T>()).cast::<T>();
+        let unarchived = self.unarchive();
         ptr.write(unarchived);
         ptr
     }
@@ -198,7 +201,7 @@ impl<T: ArchiveSelf> ArchiveRef for [T] {
 }
 
 #[cfg(any(not(feature = "std"), feature = "specialization"))]
-impl<T: Unarchive + ArchiveSelf> UnarchiveRef for [T] {
+impl<T: ArchiveSelf> UnarchiveRef<[T]> for <[T] as ArchiveRef>::Reference {
     unsafe fn unarchive_ref(archived: &Self::Archived, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut Self {
         let result = alloc(alloc::Layout::array::<T>(archived.len()).unwrap()).cast::<T>();
         ptr::copy_nonoverlapping(archived.as_ptr(), result, archived.len());
@@ -225,12 +228,12 @@ macro_rules! impl_primitive {
             }
         }
 
-        impl Unarchive for $type
+        impl Unarchive<$type> for $type
         where
             $type: Copy,
         {
-            fn unarchive(archived: &Self::Archived) -> Self {
-                *archived
+            fn unarchive(&self) -> $type {
+                *self
             }
         }
     };
@@ -287,9 +290,9 @@ macro_rules! impl_atomic {
             }
         }
 
-        impl Unarchive for $type {
-            fn unarchive(archived: &Self::Archived) -> Self {
-                <$type>::new(archived.load(atomic::Ordering::Relaxed))
+        impl Unarchive<$type> for $type {
+            fn unarchive(&self) -> $type {
+                <$type>::new(self.load(atomic::Ordering::Relaxed))
             }
         }
     };
@@ -336,10 +339,13 @@ macro_rules! impl_tuple {
             }
         }
 
-        impl<$($type: Unarchive),+> Unarchive for ($($type,)+) {
-            fn unarchive(archived: &Self::Archived) -> Self {
-                let rev = ($(&archived.$index,)+);
-                ($($type::unarchive(rev.$index),)+)
+        impl<$($type: Archive),+> Unarchive<($($type,)+)> for ($($type::Archived,)+)
+        where
+            $($type::Archived: Unarchive<$type>,)+
+        {
+            fn unarchive(&self) -> ($($type,)+) {
+                let rev = ($(&self.$index,)+);
+                ($(rev.$index.unarchive(),)+)
             }
         }
 
@@ -393,14 +399,17 @@ macro_rules! impl_array {
             }
         }
 
-        impl<T: Unarchive> Unarchive for [T; $len] {
-            fn unarchive(archived: &Self::Archived) -> Self {
-                let mut result = core::mem::MaybeUninit::<Self>::uninit();
+        impl<T: Archive> Unarchive<[T; $len]> for [T::Archived; $len]
+        where
+            T::Archived: Unarchive<T>,
+        {
+            fn unarchive(&self) -> [T; $len] {
+                let mut result = core::mem::MaybeUninit::<[T; $len]>::uninit();
                 let result_ptr = result.as_mut_ptr().cast::<T>();
                 #[allow(clippy::reversed_empty_ranges)]
                 for i in 0..$len {
                     unsafe {
-                        result_ptr.add(i).write(T::unarchive(&archived[i]));
+                        result_ptr.add(i).write(self[i].unarchive());
                     }
                 }
                 unsafe { result.assume_init() }
@@ -458,13 +467,16 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
 }
 
 #[cfg(feature = "const_generics")]
-impl<T: Unarchive, const N: usize> Unarchive for [T; N] {
+impl<T: Archive, const N: usize> Unarchive<[T; N]> for [T::Archived; N]
+where
+    T::Archived: Unarchive<T>,
+{
     fn unarchive(archived: &Self::Archived) -> Self {
         let mut result = core::mem::MaybeUninit::<Self>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T>();
         for i in 0..N {
             unsafe {
-                result_ptr.add(i).write(T::unarchive(&archived[i]));
+                result_ptr.add(i).write(archived[i].unarchive());
             }
         }
         unsafe { result.assume_init() }
@@ -503,11 +515,11 @@ impl ArchiveRef for str {
     }
 }
 
-impl UnarchiveRef for str {
-    unsafe fn unarchive_ref(archived: &Self::Archived, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut Self {
-        let bytes = alloc(alloc::Layout::array::<u8>(archived.len()).unwrap());
-        ptr::copy_nonoverlapping(archived.as_ptr(), bytes, archived.len());
-        let slice = slice::from_raw_parts_mut(bytes, archived.len());
+impl UnarchiveRef<str> for <str as ArchiveRef>::Reference {
+    unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut str {
+        let bytes = alloc(alloc::Layout::array::<u8>(self.len()).unwrap());
+        ptr::copy_nonoverlapping(self.as_ptr(), bytes, self.len());
+        let slice = slice::from_raw_parts_mut(bytes, self.len());
         str::from_utf8_unchecked_mut(slice)
     }
 }
@@ -661,9 +673,12 @@ impl<T: Archive> Archive for Option<T> {
     }
 }
 
-impl<T: Unarchive> Unarchive for Option<T> {
-    fn unarchive(archived: &Self::Archived) -> Self {
-        archived.as_ref().map(|value| T::unarchive(value))
+impl<T: Archive> Unarchive<Option<T>> for Archived<Option<T>>
+where
+    T::Archived: Unarchive<T>,
+{
+    fn unarchive(&self) -> Option<T> {
+        self.as_ref().map(|value| value.unarchive())
     }
 }
 

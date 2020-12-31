@@ -100,7 +100,7 @@ impl<T: TypeName> TypeName for [T] {
 
 impl<T: TypeName> TypeName for Option<T> {
     fn build_type_name<F: FnMut(&str)>(mut f: F) {
-        f("Option<");
+        f("core::option::Option<");
         T::build_type_name(&mut f);
         f(">");
     }

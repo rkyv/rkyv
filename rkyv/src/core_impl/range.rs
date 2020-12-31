@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{offset_of, Archive, ArchiveSelf, Resolve, SelfResolver, Unarchive, Write};
+use crate::{offset_of, Archive, Archived, ArchiveSelf, Resolve, SelfResolver, Unarchive, Write};
 use core::{
     cmp, fmt,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
@@ -15,8 +15,8 @@ impl Archive for RangeFull {
     }
 }
 
-impl Unarchive for RangeFull {
-    fn unarchive(_archived: &Self::Archived) -> Self {
+impl Unarchive<RangeFull> for RangeFull {
+    fn unarchive(&self) -> Self {
         RangeFull
     }
 }
@@ -103,11 +103,14 @@ impl<T: Archive> Archive for Range<T> {
     }
 }
 
-impl<T: Unarchive> Unarchive for Range<T> {
-    fn unarchive(archived: &Self::Archived) -> Self {
+impl<T: Archive> Unarchive<Range<T>> for Archived<Range<T>>
+where
+    T::Archived: Unarchive<T>,
+{
+    fn unarchive(&self) -> Range<T> {
         Range {
-            start: T::unarchive(&archived.start),
-            end: T::unarchive(&archived.end),
+            start: self.start.unarchive(),
+            end: self.end.unarchive(),
         }
     }
 }
@@ -190,11 +193,14 @@ impl<T: Archive> Archive for RangeInclusive<T> {
     }
 }
 
-impl<T: Unarchive> Unarchive for RangeInclusive<T> {
-    fn unarchive(archived: &Self::Archived) -> Self {
+impl<T: Archive> Unarchive<RangeInclusive<T>> for Archived<RangeInclusive<T>>
+where
+    T::Archived: Unarchive<T>,
+{
+    fn unarchive(&self) -> RangeInclusive<T> {
         RangeInclusive::new(
-            T::unarchive(&archived.start),
-            T::unarchive(&archived.end),
+            self.start.unarchive(),
+            self.end.unarchive(),
         )
     }
 }

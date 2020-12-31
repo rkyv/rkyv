@@ -8,23 +8,23 @@ mod tests {
         archived_ref, archived_value, archived_value_mut, Aligned, Archive, ArchiveBuffer,
         ArchiveRef, Archived, SeekExt, Unarchive, WriteExt,
     };
-    use rkyv_dyn::{archive_dyn, register_vtable};
+    use rkyv_dyn::archive_dyn;
     use rkyv_typename::TypeName;
     use std::collections::HashMap;
 
     const BUFFER_SIZE: usize = 256;
 
-    fn test_archive<T: Archive + Unarchive>(value: &T)
+    fn test_archive<T: Archive>(value: &T)
     where
         T: PartialEq,
-        T::Archived: PartialEq<T>,
+        T::Archived: PartialEq<T> + Unarchive<T>,
     {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(value).expect("failed to archive value");
         let buf = writer.into_inner();
         let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
-        assert!(&T::unarchive(archived_value) == value);
+        assert!(&archived_value.unarchive() == value);
     }
 
     fn test_archive_ref<T: ArchiveRef + ?Sized>(value: &T)
@@ -456,22 +456,80 @@ mod tests {
     }
 
     #[test]
-    fn archive_dyn() {
-        #[archive_dyn]
+    fn manual_archive_dyn() {
+        use rkyv::{Resolve, UnarchiveRef, Write};
+        use rkyv_dyn::{ArchivedDyn, ArchiveDyn, DynResolver, RegisteredImpl, register_impl, UnarchiveDyn};
+
+        // #[archive_dyn(unarchive)]
         pub trait TestTrait {
             fn get_id(&self) -> i32;
         }
 
-        #[derive(Archive, TypeName)]
-        #[typename = "ArchiveDynTest"]
+        pub trait ArchiveTestTrait: TestTrait + ArchiveDyn {}
+
+        impl<T: Archive + ArchiveDyn + TestTrait> ArchiveTestTrait for T
+        where
+            T::Archived: RegisteredImpl<dyn UnarchiveTestTrait>
+        {}
+
+        pub trait UnarchiveTestTrait: TestTrait + UnarchiveDyn<dyn ArchiveTestTrait> {}
+
+        impl<T: TestTrait + UnarchiveDyn<dyn ArchiveTestTrait>> UnarchiveTestTrait for T {}
+
+        impl TypeName for dyn UnarchiveTestTrait {
+            fn build_type_name<F: FnMut(&str)>(mut f: F) {
+                f("dyn UnarchiveTestTrait");
+            }
+        }
+
+        impl Resolve<dyn ArchiveTestTrait> for DynResolver {
+            type Archived = ArchivedDyn<dyn UnarchiveTestTrait>;
+
+            fn resolve(self, pos: usize, _value: &dyn ArchiveTestTrait) -> Self::Archived {
+                ArchivedDyn::resolve(pos, self)
+            }
+        }
+
+        impl ArchiveRef for dyn ArchiveTestTrait {
+            type Archived = dyn UnarchiveTestTrait;
+            type Reference = ArchivedDyn<dyn UnarchiveTestTrait>;
+            type Resolver = DynResolver;
+
+            fn archive_ref<W: Write + ?Sized>(&self, mut writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                self.archive_dyn(&mut writer).map_err(|e| *e.downcast::<W::Error>().unwrap())
+            }
+        }
+
+        impl UnarchiveRef<dyn ArchiveTestTrait> for ArchivedDyn<dyn UnarchiveTestTrait> {
+            unsafe fn unarchive_ref(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn ArchiveTestTrait {
+                (*self).unarchive_dyn(alloc)
+            }
+        }
+
+        #[derive(Archive, Unarchive)]
+        // TODO: archive parameter to set typename
+        #[archive(derive(TypeName))]
         pub struct Test {
             id: i32,
         }
 
-        #[archive_dyn]
+        // #[archive_dyn(unarchive)]
         impl TestTrait for Test {
             fn get_id(&self) -> i32 {
                 self.id
+            }
+        }
+
+        register_impl!(Archived<Test> as dyn UnarchiveTestTrait);
+
+        impl UnarchiveDyn<dyn ArchiveTestTrait> for Archived<Test>
+        where
+            Archived<Test>: Unarchive<Test>,
+        {
+            unsafe fn unarchive_dyn(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn ArchiveTestTrait {
+                let result = alloc(core::alloc::Layout::new::<Test>()) as *mut Test;
+                result.write(self.unarchive());
+                result as *mut dyn ArchiveTestTrait
             }
         }
 
@@ -493,21 +551,72 @@ mod tests {
         // exercise vtable cache
         assert_eq!(value.get_id(), archived_value.get_id());
         assert_eq!(value.get_id(), archived_value.get_id());
+
+        let unarchived_value = <Archived<Box<dyn ArchiveTestTrait>> as Unarchive<Box<dyn ArchiveTestTrait>>>::unarchive(archived_value);
+        assert_eq!(value.get_id(), unarchived_value.get_id());
+    }
+
+    #[test]
+    fn archive_dyn() {
+        #[archive_dyn(trait = "ATestTrait", unarchive = "UTestTrait")]
+        pub trait TestTrait {
+            fn get_id(&self) -> i32;
+        }
+
+        #[derive(Archive, Unarchive)]
+        #[archive(derive(TypeName))]
+        pub struct Test {
+            id: i32,
+        }
+
+        #[archive_dyn(trait = "ATestTrait", unarchive = "UTestTrait")]
+        impl TestTrait for Test {
+            fn get_id(&self) -> i32 {
+                self.id
+            }
+        }
+
+        impl TestTrait for Archived<Test> {
+            fn get_id(&self) -> i32 {
+                self.id
+            }
+        }
+
+        let value: Box<dyn ATestTrait> = Box::new(Test { id: 42 });
+
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
+        let pos = writer.archive(&value).expect("failed to archive value");
+        let buf = writer.into_inner();
+        let archived_value =
+            unsafe { archived_value::<Box<dyn ATestTrait>>(buf.as_ref(), pos) };
+        assert_eq!(value.get_id(), archived_value.get_id());
+
+        // exercise vtable cache
+        assert_eq!(value.get_id(), archived_value.get_id());
+        assert_eq!(value.get_id(), archived_value.get_id());
+
+        // unarchive
+        let unarchived_value: Box<dyn ATestTrait> = archived_value.unarchive();
+        assert_eq!(value.get_id(), unarchived_value.get_id());
+        assert_eq!(value.get_id(), unarchived_value.get_id());
     }
 
     #[test]
     fn archive_dyn_generic() {
-        #[archive_dyn(trait = "ArchiveableTestTrait")]
-        pub trait TestTrait<T> {
+        use rkyv_dyn::register_impl;
+
+        #[archive_dyn(trait = "ATestTrait", unarchive = "UTestTrait")]
+        pub trait TestTrait<T: TypeName> {
             fn get_value(&self) -> T;
         }
 
-        #[derive(Archive, TypeName)]
-        #[archive(archived = "ArchivedTest")]
+        #[derive(Archive, Unarchive)]
+        #[archive(archived = "ArchivedTest", derive(TypeName))]
         pub struct Test<T> {
             value: T,
         }
 
+        #[archive_dyn(trait = "ATestTrait", unarchive = "UTestTrait")]
         impl TestTrait<i32> for Test<i32> {
             fn get_value(&self) -> i32 {
                 self.value
@@ -526,20 +635,30 @@ mod tests {
             }
         }
 
+        impl<T: Archive + TypeName + core::fmt::Display + 'static> rkyv_dyn::UnarchiveDyn<dyn ATestTrait<String>> for ArchivedTest<T>
+        where
+            ArchivedTest<T>: Unarchive<Test<T>> + rkyv_dyn::RegisteredImpl<dyn UTestTrait<String>>,
+        {
+            unsafe fn unarchive_dyn(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn ATestTrait<String> {
+                let result = alloc(core::alloc::Layout::new::<Test<T>>()) as *mut Test<T>;
+                result.write(self.unarchive());
+                result as *mut dyn ATestTrait<String>
+            }
+        }
+
         impl<T: Archive> TestTrait<String> for ArchivedTest<T>
         where
-            Archived<T>: core::fmt::Display,
+            T::Archived: core::fmt::Display,
         {
             fn get_value(&self) -> String {
                 format!("{}", self.value)
             }
         }
 
-        register_vtable!(Test<i32> as dyn TestTrait<i32>);
-        register_vtable!(Test<String> as dyn TestTrait<String>);
+        register_impl!(Archived<Test<String>> as dyn UTestTrait<String>);
 
-        let i32_value: Box<dyn ArchiveableTestTrait<i32>> = Box::new(Test { value: 42 });
-        let string_value: Box<dyn ArchiveableTestTrait<String>> = Box::new(Test {
+        let i32_value: Box<dyn ATestTrait<i32>> = Box::new(Test { value: 42 });
+        let string_value: Box<dyn ATestTrait<String>> = Box::new(Test {
             value: "hello world".to_string(),
         });
 
@@ -550,9 +669,9 @@ mod tests {
             .expect("failed to archive value");
         let buf = writer.into_inner();
         let i32_archived_value =
-            unsafe { archived_value::<Box<dyn ArchiveableTestTrait<i32>>>(buf.as_ref(), i32_pos) };
+            unsafe { archived_value::<Box<dyn ATestTrait<i32>>>(buf.as_ref(), i32_pos) };
         let string_archived_value = unsafe {
-            archived_value::<Box<dyn ArchiveableTestTrait<String>>>(buf.as_ref(), string_pos)
+            archived_value::<Box<dyn ATestTrait<String>>>(buf.as_ref(), string_pos)
         };
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
@@ -561,8 +680,16 @@ mod tests {
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
 
+        let i32_unarchived_value: Box<dyn ATestTrait<i32>> = i32_archived_value.unarchive();
+        assert_eq!(i32_value.get_value(), i32_unarchived_value.get_value());
+        assert_eq!(i32_value.get_value(), i32_unarchived_value.get_value());
+
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
+
+        let string_unarchived_value: Box<dyn ATestTrait<String>> = string_archived_value.unarchive();
+        assert_eq!(string_value.get_value(), string_unarchived_value.get_value());
+        assert_eq!(string_value.get_value(), string_unarchived_value.get_value());
     }
 
     #[test]
@@ -718,55 +845,55 @@ mod tests {
         }
     }
 
-    #[test]
-    fn mutable_dyn_ref() {
-        #[archive_dyn]
-        trait TestTrait {
-            fn value(&self) -> i32;
-            fn set_value(self: Pin<&mut Self>, value: i32);
-        }
+    // #[test]
+    // fn mutable_dyn_ref() {
+    //     #[archive_dyn]
+    //     trait TestTrait {
+    //         fn value(&self) -> i32;
+    //         fn set_value(self: Pin<&mut Self>, value: i32);
+    //     }
 
-        #[derive(Archive, TypeName)]
-        #[typename = "MutableDynRefTest"]
-        struct Test(i32);
+    //     #[derive(Archive, TypeName)]
+    //     #[typename = "MutableDynRefTest"]
+    //     struct Test(i32);
 
-        #[archive_dyn]
-        impl TestTrait for Test {
-            fn value(&self) -> i32 {
-                self.0
-            }
-            fn set_value(self: Pin<&mut Self>, value: i32) {
-                unsafe {
-                    let s = self.get_unchecked_mut();
-                    s.0 = value;
-                }
-            }
-        }
+    //     #[archive_dyn]
+    //     impl TestTrait for Test {
+    //         fn value(&self) -> i32 {
+    //             self.0
+    //         }
+    //         fn set_value(self: Pin<&mut Self>, value: i32) {
+    //             unsafe {
+    //                 let s = self.get_unchecked_mut();
+    //                 s.0 = value;
+    //             }
+    //         }
+    //     }
 
-        impl TestTrait for Archived<Test> {
-            fn value(&self) -> i32 {
-                self.0
-            }
-            fn set_value(self: Pin<&mut Self>, value: i32) {
-                unsafe {
-                    let s = self.get_unchecked_mut();
-                    s.0 = value;
-                }
-            }
-        }
+    //     impl TestTrait for Archived<Test> {
+    //         fn value(&self) -> i32 {
+    //             self.0
+    //         }
+    //         fn set_value(self: Pin<&mut Self>, value: i32) {
+    //             unsafe {
+    //                 let s = self.get_unchecked_mut();
+    //                 s.0 = value;
+    //             }
+    //         }
+    //     }
 
-        let value = Box::new(Test(10)) as Box<dyn ArchiveTestTrait>;
+    //     let value = Box::new(Test(10)) as Box<dyn ArchiveTestTrait>;
 
-        let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-        let pos = writer.archive(&value).unwrap();
-        let mut buf = writer.into_inner();
-        let mut value =
-            unsafe { archived_value_mut::<Box<dyn ArchiveTestTrait>>(Pin::new(buf.as_mut()), pos) };
+    //     let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+    //     let pos = writer.archive(&value).unwrap();
+    //     let mut buf = writer.into_inner();
+    //     let mut value =
+    //         unsafe { archived_value_mut::<Box<dyn ArchiveTestTrait>>(Pin::new(buf.as_mut()), pos) };
 
-        assert_eq!(value.value(), 10);
-        value.as_mut().get_pin().set_value(64);
-        assert_eq!(value.value(), 64);
-    }
+    //     assert_eq!(value.value(), 10);
+    //     value.as_mut().get_pin().set_value(64);
+    //     assert_eq!(value.value(), 64);
+    // }
 
     #[test]
     fn recursive_structures() {

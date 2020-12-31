@@ -931,25 +931,24 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                         None
                     } else {
                         let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: Unarchive })
+                        Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Unarchive<#ty> })
                     }
                 });
                 let field_wheres = quote! { #(#field_wheres,)* };
 
                 let unarchive_fields = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    let ty = &f.ty;
-                    quote! { #name: <#ty>::unarchive(&archived.#name) }
+                    quote! { #name: self.#name.unarchive() }
                 });
 
                 quote! {
-                    impl<#generic_params> Unarchive for #name<#generic_args>
+                    impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #field_wheres
                     {
-                        fn unarchive(archived: &Self::Archived) -> Self {
-                            Self {
+                        fn unarchive(&self) -> #name<#generic_args> {
+                            #name::<#generic_args> {
                                 #(#unarchive_fields,)*
                             }
                         }
@@ -962,25 +961,24 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                         None
                     } else {
                         let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: Unarchive })
+                        Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Unarchive<#ty> })
                     }
                 });
                 let field_wheres = quote! { #(#field_wheres,)* };
 
-                let unarchive_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                let unarchive_fields = fields.unnamed.iter().enumerate().map(|(i, _)| {
                     let index = Index::from(i);
-                    let ty = &f.ty;
-                    quote! { <#ty>::unarchive(&archived.#index) }
+                    quote! { self.#index.unarchive() }
                 });
 
                 quote! {
-                    impl<#generic_params> Unarchive for #name<#generic_args>
+                    impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #field_wheres
                     {
-                        fn unarchive(archived: &Self::Archived) -> Self {
-                            Self(
+                        fn unarchive(&self) -> #name<#generic_args> {
+                            #name::<#generic_args>(
                                 #(#unarchive_fields,)*
                             )
                         }
@@ -988,12 +986,12 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                 }
             },
             Fields::Unit => quote! {
-                impl<#generic_params> Unarchive for #name<#generic_args>
+                impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                 {
-                    fn unarchive(_: &Self::Archived) -> Self {
-                        Self
+                    fn unarchive(&self) -> #name<#generic_args> {
+                        #name::<#generic_args>
                     }
                 }
             }
@@ -1006,7 +1004,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                             None
                         } else {
                             let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: Unarchive })
+                            Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Unarchive<#ty> })
                         }
                     });
                     quote! { #(#field_wheres,)* }
@@ -1017,7 +1015,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                             None
                         } else {
                             let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: Unarchive })
+                            Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Unarchive<#ty> })
                         }
                     });
                     quote! { #(#field_wheres,)* }
@@ -1036,13 +1034,12 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                         });
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
-                            let ty = &f.ty;
                             quote! {
-                                #name: <#ty>::unarchive(#name)
+                                #name: #name.unarchive()
                             }
                         });
                         quote_spanned! { variant.span() =>
-                            Self::Archived::#variant { #(#bindings,)* } => Self::#variant { #(#fields,)* }
+                            Self::#variant { #(#bindings,)* } => #name::<#generic_args>::#variant { #(#fields,)* }
                         }
                     },
                     Fields::Unnamed(ref fields) => {
@@ -1052,29 +1049,28 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                         });
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let binding = Ident::new(&format!("_{}", i), f.span());
-                            let ty = &f.ty;
                             quote! {
-                                <#ty>::unarchive(#binding)
+                                #binding.unarchive()
                             }
                         });
                         quote_spanned! { variant.span() =>
-                            Self::Archived::#variant( #(#bindings,)* ) => Self::#variant(#(#fields,)*)
+                            Self::#variant( #(#bindings,)* ) => #name::<#generic_args>::#variant(#(#fields,)*)
                         }
                     },
                     Fields::Unit => {
-                        quote_spanned! { name.span() => Self::Archived::#variant => Self::#variant }
+                        quote_spanned! { name.span() => Self::#variant => #name::<#generic_args>::#variant }
                     },
                 }
             });
 
             quote! {
-                impl<#generic_params> Unarchive for #name<#generic_args>
+                impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                     #field_wheres
                 {
-                    fn unarchive(archived: &Self::Archived) -> Self {
-                        match archived {
+                    fn unarchive(&self) -> #name<#generic_args> {
+                        match self {
                             #(#unarchive_variants,)*
                         }
                     }
@@ -1133,13 +1129,13 @@ fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
                 let field_wheres = quote! { #(#field_wheres,)* };
 
                 quote! {
-                    impl<#generic_params> Unarchive for #name<#generic_args>
+                    impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #field_wheres
                     {
-                        fn unarchive(archived: &Self::Archived) -> Self {
-                            *archived
+                        fn unarchive(&self) -> Self {
+                            *self
                         }
                     }
                 }
@@ -1156,24 +1152,24 @@ fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
                 let field_wheres = quote! { #(#field_wheres,)* };
 
                 quote! {
-                    impl<#generic_params> Unarchive for #name<#generic_args>
+                    impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #field_wheres
                     {
-                        fn unarchive(archived: &Self::Archived) -> Self {
-                            *archived
+                        fn unarchive(&self) -> Self {
+                            *self
                         }
                     }
                 }
             },
             Fields::Unit => quote! {
-                impl<#generic_params> Unarchive for #name<#generic_args>
+                impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                 {
-                    fn unarchive(_: &Self::Archived) -> Self {
-                        Self
+                    fn unarchive(&self) -> Self {
+                        *self
                     }
                 }
             }
@@ -1207,13 +1203,13 @@ fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
             let field_wheres = quote! { #(#field_wheres)* };
 
             quote! {
-                impl<#generic_params> Unarchive for #name<#generic_args>
+                impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                     #field_wheres
                 {
-                    fn unarchive(archived: &Self::Archived) -> Self {
-                        *archived
+                    fn unarchive(&self) -> Self {
+                        *self
                     }
                 }
             }

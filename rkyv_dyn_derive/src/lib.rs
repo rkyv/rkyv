@@ -46,20 +46,57 @@ impl Parse for Input {
     }
 }
 
-enum TraitArgs {
-    None,
-    Trait(LitStr),
+struct Args {
+    archive: Option<LitStr>,
+    unarchive: Option<Option<LitStr>>,
 }
 
-impl Parse for TraitArgs {
+impl Parse for Args {
     fn parse(input: ParseStream) -> Result<Self> {
-        if input.is_empty() {
-            return Ok(TraitArgs::None);
+        mod kw {
+            syn::custom_keyword!(unarchive);
         }
-        input.parse::<syn::token::Trait>()?;
-        input.parse::<Token![=]>()?;
-        let name = input.parse::<LitStr>()?;
-        Ok(TraitArgs::Trait(name))
+
+        let mut archive = None;
+        let mut unarchive = None;
+
+        let mut needs_punct = false;
+        while !input.is_empty() {
+            if needs_punct {
+                input.parse::<Token![,]>()?;
+            }
+
+            if input.peek(Token![trait]) {
+                if archive.is_some() {
+                    return Err(input.error("duplicate trait argument"));
+                }
+
+                input.parse::<Token![trait]>()?;
+                input.parse::<Token![=]>()?;
+                archive = Some(input.parse::<LitStr>()?);
+            } else if input.peek(kw::unarchive) {
+                if unarchive.is_some() {
+                    return Err(input.error("duplicate unarchive argument"));
+                }
+
+                input.parse::<kw::unarchive>()?;
+                if input.peek(Token![=]) {
+                    input.parse::<Token![=]>()?;
+                    unarchive = Some(Some(input.parse::<LitStr>()?));
+                } else {
+                    unarchive = Some(None);
+                }
+            } else {
+                return Err(input.error("expected trait = \"...\" or unarchive = \"...\" parameters"));
+            }
+
+            needs_punct = true;
+        }
+
+        Ok(Args {
+            archive,
+            unarchive,
+        })
     }
 }
 
@@ -75,16 +112,67 @@ pub fn archive_dyn(
 ) -> proc_macro::TokenStream {
     let input = parse_macro_input!(item as Input);
 
+    let args = parse_macro_input!(attr as Args);
+
     let input_impl = match input {
         Input::Impl(ref input) => {
             if !input.generics.params.is_empty() {
-                Error::new(input.generics.span(), "#[archive_dyn] can only register non-generic impls; use register_vtable! with the concrete types to register").to_compile_error()
+                Error::new(input.generics.span(), "#[archive_dyn] can only register non-generic impls; call register_impl! with the concrete types to register and manually implement UnarchiveDyn for archived types if necessary").to_compile_error()
             } else if let Some((_, ref trait_, _)) = input.trait_ {
                 let ty = &input.self_ty;
+
+                let archive_trait = if let Some(ar_name) = args.archive {
+                    let mut path = trait_.clone();
+                    let last = path.segments.last_mut().unwrap();
+                    last.ident = Ident::new(&ar_name.value(), ar_name.span());
+                    path
+                } else {
+                    let mut path = trait_.clone();
+                    let last = path.segments.last_mut().unwrap();
+                    last.ident = Ident::new(&format!("Archive{}", last.ident), trait_.span());
+                    path
+                };
+
+                let (unarchive_trait, unarchive_impl) = if let Some(unarchive) = args.unarchive {
+                    let unarchive_trait = if let Some(ua_name) = unarchive {
+                        let mut path = trait_.clone();
+                        let last = path.segments.last_mut().unwrap();
+                        last.ident = Ident::new(&ua_name.value(), ua_name.span());
+                        path
+                    } else {
+                        let mut path = trait_.clone();
+                        let last = path.segments.last_mut().unwrap();
+                        last.ident = Ident::new(&format!("Unarchive{}", last.ident), trait_.span());
+                        path
+                    };
+
+                    (unarchive_trait, quote! {
+                        impl UnarchiveDyn<dyn #archive_trait> for Archived<#ty>
+                        where
+                            Archived<#ty>: Unarchive<#ty>,
+                        {
+                            unsafe fn unarchive_dyn(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn #archive_trait {
+                                let result = alloc(core::alloc::Layout::new::<#ty>()) as *mut #ty;
+                                result.write(self.unarchive());
+                                result as *mut dyn #archive_trait
+                            }
+                        }
+                    })
+                } else {
+                    (trait_.clone(), quote! {})
+                };
+
                 quote! {
                     #input
 
-                    rkyv_dyn::register_vtable!(#ty as dyn #trait_);
+                    const _: () = {
+                        use rkyv::{Archived, Unarchive};
+                        use rkyv_dyn::UnarchiveDyn;
+
+                        rkyv_dyn::register_impl!(Archived<#ty> as dyn #unarchive_trait);
+
+                        #unarchive_impl
+                    };
                 }
             } else {
                 Error::new(
@@ -95,8 +183,6 @@ pub fn archive_dyn(
             }
         }
         Input::Trait(input) => {
-            let args = parse_macro_input!(attr as TraitArgs);
-
             let vis = &input.vis;
 
             let generic_params = input
@@ -113,10 +199,9 @@ pub fn archive_dyn(
             let generic_args = quote! { #(#generic_args),* };
 
             let name = &input.ident;
-            let archive_trait = match args {
-                TraitArgs::None => Ident::new(&format!("Archive{}", name), name.span()),
-                TraitArgs::Trait(name) => Ident::new(&name.value(), name.span()),
-            };
+            let archive_trait = args.archive
+                .map(|ar_name| Ident::new(&ar_name.value(), ar_name.span()))
+                .unwrap_or(Ident::new(&format!("Archive{}", name), name.span()));
 
             let type_name_wheres = input.generics.type_params().map(|p| {
                 let name = &p.ident;
@@ -124,8 +209,35 @@ pub fn archive_dyn(
             });
             let type_name_wheres = quote! { #(#type_name_wheres,)* };
 
+            let (unarchive_trait, unarchive_trait_def, unarchive_trait_impl) = if let Some(unarchive) = args.unarchive {
+                let unarchive_trait = if let Some(ua_name) = unarchive {
+                    Ident::new(&ua_name.value(), ua_name.span())
+                } else {
+                    Ident::new(&format!("Unarchive{}", name), name.span())
+                };
+
+                (
+                    unarchive_trait.clone(),
+                    quote! {
+                        #vis trait #unarchive_trait<#generic_params>: #name<#generic_args> + rkyv_dyn::UnarchiveDyn<dyn #archive_trait<#generic_args>> {}
+                    },
+                    quote! {
+
+                        impl<__T: #name<#generic_args> + UnarchiveDyn<dyn #archive_trait<#generic_args>>, #generic_params> #unarchive_trait<#generic_args> for __T {}
+
+                        impl<#generic_params> UnarchiveRef<dyn #archive_trait<#generic_args>> for ArchivedDyn<dyn #unarchive_trait<#generic_args>> {
+                            unsafe fn unarchive_ref(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn #archive_trait<#generic_args> {
+                                (*self).unarchive_dyn(alloc)
+                            }
+                        }
+                    }
+                )
+            } else {
+                (name.clone(), quote! {}, quote! {})
+            };
+
             let build_type_name = if !input.generics.params.is_empty() {
-                let dyn_name = format!("dyn {}<", name);
+                let dyn_name = format!("dyn {}<", unarchive_trait);
                 let mut results = input.generics.type_params().map(|p| {
                     let name = &p.ident;
                     quote_spanned! { name.span() => #name::build_type_name(&mut f) }
@@ -138,7 +250,7 @@ pub fn archive_dyn(
                     f(">");
                 }
             } else {
-                quote! { f(stringify!(dyn #name)); }
+                quote! { f(stringify!(dyn #unarchive_trait)); }
             };
 
             quote! {
@@ -146,23 +258,35 @@ pub fn archive_dyn(
 
                 #vis trait #archive_trait<#generic_params>: #name<#generic_args> + rkyv_dyn::ArchiveDyn {}
 
+                #unarchive_trait_def
+
                 const _: ()  = {
                     use rkyv::{
                         Archived,
                         ArchiveRef,
                         Resolve,
+                        UnarchiveRef,
                         Write,
                     };
                     use rkyv_dyn::{
                         ArchiveDyn,
                         ArchivedDyn,
+                        DynError,
                         DynResolver,
-                        hash_value,
-                        TraitObject,
+                        RegisteredImpl,
+                        UnarchiveDyn,
+                        WriteDyn,
                     };
                     use rkyv_typename::TypeName;
 
-                    impl<#generic_params> TypeName for dyn #name<#generic_args> + '_
+                    impl<__T: #name<#generic_args> + ArchiveDyn + Archive, #generic_params> #archive_trait<#generic_args> for __T
+                    where
+                        __T::Archived: RegisteredImpl<dyn #unarchive_trait<#generic_args>>
+                    {}
+
+                    #unarchive_trait_impl
+
+                    impl<#generic_params> TypeName for dyn #unarchive_trait<#generic_args> + '_
                     where
                         #type_name_wheres
                     {
@@ -171,50 +295,21 @@ pub fn archive_dyn(
                         }
                     }
 
-                    impl<#generic_params> TypeName for dyn #archive_trait<#generic_args> + '_
-                    where
-                        #type_name_wheres
-                    {
-                        fn build_type_name<F: FnMut(&str)>(f: F) {
-                            <dyn #name<#generic_args>>::build_type_name(f);
+                    impl<#generic_params> Resolve<dyn #archive_trait<#generic_args>> for DynResolver {
+                        type Archived = ArchivedDyn<dyn #unarchive_trait<#generic_args>>;
+
+                        fn resolve(self, pos: usize, _: &dyn #archive_trait<#generic_args>) -> Self::Archived {
+                            ArchivedDyn::resolve(pos, self)
                         }
                     }
 
-                    impl<__T: #name<#generic_args> + ArchiveDyn, #generic_params> #archive_trait<#generic_args> for __T {}
-
-                    impl<'a, #generic_params> From<TraitObject> for &'a (dyn #name<#generic_args> + 'static) {
-                        fn from(trait_object: TraitObject) -> &'a (dyn #name<#generic_args> + 'static) {
-                            unsafe { core::mem::transmute(trait_object) }
-                        }
-                    }
-
-                    impl<'a, #generic_params> From<TraitObject> for &'a mut (dyn #name<#generic_args> + 'static) {
-                        fn from(trait_object: TraitObject) -> &'a mut (dyn #name<#generic_args> + 'static) {
-                            unsafe { core::mem::transmute(trait_object) }
-                        }
-                    }
-
-                    impl<#generic_params> Resolve<dyn #archive_trait<#generic_args>> for DynResolver
-                    where
-                        #type_name_wheres
-                    {
-                        type Archived = ArchivedDyn<dyn #name<#generic_args>>;
-
-                        fn resolve(self, pos: usize, value: &dyn #archive_trait<#generic_args>) -> Self::Archived {
-                            ArchivedDyn::new(pos, self, hash_value(value) | 1)
-                        }
-                    }
-
-                    impl<#generic_params> ArchiveRef for dyn #archive_trait<#generic_args>
-                    where
-                        #type_name_wheres
-                    {
-                        type Archived = dyn #name<#generic_args>;
-                        type Reference = ArchivedDyn<dyn #name<#generic_args>>;
+                    impl<#generic_params> ArchiveRef for dyn #archive_trait<#generic_args> {
+                        type Archived = dyn #unarchive_trait<#generic_args>;
+                        type Reference = ArchivedDyn<dyn #unarchive_trait<#generic_args>>;
                         type Resolver = DynResolver;
 
                         fn archive_ref<W: Write + ?Sized>(&self, mut writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                            self.archive_dyn(&mut writer).map_err(|e| *e.downcast().unwrap())
+                            self.archive_dyn(&mut writer).map_err(|e| *e.downcast::<W::Error>().unwrap())
                         }
                     }
                 };

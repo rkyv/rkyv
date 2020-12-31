@@ -22,7 +22,7 @@ pub mod validation;
 
 use self::bitmask::BitMask;
 use self::imp::Group;
-use crate::{offset_of, Archive, RelPtr, Resolve, Unarchive, Write, WriteExt};
+use crate::{offset_of, Archive, Archived, RelPtr, Resolve, Unarchive, Write, WriteExt};
 use core::{
     borrow::Borrow,
     cmp::Eq,
@@ -498,14 +498,15 @@ where
     }
 }
 
-impl<K: Unarchive + Hash + Eq, V: Unarchive> Unarchive for HashMap<K, V>
+impl<K: Archive + Hash + Eq, V: Archive> Unarchive<HashMap<K, V>> for Archived<HashMap<K, V>>
 where
-    K::Archived: Hash + Eq,
+    K::Archived: Unarchive<K> + Hash + Eq,
+    V::Archived: Unarchive<V>,
 {
-    fn unarchive(archived: &Self::Archived) -> Self {
+    fn unarchive(&self) -> HashMap<K, V> {
         let mut result = HashMap::new();
-        for (k, v) in archived.iter() {
-            result.insert(K::unarchive(k), V::unarchive(v));
+        for (k, v) in self.iter() {
+            result.insert(k.unarchive(), v.unarchive());
         }
         result
     }
@@ -930,14 +931,14 @@ where
     }
 }
 
-impl<K: Unarchive + Hash + Eq> Unarchive for HashSet<K>
+impl<K: Archive + Hash + Eq> Unarchive<HashSet<K>> for Archived<HashSet<K>>
 where
-    K::Archived: Hash + Eq,
+    K::Archived: Unarchive<K> + Hash + Eq,
 {
-    fn unarchive(archived: &Self::Archived) -> Self {
+    fn unarchive(&self) -> HashSet<K> {
         let mut result = HashSet::new();
-        for k in archived.iter() {
-            result.insert(K::unarchive(k));
+        for k in self.iter() {
+            result.insert(k.unarchive());
         }
         result
     }

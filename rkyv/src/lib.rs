@@ -196,9 +196,9 @@ pub trait SeekExt: Seek {
     /// Archives the given value at the nearest available position. If the
     /// writer is already aligned, it will archive it at the current position.
     fn archive_root<T: Archive>(&mut self, value: &T) -> Result<usize, Self::Error> {
-        self.align_for::<Archived<T>>()?;
+        self.align_for::<T::Archived>()?;
         let pos = self.pos();
-        self.seek(pos + mem::size_of::<Archived<T>>())?;
+        self.seek(pos + mem::size_of::<T::Archived>())?;
         let resolver = value.archive(self)?;
         self.seek(pos)?;
         unsafe {
@@ -402,7 +402,7 @@ pub trait Archive {
 /// ```
 /// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Unarchive, WriteExt};
 ///
-/// #[derive(Archive, PartialEq, Unarchive)]
+/// #[derive(Archive, Debug, PartialEq, Unarchive)]
 /// struct Test {
 ///     int: u8,
 ///     string: String,
@@ -422,11 +422,11 @@ pub trait Archive {
 /// assert_eq!(archived.int, value.int);
 /// assert_eq!(archived.string, value.string);
 /// assert_eq!(archived.option, value.option);
-/// let unarchived = Test::unarchive(archived);
-/// assert_eq!(value, &unarchived);
+/// let unarchived = archived.unarchive();
+/// assert_eq!(value, unarchived);
 /// ```
-pub trait Unarchive: Archive {
-    fn unarchive(archived: &Self::Archived) -> Self;
+pub trait Unarchive<T: Archive<Archived = Self> + ?Sized>: Sized {
+    fn unarchive(&self) -> T;
 }
 
 /// This trait is a counterpart of [`Archive`] that's suitable for unsized
@@ -465,8 +465,8 @@ pub trait ArchiveRef {
 ///
 /// The return value must be allocated using the given allocator, and care must
 /// be taken to track all memory allocated properly.
-pub trait UnarchiveRef: ArchiveRef {
-    unsafe fn unarchive_ref(archived: &Self::Archived, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut Self;
+pub trait UnarchiveRef<T: ArchiveRef<Reference = Self> + ?Sized>: Deref<Target = T::Archived> + DerefMut<Target = T::Archived> + Sized {
+    unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
 }
 
 /// A trait that indicates that some [`Archive`] type can be copied directly to
@@ -822,7 +822,7 @@ impl<W: io::Write + io::Seek> Seek for ArchiveWriter<W> {
 /// This is only safe to call if the value is archived at the given position in
 /// the byte array.
 #[inline]
-pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &Archived<T> {
+pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &T::Archived {
     &*bytes.as_ptr().add(pos).cast()
 }
 
@@ -840,7 +840,7 @@ pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &
 pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
     bytes: Pin<&mut [u8]>,
     pos: usize,
-) -> Pin<&mut Archived<T>> {
+) -> Pin<&mut T::Archived> {
     Pin::new_unchecked(&mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast())
 }
 

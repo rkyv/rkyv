@@ -92,6 +92,13 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
     });
 
     let name = &input.ident;
+    let module_path = if attributes.typename.is_none() {
+        quote! {
+            f(core::concat!(core::module_path!(), "::"));
+        }
+    } else {
+        quote! {}
+    };
     let name_str = attributes
         .typename
         .unwrap_or_else(|| input.ident.to_string());
@@ -104,6 +111,7 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
         let first = results.next().unwrap();
         let name_str = format!("{}<", name_str);
         quote! {
+            #module_path
             f(#name_str);
             #first;
             #(f(", "); #results;)*
@@ -111,6 +119,7 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
         }
     } else {
         quote! {
+            #module_path
             f(#name_str)
         }
     };

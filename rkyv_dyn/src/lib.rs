@@ -21,22 +21,23 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use core::sync::atomic::{AtomicU64, Ordering};
 use core::{
+    alloc,
     any::Any,
     hash::{Hash, Hasher},
     marker::PhantomData,
     ops::{Deref, DerefMut},
+    sync::atomic::{AtomicU64, Ordering},
 };
-use rkyv::{offset_of, Archive, RelPtr, Write, WriteExt};
+use rkyv::{Archive, offset_of, RelPtr, Write, WriteExt};
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
+pub use rkyv_dyn_derive::archive_dyn;
 
 #[doc(hidden)]
 pub use inventory;
-pub use rkyv_dyn_derive::archive_dyn;
 #[cfg(feature = "validation")]
-pub use validation::VTableValidation;
+pub use validation::ImplValidation;
 
 #[cfg(all(feature = "vtable_cache", feature = "nightly"))]
 use core::intrinsics::likely;
@@ -87,31 +88,9 @@ impl<'a> Write for dyn WriteDyn + 'a {
     }
 }
 
-/// Hashes the given type and returns the result.
-pub fn hash_type<T: TypeName + ?Sized>() -> u64 {
+fn hash_type<T: TypeName + ?Sized>() -> u64 {
     let mut hasher = DefaultHasher::new();
     T::build_type_name(|piece| piece.hash(&mut hasher));
-    hasher.finish()
-}
-
-/// An object-safe version of `TypeName`.
-///
-/// This makes it possible to build the type name through a trait object.
-pub trait TypeNameDyn {
-    /// Submits the pieces of the type name to the given function.
-    fn build_type_name(&self, f: &mut dyn FnMut(&str));
-}
-
-impl<T: TypeName> TypeNameDyn for T {
-    fn build_type_name(&self, mut f: &mut dyn FnMut(&str)) {
-        Self::build_type_name(&mut f);
-    }
-}
-
-/// Hashes the given value and returns the result.
-pub fn hash_value<T: TypeNameDyn + ?Sized>(value: &T) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    value.build_type_name(&mut |piece| piece.hash(&mut hasher));
     hasher.finish()
 }
 
@@ -155,7 +134,8 @@ pub fn hash_value<T: TypeNameDyn + ?Sized>(value: &T) -> u64 {
 ///     fn value(&self) -> String;
 /// }
 ///
-/// #[derive(Archive, TypeName)]
+/// #[derive(Archive)]
+/// #[archive(archived = "ArchivedStringStruct", derive(TypeName))]
 /// struct StringStruct(String);
 ///
 /// #[archive_dyn]
@@ -171,7 +151,8 @@ pub fn hash_value<T: TypeNameDyn + ?Sized>(value: &T) -> u64 {
 ///     }
 /// }
 ///
-/// #[derive(Archive, TypeName)]
+/// #[derive(Archive)]
+/// #[archive(archived = "ArchivedIntStruct", derive(TypeName))]
 /// struct IntStruct(i32);
 ///
 /// #[archive_dyn]
@@ -200,36 +181,43 @@ pub fn hash_value<T: TypeNameDyn + ?Sized>(value: &T) -> u64 {
 /// assert_eq!(archived_int.value(), "42");
 /// assert_eq!(archived_string.value(), "hello world");
 /// ```
-pub trait ArchiveDyn: TypeNameDyn {
+pub trait ArchiveDyn {
     /// Writes the value to the writer and returns a resolver that can create an
     /// [`ArchivedDyn`] reference.
     fn archive_dyn(&self, writer: &mut dyn WriteDyn) -> Result<DynResolver, DynError>;
 }
 
-impl<T: Archive + TypeName> ArchiveDyn for T {
+impl<T: Archive> ArchiveDyn for T
+where
+    T::Archived: TypeName,
+{
     fn archive_dyn(&self, writer: &mut dyn WriteDyn) -> Result<DynResolver, DynError> {
-        Ok(DynResolver::new(writer.archive(self)?))
+        Ok(DynResolver::new::<T::Archived>(writer.archive(self)?))
     }
+}
+
+pub trait UnarchiveDyn<T: ?Sized> {
+    unsafe fn unarchive_dyn(&self, alloc: unsafe fn (alloc::Layout) -> *mut u8) -> *mut T;
 }
 
 /// The resolver for an [`ArchivedDyn`].
 pub struct DynResolver {
     pos: usize,
+    type_id: u64,
 }
 
 impl DynResolver {
-    /// Creates a new `DynResolver` with a given data position.
-    pub fn new(pos: usize) -> Self {
-        Self { pos }
+    fn new<T: TypeName + ?Sized>(pos: usize) -> Self {
+        Self {
+            pos,
+            type_id: hash_type::<T>(),
+        }
     }
 }
 
-#[doc(hidden)]
-pub struct TraitObject(*const (), *const ());
-
 /// A reference to an archived trait object.
 ///
-/// This is essentially a pair of a data pointer and a vtable id. The
+/// This is essentially a pair of a data pointer and a type id. The
 /// `vtable_cache` feature is recommended if your situation allows for it. With
 /// `vtable_cache`, the vtable will only be looked up once and then stored
 /// locally for subsequent lookups when the reference is dereferenced.
@@ -239,19 +227,19 @@ pub struct TraitObject(*const (), *const ());
 #[derive(Debug)]
 pub struct ArchivedDyn<T: ?Sized> {
     ptr: RelPtr,
-    vtable: AtomicU64,
+    type_id: AtomicU64,
     _phantom: PhantomData<T>,
 }
 
-impl<T: TypeName + ?Sized> ArchivedDyn<T> {
-    /// Creates a new `ArchivedDyn` from a data position, [`DynResolver`], and
-    /// a struct id.
-    pub fn new(from: usize, resolver: DynResolver, type_id: u64) -> ArchivedDyn<T> {
-        debug_assert!(type_id & 1 == 1);
-
-        ArchivedDyn {
-            ptr: unsafe { RelPtr::new(from + offset_of!(ArchivedDyn<T>, ptr), resolver.pos) },
-            vtable: AtomicU64::new(type_id),
+impl<T: ?Sized> ArchivedDyn<T> {
+    /// Creates a new `ArchivedDyn` from a data position and [`DynResolver`].
+    pub fn resolve(from: usize, resolver: DynResolver) -> Self {
+        Self {
+            ptr: unsafe { RelPtr::new(from + offset_of!(Self, ptr), resolver.pos) },
+            // The last bit of the type ID is set to 1 to make sure we can
+            // differentiate between cached and uncached vtables when the
+            // feature is turned on
+            type_id: AtomicU64::new(resolver.type_id | 1),
             _phantom: PhantomData,
         }
     }
@@ -260,55 +248,52 @@ impl<T: TypeName + ?Sized> ArchivedDyn<T> {
     pub fn data_ptr(&self) -> *const () {
         self.ptr.as_ptr()
     }
+}
 
+impl<T: TypeName + ?Sized> ArchivedDyn<T> {
     /// Gets the vtable pointer for this trait object. With the `vtable_cache`
     /// feature, this will store the vtable locally on the first lookup.
     pub fn vtable(&self) -> *const () {
-        let vtable = self.vtable.load(Ordering::Relaxed);
+        let type_id = self.type_id.load(Ordering::Relaxed);
 
         #[cfg(feature = "vtable_cache")]
-        if likely(vtable & 1 == 0) {
-            return vtable as usize as *const ();
+        if likely(type_id & 1 == 0) {
+            return type_id as usize as *const ();
         }
 
-        let ptr = TYPE_REGISTRY
-            .data(hash_type::<T>(), vtable)
+        let ptr = IMPL_REGISTRY
+            .data::<T>(type_id)
             .expect("attempted to get vtable for an unregistered impl")
             .vtable
             .0;
 
         #[cfg(feature = "vtable_cache")]
-        self.vtable.store(ptr as usize as u64, Ordering::Relaxed);
+        self.type_id.store(ptr as usize as u64, Ordering::Relaxed);
 
         ptr
     }
 }
 
-impl<T: TypeName + ?Sized> Deref for ArchivedDyn<T>
-where
-    for<'a> &'a T: From<TraitObject>,
-{
+impl<T: TypeName + ?Sized> Deref for ArchivedDyn<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        TraitObject(self.data_ptr(), self.vtable()).into()
+        let ptr = (self.data_ptr(), self.vtable());
+        unsafe { &**(&ptr as *const (*const (), *const ()) as *const *const Self::Target) }
     }
 }
 
-impl<T: TypeName + ?Sized> DerefMut for ArchivedDyn<T>
-where
-    for<'a> &'a T: From<TraitObject>,
-    for<'a> &'a mut T: From<TraitObject>,
-{
+impl<T: TypeName + ?Sized> DerefMut for ArchivedDyn<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        TraitObject(self.data_ptr(), self.vtable()).into()
+        let ptr = (self.data_ptr(), self.vtable());
+        unsafe { &mut **(&ptr as *const (*const (), *const ()) as *const *mut Self::Target) }
     }
 }
 
 #[cfg(debug_assertions)]
 #[doc(hidden)]
 #[derive(Copy, Clone)]
-pub struct VTableDebugInfo {
+pub struct ImplDebugInfo {
     pub file: &'static str,
     pub line: u32,
     pub column: u32,
@@ -319,7 +304,7 @@ pub struct VTableDebugInfo {
 #[macro_export]
 macro_rules! debug_info {
     () => {
-        rkyv_dyn::VTableDebugInfo {
+        rkyv_dyn::ImplDebugInfo {
             file: core::file!(),
             line: core::line!(),
             column: core::column!(),
@@ -330,95 +315,105 @@ macro_rules! debug_info {
 #[cfg(not(debug_assertions))]
 #[doc(hidden)]
 #[derive(Copy, Clone)]
-pub struct VTableDebugInfo;
+pub struct ImplDebugInfo;
 
 #[cfg(not(debug_assertions))]
 #[doc(hidden)]
 #[macro_export]
 macro_rules! debug_info {
     () => {
-        rkyv_dyn::VTableDebugInfo
+        rkyv_dyn::ImplDebugInfo
     };
 }
 
 #[cfg(not(feature = "validation"))]
 #[doc(hidden)]
 #[derive(Copy, Clone)]
-pub struct VTableValidation;
+pub struct ImplValidation;
 
 #[cfg(not(feature = "validation"))]
 #[doc(hidden)]
 #[macro_export]
 macro_rules! validation {
     ($type:ty) => {
-        VTableValidation
+        ImplValidation
     };
 }
 
 #[doc(hidden)]
 #[derive(Clone, Copy)]
-pub struct VTableData {
+pub struct ImplData {
     pub vtable: VTable,
-    pub debug_info: VTableDebugInfo,
-    pub validation: VTableValidation,
+    pub debug_info: ImplDebugInfo,
+    pub validation: ImplValidation,
 }
 
-#[doc(hidden)]
-pub struct ImplVTable {
+#[derive(Clone, Copy, Hash, Eq, PartialEq)]
+struct ImplId {
     trait_id: u64,
     type_id: u64,
-    data: VTableData,
 }
 
-impl ImplVTable {
-    pub fn new(trait_id: u64, type_id: u64, data: VTableData) -> Self {
-        debug_assert!(type_id & 1 == 1);
+impl ImplId {
+    fn new<TR: TypeName + ?Sized, TY: TypeName + ?Sized>() -> Self {
+        Self::from_type_id::<TR>(hash_type::<TY>())
+    }
 
+    fn from_type_id<TR: TypeName + ?Sized>(type_id: u64) -> Self {
         Self {
-            trait_id,
-            type_id,
-            data,
+            trait_id: hash_type::<TR>(),
+            // The last bit of the type ID is set to 1 to make sure we can
+            // differentiate between cached and uncached vtables when the
+            // feature is turned on
+            type_id: type_id | 1,
         }
     }
 }
 
-inventory::collect!(ImplVTable);
+#[doc(hidden)]
+pub struct ImplEntry {
+    impl_id: ImplId,
+    data: ImplData,
+}
+
+impl ImplEntry {
+    pub fn new<TR: TypeName + ?Sized, TY: TypeName + RegisteredImpl<TR> + ?Sized>() -> Self {
+        Self {
+            impl_id: ImplId::new::<TR, TY>(),
+            data: <TY as RegisteredImpl<TR>>::data(),
+        }
+    }
+}
+
+inventory::collect!(ImplEntry);
 
 #[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct VTable(pub *const ());
 
-impl From<*const ()> for VTable {
-    fn from(vtable: *const ()) -> Self {
-        debug_assert!(vtable as usize & 1 == 0);
-
-        Self(vtable)
-    }
-}
-
 unsafe impl Send for VTable {}
 unsafe impl Sync for VTable {}
 
-struct TypeRegistry {
-    id_to_vtable: HashMap<(u64, u64), VTableData>,
+struct ImplRegistry {
+    id_to_data: HashMap<ImplId, ImplData>,
 }
 
-impl TypeRegistry {
+impl ImplRegistry {
     fn new() -> Self {
         Self {
-            id_to_vtable: HashMap::new(),
+            id_to_data: HashMap::new(),
         }
     }
 
-    fn add_impl(&mut self, impl_vtable: &ImplVTable) {
+    fn add_entry(&mut self, entry: &ImplEntry) {
         #[cfg(feature = "vtable_cache")]
         debug_assert!(
-            (impl_vtable.data.vtable.0 as usize) & 1 == 0,
+            (entry.data.vtable.0 as usize) & 1 == 0,
             "vtable has a non-zero least significant bit which breaks vtable caching"
         );
-        let old_value = self.id_to_vtable.insert(
-            (impl_vtable.trait_id, impl_vtable.type_id),
-            impl_vtable.data,
+        let old_value = self.id_to_data.insert(
+            entry.impl_id,
+            entry.data,
         );
 
         #[cfg(debug_assertions)]
@@ -430,9 +425,9 @@ impl TypeRegistry {
             );
             eprintln!(
                 "new impl registered at {}:{}:{}",
-                impl_vtable.data.debug_info.file,
-                impl_vtable.data.debug_info.line,
-                impl_vtable.data.debug_info.column
+                entry.data.debug_info.file,
+                entry.data.debug_info.line,
+                entry.data.debug_info.column
             );
             panic!();
         }
@@ -440,61 +435,66 @@ impl TypeRegistry {
         assert!(old_value.is_none(), "impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
     }
 
-    fn data(&self, trait_id: u64, type_id: u64) -> Option<&VTableData> {
-        self.id_to_vtable.get(&(trait_id, type_id))
+    fn data<T: TypeName + ?Sized>(&self, type_id: u64) -> Option<&ImplData> {
+        self.id_to_data.get(&ImplId::from_type_id::<T>(type_id))
     }
 }
 
 lazy_static::lazy_static! {
-    static ref TYPE_REGISTRY: TypeRegistry = {
-        let mut result = TypeRegistry::new();
-        for impl_vtable in inventory::iter::<ImplVTable> {
-            result.add_impl(impl_vtable);
+    static ref IMPL_REGISTRY: ImplRegistry = {
+        let mut result = ImplRegistry::new();
+        for entry in inventory::iter::<ImplEntry> {
+            result.add_entry(entry);
         }
         result
     };
 }
 
-/// Registers a new vtable with the trait object system.
+/// Guarantees that an impl has been registered for the type as the given trait
+/// object.
+#[doc(hidden)]
+pub unsafe trait RegisteredImpl<T: ?Sized> {
+    fn data() -> ImplData;
+}
+
+/// Registers a new impl with the trait object system.
 ///
 /// This is called by `#[archive_dyn]` when attached to trait You might need to
 /// do this if you're using generic traits and types, since each specific
 /// instance needs to be individually registered.
 ///
-/// Call it like `register_vtable!(MyType as dyn MyTrait)`.
+/// Call it like `register_impl!(MyType as dyn MyTrait)`.
 #[macro_export]
-macro_rules! register_vtable {
+macro_rules! register_impl {
     ($type:ty as $trait:ty) => {
         const _: () = {
-            use rkyv::Archived;
+            use core::mem::MaybeUninit;
             use rkyv_dyn::{
-                debug_info, hash_type, inventory, validation, ImplVTable, VTableData,
-                VTableValidation,
+                debug_info, ImplEntry, inventory, validation, VTable, RegisteredImpl,
+                ImplData,
             };
 
-            inventory::submit! {
-                // This is wildly unsafe but someone has to do it
-                let vtable = unsafe {
-                    let uninit = core::mem::MaybeUninit::<Archived<$type>>::uninit();
+            unsafe impl RegisteredImpl<$trait> for $type {
+                fn data() -> ImplData {
+                    let vtable = unsafe {
+                        // This is wildly unsafe but someone has to do it
+                        let uninit = MaybeUninit::<$type>::uninit();
+                        core::mem::transmute::<&$trait, (*const (), *const ())>(
+                            core::mem::transmute::<*const $type, &$type>(
+                                uninit.as_ptr()
+                            ) as &$trait
+                        ).1
+                    };
 
-                    core::mem::transmute::<&$trait, (*const (), *const ())>(
-                        core::mem::transmute::<*const Archived<$type>, &Archived<$type>>(
-                            uninit.as_ptr()
-                        ) as &$trait
-                    ).1
-                };
-                ImplVTable::new(
-                    hash_type::<$trait>(),
-                    // The last bit of the type hash is set to 1 to make sure we can differentiate
-                    // between cached and uncached vtables when the feature is turned on.
-                    hash_type::<$type>() | 1,
-                    VTableData {
-                        vtable: vtable.into(),
+                    ImplData {
+                        vtable: VTable(vtable),
                         debug_info: debug_info!(),
                         validation: validation!($type),
                     }
-                )
+                }
             }
+
+            inventory::submit! { ImplEntry::new::<$trait, $type>() }
         };
     };
 }

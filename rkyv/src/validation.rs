@@ -229,13 +229,13 @@ impl ArchiveContext {
 pub fn check_archive<'a, T: Archive>(
     buf: &[u8],
     pos: usize,
-) -> Result<&'a Archived<T>, CheckArchiveError<<Archived<T> as CheckBytes<ArchiveContext>>::Error>>
+) -> Result<&'a T::Archived, CheckArchiveError<<T::Archived as CheckBytes<ArchiveContext>>::Error>>
 where
     T::Archived: CheckBytes<ArchiveContext>,
 {
     let mut context = ArchiveContext::new(buf);
     unsafe {
-        let bytes = context.claim::<Archived<T>>(buf.as_ptr(), pos as isize, 1)?;
+        let bytes = context.claim::<T::Archived>(buf.as_ptr(), pos as isize, 1)?;
         Archived::<T>::check_bytes(bytes, &mut context).map_err(CheckArchiveError::CheckBytes)?;
         Ok(&*bytes.cast())
     }

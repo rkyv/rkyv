@@ -86,12 +86,19 @@ pub use rkyv_typename_derive::TypeName;
 /// assert_eq!(type_name::<Example>(), "CoolStruct");
 /// assert_eq!(
 ///     type_name::<GenericExample<i32, Option<String>, Example>>(),
-///     "CoolGeneric<i32, Option<String>, CoolStruct>"
+///     "CoolGeneric<i32, core::option::Option<alloc::string::String>, CoolStruct>"
 /// );
 /// ```
 pub trait TypeName {
     /// Submits the pieces of the type name to the given function.
     fn build_type_name<F: FnMut(&str)>(f: F);
+}
+
+impl<T: TypeName> TypeName for &T {
+    fn build_type_name<F: FnMut(&str)>(mut f: F) {
+        f("&");
+        T::build_type_name(f);
+    }
 }
 
 #[cfg(test)]
@@ -113,11 +120,11 @@ mod tests {
         assert_eq!(type_name_string::<[[u8; 4]; 8]>(), "[[u8; 4]; 8]");
         assert_eq!(
             type_name_string::<Option<[String; 1]>>(),
-            "Option<[String; 1]>"
+            "core::option::Option<[alloc::string::String; 1]>"
         );
         assert_eq!(
             type_name_string::<Option<[Option<u8>; 4]>>(),
-            "Option<[Option<u8>; 4]>"
+            "core::option::Option<[core::option::Option<u8>; 4]>"
         );
     }
 
@@ -126,7 +133,7 @@ mod tests {
         #[derive(TypeName)]
         struct Test;
 
-        assert_eq!(type_name_string::<Test>(), "Test");
+        assert_eq!(type_name_string::<Test>(), "rkyv_typename::tests::Test");
     }
 
     #[test]
@@ -136,7 +143,7 @@ mod tests {
 
         assert_eq!(
             type_name_string::<Test<u8, [i32; 4], Option<String>>>(),
-            "Test<u8, [i32; 4], Option<String>>"
+            "rkyv_typename::tests::Test<u8, [i32; 4], core::option::Option<alloc::string::String>>"
         );
     }
 
