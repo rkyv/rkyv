@@ -458,19 +458,20 @@ mod tests {
     #[test]
     fn manual_archive_dyn() {
         use rkyv::{Resolve, UnarchiveRef, Write};
-        use rkyv_dyn::{ArchivedDyn, ArchiveDyn, DynResolver, RegisteredImpl, register_impl, UnarchiveDyn};
+        use rkyv_dyn::{
+            register_impl, ArchiveDyn, ArchivedDyn, DynResolver, RegisteredImpl, UnarchiveDyn,
+        };
 
-        // #[archive_dyn(unarchive)]
         pub trait TestTrait {
             fn get_id(&self) -> i32;
         }
 
         pub trait ArchiveTestTrait: TestTrait + ArchiveDyn {}
 
-        impl<T: Archive + ArchiveDyn + TestTrait> ArchiveTestTrait for T
-        where
+        impl<T: Archive + ArchiveDyn + TestTrait> ArchiveTestTrait for T where
             T::Archived: RegisteredImpl<dyn UnarchiveTestTrait>
-        {}
+        {
+        }
 
         pub trait UnarchiveTestTrait: TestTrait + UnarchiveDyn<dyn ArchiveTestTrait> {}
 
@@ -495,13 +496,20 @@ mod tests {
             type Reference = ArchivedDyn<dyn UnarchiveTestTrait>;
             type Resolver = DynResolver;
 
-            fn archive_ref<W: Write + ?Sized>(&self, mut writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                self.archive_dyn(&mut writer).map_err(|e| *e.downcast::<W::Error>().unwrap())
+            fn archive_ref<W: Write + ?Sized>(
+                &self,
+                mut writer: &mut W,
+            ) -> Result<Self::Resolver, W::Error> {
+                self.archive_dyn(&mut writer)
+                    .map_err(|e| *e.downcast::<W::Error>().unwrap())
             }
         }
 
         impl UnarchiveRef<dyn ArchiveTestTrait> for ArchivedDyn<dyn UnarchiveTestTrait> {
-            unsafe fn unarchive_ref(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn ArchiveTestTrait {
+            unsafe fn unarchive_ref(
+                &self,
+                alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
+            ) -> *mut dyn ArchiveTestTrait {
                 (*self).unarchive_dyn(alloc)
             }
         }
@@ -513,7 +521,6 @@ mod tests {
             id: i32,
         }
 
-        // #[archive_dyn(unarchive)]
         impl TestTrait for Test {
             fn get_id(&self) -> i32 {
                 self.id
@@ -526,7 +533,10 @@ mod tests {
         where
             Archived<Test>: Unarchive<Test>,
         {
-            unsafe fn unarchive_dyn(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn ArchiveTestTrait {
+            unsafe fn unarchive_dyn(
+                &self,
+                alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
+            ) -> *mut dyn ArchiveTestTrait {
                 let result = alloc(core::alloc::Layout::new::<Test>()) as *mut Test;
                 result.write(self.unarchive());
                 result as *mut dyn ArchiveTestTrait
@@ -552,7 +562,7 @@ mod tests {
         assert_eq!(value.get_id(), archived_value.get_id());
         assert_eq!(value.get_id(), archived_value.get_id());
 
-        let unarchived_value = <Archived<Box<dyn ArchiveTestTrait>> as Unarchive<Box<dyn ArchiveTestTrait>>>::unarchive(archived_value);
+        let unarchived_value: Box<dyn ArchiveTestTrait> = archived_value.unarchive();
         assert_eq!(value.get_id(), unarchived_value.get_id());
     }
 
@@ -587,8 +597,7 @@ mod tests {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.archive(&value).expect("failed to archive value");
         let buf = writer.into_inner();
-        let archived_value =
-            unsafe { archived_value::<Box<dyn ATestTrait>>(buf.as_ref(), pos) };
+        let archived_value = unsafe { archived_value::<Box<dyn ATestTrait>>(buf.as_ref(), pos) };
         assert_eq!(value.get_id(), archived_value.get_id());
 
         // exercise vtable cache
@@ -635,11 +644,15 @@ mod tests {
             }
         }
 
-        impl<T: Archive + TypeName + core::fmt::Display + 'static> rkyv_dyn::UnarchiveDyn<dyn ATestTrait<String>> for ArchivedTest<T>
+        impl<T: Archive + TypeName + core::fmt::Display + 'static>
+            rkyv_dyn::UnarchiveDyn<dyn ATestTrait<String>> for ArchivedTest<T>
         where
             ArchivedTest<T>: Unarchive<Test<T>> + rkyv_dyn::RegisteredImpl<dyn UTestTrait<String>>,
         {
-            unsafe fn unarchive_dyn(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn ATestTrait<String> {
+            unsafe fn unarchive_dyn(
+                &self,
+                alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
+            ) -> *mut dyn ATestTrait<String> {
                 let result = alloc(core::alloc::Layout::new::<Test<T>>()) as *mut Test<T>;
                 result.write(self.unarchive());
                 result as *mut dyn ATestTrait<String>
@@ -670,9 +683,8 @@ mod tests {
         let buf = writer.into_inner();
         let i32_archived_value =
             unsafe { archived_value::<Box<dyn ATestTrait<i32>>>(buf.as_ref(), i32_pos) };
-        let string_archived_value = unsafe {
-            archived_value::<Box<dyn ATestTrait<String>>>(buf.as_ref(), string_pos)
-        };
+        let string_archived_value =
+            unsafe { archived_value::<Box<dyn ATestTrait<String>>>(buf.as_ref(), string_pos) };
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
@@ -687,9 +699,16 @@ mod tests {
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
-        let string_unarchived_value: Box<dyn ATestTrait<String>> = string_archived_value.unarchive();
-        assert_eq!(string_value.get_value(), string_unarchived_value.get_value());
-        assert_eq!(string_value.get_value(), string_unarchived_value.get_value());
+        let string_unarchived_value: Box<dyn ATestTrait<String>> =
+            string_archived_value.unarchive();
+        assert_eq!(
+            string_value.get_value(),
+            string_unarchived_value.get_value()
+        );
+        assert_eq!(
+            string_value.get_value(),
+            string_unarchived_value.get_value()
+        );
     }
 
     #[test]

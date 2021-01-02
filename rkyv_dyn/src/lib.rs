@@ -29,10 +29,10 @@ use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicU64, Ordering},
 };
-use rkyv::{Archive, offset_of, RelPtr, Write, WriteExt};
+use rkyv::{offset_of, Archive, RelPtr, Write, WriteExt};
+pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
-pub use rkyv_dyn_derive::archive_dyn;
 
 #[doc(hidden)]
 pub use inventory;
@@ -197,7 +197,7 @@ where
 }
 
 pub trait UnarchiveDyn<T: ?Sized> {
-    unsafe fn unarchive_dyn(&self, alloc: unsafe fn (alloc::Layout) -> *mut u8) -> *mut T;
+    unsafe fn unarchive_dyn(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
 }
 
 /// The resolver for an [`ArchivedDyn`].
@@ -411,10 +411,7 @@ impl ImplRegistry {
             (entry.data.vtable.0 as usize) & 1 == 0,
             "vtable has a non-zero least significant bit which breaks vtable caching"
         );
-        let old_value = self.id_to_data.insert(
-            entry.impl_id,
-            entry.data,
-        );
+        let old_value = self.id_to_data.insert(entry.impl_id, entry.data);
 
         #[cfg(debug_assertions)]
         if let Some(old_data) = old_value {
@@ -470,8 +467,7 @@ macro_rules! register_impl {
         const _: () = {
             use core::mem::MaybeUninit;
             use rkyv_dyn::{
-                debug_info, ImplEntry, inventory, validation, VTable, RegisteredImpl,
-                ImplData,
+                debug_info, inventory, validation, ImplData, ImplEntry, RegisteredImpl, VTable,
             };
 
             unsafe impl RegisteredImpl<$trait> for $type {
@@ -480,10 +476,10 @@ macro_rules! register_impl {
                         // This is wildly unsafe but someone has to do it
                         let uninit = MaybeUninit::<$type>::uninit();
                         core::mem::transmute::<&$trait, (*const (), *const ())>(
-                            core::mem::transmute::<*const $type, &$type>(
-                                uninit.as_ptr()
-                            ) as &$trait
-                        ).1
+                            core::mem::transmute::<*const $type, &$type>(uninit.as_ptr())
+                                as &$trait,
+                        )
+                        .1
                     };
 
                     ImplData {

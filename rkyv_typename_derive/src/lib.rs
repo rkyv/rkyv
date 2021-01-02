@@ -20,26 +20,24 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
     let mut result = Attributes::default();
     for a in input.attrs.iter() {
         if let AttrStyle::Outer = a.style {
-            if let Ok(meta) = a.parse_meta() {
-                if let Meta::NameValue(meta) = meta {
-                    if meta.path.is_ident("typename") {
-                        if result.typename.is_none() {
-                            if let Lit::Str(ref lit_str) = meta.lit {
-                                result.typename = Some(lit_str.value());
-                            } else {
-                                return Err(Error::new(
-                                    meta.lit.span(),
-                                    "typename must be set to a string",
-                                )
-                                .to_compile_error());
-                            }
+            if let Ok(Meta::NameValue(meta)) = a.parse_meta() {
+                if meta.path.is_ident("typename") {
+                    if result.typename.is_none() {
+                        if let Lit::Str(ref lit_str) = meta.lit {
+                            result.typename = Some(lit_str.value());
                         } else {
                             return Err(Error::new(
-                                meta.span(),
-                                "typename attribute already specified",
+                                meta.lit.span(),
+                                "typename must be set to a string",
                             )
                             .to_compile_error());
                         }
+                    } else {
+                        return Err(Error::new(
+                            meta.span(),
+                            "typename attribute already specified",
+                        )
+                        .to_compile_error());
                     }
                 }
             }

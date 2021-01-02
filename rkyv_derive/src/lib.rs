@@ -51,83 +51,79 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
     let mut result = Attributes::default();
     for a in input.attrs.iter() {
         if let AttrStyle::Outer = a.style {
-            if let Ok(meta) = a.parse_meta() {
-                if let Meta::List(meta) = meta {
-                    if meta.path.is_ident("archive") {
-                        for n in meta.nested.iter() {
-                            if let NestedMeta::Meta(meta) = n {
-                                match meta {
-                                    Meta::Path(path) => {
-                                        if path.is_ident("self") {
-                                            result.archive_self = Some(path.span());
-                                        } else {
-                                            return Err(Error::new(
-                                                path.span(),
-                                                "unrecognized archive parameter",
-                                            )
-                                            .to_compile_error());
-                                        }
+            if let Ok(Meta::List(meta)) = a.parse_meta() {
+                if meta.path.is_ident("archive") {
+                    for n in meta.nested.iter() {
+                        if let NestedMeta::Meta(meta) = n {
+                            match meta {
+                                Meta::Path(path) => {
+                                    if path.is_ident("self") {
+                                        result.archive_self = Some(path.span());
+                                    } else {
+                                        return Err(Error::new(
+                                            path.span(),
+                                            "unrecognized archive parameter",
+                                        )
+                                        .to_compile_error());
                                     }
-                                    Meta::List(meta) => {
-                                        if meta.path.is_ident("derive") {
-                                            result.derives = Some(meta.clone());
-                                        } else {
-                                            return Err(Error::new(
-                                                meta.path.span(),
-                                                "unrecognized archive parameter",
-                                            )
-                                            .to_compile_error());
-                                        }
+                                }
+                                Meta::List(meta) => {
+                                    if meta.path.is_ident("derive") {
+                                        result.derives = Some(meta.clone());
+                                    } else {
+                                        return Err(Error::new(
+                                            meta.path.span(),
+                                            "unrecognized archive parameter",
+                                        )
+                                        .to_compile_error());
                                     }
-                                    Meta::NameValue(meta) => {
-                                        if meta.path.is_ident("archived") {
-                                            if let Lit::Str(ref lit_str) = meta.lit {
-                                                if result.archived.is_none() {
-                                                    result.archived = Some(Ident::new(
-                                                        &lit_str.value(),
-                                                        lit_str.span(),
-                                                    ));
-                                                } else {
-                                                    return Err(Error::new(
-                                                        meta.span(),
-                                                        "archived already specified",
-                                                    )
-                                                    .to_compile_error());
-                                                }
+                                }
+                                Meta::NameValue(meta) => {
+                                    if meta.path.is_ident("archived") {
+                                        if let Lit::Str(ref lit_str) = meta.lit {
+                                            if result.archived.is_none() {
+                                                result.archived = Some(Ident::new(
+                                                    &lit_str.value(),
+                                                    lit_str.span(),
+                                                ));
                                             } else {
                                                 return Err(Error::new(
                                                     meta.span(),
-                                                    "archived must be a string",
+                                                    "archived already specified",
                                                 )
                                                 .to_compile_error());
                                             }
                                         } else {
                                             return Err(Error::new(
                                                 meta.span(),
-                                                "unrecognized archive parameter",
+                                                "archived must be a string",
                                             )
                                             .to_compile_error());
                                         }
+                                    } else {
+                                        return Err(Error::new(
+                                            meta.span(),
+                                            "unrecognized archive parameter",
+                                        )
+                                        .to_compile_error());
                                     }
                                 }
                             }
                         }
-                    } else if meta.path.is_ident("repr") {
-                        for n in meta.nested.iter() {
-                            if let NestedMeta::Meta(meta) = n {
-                                if let Meta::Path(path) = meta {
-                                    if path.is_ident("rust") {
-                                        result.repr.rust = Some(path.span());
-                                    } else if path.is_ident("transparent") {
-                                        result.repr.transparent = Some(path.span());
-                                    } else if path.is_ident("packed") {
-                                        result.repr.packed = Some(path.span());
-                                    } else if path.is_ident("C") {
-                                        result.repr.c = Some(path.span());
-                                    } else {
-                                        result.repr.int = Some(path.span());
-                                    }
-                                }
+                    }
+                } else if meta.path.is_ident("repr") {
+                    for n in meta.nested.iter() {
+                        if let NestedMeta::Meta(Meta::Path(path)) = n {
+                            if path.is_ident("rust") {
+                                result.repr.rust = Some(path.span());
+                            } else if path.is_ident("transparent") {
+                                result.repr.transparent = Some(path.span());
+                            } else if path.is_ident("packed") {
+                                result.repr.packed = Some(path.span());
+                            } else if path.is_ident("C") {
+                                result.repr.c = Some(path.span());
+                            } else {
+                                result.repr.int = Some(path.span());
                             }
                         }
                     }
@@ -491,7 +487,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                                 if let #name::#variant { #(#value_bindings,)* } = value { #archived::#variant { #(#fields,)* } } else { panic!("enum resolver variant does not match value variant") }
                             }
                         }
-                    },
+                    }
                     Fields::Unnamed(ref fields) => {
                         let self_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let name = Ident::new(&format!("self_{}", i), f.span());
@@ -514,8 +510,8 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                                 if let #name::#variant(#(#value_bindings,)*) = value { #archived::#variant(#(#fields,)*) } else { panic!("enum resolver variant does not match value variant") }
                             }
                         }
-                    },
-                    Fields::Unit => quote_spanned! { name.span() => Self::#variant => #archived::#variant },
+                    }
+                    Fields::Unit => quote_spanned! { name.span() => Self::#variant => #archived::#variant }
                 }
             });
 
@@ -584,7 +580,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                                 __phantom: PhantomData<(#generic_args)>,
                             }
                         }
-                    },
+                    }
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().map(|f| {
                             let ty = &f.ty;
@@ -597,8 +593,8 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                                 #generic_predicates
                                 #field_wheres;
                         }
-                    },
-                    Fields::Unit => quote! {},
+                    }
+                    Fields::Unit => quote! {}
                 }
             });
 
@@ -954,7 +950,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                         }
                     }
                 }
-            },
+            }
             Fields::Unnamed(ref fields) => {
                 let field_wheres = fields.unnamed.iter().filter_map(|f| {
                     if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
@@ -984,7 +980,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                         }
                     }
                 }
-            },
+            }
             Fields::Unit => quote! {
                 impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
                 where
@@ -994,7 +990,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                         #name::<#generic_args>
                     }
                 }
-            }
+            },
         },
         Data::Enum(ref data) => {
             let field_wheres = data.variants.iter().map(|v| match v.fields {
@@ -1020,7 +1016,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                     });
                     quote! { #(#field_wheres,)* }
                 }
-                Fields::Unit => quote! {},
+                Fields::Unit => quote! {}
             });
             let field_wheres = quote! { #(#field_wheres)* };
 
@@ -1041,7 +1037,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                         quote_spanned! { variant.span() =>
                             Self::#variant { #(#bindings,)* } => #name::<#generic_args>::#variant { #(#fields,)* }
                         }
-                    },
+                    }
                     Fields::Unnamed(ref fields) => {
                         let bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let name = Ident::new(&format!("_{}", i), f.span());
@@ -1056,10 +1052,10 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                         quote_spanned! { variant.span() =>
                             Self::#variant( #(#bindings,)* ) => #name::<#generic_args>::#variant(#(#fields,)*)
                         }
-                    },
+                    }
                     Fields::Unit => {
                         quote_spanned! { name.span() => Self::#variant => #name::<#generic_args>::#variant }
-                    },
+                    }
                 }
             });
 
@@ -1076,7 +1072,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                     }
                 }
             }
-        },
+        }
         Data::Union(_) => {
             return Error::new(input.span(), "Unarchive cannot be derived for unions")
                 .to_compile_error()
@@ -1139,7 +1135,7 @@ fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
                         }
                     }
                 }
-            },
+            }
             Fields::Unnamed(ref fields) => {
                 let field_wheres = fields.unnamed.iter().filter_map(|f| {
                     if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
@@ -1162,7 +1158,7 @@ fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
                         }
                     }
                 }
-            },
+            }
             Fields::Unit => quote! {
                 impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
                 where
@@ -1172,7 +1168,7 @@ fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
                         *self
                     }
                 }
-            }
+            },
         },
         Data::Enum(ref data) => {
             let field_wheres = data.variants.iter().map(|v| match v.fields {
@@ -1213,7 +1209,7 @@ fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
                     }
                 }
             }
-        },
+        }
         Data::Union(_) => {
             return Error::new(input.span(), "Unarchive cannot be derived for unions")
                 .to_compile_error()

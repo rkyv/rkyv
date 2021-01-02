@@ -1,7 +1,8 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    offset_of, Archive, Archived, ArchiveRef, ArchiveSelf, RelPtr, Resolve, SelfResolver, Unarchive, UnarchiveRef, Write, WriteExt,
+    offset_of, Archive, ArchiveRef, ArchiveSelf, Archived, RelPtr, Resolve, SelfResolver,
+    Unarchive, UnarchiveRef, Write, WriteExt,
 };
 use core::{
     alloc,
@@ -14,9 +15,7 @@ use core::{
         NonZeroU32, NonZeroU64, NonZeroU8,
     },
     ops::{Deref, DerefMut},
-    ptr,
-    slice,
-    str,
+    ptr, slice, str,
     sync::atomic::{
         self, AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32,
         AtomicU64, AtomicU8,
@@ -201,11 +200,14 @@ impl<T: ArchiveSelf> ArchiveRef for [T] {
 }
 
 #[cfg(any(not(feature = "std"), feature = "specialization"))]
-impl<T: ArchiveSelf> UnarchiveRef<[T]> for <[T] as ArchiveRef>::Reference {
-    unsafe fn unarchive_ref(archived: &Self::Archived, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut Self {
-        let result = alloc(alloc::Layout::array::<T>(archived.len()).unwrap()).cast::<T>();
-        ptr::copy_nonoverlapping(archived.as_ptr(), result, archived.len());
-        slice::from_raw_parts_mut(result, archived.len())
+impl<T: ArchiveSelf> UnarchiveRef<[T]> for <[T] as ArchiveRef>::Reference
+where
+    T::Archived: Unarchive<T>,
+{
+    unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut [T] {
+        let result = alloc(alloc::Layout::array::<T>(self.len()).unwrap()).cast::<T>();
+        ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
+        slice::from_raw_parts_mut(result, self.len())
     }
 }
 
@@ -471,12 +473,12 @@ impl<T: Archive, const N: usize> Unarchive<[T; N]> for [T::Archived; N]
 where
     T::Archived: Unarchive<T>,
 {
-    fn unarchive(archived: &Self::Archived) -> Self {
-        let mut result = core::mem::MaybeUninit::<Self>::uninit();
+    fn unarchive(&self) -> [T; N] {
+        let mut result = core::mem::MaybeUninit::<[T; N]>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T>();
         for i in 0..N {
             unsafe {
-                result_ptr.add(i).write(archived[i].unarchive());
+                result_ptr.add(i).write(self[i].unarchive());
             }
         }
         unsafe { result.assume_init() }

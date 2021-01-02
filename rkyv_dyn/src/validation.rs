@@ -136,14 +136,15 @@ impl<T: TypeName + ?Sized> CheckBytes<ArchiveContext> for ArchivedDyn<T> {
         bytes: *const u8,
         context: &mut ArchiveContext,
     ) -> Result<&'a Self, Self::Error> {
-        let type_id = AtomicU64::check_bytes(bytes.add(offset_of!(Self, type_id)), context)?;
-        let type_id = type_id.load(Ordering::Relaxed);
-        if let Some(vtable_data) = IMPL_REGISTRY.data::<T>(type_id) {
+        let archived_type_id =
+            AtomicU64::check_bytes(bytes.add(offset_of!(Self, type_id)), context)?;
+        let type_id = archived_type_id.load(Ordering::Relaxed);
+        if let Some(impl_data) = IMPL_REGISTRY.data::<T>(type_id) {
             let rel_ptr = RelPtr::check_bytes(bytes.add(offset_of!(Self, ptr)), context)?;
-            let check_rel_ptr = vtable_data.validation.check_rel_ptr;
+            let check_rel_ptr = impl_data.validation.check_rel_ptr;
             check_rel_ptr(rel_ptr, context).map_err(ArchivedDynError::CheckBytes)?;
             #[cfg(feature = "vtable_cache")]
-            vtable.store(vtable_data.vtable.0 as usize as u64, Ordering::Relaxed);
+            archived_type_id.store(impl_data.vtable.0 as usize as u64, Ordering::Relaxed);
             Ok(&*bytes.cast())
         } else {
             Err(ArchivedDynError::InvalidImplId(type_id))

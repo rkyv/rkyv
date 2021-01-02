@@ -87,16 +87,15 @@ impl Parse for Args {
                     unarchive = Some(None);
                 }
             } else {
-                return Err(input.error("expected trait = \"...\" or unarchive = \"...\" parameters"));
+                return Err(
+                    input.error("expected trait = \"...\" or unarchive = \"...\" parameters")
+                );
             }
 
             needs_punct = true;
         }
 
-        Ok(Args {
-            archive,
-            unarchive,
-        })
+        Ok(Args { archive, unarchive })
     }
 }
 
@@ -146,18 +145,21 @@ pub fn archive_dyn(
                         path
                     };
 
-                    (unarchive_trait, quote! {
-                        impl UnarchiveDyn<dyn #archive_trait> for Archived<#ty>
-                        where
-                            Archived<#ty>: Unarchive<#ty>,
-                        {
-                            unsafe fn unarchive_dyn(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn #archive_trait {
-                                let result = alloc(core::alloc::Layout::new::<#ty>()) as *mut #ty;
-                                result.write(self.unarchive());
-                                result as *mut dyn #archive_trait
+                    (
+                        unarchive_trait,
+                        quote! {
+                            impl UnarchiveDyn<dyn #archive_trait> for Archived<#ty>
+                            where
+                                Archived<#ty>: Unarchive<#ty>,
+                            {
+                                unsafe fn unarchive_dyn(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn #archive_trait {
+                                    let result = alloc(core::alloc::Layout::new::<#ty>()) as *mut #ty;
+                                    result.write(self.unarchive());
+                                    result as *mut dyn #archive_trait
+                                }
                             }
-                        }
-                    })
+                        },
+                    )
                 } else {
                     (trait_.clone(), quote! {})
                 };
@@ -199,7 +201,8 @@ pub fn archive_dyn(
             let generic_args = quote! { #(#generic_args),* };
 
             let name = &input.ident;
-            let archive_trait = args.archive
+            let archive_trait = args
+                .archive
                 .map(|ar_name| Ident::new(&ar_name.value(), ar_name.span()))
                 .unwrap_or(Ident::new(&format!("Archive{}", name), name.span()));
 
@@ -209,7 +212,10 @@ pub fn archive_dyn(
             });
             let type_name_wheres = quote! { #(#type_name_wheres,)* };
 
-            let (unarchive_trait, unarchive_trait_def, unarchive_trait_impl) = if let Some(unarchive) = args.unarchive {
+            let (unarchive_trait, unarchive_trait_def, unarchive_trait_impl) = if let Some(
+                unarchive,
+            ) = args.unarchive
+            {
                 let unarchive_trait = if let Some(ua_name) = unarchive {
                     Ident::new(&ua_name.value(), ua_name.span())
                 } else {
@@ -230,7 +236,7 @@ pub fn archive_dyn(
                                 (*self).unarchive_dyn(alloc)
                             }
                         }
-                    }
+                    },
                 )
             } else {
                 (name.clone(), quote! {}, quote! {})

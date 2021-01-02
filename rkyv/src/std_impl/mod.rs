@@ -5,8 +5,8 @@ pub mod hashbrown;
 mod validation;
 
 use crate::{
-    core_impl::ArchivedSlice, Archive, Archived, ArchiveRef, Reference, ReferenceResolver, Resolve, Unarchive, UnarchiveRef, Write,
-    WriteExt,
+    core_impl::ArchivedSlice, Archive, ArchiveRef, Archived, Reference, ReferenceResolver, Resolve,
+    Unarchive, UnarchiveRef, Write, WriteExt,
 };
 use core::{
     borrow::Borrow,
@@ -180,9 +180,7 @@ where
     Reference<T>: UnarchiveRef<T>,
 {
     fn unarchive(&self) -> Box<T> {
-        unsafe {
-            Box::from_raw(self.0.unarchive_ref(alloc::alloc))
-        }
+        unsafe { Box::from_raw(self.0.unarchive_ref(alloc::alloc)) }
     }
 }
 

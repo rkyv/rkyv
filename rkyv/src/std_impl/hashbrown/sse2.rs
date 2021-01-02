@@ -20,7 +20,7 @@ impl Group {
         union AlignedBytes {
             _align: Group,
             bytes: [u8; Group::WIDTH],
-        };
+        }
         static ALIGNED_BYTES: AlignedBytes = AlignedBytes {
             bytes: [EMPTY; Group::WIDTH],
         };

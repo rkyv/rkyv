@@ -455,17 +455,18 @@ pub trait ArchiveRef {
     fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error>;
 }
 
-/// This trait is a counterpart of [`Unarchive`] that's suitable for unsized
-/// types.
-///
-/// In addition to the archived value, it also receives an allocator function to
-/// allocate memory with.
-///
-/// # Safety
-///
-/// The return value must be allocated using the given allocator, and care must
-/// be taken to track all memory allocated properly.
-pub trait UnarchiveRef<T: ArchiveRef<Reference = Self> + ?Sized>: Deref<Target = T::Archived> + DerefMut<Target = T::Archived> + Sized {
+/// A counterpart of [`Unarchive`] that's suitable for unsized types.
+pub trait UnarchiveRef<T: ArchiveRef<Reference = Self> + ?Sized>:
+    Deref<Target = T::Archived> + DerefMut<Target = T::Archived> + Sized
+{
+    /// Unarchives a reference to the given value.
+    ///
+    /// In addition to the archived value, it also receives an allocator
+    /// function to allocate memory with.
+    ///
+    /// # Safety
+    ///
+    /// The return value
     unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
 }
 

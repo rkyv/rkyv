@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{offset_of, Archive, Archived, ArchiveSelf, Resolve, SelfResolver, Unarchive, Write};
+use crate::{offset_of, Archive, ArchiveSelf, Archived, Resolve, SelfResolver, Unarchive, Write};
 use core::{
     cmp, fmt,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
@@ -198,9 +198,6 @@ where
     T::Archived: Unarchive<T>,
 {
     fn unarchive(&self) -> RangeInclusive<T> {
-        RangeInclusive::new(
-            self.start.unarchive(),
-            self.end.unarchive(),
-        )
+        RangeInclusive::new(self.start.unarchive(), self.end.unarchive())
     }
 }
