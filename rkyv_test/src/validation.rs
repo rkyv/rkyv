@@ -1,6 +1,6 @@
 use bytecheck::CheckBytes;
 use core::fmt;
-use rkyv::{check_archive, Aligned, Archive, ArchiveBuffer, ArchiveContext, WriteExt};
+use rkyv::{check_archive, Aligned, Archive, ArchiveBuffer, ArchiveContext, Write};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
@@ -100,7 +100,7 @@ fn cycle_detection() {
     use rkyv::{ArchiveContext, Archived};
 
     #[derive(Archive)]
-    #[archive(derive(Debug), archived = "ArchivedNode")]
+    #[archive(derive(Debug), name)]
     enum Node {
         Nil,
         #[allow(dead_code)]

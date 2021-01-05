@@ -6,7 +6,7 @@ mod validation;
 
 use crate::{
     core_impl::ArchivedSlice, Archive, ArchiveRef, Archived, Reference, ReferenceResolver, Resolve,
-    Unarchive, UnarchiveRef, Write, WriteExt,
+    Unarchive, UnarchiveRef, Write,
 };
 use core::{
     borrow::Borrow,

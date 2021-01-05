@@ -20,7 +20,7 @@ You may be looking for:
 ## rkyv in action
 
 ```rust
-use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, WriteExt};
+use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Write};
 
 #[derive(Archive)]
 struct Test {

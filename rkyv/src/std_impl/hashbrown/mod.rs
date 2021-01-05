@@ -22,7 +22,7 @@ pub mod validation;
 
 use self::bitmask::BitMask;
 use self::imp::Group;
-use crate::{offset_of, Archive, Archived, RelPtr, Resolve, Unarchive, Write, WriteExt};
+use crate::{offset_of, Archive, Archived, RelPtr, Resolve, Unarchive, Write};
 use core::{
     borrow::Borrow,
     cmp::Eq,

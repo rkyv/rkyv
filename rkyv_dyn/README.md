@@ -26,7 +26,7 @@ use rkyv::{
     ArchiveBuffer,
     Archived,
     archived_value,
-    WriteExt,
+    Write,
 };
 use rkyv_dyn::archive_dyn;
 use rkyv_typename::TypeName;
@@ -36,7 +36,8 @@ trait ExampleTrait {
     fn value(&self) -> String;
 }
 
-#[derive(Archive, TypeName)]
+#[derive(Archive)]
+#[archive(derive(TypeName))]
 struct StringStruct(String);
 
 #[archive_dyn]
@@ -52,7 +53,8 @@ impl ExampleTrait for Archived<StringStruct> {
     }
 }
 
-#[derive(Archive, TypeName)]
+#[derive(Archive)]
+#[archive(derive(TypeName))]
 struct IntStruct(i32);
 
 #[archive_dyn]

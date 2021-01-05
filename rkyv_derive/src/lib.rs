@@ -33,7 +33,7 @@ struct Attributes {
     archive_self: Option<Span>,
     repr: Repr,
     derives: Option<MetaList>,
-    archived: Option<Ident>,
+    name: Option<Option<Ident>>,
 }
 
 impl Default for Attributes {
@@ -42,7 +42,7 @@ impl Default for Attributes {
             archive_self: None,
             repr: Default::default(),
             derives: None,
-            archived: None,
+            name: None,
         }
     }
 }
@@ -58,7 +58,25 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                             match meta {
                                 Meta::Path(path) => {
                                     if path.is_ident("self") {
-                                        result.archive_self = Some(path.span());
+                                        if result.archive_self.is_none() {
+                                            result.archive_self = Some(path.span());
+                                        } else {
+                                            return Err(Error::new(
+                                                meta.span(),
+                                                "self already specified",
+                                            )
+                                            .to_compile_error());
+                                        }
+                                    } else if path.is_ident("name") {
+                                        if result.name.is_none() {
+                                            result.name = Some(None);
+                                        } else {
+                                            return Err(Error::new(
+                                                meta.span(),
+                                                "name already specified",
+                                            )
+                                            .to_compile_error());
+                                        }
                                     } else {
                                         return Err(Error::new(
                                             path.span(),
@@ -79,24 +97,24 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                                     }
                                 }
                                 Meta::NameValue(meta) => {
-                                    if meta.path.is_ident("archived") {
+                                    if meta.path.is_ident("name") {
                                         if let Lit::Str(ref lit_str) = meta.lit {
-                                            if result.archived.is_none() {
-                                                result.archived = Some(Ident::new(
+                                            if result.name.is_none() {
+                                                result.name = Some(Some(Ident::new(
                                                     &lit_str.value(),
-                                                    lit_str.span(),
+                                                    lit_str.span()),
                                                 ));
                                             } else {
                                                 return Err(Error::new(
                                                     meta.span(),
-                                                    "archived already specified",
+                                                    "name already specified",
                                                 )
                                                 .to_compile_error());
                                             }
                                         } else {
                                             return Err(Error::new(
                                                 meta.span(),
-                                                "archived must be a string",
+                                                "name must be a string",
                                             )
                                             .to_compile_error());
                                         }
@@ -141,7 +159,8 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
 /// - `self`: Implements `ArchiveSelf` as well as `Archive`. Only suitable for
 /// types that can be directly archived.
 /// - `derive(...)`: Adds a `#[derive(...)]` attribute to the archived type.
-/// - `archived = "..."`: Exposes the archived type with the given name.
+/// - `name`, `name = "..."`: Exposes the archived type with the given name. If
+/// used without a name assignment, uses the name `"Archived" + name`.
 #[proc_macro_derive(Archive, attributes(archive, recursive))]
 pub fn archive_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -191,10 +210,11 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
         quote! {}
     };
 
-    let archived = attributes
-        .archived
-        .as_ref()
-        .map_or(Ident::new("Archived", input.span()), |name| name.clone());
+    let archived = if let Some(Some(ref name)) = attributes.name {
+        name.clone()
+    } else {
+        Ident::new(&format!("Archived{}", name), name.span())
+    };
 
     #[cfg(feature = "strict")]
     let strict = quote! { #[repr(C)] };
@@ -704,7 +724,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
         }
     };
 
-    if attributes.archived.is_some() {
+    if attributes.name.is_some() {
         quote! {
             #archive_type
 

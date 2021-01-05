@@ -125,10 +125,7 @@ pub trait Write {
 
         Ok(())
     }
-}
 
-/// Helper functions on [`Write`] objects.
-pub trait WriteExt: Write {
     /// Aligns the position of the writer to the given alignment.
     fn align(&mut self, align: usize) -> Result<usize, Self::Error> {
         debug_assert!(align & (align - 1) == 0);
@@ -183,16 +180,11 @@ pub trait WriteExt: Write {
     }
 }
 
-impl<W: Write + ?Sized> WriteExt for W {}
-
 /// A writer that can seek to an absolute position.
 pub trait Seek: Write {
     /// Seeks the writer to the given absolute position.
     fn seek(&mut self, pos: usize) -> Result<(), Self::Error>;
-}
 
-/// Helper functions on [`Seek`] objects.
-pub trait SeekExt: Seek {
     /// Archives the given value at the nearest available position. If the
     /// writer is already aligned, it will archive it at the current position.
     fn archive_root<T: Archive>(&mut self, value: &T) -> Result<usize, Self::Error> {
@@ -226,8 +218,6 @@ pub trait SeekExt: Seek {
     }
 }
 
-impl<W: Seek + ?Sized> SeekExt for W {}
-
 /// Creates an archived value when given a value and position.
 ///
 /// Resolvers are passed the original value, so any information that is already
@@ -256,7 +246,7 @@ pub trait Resolve<T: ?Sized> {
 /// macro for more details.
 ///
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, WriteExt};
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Write};
 ///
 /// #[derive(Archive)]
 /// struct Test {
@@ -301,7 +291,6 @@ pub trait Resolve<T: ?Sized> {
 ///     RelPtr,
 ///     Resolve,
 ///     Write,
-///     WriteExt,
 /// };
 ///
 /// struct OwnedStr {
@@ -400,7 +389,7 @@ pub trait Archive {
 /// ## Examples
 ///
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Unarchive, WriteExt};
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Unarchive, Write};
 ///
 /// #[derive(Archive, Debug, PartialEq, Unarchive)]
 /// struct Test {
@@ -487,7 +476,7 @@ pub trait UnarchiveRef<T: ArchiveRef<Reference = Self> + ?Sized>:
 ///
 /// ## Examples
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, archived_value, Write, WriteExt};
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, archived_value, Write};
 ///
 /// #[derive(Archive, Clone, Copy, Debug, PartialEq)]
 /// #[archive(self)]
@@ -630,7 +619,7 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 ///
 /// ## Examples
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, WriteExt};
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Write};
 ///
 /// #[derive(Archive)]
 /// enum Event {

@@ -29,7 +29,7 @@ use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicU64, Ordering},
 };
-use rkyv::{offset_of, Archive, RelPtr, Write, WriteExt};
+use rkyv::{offset_of, Archive, RelPtr, Write};
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
@@ -124,7 +124,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///     ArchiveBuffer,
 ///     Archived,
 ///     archived_value,
-///     WriteExt,
+///     Write,
 /// };
 /// use rkyv_dyn::archive_dyn;
 /// use rkyv_typename::TypeName;
@@ -135,7 +135,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// }
 ///
 /// #[derive(Archive)]
-/// #[archive(archived = "ArchivedStringStruct", derive(TypeName))]
+/// #[archive(derive(TypeName))]
 /// struct StringStruct(String);
 ///
 /// #[archive_dyn]
@@ -152,7 +152,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// }
 ///
 /// #[derive(Archive)]
-/// #[archive(archived = "ArchivedIntStruct", derive(TypeName))]
+/// #[archive(derive(TypeName))]
 /// struct IntStruct(i32);
 ///
 /// #[archive_dyn]

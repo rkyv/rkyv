@@ -6,7 +6,7 @@ mod tests {
     use core::pin::Pin;
     use rkyv::{
         archived_ref, archived_value, archived_value_mut, Aligned, Archive, ArchiveBuffer,
-        ArchiveRef, Archived, SeekExt, Unarchive, WriteExt,
+        ArchiveRef, Archived, Seek, Unarchive, Write,
     };
     use rkyv_dyn::archive_dyn;
     use rkyv_typename::TypeName;
@@ -620,7 +620,7 @@ mod tests {
         }
 
         #[derive(Archive, Unarchive)]
-        #[archive(archived = "ArchivedTest", derive(TypeName))]
+        #[archive(name, derive(TypeName))]
         pub struct Test<T> {
             value: T,
         }
@@ -715,17 +715,17 @@ mod tests {
     fn derive_visibility() {
         mod inner {
             #[derive(super::Archive)]
-            #[archive(archived = "ArchivedTestTuple")]
+            #[archive(name)]
             pub struct TestTuple(pub i32);
 
             #[derive(super::Archive)]
-            #[archive(archived = "ArchivedTestStruct")]
+            #[archive(name)]
             pub struct TestStruct {
                 pub value: i32,
             }
 
             #[derive(super::Archive)]
-            #[archive(archived = "ArchivedTestEnum")]
+            #[archive(name)]
             pub enum TestEnum {
                 B(i32),
                 C { value: i32 },
@@ -761,7 +761,7 @@ mod tests {
     #[test]
     fn struct_mutable_refs() {
         #[derive(Archive)]
-        #[archive(archived = "ArchivedTest")]
+        #[archive(name)]
         struct Test {
             a: Box<i32>,
             b: Vec<String>,
@@ -864,55 +864,55 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn mutable_dyn_ref() {
-    //     #[archive_dyn]
-    //     trait TestTrait {
-    //         fn value(&self) -> i32;
-    //         fn set_value(self: Pin<&mut Self>, value: i32);
-    //     }
+    #[test]
+    fn mutable_dyn_ref() {
+        #[archive_dyn]
+        trait TestTrait {
+            fn value(&self) -> i32;
+            fn set_value(self: Pin<&mut Self>, value: i32);
+        }
 
-    //     #[derive(Archive, TypeName)]
-    //     #[typename = "MutableDynRefTest"]
-    //     struct Test(i32);
+        #[derive(Archive)]
+        #[archive(derive(TypeName))]
+        struct Test(i32);
 
-    //     #[archive_dyn]
-    //     impl TestTrait for Test {
-    //         fn value(&self) -> i32 {
-    //             self.0
-    //         }
-    //         fn set_value(self: Pin<&mut Self>, value: i32) {
-    //             unsafe {
-    //                 let s = self.get_unchecked_mut();
-    //                 s.0 = value;
-    //             }
-    //         }
-    //     }
+        #[archive_dyn]
+        impl TestTrait for Test {
+            fn value(&self) -> i32 {
+                self.0
+            }
+            fn set_value(self: Pin<&mut Self>, value: i32) {
+                unsafe {
+                    let s = self.get_unchecked_mut();
+                    s.0 = value;
+                }
+            }
+        }
 
-    //     impl TestTrait for Archived<Test> {
-    //         fn value(&self) -> i32 {
-    //             self.0
-    //         }
-    //         fn set_value(self: Pin<&mut Self>, value: i32) {
-    //             unsafe {
-    //                 let s = self.get_unchecked_mut();
-    //                 s.0 = value;
-    //             }
-    //         }
-    //     }
+        impl TestTrait for Archived<Test> {
+            fn value(&self) -> i32 {
+                self.0
+            }
+            fn set_value(self: Pin<&mut Self>, value: i32) {
+                unsafe {
+                    let s = self.get_unchecked_mut();
+                    s.0 = value;
+                }
+            }
+        }
 
-    //     let value = Box::new(Test(10)) as Box<dyn ArchiveTestTrait>;
+        let value = Box::new(Test(10)) as Box<dyn ArchiveTestTrait>;
 
-    //     let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-    //     let pos = writer.archive(&value).unwrap();
-    //     let mut buf = writer.into_inner();
-    //     let mut value =
-    //         unsafe { archived_value_mut::<Box<dyn ArchiveTestTrait>>(Pin::new(buf.as_mut()), pos) };
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+        let pos = writer.archive(&value).unwrap();
+        let mut buf = writer.into_inner();
+        let mut value =
+            unsafe { archived_value_mut::<Box<dyn ArchiveTestTrait>>(Pin::new(buf.as_mut()), pos) };
 
-    //     assert_eq!(value.value(), 10);
-    //     value.as_mut().get_pin().set_value(64);
-    //     assert_eq!(value.value(), 64);
-    // }
+        assert_eq!(value.value(), 10);
+        value.as_mut().get_pin().set_value(64);
+        assert_eq!(value.value(), 64);
+    }
 
     #[test]
     fn recursive_structures() {

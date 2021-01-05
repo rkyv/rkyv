@@ -2,7 +2,7 @@
 
 use crate::{
     offset_of, Archive, ArchiveRef, ArchiveSelf, Archived, RelPtr, Resolve, SelfResolver,
-    Unarchive, UnarchiveRef, Write, WriteExt,
+    Unarchive, UnarchiveRef, Write,
 };
 use core::{
     alloc,
@@ -488,7 +488,7 @@ where
 /// A reference to an archived string slice.
 ///
 /// It implements a handful of helper functions and traits to function similarly
-/// to [`str`].
+/// to [`prim@str`].
 #[repr(transparent)]
 #[derive(Debug)]
 pub struct ArchivedStringSlice {
