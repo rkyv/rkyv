@@ -313,6 +313,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             black_box(&mut buffer).clear();
             bincode::serialize_into(black_box(&mut buffer), black_box(&players)).unwrap();
         }));
+
+        bincode::serialize_into(&mut buffer, &players).unwrap();
+
         group.bench_function("deserialize", |b| b.iter(|| {
             bincode::deserialize::<'_, Vec<Player>>(black_box(&buffer)).unwrap();
         }));
@@ -323,7 +326,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     {
         let mut buffer = vec![Aligned(0u8); BUFFER_LEN];
         let mut buffer = unsafe { core::slice::from_raw_parts_mut(buffer.as_mut_ptr().cast(), buffer.len()) };
-        group.bench_function("archive", |b| b.iter(|| {
+        group.bench_function("serialize", |b| b.iter(|| {
             let mut writer = ArchiveBuffer::new(black_box(&mut buffer));
             black_box(writer.archive(black_box(&players)).unwrap());
         }));
@@ -337,12 +340,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("validate", |b| b.iter(|| {
             check_archive::<Vec<Player>>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
         }));
-        group.bench_function("unarchive", |b| b.iter(|| {
+        group.bench_function("deserialize", |b| b.iter(|| {
             let value = unsafe { archived_value::<Vec<Player>>(black_box(buffer.as_ref()), black_box(pos)) };
             let unarchived: Vec<Player> = value.unarchive();
             black_box(unarchived);
         }));
-        group.bench_function("validate + unarchive", |b| b.iter(|| {
+        group.bench_function("deserialize with validate", |b| b.iter(|| {
             let value = check_archive::<Vec<Player>>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
             let unarchived: Vec<Player> = value.unarchive();
             black_box(unarchived);
