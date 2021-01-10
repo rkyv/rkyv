@@ -250,9 +250,7 @@ pub struct Player {
     ender_items: Vec<Item>,
     abilities: Abilities,
     entered_nether_position: Option<(f64, f64, f64)>,
-    // TODO: investigate checkbytes failure
-    // root_vehicle: Option<([u32; 4], Entity)>,
-    root_vehicle: Option<Entity>,
+    root_vehicle: Option<([u32; 4], Entity)>,
     shoulder_entity_left: Option<Entity>,
     shoulder_entity_right: Option<Entity>,
     seen_credits: bool,
@@ -288,8 +286,7 @@ impl Generate for Player {
             ender_items: generate_vec(rng, 0..MAX_ENDER_ITEMS),
             abilities: Abilities::generate(rng),
             entered_nether_position: <Option<(f64, f64, f64)> as Generate>::generate(rng),
-            // root_vehicle: <Option<([u32; 4], Entity)> as Generate>::generate(rng),
-            root_vehicle: <Option<Entity> as Generate>::generate(rng),
+            root_vehicle: <Option<([u32; 4], Entity)> as Generate>::generate(rng),
             shoulder_entity_left: <Option<Entity> as Generate>::generate(rng),
             shoulder_entity_right: <Option<Entity> as Generate>::generate(rng),
             seen_credits: rng.gen_bool(0.5),
@@ -326,11 +323,14 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     {
         let mut buffer = vec![Aligned(0u8); BUFFER_LEN];
         let mut buffer = unsafe { core::slice::from_raw_parts_mut(buffer.as_mut_ptr().cast(), buffer.len()) };
-        let mut pos = 0;
         group.bench_function("archive", |b| b.iter(|| {
             let mut writer = ArchiveBuffer::new(black_box(&mut buffer));
-            pos = writer.archive(black_box(&players)).unwrap();
+            black_box(writer.archive(black_box(&players)).unwrap());
         }));
+
+        let mut writer = ArchiveBuffer::new(&mut buffer);
+        let pos = writer.archive(&players).unwrap();
+
         group.bench_function("access", |b| b.iter(|| {
             black_box(unsafe { archived_value::<Vec<Player>>(black_box(buffer.as_ref()), black_box(pos)) });
         }));
