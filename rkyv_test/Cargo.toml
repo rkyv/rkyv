@@ -10,7 +10,7 @@ repository = "https://github.com/djkoloski/rkyv"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytecheck = { version = "0.2.1", default-features = false }
+bytecheck = { version = "0.2.1", path = "../../bytecheck/bytecheck", optional = true }
 rkyv = { path = "../rkyv", default-features = false }
 rkyv_dyn = { path = "../rkyv_dyn" }
 rkyv_typename = { path = "../rkyv_typename" }
@@ -25,5 +25,5 @@ nightly = ["rkyv/nightly", "rkyv_dyn/nightly"]
 specialization = ["rkyv/specialization"]
 std = ["rkyv/std", "rkyv_typename/std"]
 strict = ["rkyv/strict"]
-validation = ["std", "rkyv/validation"]
+validation = ["bytecheck", "std", "rkyv/validation"]
 vtable_cache = ["rkyv_dyn/vtable_cache"]

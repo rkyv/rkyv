@@ -583,6 +583,7 @@ pub type Reference<T> = <T as ArchiveRef>::Reference;
 /// assert_eq!(mem::align_of::<u8>(), 1);
 /// assert_eq!(mem::align_of::<Aligned<u8>>(), 16);
 /// ```
+#[derive(Clone, Copy)]
 #[repr(align(16))]
 pub struct Aligned<T>(pub T);
 

@@ -1101,7 +1101,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
 
     quote! {
         const _: () = {
-            use rkyv::{Archive, Unarchive};
+            use rkyv::{Archive, Archived, Unarchive};
             #unarchive_impl
         };
     }

@@ -135,10 +135,12 @@ pub struct ArchiveContext {
 impl ArchiveContext {
     /// Creates a new archive context for the given byte slice
     pub fn new(bytes: &[u8]) -> Self {
+        const DEFAULT_INTERVALS_CAPACITY: usize = 64;
+
         Self {
             begin: bytes.as_ptr(),
             len: bytes.len(),
-            intervals: Vec::new(),
+            intervals: Vec::with_capacity(DEFAULT_INTERVALS_CAPACITY),
         }
     }
 
@@ -183,42 +185,57 @@ impl ArchiveContext {
             })
         } else {
             let target_pos = (base_pos + offset) as usize;
-            if self.len - target_pos < count {
-                Err(ArchiveMemoryError::Overrun {
-                    pos: target_pos,
-                    size: count,
-                    archive_len: self.len,
-                })
-            } else if target_pos & (align - 1) != 0 {
+            if target_pos & (align - 1) != 0 {
                 Err(ArchiveMemoryError::Unaligned {
                     pos: target_pos,
                     align,
                 })
-            } else {
-                let interval = Interval::new(target_pos, count);
-                match self.intervals.binary_search(&interval) {
-                    Ok(index) => Err(ArchiveMemoryError::ClaimOverlap {
-                        previous: self.intervals[index],
-                        current: interval,
-                    }),
-                    Err(index) => {
-                        if index < self.intervals.len() && self.intervals[index].overlaps(&interval)
-                        {
-                            Err(ArchiveMemoryError::ClaimOverlap {
-                                previous: self.intervals[index],
-                                current: interval,
-                            })
-                        } else if index > 0 && self.intervals[index - 1].overlaps(&interval) {
-                            Err(ArchiveMemoryError::ClaimOverlap {
-                                previous: self.intervals[index - 1],
-                                current: interval,
-                            })
-                        } else {
+            } else if count != 0 {
+                if self.len - target_pos < count {
+                    Err(ArchiveMemoryError::Overrun {
+                        pos: target_pos,
+                        size: count,
+                        archive_len: self.len,
+                    })
+                } else {
+                    let interval = Interval::new(target_pos, count);
+                    match self.intervals.binary_search(&interval) {
+                        Ok(index) => Err(ArchiveMemoryError::ClaimOverlap {
+                            previous: self.intervals[index],
+                            current: interval,
+                        }),
+                        Err(index) => {
+                            if index < self.intervals.len() {
+                                if self.intervals[index].overlaps(&interval) {
+                                    return Err(ArchiveMemoryError::ClaimOverlap {
+                                        previous: self.intervals[index],
+                                        current: interval,
+                                    });
+                                } else if self.intervals[index].start == interval.end {
+                                    self.intervals[index].start = interval.start;
+                                    return Ok(base.offset(offset));
+                                }
+                            }
+
+                            if index > 0 {
+                                if self.intervals[index - 1].overlaps(&interval) {
+                                    return Err(ArchiveMemoryError::ClaimOverlap {
+                                        previous: self.intervals[index - 1],
+                                        current: interval,
+                                    });
+                                } else if self.intervals[index - 1].end == interval.start {
+                                    self.intervals[index - 1].end = interval.end;
+                                    return Ok(base.offset(offset));
+                                }
+                            }
+
                             self.intervals.insert(index, interval);
                             Ok(base.offset(offset))
                         }
                     }
                 }
+            } else {
+                Ok(base.offset(offset))
             }
         }
     }

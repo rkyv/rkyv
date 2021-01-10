@@ -14,14 +14,25 @@ readme = "crates-io.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytecheck = { version = "0.2.1", optional = true }
+bytecheck = { version = "0.2.1", path = "../../bytecheck/bytecheck", optional = true }
 cfg-if = { version = "1.0", optional = true }
 memoffset = "0.6"
 rkyv_derive = { version = "=0.2.1", path = "../rkyv_derive" }
 seahash = { version = "4.0", optional = true }
 
 [dev-dependencies]
+bincode = "1.3"
+bytecheck = { version = "0.2.1", path = "../../bytecheck/bytecheck" }
+criterion = "0.3"
+rand = "0.8"
+rand_pcg = "0.3"
+rkyv = { version = "0.2.1", path = "../rkyv", features = ["validation"] }
 rkyv_derive = { version = "0.2.1", path = "../rkyv_derive" }
+serde = { version = "1.0", features = ["derive"] }
+
+[[bench]]
+name = "bench"
+harness = false
 
 [features]
 default = ["inline_more", "std"]
