@@ -33,7 +33,7 @@ struct Attributes {
     archive_self: Option<Span>,
     repr: Repr,
     derives: Option<MetaList>,
-    name: Option<Option<Ident>>,
+    name: Option<(Option<Ident>, Span)>,
 }
 
 impl Default for Attributes {
@@ -69,7 +69,7 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                                         }
                                     } else if path.is_ident("name") {
                                         if result.name.is_none() {
-                                            result.name = Some(None);
+                                            result.name = Some((None, path.span()));
                                         } else {
                                             return Err(Error::new(
                                                 meta.span(),
@@ -100,9 +100,12 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                                     if meta.path.is_ident("name") {
                                         if let Lit::Str(ref lit_str) = meta.lit {
                                             if result.name.is_none() {
-                                                result.name = Some(Some(Ident::new(
-                                                    &lit_str.value(),
-                                                    lit_str.span()),
+                                                result.name = Some((
+                                                    Some(Ident::new(
+                                                        &lit_str.value(),
+                                                        lit_str.span()),
+                                                    ),
+                                                    lit_str.span()
                                                 ));
                                             } else {
                                                 return Err(Error::new(
@@ -210,7 +213,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
         quote! {}
     };
 
-    let archived = if let Some(Some(ref name)) = attributes.name {
+    let archived = if let Some((Some(ref name), _)) = attributes.name {
         name.clone()
     } else {
         Ident::new(&format!("Archived{}", name), name.span())
@@ -757,6 +760,14 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
 }
 
 fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStream {
+    if let Some(derives) = &attributes.derives {
+        return Error::new(derives.span(), "derives should be placed on the derived type for archive self derives").to_compile_error();
+    }
+
+    if let Some((_, span)) = &attributes.name {
+        return Error::new(*span, "archive self types cannot be named").to_compile_error();
+    }
+
     let name = &input.ident;
 
     let generic_params = input.generics.params.iter().map(|p| quote! { #p });
