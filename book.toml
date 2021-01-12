@@ -1,0 +1,6 @@
+[book]
+authors = ["David Koloski"]
+language = "en"
+multilingual = false
+src = "book_src"
+title = "rkyv"
