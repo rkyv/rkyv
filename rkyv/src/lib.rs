@@ -99,9 +99,9 @@ pub use validation::{check_archive, ArchiveContext};
 /// A `#![no_std]` compliant writer that knows where it is.
 ///
 /// A type that is [`io::Write`](std::io::Write) can be wrapped in an
-/// ArchiveWriter to equip it with `Write`. It's important that the memory for
-/// archived objects is properly aligned before attempting to read objects out
-/// of it, use the [`Aligned`] wrapper if it's appropriate.
+/// [`ArchiveWriter`] to equip it with `Write`. It's important that the memory
+/// for archived objects is properly aligned before attempting to read objects
+/// out of it, use the [`Aligned`] wrapper if it's appropriate.
 pub trait Write {
     /// The errors that may occur while writing.
     type Error: 'static;

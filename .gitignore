@@ -1,3 +1,4 @@
-/target
+book
 Cargo.lock
+/target
 /.vscode
