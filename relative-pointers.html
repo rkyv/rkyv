@@ -3,10 +3,8 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title></title>
+        <title>Relative pointers - rkyv</title>
         
-        
-        <base href="/">
         
 
 
@@ -97,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">4.2.</strong> Unsized types</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unarchive.html"><strong aria-hidden="true">6.</strong> Unarchive</a></li><li class="chapter-item expanded "><a href="seek-and-rooted-archives.html"><strong aria-hidden="true">7.</strong> Seek and rooted archives</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">8.</strong> Validation</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="relative-pointers.html" class="active"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">4.2.</strong> Unsized types</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unarchive.html"><strong aria-hidden="true">6.</strong> Unarchive</a></li><li class="chapter-item expanded "><a href="seek-and-rooted-archives.html"><strong aria-hidden="true">7.</strong> Seek and rooted archives</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">8.</strong> Validation</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -165,15 +163,40 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#document-not-found-404" id="document-not-found-404">Document not found (404)</a></h1>
-<p>This URL is invalid, sorry. Please use the navigation bar or search to continue.</p>
+                        <h1><a class="header" href="#relative-pointers" id="relative-pointers">Relative pointers</a></h1>
+<p>Relative pointers are the bread and butter of total zero-copy deserialization, completely replacing
+the use of normal pointers. But why can't we use normal pointers?</p>
+<p>Consider some zero-copy data on disc. Before we can use it, we need to load it into memory. But we
+can't control <em>where</em> in memory it gets loaded! Every time we load it, it could be located at a
+different address, and therefore the objects inside of it will be located at a different address.
+This means that we can't store any pointers to that data, inside of it or outside of it. Some
+libraries like <a href="https://github.com/TimelyDataflow/abomonation">abomonation</a> store some extra data
+and perform a fast fixup step that takes the place of deserialization, but we can do better.</p>
+<p>While normal pointers hold an absolute address in memory, relative pointers hold an offset to an address. This changes how
+the pointer behaves under moves:</p>
+<table><thead><tr><th>Pointer</th><th>Self is moved</th><th>Self and target are moved</th></tr></thead><tbody>
+<tr><td>Absolute</td><td>✅ Target is still at address</td><td>❌ Target no longer at address</td></tr>
+<tr><td>Relative</td><td>❌ Relative distance has changed</td><td>✅ Self and target same relative distance apart</td></tr>
+</tbody></table>
+<p>This is exactly the property we need to build data structures with total zero-copy deserialization.
+By using relative pointers, we can load data at any position in memory and still have valid pointers
+inside of it. Relative pointers don't require write access to memory either, so we can memory map
+entire files and instantly have access to their data in a structured manner.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
+                            <a rel="prev" href="architecture.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
 
+                        
+                            <a rel="next" href="unsized-types.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -183,7 +206,15 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
+                    <a rel="prev" href="architecture.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
 
+                
+                    <a rel="next" href="unsized-types.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
                 
             </nav>
 

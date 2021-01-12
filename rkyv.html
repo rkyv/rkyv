@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Chapter 1 - rkyv</title>
+        <title>rkyv - rkyv</title>
         
         
 
@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html" class="active"><strong aria-hidden="true">1.</strong> Chapter 1</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html" class="active"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">4.2.</strong> Unsized types</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unarchive.html"><strong aria-hidden="true">6.</strong> Unarchive</a></li><li class="chapter-item expanded "><a href="seek-and-rooted-archives.html"><strong aria-hidden="true">7.</strong> Seek and rooted archives</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">8.</strong> Validation</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -163,8 +163,36 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#chapter-1" id="chapter-1">Chapter 1</a></h1>
-<p>Testing mdbook with gh pages</p>
+                        <h1><a class="header" href="#rkyv" id="rkyv">rkyv</a></h1>
+<p><a href="http://github.com/djkoloski/rkyv">rkyv</a> (<em>archive</em>) is a zero-copy deserialization framework for
+rust.</p>
+<h2><a class="header" href="#crates" id="crates">Crates</a></h2>
+<p>rkyv is composed of three core crates:</p>
+<ul>
+<li><code>rkyv</code>: The base crate, which defines the fundamental traits and provides implementations for core
+types.</li>
+<li><code>rkyv_dyn</code>: Builds on the base crate to add support for serializing and deserializing trait
+objects.</li>
+<li><code>rkyv_typename</code>: Provides naming for types (used with rkyv_dyn).</li>
+</ul>
+<p>The project has three derive crates that are exposed through the core crates:</p>
+<ul>
+<li><code>rkyv_derive</code></li>
+<li><code>rkyv_dyn_derive</code></li>
+<li><code>rkyv_typename_derive</code></li>
+</ul>
+<p>And a test crate: <code>rkyv_test</code>.</p>
+<h2><a class="header" href="#links" id="links">Links</a></h2>
+<ul>
+<li><a href="https://github.com/djkoloski/rkyv">Github repo</a></li>
+<li><a href="https://docs.rs/rkyv">Docs</a></li>
+<li><a href="https://crates.io/crates/rkyv">crates.io</a></li>
+</ul>
+<h2><a class="header" href="#sister-crates" id="sister-crates">Sister crates</a></h2>
+<p>rkyv has sister crates that are standalone but were designed for use with rkyv:</p>
+<ul>
+<li><a href="https://github.com/djkoloski/bytecheck">bytecheck</a>: A type validation framework for Rust.</li>
+</ul>
 
                     </main>
 
@@ -172,6 +200,10 @@
                         <!-- Mobile navigation buttons -->
                         
 
+                        
+                            <a rel="next" href="motivation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -182,6 +214,10 @@
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
 
+                
+                    <a rel="next" href="motivation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
                 
             </nav>
 

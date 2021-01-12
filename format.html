@@ -3,10 +3,8 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title></title>
+        <title>Format - rkyv</title>
         
-        
-        <base href="/">
         
 
 
@@ -97,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">4.2.</strong> Unsized types</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unarchive.html"><strong aria-hidden="true">6.</strong> Unarchive</a></li><li class="chapter-item expanded "><a href="seek-and-rooted-archives.html"><strong aria-hidden="true">7.</strong> Seek and rooted archives</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">8.</strong> Validation</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">4.2.</strong> Unsized types</a></li></ol></li><li class="chapter-item expanded "><a href="format.html" class="active"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unarchive.html"><strong aria-hidden="true">6.</strong> Unarchive</a></li><li class="chapter-item expanded "><a href="seek-and-rooted-archives.html"><strong aria-hidden="true">7.</strong> Seek and rooted archives</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">8.</strong> Validation</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -165,15 +163,57 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#document-not-found-404" id="document-not-found-404">Document not found (404)</a></h1>
-<p>This URL is invalid, sorry. Please use the navigation bar or search to continue.</p>
+                        <h1><a class="header" href="#format" id="format">Format</a></h1>
+<p>The rkyv crate provides <code>Archive</code> implementations for common core and std types. In general they
+follow the same format as derived implementations, but may differ in some cases. For more details
+on the layouts of these types, see the
+<a href="https://docs.rs/rkyv/latest/rkyv/core_impl/index.html"><code>core_impl</code></a> and
+<a href="https://docs.rs/rkyv/latest/rkyv/std_impl/index.html"><code>std_impl</code></a> modules.</p>
+<p>Types which derive <code>Archive</code> generate an archived version of the type where:</p>
+<ul>
+<li>Member types are replaced with their archived counterparts</li>
+<li>Enums have <code>#[repr(N)]</code> where N is <code>u8</code>, <code>u16</code>, <code>u32</code>, <code>u64</code>, or <code>u128</code>, choosing the smallest
+possible type that can represent all of the variants.</li>
+</ul>
+<p>For example, a struct like:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Example {
+    a: u32,
+    b: String,
+    c: Box&lt;(u32, String)&gt;,
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>Would have the archived counterpart:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct ArchivedExample {
+    a: u32,
+    b: ArchivedString,
+    c: ArchivedBox&lt;(u32, ArchivedString)&gt;,
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>With the strict feature, these structs are additionally annotated with <code>#[repr(C)]</code> for guaranteed
+portability and stability.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
+                            <a rel="prev" href="unsized-types.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
 
+                        
+                            <a rel="next" href="unarchive.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -183,7 +223,15 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
+                    <a rel="prev" href="unsized-types.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
 
+                
+                    <a rel="next" href="unarchive.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
                 
             </nav>
 

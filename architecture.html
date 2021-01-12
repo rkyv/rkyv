@@ -3,10 +3,8 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title></title>
+        <title>Architecture - rkyv</title>
         
-        
-        <base href="/">
         
 
 
@@ -97,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">4.2.</strong> Unsized types</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unarchive.html"><strong aria-hidden="true">6.</strong> Unarchive</a></li><li class="chapter-item expanded "><a href="seek-and-rooted-archives.html"><strong aria-hidden="true">7.</strong> Seek and rooted archives</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">8.</strong> Validation</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html" class="active"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">4.2.</strong> Unsized types</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unarchive.html"><strong aria-hidden="true">6.</strong> Unarchive</a></li><li class="chapter-item expanded "><a href="seek-and-rooted-archives.html"><strong aria-hidden="true">7.</strong> Seek and rooted archives</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">8.</strong> Validation</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -165,15 +163,71 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#document-not-found-404" id="document-not-found-404">Document not found (404)</a></h1>
-<p>This URL is invalid, sorry. Please use the navigation bar or search to continue.</p>
+                        <h1><a class="header" href="#architecture" id="architecture">Architecture</a></h1>
+<p>The core of rkyv is built around three core traits:
+<a href="https://docs.rs/rkyv/latest/rkyv/trait.Write.html"><code>Write</code></a>,
+<a href="https://docs.rs/rkyv/latest/rkyv/trait.Archive.html"><code>Archive</code></a>,
+and <a href="https://docs.rs/rkyv/latest/rkyv/trait.Resolve.html"><code>Resolve</code></a>.</p>
+<h2><a class="header" href="#write" id="write">Write</a></h2>
+<p>Writers are types that accept bytes and write them in order to some output. The most basic example
+of a writer might be a simple file. Writers can additionally provide the position of the next byte,
+which is important for <a href="/relative-pointers.html">relative pointers</a>.</p>
+<h2><a class="header" href="#archive" id="archive">Archive</a></h2>
+<p>Archive types are able to convert themselves to their archived counterparts and write them to a
+Writer. This happens in two steps:</p>
+<ol>
+<li>Any dependencies of the type are written to the writer. For strings this would be the characters
+of the string, for boxes it would be the boxed value, and for vectors it would be any contained
+values. This is the archive step.</li>
+<li>The value itself is written to the writer. For strings this would be the length and a pointer to
+the characters, for boxes it would be a pointer to the boxed value, and for vectors it would be a
+length and pointer to the archived values. This is the resolve step.</li>
+</ol>
+<h2><a class="header" href="#resolve" id="resolve">Resolve</a></h2>
+<p>Archiveable types have a resolver type, which is just any information that needs to get carried from
+the first step to the second. In most cases, a resolver is just the positions where the dependencies
+of the type were written.</p>
+<p>A good example of why resolvers are necessary is when archiving a tuple. Say we have two strings:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let value = (&quot;hello&quot;.to_string(), &quot;world&quot;.to_string());
+<span class="boring">}
+</span></code></pre></pre>
+<p>The archived tuple needs to have both of the strings right next to each other:</p>
+<pre><code>0x0000      AA AA AA AA BB BB BB BB
+0x0008      CC CC CC CC DD DD DD DD
+</code></pre>
+<p>A and B might be the length and pointer for the first string of the tuple, and C and D might be the
+length and pointer for the second string.</p>
+<p>When archiving, we might be tempted to archive and resolve the first string, then archive and
+resolve the second one. But this might place the second string's bytes (&quot;world&quot;) between the two!
+Instead, we need to write out the bytes for both strings, and then finish archiving both of them.
+The tuple doesn't know what information the strings need to finish archiving themselves, so they
+have to provide it to the tuple through their Resolver.</p>
+<p>This way, the tuple can:</p>
+<ol>
+<li>Archive the first string (save the resolver)</li>
+<li>Archive the second string (save the resolver)</li>
+<li>Resolve the first string with its resolver</li>
+<li>Resolve the second string with its resolver</li>
+</ol>
+<p>And we're guaranteed that the two strings are placed right next to each other like we need.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
+                            <a rel="prev" href="zero-copy-deserialization.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
 
+                        
+                            <a rel="next" href="relative-pointers.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -183,7 +237,15 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
+                    <a rel="prev" href="zero-copy-deserialization.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
 
+                
+                    <a rel="next" href="relative-pointers.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
                 
             </nav>
 

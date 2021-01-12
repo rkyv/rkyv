@@ -97,7 +97,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html"><strong aria-hidden="true">1.</strong> Chapter 1</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">4.2.</strong> Unsized types</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unarchive.html"><strong aria-hidden="true">6.</strong> Unarchive</a></li><li class="chapter-item expanded "><a href="seek-and-rooted-archives.html"><strong aria-hidden="true">7.</strong> Seek and rooted archives</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">8.</strong> Validation</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -165,8 +165,215 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#chapter-1" id="chapter-1">Chapter 1</a></h1>
-<p>Testing mdbook with gh pages</p>
+                        <h1><a class="header" href="#rkyv" id="rkyv">rkyv</a></h1>
+<p><a href="http://github.com/djkoloski/rkyv">rkyv</a> (<em>archive</em>) is a zero-copy deserialization framework for
+rust.</p>
+<h2><a class="header" href="#crates" id="crates">Crates</a></h2>
+<p>rkyv is composed of three core crates:</p>
+<ul>
+<li><code>rkyv</code>: The base crate, which defines the fundamental traits and provides implementations for core
+types.</li>
+<li><code>rkyv_dyn</code>: Builds on the base crate to add support for serializing and deserializing trait
+objects.</li>
+<li><code>rkyv_typename</code>: Provides naming for types (used with rkyv_dyn).</li>
+</ul>
+<p>The project has three derive crates that are exposed through the core crates:</p>
+<ul>
+<li><code>rkyv_derive</code></li>
+<li><code>rkyv_dyn_derive</code></li>
+<li><code>rkyv_typename_derive</code></li>
+</ul>
+<p>And a test crate: <code>rkyv_test</code>.</p>
+<h2><a class="header" href="#links" id="links">Links</a></h2>
+<ul>
+<li><a href="https://github.com/djkoloski/rkyv">Github repo</a></li>
+<li><a href="https://docs.rs/rkyv">Docs</a></li>
+<li><a href="https://crates.io/crates/rkyv">crates.io</a></li>
+</ul>
+<h2><a class="header" href="#sister-crates" id="sister-crates">Sister crates</a></h2>
+<p>rkyv has sister crates that are standalone but were designed for use with rkyv:</p>
+<ul>
+<li><a href="https://github.com/djkoloski/bytecheck">bytecheck</a>: A type validation framework for Rust.</li>
+</ul>
+<h1><a class="header" href="#motivation" id="motivation">Motivation</a></h1>
+<p>Most serialization frameworks like <a href="https://serde.rs">serde</a> define an internal data model that
+consists of basic types such as primitives, strings, and byte arrays. This splits the work of
+serializing a type into two stages: the frontend and the backend. The frontend takes some type and
+breaks it down into the serializable types of the data model. The backend then takes the data model
+types and writes them using some data format such as JSON, Bincode, TOML, etc. This allows a clean
+separation between the serialization of a type and the data format it is written to.</p>
+<p>A major downside of traditional serialization is that it takes a considerable amount of time to
+read, parse, and reconstruct types from their serialized values. In JSON, for example, strings are
+encoded by surrounding the contents with double quotes and escaping invalid characters inside of
+them. Deserializing these strings entails parsing character-by-character for double quotes and
+escape characters, and pushing the parsed characters into a result string. This deserialization time
+adds up quickly, and in data-heavy applications such as games and media editing it can come to
+dominate load times. rkyv provides a solution through a serialization technique called zero-copy
+deserialization.</p>
+<h1><a class="header" href="#zero-copy-deserialization" id="zero-copy-deserialization">Zero-copy deserialization</a></h1>
+<p>Zero-copy deserialization is a technique that reduces the time and memory required to deserialize
+data by directly referencing bytes in the serialized form.</p>
+<h2><a class="header" href="#partial-zcd" id="partial-zcd">Partial ZCD</a></h2>
+<p>Serde and others have support for partial zero-copy deserialization, where bits and pieces of the
+deserialized data are borrowed from the serialized form. Strings, for example, can borrow their
+bytes directly from the serialized form in encodings like bincode that don't perform any character
+escaping. However, a string object must still be created to hold the deserialized length and point
+to the borrowed characters.</p>
+<p>Partial zero-copy deserialization can considerably improve memory usage and often speed up
+some deserialiation, but with some work we can go further.</p>
+<h2><a class="header" href="#total-zcd" id="total-zcd">Total ZCD</a></h2>
+<p>rkyv implements total zero-copy deserialization, which guarantees that no data is copied during
+deserialization and no work is done to deserialize data. It achieves this by structuring its encoded
+representation so that it is the same as the in-memory representation of the source type.</p>
+<p>This opens up blazingly-fast data loading and enables data access orders of magnitude more quickly
+than traditional serialization.</p>
+<h1><a class="header" href="#architecture" id="architecture">Architecture</a></h1>
+<p>The core of rkyv is built around three core traits:
+<a href="https://docs.rs/rkyv/latest/rkyv/trait.Write.html"><code>Write</code></a>,
+<a href="https://docs.rs/rkyv/latest/rkyv/trait.Archive.html"><code>Archive</code></a>,
+and <a href="https://docs.rs/rkyv/latest/rkyv/trait.Resolve.html"><code>Resolve</code></a>.</p>
+<h2><a class="header" href="#write" id="write">Write</a></h2>
+<p>Writers are types that accept bytes and write them in order to some output. The most basic example
+of a writer might be a simple file. Writers can additionally provide the position of the next byte,
+which is important for <a href="/relative-pointers.html">relative pointers</a>.</p>
+<h2><a class="header" href="#archive" id="archive">Archive</a></h2>
+<p>Archive types are able to convert themselves to their archived counterparts and write them to a
+Writer. This happens in two steps:</p>
+<ol>
+<li>Any dependencies of the type are written to the writer. For strings this would be the characters
+of the string, for boxes it would be the boxed value, and for vectors it would be any contained
+values. This is the archive step.</li>
+<li>The value itself is written to the writer. For strings this would be the length and a pointer to
+the characters, for boxes it would be a pointer to the boxed value, and for vectors it would be a
+length and pointer to the archived values. This is the resolve step.</li>
+</ol>
+<h2><a class="header" href="#resolve" id="resolve">Resolve</a></h2>
+<p>Archiveable types have a resolver type, which is just any information that needs to get carried from
+the first step to the second. In most cases, a resolver is just the positions where the dependencies
+of the type were written.</p>
+<p>A good example of why resolvers are necessary is when archiving a tuple. Say we have two strings:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let value = (&quot;hello&quot;.to_string(), &quot;world&quot;.to_string());
+<span class="boring">}
+</span></code></pre></pre>
+<p>The archived tuple needs to have both of the strings right next to each other:</p>
+<pre><code>0x0000      AA AA AA AA BB BB BB BB
+0x0008      CC CC CC CC DD DD DD DD
+</code></pre>
+<p>A and B might be the length and pointer for the first string of the tuple, and C and D might be the
+length and pointer for the second string.</p>
+<p>When archiving, we might be tempted to archive and resolve the first string, then archive and
+resolve the second one. But this might place the second string's bytes (&quot;world&quot;) between the two!
+Instead, we need to write out the bytes for both strings, and then finish archiving both of them.
+The tuple doesn't know what information the strings need to finish archiving themselves, so they
+have to provide it to the tuple through their Resolver.</p>
+<p>This way, the tuple can:</p>
+<ol>
+<li>Archive the first string (save the resolver)</li>
+<li>Archive the second string (save the resolver)</li>
+<li>Resolve the first string with its resolver</li>
+<li>Resolve the second string with its resolver</li>
+</ol>
+<p>And we're guaranteed that the two strings are placed right next to each other like we need.</p>
+<h1><a class="header" href="#relative-pointers" id="relative-pointers">Relative pointers</a></h1>
+<p>Relative pointers are the bread and butter of total zero-copy deserialization, completely replacing
+the use of normal pointers. But why can't we use normal pointers?</p>
+<p>Consider some zero-copy data on disc. Before we can use it, we need to load it into memory. But we
+can't control <em>where</em> in memory it gets loaded! Every time we load it, it could be located at a
+different address, and therefore the objects inside of it will be located at a different address.
+This means that we can't store any pointers to that data, inside of it or outside of it. Some
+libraries like <a href="https://github.com/TimelyDataflow/abomonation">abomonation</a> store some extra data
+and perform a fast fixup step that takes the place of deserialization, but we can do better.</p>
+<p>While normal pointers hold an absolute address in memory, relative pointers hold an offset to an address. This changes how
+the pointer behaves under moves:</p>
+<table><thead><tr><th>Pointer</th><th>Self is moved</th><th>Self and target are moved</th></tr></thead><tbody>
+<tr><td>Absolute</td><td>✅ Target is still at address</td><td>❌ Target no longer at address</td></tr>
+<tr><td>Relative</td><td>❌ Relative distance has changed</td><td>✅ Self and target same relative distance apart</td></tr>
+</tbody></table>
+<p>This is exactly the property we need to build data structures with total zero-copy deserialization.
+By using relative pointers, we can load data at any position in memory and still have valid pointers
+inside of it. Relative pointers don't require write access to memory either, so we can memory map
+entire files and instantly have access to their data in a structured manner.</p>
+<h1><a class="header" href="#unsized-types" id="unsized-types">Unsized types</a></h1>
+<p>Unlike traditional sized types, unsized types are archived through the
+<a href="https://docs.rs/rkyv/latest/rkyv/trait.ArchiveRef.html"><code>ArchiveRef</code></a> trait. Unlike <code>Archive</code>,
+which directly stores a type in an archive, <code>ArchiveRef</code> stores a reference to a type. Crucially,
+that reference can store additional data about the archived type, such as size or length. This
+allows unsized types to be archived, such as slices and structs with a trailing slice.</p>
+<p><code>ArchiveRef</code> is blanket implemented for all <code>Archive</code> types, with a reference type that's just a
+relative pointer. This allows <code>Box</code> to archive sized and unsized types the same way without extra
+annotations or wrapper types.</p>
+<h2><a class="header" href="#trait-objects" id="trait-objects">Trait objects</a></h2>
+<p>The <a href="https://docs.rs/rkyv_dyn"><code>rkyv_dyn</code></a> crate adds support for trait object serialization and
+deserialization. Trait objects can be archived and treated as a trait object while archived. The
+crate documentation has examples of how to use it.</p>
+<h1><a class="header" href="#format" id="format">Format</a></h1>
+<p>The rkyv crate provides <code>Archive</code> implementations for common core and std types. In general they
+follow the same format as derived implementations, but may differ in some cases. For more details
+on the layouts of these types, see the
+<a href="https://docs.rs/rkyv/latest/rkyv/core_impl/index.html"><code>core_impl</code></a> and
+<a href="https://docs.rs/rkyv/latest/rkyv/std_impl/index.html"><code>std_impl</code></a> modules.</p>
+<p>Types which derive <code>Archive</code> generate an archived version of the type where:</p>
+<ul>
+<li>Member types are replaced with their archived counterparts</li>
+<li>Enums have <code>#[repr(N)]</code> where N is <code>u8</code>, <code>u16</code>, <code>u32</code>, <code>u64</code>, or <code>u128</code>, choosing the smallest
+possible type that can represent all of the variants.</li>
+</ul>
+<p>For example, a struct like:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Example {
+    a: u32,
+    b: String,
+    c: Box&lt;(u32, String)&gt;,
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>Would have the archived counterpart:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct ArchivedExample {
+    a: u32,
+    b: ArchivedString,
+    c: ArchivedBox&lt;(u32, ArchivedString)&gt;,
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>With the strict feature, these structs are additionally annotated with <code>#[repr(C)]</code> for guaranteed
+portability and stability.</p>
+<h1><a class="header" href="#unarchive" id="unarchive">Unarchive</a></h1>
+<p>The <a href="https://docs.rs/rkyv/latest/rkyv/trait.Unarchive.html"><code>Unarchive</code></a> trait provides a method to
+convert the archived type back into the original one. This is more or less a traditional
+deserialization with the added benefit of being sped up somewhat by having very compatible
+representations. The process of unarchiving data incurs both the memory and performance penalties
+of traditional serialization, so make sure that it's what you need before you use it.</p>
+<p>A good use for <code>Unarchive</code> is unarchiving portions of archives. You can easily traverse the archived
+data to locate some subobject, then unarchive just that piece instead of the archive as a whole.
+This granular approach provides the benefits of both zero-copy deserialization as well as
+traditional deserialization.</p>
+<h1><a class="header" href="#seek-and-rooted-archives" id="seek-and-rooted-archives">Seek and rooted archives</a></h1>
+<p><a href="https://docs.rs/rkyv/latest/trait.Seek.html"><code>Seek</code></a> is an extension trait for <code>Write</code> that enables
+a writer to move throughout an archive, and allows the creation of <em>rooted archives</em>.</p>
+<p>Normally, archiving a value will return the position that the archive was archived at. This means
+that in most situations the user will have to store the position of the root object alongside the
+archive data in order to access the archive properly. One possible solution to this problem would be
+to store the offset of the root in the first few bytes of the archive, but this would still require
+going back to fix those bytes up after finishing archiving.</p>
+<p>If we have the ability to seek backwards in the archive, we can use it to archive the root object
+at the start of the archive and guarantee that it will be located at position <code>0</code>. This is
+essentially what the functions <code>archive_root</code> and <code>archive_ref_root</code> do, archiving the rest of the
+data in the normal manner then backtracking to resolve the root object at the start of the archive.</p>
+<h1><a class="header" href="#validation" id="validation">Validation</a></h1>
+<p>Validation can be enabled with the <code>validation</code> feature. Validation leverages the
+<a href="https://docs.rs/bytecheck"><code>bytecheck</code></a> crate to perform archive validation, and allows the
+consumption of untrusted and malicious data.</p>
+<p>To validate an archive, use
+<a href="https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archive.html"><code>check_archive</code></a>. Examples of
+how to enable and perform validation can be found in the <code>rkyv_test</code> crate's <code>validation</code> module.</p>
 
                     </main>
 
