@@ -94,17 +94,22 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
     hasher.finish()
 }
 
-/// A trait object that can be serialized.
+/// A trait object that can be archived.
 ///
 /// To add archive support for a trait object:
 ///
 /// 1. Add [`archive_dyn`](macro@archive_dyn) on your trait to make an
 /// archive-compatible version of it. By default, it will be named "Archive" +
-/// your trait name.
-/// 2. Implement `Archive` and `TypeName` for the types you want to make trait
-/// objects of.
+/// your trait name. To rename the trait, pass the argument `name = "..."` as
+/// a parameter.
+/// 2. Implement `Archive` for the type you want to make trait objects of and
+/// `TypeName` for the archived versions of them.
 /// 3. Implement your trait for your type and add the attribute `#[archive_dyn]`
 /// to it. Make sure to implement your trait for your archived type as well.
+/// This invocation must have the same attributes as the trait invocation.
+/// 4. If unarchive support is desired, add `unarchive` or `unarchive = "..."`
+/// as parameters. By default, the unarchive trait will be named "Unarchive" +
+/// your trait name. Passing a trait name will use that name instead.
 ///
 /// Then you're ready to serialize boxed trait objects!
 ///
@@ -124,21 +129,22 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///     ArchiveBuffer,
 ///     Archived,
 ///     archived_value,
+///     Unarchive,
 ///     Write,
 /// };
 /// use rkyv_dyn::archive_dyn;
 /// use rkyv_typename::TypeName;
 ///
-/// #[archive_dyn]
+/// #[archive_dyn(unarchive)]
 /// trait ExampleTrait {
 ///     fn value(&self) -> String;
 /// }
 ///
-/// #[derive(Archive)]
+/// #[derive(Archive, Unarchive)]
 /// #[archive(derive(TypeName))]
 /// struct StringStruct(String);
 ///
-/// #[archive_dyn]
+/// #[archive_dyn(unarchive)]
 /// impl ExampleTrait for StringStruct {
 ///     fn value(&self) -> String {
 ///         self.0.clone()
@@ -151,11 +157,11 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///     }
 /// }
 ///
-/// #[derive(Archive)]
+/// #[derive(Archive, Unarchive)]
 /// #[archive(derive(TypeName))]
 /// struct IntStruct(i32);
 ///
-/// #[archive_dyn]
+/// #[archive_dyn(unarchive)]
 /// impl ExampleTrait for IntStruct {
 ///     fn value(&self) -> String {
 ///         format!("{}", self.0)
@@ -180,6 +186,11 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// let archived_string = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>>(buf.as_ref(), string_pos) };
 /// assert_eq!(archived_int.value(), "42");
 /// assert_eq!(archived_string.value(), "hello world");
+///
+/// let unarchived_int: Box<dyn ArchiveExampleTrait> = archived_int.unarchive();
+/// let unarchived_string: Box<dyn ArchiveExampleTrait> = archived_string.unarchive();
+/// assert_eq!(unarchived_int.value(), "42");
+/// assert_eq!(unarchived_string.value(), "hello world");
 /// ```
 pub trait ArchiveDyn {
     /// Writes the value to the writer and returns a resolver that can create an
@@ -196,6 +207,9 @@ where
     }
 }
 
+/// A trait object that can be unarchived.
+///
+/// See [`ArchiveDyn`] for more information.
 pub trait UnarchiveDyn<T: ?Sized> {
     unsafe fn unarchive_dyn(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
 }

@@ -54,6 +54,7 @@ struct Args {
 impl Parse for Args {
     fn parse(input: ParseStream) -> Result<Self> {
         mod kw {
+            syn::custom_keyword!(name);
             syn::custom_keyword!(unarchive);
         }
 
@@ -66,12 +67,12 @@ impl Parse for Args {
                 input.parse::<Token![,]>()?;
             }
 
-            if input.peek(Token![trait]) {
+            if input.peek(kw::name) {
                 if archive.is_some() {
-                    return Err(input.error("duplicate trait argument"));
+                    return Err(input.error("duplicate name argument"));
                 }
 
-                input.parse::<Token![trait]>()?;
+                input.parse::<kw::name>()?;
                 input.parse::<Token![=]>()?;
                 archive = Some(input.parse::<LitStr>()?);
             } else if input.peek(kw::unarchive) {
@@ -88,7 +89,7 @@ impl Parse for Args {
                 }
             } else {
                 return Err(
-                    input.error("expected trait = \"...\" or unarchive = \"...\" parameters")
+                    input.error("expected name = \"...\" or unarchive = \"...\" parameters")
                 );
             }
 
@@ -101,9 +102,20 @@ impl Parse for Args {
 
 /// Creates archiveable trait objects and registers implementations.
 ///
-/// Prepend to trait definitions and implementations. On trait definitions, you
-/// can use the form `#[archive_dyn = "..."]` to choose the name of the archive
-/// type. By default, it will be named "Archive" + your trait name.
+/// Prepend to trait definitions and implementations. For generic
+/// implementations, you may need to manually register impls with the trait
+/// object system. See `register_impl` for more information.
+///
+/// See `ArchiveDyn` for usage information and examples.
+///
+/// # Parameters
+///
+/// - `name = "..."`: Chooses the name of the archive trait. By default, it will
+/// be named "Archive" + your trait name.
+/// - `unarchive`, `unarchive = "..."`: Adds unarchive support to the archived
+/// trait. Similarly to the `name` parameter, you can choose the name of the
+/// unarchive trait and by default it will be named "Unarchive" + your trait
+/// name.
 #[proc_macro_attribute]
 pub fn archive_dyn(
     attr: proc_macro::TokenStream,

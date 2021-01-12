@@ -568,7 +568,7 @@ mod tests {
 
     #[test]
     fn archive_dyn() {
-        #[archive_dyn(trait = "ATestTrait", unarchive = "UTestTrait")]
+        #[archive_dyn(name = "ATestTrait", unarchive = "UTestTrait")]
         pub trait TestTrait {
             fn get_id(&self) -> i32;
         }
@@ -579,7 +579,7 @@ mod tests {
             id: i32,
         }
 
-        #[archive_dyn(trait = "ATestTrait", unarchive = "UTestTrait")]
+        #[archive_dyn(name = "ATestTrait", unarchive = "UTestTrait")]
         impl TestTrait for Test {
             fn get_id(&self) -> i32 {
                 self.id
@@ -614,7 +614,7 @@ mod tests {
     fn archive_dyn_generic() {
         use rkyv_dyn::register_impl;
 
-        #[archive_dyn(trait = "ATestTrait", unarchive = "UTestTrait")]
+        #[archive_dyn(name = "ATestTrait", unarchive = "UTestTrait")]
         pub trait TestTrait<T: TypeName> {
             fn get_value(&self) -> T;
         }
@@ -625,7 +625,7 @@ mod tests {
             value: T,
         }
 
-        #[archive_dyn(trait = "ATestTrait", unarchive = "UTestTrait")]
+        #[archive_dyn(name = "ATestTrait", unarchive = "UTestTrait")]
         impl TestTrait<i32> for Test<i32> {
             fn get_value(&self) -> i32 {
                 self.value

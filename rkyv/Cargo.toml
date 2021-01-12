@@ -47,4 +47,4 @@ strict = ["rkyv_derive/strict"]
 validation = ["bytecheck", "std"]
 
 [package.metadata.docs.rs]
-all-features = true
+features = ["validation"]

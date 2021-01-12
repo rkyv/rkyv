@@ -408,9 +408,7 @@ pub trait Archive {
 ///     .expect("failed to archive test");
 /// let buf = writer.into_inner();
 /// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
-/// assert_eq!(archived.int, value.int);
-/// assert_eq!(archived.string, value.string);
-/// assert_eq!(archived.option, value.option);
+///
 /// let unarchived = archived.unarchive();
 /// assert_eq!(value, unarchived);
 /// ```
