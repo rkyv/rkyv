@@ -1,3 +1,5 @@
+//! Archive implementations for ranges.
+
 use crate::{offset_of, Archive, ArchiveSelf, Resolve, SelfResolver, Write};
 use core::{
     cmp, fmt,
@@ -15,6 +17,7 @@ impl Archive for RangeFull {
 
 unsafe impl ArchiveSelf for RangeFull {}
 
+/// An archived `Range`.
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedRange<T> {
@@ -90,6 +93,7 @@ impl<T: Archive> Archive for Range<T> {
     }
 }
 
+/// An archived `RangeInclusive`.
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedRangeInclusive<T> {

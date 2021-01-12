@@ -231,6 +231,7 @@ impl_primitive!(NonZeroU32);
 impl_primitive!(NonZeroU64);
 impl_primitive!(NonZeroU128);
 
+/// The resolver for atomic types.
 pub struct AtomicResolver;
 
 macro_rules! impl_atomic {
