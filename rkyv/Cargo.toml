@@ -35,13 +35,9 @@ name = "bench"
 harness = false
 
 [features]
-default = ["inline_more", "perfect_hashing", "std"]
+default = ["std"]
 const_generics = []
-inline_more = []
 long_rel_ptrs = []
-more_portable = []
-nightly = []
-perfect_hashing = []
 specialization = []
 std = ["seahash", "cfg-if"]
 strict = ["rkyv_derive/strict"]

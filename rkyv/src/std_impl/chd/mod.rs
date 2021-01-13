@@ -327,7 +327,7 @@ impl<'a, K: Hash + Eq, V> RawIter<'a, K, V> {
 impl<'a, K: Hash + Eq, V> Iterator for RawIter<'a, K, V> {
     type Item = *const Entry<K, V>;
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
             if self.remaining == 0 {
@@ -341,7 +341,7 @@ impl<'a, K: Hash + Eq, V> Iterator for RawIter<'a, K, V> {
         }
     }
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.remaining, Some(self.remaining))
     }
@@ -369,7 +369,7 @@ impl<'a, K: Hash + Eq, V> RawIterPin<'a, K, V> {
 impl<'a, K: Hash + Eq, V> Iterator for RawIterPin<'a, K, V> {
     type Item = *mut Entry<K, V>;
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
             if self.remaining == 0 {
@@ -383,7 +383,7 @@ impl<'a, K: Hash + Eq, V> Iterator for RawIterPin<'a, K, V> {
         }
     }
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.remaining, Some(self.remaining))
     }
@@ -401,7 +401,7 @@ pub struct Iter<'a, K: Hash + Eq, V> {
 impl<'a, K: Hash + Eq, V> Iterator for Iter<'a, K, V> {
     type Item = (&'a K, &'a V);
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|x| unsafe {
             let pair = &*x;
@@ -409,7 +409,7 @@ impl<'a, K: Hash + Eq, V> Iterator for Iter<'a, K, V> {
         })
     }
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.inner.size_hint()
     }
@@ -427,7 +427,7 @@ pub struct IterPin<'a, K: Hash + Eq, V> {
 impl<'a, K: Hash + Eq, V> Iterator for IterPin<'a, K, V> {
     type Item = (&'a K, Pin<&'a mut V>);
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|x| unsafe {
             let pair = &mut *x;
@@ -435,7 +435,7 @@ impl<'a, K: Hash + Eq, V> Iterator for IterPin<'a, K, V> {
         })
     }
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.inner.size_hint()
     }
@@ -453,7 +453,7 @@ pub struct Keys<'a, K: Hash + Eq, V> {
 impl<'a, K: Hash + Eq, V> Iterator for Keys<'a, K, V> {
     type Item = &'a K;
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|x| unsafe {
             let pair = &*x;
@@ -461,7 +461,7 @@ impl<'a, K: Hash + Eq, V> Iterator for Keys<'a, K, V> {
         })
     }
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.inner.size_hint()
     }
@@ -479,7 +479,7 @@ pub struct Values<'a, K: Hash + Eq, V> {
 impl<'a, K: Hash + Eq, V> Iterator for Values<'a, K, V> {
     type Item = &'a V;
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|x| unsafe {
             let pair = &*x;
@@ -487,7 +487,7 @@ impl<'a, K: Hash + Eq, V> Iterator for Values<'a, K, V> {
         })
     }
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.inner.size_hint()
     }
@@ -505,7 +505,7 @@ pub struct ValuesPin<'a, K: Hash + Eq, V> {
 impl<'a, K: Hash + Eq, V> Iterator for ValuesPin<'a, K, V> {
     type Item = Pin<&'a mut V>;
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|x| unsafe {
             let pair = &mut *x;
@@ -513,7 +513,7 @@ impl<'a, K: Hash + Eq, V> Iterator for ValuesPin<'a, K, V> {
         })
     }
 
-    #[cfg_attr(feature = "inline_more", inline)]
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.inner.size_hint()
     }

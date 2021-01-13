@@ -1,9 +1,6 @@
 //! [`Archive`] implementations for std types.
 
-#[cfg(feature = "perfect_hashing")]
 pub mod chd;
-#[cfg(not(feature = "perfect_hashing"))]
-pub mod hashbrown;
 #[cfg(feature = "validation")]
 mod validation;
 

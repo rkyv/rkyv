@@ -46,14 +46,8 @@
 //! - `const_generics`: Improves the implementations for some traits and
 //!   provides an [`Archive`] implementation for slices with elements that
 //!   implement [`ArchiveSelf`]. Ideal for `#![no_std]` environments.
-//! - `inline_more`: Performs more aggressive function inlining.
 //! - `long_rel_ptrs`: Increases the size of relative pointers to 64 bits for
 //!   large archive support
-//! - `more_portable`: Avoids using sse2-optimized intrinsics since they may
-//!   cause alignment issues across machines. This feature may go away once any
-//!   portability bugs are identified and fixed.
-//! - `nightly`: Enables some nightly features, such as
-//!   [`likely`](std::intrinsics::likely).
 //! - `specialization`: Enables the unfinished specialization feature and
 //!   provides more efficient implementations of some functions when working
 //!   with [`ArchiveSelf`] types.
@@ -63,7 +57,7 @@
 //!   feature provides a guarantee.
 //! - `validation`: Enables validation support through `bytecheck`.
 //!
-//! By default, the `inline_more` and `std` features are enabled.
+//! By default, the `std` feature is enabled.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(
@@ -71,7 +65,6 @@
     allow(incomplete_features)
 )]
 #![cfg_attr(feature = "const_generics", feature(const_generics))]
-#![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 #![cfg_attr(feature = "specialization", feature(specialization))]
 
 pub mod core_impl;

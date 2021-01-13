@@ -16,12 +16,10 @@ rkyv_dyn = { path = "../rkyv_dyn" }
 rkyv_typename = { path = "../rkyv_typename" }
 
 [features]
-default = ["inline_more", "validation"]
+default = ["validation"]
 const_generics = ["rkyv/const_generics", "rkyv_typename/const_generics"]
-inline_more = ["rkyv/inline_more"]
 long_rel_ptrs = ["rkyv/long_rel_ptrs"]
-more_portable = ["rkyv/more_portable"]
-nightly = ["rkyv/nightly", "rkyv_dyn/nightly"]
+nightly = ["rkyv_dyn/nightly"]
 specialization = ["rkyv/specialization"]
 std = ["rkyv/std", "rkyv_typename/std"]
 strict = ["rkyv/strict"]
