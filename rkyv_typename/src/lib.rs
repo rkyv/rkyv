@@ -23,10 +23,9 @@
 //! ## Features
 //!
 //! - `const_generics`: Uses the incomplete `const_generics` feature to
-//! implement array type names.
-//! - `std`: Implements [`TypeName`] for standard library types.
-//!
-//! By default, the `std` feature is enabled.
+//!   implement array type names.
+//! - `std`: Implements [`TypeName`] for standard library types (enabled by
+//!   default)
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "const_generics", allow(incomplete_features))]

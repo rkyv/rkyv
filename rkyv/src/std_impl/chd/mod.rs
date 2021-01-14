@@ -1,3 +1,8 @@
+//! [`Archive`] implementation for hashmaps.
+//!
+//! During archiving, hashmaps are built into minimal perfect hashmaps using
+//! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
+
 #[cfg(feature = "validation")]
 pub mod validation;
 
@@ -20,8 +25,7 @@ struct Entry<K, V> {
     value: V,
 }
 
-/// An archived `HashMap`. This is a minimal perfect hash map built using
-/// [compress-hash-displace](http://cmph.sourceforge.net/papers/esa09.pdf).
+/// An archived `HashMap`.
 #[cfg_attr(feature = "strict", repr(C))]
 #[derive(Debug)]
 pub struct ArchivedHashMap<K, V> {

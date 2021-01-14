@@ -37,6 +37,7 @@ use std::collections::{hash_map::DefaultHasher, HashMap};
 #[doc(hidden)]
 pub use inventory;
 #[cfg(feature = "validation")]
+#[doc(hidden)]
 pub use validation::ImplValidation;
 
 #[cfg(all(feature = "vtable_cache", feature = "nightly"))]

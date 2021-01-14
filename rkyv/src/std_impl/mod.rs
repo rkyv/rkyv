@@ -2,7 +2,7 @@
 
 pub mod chd;
 #[cfg(feature = "validation")]
-mod validation;
+pub mod validation;
 
 use crate::{
     core_impl::ArchivedSlice, Archive, ArchiveRef, Archived, Reference, ReferenceResolver, Resolve,

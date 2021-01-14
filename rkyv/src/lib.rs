@@ -12,9 +12,10 @@
 //! native types.
 //!
 //! rkyv has a hashmap implementation that is built for zero-copy
-//! deserialization, so you can serialize your hashmaps with abandon! The
-//! implementation is based off of the standard library's `hashbrown` crate and
-//! should have nearly identical performance.
+//! deserialization, so you can serialize your hashmaps with abandon. The
+//! implementation performs perfect hashing with the compress, hash and displace
+//! algorithm to use as little memory as possible while still performing fast
+//! lookups.
 //!
 //! One of the most impactful features made possible by rkyv is the ability to
 //! serialize trait objects and use them *as trait objects* without
@@ -31,7 +32,11 @@
 //! Unlike serde, rkyv produces data that is guaranteed deserialization free. If
 //! you wrote your data to disk, you can just `mmap` your file into memory, cast
 //! a pointer, and your data is ready to use. This makes it ideal for
-//! high-performance and IO-limited applications.
+//! high-performance and IO-bound applications.
+//!
+//! Limited data mutation is supported through `Pin` APIs. Archived values can
+//! be truly deserialized with [`Unarchive`] if full mutation capabilities are
+//! needed.
 //!
 //! ## Tradeoffs
 //!
@@ -43,17 +48,20 @@
 //!
 //! ## Features
 //!
-//! - `const_generics`: Improves the implementations for arrays with support for
-//!   more lengths
+//! - `const_generics`: Improves the trait implementations for arrays with
+//!   support for all lengths
 //! - `long_rel_ptrs`: Increases the size of relative pointers to 64 bits for
 //!   large archive support
-//! - `std`: Enables standard library support.
+//! - `std`: Enables standard library support (enabled by default)
 //! - `strict`: Guarantees that types will have the same representations across
 //!   platforms and compilations. This is already the case in practice, but this
-//!   feature provides a guarantee.
-//! - `validation`: Enables validation support through `bytecheck`.
+//!   feature provides a guarantee. It additionally provides C type
+//!   compatibility.
+//! - `validation`: Enables validation support through `bytecheck`
 //!
-//! By default, the `std` feature is enabled.
+//! ## Examples
+//!
+//! See [`Archive`] for examples of how to use rkyv.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "const_generics", allow(incomplete_features))]
@@ -207,6 +215,8 @@ pub trait Seek: Write {
 ///
 /// Resolvers are passed the original value, so any information that is already
 /// in them doesn't have to be stored in the resolver.
+///
+/// See [`Archive`] for an example of how to use `Resolve`.
 pub trait Resolve<T: ?Sized> {
     /// The type that this resolver resolves to.
     type Archived;
@@ -240,15 +250,17 @@ pub trait Resolve<T: ?Sized> {
 ///     option: Option<Vec<i32>>,
 /// }
 ///
-/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
 /// let value = Test {
 ///     int: 42,
 ///     string: "hello world".to_string(),
 ///     option: Some(vec![1, 2, 3, 4]),
 /// };
+///
+/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
 /// let pos = writer.archive(&value)
 ///     .expect("failed to archive test");
 /// let buf = writer.into_inner();
+///
 /// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 /// assert_eq!(archived.int, value.int);
 /// assert_eq!(archived.string, value.string);
@@ -473,6 +485,28 @@ pub unsafe trait ArchiveCopy: Archive<Archived = Self> + Copy {}
 
 /// A resolver that always resolves to the unarchived value. This can be useful
 /// while implementing [`ArchiveCopy`].
+///
+/// ## Examples
+/// ```
+/// use rkyv::{Archive, ArchiveCopy, CopyResolver, Write};
+///
+/// #[derive(Clone, Copy)]
+/// struct Example {
+///     a: i32,
+///     b: bool,
+/// }
+///
+/// impl Archive for Example {
+///     type Archived = Example;
+///     type Resolver = CopyResolver;
+///
+///     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+///         Ok(CopyResolver)
+///     }
+/// }
+///
+/// unsafe impl ArchiveCopy for Example {}
+/// ```
 pub struct CopyResolver;
 
 impl<T: ArchiveCopy> Resolve<T> for CopyResolver {

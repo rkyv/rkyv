@@ -126,11 +126,7 @@ impl<K: CheckBytes<ArchiveContext> + Eq + Hash, V: CheckBytes<ArchiveContext>>
             context,
         )?;
         let displace = context
-            .claim::<u32>(
-                (displace_ptr as *const RelPtr).cast(),
-                displace_ptr.offset(),
-                len as usize,
-            )?
+            .claim::<u32>(displace_ptr, len as usize)?
             .cast::<u32>();
 
         let displace = slice::from_raw_parts(displace, len as usize);
@@ -145,11 +141,7 @@ impl<K: CheckBytes<ArchiveContext> + Eq + Hash, V: CheckBytes<ArchiveContext>>
             context,
         )?;
         let entries = context
-            .claim::<Entry<K, V>>(
-                (entries_ptr as *const RelPtr).cast(),
-                entries_ptr.offset(),
-                len as usize,
-            )?
+            .claim::<Entry<K, V>>(entries_ptr, len as usize)?
             .cast::<Entry<K, V>>();
 
         for i in 0..len {

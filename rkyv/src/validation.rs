@@ -8,19 +8,15 @@ use std::error;
 /// A range of bytes in an archive.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Interval {
-    start: usize,
-    end: usize,
+    /// The start of the byte range
+    pub start: usize,
+    /// The end of the byte range
+    pub end: usize,
 }
 
 impl Interval {
-    fn new(start: usize, len: usize) -> Self {
-        Self {
-            start,
-            end: start + len,
-        }
-    }
-
-    fn overlaps(&self, other: &Self) -> bool {
+    /// Returns whether the interval overlaps with another.
+    pub fn overlaps(&self, other: &Self) -> bool {
         self.start < other.end && other.start < self.end
     }
 }
@@ -126,6 +122,136 @@ impl<T: fmt::Display> fmt::Display for CheckArchiveError<T> {
 impl<T: fmt::Debug + fmt::Display> error::Error for CheckArchiveError<T> {}
 
 /// Context to perform archive validation.
+///
+/// When implementing archiveable containers, an archived type may point to some
+/// bytes elsewhere in the archive using a [`RelPtr`]. Before checking those
+/// bytes, they must be claimed in the context. This prevents infinite-loop
+/// attacks by malicious actors by ensuring that each block of memory has one
+/// and only one owner.
+///
+/// # Example
+/// ```
+/// use core::{fmt, marker::PhantomData};
+/// use std::error::Error;
+/// use rkyv::{
+///     validation::{ArchiveContext, ArchiveMemoryError},
+///     Archive,
+///     RelPtr,
+///     Resolve,
+///     Write,
+/// };
+/// use bytecheck::{CheckBytes, Unreachable};
+///
+/// pub struct MyBox<T> {
+///     value: *mut T,
+/// }
+///
+/// impl<T> MyBox<T> {
+///     fn new(value: T) -> Self {
+///         Self {
+///             value: Box::into_raw(Box::new(value)),
+///         }
+///     }
+///
+///     fn value(&self) -> &T {
+///         unsafe { &*self.value }
+///     }
+/// }
+///
+/// impl<T> Drop for MyBox<T> {
+///     fn drop(&mut self) {
+///         unsafe {
+///             Box::from_raw(self.value);
+///         }
+///     }
+/// }
+///
+/// // A transparent representation guarantees us the same representation as
+/// // a RelPtr
+/// #[repr(transparent)]
+/// pub struct ArchivedMyBox<T> {
+///     value: RelPtr,
+///     _phantom: PhantomData<T>,
+/// }
+///
+/// impl<T> ArchivedMyBox<T> {
+///     fn value(&self) -> &T {
+///         unsafe { &*self.value.as_ptr() }
+///     }
+/// }
+///
+/// pub struct ArchivedMyBoxResolver {
+///     value_pos: usize,
+/// }
+///
+/// impl<T: Archive> Resolve<MyBox<T>> for ArchivedMyBoxResolver {
+///     type Archived = ArchivedMyBox<T::Archived>;
+///
+///     fn resolve(self, pos: usize, value: &MyBox<T>) -> Self::Archived {
+///         unsafe {
+///             ArchivedMyBox {
+///                 value: RelPtr::new(pos, self.value_pos),
+///                 _phantom: PhantomData,
+///             }
+///         }
+///     }
+/// }
+///
+/// impl<T: Archive> Archive for MyBox<T> {
+///     type Archived = ArchivedMyBox<T::Archived>;
+///     type Resolver = ArchivedMyBoxResolver;
+///
+///     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+///         Ok(ArchivedMyBoxResolver {
+///             value_pos: writer.archive(self.value())?,
+///         })
+///     }
+/// }
+///
+/// #[derive(Debug)]
+/// pub enum ArchivedMyBoxError<T> {
+///     MemoryError(ArchiveMemoryError),
+///     CheckValueError(T),
+/// }
+///
+/// impl<T: fmt::Display> fmt::Display for ArchivedMyBoxError<T> {
+///     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+///         match self {
+///             ArchivedMyBoxError::MemoryError(e) => write!(f, "memory error: {}", e),
+///             ArchivedMyBoxError::CheckValueError(e) => write!(f, "check value error: {}", e),
+///         }
+///     }
+/// }
+///
+/// impl<T: Error> Error for ArchivedMyBoxError<T> {}
+///
+/// impl<T> From<Unreachable> for ArchivedMyBoxError<T> {
+///     fn from(e: Unreachable) -> Self {
+///         unreachable!()
+///     }
+/// }
+///
+/// impl<T> From<ArchiveMemoryError> for ArchivedMyBoxError<T> {
+///     fn from(e: ArchiveMemoryError) -> Self {
+///         ArchivedMyBoxError::MemoryError(e)
+///     }
+/// }
+///
+/// impl<T: CheckBytes<ArchiveContext>> CheckBytes<ArchiveContext> for ArchivedMyBox<T> {
+///     type Error = ArchivedMyBoxError<T::Error>;
+///
+///     unsafe fn check_bytes<'a>(
+///         bytes: *const u8,
+///         context: &mut ArchiveContext
+///     ) -> Result<&'a Self, Self::Error> {
+///         let rel_ptr = RelPtr::check_bytes(bytes, context)?;
+///         let value_bytes = context.claim::<T>(rel_ptr, 1)?;
+///         T::check_bytes(value_bytes, context)
+///             .map_err(|e| ArchivedMyBoxError::CheckValueError(e))?;
+///         Ok(&*bytes.cast())
+///     }
+/// }
+/// ```
 pub struct ArchiveContext {
     begin: *const u8,
     len: usize,
@@ -144,18 +270,19 @@ impl ArchiveContext {
         }
     }
 
-    /// Checks the relative pointer with given `base` and `offset`, then claims
-    /// `count` items at the target location.
+    /// Claims `count` items pointed to by the given relative pointer.
     ///
     /// # Safety
     ///
-    /// `base` must be inside the archive this context was created for.
+    /// `rel_ptr` must be inside the archive this context was created for.
     pub unsafe fn claim<T: CheckBytes<ArchiveContext>>(
         &mut self,
-        base: *const u8,
-        offset: isize,
+        rel_ptr: &RelPtr,
         count: usize,
     ) -> Result<*const u8, ArchiveMemoryError> {
+        let base = (rel_ptr as *const RelPtr).cast::<u8>();
+        let offset = rel_ptr.offset();
+
         self.claim_bytes(
             base,
             offset,
@@ -164,7 +291,7 @@ impl ArchiveContext {
         )
     }
 
-    /// Checks the memory pointed to by the given relative pointer
+    /// Claims `count` bytes located `offset` bytes away from `base`.
     ///
     /// # Safety
     ///
@@ -198,7 +325,10 @@ impl ArchiveContext {
                         archive_len: self.len,
                     })
                 } else {
-                    let interval = Interval::new(target_pos, count);
+                    let interval = Interval {
+                        start: target_pos,
+                        end: target_pos + count,
+                    };
                     match self.intervals.binary_search(&interval) {
                         Ok(index) => Err(ArchiveMemoryError::ClaimOverlap {
                             previous: self.intervals[index],
@@ -243,6 +373,33 @@ impl ArchiveContext {
 
 /// Checks the given archive at the given position for an archived version of
 /// the given type.
+///
+/// This is a safe alternative to [`archived_value`](crate::archived_value) for types that implement
+/// `CheckBytes`.
+///
+/// # Example
+/// ```
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, check_archive, Write};
+/// use bytecheck::CheckBytes;
+///
+/// #[derive(Archive)]
+/// #[archive(derive(CheckBytes))]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+/// let pos = writer.archive(&value)
+///     .expect("failed to archive test");
+/// let buf = writer.into_inner();
+/// let archived = check_archive::<Example>(buf.as_ref(), pos).unwrap();
+/// ```
 pub fn check_archive<'a, T: Archive>(
     buf: &[u8],
     pos: usize,
@@ -252,7 +409,7 @@ where
 {
     let mut context = ArchiveContext::new(buf);
     unsafe {
-        let bytes = context.claim::<T::Archived>(buf.as_ptr(), pos as isize, 1)?;
+        let bytes = context.claim_bytes(buf.as_ptr(), pos as isize, mem::size_of::<T::Archived>(), mem::align_of::<T::Archived>())?;
         Archived::<T>::check_bytes(bytes, &mut context).map_err(CheckArchiveError::CheckBytes)?;
         Ok(&*bytes.cast())
     }
