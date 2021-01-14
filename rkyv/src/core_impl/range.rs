@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{offset_of, Archive, ArchiveSelf, Archived, Resolve, SelfResolver, Unarchive, Write};
+use crate::{offset_of, Archive, ArchiveCopy, Archived, Resolve, CopyResolver, Unarchive, Write};
 use core::{
     cmp, fmt,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
@@ -8,20 +8,20 @@ use core::{
 
 impl Archive for RangeFull {
     type Archived = Self;
-    type Resolver = SelfResolver;
+    type Resolver = CopyResolver;
 
     fn archive<W: Write + ?Sized>(&self, _: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(SelfResolver)
+        Ok(CopyResolver)
     }
 }
+
+unsafe impl ArchiveCopy for RangeFull {}
 
 impl Unarchive<RangeFull> for RangeFull {
     fn unarchive(&self) -> Self {
         RangeFull
     }
 }
-
-unsafe impl ArchiveSelf for RangeFull {}
 
 /// An archived [`Range`].
 #[derive(Clone, Default, PartialEq, Eq, Hash)]

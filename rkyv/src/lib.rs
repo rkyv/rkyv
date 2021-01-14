@@ -45,12 +45,12 @@
 //!
 //! - `const_generics`: Improves the implementations for some traits and
 //!   provides an [`Archive`] implementation for slices with elements that
-//!   implement [`ArchiveSelf`]. Ideal for `#![no_std]` environments.
+//!   implement [`ArchiveCopy`]. Ideal for `#![no_std]` environments.
 //! - `long_rel_ptrs`: Increases the size of relative pointers to 64 bits for
 //!   large archive support
 //! - `specialization`: Enables the unfinished specialization feature and
 //!   provides more efficient implementations of some functions when working
-//!   with [`ArchiveSelf`] types.
+//!   with [`ArchiveCopy`] types.
 //! - `std`: Enables standard library support.
 //! - `strict`: Guarantees that types will have the same representations across
 //!   platforms and compilations. This is already the case in practice, but this
@@ -453,15 +453,15 @@ pub trait UnarchiveRef<T: ArchiveRef<Reference = Self> + ?Sized>:
 /// A trait that indicates that some [`Archive`] type can be copied directly to
 /// an archive without additional processing.
 ///
-/// You can derive an implementation of `ArchiveSelf` by adding
-/// `#[archive(self)]` to the struct or enum. Types that implement `ArchiveSelf`
+/// You can derive an implementation of `ArchiveCopy` by adding
+/// `#[archive(self)]` to the struct or enum. Types that implement `ArchiveCopy`
 /// must also implement [`Copy`](core::marker::Copy).
 ///
-/// Types that implement `ArchiveSelf` are not guaranteed to have `archive`
+/// Types that implement `ArchiveCopy` are not guaranteed to have `archive`
 /// called on them to archive their value. Most or all implementations that
-/// leverage `ArchiveSelf` will require the `specialization` feature.
+/// leverage `ArchiveCopy` will require the `specialization` feature.
 ///
-/// `ArchiveSelf` must be manually implemented even if a type implements
+/// `ArchiveCopy` must be manually implemented even if a type implements
 /// [`Archive`] and [`Copy`](core::marker::Copy) because some types may
 /// transform their data when writing to an archive.
 ///
@@ -470,7 +470,7 @@ pub trait UnarchiveRef<T: ArchiveRef<Reference = Self> + ?Sized>:
 /// use rkyv::{Aligned, Archive, ArchiveBuffer, archived_value, Write};
 ///
 /// #[derive(Archive, Clone, Copy, Debug, PartialEq)]
-/// #[archive(self)]
+/// #[archive(copy)]
 /// struct Vector4<T>(T, T, T, T);
 ///
 /// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
@@ -481,13 +481,13 @@ pub trait UnarchiveRef<T: ArchiveRef<Reference = Self> + ?Sized>:
 /// let archived_value = unsafe { archived_value::<Vector4<f32>>(buf.as_ref(), pos) };
 /// assert_eq!(&value, archived_value);
 /// ```
-pub unsafe trait ArchiveSelf: Archive<Archived = Self> + Copy {}
+pub unsafe trait ArchiveCopy: Archive<Archived = Self> + Copy {}
 
 /// A resolver that always resolves to the unarchived value. This can be useful
-/// while implementing [`ArchiveSelf`].
-pub struct SelfResolver;
+/// while implementing [`ArchiveCopy`].
+pub struct CopyResolver;
 
-impl<T: ArchiveSelf> Resolve<T> for SelfResolver {
+impl<T: ArchiveCopy> Resolve<T> for CopyResolver {
     type Archived = T;
 
     fn resolve(self, _pos: usize, value: &T) -> T {

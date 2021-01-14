@@ -30,7 +30,7 @@ impl Default for Repr {
 }
 
 struct Attributes {
-    archive_self: Option<Span>,
+    archive_copy: Option<Span>,
     repr: Repr,
     derives: Option<MetaList>,
     name: Option<(Option<Ident>, Span)>,
@@ -39,7 +39,7 @@ struct Attributes {
 impl Default for Attributes {
     fn default() -> Self {
         Self {
-            archive_self: None,
+            archive_copy: None,
             repr: Default::default(),
             derives: None,
             name: None,
@@ -57,13 +57,13 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                         if let NestedMeta::Meta(meta) = n {
                             match meta {
                                 Meta::Path(path) => {
-                                    if path.is_ident("self") {
-                                        if result.archive_self.is_none() {
-                                            result.archive_self = Some(path.span());
+                                    if path.is_ident("copy") {
+                                        if result.archive_copy.is_none() {
+                                            result.archive_copy = Some(path.span());
                                         } else {
                                             return Err(Error::new(
                                                 meta.span(),
-                                                "self already specified",
+                                                "copy already specified",
                                             )
                                             .to_compile_error());
                                         }
@@ -159,7 +159,7 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
 ///
 /// Additional arguments can be specified using the `#[archive(...)]` attribute:
 ///
-/// - `self`: Implements `ArchiveSelf` as well as `Archive`. Only suitable for
+/// - `copy`: Implements `ArchiveCopy` as well as `Archive`. Only suitable for
 /// types that can be directly archived.
 /// - `derive(...)`: Adds a `#[derive(...)]` attribute to the archived type.
 /// - `name`, `name = "..."`: Exposes the archived type with the given name. If
@@ -193,8 +193,8 @@ pub fn archive_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         Err(errors) => return proc_macro::TokenStream::from(errors),
     };
 
-    let archive_impl = if attributes.archive_self.is_some() {
-        derive_archive_self_impl(&input, &attributes)
+    let archive_impl = if attributes.archive_copy.is_some() {
+        derive_archive_copy_impl(&input, &attributes)
     } else {
         derive_archive_impl(&input, &attributes)
     };
@@ -779,7 +779,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
     }
 }
 
-fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStream {
+fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStream {
     if let Some(derives) = &attributes.derives {
         return Error::new(derives.span(), "derives should be placed on the derived type for archive self derives").to_compile_error();
     }
@@ -813,7 +813,7 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                 Fields::Named(ref fields) => {
                     let field_wheres = fields.named.iter().map(|f| {
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: ArchiveSelf }
+                        quote_spanned! { f.span() => #ty: ArchiveCopy }
                     });
 
                     quote! { #(#field_wheres,)* }
@@ -821,7 +821,7 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                 Fields::Unnamed(ref fields) => {
                     let field_wheres = fields.unnamed.iter().map(|f| {
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: ArchiveSelf }
+                        quote_spanned! { f.span() => #ty: ArchiveCopy }
                     });
 
                     quote! { #(#field_wheres,)* }
@@ -830,7 +830,7 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
             };
 
             quote! {
-                unsafe impl<#generic_params> ArchiveSelf for #name<#generic_args>
+                unsafe impl<#generic_params> ArchiveCopy for #name<#generic_args>
                 where
                     #generic_predicates
                     #field_wheres
@@ -842,10 +842,10 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                     #field_wheres
                 {
                     type Archived = Self;
-                    type Resolver = SelfResolver;
+                    type Resolver = CopyResolver;
 
                     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                        Ok(SelfResolver)
+                        Ok(CopyResolver)
                     }
                 }
             }
@@ -873,14 +873,14 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                 Fields::Named(ref fields) => {
                     let field_wheres = fields.named.iter().map(|f| {
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: ArchiveSelf }
+                        quote_spanned! { f.span() => #ty: ArchiveCopy }
                     });
                     quote! { #(#field_wheres,)* }
                 }
                 Fields::Unnamed(ref fields) => {
                     let field_wheres = fields.unnamed.iter().map(|f| {
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: ArchiveSelf }
+                        quote_spanned! { f.span() => #ty: ArchiveCopy }
                     });
                     quote! { #(#field_wheres,)* }
                 }
@@ -889,7 +889,7 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
             let field_wheres = quote! { #(#field_wheres)* };
 
             quote! {
-                unsafe impl<#generic_params> ArchiveSelf for #name<#generic_args>
+                unsafe impl<#generic_params> ArchiveCopy for #name<#generic_args>
                 where
                     #generic_predicates
                     #field_wheres
@@ -901,10 +901,10 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                     #field_wheres
                 {
                     type Archived = Self;
-                    type Resolver = SelfResolver;
+                    type Resolver = CopyResolver;
 
                     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                        Ok(SelfResolver)
+                        Ok(CopyResolver)
                     }
                 }
             }
@@ -918,8 +918,8 @@ fn derive_archive_self_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
         const _: () = {
             use rkyv::{
                 Archive,
-                ArchiveSelf,
-                SelfResolver,
+                ArchiveCopy,
+                CopyResolver,
                 Write,
             };
 
@@ -941,8 +941,8 @@ pub fn unarchive_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         Err(errors) => return proc_macro::TokenStream::from(errors),
     };
 
-    let unarchive_impl = if attributes.archive_self.is_some() {
-        derive_unarchive_self_impl(&input)
+    let unarchive_impl = if attributes.archive_copy.is_some() {
+        derive_unarchive_copy_impl(&input)
     } else {
         derive_unarchive_impl(&input)
     };
@@ -1142,7 +1142,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
     }
 }
 
-fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
+fn derive_unarchive_copy_impl(input: &DeriveInput) -> TokenStream {
     let name = &input.ident;
 
     let generic_params = input
@@ -1174,7 +1174,7 @@ fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
                         None
                     } else {
                         let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: ArchiveSelf })
+                        Some(quote_spanned! { f.span() => #ty: ArchiveCopy })
                     }
                 });
                 let field_wheres = quote! { #(#field_wheres,)* };
@@ -1197,7 +1197,7 @@ fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
                         None
                     } else {
                         let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: ArchiveSelf })
+                        Some(quote_spanned! { f.span() => #ty: ArchiveCopy })
                     }
                 });
                 let field_wheres = quote! { #(#field_wheres,)* };
@@ -1233,7 +1233,7 @@ fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
                             None
                         } else {
                             let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: ArchiveSelf })
+                            Some(quote_spanned! { f.span() => #ty: ArchiveCopy })
                         }
                     });
                     quote! { #(#field_wheres,)* }
@@ -1244,7 +1244,7 @@ fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
                             None
                         } else {
                             let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: ArchiveSelf })
+                            Some(quote_spanned! { f.span() => #ty: ArchiveCopy })
                         }
                     });
                     quote! { #(#field_wheres,)* }
@@ -1273,7 +1273,7 @@ fn derive_unarchive_self_impl(input: &DeriveInput) -> TokenStream {
 
     quote! {
         const _: () = {
-            use rkyv::{Archive, ArchiveSelf, Unarchive};
+            use rkyv::{Archive, ArchiveCopy, Unarchive};
             #unarchive_impl
         };
     }
