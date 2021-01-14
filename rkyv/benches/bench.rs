@@ -2,7 +2,7 @@ use bytecheck::CheckBytes;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
-use rkyv::{Aligned, Archive, ArchiveBuffer, archived_value, check_archive, Unarchive, Write};
+use rkyv::{archived_value, check_archive, Aligned, Archive, ArchiveBuffer, Unarchive, Write};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -54,7 +54,12 @@ impl<T1: Generate, T2: Generate, T3: Generate> Generate for (T1, T2, T3) {
 
 impl<T: Generate> Generate for [T; 4] {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        [T::generate(rng), T::generate(rng), T::generate(rng), T::generate(rng)]
+        [
+            T::generate(rng),
+            T::generate(rng),
+            T::generate(rng),
+            T::generate(rng),
+        ]
     }
 }
 
@@ -109,7 +114,16 @@ pub struct Item {
 
 impl Generate for Item {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const IDS: [&'static str; 8] = ["dirt", "stone", "pickaxe", "sand", "gravel", "shovel", "chestplate", "steak"];
+        const IDS: [&'static str; 8] = [
+            "dirt",
+            "stone",
+            "pickaxe",
+            "sand",
+            "gravel",
+            "shovel",
+            "chestplate",
+            "steak",
+        ];
         Self {
             count: rng.gen(),
             slot: rng.gen(),
@@ -167,8 +181,12 @@ pub struct Entity {
 
 impl Generate for Entity {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const IDS: [&'static str; 8] = ["cow", "sheep", "zombie", "skeleton", "spider", "creeper", "parrot", "bee"];
-        const CUSTOM_NAMES: [&'static str; 8] = ["rainbow", "princess", "steve", "johnny", "missy", "coward", "fairy", "howard"];
+        const IDS: [&'static str; 8] = [
+            "cow", "sheep", "zombie", "skeleton", "spider", "creeper", "parrot", "bee",
+        ];
+        const CUSTOM_NAMES: [&'static str; 8] = [
+            "rainbow", "princess", "steve", "johnny", "missy", "coward", "fairy", "howard",
+        ];
 
         Self {
             id: IDS[rng.gen_range(0..IDS.len())].to_string(),
@@ -183,7 +201,8 @@ impl Generate for Entity {
             invulnerable: rng.gen_bool(0.5),
             portal_cooldown: rng.gen(),
             uuid: <[u32; 4] as Generate>::generate(rng),
-            custom_name: <Option<()> as Generate>::generate(rng).map(|_| CUSTOM_NAMES[rng.gen_range(0..CUSTOM_NAMES.len())].to_string()),
+            custom_name: <Option<()> as Generate>::generate(rng)
+                .map(|_| CUSTOM_NAMES[rng.gen_range(0..CUSTOM_NAMES.len())].to_string()),
             custom_name_visible: rng.gen_bool(0.5),
             silent: rng.gen_bool(0.5),
             glowing: rng.gen_bool(0.5),
@@ -208,12 +227,27 @@ pub struct RecipeBook {
 
 impl Generate for RecipeBook {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const RECIPES: [&'static str; 8] = ["pickaxe", "torch", "bow", "crafting table", "furnace", "shears", "arrow", "tnt"];
+        const RECIPES: [&'static str; 8] = [
+            "pickaxe",
+            "torch",
+            "bow",
+            "crafting table",
+            "furnace",
+            "shears",
+            "arrow",
+            "tnt",
+        ];
         const MAX_RECIPES: usize = 30;
         const MAX_DISPLAYED_RECIPES: usize = 10;
         Self {
-            recipes: generate_vec::<_, ()>(rng, 0..MAX_RECIPES).iter().map(|_| RECIPES[rng.gen_range(0..RECIPES.len())].to_string()).collect(),
-            to_be_displayed: generate_vec::<_, ()>(rng, 0..MAX_DISPLAYED_RECIPES).iter().map(|_| RECIPES[rng.gen_range(0..RECIPES.len())].to_string()).collect(),
+            recipes: generate_vec::<_, ()>(rng, 0..MAX_RECIPES)
+                .iter()
+                .map(|_| RECIPES[rng.gen_range(0..RECIPES.len())].to_string())
+                .collect(),
+            to_be_displayed: generate_vec::<_, ()>(rng, 0..MAX_DISPLAYED_RECIPES)
+                .iter()
+                .map(|_| RECIPES[rng.gen_range(0..RECIPES.len())].to_string())
+                .collect(),
             is_filtering_craftable: rng.gen_bool(0.5),
             is_gui_open: rng.gen_bool(0.5),
             is_furnace_filtering_craftable: rng.gen_bool(0.5),
@@ -271,7 +305,8 @@ impl Generate for Player {
             dimension: DIMENSIONS[rng.gen_range(0..DIMENSIONS.len())].to_string(),
             selected_item_slot: rng.gen(),
             selected_item: Item::generate(rng),
-            spawn_dimension: <Option<()> as Generate>::generate(rng).map(|_| DIMENSIONS[rng.gen_range(0..DIMENSIONS.len())].to_string()),
+            spawn_dimension: <Option<()> as Generate>::generate(rng)
+                .map(|_| DIMENSIONS[rng.gen_range(0..DIMENSIONS.len())].to_string()),
             spawn_x: rng.gen(),
             spawn_y: rng.gen(),
             spawn_z: rng.gen(),
@@ -298,7 +333,8 @@ impl Generate for Player {
 }
 
 fn generate_player_name<R: Rng>(rng: &mut R) -> String {
-    const LEGAL_CHARS: &'static [u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_";
+    const LEGAL_CHARS: &'static [u8] =
+        b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_";
 
     let len = rng.gen_range(10..40);
     let mut result = String::new();
@@ -330,48 +366,68 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("bincode");
     {
         let mut buffer = Vec::with_capacity(BUFFER_LEN);
-        group.bench_function("serialize", |b| b.iter(|| {
-            black_box(&mut buffer).clear();
-            bincode::serialize_into(black_box(&mut buffer), black_box(&players)).unwrap();
-        }));
+        group.bench_function("serialize", |b| {
+            b.iter(|| {
+                black_box(&mut buffer).clear();
+                bincode::serialize_into(black_box(&mut buffer), black_box(&players)).unwrap();
+            })
+        });
 
         buffer.clear();
         bincode::serialize_into(&mut buffer, &players).unwrap();
 
-        group.bench_function("deserialize", |b| b.iter(|| {
-            bincode::deserialize::<'_, Players>(black_box(&buffer)).unwrap();
-        }));
+        group.bench_function("deserialize", |b| {
+            b.iter(|| {
+                bincode::deserialize::<'_, Players>(black_box(&buffer)).unwrap();
+            })
+        });
     }
     group.finish();
 
     let mut group = c.benchmark_group("rkyv");
     {
         let mut buffer = vec![Aligned(0u8); BUFFER_LEN];
-        let mut buffer = unsafe { core::slice::from_raw_parts_mut(buffer.as_mut_ptr().cast(), buffer.len()) };
-        group.bench_function("serialize", |b| b.iter(|| {
-            let mut writer = ArchiveBuffer::new(black_box(&mut buffer));
-            black_box(writer.archive(black_box(&players)).unwrap());
-        }));
+        let mut buffer =
+            unsafe { core::slice::from_raw_parts_mut(buffer.as_mut_ptr().cast(), buffer.len()) };
+        group.bench_function("serialize", |b| {
+            b.iter(|| {
+                let mut writer = ArchiveBuffer::new(black_box(&mut buffer));
+                black_box(writer.archive(black_box(&players)).unwrap());
+            })
+        });
 
         let mut writer = ArchiveBuffer::new(&mut buffer);
         let pos = writer.archive(&players).unwrap();
 
-        group.bench_function("access", |b| b.iter(|| {
-            black_box(unsafe { archived_value::<Players>(black_box(buffer.as_ref()), black_box(pos)) });
-        }));
-        group.bench_function("validate", |b| b.iter(|| {
-            check_archive::<Players>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
-        }));
-        group.bench_function("deserialize", |b| b.iter(|| {
-            let value = unsafe { archived_value::<Players>(black_box(buffer.as_ref()), black_box(pos)) };
-            let unarchived: Players = value.unarchive();
-            black_box(unarchived);
-        }));
-        group.bench_function("deserialize with validate", |b| b.iter(|| {
-            let value = check_archive::<Players>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
-            let unarchived: Players = value.unarchive();
-            black_box(unarchived);
-        }));
+        group.bench_function("access", |b| {
+            b.iter(|| {
+                black_box(unsafe {
+                    archived_value::<Players>(black_box(buffer.as_ref()), black_box(pos))
+                });
+            })
+        });
+        group.bench_function("validate", |b| {
+            b.iter(|| {
+                check_archive::<Players>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
+            })
+        });
+        group.bench_function("deserialize", |b| {
+            b.iter(|| {
+                let value = unsafe {
+                    archived_value::<Players>(black_box(buffer.as_ref()), black_box(pos))
+                };
+                let unarchived: Players = value.unarchive();
+                black_box(unarchived);
+            })
+        });
+        group.bench_function("deserialize with validate", |b| {
+            b.iter(|| {
+                let value =
+                    check_archive::<Players>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
+                let unarchived: Players = value.unarchive();
+                black_box(unarchived);
+            })
+        });
     }
     group.finish();
 }

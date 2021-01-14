@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{offset_of, Archive, ArchiveCopy, Archived, Resolve, CopyResolver, Unarchive, Write};
+use crate::{offset_of, Archive, ArchiveCopy, Archived, CopyResolver, Resolve, Unarchive, Write};
 use core::{
     cmp, fmt,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},

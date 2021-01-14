@@ -433,12 +433,9 @@ pub trait UnarchiveRef<T: ArchiveRef<Reference = Self> + ?Sized>:
 {
     /// Unarchives a reference to the given value.
     ///
-    /// In addition to the archived value, it also receives an allocator
-    /// function to allocate memory with.
-    ///
     /// # Safety
     ///
-    /// The return value
+    /// The return value must be allocated using the given allocator function.
     unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
 }
 

@@ -1,7 +1,7 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    offset_of, Archive, ArchiveCopy, ArchiveRef, Archived, RelPtr, Resolve, CopyResolver,
+    offset_of, Archive, ArchiveCopy, ArchiveRef, Archived, CopyResolver, RelPtr, Resolve,
     Unarchive, UnarchiveRef, Write,
 };
 use core::{

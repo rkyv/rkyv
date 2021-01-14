@@ -216,7 +216,7 @@ pub fn archive_dyn(
             let archive_trait = args
                 .archive
                 .map(|ar_name| Ident::new(&ar_name.value(), ar_name.span()))
-                .unwrap_or(Ident::new(&format!("Archive{}", name), name.span()));
+                .unwrap_or_else(|| Ident::new(&format!("Archive{}", name), name.span()));
 
             let type_name_wheres = input.generics.type_params().map(|p| {
                 let name = &p.ident;

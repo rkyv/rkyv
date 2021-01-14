@@ -1,6 +1,7 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
+use crate::{offset_of, Archive, Archived, RelPtr, Resolve, Unarchive, Write};
 use core::{
     borrow::Borrow,
     cmp::Reverse,
@@ -12,8 +13,7 @@ use core::{
     pin::Pin,
     slice,
 };
-use std::{collections::{HashMap, HashSet}};
-use crate::{Archive, Archived, offset_of, RelPtr, Resolve, Unarchive, Write};
+use std::collections::{HashMap, HashSet};
 
 struct Entry<K, V> {
     key: K,
@@ -139,7 +139,8 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.index(k).map(|index| unsafe { &self.entry(index).value })
+        self.index(k)
+            .map(|index| unsafe { &self.entry(index).value })
     }
 
     /// Gets the mutable value associated with the given key.
@@ -151,9 +152,9 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     {
         unsafe {
             let hash_map = self.get_unchecked_mut();
-            hash_map.index(k).map(move |index| {
-                Pin::new_unchecked(&mut hash_map.entry_mut(index).value)
-            })
+            hash_map
+                .index(k)
+                .map(move |index| Pin::new_unchecked(&mut hash_map.entry_mut(index).value))
         }
     }
 
@@ -225,7 +226,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     >(
         iter: impl Iterator<Item = (&'a KU, &'a VU)>,
         len: usize,
-        writer: &mut W
+        writer: &mut W,
     ) -> Result<ArchivedHashMapResolver, W::Error> {
         let mut bucket_size = vec![0u32; len];
         let mut displaces = Vec::with_capacity(len);
@@ -263,7 +264,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
                     assignments.clear();
 
                     for &(_, (key, _)) in bucket.iter() {
-                        let mut hasher = base_hasher.clone();
+                        let mut hasher = base_hasher;
                         key.hash(&mut hasher);
                         let index = (hasher.finish() % len as u64) as u32;
                         if entries[index as usize].is_some() || assignments.contains(&index) {
@@ -280,7 +281,10 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
                     break;
                 }
             } else {
-                let offset = entries[first_empty..].iter().position(|value| value.is_none()).unwrap();
+                let offset = entries[first_empty..]
+                    .iter()
+                    .position(|value| value.is_none())
+                    .unwrap();
                 first_empty += offset;
                 entries[first_empty] = Some(bucket[0].1);
                 displacements[displace as usize] = first_empty as u32;
@@ -289,24 +293,39 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         }
 
         // Archive entries
-        let mut resolvers = entries.iter().map(|e| {
-            let (key, value) = e.unwrap();
-            Ok((key.archive(writer)?, value.archive(writer)?))
-        }).collect::<Result<Vec<_>, _>>()?;
+        let mut resolvers = entries
+            .iter()
+            .map(|e| {
+                let (key, value) = e.unwrap();
+                Ok((key.archive(writer)?, value.archive(writer)?))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         // Write blocks
         let displace_pos = writer.align_for::<u32>()?;
-        let displacements_slice = unsafe { slice::from_raw_parts(displacements.as_ptr().cast::<u8>(), displacements.len() * size_of::<u32>()) };
+        let displacements_slice = unsafe {
+            slice::from_raw_parts(
+                displacements.as_ptr().cast::<u8>(),
+                displacements.len() * size_of::<u32>(),
+            )
+        };
         writer.write(displacements_slice)?;
 
         let entries_pos = writer.align_for::<Entry<K, V>>()?;
-        for ((key, value), (key_resolver, value_resolver)) in entries.iter().map(|r| r.unwrap()).zip(resolvers.drain(..)) {
+        for ((key, value), (key_resolver, value_resolver)) in
+            entries.iter().map(|r| r.unwrap()).zip(resolvers.drain(..))
+        {
             let entry_pos = writer.pos();
             let entry = Entry {
                 key: key_resolver.resolve(entry_pos + offset_of!(Entry<K, V>, key), key),
                 value: value_resolver.resolve(entry_pos + offset_of!(Entry<K, V>, value), value),
             };
-            let entry_slice = unsafe { slice::from_raw_parts((&entry as *const Entry<K, V>).cast::<u8>(), size_of::<Entry<K, V>>()) };
+            let entry_slice = unsafe {
+                slice::from_raw_parts(
+                    (&entry as *const Entry<K, V>).cast::<u8>(),
+                    size_of::<Entry<K, V>>(),
+                )
+            };
             writer.write(entry_slice)?;
         }
 
@@ -542,8 +561,14 @@ impl ArchivedHashMapResolver {
         unsafe {
             ArchivedHashMap {
                 len: len as u32,
-                displace: RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, displace), self.displace_pos),
-                entries: RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, entries), self.entries_pos),
+                displace: RelPtr::new(
+                    pos + offset_of!(ArchivedHashMap<K, V>, displace),
+                    self.displace_pos,
+                ),
+                entries: RelPtr::new(
+                    pos + offset_of!(ArchivedHashMap<K, V>, entries),
+                    self.entries_pos,
+                ),
                 phantom: PhantomData,
             }
         }
@@ -566,7 +591,11 @@ where
     type Resolver = ArchivedHashMapResolver;
 
     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(ArchivedHashMap::archive_from_iter(self.iter(), self.len(), writer)?)
+        Ok(ArchivedHashMap::archive_from_iter(
+            self.iter(),
+            self.len(),
+            writer,
+        )?)
     }
 }
 
@@ -589,24 +618,30 @@ impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
         if self.len() != other.len() {
             false
         } else {
-            self.iter().all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
+            self.iter()
+                .all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
         }
     }
 }
 
 impl<K: Hash + Eq, V: Eq> Eq for ArchivedHashMap<K, V> {}
 
-impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>> PartialEq<HashMap<K, V>> for ArchivedHashMap<AK, AV> {
+impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>> PartialEq<HashMap<K, V>>
+    for ArchivedHashMap<AK, AV>
+{
     fn eq(&self, other: &HashMap<K, V>) -> bool {
         if self.len() != other.len() {
             false
         } else {
-            self.iter().all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
+            self.iter()
+                .all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
         }
     }
 }
 
-impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>> PartialEq<ArchivedHashMap<AK, AV>> for HashMap<K, V> {
+impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>>
+    PartialEq<ArchivedHashMap<AK, AV>> for HashMap<K, V>
+{
     fn eq(&self, other: &ArchivedHashMap<AK, AV>) -> bool {
         other.eq(self)
     }
@@ -693,6 +728,10 @@ where
     type Resolver = ArchivedHashSetResolver;
 
     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(ArchivedHashSetResolver(ArchivedHashMap::archive_from_iter(self.iter().map(|x| (x, &())), self.len(), writer)?))
+        Ok(ArchivedHashSetResolver(ArchivedHashMap::archive_from_iter(
+            self.iter().map(|x| (x, &())),
+            self.len(),
+            writer,
+        )?))
     }
 }

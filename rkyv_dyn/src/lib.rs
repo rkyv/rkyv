@@ -211,6 +211,11 @@ where
 ///
 /// See [`ArchiveDyn`] for more information.
 pub trait UnarchiveDyn<T: ?Sized> {
+    /// Unarchives the given value as a trait object.
+    ///
+    /// # Safety
+    ///
+    /// The return value must be allocated using the given allocator function.
     unsafe fn unarchive_dyn(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
 }
 

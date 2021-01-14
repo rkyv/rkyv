@@ -103,9 +103,9 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                                                 result.name = Some((
                                                     Some(Ident::new(
                                                         &lit_str.value(),
-                                                        lit_str.span()),
-                                                    ),
-                                                    lit_str.span()
+                                                        lit_str.span(),
+                                                    )),
+                                                    lit_str.span(),
                                                 ));
                                             } else {
                                                 return Err(Error::new(
@@ -781,7 +781,11 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
 
 fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStream {
     if let Some(derives) = &attributes.derives {
-        return Error::new(derives.span(), "derives should be placed on the derived type for archive self derives").to_compile_error();
+        return Error::new(
+            derives.span(),
+            "derives should be placed on the derived type for archive self derives",
+        )
+        .to_compile_error();
     }
 
     if let Some((_, span)) = &attributes.name {
