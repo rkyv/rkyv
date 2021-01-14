@@ -487,7 +487,8 @@ macro_rules! register_impl {
         const _: () = {
             use core::mem::MaybeUninit;
             use rkyv_dyn::{
-                debug_info, inventory, validation, ImplData, ImplEntry, RegisteredImpl, VTable,
+                debug_info, inventory, validation, ImplData, ImplEntry, ImplValidation,
+                RegisteredImpl, VTable,
             };
 
             unsafe impl RegisteredImpl<$trait> for $type {
