@@ -4,6 +4,7 @@ use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
 use rkyv::{Aligned, Archive, ArchiveBuffer, archived_value, check_archive, Unarchive, Write};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 trait Generate {
     fn generate<R: Rng>(rng: &mut R) -> Self;
@@ -295,14 +296,33 @@ impl Generate for Player {
     }
 }
 
+fn generate_player_name<R: Rng>(rng: &mut R) -> String {
+    const LEGAL_CHARS: &'static [u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_";
+
+    let len = rng.gen_range(10..40);
+    let mut result = String::new();
+
+    for _ in 0..len {
+        result.push(LEGAL_CHARS[rng.gen_range(0..LEGAL_CHARS.len())] as char);
+    }
+
+    result
+}
+
 pub fn criterion_benchmark(c: &mut Criterion) {
     const PLAYERS: usize = 500;
     const STATE: u64 = 3141592653;
     const STREAM: u64 = 5897932384;
-    let mut players = Vec::with_capacity(PLAYERS);
+
+    type Players = HashMap<String, Player>;
+    let mut players: Players = HashMap::with_capacity(PLAYERS);
     let mut rng = Lcg64Xsh32::new(STATE, STREAM);
     for _ in 0..PLAYERS {
-        players.push(Player::generate(&mut rng));
+        let mut name = generate_player_name(&mut rng);
+        while players.contains_key(&name) {
+            name = generate_player_name(&mut rng);
+        }
+        players.insert(name, Player::generate(&mut rng));
     }
 
     const BUFFER_LEN: usize = 10_000_000;
@@ -314,10 +334,11 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             bincode::serialize_into(black_box(&mut buffer), black_box(&players)).unwrap();
         }));
 
+        buffer.clear();
         bincode::serialize_into(&mut buffer, &players).unwrap();
 
         group.bench_function("deserialize", |b| b.iter(|| {
-            bincode::deserialize::<'_, Vec<Player>>(black_box(&buffer)).unwrap();
+            bincode::deserialize::<'_, Players>(black_box(&buffer)).unwrap();
         }));
     }
     group.finish();
@@ -335,19 +356,19 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let pos = writer.archive(&players).unwrap();
 
         group.bench_function("access", |b| b.iter(|| {
-            black_box(unsafe { archived_value::<Vec<Player>>(black_box(buffer.as_ref()), black_box(pos)) });
+            black_box(unsafe { archived_value::<Players>(black_box(buffer.as_ref()), black_box(pos)) });
         }));
         group.bench_function("validate", |b| b.iter(|| {
-            check_archive::<Vec<Player>>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
+            check_archive::<Players>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
         }));
         group.bench_function("deserialize", |b| b.iter(|| {
-            let value = unsafe { archived_value::<Vec<Player>>(black_box(buffer.as_ref()), black_box(pos)) };
-            let unarchived: Vec<Player> = value.unarchive();
+            let value = unsafe { archived_value::<Players>(black_box(buffer.as_ref()), black_box(pos)) };
+            let unarchived: Players = value.unarchive();
             black_box(unarchived);
         }));
         group.bench_function("deserialize with validate", |b| b.iter(|| {
-            let value = check_archive::<Vec<Player>>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
-            let unarchived: Vec<Player> = value.unarchive();
+            let value = check_archive::<Players>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
+            let unarchived: Players = value.unarchive();
             black_box(unarchived);
         }));
     }

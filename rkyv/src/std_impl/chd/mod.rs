@@ -227,63 +227,72 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         len: usize,
         writer: &mut W
     ) -> Result<ArchivedHashMapResolver, W::Error> {
-        let mut buckets = Vec::with_capacity(len);
-        for i in 0..len {
-            buckets.push((i, Vec::new()));
-        }
+        let mut bucket_size = vec![0u32; len];
+        let mut displaces = Vec::with_capacity(len);
 
         for (key, value) in iter {
             let mut hasher = Self::make_hasher();
             key.hash(&mut hasher);
-            let index = hasher.finish() % len as u64;
-            buckets[index as usize].1.push((key, value));
+            let displace = (hasher.finish() % len as u64) as u32;
+            displaces.push((displace, (key, value)));
+            bucket_size[displace as usize] += 1;
         }
 
-        buckets.sort_by_key(|(_, bucket)| Reverse(bucket.len()));
+        displaces.sort_by_key(|&(displace, _)| (Reverse(bucket_size[displace as usize]), displace));
 
         let mut entries = Vec::with_capacity(len);
         entries.resize_with(len, || None);
         let mut displacements = vec![u32::MAX; len];
 
-        let mut slots = HashSet::new();
-        let mut assignments = Vec::new();
         let mut first_empty = 0;
-        for (displacement_index, bucket) in buckets.drain(..).filter(|(_, b)| b.len() > 0) {
-            if bucket.len() > 1 {
+        let mut assignments = Vec::with_capacity(8);
+
+        let mut start = 0;
+        while start < displaces.len() {
+            let displace = displaces[start].0;
+            let bucket_size = bucket_size[displace as usize] as usize;
+            let end = start + bucket_size;
+            let bucket = &displaces[start..end];
+            start = end;
+
+            if bucket_size > 1 {
                 'find_seed: for seed in 0x80_00_00_00..=0xFF_FF_FF_FF {
                     let mut base_hasher = Self::make_hasher();
                     seed.hash(&mut base_hasher);
 
-                    slots.clear();
                     assignments.clear();
 
-                    for &(key, _) in bucket.iter() {
+                    for &(_, (key, _)) in bucket.iter() {
                         let mut hasher = base_hasher.clone();
                         key.hash(&mut hasher);
                         let index = (hasher.finish() % len as u64) as u32;
-                        if entries[index as usize].is_some() || slots.contains(&index) {
+                        if entries[index as usize].is_some() || assignments.contains(&index) {
                             continue 'find_seed;
                         } else {
-                            slots.insert(index);
                             assignments.push(index);
                         }
                     }
 
-                    for (&(key, value), &assignment) in bucket.iter().zip(assignments.iter()) {
-                        entries[assignment as usize] = Some(((key, value), (key.archive(writer)?, value.archive(writer)?)));
+                    for i in 0..bucket_size {
+                        entries[assignments[i] as usize] = Some(bucket[i].1);
                     }
-                    displacements[displacement_index] = seed;
+                    displacements[displace as usize] = seed;
                     break;
                 }
             } else {
-                let offset = entries.iter().skip(first_empty).position(|value| value.is_none()).unwrap();
+                let offset = entries[first_empty..].iter().position(|value| value.is_none()).unwrap();
                 first_empty += offset;
-                let (key, value) = bucket[0];
-                entries[first_empty] = Some(((key, value), (key.archive(writer)?, value.archive(writer)?)));
-                displacements[displacement_index] = first_empty as u32;
+                entries[first_empty] = Some(bucket[0].1);
+                displacements[displace as usize] = first_empty as u32;
                 first_empty += 1;
             }
         }
+
+        // Archive entries
+        let mut resolvers = entries.iter().map(|e| {
+            let (key, value) = e.unwrap();
+            Ok((key.archive(writer)?, value.archive(writer)?))
+        }).collect::<Result<Vec<_>, _>>()?;
 
         // Write blocks
         let displace_pos = writer.align_for::<u32>()?;
@@ -291,7 +300,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         writer.write(displacements_slice)?;
 
         let entries_pos = writer.align_for::<Entry<K, V>>()?;
-        for ((key, value), (key_resolver, value_resolver)) in entries.drain(..).map(|r| r.unwrap()) {
+        for ((key, value), (key_resolver, value_resolver)) in entries.iter().map(|r| r.unwrap()).zip(resolvers.drain(..)) {
             let entry_pos = writer.pos();
             let entry = Entry {
                 key: key_resolver.resolve(entry_pos + offset_of!(Entry<K, V>, key), key),

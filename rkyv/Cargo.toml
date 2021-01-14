@@ -15,7 +15,6 @@ readme = "crates-io.md"
 
 [dependencies]
 bytecheck = { version = "0.3", optional = true }
-cfg-if = { version = "1.0", optional = true }
 memoffset = "0.6"
 rkyv_derive = { version = "=0.2.1", path = "../rkyv_derive" }
 seahash = { version = "4.0", optional = true }
@@ -39,7 +38,7 @@ default = ["std"]
 const_generics = []
 long_rel_ptrs = []
 specialization = []
-std = ["seahash", "cfg-if"]
+std = ["seahash"]
 strict = ["rkyv_derive/strict"]
 validation = ["bytecheck", "std"]
 
