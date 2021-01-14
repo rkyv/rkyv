@@ -77,8 +77,9 @@ fn generate_vec<R: Rng, T: Generate>(rng: &mut R, range: core::ops::Range<usize>
     result
 }
 
-#[derive(Archive, Deserialize, Serialize, Unarchive)]
-#[archive(derive(CheckBytes))]
+#[derive(Archive, CheckBytes, Clone, Copy, Deserialize, Serialize, Unarchive)]
+#[archive(copy)]
+#[repr(u8)]
 pub enum GameType {
     Survival,
     Creative,
@@ -117,8 +118,8 @@ impl Generate for Item {
     }
 }
 
-#[derive(Archive, Deserialize, Serialize, Unarchive)]
-#[archive(derive(CheckBytes))]
+#[derive(Archive, CheckBytes, Clone, Copy, Deserialize, Serialize, Unarchive)]
+#[archive(copy)]
 pub struct Abilities {
     walk_speed: f32,
     fly_speed: f32,

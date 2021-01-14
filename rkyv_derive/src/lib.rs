@@ -1273,7 +1273,7 @@ fn derive_unarchive_copy_impl(input: &DeriveInput) -> TokenStream {
 
     quote! {
         const _: () = {
-            use rkyv::{Archive, ArchiveCopy, Unarchive};
+            use rkyv::{Archive, Archived, ArchiveCopy, Unarchive};
             #unarchive_impl
         };
     }
