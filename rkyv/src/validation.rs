@@ -409,7 +409,12 @@ where
 {
     let mut context = ArchiveContext::new(buf);
     unsafe {
-        let bytes = context.claim_bytes(buf.as_ptr(), pos as isize, mem::size_of::<T::Archived>(), mem::align_of::<T::Archived>())?;
+        let bytes = context.claim_bytes(
+            buf.as_ptr(),
+            pos as isize,
+            mem::size_of::<T::Archived>(),
+            mem::align_of::<T::Archived>(),
+        )?;
         Archived::<T>::check_bytes(bytes, &mut context).map_err(CheckArchiveError::CheckBytes)?;
         Ok(&*bytes.cast())
     }
