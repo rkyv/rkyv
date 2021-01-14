@@ -43,9 +43,8 @@
 //!
 //! ## Features
 //!
-//! - `const_generics`: Improves the implementations for some traits and
-//!   provides an [`Archive`] implementation for slices with elements that
-//!   implement [`ArchiveCopy`]. Ideal for `#![no_std]` environments.
+//! - `const_generics`: Improves the implementations for arrays with support for
+//!   more lengths
 //! - `long_rel_ptrs`: Increases the size of relative pointers to 64 bits for
 //!   large archive support
 //! - `std`: Enables standard library support.
