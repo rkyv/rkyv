@@ -2,16 +2,27 @@ rkyv_typename adds type names for rkyv_dyn.
 
 ---
 
-You may be looking for:
+## API Documentation
 
 - [rkyv](https://docs.rs/rkyv), the core library
 - [rkyv_dyn](https://docs.rs/rkyv_dyn), which adds trait object support to rkyv
 - [rkyv_typename](https://docs.rs/rkyv_typename), a type naming library
 
+## Book
+
+- The [rkyv book](https://djkoloski.github.io/rkyv) covers the motivation and architecture of rkyv
+
+## Sister Crates:
+
+- [bytecheck](https://github.com/djkoloski/bytecheck), which rkyv uses for validation
+
+---
+
 ## rkyv_typename in action
 
 ```rust
 use rkyv_typename::TypeName;
+
 #[derive(TypeName)]
 #[typename = "CoolType"]
 struct Example<T>(T);

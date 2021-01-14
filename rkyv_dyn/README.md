@@ -11,11 +11,21 @@ Trait object serialization for rkyv.
 
 ---
 
-You may be looking for:
+## API Documentation
 
 - [rkyv](https://docs.rs/rkyv), the core library
 - [rkyv_dyn](https://docs.rs/rkyv_dyn), which adds trait object support to rkyv
 - [rkyv_typename](https://docs.rs/rkyv_typename), a type naming library
+
+## Book
+
+- The [rkyv book](https://djkoloski.github.io/rkyv) covers the motivation and architecture of rkyv
+
+## Sister Crates:
+
+- [bytecheck](https://github.com/djkoloski/bytecheck), which rkyv uses for validation
+
+---
 
 ## rkyv_dyn in action
 
@@ -73,12 +83,14 @@ impl ExampleTrait for Archived<IntStruct> {
 fn main() {
     let boxed_int = Box::new(IntStruct(42)) as Box<dyn ArchiveExampleTrait>;
     let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn ArchiveExampleTrait>;
+
     let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
     let int_pos = writer.archive(&boxed_int)
         .expect("failed to archive boxed int");
     let string_pos = writer.archive(&boxed_string)
         .expect("failed to archive boxed string");
     let buf = writer.into_inner();
+
     let archived_int = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>>(buf.as_ref(), int_pos) };
     let archived_string = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>>(buf.as_ref(), string_pos) };
     assert_eq!(archived_int.value(), "42");
