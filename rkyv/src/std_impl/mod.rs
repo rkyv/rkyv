@@ -184,38 +184,26 @@ where
     }
 }
 
-#[cfg(feature = "specialization")]
-macro_rules! default {
-    ($($rest:tt)*) => { default $($rest)* };
-}
-
-#[cfg(not(feature = "specialization"))]
-macro_rules! default {
-    ($($rest:tt)*) => { $($rest)* };
-}
-
 impl<T: Archive> ArchiveRef for [T] {
     type Archived = [T::Archived];
     type Reference = ArchivedSlice<T::Archived>;
     type Resolver = usize;
 
-    default! {
-        fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-            if !self.is_empty() {
-                let mut resolvers = Vec::with_capacity(self.len());
-                for value in self {
-                    resolvers.push(value.archive(writer)?);
-                }
-                let result = writer.align_for::<T::Archived>()?;
-                unsafe {
-                    for (i, resolver) in resolvers.drain(..).enumerate() {
-                        writer.resolve_aligned(&self[i], resolver)?;
-                    }
-                }
-                Ok(result)
-            } else {
-                Ok(0)
+    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        if !self.is_empty() {
+            let mut resolvers = Vec::with_capacity(self.len());
+            for value in self {
+                resolvers.push(value.archive(writer)?);
             }
+            let result = writer.align_for::<T::Archived>()?;
+            unsafe {
+                for (i, resolver) in resolvers.drain(..).enumerate() {
+                    writer.resolve_aligned(&self[i], resolver)?;
+                }
+            }
+            Ok(result)
+        } else {
+            Ok(0)
         }
     }
 }
@@ -224,14 +212,12 @@ impl<T: Archive> UnarchiveRef<[T]> for <[T] as ArchiveRef>::Reference
 where
     T::Archived: Unarchive<T>,
 {
-    default! {
-        unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut [T] {
-            let result = alloc(alloc::Layout::array::<T>(self.len()).unwrap()).cast::<T>();
-            for i in 0..self.len() {
-                result.add(i).write(self[i].unarchive());
-            }
-            slice::from_raw_parts_mut(result, self.len())
+    unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut [T] {
+        let result = alloc(alloc::Layout::array::<T>(self.len()).unwrap()).cast::<T>();
+        for i in 0..self.len() {
+            result.add(i).write(self[i].unarchive());
         }
+        slice::from_raw_parts_mut(result, self.len())
     }
 }
 

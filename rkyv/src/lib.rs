@@ -48,9 +48,6 @@
 //!   implement [`ArchiveCopy`]. Ideal for `#![no_std]` environments.
 //! - `long_rel_ptrs`: Increases the size of relative pointers to 64 bits for
 //!   large archive support
-//! - `specialization`: Enables the unfinished specialization feature and
-//!   provides more efficient implementations of some functions when working
-//!   with [`ArchiveCopy`] types.
 //! - `std`: Enables standard library support.
 //! - `strict`: Guarantees that types will have the same representations across
 //!   platforms and compilations. This is already the case in practice, but this
@@ -60,12 +57,8 @@
 //! By default, the `std` feature is enabled.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(
-    any(feature = "const_generics", feature = "specialization"),
-    allow(incomplete_features)
-)]
+#![cfg_attr(feature = "const_generics", allow(incomplete_features))]
 #![cfg_attr(feature = "const_generics", feature(const_generics))]
-#![cfg_attr(feature = "specialization", feature(specialization))]
 
 pub mod core_impl;
 #[cfg(feature = "std")]
@@ -453,13 +446,12 @@ pub trait UnarchiveRef<T: ArchiveRef<Reference = Self> + ?Sized>:
 /// A trait that indicates that some [`Archive`] type can be copied directly to
 /// an archive without additional processing.
 ///
-/// You can derive an implementation of `ArchiveCopy` by adding
-/// `#[archive(self)]` to the struct or enum. Types that implement `ArchiveCopy`
-/// must also implement [`Copy`](core::marker::Copy).
-///
 /// Types that implement `ArchiveCopy` are not guaranteed to have `archive`
-/// called on them to archive their value. Most or all implementations that
-/// leverage `ArchiveCopy` will require the `specialization` feature.
+/// called on them to archive their value.
+///
+/// You can derive an implementation of `ArchiveCopy` by adding
+/// `#[archive(copy)]` to the struct or enum. Types that implement `ArchiveCopy`
+/// must also implement [`Copy`](core::marker::Copy).
 ///
 /// `ArchiveCopy` must be manually implemented even if a type implements
 /// [`Archive`] and [`Copy`](core::marker::Copy) because some types may

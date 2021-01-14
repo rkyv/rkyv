@@ -173,13 +173,10 @@ impl<T: Archive> Resolve<[T]> for usize {
     }
 }
 
-#[cfg(any(not(feature = "std"), feature = "specialization"))]
+#[cfg(not(feature = "std"))]
 impl<T: ArchiveCopy> ArchiveRef for [T] {
-    #[cfg(not(feature = "std"))]
     type Archived = [T::Archived];
-    #[cfg(not(feature = "std"))]
     type Reference = ArchivedSlice<T::Archived>;
-    #[cfg(not(feature = "std"))]
     type Resolver = usize;
 
     fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
@@ -199,7 +196,7 @@ impl<T: ArchiveCopy> ArchiveRef for [T] {
     }
 }
 
-#[cfg(any(not(feature = "std"), feature = "specialization"))]
+#[cfg(not(feature = "std"))]
 impl<T: ArchiveCopy> UnarchiveRef<[T]> for <[T] as ArchiveRef>::Reference
 where
     T::Archived: Unarchive<T>,

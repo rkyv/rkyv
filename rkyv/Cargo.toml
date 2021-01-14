@@ -37,7 +37,6 @@ harness = false
 default = ["std"]
 const_generics = []
 long_rel_ptrs = []
-specialization = []
 std = ["seahash"]
 strict = ["rkyv_derive/strict"]
 validation = ["bytecheck", "std"]
