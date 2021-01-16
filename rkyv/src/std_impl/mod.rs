@@ -6,7 +6,7 @@ pub mod validation;
 
 use crate::{
     core_impl::ArchivedSlice, Archive, ArchiveRef, Archived, Reference, ReferenceResolver, Resolve,
-    Unarchive, UnarchiveRef, Write,
+    Serialize, SerializeRef, Unarchive, UnarchiveRef, Write,
 };
 use core::{
     borrow::Borrow,
@@ -106,9 +106,11 @@ impl Resolve<String> for StringResolver {
 impl Archive for String {
     type Archived = ArchivedString;
     type Resolver = StringResolver;
+}
 
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(StringResolver(self.as_str().archive_ref(writer)?))
+impl<W: Write + ?Sized> Serialize<W> for String {
+    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        Ok(StringResolver(self.as_str().serialize_ref(writer)?))
     }
 }
 
@@ -158,7 +160,7 @@ impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Box<V>
 #[doc(hidden)]
 pub struct BoxResolver<T>(T);
 
-impl<T: ArchiveRef + ?Sized> Resolve<Box<T>> for BoxResolver<T::Resolver> {
+impl<T: ArchiveRef + ?Sized> Resolve<Box<T>> for BoxResolver<T::ReferenceResolver> {
     type Archived = ArchivedBox<T::Reference>;
 
     fn resolve(self, pos: usize, value: &Box<T>) -> Self::Archived {
@@ -169,9 +171,11 @@ impl<T: ArchiveRef + ?Sized> Resolve<Box<T>> for BoxResolver<T::Resolver> {
 impl<T: ArchiveRef + ?Sized> Archive for Box<T> {
     type Archived = ArchivedBox<Reference<T>>;
     type Resolver = BoxResolver<ReferenceResolver<T>>;
+}
 
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(BoxResolver(self.as_ref().archive_ref(writer)?))
+impl<T: SerializeRef<W> + ?Sized, W: Write + ?Sized> Serialize<W> for Box<T> {
+    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        Ok(BoxResolver(self.as_ref().serialize_ref(writer)?))
     }
 }
 
@@ -187,13 +191,15 @@ where
 impl<T: Archive> ArchiveRef for [T] {
     type Archived = [T::Archived];
     type Reference = ArchivedSlice<T::Archived>;
-    type Resolver = usize;
+    type ReferenceResolver = usize;
+}
 
-    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+impl<T: Serialize<W>, W: Write + ?Sized> SerializeRef<W> for [T] {
+    fn serialize_ref(&self, writer: &mut W) -> Result<Self::ReferenceResolver, W::Error> {
         if !self.is_empty() {
             let mut resolvers = Vec::with_capacity(self.len());
             for value in self {
-                resolvers.push(value.archive(writer)?);
+                resolvers.push(value.serialize(writer)?);
             }
             let result = writer.align_for::<T::Archived>()?;
             unsafe {
@@ -267,9 +273,11 @@ impl<T: Resolve<[U]>, U> Resolve<Vec<U>> for VecResolver<T> {
 impl<T: Archive> Archive for Vec<T> {
     type Archived = ArchivedVec<Reference<[T]>>;
     type Resolver = VecResolver<ReferenceResolver<[T]>>;
+}
 
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(VecResolver(self.as_slice().archive_ref(writer)?))
+impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for Vec<T> {
+    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        Ok(VecResolver(self.as_slice().serialize_ref(writer)?))
     }
 }
 

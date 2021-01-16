@@ -392,12 +392,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("serialize", |b| {
             b.iter(|| {
                 let mut writer = ArchiveBuffer::new(black_box(&mut buffer));
-                black_box(writer.archive(black_box(&players)).unwrap());
+                black_box(writer.serialize(black_box(&players)).unwrap());
             })
         });
 
         let mut writer = ArchiveBuffer::new(&mut buffer);
-        let pos = writer.archive(&players).unwrap();
+        let pos = writer.serialize(&players).unwrap();
 
         group.bench_function("access", |b| {
             b.iter(|| {

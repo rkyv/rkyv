@@ -6,7 +6,7 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{offset_of, Archive, Archived, RelPtr, Resolve, Unarchive, Write};
+use crate::{offset_of, Archive, Archived, RelPtr, Resolve, Serialize, Unarchive, Write};
 use core::{
     borrow::Borrow,
     cmp::Reverse,
@@ -222,10 +222,10 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     }
 
     #[inline]
-    fn archive_from_iter<
+    fn serialize_from_iter<
         'a,
-        KU: 'a + Archive<Archived = K> + Hash + Eq,
-        VU: 'a + Archive<Archived = V>,
+        KU: 'a + Serialize<W, Archived = K> + Hash + Eq,
+        VU: 'a + Serialize<W, Archived = V>,
         W: Write + ?Sized,
     >(
         iter: impl Iterator<Item = (&'a KU, &'a VU)>,
@@ -301,7 +301,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
             .iter()
             .map(|e| {
                 let (key, value) = e.unwrap();
-                Ok((key.archive(writer)?, value.archive(writer)?))
+                Ok((key.serialize(writer)?, value.serialize(writer)?))
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -593,9 +593,14 @@ where
 {
     type Archived = ArchivedHashMap<K::Archived, V::Archived>;
     type Resolver = ArchivedHashMapResolver;
+}
 
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(ArchivedHashMap::archive_from_iter(
+impl<K: Serialize<W> + Hash + Eq, V: Serialize<W>, W: Write + ?Sized> Serialize<W> for HashMap<K, V>
+where
+    K::Archived: Hash + Eq,
+{
+    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        Ok(ArchivedHashMap::serialize_from_iter(
             self.iter(),
             self.len(),
             writer,
@@ -730,9 +735,14 @@ where
 {
     type Archived = ArchivedHashSet<K::Archived>;
     type Resolver = ArchivedHashSetResolver;
+}
 
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(ArchivedHashSetResolver(ArchivedHashMap::archive_from_iter(
+impl<K: Serialize<W> + Hash + Eq, W: Write + ?Sized> Serialize<W> for HashSet<K>
+where
+    K::Archived: Hash + Eq,
+{
+    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        Ok(ArchivedHashSetResolver(ArchivedHashMap::serialize_from_iter(
             self.iter().map(|x| (x, &())),
             self.len(),
             writer,

@@ -4,6 +4,7 @@ use rkyv::{
     Aligned,
     Archive,
     ArchiveBuffer,
+    Serialize,
     Write,
     check_archive,
     validation::{
@@ -19,12 +20,12 @@ use std::{
 
 const BUFFER_SIZE: usize = 512;
 
-fn archive_and_check<T: Archive>(value: &T)
+fn serialize_and_check<T: Serialize<ArchiveBuffer<Aligned<[u8; BUFFER_SIZE]>>>>(value: &T)
 where
     T::Archived: CheckBytes<ArchiveValidator> + CheckBytes<ArchiveBoundsValidator>,
 {
     let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = writer.archive(value).expect("failed to archive value");
+    let pos = writer.serialize(value).expect("failed to archive value");
     let buf = writer.into_inner();
     check_archive::<T>(buf.as_ref(), pos).unwrap();
     unsafe {
@@ -38,7 +39,7 @@ fn basic_functionality() {
     let value = Some("Hello world".to_string());
 
     let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = writer.archive(&value).expect("failed to archive value");
+    let pos = writer.serialize(&value).expect("failed to archive value");
     let buf = writer.into_inner();
 
     let result = check_archive::<Option<String>>(buf.as_ref(), pos);
@@ -174,7 +175,7 @@ fn derive_unit_struct() {
     #[archive(derive(CheckBytes))]
     struct Test;
 
-    archive_and_check(&Test);
+    serialize_and_check(&Test);
 }
 
 #[test]
@@ -187,7 +188,7 @@ fn derive_struct() {
         c: Box<Vec<String>>,
     }
 
-    archive_and_check(&Test {
+    serialize_and_check(&Test {
         a: 42,
         b: "hello world".to_string(),
         c: Box::new(vec!["yes".to_string(), "no".to_string()]),
@@ -200,7 +201,7 @@ fn derive_tuple_struct() {
     #[archive(derive(CheckBytes))]
     struct Test(u32, String, Box<Vec<String>>);
 
-    archive_and_check(&Test(
+    serialize_and_check(&Test(
         42,
         "hello world".to_string(),
         Box::new(vec!["yes".to_string(), "no".to_string()]),
@@ -217,9 +218,9 @@ fn derive_enum() {
         C(Box<Vec<String>>),
     }
 
-    archive_and_check(&Test::A(42));
-    archive_and_check(&Test::B("hello world".to_string()));
-    archive_and_check(&Test::C(Box::new(vec![
+    serialize_and_check(&Test::A(42));
+    serialize_and_check(&Test::B("hello world".to_string()));
+    serialize_and_check(&Test::C(Box::new(vec![
         "yes".to_string(),
         "no".to_string(),
     ])));
@@ -233,7 +234,7 @@ fn hashmap() {
     map.insert("foo".to_string(), 56);
     map.insert("bar".to_string(), 78);
     map.insert("baz".to_string(), 90);
-    archive_and_check(&map);
+    serialize_and_check(&map);
 
     let mut set = HashSet::new();
     set.insert("Hello".to_string());
@@ -241,7 +242,7 @@ fn hashmap() {
     set.insert("foo".to_string());
     set.insert("bar".to_string());
     set.insert("baz".to_string());
-    archive_and_check(&set);
+    serialize_and_check(&set);
 }
 
 #[test]
@@ -274,9 +275,9 @@ fn check_dyn() {
         }
     }
 
-    let value: Box<dyn ArchiveTestTrait> = Box::new(Test { id: 42 });
+    let value: Box<dyn SerializeTestTrait> = Box::new(Test { id: 42 });
 
-    archive_and_check(&value);
+    serialize_and_check(&value);
 
     #[derive(Archive)]
     #[archive(derive(TypeName))]
@@ -297,12 +298,12 @@ fn check_dyn() {
         }
     }
 
-    let value: Box<dyn ArchiveTestTrait> = Box::new(TestUnchecked { id: 42 });
+    let value: Box<dyn SerializeTestTrait> = Box::new(TestUnchecked { id: 42 });
 
     let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = writer.archive(&value).expect("failed to archive value");
+    let pos = writer.serialize(&value).expect("failed to archive value");
     let buf = writer.into_inner();
-    if let Ok(_) = check_archive::<Box<dyn ArchiveTestTrait>>(buf.as_ref(), pos) {
+    if let Ok(_) = check_archive::<Box<dyn SerializeTestTrait>>(buf.as_ref(), pos) {
         panic!("check passed for type that does not implement CheckBytes");
     }
 }

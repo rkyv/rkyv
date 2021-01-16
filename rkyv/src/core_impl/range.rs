@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{offset_of, Archive, ArchiveCopy, Archived, CopyResolver, Resolve, Unarchive, Write};
+use crate::{offset_of, Archive, ArchiveCopy, Archived, CopyResolver, Resolve, Serialize, Unarchive, Write};
 use core::{
     cmp, fmt,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
@@ -9,8 +9,10 @@ use core::{
 impl Archive for RangeFull {
     type Archived = Self;
     type Resolver = CopyResolver;
+}
 
-    fn archive<W: Write + ?Sized>(&self, _: &mut W) -> Result<Self::Resolver, W::Error> {
+impl<W: Write + ?Sized> Serialize<W> for RangeFull {
+    fn serialize(&self, _: &mut W) -> Result<Self::Resolver, W::Error> {
         Ok(CopyResolver)
     }
 }
@@ -94,11 +96,13 @@ impl<T: Archive> Resolve<Range<T>> for Range<T::Resolver> {
 impl<T: Archive> Archive for Range<T> {
     type Archived = ArchivedRange<T::Archived>;
     type Resolver = Range<T::Resolver>;
+}
 
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for Range<T> {
+    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
         Ok(Range {
-            start: self.start.archive(writer)?,
-            end: self.end.archive(writer)?,
+            start: self.start.serialize(writer)?,
+            end: self.end.serialize(writer)?,
         })
     }
 }
@@ -184,11 +188,13 @@ impl<T: Archive> Resolve<RangeInclusive<T>> for Range<T::Resolver> {
 impl<T: Archive> Archive for RangeInclusive<T> {
     type Archived = ArchivedRangeInclusive<T::Archived>;
     type Resolver = Range<T::Resolver>;
+}
 
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for RangeInclusive<T> {
+    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
         Ok(Range {
-            start: self.start().archive(writer)?,
-            end: self.end().archive(writer)?,
+            start: self.start().serialize(writer)?,
+            end: self.end().serialize(writer)?,
         })
     }
 }

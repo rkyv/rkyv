@@ -123,7 +123,7 @@ impl<T: fmt::Debug + fmt::Display> error::Error for CheckArchiveError<T> {}
 
 /// Context to perform archive validation.
 ///
-/// When implementing archiveable containers, an archived type may point to some
+/// When implementing archivable containers, an archived type may point to some
 /// bytes elsewhere in the archive using a [`RelPtr`]. Before checking those
 /// bytes, they must be claimed in the context. This prevents infinite-loop
 /// attacks by malicious actors by ensuring that each block of memory has one
@@ -139,6 +139,7 @@ impl<T: fmt::Debug + fmt::Display> error::Error for CheckArchiveError<T> {}
 ///     ArchiveMemoryError,
 ///     RelPtr,
 ///     Resolve,
+///     Serialize,
 ///     Write,
 /// };
 /// use bytecheck::{CheckBytes, Unreachable};
@@ -201,10 +202,12 @@ impl<T: fmt::Debug + fmt::Display> error::Error for CheckArchiveError<T> {}
 /// impl<T: Archive> Archive for MyBox<T> {
 ///     type Archived = ArchivedMyBox<T::Archived>;
 ///     type Resolver = ArchivedMyBoxResolver;
+/// }
 ///
-///     fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+/// impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for MyBox<T> {
+///     fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
 ///         Ok(ArchivedMyBoxResolver {
-///             value_pos: writer.archive(self.value())?,
+///             value_pos: writer.serialize(self.value())?,
 ///         })
 ///     }
 /// }
@@ -448,7 +451,7 @@ impl ArchiveContext for ArchiveValidator {
 /// };
 ///
 /// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-/// let pos = writer.archive(&value)
+/// let pos = writer.serialize(&value)
 ///     .expect("failed to archive test");
 /// let buf = writer.into_inner();
 /// let archived = check_archive::<Example>(buf.as_ref(), pos).unwrap();

@@ -2,7 +2,7 @@
 
 use crate::{
     offset_of, Archive, ArchiveCopy, ArchiveRef, Archived, CopyResolver, RelPtr, Resolve,
-    Unarchive, UnarchiveRef, Write,
+    Serialize, SerializeRef, Unarchive, UnarchiveRef, Write,
 };
 use core::{
     alloc,
@@ -84,10 +84,12 @@ impl<T: Archive> Resolve<T> for usize {
 impl<T: Archive> ArchiveRef for T {
     type Archived = T::Archived;
     type Reference = ArchivedRef<Self::Archived>;
-    type Resolver = usize;
+    type ReferenceResolver = usize;
+}
 
-    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(writer.archive(self)?)
+impl<T: Serialize<W>, W: Write + ?Sized> SerializeRef<W> for T {
+    fn serialize_ref(&self, writer: &mut W) -> Result<Self::ReferenceResolver, W::Error> {
+        Ok(writer.serialize(self)?)
     }
 }
 
@@ -216,8 +218,10 @@ macro_rules! impl_primitive {
         {
             type Archived = Self;
             type Resolver = CopyResolver;
+        }
 
-            fn archive<W: Write + ?Sized>(
+        impl<W: Write + ?Sized> Serialize<W> for $type {
+            fn serialize(
                 &self,
                 _writer: &mut W,
             ) -> Result<Self::Resolver, W::Error> {
@@ -280,8 +284,10 @@ macro_rules! impl_atomic {
         impl Archive for $type {
             type Archived = Self;
             type Resolver = AtomicResolver;
+        }
 
-            fn archive<W: Write + ?Sized>(
+        impl<W: Write + ?Sized> Serialize<W> for $type {
+            fn serialize(
                 &self,
                 _writer: &mut W,
             ) -> Result<Self::Resolver, W::Error> {
@@ -331,9 +337,11 @@ macro_rules! impl_tuple {
         impl<$($type: Archive),+> Archive for ($($type,)+) {
             type Archived = ($($type::Archived,)+);
             type Resolver = ($($type::Resolver,)+);
+        }
 
-            fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                let rev = ($(self.$index.archive(writer)?,)+);
+        impl<$($type: Serialize<W>),+, W: Write + ?Sized> Serialize<W> for ($($type,)+) {
+            fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                let rev = ($(self.$index.serialize(writer)?,)+);
                 Ok(($(rev.$index,)+))
             }
         }
@@ -384,14 +392,16 @@ macro_rules! impl_array {
         impl<T: Archive> Archive for [T; $len] {
             type Archived = [T::Archived; $len];
             type Resolver = [T::Resolver; $len];
+        }
 
-            fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for [T; $len] {
+            fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
                 let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
                 let result_ptr = result.as_mut_ptr().cast::<T::Resolver>();
                 #[allow(clippy::reversed_empty_ranges)]
                 for i in 0..$len {
                     unsafe {
-                        result_ptr.add(i).write(self[i].archive(writer)?);
+                        result_ptr.add(i).write(self[i].serialize(writer)?);
                     }
                 }
                 unsafe { Ok(result.assume_init()) }
@@ -505,9 +515,11 @@ impl Resolve<str> for usize {
 impl ArchiveRef for str {
     type Archived = str;
     type Reference = ArchivedStringSlice;
-    type Resolver = usize;
+    type ReferenceResolver = usize;
+}
 
-    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+impl<W: Write + ?Sized> SerializeRef<W> for str {
+    fn serialize_ref(&self, writer: &mut W) -> Result<Self::ReferenceResolver, W::Error> {
         let result = writer.pos();
         writer.write(self.as_bytes())?;
         Ok(result)
@@ -666,9 +678,11 @@ impl<T: Archive> Resolve<Option<T>> for Option<T::Resolver> {
 impl<T: Archive> Archive for Option<T> {
     type Archived = ArchivedOption<T::Archived>;
     type Resolver = Option<T::Resolver>;
+}
 
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        self.as_ref().map(|value| value.archive(writer)).transpose()
+impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for Option<T> {
+    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        self.as_ref().map(|value| value.serialize(writer)).transpose()
     }
 }
 

@@ -29,7 +29,7 @@ use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicU64, Ordering},
 };
-use rkyv::{offset_of, Archive, RelPtr, Write};
+use rkyv::{offset_of, Serialize, RelPtr, Write};
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
@@ -175,36 +175,36 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///     }
 /// }
 ///
-/// let boxed_int = Box::new(IntStruct(42)) as Box<dyn ArchiveExampleTrait>;
-/// let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn ArchiveExampleTrait>;
+/// let boxed_int = Box::new(IntStruct(42)) as Box<dyn SerializeExampleTrait>;
+/// let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn SerializeExampleTrait>;
 /// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-/// let int_pos = writer.archive(&boxed_int)
+/// let int_pos = writer.serialize(&boxed_int)
 ///     .expect("failed to archive boxed int");
-/// let string_pos = writer.archive(&boxed_string)
+/// let string_pos = writer.serialize(&boxed_string)
 ///     .expect("failed to archive boxed string");
 /// let buf = writer.into_inner();
-/// let archived_int = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>>(buf.as_ref(), int_pos) };
-/// let archived_string = unsafe { archived_value::<Box<dyn ArchiveExampleTrait>>(buf.as_ref(), string_pos) };
+/// let archived_int = unsafe { archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), int_pos) };
+/// let archived_string = unsafe { archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), string_pos) };
 /// assert_eq!(archived_int.value(), "42");
 /// assert_eq!(archived_string.value(), "hello world");
 ///
-/// let unarchived_int: Box<dyn ArchiveExampleTrait> = archived_int.unarchive();
-/// let unarchived_string: Box<dyn ArchiveExampleTrait> = archived_string.unarchive();
+/// let unarchived_int: Box<dyn SerializeExampleTrait> = archived_int.unarchive();
+/// let unarchived_string: Box<dyn SerializeExampleTrait> = archived_string.unarchive();
 /// assert_eq!(unarchived_int.value(), "42");
 /// assert_eq!(unarchived_string.value(), "hello world");
 /// ```
-pub trait ArchiveDyn {
+pub trait SerializeDyn {
     /// Writes the value to the writer and returns a resolver that can create an
     /// [`ArchivedDyn`] reference.
-    fn archive_dyn(&self, writer: &mut dyn WriteDyn) -> Result<DynResolver, DynError>;
+    fn serialize_dyn(&self, writer: &mut dyn WriteDyn) -> Result<DynResolver, DynError>;
 }
 
-impl<T: Archive> ArchiveDyn for T
+impl<T: for<'a> Serialize<dyn WriteDyn + 'a>> SerializeDyn for T
 where
     T::Archived: TypeName,
 {
-    fn archive_dyn(&self, writer: &mut dyn WriteDyn) -> Result<DynResolver, DynError> {
-        Ok(DynResolver::new::<T::Archived>(writer.archive(self)?))
+    fn serialize_dyn(&self, writer: &mut dyn WriteDyn) -> Result<DynResolver, DynError> {
+        Ok(DynResolver::new::<T::Archived>(writer.serialize(self)?))
     }
 }
 

@@ -247,7 +247,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
     let (archive_type, archive_impl) = match input.data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
-                let field_wheres = fields.named.iter().filter_map(|f| {
+                let archive_predicates = fields.named.iter().filter_map(|f| {
                     if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
                         None
                     } else {
@@ -255,7 +255,17 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         Some(quote_spanned! { f.span() => #ty: rkyv::Archive })
                     }
                 });
-                let field_wheres = quote! { #(#field_wheres,)* };
+                let archive_predicates = quote! { #(#archive_predicates,)* };
+
+                let serialize_predicates = fields.named.iter().filter_map(|f| {
+                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                        None
+                    } else {
+                        let ty = &f.ty;
+                        Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
+                    }
+                });
+                let serialize_predicates = quote! { #(#serialize_predicates,)* };
 
                 let resolver_fields = fields.named.iter().map(|f| {
                     let name = &f.ident;
@@ -265,7 +275,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
 
                 let resolver_values = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote_spanned! { f.span() => #name: self.#name.archive(writer)? }
+                    quote_spanned! { f.span() => #name: Serialize::<__W>::serialize(&self.#name, writer)? }
                 });
 
                 let archived_fields = fields.named.iter().map(|f| {
@@ -287,7 +297,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         #vis struct #archived<#generic_params>
                         where
                             #generic_predicates
-                            #field_wheres
+                            #archive_predicates
                         {
                             #(#archived_fields,)*
                         }
@@ -296,7 +306,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         #vis struct Resolver<#generic_params>
                         where
                             #generic_predicates
-                            #field_wheres
+                            #archive_predicates
                         {
                             #(#resolver_fields,)*
                         }
@@ -304,7 +314,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
                         where
                             #generic_predicates
-                            #field_wheres
+                            #archive_predicates
                         {
                             type Archived = #archived<#generic_args>;
 
@@ -318,12 +328,18 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         impl<#generic_params> Archive for #name<#generic_args>
                         where
                             #generic_predicates
-                            #field_wheres
+                            #archive_predicates
                         {
                             type Archived = #archived<#generic_args>;
                             type Resolver = Resolver<#generic_args>;
+                        }
 
-                            fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                        impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                        where
+                            #generic_predicates
+                            #serialize_predicates
+                        {
+                            fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
                                 Ok(Self::Resolver {
                                     #(#resolver_values,)*
                                 })
@@ -333,7 +349,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 )
             }
             Fields::Unnamed(ref fields) => {
-                let field_wheres = fields.unnamed.iter().filter_map(|f| {
+                let archive_predicates = fields.unnamed.iter().filter_map(|f| {
                     if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
                         None
                     } else {
@@ -341,7 +357,17 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         Some(quote_spanned! { f.span() => #ty: rkyv::Archive })
                     }
                 });
-                let field_wheres = quote! { #(#field_wheres,)* };
+                let archive_predicates = quote! { #(#archive_predicates,)* };
+
+                let serialize_predicates = fields.unnamed.iter().filter_map(|f| {
+                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                        None
+                    } else {
+                        let ty = &f.ty;
+                        Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
+                    }
+                });
+                let serialize_predicates = quote! { #(#serialize_predicates,)* };
 
                 let resolver_fields = fields.unnamed.iter().map(|f| {
                     let ty = &f.ty;
@@ -350,7 +376,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
 
                 let resolver_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = Index::from(i);
-                    quote_spanned! { f.span() => self.#index.archive(writer)? }
+                    quote_spanned! { f.span() => Serialize::<__W>::serialize(&self.#index, writer)? }
                 });
 
                 let archived_fields = fields.unnamed.iter().map(|f| {
@@ -371,18 +397,18 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         #vis struct #archived<#generic_params>(#(#archived_fields,)*)
                         where
                             #generic_predicates
-                            #field_wheres;
+                            #archive_predicates;
                     },
                     quote! {
                         #vis struct Resolver<#generic_params>(#(#resolver_fields,)*)
                         where
                             #generic_predicates
-                            #field_wheres;
+                            #archive_predicates;
 
                         impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
                         where
                             #generic_predicates
-                            #field_wheres
+                            #archive_predicates
                         {
                             type Archived = #archived<#generic_args>;
 
@@ -396,12 +422,18 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         impl<#generic_params> Archive for #name<#generic_args>
                         where
                             #generic_predicates
-                            #field_wheres
+                            #archive_predicates
                         {
                             type Archived = #archived<#generic_args>;
                             type Resolver = Resolver<#generic_args>;
+                        }
 
-                            fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                        impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                        where
+                            #generic_predicates
+                            #serialize_predicates
+                        {
+                            fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
                                 Ok(Resolver::<#generic_args>(
                                     #(#resolver_values,)*
                                 ))
@@ -438,8 +470,10 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     {
                         type Archived = #archived<#generic_args>;
                         type Resolver = Resolver;
+                    }
 
-                        fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                    impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args> {
+                        fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
                             Ok(Resolver)
                         }
                     }
@@ -447,9 +481,9 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
             ),
         },
         Data::Enum(ref data) => {
-            let field_wheres = data.variants.iter().map(|v| match v.fields {
+            let archive_predicates = data.variants.iter().map(|v| match v.fields {
                 Fields::Named(ref fields) => {
-                    let field_wheres = fields.named.iter().filter_map(|f| {
+                    let archive_predicates = fields.named.iter().filter_map(|f| {
                         if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
                             None
                         } else {
@@ -457,10 +491,10 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                             Some(quote_spanned! { f.span() => #ty: rkyv::Archive })
                         }
                     });
-                    quote! { #(#field_wheres,)* }
+                    quote! { #(#archive_predicates,)* }
                 }
                 Fields::Unnamed(ref fields) => {
-                    let field_wheres = fields.unnamed.iter().filter_map(|f| {
+                    let archive_predicates = fields.unnamed.iter().filter_map(|f| {
                         if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
                             None
                         } else {
@@ -468,11 +502,38 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                             Some(quote_spanned! { f.span() => #ty: rkyv::Archive })
                         }
                     });
-                    quote! { #(#field_wheres,)* }
+                    quote! { #(#archive_predicates,)* }
                 }
                 Fields::Unit => quote! {},
             });
-            let field_wheres = quote! { #(#field_wheres)* };
+            let archive_predicates = quote! { #(#archive_predicates)* };
+
+            let serialize_predicates = data.variants.iter().map(|v| match v.fields {
+                Fields::Named(ref fields) => {
+                    let serialize_predicates = fields.named.iter().filter_map(|f| {
+                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                            None
+                        } else {
+                            let ty = &f.ty;
+                            Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
+                        }
+                    });
+                    quote! { #(#serialize_predicates,)* }
+                }
+                Fields::Unnamed(ref fields) => {
+                    let serialize_predicates = fields.unnamed.iter().filter_map(|f| {
+                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                            None
+                        } else {
+                            let ty = &f.ty;
+                            Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
+                        }
+                    });
+                    quote! { #(#serialize_predicates,)* }
+                }
+                Fields::Unit => quote! {},
+            });
+            let serialize_predicates = quote! { #(#serialize_predicates)* };
 
             let resolver_variants = data.variants.iter().map(|v| {
                 let variant = &v.ident;
@@ -616,7 +677,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                             struct #archived_variant_name<#generic_params>
                             where
                                 #generic_predicates
-                                #field_wheres
+                                #archive_predicates
                             {
                                 __tag: ArchivedTag,
                                 #(#fields,)*
@@ -634,14 +695,14 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                             struct #archived_variant_name<#generic_params>(ArchivedTag, #(#fields,)* PhantomData<(#generic_args)>)
                             where
                                 #generic_predicates
-                                #field_wheres;
+                                #archive_predicates;
                         }
                     }
                     Fields::Unit => quote! {}
                 }
             });
 
-            let archive_arms = data.variants.iter().map(|v| {
+            let serialize_arms = data.variants.iter().map(|v| {
                 let variant = &v.ident;
                 match v.fields {
                     Fields::Named(ref fields) => {
@@ -652,7 +713,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             quote! {
-                                #name: #name.archive(writer)?
+                                #name: Serialize::<__W>::serialize(#name, writer)?
                             }
                         });
                         quote_spanned! { variant.span() =>
@@ -669,7 +730,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let binding = Ident::new(&format!("_{}", i), f.span());
                             quote! {
-                                #binding.archive(writer)?
+                                Serialize::<__W>::serialize(#binding, writer)?
                             }
                         });
                         quote_spanned! { variant.span() =>
@@ -689,7 +750,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     #vis enum #archived<#generic_params>
                     where
                         #generic_predicates
-                        #field_wheres
+                        #archive_predicates
                     {
                         #(#archived_variants,)*
                     }
@@ -698,7 +759,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     #vis enum Resolver<#generic_params>
                     where
                         #generic_predicates
-                        #field_wheres
+                        #archive_predicates
                     {
                         #(#resolver_variants,)*
                     }
@@ -706,7 +767,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
                     where
                         #generic_predicates
-                        #field_wheres
+                        #archive_predicates
                     {
                         type Archived = #archived<#generic_args>;
 
@@ -727,14 +788,20 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     impl<#generic_params> Archive for #name<#generic_args>
                     where
                         #generic_predicates
-                        #field_wheres
+                        #archive_predicates
                     {
                         type Archived = #archived<#generic_args>;
                         type Resolver = Resolver<#generic_args>;
+                    }
 
-                        fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                    impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                    where
+                        #generic_predicates
+                        #serialize_predicates
+                    {
+                        fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
                             Ok(match self {
-                                #(#archive_arms,)*
+                                #(#serialize_arms,)*
                             })
                         }
                     }
@@ -757,6 +824,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     Archive,
                     offset_of,
                     Resolve,
+                    Serialize,
                     Write,
                 };
                 #archive_impl
@@ -770,6 +838,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     Archive,
                     offset_of,
                     Resolve,
+                    Serialize,
                     Write,
                 };
                 #archive_type
@@ -813,22 +882,22 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
 
     let archive_self_impl = match input.data {
         Data::Struct(ref data) => {
-            let field_wheres = match data.fields {
+            let copy_predicates = match data.fields {
                 Fields::Named(ref fields) => {
-                    let field_wheres = fields.named.iter().map(|f| {
+                    let copy_predicates = fields.named.iter().map(|f| {
                         let ty = &f.ty;
                         quote_spanned! { f.span() => #ty: ArchiveCopy }
                     });
 
-                    quote! { #(#field_wheres,)* }
+                    quote! { #(#copy_predicates,)* }
                 }
                 Fields::Unnamed(ref fields) => {
-                    let field_wheres = fields.unnamed.iter().map(|f| {
+                    let copy_predicates = fields.unnamed.iter().map(|f| {
                         let ty = &f.ty;
                         quote_spanned! { f.span() => #ty: ArchiveCopy }
                     });
 
-                    quote! { #(#field_wheres,)* }
+                    quote! { #(#copy_predicates,)* }
                 }
                 Fields::Unit => quote! {},
             };
@@ -837,18 +906,24 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                 unsafe impl<#generic_params> ArchiveCopy for #name<#generic_args>
                 where
                     #generic_predicates
-                    #field_wheres
+                    #copy_predicates
                 {}
 
                 impl<#generic_params> Archive for #name<#generic_args>
                 where
                     #generic_predicates
-                    #field_wheres
+                    #copy_predicates
                 {
                     type Archived = Self;
                     type Resolver = CopyResolver;
+                }
 
-                    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                where
+                    #generic_predicates
+                    #copy_predicates
+                {
+                    fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
                         Ok(CopyResolver)
                     }
                 }
@@ -873,41 +948,47 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                 .to_compile_error();
             }
 
-            let field_wheres = data.variants.iter().map(|v| match v.fields {
+            let copy_predicates = data.variants.iter().map(|v| match v.fields {
                 Fields::Named(ref fields) => {
-                    let field_wheres = fields.named.iter().map(|f| {
+                    let copy_predicates = fields.named.iter().map(|f| {
                         let ty = &f.ty;
                         quote_spanned! { f.span() => #ty: ArchiveCopy }
                     });
-                    quote! { #(#field_wheres,)* }
+                    quote! { #(#copy_predicates,)* }
                 }
                 Fields::Unnamed(ref fields) => {
-                    let field_wheres = fields.unnamed.iter().map(|f| {
+                    let copy_predicates = fields.unnamed.iter().map(|f| {
                         let ty = &f.ty;
                         quote_spanned! { f.span() => #ty: ArchiveCopy }
                     });
-                    quote! { #(#field_wheres,)* }
+                    quote! { #(#copy_predicates,)* }
                 }
                 Fields::Unit => quote! {},
             });
-            let field_wheres = quote! { #(#field_wheres)* };
+            let copy_predicates = quote! { #(#copy_predicates)* };
 
             quote! {
                 unsafe impl<#generic_params> ArchiveCopy for #name<#generic_args>
                 where
                     #generic_predicates
-                    #field_wheres
+                    #copy_predicates
                 {}
 
                 impl<#generic_params> Archive for #name<#generic_args>
                 where
                     #generic_predicates
-                    #field_wheres
+                    #copy_predicates
                 {
                     type Archived = Self;
                     type Resolver = CopyResolver;
+                }
 
-                    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+                impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                where
+                    #generic_predicates
+                    #copy_predicates
+                {
+                    fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
                         Ok(CopyResolver)
                     }
                 }
@@ -924,6 +1005,7 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                 Archive,
                 ArchiveCopy,
                 CopyResolver,
+                Serialize,
                 Write,
             };
 
