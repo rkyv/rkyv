@@ -87,7 +87,7 @@ use std::io;
 pub use memoffset::offset_of;
 pub use rkyv_derive::{Archive, Unarchive};
 #[cfg(feature = "validation")]
-pub use validation::{check_archive, ArchiveContext};
+pub use validation::{check_archive, ArchiveContext, ArchiveMemoryError};
 
 /// A `#![no_std]` compliant writer that knows where it is.
 ///

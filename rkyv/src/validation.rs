@@ -134,8 +134,9 @@ impl<T: fmt::Debug + fmt::Display> error::Error for CheckArchiveError<T> {}
 /// use core::{fmt, marker::PhantomData};
 /// use std::error::Error;
 /// use rkyv::{
-///     validation::{ArchiveContext, ArchiveMemoryError},
 ///     Archive,
+///     ArchiveContext,
+///     ArchiveMemoryError,
 ///     RelPtr,
 ///     Resolve,
 ///     Write,
@@ -237,12 +238,12 @@ impl<T: fmt::Debug + fmt::Display> error::Error for CheckArchiveError<T> {}
 ///     }
 /// }
 ///
-/// impl<T: CheckBytes<ArchiveContext>> CheckBytes<ArchiveContext> for ArchivedMyBox<T> {
+/// impl<T: CheckBytes<C>, C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedMyBox<T> {
 ///     type Error = ArchivedMyBoxError<T::Error>;
 ///
 ///     unsafe fn check_bytes<'a>(
 ///         bytes: *const u8,
-///         context: &mut ArchiveContext
+///         context: &mut C
 ///     ) -> Result<&'a Self, Self::Error> {
 ///         let rel_ptr = RelPtr::check_bytes(bytes, context)?;
 ///         let value_bytes = context.claim::<T>(rel_ptr, 1)?;
@@ -252,30 +253,20 @@ impl<T: fmt::Debug + fmt::Display> error::Error for CheckArchiveError<T> {}
 ///     }
 /// }
 /// ```
-pub struct ArchiveContext {
-    begin: *const u8,
-    len: usize,
-    intervals: Vec<Interval>,
-}
-
-impl ArchiveContext {
-    /// Creates a new archive context for the given byte slice
-    pub fn new(bytes: &[u8]) -> Self {
-        const DEFAULT_INTERVALS_CAPACITY: usize = 64;
-
-        Self {
-            begin: bytes.as_ptr(),
-            len: bytes.len(),
-            intervals: Vec::with_capacity(DEFAULT_INTERVALS_CAPACITY),
-        }
-    }
+pub trait ArchiveContext {
+    /// Claims `count` bytes located `offset` bytes away from `base`.
+    ///
+    /// # Safety
+    ///
+    /// `base` must be inside the archive this context was created for.
+    unsafe fn claim_bytes(&mut self, base: *const u8, offset: isize, count: usize, align: usize) -> Result<*const u8, ArchiveMemoryError>;
 
     /// Claims `count` items pointed to by the given relative pointer.
     ///
     /// # Safety
     ///
     /// `rel_ptr` must be inside the archive this context was created for.
-    pub unsafe fn claim<T: CheckBytes<ArchiveContext>>(
+    unsafe fn claim<T: CheckBytes<Self>>(
         &mut self,
         rel_ptr: &RelPtr,
         count: usize,
@@ -290,13 +281,38 @@ impl ArchiveContext {
             mem::align_of::<T>(),
         )
     }
+}
 
-    /// Claims `count` bytes located `offset` bytes away from `base`.
-    ///
-    /// # Safety
-    ///
-    /// `base` must be inside the archive this context was created for.
-    pub unsafe fn claim_bytes(
+/// An [`ArchiveContext`] that partially validates an archive.
+///
+/// It performs only bounds checking, in contrast with [`ArchiveValidator`].
+pub struct ArchiveBoundsValidator {
+    begin: *const u8,
+    len: usize,
+}
+
+impl ArchiveBoundsValidator {
+    /// Creates a new bounds validator for the given byte range.
+    pub fn new(bytes: &[u8]) -> Self {
+        Self {
+            begin: bytes.as_ptr(),
+            len: bytes.len(),
+        }
+    }
+
+    /// Gets a pointer to the beginning of the validator's byte range.
+    pub fn begin(&self) -> *const u8 {
+        self.begin
+    }
+
+    /// Gets the length of the validator's byte range.
+    pub fn len(&self) -> usize {
+        self.len
+    }
+}
+
+impl ArchiveContext for ArchiveBoundsValidator {
+    unsafe fn claim_bytes(
         &mut self,
         base: *const u8,
         offset: isize,
@@ -317,54 +333,91 @@ impl ArchiveContext {
                     pos: target_pos,
                     align,
                 })
-            } else if count != 0 {
-                if self.len - target_pos < count {
-                    Err(ArchiveMemoryError::Overrun {
-                        pos: target_pos,
-                        size: count,
-                        archive_len: self.len,
-                    })
-                } else {
-                    let interval = Interval {
-                        start: target_pos,
-                        end: target_pos + count,
-                    };
-                    match self.intervals.binary_search(&interval) {
-                        Ok(index) => Err(ArchiveMemoryError::ClaimOverlap {
+            } else if self.len - target_pos < count {
+                Err(ArchiveMemoryError::Overrun {
+                    pos: target_pos,
+                    size: count,
+                    archive_len: self.len,
+                })
+            } else {
+                Ok(base.offset(offset))
+            }
+        }
+    }
+}
+
+/// An [`ArchiveContext`] that completely validates an archive.
+///
+/// It performs bounds checking and enforces memory ownership.
+pub struct ArchiveValidator {
+    bounds: ArchiveBoundsValidator,
+    intervals: Vec<Interval>,
+}
+
+impl ArchiveValidator {
+    /// Creates a new archive context for the given byte slice
+    pub fn new(bytes: &[u8]) -> Self {
+        const DEFAULT_INTERVALS_CAPACITY: usize = 64;
+
+        Self {
+            bounds: ArchiveBoundsValidator::new(bytes),
+            intervals: Vec::with_capacity(DEFAULT_INTERVALS_CAPACITY),
+        }
+    }
+
+    /// Gets the underlying bounds validator.
+    pub fn bounds(&self) -> &ArchiveBoundsValidator {
+        &self.bounds
+    }
+}
+
+impl ArchiveContext for ArchiveValidator {
+    unsafe fn claim_bytes(
+        &mut self,
+        base: *const u8,
+        offset: isize,
+        count: usize,
+        align: usize,
+    ) -> Result<*const u8, ArchiveMemoryError> {
+        self.bounds.claim_bytes(base, offset, count, align)?;
+
+        let base_pos = base.offset_from(self.bounds.begin());
+        let target_pos = (base_pos + offset) as usize;
+        let interval = Interval {
+            start: target_pos,
+            end: target_pos + count,
+        };
+        match self.intervals.binary_search(&interval) {
+            Ok(index) => Err(ArchiveMemoryError::ClaimOverlap {
+                previous: self.intervals[index],
+                current: interval,
+            }),
+            Err(index) => {
+                if index < self.intervals.len() {
+                    if self.intervals[index].overlaps(&interval) {
+                        return Err(ArchiveMemoryError::ClaimOverlap {
                             previous: self.intervals[index],
                             current: interval,
-                        }),
-                        Err(index) => {
-                            if index < self.intervals.len() {
-                                if self.intervals[index].overlaps(&interval) {
-                                    return Err(ArchiveMemoryError::ClaimOverlap {
-                                        previous: self.intervals[index],
-                                        current: interval,
-                                    });
-                                } else if self.intervals[index].start == interval.end {
-                                    self.intervals[index].start = interval.start;
-                                    return Ok(base.offset(offset));
-                                }
-                            }
-
-                            if index > 0 {
-                                if self.intervals[index - 1].overlaps(&interval) {
-                                    return Err(ArchiveMemoryError::ClaimOverlap {
-                                        previous: self.intervals[index - 1],
-                                        current: interval,
-                                    });
-                                } else if self.intervals[index - 1].end == interval.start {
-                                    self.intervals[index - 1].end = interval.end;
-                                    return Ok(base.offset(offset));
-                                }
-                            }
-
-                            self.intervals.insert(index, interval);
-                            Ok(base.offset(offset))
-                        }
+                        });
+                    } else if self.intervals[index].start == interval.end {
+                        self.intervals[index].start = interval.start;
+                        return Ok(base.offset(offset));
                     }
                 }
-            } else {
+
+                if index > 0 {
+                    if self.intervals[index - 1].overlaps(&interval) {
+                        return Err(ArchiveMemoryError::ClaimOverlap {
+                            previous: self.intervals[index - 1],
+                            current: interval,
+                        });
+                    } else if self.intervals[index - 1].end == interval.start {
+                        self.intervals[index - 1].end = interval.end;
+                        return Ok(base.offset(offset));
+                    }
+                }
+
+                self.intervals.insert(index, interval);
                 Ok(base.offset(offset))
             }
         }
@@ -400,32 +453,50 @@ impl ArchiveContext {
 /// let buf = writer.into_inner();
 /// let archived = check_archive::<Example>(buf.as_ref(), pos).unwrap();
 /// ```
-pub fn check_archive<'a, T: Archive>(
+pub fn check_archive<T: Archive>(
     buf: &[u8],
     pos: usize,
-) -> Result<&'a T::Archived, CheckArchiveError<<T::Archived as CheckBytes<ArchiveContext>>::Error>>
+) -> Result<&T::Archived, CheckArchiveError<<T::Archived as CheckBytes<ArchiveValidator>>::Error>>
 where
-    T::Archived: CheckBytes<ArchiveContext>,
+    T::Archived: CheckBytes<ArchiveValidator>,
 {
-    let mut context = ArchiveContext::new(buf);
     unsafe {
-        let bytes = context.claim_bytes(
-            buf.as_ptr(),
-            pos as isize,
-            mem::size_of::<T::Archived>(),
-            mem::align_of::<T::Archived>(),
-        )?;
-        Archived::<T>::check_bytes(bytes, &mut context).map_err(CheckArchiveError::CheckBytes)?;
-        Ok(&*bytes.cast())
+        check_archive_with_context::<T, ArchiveValidator>(buf, pos, &mut ArchiveValidator::new(buf))
     }
 }
 
-impl CheckBytes<ArchiveContext> for RelPtr {
+/// Checks the given archive with an additional context.
+///
+/// See [`check_archive`] for more details.
+///
+/// # Safety
+///
+/// The given context must completely validate the archive. The default context
+/// to do this is [`ArchiveValidator`], but in some rare cases
+/// [`ArchiveBoundsValidator`] alone may be sufficient.
+pub unsafe fn check_archive_with_context<'a, T: Archive, C: ArchiveContext + ?Sized>(
+    buf: &'a [u8],
+    pos: usize,
+    context: &mut C,
+) -> Result<&'a T::Archived, CheckArchiveError<<T::Archived as CheckBytes<C>>::Error>>
+where
+    T::Archived: CheckBytes<C>,
+{
+    let bytes = context.claim_bytes(
+        buf.as_ptr(),
+        pos as isize,
+        mem::size_of::<T::Archived>(),
+        mem::align_of::<T::Archived>(),
+    )?;
+    Ok(Archived::<T>::check_bytes(bytes, context).map_err(CheckArchiveError::CheckBytes)?)
+}
+
+impl<C: ArchiveContext + ?Sized> CheckBytes<C> for RelPtr {
     type Error = Unreachable;
 
     unsafe fn check_bytes<'a>(
         bytes: *const u8,
-        context: &mut ArchiveContext,
+        context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
         Offset::check_bytes(bytes, context)?;
         Ok(&*bytes.cast())

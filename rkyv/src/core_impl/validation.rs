@@ -7,7 +7,8 @@ use crate::{
         ArchivedStringSlice,
     },
     offset_of,
-    validation::{ArchiveContext, ArchiveMemoryError},
+    ArchiveContext,
+    ArchiveMemoryError,
     RelPtr,
 };
 use bytecheck::{CheckBytes, StructCheckError, Unreachable};
@@ -46,12 +47,12 @@ impl<T> From<Unreachable> for ArchivedRefError<T> {
     }
 }
 
-impl<T: CheckBytes<ArchiveContext>> CheckBytes<ArchiveContext> for ArchivedRef<T> {
+impl<T: CheckBytes<C>, C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedRef<T> {
     type Error = ArchivedRefError<T::Error>;
 
     unsafe fn check_bytes<'a>(
         bytes: *const u8,
-        context: &mut ArchiveContext,
+        context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::check_bytes(bytes, context)?;
         let target = context.claim::<T>(rel_ptr, 1)?;
@@ -94,12 +95,12 @@ impl<T> From<Unreachable> for ArchivedSliceError<T> {
     }
 }
 
-impl<T: CheckBytes<ArchiveContext>> CheckBytes<ArchiveContext> for ArchivedSlice<T> {
+impl<T: CheckBytes<C>, C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedSlice<T> {
     type Error = ArchivedSliceError<T::Error>;
 
     unsafe fn check_bytes<'a>(
         bytes: *const u8,
-        context: &mut ArchiveContext,
+        context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::check_bytes(bytes.add(offset_of!(Self, ptr)), context)?;
         let len = *u32::check_bytes(bytes.add(offset_of!(Self, len)), context)? as usize;
@@ -148,12 +149,12 @@ impl From<Unreachable> for ArchivedStringSliceError {
     }
 }
 
-impl CheckBytes<ArchiveContext> for ArchivedStringSlice {
+impl<C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedStringSlice {
     type Error = ArchivedStringSliceError;
 
     unsafe fn check_bytes<'a>(
         bytes: *const u8,
-        context: &mut ArchiveContext,
+        context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
         let slice = ArchivedSlice::<u8>::check_bytes(bytes, context).map_err(|e| match e {
             ArchivedSliceError::MemoryError(e) => e,
@@ -197,7 +198,7 @@ impl ArchivedOptionTag {
     const TAG_SOME: u8 = ArchivedOptionTag::Some as u8;
 }
 
-impl<C, T: CheckBytes<C>> CheckBytes<C> for ArchivedOption<T> {
+impl<C: ?Sized, T: CheckBytes<C>> CheckBytes<C> for ArchivedOption<T> {
     type Error = ArchivedOptionError<T::Error>;
 
     unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
@@ -217,7 +218,7 @@ impl<C, T: CheckBytes<C>> CheckBytes<C> for ArchivedOption<T> {
     }
 }
 
-impl<C, T: CheckBytes<C>> CheckBytes<C> for ArchivedRange<T> {
+impl<C: ?Sized, T: CheckBytes<C>> CheckBytes<C> for ArchivedRange<T> {
     type Error = StructCheckError;
 
     unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
@@ -237,7 +238,7 @@ impl<C, T: CheckBytes<C>> CheckBytes<C> for ArchivedRange<T> {
     }
 }
 
-impl<C, T: CheckBytes<C>> CheckBytes<C> for ArchivedRangeInclusive<T> {
+impl<C: ?Sized, T: CheckBytes<C>> CheckBytes<C> for ArchivedRangeInclusive<T> {
     type Error = StructCheckError;
 
     unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {

@@ -10,7 +10,7 @@ repository = "https://github.com/djkoloski/rkyv"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytecheck = { version = "0.3.0", optional = true }
+bytecheck = { path = "../../bytecheck/bytecheck", version = "0.3.0", optional = true }
 rkyv = { path = "../rkyv", default-features = false }
 rkyv_dyn = { path = "../rkyv_dyn" }
 rkyv_typename = { path = "../rkyv_typename" }

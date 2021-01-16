@@ -2,7 +2,7 @@ use super::{ArchivedBox, ArchivedString, ArchivedVec};
 use crate::core_impl::ArchivedStringSlice;
 use bytecheck::CheckBytes;
 
-impl<T: CheckBytes<C>, C> CheckBytes<C> for ArchivedBox<T> {
+impl<T: CheckBytes<C>, C: ?Sized> CheckBytes<C> for ArchivedBox<T> {
     type Error = <T as CheckBytes<C>>::Error;
 
     unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
@@ -11,7 +11,7 @@ impl<T: CheckBytes<C>, C> CheckBytes<C> for ArchivedBox<T> {
     }
 }
 
-impl<C> CheckBytes<C> for ArchivedString
+impl<C: ?Sized> CheckBytes<C> for ArchivedString
 where
     ArchivedStringSlice: CheckBytes<C>,
 {
@@ -23,7 +23,7 @@ where
     }
 }
 
-impl<T: CheckBytes<C>, C> CheckBytes<C> for ArchivedVec<T> {
+impl<T: CheckBytes<C>, C: ?Sized> CheckBytes<C> for ArchivedVec<T> {
     type Error = <T as CheckBytes<C>>::Error;
 
     unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {

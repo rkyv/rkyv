@@ -10,11 +10,28 @@ use core::{
 };
 use rkyv::{
     offset_of,
-    validation::{ArchiveContext, ArchiveMemoryError},
+    ArchiveContext,
+    ArchiveMemoryError,
     RelPtr,
 };
 use rkyv_typename::TypeName;
 use std::error::Error;
+
+pub trait DynArchiveContext {
+    unsafe fn claim_bytes_dyn(&mut self, base: *const u8, offset: isize, count: usize, align: usize) -> Result<*const u8, ArchiveMemoryError>;
+}
+
+impl<T: ArchiveContext + ?Sized> DynArchiveContext for T {
+    unsafe fn claim_bytes_dyn(&mut self, base: *const u8, offset: isize, count: usize, align: usize) -> Result<*const u8, ArchiveMemoryError> {
+        self.claim_bytes(base, offset, count, align)
+    }
+}
+
+impl<'a> ArchiveContext for (dyn DynArchiveContext + 'a) {
+    unsafe fn claim_bytes(&mut self, base: *const u8, offset: isize, count: usize, align: usize) -> Result<*const u8, ArchiveMemoryError> {
+        self.claim_bytes_dyn(base, offset, count, align)
+    }
+}
 
 // This error just always says that check bytes isn't implemented for a type
 #[derive(Debug)]
@@ -32,12 +49,12 @@ impl Error for CheckBytesUnimplemented {}
 // implement CheckBytes.
 unsafe fn check_rel_ptr_unimplemented(
     _rel_ptr: &RelPtr,
-    _context: &mut ArchiveContext,
+    _context: &mut dyn DynArchiveContext,
 ) -> Result<(), Box<dyn Error>> {
     Err(Box::new(CheckBytesUnimplemented).into())
 }
 
-type FnCheckRelPtr = unsafe fn(&RelPtr, &mut ArchiveContext) -> Result<(), Box<dyn Error>>;
+type FnCheckRelPtr = unsafe fn(&RelPtr, &mut dyn DynArchiveContext) -> Result<(), Box<dyn Error>>;
 
 #[doc(hidden)]
 pub trait NotCheckBytesDyn {
@@ -49,12 +66,12 @@ impl<T> NotCheckBytesDyn for T {}
 #[doc(hidden)]
 pub struct IsCheckBytesDyn<T>(PhantomData<T>);
 
-impl<T: CheckBytes<ArchiveContext>> IsCheckBytesDyn<T> {
+impl<T: for<'a> CheckBytes<(dyn DynArchiveContext + 'a)>> IsCheckBytesDyn<T> {
     pub const CHECK_REL_PTR: FnCheckRelPtr = Self::check_bytes_dyn;
 
     unsafe fn check_bytes_dyn(
         rel_ptr: &RelPtr,
-        context: &mut ArchiveContext,
+        context: &mut dyn DynArchiveContext,
     ) -> Result<(), Box<dyn Error>> {
         let data = context.claim_bytes(
             (rel_ptr as *const RelPtr).cast(),
@@ -129,12 +146,23 @@ impl From<Unreachable> for ArchivedDynError {
     }
 }
 
-impl<T: TypeName + ?Sized> CheckBytes<ArchiveContext> for ArchivedDyn<T> {
+impl<T: TypeName + ?Sized, C: ArchiveContext> CheckBytes<C> for ArchivedDyn<T> {
     type Error = ArchivedDynError;
 
     unsafe fn check_bytes<'a>(
         bytes: *const u8,
-        context: &mut ArchiveContext,
+        context: &mut C,
+    ) -> Result<&'a Self, Self::Error> {
+        <Self as CheckBytes<dyn DynArchiveContext>>::check_bytes(bytes, context)
+    }
+}
+
+impl<'b, T: TypeName + ?Sized> CheckBytes<dyn DynArchiveContext + 'b> for ArchivedDyn<T> {
+    type Error = ArchivedDynError;
+
+    unsafe fn check_bytes<'a>(
+        bytes: *const u8,
+        context: &mut (dyn DynArchiveContext + 'b),
     ) -> Result<&'a Self, Self::Error> {
         let archived_type_id =
             AtomicU64::check_bytes(bytes.add(offset_of!(Self, type_id)), context)?;

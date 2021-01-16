@@ -3,7 +3,8 @@
 use super::{ArchivedHashMap, ArchivedHashSet, Entry};
 use crate::{
     offset_of,
-    validation::{ArchiveContext, ArchiveMemoryError},
+    ArchiveContext,
+    ArchiveMemoryError,
     RelPtr,
 };
 use bytecheck::{CheckBytes, Unreachable};
@@ -37,14 +38,14 @@ impl<K: fmt::Debug + fmt::Display, V: fmt::Debug + fmt::Display> Error
 {
 }
 
-impl<K: CheckBytes<ArchiveContext>, V: CheckBytes<ArchiveContext>> CheckBytes<ArchiveContext>
+impl<K: CheckBytes<C>, V: CheckBytes<C>, C: ArchiveContext + ?Sized> CheckBytes<C>
     for Entry<K, V>
 {
     type Error = ArchivedHashMapEntryError<K::Error, V::Error>;
 
     unsafe fn check_bytes<'a>(
         bytes: *const u8,
-        context: &mut ArchiveContext,
+        context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
         K::check_bytes(bytes.add(offset_of!(Entry<K, V>, key)), context)
             .map_err(ArchivedHashMapEntryError::KeyCheckError)?;
@@ -110,14 +111,14 @@ impl<K, V> From<ArchiveMemoryError> for ArchivedHashMapError<K, V> {
     }
 }
 
-impl<K: CheckBytes<ArchiveContext> + Eq + Hash, V: CheckBytes<ArchiveContext>>
-    CheckBytes<ArchiveContext> for ArchivedHashMap<K, V>
+impl<K: CheckBytes<C> + Eq + Hash, V: CheckBytes<C>, C: ArchiveContext + ?Sized>
+    CheckBytes<C> for ArchivedHashMap<K, V>
 {
     type Error = ArchivedHashMapError<K::Error, V::Error>;
 
     unsafe fn check_bytes<'a>(
         bytes: *const u8,
-        context: &mut ArchiveContext,
+        context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
         let len = *u32::check_bytes(bytes.add(offset_of!(ArchivedHashMap<K, V>, len)), context)?;
 
@@ -172,12 +173,12 @@ impl<K: CheckBytes<ArchiveContext> + Eq + Hash, V: CheckBytes<ArchiveContext>>
     }
 }
 
-impl<K: CheckBytes<ArchiveContext> + Hash + Eq> CheckBytes<ArchiveContext> for ArchivedHashSet<K> {
-    type Error = ArchivedHashMapError<K::Error, <() as CheckBytes<ArchiveContext>>::Error>;
+impl<K: CheckBytes<C> + Hash + Eq, C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedHashSet<K> {
+    type Error = ArchivedHashMapError<K::Error, <() as CheckBytes<C>>::Error>;
 
     unsafe fn check_bytes<'a>(
         bytes: *const u8,
-        context: &mut ArchiveContext,
+        context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
         ArchivedHashMap::<K, ()>::check_bytes(bytes, context)?;
         Ok(&*bytes.cast())

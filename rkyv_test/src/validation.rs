@@ -1,6 +1,17 @@
 use bytecheck::CheckBytes;
 use core::fmt;
-use rkyv::{check_archive, Aligned, Archive, ArchiveBuffer, ArchiveContext, Write};
+use rkyv::{
+    Aligned,
+    Archive,
+    ArchiveBuffer,
+    Write,
+    check_archive,
+    validation::{
+        ArchiveBoundsValidator,
+        ArchiveValidator,
+        check_archive_with_context
+    },
+};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
@@ -10,12 +21,15 @@ const BUFFER_SIZE: usize = 512;
 
 fn archive_and_check<T: Archive>(value: &T)
 where
-    T::Archived: CheckBytes<ArchiveContext>,
+    T::Archived: CheckBytes<ArchiveValidator> + CheckBytes<ArchiveBoundsValidator>,
 {
     let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
     let pos = writer.archive(value).expect("failed to archive value");
     let buf = writer.into_inner();
     check_archive::<T>(buf.as_ref(), pos).unwrap();
+    unsafe {
+        check_archive_with_context::<T, _>(buf.as_ref(), pos, &mut ArchiveBoundsValidator::new(buf.as_ref())).unwrap();
+    }
 }
 
 #[test]
@@ -118,18 +132,18 @@ fn cycle_detection() {
 
     impl Error for NodeError {}
 
-    impl CheckBytes<ArchiveContext> for ArchivedNode {
+    impl<C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedNode {
         type Error = NodeError;
 
         unsafe fn check_bytes<'a>(
             bytes: *const u8,
-            context: &mut ArchiveContext,
+            context: &mut C,
         ) -> Result<&'a Self, Self::Error> {
             let tag = *bytes.cast::<u8>();
             match tag {
                 0 => (),
                 1 => {
-                    <Archived<Box<Node>> as CheckBytes<ArchiveContext>>::check_bytes(
+                    <Archived<Box<Node>> as CheckBytes<C>>::check_bytes(
                         bytes.add(4),
                         context,
                     )
