@@ -1,5 +1,5 @@
 use core::{any::{Any, TypeId}, fmt, ops::{Deref, DerefMut}, pin::Pin};
-use std::{collections::HashMap, error::Error, rc::Rc};
+use std::{collections::HashMap, error::Error, rc::Rc, sync::Arc};
 use crate::{Archive, ArchiveRef, Serialize, SerializeRef, SharedWrite, Write};
 
 #[derive(Debug)]
@@ -33,6 +33,19 @@ impl<E: Error + 'static> Error for SharedWriterError<E> {
 pub struct SharedWriter<W: Write> {
     inner: W,
     shared_resolvers: HashMap<*const (), (TypeId, usize)>,
+}
+
+impl<W: Write> SharedWriter<W> {
+    pub fn new(inner: W) -> Self {
+        Self {
+            inner,
+            shared_resolvers: HashMap::new(),
+        }
+    }
+
+    pub fn into_inner(self) -> W {
+        self.inner
+    }
 }
 
 impl<W: Write> Write for SharedWriter<W> {
@@ -97,12 +110,12 @@ impl<W: Write> SharedWrite for SharedWriter<W> {
 pub struct ArchivedRc<T>(T);
 
 impl<T: DerefMut> ArchivedRc<T> {
-    /// Gets the value of this archived Rc.
+    /// Gets the value of this archived `Rc` or `Arc`.
     ///
     /// # Safety
     ///
-    /// Any other `ArchivedRc` or `ArchivedWeak` pointers to the same value must
-    /// not be dereferenced for the duration of the returned borrow.
+    /// Any other `ArchivedRc` pointers to the same value must not be
+    /// dereferenced for the duration of the returned borrow.
     pub fn get_pin_unchecked(self: Pin<&mut Self>) -> Pin<&mut <T as Deref>::Target> {
         unsafe { self.map_unchecked_mut(|s| s.0.deref_mut()) }
     }
@@ -122,7 +135,13 @@ impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Rc<V>>
     }
 }
 
-/// The resolver for `Rc`.
+impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Arc<V>> for ArchivedRc<T> {
+    fn eq(&self, other: &Arc<V>) -> bool {
+        self.deref().eq(other.deref())
+    }
+}
+
+/// The resolver for `Rc` and `Arc`.
 pub struct RcResolver(usize);
 
 impl<T: ArchiveRef + ?Sized> Archive for Rc<T> {
@@ -134,7 +153,22 @@ impl<T: ArchiveRef + ?Sized> Archive for Rc<T> {
     }
 }
 
+impl<T: ArchiveRef + ?Sized> Archive for Arc<T> {
+    type Archived = ArchivedRc<T::Reference>;
+    type Resolver = RcResolver;
+
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        ArchivedRc(self.as_ref().resolve_ref(pos, resolver.0))
+    }
+}
+
 impl<T: SerializeRef<W> + ?Sized + 'static, W: SharedWrite + ?Sized> Serialize<W> for Rc<T> {
+    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        Ok(RcResolver(writer.serialize_shared_ref(self.as_ref())?))
+    }
+}
+
+impl<T: SerializeRef<W> + ?Sized + 'static, W: SharedWrite + ?Sized> Serialize<W> for Arc<T> {
     fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
         Ok(RcResolver(writer.serialize_shared_ref(self.as_ref())?))
     }

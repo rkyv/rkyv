@@ -857,55 +857,55 @@ mod tests {
         }
     }
 
-    // #[test]
-    // fn mutable_dyn_ref() {
-    //     #[archive_dyn]
-    //     trait TestTrait {
-    //         fn value(&self) -> i32;
-    //         fn set_value(self: Pin<&mut Self>, value: i32);
-    //     }
+    #[test]
+    fn mutable_dyn_ref() {
+        #[archive_dyn]
+        trait TestTrait {
+            fn value(&self) -> i32;
+            fn set_value(self: Pin<&mut Self>, value: i32);
+        }
 
-    //     #[derive(Archive, Serialize)]
-    //     #[archive(derive(TypeName))]
-    //     struct Test(i32);
+        #[derive(Archive, Serialize)]
+        #[archive(derive(TypeName))]
+        struct Test(i32);
 
-    //     #[archive_dyn]
-    //     impl TestTrait for Test {
-    //         fn value(&self) -> i32 {
-    //             self.0
-    //         }
-    //         fn set_value(self: Pin<&mut Self>, value: i32) {
-    //             unsafe {
-    //                 let s = self.get_unchecked_mut();
-    //                 s.0 = value;
-    //             }
-    //         }
-    //     }
+        #[archive_dyn]
+        impl TestTrait for Test {
+            fn value(&self) -> i32 {
+                self.0
+            }
+            fn set_value(self: Pin<&mut Self>, value: i32) {
+                unsafe {
+                    let s = self.get_unchecked_mut();
+                    s.0 = value;
+                }
+            }
+        }
 
-    //     impl TestTrait for Archived<Test> {
-    //         fn value(&self) -> i32 {
-    //             self.0
-    //         }
-    //         fn set_value(self: Pin<&mut Self>, value: i32) {
-    //             unsafe {
-    //                 let s = self.get_unchecked_mut();
-    //                 s.0 = value;
-    //             }
-    //         }
-    //     }
+        impl TestTrait for Archived<Test> {
+            fn value(&self) -> i32 {
+                self.0
+            }
+            fn set_value(self: Pin<&mut Self>, value: i32) {
+                unsafe {
+                    let s = self.get_unchecked_mut();
+                    s.0 = value;
+                }
+            }
+        }
 
-    //     let value = Box::new(Test(10)) as Box<dyn SerializeTestTrait>;
+        let value = Box::new(Test(10)) as Box<dyn SerializeTestTrait>;
 
-    //     let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-    //     let pos = writer.serialize(&value).unwrap();
-    //     let mut buf = writer.into_inner();
-    //     let mut value =
-    //         unsafe { archived_value_mut::<Box<dyn SerializeTestTrait>>(Pin::new(buf.as_mut()), pos) };
+        let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+        let pos = writer.serialize(&value).unwrap();
+        let mut buf = writer.into_inner();
+        let mut value =
+            unsafe { archived_value_mut::<Box<dyn SerializeTestTrait>>(Pin::new(buf.as_mut()), pos) };
 
-    //     assert_eq!(value.value(), 10);
-    //     value.as_mut().get_pin().set_value(64);
-    //     assert_eq!(value.value(), 64);
-    // }
+        assert_eq!(value.value(), 10);
+        value.as_mut().get_pin().set_value(64);
+        assert_eq!(value.value(), 64);
+    }
 
     #[test]
     fn recursive_structures() {
@@ -1004,5 +1004,62 @@ mod tests {
         };
 
         test_archive(&value);
+    }
+
+    #[test]
+    fn archive_shared_ptr() {
+        use rkyv::SharedWriter;
+        use std::rc::Rc;
+
+        #[derive(Archive, Serialize, Eq, PartialEq)]
+        struct Test {
+            a: Rc<u32>,
+            b: Rc<u32>,
+        }
+
+        impl ArchivedTest {
+            fn a(self: Pin<&mut Self>) -> Pin<&mut Archived<Rc<u32>>> {
+                unsafe { self.map_unchecked_mut(|s| &mut s.a) }
+            }
+
+            fn b(self: Pin<&mut Self>) -> Pin<&mut Archived<Rc<u32>>> {
+                unsafe { self.map_unchecked_mut(|s| &mut s.b) }
+            }
+        }
+
+        impl PartialEq<Test> for Archived<Test> {
+            fn eq(&self, other: &Test) -> bool {
+                *self.a == *other.a && *self.b == *other.b
+            }
+        }
+
+        let shared = Rc::new(10);
+        let value = Test {
+            a: shared.clone(),
+            b: shared.clone(),
+        };
+
+        let mut writer = SharedWriter::new(ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE])));
+        let pos = writer.serialize(&value).expect("failed to archive value");
+        let mut buf = writer.into_inner().into_inner();
+
+        let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        assert!(archived == &value);
+
+        let mut mutable_archived = unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
+        *mutable_archived.as_mut().a().get_pin_unchecked() = 42;
+
+        let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        assert_eq!(*archived.a, 42);
+        assert_eq!(*archived.b, 42);
+
+        let mut mutable_archived = unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
+        *mutable_archived.as_mut().b().get_pin_unchecked() = 17;
+
+        let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        assert_eq!(*archived.a, 17);
+        assert_eq!(*archived.b, 17);
+
+        // assert!(&archived.deserialize() == value);
     }
 }
