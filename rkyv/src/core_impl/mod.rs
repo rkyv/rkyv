@@ -2,7 +2,7 @@
 
 use crate::{
     offset_of, Archive, ArchiveCopy, ArchiveRef, Archived, CopyResolver, RelPtr, Resolve,
-    Serialize, SerializeRef, Unarchive, UnarchiveRef, Write,
+    Serialize, SerializeRef, Deserialize, DeserializeRef, Write,
 };
 use core::{
     alloc,
@@ -93,14 +93,14 @@ impl<T: Serialize<W>, W: Write + ?Sized> SerializeRef<W> for T {
     }
 }
 
-impl<T: Archive> UnarchiveRef<T> for <T as ArchiveRef>::Reference
+impl<T: Archive> DeserializeRef<T> for <T as ArchiveRef>::Reference
 where
-    T::Archived: Unarchive<T>,
+    T::Archived: Deserialize<T>,
 {
-    unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T {
+    unsafe fn deserialize_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T {
         let ptr = alloc(alloc::Layout::new::<T>()).cast::<T>();
-        let unarchived = self.unarchive();
-        ptr.write(unarchived);
+        let deserialized = self.deserialize();
+        ptr.write(deserialized);
         ptr
     }
 }
@@ -199,11 +199,11 @@ impl<T: ArchiveCopy> ArchiveRef for [T] {
 }
 
 #[cfg(not(feature = "std"))]
-impl<T: ArchiveCopy> UnarchiveRef<[T]> for <[T] as ArchiveRef>::Reference
+impl<T: ArchiveCopy> DeserializeRef<[T]> for <[T] as ArchiveRef>::Reference
 where
-    T::Archived: Unarchive<T>,
+    T::Archived: Deserialize<T>,
 {
-    unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut [T] {
+    unsafe fn deserialize_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut [T] {
         let result = alloc(alloc::Layout::array::<T>(self.len()).unwrap()).cast::<T>();
         ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
         slice::from_raw_parts_mut(result, self.len())
@@ -231,11 +231,11 @@ macro_rules! impl_primitive {
 
         unsafe impl ArchiveCopy for $type {}
 
-        impl Unarchive<$type> for $type
+        impl Deserialize<$type> for $type
         where
             $type: Copy,
         {
-            fn unarchive(&self) -> $type {
+            fn deserialize(&self) -> $type {
                 *self
             }
         }
@@ -295,8 +295,8 @@ macro_rules! impl_atomic {
             }
         }
 
-        impl Unarchive<$type> for $type {
-            fn unarchive(&self) -> $type {
+        impl Deserialize<$type> for $type {
+            fn deserialize(&self) -> $type {
                 <$type>::new(self.load(atomic::Ordering::Relaxed))
             }
         }
@@ -346,13 +346,13 @@ macro_rules! impl_tuple {
             }
         }
 
-        impl<$($type: Archive),+> Unarchive<($($type,)+)> for ($($type::Archived,)+)
+        impl<$($type: Archive),+> Deserialize<($($type,)+)> for ($($type::Archived,)+)
         where
-            $($type::Archived: Unarchive<$type>,)+
+            $($type::Archived: Deserialize<$type>,)+
         {
-            fn unarchive(&self) -> ($($type,)+) {
+            fn deserialize(&self) -> ($($type,)+) {
                 let rev = ($(&self.$index,)+);
-                ($(rev.$index.unarchive(),)+)
+                ($(rev.$index.deserialize(),)+)
             }
         }
 
@@ -408,17 +408,17 @@ macro_rules! impl_array {
             }
         }
 
-        impl<T: Archive> Unarchive<[T; $len]> for [T::Archived; $len]
+        impl<T: Archive> Deserialize<[T; $len]> for [T::Archived; $len]
         where
-            T::Archived: Unarchive<T>,
+            T::Archived: Deserialize<T>,
         {
-            fn unarchive(&self) -> [T; $len] {
+            fn deserialize(&self) -> [T; $len] {
                 let mut result = core::mem::MaybeUninit::<[T; $len]>::uninit();
                 let result_ptr = result.as_mut_ptr().cast::<T>();
                 #[allow(clippy::reversed_empty_ranges)]
                 for i in 0..$len {
                     unsafe {
-                        result_ptr.add(i).write(self[i].unarchive());
+                        result_ptr.add(i).write(self[i].deserialize());
                     }
                 }
                 unsafe { result.assume_init() }
@@ -476,16 +476,16 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
 }
 
 #[cfg(feature = "const_generics")]
-impl<T: Archive, const N: usize> Unarchive<[T; N]> for [T::Archived; N]
+impl<T: Archive, const N: usize> Deserialize<[T; N]> for [T::Archived; N]
 where
-    T::Archived: Unarchive<T>,
+    T::Archived: Deserialize<T>,
 {
-    fn unarchive(&self) -> [T; N] {
+    fn deserialize(&self) -> [T; N] {
         let mut result = core::mem::MaybeUninit::<[T; N]>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T>();
         for i in 0..N {
             unsafe {
-                result_ptr.add(i).write(self[i].unarchive());
+                result_ptr.add(i).write(self[i].deserialize());
             }
         }
         unsafe { result.assume_init() }
@@ -526,8 +526,8 @@ impl<W: Write + ?Sized> SerializeRef<W> for str {
     }
 }
 
-impl UnarchiveRef<str> for <str as ArchiveRef>::Reference {
-    unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut str {
+impl DeserializeRef<str> for <str as ArchiveRef>::Reference {
+    unsafe fn deserialize_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut str {
         let bytes = alloc(alloc::Layout::array::<u8>(self.len()).unwrap());
         ptr::copy_nonoverlapping(self.as_ptr(), bytes, self.len());
         let slice = slice::from_raw_parts_mut(bytes, self.len());
@@ -686,12 +686,12 @@ impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for Option<T> {
     }
 }
 
-impl<T: Archive> Unarchive<Option<T>> for Archived<Option<T>>
+impl<T: Archive> Deserialize<Option<T>> for Archived<Option<T>>
 where
-    T::Archived: Unarchive<T>,
+    T::Archived: Deserialize<T>,
 {
-    fn unarchive(&self) -> Option<T> {
-        self.as_ref().map(|value| value.unarchive())
+    fn deserialize(&self) -> Option<T> {
+        self.as_ref().map(|value| value.deserialize())
     }
 }
 

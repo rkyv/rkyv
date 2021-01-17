@@ -6,7 +6,7 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{offset_of, Archive, Archived, RelPtr, Resolve, Serialize, Unarchive, Write};
+use crate::{offset_of, Archive, Archived, RelPtr, Resolve, Serialize, Deserialize, Write};
 use core::{
     borrow::Borrow,
     cmp::Reverse,
@@ -608,15 +608,15 @@ where
     }
 }
 
-impl<K: Archive + Hash + Eq, V: Archive> Unarchive<HashMap<K, V>> for Archived<HashMap<K, V>>
+impl<K: Archive + Hash + Eq, V: Archive> Deserialize<HashMap<K, V>> for Archived<HashMap<K, V>>
 where
-    K::Archived: Unarchive<K> + Hash + Eq,
-    V::Archived: Unarchive<V>,
+    K::Archived: Deserialize<K> + Hash + Eq,
+    V::Archived: Deserialize<V>,
 {
-    fn unarchive(&self) -> HashMap<K, V> {
+    fn deserialize(&self) -> HashMap<K, V> {
         let mut result = HashMap::new();
         for (k, v) in self.iter() {
-            result.insert(k.unarchive(), v.unarchive());
+            result.insert(k.deserialize(), v.deserialize());
         }
         result
     }

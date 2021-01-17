@@ -1014,12 +1014,12 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
     }
 }
 
-/// Derives `Unarchive` for the labeled type.
+/// Derives `Deserialize` for the labeled type.
 ///
 /// This macro also supports the `#[recursive]` attribute. See [`Archive`] for
 /// more information.
-#[proc_macro_derive(Unarchive, attributes(recursive))]
-pub fn unarchive_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_derive(Deserialize, attributes(recursive))]
+pub fn deserialize_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     let attributes = match parse_attributes(&input) {
@@ -1027,16 +1027,16 @@ pub fn unarchive_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         Err(errors) => return proc_macro::TokenStream::from(errors),
     };
 
-    let unarchive_impl = if attributes.archive_copy.is_some() {
-        derive_unarchive_copy_impl(&input)
+    let deserialize_impl = if attributes.archive_copy.is_some() {
+        derive_deserialize_copy_impl(&input)
     } else {
-        derive_unarchive_impl(&input)
+        derive_deserialize_impl(&input)
     };
 
-    proc_macro::TokenStream::from(unarchive_impl)
+    proc_macro::TokenStream::from(deserialize_impl)
 }
 
-fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
+fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
     let name = &input.ident;
 
     let generic_params = input
@@ -1060,7 +1060,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
         None => quote! {},
     };
 
-    let unarchive_impl = match input.data {
+    let deserialize_impl = match input.data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
                 let field_wheres = fields.named.iter().filter_map(|f| {
@@ -1068,25 +1068,25 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                         None
                     } else {
                         let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Unarchive<#ty> })
+                        Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty> })
                     }
                 });
                 let field_wheres = quote! { #(#field_wheres,)* };
 
-                let unarchive_fields = fields.named.iter().map(|f| {
+                let deserialize_fields = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote! { #name: self.#name.unarchive() }
+                    quote! { #name: self.#name.deserialize() }
                 });
 
                 quote! {
-                    impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
+                    impl<#generic_params> Deserialize<#name<#generic_args>> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #field_wheres
                     {
-                        fn unarchive(&self) -> #name<#generic_args> {
+                        fn deserialize(&self) -> #name<#generic_args> {
                             #name::<#generic_args> {
-                                #(#unarchive_fields,)*
+                                #(#deserialize_fields,)*
                             }
                         }
                     }
@@ -1098,36 +1098,36 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                         None
                     } else {
                         let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Unarchive<#ty> })
+                        Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty> })
                     }
                 });
                 let field_wheres = quote! { #(#field_wheres,)* };
 
-                let unarchive_fields = fields.unnamed.iter().enumerate().map(|(i, _)| {
+                let deserialize_fields = fields.unnamed.iter().enumerate().map(|(i, _)| {
                     let index = Index::from(i);
-                    quote! { self.#index.unarchive() }
+                    quote! { self.#index.deserialize() }
                 });
 
                 quote! {
-                    impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
+                    impl<#generic_params> Deserialize<#name<#generic_args>> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #field_wheres
                     {
-                        fn unarchive(&self) -> #name<#generic_args> {
+                        fn deserialize(&self) -> #name<#generic_args> {
                             #name::<#generic_args>(
-                                #(#unarchive_fields,)*
+                                #(#deserialize_fields,)*
                             )
                         }
                     }
                 }
             }
             Fields::Unit => quote! {
-                impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
+                impl<#generic_params> Deserialize<#name<#generic_args>> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                 {
-                    fn unarchive(&self) -> #name<#generic_args> {
+                    fn deserialize(&self) -> #name<#generic_args> {
                         #name::<#generic_args>
                     }
                 }
@@ -1141,7 +1141,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                             None
                         } else {
                             let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Unarchive<#ty> })
+                            Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty> })
                         }
                     });
                     quote! { #(#field_wheres,)* }
@@ -1152,7 +1152,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                             None
                         } else {
                             let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Unarchive<#ty> })
+                            Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty> })
                         }
                     });
                     quote! { #(#field_wheres,)* }
@@ -1161,7 +1161,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
             });
             let field_wheres = quote! { #(#field_wheres)* };
 
-            let unarchive_variants = data.variants.iter().map(|v| {
+            let deserialize_variants = data.variants.iter().map(|v| {
                 let variant = &v.ident;
                 match v.fields {
                     Fields::Named(ref fields) => {
@@ -1172,7 +1172,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             quote! {
-                                #name: #name.unarchive()
+                                #name: #name.deserialize()
                             }
                         });
                         quote_spanned! { variant.span() =>
@@ -1187,7 +1187,7 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let binding = Ident::new(&format!("_{}", i), f.span());
                             quote! {
-                                #binding.unarchive()
+                                #binding.deserialize()
                             }
                         });
                         quote_spanned! { variant.span() =>
@@ -1201,34 +1201,34 @@ fn derive_unarchive_impl(input: &DeriveInput) -> TokenStream {
             });
 
             quote! {
-                impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
+                impl<#generic_params> Deserialize<#name<#generic_args>> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                     #field_wheres
                 {
-                    fn unarchive(&self) -> #name<#generic_args> {
+                    fn deserialize(&self) -> #name<#generic_args> {
                         match self {
-                            #(#unarchive_variants,)*
+                            #(#deserialize_variants,)*
                         }
                     }
                 }
             }
         }
         Data::Union(_) => {
-            return Error::new(input.span(), "Unarchive cannot be derived for unions")
+            return Error::new(input.span(), "Deserialize cannot be derived for unions")
                 .to_compile_error()
         }
     };
 
     quote! {
         const _: () = {
-            use rkyv::{Archive, Archived, Unarchive};
-            #unarchive_impl
+            use rkyv::{Archive, Archived, Deserialize};
+            #deserialize_impl
         };
     }
 }
 
-fn derive_unarchive_copy_impl(input: &DeriveInput) -> TokenStream {
+fn derive_deserialize_copy_impl(input: &DeriveInput) -> TokenStream {
     let name = &input.ident;
 
     let generic_params = input
@@ -1252,7 +1252,7 @@ fn derive_unarchive_copy_impl(input: &DeriveInput) -> TokenStream {
         None => quote! {},
     };
 
-    let unarchive_impl = match input.data {
+    let deserialize_impl = match input.data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
                 let field_wheres = fields.named.iter().filter_map(|f| {
@@ -1266,12 +1266,12 @@ fn derive_unarchive_copy_impl(input: &DeriveInput) -> TokenStream {
                 let field_wheres = quote! { #(#field_wheres,)* };
 
                 quote! {
-                    impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
+                    impl<#generic_params> Deserialize<#name<#generic_args>> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #field_wheres
                     {
-                        fn unarchive(&self) -> Self {
+                        fn deserialize(&self) -> Self {
                             *self
                         }
                     }
@@ -1289,23 +1289,23 @@ fn derive_unarchive_copy_impl(input: &DeriveInput) -> TokenStream {
                 let field_wheres = quote! { #(#field_wheres,)* };
 
                 quote! {
-                    impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
+                    impl<#generic_params> Deserialize<#name<#generic_args>> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #field_wheres
                     {
-                        fn unarchive(&self) -> Self {
+                        fn deserialize(&self) -> Self {
                             *self
                         }
                     }
                 }
             }
             Fields::Unit => quote! {
-                impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
+                impl<#generic_params> Deserialize<#name<#generic_args>> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                 {
-                    fn unarchive(&self) -> Self {
+                    fn deserialize(&self) -> Self {
                         *self
                     }
                 }
@@ -1340,27 +1340,27 @@ fn derive_unarchive_copy_impl(input: &DeriveInput) -> TokenStream {
             let field_wheres = quote! { #(#field_wheres)* };
 
             quote! {
-                impl<#generic_params> Unarchive<#name<#generic_args>> for Archived<#name<#generic_args>>
+                impl<#generic_params> Deserialize<#name<#generic_args>> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                     #field_wheres
                 {
-                    fn unarchive(&self) -> Self {
+                    fn deserialize(&self) -> Self {
                         *self
                     }
                 }
             }
         }
         Data::Union(_) => {
-            return Error::new(input.span(), "Unarchive cannot be derived for unions")
+            return Error::new(input.span(), "Deserialize cannot be derived for unions")
                 .to_compile_error()
         }
     };
 
     quote! {
         const _: () = {
-            use rkyv::{Archive, Archived, ArchiveCopy, Unarchive};
-            #unarchive_impl
+            use rkyv::{Archive, Archived, ArchiveCopy, Deserialize};
+            #deserialize_impl
         };
     }
 }

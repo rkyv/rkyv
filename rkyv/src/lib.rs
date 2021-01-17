@@ -35,7 +35,7 @@
 //! high-performance and IO-bound applications.
 //!
 //! Limited data mutation is supported through `Pin` APIs. Archived values can
-//! be truly deserialized with [`Unarchive`] if full mutation capabilities are
+//! be truly deserialized with [`Deserialize`] if full mutation capabilities are
 //! needed.
 //!
 //! ## Tradeoffs
@@ -85,7 +85,7 @@ use core::{
 use std::io;
 
 pub use memoffset::offset_of;
-pub use rkyv_derive::{Archive, Unarchive};
+pub use rkyv_derive::{Archive, Deserialize};
 #[cfg(feature = "validation")]
 pub use validation::{check_archive, ArchiveContext, ArchiveMemoryError};
 
@@ -375,7 +375,7 @@ pub trait Archive {
     type Archived;
 
     /// The resolver for this type. It must contain all the information needed
-    /// to make the archived type from the unarchived type.
+    /// to make the archived type from the normal type.
     type Resolver: Resolve<Self, Archived = Self::Archived>;
 }
 
@@ -387,14 +387,14 @@ pub trait Serialize<W: Write + ?Sized>: Archive {
 
 /// Converts a type back from its archived form.
 ///
-/// This can be derived with [`Unarchive`](macro@Unarchive).
+/// This can be derived with [`Deserialize`](macro@Deserialize).
 ///
 /// ## Examples
 ///
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Unarchive, Write};
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Deserialize, Write};
 ///
-/// #[derive(Archive, Debug, PartialEq, Unarchive)]
+/// #[derive(Archive, Debug, PartialEq, Deserialize)]
 /// struct Test {
 ///     int: u8,
 ///     string: String,
@@ -412,11 +412,11 @@ pub trait Serialize<W: Write + ?Sized>: Archive {
 /// let buf = writer.into_inner();
 /// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 ///
-/// let unarchived = archived.unarchive();
-/// assert_eq!(value, unarchived);
+/// let deserialized = archived.deserialize();
+/// assert_eq!(value, deserialized);
 /// ```
-pub trait Unarchive<T: Archive<Archived = Self> + ?Sized>: Sized {
-    fn unarchive(&self) -> T;
+pub trait Deserialize<T: Archive<Archived = Self>> {
+    fn deserialize(&self) -> T;
 }
 
 /// This trait is a counterpart of [`Archive`] that's suitable for unsized
@@ -447,16 +447,16 @@ pub trait SerializeRef<W: Write + ?Sized>: ArchiveRef {
     fn serialize_ref(&self, writer: &mut W) -> Result<Self::ReferenceResolver, W::Error>;
 }
 
-/// A counterpart of [`Unarchive`] that's suitable for unsized types.
-pub trait UnarchiveRef<T: ArchiveRef<Reference = Self> + ?Sized>:
+/// A counterpart of [`Deserialize`] that's suitable for unsized types.
+pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized>:
     Deref<Target = T::Archived> + DerefMut<Target = T::Archived> + Sized
 {
-    /// Unarchives a reference to the given value.
+    /// Deserializes a reference to the given value.
     ///
     /// # Safety
     ///
     /// The return value must be allocated using the given allocator function.
-    unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
+    unsafe fn deserialize_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
 }
 
 /// A trait that indicates that some [`Archive`] type can be copied directly to
@@ -491,7 +491,7 @@ pub trait UnarchiveRef<T: ArchiveRef<Reference = Self> + ?Sized>:
 /// ```
 pub unsafe trait ArchiveCopy: Archive<Archived = Self> + Copy {}
 
-/// A resolver that always resolves to the unarchived value. This can be useful
+/// A resolver that always resolves to the normal value. This can be useful
 /// while implementing [`ArchiveCopy`].
 ///
 /// ## Examples

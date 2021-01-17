@@ -3,7 +3,7 @@
 //! With `rkyv_dyn`, trait objects can be serialized with rkyv then the methods
 //! can be called without deserializing. All it takes is some macro magic.
 //!
-//! See [`ArchiveDyn`] for an example of how to use rkyv_dyn.
+//! See [`SerializeDyn`] for an example of how to use rkyv_dyn.
 //!
 //! ## Features
 //!
@@ -108,16 +108,17 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// 3. Implement your trait for your type and add the attribute `#[archive_dyn]`
 /// to it. Make sure to implement your trait for your archived type as well.
 /// This invocation must have the same attributes as the trait invocation.
-/// 4. If unarchive support is desired, add `unarchive` or `unarchive = "..."`
-/// as parameters. By default, the unarchive trait will be named "Unarchive" +
-/// your trait name. Passing a trait name will use that name instead.
+/// 4. If deserialization support is desired, add `deserialize` or
+/// `deserialize = "..."` as parameters. By default, the deserialize trait will
+/// be named "Deserialize" + your trait name. Passing a trait name will use that
+/// name instead.
 ///
 /// Then you're ready to serialize boxed trait objects!
 ///
-/// Even though your unarchived values are boxed as archive trait objects, your
-/// archived values are boxed as regular trait objects. This is because your
-/// unarchived values have to implement `ArchiveDyn` but your archived values do
-/// not.
+/// Even though your deserialized values are boxed as archive trait objects,
+/// your archived values are boxed as regular trait objects. This is because
+/// your deserialized values have to implement `ArchiveDyn` but your archived
+/// values do not.
 ///
 /// ## Examples
 ///
@@ -130,22 +131,22 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///     ArchiveBuffer,
 ///     Archived,
 ///     archived_value,
-///     Unarchive,
+///     Deserialize,
 ///     Write,
 /// };
 /// use rkyv_dyn::archive_dyn;
 /// use rkyv_typename::TypeName;
 ///
-/// #[archive_dyn(unarchive)]
+/// #[archive_dyn(deserialize)]
 /// trait ExampleTrait {
 ///     fn value(&self) -> String;
 /// }
 ///
-/// #[derive(Archive, Unarchive)]
+/// #[derive(Archive, Deserialize)]
 /// #[archive(derive(TypeName))]
 /// struct StringStruct(String);
 ///
-/// #[archive_dyn(unarchive)]
+/// #[archive_dyn(deserialize)]
 /// impl ExampleTrait for StringStruct {
 ///     fn value(&self) -> String {
 ///         self.0.clone()
@@ -158,11 +159,11 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///     }
 /// }
 ///
-/// #[derive(Archive, Unarchive)]
+/// #[derive(Archive, Deserialize)]
 /// #[archive(derive(TypeName))]
 /// struct IntStruct(i32);
 ///
-/// #[archive_dyn(unarchive)]
+/// #[archive_dyn(deserialize)]
 /// impl ExampleTrait for IntStruct {
 ///     fn value(&self) -> String {
 ///         format!("{}", self.0)
@@ -188,10 +189,10 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// assert_eq!(archived_int.value(), "42");
 /// assert_eq!(archived_string.value(), "hello world");
 ///
-/// let unarchived_int: Box<dyn SerializeExampleTrait> = archived_int.unarchive();
-/// let unarchived_string: Box<dyn SerializeExampleTrait> = archived_string.unarchive();
-/// assert_eq!(unarchived_int.value(), "42");
-/// assert_eq!(unarchived_string.value(), "hello world");
+/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int.deserialize();
+/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string.deserialize();
+/// assert_eq!(deserialized_int.value(), "42");
+/// assert_eq!(deserialized_string.value(), "hello world");
 /// ```
 pub trait SerializeDyn {
     /// Writes the value to the writer and returns a resolver that can create an
@@ -208,16 +209,16 @@ where
     }
 }
 
-/// A trait object that can be unarchived.
+/// A trait object that can be deserialized.
 ///
-/// See [`ArchiveDyn`] for more information.
-pub trait UnarchiveDyn<T: ?Sized> {
-    /// Unarchives the given value as a trait object.
+/// See [`SerializeDyn`] for more information.
+pub trait DeserializeDyn<T: ?Sized> {
+    /// Deserializes the given value as a trait object.
     ///
     /// # Safety
     ///
     /// The return value must be allocated using the given allocator function.
-    unsafe fn unarchive_dyn(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
+    unsafe fn deserialize_dyn(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
 }
 
 /// The resolver for an [`ArchivedDyn`].

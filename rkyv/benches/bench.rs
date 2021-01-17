@@ -2,8 +2,7 @@ use bytecheck::CheckBytes;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
-use rkyv::{archived_value, check_archive, Aligned, Archive, ArchiveBuffer, Unarchive, Write};
-use serde::{Deserialize, Serialize};
+use rkyv::{archived_value, check_archive, Aligned, Archive, ArchiveBuffer, Deserialize, Write};
 use std::collections::HashMap;
 
 trait Generate {
@@ -82,7 +81,7 @@ fn generate_vec<R: Rng, T: Generate>(rng: &mut R, range: core::ops::Range<usize>
     result
 }
 
-#[derive(Archive, CheckBytes, Clone, Copy, Deserialize, Serialize, Unarchive)]
+#[derive(Archive, CheckBytes, Clone, Copy, Deserialize, serde::Deserialize, serde::Serialize)]
 #[archive(copy)]
 #[repr(u8)]
 pub enum GameType {
@@ -104,7 +103,7 @@ impl Generate for GameType {
     }
 }
 
-#[derive(Archive, Deserialize, Serialize, Unarchive)]
+#[derive(Archive, Deserialize, serde::Deserialize, serde::Serialize)]
 #[archive(derive(CheckBytes))]
 pub struct Item {
     count: i8,
@@ -132,7 +131,7 @@ impl Generate for Item {
     }
 }
 
-#[derive(Archive, CheckBytes, Clone, Copy, Deserialize, Serialize, Unarchive)]
+#[derive(Archive, CheckBytes, Clone, Copy, Deserialize, serde::Serialize, serde::Deserialize)]
 #[archive(copy)]
 pub struct Abilities {
     walk_speed: f32,
@@ -158,7 +157,7 @@ impl Generate for Abilities {
     }
 }
 
-#[derive(Archive, Deserialize, Serialize, Unarchive)]
+#[derive(Archive, Deserialize, serde::Deserialize, serde::Serialize)]
 #[archive(derive(CheckBytes))]
 pub struct Entity {
     id: String,
@@ -210,7 +209,7 @@ impl Generate for Entity {
     }
 }
 
-#[derive(Archive, Deserialize, Serialize, Unarchive)]
+#[derive(Archive, Deserialize, serde::Deserialize, serde::Serialize)]
 #[archive(derive(CheckBytes))]
 pub struct RecipeBook {
     recipes: Vec<String>,
@@ -260,7 +259,7 @@ impl Generate for RecipeBook {
     }
 }
 
-#[derive(Archive, Deserialize, Serialize, Unarchive)]
+#[derive(Archive, Deserialize, serde::Deserialize, serde::Serialize)]
 #[archive(derive(CheckBytes))]
 pub struct Player {
     game_type: GameType,
@@ -416,16 +415,16 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 let value = unsafe {
                     archived_value::<Players>(black_box(buffer.as_ref()), black_box(pos))
                 };
-                let unarchived: Players = value.unarchive();
-                black_box(unarchived);
+                let deserialized: Players = value.deserialize();
+                black_box(deserialized);
             })
         });
         group.bench_function("deserialize with validate", |b| {
             b.iter(|| {
                 let value =
                     check_archive::<Players>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
-                let unarchived: Players = value.unarchive();
-                black_box(unarchived);
+                let deserialize: Players = value.deserialize();
+                black_box(deserialize);
             })
         });
     }

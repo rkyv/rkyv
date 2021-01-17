@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{offset_of, Archive, ArchiveCopy, Archived, CopyResolver, Resolve, Serialize, Unarchive, Write};
+use crate::{offset_of, Archive, ArchiveCopy, Archived, CopyResolver, Resolve, Serialize, Deserialize, Write};
 use core::{
     cmp, fmt,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
@@ -19,8 +19,8 @@ impl<W: Write + ?Sized> Serialize<W> for RangeFull {
 
 unsafe impl ArchiveCopy for RangeFull {}
 
-impl Unarchive<RangeFull> for RangeFull {
-    fn unarchive(&self) -> Self {
+impl Deserialize<RangeFull> for RangeFull {
+    fn deserialize(&self) -> Self {
         RangeFull
     }
 }
@@ -107,14 +107,14 @@ impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for Range<T> {
     }
 }
 
-impl<T: Archive> Unarchive<Range<T>> for Archived<Range<T>>
+impl<T: Archive> Deserialize<Range<T>> for Archived<Range<T>>
 where
-    T::Archived: Unarchive<T>,
+    T::Archived: Deserialize<T>,
 {
-    fn unarchive(&self) -> Range<T> {
+    fn deserialize(&self) -> Range<T> {
         Range {
-            start: self.start.unarchive(),
-            end: self.end.unarchive(),
+            start: self.start.deserialize(),
+            end: self.end.deserialize(),
         }
     }
 }
@@ -199,11 +199,11 @@ impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for RangeInclusive<T> {
     }
 }
 
-impl<T: Archive> Unarchive<RangeInclusive<T>> for Archived<RangeInclusive<T>>
+impl<T: Archive> Deserialize<RangeInclusive<T>> for Archived<RangeInclusive<T>>
 where
-    T::Archived: Unarchive<T>,
+    T::Archived: Deserialize<T>,
 {
-    fn unarchive(&self) -> RangeInclusive<T> {
-        RangeInclusive::new(self.start.unarchive(), self.end.unarchive())
+    fn deserialize(&self) -> RangeInclusive<T> {
+        RangeInclusive::new(self.start.deserialize(), self.end.deserialize())
     }
 }

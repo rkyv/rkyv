@@ -6,7 +6,7 @@ mod tests {
     use core::pin::Pin;
     use rkyv::{
         archived_value, archived_value_mut, archived_value_ref, Aligned, Archive, ArchiveBuffer,
-        ArchiveRef, Archived, Seek, Serialize, SerializeRef, Unarchive, Write,
+        ArchiveRef, Archived, Seek, Serialize, SerializeRef, Deserialize, Write,
     };
     use rkyv_dyn::archive_dyn;
     use rkyv_typename::TypeName;
@@ -17,14 +17,14 @@ mod tests {
     fn test_archive<T: Serialize<ArchiveBuffer<Aligned<[u8; BUFFER_SIZE]>>>>(value: &T)
     where
         T: PartialEq,
-        T::Archived: PartialEq<T> + Unarchive<T>,
+        T::Archived: PartialEq<T> + Deserialize<T>,
     {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.serialize(value).expect("failed to archive value");
         let buf = writer.into_inner();
         let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
-        assert!(&archived_value.unarchive() == value);
+        assert!(&archived_value.deserialize() == value);
     }
 
     fn test_archive_ref<T: SerializeRef<ArchiveBuffer<Aligned<[u8; BUFFER_SIZE]>>> + ?Sized>(value: &T)
@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn archive_unit_struct() {
-        #[derive(Archive, Unarchive, PartialEq)]
+        #[derive(Archive, Deserialize, PartialEq)]
         struct Test;
 
         impl PartialEq<Test> for Archived<Test> {
@@ -161,7 +161,7 @@ mod tests {
 
     #[test]
     fn archive_tuple_struct() {
-        #[derive(Archive, Unarchive, PartialEq)]
+        #[derive(Archive, Deserialize, PartialEq)]
         struct Test((), i32, String, Option<i32>);
 
         impl PartialEq<Test> for Archived<Test> {
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn archive_simple_struct() {
-        #[derive(Archive, Unarchive, PartialEq)]
+        #[derive(Archive, Deserialize, PartialEq)]
         struct Test {
             a: (),
             b: i32,
@@ -221,7 +221,7 @@ mod tests {
             type Associated = i32;
         }
 
-        #[derive(Archive, Unarchive, PartialEq)]
+        #[derive(Archive, Deserialize, PartialEq)]
         struct Test<T: TestTrait> {
             a: (),
             b: <T as TestTrait>::Associated,
@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn archive_enum() {
-        #[derive(Archive, Unarchive, PartialEq)]
+        #[derive(Archive, Deserialize, PartialEq)]
         enum Test {
             A,
             B(String),
@@ -324,7 +324,7 @@ mod tests {
             type Associated = i32;
         }
 
-        #[derive(Archive, Unarchive, PartialEq)]
+        #[derive(Archive, Deserialize, PartialEq)]
         enum Test<T: TestTrait> {
             A,
             B(String),
@@ -384,13 +384,13 @@ mod tests {
 
     #[test]
     fn archive_copy() {
-        #[derive(Archive, Unarchive, Clone, Copy, PartialEq)]
+        #[derive(Archive, Deserialize, Clone, Copy, PartialEq)]
         #[archive(copy)]
         struct TestUnit;
 
         test_archive(&TestUnit);
 
-        #[derive(Archive, Unarchive, Clone, Copy, PartialEq)]
+        #[derive(Archive, Deserialize, Clone, Copy, PartialEq)]
         #[archive(copy)]
         struct TestStruct {
             a: (),
@@ -408,13 +408,13 @@ mod tests {
             e: TestUnit,
         });
 
-        #[derive(Archive, Unarchive, Clone, Copy, PartialEq)]
+        #[derive(Archive, Deserialize, Clone, Copy, PartialEq)]
         #[archive(copy)]
         struct TestTuple((), i32, bool, f32, TestUnit);
 
         test_archive(&TestTuple((), 42, true, 3.14f32, TestUnit));
 
-        #[derive(Archive, Unarchive, Clone, Copy, PartialEq)]
+        #[derive(Archive, Deserialize, Clone, Copy, PartialEq)]
         #[repr(u8)]
         #[archive(copy)]
         enum TestEnum {
@@ -423,7 +423,7 @@ mod tests {
 
         test_archive(&TestEnum::A((), 42, true, 3.14f32, TestUnit));
 
-        #[derive(Archive, Unarchive, Clone, Copy, PartialEq)]
+        #[derive(Archive, Deserialize, Clone, Copy, PartialEq)]
         #[archive(copy)]
         struct TestGeneric<T>(T);
 
@@ -457,9 +457,9 @@ mod tests {
 
     #[test]
     fn manual_archive_dyn() {
-        use rkyv::{Resolve, UnarchiveRef, Write};
+        use rkyv::{Resolve, DeserializeRef, Write};
         use rkyv_dyn::{
-            register_impl, SerializeDyn, ArchivedDyn, DynResolver, RegisteredImpl, UnarchiveDyn,
+            register_impl, SerializeDyn, ArchivedDyn, DynResolver, RegisteredImpl, DeserializeDyn,
         };
 
         pub trait TestTrait {
@@ -473,9 +473,9 @@ mod tests {
         {
         }
 
-        pub trait DeserializeTestTrait: TestTrait + UnarchiveDyn<dyn SerializeTestTrait> {}
+        pub trait DeserializeTestTrait: TestTrait + DeserializeDyn<dyn SerializeTestTrait> {}
 
-        impl<T: TestTrait + UnarchiveDyn<dyn SerializeTestTrait>> DeserializeTestTrait for T {}
+        impl<T: TestTrait + DeserializeDyn<dyn SerializeTestTrait>> DeserializeTestTrait for T {}
 
         impl TypeName for dyn DeserializeTestTrait {
             fn build_type_name<F: FnMut(&str)>(mut f: F) {
@@ -507,16 +507,16 @@ mod tests {
             }
         }
 
-        impl UnarchiveRef<dyn SerializeTestTrait> for ArchivedDyn<dyn DeserializeTestTrait> {
-            unsafe fn unarchive_ref(
+        impl DeserializeRef<dyn SerializeTestTrait> for ArchivedDyn<dyn DeserializeTestTrait> {
+            unsafe fn deserialize_ref(
                 &self,
                 alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
             ) -> *mut dyn SerializeTestTrait {
-                (*self).unarchive_dyn(alloc)
+                (*self).deserialize_dyn(alloc)
             }
         }
 
-        #[derive(Archive, Unarchive)]
+        #[derive(Archive, Deserialize)]
         // TODO: archive parameter to set typename
         #[archive(derive(TypeName))]
         pub struct Test {
@@ -531,16 +531,16 @@ mod tests {
 
         register_impl!(Archived<Test> as dyn DeserializeTestTrait);
 
-        impl UnarchiveDyn<dyn SerializeTestTrait> for Archived<Test>
+        impl DeserializeDyn<dyn SerializeTestTrait> for Archived<Test>
         where
-            Archived<Test>: Unarchive<Test>,
+            Archived<Test>: Deserialize<Test>,
         {
-            unsafe fn unarchive_dyn(
+            unsafe fn deserialize_dyn(
                 &self,
                 alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
             ) -> *mut dyn SerializeTestTrait {
                 let result = alloc(core::alloc::Layout::new::<Test>()) as *mut Test;
-                result.write(self.unarchive());
+                result.write(self.deserialize());
                 result as *mut dyn SerializeTestTrait
             }
         }
@@ -564,24 +564,24 @@ mod tests {
         assert_eq!(value.get_id(), archived_value.get_id());
         assert_eq!(value.get_id(), archived_value.get_id());
 
-        let unarchived_value: Box<dyn SerializeTestTrait> = archived_value.unarchive();
-        assert_eq!(value.get_id(), unarchived_value.get_id());
+        let deserialized_value: Box<dyn SerializeTestTrait> = archived_value.deserialize();
+        assert_eq!(value.get_id(), deserialized_value.get_id());
     }
 
     #[test]
     fn archive_dyn() {
-        #[archive_dyn(name = "ATestTrait", unarchive = "UTestTrait")]
+        #[archive_dyn(serialize = "STestTrait", deserialize = "DTestTrait")]
         pub trait TestTrait {
             fn get_id(&self) -> i32;
         }
 
-        #[derive(Archive, Unarchive)]
+        #[derive(Archive, Deserialize)]
         #[archive(derive(TypeName))]
         pub struct Test {
             id: i32,
         }
 
-        #[archive_dyn(name = "ATestTrait", unarchive = "UTestTrait")]
+        #[archive_dyn(serialize = "STestTrait", deserialize = "DTestTrait")]
         impl TestTrait for Test {
             fn get_id(&self) -> i32 {
                 self.id
@@ -594,40 +594,40 @@ mod tests {
             }
         }
 
-        let value: Box<dyn ATestTrait> = Box::new(Test { id: 42 });
+        let value: Box<dyn STestTrait> = Box::new(Test { id: 42 });
 
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.serialize(&value).expect("failed to archive value");
         let buf = writer.into_inner();
-        let archived_value = unsafe { archived_value::<Box<dyn ATestTrait>>(buf.as_ref(), pos) };
+        let archived_value = unsafe { archived_value::<Box<dyn STestTrait>>(buf.as_ref(), pos) };
         assert_eq!(value.get_id(), archived_value.get_id());
 
         // exercise vtable cache
         assert_eq!(value.get_id(), archived_value.get_id());
         assert_eq!(value.get_id(), archived_value.get_id());
 
-        // unarchive
-        let unarchived_value: Box<dyn ATestTrait> = archived_value.unarchive();
-        assert_eq!(value.get_id(), unarchived_value.get_id());
-        assert_eq!(value.get_id(), unarchived_value.get_id());
+        // deserialize
+        let deserialized_value: Box<dyn STestTrait> = archived_value.deserialize();
+        assert_eq!(value.get_id(), deserialized_value.get_id());
+        assert_eq!(value.get_id(), deserialized_value.get_id());
     }
 
     #[test]
     fn archive_dyn_generic() {
         use rkyv_dyn::{register_impl, WriteDyn};
 
-        #[archive_dyn(name = "ATestTrait", unarchive = "UTestTrait")]
+        #[archive_dyn(serialize = "STestTrait", deserialize = "DTestTrait")]
         pub trait TestTrait<T: TypeName> {
             fn get_value(&self) -> T;
         }
 
-        #[derive(Archive, Unarchive)]
+        #[derive(Archive, Deserialize)]
         #[archive(name, derive(TypeName))]
         pub struct Test<T> {
             value: T,
         }
 
-        #[archive_dyn(name = "ATestTrait", unarchive = "UTestTrait")]
+        #[archive_dyn(serialize = "STestTrait", deserialize = "DTestTrait")]
         impl TestTrait<i32> for Test<i32> {
             fn get_value(&self) -> i32 {
                 self.value
@@ -647,17 +647,17 @@ mod tests {
         }
 
         impl<T: Archive + for<'a> Serialize<dyn WriteDyn + 'a> + core::fmt::Display + TypeName + 'static>
-            rkyv_dyn::UnarchiveDyn<dyn ATestTrait<String>> for ArchivedTest<T>
+            rkyv_dyn::DeserializeDyn<dyn STestTrait<String>> for ArchivedTest<T>
         where
-            ArchivedTest<T>: Unarchive<Test<T>> + rkyv_dyn::RegisteredImpl<dyn UTestTrait<String>>,
+            ArchivedTest<T>: Deserialize<Test<T>> + rkyv_dyn::RegisteredImpl<dyn DTestTrait<String>>,
         {
-            unsafe fn unarchive_dyn(
+            unsafe fn deserialize_dyn(
                 &self,
                 alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
-            ) -> *mut dyn ATestTrait<String> {
+            ) -> *mut dyn STestTrait<String> {
                 let result = alloc(core::alloc::Layout::new::<Test<T>>()) as *mut Test<T>;
-                result.write(self.unarchive());
-                result as *mut dyn ATestTrait<String>
+                result.write(self.deserialize());
+                result as *mut dyn STestTrait<String>
             }
         }
 
@@ -670,10 +670,10 @@ mod tests {
             }
         }
 
-        register_impl!(Archived<Test<String>> as dyn UTestTrait<String>);
+        register_impl!(Archived<Test<String>> as dyn DTestTrait<String>);
 
-        let i32_value: Box<dyn ATestTrait<i32>> = Box::new(Test { value: 42 });
-        let string_value: Box<dyn ATestTrait<String>> = Box::new(Test {
+        let i32_value: Box<dyn STestTrait<i32>> = Box::new(Test { value: 42 });
+        let string_value: Box<dyn STestTrait<String>> = Box::new(Test {
             value: "hello world".to_string(),
         });
 
@@ -684,9 +684,9 @@ mod tests {
             .expect("failed to archive value");
         let buf = writer.into_inner();
         let i32_archived_value =
-            unsafe { archived_value::<Box<dyn ATestTrait<i32>>>(buf.as_ref(), i32_pos) };
+            unsafe { archived_value::<Box<dyn STestTrait<i32>>>(buf.as_ref(), i32_pos) };
         let string_archived_value =
-            unsafe { archived_value::<Box<dyn ATestTrait<String>>>(buf.as_ref(), string_pos) };
+            unsafe { archived_value::<Box<dyn STestTrait<String>>>(buf.as_ref(), string_pos) };
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
@@ -694,22 +694,22 @@ mod tests {
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
 
-        let i32_unarchived_value: Box<dyn ATestTrait<i32>> = i32_archived_value.unarchive();
-        assert_eq!(i32_value.get_value(), i32_unarchived_value.get_value());
-        assert_eq!(i32_value.get_value(), i32_unarchived_value.get_value());
+        let i32_deserialized_value: Box<dyn STestTrait<i32>> = i32_archived_value.deserialize();
+        assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
+        assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
 
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
-        let string_unarchived_value: Box<dyn ATestTrait<String>> =
-            string_archived_value.unarchive();
+        let string_deserialized_value: Box<dyn STestTrait<String>> =
+            string_archived_value.deserialize();
         assert_eq!(
             string_value.get_value(),
-            string_unarchived_value.get_value()
+            string_deserialized_value.get_value()
         );
         assert_eq!(
             string_value.get_value(),
-            string_unarchived_value.get_value()
+            string_deserialized_value.get_value()
         );
     }
 
@@ -918,7 +918,7 @@ mod tests {
 
     #[test]
     fn recursive_structures() {
-        #[derive(Archive, Unarchive, PartialEq)]
+        #[derive(Archive, Deserialize, PartialEq)]
         enum Node {
             Nil,
             Cons(#[recursive] Box<Node>),
@@ -983,7 +983,7 @@ mod tests {
             sync::atomic::{AtomicU32, Ordering},
         };
 
-        #[derive(Archive, Unarchive)]
+        #[derive(Archive, Deserialize)]
         struct Test {
             a: AtomicU32,
             b: Range<i32>,

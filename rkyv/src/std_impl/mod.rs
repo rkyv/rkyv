@@ -6,7 +6,7 @@ pub mod validation;
 
 use crate::{
     core_impl::ArchivedSlice, Archive, ArchiveRef, Archived, Reference, ReferenceResolver, Resolve,
-    Serialize, SerializeRef, Unarchive, UnarchiveRef, Write,
+    Serialize, SerializeRef, Deserialize, DeserializeRef, Write,
 };
 use core::{
     borrow::Borrow,
@@ -114,8 +114,8 @@ impl<W: Write + ?Sized> Serialize<W> for String {
     }
 }
 
-impl Unarchive<String> for Archived<String> {
-    fn unarchive(&self) -> String {
+impl Deserialize<String> for Archived<String> {
+    fn deserialize(&self) -> String {
         self.as_str().to_string()
     }
 }
@@ -179,12 +179,12 @@ impl<T: SerializeRef<W> + ?Sized, W: Write + ?Sized> Serialize<W> for Box<T> {
     }
 }
 
-impl<T: ArchiveRef + ?Sized> Unarchive<Box<T>> for Archived<Box<T>>
+impl<T: ArchiveRef + ?Sized> Deserialize<Box<T>> for Archived<Box<T>>
 where
-    Reference<T>: UnarchiveRef<T>,
+    Reference<T>: DeserializeRef<T>,
 {
-    fn unarchive(&self) -> Box<T> {
-        unsafe { Box::from_raw(self.0.unarchive_ref(alloc::alloc)) }
+    fn deserialize(&self) -> Box<T> {
+        unsafe { Box::from_raw(self.0.deserialize_ref(alloc::alloc)) }
     }
 }
 
@@ -214,14 +214,14 @@ impl<T: Serialize<W>, W: Write + ?Sized> SerializeRef<W> for [T] {
     }
 }
 
-impl<T: Archive> UnarchiveRef<[T]> for <[T] as ArchiveRef>::Reference
+impl<T: Archive> DeserializeRef<[T]> for <[T] as ArchiveRef>::Reference
 where
-    T::Archived: Unarchive<T>,
+    T::Archived: Deserialize<T>,
 {
-    unsafe fn unarchive_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut [T] {
+    unsafe fn deserialize_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut [T] {
         let result = alloc(alloc::Layout::array::<T>(self.len()).unwrap()).cast::<T>();
         for i in 0..self.len() {
-            result.add(i).write(self[i].unarchive());
+            result.add(i).write(self[i].deserialize());
         }
         slice::from_raw_parts_mut(result, self.len())
     }
@@ -281,14 +281,14 @@ impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for Vec<T> {
     }
 }
 
-impl<T: Archive> Unarchive<Vec<T>> for Archived<Vec<T>>
+impl<T: Archive> Deserialize<Vec<T>> for Archived<Vec<T>>
 where
-    T::Archived: Unarchive<T>,
+    T::Archived: Deserialize<T>,
 {
-    fn unarchive(&self) -> Vec<T> {
+    fn deserialize(&self) -> Vec<T> {
         let mut result = Vec::with_capacity(self.len());
         for i in self.iter() {
-            result.push(i.unarchive());
+            result.push(i.deserialize());
         }
         result
     }

@@ -47,19 +47,19 @@ impl Parse for Input {
 }
 
 struct Args {
-    archive: Option<LitStr>,
-    unarchive: Option<Option<LitStr>>,
+    serialize: Option<LitStr>,
+    deserialize: Option<Option<LitStr>>,
 }
 
 impl Parse for Args {
     fn parse(input: ParseStream) -> Result<Self> {
         mod kw {
-            syn::custom_keyword!(name);
-            syn::custom_keyword!(unarchive);
+            syn::custom_keyword!(serialize);
+            syn::custom_keyword!(deserialize);
         }
 
-        let mut archive = None;
-        let mut unarchive = None;
+        let mut serialize = None;
+        let mut deserialize = None;
 
         let mut needs_punct = false;
         while !input.is_empty() {
@@ -67,36 +67,36 @@ impl Parse for Args {
                 input.parse::<Token![,]>()?;
             }
 
-            if input.peek(kw::name) {
-                if archive.is_some() {
-                    return Err(input.error("duplicate name argument"));
+            if input.peek(kw::serialize) {
+                if serialize.is_some() {
+                    return Err(input.error("duplicate serialize argument"));
                 }
 
-                input.parse::<kw::name>()?;
+                input.parse::<kw::serialize>()?;
                 input.parse::<Token![=]>()?;
-                archive = Some(input.parse::<LitStr>()?);
-            } else if input.peek(kw::unarchive) {
-                if unarchive.is_some() {
-                    return Err(input.error("duplicate unarchive argument"));
+                serialize = Some(input.parse::<LitStr>()?);
+            } else if input.peek(kw::deserialize) {
+                if deserialize.is_some() {
+                    return Err(input.error("duplicate deserialize argument"));
                 }
 
-                input.parse::<kw::unarchive>()?;
+                input.parse::<kw::deserialize>()?;
                 if input.peek(Token![=]) {
                     input.parse::<Token![=]>()?;
-                    unarchive = Some(Some(input.parse::<LitStr>()?));
+                    deserialize = Some(Some(input.parse::<LitStr>()?));
                 } else {
-                    unarchive = Some(None);
+                    deserialize = Some(None);
                 }
             } else {
                 return Err(
-                    input.error("expected name = \"...\" or unarchive = \"...\" parameters")
+                    input.error("expected serialize = \"...\" or deserialize = \"...\" parameters")
                 );
             }
 
             needs_punct = true;
         }
 
-        Ok(Args { archive, unarchive })
+        Ok(Args { serialize, deserialize })
     }
 }
 
@@ -110,12 +110,12 @@ impl Parse for Args {
 ///
 /// # Parameters
 ///
-/// - `name = "..."`: Chooses the name of the archive trait. By default, it will
-/// be named "Archive" + your trait name.
-/// - `unarchive`, `unarchive = "..."`: Adds unarchive support to the archived
-/// trait. Similarly to the `name` parameter, you can choose the name of the
-/// unarchive trait and by default it will be named "Unarchive" + your trait
-/// name.
+/// - `serialize = "..."`: Chooses the name of the serialize trait. By default,
+///   it will be named "Serialize" + your trait name.
+/// - `deserialize`, `deserialize = "..."`: Adds deserialization support to the
+///   archived trait. Similarly to the `name` parameter, you can choose the name
+///   of the deserialize trait and by default it will be named "Deserialize" +
+///   your trait name.
 #[proc_macro_attribute]
 pub fn archive_dyn(
     attr: proc_macro::TokenStream,
@@ -128,11 +128,11 @@ pub fn archive_dyn(
     let input_impl = match input {
         Input::Impl(ref input) => {
             if !input.generics.params.is_empty() {
-                Error::new(input.generics.span(), "#[archive_dyn] can only register non-generic impls; call register_impl! with the concrete types to register and manually implement UnarchiveDyn for archived types if necessary").to_compile_error()
+                Error::new(input.generics.span(), "#[archive_dyn] can only register non-generic impls; call register_impl! with the concrete types to register and manually implement DeserializeDyn for archived types if necessary").to_compile_error()
             } else if let Some((_, ref trait_, _)) = input.trait_ {
                 let ty = &input.self_ty;
 
-                let serialize_trait = if let Some(ar_name) = args.archive {
+                let serialize_trait = if let Some(ar_name) = args.serialize {
                     let mut path = trait_.clone();
                     let last = path.segments.last_mut().unwrap();
                     last.ident = Ident::new(&ar_name.value(), ar_name.span());
@@ -144,8 +144,8 @@ pub fn archive_dyn(
                     path
                 };
 
-                let (deserialize_trait, unarchive_impl) = if let Some(unarchive) = args.unarchive {
-                    let deserialize_trait = if let Some(ua_name) = unarchive {
+                let (deserialize_trait, deserialize_impl) = if let Some(deserialize) = args.deserialize {
+                    let deserialize_trait = if let Some(ua_name) = deserialize {
                         let mut path = trait_.clone();
                         let last = path.segments.last_mut().unwrap();
                         last.ident = Ident::new(&ua_name.value(), ua_name.span());
@@ -160,13 +160,13 @@ pub fn archive_dyn(
                     (
                         deserialize_trait,
                         quote! {
-                            impl UnarchiveDyn<dyn #serialize_trait> for Archived<#ty>
+                            impl DeserializeDyn<dyn #serialize_trait> for Archived<#ty>
                             where
-                                Archived<#ty>: Unarchive<#ty>,
+                                Archived<#ty>: Deserialize<#ty>,
                             {
-                                unsafe fn unarchive_dyn(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn #serialize_trait {
+                                unsafe fn deserialize_dyn(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn #serialize_trait {
                                     let result = alloc(core::alloc::Layout::new::<#ty>()) as *mut #ty;
-                                    result.write(self.unarchive());
+                                    result.write(self.deserialize());
                                     result as *mut dyn #serialize_trait
                                 }
                             }
@@ -180,12 +180,12 @@ pub fn archive_dyn(
                     #input
 
                     const _: () = {
-                        use rkyv::{Archived, Unarchive};
-                        use rkyv_dyn::UnarchiveDyn;
+                        use rkyv::{Archived, Deserialize};
+                        use rkyv_dyn::DeserializeDyn;
 
                         rkyv_dyn::register_impl!(Archived<#ty> as dyn #deserialize_trait);
 
-                        #unarchive_impl
+                        #deserialize_impl
                     };
                 }
             } else {
@@ -214,7 +214,7 @@ pub fn archive_dyn(
 
             let name = &input.ident;
             let serialize_trait = args
-                .archive
+                .serialize
                 .map(|ar_name| Ident::new(&ar_name.value(), ar_name.span()))
                 .unwrap_or_else(|| Ident::new(&format!("Serialize{}", name), name.span()));
 
@@ -225,10 +225,10 @@ pub fn archive_dyn(
             let type_name_wheres = quote! { #(#type_name_wheres,)* };
 
             let (deserialize_trait, deserialize_trait_def, deserialize_trait_impl) = if let Some(
-                unarchive,
-            ) = args.unarchive
+                deserialize,
+            ) = args.deserialize
             {
-                let deserialize_trait = if let Some(ua_name) = unarchive {
+                let deserialize_trait = if let Some(ua_name) = deserialize {
                     Ident::new(&ua_name.value(), ua_name.span())
                 } else {
                     Ident::new(&format!("Deserialize{}", name), name.span())
@@ -237,14 +237,14 @@ pub fn archive_dyn(
                 (
                     deserialize_trait.clone(),
                     quote! {
-                        #vis trait #deserialize_trait<#generic_params>: #name<#generic_args> + rkyv_dyn::UnarchiveDyn<dyn #serialize_trait<#generic_args>> {}
+                        #vis trait #deserialize_trait<#generic_params>: #name<#generic_args> + rkyv_dyn::DeserializeDyn<dyn #serialize_trait<#generic_args>> {}
                     },
                     quote! {
-                        impl<__T: #name<#generic_args> + UnarchiveDyn<dyn #serialize_trait<#generic_args>>, #generic_params> #deserialize_trait<#generic_args> for __T {}
+                        impl<__T: #name<#generic_args> + DeserializeDyn<dyn #serialize_trait<#generic_args>>, #generic_params> #deserialize_trait<#generic_args> for __T {}
 
-                        impl<#generic_params> UnarchiveRef<dyn #serialize_trait<#generic_args>> for ArchivedDyn<dyn #deserialize_trait<#generic_args>> {
-                            unsafe fn unarchive_ref(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn #serialize_trait<#generic_args> {
-                                (*self).unarchive_dyn(alloc)
+                        impl<#generic_params> DeserializeRef<dyn #serialize_trait<#generic_args>> for ArchivedDyn<dyn #deserialize_trait<#generic_args>> {
+                            unsafe fn deserialize_ref(&self, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn #serialize_trait<#generic_args> {
+                                (*self).deserialize_dyn(alloc)
                             }
                         }
                     },
@@ -283,7 +283,7 @@ pub fn archive_dyn(
                         ArchiveRef,
                         Resolve,
                         SerializeRef,
-                        UnarchiveRef,
+                        DeserializeRef,
                         Write,
                     };
                     use rkyv_dyn::{
@@ -292,7 +292,7 @@ pub fn archive_dyn(
                         DynResolver,
                         RegisteredImpl,
                         SerializeDyn,
-                        UnarchiveDyn,
+                        DeserializeDyn,
                         WriteDyn,
                     };
                     use rkyv_typename::TypeName;
