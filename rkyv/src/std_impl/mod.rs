@@ -1,6 +1,7 @@
 //! [`Archive`] implementations for std types.
 
 pub mod chd;
+pub mod shared;
 #[cfg(feature = "validation")]
 pub mod validation;
 
@@ -92,7 +93,7 @@ impl fmt::Display for ArchivedString {
     }
 }
 
-#[doc(hidden)]
+/// The resolver for `String`.
 pub struct StringResolver(ReferenceResolver<str>);
 
 impl Resolve<String> for StringResolver {
@@ -157,7 +158,7 @@ impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Box<V>
     }
 }
 
-#[doc(hidden)]
+/// The resolver for `Box`.
 pub struct BoxResolver<T>(T);
 
 impl<T: ArchiveRef + ?Sized> Resolve<Box<T>> for BoxResolver<T::ReferenceResolver> {
@@ -259,7 +260,7 @@ impl<T: DerefMut> DerefMut for ArchivedVec<T> {
     }
 }
 
-#[doc(hidden)]
+/// The resolver for `Vec`.
 pub struct VecResolver<T>(T);
 
 impl<T: Resolve<[U]>, U> Resolve<Vec<U>> for VecResolver<T> {

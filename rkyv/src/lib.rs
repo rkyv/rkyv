@@ -75,6 +75,7 @@ pub mod validation;
 
 use core::{
     alloc,
+    any::Any,
     marker::PhantomPinned,
     mem,
     ops::{Deref, DerefMut},
@@ -888,4 +889,10 @@ pub unsafe fn archived_value_ref_mut<T: ArchiveRef + ?Sized>(
     pos: usize,
 ) -> Pin<&mut Reference<T>> {
     Pin::new_unchecked(&mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast())
+}
+
+pub trait SharedWrite: Write {
+    fn serialize_shared_ref<T: SerializeRef<Self> + ?Sized + 'static>(&mut self, value: &T) -> Result<ReferenceResolver<T>, Self::Error>
+    where
+        ReferenceResolver<T>: Any + Clone;
 }
