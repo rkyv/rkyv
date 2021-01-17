@@ -1,18 +1,6 @@
 use bytecheck::CheckBytes;
 use core::fmt;
-use rkyv::{
-    Aligned,
-    Archive,
-    ArchiveBuffer,
-    Serialize,
-    Write,
-    check_archive,
-    validation::{
-        ArchiveBoundsValidator,
-        ArchiveValidator,
-        check_archive_with_context
-    },
-};
+use rkyv::{Aligned, Archive, ArchiveBuffer, Serialize, Write, check_archive, validation::DefaultArchiveValidator};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
@@ -22,15 +10,12 @@ const BUFFER_SIZE: usize = 512;
 
 fn serialize_and_check<T: Serialize<ArchiveBuffer<Aligned<[u8; BUFFER_SIZE]>>>>(value: &T)
 where
-    T::Archived: CheckBytes<ArchiveValidator> + CheckBytes<ArchiveBoundsValidator>,
+    T::Archived: CheckBytes<DefaultArchiveValidator>,
 {
     let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
     let pos = writer.serialize(value).expect("failed to archive value");
     let buf = writer.into_inner();
     check_archive::<T>(buf.as_ref(), pos).unwrap();
-    unsafe {
-        check_archive_with_context::<T, _>(buf.as_ref(), pos, &mut ArchiveBoundsValidator::new(buf.as_ref())).unwrap();
-    }
 }
 
 #[test]
