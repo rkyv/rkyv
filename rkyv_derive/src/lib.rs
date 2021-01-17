@@ -30,16 +30,16 @@ impl Default for Repr {
 }
 
 struct Attributes {
-    archive_copy: Option<Span>,
+    copy: Option<Span>,
     repr: Repr,
     derives: Option<MetaList>,
-    name: Option<(Option<Ident>, Span)>,
+    name: Option<(Ident, Span)>,
 }
 
 impl Default for Attributes {
     fn default() -> Self {
         Self {
-            archive_copy: None,
+            copy: None,
             repr: Default::default(),
             derives: None,
             name: None,
@@ -58,22 +58,12 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                             match meta {
                                 Meta::Path(path) => {
                                     if path.is_ident("copy") {
-                                        if result.archive_copy.is_none() {
-                                            result.archive_copy = Some(path.span());
+                                        if result.copy.is_none() {
+                                            result.copy = Some(path.span());
                                         } else {
                                             return Err(Error::new(
                                                 meta.span(),
                                                 "copy already specified",
-                                            )
-                                            .to_compile_error());
-                                        }
-                                    } else if path.is_ident("name") {
-                                        if result.name.is_none() {
-                                            result.name = Some((None, path.span()));
-                                        } else {
-                                            return Err(Error::new(
-                                                meta.span(),
-                                                "name already specified",
                                             )
                                             .to_compile_error());
                                         }
@@ -101,10 +91,10 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                                         if let Lit::Str(ref lit_str) = meta.lit {
                                             if result.name.is_none() {
                                                 result.name = Some((
-                                                    Some(Ident::new(
+                                                    Ident::new(
                                                         &lit_str.value(),
                                                         lit_str.span(),
-                                                    )),
+                                                    ),
                                                     lit_str.span(),
                                                 ));
                                             } else {
@@ -193,7 +183,7 @@ pub fn archive_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
         Err(errors) => return proc_macro::TokenStream::from(errors),
     };
 
-    let archive_impl = if attributes.archive_copy.is_some() {
+    let archive_impl = if attributes.copy.is_some() {
         derive_archive_copy_impl(&input, &attributes)
     } else {
         derive_archive_impl(&input, &attributes)
@@ -233,18 +223,20 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
         quote! {}
     };
 
-    let archived = if let Some((Some(ref name), _)) = attributes.name {
+    let archived = if let Some((ref name, _)) = attributes.name {
         name.clone()
     } else {
         Ident::new(&format!("Archived{}", name), name.span())
     };
+
+    let resolver = Ident::new(&format!("{}Resolver", name), name.span());
 
     #[cfg(feature = "strict")]
     let strict = quote! { #[repr(C)] };
     #[cfg(not(feature = "strict"))]
     let strict = quote! {};
 
-    let (archive_type, archive_impl) = match input.data {
+    let (archive_types, archive_impls) = match input.data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
                 let archive_predicates = fields.named.iter().filter_map(|f| {
@@ -257,25 +249,10 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 });
                 let archive_predicates = quote! { #(#archive_predicates,)* };
 
-                let serialize_predicates = fields.named.iter().filter_map(|f| {
-                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                        None
-                    } else {
-                        let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
-                    }
-                });
-                let serialize_predicates = quote! { #(#serialize_predicates,)* };
-
                 let resolver_fields = fields.named.iter().map(|f| {
                     let name = &f.ident;
                     let ty = &f.ty;
                     quote_spanned! { f.span() => #name: rkyv::Resolver<#ty> }
-                });
-
-                let resolver_values = fields.named.iter().map(|f| {
-                    let name = &f.ident;
-                    quote_spanned! { f.span() => #name: Serialize::<__W>::serialize(&self.#name, writer)? }
                 });
 
                 let archived_fields = fields.named.iter().map(|f| {
@@ -301,17 +278,17 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         {
                             #(#archived_fields,)*
                         }
-                    },
-                    quote! {
-                        #vis struct Resolver<#generic_params>
+
+                        #vis struct #resolver<#generic_params>
                         where
                             #generic_predicates
                             #archive_predicates
                         {
                             #(#resolver_fields,)*
                         }
-
-                        impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
+                    },
+                    quote! {
+                        impl<#generic_params> Resolve<#name<#generic_args>> for #resolver<#generic_args>
                         where
                             #generic_predicates
                             #archive_predicates
@@ -331,19 +308,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                             #archive_predicates
                         {
                             type Archived = #archived<#generic_args>;
-                            type Resolver = Resolver<#generic_args>;
-                        }
-
-                        impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
-                        where
-                            #generic_predicates
-                            #serialize_predicates
-                        {
-                            fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
-                                Ok(Self::Resolver {
-                                    #(#resolver_values,)*
-                                })
-                            }
+                            type Resolver = #resolver<#generic_args>;
                         }
                     },
                 )
@@ -359,24 +324,9 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 });
                 let archive_predicates = quote! { #(#archive_predicates,)* };
 
-                let serialize_predicates = fields.unnamed.iter().filter_map(|f| {
-                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                        None
-                    } else {
-                        let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
-                    }
-                });
-                let serialize_predicates = quote! { #(#serialize_predicates,)* };
-
                 let resolver_fields = fields.unnamed.iter().map(|f| {
                     let ty = &f.ty;
                     quote_spanned! { f.span() => rkyv::Resolver<#ty> }
-                });
-
-                let resolver_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                    let index = Index::from(i);
-                    quote_spanned! { f.span() => Serialize::<__W>::serialize(&self.#index, writer)? }
                 });
 
                 let archived_fields = fields.unnamed.iter().map(|f| {
@@ -398,14 +348,14 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         where
                             #generic_predicates
                             #archive_predicates;
-                    },
-                    quote! {
-                        #vis struct Resolver<#generic_params>(#(#resolver_fields,)*)
+
+                        #vis struct #resolver<#generic_params>(#(#resolver_fields,)*)
                         where
                             #generic_predicates
                             #archive_predicates;
-
-                        impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
+                    },
+                    quote! {
+                        impl<#generic_params> Resolve<#name<#generic_args>> for #resolver<#generic_args>
                         where
                             #generic_predicates
                             #archive_predicates
@@ -425,19 +375,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                             #archive_predicates
                         {
                             type Archived = #archived<#generic_args>;
-                            type Resolver = Resolver<#generic_args>;
-                        }
-
-                        impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
-                        where
-                            #generic_predicates
-                            #serialize_predicates
-                        {
-                            fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
-                                Ok(Resolver::<#generic_args>(
-                                    #(#resolver_values,)*
-                                ))
-                            }
+                            type Resolver = #resolver<#generic_args>;
                         }
                     },
                 )
@@ -449,11 +387,11 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     #vis struct #archived<#generic_params>
                     where
                         #generic_predicates;
+
+                    #vis struct #resolver;
                 },
                 quote! {
-                    #vis struct Resolver;
-
-                    impl<#generic_params> Resolve<#name<#generic_args>> for Resolver
+                    impl<#generic_params> Resolve<#name<#generic_args>> for #resolver
                     where
                         #generic_predicates
                     {
@@ -469,13 +407,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         #generic_predicates
                     {
                         type Archived = #archived<#generic_args>;
-                        type Resolver = Resolver;
-                    }
-
-                    impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args> {
-                        fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
-                            Ok(Resolver)
-                        }
+                        type Resolver = #resolver;
                     }
                 },
             ),
@@ -507,33 +439,6 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 Fields::Unit => quote! {},
             });
             let archive_predicates = quote! { #(#archive_predicates)* };
-
-            let serialize_predicates = data.variants.iter().map(|v| match v.fields {
-                Fields::Named(ref fields) => {
-                    let serialize_predicates = fields.named.iter().filter_map(|f| {
-                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                            None
-                        } else {
-                            let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
-                        }
-                    });
-                    quote! { #(#serialize_predicates,)* }
-                }
-                Fields::Unnamed(ref fields) => {
-                    let serialize_predicates = fields.unnamed.iter().filter_map(|f| {
-                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                            None
-                        } else {
-                            let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
-                        }
-                    });
-                    quote! { #(#serialize_predicates,)* }
-                }
-                Fields::Unit => quote! {},
-            });
-            let serialize_predicates = quote! { #(#serialize_predicates)* };
 
             let resolver_variants = data.variants.iter().map(|v| {
                 let variant = &v.ident;
@@ -702,47 +607,6 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                 }
             });
 
-            let serialize_arms = data.variants.iter().map(|v| {
-                let variant = &v.ident;
-                match v.fields {
-                    Fields::Named(ref fields) => {
-                        let bindings = fields.named.iter().map(|f| {
-                            let name = &f.ident;
-                            quote_spanned! { name.span() => #name }
-                        });
-                        let fields = fields.named.iter().map(|f| {
-                            let name = &f.ident;
-                            quote! {
-                                #name: Serialize::<__W>::serialize(#name, writer)?
-                            }
-                        });
-                        quote_spanned! { variant.span() =>
-                            Self::#variant { #(#bindings,)* } => Resolver::#variant {
-                                #(#fields,)*
-                            }
-                        }
-                    }
-                    Fields::Unnamed(ref fields) => {
-                        let bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                            let name = Ident::new(&format!("_{}", i), f.span());
-                            quote_spanned! { f.span() => #name }
-                        });
-                        let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                            let binding = Ident::new(&format!("_{}", i), f.span());
-                            quote! {
-                                Serialize::<__W>::serialize(#binding, writer)?
-                            }
-                        });
-                        quote_spanned! { variant.span() =>
-                            Self::#variant( #(#bindings,)* ) => Resolver::#variant(#(#fields,)*)
-                        }
-                    }
-                    Fields::Unit => {
-                        quote_spanned! { name.span() => Self::#variant => Resolver::#variant }
-                    }
-                }
-            });
-
             (
                 quote! {
                     #archive_derives
@@ -754,17 +618,17 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     {
                         #(#archived_variants,)*
                     }
-                },
-                quote! {
-                    #vis enum Resolver<#generic_params>
+                    
+                    #vis enum #resolver<#generic_params>
                     where
                         #generic_predicates
                         #archive_predicates
                     {
                         #(#resolver_variants,)*
                     }
-
-                    impl<#generic_params> Resolve<#name<#generic_args>> for Resolver<#generic_args>
+                },
+                quote! {
+                    impl<#generic_params> Resolve<#name<#generic_args>> for #resolver<#generic_args>
                     where
                         #generic_predicates
                         #archive_predicates
@@ -791,19 +655,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                         #archive_predicates
                     {
                         type Archived = #archived<#generic_args>;
-                        type Resolver = Resolver<#generic_args>;
-                    }
-
-                    impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
-                    where
-                        #generic_predicates
-                        #serialize_predicates
-                    {
-                        fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
-                            Ok(match self {
-                                #(#serialize_arms,)*
-                            })
-                        }
+                        type Resolver = #resolver<#generic_args>;
                     }
                 },
             )
@@ -814,37 +666,20 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
         }
     };
 
-    if attributes.name.is_some() {
-        quote! {
-            #archive_type
+    quote! {
+        #archive_types
 
-            const _: () = {
-                use core::marker::PhantomData;
-                use rkyv::{
-                    Archive,
-                    offset_of,
-                    Resolve,
-                    Serialize,
-                    Write,
-                };
-                #archive_impl
+        const _: () = {
+            use core::marker::PhantomData;
+            use rkyv::{
+                Archive,
+                offset_of,
+                Resolve,
+                Serialize,
+                Write,
             };
-        }
-    } else {
-        quote! {
-            const _: () = {
-                use core::marker::PhantomData;
-                use rkyv::{
-                    Archive,
-                    offset_of,
-                    Resolve,
-                    Serialize,
-                    Write,
-                };
-                #archive_type
-                #archive_impl
-            };
-        }
+            #archive_impls
+        };
     }
 }
 
@@ -880,7 +715,7 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
         None => quote! {},
     };
 
-    let archive_self_impl = match input.data {
+    let archive_copy_impl = match input.data {
         Data::Struct(ref data) => {
             let copy_predicates = match data.fields {
                 Fields::Named(ref fields) => {
@@ -917,16 +752,6 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                     type Archived = Self;
                     type Resolver = CopyResolver;
                 }
-
-                impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
-                where
-                    #generic_predicates
-                    #copy_predicates
-                {
-                    fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
-                        Ok(CopyResolver)
-                    }
-                }
             }
         }
         Data::Enum(ref data) => {
@@ -936,14 +761,14 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                 .or(attributes.repr.transparent)
                 .or(attributes.repr.packed)
             {
-                return Error::new(span, "archive self enums must be repr(C) or repr(Int)")
+                return Error::new(span, "archive copy enums must be repr(C) or repr(Int)")
                     .to_compile_error();
             }
 
             if attributes.repr.c.is_none() && attributes.repr.int.is_none() {
                 return Error::new(
                     input.span(),
-                    "archive self enums must be repr(C) or repr(Int)",
+                    "archive copy enums must be repr(C) or repr(Int)",
                 )
                 .to_compile_error();
             }
@@ -982,16 +807,6 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                     type Archived = Self;
                     type Resolver = CopyResolver;
                 }
-
-                impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
-                where
-                    #generic_predicates
-                    #copy_predicates
-                {
-                    fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
-                        Ok(CopyResolver)
-                    }
-                }
             }
         }
         Data::Union(_) => {
@@ -1009,7 +824,348 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                 Write,
             };
 
-            #archive_self_impl
+            #archive_copy_impl
+        };
+    }
+}
+
+#[proc_macro_derive(Serialize, attributes(archive, recursive))]
+pub fn serialize_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    let attributes = match parse_attributes(&input) {
+        Ok(attributes) => attributes,
+        Err(errors) => return proc_macro::TokenStream::from(errors),
+    };
+
+    let serialize_impl = if attributes.copy.is_some() {
+        derive_serialize_copy_impl(&input, &attributes)
+    } else {
+        derive_serialize_impl(&input)
+    };
+
+    proc_macro::TokenStream::from(serialize_impl)
+}
+
+fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
+    let name = &input.ident;
+
+    let generic_params = input
+        .generics
+        .params
+        .iter()
+        .map(|p| quote_spanned! { p.span() => #p });
+    let generic_params = quote! { #(#generic_params,)* };
+
+    let generic_args = input.generics.type_params().map(|p| {
+        let name = &p.ident;
+        quote_spanned! { name.span() => #name }
+    });
+    let generic_args = quote! { #(#generic_args,)* };
+
+    let generic_predicates = match input.generics.where_clause {
+        Some(ref clause) => {
+            let predicates = clause.predicates.iter().map(|p| quote! { #p });
+            quote! { #(#predicates,)* }
+        }
+        None => quote! {},
+    };
+
+    let resolver = Ident::new(&format!("{}Resolver", name), name.span());
+
+    let serialize_impl = match input.data {
+        Data::Struct(ref data) => match data.fields {
+            Fields::Named(ref fields) => {
+                let serialize_predicates = fields.named.iter().filter_map(|f| {
+                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                        None
+                    } else {
+                        let ty = &f.ty;
+                        Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
+                    }
+                });
+                let serialize_predicates = quote! { #(#serialize_predicates,)* };
+
+                let resolver_values = fields.named.iter().map(|f| {
+                    let name = &f.ident;
+                    quote_spanned! { f.span() => #name: Serialize::<__W>::serialize(&self.#name, writer)? }
+                });
+
+                quote! {
+                    impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                    where
+                        #generic_predicates
+                        #serialize_predicates
+                    {
+                        fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
+                            Ok(#resolver {
+                                #(#resolver_values,)*
+                            })
+                        }
+                    }
+                }
+            }
+            Fields::Unnamed(ref fields) => {
+                let serialize_predicates = fields.unnamed.iter().filter_map(|f| {
+                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                        None
+                    } else {
+                        let ty = &f.ty;
+                        Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
+                    }
+                });
+                let serialize_predicates = quote! { #(#serialize_predicates,)* };
+
+                let resolver_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                    let index = Index::from(i);
+                    quote_spanned! { f.span() => Serialize::<__W>::serialize(&self.#index, writer)? }
+                });
+
+                quote! {
+                    impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                    where
+                        #generic_predicates
+                        #serialize_predicates
+                    {
+                        fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
+                            Ok(#resolver::<#generic_args>(
+                                #(#resolver_values,)*
+                            ))
+                        }
+                    }
+                }
+            }
+            Fields::Unit => {
+                quote! {
+                    impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args> {
+                        fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
+                            Ok(#resolver)
+                        }
+                    }
+                }
+            }
+        }
+        Data::Enum(ref data) => {
+            let serialize_predicates = data.variants.iter().map(|v| match v.fields {
+                Fields::Named(ref fields) => {
+                    let serialize_predicates = fields.named.iter().filter_map(|f| {
+                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                            None
+                        } else {
+                            let ty = &f.ty;
+                            Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
+                        }
+                    });
+                    quote! { #(#serialize_predicates,)* }
+                }
+                Fields::Unnamed(ref fields) => {
+                    let serialize_predicates = fields.unnamed.iter().filter_map(|f| {
+                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
+                            None
+                        } else {
+                            let ty = &f.ty;
+                            Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
+                        }
+                    });
+                    quote! { #(#serialize_predicates,)* }
+                }
+                Fields::Unit => quote! {},
+            });
+            let serialize_predicates = quote! { #(#serialize_predicates)* };
+
+            let serialize_arms = data.variants.iter().map(|v| {
+                let variant = &v.ident;
+                match v.fields {
+                    Fields::Named(ref fields) => {
+                        let bindings = fields.named.iter().map(|f| {
+                            let name = &f.ident;
+                            quote_spanned! { name.span() => #name }
+                        });
+                        let fields = fields.named.iter().map(|f| {
+                            let name = &f.ident;
+                            quote! {
+                                #name: Serialize::<__W>::serialize(#name, writer)?
+                            }
+                        });
+                        quote_spanned! { variant.span() =>
+                            Self::#variant { #(#bindings,)* } => #resolver::#variant {
+                                #(#fields,)*
+                            }
+                        }
+                    }
+                    Fields::Unnamed(ref fields) => {
+                        let bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                            let name = Ident::new(&format!("_{}", i), f.span());
+                            quote_spanned! { f.span() => #name }
+                        });
+                        let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                            let binding = Ident::new(&format!("_{}", i), f.span());
+                            quote! {
+                                Serialize::<__W>::serialize(#binding, writer)?
+                            }
+                        });
+                        quote_spanned! { variant.span() =>
+                            Self::#variant( #(#bindings,)* ) => #resolver::#variant(#(#fields,)*)
+                        }
+                    }
+                    Fields::Unit => {
+                        quote_spanned! { name.span() => Self::#variant => #resolver::#variant }
+                    }
+                }
+            });
+
+            quote! {
+                impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                where
+                    #generic_predicates
+                    #serialize_predicates
+                {
+                    fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
+                        Ok(match self {
+                            #(#serialize_arms,)*
+                        })
+                    }
+                }
+            }
+        }
+        Data::Union(_) => {
+            return Error::new(input.span(), "Serialize cannot be derived for unions").to_compile_error()
+        }
+    };
+
+    quote! {
+        const _: () = {
+            use rkyv::{
+                Archive,
+                Resolve,
+                Serialize,
+                Write
+            };
+            #serialize_impl
+        };
+    }
+}
+
+fn derive_serialize_copy_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStream {
+    let name = &input.ident;
+
+    let generic_params = input.generics.params.iter().map(|p| quote! { #p });
+    let generic_params = quote! { #(#generic_params,)* };
+
+    let generic_args = input.generics.type_params().map(|p| {
+        let name = &p.ident;
+        quote_spanned! { p.ident.span() => #name }
+    });
+    let generic_args = quote! { #(#generic_args,)* };
+
+    let generic_predicates = match input.generics.where_clause {
+        Some(ref clause) => {
+            let predicates = clause.predicates.iter().map(|p| quote! { #p });
+            quote! { #(#predicates,)* }
+        }
+        None => quote! {},
+    };
+
+    let serialize_copy_impl = match input.data {
+        Data::Struct(ref data) => {
+            let copy_predicates = match data.fields {
+                Fields::Named(ref fields) => {
+                    let copy_predicates = fields.named.iter().map(|f| {
+                        let ty = &f.ty;
+                        quote_spanned! { f.span() => #ty: ArchiveCopy }
+                    });
+
+                    quote! { #(#copy_predicates,)* }
+                }
+                Fields::Unnamed(ref fields) => {
+                    let copy_predicates = fields.unnamed.iter().map(|f| {
+                        let ty = &f.ty;
+                        quote_spanned! { f.span() => #ty: ArchiveCopy }
+                    });
+
+                    quote! { #(#copy_predicates,)* }
+                }
+                Fields::Unit => quote! {},
+            };
+
+            quote! {
+                impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                where
+                    #generic_predicates
+                    #copy_predicates
+                {
+                    fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
+                        Ok(CopyResolver)
+                    }
+                }
+            }
+        }
+        Data::Enum(ref data) => {
+            if let Some(span) = attributes
+                .repr
+                .rust
+                .or(attributes.repr.transparent)
+                .or(attributes.repr.packed)
+            {
+                return Error::new(span, "archive copy enums must be repr(C) or repr(Int)")
+                    .to_compile_error();
+            }
+
+            if attributes.repr.c.is_none() && attributes.repr.int.is_none() {
+                return Error::new(
+                    input.span(),
+                    "archive copy enums must be repr(C) or repr(Int)",
+                )
+                .to_compile_error();
+            }
+
+            let copy_predicates = data.variants.iter().map(|v| match v.fields {
+                Fields::Named(ref fields) => {
+                    let copy_predicates = fields.named.iter().map(|f| {
+                        let ty = &f.ty;
+                        quote_spanned! { f.span() => #ty: ArchiveCopy }
+                    });
+                    quote! { #(#copy_predicates,)* }
+                }
+                Fields::Unnamed(ref fields) => {
+                    let copy_predicates = fields.unnamed.iter().map(|f| {
+                        let ty = &f.ty;
+                        quote_spanned! { f.span() => #ty: ArchiveCopy }
+                    });
+                    quote! { #(#copy_predicates,)* }
+                }
+                Fields::Unit => quote! {},
+            });
+            let copy_predicates = quote! { #(#copy_predicates)* };
+
+            quote! {
+                impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                where
+                    #generic_predicates
+                    #copy_predicates
+                {
+                    fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
+                        Ok(CopyResolver)
+                    }
+                }
+            }
+        }
+        Data::Union(_) => {
+            Error::new(input.span(), "Serialize cannot be derived for unions").to_compile_error()
+        }
+    };
+
+    quote! {
+        const _: () = {
+            use rkyv::{
+                Archive,
+                ArchiveCopy,
+                CopyResolver,
+                Serialize,
+                Write,
+            };
+
+            #serialize_copy_impl
         };
     }
 }
@@ -1027,7 +1183,7 @@ pub fn deserialize_derive(input: proc_macro::TokenStream) -> proc_macro::TokenSt
         Err(errors) => return proc_macro::TokenStream::from(errors),
     };
 
-    let deserialize_impl = if attributes.archive_copy.is_some() {
+    let deserialize_impl = if attributes.copy.is_some() {
         derive_deserialize_copy_impl(&input)
     } else {
         derive_deserialize_impl(&input)

@@ -132,6 +132,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///     Archived,
 ///     archived_value,
 ///     Deserialize,
+///     Serialize,
 ///     Write,
 /// };
 /// use rkyv_dyn::archive_dyn;
@@ -142,7 +143,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///     fn value(&self) -> String;
 /// }
 ///
-/// #[derive(Archive, Deserialize)]
+/// #[derive(Archive, Serialize, Deserialize)]
 /// #[archive(derive(TypeName))]
 /// struct StringStruct(String);
 ///
@@ -159,7 +160,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///     }
 /// }
 ///
-/// #[derive(Archive, Deserialize)]
+/// #[derive(Archive, Serialize, Deserialize)]
 /// #[archive(derive(TypeName))]
 /// struct IntStruct(i32);
 ///

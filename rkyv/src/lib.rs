@@ -85,7 +85,7 @@ use core::{
 use std::io;
 
 pub use memoffset::offset_of;
-pub use rkyv_derive::{Archive, Deserialize};
+pub use rkyv_derive::{Archive, Deserialize, Serialize};
 #[cfg(feature = "validation")]
 pub use validation::{check_archive, ArchiveContext, ArchiveMemoryError};
 
@@ -241,9 +241,9 @@ pub trait Resolve<T: ?Sized> {
 /// macro for more details.
 ///
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Write};
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Serialize, Write};
 ///
-/// #[derive(Archive)]
+/// #[derive(Archive, Serialize)]
 /// struct Test {
 ///     int: u8,
 ///     string: String,
@@ -392,9 +392,9 @@ pub trait Serialize<W: Write + ?Sized>: Archive {
 /// ## Examples
 ///
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Deserialize, Write};
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Deserialize, Serialize, Write};
 ///
-/// #[derive(Archive, Debug, PartialEq, Deserialize)]
+/// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
 /// struct Test {
 ///     int: u8,
 ///     string: String,
@@ -475,9 +475,9 @@ pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized>:
 ///
 /// ## Examples
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, archived_value, Write};
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, archived_value, Serialize, Write};
 ///
-/// #[derive(Archive, Clone, Copy, Debug, PartialEq)]
+/// #[derive(Archive, Serialize, Clone, Copy, Debug, PartialEq)]
 /// #[archive(copy)]
 /// struct Vector4<T>(T, T, T, T);
 ///
@@ -643,9 +643,9 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 ///
 /// ## Examples
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Write};
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Serialize, Write};
 ///
-/// #[derive(Archive)]
+/// #[derive(Archive, Serialize)]
 /// enum Event {
 ///     Spawn,
 ///     Speak(String),

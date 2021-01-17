@@ -114,8 +114,8 @@ fn overlapping_claims() {
 fn cycle_detection() {
     use rkyv::{ArchiveContext, Archived};
 
-    #[derive(Archive)]
-    #[archive(derive(Debug), name)]
+    #[derive(Archive, Serialize)]
+    #[archive(derive(Debug))]
     enum Node {
         Nil,
         #[allow(dead_code)]
@@ -171,7 +171,7 @@ fn cycle_detection() {
 
 #[test]
 fn derive_unit_struct() {
-    #[derive(Archive)]
+    #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
     struct Test;
 
@@ -180,7 +180,7 @@ fn derive_unit_struct() {
 
 #[test]
 fn derive_struct() {
-    #[derive(Archive)]
+    #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
     struct Test {
         a: u32,
@@ -197,7 +197,7 @@ fn derive_struct() {
 
 #[test]
 fn derive_tuple_struct() {
-    #[derive(Archive)]
+    #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
     struct Test(u32, String, Box<Vec<String>>);
 
@@ -210,7 +210,7 @@ fn derive_tuple_struct() {
 
 #[test]
 fn derive_enum() {
-    #[derive(Archive)]
+    #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
     enum Test {
         A(u32),
@@ -256,7 +256,7 @@ fn check_dyn() {
         fn get_id(&self) -> i32;
     }
 
-    #[derive(Archive)]
+    #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes, TypeName))]
     pub struct Test {
         id: i32,
@@ -279,7 +279,7 @@ fn check_dyn() {
 
     serialize_and_check(&value);
 
-    #[derive(Archive)]
+    #[derive(Archive, Serialize)]
     #[archive(derive(TypeName))]
     pub struct TestUnchecked {
         id: i32,

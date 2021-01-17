@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn archive_unit_struct() {
-        #[derive(Archive, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
         struct Test;
 
         impl PartialEq<Test> for Archived<Test> {
@@ -161,7 +161,7 @@ mod tests {
 
     #[test]
     fn archive_tuple_struct() {
-        #[derive(Archive, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
         struct Test((), i32, String, Option<i32>);
 
         impl PartialEq<Test> for Archived<Test> {
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn archive_simple_struct() {
-        #[derive(Archive, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
         struct Test {
             a: (),
             b: i32,
@@ -221,7 +221,7 @@ mod tests {
             type Associated = i32;
         }
 
-        #[derive(Archive, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
         struct Test<T: TestTrait> {
             a: (),
             b: <T as TestTrait>::Associated,
@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn archive_enum() {
-        #[derive(Archive, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
         enum Test {
             A,
             B(String),
@@ -324,7 +324,7 @@ mod tests {
             type Associated = i32;
         }
 
-        #[derive(Archive, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
         enum Test<T: TestTrait> {
             A,
             B(String),
@@ -384,13 +384,13 @@ mod tests {
 
     #[test]
     fn archive_copy() {
-        #[derive(Archive, Deserialize, Clone, Copy, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
         #[archive(copy)]
         struct TestUnit;
 
         test_archive(&TestUnit);
 
-        #[derive(Archive, Deserialize, Clone, Copy, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
         #[archive(copy)]
         struct TestStruct {
             a: (),
@@ -408,13 +408,13 @@ mod tests {
             e: TestUnit,
         });
 
-        #[derive(Archive, Deserialize, Clone, Copy, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
         #[archive(copy)]
         struct TestTuple((), i32, bool, f32, TestUnit);
 
         test_archive(&TestTuple((), 42, true, 3.14f32, TestUnit));
 
-        #[derive(Archive, Deserialize, Clone, Copy, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
         #[repr(u8)]
         #[archive(copy)]
         enum TestEnum {
@@ -423,7 +423,7 @@ mod tests {
 
         test_archive(&TestEnum::A((), 42, true, 3.14f32, TestUnit));
 
-        #[derive(Archive, Deserialize, Clone, Copy, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
         #[archive(copy)]
         struct TestGeneric<T>(T);
 
@@ -432,7 +432,7 @@ mod tests {
 
     #[test]
     fn archive_derives() {
-        #[derive(Archive, Clone)]
+        #[derive(Archive, Serialize, Clone)]
         #[archive(derive(Clone, Debug, PartialEq))]
         struct Test(i32);
 
@@ -516,7 +516,7 @@ mod tests {
             }
         }
 
-        #[derive(Archive, Deserialize)]
+        #[derive(Archive, Serialize, Deserialize)]
         // TODO: archive parameter to set typename
         #[archive(derive(TypeName))]
         pub struct Test {
@@ -575,7 +575,7 @@ mod tests {
             fn get_id(&self) -> i32;
         }
 
-        #[derive(Archive, Deserialize)]
+        #[derive(Archive, Serialize, Deserialize)]
         #[archive(derive(TypeName))]
         pub struct Test {
             id: i32,
@@ -621,8 +621,8 @@ mod tests {
             fn get_value(&self) -> T;
         }
 
-        #[derive(Archive, Deserialize)]
-        #[archive(name, derive(TypeName))]
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(derive(TypeName))]
         pub struct Test<T> {
             value: T,
         }
@@ -716,18 +716,15 @@ mod tests {
     #[test]
     fn derive_visibility() {
         mod inner {
-            #[derive(super::Archive)]
-            #[archive(name)]
+            #[derive(super::Archive, super::Serialize)]
             pub struct TestTuple(pub i32);
 
-            #[derive(super::Archive)]
-            #[archive(name)]
+            #[derive(super::Archive, super::Serialize)]
             pub struct TestStruct {
                 pub value: i32,
             }
 
-            #[derive(super::Archive)]
-            #[archive(name)]
+            #[derive(super::Archive, super::Serialize)]
             pub enum TestEnum {
                 B(i32),
                 C { value: i32 },
@@ -762,8 +759,7 @@ mod tests {
 
     #[test]
     fn struct_mutable_refs() {
-        #[derive(Archive)]
-        #[archive(name)]
+        #[derive(Archive, Serialize)]
         struct Test {
             a: Box<i32>,
             b: Vec<String>,
@@ -837,7 +833,7 @@ mod tests {
     #[test]
     fn enum_mutable_ref() {
         #[allow(dead_code)]
-        #[derive(Archive)]
+        #[derive(Archive, Serialize)]
         enum Test {
             A,
             B(char),
@@ -874,7 +870,7 @@ mod tests {
             fn set_value(self: Pin<&mut Self>, value: i32);
         }
 
-        #[derive(Archive)]
+        #[derive(Archive, Serialize)]
         #[archive(derive(TypeName))]
         struct Test(i32);
 
@@ -918,7 +914,7 @@ mod tests {
 
     #[test]
     fn recursive_structures() {
-        #[derive(Archive, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
         enum Node {
             Nil,
             Cons(#[recursive] Box<Node>),
@@ -944,7 +940,7 @@ mod tests {
 
     #[test]
     fn archive_root() {
-        #[derive(Archive)]
+        #[derive(Archive, Serialize)]
         struct Test {
             a: (),
             b: i32,
@@ -983,7 +979,7 @@ mod tests {
             sync::atomic::{AtomicU32, Ordering},
         };
 
-        #[derive(Archive, Deserialize)]
+        #[derive(Archive, Serialize, Deserialize)]
         struct Test {
             a: AtomicU32,
             b: Range<i32>,

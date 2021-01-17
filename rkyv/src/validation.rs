@@ -435,10 +435,10 @@ impl ArchiveContext for ArchiveValidator {
 ///
 /// # Example
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, check_archive, Write};
+/// use rkyv::{Aligned, Archive, ArchiveBuffer, check_archive, Serialize, Write};
 /// use bytecheck::CheckBytes;
 ///
-/// #[derive(Archive)]
+/// #[derive(Archive, Serialize)]
 /// #[archive(derive(CheckBytes))]
 /// struct Example {
 ///     name: String,

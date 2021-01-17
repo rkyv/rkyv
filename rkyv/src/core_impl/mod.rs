@@ -462,13 +462,16 @@ unsafe impl<T: ArchiveCopy, const N: usize> ArchiveCopy for [T; N] {}
 impl<T: Archive, const N: usize> Archive for [T; N] {
     type Archived = [T::Archived; N];
     type Resolver = [T::Resolver; N];
+}
 
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+#[cfg(feature = "const_generics")]
+impl<T: Serialize<W>, W: Write + ?Sized, const N: usize> Serialize<W> for [T; N] {
+    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
         let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T::Resolver>();
         for i in 0..N {
             unsafe {
-                result_ptr.add(i).write(self[i].archive(writer)?);
+                result_ptr.add(i).write(self[i].serialize(writer)?);
             }
         }
         unsafe { Ok(result.assume_init()) }
