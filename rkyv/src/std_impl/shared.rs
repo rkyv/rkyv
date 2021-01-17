@@ -1,6 +1,6 @@
 use core::{any::{Any, TypeId}, fmt, ops::{Deref, DerefMut}, pin::Pin};
 use std::{collections::HashMap, error::Error, rc::Rc};
-use crate::{Archive, ArchiveRef, ReferenceResolver, Resolve, Serialize, SerializeRef, SharedWrite, Write};
+use crate::{Archive, ArchiveRef, Serialize, SerializeRef, SharedWrite, Write};
 
 #[derive(Debug)]
 pub enum SharedWriterError<T> {
@@ -32,7 +32,7 @@ impl<E: Error + 'static> Error for SharedWriterError<E> {
 /// A wrapper around a writer that adds support for [`SharedWrite`].
 pub struct SharedWriter<W: Write> {
     inner: W,
-    shared_resolvers: HashMap<*const (), Box<dyn Any>>,
+    shared_resolvers: HashMap<*const (), (TypeId, usize)>,
 }
 
 impl<W: Write> Write for SharedWriter<W> {
@@ -58,33 +58,31 @@ impl<W: Write> Write for SharedWriter<W> {
         self.inner.align_for::<T>().map_err(SharedWriterError::Inner)
     }
 
-    unsafe fn resolve_aligned<T: ?Sized, R: Resolve<T>>(
+    unsafe fn resolve_aligned<T: Archive + ?Sized>(
         &mut self,
         value: &T,
-        resolver: R,
+        resolver: T::Resolver,
     ) -> Result<usize, Self::Error> {
         self.inner.resolve_aligned(value, resolver).map_err(SharedWriterError::Inner)
     }
 }
 
 impl<W: Write> SharedWrite for SharedWriter<W> {
-    fn serialize_shared_ref<T: SerializeRef<Self> + ?Sized + 'static>(&mut self, value: &T) -> Result<ReferenceResolver<T>, Self::Error>
-    where
-        ReferenceResolver<T>: Clone + 'static
-    {
+    fn serialize_shared_ref<T: SerializeRef<Self> + ?Sized + 'static>(&mut self, value: &T) -> Result<usize, Self::Error> {
         let key = (value as *const T).cast::<()>();
-        if let Some(existing) = self.shared_resolvers.get(&key) {
-            if let Some(resolver) = existing.downcast_ref::<T::ReferenceResolver>() {
-                Ok(resolver.clone())
+        let type_id = value.type_id();
+        if let Some((existing_type_id, existing)) = self.shared_resolvers.get(&key) {
+            if existing_type_id == &type_id {
+                Ok(existing.clone())
             } else {
                 Err(SharedWriterError::ResolverTypeMismatch {
-                    expected: value.type_id(),
-                    found: existing.type_id(),
+                    expected: type_id,
+                    found: *existing_type_id,
                 })
             }
         } else {
             let resolver = value.serialize_ref(self)?;
-            self.shared_resolvers.insert(key, Box::new(resolver.clone()) as Box<dyn Any>);
+            self.shared_resolvers.insert(key, (type_id, resolver));
             Ok(resolver)
         }
     }
@@ -125,26 +123,18 @@ impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Rc<V>>
 }
 
 /// The resolver for `Rc`.
-#[derive(Clone)]
-pub struct RcResolver<T>(T);
-
-impl<T: ArchiveRef + ?Sized> Resolve<Rc<T>> for RcResolver<T::ReferenceResolver> {
-    type Archived = ArchivedRc<T::Reference>;
-
-    fn resolve(self, pos: usize, value: &Rc<T>) -> Self::Archived {
-        ArchivedRc(self.0.resolve(pos, value.as_ref()))
-    }
-}
+pub struct RcResolver(usize);
 
 impl<T: ArchiveRef + ?Sized> Archive for Rc<T> {
     type Archived = ArchivedRc<T::Reference>;
-    type Resolver = RcResolver<T::ReferenceResolver>;
+    type Resolver = RcResolver;
+
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        ArchivedRc(self.as_ref().resolve_ref(pos, resolver.0))
+    }
 }
 
-impl<T: SerializeRef<W> + ?Sized + 'static, W: SharedWrite + ?Sized> Serialize<W> for Rc<T>
-where
-    T::ReferenceResolver: Any + Clone,
-{
+impl<T: SerializeRef<W> + ?Sized + 'static, W: SharedWrite + ?Sized> Serialize<W> for Rc<T> {
     fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
         Ok(RcResolver(writer.serialize_shared_ref(self.as_ref())?))
     }

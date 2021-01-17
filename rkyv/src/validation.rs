@@ -138,7 +138,6 @@ impl<T: fmt::Debug + fmt::Display> error::Error for CheckArchiveError<T> {}
 ///     ArchiveContext,
 ///     ArchiveMemoryError,
 ///     RelPtr,
-///     Resolve,
 ///     Serialize,
 ///     Write,
 /// };
@@ -182,31 +181,27 @@ impl<T: fmt::Debug + fmt::Display> error::Error for CheckArchiveError<T> {}
 ///     }
 /// }
 ///
-/// pub struct ArchivedMyBoxResolver {
+/// pub struct MyBoxResolver {
 ///     value_pos: usize,
 /// }
 ///
-/// impl<T: Archive> Resolve<MyBox<T>> for ArchivedMyBoxResolver {
+/// impl<T: Archive> Archive for MyBox<T> {
 ///     type Archived = ArchivedMyBox<T::Archived>;
+///     type Resolver = MyBoxResolver;
 ///
-///     fn resolve(self, pos: usize, value: &MyBox<T>) -> Self::Archived {
+///     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
 ///         unsafe {
 ///             ArchivedMyBox {
-///                 value: RelPtr::new(pos, self.value_pos),
+///                 value: RelPtr::new(pos, resolver.value_pos),
 ///                 _phantom: PhantomData,
 ///             }
 ///         }
 ///     }
 /// }
 ///
-/// impl<T: Archive> Archive for MyBox<T> {
-///     type Archived = ArchivedMyBox<T::Archived>;
-///     type Resolver = ArchivedMyBoxResolver;
-/// }
-///
 /// impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for MyBox<T> {
 ///     fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-///         Ok(ArchivedMyBoxResolver {
+///         Ok(MyBoxResolver {
 ///             value_pos: writer.serialize(self.value())?,
 ///         })
 ///     }

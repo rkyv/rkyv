@@ -198,15 +198,21 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 pub trait SerializeDyn {
     /// Writes the value to the writer and returns a resolver that can create an
     /// [`ArchivedDyn`] reference.
-    fn serialize_dyn(&self, writer: &mut dyn WriteDyn) -> Result<DynResolver, DynError>;
+    fn serialize_dyn(&self, writer: &mut dyn WriteDyn) -> Result<usize, DynError>;
+
+    fn archived_type_id(&self) -> u64;
 }
 
 impl<T: for<'a> Serialize<dyn WriteDyn + 'a>> SerializeDyn for T
 where
     T::Archived: TypeName,
 {
-    fn serialize_dyn(&self, writer: &mut dyn WriteDyn) -> Result<DynResolver, DynError> {
-        Ok(DynResolver::new::<T::Archived>(writer.serialize(self)?))
+    fn serialize_dyn(&self, writer: &mut dyn WriteDyn) -> Result<usize, DynError> {
+        Ok(writer.serialize(self)?)
+    }
+
+    fn archived_type_id(&self) -> u64 {
+        hash_type::<T::Archived>()
     }
 }
 
@@ -220,21 +226,6 @@ pub trait DeserializeDyn<T: ?Sized> {
     ///
     /// The return value must be allocated using the given allocator function.
     unsafe fn deserialize_dyn(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
-}
-
-/// The resolver for an [`ArchivedDyn`].
-pub struct DynResolver {
-    pos: usize,
-    type_id: u64,
-}
-
-impl DynResolver {
-    fn new<T: TypeName + ?Sized>(pos: usize) -> Self {
-        Self {
-            pos,
-            type_id: hash_type::<T>(),
-        }
-    }
 }
 
 /// A reference to an archived trait object.
@@ -254,14 +245,14 @@ pub struct ArchivedDyn<T: ?Sized> {
 }
 
 impl<T: ?Sized> ArchivedDyn<T> {
-    /// Creates a new `ArchivedDyn` from a data position and [`DynResolver`].
-    pub fn resolve(from: usize, resolver: DynResolver) -> Self {
+    /// Creates a new `ArchivedDyn` from a type ID, position, and data position.
+    pub fn new(type_id: u64, from: usize, to: usize) -> Self {
         Self {
-            ptr: unsafe { RelPtr::new(from + offset_of!(Self, ptr), resolver.pos) },
+            ptr: unsafe { RelPtr::new(from + offset_of!(Self, ptr), to) },
             // The last bit of the type ID is set to 1 to make sure we can
             // differentiate between cached and uncached vtables when the
             // feature is turned on
-            type_id: AtomicU64::new(resolver.type_id | 1),
+            type_id: AtomicU64::new(type_id | 1),
             _phantom: PhantomData,
         }
     }

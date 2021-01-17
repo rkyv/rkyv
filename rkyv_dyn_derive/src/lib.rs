@@ -281,7 +281,6 @@ pub fn archive_dyn(
                     use rkyv::{
                         Archived,
                         ArchiveRef,
-                        Resolve,
                         SerializeRef,
                         DeserializeRef,
                         Write,
@@ -289,7 +288,6 @@ pub fn archive_dyn(
                     use rkyv_dyn::{
                         ArchivedDyn,
                         DynError,
-                        DynResolver,
                         RegisteredImpl,
                         SerializeDyn,
                         DeserializeDyn,
@@ -313,22 +311,17 @@ pub fn archive_dyn(
                         }
                     }
 
-                    impl<#generic_params> Resolve<dyn #serialize_trait<#generic_args>> for DynResolver {
-                        type Archived = ArchivedDyn<dyn #deserialize_trait<#generic_args>>;
-
-                        fn resolve(self, pos: usize, _: &dyn #serialize_trait<#generic_args>) -> Self::Archived {
-                            ArchivedDyn::resolve(pos, self)
-                        }
-                    }
-
                     impl<#generic_params> ArchiveRef for dyn #serialize_trait<#generic_args> {
                         type Archived = dyn #deserialize_trait<#generic_args>;
                         type Reference = ArchivedDyn<dyn #deserialize_trait<#generic_args>>;
-                        type ReferenceResolver = DynResolver;
+
+                        fn resolve_ref(&self, from: usize, to: usize) -> Self::Reference {
+                            ArchivedDyn::new(self.archived_type_id(), from, to)
+                        }
                     }
 
                     impl<__W: Write + ?Sized, #generic_params> SerializeRef<__W> for dyn #serialize_trait<#generic_args> {
-                        fn serialize_ref(&self, mut writer: &mut __W) -> Result<Self::ReferenceResolver, __W::Error> {
+                        fn serialize_ref(&self, mut writer: &mut __W) -> Result<usize, __W::Error> {
                             self.serialize_dyn(&mut writer).map_err(|e| *e.downcast::<__W::Error>().unwrap())
                         }
                     }

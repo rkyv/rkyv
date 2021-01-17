@@ -6,7 +6,7 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{offset_of, Archive, Archived, RelPtr, Resolve, Serialize, Deserialize, Write};
+use crate::{offset_of, Archive, Archived, RelPtr, Serialize, Deserialize, Write};
 use core::{
     borrow::Borrow,
     cmp::Reverse,
@@ -321,8 +321,8 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         {
             let entry_pos = writer.pos();
             let entry = Entry {
-                key: key_resolver.resolve(entry_pos + offset_of!(Entry<K, V>, key), key),
-                value: value_resolver.resolve(entry_pos + offset_of!(Entry<K, V>, value), value),
+                key: key.resolve(entry_pos + offset_of!(Entry<K, V>, key), key_resolver),
+                value: value.resolve(entry_pos + offset_of!(Entry<K, V>, value), value_resolver),
             };
             let entry_slice = unsafe {
                 slice::from_raw_parts(
@@ -579,20 +579,16 @@ impl ArchivedHashMapResolver {
     }
 }
 
-impl<K: Archive + Hash + Eq, V: Archive> Resolve<HashMap<K, V>> for ArchivedHashMapResolver {
-    type Archived = ArchivedHashMap<K::Archived, V::Archived>;
-
-    fn resolve(self, pos: usize, value: &HashMap<K, V>) -> Self::Archived {
-        self.resolve_from_len(pos, value.len())
-    }
-}
-
 impl<K: Archive + Hash + Eq, V: Archive> Archive for HashMap<K, V>
 where
     K::Archived: Hash + Eq,
 {
     type Archived = ArchivedHashMap<K::Archived, V::Archived>;
     type Resolver = ArchivedHashMapResolver;
+
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        resolver.resolve_from_len(pos, self.len())
+    }
 }
 
 impl<K: Serialize<W> + Hash + Eq, V: Serialize<W>, W: Write + ?Sized> Serialize<W> for HashMap<K, V>
@@ -718,23 +714,16 @@ impl<K: Hash + Eq> ArchivedHashSet<K> {
 /// The resolver for archived hash sets.
 pub struct ArchivedHashSetResolver(ArchivedHashMapResolver);
 
-impl<K: Archive + Hash + Eq> Resolve<HashSet<K>> for ArchivedHashSetResolver
-where
-    K::Archived: Hash + Eq,
-{
-    type Archived = ArchivedHashSet<K::Archived>;
-
-    fn resolve(self, pos: usize, value: &HashSet<K>) -> Self::Archived {
-        ArchivedHashSet(self.0.resolve_from_len(pos, value.len()))
-    }
-}
-
 impl<K: Archive + Hash + Eq> Archive for HashSet<K>
 where
     K::Archived: Hash + Eq,
 {
     type Archived = ArchivedHashSet<K::Archived>;
     type Resolver = ArchivedHashSetResolver;
+
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        ArchivedHashSet(resolver.0.resolve_from_len(pos, self.len()))
+    }
 }
 
 impl<K: Serialize<W> + Hash + Eq, W: Write + ?Sized> Serialize<W> for HashSet<K>

@@ -1,7 +1,7 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    offset_of, Archive, ArchiveCopy, ArchiveRef, Archived, CopyResolver, RelPtr, Resolve,
+    offset_of, Archive, ArchiveCopy, ArchiveRef, Archived, RelPtr,
     Serialize, SerializeRef, Deserialize, DeserializeRef, Write,
 };
 use core::{
@@ -73,22 +73,17 @@ impl<T: PartialEq> PartialEq for ArchivedRef<T> {
 
 impl<T: Eq> Eq for ArchivedRef<T> {}
 
-impl<T: Archive> Resolve<T> for usize {
-    type Archived = ArchivedRef<T::Archived>;
-
-    fn resolve(self, pos: usize, _value: &T) -> Self::Archived {
-        unsafe { ArchivedRef::new(pos, self) }
-    }
-}
-
 impl<T: Archive> ArchiveRef for T {
     type Archived = T::Archived;
     type Reference = ArchivedRef<Self::Archived>;
-    type ReferenceResolver = usize;
+
+    fn resolve_ref(&self, from: usize, to: usize) -> Self::Reference {
+        unsafe { ArchivedRef::new(from, to) }
+    }
 }
 
 impl<T: Serialize<W>, W: Write + ?Sized> SerializeRef<W> for T {
-    fn serialize_ref(&self, writer: &mut W) -> Result<Self::ReferenceResolver, W::Error> {
+    fn serialize_ref(&self, writer: &mut W) -> Result<usize, W::Error> {
         Ok(writer.serialize(self)?)
     }
 }
@@ -118,7 +113,7 @@ pub struct ArchivedSlice<T> {
 }
 
 impl<T> ArchivedSlice<T> {
-    unsafe fn new(from: usize, to: usize, len: usize) -> Self {
+    pub unsafe fn new(from: usize, to: usize, len: usize) -> Self {
         Self {
             ptr: RelPtr::new(from + offset_of!(Self, ptr), to),
             len: len as u32,
@@ -167,21 +162,12 @@ impl<T: PartialOrd> PartialOrd for ArchivedSlice<T> {
     }
 }
 
-impl<T: Archive> Resolve<[T]> for usize {
-    type Archived = ArchivedSlice<T::Archived>;
-
-    fn resolve(self, pos: usize, value: &[T]) -> Self::Archived {
-        unsafe { ArchivedSlice::new(pos, self, value.len()) }
-    }
-}
-
 #[cfg(not(feature = "std"))]
 impl<T: ArchiveCopy> ArchiveRef for [T] {
     type Archived = [T::Archived];
     type Reference = ArchivedSlice<T::Archived>;
-    type Resolver = usize;
 
-    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<usize, W::Error> {
         if !self.is_empty() {
             let result = writer.align_for::<T>()?;
             let bytes = unsafe {
@@ -217,7 +203,11 @@ macro_rules! impl_primitive {
             $type: Copy,
         {
             type Archived = Self;
-            type Resolver = CopyResolver;
+            type Resolver = ();
+
+            fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
+                *self
+            }
         }
 
         impl<W: Write + ?Sized> Serialize<W> for $type {
@@ -225,7 +215,7 @@ macro_rules! impl_primitive {
                 &self,
                 _writer: &mut W,
             ) -> Result<Self::Resolver, W::Error> {
-                Ok(CopyResolver)
+                Ok(())
             }
         }
 
@@ -273,17 +263,13 @@ pub struct AtomicResolver;
 
 macro_rules! impl_atomic {
     ($type:ty) => {
-        impl Resolve<$type> for AtomicResolver {
-            type Archived = $type;
-
-            fn resolve(self, _pos: usize, value: &$type) -> $type {
-                <$type>::new(value.load(atomic::Ordering::Relaxed))
-            }
-        }
-
         impl Archive for $type {
             type Archived = Self;
             type Resolver = AtomicResolver;
+
+            fn resolve(&self, _pos: usize, _resolver: AtomicResolver) -> $type {
+                <$type>::new(self.load(atomic::Ordering::Relaxed))
+            }
         }
 
         impl<W: Write + ?Sized> Serialize<W> for $type {
@@ -322,21 +308,17 @@ macro_rules! peel_tuple {
 macro_rules! impl_tuple {
     () => ();
     ($($type:ident $index:tt,)+) => {
-        impl<$($type: Archive),+> Resolve<($($type,)+)> for ($($type::Resolver,)+) {
-            type Archived = ($($type::Archived,)+);
-
-            fn resolve(self, pos: usize, value: &($($type,)+)) -> Self::Archived {
-                #[allow(clippy::unneeded_wildcard_pattern)]
-                let rev = ($(self.$index.resolve(pos + memoffset::offset_of_tuple!(Self::Archived, $index), &value.$index),)+);
-                ($(rev.$index,)+)
-            }
-        }
-
         unsafe impl<$($type: ArchiveCopy),+> ArchiveCopy for ($($type,)+) {}
 
         impl<$($type: Archive),+> Archive for ($($type,)+) {
             type Archived = ($($type::Archived,)+);
             type Resolver = ($($type::Resolver,)+);
+
+            fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+                #[allow(clippy::unneeded_wildcard_pattern)]
+                let rev = ($(self.$index.resolve(pos + memoffset::offset_of_tuple!(Self::Archived, $index), resolver.$index),)+);
+                ($(rev.$index,)+)
+            }
         }
 
         impl<$($type: Serialize<W>),+, W: Write + ?Sized> Serialize<W> for ($($type,)+) {
@@ -367,31 +349,27 @@ impl_tuple! { T11 11, T10 10, T9 9, T8 8, T7 7, T6 6, T5 5, T4 4, T3 3, T2 2, T1
 macro_rules! impl_array {
     () => ();
     ($len:literal, $($rest:literal,)*) => {
-        impl<T: Archive> Resolve<[T; $len]> for [T::Resolver; $len] {
-            type Archived = [T::Archived; $len];
+        unsafe impl<T: ArchiveCopy> ArchiveCopy for [T; $len] {}
 
-            fn resolve(self, pos: usize, value: &[T; $len]) -> Self::Archived {
-                let mut resolvers = core::mem::MaybeUninit::new(self);
+        impl<T: Archive> Archive for [T; $len] {
+            type Archived = [T::Archived; $len];
+            type Resolver = [T::Resolver; $len];
+
+            fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+                let mut resolvers = core::mem::MaybeUninit::new(resolver);
                 let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
                 let mut result = core::mem::MaybeUninit::<Self::Archived>::uninit();
                 let result_ptr = result.as_mut_ptr().cast::<T::Archived>();
                 #[allow(clippy::reversed_empty_ranges)]
                 for i in 0..$len {
                     unsafe {
-                        result_ptr.add(i).write(resolvers_ptr.add(i).read().resolve(pos + i * core::mem::size_of::<T>(), &value[i]));
+                        result_ptr.add(i).write(self[i].resolve(pos + i * core::mem::size_of::<T>(), resolvers_ptr.add(i).read()));
                     }
                 }
                 unsafe {
                     result.assume_init()
                 }
             }
-        }
-
-        unsafe impl<T: ArchiveCopy> ArchiveCopy for [T; $len] {}
-
-        impl<T: Archive> Archive for [T; $len] {
-            type Archived = [T::Archived; $len];
-            type Resolver = [T::Resolver; $len];
         }
 
         impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for [T; $len] {
@@ -433,35 +411,27 @@ macro_rules! impl_array {
 impl_array! { 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, }
 
 #[cfg(feature = "const_generics")]
-impl<T: Resolve<U>, U, const N: usize> Resolve<[U; N]> for [T; N] {
-    type Archived = [T::Archived; N];
-
-    fn resolve(self, pos: usize, value: &[U; N]) -> Self::Archived {
-        let mut resolvers = core::mem::MaybeUninit::new(self);
-        let resolvers_ptr = resolvers.as_mut_ptr().cast::<T>();
-        let mut result = core::mem::MaybeUninit::<Self::Archived>::uninit();
-        let result_ptr = result.as_mut_ptr().cast::<T::Archived>();
-        for i in 0..N {
-            unsafe {
-                result_ptr.add(i).write(
-                    resolvers_ptr
-                        .add(i)
-                        .read()
-                        .resolve(pos + i * core::mem::size_of::<T>(), &value[i]),
-                );
-            }
-        }
-        unsafe { result.assume_init() }
-    }
-}
-
-#[cfg(feature = "const_generics")]
 unsafe impl<T: ArchiveCopy, const N: usize> ArchiveCopy for [T; N] {}
 
 #[cfg(feature = "const_generics")]
 impl<T: Archive, const N: usize> Archive for [T; N] {
     type Archived = [T::Archived; N];
     type Resolver = [T::Resolver; N];
+
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        let mut resolvers = core::mem::MaybeUninit::new(resolver);
+        let resolvers_ptr = resolvers.as_mut_ptr().cast::<T>();
+        let mut result = core::mem::MaybeUninit::<Self::Archived>::uninit();
+        let result_ptr = result.as_mut_ptr().cast::<T::Archived>();
+        for i in 0..N {
+            unsafe {
+                result_ptr.add(i).write(
+                    self[i].resolve(pos + i * core::mem::size_of::<T>(), resolvers_ptr.add(i).read()),
+                );
+            }
+        }
+        unsafe { result.assume_init() }
+    }
 }
 
 #[cfg(feature = "const_generics")]
@@ -505,24 +475,19 @@ pub struct ArchivedStringSlice {
     slice: ArchivedSlice<u8>,
 }
 
-impl Resolve<str> for usize {
-    type Archived = ArchivedStringSlice;
+impl ArchiveRef for str {
+    type Archived = str;
+    type Reference = ArchivedStringSlice;
 
-    fn resolve(self, pos: usize, value: &str) -> Self::Archived {
-        Self::Archived {
-            slice: unsafe { ArchivedSlice::new(pos, self, value.len()) },
+    fn resolve_ref(&self, from: usize, to: usize) -> Self::Reference {
+        Self::Reference {
+            slice: unsafe { ArchivedSlice::new(from, to, self.len()) },
         }
     }
 }
 
-impl ArchiveRef for str {
-    type Archived = str;
-    type Reference = ArchivedStringSlice;
-    type ReferenceResolver = usize;
-}
-
 impl<W: Write + ?Sized> SerializeRef<W> for str {
-    fn serialize_ref(&self, writer: &mut W) -> Result<Self::ReferenceResolver, W::Error> {
+    fn serialize_ref(&self, writer: &mut W) -> Result<usize, W::Error> {
         let result = writer.pos();
         writer.write(self.as_bytes())?;
         Ok(result)
@@ -664,23 +629,19 @@ enum ArchivedOptionTag {
 #[repr(C)]
 struct ArchivedOptionVariantSome<T>(ArchivedOptionTag, T);
 
-impl<T: Archive> Resolve<Option<T>> for Option<T::Resolver> {
-    type Archived = ArchivedOption<T::Archived>;
-
-    fn resolve(self, pos: usize, value: &Option<T>) -> Self::Archived {
-        match self {
-            None => ArchivedOption::None,
-            Some(resolver) => ArchivedOption::Some(resolver.resolve(
-                pos + offset_of!(ArchivedOptionVariantSome<T::Archived>, 1),
-                value.as_ref().unwrap(),
-            )),
-        }
-    }
-}
-
 impl<T: Archive> Archive for Option<T> {
     type Archived = ArchivedOption<T::Archived>;
     type Resolver = Option<T::Resolver>;
+
+    fn resolve(&self, pos: usize, resolver: Option<T::Resolver>) -> Self::Archived {
+        match resolver {
+            None => ArchivedOption::None,
+            Some(resolver) => ArchivedOption::Some(self.as_ref().unwrap().resolve(
+                pos + offset_of!(ArchivedOptionVariantSome<T::Archived>, 1),
+                resolver
+            )),
+        }
+    }
 }
 
 impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for Option<T> {

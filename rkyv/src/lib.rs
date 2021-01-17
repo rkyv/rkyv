@@ -75,7 +75,6 @@ pub mod validation;
 
 use core::{
     alloc,
-    any::Any,
     marker::PhantomPinned,
     mem,
     ops::{Deref, DerefMut},
@@ -137,23 +136,24 @@ pub trait Write {
         self.align(mem::align_of::<T>())
     }
 
-    /// Resolves the given resolver and writes its archived type, returning the
-    /// position of the written archived type.
+    /// Resolves the given value with its resolver and writes the archived type.
+    ///
+    /// Returns the position of the written archived type.
     ///
     /// # Safety
     ///
     /// This is only safe to call when the writer is already aligned for the
     /// archived version of the given type.
-    unsafe fn resolve_aligned<T: ?Sized, R: Resolve<T>>(
+    unsafe fn resolve_aligned<T: Archive + ?Sized>(
         &mut self,
         value: &T,
-        resolver: R,
+        resolver: T::Resolver,
     ) -> Result<usize, Self::Error> {
         let pos = self.pos();
-        debug_assert!(pos & (mem::align_of::<R::Archived>() - 1) == 0);
-        let archived = &resolver.resolve(pos, value);
-        let data = (archived as *const R::Archived).cast::<u8>();
-        let len = mem::size_of::<R::Archived>();
+        debug_assert!(pos & (mem::align_of::<T::Archived>() - 1) == 0);
+        let archived = &value.resolve(pos, resolver);
+        let data = (archived as *const T::Archived).cast::<u8>();
+        let len = mem::size_of::<T::Archived>();
         self.write(slice::from_raw_parts(data, len))?;
         Ok(pos)
     }
@@ -165,12 +165,26 @@ pub trait Write {
         unsafe { self.resolve_aligned(value, resolver) }
     }
 
+    unsafe fn resolve_ref_aligned<T: ArchiveRef + ?Sized>(
+        &mut self,
+        value: &T,
+        resolver: usize,
+    ) -> Result<usize, Self::Error> {
+        let pos = self.pos();
+        debug_assert!(pos & (mem::align_of::<T::Reference>() - 1) == 0);
+        let reference = &value.resolve_ref(pos, resolver);
+        let data = (reference as *const T::Reference).cast::<u8>();
+        let len = mem::size_of::<T::Reference>();
+        self.write(slice::from_raw_parts(data, len))?;
+        Ok(pos)
+    }
+
     /// Archives a reference to the given object and returns the position it was
     /// archived at.
     fn serialize_ref<T: SerializeRef<Self> + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error> {
         let resolver = value.serialize_ref(self)?;
         self.align_for::<T::Reference>()?;
-        unsafe { self.resolve_aligned(value, resolver) }
+        unsafe { self.resolve_ref_aligned(value, resolver) }
     }
 }
 
@@ -206,33 +220,18 @@ pub trait Seek: Write {
         let resolver = value.serialize_ref(self)?;
         self.seek(pos)?;
         unsafe {
-            self.resolve_aligned(value, resolver)?;
+            self.resolve_ref_aligned(value, resolver)?;
         }
         Ok(pos)
     }
-}
-
-/// Creates an archived value when given a value and position.
-///
-/// Resolvers are passed the original value, so any information that is already
-/// in them doesn't have to be stored in the resolver.
-///
-/// See [`Archive`] for an example of how to use `Resolve`.
-pub trait Resolve<T: ?Sized> {
-    /// The type that this resolver resolves to.
-    type Archived;
-
-    /// Creates the archived version of the given value at the given position.
-    fn resolve(self, pos: usize, value: &T) -> Self::Archived;
 }
 
 /// Writes a type to a [`Writer`](Write) so it can be used without
 /// deserializing.
 ///
 /// Archiving is done depth-first, writing any data owned by a type before
-/// writing the data for the type itself. The [`Resolver`](Resolve) must be able
-/// to create the archived type from only its own data and the value being
-/// archived.
+/// writing the data for the type itself. The type must be able to create the
+/// archived type from only its own data and its resolver.
 ///
 /// ## Examples
 ///
@@ -287,7 +286,6 @@ pub trait Resolve<T: ?Sized> {
 ///     archived_value,
 ///     offset_of,
 ///     RelPtr,
-///     Resolve,
 ///     Serialize,
 ///     Write,
 /// };
@@ -323,31 +321,25 @@ pub trait Resolve<T: ?Sized> {
 ///     bytes_pos: usize,
 /// }
 ///
-/// impl Resolve<OwnedStr> for OwnedStrResolver {
-///     // This is essentially the output type of the resolver. It must match
-///     // the Archived associated type in our impl of Archive for OwnedStr.
+/// impl Archive for OwnedStr {
 ///     type Archived = ArchivedOwnedStr;
+///     /// This is the resolver we'll return from archive.
+///     type Resolver = OwnedStrResolver;
 ///
 ///     // The resolve function consumes the resolver and produces the archived
 ///     // value at the given position.
-///     fn resolve(self, pos: usize, value: &OwnedStr) -> Self::Archived {
+///     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
 ///         Self::Archived {
 ///             // We have to be careful to add the offset of the ptr field,
 ///             // otherwise we'll be using the position of the ArchivedOwnedStr
 ///             // instead of the position of the ptr. That's the reason why
 ///             // RelPtr::new is unsafe.
 ///             ptr: unsafe {
-///                 RelPtr::new(pos + offset_of!(ArchivedOwnedStr, ptr), self.bytes_pos)
+///                 RelPtr::new(pos + offset_of!(ArchivedOwnedStr, ptr), resolver.bytes_pos)
 ///             },
-///             len: value.inner.len() as u32,
+///             len: self.inner.len() as u32,
 ///         }
 ///     }
-/// }
-///
-/// impl Archive for OwnedStr {
-///     type Archived = ArchivedOwnedStr;
-///     /// This is the resolver we'll return from archive.
-///     type Resolver = OwnedStrResolver;
 /// }
 ///
 /// impl<W: Write + ?Sized> Serialize<W> for OwnedStr {
@@ -377,7 +369,10 @@ pub trait Archive {
 
     /// The resolver for this type. It must contain all the information needed
     /// to make the archived type from the normal type.
-    type Resolver: Resolve<Self, Archived = Self::Archived>;
+    type Resolver;
+
+    /// Creates the archived version of the given value at the given position.
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived;
 }
 
 pub trait Serialize<W: Write + ?Sized>: Archive {
@@ -424,8 +419,8 @@ pub trait Deserialize<T: Archive<Archived = Self>> {
 /// types.
 ///
 /// Instead of archiving its value directly, `ArchiveRef` archives a type that
-/// dereferences to its archived type. As a consequence, its `Resolver` resolves
-/// to a `Reference` instead of the archived type.
+/// dereferences to its archived type. As a consequence, its resolver must be
+/// `usize`.
 ///
 /// `ArchiveRef` is automatically implemented for all types that implement
 /// [`Archive`], and uses a [`RelPtr`] as the reference type.
@@ -438,14 +433,13 @@ pub trait ArchiveRef {
 
     type Reference: Deref<Target = Self::Archived> + DerefMut<Target = Self::Archived>;
 
-    /// The resolver for the reference of this type.
-    type ReferenceResolver: Resolve<Self, Archived = Self::Reference>;
+    fn resolve_ref(&self, pos: usize, resolver: usize) -> Self::Reference;
 }
 
 pub trait SerializeRef<W: Write + ?Sized>: ArchiveRef {
     /// Writes the object and returns a resolver that can create the reference
     /// to the archived type.
-    fn serialize_ref(&self, writer: &mut W) -> Result<Self::ReferenceResolver, W::Error>;
+    fn serialize_ref(&self, writer: &mut W) -> Result<usize, W::Error>;
 }
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
@@ -491,42 +485,6 @@ pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized>:
 /// assert_eq!(&value, archived_value);
 /// ```
 pub unsafe trait ArchiveCopy: Archive<Archived = Self> + Copy {}
-
-/// A resolver that always resolves to the normal value. This can be useful
-/// while implementing [`ArchiveCopy`].
-///
-/// ## Examples
-/// ```
-/// use rkyv::{Archive, ArchiveCopy, CopyResolver, Serialize, Write};
-///
-/// #[derive(Clone, Copy)]
-/// struct Example {
-///     a: i32,
-///     b: bool,
-/// }
-///
-/// impl Archive for Example {
-///     type Archived = Example;
-///     type Resolver = CopyResolver;
-/// }
-///
-/// impl<W: Write + ?Sized> Serialize<W> for Example {
-///     fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-///         Ok(CopyResolver)
-///     }
-/// }
-///
-/// unsafe impl ArchiveCopy for Example {}
-/// ```
-pub struct CopyResolver;
-
-impl<T: ArchiveCopy> Resolve<T> for CopyResolver {
-    type Archived = T;
-
-    fn resolve(self, _pos: usize, value: &T) -> T {
-        *value
-    }
-}
 
 /// The type used for offsets in relative pointers.
 #[cfg(not(feature = "long_rel_ptrs"))]
@@ -593,8 +551,6 @@ pub type Archived<T> = <T as Archive>::Archived;
 pub type Resolver<T> = <T as Archive>::Resolver;
 /// Alias for the reference for some [`ArchiveRef`] type.
 pub type Reference<T> = <T as ArchiveRef>::Reference;
-/// Alias for the resolver of the reference for some [`ArchiveRef`] type.
-pub type ReferenceResolver<T> = <T as ArchiveRef>::ReferenceResolver;
 
 /// Wraps a type and aligns it to at least 16 bytes. Mainly used to align byte
 /// buffers for [ArchiveBuffer].
@@ -892,7 +848,5 @@ pub unsafe fn archived_value_ref_mut<T: ArchiveRef + ?Sized>(
 }
 
 pub trait SharedWrite: Write {
-    fn serialize_shared_ref<T: SerializeRef<Self> + ?Sized + 'static>(&mut self, value: &T) -> Result<ReferenceResolver<T>, Self::Error>
-    where
-        ReferenceResolver<T>: Any + Clone;
+    fn serialize_shared_ref<T: SerializeRef<Self> + ?Sized + 'static>(&mut self, value: &T) -> Result<usize, Self::Error>;
 }

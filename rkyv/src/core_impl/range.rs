@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{offset_of, Archive, ArchiveCopy, Archived, CopyResolver, Resolve, Serialize, Deserialize, Write};
+use crate::{offset_of, Archive, ArchiveCopy, Archived, Serialize, Deserialize, Write};
 use core::{
     cmp, fmt,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
@@ -8,12 +8,16 @@ use core::{
 
 impl Archive for RangeFull {
     type Archived = Self;
-    type Resolver = CopyResolver;
+    type Resolver = ();
+
+    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
+        RangeFull
+    }
 }
 
 impl<W: Write + ?Sized> Serialize<W> for RangeFull {
     fn serialize(&self, _: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(CopyResolver)
+        Ok(())
     }
 }
 
@@ -78,24 +82,20 @@ impl<T, U: PartialEq<T>> PartialEq<Range<T>> for ArchivedRange<U> {
     }
 }
 
-impl<T: Archive> Resolve<Range<T>> for Range<T::Resolver> {
-    type Archived = ArchivedRange<T::Archived>;
-
-    fn resolve(self, pos: usize, value: &Range<T>) -> Self::Archived {
-        ArchivedRange {
-            start: self
-                .start
-                .resolve(pos + offset_of!(Self::Archived, start), &value.start),
-            end: self
-                .end
-                .resolve(pos + offset_of!(Self::Archived, end), &value.end),
-        }
-    }
-}
-
 impl<T: Archive> Archive for Range<T> {
     type Archived = ArchivedRange<T::Archived>;
     type Resolver = Range<T::Resolver>;
+
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        ArchivedRange {
+            start: self
+                .start
+                .resolve(pos + offset_of!(Self::Archived, start), resolver.start),
+            end: self
+                .end
+                .resolve(pos + offset_of!(Self::Archived, end), resolver.end),
+        }
+    }
 }
 
 impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for Range<T> {
@@ -170,24 +170,20 @@ impl<T, U: PartialEq<T>> PartialEq<RangeInclusive<T>> for ArchivedRangeInclusive
     }
 }
 
-impl<T: Archive> Resolve<RangeInclusive<T>> for Range<T::Resolver> {
-    type Archived = ArchivedRangeInclusive<T::Archived>;
-
-    fn resolve(self, pos: usize, value: &RangeInclusive<T>) -> Self::Archived {
-        ArchivedRangeInclusive {
-            start: self
-                .start
-                .resolve(pos + offset_of!(Self::Archived, start), &value.start()),
-            end: self
-                .end
-                .resolve(pos + offset_of!(Self::Archived, end), &value.end()),
-        }
-    }
-}
-
 impl<T: Archive> Archive for RangeInclusive<T> {
     type Archived = ArchivedRangeInclusive<T::Archived>;
     type Resolver = Range<T::Resolver>;
+
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        ArchivedRangeInclusive {
+            start: self
+                .start()
+                .resolve(pos + offset_of!(Self::Archived, start), resolver.start),
+            end: self
+                .end()
+                .resolve(pos + offset_of!(Self::Archived, end), resolver.end),
+        }
+    }
 }
 
 impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for RangeInclusive<T> {
