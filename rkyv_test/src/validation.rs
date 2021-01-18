@@ -97,7 +97,7 @@ fn overlapping_claims() {
 
 #[test]
 fn cycle_detection() {
-    use rkyv::{Archived, validation::ArchiveMemoryContext};
+    use rkyv::{Archived, validation::{ArchiveBoundsContext, ArchiveMemoryContext}};
 
     #[derive(Archive, Serialize)]
     #[archive(derive(Debug))]
@@ -118,7 +118,7 @@ fn cycle_detection() {
 
     impl Error for NodeError {}
 
-    impl<C: ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedNode {
+    impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedNode {
         type Error = NodeError;
 
         unsafe fn check_bytes<'a>(
@@ -293,44 +293,27 @@ fn check_dyn() {
     }
 }
 
-// #[test]
-// fn check_rc() {
-//     use rkyv::SharedWriter;
-//     use std::rc::Rc;
+#[test]
+fn check_shared_ptr() {
+    use rkyv::SharedWriter;
+    use std::rc::Rc;
 
-//     #[derive(Archive, Serialize, Eq, PartialEq)]
-//     #[archive(derive(CheckBytes))]
-//     struct Test {
-//         a: Rc<u32>,
-//         b: Rc<u32>,
-//     }
+    #[derive(Archive, Serialize, Eq, PartialEq)]
+    #[archive(derive(CheckBytes))]
+    struct Test {
+        a: Rc<u32>,
+        b: Rc<u32>,
+    }
 
-//     let shared = Rc::new(10);
-//     let value = Test {
-//         a: shared.clone(),
-//         b: shared.clone(),
-//     };
+    let shared = Rc::new(10);
+    let value = Test {
+        a: shared.clone(),
+        b: shared.clone(),
+    };
 
-//     let mut writer = SharedWriter::new(ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE])));
-//     let pos = writer.serialize(&value).expect("failed to archive value");
-//     let mut buf = writer.into_inner().into_inner();
+    let mut writer = SharedWriter::new(ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE])));
+    let pos = writer.serialize(&value).expect("failed to archive value");
+    let buf = writer.into_inner().into_inner();
 
-//     let archived = check_archive::<Test>(buf.as_ref(), pos).unwrap();
-//     assert!(archived == &value);
-
-//     let mut mutable_archived = unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
-//     *mutable_archived.as_mut().a().get_pin_unchecked() = 42;
-
-//     let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
-//     assert_eq!(*archived.a, 42);
-//     assert_eq!(*archived.b, 42);
-
-//     let mut mutable_archived = unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
-//     *mutable_archived.as_mut().b().get_pin_unchecked() = 17;
-
-//     let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
-//     assert_eq!(*archived.a, 17);
-//     assert_eq!(*archived.b, 17);
-
-//     // assert!(&archived.deserialize() == value);
-// }
+    check_archive::<Test>(buf.as_ref(), pos).unwrap();
+}

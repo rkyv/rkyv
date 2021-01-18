@@ -1,15 +1,12 @@
 //! Validation implementations for HashMap and HashSet.
 
 use super::{ArchivedHashMap, ArchivedHashSet, Entry};
-use crate::{
-    offset_of,
-    validation::{ArchiveMemoryContext, ArchiveMemoryError},
-    RelPtr,
-};
+use crate::{RelPtr, offset_of, validation::{ArchiveBoundsContext, ArchiveBoundsError, ArchiveMemoryContext, ArchiveMemoryError}};
 use bytecheck::{CheckBytes, Unreachable};
 use core::{
     fmt,
     hash::{Hash, Hasher},
+    mem,
     slice,
 };
 use std::error::Error;
@@ -56,9 +53,11 @@ impl<K: CheckBytes<C>, V: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> Check
 
 /// Errors that can occur while checking an archived hash map.
 #[derive(Debug)]
-pub enum ArchivedHashMapError<K, V> {
+pub enum HashMapError<K, V> {
     /// An error occured while checking the bytes of an entry
     CheckEntryError(ArchivedHashMapEntryError<K, V>),
+    /// A bounds error occurred
+    BoundsError(ArchiveBoundsError),
     /// A memory error occurred
     MemoryError(ArchiveMemoryError),
     /// A displacement value was invalid
@@ -70,17 +69,18 @@ pub enum ArchivedHashMapError<K, V> {
     },
 }
 
-impl<K: fmt::Display, V: fmt::Display> fmt::Display for ArchivedHashMapError<K, V> {
+impl<K: fmt::Display, V: fmt::Display> fmt::Display for HashMapError<K, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArchivedHashMapError::CheckEntryError(e) => write!(f, "entry check error: {}", e),
-            ArchivedHashMapError::MemoryError(e) => write!(f, "hash map memory error: {}", e),
-            ArchivedHashMapError::InvalidDisplacement { index, value } => write!(
+            HashMapError::CheckEntryError(e) => write!(f, "entry check error: {}", e),
+            HashMapError::BoundsError(e) => write!(f, "hash map bounds error: {}", e),
+            HashMapError::MemoryError(e) => write!(f, "hash map memory error: {}", e),
+            HashMapError::InvalidDisplacement { index, value } => write!(
                 f,
                 "invalid displacement: value {} at index {}",
                 value, index
             ),
-            ArchivedHashMapError::InvalidKeyPosition { index } => {
+            HashMapError::InvalidKeyPosition { index } => {
                 write!(f, "invalid key position: at index {}", index)
             }
         }
@@ -88,32 +88,38 @@ impl<K: fmt::Display, V: fmt::Display> fmt::Display for ArchivedHashMapError<K, 
 }
 
 impl<K: fmt::Debug + fmt::Display, V: fmt::Debug + fmt::Display> Error
-    for ArchivedHashMapError<K, V>
+    for HashMapError<K, V>
 {
 }
 
-impl<K, V> From<Unreachable> for ArchivedHashMapError<K, V> {
+impl<K, V> From<Unreachable> for HashMapError<K, V> {
     fn from(_: Unreachable) -> Self {
         unreachable!();
     }
 }
 
-impl<K, V> From<ArchivedHashMapEntryError<K, V>> for ArchivedHashMapError<K, V> {
+impl<K, V> From<ArchivedHashMapEntryError<K, V>> for HashMapError<K, V> {
     fn from(e: ArchivedHashMapEntryError<K, V>) -> Self {
         Self::CheckEntryError(e)
     }
 }
 
-impl<K, V> From<ArchiveMemoryError> for ArchivedHashMapError<K, V> {
+impl<K, V> From<ArchiveBoundsError> for HashMapError<K, V> {
+    fn from(e: ArchiveBoundsError) -> Self {
+        Self::BoundsError(e)
+    }
+}
+
+impl<K, V> From<ArchiveMemoryError> for HashMapError<K, V> {
     fn from(e: ArchiveMemoryError) -> Self {
         Self::MemoryError(e)
     }
 }
 
-impl<K: CheckBytes<C> + Eq + Hash, V: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized>
+impl<K: CheckBytes<C> + Eq + Hash, V: CheckBytes<C>, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized>
     CheckBytes<C> for ArchivedHashMap<K, V>
 {
-    type Error = ArchivedHashMapError<K::Error, V::Error>;
+    type Error = HashMapError<K::Error, V::Error>;
 
     unsafe fn check_bytes<'a>(
         bytes: *const u8,
@@ -125,14 +131,14 @@ impl<K: CheckBytes<C> + Eq + Hash, V: CheckBytes<C>, C: ArchiveMemoryContext + ?
             bytes.add(offset_of!(ArchivedHashMap<K, V>, displace)),
             context,
         )?;
-        let displace = context
-            .claim::<u32>(displace_ptr, len as usize)?
-            .cast::<u32>();
+        let displace_len = len as usize * mem::size_of::<u32>();
+        let displace_start = context.check_rel_ptr(displace_ptr, displace_len, mem::align_of::<u32>())?;
+        let displace = context.claim_bytes(displace_start, displace_len)?.cast::<u32>();
 
         let displace = slice::from_raw_parts(displace, len as usize);
         for (i, &d) in displace.iter().enumerate() {
             if d >= len && d < 0x80_00_00_00 {
-                return Err(ArchivedHashMapError::InvalidDisplacement { index: i, value: d });
+                return Err(HashMapError::InvalidDisplacement { index: i, value: d });
             }
         }
 
@@ -140,9 +146,9 @@ impl<K: CheckBytes<C> + Eq + Hash, V: CheckBytes<C>, C: ArchiveMemoryContext + ?
             bytes.add(offset_of!(ArchivedHashMap<K, V>, entries)),
             context,
         )?;
-        let entries = context
-            .claim::<Entry<K, V>>(entries_ptr, len as usize)?
-            .cast::<Entry<K, V>>();
+        let entries_len = len as usize * mem::size_of::<Entry<K, V>>();
+        let entries_start = context.check_rel_ptr(entries_ptr, entries_len, mem::align_of::<Entry<K, V>>())?;
+        let entries = context.claim_bytes(entries_start, entries_len)?.cast::<Entry<K, V>>();
 
         for i in 0..len {
             let entry = Entry::<K, V>::check_bytes(entries.add(i as usize).cast::<u8>(), context)?;
@@ -153,7 +159,7 @@ impl<K: CheckBytes<C> + Eq + Hash, V: CheckBytes<C>, C: ArchiveMemoryContext + ?
             let displace = displace[displace_index as usize];
 
             let index = if displace == u32::MAX {
-                return Err(ArchivedHashMapError::InvalidKeyPosition { index: i as usize });
+                return Err(HashMapError::InvalidKeyPosition { index: i as usize });
             } else if displace & 0x80_00_00_00 == 0 {
                 displace as u64
             } else {
@@ -164,7 +170,7 @@ impl<K: CheckBytes<C> + Eq + Hash, V: CheckBytes<C>, C: ArchiveMemoryContext + ?
             };
 
             if index != i as u64 {
-                return Err(ArchivedHashMapError::InvalidKeyPosition { index: i as usize });
+                return Err(HashMapError::InvalidKeyPosition { index: i as usize });
             }
         }
 
@@ -172,8 +178,8 @@ impl<K: CheckBytes<C> + Eq + Hash, V: CheckBytes<C>, C: ArchiveMemoryContext + ?
     }
 }
 
-impl<K: CheckBytes<C> + Hash + Eq, C: ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedHashSet<K> {
-    type Error = ArchivedHashMapError<K::Error, <() as CheckBytes<C>>::Error>;
+impl<K: CheckBytes<C> + Hash + Eq, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedHashSet<K> {
+    type Error = HashMapError<K::Error, <() as CheckBytes<C>>::Error>;
 
     unsafe fn check_bytes<'a>(
         bytes: *const u8,

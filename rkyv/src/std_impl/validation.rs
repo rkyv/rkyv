@@ -1,33 +1,77 @@
+use core::fmt;
+use std::error;
 use super::{ArchivedBox, ArchivedString, ArchivedVec};
-use crate::core_impl::ArchivedStringSlice;
+use crate::{core_impl::{ArchivedStringSlice}, validation::{ArchiveBoundsContext, ArchiveBoundsError, ArchiveMemoryContext, ArchiveMemoryError, CheckBytesRef}};
 use bytecheck::CheckBytes;
 
-impl<T: CheckBytes<C>, C: ?Sized> CheckBytes<C> for ArchivedBox<T> {
-    type Error = <T as CheckBytes<C>>::Error;
+#[derive(Debug)]
+pub enum OwnedPointerError<T, R> {
+    BoundsError(ArchiveBoundsError),
+    MemoryError(ArchiveMemoryError),
+    CheckBytes(T),
+    RefCheckBytes(R),
+}
+
+impl<T, R> From<ArchiveBoundsError> for OwnedPointerError<T, R> {
+    fn from(e: ArchiveBoundsError) -> Self {
+        Self::BoundsError(e)
+    }
+}
+
+impl<T, R> From<ArchiveMemoryError> for OwnedPointerError<T, R> {
+    fn from(e: ArchiveMemoryError) -> Self {
+        Self::MemoryError(e)
+    }
+}
+
+impl<T: fmt::Display, R: fmt::Display> fmt::Display for OwnedPointerError<T, R> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OwnedPointerError::BoundsError(e) => write!(f, "{}", e),
+            OwnedPointerError::MemoryError(e) => write!(f, "{}", e),
+            OwnedPointerError::CheckBytes(e) => write!(f, "{}", e),
+            OwnedPointerError::RefCheckBytes(e) => write!(f, "{}", e),
+        }
+    }
+}
+
+impl<T: fmt::Debug + fmt::Display, R: fmt::Debug + fmt::Display> error::Error for OwnedPointerError<T, R> {}
+
+impl<T: CheckBytesRef<C>, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedBox<T> {
+    type Error = OwnedPointerError<<T as CheckBytes<C>>::Error, <T as CheckBytesRef<C>>::RefError>;
 
     unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
-        T::check_bytes(bytes, context)?;
+        let reference = T::check_bytes(bytes, context).map_err(OwnedPointerError::CheckBytes)?;
+        let (start, len) = reference.check_ptr(context)?;
+        let ref_bytes = context.claim_bytes(start, len)?;
+        reference.check_ref_bytes(ref_bytes, context).map_err(OwnedPointerError::RefCheckBytes)?;
         Ok(&*bytes.cast())
     }
 }
 
-impl<C: ?Sized> CheckBytes<C> for ArchivedString
+impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedString
 where
     ArchivedStringSlice: CheckBytes<C>,
 {
-    type Error = <ArchivedStringSlice as CheckBytes<C>>::Error;
+    type Error = OwnedPointerError<<ArchivedStringSlice as CheckBytes<C>>::Error, <ArchivedStringSlice as CheckBytesRef<C>>::RefError>;
 
     unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
-        ArchivedStringSlice::check_bytes(bytes, context)?;
+        let reference = ArchivedStringSlice::check_bytes(bytes, context).map_err(OwnedPointerError::CheckBytes)?;
+        let (start, len) = reference.check_ptr(context)?;
+        let ref_bytes = context.claim_bytes(start, len)?;
+        reference.check_ref_bytes(ref_bytes, context).map_err(OwnedPointerError::RefCheckBytes)?;
         Ok(&*bytes.cast())
     }
 }
 
-impl<T: CheckBytes<C>, C: ?Sized> CheckBytes<C> for ArchivedVec<T> {
-    type Error = <T as CheckBytes<C>>::Error;
+impl<T: CheckBytesRef<C>, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedVec<T> {
+    type Error = OwnedPointerError<<T as CheckBytes<C>>::Error, <T as CheckBytesRef<C>>::RefError>;
 
     unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
-        T::check_bytes(bytes, context)?;
+        let reference = T::check_bytes(bytes, context).map_err(OwnedPointerError::CheckBytes)?;
+        let (start, len) = reference.check_ptr(context)?;
+        let ref_bytes = context.claim_bytes(start, len)?;
+        reference.check_ref_bytes(ref_bytes, context).map_err(OwnedPointerError::RefCheckBytes)?;
         Ok(&*bytes.cast())
     }
 }

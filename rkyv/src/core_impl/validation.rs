@@ -7,160 +7,133 @@ use crate::{
         ArchivedStringSlice,
     },
     offset_of,
-    validation::{ArchiveMemoryContext, ArchiveMemoryError},
+    validation::{ArchiveBoundsContext, ArchiveBoundsError, CheckBytesRef},
     RelPtr,
 };
 use bytecheck::{CheckBytes, StructCheckError, Unreachable};
-use core::{fmt, str};
+use core::{fmt, marker::PhantomData, mem, slice, str};
 use std::error::Error;
 
-/// Errors that can occur while checking an [`ArchivedRef`].
-#[derive(Debug)]
-pub enum ArchivedRefError<T> {
-    /// A memory error occurred
-    MemoryError(ArchiveMemoryError),
-    /// An error occurred while checking the bytes of the target type
-    CheckBytes(T),
-}
+impl<T, C: ?Sized> CheckBytes<C> for ArchivedRef<T> {
+    type Error = Unreachable;
 
-impl<T: fmt::Display> fmt::Display for ArchivedRefError<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ArchivedRefError::MemoryError(e) => write!(f, "archived ref memory error: {}", e),
-            ArchivedRefError::CheckBytes(e) => write!(f, "archived ref check error: {}", e),
-        }
-    }
-}
-
-impl<T: fmt::Debug + fmt::Display> Error for ArchivedRefError<T> {}
-
-impl<T> From<ArchiveMemoryError> for ArchivedRefError<T> {
-    fn from(e: ArchiveMemoryError) -> Self {
-        Self::MemoryError(e)
-    }
-}
-
-impl<T> From<Unreachable> for ArchivedRefError<T> {
-    fn from(_: Unreachable) -> Self {
-        unreachable!();
-    }
-}
-
-impl<T: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedRef<T> {
-    type Error = ArchivedRefError<T::Error>;
-
-    unsafe fn check_bytes<'a>(
-        bytes: *const u8,
-        context: &mut C,
-    ) -> Result<&'a Self, Self::Error> {
-        let rel_ptr = RelPtr::check_bytes(bytes, context)?;
-        let target = context.claim::<T>(rel_ptr, 1)?;
-        T::check_bytes(target, context).map_err(ArchivedRefError::CheckBytes)?;
+    unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
+        RelPtr::check_bytes(bytes.add(offset_of!(Self, ptr)), context)?;
+        PhantomData::<T>::check_bytes(bytes.add(offset_of!(Self, _phantom)), context)?;
         Ok(&*bytes.cast())
     }
 }
 
-/// Errors that can occur while checking an [`ArchivedSlice`].
-#[derive(Debug)]
-pub enum ArchivedSliceError<T> {
-    /// A memory error occurred
-    MemoryError(ArchiveMemoryError),
-    /// An error occurred while checking the bytes of an item of the target type
-    CheckBytes(usize, T),
-}
+impl<T: CheckBytes<C>, C: ArchiveBoundsContext + ?Sized> CheckBytesRef<C> for ArchivedRef<T> {
+    type RefError = T::Error;
+    type Target = T;
 
-impl<T: fmt::Display> fmt::Display for ArchivedSliceError<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ArchivedSliceError::MemoryError(e) => write!(f, "archived slice memory error: {}", e),
-            ArchivedSliceError::CheckBytes(index, e) => {
-                write!(f, "archived slice index {} check error: {}", index, e)
-            }
+    fn check_ptr(&self, context: &mut C) -> Result<(*const u8, usize), ArchiveBoundsError> {
+        unsafe {
+            let len = mem::size_of::<T>();
+            Ok((context.check_rel_ptr(&self.ptr, len, mem::align_of::<T>())?, len))
         }
     }
-}
 
-impl<T: fmt::Debug + fmt::Display> Error for ArchivedSliceError<T> {}
-
-impl<T> From<ArchiveMemoryError> for ArchivedSliceError<T> {
-    fn from(e: ArchiveMemoryError) -> Self {
-        Self::MemoryError(e)
+    unsafe fn check_ref_bytes<'a>(&'a self, bytes: *const u8, context: &mut C) -> Result<&'a Self::Target, Self::RefError> {
+        T::check_bytes(bytes, context)
     }
 }
 
-impl<T> From<Unreachable> for ArchivedSliceError<T> {
-    fn from(_: Unreachable) -> Self {
-        unreachable!();
-    }
-}
-
-impl<T: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedSlice<T> {
-    type Error = ArchivedSliceError<T::Error>;
+impl<T: CheckBytes<C>, C: ?Sized> CheckBytes<C> for ArchivedSlice<T> {
+    type Error = Unreachable;
 
     unsafe fn check_bytes<'a>(
         bytes: *const u8,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let rel_ptr = RelPtr::check_bytes(bytes.add(offset_of!(Self, ptr)), context)?;
-        let len = *u32::check_bytes(bytes.add(offset_of!(Self, len)), context)? as usize;
-        let target = context.claim::<T>(rel_ptr, len)?;
-        for i in 0..len {
-            T::check_bytes(target.add(i * core::mem::size_of::<T>()), context)
-                .map_err(|e| ArchivedSliceError::CheckBytes(i, e))?;
+        RelPtr::check_bytes(bytes.add(offset_of!(Self, ptr)), context)?;
+        u32::check_bytes(bytes.add(offset_of!(Self, len)), context)?;
+        Ok(&*bytes.cast())
+    }
+}
+
+#[derive(Debug)]
+pub struct SliceError<T> {
+    index: usize,
+    inner: T,
+}
+
+impl<T: fmt::Display> fmt::Display for SliceError<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "error at index {}: {}", self.index, self.inner)
+    }
+}
+
+impl<T: fmt::Debug + fmt::Display> Error for SliceError<T> {}
+
+impl<T: CheckBytes<C>, C: ArchiveBoundsContext + ?Sized> CheckBytesRef<C> for ArchivedSlice<T> {
+    type RefError = SliceError<T::Error>;
+    type Target = [T];
+
+    fn check_ptr(&self, context: &mut C) -> Result<(*const u8, usize), ArchiveBoundsError> {
+        unsafe {
+            let len = self.len as usize * mem::size_of::<T>();
+            Ok((context.check_rel_ptr(&self.ptr, len, mem::align_of::<T>())?, len))
         }
+    }
+
+    unsafe fn check_ref_bytes<'a>(&'a self, bytes: *const u8, context: &mut C) -> Result<&'a Self::Target, Self::RefError> {
+        for i in 0..self.len as usize {
+            T::check_bytes(bytes.add(i * core::mem::size_of::<T>()), context)
+                .map_err(|e| SliceError { index: i, inner: e })?;
+        }
+        Ok(slice::from_raw_parts(bytes.cast::<T>(), self.len as usize))
+    }
+}
+
+impl<C: ?Sized> CheckBytes<C> for ArchivedStringSlice {
+    type Error = Unreachable;
+
+    unsafe fn check_bytes<'a>(
+        bytes: *const u8,
+        context: &mut C,
+    ) -> Result<&'a Self, Self::Error> {
+        ArchivedSlice::<u8>::check_bytes(bytes.add(offset_of!(Self, slice)), context)?;
         Ok(&*bytes.cast())
     }
 }
 
 /// Errors that can occur while checking an [`ArchivedStringSlice`].
 #[derive(Debug)]
-pub enum ArchivedStringSliceError {
-    /// A memory error occurred
-    MemoryError(ArchiveMemoryError),
+pub enum StringSliceError {
     /// The bytes of the string were invalid UTF-8
     InvalidUtf8(str::Utf8Error),
 }
 
-impl fmt::Display for ArchivedStringSliceError {
+impl From<str::Utf8Error> for StringSliceError {
+    fn from(e: str::Utf8Error) -> Self {
+        Self::InvalidUtf8(e)
+    }
+}
+
+impl fmt::Display for StringSliceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArchivedStringSliceError::MemoryError(e) => {
-                write!(f, "archived string slice memory error: {}", e)
-            }
-            ArchivedStringSliceError::InvalidUtf8(e) => {
+            StringSliceError::InvalidUtf8(e) => {
                 write!(f, "archived string slice contained invalid UTF-8: {}", e)
             }
         }
     }
 }
 
-impl Error for ArchivedStringSliceError {}
+impl Error for StringSliceError {}
 
-impl From<ArchiveMemoryError> for ArchivedStringSliceError {
-    fn from(e: ArchiveMemoryError) -> Self {
-        Self::MemoryError(e)
+impl<C: ArchiveBoundsContext + ?Sized> CheckBytesRef<C> for ArchivedStringSlice {
+    type RefError = StringSliceError;
+    type Target = str;
+
+    fn check_ptr(&self, context: &mut C) -> Result<(*const u8, usize), ArchiveBoundsError> {
+        self.slice.check_ptr(context)
     }
-}
 
-impl From<Unreachable> for ArchivedStringSliceError {
-    fn from(_: Unreachable) -> Self {
-        unreachable!();
-    }
-}
-
-impl<C: ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedStringSlice {
-    type Error = ArchivedStringSliceError;
-
-    unsafe fn check_bytes<'a>(
-        bytes: *const u8,
-        context: &mut C,
-    ) -> Result<&'a Self, Self::Error> {
-        let slice = ArchivedSlice::<u8>::check_bytes(bytes, context).map_err(|e| match e {
-            ArchivedSliceError::MemoryError(e) => e,
-            ArchivedSliceError::CheckBytes(..) => unreachable!(),
-        })?;
-        str::from_utf8(&**slice).map_err(ArchivedStringSliceError::InvalidUtf8)?;
-        Ok(&*bytes.cast())
+    unsafe fn check_ref_bytes<'a>(&'a self, bytes: *const u8, context: &mut C) -> Result<&'a Self::Target, Self::RefError> {
+        Ok(str::from_utf8(self.slice.check_ref_bytes(bytes, context).unwrap())?)
     }
 }
 
