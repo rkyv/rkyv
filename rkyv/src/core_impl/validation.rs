@@ -7,8 +7,7 @@ use crate::{
         ArchivedStringSlice,
     },
     offset_of,
-    ArchiveContext,
-    ArchiveMemoryError,
+    validation::{ArchiveMemoryContext, ArchiveMemoryError},
     RelPtr,
 };
 use bytecheck::{CheckBytes, StructCheckError, Unreachable};
@@ -47,7 +46,7 @@ impl<T> From<Unreachable> for ArchivedRefError<T> {
     }
 }
 
-impl<T: CheckBytes<C>, C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedRef<T> {
+impl<T: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedRef<T> {
     type Error = ArchivedRefError<T::Error>;
 
     unsafe fn check_bytes<'a>(
@@ -95,7 +94,7 @@ impl<T> From<Unreachable> for ArchivedSliceError<T> {
     }
 }
 
-impl<T: CheckBytes<C>, C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedSlice<T> {
+impl<T: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedSlice<T> {
     type Error = ArchivedSliceError<T::Error>;
 
     unsafe fn check_bytes<'a>(
@@ -149,7 +148,7 @@ impl From<Unreachable> for ArchivedStringSliceError {
     }
 }
 
-impl<C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedStringSlice {
+impl<C: ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedStringSlice {
     type Error = ArchivedStringSliceError;
 
     unsafe fn check_bytes<'a>(

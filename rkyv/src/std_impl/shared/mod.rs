@@ -1,3 +1,6 @@
+#[cfg(feature = "validation")]
+pub mod validation;
+
 use core::{any::{Any, TypeId}, fmt, ops::{Deref, DerefMut}, pin::Pin};
 use std::{collections::HashMap, error::Error, rc::Rc, sync::Arc};
 use crate::{Archive, ArchiveRef, Serialize, SerializeRef, SharedWrite, Write};
@@ -32,7 +35,7 @@ impl<E: Error + 'static> Error for SharedWriterError<E> {
 /// A wrapper around a writer that adds support for [`SharedWrite`].
 pub struct SharedWriter<W: Write> {
     inner: W,
-    shared_resolvers: HashMap<*const (), (TypeId, usize)>,
+    shared_resolvers: HashMap<*const u8, (TypeId, usize)>,
 }
 
 impl<W: Write> SharedWriter<W> {
@@ -82,7 +85,7 @@ impl<W: Write> Write for SharedWriter<W> {
 
 impl<W: Write> SharedWrite for SharedWriter<W> {
     fn serialize_shared_ref<T: SerializeRef<Self> + ?Sized + 'static>(&mut self, value: &T) -> Result<usize, Self::Error> {
-        let key = (value as *const T).cast::<()>();
+        let key = (value as *const T).cast::<u8>();
         let type_id = value.type_id();
         if let Some((existing_type_id, existing)) = self.shared_resolvers.get(&key) {
             if existing_type_id == &type_id {

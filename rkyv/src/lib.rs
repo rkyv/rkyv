@@ -89,7 +89,7 @@ pub use rkyv_derive::{Archive, Deserialize, Serialize};
 #[cfg(feature = "std")]
 pub use std_impl::shared::SharedWriter;
 #[cfg(feature = "validation")]
-pub use validation::{check_archive, ArchiveContext, ArchiveMemoryError, DefaultArchiveValidator};
+pub use validation::check_archive;
 
 /// A `#![no_std]` compliant writer that knows where it is.
 ///

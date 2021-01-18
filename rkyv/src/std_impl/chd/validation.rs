@@ -3,8 +3,7 @@
 use super::{ArchivedHashMap, ArchivedHashSet, Entry};
 use crate::{
     offset_of,
-    ArchiveContext,
-    ArchiveMemoryError,
+    validation::{ArchiveMemoryContext, ArchiveMemoryError},
     RelPtr,
 };
 use bytecheck::{CheckBytes, Unreachable};
@@ -38,7 +37,7 @@ impl<K: fmt::Debug + fmt::Display, V: fmt::Debug + fmt::Display> Error
 {
 }
 
-impl<K: CheckBytes<C>, V: CheckBytes<C>, C: ArchiveContext + ?Sized> CheckBytes<C>
+impl<K: CheckBytes<C>, V: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> CheckBytes<C>
     for Entry<K, V>
 {
     type Error = ArchivedHashMapEntryError<K::Error, V::Error>;
@@ -111,7 +110,7 @@ impl<K, V> From<ArchiveMemoryError> for ArchivedHashMapError<K, V> {
     }
 }
 
-impl<K: CheckBytes<C> + Eq + Hash, V: CheckBytes<C>, C: ArchiveContext + ?Sized>
+impl<K: CheckBytes<C> + Eq + Hash, V: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized>
     CheckBytes<C> for ArchivedHashMap<K, V>
 {
     type Error = ArchivedHashMapError<K::Error, V::Error>;
@@ -173,7 +172,7 @@ impl<K: CheckBytes<C> + Eq + Hash, V: CheckBytes<C>, C: ArchiveContext + ?Sized>
     }
 }
 
-impl<K: CheckBytes<C> + Hash + Eq, C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedHashSet<K> {
+impl<K: CheckBytes<C> + Hash + Eq, C: ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedHashSet<K> {
     type Error = ArchivedHashMapError<K::Error, <() as CheckBytes<C>>::Error>;
 
     unsafe fn check_bytes<'a>(

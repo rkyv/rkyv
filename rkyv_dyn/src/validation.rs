@@ -5,31 +5,56 @@ use bytecheck::{CheckBytes, Unreachable};
 use core::{
     fmt,
     marker::PhantomData,
-    mem,
     sync::atomic::{AtomicU64, Ordering},
 };
 use rkyv::{
-    offset_of,
-    ArchiveContext,
-    ArchiveMemoryError,
     RelPtr,
+    offset_of,
+    validation::{
+        ArchiveBoundsContext,
+        ArchiveBoundsError,
+        ArchiveMemoryContext,
+        ArchiveMemoryError,
+    },
 };
 use rkyv_typename::TypeName;
 use std::error::Error;
 
 pub trait DynArchiveContext {
-    unsafe fn claim_bytes_dyn(&mut self, base: *const u8, offset: isize, count: usize, align: usize) -> Result<*const u8, ArchiveMemoryError>;
+    unsafe fn check_raw_ptr_dyn(
+        &mut self,
+        base: *const u8,
+        offset: isize,
+        len: usize,
+        align: usize,
+    ) -> Result<*const u8, ArchiveBoundsError>;
+
+    unsafe fn claim_bytes_dyn(
+        &mut self,
+        start: *const u8,
+        len: usize,
+    ) -> Result<*const u8, ArchiveMemoryError>;
 }
 
-impl<T: ArchiveContext + ?Sized> DynArchiveContext for T {
-    unsafe fn claim_bytes_dyn(&mut self, base: *const u8, offset: isize, count: usize, align: usize) -> Result<*const u8, ArchiveMemoryError> {
-        self.claim_bytes(base, offset, count, align)
+impl<T: ArchiveMemoryContext + ?Sized> DynArchiveContext for T {
+    unsafe fn check_raw_ptr_dyn(&mut self, base: *const u8, offset: isize, len: usize, align: usize) -> Result<*const u8, ArchiveBoundsError> {
+        self.check_raw_ptr(base, offset, len, align)
+    }
+
+    unsafe fn claim_bytes_dyn(&mut self, start: *const u8, len: usize) -> Result<*const u8, ArchiveMemoryError> {
+        self.claim_bytes(start, len)
     }
 }
 
-impl<'a> ArchiveContext for (dyn DynArchiveContext + 'a) {
-    unsafe fn claim_bytes(&mut self, base: *const u8, offset: isize, count: usize, align: usize) -> Result<*const u8, ArchiveMemoryError> {
-        self.claim_bytes_dyn(base, offset, count, align)
+impl<'a> ArchiveBoundsContext for (dyn DynArchiveContext + 'a) {
+    unsafe fn check_raw_ptr(&mut self, base: *const u8, offset: isize, len: usize, align: usize) -> Result<*const u8, ArchiveBoundsError> {
+        self.check_raw_ptr_dyn(base, offset, len, align)
+    }
+}
+
+impl<'a> ArchiveMemoryContext for (dyn DynArchiveContext + 'a) {
+    unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<*const u8, ArchiveMemoryError> {
+        self.claim_bytes_dyn(start, len)
     }
 }
 
@@ -67,18 +92,13 @@ impl<T> NotCheckBytesDyn for T {}
 pub struct IsCheckBytesDyn<T>(PhantomData<T>);
 
 impl<T: for<'a> CheckBytes<(dyn DynArchiveContext + 'a)>> IsCheckBytesDyn<T> {
-    pub const CHECK_REL_PTR: FnCheckRelPtr = Self::check_bytes_dyn;
+    pub const CHECK_REL_PTR: FnCheckRelPtr = Self::check_rel_ptr_dyn;
 
-    unsafe fn check_bytes_dyn(
+    unsafe fn check_rel_ptr_dyn(
         rel_ptr: &RelPtr,
         context: &mut dyn DynArchiveContext,
     ) -> Result<(), Box<dyn Error>> {
-        let data = context.claim_bytes(
-            (rel_ptr as *const RelPtr).cast(),
-            rel_ptr.offset(),
-            mem::size_of::<T>(),
-            mem::align_of::<T>(),
-        )?;
+        let data = context.claim::<T>(rel_ptr, 1)?;
         T::check_bytes(data, context)?;
         Ok(())
     }
@@ -146,7 +166,7 @@ impl From<Unreachable> for ArchivedDynError {
     }
 }
 
-impl<T: TypeName + ?Sized, C: ArchiveContext> CheckBytes<C> for ArchivedDyn<T> {
+impl<T: TypeName + ?Sized, C: ArchiveMemoryContext> CheckBytes<C> for ArchivedDyn<T> {
     type Error = ArchivedDynError;
 
     unsafe fn check_bytes<'a>(
