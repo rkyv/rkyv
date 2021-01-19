@@ -190,8 +190,8 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// assert_eq!(archived_int.value(), "42");
 /// assert_eq!(archived_string.value(), "hello world");
 ///
-/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int.deserialize();
-/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string.deserialize();
+/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int.deserialize(&mut ());
+/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string.deserialize(&mut ());
 /// assert_eq!(deserialized_int.value(), "42");
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```
@@ -216,6 +216,10 @@ where
     }
 }
 
+pub trait DynContext {}
+
+impl<T: ?Sized> DynContext for T {}
+
 /// A trait object that can be deserialized.
 ///
 /// See [`SerializeDyn`] for more information.
@@ -225,7 +229,7 @@ pub trait DeserializeDyn<T: ?Sized> {
     /// # Safety
     ///
     /// The return value must be allocated using the given allocator function.
-    unsafe fn deserialize_dyn(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
+    unsafe fn deserialize_dyn(&self, context: &mut dyn DynContext, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
 }
 
 /// A reference to an archived trait object.

@@ -17,14 +17,14 @@ mod tests {
     fn test_archive<T: Serialize<ArchiveBuffer<Aligned<[u8; BUFFER_SIZE]>>>>(value: &T)
     where
         T: PartialEq,
-        T::Archived: PartialEq<T> + Deserialize<T>,
+        T::Archived: PartialEq<T> + Deserialize<T, ()>,
     {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.serialize(value).expect("failed to archive value");
         let buf = writer.into_inner();
         let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
-        assert!(&archived_value.deserialize() == value);
+        assert!(&archived_value.deserialize(&mut ()) == value);
     }
 
     fn test_archive_ref<T: SerializeRef<ArchiveBuffer<Aligned<[u8; BUFFER_SIZE]>>> + ?Sized>(value: &T)
@@ -459,7 +459,7 @@ mod tests {
     fn manual_archive_dyn() {
         use rkyv::{DeserializeRef, Write};
         use rkyv_dyn::{
-            register_impl, SerializeDyn, ArchivedDyn, RegisteredImpl, DeserializeDyn,
+            register_impl, SerializeDyn, ArchivedDyn, DynContext, RegisteredImpl, DeserializeDyn,
         };
 
         pub trait TestTrait {
@@ -502,12 +502,13 @@ mod tests {
             }
         }
 
-        impl DeserializeRef<dyn SerializeTestTrait> for ArchivedDyn<dyn DeserializeTestTrait> {
+        impl<C: DynContext> DeserializeRef<dyn SerializeTestTrait, C> for ArchivedDyn<dyn DeserializeTestTrait> {
             unsafe fn deserialize_ref(
                 &self,
+                context: &mut C,
                 alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
             ) -> *mut dyn SerializeTestTrait {
-                (*self).deserialize_dyn(alloc)
+                (*self).deserialize_dyn(context, alloc)
             }
         }
 
@@ -528,14 +529,15 @@ mod tests {
 
         impl DeserializeDyn<dyn SerializeTestTrait> for Archived<Test>
         where
-            Archived<Test>: Deserialize<Test>,
+            Archived<Test>: Deserialize<Test, dyn DynContext>,
         {
             unsafe fn deserialize_dyn(
                 &self,
+                context: &mut dyn DynContext,
                 alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
             ) -> *mut dyn SerializeTestTrait {
                 let result = alloc(core::alloc::Layout::new::<Test>()) as *mut Test;
-                result.write(self.deserialize());
+                result.write(self.deserialize(context));
                 result as *mut dyn SerializeTestTrait
             }
         }
@@ -559,7 +561,7 @@ mod tests {
         assert_eq!(value.get_id(), archived_value.get_id());
         assert_eq!(value.get_id(), archived_value.get_id());
 
-        let deserialized_value: Box<dyn SerializeTestTrait> = archived_value.deserialize();
+        let deserialized_value: Box<dyn SerializeTestTrait> = archived_value.deserialize(&mut ());
         assert_eq!(value.get_id(), deserialized_value.get_id());
     }
 
@@ -602,14 +604,14 @@ mod tests {
         assert_eq!(value.get_id(), archived_value.get_id());
 
         // deserialize
-        let deserialized_value: Box<dyn STestTrait> = archived_value.deserialize();
+        let deserialized_value: Box<dyn STestTrait> = archived_value.deserialize(&mut ());
         assert_eq!(value.get_id(), deserialized_value.get_id());
         assert_eq!(value.get_id(), deserialized_value.get_id());
     }
 
     #[test]
     fn archive_dyn_generic() {
-        use rkyv_dyn::{register_impl, WriteDyn};
+        use rkyv_dyn::{register_impl, DynContext, WriteDyn};
 
         #[archive_dyn(serialize = "STestTrait", deserialize = "DTestTrait")]
         pub trait TestTrait<T: TypeName> {
@@ -644,14 +646,15 @@ mod tests {
         impl<T: Archive + for<'a> Serialize<dyn WriteDyn + 'a> + core::fmt::Display + TypeName + 'static>
             rkyv_dyn::DeserializeDyn<dyn STestTrait<String>> for ArchivedTest<T>
         where
-            ArchivedTest<T>: Deserialize<Test<T>> + rkyv_dyn::RegisteredImpl<dyn DTestTrait<String>>,
+            ArchivedTest<T>: for<'a> Deserialize<Test<T>, (dyn DynContext + 'a)> + rkyv_dyn::RegisteredImpl<dyn DTestTrait<String>>,
         {
             unsafe fn deserialize_dyn(
                 &self,
+                context: &mut dyn DynContext,
                 alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
             ) -> *mut dyn STestTrait<String> {
                 let result = alloc(core::alloc::Layout::new::<Test<T>>()) as *mut Test<T>;
-                result.write(self.deserialize());
+                result.write(self.deserialize(context));
                 result as *mut dyn STestTrait<String>
             }
         }
@@ -689,7 +692,7 @@ mod tests {
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
 
-        let i32_deserialized_value: Box<dyn STestTrait<i32>> = i32_archived_value.deserialize();
+        let i32_deserialized_value: Box<dyn STestTrait<i32>> = i32_archived_value.deserialize(&mut ());
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
 
@@ -697,7 +700,7 @@ mod tests {
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
         let string_deserialized_value: Box<dyn STestTrait<String>> =
-            string_archived_value.deserialize();
+            string_archived_value.deserialize(&mut ());
         assert_eq!(
             string_value.get_value(),
             string_deserialized_value.get_value()

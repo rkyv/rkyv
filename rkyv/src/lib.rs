@@ -410,11 +410,11 @@ pub trait Serialize<W: Write + ?Sized>: Archive {
 /// let buf = writer.into_inner();
 /// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 ///
-/// let deserialized = archived.deserialize();
+/// let deserialized = archived.deserialize(&mut ());
 /// assert_eq!(value, deserialized);
 /// ```
-pub trait Deserialize<T: Archive<Archived = Self>> {
-    fn deserialize(&self) -> T;
+pub trait Deserialize<T: Archive<Archived = Self>, C: ?Sized> {
+    fn deserialize(&self, context: &mut C) -> T;
 }
 
 /// This trait is a counterpart of [`Archive`] that's suitable for unsized
@@ -445,7 +445,7 @@ pub trait SerializeRef<W: Write + ?Sized>: ArchiveRef {
 }
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
-pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized>:
+pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized, C: ?Sized>:
     Deref<Target = T::Archived> + DerefMut<Target = T::Archived> + Sized
 {
     /// Deserializes a reference to the given value.
@@ -453,7 +453,7 @@ pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized>:
     /// # Safety
     ///
     /// The return value must be allocated using the given allocator function.
-    unsafe fn deserialize_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
+    unsafe fn deserialize_ref(&self, context: &mut C, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
 }
 
 /// A trait that indicates that some [`Archive`] type can be copied directly to

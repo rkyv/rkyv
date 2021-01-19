@@ -23,8 +23,8 @@ impl<W: Write + ?Sized> Serialize<W> for RangeFull {
 
 unsafe impl ArchiveCopy for RangeFull {}
 
-impl Deserialize<RangeFull> for RangeFull {
-    fn deserialize(&self) -> Self {
+impl<C: ?Sized> Deserialize<RangeFull, C> for RangeFull {
+    fn deserialize(&self, _: &mut C) -> Self {
         RangeFull
     }
 }
@@ -107,14 +107,14 @@ impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for Range<T> {
     }
 }
 
-impl<T: Archive> Deserialize<Range<T>> for Archived<Range<T>>
+impl<T: Archive, C: ?Sized> Deserialize<Range<T>, C> for Archived<Range<T>>
 where
-    T::Archived: Deserialize<T>,
+    T::Archived: Deserialize<T, C>,
 {
-    fn deserialize(&self) -> Range<T> {
+    fn deserialize(&self, context: &mut C) -> Range<T> {
         Range {
-            start: self.start.deserialize(),
-            end: self.end.deserialize(),
+            start: self.start.deserialize(context),
+            end: self.end.deserialize(context),
         }
     }
 }
@@ -195,11 +195,11 @@ impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for RangeInclusive<T> {
     }
 }
 
-impl<T: Archive> Deserialize<RangeInclusive<T>> for Archived<RangeInclusive<T>>
+impl<T: Archive, C: ?Sized> Deserialize<RangeInclusive<T>, C> for Archived<RangeInclusive<T>>
 where
-    T::Archived: Deserialize<T>,
+    T::Archived: Deserialize<T, C>,
 {
-    fn deserialize(&self) -> RangeInclusive<T> {
-        RangeInclusive::new(self.start.deserialize(), self.end.deserialize())
+    fn deserialize(&self, context: &mut C) -> RangeInclusive<T> {
+        RangeInclusive::new(self.start.deserialize(context), self.end.deserialize(context))
     }
 }

@@ -111,8 +111,8 @@ impl<W: Write + ?Sized> Serialize<W> for String {
     }
 }
 
-impl Deserialize<String> for Archived<String> {
-    fn deserialize(&self) -> String {
+impl<C: ?Sized> Deserialize<String, C> for Archived<String> {
+    fn deserialize(&self, _: &mut C) -> String {
         self.as_str().to_string()
     }
 }
@@ -172,12 +172,12 @@ impl<T: SerializeRef<W> + ?Sized, W: Write + ?Sized> Serialize<W> for Box<T> {
     }
 }
 
-impl<T: ArchiveRef + ?Sized> Deserialize<Box<T>> for Archived<Box<T>>
+impl<T: ArchiveRef + ?Sized, C: ?Sized> Deserialize<Box<T>, C> for Archived<Box<T>>
 where
-    Reference<T>: DeserializeRef<T>,
+    Reference<T>: DeserializeRef<T, C>,
 {
-    fn deserialize(&self) -> Box<T> {
-        unsafe { Box::from_raw(self.0.deserialize_ref(alloc::alloc)) }
+    fn deserialize(&self, context: &mut C) -> Box<T> {
+        unsafe { Box::from_raw(self.0.deserialize_ref(context, alloc::alloc)) }
     }
 }
 
@@ -210,14 +210,14 @@ impl<T: Serialize<W>, W: Write + ?Sized> SerializeRef<W> for [T] {
     }
 }
 
-impl<T: Archive> DeserializeRef<[T]> for <[T] as ArchiveRef>::Reference
+impl<T: Archive, C: ?Sized> DeserializeRef<[T], C> for <[T] as ArchiveRef>::Reference
 where
-    T::Archived: Deserialize<T>,
+    T::Archived: Deserialize<T, C>,
 {
-    unsafe fn deserialize_ref(&self, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut [T] {
+    unsafe fn deserialize_ref(&self, context: &mut C, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut [T] {
         let result = alloc(alloc::Layout::array::<T>(self.len()).unwrap()).cast::<T>();
         for i in 0..self.len() {
-            result.add(i).write(self[i].deserialize());
+            result.add(i).write(self[i].deserialize(context));
         }
         slice::from_raw_parts_mut(result, self.len())
     }
@@ -273,14 +273,14 @@ impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for Vec<T> {
     }
 }
 
-impl<T: Archive> Deserialize<Vec<T>> for Archived<Vec<T>>
+impl<T: Archive, C: ?Sized> Deserialize<Vec<T>, C> for Archived<Vec<T>>
 where
-    T::Archived: Deserialize<T>,
+    T::Archived: Deserialize<T, C>,
 {
-    fn deserialize(&self) -> Vec<T> {
+    fn deserialize(&self, context: &mut C) -> Vec<T> {
         let mut result = Vec::with_capacity(self.len());
         for i in self.iter() {
-            result.push(i.deserialize());
+            result.push(i.deserialize(context));
         }
         result
     }
