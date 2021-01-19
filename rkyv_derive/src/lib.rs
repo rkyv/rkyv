@@ -1199,23 +1199,23 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
                         None
                     } else {
                         let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty, __C> })
+                        Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty, __D> })
                     }
                 });
                 let deserialize_predicates = quote! { #(#deserialize_predicates,)* };
 
                 let deserialize_fields = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote! { #name: self.#name.deserialize(context) }
+                    quote! { #name: self.#name.deserialize(deserializer) }
                 });
 
                 quote! {
-                    impl<__C: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __C> for Archived<#name<#generic_args>>
+                    impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #deserialize_predicates
                     {
-                        fn deserialize(&self, context: &mut __C) -> #name<#generic_args> {
+                        fn deserialize(&self, deserializer: &mut __D) -> #name<#generic_args> {
                             #name::<#generic_args> {
                                 #(#deserialize_fields,)*
                             }
@@ -1229,23 +1229,23 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
                         None
                     } else {
                         let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty, __C> })
+                        Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty, __D> })
                     }
                 });
                 let deserialize_predicates = quote! { #(#deserialize_predicates,)* };
 
                 let deserialize_fields = fields.unnamed.iter().enumerate().map(|(i, _)| {
                     let index = Index::from(i);
-                    quote! { self.#index.deserialize(context) }
+                    quote! { self.#index.deserialize(deserializer) }
                 });
 
                 quote! {
-                    impl<__C: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __C> for Archived<#name<#generic_args>>
+                    impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #deserialize_predicates
                     {
-                        fn deserialize(&self, context: &mut __C) -> #name<#generic_args> {
+                        fn deserialize(&self, deserializer: &mut __D) -> #name<#generic_args> {
                             #name::<#generic_args>(
                                 #(#deserialize_fields,)*
                             )
@@ -1254,11 +1254,11 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
                 }
             }
             Fields::Unit => quote! {
-                impl<__C: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __C> for Archived<#name<#generic_args>>
+                impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                 {
-                    fn deserialize(&self, _: &mut __C) -> #name<#generic_args> {
+                    fn deserialize(&self, _: &mut __D) -> #name<#generic_args> {
                         #name::<#generic_args>
                     }
                 }
@@ -1272,7 +1272,7 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
                             None
                         } else {
                             let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty, __C> })
+                            Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty, __D> })
                         }
                     });
                     quote! { #(#deserialize_predicates,)* }
@@ -1283,7 +1283,7 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
                             None
                         } else {
                             let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty, __C> })
+                            Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty, __D> })
                         }
                     });
                     quote! { #(#deserialize_predicates,)* }
@@ -1303,7 +1303,7 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             quote! {
-                                #name: #name.deserialize(context)
+                                #name: #name.deserialize(deserializer)
                             }
                         });
                         quote_spanned! { variant.span() =>
@@ -1318,7 +1318,7 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let binding = Ident::new(&format!("_{}", i), f.span());
                             quote! {
-                                #binding.deserialize(context)
+                                #binding.deserialize(deserializer)
                             }
                         });
                         quote_spanned! { variant.span() =>
@@ -1332,12 +1332,12 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
             });
 
             quote! {
-                impl<__C: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __C> for Archived<#name<#generic_args>>
+                impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                     #deserialize_predicates
                 {
-                    fn deserialize(&self, context: &mut __C) -> #name<#generic_args> {
+                    fn deserialize(&self, deserializer: &mut __D) -> #name<#generic_args> {
                         match self {
                             #(#deserialize_variants,)*
                         }
@@ -1397,12 +1397,12 @@ fn derive_deserialize_copy_impl(input: &DeriveInput) -> TokenStream {
                 let deserialize_predicates = quote! { #(#deserialize_predicates,)* };
 
                 quote! {
-                    impl<__C: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __C> for Archived<#name<#generic_args>>
+                    impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #deserialize_predicates
                     {
-                        fn deserialize(&self, _: &mut __C) -> Self {
+                        fn deserialize(&self, _: &mut __D) -> Self {
                             *self
                         }
                     }
@@ -1420,23 +1420,23 @@ fn derive_deserialize_copy_impl(input: &DeriveInput) -> TokenStream {
                 let deserialize_predicates = quote! { #(#deserialize_predicates,)* };
 
                 quote! {
-                    impl<__C: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __C> for Archived<#name<#generic_args>>
+                    impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #deserialize_predicates
                     {
-                        fn deserialize(&self, _: &mut __C) -> Self {
+                        fn deserialize(&self, _: &mut __D) -> Self {
                             *self
                         }
                     }
                 }
             }
             Fields::Unit => quote! {
-                impl<__C: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __C> for Archived<#name<#generic_args>>
+                impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                 {
-                    fn deserialize(&self, _: &mut __C) -> Self {
+                    fn deserialize(&self, _: &mut __D) -> Self {
                         *self
                     }
                 }
@@ -1471,12 +1471,12 @@ fn derive_deserialize_copy_impl(input: &DeriveInput) -> TokenStream {
             let deserialize_predicates = quote! { #(#deserialize_predicates)* };
 
             quote! {
-                impl<__C: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __C> for Archived<#name<#generic_args>>
+                impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                     #deserialize_predicates
                 {
-                    fn deserialize(&self, _: &mut __C) -> Self {
+                    fn deserialize(&self, _: &mut __D) -> Self {
                         *self
                     }
                 }

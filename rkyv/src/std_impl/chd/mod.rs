@@ -604,15 +604,15 @@ where
     }
 }
 
-impl<K: Archive + Hash + Eq, V: Archive, C: ?Sized> Deserialize<HashMap<K, V>, C> for Archived<HashMap<K, V>>
+impl<K: Archive + Hash + Eq, V: Archive, D: ?Sized> Deserialize<HashMap<K, V>, D> for Archived<HashMap<K, V>>
 where
-    K::Archived: Deserialize<K, C> + Hash + Eq,
-    V::Archived: Deserialize<V, C>,
+    K::Archived: Deserialize<K, D> + Hash + Eq,
+    V::Archived: Deserialize<V, D>,
 {
-    fn deserialize(&self, context: &mut C) -> HashMap<K, V> {
+    fn deserialize(&self, deserializer: &mut D) -> HashMap<K, V> {
         let mut result = HashMap::new();
         for (k, v) in self.iter() {
-            result.insert(k.deserialize(context), v.deserialize(context));
+            result.insert(k.deserialize(deserializer), v.deserialize(deserializer));
         }
         result
     }

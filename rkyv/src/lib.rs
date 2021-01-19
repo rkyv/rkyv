@@ -87,7 +87,7 @@ use std::io;
 pub use memoffset::offset_of;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 #[cfg(feature = "std")]
-pub use std_impl::shared::SharedWriter;
+pub use std_impl::{GlobalAllocDeserializer, shared::SharedWriter};
 #[cfg(feature = "validation")]
 pub use validation::check_archive;
 
@@ -413,8 +413,8 @@ pub trait Serialize<W: Write + ?Sized>: Archive {
 /// let deserialized = archived.deserialize(&mut ());
 /// assert_eq!(value, deserialized);
 /// ```
-pub trait Deserialize<T: Archive<Archived = Self>, C: ?Sized> {
-    fn deserialize(&self, context: &mut C) -> T;
+pub trait Deserialize<T: Archive<Archived = Self>, D: ?Sized> {
+    fn deserialize(&self, deserializer: &mut D) -> T;
 }
 
 /// This trait is a counterpart of [`Archive`] that's suitable for unsized
@@ -444,8 +444,12 @@ pub trait SerializeRef<W: Write + ?Sized>: ArchiveRef {
     fn serialize_ref(&self, writer: &mut W) -> Result<usize, W::Error>;
 }
 
+pub trait AllocDeserializer {
+    unsafe fn alloc(&mut self, layout: alloc::Layout) -> *mut u8;
+}
+
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
-pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized, C: ?Sized>:
+pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized, D: AllocDeserializer + ?Sized>:
     Deref<Target = T::Archived> + DerefMut<Target = T::Archived> + Sized
 {
     /// Deserializes a reference to the given value.
@@ -453,7 +457,7 @@ pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized, C: ?Sized>:
     /// # Safety
     ///
     /// The return value must be allocated using the given allocator function.
-    unsafe fn deserialize_ref(&self, context: &mut C, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
+    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> *mut T;
 }
 
 /// A trait that indicates that some [`Archive`] type can be copied directly to

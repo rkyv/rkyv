@@ -162,11 +162,11 @@ pub fn archive_dyn(
                         quote! {
                             impl DeserializeDyn<dyn #serialize_trait> for Archived<#ty>
                             where
-                                Archived<#ty>: for<'a> Deserialize<#ty, (dyn DynContext + 'a)>,
+                                Archived<#ty>: for<'a> Deserialize<#ty, (dyn DynDeserializer + 'a)>,
                             {
-                                unsafe fn deserialize_dyn(&self, context: &mut dyn DynContext, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn #serialize_trait {
-                                    let result = alloc(core::alloc::Layout::new::<#ty>()) as *mut #ty;
-                                    result.write(self.deserialize(context));
+                                unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer) -> *mut dyn #serialize_trait {
+                                    let result = deserializer.alloc_dyn(core::alloc::Layout::new::<#ty>()) as *mut #ty;
+                                    result.write(self.deserialize(deserializer));
                                     result as *mut dyn #serialize_trait
                                 }
                             }
@@ -181,7 +181,7 @@ pub fn archive_dyn(
 
                     const _: () = {
                         use rkyv::{Archived, Deserialize};
-                        use rkyv_dyn::{DeserializeDyn, DynContext};
+                        use rkyv_dyn::{DeserializeDyn, DynDeserializer};
 
                         rkyv_dyn::register_impl!(Archived<#ty> as dyn #deserialize_trait);
 
@@ -242,9 +242,9 @@ pub fn archive_dyn(
                     quote! {
                         impl<__T: #name<#generic_args> + DeserializeDyn<dyn #serialize_trait<#generic_args>>, #generic_params> #deserialize_trait<#generic_args> for __T {}
 
-                        impl<__C: DynContext, #generic_params> DeserializeRef<dyn #serialize_trait<#generic_args>, __C> for ArchivedDyn<dyn #deserialize_trait<#generic_args>> {
-                            unsafe fn deserialize_ref(&self, context: &mut __C, alloc: unsafe fn(core::alloc::Layout) -> *mut u8) -> *mut dyn #serialize_trait<#generic_args> {
-                                (*self).deserialize_dyn(context, alloc)
+                        impl<__D: AllocDeserializer, #generic_params> DeserializeRef<dyn #serialize_trait<#generic_args>, __D> for ArchivedDyn<dyn #deserialize_trait<#generic_args>> {
+                            unsafe fn deserialize_ref(&self, deserializer: &mut __D) -> *mut dyn #serialize_trait<#generic_args> {
+                                (*self).deserialize_dyn(deserializer)
                             }
                         }
                     },
@@ -279,6 +279,7 @@ pub fn archive_dyn(
 
                 const _: ()  = {
                     use rkyv::{
+                        AllocDeserializer,
                         Archived,
                         ArchiveRef,
                         SerializeRef,
@@ -287,7 +288,7 @@ pub fn archive_dyn(
                     };
                     use rkyv_dyn::{
                         ArchivedDyn,
-                        DynContext,
+                        DynDeserializer,
                         DynError,
                         RegisteredImpl,
                         SerializeDyn,

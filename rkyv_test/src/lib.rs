@@ -5,8 +5,8 @@ mod validation;
 mod tests {
     use core::pin::Pin;
     use rkyv::{
-        archived_value, archived_value_mut, archived_value_ref, Aligned, Archive, ArchiveBuffer,
-        ArchiveRef, Archived, Seek, Serialize, SerializeRef, Deserialize, Write,
+        archived_value, archived_value_mut, archived_value_ref, Aligned, AllocDeserializer, Archive, ArchiveBuffer,
+        ArchiveRef, Archived, GlobalAllocDeserializer, Seek, Serialize, SerializeRef, Deserialize, Write,
     };
     use rkyv_dyn::archive_dyn;
     use rkyv_typename::TypeName;
@@ -17,14 +17,14 @@ mod tests {
     fn test_archive<T: Serialize<ArchiveBuffer<Aligned<[u8; BUFFER_SIZE]>>>>(value: &T)
     where
         T: PartialEq,
-        T::Archived: PartialEq<T> + Deserialize<T, ()>,
+        T::Archived: PartialEq<T> + Deserialize<T, GlobalAllocDeserializer>,
     {
         let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = writer.serialize(value).expect("failed to archive value");
         let buf = writer.into_inner();
         let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
-        assert!(&archived_value.deserialize(&mut ()) == value);
+        assert!(&archived_value.deserialize(&mut GlobalAllocDeserializer) == value);
     }
 
     fn test_archive_ref<T: SerializeRef<ArchiveBuffer<Aligned<[u8; BUFFER_SIZE]>>> + ?Sized>(value: &T)
@@ -459,7 +459,7 @@ mod tests {
     fn manual_archive_dyn() {
         use rkyv::{DeserializeRef, Write};
         use rkyv_dyn::{
-            register_impl, SerializeDyn, ArchivedDyn, DynContext, RegisteredImpl, DeserializeDyn,
+            register_impl, SerializeDyn, ArchivedDyn, DynDeserializer, RegisteredImpl, DeserializeDyn,
         };
 
         pub trait TestTrait {
@@ -502,13 +502,12 @@ mod tests {
             }
         }
 
-        impl<C: DynContext> DeserializeRef<dyn SerializeTestTrait, C> for ArchivedDyn<dyn DeserializeTestTrait> {
+        impl<D: AllocDeserializer> DeserializeRef<dyn SerializeTestTrait, D> for ArchivedDyn<dyn DeserializeTestTrait> {
             unsafe fn deserialize_ref(
                 &self,
-                context: &mut C,
-                alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
+                deserializer: &mut D,
             ) -> *mut dyn SerializeTestTrait {
-                (*self).deserialize_dyn(context, alloc)
+                (*self).deserialize_dyn(deserializer)
             }
         }
 
@@ -529,15 +528,14 @@ mod tests {
 
         impl DeserializeDyn<dyn SerializeTestTrait> for Archived<Test>
         where
-            Archived<Test>: Deserialize<Test, dyn DynContext>,
+            Archived<Test>: Deserialize<Test, dyn DynDeserializer>,
         {
             unsafe fn deserialize_dyn(
                 &self,
-                context: &mut dyn DynContext,
-                alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
+                deserializer: &mut dyn DynDeserializer,
             ) -> *mut dyn SerializeTestTrait {
-                let result = alloc(core::alloc::Layout::new::<Test>()) as *mut Test;
-                result.write(self.deserialize(context));
+                let result = deserializer.alloc_dyn(core::alloc::Layout::new::<Test>()) as *mut Test;
+                result.write(self.deserialize(deserializer));
                 result as *mut dyn SerializeTestTrait
             }
         }
@@ -561,7 +559,7 @@ mod tests {
         assert_eq!(value.get_id(), archived_value.get_id());
         assert_eq!(value.get_id(), archived_value.get_id());
 
-        let deserialized_value: Box<dyn SerializeTestTrait> = archived_value.deserialize(&mut ());
+        let deserialized_value: Box<dyn SerializeTestTrait> = archived_value.deserialize(&mut GlobalAllocDeserializer);
         assert_eq!(value.get_id(), deserialized_value.get_id());
     }
 
@@ -604,14 +602,14 @@ mod tests {
         assert_eq!(value.get_id(), archived_value.get_id());
 
         // deserialize
-        let deserialized_value: Box<dyn STestTrait> = archived_value.deserialize(&mut ());
+        let deserialized_value: Box<dyn STestTrait> = archived_value.deserialize(&mut GlobalAllocDeserializer);
         assert_eq!(value.get_id(), deserialized_value.get_id());
         assert_eq!(value.get_id(), deserialized_value.get_id());
     }
 
     #[test]
     fn archive_dyn_generic() {
-        use rkyv_dyn::{register_impl, DynContext, WriteDyn};
+        use rkyv_dyn::{register_impl, DynDeserializer, WriteDyn};
 
         #[archive_dyn(serialize = "STestTrait", deserialize = "DTestTrait")]
         pub trait TestTrait<T: TypeName> {
@@ -646,15 +644,14 @@ mod tests {
         impl<T: Archive + for<'a> Serialize<dyn WriteDyn + 'a> + core::fmt::Display + TypeName + 'static>
             rkyv_dyn::DeserializeDyn<dyn STestTrait<String>> for ArchivedTest<T>
         where
-            ArchivedTest<T>: for<'a> Deserialize<Test<T>, (dyn DynContext + 'a)> + rkyv_dyn::RegisteredImpl<dyn DTestTrait<String>>,
+            ArchivedTest<T>: for<'a> Deserialize<Test<T>, (dyn DynDeserializer + 'a)> + rkyv_dyn::RegisteredImpl<dyn DTestTrait<String>>,
         {
             unsafe fn deserialize_dyn(
                 &self,
-                context: &mut dyn DynContext,
-                alloc: unsafe fn(core::alloc::Layout) -> *mut u8,
+                deserializer: &mut dyn DynDeserializer,
             ) -> *mut dyn STestTrait<String> {
-                let result = alloc(core::alloc::Layout::new::<Test<T>>()) as *mut Test<T>;
-                result.write(self.deserialize(context));
+                let result = deserializer.alloc(core::alloc::Layout::new::<Test<T>>()) as *mut Test<T>;
+                result.write(self.deserialize(deserializer));
                 result as *mut dyn STestTrait<String>
             }
         }
@@ -692,7 +689,7 @@ mod tests {
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
 
-        let i32_deserialized_value: Box<dyn STestTrait<i32>> = i32_archived_value.deserialize(&mut ());
+        let i32_deserialized_value: Box<dyn STestTrait<i32>> = i32_archived_value.deserialize(&mut GlobalAllocDeserializer);
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
 
@@ -700,7 +697,7 @@ mod tests {
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
         let string_deserialized_value: Box<dyn STestTrait<String>> =
-            string_archived_value.deserialize(&mut ());
+            string_archived_value.deserialize(&mut GlobalAllocDeserializer);
         assert_eq!(
             string_value.get_value(),
             string_deserialized_value.get_value()
@@ -912,10 +909,22 @@ mod tests {
 
     #[test]
     fn recursive_structures() {
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, PartialEq)]
         enum Node {
             Nil,
             Cons(#[recursive] Box<Node>),
+        }
+
+        // Right now Deserialize doesn't apply the right deserializer bounds from Box so we have to
+        // implement it manually. Luckily it's not too bad, but hopefully in the future there's a
+        // better way to do this.
+        impl<D: AllocDeserializer + ?Sized> Deserialize<Node, D> for ArchivedNode {
+            fn deserialize(&self, deserializer: &mut D) -> Node {
+                match self {
+                    ArchivedNode::Nil => Node::Nil,
+                    ArchivedNode::Cons(inner) => Node::Cons(inner.deserialize(deserializer)),
+                }
+            }
         }
 
         impl PartialEq<Node> for Archived<Node> {
@@ -926,8 +935,8 @@ mod tests {
                         _ => false,
                     },
                     Archived::<Node>::Cons(ar_inner) => match other {
-                        Node::Nil => false,
                         Node::Cons(inner) => ar_inner == inner,
+                        _ => false,
                     },
                 }
             }

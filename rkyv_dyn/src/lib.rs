@@ -29,7 +29,7 @@ use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicU64, Ordering},
 };
-use rkyv::{offset_of, Serialize, RelPtr, Write};
+use rkyv::{offset_of, AllocDeserializer, Serialize, RelPtr, Write};
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
@@ -132,6 +132,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///     Archived,
 ///     archived_value,
 ///     Deserialize,
+///     GlobalAllocDeserializer,
 ///     Serialize,
 ///     Write,
 /// };
@@ -190,8 +191,8 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// assert_eq!(archived_int.value(), "42");
 /// assert_eq!(archived_string.value(), "hello world");
 ///
-/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int.deserialize(&mut ());
-/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string.deserialize(&mut ());
+/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int.deserialize(&mut GlobalAllocDeserializer);
+/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string.deserialize(&mut GlobalAllocDeserializer);
 /// assert_eq!(deserialized_int.value(), "42");
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```
@@ -216,9 +217,21 @@ where
     }
 }
 
-pub trait DynContext {}
+pub trait DynDeserializer {
+    unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> *mut u8;
+}
 
-impl<T: ?Sized> DynContext for T {}
+impl<T: AllocDeserializer + ?Sized> DynDeserializer for T {
+    unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> *mut u8 {
+        self.alloc(layout)
+    }
+}
+
+impl<'a> AllocDeserializer for (dyn DynDeserializer + 'a) {
+    unsafe fn alloc(&mut self, layout: alloc::Layout) -> *mut u8 {
+        self.alloc_dyn(layout)
+    }
+}
 
 /// A trait object that can be deserialized.
 ///
@@ -229,7 +242,7 @@ pub trait DeserializeDyn<T: ?Sized> {
     /// # Safety
     ///
     /// The return value must be allocated using the given allocator function.
-    unsafe fn deserialize_dyn(&self, context: &mut dyn DynContext, alloc: unsafe fn(alloc::Layout) -> *mut u8) -> *mut T;
+    unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer) -> *mut T;
 }
 
 /// A reference to an archived trait object.
