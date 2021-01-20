@@ -23,9 +23,9 @@ impl<S: Fallible + ?Sized> Serialize<S> for RangeFull {
 
 unsafe impl ArchiveCopy for RangeFull {}
 
-impl<D: ?Sized> Deserialize<RangeFull, D> for RangeFull {
-    fn deserialize(&self, _: &mut D) -> Self {
-        RangeFull
+impl<D: Fallible + ?Sized> Deserialize<RangeFull, D> for RangeFull {
+    fn deserialize(&self, _: &mut D) -> Result<Self, D::Error> {
+        Ok(RangeFull)
     }
 }
 
@@ -107,15 +107,15 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Range<T> {
     }
 }
 
-impl<T: Archive, D: ?Sized> Deserialize<Range<T>, D> for Archived<Range<T>>
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<Range<T>, D> for Archived<Range<T>>
 where
     T::Archived: Deserialize<T, D>,
 {
-    fn deserialize(&self, deserializer: &mut D) -> Range<T> {
-        Range {
-            start: self.start.deserialize(deserializer),
-            end: self.end.deserialize(deserializer),
-        }
+    fn deserialize(&self, deserializer: &mut D) -> Result<Range<T>, D::Error> {
+        Ok(Range {
+            start: self.start.deserialize(deserializer)?,
+            end: self.end.deserialize(deserializer)?,
+        })
     }
 }
 
@@ -195,11 +195,14 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeInclusive<T> {
     }
 }
 
-impl<T: Archive, D: ?Sized> Deserialize<RangeInclusive<T>, D> for Archived<RangeInclusive<T>>
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<RangeInclusive<T>, D> for Archived<RangeInclusive<T>>
 where
     T::Archived: Deserialize<T, D>,
 {
-    fn deserialize(&self, deserializer: &mut D) -> RangeInclusive<T> {
-        RangeInclusive::new(self.start.deserialize(deserializer), self.end.deserialize(deserializer))
+    fn deserialize(&self, deserializer: &mut D) -> Result<RangeInclusive<T>, D::Error> {
+        Ok(RangeInclusive::new(
+            self.start.deserialize(deserializer)?,
+            self.end.deserialize(deserializer)?,
+        ))
     }
 }

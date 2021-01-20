@@ -20,9 +20,13 @@ use std::alloc;
 
 pub struct GlobalAllocDeserializer;
 
+impl Fallible for GlobalAllocDeserializer {
+    type Error = ();
+}
+
 impl AllocDeserializer for GlobalAllocDeserializer {
-    unsafe fn alloc(&mut self, layout: alloc::Layout) -> *mut u8 {
-        std::alloc::alloc(layout)
+    unsafe fn alloc(&mut self, layout: alloc::Layout) -> Result<*mut u8, Self::Error> {
+        Ok(std::alloc::alloc(layout))
     }
 }
 
@@ -122,9 +126,9 @@ where
     }
 }
 
-impl<C: ?Sized> Deserialize<String, C> for Archived<String> {
-    fn deserialize(&self, _: &mut C) -> String {
-        self.as_str().to_string()
+impl<D: Fallible + ?Sized> Deserialize<String, D> for Archived<String> {
+    fn deserialize(&self, _: &mut D) -> Result<String, D::Error> {
+        Ok(self.as_str().to_string())
     }
 }
 
@@ -187,8 +191,8 @@ impl<T: ArchiveRef + ?Sized, D: AllocDeserializer + ?Sized> Deserialize<Box<T>, 
 where
     Reference<T>: DeserializeRef<T, D>,
 {
-    fn deserialize(&self, deserializer: &mut D) -> Box<T> {
-        unsafe { Box::from_raw(self.0.deserialize_ref(deserializer)) }
+    fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {
+        unsafe { Ok(Box::from_raw(self.0.deserialize_ref(deserializer)?)) }
     }
 }
 
@@ -225,12 +229,12 @@ impl<T: Archive, D: AllocDeserializer + ?Sized> DeserializeRef<[T], D> for <[T] 
 where
     T::Archived: Deserialize<T, D>,
 {
-    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> *mut [T] {
-        let result = deserializer.alloc(alloc::Layout::array::<T>(self.len()).unwrap()).cast::<T>();
+    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> Result<*mut [T], D::Error> {
+        let result = deserializer.alloc(alloc::Layout::array::<T>(self.len()).unwrap())?.cast::<T>();
         for i in 0..self.len() {
-            result.add(i).write(self[i].deserialize(deserializer));
+            result.add(i).write(self[i].deserialize(deserializer)?);
         }
-        slice::from_raw_parts_mut(result, self.len())
+        Ok(slice::from_raw_parts_mut(result, self.len()))
     }
 }
 
@@ -287,16 +291,16 @@ where
     }
 }
 
-impl<T: Archive, D: ?Sized> Deserialize<Vec<T>, D> for Archived<Vec<T>>
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<Vec<T>, D> for Archived<Vec<T>>
 where
     T::Archived: Deserialize<T, D>,
 {
-    fn deserialize(&self, deserializer: &mut D) -> Vec<T> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<Vec<T>, D::Error> {
         let mut result = Vec::with_capacity(self.len());
         for i in self.iter() {
-            result.push(i.deserialize(deserializer));
+            result.push(i.deserialize(deserializer)?);
         }
-        result
+        Ok(result)
     }
 }
 

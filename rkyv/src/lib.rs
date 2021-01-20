@@ -390,7 +390,7 @@ pub trait Serialize<S: Fallible + ?Sized>: Archive {
 /// ## Examples
 ///
 /// ```
-/// use rkyv::{Aligned, Archive, Archived, archived_value, BufferSerializer, Deserialize, Serialize, Serializer};
+/// use rkyv::{Aligned, Archive, Archived, archived_value, BufferSerializer, GlobalAllocDeserializer, Deserialize, Serialize, Serializer};
 ///
 /// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
 /// struct Test {
@@ -410,11 +410,11 @@ pub trait Serialize<S: Fallible + ?Sized>: Archive {
 /// let buf = serializer.into_inner();
 /// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 ///
-/// let deserialized = archived.deserialize(&mut ());
+/// let deserialized = archived.deserialize(&mut GlobalAllocDeserializer).unwrap();
 /// assert_eq!(value, deserialized);
 /// ```
-pub trait Deserialize<T: Archive<Archived = Self>, D: ?Sized> {
-    fn deserialize(&self, deserializer: &mut D) -> T;
+pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<T, D::Error>;
 }
 
 /// This trait is a counterpart of [`Archive`] that's suitable for unsized
@@ -444,8 +444,8 @@ pub trait SerializeRef<S: Fallible + ?Sized>: ArchiveRef {
     fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error>;
 }
 
-pub trait AllocDeserializer {
-    unsafe fn alloc(&mut self, layout: alloc::Layout) -> *mut u8;
+pub trait AllocDeserializer: Fallible {
+    unsafe fn alloc(&mut self, layout: alloc::Layout) -> Result<*mut u8, Self::Error>;
 }
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
@@ -457,7 +457,7 @@ pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized, D: AllocDeser
     /// # Safety
     ///
     /// The return value must be allocated using the given allocator function.
-    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> *mut T;
+    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> Result<*mut T, D::Error>;
 }
 
 /// A trait that indicates that some [`Archive`] type can be copied directly to

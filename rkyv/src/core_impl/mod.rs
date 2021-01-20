@@ -92,11 +92,11 @@ impl<T: Archive, D: AllocDeserializer + ?Sized> DeserializeRef<T, D> for <T as A
 where
     T::Archived: Deserialize<T, D>,
 {
-    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> *mut T {
-        let ptr = deserializer.alloc(alloc::Layout::new::<T>()).cast::<T>();
-        let deserialized = self.deserialize(deserializer);
+    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> Result<*mut T, D::Error> {
+        let ptr = deserializer.alloc(alloc::Layout::new::<T>())?.cast::<T>();
+        let deserialized = self.deserialize(deserializer)?;
         ptr.write(deserialized);
-        ptr
+        Ok(ptr)
     }
 }
 
@@ -213,9 +213,9 @@ impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
 
 unsafe impl<T: ?Sized> ArchiveCopy for PhantomData<T> {}
 
-impl<T: ?Sized, D: ?Sized> Deserialize<PhantomData<T>, D> for PhantomData<T> {
-    fn deserialize(&self, _: &mut D) -> PhantomData<T> {
-        PhantomData
+impl<T: ?Sized, D: Fallible + ?Sized> Deserialize<PhantomData<T>, D> for PhantomData<T> {
+    fn deserialize(&self, _: &mut D) -> Result<PhantomData<T>, D::Error> {
+        Ok(PhantomData)
     }
 }
 
@@ -241,12 +241,12 @@ macro_rules! impl_primitive {
 
         unsafe impl ArchiveCopy for $type {}
 
-        impl<D: ?Sized> Deserialize<$type, D> for $type
+        impl<D: Fallible + ?Sized> Deserialize<$type, D> for $type
         where
             $type: Copy,
         {
-            fn deserialize(&self, _: &mut D) -> $type {
-                *self
+            fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
+                Ok(*self)
             }
         }
     };
@@ -301,9 +301,9 @@ macro_rules! impl_atomic {
             }
         }
 
-        impl<D: ?Sized> Deserialize<$type, D> for $type {
-            fn deserialize(&self, _: &mut D) -> $type {
-                <$type>::new(self.load(atomic::Ordering::Relaxed))
+        impl<D: Fallible + ?Sized> Deserialize<$type, D> for $type {
+            fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
+                Ok(<$type>::new(self.load(atomic::Ordering::Relaxed)))
             }
         }
     };
@@ -348,13 +348,13 @@ macro_rules! impl_tuple {
             }
         }
 
-        impl<D: ?Sized, $($type: Archive),+> Deserialize<($($type,)+), D> for ($($type::Archived,)+)
+        impl<D: Fallible + ?Sized, $($type: Archive),+> Deserialize<($($type,)+), D> for ($($type::Archived,)+)
         where
             $($type::Archived: Deserialize<$type, D>,)+
         {
-            fn deserialize(&self, deserializer: &mut D) -> ($($type,)+) {
+            fn deserialize(&self, deserializer: &mut D) -> Result<($($type,)+), D::Error> {
                 let rev = ($(&self.$index,)+);
-                ($(rev.$index.deserialize(deserializer),)+)
+                Ok(($(rev.$index.deserialize(deserializer)?,)+))
             }
         }
 
@@ -406,20 +406,20 @@ macro_rules! impl_array {
             }
         }
 
-        impl<T: Archive, D: ?Sized> Deserialize<[T; $len], D> for [T::Archived; $len]
+        impl<T: Archive, D: Fallible + ?Sized> Deserialize<[T; $len], D> for [T::Archived; $len]
         where
             T::Archived: Deserialize<T, D>,
         {
-            fn deserialize(&self, deserializer: &mut D) -> [T; $len] {
+            fn deserialize(&self, deserializer: &mut D) -> Result<[T; $len], D::Error> {
                 let mut result = core::mem::MaybeUninit::<[T; $len]>::uninit();
                 let result_ptr = result.as_mut_ptr().cast::<T>();
                 #[allow(clippy::reversed_empty_ranges)]
                 for i in 0..$len {
                     unsafe {
-                        result_ptr.add(i).write(self[i].deserialize(deserializer));
+                        result_ptr.add(i).write(self[i].deserialize(deserializer)?);
                     }
                 }
-                unsafe { result.assume_init() }
+                unsafe { Ok(result.assume_init()) }
             }
         }
 
@@ -469,19 +469,19 @@ impl<T: Serialize<S>, S: Fallible + ?Sized, const N: usize> Serialize<S> for [T;
 }
 
 #[cfg(feature = "const_generics")]
-impl<T: Archive, D: ?Sized, const N: usize> Deserialize<[T; N], D> for [T::Archived; N]
+impl<T: Archive, D: Fallible + ?Sized, const N: usize> Deserialize<[T; N], D> for [T::Archived; N]
 where
     T::Archived: Deserialize<T, D>,
 {
-    fn deserialize(&self, deserializer: &mut D) -> [T; N] {
+    fn deserialize(&self, deserializer: &mut D) -> Result<[T; N], D::Error> {
         let mut result = core::mem::MaybeUninit::<[T; N]>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T>();
         for i in 0..N {
             unsafe {
-                result_ptr.add(i).write(self[i].deserialize(deserializer));
+                result_ptr.add(i).write(self[i].deserialize(deserializer)?);
             }
         }
-        unsafe { result.assume_init() }
+        unsafe { Ok(result.assume_init()) }
     }
 }
 
@@ -516,11 +516,11 @@ where
 }
 
 impl<D: AllocDeserializer + ?Sized> DeserializeRef<str, D> for <str as ArchiveRef>::Reference {
-    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> *mut str {
-        let bytes = deserializer.alloc(alloc::Layout::array::<u8>(self.len()).unwrap());
+    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> Result<*mut str, D::Error> {
+        let bytes = deserializer.alloc(alloc::Layout::array::<u8>(self.len()).unwrap())?;
         ptr::copy_nonoverlapping(self.as_ptr(), bytes, self.len());
         let slice = slice::from_raw_parts_mut(bytes, self.len());
-        str::from_utf8_unchecked_mut(slice)
+        Ok(str::from_utf8_unchecked_mut(slice))
     }
 }
 
@@ -671,12 +671,15 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Option<T> {
     }
 }
 
-impl<T: Archive, D: ?Sized> Deserialize<Option<T>, D> for Archived<Option<T>>
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<Option<T>, D> for Archived<Option<T>>
 where
     T::Archived: Deserialize<T, D>,
 {
-    fn deserialize(&self, deserializer: &mut D) -> Option<T> {
-        self.as_ref().map(|value| value.deserialize(deserializer))
+    fn deserialize(&self, deserializer: &mut D) -> Result<Option<T>, D::Error> {
+        match self {
+            ArchivedOption::Some(value) => Ok(Some(value.deserialize(deserializer)?)),
+            ArchivedOption::None => Ok(None),
+        }
     }
 }
 

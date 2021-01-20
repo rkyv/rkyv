@@ -1201,19 +1201,19 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
 
                 let deserialize_fields = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote! { #name: self.#name.deserialize(deserializer) }
+                    quote! { #name: self.#name.deserialize(deserializer)? }
                 });
 
                 quote! {
-                    impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
+                    impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #deserialize_predicates
                     {
-                        fn deserialize(&self, deserializer: &mut __D) -> #name<#generic_args> {
-                            #name::<#generic_args> {
+                        fn deserialize(&self, deserializer: &mut __D) -> Result<#name<#generic_args>, __D::Error> {
+                            Ok(#name::<#generic_args> {
                                 #(#deserialize_fields,)*
-                            }
+                            })
                         }
                     }
                 }
@@ -1231,30 +1231,30 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
 
                 let deserialize_fields = fields.unnamed.iter().enumerate().map(|(i, _)| {
                     let index = Index::from(i);
-                    quote! { self.#index.deserialize(deserializer) }
+                    quote! { self.#index.deserialize(deserializer)? }
                 });
 
                 quote! {
-                    impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
+                    impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #deserialize_predicates
                     {
-                        fn deserialize(&self, deserializer: &mut __D) -> #name<#generic_args> {
-                            #name::<#generic_args>(
+                        fn deserialize(&self, deserializer: &mut __D) -> Result<#name<#generic_args>, __D::Error> {
+                            Ok(#name::<#generic_args>(
                                 #(#deserialize_fields,)*
-                            )
+                            ))
                         }
                     }
                 }
             }
             Fields::Unit => quote! {
-                impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
+                impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                 {
-                    fn deserialize(&self, _: &mut __D) -> #name<#generic_args> {
-                        #name::<#generic_args>
+                    fn deserialize(&self, _: &mut __D) -> Result<#name<#generic_args>, __D::Error> {
+                        Ok(#name::<#generic_args>)
                     }
                 }
             },
@@ -1298,7 +1298,7 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             quote! {
-                                #name: #name.deserialize(deserializer)
+                                #name: #name.deserialize(deserializer)?
                             }
                         });
                         quote_spanned! { variant.span() =>
@@ -1313,7 +1313,7 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let binding = Ident::new(&format!("_{}", i), f.span());
                             quote! {
-                                #binding.deserialize(deserializer)
+                                #binding.deserialize(deserializer)?
                             }
                         });
                         quote_spanned! { variant.span() =>
@@ -1327,15 +1327,15 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
             });
 
             quote! {
-                impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
+                impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                     #deserialize_predicates
                 {
-                    fn deserialize(&self, deserializer: &mut __D) -> #name<#generic_args> {
-                        match self {
+                    fn deserialize(&self, deserializer: &mut __D) -> Result<#name<#generic_args>, __D::Error> {
+                        Ok(match self {
                             #(#deserialize_variants,)*
-                        }
+                        })
                     }
                 }
             }
@@ -1348,7 +1348,7 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
 
     quote! {
         const _: () = {
-            use rkyv::{Archive, Archived, Deserialize};
+            use rkyv::{Archive, Archived, Deserialize, Fallible};
             #deserialize_impl
         };
     }
@@ -1392,13 +1392,13 @@ fn derive_deserialize_copy_impl(input: &DeriveInput) -> TokenStream {
                 let deserialize_predicates = quote! { #(#deserialize_predicates,)* };
 
                 quote! {
-                    impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
+                    impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #deserialize_predicates
                     {
-                        fn deserialize(&self, _: &mut __D) -> Self {
-                            *self
+                        fn deserialize(&self, _: &mut __D) -> Result<Self, __D::Error> {
+                            Ok(*self)
                         }
                     }
                 }
@@ -1415,24 +1415,24 @@ fn derive_deserialize_copy_impl(input: &DeriveInput) -> TokenStream {
                 let deserialize_predicates = quote! { #(#deserialize_predicates,)* };
 
                 quote! {
-                    impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
+                    impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                     where
                         #generic_predicates
                         #deserialize_predicates
                     {
-                        fn deserialize(&self, _: &mut __D) -> Self {
-                            *self
+                        fn deserialize(&self, _: &mut __D) -> Result<Self, __D::Error> {
+                            Ok(*self)
                         }
                     }
                 }
             }
             Fields::Unit => quote! {
-                impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
+                impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                 {
-                    fn deserialize(&self, _: &mut __D) -> Self {
-                        *self
+                    fn deserialize(&self, _: &mut __D) -> Result<Self, __D::Error> {
+                        Ok(*self)
                     }
                 }
             },
@@ -1466,13 +1466,13 @@ fn derive_deserialize_copy_impl(input: &DeriveInput) -> TokenStream {
             let deserialize_predicates = quote! { #(#deserialize_predicates)* };
 
             quote! {
-                impl<__D: ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
+                impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
                 where
                     #generic_predicates
                     #deserialize_predicates
                 {
-                    fn deserialize(&self, _: &mut __D) -> Self {
-                        *self
+                    fn deserialize(&self, _: &mut __D) -> Result<Self, __D::Error> {
+                        Ok(*self)
                     }
                 }
             }
@@ -1485,7 +1485,7 @@ fn derive_deserialize_copy_impl(input: &DeriveInput) -> TokenStream {
 
     quote! {
         const _: () = {
-            use rkyv::{Archive, Archived, ArchiveCopy, Deserialize};
+            use rkyv::{Archive, Archived, ArchiveCopy, Deserialize, Fallible};
             #deserialize_impl
         };
     }

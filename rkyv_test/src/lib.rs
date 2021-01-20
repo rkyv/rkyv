@@ -24,7 +24,7 @@ mod tests {
         let buf = serializer.into_inner();
         let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
-        assert!(&archived_value.deserialize(&mut GlobalAllocDeserializer) == value);
+        assert!(&archived_value.deserialize(&mut GlobalAllocDeserializer).unwrap() == value);
     }
 
     fn test_archive_ref<T: SerializeRef<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>> + ?Sized>(value: &T)
@@ -459,7 +459,7 @@ mod tests {
     fn manual_archive_dyn() {
         use rkyv::{DeserializeRef, Serializer};
         use rkyv_dyn::{
-            register_impl, SerializeDyn, ArchivedDyn, DynDeserializer, RegisteredImpl, DeserializeDyn,
+            register_impl, SerializeDyn, ArchivedDyn, DynDeserializer, DynError, RegisteredImpl, DeserializeDyn,
         };
 
         pub trait TestTrait {
@@ -497,8 +497,7 @@ mod tests {
                 &self,
                 mut serializer: &mut S,
             ) -> Result<usize, S::Error> {
-                self.serialize_dyn(&mut serializer)
-                    .map_err(|e| *e.downcast::<S::Error>().unwrap())
+                self.serialize_dyn(&mut serializer).map_err(|e| *e.downcast::<S::Error>().unwrap())
             }
         }
 
@@ -506,8 +505,8 @@ mod tests {
             unsafe fn deserialize_ref(
                 &self,
                 mut deserializer: &mut D,
-            ) -> *mut dyn SerializeTestTrait {
-                (*self).deserialize_dyn(&mut deserializer)
+            ) -> Result<*mut dyn SerializeTestTrait, D::Error> {
+                self.deserialize_dyn(&mut deserializer).map_err(|e| *e.downcast().unwrap())
             }
         }
 
@@ -533,10 +532,10 @@ mod tests {
             unsafe fn deserialize_dyn(
                 &self,
                 deserializer: &mut dyn DynDeserializer,
-            ) -> *mut dyn SerializeTestTrait {
-                let result = deserializer.alloc_dyn(core::alloc::Layout::new::<Test>()) as *mut Test;
-                result.write(self.deserialize(deserializer));
-                result as *mut dyn SerializeTestTrait
+            ) -> Result<*mut dyn SerializeTestTrait, DynError> {
+                let result = deserializer.alloc_dyn(core::alloc::Layout::new::<Test>())? as *mut Test;
+                result.write(self.deserialize(deserializer)?);
+                Ok(result as *mut dyn SerializeTestTrait)
             }
         }
 
@@ -559,7 +558,7 @@ mod tests {
         assert_eq!(value.get_id(), archived_value.get_id());
         assert_eq!(value.get_id(), archived_value.get_id());
 
-        let deserialized_value: Box<dyn SerializeTestTrait> = archived_value.deserialize(&mut GlobalAllocDeserializer);
+        let deserialized_value: Box<dyn SerializeTestTrait> = archived_value.deserialize(&mut GlobalAllocDeserializer).unwrap();
         assert_eq!(value.get_id(), deserialized_value.get_id());
     }
 
@@ -602,14 +601,14 @@ mod tests {
         assert_eq!(value.get_id(), archived_value.get_id());
 
         // deserialize
-        let deserialized_value: Box<dyn STestTrait> = archived_value.deserialize(&mut GlobalAllocDeserializer);
+        let deserialized_value: Box<dyn STestTrait> = archived_value.deserialize(&mut GlobalAllocDeserializer).unwrap();
         assert_eq!(value.get_id(), deserialized_value.get_id());
         assert_eq!(value.get_id(), deserialized_value.get_id());
     }
 
     #[test]
     fn archive_dyn_generic() {
-        use rkyv_dyn::{register_impl, DynDeserializer, DynSerializer};
+        use rkyv_dyn::{register_impl, DynDeserializer, DynError, DynSerializer};
 
         #[archive_dyn(serialize = "STestTrait", deserialize = "DTestTrait")]
         pub trait TestTrait<T: TypeName> {
@@ -649,10 +648,10 @@ mod tests {
             unsafe fn deserialize_dyn(
                 &self,
                 deserializer: &mut dyn DynDeserializer,
-            ) -> *mut dyn STestTrait<String> {
-                let result = deserializer.alloc(core::alloc::Layout::new::<Test<T>>()) as *mut Test<T>;
-                result.write(self.deserialize(deserializer));
-                result as *mut dyn STestTrait<String>
+            ) -> Result<*mut dyn STestTrait<String>, DynError> {
+                let result = deserializer.alloc(core::alloc::Layout::new::<Test<T>>())? as *mut Test<T>;
+                result.write(self.deserialize(deserializer)?);
+                Ok(result as *mut dyn STestTrait<String>)
             }
         }
 
@@ -689,15 +688,14 @@ mod tests {
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
 
-        let i32_deserialized_value: Box<dyn STestTrait<i32>> = i32_archived_value.deserialize(&mut GlobalAllocDeserializer);
+        let i32_deserialized_value: Box<dyn STestTrait<i32>> = i32_archived_value.deserialize(&mut GlobalAllocDeserializer).unwrap();
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
 
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
-        let string_deserialized_value: Box<dyn STestTrait<String>> =
-            string_archived_value.deserialize(&mut GlobalAllocDeserializer);
+        let string_deserialized_value: Box<dyn STestTrait<String>> = string_archived_value.deserialize(&mut GlobalAllocDeserializer).unwrap();
         assert_eq!(
             string_value.get_value(),
             string_deserialized_value.get_value()
@@ -928,11 +926,11 @@ mod tests {
         }
 
         impl<D: AllocDeserializer + ?Sized> Deserialize<Node, D> for ArchivedNode {
-            fn deserialize(&self, deserializer: &mut D) -> Node {
-                match self {
+            fn deserialize(&self, deserializer: &mut D) -> Result<Node, D::Error> {
+                Ok(match self {
                     ArchivedNode::Nil => Node::Nil,
-                    ArchivedNode::Cons(inner) => Node::Cons(inner.deserialize(deserializer)),
-                }
+                    ArchivedNode::Cons(inner) => Node::Cons(inner.deserialize(deserializer)?),
+                })
             }
         }
 

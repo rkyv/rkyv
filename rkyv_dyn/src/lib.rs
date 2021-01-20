@@ -64,19 +64,6 @@ pub trait DynSerializer {
     fn write_dyn(&mut self, bytes: &[u8]) -> Result<(), DynError>;
 }
 
-impl<S: Serializer + ?Sized> DynSerializer for &mut S {
-    fn pos_dyn(&self) -> usize {
-        self.pos()
-    }
-
-    fn write_dyn(&mut self, bytes: &[u8]) -> Result<(), DynError> {
-        match self.write(bytes) {
-            Ok(()) => Ok(()),
-            Err(e) => Err(Box::new(e)),
-        }
-    }
-}
-
 impl<'a> Fallible for dyn DynSerializer + 'a {
     type Error = DynError;
 }
@@ -88,6 +75,19 @@ impl<'a> Serializer for dyn DynSerializer + 'a {
 
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
         self.write_dyn(bytes)
+    }
+}
+
+impl<S: Serializer + ?Sized> DynSerializer for &mut S {
+    fn pos_dyn(&self) -> usize {
+        self.pos()
+    }
+
+    fn write_dyn(&mut self, bytes: &[u8]) -> Result<(), DynError> {
+        match self.write(bytes) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(Box::new(e)),
+        }
     }
 }
 
@@ -193,8 +193,8 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// assert_eq!(archived_int.value(), "42");
 /// assert_eq!(archived_string.value(), "hello world");
 ///
-/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int.deserialize(&mut GlobalAllocDeserializer);
-/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string.deserialize(&mut GlobalAllocDeserializer);
+/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int.deserialize(&mut GlobalAllocDeserializer).unwrap();
+/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string.deserialize(&mut GlobalAllocDeserializer).unwrap();
 /// assert_eq!(deserialized_int.value(), "42");
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```
@@ -220,18 +220,22 @@ where
 }
 
 pub trait DynDeserializer {
-    unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> *mut u8;
+    unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> Result<*mut u8, DynError>;
 }
 
-impl<D: AllocDeserializer + ?Sized> DynDeserializer for &mut D {
-    unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> *mut u8 {
-        self.alloc(layout)
-    }
+impl<'a> Fallible for dyn DynDeserializer + 'a {
+    type Error = DynError;
 }
 
 impl<'a> AllocDeserializer for (dyn DynDeserializer + 'a) {
-    unsafe fn alloc(&mut self, layout: alloc::Layout) -> *mut u8 {
+    unsafe fn alloc(&mut self, layout: alloc::Layout) -> Result<*mut u8, Self::Error> {
         self.alloc_dyn(layout)
+    }
+}
+
+impl<D: AllocDeserializer + ?Sized> DynDeserializer for &mut D {
+    unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> Result<*mut u8, DynError> {
+        self.alloc(layout).map_err(|e| Box::new(e) as Box<dyn Any>)
     }
 }
 
@@ -244,7 +248,7 @@ pub trait DeserializeDyn<T: ?Sized> {
     /// # Safety
     ///
     /// The return value must be allocated using the given allocator function.
-    unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer) -> *mut T;
+    unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer) -> Result<*mut T, DynError>;
 }
 
 /// A reference to an archived trait object.

@@ -6,7 +6,7 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{offset_of, Archive, Archived, RelPtr, Serialize, Deserialize, Serializer};
+use crate::{offset_of, Archive, Archived, Fallible, RelPtr, Serialize, Deserialize, Serializer};
 use core::{
     borrow::Borrow,
     cmp::Reverse,
@@ -604,17 +604,17 @@ where
     }
 }
 
-impl<K: Archive + Hash + Eq, V: Archive, D: ?Sized> Deserialize<HashMap<K, V>, D> for Archived<HashMap<K, V>>
+impl<K: Archive + Hash + Eq, V: Archive, D: Fallible + ?Sized> Deserialize<HashMap<K, V>, D> for Archived<HashMap<K, V>>
 where
     K::Archived: Deserialize<K, D> + Hash + Eq,
     V::Archived: Deserialize<V, D>,
 {
-    fn deserialize(&self, deserializer: &mut D) -> HashMap<K, V> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<HashMap<K, V>, D::Error> {
         let mut result = HashMap::new();
         for (k, v) in self.iter() {
-            result.insert(k.deserialize(deserializer), v.deserialize(deserializer));
+            result.insert(k.deserialize(deserializer)?, v.deserialize(deserializer)?);
         }
-        result
+        Ok(result)
     }
 }
 
@@ -736,5 +736,18 @@ where
             self.len(),
             serializer,
         )?))
+    }
+}
+
+impl<K: Archive + Hash + Eq, D: Fallible + ?Sized> Deserialize<HashSet<K>, D> for Archived<HashSet<K>>
+where
+    K::Archived: Deserialize<K, D> + Hash + Eq,
+{
+    fn deserialize(&self, deserializer: &mut D) -> Result<HashSet<K>, D::Error> {
+        let mut result = HashSet::new();
+        for k in self.iter() {
+            result.insert(k.deserialize(deserializer)?);
+        }
+        Ok(result)
     }
 }
