@@ -87,7 +87,7 @@ use std::io;
 pub use memoffset::offset_of;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 #[cfg(feature = "std")]
-pub use std_impl::{GlobalAllocDeserializer, shared::SharedSerializerAdapter};
+pub use std_impl::{AllocDeserializer, shared::{SharedDeserializerAdapter, SharedSerializerAdapter}};
 #[cfg(feature = "validation")]
 pub use validation::check_archive;
 
@@ -390,7 +390,7 @@ pub trait Serialize<S: Fallible + ?Sized>: Archive {
 /// ## Examples
 ///
 /// ```
-/// use rkyv::{Aligned, Archive, Archived, archived_value, BufferSerializer, GlobalAllocDeserializer, Deserialize, Serialize, Serializer};
+/// use rkyv::{Aligned, AllocDeserializer, Archive, Archived, archived_value, BufferSerializer, Deserialize, Serialize, Serializer};
 ///
 /// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
 /// struct Test {
@@ -410,7 +410,7 @@ pub trait Serialize<S: Fallible + ?Sized>: Archive {
 /// let buf = serializer.into_inner();
 /// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 ///
-/// let deserialized = archived.deserialize(&mut GlobalAllocDeserializer).unwrap();
+/// let deserialized = archived.deserialize(&mut AllocDeserializer).unwrap();
 /// assert_eq!(value, deserialized);
 /// ```
 pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
@@ -444,12 +444,12 @@ pub trait SerializeRef<S: Fallible + ?Sized>: ArchiveRef {
     fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error>;
 }
 
-pub trait AllocDeserializer: Fallible {
+pub trait Deserializer: Fallible {
     unsafe fn alloc(&mut self, layout: alloc::Layout) -> Result<*mut u8, Self::Error>;
 }
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
-pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized, D: AllocDeserializer + ?Sized>:
+pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized, D: Deserializer + ?Sized>:
     Deref<Target = T::Archived> + DerefMut<Target = T::Archived> + Sized
 {
     /// Deserializes a reference to the given value.
@@ -860,5 +860,13 @@ pub unsafe fn archived_value_ref_mut<T: ArchiveRef + ?Sized>(
 }
 
 pub trait SharedSerializer: Serializer {
-    fn serialize_shared_ref<T: SerializeRef<Self> + ?Sized + 'static>(&mut self, value: &T) -> Result<usize, Self::Error>;
+    fn serialize_shared_ref<T: ArchiveRef + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error>
+    where
+        T: SerializeRef<Self>;
+}
+
+pub trait SharedDeserializer: Deserializer {
+    fn deserialize_shared_ref<T: ArchiveRef + ?Sized, P: Clone + 'static>(&mut self, reference: &T::Reference, to_shared: impl FnOnce(*mut T) -> P) -> Result<P, Self::Error>
+    where
+        T::Reference: DeserializeRef<T, Self>;
 }

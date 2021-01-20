@@ -6,7 +6,7 @@ pub mod shared;
 pub mod validation;
 
 use crate::{
-    core_impl::ArchivedSlice, AllocDeserializer, Archive, ArchiveRef, Archived, Fallible, Reference,
+    core_impl::ArchivedSlice, Deserializer, Archive, ArchiveRef, Archived, Fallible, Reference,
     Serialize, SerializeRef, Deserialize, DeserializeRef, Serializer,
 };
 use core::{
@@ -18,13 +18,13 @@ use core::{
 };
 use std::alloc;
 
-pub struct GlobalAllocDeserializer;
+pub struct AllocDeserializer;
 
-impl Fallible for GlobalAllocDeserializer {
+impl Fallible for AllocDeserializer {
     type Error = ();
 }
 
-impl AllocDeserializer for GlobalAllocDeserializer {
+impl Deserializer for AllocDeserializer {
     unsafe fn alloc(&mut self, layout: alloc::Layout) -> Result<*mut u8, Self::Error> {
         Ok(std::alloc::alloc(layout))
     }
@@ -187,7 +187,7 @@ impl<T: SerializeRef<S> + ?Sized, S: Fallible + ?Sized> Serialize<S> for Box<T> 
     }
 }
 
-impl<T: ArchiveRef + ?Sized, D: AllocDeserializer + ?Sized> Deserialize<Box<T>, D> for Archived<Box<T>>
+impl<T: ArchiveRef + ?Sized, D: Deserializer + ?Sized> Deserialize<Box<T>, D> for Archived<Box<T>>
 where
     Reference<T>: DeserializeRef<T, D>,
 {
@@ -225,7 +225,7 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeRef<S> for [T] {
     }
 }
 
-impl<T: Archive, D: AllocDeserializer + ?Sized> DeserializeRef<[T], D> for <[T] as ArchiveRef>::Reference
+impl<T: Archive, D: Deserializer + ?Sized> DeserializeRef<[T], D> for <[T] as ArchiveRef>::Reference
 where
     T::Archived: Deserialize<T, D>,
 {

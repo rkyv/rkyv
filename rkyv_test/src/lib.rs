@@ -4,10 +4,7 @@ mod validation;
 #[cfg(test)]
 mod tests {
     use core::pin::Pin;
-    use rkyv::{
-        archived_value, archived_value_mut, archived_value_ref, Aligned, AllocDeserializer, Archive,
-        ArchiveRef, Archived, BufferSerializer, GlobalAllocDeserializer, SeekSerializer, Serialize, SerializeRef, Deserialize, Serializer,
-    };
+    use rkyv::{Aligned, AllocDeserializer, Archive, ArchiveRef, Archived, BufferSerializer, Deserialize, Deserializer, SeekSerializer, Serialize, SerializeRef, Serializer, SharedDeserializerAdapter, archived_value, archived_value_mut, archived_value_ref};
     use rkyv_dyn::archive_dyn;
     use rkyv_typename::TypeName;
     use std::collections::HashMap;
@@ -17,14 +14,14 @@ mod tests {
     fn test_archive<T: Serialize<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>>(value: &T)
     where
         T: PartialEq,
-        T::Archived: PartialEq<T> + Deserialize<T, GlobalAllocDeserializer>,
+        T::Archived: PartialEq<T> + Deserialize<T, AllocDeserializer>,
     {
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = serializer.serialize(value).expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
-        assert!(&archived_value.deserialize(&mut GlobalAllocDeserializer).unwrap() == value);
+        assert!(&archived_value.deserialize(&mut AllocDeserializer).unwrap() == value);
     }
 
     fn test_archive_ref<T: SerializeRef<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>> + ?Sized>(value: &T)
@@ -501,7 +498,7 @@ mod tests {
             }
         }
 
-        impl<D: AllocDeserializer + ?Sized> DeserializeRef<dyn SerializeTestTrait, D> for ArchivedDyn<dyn DeserializeTestTrait> {
+        impl<D: Deserializer + ?Sized> DeserializeRef<dyn SerializeTestTrait, D> for ArchivedDyn<dyn DeserializeTestTrait> {
             unsafe fn deserialize_ref(
                 &self,
                 mut deserializer: &mut D,
@@ -558,7 +555,7 @@ mod tests {
         assert_eq!(value.get_id(), archived_value.get_id());
         assert_eq!(value.get_id(), archived_value.get_id());
 
-        let deserialized_value: Box<dyn SerializeTestTrait> = archived_value.deserialize(&mut GlobalAllocDeserializer).unwrap();
+        let deserialized_value: Box<dyn SerializeTestTrait> = archived_value.deserialize(&mut AllocDeserializer).unwrap();
         assert_eq!(value.get_id(), deserialized_value.get_id());
     }
 
@@ -601,7 +598,7 @@ mod tests {
         assert_eq!(value.get_id(), archived_value.get_id());
 
         // deserialize
-        let deserialized_value: Box<dyn STestTrait> = archived_value.deserialize(&mut GlobalAllocDeserializer).unwrap();
+        let deserialized_value: Box<dyn STestTrait> = archived_value.deserialize(&mut AllocDeserializer).unwrap();
         assert_eq!(value.get_id(), deserialized_value.get_id());
         assert_eq!(value.get_id(), deserialized_value.get_id());
     }
@@ -688,14 +685,14 @@ mod tests {
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
 
-        let i32_deserialized_value: Box<dyn STestTrait<i32>> = i32_archived_value.deserialize(&mut GlobalAllocDeserializer).unwrap();
+        let i32_deserialized_value: Box<dyn STestTrait<i32>> = i32_archived_value.deserialize(&mut AllocDeserializer).unwrap();
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
 
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
-        let string_deserialized_value: Box<dyn STestTrait<String>> = string_archived_value.deserialize(&mut GlobalAllocDeserializer).unwrap();
+        let string_deserialized_value: Box<dyn STestTrait<String>> = string_archived_value.deserialize(&mut AllocDeserializer).unwrap();
         assert_eq!(
             string_value.get_value(),
             string_deserialized_value.get_value()
@@ -925,7 +922,7 @@ mod tests {
             }
         }
 
-        impl<D: AllocDeserializer + ?Sized> Deserialize<Node, D> for ArchivedNode {
+        impl<D: Deserializer + ?Sized> Deserialize<Node, D> for ArchivedNode {
             fn deserialize(&self, deserializer: &mut D) -> Result<Node, D::Error> {
                 Ok(match self {
                     ArchivedNode::Nil => Node::Nil,
@@ -1030,7 +1027,7 @@ mod tests {
         use rkyv::SharedSerializerAdapter;
         use std::rc::Rc;
 
-        #[derive(Archive, Serialize, Eq, PartialEq)]
+        #[derive(Archive, Deserialize, Serialize, Eq, PartialEq)]
         struct Test {
             a: Rc<u32>,
             b: Rc<u32>,
@@ -1079,6 +1076,25 @@ mod tests {
         assert_eq!(*archived.a, 17);
         assert_eq!(*archived.b, 17);
 
-        // assert!(&archived.deserialize() == value);
+        let mut deserializer = SharedDeserializerAdapter::new(AllocDeserializer);
+        let deserialized = archived.deserialize(&mut deserializer).unwrap();
+
+        assert_eq!(*deserialized.a, 17);
+        assert_eq!(*deserialized.b, 17);
+        assert_eq!(&*deserialized.a as *const u32, &*deserialized.b as *const u32);
+        assert_eq!(Rc::strong_count(&deserialized.a), 3);
+        assert_eq!(Rc::strong_count(&deserialized.b), 3);
+        assert_eq!(Rc::weak_count(&deserialized.a), 0);
+        assert_eq!(Rc::weak_count(&deserialized.b), 0);
+
+        core::mem::drop(deserializer);
+
+        assert_eq!(*deserialized.a, 17);
+        assert_eq!(*deserialized.b, 17);
+        assert_eq!(&*deserialized.a as *const u32, &*deserialized.b as *const u32);
+        assert_eq!(Rc::strong_count(&deserialized.a), 2);
+        assert_eq!(Rc::strong_count(&deserialized.b), 2);
+        assert_eq!(Rc::weak_count(&deserialized.a), 0);
+        assert_eq!(Rc::weak_count(&deserialized.b), 0);
     }
 }

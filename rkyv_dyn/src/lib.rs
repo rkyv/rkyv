@@ -29,7 +29,7 @@ use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicU64, Ordering},
 };
-use rkyv::{offset_of, AllocDeserializer, Fallible, Serialize, RelPtr, Serializer};
+use rkyv::{offset_of, Deserializer, Fallible, Serialize, RelPtr, Serializer};
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
@@ -129,12 +129,12 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// ```
 /// use rkyv::{
 ///     Aligned,
+///     AllocDeserializer,
 ///     Archive,
 ///     Archived,
 ///     archived_value,
 ///     BufferSerializer,
 ///     Deserialize,
-///     GlobalAllocDeserializer,
 ///     Serialize,
 ///     Serializer,
 /// };
@@ -193,8 +193,8 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// assert_eq!(archived_int.value(), "42");
 /// assert_eq!(archived_string.value(), "hello world");
 ///
-/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int.deserialize(&mut GlobalAllocDeserializer).unwrap();
-/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string.deserialize(&mut GlobalAllocDeserializer).unwrap();
+/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int.deserialize(&mut AllocDeserializer).unwrap();
+/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string.deserialize(&mut AllocDeserializer).unwrap();
 /// assert_eq!(deserialized_int.value(), "42");
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```
@@ -227,13 +227,13 @@ impl<'a> Fallible for dyn DynDeserializer + 'a {
     type Error = DynError;
 }
 
-impl<'a> AllocDeserializer for (dyn DynDeserializer + 'a) {
+impl<'a> Deserializer for (dyn DynDeserializer + 'a) {
     unsafe fn alloc(&mut self, layout: alloc::Layout) -> Result<*mut u8, Self::Error> {
         self.alloc_dyn(layout)
     }
 }
 
-impl<D: AllocDeserializer + ?Sized> DynDeserializer for &mut D {
+impl<D: Deserializer + ?Sized> DynDeserializer for &mut D {
     unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> Result<*mut u8, DynError> {
         self.alloc(layout).map_err(|e| Box::new(e) as Box<dyn Any>)
     }

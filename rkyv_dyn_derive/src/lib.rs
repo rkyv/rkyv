@@ -242,7 +242,7 @@ pub fn archive_dyn(
                     quote! {
                         impl<__T: #name<#generic_args> + DeserializeDyn<dyn #serialize_trait<#generic_args>>, #generic_params> #deserialize_trait<#generic_args> for __T {}
 
-                        impl<__D: AllocDeserializer + ?Sized, #generic_params> DeserializeRef<dyn #serialize_trait<#generic_args>, __D> for ArchivedDyn<dyn #deserialize_trait<#generic_args>> {
+                        impl<__D: Deserializer + ?Sized, #generic_params> DeserializeRef<dyn #serialize_trait<#generic_args>, __D> for ArchivedDyn<dyn #deserialize_trait<#generic_args>> {
                             unsafe fn deserialize_ref(&self, mut deserializer: &mut __D) -> Result<*mut dyn #serialize_trait<#generic_args>, __D::Error> {
                                 (*self).deserialize_dyn(&mut deserializer).map_err(|e| *e.downcast().unwrap())
                             }
@@ -279,12 +279,12 @@ pub fn archive_dyn(
 
                 const _: ()  = {
                     use rkyv::{
-                        AllocDeserializer,
                         Archived,
                         ArchiveRef,
-                        SerializeRef,
+                        Deserializer,
                         DeserializeRef,
                         Serializer,
+                        SerializeRef,
                     };
                     use rkyv_dyn::{
                         ArchivedDyn,

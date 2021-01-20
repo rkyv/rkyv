@@ -1,8 +1,8 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    offset_of, AllocDeserializer, Archive, ArchiveCopy, ArchiveRef, Archived, Fallible, Reference, RelPtr,
-    Serialize, Serializer, SerializeRef, Deserialize, DeserializeRef,
+    offset_of, Archive, ArchiveCopy, ArchiveRef, Archived, Fallible, Reference, RelPtr,
+    Serialize, Serializer, SerializeRef, Deserialize, Deserializer, DeserializeRef,
 };
 use core::{
     alloc,
@@ -88,7 +88,7 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeRef<S> for T {
     }
 }
 
-impl<T: Archive, D: AllocDeserializer + ?Sized> DeserializeRef<T, D> for <T as ArchiveRef>::Reference
+impl<T: Archive, D: Deserializer + ?Sized> DeserializeRef<T, D> for <T as ArchiveRef>::Reference
 where
     T::Archived: Deserialize<T, D>,
 {
@@ -185,7 +185,7 @@ impl<T: ArchiveCopy> ArchiveRef for [T] {
 }
 
 #[cfg(not(feature = "std"))]
-impl<T: ArchiveCopy, D: AllocDeserializer + ?Sized> DeserializeRef<[T], D> for <[T] as ArchiveRef>::Reference
+impl<T: ArchiveCopy, D: Deserializer + ?Sized> DeserializeRef<[T], D> for <[T] as ArchiveRef>::Reference
 where
     T::Archived: Deserialize<T, D>,
 {
@@ -515,7 +515,7 @@ where
     }
 }
 
-impl<D: AllocDeserializer + ?Sized> DeserializeRef<str, D> for <str as ArchiveRef>::Reference {
+impl<D: Deserializer + ?Sized> DeserializeRef<str, D> for <str as ArchiveRef>::Reference {
     unsafe fn deserialize_ref(&self, deserializer: &mut D) -> Result<*mut str, D::Error> {
         let bytes = deserializer.alloc(alloc::Layout::array::<u8>(self.len()).unwrap())?;
         ptr::copy_nonoverlapping(self.as_ptr(), bytes, self.len());
