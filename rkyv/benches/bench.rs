@@ -2,7 +2,7 @@ use bytecheck::CheckBytes;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
-use rkyv::{archived_value, check_archive, Aligned, Archive, ArchiveBuffer, Deserialize, Serialize, Write};
+use rkyv::{Aligned, AllocDeserializer, Archive, BufferSerializer, Deserialize, Serialize, Serializer, archived_value, check_archive};
 use std::collections::HashMap;
 
 trait Generate {
@@ -390,13 +390,13 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             unsafe { core::slice::from_raw_parts_mut(buffer.as_mut_ptr().cast(), buffer.len()) };
         group.bench_function("serialize", |b| {
             b.iter(|| {
-                let mut writer = ArchiveBuffer::new(black_box(&mut buffer));
-                black_box(writer.serialize(black_box(&players)).unwrap());
+                let mut serializer = BufferSerializer::new(black_box(&mut buffer));
+                black_box(serializer.serialize(black_box(&players)).unwrap());
             })
         });
 
-        let mut writer = ArchiveBuffer::new(&mut buffer);
-        let pos = writer.serialize(&players).unwrap();
+        let mut serializer = BufferSerializer::new(&mut buffer);
+        let pos = serializer.serialize(&players).unwrap();
 
         group.bench_function("access", |b| {
             b.iter(|| {
@@ -415,7 +415,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 let value = unsafe {
                     archived_value::<Players>(black_box(buffer.as_ref()), black_box(pos))
                 };
-                let deserialized: Players = value.deserialize();
+                let deserialized: Players = value.deserialize(&mut AllocDeserializer).unwrap();
                 black_box(deserialized);
             })
         });
@@ -423,7 +423,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 let value =
                     check_archive::<Players>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
-                let deserialize: Players = value.deserialize();
+                let deserialize: Players = value.deserialize(&mut AllocDeserializer).unwrap();
                 black_box(deserialize);
             })
         });
