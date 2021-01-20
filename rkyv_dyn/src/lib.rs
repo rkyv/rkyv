@@ -64,8 +64,7 @@ pub trait DynSerializer {
     fn write_dyn(&mut self, bytes: &[u8]) -> Result<(), DynError>;
 }
 
-// TODO: this impl might be a bit suspicious
-impl<'a, S: Serializer + ?Sized> DynSerializer for &'a mut S {
+impl<S: Serializer + ?Sized> DynSerializer for &mut S {
     fn pos_dyn(&self) -> usize {
         self.pos()
     }
@@ -224,7 +223,7 @@ pub trait DynDeserializer {
     unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> *mut u8;
 }
 
-impl<T: AllocDeserializer + ?Sized> DynDeserializer for T {
+impl<D: AllocDeserializer + ?Sized> DynDeserializer for &mut D {
     unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> *mut u8 {
         self.alloc(layout)
     }

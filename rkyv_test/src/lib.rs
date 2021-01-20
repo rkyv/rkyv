@@ -502,12 +502,12 @@ mod tests {
             }
         }
 
-        impl<D: AllocDeserializer> DeserializeRef<dyn SerializeTestTrait, D> for ArchivedDyn<dyn DeserializeTestTrait> {
+        impl<D: AllocDeserializer + ?Sized> DeserializeRef<dyn SerializeTestTrait, D> for ArchivedDyn<dyn DeserializeTestTrait> {
             unsafe fn deserialize_ref(
                 &self,
-                deserializer: &mut D,
+                mut deserializer: &mut D,
             ) -> *mut dyn SerializeTestTrait {
-                (*self).deserialize_dyn(deserializer)
+                (*self).deserialize_dyn(&mut deserializer)
             }
         }
 

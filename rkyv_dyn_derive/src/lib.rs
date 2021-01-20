@@ -242,9 +242,9 @@ pub fn archive_dyn(
                     quote! {
                         impl<__T: #name<#generic_args> + DeserializeDyn<dyn #serialize_trait<#generic_args>>, #generic_params> #deserialize_trait<#generic_args> for __T {}
 
-                        impl<__D: AllocDeserializer, #generic_params> DeserializeRef<dyn #serialize_trait<#generic_args>, __D> for ArchivedDyn<dyn #deserialize_trait<#generic_args>> {
-                            unsafe fn deserialize_ref(&self, deserializer: &mut __D) -> *mut dyn #serialize_trait<#generic_args> {
-                                (*self).deserialize_dyn(deserializer)
+                        impl<__D: AllocDeserializer + ?Sized, #generic_params> DeserializeRef<dyn #serialize_trait<#generic_args>, __D> for ArchivedDyn<dyn #deserialize_trait<#generic_args>> {
+                            unsafe fn deserialize_ref(&self, mut deserializer: &mut __D) -> *mut dyn #serialize_trait<#generic_args> {
+                                (*self).deserialize_dyn(&mut deserializer)
                             }
                         }
                     },
