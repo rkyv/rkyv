@@ -1,5 +1,5 @@
 use core::fmt;
-use std::error;
+use std::error::Error;
 use bytecheck::CheckBytes;
 use super::{ArchivedArc, ArchivedRc};
 use crate::validation::{ArchiveBoundsContext, ArchiveBoundsError, CheckBytesRef, SharedArchiveContext, SharedArchiveError};
@@ -35,7 +35,16 @@ impl<T: fmt::Display, R: fmt::Display> fmt::Display for SharedPointerError<T, R>
     }
 }
 
-impl<T: fmt::Debug + fmt::Display, R: fmt::Debug + fmt::Display> error::Error for SharedPointerError<T, R> {}
+impl<T: fmt::Debug + fmt::Display + Error + 'static, R: fmt::Debug + fmt::Display + Error + 'static> Error for SharedPointerError<T, R> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            SharedPointerError::BoundsError(e) => Some(e as &dyn Error),
+            SharedPointerError::SharedError(e) => Some(e as &dyn Error),
+            SharedPointerError::CheckBytes(e) => Some(e as &dyn Error),
+            SharedPointerError::RefCheckBytes(e) => Some(e as &dyn Error),
+        }
+    }
+}
 
 impl<T: CheckBytesRef<C> + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedRc<T> {
     type Error = SharedPointerError<T::Error, T::RefError>;

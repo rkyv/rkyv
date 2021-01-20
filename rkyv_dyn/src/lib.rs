@@ -48,7 +48,7 @@ fn likely(b: bool) -> bool {
     b
 }
 
-/// A generic error that can be returned from a [`WriteDyn`].
+/// A generic error that can be returned from a [`DynSerializer`].
 pub type DynError = Box<dyn Any>;
 
 /// An object-safe version of `Serializer`.

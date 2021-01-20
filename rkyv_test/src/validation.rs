@@ -125,7 +125,11 @@ fn cycle_detection() {
         }
     }
 
-    impl Error for NodeError {}
+    impl Error for NodeError {
+        fn source(&self) -> Option<&(dyn Error + 'static)> {
+            Some(&*self.0)
+        }
+    }
 
     impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedNode {
         type Error = NodeError;

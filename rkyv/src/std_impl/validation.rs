@@ -1,5 +1,5 @@
 use core::fmt;
-use std::error;
+use std::error::Error;
 use super::{ArchivedBox, ArchivedString, ArchivedVec};
 use crate::{core_impl::{ArchivedStringSlice}, validation::{ArchiveBoundsContext, ArchiveBoundsError, ArchiveMemoryContext, ArchiveMemoryError, CheckBytesRef}};
 use bytecheck::CheckBytes;
@@ -35,7 +35,16 @@ impl<T: fmt::Display, R: fmt::Display> fmt::Display for OwnedPointerError<T, R> 
     }
 }
 
-impl<T: fmt::Debug + fmt::Display, R: fmt::Debug + fmt::Display> error::Error for OwnedPointerError<T, R> {}
+impl<T: fmt::Debug + fmt::Display + Error + 'static, R: fmt::Debug + fmt::Display + Error + 'static> Error for OwnedPointerError<T, R> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            OwnedPointerError::BoundsError(e) => Some(e as &dyn Error),
+            OwnedPointerError::MemoryError(e) => Some(e as &dyn Error),
+            OwnedPointerError::CheckBytes(e) => Some(e as &dyn Error),
+            OwnedPointerError::RefCheckBytes(e) => Some(e as &dyn Error),
+        }
+    }
+}
 
 impl<T: CheckBytesRef<C>, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedBox<T> {
     type Error = OwnedPointerError<<T as CheckBytes<C>>::Error, <T as CheckBytesRef<C>>::RefError>;

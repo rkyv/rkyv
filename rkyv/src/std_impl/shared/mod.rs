@@ -11,7 +11,7 @@ pub trait SharedSerializer: Serializer {
         T: SerializeRef<Self>;
 }
 
-/// A wrapper around a serializer that adds support for [`SharedWrite`].
+/// A wrapper around a serializer that adds support for [`SharedSerializer`].
 pub struct SharedSerializerAdapter<S> {
     inner: S,
     shared_resolvers: HashMap<*const u8, usize>,

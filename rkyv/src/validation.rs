@@ -3,7 +3,7 @@
 use crate::{Archive, Archived, offset_of, Offset, RelPtr};
 use bytecheck::{CheckBytes, Unreachable};
 use core::{any::TypeId, fmt, marker::PhantomPinned, mem};
-use std::{collections::HashMap, error};
+use std::{collections::HashMap, error::Error};
 
 impl<C: ?Sized> CheckBytes<C> for RelPtr
 where
@@ -22,7 +22,7 @@ where
 }
 
 pub trait CheckBytesRef<C: ArchiveBoundsContext + ?Sized>: CheckBytes<C> {
-    type RefError: error::Error + 'static;
+    type RefError: Error + 'static;
     type Target: ?Sized;
 
     fn check_ptr(&self, context: &mut C) -> Result<(*const u8, usize), ArchiveBoundsError>;
@@ -88,7 +88,7 @@ impl fmt::Display for ArchiveBoundsError {
     }
 }
 
-impl error::Error for ArchiveBoundsError {}
+impl Error for ArchiveBoundsError {}
 
 /// A context that can ensure that a 
 pub trait ArchiveBoundsContext {
@@ -213,7 +213,7 @@ impl fmt::Display for ArchiveMemoryError {
     }
 }
 
-impl error::Error for ArchiveMemoryError {}
+impl Error for ArchiveMemoryError {}
 
 /// Context to perform archive validation.
 ///
@@ -322,7 +322,15 @@ impl error::Error for ArchiveMemoryError {}
 ///     }
 /// }
 ///
-/// impl<T: Error> Error for ArchivedMyBoxError<T> {}
+/// impl<T: Error + 'static> Error for ArchivedMyBoxError<T> {
+///     fn source(&self) -> Option<&(dyn Error + 'static)> {
+///         match self {
+///             ArchivedMyBoxError::BoundsError(e) => Some(e as &dyn Error),
+///             ArchivedMyBoxError::MemoryError(e) => Some(e as &dyn Error),
+///             ArchivedMyBoxError::CheckValueError(e) => Some(e as &dyn Error),
+///         }
+///     }
+/// }
 ///
 /// impl<T> From<Unreachable> for ArchivedMyBoxError<T> {
 ///     fn from(e: Unreachable) -> Self {
@@ -475,7 +483,14 @@ impl fmt::Display for SharedArchiveError {
     }
 }
 
-impl error::Error for SharedArchiveError {}
+impl Error for SharedArchiveError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            SharedArchiveError::MemoryError(e) => Some(e as &dyn Error),
+            SharedArchiveError::TypeMismatch { .. } => None,
+        }
+    }
+}
 
 pub trait SharedArchiveContext: ArchiveMemoryContext {
     /// Claims `count` shared bytes located `offset` bytes away from `base`.
@@ -570,7 +585,15 @@ impl<T: fmt::Display> fmt::Display for CheckArchiveError<T> {
     }
 }
 
-impl<T: fmt::Debug + fmt::Display> error::Error for CheckArchiveError<T> {}
+impl<T: fmt::Debug + fmt::Display + Error + 'static> Error for CheckArchiveError<T> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            CheckArchiveError::BoundsError(e) => Some(e as &dyn Error),
+            CheckArchiveError::MemoryError(e) => Some(e as &dyn Error),
+            CheckArchiveError::CheckBytes(e) => Some(e as &dyn Error),
+        }
+    }
+}
 
 pub type DefaultArchiveValidator = SharedArchiveValidator<ArchiveValidator<ArchiveBoundsValidator>>;
 

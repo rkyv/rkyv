@@ -187,7 +187,13 @@ impl fmt::Display for CheckArchivedDynError {
     }
 }
 
-impl Error for CheckArchivedDynError {}
+impl Error for CheckArchivedDynError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            CheckArchivedDynError::CheckBytes(e) => Some(&**e),
+        }
+    }
+}
 
 impl From<Box<dyn Error>> for CheckArchivedDynError {
     fn from(e: Box<dyn Error>) -> Self {

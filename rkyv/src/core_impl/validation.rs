@@ -54,18 +54,28 @@ impl<T: CheckBytes<C>, C: ?Sized> CheckBytes<C> for ArchivedSlice<T> {
 }
 
 #[derive(Debug)]
-pub struct SliceError<T> {
-    index: usize,
-    inner: T,
+pub enum SliceError<T> {
+    CheckBytes {
+        index: usize,
+        inner: T,
+    },
 }
 
 impl<T: fmt::Display> fmt::Display for SliceError<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "error at index {}: {}", self.index, self.inner)
+        match self {
+            SliceError::CheckBytes { index, inner } => write!(f, "error at index {}: {}", index, inner),
+        }
     }
 }
 
-impl<T: fmt::Debug + fmt::Display> Error for SliceError<T> {}
+impl<T: fmt::Debug + fmt::Display + Error + 'static> Error for SliceError<T> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            SliceError::CheckBytes { inner, .. } => Some(inner as &dyn Error),
+        }
+    }
+}
 
 impl<T: CheckBytes<C>, C: ArchiveBoundsContext + ?Sized> CheckBytesRef<C> for ArchivedSlice<T> {
     type RefError = SliceError<T::Error>;
@@ -81,7 +91,7 @@ impl<T: CheckBytes<C>, C: ArchiveBoundsContext + ?Sized> CheckBytesRef<C> for Ar
     unsafe fn check_ref_bytes<'a>(&'a self, bytes: *const u8, context: &mut C) -> Result<&'a Self::Target, Self::RefError> {
         for i in 0..self.len as usize {
             T::check_bytes(bytes.add(i * core::mem::size_of::<T>()), context)
-                .map_err(|e| SliceError { index: i, inner: e })?;
+                .map_err(|e| SliceError::CheckBytes { index: i, inner: e })?;
         }
         Ok(slice::from_raw_parts(bytes.cast::<T>(), self.len as usize))
     }
@@ -122,7 +132,13 @@ impl fmt::Display for StringSliceError {
     }
 }
 
-impl Error for StringSliceError {}
+impl Error for StringSliceError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            StringSliceError::InvalidUtf8(e) => Some(e as &dyn Error),
+        }
+    }
+}
 
 impl<C: ArchiveBoundsContext + ?Sized> CheckBytesRef<C> for ArchivedStringSlice {
     type RefError = StringSliceError;
@@ -149,15 +165,20 @@ pub enum ArchivedOptionError<T> {
 impl<T: fmt::Display> fmt::Display for ArchivedOptionError<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArchivedOptionError::InvalidTag(tag) => {
-                write!(f, "archived option had invalid tag: {}", tag)
-            }
+            ArchivedOptionError::InvalidTag(tag) => write!(f, "archived option had invalid tag: {}", tag),
             ArchivedOptionError::CheckBytes(e) => write!(f, "archived option check error: {}", e),
         }
     }
 }
 
-impl<T: fmt::Debug + fmt::Display> Error for ArchivedOptionError<T> {}
+impl<T: fmt::Debug + fmt::Display + Error + 'static> Error for ArchivedOptionError<T> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            ArchivedOptionError::InvalidTag(_) => None,
+            ArchivedOptionError::CheckBytes(e) => Some(e as &dyn Error),
+        }
+    }
+}
 
 impl<T> From<Unreachable> for ArchivedOptionError<T> {
     fn from(_: Unreachable) -> Self {
