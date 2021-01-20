@@ -858,15 +858,3 @@ pub unsafe fn archived_value_ref_mut<T: ArchiveRef + ?Sized>(
 ) -> Pin<&mut Reference<T>> {
     Pin::new_unchecked(&mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast())
 }
-
-pub trait SharedSerializer: Serializer {
-    fn serialize_shared_ref<T: ArchiveRef + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error>
-    where
-        T: SerializeRef<Self>;
-}
-
-pub trait SharedDeserializer: Deserializer {
-    fn deserialize_shared_ref<T: ArchiveRef + ?Sized, P: Clone + 'static>(&mut self, reference: &T::Reference, to_shared: impl FnOnce(*mut T) -> P) -> Result<P, Self::Error>
-    where
-        T::Reference: DeserializeRef<T, Self>;
-}

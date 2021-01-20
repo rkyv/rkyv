@@ -486,7 +486,7 @@ pub trait SharedArchiveContext: ArchiveMemoryContext {
     /// # Safety
     ///
     /// `base` must be inside the archive this context was created for.
-    unsafe fn claim_shared_bytes(&mut self, start: *const u8, len: usize, type_id: TypeId) -> Result<Option<*const u8>, SharedArchiveError>;
+    unsafe fn claim_shared_bytes<T: 'static>(&mut self, start: *const u8, len: usize) -> Result<Option<*const u8>, SharedArchiveError>;
 }
 
 pub struct SharedArchiveValidator<C> {
@@ -522,7 +522,8 @@ impl<C: ArchiveMemoryContext> ArchiveMemoryContext for SharedArchiveValidator<C>
 }
 
 impl<C: ArchiveMemoryContext> SharedArchiveContext for SharedArchiveValidator<C> {
-    unsafe fn claim_shared_bytes(&mut self, start: *const u8, len: usize, type_id: TypeId) -> Result<Option<*const u8>, SharedArchiveError> {
+    unsafe fn claim_shared_bytes<T: 'static>(&mut self, start: *const u8, len: usize) -> Result<Option<*const u8>, SharedArchiveError> {
+        let type_id = TypeId::of::<T>();
         if let Some(previous_type_id) = self.shared_blocks.get(&start) {
             if previous_type_id != &type_id {
                 Err(SharedArchiveError::TypeMismatch { previous: *previous_type_id, current: type_id })

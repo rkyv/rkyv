@@ -1,7 +1,7 @@
-use core::{any::TypeId, fmt};
+use core::fmt;
 use std::error;
 use bytecheck::CheckBytes;
-use super::ArchivedRc;
+use super::{ArchivedArc, ArchivedRc};
 use crate::validation::{ArchiveBoundsContext, ArchiveBoundsError, CheckBytesRef, SharedArchiveContext, SharedArchiveError};
 
 #[derive(Debug)]
@@ -43,7 +43,20 @@ impl<T: CheckBytesRef<C> + 'static, C: ArchiveBoundsContext + SharedArchiveConte
     unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
         let reference = T::check_bytes(bytes, context).map_err(SharedPointerError::CheckBytes)?;
         let (start, len) = reference.check_ptr(context)?;
-        if let Some(ref_bytes) = context.claim_shared_bytes(start, len, TypeId::of::<T>())? {
+        if let Some(ref_bytes) = context.claim_shared_bytes::<ArchivedRc<T>>(start, len)? {
+            reference.check_ref_bytes(ref_bytes, context).map_err(SharedPointerError::RefCheckBytes)?;
+        }
+        Ok(&*bytes.cast())
+    }
+}
+
+impl<T: CheckBytesRef<C> + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedArc<T> {
+    type Error = SharedPointerError<T::Error, T::RefError>;
+
+    unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
+        let reference = T::check_bytes(bytes, context).map_err(SharedPointerError::CheckBytes)?;
+        let (start, len) = reference.check_ptr(context)?;
+        if let Some(ref_bytes) = context.claim_shared_bytes::<ArchivedArc<T>>(start, len)? {
             reference.check_ref_bytes(ref_bytes, context).map_err(SharedPointerError::RefCheckBytes)?;
         }
         Ok(&*bytes.cast())

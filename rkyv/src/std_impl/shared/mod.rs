@@ -3,7 +3,13 @@ pub mod validation;
 
 use core::{alloc, ops::{Deref, DerefMut}, pin::Pin};
 use std::{any::Any, collections::HashMap, rc::Rc, sync::Arc};
-use crate::{Archive, Archived, ArchiveRef, Deserialize, Deserializer, DeserializeRef, Fallible, Reference, Serialize, SerializeRef, Serializer, SharedDeserializer, SharedSerializer};
+use crate::{Archive, Archived, ArchiveRef, Deserialize, Deserializer, DeserializeRef, Fallible, Reference, Serialize, SerializeRef, Serializer};
+
+pub trait SharedSerializer: Serializer {
+    fn serialize_shared_ref<T: ArchiveRef + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error>
+    where
+        T: SerializeRef<Self>;
+}
 
 /// A wrapper around a serializer that adds support for [`SharedWrite`].
 pub struct SharedSerializerAdapter<S> {
@@ -71,77 +77,10 @@ impl<S: Serializer> SharedSerializer for SharedSerializerAdapter<S> {
     }
 }
 
-/// An archived [`Rc`].
-///
-/// This is a thin wrapper around the reference type for whatever type was
-/// archived. Multiple `ArchivedRc` may point to the same value.
-#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[repr(transparent)]
-pub struct ArchivedRc<T>(T);
-
-impl<T: DerefMut> ArchivedRc<T> {
-    /// Gets the value of this archived `Rc` or `Arc`.
-    ///
-    /// # Safety
-    ///
-    /// Any other `ArchivedRc` pointers to the same value must not be
-    /// dereferenced for the duration of the returned borrow.
-    pub fn get_pin_unchecked(self: Pin<&mut Self>) -> Pin<&mut <T as Deref>::Target> {
-        unsafe { self.map_unchecked_mut(|s| s.0.deref_mut()) }
-    }
-}
-
-impl<T: Deref> Deref for ArchivedRc<T> {
-    type Target = T::Target;
-
-    fn deref(&self) -> &Self::Target {
-        self.0.deref()
-    }
-}
-
-impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Rc<V>> for ArchivedRc<T> {
-    fn eq(&self, other: &Rc<V>) -> bool {
-        self.deref().eq(other.deref())
-    }
-}
-
-impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Arc<V>> for ArchivedRc<T> {
-    fn eq(&self, other: &Arc<V>) -> bool {
-        self.deref().eq(other.deref())
-    }
-}
-
-/// The resolver for `Rc` and `Arc`.
-pub struct RcResolver(usize);
-
-impl<T: ArchiveRef + ?Sized> Archive for Rc<T> {
-    type Archived = ArchivedRc<T::Reference>;
-    type Resolver = RcResolver;
-
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        ArchivedRc(self.as_ref().resolve_ref(pos, resolver.0))
-    }
-}
-
-impl<T: ArchiveRef + ?Sized> Archive for Arc<T> {
-    type Archived = ArchivedRc<T::Reference>;
-    type Resolver = RcResolver;
-
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        ArchivedRc(self.as_ref().resolve_ref(pos, resolver.0))
-    }
-}
-
-impl<T: SerializeRef<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for Rc<T> {
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(RcResolver(serializer.serialize_shared_ref(self.as_ref())?))
-    }
-}
-
-impl<T: SerializeRef<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for Arc<T> {
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(RcResolver(serializer.serialize_shared_ref(self.as_ref())?))
-    }
+pub trait SharedDeserializer: Deserializer {
+    fn deserialize_shared_ref<T: ArchiveRef + ?Sized, P: Clone + 'static>(&mut self, reference: &T::Reference, to_shared: impl FnOnce(*mut T) -> P) -> Result<P, Self::Error>
+    where
+        T::Reference: DeserializeRef<T, Self>;
 }
 
 pub struct SharedDeserializerAdapter<D> {
@@ -195,6 +134,58 @@ impl<D: Deserializer> SharedDeserializer for SharedDeserializerAdapter<D> {
     }
 }
 
+/// The resolver for `Rc`.
+pub struct RcResolver(usize);
+
+/// An archived [`Rc`].
+///
+/// This is a thin wrapper around the reference type for whatever type was
+/// archived. Multiple `ArchivedRc` may point to the same value.
+#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[repr(transparent)]
+pub struct ArchivedRc<T>(T);
+
+impl<T: DerefMut> ArchivedRc<T> {
+    /// Gets the value of this archived `Rc`.
+    ///
+    /// # Safety
+    ///
+    /// Any other `ArchivedRc` pointers to the same value must not be
+    /// dereferenced for the duration of the returned borrow.
+    pub unsafe fn get_pin_unchecked(self: Pin<&mut Self>) -> Pin<&mut <T as Deref>::Target> {
+        self.map_unchecked_mut(|s| s.0.deref_mut())
+    }
+}
+
+impl<T: Deref> Deref for ArchivedRc<T> {
+    type Target = T::Target;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
+    }
+}
+
+impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Rc<V>> for ArchivedRc<T> {
+    fn eq(&self, other: &Rc<V>) -> bool {
+        self.deref().eq(other.deref())
+    }
+}
+
+impl<T: ArchiveRef + ?Sized> Archive for Rc<T> {
+    type Archived = ArchivedRc<T::Reference>;
+    type Resolver = RcResolver;
+
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        ArchivedRc(self.as_ref().resolve_ref(pos, resolver.0))
+    }
+}
+
+impl<T: SerializeRef<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for Rc<T> {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(RcResolver(serializer.serialize_shared_ref(self.as_ref())?))
+    }
+}
+
 impl<T: ArchiveRef + ?Sized + 'static, D: SharedDeserializer + ?Sized> Deserialize<Rc<T>, D> for Archived<Rc<T>>
 where
     Reference<T>: DeserializeRef<T, D>,
@@ -204,6 +195,58 @@ where
             &self.0,
             |ptr| Rc::<T>::from(unsafe { Box::from_raw(ptr) })
         )
+    }
+}
+
+/// The resolver for `Arc`.
+pub struct ArcResolver(usize);
+
+/// An archived [`Arc`].
+///
+/// This is a thin wrapper around the reference type for whatever type was
+/// archived. Multiple `ArchivedArc` may point to the same value.
+#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[repr(transparent)]
+pub struct ArchivedArc<T>(T);
+
+impl<T: DerefMut> ArchivedArc<T> {
+    /// Gets the value of this archived `Arc`.
+    ///
+    /// # Safety
+    ///
+    /// Any other `ArchivedArc` pointers to the same value must not be
+    /// dereferenced for the duration of the returned borrow.
+    pub unsafe fn get_pin_unchecked(self: Pin<&mut Self>) -> Pin<&mut <T as Deref>::Target> {
+        self.map_unchecked_mut(|s| s.0.deref_mut())
+    }
+}
+
+impl<T: Deref> Deref for ArchivedArc<T> {
+    type Target = T::Target;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
+    }
+}
+
+impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Arc<V>> for ArchivedArc<T> {
+    fn eq(&self, other: &Arc<V>) -> bool {
+        self.deref().eq(other.deref())
+    }
+}
+
+impl<T: ArchiveRef + ?Sized> Archive for Arc<T> {
+    type Archived = ArchivedArc<T::Reference>;
+    type Resolver = ArcResolver;
+
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        ArchivedArc(self.as_ref().resolve_ref(pos, resolver.0))
+    }
+}
+
+impl<T: SerializeRef<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for Arc<T> {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(ArcResolver(serializer.serialize_shared_ref(self.as_ref())?))
     }
 }
 

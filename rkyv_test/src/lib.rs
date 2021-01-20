@@ -1063,14 +1063,18 @@ mod tests {
         assert!(archived == &value);
 
         let mut mutable_archived = unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
-        *mutable_archived.as_mut().a().get_pin_unchecked() = 42;
+        unsafe {
+            *mutable_archived.as_mut().a().get_pin_unchecked() = 42;
+        }
 
         let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
         assert_eq!(*archived.a, 42);
         assert_eq!(*archived.b, 42);
 
         let mut mutable_archived = unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
-        *mutable_archived.as_mut().b().get_pin_unchecked() = 17;
+        unsafe {
+            *mutable_archived.as_mut().b().get_pin_unchecked() = 17;
+        }
 
         let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
         assert_eq!(*archived.a, 17);
