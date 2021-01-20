@@ -7,7 +7,7 @@ pub mod validation;
 
 use crate::{
     core_impl::ArchivedSlice, AllocDeserializer, Archive, ArchiveRef, Archived, Reference,
-    Serialize, SerializeRef, Deserialize, DeserializeRef, Write,
+    Serialize, SerializeRef, Deserialize, DeserializeRef, Serializer,
 };
 use core::{
     borrow::Borrow,
@@ -113,9 +113,9 @@ impl Archive for String {
     }
 }
 
-impl<W: Write + ?Sized> Serialize<W> for String {
-    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(StringResolver(self.as_str().serialize_ref(writer)?))
+impl<S: Serializer + ?Sized> Serialize<S> for String {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(StringResolver(self.as_str().serialize_ref(serializer)?))
     }
 }
 
@@ -174,9 +174,9 @@ impl<T: ArchiveRef + ?Sized> Archive for Box<T> {
     }
 }
 
-impl<T: SerializeRef<W> + ?Sized, W: Write + ?Sized> Serialize<W> for Box<T> {
-    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(BoxResolver(self.as_ref().serialize_ref(writer)?))
+impl<T: SerializeRef<S> + ?Sized, S: Serializer + ?Sized> Serialize<S> for Box<T> {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(BoxResolver(self.as_ref().serialize_ref(serializer)?))
     }
 }
 
@@ -198,17 +198,17 @@ impl<T: Archive> ArchiveRef for [T] {
     }
 }
 
-impl<T: Serialize<W>, W: Write + ?Sized> SerializeRef<W> for [T] {
-    fn serialize_ref(&self, writer: &mut W) -> Result<usize, W::Error> {
+impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeRef<S> for [T] {
+    fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error> {
         if !self.is_empty() {
             let mut resolvers = Vec::with_capacity(self.len());
             for value in self {
-                resolvers.push(value.serialize(writer)?);
+                resolvers.push(value.serialize(serializer)?);
             }
-            let result = writer.align_for::<T::Archived>()?;
+            let result = serializer.align_for::<T::Archived>()?;
             unsafe {
                 for (i, resolver) in resolvers.drain(..).enumerate() {
-                    writer.resolve_aligned(&self[i], resolver)?;
+                    serializer.resolve_aligned(&self[i], resolver)?;
                 }
             }
             Ok(result)
@@ -275,9 +275,9 @@ impl<T: Archive> Archive for Vec<T> {
     }
 }
 
-impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for Vec<T> {
-    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(VecResolver(self.as_slice().serialize_ref(writer)?))
+impl<T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for Vec<T> {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(VecResolver(self.as_slice().serialize_ref(serializer)?))
     }
 }
 

@@ -642,12 +642,8 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
 
         const _: () = {
             use core::marker::PhantomData;
-            use rkyv::{
-                Archive,
-                offset_of,
-                Serialize,
-                Write,
-            };
+            use rkyv::{Archive, offset_of};
+
             #archive_impls
         };
     }
@@ -781,7 +777,7 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                     type Archived = Self;
                     type Resolver = ();
 
-                    fn resolve(&self, _pos: usize, _resolver: Self::Resolver) -> Self::Archived {
+                    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
                         *self
                     }
                 }
@@ -798,7 +794,6 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
                 Archive,
                 ArchiveCopy,
                 Serialize,
-                Write,
             };
 
             #archive_copy_impl
@@ -858,23 +853,23 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
                         None
                     } else {
                         let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
+                        Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__S> })
                     }
                 });
                 let serialize_predicates = quote! { #(#serialize_predicates,)* };
 
                 let resolver_values = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote_spanned! { f.span() => #name: Serialize::<__W>::serialize(&self.#name, writer)? }
+                    quote_spanned! { f.span() => #name: Serialize::<__S>::serialize(&self.#name, serializer)? }
                 });
 
                 quote! {
-                    impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                    impl<__S: Serializer + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
                     where
                         #generic_predicates
                         #serialize_predicates
                     {
-                        fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
+                        fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
                             Ok(#resolver {
                                 #(#resolver_values,)*
                             })
@@ -888,23 +883,23 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
                         None
                     } else {
                         let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
+                        Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__S> })
                     }
                 });
                 let serialize_predicates = quote! { #(#serialize_predicates,)* };
 
                 let resolver_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = Index::from(i);
-                    quote_spanned! { f.span() => Serialize::<__W>::serialize(&self.#index, writer)? }
+                    quote_spanned! { f.span() => Serialize::<__S>::serialize(&self.#index, serializer)? }
                 });
 
                 quote! {
-                    impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                    impl<__S: Serializer + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
                     where
                         #generic_predicates
                         #serialize_predicates
                     {
-                        fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
+                        fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
                             Ok(#resolver::<#generic_args>(
                                 #(#resolver_values,)*
                             ))
@@ -914,8 +909,8 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
             }
             Fields::Unit => {
                 quote! {
-                    impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args> {
-                        fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
+                    impl<__S: Serializer + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args> {
+                        fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
                             Ok(#resolver)
                         }
                     }
@@ -930,7 +925,7 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
                             None
                         } else {
                             let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
+                            Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__S> })
                         }
                     });
                     quote! { #(#serialize_predicates,)* }
@@ -941,7 +936,7 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
                             None
                         } else {
                             let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__W> })
+                            Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__S> })
                         }
                     });
                     quote! { #(#serialize_predicates,)* }
@@ -961,7 +956,7 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             quote! {
-                                #name: Serialize::<__W>::serialize(#name, writer)?
+                                #name: Serialize::<__S>::serialize(#name, serializer)?
                             }
                         });
                         quote_spanned! { variant.span() =>
@@ -978,7 +973,7 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let binding = Ident::new(&format!("_{}", i), f.span());
                             quote! {
-                                Serialize::<__W>::serialize(#binding, writer)?
+                                Serialize::<__S>::serialize(#binding, serializer)?
                             }
                         });
                         quote_spanned! { variant.span() =>
@@ -992,12 +987,12 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
             });
 
             quote! {
-                impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                impl<__S: Serializer + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
                 where
                     #generic_predicates
                     #serialize_predicates
                 {
-                    fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
+                    fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
                         Ok(match self {
                             #(#serialize_arms,)*
                         })
@@ -1015,7 +1010,7 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
             use rkyv::{
                 Archive,
                 Serialize,
-                Write
+                Serializer,
             };
             #serialize_impl
         };
@@ -1065,12 +1060,12 @@ fn derive_serialize_copy_impl(input: &DeriveInput, attributes: &Attributes) -> T
             };
 
             quote! {
-                impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                impl<__S: Serializer + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
                 where
                     #generic_predicates
                     #copy_predicates
                 {
-                    fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
+                    fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
                         Ok(())
                     }
                 }
@@ -1115,12 +1110,12 @@ fn derive_serialize_copy_impl(input: &DeriveInput, attributes: &Attributes) -> T
             let copy_predicates = quote! { #(#copy_predicates)* };
 
             quote! {
-                impl<__W: Write + ?Sized, #generic_params> Serialize<__W> for #name<#generic_args>
+                impl<__S: Serializer + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
                 where
                     #generic_predicates
                     #copy_predicates
                 {
-                    fn serialize(&self, writer: &mut __W) -> Result<Self::Resolver, __W::Error> {
+                    fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
                         Ok(())
                     }
                 }
@@ -1137,7 +1132,7 @@ fn derive_serialize_copy_impl(input: &DeriveInput, attributes: &Attributes) -> T
                 Archive,
                 ArchiveCopy,
                 Serialize,
-                Write,
+                Serializer,
             };
 
             #serialize_copy_impl

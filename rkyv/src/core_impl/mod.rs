@@ -2,7 +2,7 @@
 
 use crate::{
     offset_of, AllocDeserializer, Archive, ArchiveCopy, ArchiveRef, Archived, RelPtr,
-    Serialize, SerializeRef, Deserialize, DeserializeRef, Write,
+    Serialize, Serializer, SerializeRef, Deserialize, DeserializeRef,
 };
 use core::{
     alloc,
@@ -82,9 +82,9 @@ impl<T: Archive> ArchiveRef for T {
     }
 }
 
-impl<T: Serialize<W>, W: Write + ?Sized> SerializeRef<W> for T {
-    fn serialize_ref(&self, writer: &mut W) -> Result<usize, W::Error> {
-        Ok(writer.serialize(self)?)
+impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeRef<S> for T {
+    fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error> {
+        Ok(serializer.serialize(self)?)
     }
 }
 
@@ -205,8 +205,8 @@ impl<T: ?Sized> Archive for PhantomData<T> {
     }
 }
 
-impl<T: ?Sized, W: Write + ?Sized> Serialize<W> for PhantomData<T> {
-    fn serialize(&self, _writer: &mut W) -> Result<Self::Resolver, W::Error> {
+impl<T: ?Sized, S: Serializer + ?Sized> Serialize<S> for PhantomData<T> {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
@@ -233,8 +233,8 @@ macro_rules! impl_primitive {
             }
         }
 
-        impl<W: Write + ?Sized> Serialize<W> for $type {
-            fn serialize(&self, _writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        impl<S: Serializer + ?Sized> Serialize<S> for $type {
+            fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
                 Ok(())
             }
         }
@@ -292,11 +292,11 @@ macro_rules! impl_atomic {
             }
         }
 
-        impl<W: Write + ?Sized> Serialize<W> for $type {
+        impl<S: Serializer + ?Sized> Serialize<S> for $type {
             fn serialize(
                 &self,
-                _writer: &mut W,
-            ) -> Result<Self::Resolver, W::Error> {
+                _: &mut S,
+            ) -> Result<Self::Resolver, S::Error> {
                 Ok(AtomicResolver)
             }
         }
@@ -341,9 +341,9 @@ macro_rules! impl_tuple {
             }
         }
 
-        impl<$($type: Serialize<W>),+, W: Write + ?Sized> Serialize<W> for ($($type,)+) {
-            fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-                let rev = ($(self.$index.serialize(writer)?,)+);
+        impl<$($type: Serialize<S>),+, S: Serializer + ?Sized> Serialize<S> for ($($type,)+) {
+            fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+                let rev = ($(self.$index.serialize(serializer)?,)+);
                 Ok(($(rev.$index,)+))
             }
         }
@@ -392,14 +392,14 @@ macro_rules! impl_array {
             }
         }
 
-        impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for [T; $len] {
-            fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+        impl<T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for [T; $len] {
+            fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
                 let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
                 let result_ptr = result.as_mut_ptr().cast::<T::Resolver>();
                 #[allow(clippy::reversed_empty_ranges)]
                 for i in 0..$len {
                     unsafe {
-                        result_ptr.add(i).write(self[i].serialize(writer)?);
+                        result_ptr.add(i).write(self[i].serialize(serializer)?);
                     }
                 }
                 unsafe { Ok(result.assume_init()) }
@@ -506,10 +506,10 @@ impl ArchiveRef for str {
     }
 }
 
-impl<W: Write + ?Sized> SerializeRef<W> for str {
-    fn serialize_ref(&self, writer: &mut W) -> Result<usize, W::Error> {
-        let result = writer.pos();
-        writer.write(self.as_bytes())?;
+impl<S: Serializer + ?Sized> SerializeRef<S> for str {
+    fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error> {
+        let result = serializer.pos();
+        serializer.write(self.as_bytes())?;
         Ok(result)
     }
 }
@@ -664,9 +664,9 @@ impl<T: Archive> Archive for Option<T> {
     }
 }
 
-impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for Option<T> {
-    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        self.as_ref().map(|value| value.serialize(writer)).transpose()
+impl<T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for Option<T> {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        self.as_ref().map(|value| value.serialize(serializer)).transpose()
     }
 }
 

@@ -237,7 +237,7 @@ impl error::Error for ArchiveMemoryError {}
 ///     Archive,
 ///     RelPtr,
 ///     Serialize,
-///     Write,
+///     Serializer,
 /// };
 /// use bytecheck::{CheckBytes, Unreachable};
 ///
@@ -297,10 +297,10 @@ impl error::Error for ArchiveMemoryError {}
 ///     }
 /// }
 ///
-/// impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for MyBox<T> {
-///     fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+/// impl<T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for MyBox<T> {
+///     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
 ///         Ok(MyBoxResolver {
-///             value_pos: writer.serialize(self.value())?,
+///             value_pos: serializer.serialize(self.value())?,
 ///         })
 ///     }
 /// }
@@ -581,7 +581,7 @@ pub type DefaultArchiveValidator = SharedArchiveValidator<ArchiveValidator<Archi
 ///
 /// # Example
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, check_archive, Serialize, Write};
+/// use rkyv::{Aligned, Archive, BufferSerializer, check_archive, Serialize, Serializer};
 /// use bytecheck::CheckBytes;
 ///
 /// #[derive(Archive, Serialize)]
@@ -596,10 +596,10 @@ pub type DefaultArchiveValidator = SharedArchiveValidator<ArchiveValidator<Archi
 ///     value: 31415926,
 /// };
 ///
-/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-/// let pos = writer.serialize(&value)
+/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
+/// let pos = serializer.serialize(&value)
 ///     .expect("failed to archive test");
-/// let buf = writer.into_inner();
+/// let buf = serializer.into_inner();
 /// let archived = check_archive::<Example>(buf.as_ref(), pos).unwrap();
 /// ```
 pub fn check_archive<T: Archive>(

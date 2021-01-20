@@ -1,6 +1,6 @@
 use bytecheck::CheckBytes;
 use core::fmt;
-use rkyv::{Aligned, Archive, ArchiveBuffer, Serialize, Write, check_archive, validation::DefaultArchiveValidator};
+use rkyv::{Aligned, Archive, BufferSerializer, Serialize, Serializer, check_archive, validation::DefaultArchiveValidator};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
@@ -8,13 +8,13 @@ use std::{
 
 const BUFFER_SIZE: usize = 512;
 
-fn serialize_and_check<T: Serialize<ArchiveBuffer<Aligned<[u8; BUFFER_SIZE]>>>>(value: &T)
+fn serialize_and_check<T: Serialize<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>>(value: &T)
 where
     T::Archived: CheckBytes<DefaultArchiveValidator>,
 {
-    let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = writer.serialize(value).expect("failed to archive value");
-    let buf = writer.into_inner();
+    let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
+    let pos = serializer.serialize(value).expect("failed to archive value");
+    let buf = serializer.into_inner();
     check_archive::<T>(buf.as_ref(), pos).unwrap();
 }
 
@@ -23,9 +23,9 @@ fn basic_functionality() {
     // Regular archiving
     let value = Some("Hello world".to_string());
 
-    let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = writer.serialize(&value).expect("failed to archive value");
-    let buf = writer.into_inner();
+    let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
+    let pos = serializer.serialize(&value).expect("failed to archive value");
+    let buf = serializer.into_inner();
 
     let result = check_archive::<Option<String>>(buf.as_ref(), pos);
     result.unwrap();
@@ -285,9 +285,9 @@ fn check_dyn() {
 
     let value: Box<dyn SerializeTestTrait> = Box::new(TestUnchecked { id: 42 });
 
-    let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = writer.serialize(&value).expect("failed to archive value");
-    let buf = writer.into_inner();
+    let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
+    let pos = serializer.serialize(&value).expect("failed to archive value");
+    let buf = serializer.into_inner();
     if let Ok(_) = check_archive::<Box<dyn SerializeTestTrait>>(buf.as_ref(), pos) {
         panic!("check passed for type that does not implement CheckBytes");
     }
@@ -295,7 +295,7 @@ fn check_dyn() {
 
 #[test]
 fn check_shared_ptr() {
-    use rkyv::SharedWriter;
+    use rkyv::SharedSerializerAdapter;
     use std::rc::Rc;
 
     #[derive(Archive, Serialize, Eq, PartialEq)]
@@ -311,9 +311,9 @@ fn check_shared_ptr() {
         b: shared.clone(),
     };
 
-    let mut writer = SharedWriter::new(ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE])));
-    let pos = writer.serialize(&value).expect("failed to archive value");
-    let buf = writer.into_inner().into_inner();
+    let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
+    let pos = serializer.serialize(&value).expect("failed to archive value");
+    let buf = serializer.into_inner().into_inner();
 
     check_archive::<Test>(buf.as_ref(), pos).unwrap();
 }

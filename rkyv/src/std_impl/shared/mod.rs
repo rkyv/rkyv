@@ -3,10 +3,10 @@ pub mod validation;
 
 use core::{any::{Any, TypeId}, fmt, ops::{Deref, DerefMut}, pin::Pin};
 use std::{collections::HashMap, error::Error, rc::Rc, sync::Arc};
-use crate::{Archive, ArchiveRef, Serialize, SerializeRef, SharedWrite, Write};
+use crate::{Archive, ArchiveRef, Serialize, SerializeRef, Serializer, SharedSerializer};
 
 #[derive(Debug)]
-pub enum SharedWriterError<T> {
+pub enum SharedSerializerAdapterError<T> {
     Inner(T),
     ResolverTypeMismatch {
         expected: TypeId,
@@ -14,64 +14,64 @@ pub enum SharedWriterError<T> {
     },
 }
 
-impl<T: fmt::Display> fmt::Display for SharedWriterError<T> {
+impl<T: fmt::Display> fmt::Display for SharedSerializerAdapterError<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SharedWriterError::Inner(e) => write!(f, "inner error: {}", e),
-            SharedWriterError::ResolverTypeMismatch { expected, found } => write!(f, "shared value requested as `{:?}` but previously serialized as `{:?}`", expected, found),
+            SharedSerializerAdapterError::Inner(e) => write!(f, "inner error: {}", e),
+            SharedSerializerAdapterError::ResolverTypeMismatch { expected, found } => write!(f, "shared value requested as `{:?}` but previously serialized as `{:?}`", expected, found),
         }
     }
 }
 
-impl<E: Error + 'static> Error for SharedWriterError<E> {
+impl<E: Error + 'static> Error for SharedSerializerAdapterError<E> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            SharedWriterError::Inner(e) => Some(e as &dyn Error),
-            SharedWriterError::ResolverTypeMismatch { .. } => None,
+            SharedSerializerAdapterError::Inner(e) => Some(e as &dyn Error),
+            SharedSerializerAdapterError::ResolverTypeMismatch { .. } => None,
         }
     }
 }
 
-/// A wrapper around a writer that adds support for [`SharedWrite`].
-pub struct SharedWriter<W: Write> {
-    inner: W,
+/// A wrapper around a serializer that adds support for [`SharedWrite`].
+pub struct SharedSerializerAdapter<S: Serializer> {
+    inner: S,
     shared_resolvers: HashMap<*const u8, (TypeId, usize)>,
 }
 
-impl<W: Write> SharedWriter<W> {
-    pub fn new(inner: W) -> Self {
+impl<S: Serializer> SharedSerializerAdapter<S> {
+    pub fn new(inner: S) -> Self {
         Self {
             inner,
             shared_resolvers: HashMap::new(),
         }
     }
 
-    pub fn into_inner(self) -> W {
+    pub fn into_inner(self) -> S {
         self.inner
     }
 }
 
-impl<W: Write> Write for SharedWriter<W> {
-    type Error = SharedWriterError<W::Error>;
+impl<S: Serializer> Serializer for SharedSerializerAdapter<S> {
+    type Error = SharedSerializerAdapterError<S::Error>;
 
     fn pos(&self) -> usize {
         self.inner.pos()
     }
 
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
-        self.inner.write(bytes).map_err(SharedWriterError::Inner)
+        self.inner.write(bytes).map_err(SharedSerializerAdapterError::Inner)
     }
 
     fn pad(&mut self, padding: usize) -> Result<(), Self::Error> {
-        self.inner.pad(padding).map_err(SharedWriterError::Inner)
+        self.inner.pad(padding).map_err(SharedSerializerAdapterError::Inner)
     }
 
     fn align(&mut self, align: usize) -> Result<usize, Self::Error> {
-        self.inner.align(align).map_err(SharedWriterError::Inner)
+        self.inner.align(align).map_err(SharedSerializerAdapterError::Inner)
     }
 
     fn align_for<T>(&mut self) -> Result<usize, Self::Error> {
-        self.inner.align_for::<T>().map_err(SharedWriterError::Inner)
+        self.inner.align_for::<T>().map_err(SharedSerializerAdapterError::Inner)
     }
 
     unsafe fn resolve_aligned<T: Archive + ?Sized>(
@@ -79,11 +79,11 @@ impl<W: Write> Write for SharedWriter<W> {
         value: &T,
         resolver: T::Resolver,
     ) -> Result<usize, Self::Error> {
-        self.inner.resolve_aligned(value, resolver).map_err(SharedWriterError::Inner)
+        self.inner.resolve_aligned(value, resolver).map_err(SharedSerializerAdapterError::Inner)
     }
 }
 
-impl<W: Write> SharedWrite for SharedWriter<W> {
+impl<S: Serializer> SharedSerializer for SharedSerializerAdapter<S> {
     fn serialize_shared_ref<T: SerializeRef<Self> + ?Sized + 'static>(&mut self, value: &T) -> Result<usize, Self::Error> {
         let key = (value as *const T).cast::<u8>();
         let type_id = value.type_id();
@@ -91,7 +91,7 @@ impl<W: Write> SharedWrite for SharedWriter<W> {
             if existing_type_id == &type_id {
                 Ok(existing.clone())
             } else {
-                Err(SharedWriterError::ResolverTypeMismatch {
+                Err(SharedSerializerAdapterError::ResolverTypeMismatch {
                     expected: type_id,
                     found: *existing_type_id,
                 })
@@ -165,14 +165,14 @@ impl<T: ArchiveRef + ?Sized> Archive for Arc<T> {
     }
 }
 
-impl<T: SerializeRef<W> + ?Sized + 'static, W: SharedWrite + ?Sized> Serialize<W> for Rc<T> {
-    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(RcResolver(writer.serialize_shared_ref(self.as_ref())?))
+impl<T: SerializeRef<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for Rc<T> {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(RcResolver(serializer.serialize_shared_ref(self.as_ref())?))
     }
 }
 
-impl<T: SerializeRef<W> + ?Sized + 'static, W: SharedWrite + ?Sized> Serialize<W> for Arc<T> {
-    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(RcResolver(writer.serialize_shared_ref(self.as_ref())?))
+impl<T: SerializeRef<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for Arc<T> {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(RcResolver(serializer.serialize_shared_ref(self.as_ref())?))
     }
 }

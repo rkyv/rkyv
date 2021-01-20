@@ -29,7 +29,7 @@ use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicU64, Ordering},
 };
-use rkyv::{offset_of, AllocDeserializer, Serialize, RelPtr, Write};
+use rkyv::{offset_of, AllocDeserializer, Serialize, RelPtr, Serializer};
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
@@ -51,41 +51,42 @@ fn likely(b: bool) -> bool {
 /// A generic error that can be returned from a [`WriteDyn`].
 pub type DynError = Box<dyn Any>;
 
-/// An object-safe version of `Write`.
+/// An object-safe version of `Serializer`.
 ///
-/// Instead of an associated error type, `WriteDyn` returns the [`DynError`]
-/// type. If you have a writer that already implements `Write`, then it will
-/// automatically implement `WriteDyn`.
-pub trait WriteDyn {
-    /// Returns the current position of the writer.
-    fn pos(&self) -> usize;
+/// Instead of an associated error type, `DynSerializer` returns the
+/// [`DynError`] type. If you have a serializer that already implements
+/// `Serializer`, then it will automatically implement `DynSerializer`.
+pub trait DynSerializer {
+    /// Returns the current position of the serializer.
+    fn pos_dyn(&self) -> usize;
 
-    /// Attempts to write the given bytes to the writer.
-    fn write(&mut self, bytes: &[u8]) -> Result<(), DynError>;
+    /// Attempts to write the given bytes to the serializer.
+    fn write_dyn(&mut self, bytes: &[u8]) -> Result<(), DynError>;
 }
 
-impl<'a, W: Write + ?Sized> WriteDyn for &'a mut W {
-    fn pos(&self) -> usize {
-        Write::pos(*self)
+// TODO: this impl might be a bit suspicious
+impl<'a, S: Serializer + ?Sized> DynSerializer for &'a mut S {
+    fn pos_dyn(&self) -> usize {
+        self.pos()
     }
 
-    fn write(&mut self, bytes: &[u8]) -> Result<(), DynError> {
-        match Write::write(*self, bytes) {
+    fn write_dyn(&mut self, bytes: &[u8]) -> Result<(), DynError> {
+        match self.write(bytes) {
             Ok(()) => Ok(()),
             Err(e) => Err(Box::new(e)),
         }
     }
 }
 
-impl<'a> Write for dyn WriteDyn + 'a {
+impl<'a> Serializer for dyn DynSerializer + 'a {
     type Error = DynError;
 
     fn pos(&self) -> usize {
-        <Self as WriteDyn>::pos(self)
+        self.pos_dyn()
     }
 
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
-        <Self as WriteDyn>::write(self, bytes)
+        self.write_dyn(bytes)
     }
 }
 
@@ -128,13 +129,13 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// use rkyv::{
 ///     Aligned,
 ///     Archive,
-///     ArchiveBuffer,
 ///     Archived,
 ///     archived_value,
+///     BufferSerializer,
 ///     Deserialize,
 ///     GlobalAllocDeserializer,
 ///     Serialize,
-///     Write,
+///     Serializer,
 /// };
 /// use rkyv_dyn::archive_dyn;
 /// use rkyv_typename::TypeName;
@@ -180,12 +181,12 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///
 /// let boxed_int = Box::new(IntStruct(42)) as Box<dyn SerializeExampleTrait>;
 /// let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn SerializeExampleTrait>;
-/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-/// let int_pos = writer.serialize(&boxed_int)
+/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
+/// let int_pos = serializer.serialize(&boxed_int)
 ///     .expect("failed to archive boxed int");
-/// let string_pos = writer.serialize(&boxed_string)
+/// let string_pos = serializer.serialize(&boxed_string)
 ///     .expect("failed to archive boxed string");
-/// let buf = writer.into_inner();
+/// let buf = serializer.into_inner();
 /// let archived_int = unsafe { archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), int_pos) };
 /// let archived_string = unsafe { archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), string_pos) };
 /// assert_eq!(archived_int.value(), "42");
@@ -197,19 +198,19 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```
 pub trait SerializeDyn {
-    /// Writes the value to the writer and returns a resolver that can create an
-    /// [`ArchivedDyn`] reference.
-    fn serialize_dyn(&self, writer: &mut dyn WriteDyn) -> Result<usize, DynError>;
+    /// Writes the value to the serializer and returns a resolver that can
+    /// create an [`ArchivedDyn`] reference.
+    fn serialize_dyn(&self, serializer: &mut dyn DynSerializer) -> Result<usize, DynError>;
 
     fn archived_type_id(&self) -> u64;
 }
 
-impl<T: for<'a> Serialize<dyn WriteDyn + 'a>> SerializeDyn for T
+impl<T: for<'a> Serialize<dyn DynSerializer + 'a>> SerializeDyn for T
 where
     T::Archived: TypeName,
 {
-    fn serialize_dyn(&self, writer: &mut dyn WriteDyn) -> Result<usize, DynError> {
-        Ok(writer.serialize(self)?)
+    fn serialize_dyn(&self, serializer: &mut dyn DynSerializer) -> Result<usize, DynError> {
+        Ok(serializer.serialize(self)?)
     }
 
     fn archived_type_id(&self) -> u64 {

@@ -284,7 +284,7 @@ pub fn archive_dyn(
                         ArchiveRef,
                         SerializeRef,
                         DeserializeRef,
-                        Write,
+                        Serializer,
                     };
                     use rkyv_dyn::{
                         ArchivedDyn,
@@ -293,7 +293,7 @@ pub fn archive_dyn(
                         RegisteredImpl,
                         SerializeDyn,
                         DeserializeDyn,
-                        WriteDyn,
+                        DynSerializer,
                     };
                     use rkyv_typename::TypeName;
 
@@ -322,9 +322,9 @@ pub fn archive_dyn(
                         }
                     }
 
-                    impl<__W: Write + ?Sized, #generic_params> SerializeRef<__W> for dyn #serialize_trait<#generic_args> {
-                        fn serialize_ref(&self, mut writer: &mut __W) -> Result<usize, __W::Error> {
-                            self.serialize_dyn(&mut writer).map_err(|e| *e.downcast::<__W::Error>().unwrap())
+                    impl<__S: Serializer + ?Sized, #generic_params> SerializeRef<__S> for dyn #serialize_trait<#generic_args> {
+                        fn serialize_ref(&self, mut serializer: &mut __S) -> Result<usize, __S::Error> {
+                            self.serialize_dyn(&mut serializer).map_err(|e| *e.downcast::<__S::Error>().unwrap())
                         }
                     }
                 };

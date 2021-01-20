@@ -87,24 +87,24 @@ use std::io;
 pub use memoffset::offset_of;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 #[cfg(feature = "std")]
-pub use std_impl::{GlobalAllocDeserializer, shared::SharedWriter};
+pub use std_impl::{GlobalAllocDeserializer, shared::SharedSerializerAdapter};
 #[cfg(feature = "validation")]
 pub use validation::check_archive;
 
-/// A `#![no_std]` compliant writer that knows where it is.
+/// A `#![no_std]` compliant serializer that knows where it is.
 ///
 /// A type that is [`io::Write`](std::io::Write) can be wrapped in an
-/// [`ArchiveWriter`] to equip it with `Write`. It's important that the memory
+/// [`WriteSerializer`] to equip it with `Write`. It's important that the memory
 /// for archived objects is properly aligned before attempting to read objects
 /// out of it, use the [`Aligned`] wrapper if it's appropriate.
-pub trait Write {
+pub trait Serializer {
     /// The errors that may occur while writing.
     type Error: 'static;
 
-    /// Returns the current position of the writer.
+    /// Returns the current position of the serializer.
     fn pos(&self) -> usize;
 
-    /// Attempts to write the given bytes to the writer.
+    /// Attempts to write the given bytes to the serializer.
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error>;
 
     /// Advances the given number of bytes as padding.
@@ -121,7 +121,7 @@ pub trait Write {
         Ok(())
     }
 
-    /// Aligns the position of the writer to the given alignment.
+    /// Aligns the position of the serializer to the given alignment.
     fn align(&mut self, align: usize) -> Result<usize, Self::Error> {
         debug_assert!(align & (align - 1) == 0);
 
@@ -132,7 +132,7 @@ pub trait Write {
         Ok(self.pos())
     }
 
-    /// Aligns the position of the writer to be suitable to write the given
+    /// Aligns the position of the serializer to be suitable to write the given
     /// type.
     fn align_for<T>(&mut self) -> Result<usize, Self::Error> {
         self.align(mem::align_of::<T>())
@@ -144,7 +144,7 @@ pub trait Write {
     ///
     /// # Safety
     ///
-    /// This is only safe to call when the writer is already aligned for the
+    /// This is only safe to call when the serializer is already aligned for the
     /// archived version of the given type.
     unsafe fn resolve_aligned<T: Archive + ?Sized>(
         &mut self,
@@ -190,13 +190,13 @@ pub trait Write {
     }
 }
 
-/// A writer that can seek to an absolute position.
-pub trait Seek: Write {
-    /// Seeks the writer to the given absolute position.
+/// A serializer that can seek to an absolute position.
+pub trait SeekSerializer: Serializer {
+    /// Seeks the serializer to the given absolute position.
     fn seek(&mut self, pos: usize) -> Result<(), Self::Error>;
 
     /// Archives the given value at the nearest available position. If the
-    /// writer is already aligned, it will archive it at the current position.
+    /// serializer is already aligned, it will archive it at the current position.
     fn serialize_root<T: Serialize<Self>>(&mut self, value: &T) -> Result<usize, Self::Error> {
         self.align_for::<T::Archived>()?;
         let pos = self.pos();
@@ -210,7 +210,7 @@ pub trait Seek: Write {
     }
 
     /// Archives a reference to the given value at the nearest available
-    /// position. If the writer is already aligned, it will archive it at the
+    /// position. If the serializer is already aligned, it will archive it at the
     /// current position.
     fn serialize_ref_root<T: SerializeRef<Self> + ?Sized>(
         &mut self,
@@ -228,8 +228,7 @@ pub trait Seek: Write {
     }
 }
 
-/// Writes a type to a [`Writer`](Write) so it can be used without
-/// deserializing.
+/// Writes a type to a [`Serializer`] so it can be used without deserializing.
 ///
 /// Archiving is done depth-first, writing any data owned by a type before
 /// writing the data for the type itself. The type must be able to create the
@@ -243,7 +242,7 @@ pub trait Seek: Write {
 /// macro for more details.
 ///
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Serialize, Write};
+/// use rkyv::{Aligned, Archive, Archived, archived_value, BufferSerializer, Serialize, Serializer};
 ///
 /// #[derive(Archive, Serialize)]
 /// struct Test {
@@ -258,10 +257,10 @@ pub trait Seek: Write {
 ///     option: Some(vec![1, 2, 3, 4]),
 /// };
 ///
-/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-/// let pos = writer.serialize(&value)
+/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
+/// let pos = serializer.serialize(&value)
 ///     .expect("failed to archive test");
-/// let buf = writer.into_inner();
+/// let buf = serializer.into_inner();
 ///
 /// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 /// assert_eq!(archived.int, value.int);
@@ -283,13 +282,13 @@ pub trait Seek: Write {
 /// use rkyv::{
 ///     Aligned,
 ///     Archive,
-///     ArchiveBuffer,
 ///     Archived,
 ///     archived_value,
+///     BufferSerializer,
 ///     offset_of,
 ///     RelPtr,
 ///     Serialize,
-///     Write,
+///     Serializer,
 /// };
 ///
 /// struct OwnedStr {
@@ -344,23 +343,23 @@ pub trait Seek: Write {
 ///     }
 /// }
 ///
-/// impl<W: Write + ?Sized> Serialize<W> for OwnedStr {
-///     fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+/// impl<S: Serializer + ?Sized> Serialize<S> for OwnedStr {
+///     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
 ///         // This is where we want to write the bytes of our string and return
 ///         // a resolver that knows where those bytes were written.
-///         let bytes_pos = writer.pos();
-///         writer.write(self.inner.as_bytes())?;
+///         let bytes_pos = serializer.pos();
+///         serializer.write(self.inner.as_bytes())?;
 ///         Ok(Self::Resolver { bytes_pos })
 ///     }
 /// }
 ///
-/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
 /// const STR_VAL: &'static str = "I'm in an OwnedStr!";
 /// let value = OwnedStr { inner: STR_VAL };
 /// // It works!
-/// let pos = writer.serialize(&value)
+/// let pos = serializer.serialize(&value)
 ///     .expect("failed to archive test");
-/// let buf = writer.into_inner();
+/// let buf = serializer.into_inner();
 /// let archived = unsafe { archived_value::<OwnedStr>(buf.as_ref(), pos) };
 /// // Let's make sure our data got written correctly
 /// assert_eq!(archived.as_str(), STR_VAL);
@@ -377,10 +376,10 @@ pub trait Archive {
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived;
 }
 
-pub trait Serialize<W: Write + ?Sized>: Archive {
+pub trait Serialize<S: Serializer + ?Sized>: Archive {
     /// Writes the dependencies for the object and returns a resolver that can
     /// create the archived type.
-    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error>;
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error>;
 }
 
 /// Converts a type back from its archived form.
@@ -390,7 +389,7 @@ pub trait Serialize<W: Write + ?Sized>: Archive {
 /// ## Examples
 ///
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Deserialize, Serialize, Write};
+/// use rkyv::{Aligned, Archive, Archived, archived_value, BufferSerializer, Deserialize, Serialize, Serializer};
 ///
 /// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
 /// struct Test {
@@ -399,15 +398,15 @@ pub trait Serialize<W: Write + ?Sized>: Archive {
 ///     option: Option<Vec<i32>>,
 /// }
 ///
-/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
 /// let value = Test {
 ///     int: 42,
 ///     string: "hello world".to_string(),
 ///     option: Some(vec![1, 2, 3, 4]),
 /// };
-/// let pos = writer.serialize(&value)
+/// let pos = serializer.serialize(&value)
 ///     .expect("failed to archive test");
-/// let buf = writer.into_inner();
+/// let buf = serializer.into_inner();
 /// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 ///
 /// let deserialized = archived.deserialize(&mut ());
@@ -438,10 +437,10 @@ pub trait ArchiveRef {
     fn resolve_ref(&self, pos: usize, resolver: usize) -> Self::Reference;
 }
 
-pub trait SerializeRef<W: Write + ?Sized>: ArchiveRef {
+pub trait SerializeRef<S: Serializer + ?Sized>: ArchiveRef {
     /// Writes the object and returns a resolver that can create the reference
     /// to the archived type.
-    fn serialize_ref(&self, writer: &mut W) -> Result<usize, W::Error>;
+    fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error>;
 }
 
 pub trait AllocDeserializer {
@@ -476,17 +475,17 @@ pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized, D: AllocDeser
 ///
 /// ## Examples
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, archived_value, Serialize, Write};
+/// use rkyv::{Aligned, Archive, archived_value, BufferSerializer, Serialize, Serializer};
 ///
 /// #[derive(Archive, Serialize, Clone, Copy, Debug, PartialEq)]
 /// #[archive(copy)]
 /// struct Vector4<T>(T, T, T, T);
 ///
-/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
+/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
 /// let value = Vector4(1f32, 2f32, 3f32, 4f32);
-/// let pos = writer.serialize(&value)
+/// let pos = serializer.serialize(&value)
 ///     .expect("failed to archive Vector4");
-/// let buf = writer.into_inner();
+/// let buf = serializer.into_inner();
 /// let archived_value = unsafe { archived_value::<Vector4<f32>>(buf.as_ref(), pos) };
 /// assert_eq!(&value, archived_value);
 /// ```
@@ -559,7 +558,7 @@ pub type Resolver<T> = <T as Archive>::Resolver;
 pub type Reference<T> = <T as ArchiveRef>::Reference;
 
 /// Wraps a type and aligns it to at least 16 bytes. Mainly used to align byte
-/// buffers for [ArchiveBuffer].
+/// buffers for [`BufferSerializer`].
 ///
 /// ## Examples
 /// ```
@@ -606,7 +605,7 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 ///
 /// ## Examples
 /// ```
-/// use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Serialize, Write};
+/// use rkyv::{Aligned, Archive, Archived, archived_value, BufferSerializer, Serialize, Serializer};
 ///
 /// #[derive(Archive, Serialize)]
 /// enum Event {
@@ -615,10 +614,10 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 ///     Die,
 /// }
 ///
-/// let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-/// let pos = writer.serialize(&Event::Speak("Help me!".to_string()))
+/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
+/// let pos = serializer.serialize(&Event::Speak("Help me!".to_string()))
 ///     .expect("failed to archive event");
-/// let buf = writer.into_inner();
+/// let buf = serializer.into_inner();
 /// let archived = unsafe { archived_value::<Event>(buf.as_ref(), pos) };
 /// if let Archived::<Event>::Speak(message) = archived {
 ///     assert_eq!(message.as_str(), "Help me!");
@@ -626,12 +625,12 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 ///     panic!("archived event was of the wrong type");
 /// }
 /// ```
-pub struct ArchiveBuffer<T> {
+pub struct BufferSerializer<T> {
     inner: T,
     pos: usize,
 }
 
-impl<T> ArchiveBuffer<T> {
+impl<T> BufferSerializer<T> {
     /// Creates a new archive buffer from a byte buffer.
     pub fn new(inner: T) -> Self {
         Self::with_pos(inner, 0)
@@ -650,24 +649,24 @@ impl<T> ArchiveBuffer<T> {
     }
 }
 
-/// The error type returned by an [`ArchiveBuffer`].
+/// The error type returned by an [`BufferSerializer`].
 #[derive(Debug)]
-pub enum ArchiveBufferError {
+pub enum BufferSerializerError {
     /// Writing has overflowed the internal buffer.
     Overflow {
         pos: usize,
         bytes_needed: usize,
         archive_len: usize,
     },
-    /// The writer sought past the end of the internal buffer.
+    /// The serializer sought past the end of the internal buffer.
     SoughtPastEnd {
         seek_position: usize,
         archive_len: usize,
     },
 }
 
-impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
-    type Error = ArchiveBufferError;
+impl<T: AsRef<[u8]> + AsMut<[u8]>> Serializer for BufferSerializer<T> {
+    type Error = BufferSerializerError;
 
     fn pos(&self) -> usize {
         self.pos
@@ -677,7 +676,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
         let end_pos = self.pos + bytes.len();
         let archive_len = self.inner.as_ref().len();
         if end_pos > archive_len {
-            Err(ArchiveBufferError::Overflow {
+            Err(BufferSerializerError::Overflow {
                 pos: self.pos,
                 bytes_needed: bytes.len(),
                 archive_len,
@@ -699,7 +698,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
         let end_pos = self.pos + padding;
         let archive_len = self.inner.as_ref().len();
         if end_pos > archive_len {
-            Err(ArchiveBufferError::Overflow {
+            Err(BufferSerializerError::Overflow {
                 pos: self.pos,
                 bytes_needed: padding,
                 archive_len,
@@ -711,11 +710,11 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Write for ArchiveBuffer<T> {
     }
 }
 
-impl<T: AsRef<[u8]> + AsMut<[u8]>> Seek for ArchiveBuffer<T> {
+impl<T: AsRef<[u8]> + AsMut<[u8]>> SeekSerializer for BufferSerializer<T> {
     fn seek(&mut self, pos: usize) -> Result<(), Self::Error> {
         let len = self.inner.as_ref().len();
         if pos > len {
-            Err(ArchiveBufferError::SoughtPastEnd {
+            Err(BufferSerializerError::SoughtPastEnd {
                 seek_position: pos,
                 archive_len: len,
             })
@@ -727,47 +726,48 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Seek for ArchiveBuffer<T> {
 }
 
 /// Wraps a type that implements [`io::Write`](std::io::Write) and equips it
-/// with [`Write`].
+/// with [`Serializer`].
 ///
 /// ## Examples
 /// ```
-/// use rkyv::{ArchiveWriter, Write};
+/// use rkyv::{WriteSerializer, Serializer};
 ///
-/// let mut writer = ArchiveWriter::new(Vec::new());
-/// assert_eq!(writer.pos(), 0);
-/// writer.write(&[0u8, 1u8, 2u8, 3u8]);
-/// assert_eq!(writer.pos(), 4);
-/// let buf = writer.into_inner();
+/// let mut serializer = WriteSerializer::new(Vec::new());
+/// assert_eq!(serializer.pos(), 0);
+/// serializer.write(&[0u8, 1u8, 2u8, 3u8]);
+/// assert_eq!(serializer.pos(), 4);
+/// let buf = serializer.into_inner();
 /// assert_eq!(buf.len(), 4);
 /// assert_eq!(buf, vec![0u8, 1u8, 2u8, 3u8]);
 /// ```
 #[cfg(feature = "std")]
-pub struct ArchiveWriter<W: io::Write> {
+pub struct WriteSerializer<W: io::Write> {
     inner: W,
     pos: usize,
 }
 
 #[cfg(feature = "std")]
-impl<W: io::Write> ArchiveWriter<W> {
-    /// Creates a new archive writer from a writer.
+impl<W: io::Write> WriteSerializer<W> {
+    /// Creates a new serializer from a writer.
     pub fn new(inner: W) -> Self {
         Self::with_pos(inner, 0)
     }
 
-    /// Creates a new archive writer from a writer, and assumes that the
-    /// underlying writer is currently at the given position.
+    /// Creates a new serializer from a writer, and assumes that the underlying
+    /// writer is currently at the given position.
     pub fn with_pos(inner: W, pos: usize) -> Self {
         Self { inner, pos }
     }
 
-    /// Consumes the writer and returns the internal writer used to create it.
+    /// Consumes the serializer and returns the internal writer used to create 
+    /// it.
     pub fn into_inner(self) -> W {
         self.inner
     }
 }
 
 #[cfg(feature = "std")]
-impl<W: io::Write> Write for ArchiveWriter<W> {
+impl<W: io::Write> Serializer for WriteSerializer<W> {
     type Error = io::Error;
 
     fn pos(&self) -> usize {
@@ -781,7 +781,7 @@ impl<W: io::Write> Write for ArchiveWriter<W> {
 }
 
 #[cfg(feature = "std")]
-impl<W: io::Write + io::Seek> Seek for ArchiveWriter<W> {
+impl<W: io::Write + io::Seek> SeekSerializer for WriteSerializer<W> {
     fn seek(&mut self, offset: usize) -> Result<(), Self::Error> {
         self.inner.seek(io::SeekFrom::Start(offset as u64))?;
         self.pos = offset;
@@ -853,6 +853,6 @@ pub unsafe fn archived_value_ref_mut<T: ArchiveRef + ?Sized>(
     Pin::new_unchecked(&mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast())
 }
 
-pub trait SharedWrite: Write {
+pub trait SharedSerializer: Serializer {
     fn serialize_shared_ref<T: SerializeRef<Self> + ?Sized + 'static>(&mut self, value: &T) -> Result<usize, Self::Error>;
 }

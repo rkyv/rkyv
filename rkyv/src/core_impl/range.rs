@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{offset_of, Archive, ArchiveCopy, Archived, Serialize, Deserialize, Write};
+use crate::{offset_of, Archive, ArchiveCopy, Archived, Serialize, Deserialize, Serializer};
 use core::{
     cmp, fmt,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
@@ -15,8 +15,8 @@ impl Archive for RangeFull {
     }
 }
 
-impl<W: Write + ?Sized> Serialize<W> for RangeFull {
-    fn serialize(&self, _: &mut W) -> Result<Self::Resolver, W::Error> {
+impl<S: Serializer + ?Sized> Serialize<S> for RangeFull {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
@@ -98,11 +98,11 @@ impl<T: Archive> Archive for Range<T> {
     }
 }
 
-impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for Range<T> {
-    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+impl<T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for Range<T> {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(Range {
-            start: self.start.serialize(writer)?,
-            end: self.end.serialize(writer)?,
+            start: self.start.serialize(serializer)?,
+            end: self.end.serialize(serializer)?,
         })
     }
 }
@@ -186,11 +186,11 @@ impl<T: Archive> Archive for RangeInclusive<T> {
     }
 }
 
-impl<T: Serialize<W>, W: Write + ?Sized> Serialize<W> for RangeInclusive<T> {
-    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+impl<T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for RangeInclusive<T> {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(Range {
-            start: self.start().serialize(writer)?,
-            end: self.end().serialize(writer)?,
+            start: self.start().serialize(serializer)?,
+            end: self.end().serialize(serializer)?,
         })
     }
 }
