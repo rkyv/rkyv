@@ -3,7 +3,7 @@ pub mod validation;
 
 use core::{any::{Any, TypeId}, fmt, ops::{Deref, DerefMut}, pin::Pin};
 use std::{collections::HashMap, error::Error, rc::Rc, sync::Arc};
-use crate::{Archive, ArchiveRef, Serialize, SerializeRef, Serializer, SharedSerializer};
+use crate::{Archive, ArchiveRef, Fallible, Serialize, SerializeRef, Serializer, SharedSerializer};
 
 #[derive(Debug)]
 pub enum SharedSerializerAdapterError<T> {
@@ -33,12 +33,12 @@ impl<E: Error + 'static> Error for SharedSerializerAdapterError<E> {
 }
 
 /// A wrapper around a serializer that adds support for [`SharedWrite`].
-pub struct SharedSerializerAdapter<S: Serializer> {
+pub struct SharedSerializerAdapter<S> {
     inner: S,
     shared_resolvers: HashMap<*const u8, (TypeId, usize)>,
 }
 
-impl<S: Serializer> SharedSerializerAdapter<S> {
+impl<S> SharedSerializerAdapter<S> {
     pub fn new(inner: S) -> Self {
         Self {
             inner,
@@ -51,9 +51,11 @@ impl<S: Serializer> SharedSerializerAdapter<S> {
     }
 }
 
-impl<S: Serializer> Serializer for SharedSerializerAdapter<S> {
+impl<S: Fallible> Fallible for SharedSerializerAdapter<S> {
     type Error = SharedSerializerAdapterError<S::Error>;
+}
 
+impl<S: Serializer> Serializer for SharedSerializerAdapter<S> {
     fn pos(&self) -> usize {
         self.inner.pos()
     }

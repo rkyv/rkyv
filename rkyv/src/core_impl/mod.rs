@@ -1,7 +1,7 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    offset_of, AllocDeserializer, Archive, ArchiveCopy, ArchiveRef, Archived, RelPtr,
+    offset_of, AllocDeserializer, Archive, ArchiveCopy, ArchiveRef, Archived, Fallible, Reference, RelPtr,
     Serialize, Serializer, SerializeRef, Deserialize, DeserializeRef,
 };
 use core::{
@@ -205,7 +205,7 @@ impl<T: ?Sized> Archive for PhantomData<T> {
     }
 }
 
-impl<T: ?Sized, S: Serializer + ?Sized> Serialize<S> for PhantomData<T> {
+impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
@@ -233,7 +233,7 @@ macro_rules! impl_primitive {
             }
         }
 
-        impl<S: Serializer + ?Sized> Serialize<S> for $type {
+        impl<S: Fallible + ?Sized> Serialize<S> for $type {
             fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
                 Ok(())
             }
@@ -292,7 +292,7 @@ macro_rules! impl_atomic {
             }
         }
 
-        impl<S: Serializer + ?Sized> Serialize<S> for $type {
+        impl<S: Fallible + ?Sized> Serialize<S> for $type {
             fn serialize(
                 &self,
                 _: &mut S,
@@ -341,7 +341,7 @@ macro_rules! impl_tuple {
             }
         }
 
-        impl<$($type: Serialize<S>),+, S: Serializer + ?Sized> Serialize<S> for ($($type,)+) {
+        impl<$($type: Serialize<S>),+, S: Fallible + ?Sized> Serialize<S> for ($($type,)+) {
             fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
                 let rev = ($(self.$index.serialize(serializer)?,)+);
                 Ok(($(rev.$index,)+))
@@ -392,7 +392,7 @@ macro_rules! impl_array {
             }
         }
 
-        impl<T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for [T; $len] {
+        impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for [T; $len] {
             fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
                 let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
                 let result_ptr = result.as_mut_ptr().cast::<T::Resolver>();
@@ -440,13 +440,13 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
 
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
         let mut resolvers = core::mem::MaybeUninit::new(resolver);
-        let resolvers_ptr = resolvers.as_mut_ptr().cast::<T>();
+        let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
         let mut result = core::mem::MaybeUninit::<Self::Archived>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T::Archived>();
         for i in 0..N {
             unsafe {
                 result_ptr.add(i).write(
-                    self[i].resolve(pos + i * core::mem::size_of::<T>(), resolvers_ptr.add(i).read()),
+                    self[i].resolve(pos + i * core::mem::size_of::<T::Archived>(), resolvers_ptr.add(i).read()),
                 );
             }
         }
@@ -455,13 +455,13 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
 }
 
 #[cfg(feature = "const_generics")]
-impl<T: Serialize<W>, W: Write + ?Sized, const N: usize> Serialize<W> for [T; N] {
-    fn serialize(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+impl<T: Serialize<S>, S: Fallible + ?Sized, const N: usize> Serialize<S> for [T; N] {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T::Resolver>();
         for i in 0..N {
             unsafe {
-                result_ptr.add(i).write(self[i].serialize(writer)?);
+                result_ptr.add(i).write(self[i].serialize(serializer)?);
             }
         }
         unsafe { Ok(result.assume_init()) }
@@ -469,16 +469,16 @@ impl<T: Serialize<W>, W: Write + ?Sized, const N: usize> Serialize<W> for [T; N]
 }
 
 #[cfg(feature = "const_generics")]
-impl<T: Archive, const N: usize> Deserialize<[T; N]> for [T::Archived; N]
+impl<T: Archive, D: ?Sized, const N: usize> Deserialize<[T; N], D> for [T::Archived; N]
 where
-    T::Archived: Deserialize<T>,
+    T::Archived: Deserialize<T, D>,
 {
-    fn deserialize(&self) -> [T; N] {
+    fn deserialize(&self, deserializer: &mut D) -> [T; N] {
         let mut result = core::mem::MaybeUninit::<[T; N]>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T>();
         for i in 0..N {
             unsafe {
-                result_ptr.add(i).write(self[i].deserialize());
+                result_ptr.add(i).write(self[i].deserialize(deserializer));
             }
         }
         unsafe { result.assume_init() }
@@ -492,7 +492,7 @@ where
 #[repr(transparent)]
 #[derive(Debug)]
 pub struct ArchivedStringSlice {
-    slice: ArchivedSlice<u8>,
+    slice: Reference<[u8]>,
 }
 
 impl ArchiveRef for str {
@@ -501,16 +501,17 @@ impl ArchiveRef for str {
 
     fn resolve_ref(&self, from: usize, to: usize) -> Self::Reference {
         Self::Reference {
-            slice: unsafe { ArchivedSlice::new(from, to, self.len()) },
+            slice: <[u8]>::resolve_ref(self.as_bytes(), from, to),
         }
     }
 }
 
-impl<S: Serializer + ?Sized> SerializeRef<S> for str {
+impl<S: Fallible + ?Sized> SerializeRef<S> for str
+where
+    [u8]: SerializeRef<S>,
+{
     fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        let result = serializer.pos();
-        serializer.write(self.as_bytes())?;
-        Ok(result)
+        Ok(self.as_bytes().serialize_ref(serializer)?)
     }
 }
 
@@ -664,7 +665,7 @@ impl<T: Archive> Archive for Option<T> {
     }
 }
 
-impl<T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for Option<T> {
+impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Option<T> {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         self.as_ref().map(|value| value.serialize(serializer)).transpose()
     }

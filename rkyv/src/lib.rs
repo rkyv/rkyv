@@ -91,16 +91,17 @@ pub use std_impl::{GlobalAllocDeserializer, shared::SharedSerializerAdapter};
 #[cfg(feature = "validation")]
 pub use validation::check_archive;
 
+pub trait Fallible {
+    type Error: 'static;
+}
+
 /// A `#![no_std]` compliant serializer that knows where it is.
 ///
 /// A type that is [`io::Write`](std::io::Write) can be wrapped in an
 /// [`WriteSerializer`] to equip it with `Write`. It's important that the memory
 /// for archived objects is properly aligned before attempting to read objects
 /// out of it, use the [`Aligned`] wrapper if it's appropriate.
-pub trait Serializer {
-    /// The errors that may occur while writing.
-    type Error: 'static;
-
+pub trait Serializer: Fallible {
     /// Returns the current position of the serializer.
     fn pos(&self) -> usize;
 
@@ -376,7 +377,7 @@ pub trait Archive {
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived;
 }
 
-pub trait Serialize<S: Serializer + ?Sized>: Archive {
+pub trait Serialize<S: Fallible + ?Sized>: Archive {
     /// Writes the dependencies for the object and returns a resolver that can
     /// create the archived type.
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error>;
@@ -437,7 +438,7 @@ pub trait ArchiveRef {
     fn resolve_ref(&self, pos: usize, resolver: usize) -> Self::Reference;
 }
 
-pub trait SerializeRef<S: Serializer + ?Sized>: ArchiveRef {
+pub trait SerializeRef<S: Fallible + ?Sized>: ArchiveRef {
     /// Writes the object and returns a resolver that can create the reference
     /// to the archived type.
     fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error>;
@@ -665,9 +666,11 @@ pub enum BufferSerializerError {
     },
 }
 
-impl<T: AsRef<[u8]> + AsMut<[u8]>> Serializer for BufferSerializer<T> {
+impl<T: AsRef<[u8]> + AsMut<[u8]>> Fallible for BufferSerializer<T> {
     type Error = BufferSerializerError;
+}
 
+impl<T: AsRef<[u8]> + AsMut<[u8]>> Serializer for BufferSerializer<T> {
     fn pos(&self) -> usize {
         self.pos
     }
@@ -767,9 +770,12 @@ impl<W: io::Write> WriteSerializer<W> {
 }
 
 #[cfg(feature = "std")]
-impl<W: io::Write> Serializer for WriteSerializer<W> {
+impl<W: io::Write> Fallible for WriteSerializer<W> {
     type Error = io::Error;
+}
 
+#[cfg(feature = "std")]
+impl<W: io::Write> Serializer for WriteSerializer<W> {
     fn pos(&self) -> usize {
         self.pos
     }

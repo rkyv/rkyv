@@ -29,7 +29,7 @@ use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicU64, Ordering},
 };
-use rkyv::{offset_of, AllocDeserializer, Serialize, RelPtr, Serializer};
+use rkyv::{offset_of, AllocDeserializer, Fallible, Serialize, RelPtr, Serializer};
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
@@ -78,9 +78,11 @@ impl<'a, S: Serializer + ?Sized> DynSerializer for &'a mut S {
     }
 }
 
-impl<'a> Serializer for dyn DynSerializer + 'a {
+impl<'a> Fallible for dyn DynSerializer + 'a {
     type Error = DynError;
+}
 
+impl<'a> Serializer for dyn DynSerializer + 'a {
     fn pos(&self) -> usize {
         self.pos_dyn()
     }

@@ -909,15 +909,24 @@ mod tests {
 
     #[test]
     fn recursive_structures() {
-        #[derive(Archive, Serialize, PartialEq)]
+        #[derive(Archive, PartialEq)]
         enum Node {
             Nil,
             Cons(#[recursive] Box<Node>),
         }
 
-        // Right now Deserialize doesn't apply the right deserializer bounds from Box so we have to
-        // implement it manually. Luckily it's not too bad, but hopefully in the future there's a
-        // better way to do this.
+        // Right now the derive macros don't apply the right bounds from Box so
+        // we have to implement it manually. Luckily it's not too bad, but
+        // hopefully in the future there's a better way to do this.
+        impl<S: Serializer + ?Sized> Serialize<S> for Node {
+            fn serialize(&self, serializer: &mut S) -> Result<NodeResolver, S::Error> {
+                Ok(match self {
+                    Node::Nil => NodeResolver::Nil,
+                    Node::Cons(inner) => NodeResolver::Cons(inner.serialize(serializer)?),
+                })
+            }
+        }
+
         impl<D: AllocDeserializer + ?Sized> Deserialize<Node, D> for ArchivedNode {
             fn deserialize(&self, deserializer: &mut D) -> Node {
                 match self {

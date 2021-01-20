@@ -6,7 +6,7 @@ pub mod shared;
 pub mod validation;
 
 use crate::{
-    core_impl::ArchivedSlice, AllocDeserializer, Archive, ArchiveRef, Archived, Reference,
+    core_impl::ArchivedSlice, AllocDeserializer, Archive, ArchiveRef, Archived, Fallible, Reference,
     Serialize, SerializeRef, Deserialize, DeserializeRef, Serializer,
 };
 use core::{
@@ -113,7 +113,10 @@ impl Archive for String {
     }
 }
 
-impl<S: Serializer + ?Sized> Serialize<S> for String {
+impl<S: Fallible + ?Sized> Serialize<S> for String
+where
+    str: SerializeRef<S>,
+{
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(StringResolver(self.as_str().serialize_ref(serializer)?))
     }
@@ -174,7 +177,7 @@ impl<T: ArchiveRef + ?Sized> Archive for Box<T> {
     }
 }
 
-impl<T: SerializeRef<S> + ?Sized, S: Serializer + ?Sized> Serialize<S> for Box<T> {
+impl<T: SerializeRef<S> + ?Sized, S: Fallible + ?Sized> Serialize<S> for Box<T> {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(BoxResolver(self.as_ref().serialize_ref(serializer)?))
     }
@@ -275,7 +278,10 @@ impl<T: Archive> Archive for Vec<T> {
     }
 }
 
-impl<T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for Vec<T> {
+impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Vec<T>
+where
+    [T]: SerializeRef<S>,
+{
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(VecResolver(self.as_slice().serialize_ref(serializer)?))
     }

@@ -99,12 +99,21 @@ fn overlapping_claims() {
 fn cycle_detection() {
     use rkyv::{Archived, validation::{ArchiveBoundsContext, ArchiveMemoryContext}};
 
-    #[derive(Archive, Serialize)]
+    #[allow(dead_code)]
+    #[derive(Archive)]
     #[archive(derive(Debug))]
     enum Node {
         Nil,
-        #[allow(dead_code)]
         Cons(#[recursive] Box<Node>),
+    }
+
+    impl<S: Serializer + ?Sized> Serialize<S> for Node {
+        fn serialize(&self, serializer: &mut S) -> Result<NodeResolver, S::Error> {
+            Ok(match self {
+                Node::Nil => NodeResolver::Nil,
+                Node::Cons(inner) => NodeResolver::Cons(inner.serialize(serializer)?),
+            })
+        }
     }
 
     #[derive(Debug)]

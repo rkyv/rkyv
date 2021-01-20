@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{offset_of, Archive, ArchiveCopy, Archived, Serialize, Deserialize, Serializer};
+use crate::{offset_of, Archive, ArchiveCopy, Archived, Fallible, Serialize, Deserialize};
 use core::{
     cmp, fmt,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
@@ -15,7 +15,7 @@ impl Archive for RangeFull {
     }
 }
 
-impl<S: Serializer + ?Sized> Serialize<S> for RangeFull {
+impl<S: Fallible + ?Sized> Serialize<S> for RangeFull {
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
@@ -98,7 +98,7 @@ impl<T: Archive> Archive for Range<T> {
     }
 }
 
-impl<T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for Range<T> {
+impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Range<T> {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(Range {
             start: self.start.serialize(serializer)?,
@@ -186,7 +186,7 @@ impl<T: Archive> Archive for RangeInclusive<T> {
     }
 }
 
-impl<T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for RangeInclusive<T> {
+impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeInclusive<T> {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(Range {
             start: self.start().serialize(serializer)?,

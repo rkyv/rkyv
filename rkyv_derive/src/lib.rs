@@ -864,7 +864,7 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
                 });
 
                 quote! {
-                    impl<__S: Serializer + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
+                    impl<__S: Fallible + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
                     where
                         #generic_predicates
                         #serialize_predicates
@@ -894,7 +894,7 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
                 });
 
                 quote! {
-                    impl<__S: Serializer + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
+                    impl<__S: Fallible + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
                     where
                         #generic_predicates
                         #serialize_predicates
@@ -909,7 +909,7 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
             }
             Fields::Unit => {
                 quote! {
-                    impl<__S: Serializer + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args> {
+                    impl<__S: Fallible + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args> {
                         fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
                             Ok(#resolver)
                         }
@@ -987,7 +987,7 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
             });
 
             quote! {
-                impl<__S: Serializer + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
+                impl<__S: Fallible + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
                 where
                     #generic_predicates
                     #serialize_predicates
@@ -1010,7 +1010,7 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
             use rkyv::{
                 Archive,
                 Serialize,
-                Serializer,
+                Fallible,
             };
             #serialize_impl
         };
@@ -1060,7 +1060,7 @@ fn derive_serialize_copy_impl(input: &DeriveInput, attributes: &Attributes) -> T
             };
 
             quote! {
-                impl<__S: Serializer + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
+                impl<__S: Fallible + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
                 where
                     #generic_predicates
                     #copy_predicates
@@ -1110,7 +1110,7 @@ fn derive_serialize_copy_impl(input: &DeriveInput, attributes: &Attributes) -> T
             let copy_predicates = quote! { #(#copy_predicates)* };
 
             quote! {
-                impl<__S: Serializer + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
+                impl<__S: Fallible + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
                 where
                     #generic_predicates
                     #copy_predicates
@@ -1132,7 +1132,7 @@ fn derive_serialize_copy_impl(input: &DeriveInput, attributes: &Attributes) -> T
                 Archive,
                 ArchiveCopy,
                 Serialize,
-                Serializer,
+                Fallible,
             };
 
             #serialize_copy_impl
