@@ -6,8 +6,7 @@ use rkyv::{
     archived_value,
     check_archive,
     de::deserializers::AllocDeserializer,
-    ser::{Serializer, serializers::BufferSerializer},
-    Aligned,
+    ser::{Serializer, serializers::WriteSerializer},
     Archive,
     Deserialize,
     Serialize,
@@ -394,17 +393,17 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("rkyv");
     {
-        let mut buffer = vec![Aligned(0u8); BUFFER_LEN];
+        let mut buffer = vec![0u8; BUFFER_LEN];
         let mut buffer =
             unsafe { core::slice::from_raw_parts_mut(buffer.as_mut_ptr().cast(), buffer.len()) };
         group.bench_function("serialize", |b| {
             b.iter(|| {
-                let mut serializer = BufferSerializer::new(black_box(&mut buffer));
+                let mut serializer = WriteSerializer::new(black_box(&mut buffer));
                 black_box(serializer.archive(black_box(&players)).unwrap());
             })
         });
 
-        let mut serializer = BufferSerializer::new(&mut buffer);
+        let mut serializer = WriteSerializer::new(&mut buffer);
         let pos = serializer.archive(&players).unwrap();
 
         group.bench_function("access", |b| {

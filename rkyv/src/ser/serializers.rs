@@ -147,9 +147,9 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> SeekSerializer for BufferSerializer<T> {
 ///
 /// ## Examples
 /// ```
-/// use rkyv::ser::{serializers::WriteAdapter, Serializer};
+/// use rkyv::ser::{serializers::WriteSerializer, Serializer};
 ///
-/// let mut serializer = WriteAdapter::new(Vec::new());
+/// let mut serializer = WriteSerializer::new(Vec::new());
 /// assert_eq!(serializer.pos(), 0);
 /// serializer.write(&[0u8, 1u8, 2u8, 3u8]);
 /// assert_eq!(serializer.pos(), 4);
@@ -158,13 +158,13 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> SeekSerializer for BufferSerializer<T> {
 /// assert_eq!(buf, vec![0u8, 1u8, 2u8, 3u8]);
 /// ```
 #[cfg(feature = "std")]
-pub struct WriteAdapter<W: io::Write> {
+pub struct WriteSerializer<W: io::Write> {
     inner: W,
     pos: usize,
 }
 
 #[cfg(feature = "std")]
-impl<W: io::Write> WriteAdapter<W> {
+impl<W: io::Write> WriteSerializer<W> {
     /// Creates a new serializer from a writer.
     pub fn new(inner: W) -> Self {
         Self::with_pos(inner, 0)
@@ -184,12 +184,12 @@ impl<W: io::Write> WriteAdapter<W> {
 }
 
 #[cfg(feature = "std")]
-impl<W: io::Write> Fallible for WriteAdapter<W> {
+impl<W: io::Write> Fallible for WriteSerializer<W> {
     type Error = io::Error;
 }
 
 #[cfg(feature = "std")]
-impl<W: io::Write> Serializer for WriteAdapter<W> {
+impl<W: io::Write> Serializer for WriteSerializer<W> {
     fn pos(&self) -> usize {
         self.pos
     }
@@ -201,7 +201,7 @@ impl<W: io::Write> Serializer for WriteAdapter<W> {
 }
 
 #[cfg(feature = "std")]
-impl<W: io::Write + io::Seek> SeekSerializer for WriteAdapter<W> {
+impl<W: io::Write + io::Seek> SeekSerializer for WriteSerializer<W> {
     fn seek(&mut self, offset: usize) -> Result<(), Self::Error> {
         self.inner.seek(io::SeekFrom::Start(offset as u64))?;
         self.pos = offset;

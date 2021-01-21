@@ -102,8 +102,7 @@ pub use validation::check_archive;
 /// ```
 /// use rkyv::{
 ///     archived_value,
-///     ser::{Serializer, serializers::BufferSerializer},
-///     Aligned,
+///     ser::{Serializer, serializers::WriteSerializer},
 ///     Archive,
 ///     Archived,
 ///     Serialize,
@@ -122,12 +121,12 @@ pub use validation::check_archive;
 ///     option: Some(vec![1, 2, 3, 4]),
 /// };
 ///
-/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
+/// let mut serializer = WriteSerializer::new(Vec::new());
 /// let pos = serializer.archive(&value)
 ///     .expect("failed to archive test");
 /// let buf = serializer.into_inner();
 ///
-/// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+/// let archived = unsafe { archived_value::<Test>(buf.as_slice(), pos) };
 /// assert_eq!(archived.int, value.int);
 /// assert_eq!(archived.string, value.string);
 /// assert_eq!(archived.option, value.option);
@@ -147,8 +146,7 @@ pub use validation::check_archive;
 /// use rkyv::{
 ///     archived_value,
 ///     offset_of,
-///     ser::{Serializer, serializers::BufferSerializer},
-///     Aligned,
+///     ser::{Serializer, serializers::WriteSerializer},
 ///     Archive,
 ///     Archived,
 ///     RelPtr,
@@ -217,7 +215,7 @@ pub use validation::check_archive;
 ///     }
 /// }
 ///
-/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
+/// let mut serializer = WriteSerializer::new(Vec::new());
 /// const STR_VAL: &'static str = "I'm in an OwnedStr!";
 /// let value = OwnedStr { inner: STR_VAL };
 /// // It works!
@@ -260,8 +258,7 @@ pub trait Fallible {
 /// use rkyv::{
 ///     archived_value,
 ///     de::deserializers::AllocDeserializer,
-///     ser::{Serializer, serializers::BufferSerializer},
-///     Aligned,
+///     ser::{Serializer, serializers::WriteSerializer},
 ///     Archive,
 ///     Archived,
 ///     Deserialize,
@@ -275,7 +272,7 @@ pub trait Fallible {
 ///     option: Option<Vec<i32>>,
 /// }
 ///
-/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
+/// let mut serializer = WriteSerializer::new(Vec::new());
 /// let value = Test {
 ///     int: 42,
 ///     string: "hello world".to_string(),
@@ -350,8 +347,7 @@ pub trait SerializeRef<S: Fallible + ?Sized>: ArchiveRef {
 /// ```
 /// use rkyv::{
 ///     archived_value,
-///     ser::{Serializer, serializers::BufferSerializer},
-///     Aligned,
+///     ser::{Serializer, serializers::WriteSerializer},
 ///     Archive,
 ///     Serialize,
 /// };
@@ -360,7 +356,7 @@ pub trait SerializeRef<S: Fallible + ?Sized>: ArchiveRef {
 /// #[archive(copy)]
 /// struct Vector4<T>(T, T, T, T);
 ///
-/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
+/// let mut serializer = WriteSerializer::new(Vec::new());
 /// let value = Vector4(1f32, 2f32, 3f32, 4f32);
 /// let pos = serializer.archive(&value)
 ///     .expect("failed to archive Vector4");
