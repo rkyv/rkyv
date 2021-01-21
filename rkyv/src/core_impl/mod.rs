@@ -553,12 +553,14 @@ impl ArchiveRef for str {
     }
 }
 
-impl<S: Fallible + ?Sized> SerializeRef<S> for str
+impl<S: Serializer + ?Sized> SerializeRef<S> for str
 where
     [u8]: SerializeRef<S>,
 {
     fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        Ok(self.as_bytes().serialize_ref(serializer)?)
+        let result = serializer.pos();
+        serializer.write(self.as_bytes())?;
+        Ok(result)
     }
 }
 

@@ -370,17 +370,17 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }
 
     const BUFFER_LEN: usize = 10_000_000;
+
     let mut group = c.benchmark_group("bincode");
     {
-        let mut buffer = Vec::with_capacity(BUFFER_LEN);
+        let mut serialize_buffer = vec![0; BUFFER_LEN];
         group.bench_function("serialize", |b| {
             b.iter(|| {
-                black_box(&mut buffer).clear();
-                bincode::serialize_into(black_box(&mut buffer), black_box(&players)).unwrap();
+                bincode::serialize_into(black_box(serialize_buffer.as_mut_slice()), black_box(&players)).unwrap();
             })
         });
 
-        buffer.clear();
+        let mut buffer = Vec::new();
         bincode::serialize_into(&mut buffer, &players).unwrap();
 
         group.bench_function("deserialize", |b| {
@@ -393,18 +393,17 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("rkyv");
     {
-        let mut buffer = vec![0u8; BUFFER_LEN];
-        let mut buffer =
-            unsafe { core::slice::from_raw_parts_mut(buffer.as_mut_ptr().cast(), buffer.len()) };
+        let mut serialize_buffer = vec![0u8; BUFFER_LEN];
         group.bench_function("serialize", |b| {
             b.iter(|| {
-                let mut serializer = WriteSerializer::new(black_box(&mut buffer));
+                let mut serializer = WriteSerializer::new(black_box(serialize_buffer.as_mut_slice()));
                 black_box(serializer.archive(black_box(&players)).unwrap());
-            })
+            });
         });
 
-        let mut serializer = WriteSerializer::new(&mut buffer);
+        let mut serializer = WriteSerializer::new(Vec::new());
         let pos = serializer.archive(&players).unwrap();
+        let buffer = serializer.into_inner();
 
         group.bench_function("access", |b| {
             b.iter(|| {
