@@ -1170,4 +1170,67 @@ mod tests {
         assert_eq!(Rc::weak_count(&deserialized.a), 0);
         assert_eq!(Rc::weak_count(&deserialized.b), 0);
     }
+
+    #[test]
+    fn derive_attributes() {
+        use rkyv::Fallible;
+
+        #[derive(Archive, PartialEq)]
+        #[archive(archived = "ATest", resolver = "RTest")]
+        struct Test {
+            a: i32,
+            b: Option<u32>,
+            c: String,
+            d: Vec<i32>,
+        }
+
+        impl<S: Fallible + ?Sized> Serialize<S> for Test
+        where
+            i32: Serialize<S>,
+            Option<u32>: Serialize<S>,
+            String: Serialize<S>,
+            Vec<i32>: Serialize<S>,
+        {
+            fn serialize(&self, serializer: &mut S) -> Result<RTest, S::Error> {
+                Ok(RTest {
+                    a: self.a.serialize(serializer)?,
+                    b: self.b.serialize(serializer)?,
+                    c: self.c.serialize(serializer)?,
+                    d: self.d.serialize(serializer)?,
+                })
+            }
+        }
+
+        impl<D: Fallible + ?Sized> Deserialize<Test, D> for ATest
+        where
+            Archived<i32>: Deserialize<i32, D>,
+            Archived<Option<u32>>: Deserialize<Option<u32>, D>,
+            Archived<String>: Deserialize<String, D>,
+            Archived<Vec<i32>>: Deserialize<Vec<i32>, D>,
+        {
+            fn deserialize(&self, deserializer: &mut D) -> Result<Test, D::Error> {
+                Ok(Test {
+                    a: self.a.deserialize(deserializer)?,
+                    b: self.b.deserialize(deserializer)?,
+                    c: self.c.deserialize(deserializer)?,
+                    d: self.d.deserialize(deserializer)?,
+                })
+            }
+        }
+
+        impl PartialEq<Test> for ATest {
+            fn eq(&self, other: &Test) -> bool {
+                self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
+            }
+        }
+
+        let value = Test {
+            a: 42,
+            b: Some(12),
+            c: "hello world".to_string(),
+            d: vec![1, 2, 3, 4],
+        };
+
+        test_archive(&value);
+    }
 }

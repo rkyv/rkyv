@@ -14,7 +14,8 @@
 //!   feature provides a guarantee.
 //! - `validation`: Enables validation support through `bytecheck`.
 //! - `vtable_cache`: Enables local vtable caching to speed up lookups after the
-//!   first.
+//!   first. This requires mutating the archive, which can cause subsequent
+//!   validation to fail after a vtable is cached.
 
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
@@ -108,25 +109,25 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///
 /// To add archive support for a trait object:
 ///
-/// 1. Add [`archive_dyn`](macro@archive_dyn) on your trait to make an
-/// archive-compatible version of it. By default, it will be named "Archive" +
-/// your trait name. To rename the trait, pass the argument `name = "..."` as
-/// a parameter.
-/// 2. Implement `Archive` for the type you want to make trait objects of and
-/// `TypeName` for the archived versions of them.
+/// 1. Add [`archive_dyn`](macro@archive_dyn) on your trait to make a
+/// serializable version of it. By default, it will be named "Serialize" + your
+/// trait name. To rename the trait, pass the argument `serialize = "..."` as a
+/// parameter.
+/// 2. Implement `Archive` and `Serialize` for the type you want to make trait
+/// objects of and `TypeName` for the archived versions of them.
 /// 3. Implement your trait for your type and add the attribute `#[archive_dyn]`
 /// to it. Make sure to implement your trait for your archived type as well.
 /// This invocation must have the same attributes as the trait invocation.
 /// 4. If deserialization support is desired, add `deserialize` or
-/// `deserialize = "..."` as parameters. By default, the deserialize trait will
-/// be named "Deserialize" + your trait name. Passing a trait name will use that
-/// name instead.
+/// `deserialize = "..."` as parameters and implement `Deserialize` for the
+/// type. By default, the deserialize trait will be named "Deserialize" + your
+/// trait name. Passing a trait name will use that name instead.
 ///
 /// Then you're ready to serialize boxed trait objects!
 ///
-/// Even though your deserialized values are boxed as archive trait objects,
+/// Even though your deserialized values are boxed as serialize trait objects,
 /// your archived values are boxed as regular trait objects. This is because
-/// your deserialized values have to implement `ArchiveDyn` but your archived
+/// your deserialized values have to implement `SerializeDyn` but your archived
 /// values do not.
 ///
 /// ## Examples
@@ -227,7 +228,9 @@ where
     }
 }
 
+/// An object-safe version of `Deserializer`.
 pub trait DynDeserializer {
+    /// Allocates and returns memory with the given layout.
     unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> Result<*mut u8, DynError>;
 }
 
@@ -255,7 +258,7 @@ pub trait DeserializeDyn<T: ?Sized> {
     ///
     /// # Safety
     ///
-    /// The return value must be allocated using the given allocator function.
+    /// The caller must ensure that the memory returned is properly deallocated.
     unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer) -> Result<*mut T, DynError>;
 }
 
@@ -500,9 +503,9 @@ pub unsafe trait RegisteredImpl<T: ?Sized> {
 
 /// Registers a new impl with the trait object system.
 ///
-/// This is called by `#[archive_dyn]` when attached to trait You might need to
-/// do this if you're using generic traits and types, since each specific
-/// instance needs to be individually registered.
+/// This is called by `#[archive_dyn]` when attached to a trait implementation.
+/// You might need to call this manually if you're using generic traits and
+/// types, since each specific instance needs to be individually registered.
 ///
 /// Call it like `register_impl!(MyType as dyn MyTrait)`.
 #[macro_export]

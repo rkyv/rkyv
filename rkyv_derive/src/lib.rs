@@ -33,7 +33,8 @@ struct Attributes {
     copy: Option<Span>,
     repr: Repr,
     derives: Option<MetaList>,
-    name: Option<(Ident, Span)>,
+    archived: Option<(Ident, Span)>,
+    resolver: Option<(Ident, Span)>,
 }
 
 impl Default for Attributes {
@@ -42,7 +43,8 @@ impl Default for Attributes {
             copy: None,
             repr: Default::default(),
             derives: None,
-            name: None,
+            archived: None,
+            resolver: None,
         }
     }
 }
@@ -87,10 +89,10 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                                     }
                                 }
                                 Meta::NameValue(meta) => {
-                                    if meta.path.is_ident("name") {
+                                    if meta.path.is_ident("archived") {
                                         if let Lit::Str(ref lit_str) = meta.lit {
-                                            if result.name.is_none() {
-                                                result.name = Some((
+                                            if result.archived.is_none() {
+                                                result.archived = Some((
                                                     Ident::new(
                                                         &lit_str.value(),
                                                         lit_str.span(),
@@ -100,14 +102,38 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                                             } else {
                                                 return Err(Error::new(
                                                     meta.span(),
-                                                    "name already specified",
+                                                    "archived already specified",
                                                 )
                                                 .to_compile_error());
                                             }
                                         } else {
                                             return Err(Error::new(
                                                 meta.span(),
-                                                "name must be a string",
+                                                "archived must be a string",
+                                            )
+                                            .to_compile_error());
+                                        }
+                                    } else if meta.path.is_ident("resolver") {
+                                        if let Lit::Str(ref lit_str) = meta.lit {
+                                            if result.resolver.is_none() {
+                                                result.resolver = Some((
+                                                    Ident::new(
+                                                        &lit_str.value(),
+                                                        lit_str.span(),
+                                                    ),
+                                                    lit_str.span(),
+                                                ));
+                                            } else {
+                                                return Err(Error::new(
+                                                    meta.span(),
+                                                    "resolver already specified",
+                                                )
+                                                .to_compile_error());
+                                            }
+                                        } else {
+                                            return Err(Error::new(
+                                                meta.span(),
+                                                "resolver must be a string",
                                             )
                                             .to_compile_error());
                                         }
@@ -211,13 +237,17 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
         quote! {}
     };
 
-    let archived = if let Some((ref name, _)) = attributes.name {
-        name.clone()
+    let archived = if let Some((ref archived, _)) = attributes.archived {
+        archived.clone()
     } else {
         Ident::new(&format!("Archived{}", name), name.span())
     };
 
-    let resolver = Ident::new(&format!("{}Resolver", name), name.span());
+    let resolver = if let Some((ref resolver, _)) = attributes.resolver {
+        resolver.clone()
+    } else {
+        Ident::new(&format!("{}Resolver", name), name.span())
+    };
 
     #[cfg(feature = "strict")]
     let strict = quote! { #[repr(C)] };
@@ -646,9 +676,11 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
         .to_compile_error();
     }
 
-    if let Some((_, span)) = &attributes.name {
-        return Error::new(*span, "archive self types cannot be named").to_compile_error();
-    }
+    if let Some((_, span)) = &attributes.archived {
+        return Error::new(*span, "archive copy types cannot be named").to_compile_error();
+    } else if let Some((_, span)) = &attributes.resolver {
+        return Error::new(*span, "archive copy resolvers cannot be named").to_compile_error();
+    };
 
     let name = &input.ident;
 
@@ -805,13 +837,13 @@ pub fn serialize_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     let serialize_impl = if attributes.copy.is_some() {
         derive_serialize_copy_impl(&input, &attributes)
     } else {
-        derive_serialize_impl(&input)
+        derive_serialize_impl(&input, &attributes)
     };
 
     proc_macro::TokenStream::from(serialize_impl)
 }
 
-fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
+fn derive_serialize_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStream {
     let name = &input.ident;
 
     let generic_params = input
@@ -835,7 +867,11 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
         None => quote! {},
     };
 
-    let resolver = Ident::new(&format!("{}Resolver", name), name.span());
+    let resolver = if let Some((ref resolver, _)) = attributes.resolver {
+        resolver.clone()
+    } else {
+        Ident::new(&format!("{}Resolver", name), name.span())
+    };
 
     let serialize_impl = match input.data {
         Data::Struct(ref data) => match data.fields {
@@ -1010,6 +1046,12 @@ fn derive_serialize_impl(input: &DeriveInput) -> TokenStream {
 }
 
 fn derive_serialize_copy_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStream {
+    if let Some((_, span)) = &attributes.archived {
+        return Error::new(*span, "archive copy types cannot be named").to_compile_error();
+    } else if let Some((_, span)) = &attributes.resolver {
+        return Error::new(*span, "archive copy resolvers cannot be named").to_compile_error();
+    };
+
     let name = &input.ident;
 
     let generic_params = input.generics.params.iter().map(|p| quote! { #p });
@@ -1146,7 +1188,7 @@ pub fn deserialize_derive(input: proc_macro::TokenStream) -> proc_macro::TokenSt
     };
 
     let deserialize_impl = if attributes.copy.is_some() {
-        derive_deserialize_copy_impl(&input)
+        derive_deserialize_copy_impl(&input, &attributes)
     } else {
         derive_deserialize_impl(&input)
     };
@@ -1346,7 +1388,13 @@ fn derive_deserialize_impl(input: &DeriveInput) -> TokenStream {
     }
 }
 
-fn derive_deserialize_copy_impl(input: &DeriveInput) -> TokenStream {
+fn derive_deserialize_copy_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStream {
+    if let Some((_, span)) = &attributes.archived {
+        return Error::new(*span, "archive copy types cannot be named").to_compile_error();
+    } else if let Some((_, span)) = &attributes.resolver {
+        return Error::new(*span, "archive copy resolvers cannot be named").to_compile_error();
+    };
+
     let name = &input.ident;
 
     let generic_params = input
