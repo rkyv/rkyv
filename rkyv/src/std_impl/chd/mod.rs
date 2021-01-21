@@ -6,7 +6,16 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{offset_of, Archive, Archived, Fallible, RelPtr, Serialize, Deserialize, Serializer};
+use crate::{
+    offset_of,
+    ser::Serializer,
+    Archive,
+    Archived,
+    Deserialize,
+    Fallible,
+    RelPtr,
+    Serialize,
+};
 use core::{
     borrow::Borrow,
     cmp::Reverse,

@@ -1,42 +1,50 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 #[cfg(all(test, feature = "validation"))]
 mod validation;
 
 #[cfg(test)]
-mod tests {
-    use core::pin::Pin;
-    use rkyv::{Aligned, AllocDeserializer, Archive, ArchiveRef, Archived, BufferSerializer, Deserialize, Deserializer, SeekSerializer, Serialize, SerializeRef, Serializer, SharedDeserializerAdapter, archived_value, archived_value_mut, archived_value_ref};
-    use rkyv_dyn::archive_dyn;
-    use rkyv_typename::TypeName;
-    use std::collections::HashMap;
+mod util {
+    use rkyv::{
+        archived_value,
+        archived_value_ref,
+        de::deserializers::AllocDeserializer,
+        ser::{serializers::BufferSerializer, Serializer},
+        Aligned,
+        Deserialize,
+        Serialize,
+        SerializeRef,
+    };
 
-    const BUFFER_SIZE: usize = 256;
+    pub const BUFFER_SIZE: usize = 256;
+    pub type DefaultSerializer = BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>;
 
-    fn test_archive<T: Serialize<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>>(value: &T)
+    pub fn test_archive<T: Serialize<DefaultSerializer>>(value: &T)
     where
         T: PartialEq,
         T::Archived: PartialEq<T> + Deserialize<T, AllocDeserializer>,
     {
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.serialize(value).expect("failed to archive value");
+        let pos = serializer.archive(value).expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
         assert!(&archived_value.deserialize(&mut AllocDeserializer).unwrap() == value);
     }
 
-    fn test_archive_ref<T: SerializeRef<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>> + ?Sized>(value: &T)
+    pub fn test_archive_ref<T: SerializeRef<DefaultSerializer> + ?Sized>(value: &T)
     where
         T::Archived: PartialEq<T>,
     {
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.serialize_ref(value).expect("failed to archive ref");
+        let pos = serializer.archive_ref(value).expect("failed to archive ref");
         let buf = serializer.into_inner();
         let archived_ref = unsafe { archived_value_ref::<T>(buf.as_ref(), pos) };
         assert!(&**archived_ref == value);
     }
 
-    fn test_archive_container<
-        T: Serialize<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>, Archived = U> + core::ops::Deref<Target = TV>,
+    pub fn test_archive_container<
+        T: Serialize<DefaultSerializer, Archived = U> + core::ops::Deref<Target = TV>,
         TV: ?Sized,
         U: core::ops::Deref<Target = TU>,
         TU: PartialEq<TV> + ?Sized,
@@ -44,11 +52,52 @@ mod tests {
         value: &T,
     ) {
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.serialize(value).expect("failed to archive ref");
+        let pos = serializer.archive(value).expect("failed to archive ref");
         let buf = serializer.into_inner();
         let archived_ref = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(&**archived_ref == &**value);
     }
+}
+
+#[cfg(test)]
+mod no_std_tests {
+    use crate::util::*;
+
+    #[test]
+    fn archive_slices() {
+        test_archive_ref::<str>("hello world");
+        test_archive_ref::<[i32]>([1, 2, 3, 4].as_ref());
+    }
+}
+
+#[cfg(feature = "std")]
+#[cfg(test)]
+mod tests {
+    use core::pin::Pin;
+    use rkyv::{
+        archived_value,
+        archived_value_mut,
+        de::{
+            adapters::SharedDeserializerAdapter,
+            deserializers::AllocDeserializer,
+            Deserializer,
+        },
+        ser::{
+            adapters::SharedSerializerAdapter,
+            serializers::BufferSerializer,
+            SeekSerializer,
+            Serializer,
+        },
+        Aligned,
+        Archive,
+        ArchiveRef,
+        Archived,
+        Deserialize,
+        DeserializeRef,
+        Serialize,
+        SerializeRef,
+    };
+    use crate::util::*;
 
     #[test]
     fn archive_primitives() {
@@ -105,8 +154,11 @@ mod tests {
         test_archive(&Some(Box::new(vec![1, 2, 3, 4])));
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn archive_hash_map() {
+        use std::collections::HashMap;
+
         test_archive(&HashMap::<i32, i32>::new());
 
         let mut hash_map = HashMap::new();
@@ -123,7 +175,7 @@ mod tests {
         hash_map.insert("baz".to_string(), "bat".to_string());
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.serialize(&hash_map).expect("failed to archive value");
+        let pos = serializer.archive(&hash_map).expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value =
             unsafe { archived_value::<HashMap<String, String>>(buf.as_ref(), pos) };
@@ -436,7 +488,7 @@ mod tests {
         let value = Test(42);
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.serialize(&value).expect("failed to archive value");
+        let pos = serializer.archive(&value).expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 
@@ -454,10 +506,16 @@ mod tests {
 
     #[test]
     fn manual_archive_dyn() {
-        use rkyv::{DeserializeRef, Serializer};
         use rkyv_dyn::{
-            register_impl, SerializeDyn, ArchivedDyn, DynDeserializer, DynError, RegisteredImpl, DeserializeDyn,
+            register_impl,
+            ArchivedDyn,
+            DeserializeDyn,
+            DynDeserializer,
+            DynError,
+            RegisteredImpl,
+            SerializeDyn,
         };
+        use rkyv_typename::TypeName;
 
         pub trait TestTrait {
             fn get_id(&self) -> i32;
@@ -545,7 +603,7 @@ mod tests {
         let value: Box<dyn SerializeTestTrait> = Box::new(Test { id: 42 });
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.serialize(&value).expect("failed to archive value");
+        let pos = serializer.archive(&value).expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value =
             unsafe { archived_value::<Box<dyn SerializeTestTrait>>(buf.as_ref(), pos) };
@@ -561,6 +619,10 @@ mod tests {
 
     #[test]
     fn archive_dyn() {
+        use rkyv_dyn::archive_dyn;
+        use rkyv_typename::TypeName;
+
+
         #[archive_dyn(serialize = "STestTrait", deserialize = "DTestTrait")]
         pub trait TestTrait {
             fn get_id(&self) -> i32;
@@ -588,7 +650,7 @@ mod tests {
         let value: Box<dyn STestTrait> = Box::new(Test { id: 42 });
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.serialize(&value).expect("failed to archive value");
+        let pos = serializer.archive(&value).expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value = unsafe { archived_value::<Box<dyn STestTrait>>(buf.as_ref(), pos) };
         assert_eq!(value.get_id(), archived_value.get_id());
@@ -605,6 +667,9 @@ mod tests {
 
     #[test]
     fn archive_dyn_generic() {
+        use rkyv_dyn::archive_dyn;
+        use rkyv_typename::TypeName;
+
         use rkyv_dyn::{register_impl, DynDeserializer, DynError, DynSerializer};
 
         #[archive_dyn(serialize = "STestTrait", deserialize = "DTestTrait")]
@@ -669,9 +734,9 @@ mod tests {
         });
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let i32_pos = serializer.serialize(&i32_value).expect("failed to archive value");
+        let i32_pos = serializer.archive(&i32_value).expect("failed to archive value");
         let string_pos = serializer
-            .serialize(&string_value)
+            .archive(&string_value)
             .expect("failed to archive value");
         let buf = serializer.into_inner();
         let i32_archived_value =
@@ -739,7 +804,7 @@ mod tests {
     #[test]
     fn basic_mutable_refs() {
         let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-        let pos = serializer.serialize(&42i32).unwrap();
+        let pos = serializer.archive(&42i32).unwrap();
         let mut buf = serializer.into_inner();
         let mut value = unsafe { archived_value_mut::<i32>(Pin::new(buf.as_mut()), pos) };
         assert_eq!(*value, 42);
@@ -749,6 +814,8 @@ mod tests {
 
     #[test]
     fn struct_mutable_refs() {
+        use std::collections::HashMap;
+
         #[derive(Archive, Serialize)]
         struct Test {
             a: Box<i32>,
@@ -780,7 +847,7 @@ mod tests {
         value.c.insert(5, [17, 24]);
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-        let pos = serializer.serialize(&value).unwrap();
+        let pos = serializer.archive(&value).unwrap();
         let mut buf = serializer.into_inner();
         let mut value = unsafe { archived_value_mut::<Test>(Pin::new(buf.as_mut()), pos) };
 
@@ -833,7 +900,7 @@ mod tests {
         let value = Test::A;
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-        let pos = serializer.serialize(&value).unwrap();
+        let pos = serializer.archive(&value).unwrap();
         let mut buf = serializer.into_inner();
         let mut value = unsafe { archived_value_mut::<Test>(Pin::new(buf.as_mut()), pos) };
 
@@ -854,6 +921,9 @@ mod tests {
 
     #[test]
     fn mutable_dyn_ref() {
+        use rkyv_dyn::archive_dyn;
+        use rkyv_typename::TypeName;
+
         #[archive_dyn]
         trait TestTrait {
             fn value(&self) -> i32;
@@ -892,7 +962,7 @@ mod tests {
         let value = Box::new(Test(10)) as Box<dyn SerializeTestTrait>;
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-        let pos = serializer.serialize(&value).unwrap();
+        let pos = serializer.archive(&value).unwrap();
         let mut buf = serializer.into_inner();
         let mut value =
             unsafe { archived_value_mut::<Box<dyn SerializeTestTrait>>(Pin::new(buf.as_mut()), pos) };
@@ -1024,7 +1094,6 @@ mod tests {
 
     #[test]
     fn archive_shared_ptr() {
-        use rkyv::SharedSerializerAdapter;
         use std::rc::Rc;
 
         #[derive(Archive, Deserialize, Serialize, Eq, PartialEq)]
@@ -1056,7 +1125,7 @@ mod tests {
         };
 
         let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer.serialize(&value).expect("failed to archive value");
+        let pos = serializer.archive(&value).expect("failed to archive value");
         let mut buf = serializer.into_inner().into_inner();
 
         let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };

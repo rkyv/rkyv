@@ -1,8 +1,19 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    offset_of, Archive, ArchiveCopy, ArchiveRef, Archived, Fallible, Reference, RelPtr,
-    Serialize, Serializer, SerializeRef, Deserialize, Deserializer, DeserializeRef,
+    de::Deserializer,
+    offset_of,
+    ser::Serializer,
+    Archive,
+    ArchiveCopy,
+    ArchiveRef,
+    Archived,
+    Fallible,
+    RelPtr,
+    Serialize,
+    SerializeRef,
+    Deserialize,
+    DeserializeRef,
 };
 use core::{
     alloc,
@@ -84,7 +95,7 @@ impl<T: Archive> ArchiveRef for T {
 
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeRef<S> for T {
     fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        Ok(serializer.serialize(self)?)
+        Ok(serializer.archive(self)?)
     }
 }
 
@@ -162,21 +173,43 @@ impl<T: PartialOrd> PartialOrd for ArchivedSlice<T> {
     }
 }
 
-#[cfg(not(feature = "std"))]
-impl<T: ArchiveCopy> ArchiveRef for [T] {
+impl<T: Archive> ArchiveRef for [T] {
     type Archived = [T::Archived];
     type Reference = ArchivedSlice<T::Archived>;
 
-    fn archive_ref<W: Write + ?Sized>(&self, writer: &mut W) -> Result<usize, W::Error> {
+    fn resolve_ref(&self, from: usize, to: usize) -> Self::Reference {
+        unsafe { ArchivedSlice::new(from, to, self.len()) }
+    }
+}
+
+#[cfg(not(feature = "std"))]
+impl<T: ArchiveCopy, D: Serializer + ?Sized> SerializeRef<S> for [T] {
+    fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error> {
         if !self.is_empty() {
-            let result = writer.align_for::<T>()?;
-            let bytes = unsafe {
-                slice::from_raw_parts(
-                    self.as_ptr().cast::<u8>(),
-                    core::mem::size_of::<T>() * self.len(),
-                )
-            };
-            writer.write(bytes)?;
+            let bytes = slice::from_raw_parts((self as *const T).cast::<u8>(), self.len() * mem::size_of::<T>());
+            let result = serializer.align_for::<T>()?;
+            serializer.write(bytes)?;
+            Ok(result)
+        } else {
+            Ok(0)
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeRef<S> for [T] {
+    fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error> {
+        if !self.is_empty() {
+            let mut resolvers = Vec::with_capacity(self.len());
+            for value in self {
+                resolvers.push(value.serialize(serializer)?);
+            }
+            let result = serializer.align_for::<T::Archived>()?;
+            unsafe {
+                for (i, resolver) in resolvers.drain(..).enumerate() {
+                    serializer.resolve_aligned(&self[i], resolver)?;
+                }
+            }
             Ok(result)
         } else {
             Ok(0)
@@ -189,10 +222,24 @@ impl<T: ArchiveCopy, D: Deserializer + ?Sized> DeserializeRef<[T], D> for <[T] a
 where
     T::Archived: Deserialize<T, D>,
 {
-    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> *mut [T] {
-        let result = deserializer.alloc(alloc::Layout::array::<T>(self.len()).unwrap()).cast::<T>();
+    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> Result<*mut [T], D::Error> {
+        let result = deserializer.alloc(alloc::Layout::array::<T>(self.len()).unwrap())?.cast::<T>();
         ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
-        slice::from_raw_parts_mut(result, self.len())
+        Ok(slice::from_raw_parts_mut(result, self.len()))
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: Archive, D: Deserializer + ?Sized> DeserializeRef<[T], D> for <[T] as ArchiveRef>::Reference
+where
+    T::Archived: Deserialize<T, D>,
+{
+    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> Result<*mut [T], D::Error> {
+        let result = deserializer.alloc(alloc::Layout::array::<T>(self.len()).unwrap())?.cast::<T>();
+        for i in 0..self.len() {
+            result.add(i).write(self[i].deserialize(deserializer)?);
+        }
+        Ok(slice::from_raw_parts_mut(result, self.len()))
     }
 }
 
@@ -492,7 +539,7 @@ where
 #[repr(transparent)]
 #[derive(Debug)]
 pub struct ArchivedStringSlice {
-    slice: Reference<[u8]>,
+    slice: <[u8] as ArchiveRef>::Reference,
 }
 
 impl ArchiveRef for str {

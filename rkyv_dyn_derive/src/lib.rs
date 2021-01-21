@@ -180,8 +180,15 @@ pub fn archive_dyn(
                     #input
 
                     const _: () = {
-                        use rkyv::{Archived, Deserialize};
-                        use rkyv_dyn::{DeserializeDyn, DynDeserializer, DynError};
+                        use rkyv::{
+                            Archived,
+                            Deserialize,
+                        };
+                        use rkyv_dyn::{
+                            DeserializeDyn,
+                            DynDeserializer,
+                            DynError,
+                        };
 
                         rkyv_dyn::register_impl!(Archived<#ty> as dyn #deserialize_trait);
 
@@ -279,11 +286,11 @@ pub fn archive_dyn(
 
                 const _: ()  = {
                     use rkyv::{
+                        de::Deserializer,
+                        ser::Serializer,
                         Archived,
                         ArchiveRef,
-                        Deserializer,
                         DeserializeRef,
-                        Serializer,
                         SerializeRef,
                     };
                     use rkyv_dyn::{

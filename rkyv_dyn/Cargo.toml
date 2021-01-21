@@ -21,9 +21,6 @@ rkyv = { version = "0.3.0", path = "../rkyv" }
 rkyv_dyn_derive = { version = "=0.3.0", path = "../rkyv_dyn_derive" }
 rkyv_typename = { version = "0.3.0", path = "../rkyv_typename" }
 
-[dev-dependencies]
-rkyv_dyn_derive = { version = "0.3.0", path = "../rkyv_dyn_derive" }
-
 [features]
 default = []
 nightly = []

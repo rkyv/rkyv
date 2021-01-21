@@ -13,7 +13,7 @@ repository = "https://github.com/djkoloski/rkyv"
 bytecheck = { path = "../../bytecheck/bytecheck", version = "0.3.0", optional = true }
 rkyv = { path = "../rkyv", default-features = false }
 rkyv_dyn = { path = "../rkyv_dyn" }
-rkyv_typename = { path = "../rkyv_typename" }
+rkyv_typename = { path = "../rkyv_typename", default-features = false }
 
 [features]
 default = ["std", "validation"]

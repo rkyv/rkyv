@@ -2,7 +2,16 @@ use bytecheck::CheckBytes;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
-use rkyv::{Aligned, AllocDeserializer, Archive, BufferSerializer, Deserialize, Serialize, Serializer, archived_value, check_archive};
+use rkyv::{
+    archived_value,
+    check_archive,
+    de::deserializers::AllocDeserializer,
+    ser::{Serializer, serializers::BufferSerializer},
+    Aligned,
+    Archive,
+    Deserialize,
+    Serialize,
+};
 use std::collections::HashMap;
 
 trait Generate {
@@ -391,12 +400,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("serialize", |b| {
             b.iter(|| {
                 let mut serializer = BufferSerializer::new(black_box(&mut buffer));
-                black_box(serializer.serialize(black_box(&players)).unwrap());
+                black_box(serializer.archive(black_box(&players)).unwrap());
             })
         });
 
         let mut serializer = BufferSerializer::new(&mut buffer);
-        let pos = serializer.serialize(&players).unwrap();
+        let pos = serializer.archive(&players).unwrap();
 
         group.bench_function("access", |b| {
             b.iter(|| {
