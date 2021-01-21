@@ -1,14 +1,21 @@
+//! Validation implementations for shared pointers.
+
 use core::fmt;
 use std::error::Error;
 use bytecheck::CheckBytes;
 use super::{ArchivedArc, ArchivedRc};
 use crate::validation::{ArchiveBoundsContext, ArchiveBoundsError, CheckBytesRef, SharedArchiveContext, SharedArchiveError};
 
+/// Errors that can occur while checking archived shared pointers.
 #[derive(Debug)]
 pub enum SharedPointerError<T, R> {
+    /// A bounds error occurred
     BoundsError(ArchiveBoundsError),
+    /// A shared memory error occurred
     SharedError(SharedArchiveError),
+    /// An error occurred while checking the bytes of a shared value
     CheckBytes(T),
+    /// An error occurred while checking the bytes of a shared reference
     RefCheckBytes(R),
 }
 

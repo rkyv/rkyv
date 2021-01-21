@@ -1044,7 +1044,7 @@ mod tests {
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = serializer
-            .serialize_root(&value)
+            .archive_root(&value)
             .expect("failed to archive value");
         assert_eq!(pos, 0);
         let buf = serializer.into_inner();

@@ -21,14 +21,21 @@ where
     }
 }
 
+/// Checks the memory referenced by a reference type.
 pub trait CheckBytesRef<C: ArchiveBoundsContext + ?Sized>: CheckBytes<C> {
+    /// The error that can occur when checking the referenced memory
     type RefError: Error + 'static;
+    /// The type of the referenced value
     type Target: ?Sized;
 
+    /// Checks the reference's internal pointer and returns a pointer to the
+    /// referenced bytes and the number of bytes referenced
     fn check_ptr(&self, context: &mut C) -> Result<(*const u8, usize), ArchiveBoundsError>;
+    /// Checks the value of the referenced bytes
     unsafe fn check_ref_bytes<'a>(&'a self, bytes: *const u8, context: &mut C) -> Result<&'a Self::Target, Self::RefError>;
 }
 
+/// Errors that can occur when checking a relative pointer
 #[derive(Debug)]
 pub enum ArchiveBoundsError {
     /// A pointer pointed outside the bounds of the archive
@@ -90,8 +97,9 @@ impl fmt::Display for ArchiveBoundsError {
 
 impl Error for ArchiveBoundsError {}
 
-/// A context that can ensure that a 
+/// A context that can check relative pointers.
 pub trait ArchiveBoundsContext {
+    /// Checks the given parts of a relative pointer for bounds issues
     unsafe fn check_raw_ptr(
         &mut self,
         base: *const u8,
@@ -100,6 +108,7 @@ pub trait ArchiveBoundsContext {
         align: usize,
     ) -> Result<*const u8, ArchiveBoundsError>;
 
+    /// Checks the given relative pointer for bounds issues
     unsafe fn check_rel_ptr(
         &mut self,
         rel_ptr: &RelPtr,
@@ -112,7 +121,7 @@ pub trait ArchiveBoundsContext {
     }
 }
 
-/// A context that can bounds check pointers in an archive.
+/// A validator that can bounds check pointers in an archive.
 pub struct ArchiveBoundsValidator {
     begin: *const u8,
     len: usize,
@@ -215,7 +224,7 @@ impl fmt::Display for ArchiveMemoryError {
 
 impl Error for ArchiveMemoryError {}
 
-/// Context to perform archive validation.
+/// A context that can validate archive memory.
 ///
 /// When implementing archivable containers, an archived type may point to some
 /// bytes elsewhere in the archive using a [`RelPtr`]. Before checking those
@@ -376,19 +385,24 @@ pub trait ArchiveMemoryContext {
     unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<*const u8, ArchiveMemoryError>;
 }
 
-/// A context that can bounds check and enforce memory ownership.
+/// An adapter that adds memory validation to a context.
 pub struct ArchiveValidator<C> {
     inner: C,
     intervals: Vec<Interval>,
 }
 
 impl<C> ArchiveValidator<C> {
-    /// Creates a new archive context for the given byte slice
+    /// Wraps the given validator context and adds memory validation.
     pub fn new(inner: C) -> Self {
         Self {
             inner,
             intervals: Vec::new(),
         }
+    }
+
+    /// Consumes the adapter and returns the underlying validator.
+    pub fn into_inner(self) -> C {
+        self.inner
     }
 }
 
@@ -451,6 +465,7 @@ impl<C: ArchiveBoundsContext> ArchiveMemoryContext for ArchiveValidator<C> {
     }
 }
 
+/// Errors that can occur when checking shared memory.
 #[derive(Debug)]
 pub enum SharedArchiveError {
     /// An error occurred while checking the memory of the archive
@@ -492,6 +507,9 @@ impl Error for SharedArchiveError {
     }
 }
 
+/// A context that can validate shared archive memory.
+///
+/// Shared pointers require this kind of context to validate.
 pub trait SharedArchiveContext: ArchiveMemoryContext {
     /// Claims `count` shared bytes located `offset` bytes away from `base`.
     ///
@@ -504,17 +522,24 @@ pub trait SharedArchiveContext: ArchiveMemoryContext {
     unsafe fn claim_shared_bytes<T: 'static>(&mut self, start: *const u8, len: usize) -> Result<Option<*const u8>, SharedArchiveError>;
 }
 
+/// An adapter that adds shared memory validation.
 pub struct SharedArchiveValidator<C> {
     inner: C,
     shared_blocks: HashMap<*const u8, TypeId>,
 }
 
 impl<C> SharedArchiveValidator<C> {
+    /// Wraps the given context and adds shared memory validation.
     pub fn new(inner: C) -> Self {
         Self {
             inner,
             shared_blocks: HashMap::new(),
         }
+    }
+
+    /// Consumes the adapter and returns the underlying validator.
+    pub fn into_inner(self) -> C {
+        self.inner
     }
 }
 
@@ -595,6 +620,7 @@ impl<T: fmt::Debug + fmt::Display + Error + 'static> Error for CheckArchiveError
     }
 }
 
+/// A validator that supports all builtin types.
 pub type DefaultArchiveValidator = SharedArchiveValidator<ArchiveValidator<ArchiveBoundsValidator>>;
 
 /// Checks the given archive at the given position for an archived version of

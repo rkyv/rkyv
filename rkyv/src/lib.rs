@@ -11,20 +11,6 @@
 //! little to no overhead, and in most cases will perform exactly the same as
 //! native types.
 //!
-//! rkyv has a hashmap implementation that is built for zero-copy
-//! deserialization, so you can serialize your hashmaps with abandon. The
-//! implementation performs perfect hashing with the compress, hash and displace
-//! algorithm to use as little memory as possible while still performing fast
-//! lookups.
-//!
-//! rkyv also has support for contextual serialization, deserialization, and
-//! validation. It can properly serialize and deserialize shared pointers like
-//! `Rc` and `Arc`, and can be extended to support custom contextual types.
-//!
-//! One of the most impactful features made possible by rkyv is the ability to
-//! serialize trait objects and use them *as trait objects* without
-//! deserialization. See the `archive_dyn` crate for more details.
-//!
 //! ## Design
 //!
 //! Like [serde](https://serde.rs), rkyv uses Rust's powerful trait system to
@@ -38,9 +24,25 @@
 //! a pointer, and your data is ready to use. This makes it ideal for
 //! high-performance and IO-bound applications.
 //!
-//! Limited data mutation is supported through `Pin` APIs. Archived values can
+//! Limited data mutation is supported through `Pin` APIs, and archived values can
 //! be truly deserialized with [`Deserialize`] if full mutation capabilities are
 //! needed.
+//!
+//! ## Type support
+//!
+//! rkyv has a hashmap implementation that is built for zero-copy
+//! deserialization, so you can serialize your hashmaps with abandon. The
+//! implementation performs perfect hashing with the compress, hash and displace
+//! algorithm to use as little memory as possible while still performing fast
+//! lookups.
+//!
+//! rkyv also has support for contextual serialization, deserialization, and
+//! validation. It can properly serialize and deserialize shared pointers like
+//! `Rc` and `Arc`, and can be extended to support custom contextual types.
+//!
+//! One of the most impactful features made possible by rkyv is the ability to
+//! serialize trait objects and use them *as trait objects* without
+//! deserialization. See the `archive_dyn` crate for more details.
 //!
 //! ## Tradeoffs
 //!
@@ -86,7 +88,7 @@ pub use rkyv_derive::{Archive, Deserialize, Serialize};
 #[cfg(feature = "validation")]
 pub use validation::check_archive;
 
-/// Writes a type to a [`Serializer`] so it can be used without deserializing.
+/// A type that can be used without deserializing.
 ///
 /// Archiving is done depth-first, writing any data owned by a type before
 /// writing the data for the type itself. The type must be able to create the
@@ -102,13 +104,15 @@ pub use validation::check_archive;
 /// ```
 /// use rkyv::{
 ///     archived_value,
+///     de::deserializers::AllocDeserializer,
 ///     ser::{Serializer, serializers::WriteSerializer},
 ///     Archive,
 ///     Archived,
+///     Deserialize,
 ///     Serialize,
 /// };
 ///
-/// #[derive(Archive, Serialize)]
+/// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
 /// struct Test {
 ///     int: u8,
 ///     string: String,
@@ -130,9 +134,12 @@ pub use validation::check_archive;
 /// assert_eq!(archived.int, value.int);
 /// assert_eq!(archived.string, value.string);
 /// assert_eq!(archived.option, value.option);
+///
+/// let deserialized = archived.deserialize(&mut AllocDeserializer).unwrap();
+/// assert_eq!(value, deserialized);
 /// ```
 ///
-/// Many of the core and standard library types already have Archive
+/// Many of the core and standard library types already have `Archive`
 /// implementations available, but you may need to implement `Archive` for your
 /// own types in some cases the derive macro cannot handle.
 ///
@@ -184,9 +191,12 @@ pub use validation::check_archive;
 ///     bytes_pos: usize,
 /// }
 ///
+/// // The Archive implementation defines the archived version of our type and
+/// // determines how to turn the resolver into the archived form. The Serialize
+/// // implementations determine how to make a resolver from the original value.
 /// impl Archive for OwnedStr {
 ///     type Archived = ArchivedOwnedStr;
-///     /// This is the resolver we'll return from archive.
+///     // This is the resolver we can create our Archived verison from.
 ///     type Resolver = OwnedStrResolver;
 ///
 ///     // The resolve function consumes the resolver and produces the archived
@@ -205,6 +215,9 @@ pub use validation::check_archive;
 ///     }
 /// }
 ///
+/// // We restrict our serializer types with Serializer because we need its
+/// // capabilities to archive our type. For other types, we might need more or
+/// // less restrictive bounds on the type of S.
 /// impl<S: Serializer + ?Sized> Serialize<S> for OwnedStr {
 ///     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
 ///         // This is where we want to write the bytes of our string and return
@@ -238,72 +251,30 @@ pub trait Archive {
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived;
 }
 
+/// Converts a type to its archived form.
+///
+/// See [`Archive`] for examples of implementing `Serialize`.
 pub trait Serialize<S: Fallible + ?Sized>: Archive {
     /// Writes the dependencies for the object and returns a resolver that can
     /// create the archived type.
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error>;
 }
 
+/// Contains the error type for traits with methods that can fail
 pub trait Fallible {
+    /// The error produced by any failing methods
     type Error: 'static;
 }
 
 /// Converts a type back from its archived form.
 ///
 /// This can be derived with [`Deserialize`](macro@Deserialize).
-///
-/// ## Examples
-///
-/// ```
-/// use rkyv::{
-///     archived_value,
-///     de::deserializers::AllocDeserializer,
-///     ser::{Serializer, serializers::WriteSerializer},
-///     Archive,
-///     Archived,
-///     Deserialize,
-///     Serialize,
-/// };
-///
-/// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-/// struct Test {
-///     int: u8,
-///     string: String,
-///     option: Option<Vec<i32>>,
-/// }
-///
-/// let mut serializer = WriteSerializer::new(Vec::new());
-/// let value = Test {
-///     int: 42,
-///     string: "hello world".to_string(),
-///     option: Some(vec![1, 2, 3, 4]),
-/// };
-/// let pos = serializer.archive(&value)
-///     .expect("failed to archive test");
-/// let buf = serializer.into_inner();
-/// let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
-///
-/// let deserialized = archived.deserialize(&mut AllocDeserializer).unwrap();
-/// assert_eq!(value, deserialized);
-/// ```
 pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
+    /// Deserializes using the given deserializer
     fn deserialize(&self, deserializer: &mut D) -> Result<T, D::Error>;
 }
 
-/// A counterpart of [`Deserialize`] that's suitable for unsized types.
-pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized, D: Fallible + ?Sized>:
-    Deref<Target = T::Archived> + DerefMut<Target = T::Archived> + Sized
-{
-    /// Deserializes a reference to the given value.
-    ///
-    /// # Safety
-    ///
-    /// The return value must be allocated using the given allocator function.
-    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> Result<*mut T, D::Error>;
-}
-
-/// This trait is a counterpart of [`Archive`] that's suitable for unsized
-/// types.
+/// A counterpart of [`Archive`] that's suitable for unsized types.
 ///
 /// Instead of archiving its value directly, `ArchiveRef` archives a type that
 /// dereferences to its archived type. As a consequence, its resolver must be
@@ -312,28 +283,185 @@ pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized, D: Fallible +
 /// `ArchiveRef` is automatically implemented for all types that implement
 /// [`Archive`], and uses a [`RelPtr`] as the reference type.
 ///
-/// `ArchiveRef` is already implemented for slices and string slices. Use the
-/// `rkyv_dyn` crate to archive trait objects. Unfortunately, you'll have to
-/// manually implement `ArchiveRef` for your other unsized types.
+/// `ArchiveRef` is already implemented for slices and string slices, and the
+/// `rkyv_dyn` crate can be used to archive trait objects. Other unsized types
+/// must manually implement `ArchiveRef`.
+///
+/// ## Examples
+///
+/// ```
+/// use core::{
+///     marker::PhantomData,
+///     mem,
+///     ops::{Deref, DerefMut},
+/// };
+/// use rkyv::{
+///     archived_value_ref,
+///     offset_of,
+///     ser::{serializers::WriteSerializer, Serializer},
+///     Archive,
+///     Archived,
+///     ArchiveRef,
+///     RelPtr,
+///     Serialize,
+///     SerializeRef,
+/// };
+///
+/// // We're going to be dealing mostly with blocks that have an unsized tail
+/// pub struct Block<H, T: ?Sized> {
+///     head: H,
+///     tail: T,
+/// }
+///
+/// // Our reference type for a Block<H, [T]>. We store the length of the
+/// // trailing slice with it so we can construct a wide pointer to it in Deref.
+/// pub struct BlockSliceRef<H, T> {
+///     data: RelPtr,
+///     len: u32,
+///     _phantom: PhantomData<(H, T)>,
+/// }
+///
+/// impl<H, T> Deref for BlockSliceRef<H, T> {
+///     // Dereferencing a BlockSlice ref should give us a Block with a trailing
+///     // slice
+///     type Target = Block<H, [T]>;
+///
+///     fn deref(&self) -> &Self::Target {
+///         // We're going to construct a wide pointer to our target type. Wide
+///         // pointers are laid out the same as a (*const (), usize) tuple. The
+///         // pointer part holds a pointer to the start of the unsized type and
+///         // the usize part holds some extra metadata about the pointer.
+///
+///         // In the case of structs with trailing slices, the metadata is the
+///         // length of the slice in items. We'll make our tuple with the right
+///         // data and then transmute it to a wide pointer to create our wide
+///         // pointer.
+///         unsafe {
+///             let result = (self.data.as_ptr::<()>().cast::<()>(), self.len as usize);
+///             &*mem::transmute::<(*const (), usize), *const Self::Target>(result)
+///         }
+///     }
+/// }
+///
+/// impl<H, T> DerefMut for BlockSliceRef<H, T> {
+///     fn deref_mut(&mut self) -> &mut Self::Target {
+///         // Same as Deref, but mutable this time
+///         unsafe {
+///             let result = (self.data.as_mut_ptr::<()>().cast::<()>(), self.len as usize);
+///             &mut *mem::transmute::<(*mut (), usize), *mut Self::Target>(result)
+///         }
+///     }
+/// }
+///
+/// // We're implementing ArchiveRef for just Block<H, [T]>. We can still
+/// // implement Archive and ArchiveRef for blocks with sized tails and they
+/// // won't conflict.
+/// impl<H: Archive, T: Archive> ArchiveRef for Block<H, [T]> {
+///     // We'll reuse our block type as our archived type.
+///     type Archived = Block<Archived<H>, [Archived<T>]>;
+///     // This is the reference we made!
+///     type Reference = BlockSliceRef<Archived<H>, Archived<T>>;
+///     // Here's where we turn our from/to positions into a block slice ref
+///     fn resolve_ref(&self, from: usize, to: usize) -> Self::Reference {
+///         BlockSliceRef {
+///             // We always have to be careful to account for field offsets
+///             // when we make relative pointers
+///             data: unsafe { RelPtr::new(from + offset_of!(BlockSliceRef<H, T>, data), to) },
+///             len: self.tail.len() as u32,
+///             _phantom: PhantomData,
+///         }
+///     }
+/// }
+///
+/// // The bounds we use on our serializer type indicate that we need basic
+/// // serializer capabilities, and then whatever capabilities our head and tail
+/// // types need to serialize themselves.
+/// impl<H: Serialize<S>, T: Serialize<S>, S: Serializer + ?Sized> SerializeRef<S> for Block<H, [T]> {
+///     // This is where we construct our unsized type in the serializer
+///     fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error> {
+///         // First, we archive the head and all the tails. This will make sure
+///         // that when we finally build our block, we don't accidentally mess
+///         // up the structure with serialized dependencies.
+///         let head_resolver = self.head.serialize(serializer)?;
+///         let mut tail_resolvers = Vec::new();
+///         for tail in self.tail.iter() {
+///             tail_resolvers.push(tail.serialize(serializer)?);
+///         }
+///         // Now we align our serializer for our archived type and write it.
+///         // We can't align for unsized types so we treat the trailing slice
+///         // like an array of 0 length for now.
+///         serializer.align_for::<Block<Archived<H>, [Archived<T>; 0]>>()?;
+///         let result = unsafe { serializer.resolve_aligned(&self.head, head_resolver)? };
+///         serializer.align_for::<Archived<T>>()?;
+///         for (tail, tail_resolver) in self.tail.iter().zip(tail_resolvers.drain(..)) {
+///             unsafe {
+///                 serializer.resolve_aligned(tail, tail_resolver)?;
+///             }
+///         }
+///         Ok(result)
+///     }
+/// }
+///
+/// let value = Block {
+///     head: "Numbers 1-4".to_string(),
+///     tail: [1, 2, 3, 4],
+/// };
+/// // We have a Block<String, [i32; 4]> but we want to it to be a
+/// // Block<String, [i32]>, so we need to do more pointer transmutation
+/// let ptr = (&value as *const Block<String, [i32; 4]>).cast::<()>();
+/// let unsized_value = unsafe { &*mem::transmute::<(*const (), usize), *const Block<String, [i32]>>((ptr, 4)) };
+///
+/// let mut serializer = WriteSerializer::new(Vec::new());
+/// let pos = serializer.archive_ref(unsized_value)
+///     .expect("failed to archive block");
+/// let buf = serializer.into_inner();
+///
+/// let archived_ref = unsafe { archived_value_ref::<Block<String, [i32]>>(buf.as_slice(), pos) };
+/// assert_eq!(archived_ref.head, "Numbers 1-4");
+/// assert_eq!(archived_ref.tail.len(), 4);
+/// assert_eq!(archived_ref.tail, [1, 2, 3, 4]);
+/// ```
 pub trait ArchiveRef {
+    /// The archived counterpart of this type. Unlike `Archive`, it may be
+    /// unsized.
     type Archived: ?Sized;
 
+    /// An archivable type that can deref to the archived type.
     type Reference: Deref<Target = Self::Archived> + DerefMut<Target = Self::Archived>;
 
+    /// Creates an archived reference of the reference type at the given
+    /// position.
     fn resolve_ref(&self, pos: usize, resolver: usize) -> Self::Reference;
 }
 
+/// A counterpart of [`Serialize`] that's suitable for unsized types.
+///
+/// See [`ArchiveRef`] for examples of implementing `SerializeRef`.
 pub trait SerializeRef<S: Fallible + ?Sized>: ArchiveRef {
-    /// Writes the object and returns a resolver that can create the reference
-    /// to the archived type.
+    /// Writes the object and returns the position of the archived type.
     fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error>;
 }
 
-/// A trait that indicates that some [`Archive`] type can be copied directly to
-/// an archive without additional processing.
+/// A counterpart of [`Deserialize`] that's suitable for unsized types.
 ///
-/// Types that implement `ArchiveCopy` are not guaranteed to have `archive`
-/// called on them to archive their value.
+/// Most types that implement `DeserializeRef` will need a
+/// [`Deserializer`](de::Deserializer) bound so that they can allocate memory.
+pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized, D: Fallible + ?Sized>:
+    Deref<Target = T::Archived> + DerefMut<Target = T::Archived> + Sized
+{
+    /// Deserializes a reference to the given value.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that the memory returned is properly deallocated.
+    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> Result<*mut T, D::Error>;
+}
+
+/// An [`Archive`] type that is a bitwise copy of itself and without additional
+/// processing.
+///
+/// Types that implement `ArchiveCopy` are not guaranteed to have a
+/// [`Serialize`] implementation called on them to archive their value.
 ///
 /// You can derive an implementation of `ArchiveCopy` by adding
 /// `#[archive(copy)]` to the struct or enum. Types that implement `ArchiveCopy`
@@ -431,7 +559,7 @@ pub type Archived<T> = <T as Archive>::Archived;
 pub type Resolver<T> = <T as Archive>::Resolver;
 
 /// Wraps a type and aligns it to at least 16 bytes. Mainly used to align byte
-/// buffers for [`BufferSerializer`].
+/// buffers for [`BufferSerializer`](ser::serializers::BufferSerializer).
 ///
 /// ## Examples
 /// ```

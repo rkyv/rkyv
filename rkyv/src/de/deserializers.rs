@@ -1,3 +1,5 @@
+//! Deserializers that can be used standalone and provide basic capabilities.
+
 #[cfg(feature = "std")]
 use core::alloc;
 #[cfg(feature = "std")]
@@ -5,6 +7,7 @@ use std::{error::Error, fmt};
 #[cfg(feature = "std")]
 use crate::{de::Deserializer, Fallible};
 
+/// Errors that may be returned by [`AllocDeserializer`].
 #[cfg(feature = "std")]
 #[derive(Debug)]
 pub enum AllocDeserializerError {}
@@ -19,6 +22,7 @@ impl fmt::Display for AllocDeserializerError {
 #[cfg(feature = "std")]
 impl Error for AllocDeserializerError {}
 
+/// A deserializer that provides access to the global alloc function.
 #[cfg(feature = "std")]
 pub struct AllocDeserializer;
 

@@ -1,3 +1,5 @@
+//! Serialization traits, serializers, and adapters.
+
 #[cfg(feature = "std")]
 pub mod adapters;
 pub mod serializers;
@@ -11,12 +13,15 @@ use crate::{
     SerializeRef,
 };
 
-/// A `#![no_std]` compliant serializer that knows where it is.
+/// A byte sink that knows where it is.
 ///
 /// A type that is [`io::Write`](std::io::Write) can be wrapped in a
-/// [`WriteSerializer`] to equip it with `Write`. It's important that the memory
-/// for archived objects is properly aligned before attempting to read objects
-/// out of it, use the [`Aligned`] wrapper if it's appropriate.
+/// [`WriteSerializer`](serializers::WriteSerializer) to equip it with
+/// `Serializer`.
+///
+/// It's important that the memory for archived objects is properly aligned
+/// before attempting to read objects out of it; use the
+/// [`Aligned`](crate::Aligned) wrapper if it's appropriate.
 pub trait Serializer: Fallible {
     /// Returns the current position of the serializer.
     fn pos(&self) -> usize;
@@ -84,6 +89,15 @@ pub trait Serializer: Fallible {
         unsafe { self.resolve_aligned(value, resolver) }
     }
 
+    /// Resolves the given reference with its resolver and writes the archived
+    /// reference.
+    ///
+    /// Returns the position of the written archived reference.
+    ///
+    /// # Safety
+    ///
+    /// This is only safe to call when the serializer is already aligned for the
+    /// archived reference of the given type.
     unsafe fn resolve_ref_aligned<T: ArchiveRef + ?Sized>(
         &mut self,
         value: &T,
@@ -114,7 +128,7 @@ pub trait SeekSerializer: Serializer {
 
     /// Archives the given value at the nearest available position. If the
     /// serializer is already aligned, it will archive it at the current position.
-    fn serialize_root<T: Serialize<Self>>(&mut self, value: &T) -> Result<usize, Self::Error> {
+    fn archive_root<T: Serialize<Self>>(&mut self, value: &T) -> Result<usize, Self::Error> {
         self.align_for::<T::Archived>()?;
         let pos = self.pos();
         self.seek(pos + mem::size_of::<T::Archived>())?;
@@ -129,7 +143,7 @@ pub trait SeekSerializer: Serializer {
     /// Archives a reference to the given value at the nearest available
     /// position. If the serializer is already aligned, it will archive it at the
     /// current position.
-    fn serialize_ref_root<T: SerializeRef<Self> + ?Sized>(
+    fn archive_ref_root<T: SerializeRef<Self> + ?Sized>(
         &mut self,
         value: &T,
     ) -> Result<usize, Self::Error> {
@@ -145,7 +159,13 @@ pub trait SeekSerializer: Serializer {
     }
 }
 
+/// A serializer that supports serializing shared memory.
+///
+/// This serializer is required by shared pointers to serialize.
 pub trait SharedSerializer: Serializer {
+    /// Archives the given shared value and returns its position. If the value
+    /// has already been serialized then it returns the position of the
+    /// previously serialized value.
     fn archive_shared<T: ArchiveRef + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error>
     where
         T: SerializeRef<Self>;

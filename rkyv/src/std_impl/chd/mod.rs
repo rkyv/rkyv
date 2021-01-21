@@ -60,6 +60,8 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         )
     }
 
+    /// Gets the hasher for this hashmap. The hasher for all archived hashmaps
+    /// is the same for reproducibility.
     pub fn hasher(&self) -> seahash::SeaHasher {
         Self::make_hasher()
     }
@@ -106,7 +108,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         }
     }
 
-    /// Find the key-value entry for a key.
+    /// Finds the key-value entry for a key.
     #[inline]
     pub fn get_key_value<Q: ?Sized>(&self, k: &Q) -> Option<(&K, &V)>
     where
@@ -119,7 +121,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         })
     }
 
-    /// Find the mutable key-value entry for a key.
+    /// Finds the mutable key-value entry for a key.
     #[inline]
     pub fn get_key_value_pin<Q: ?Sized>(self: Pin<&mut Self>, k: &Q) -> Option<(&K, Pin<&mut V>)>
     where
@@ -676,6 +678,7 @@ impl<K: Eq + Hash + Borrow<Q>, Q: Eq + Hash + ?Sized, V> Index<&'_ Q> for Archiv
 pub struct ArchivedHashSet<K: Hash + Eq>(ArchivedHashMap<K, ()>);
 
 impl<K: Hash + Eq> ArchivedHashSet<K> {
+    /// Gets the number of items in the hash set.
     #[inline]
     pub fn len(&self) -> usize {
         self.0.len()

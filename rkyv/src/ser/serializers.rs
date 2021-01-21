@@ -1,3 +1,5 @@
+//! Serializers that can be used standalone and provide basic capabilities.
+
 use core::ptr;
 #[cfg(feature = "std")]
 use std::io;
@@ -6,7 +8,7 @@ use crate::{
     Fallible,
 };
 
-/// Wraps a byte buffer and writes into it.
+/// Wraps a byte buffer and equips it with [`Serializer`].
 ///
 /// Common uses include archiving in `#![no_std]` environments and archiving
 /// small objects without allocating.

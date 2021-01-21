@@ -1,3 +1,5 @@
+//! Adapters wrap serializers and add support for serializer traits.
+
 use std::collections::HashMap;
 use crate::{
     ser::{Serializer, SharedSerializer},
@@ -6,13 +8,14 @@ use crate::{
     SerializeRef,
 };
 
-/// A wrapper around a serializer that adds support for [`SharedSerializer`].
+/// An adapter that adds shared serialization support to a serializer.
 pub struct SharedSerializerAdapter<S> {
     inner: S,
     shared_resolvers: HashMap<*const u8, usize>,
 }
 
 impl<S> SharedSerializerAdapter<S> {
+    /// Wraps the given serializer and adds shared memory support.
     pub fn new(inner: S) -> Self {
         Self {
             inner,
@@ -20,6 +23,7 @@ impl<S> SharedSerializerAdapter<S> {
         }
     }
 
+    /// Consumes the adapter and returns the underlying serializer.
     pub fn into_inner(self) -> S {
         self.inner
     }

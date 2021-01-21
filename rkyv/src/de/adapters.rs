@@ -1,3 +1,5 @@
+//! Adapters wrap deserializers and add support for deserializer traits.
+
 use core::{alloc, any::Any};
 use std::collections::HashMap;
 use crate::{
@@ -7,12 +9,14 @@ use crate::{
     Fallible,
 };
 
+/// An adapter that adds shared deserialization support to a deserializer.
 pub struct SharedDeserializerAdapter<D> {
     inner: D,
     shared_pointers: HashMap<*const (), Box<dyn Any>>,
 }
 
 impl<D> SharedDeserializerAdapter<D> {
+    /// Wraps the given deserializer and adds shared memory support.
     pub fn new(inner: D) -> Self {
         Self {
             inner,
@@ -20,6 +24,7 @@ impl<D> SharedDeserializerAdapter<D> {
         }
     }
 
+    /// Consumes the adapter and returns the underlying deserializer.
     pub fn into_inner(self) -> D {
         self.inner
     }

@@ -1,3 +1,5 @@
+//! [`Archive`] implementation for shared pointers.
+
 #[cfg(feature = "validation")]
 pub mod validation;
 
@@ -15,7 +17,7 @@ use crate::{
     SerializeRef,
 };
 
-/// The resolver for `Rc`.
+/// The resolver for [`Rc`].
 pub struct RcResolver(usize);
 
 /// An archived [`Rc`].
@@ -79,7 +81,7 @@ where
     }
 }
 
-/// The resolver for `Arc`.
+/// The resolver for [`Arc`].
 pub struct ArcResolver(usize);
 
 /// An archived [`Arc`].

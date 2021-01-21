@@ -53,10 +53,14 @@ impl<T: CheckBytes<C>, C: ?Sized> CheckBytes<C> for ArchivedSlice<T> {
     }
 }
 
+/// Errors that can occur while checking an [`ArchivedSlice`].
 #[derive(Debug)]
 pub enum SliceError<T> {
+    /// An error occurred while checking the bytes of an element of the slice
     CheckBytes {
+        /// The index of the element
         index: usize,
+        /// The error that occurred
         inner: T,
     },
 }

@@ -789,6 +789,10 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Tok
     }
 }
 
+/// Derives `Serialize` for the labeled type.
+///
+/// This macro also supports the `#[archive]` and `#[recursive]` attributes. See
+/// [`Archive`] for more information.
 #[proc_macro_derive(Serialize, attributes(archive, recursive))]
 pub fn serialize_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -1130,9 +1134,9 @@ fn derive_serialize_copy_impl(input: &DeriveInput, attributes: &Attributes) -> T
 
 /// Derives `Deserialize` for the labeled type.
 ///
-/// This macro also supports the `#[recursive]` attribute. See [`Archive`] for
-/// more information.
-#[proc_macro_derive(Deserialize, attributes(recursive))]
+/// This macro also supports the `#[archive]` and `#[recursive]` attributes. See
+/// [`Archive`] for more information.
+#[proc_macro_derive(Deserialize, attributes(archive, recursive))]
 pub fn deserialize_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
