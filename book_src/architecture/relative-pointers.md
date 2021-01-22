@@ -22,3 +22,6 @@ This is exactly the property we need to build data structures with total zero-co
 By using relative pointers, we can load data at any position in memory and still have valid pointers
 inside of it. Relative pointers don't require write access to memory either, so we can memory map
 entire files and instantly have access to their data in a structured manner.
+
+rkyv's implementation of relative pointers is the
+[`RelPtr`](https://docs.rs/rkyv/latest/rkyv/struct.RelPtr.html) type.

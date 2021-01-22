@@ -19,7 +19,7 @@ The project has three derive crates that are exposed through the core crates:
 - `rkyv_dyn_derive`
 - `rkyv_typename_derive`
 
-And a test crate: `rkyv_test`.
+A test crate: `rkyv_test`, and a benchmarking crate: `rkyv_bench`.
 
 ## Links
 
