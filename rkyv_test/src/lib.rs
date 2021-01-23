@@ -8,8 +8,8 @@ mod util {
     use rkyv::{
         archived_value,
         archived_value_ref,
-        de::deserializers::AllocDeserializer,
-        ser::{serializers::BufferSerializer, Serializer},
+        de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer},
+        ser::{adapters::SharedSerializerAdapter, serializers::BufferSerializer, Serializer},
         Aligned,
         Deserialize,
         Serialize,
@@ -17,28 +17,30 @@ mod util {
     };
 
     pub const BUFFER_SIZE: usize = 256;
-    pub type DefaultSerializer = BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>;
+    pub type DefaultSerializer = SharedSerializerAdapter<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>;
+    pub type DefaultDeserializer = SharedDeserializerAdapter<AllocDeserializer>;
 
     pub fn test_archive<T: Serialize<DefaultSerializer>>(value: &T)
     where
         T: PartialEq,
-        T::Archived: PartialEq<T> + Deserialize<T, AllocDeserializer>,
+        T::Archived: PartialEq<T> + Deserialize<T, DefaultDeserializer>,
     {
-        let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
+        let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
         let pos = serializer.archive(value).expect("failed to archive value");
-        let buf = serializer.into_inner();
+        let buf = serializer.into_inner().into_inner();
         let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
-        assert!(&archived_value.deserialize(&mut AllocDeserializer).unwrap() == value);
+        let mut deserializer = SharedDeserializerAdapter::new(AllocDeserializer);
+        assert!(&archived_value.deserialize(&mut deserializer).unwrap() == value);
     }
 
     pub fn test_archive_ref<T: SerializeRef<DefaultSerializer> + ?Sized>(value: &T)
     where
         T::Archived: PartialEq<T>,
     {
-        let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
+        let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
         let pos = serializer.archive_ref(value).expect("failed to archive ref");
-        let buf = serializer.into_inner();
+        let buf = serializer.into_inner().into_inner();
         let archived_ref = unsafe { archived_value_ref::<T>(buf.as_ref(), pos) };
         assert!(&**archived_ref == value);
     }
@@ -51,9 +53,9 @@ mod util {
     >(
         value: &T,
     ) {
-        let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
+        let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
         let pos = serializer.archive(value).expect("failed to archive ref");
-        let buf = serializer.into_inner();
+        let buf = serializer.into_inner().into_inner();
         let archived_ref = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(&**archived_ref == &**value);
     }
@@ -1169,6 +1171,31 @@ mod tests {
         assert_eq!(Rc::strong_count(&deserialized.b), 2);
         assert_eq!(Rc::weak_count(&deserialized.a), 0);
         assert_eq!(Rc::weak_count(&deserialized.b), 0);
+    }
+
+    #[test]
+    fn archive_unsized_shared_ptr() {
+        use std::rc::Rc;
+
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        struct Test {
+            a: Rc<[String]>,
+            b: Rc<[String]>,
+        }
+
+        impl PartialEq<Test> for Archived<Test> {
+            fn eq(&self, other: &Test) -> bool {
+                *self.a == *other.a && *self.b == *other.b
+            }
+        }
+
+        let rc_slice = Rc::<[String]>::from(vec!["hello".to_string(), "world".to_string()].into_boxed_slice());
+        let value = Test {
+            a: rc_slice.clone(),
+            b: rc_slice,
+        };
+
+        test_archive(&value);
     }
 
     #[test]

@@ -11,7 +11,7 @@ use crate::{
 /// An adapter that adds shared serialization support to a serializer.
 pub struct SharedSerializerAdapter<S> {
     inner: S,
-    shared_resolvers: HashMap<*const u8, usize>,
+    shared_resolvers: HashMap<*const (), usize>,
 }
 
 impl<S> SharedSerializerAdapter<S> {
@@ -64,8 +64,7 @@ impl<S: Serializer> Serializer for SharedSerializerAdapter<S> {
 }
 
 impl<S: Serializer> SharedSerializer for SharedSerializerAdapter<S> {
-    fn archive_shared<T: SerializeRef<Self> + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error> {
-        let key = (value as *const T).cast::<u8>();
+    fn archive_shared<T: SerializeRef<Self> + ?Sized>(&mut self, key: *const (), value: &T) -> Result<usize, Self::Error> {
         if let Some(existing) = self.shared_resolvers.get(&key) {
             Ok(existing.clone())
         } else {

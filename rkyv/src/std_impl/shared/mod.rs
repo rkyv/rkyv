@@ -65,7 +65,9 @@ impl<T: ArchiveRef + ?Sized> Archive for Rc<T> {
 
 impl<T: SerializeRef<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for Rc<T> {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(RcResolver(serializer.archive_shared(self.as_ref())?))
+        let key = Rc::into_raw(self.clone());
+        unsafe { Rc::from_raw(key) };
+        Ok(RcResolver(serializer.archive_shared(key as *const (), self.as_ref())?))
     }
 }
 
@@ -129,7 +131,9 @@ impl<T: ArchiveRef + ?Sized> Archive for Arc<T> {
 
 impl<T: SerializeRef<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for Arc<T> {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(ArcResolver(serializer.archive_shared(self.as_ref())?))
+        let key = Arc::into_raw(self.clone());
+        unsafe { Arc::from_raw(key) };
+        Ok(ArcResolver(serializer.archive_shared(key as *const (), self.as_ref())?))
     }
 }
 

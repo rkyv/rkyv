@@ -166,7 +166,11 @@ pub trait SharedSerializer: Serializer {
     /// Archives the given shared value and returns its position. If the value
     /// has already been serialized then it returns the position of the
     /// previously serialized value.
-    fn archive_shared<T: ArchiveRef + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error>
+    fn archive_shared<T: ArchiveRef + ?Sized>(&mut self, key: *const (), value: &T) -> Result<usize, Self::Error>
     where
         T: SerializeRef<Self>;
+}
+
+pub trait WeakSerializer: SharedSerializer {
+    fn archive_weak(&mut self, key: *const ()) -> Result<usize, Self::Error>;
 }
