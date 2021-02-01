@@ -5,7 +5,7 @@ pub mod adapters;
 pub mod deserializers;
 
 use core::alloc;
-use crate::{ArchiveRef, DeserializeRef, Fallible};
+use crate::{ArchiveUnsized, DeserializeUnsized, Fallible};
 
 /// A context that provides a memory allocator.
 ///
@@ -23,7 +23,7 @@ pub trait SharedDeserializer: Deserializer {
     /// Checks whether the given reference has been deserialized and either
     /// clones the existing shared pointer to it, or deserializes it and uses
     /// `to_shared` to create a shared pointer.
-    fn deserialize_shared<T: ArchiveRef + ?Sized, P: Clone + 'static>(&mut self, reference: &T::Reference, to_shared: impl FnOnce(*mut T) -> P) -> Result<P, Self::Error>
+    fn deserialize_shared<T: ArchiveUnsized + ?Sized, P: Clone + 'static>(&mut self, value: &T::Archived, to_shared: impl FnOnce(*mut T) -> P) -> Result<P, Self::Error>
     where
-        T::Reference: DeserializeRef<T, Self>;
+        T::Archived: DeserializeUnsized<T, Self>;
 }

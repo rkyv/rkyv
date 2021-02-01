@@ -9,16 +9,20 @@ use crate::{
     de::Deserializer,
     Archive,
     Archived,
-    ArchiveRef,
+    ArchivePtr,
+    ArchiveUnsized,
     Deserialize,
-    DeserializeRef,
+    DeserializeUnsized,
     Fallible,
+    RelPtr,
     Serialize,
-    SerializeRef,
+    SerializeUnsized,
 };
 use core::{
     borrow::Borrow,
+    cmp,
     fmt,
+    hash,
     ops::{Deref, DerefMut, Index, IndexMut},
     pin::Pin,
 };
@@ -27,9 +31,9 @@ use core::{
 ///
 /// Uses [`ArchivedStringSlice`](crate::core_impl::ArchivedStringSlice) under
 /// the hood.
-#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Debug)]
 #[repr(transparent)]
-pub struct ArchivedString(<str as ArchiveRef>::Reference);
+pub struct ArchivedString(RelPtr<str>);
 
 impl ArchivedString {
     /// Extracts a string slice containing the entire `ArchivedString`.
@@ -48,23 +52,49 @@ impl ArchivedString {
     }
 }
 
+impl cmp::Eq for ArchivedString {}
+
+impl hash::Hash for ArchivedString {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state)
+    }
+}
+
+impl cmp::Ord for ArchivedString {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.as_str().cmp(other.as_str())
+    }
+}
+
+impl cmp::PartialEq for ArchivedString {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl cmp::PartialOrd for ArchivedString {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        self.as_str().partial_cmp(other.as_str())
+    }
+}
+
 impl Deref for ArchivedString {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        self.0.deref()
+        unsafe { &*self.0.as_ptr() }
     }
 }
 
 impl DerefMut for ArchivedString {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0.deref_mut()
+        unsafe { &mut *self.0.as_mut_ptr() }
     }
 }
 
 impl Borrow<str> for ArchivedString {
     fn borrow(&self) -> &str {
-        self.0.borrow()
+        self.deref().borrow()
     }
 }
 
@@ -106,16 +136,16 @@ impl Archive for String {
     type Resolver = StringResolver;
 
     fn resolve(&self, pos: usize, resolver: StringResolver) -> Self::Archived {
-        ArchivedString(self.as_str().resolve_ref(pos, resolver.0))
+        ArchivedString(self.as_str().resolve_unsized(pos, resolver.0))
     }
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for String
 where
-    str: SerializeRef<S>,
+    str: SerializeUnsized<S>,
 {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(StringResolver(self.as_str().serialize_ref(serializer)?))
+        Ok(StringResolver(self.as_str().serialize_unsized(serializer)?))
     }
 }
 
@@ -129,35 +159,43 @@ impl<D: Fallible + ?Sized> Deserialize<String, D> for Archived<String> {
 ///
 /// This is a thin wrapper around the reference type for whatever type was
 /// archived.
-#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
-pub struct ArchivedBox<T>(T);
+pub struct ArchivedBox<T: ArchivePtr + ?Sized>(RelPtr<T>);
 
-impl<T: DerefMut> ArchivedBox<T> {
+impl<T: ArchivePtr + ?Sized> fmt::Debug for ArchivedBox<T>
+where
+    T::Augment: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("ArchivedBox")
+            .field(&self.0)
+            .finish()
+    }
+}
+
+impl<T: ArchivePtr + ?Sized> ArchivedBox<T> {
     /// Gets the value of this archived box as a pinned mutable reference.
-    pub fn get_pin(self: Pin<&mut Self>) -> Pin<&mut <T as Deref>::Target> {
+    pub fn get_pin(self: Pin<&mut Self>) -> Pin<&mut T> {
         unsafe { self.map_unchecked_mut(|s| &mut **s) }
     }
 }
 
-impl<T: Deref> Deref for ArchivedBox<T> {
-    type Target = T::Target;
+impl<T: ArchivePtr + ?Sized> Deref for ArchivedBox<T> {
+    type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        self.0.deref()
+        unsafe { &*self.0.as_ptr() }
     }
 }
 
-impl<T: DerefMut> DerefMut for ArchivedBox<T> {
+impl<T: ArchivePtr + ?Sized> DerefMut for ArchivedBox<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0.deref_mut()
+        unsafe { &mut *self.0.as_mut_ptr() }
     }
 }
 
-impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Box<V>>
-    for ArchivedBox<T>
-{
-    fn eq(&self, other: &Box<V>) -> bool {
+impl<T: ArchivePtr + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Box<U>> for ArchivedBox<T> {
+    fn eq(&self, other: &Box<U>) -> bool {
         self.deref().eq(other.deref())
     }
 }
@@ -165,59 +203,67 @@ impl<T: Deref<Target = U>, U: PartialEq<V> + ?Sized, V: ?Sized> PartialEq<Box<V>
 /// The resolver for `Box`.
 pub struct BoxResolver(usize);
 
-impl<T: ArchiveRef + ?Sized> Archive for Box<T> {
-    type Archived = ArchivedBox<T::Reference>;
+impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
+    type Archived = ArchivedBox<T::Archived>;
     type Resolver = BoxResolver;
 
     fn resolve(&self, pos: usize, resolver: BoxResolver) -> Self::Archived {
-        ArchivedBox(self.as_ref().resolve_ref(pos, resolver.0))
+        ArchivedBox(self.as_ref().resolve_unsized(pos, resolver.0))
     }
 }
 
-impl<T: SerializeRef<S> + ?Sized, S: Fallible + ?Sized> Serialize<S> for Box<T> {
+impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> Serialize<S> for Box<T> {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(BoxResolver(self.as_ref().serialize_ref(serializer)?))
+        Ok(BoxResolver(self.as_ref().serialize_unsized(serializer)?))
     }
 }
 
-impl<T: ArchiveRef + ?Sized, D: Deserializer + ?Sized> Deserialize<Box<T>, D> for Archived<Box<T>>
+impl<T: ArchiveUnsized + ?Sized, D: Deserializer + ?Sized> Deserialize<Box<T>, D> for Archived<Box<T>>
 where
-    T::Reference: DeserializeRef<T, D>,
+    T::Archived: DeserializeUnsized<T, D>,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {
-        unsafe { Ok(Box::from_raw(self.0.deserialize_ref(deserializer)?)) }
+        unsafe { Ok(Box::from_raw(self.deref().deserialize_unsized(deserializer)?)) }
     }
 }
 
 /// An archived [`Vec`].
 ///
 /// Uses [`ArchivedSlice`](crate::core_impl::ArchivedSlice) under the hood.
-#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Debug)]
 #[repr(transparent)]
-pub struct ArchivedVec<T>(T);
+pub struct ArchivedVec<T>(RelPtr<[T]>);
 
-impl<T: DerefMut> ArchivedVec<T> {
+impl<T> ArchivedVec<T> {
+    pub fn as_slice(&self) -> &[T] {
+        &**self
+    }
+
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
+        &mut **self
+    }
+
     /// Gets the element at the given index ot this archived vec as a pinned
     /// mutable reference.
-    pub fn index_pin<I>(self: Pin<&mut Self>, index: I) -> Pin<&mut <T::Target as Index<I>>::Output>
+    pub fn index_pin<I>(self: Pin<&mut Self>, index: I) -> Pin<&mut <[T] as Index<I>>::Output>
     where
-        T::Target: IndexMut<I>,
+        [T]: IndexMut<I>,
     {
         unsafe { self.map_unchecked_mut(|s| &mut (**s)[index]) }
     }
 }
 
-impl<T: Deref> Deref for ArchivedVec<T> {
-    type Target = T::Target;
+impl<T> Deref for ArchivedVec<T> {
+    type Target = [T];
 
     fn deref(&self) -> &Self::Target {
-        self.0.deref()
+        unsafe { &*self.0.as_ptr() }
     }
 }
 
-impl<T: DerefMut> DerefMut for ArchivedVec<T> {
+impl<T> DerefMut for ArchivedVec<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0.deref_mut()
+        unsafe { &mut *self.0.as_mut_ptr() }
     }
 }
 
@@ -225,38 +271,38 @@ impl<T: DerefMut> DerefMut for ArchivedVec<T> {
 pub struct VecResolver(usize);
 
 impl<T: Archive> Archive for Vec<T> {
-    type Archived = ArchivedVec<<[T] as ArchiveRef>::Reference>;
+    type Archived = ArchivedVec<T::Archived>;
     type Resolver = VecResolver;
 
     fn resolve(&self, pos: usize, resolver: VecResolver) -> Self::Archived {
-        ArchivedVec(self.as_slice().resolve_ref(pos, resolver.0))
+        ArchivedVec(
+            self.as_slice().resolve_unsized(pos, resolver.0),
+        )
     }
 }
 
 impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Vec<T>
 where
-    [T]: SerializeRef<S>,
+    [T]: SerializeUnsized<S>,
 {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(VecResolver(self.as_slice().serialize_ref(serializer)?))
+        Ok(VecResolver(self.as_slice().serialize_unsized(serializer)?))
     }
 }
 
 impl<T: Archive, D: Fallible + ?Sized> Deserialize<Vec<T>, D> for Archived<Vec<T>>
 where
-    T::Archived: Deserialize<T, D>,
+    [T::Archived]: DeserializeUnsized<[T], D>,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<Vec<T>, D::Error> {
-        let mut result = Vec::with_capacity(self.len());
-        for i in self.iter() {
-            result.push(i.deserialize(deserializer)?);
+        unsafe {
+            Ok(Box::from_raw(self.as_slice().deserialize_unsized(deserializer)?).into_vec())
         }
-        Ok(result)
     }
 }
 
-impl<T: Deref<Target = [U]>, U: PartialEq<V>, V> PartialEq<Vec<V>> for ArchivedVec<T> {
-    fn eq(&self, other: &Vec<V>) -> bool {
-        self.deref().eq(other.deref())
+impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
+    fn eq(&self, other: &Vec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
     }
 }

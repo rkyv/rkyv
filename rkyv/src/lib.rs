@@ -81,7 +81,12 @@ pub mod std_impl;
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use core::{marker::PhantomPinned, ops::{Deref, DerefMut}, pin::Pin};
+use core::{
+    fmt,
+    marker::PhantomPinned,
+    ops::{Deref, DerefMut},
+    pin::Pin,
+};
 
 pub use memoffset::offset_of;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
@@ -156,6 +161,7 @@ pub use validation::check_archive;
 ///     ser::{Serializer, serializers::WriteSerializer},
 ///     Archive,
 ///     Archived,
+///     ArchiveUnsized,
 ///     RelPtr,
 ///     Serialize,
 /// };
@@ -165,22 +171,16 @@ pub use validation::check_archive;
 /// }
 ///
 /// struct ArchivedOwnedStr {
-///     // This will be a relative pointer to the bytes of our string.
-///     ptr: RelPtr,
-///     // The length of the archived version must be explicitly sized for
-///     // 32/64-bit compatibility. Archive is not implemented for usize and
-///     // isize to help you avoid making this mistake.
-///     len: u32,
+///     // This will be a relative pointer to our string
+///     ptr: RelPtr<str>,
 /// }
 ///
 /// impl ArchivedOwnedStr {
 ///     // This will help us get the bytes of our type as a str again.
 ///     fn as_str(&self) -> &str {
 ///         unsafe {
-///             // The as_ptr() function of RelPtr will get a pointer
-///             // to its memory.
-///             let bytes = slice::from_raw_parts(self.ptr.as_ptr(), self.len as usize);
-///             str::from_utf8_unchecked(bytes)
+///             // The as_ptr() function of RelPtr will get a pointer the str
+///             &*self.ptr.as_ptr()
 ///         }
 ///     }
 /// }
@@ -207,10 +207,11 @@ pub use validation::check_archive;
 ///             // otherwise we'll be using the position of the ArchivedOwnedStr
 ///             // instead of the position of the ptr. That's the reason why
 ///             // RelPtr::new is unsafe.
-///             ptr: unsafe {
-///                 RelPtr::new(pos + offset_of!(ArchivedOwnedStr, ptr), resolver.bytes_pos)
-///             },
-///             len: self.inner.len() as u32,
+///             ptr: unsafe { RelPtr::new(
+///                 pos + offset_of!(Self::Archived, ptr),
+///                 resolver.bytes_pos,
+///                 self.inner.make_augment(),
+///             ) },
 ///         }
 ///     }
 /// }
@@ -291,42 +292,45 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///
 /// ```
 /// use core::{
-///     marker::PhantomData,
 ///     mem,
 ///     ops::{Deref, DerefMut},
 /// };
 /// use rkyv::{
-///     archived_value_ref,
+///     archived_unsized_value,
 ///     offset_of,
 ///     ser::{serializers::WriteSerializer, Serializer},
 ///     Archive,
 ///     Archived,
-///     ArchiveRef,
+///     ArchivePtr,
+///     ArchiveUnsized,
 ///     RelPtr,
 ///     Serialize,
-///     SerializeRef,
+///     SerializeUnsized,
 /// };
 ///
-/// // We're going to be dealing mostly with blocks that have an unsized tail
+/// // We're going to be dealing mostly with blocks that have a trailing slice
 /// pub struct Block<H, T: ?Sized> {
 ///     head: H,
 ///     tail: T,
 /// }
 ///
-/// // Our reference type for a Block<H, [T]>. We store the length of the
-/// // trailing slice with it so we can construct a wide pointer to it in Deref.
-/// pub struct BlockSliceRef<H, T> {
-///     data: RelPtr,
+/// // For blocks with trailing slices, we need to store the length of the slice
+/// // in the augment.
+/// pub struct BlockSliceAugment {
 ///     len: u32,
-///     _phantom: PhantomData<(H, T)>,
 /// }
 ///
-/// impl<H, T> Deref for BlockSliceRef<H, T> {
-///     // Dereferencing a BlockSlice ref should give us a Block with a trailing
-///     // slice
-///     type Target = Block<H, [T]>;
+/// // ArchivePtr is automatically derived for sized types because pointers to
+/// // sized types don't need to be augmented. Because we're making an unsized
+/// // block, we need to define what augment gets stored with our data pointer.
+/// impl<H, T> ArchivePtr for Block<H, [T]> {
+///     // This is the extra data that needs to get stored for blocks with
+///     // trailing slices
+///     type Augment = BlockSliceAugment;
 ///
-///     fn deref(&self) -> &Self::Target {
+///     // This function takes a data pointer and an augment and makes a
+///     // 'complete' pointer to the type
+///     fn augment_ptr(ptr: *const u8, augment: &Self::Augment) -> *const Self {
 ///         // We're going to construct a wide pointer to our target type. Wide
 ///         // pointers are laid out the same as a (*const (), usize) tuple. The
 ///         // pointer part holds a pointer to the start of the unsized type and
@@ -336,39 +340,26 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///         // length of the slice in items. We'll make our tuple with the right
 ///         // data and then transmute it to a wide pointer to create our wide
 ///         // pointer.
-///         unsafe {
-///             let result = (self.data.as_ptr::<()>().cast::<()>(), self.len as usize);
-///             &*mem::transmute::<(*const (), usize), *const Self::Target>(result)
-///         }
+///         unsafe { mem::transmute((ptr, augment.len as usize)) }
+///     }
+///
+///     // We also need a version that can augment mutable pointers
+///     fn augment_ptr_mut(ptr: *mut u8, augment: &Self::Augment) -> *mut Self {
+///         // It should be the same as our augment_ptr function
+///         unsafe { mem::transmute((ptr, augment.len as usize)) }
 ///     }
 /// }
 ///
-/// impl<H, T> DerefMut for BlockSliceRef<H, T> {
-///     fn deref_mut(&mut self) -> &mut Self::Target {
-///         // Same as Deref, but mutable this time
-///         unsafe {
-///             let result = (self.data.as_mut_ptr::<()>().cast::<()>(), self.len as usize);
-///             &mut *mem::transmute::<(*mut (), usize), *mut Self::Target>(result)
-///         }
-///     }
-/// }
-///
-/// // We're implementing ArchiveRef for just Block<H, [T]>. We can still
-/// // implement Archive and ArchiveRef for blocks with sized tails and they
-/// // won't conflict.
-/// impl<H: Archive, T: Archive> ArchiveRef for Block<H, [T]> {
+/// // We're implementing ArchiveUnsized for just Block<H, [T]>. We can still
+/// // implement Archive for blocks with sized tails and they won't conflict.
+/// impl<H: Archive, T: Archive> ArchiveUnsized for Block<H, [T]> {
 ///     // We'll reuse our block type as our archived type.
 ///     type Archived = Block<Archived<H>, [Archived<T>]>;
-///     // This is the reference we made!
-///     type Reference = BlockSliceRef<Archived<H>, Archived<T>>;
-///     // Here's where we turn our from/to positions into a block slice ref
-///     fn resolve_ref(&self, from: usize, to: usize) -> Self::Reference {
-///         BlockSliceRef {
-///             // We always have to be careful to account for field offsets
-///             // when we make relative pointers
-///             data: unsafe { RelPtr::new(from + offset_of!(BlockSliceRef<H, T>, data), to) },
+///
+///     // Here's where we make our augment for our pointer
+///     fn make_augment(&self) -> <Self::Archived as ArchivePtr>::Augment {
+///         BlockSliceAugment {
 ///             len: self.tail.len() as u32,
-///             _phantom: PhantomData,
 ///         }
 ///     }
 /// }
@@ -376,9 +367,9 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 /// // The bounds we use on our serializer type indicate that we need basic
 /// // serializer capabilities, and then whatever capabilities our head and tail
 /// // types need to serialize themselves.
-/// impl<H: Serialize<S>, T: Serialize<S>, S: Serializer + ?Sized> SerializeRef<S> for Block<H, [T]> {
+/// impl<H: Serialize<S>, T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for Block<H, [T]> {
 ///     // This is where we construct our unsized type in the serializer
-///     fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error> {
+///     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
 ///         // First, we archive the head and all the tails. This will make sure
 ///         // that when we finally build our block, we don't accidentally mess
 ///         // up the structure with serialized dependencies.
@@ -416,45 +407,51 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     .expect("failed to archive block");
 /// let buf = serializer.into_inner();
 ///
-/// let archived_ref = unsafe { archived_value_ref::<Block<String, [i32]>>(buf.as_slice(), pos) };
+/// let archived_ref = unsafe { archived_unsized_value::<Block<String, [i32]>>(buf.as_slice(), pos) };
 /// assert_eq!(archived_ref.head, "Numbers 1-4");
 /// assert_eq!(archived_ref.tail.len(), 4);
 /// assert_eq!(archived_ref.tail, [1, 2, 3, 4]);
 /// ```
-pub trait ArchiveRef {
+pub trait ArchiveUnsized {
     /// The archived counterpart of this type. Unlike `Archive`, it may be
     /// unsized.
-    type Archived: ?Sized;
-
-    /// An archivable type that can deref to the archived type.
-    type Reference: Deref<Target = Self::Archived> + DerefMut<Target = Self::Archived>;
+    type Archived: ArchivePtr + ?Sized;
 
     /// Creates an archived reference of the reference type at the given
     /// position.
-    fn resolve_ref(&self, pos: usize, resolver: usize) -> Self::Reference;
+    fn make_augment(&self) -> <Self::Archived as ArchivePtr>::Augment;
+
+    fn resolve_unsized(&self, from: usize, to: usize) -> RelPtr<Self::Archived> {
+        unsafe { RelPtr::new(from, to, self.make_augment()) }
+    }
+}
+
+pub trait ArchivePtr {
+    type Augment;
+
+    fn augment_ptr(ptr: *const u8, augment: &Self::Augment) -> *const Self;
+    fn augment_ptr_mut(ptr: *mut u8, augment: &Self::Augment) -> *mut Self;
 }
 
 /// A counterpart of [`Serialize`] that's suitable for unsized types.
 ///
 /// See [`ArchiveRef`] for examples of implementing `SerializeRef`.
-pub trait SerializeRef<S: Fallible + ?Sized>: ArchiveRef {
+pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
     /// Writes the object and returns the position of the archived type.
-    fn serialize_ref(&self, serializer: &mut S) -> Result<usize, S::Error>;
+    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error>;
 }
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
 ///
 /// Most types that implement `DeserializeRef` will need a
 /// [`Deserializer`](de::Deserializer) bound so that they can allocate memory.
-pub trait DeserializeRef<T: ArchiveRef<Reference = Self> + ?Sized, D: Fallible + ?Sized>:
-    Deref<Target = T::Archived> + DerefMut<Target = T::Archived> + Sized
-{
+pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fallible + ?Sized> {
     /// Deserializes a reference to the given value.
     ///
     /// # Safety
     ///
     /// The caller must ensure that the memory returned is properly deallocated.
-    unsafe fn deserialize_ref(&self, deserializer: &mut D) -> Result<*mut T, D::Error>;
+    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut T, D::Error>;
 }
 
 /// An [`Archive`] type that is a bitwise copy of itself and without additional
@@ -505,25 +502,30 @@ pub type Offset = i64;
 /// A pointer which resolves to relative to its position in memory.
 ///
 /// See [`Archive`] for an example of creating one.
-#[repr(transparent)]
-#[derive(Debug)]
-pub struct RelPtr {
+#[cfg_attr(feature = "strict", repr(C))]
+pub struct RelPtr<T: ArchivePtr + ?Sized> {
     offset: Offset,
+    augment: T::Augment,
     _phantom: PhantomPinned,
 }
 
-impl RelPtr {
+impl<T: ArchivePtr + ?Sized> RelPtr<T> {
     /// Creates a relative pointer from one position to another.
     ///
     /// # Safety
     ///
     /// `from` must be the position of the relative pointer and `to` must be the
     /// position of some valid memory.
-    pub unsafe fn new(from: usize, to: usize) -> Self {
+    pub unsafe fn new(from: usize, to: usize, augment: T::Augment) -> Self {
         Self {
             offset: (to as isize - from as isize) as Offset,
+            augment,
             _phantom: PhantomPinned,
         }
+    }
+
+    pub fn base(&self) -> *const u8 {
+        (self as *const Self).cast::<u8>()
     }
 
     /// Gets the offset of the relative pointer.
@@ -531,25 +533,36 @@ impl RelPtr {
         self.offset as isize
     }
 
+    pub fn augment(&self) -> &T::Augment {
+        &self.augment
+    }
+
     /// Calculates the memory address being pointed to by this relative pointer.
-    pub fn as_ptr<T>(&self) -> *const T {
+    pub fn as_ptr(&self) -> *const T {
         unsafe {
-            (self as *const Self)
-                .cast::<u8>()
-                .offset(self.offset as isize)
-                .cast::<T>()
+            T::augment_ptr((self as *const Self).cast::<u8>().offset(self.offset as isize), &self.augment)
         }
     }
 
     /// Returns an unsafe mutable pointer to the memory address being pointed to
     /// by this relative pointer.
-    pub fn as_mut_ptr<T>(&mut self) -> *mut T {
+    pub fn as_mut_ptr(&mut self) -> *mut T {
         unsafe {
-            (self as *mut Self)
-                .cast::<u8>()
-                .offset(self.offset as isize)
-                .cast::<T>()
+            T::augment_ptr_mut((self as *mut Self).cast::<u8>().offset(self.offset as isize), &self.augment)
         }
+    }
+}
+
+impl<T: ArchivePtr + ?Sized> fmt::Debug for RelPtr<T>
+where
+    T::Augment: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RelPtr")
+            .field("offset", &self.offset)
+            .field("augment", &self.augment)
+            .field("_phantom", &self._phantom)
+            .finish()
     }
 }
 
@@ -641,8 +654,9 @@ pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
 /// This is only safe to call if the reference is archived at the given position
 /// in the byte array.
 #[inline]
-pub unsafe fn archived_value_ref<T: ArchiveRef + ?Sized>(bytes: &[u8], pos: usize) -> &T::Reference {
-    &*bytes.as_ptr().add(pos).cast()
+pub unsafe fn archived_unsized_value<T: ArchiveUnsized + ?Sized>(bytes: &[u8], pos: usize) -> &T::Archived {
+    let rel_ptr = &*bytes.as_ptr().add(pos).cast::<RelPtr<T::Archived>>();
+    &*rel_ptr.as_ptr()
 }
 
 /// Casts a mutable archived reference from the given byte array at the given
@@ -656,9 +670,10 @@ pub unsafe fn archived_value_ref<T: ArchiveRef + ?Sized>(bytes: &[u8], pos: usiz
 /// This is only safe to call if the reference is archived at the given position
 /// in the byte array.
 #[inline]
-pub unsafe fn archived_value_ref_mut<T: ArchiveRef + ?Sized>(
+pub unsafe fn archived_unsized_value_mut<T: ArchiveUnsized + ?Sized>(
     bytes: Pin<&mut [u8]>,
     pos: usize,
-) -> Pin<&mut T::Reference> {
-    Pin::new_unchecked(&mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast())
+) -> Pin<&mut T::Archived> {
+    let rel_ptr = &mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast::<RelPtr<T::Archived>>();
+    Pin::new_unchecked(&mut *rel_ptr.as_mut_ptr())
 }

@@ -6,16 +6,7 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{
-    offset_of,
-    ser::Serializer,
-    Archive,
-    Archived,
-    Deserialize,
-    Fallible,
-    RelPtr,
-    Serialize,
-};
+use crate::{Archive, Archived, Deserialize, Fallible, RelPtr, Serialize, core_impl::SizedAugment, offset_of, ser::Serializer};
 use core::{
     borrow::Borrow,
     cmp::Reverse,
@@ -36,12 +27,10 @@ struct Entry<K, V> {
 
 /// An archived `HashMap`.
 #[cfg_attr(feature = "strict", repr(C))]
-#[derive(Debug)]
 pub struct ArchivedHashMap<K, V> {
     len: u32,
-    displace: RelPtr,
-    entries: RelPtr,
-    phantom: PhantomData<(K, V)>,
+    displace: RelPtr<u32>,
+    entries: RelPtr<Entry<K, V>>,
 }
 
 impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
@@ -67,15 +56,15 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     }
 
     unsafe fn displace(&self, index: usize) -> u32 {
-        *self.displace.as_ptr::<u32>().add(index)
+        *self.displace.as_ptr().add(index)
     }
 
     unsafe fn entry(&self, index: usize) -> &Entry<K, V> {
-        &*self.entries.as_ptr::<Entry<K, V>>().add(index)
+        &*self.entries.as_ptr().add(index)
     }
 
     unsafe fn entry_mut(&mut self, index: usize) -> &mut Entry<K, V> {
-        &mut *self.entries.as_mut_ptr::<Entry<K, V>>().add(index)
+        &mut *self.entries.as_mut_ptr().add(index)
     }
 
     #[inline]
@@ -576,15 +565,8 @@ impl ArchivedHashMapResolver {
         unsafe {
             ArchivedHashMap {
                 len: len as u32,
-                displace: RelPtr::new(
-                    pos + offset_of!(ArchivedHashMap<K, V>, displace),
-                    self.displace_pos,
-                ),
-                entries: RelPtr::new(
-                    pos + offset_of!(ArchivedHashMap<K, V>, entries),
-                    self.entries_pos,
-                ),
-                phantom: PhantomData,
+                displace: RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, displace), self.displace_pos, SizedAugment),
+                entries: RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, entries), self.entries_pos, SizedAugment),
             }
         }
     }
@@ -673,7 +655,7 @@ impl<K: Eq + Hash + Borrow<Q>, Q: Eq + Hash + ?Sized, V> Index<&'_ Q> for Archiv
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key
 /// and a value of `()`.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
 #[repr(transparent)]
 pub struct ArchivedHashSet<K: Hash + Eq>(ArchivedHashMap<K, ()>);
 

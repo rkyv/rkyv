@@ -142,19 +142,23 @@ fn cycle_detection() {
         }
     }
 
-    impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedNode {
+    impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedNode
+    where
+        C::Error: Error,
+    {
         type Error = NodeError;
 
         unsafe fn check_bytes<'a>(
-            bytes: *const u8,
+            value: *const Self,
             context: &mut C,
         ) -> Result<&'a Self, Self::Error> {
-            let tag = *bytes.cast::<u8>();
+            let bytes = value.cast::<u8>();
+            let tag = *bytes;
             match tag {
                 0 => (),
                 1 => {
                     <Archived<Box<Node>> as CheckBytes<C>>::check_bytes(
-                        bytes.add(4),
+                        bytes.add(4).cast(),
                         context,
                     )
                     .map_err(|e| NodeError(e.into()))?;
@@ -256,13 +260,56 @@ fn hashmap() {
 
 #[test]
 fn check_dyn() {
+    use bytecheck::CheckLayout;
     use rkyv::Archived;
-    use rkyv_dyn::archive_dyn;
+    use rkyv_dyn::{
+        archive_dyn,
+        validation::CHECK_BYTES_REGISTRY,
+        CheckDynError,
+        DynContext,
+        VTable,
+    };
     use rkyv_typename::TypeName;
 
     #[archive_dyn]
     pub trait TestTrait {
         fn get_id(&self) -> i32;
+    }
+
+    impl CheckBytes<dyn DynContext + '_> for (dyn TestTrait + '_) {
+        type Error = CheckDynError;
+
+        unsafe fn check_bytes<'a>(value: *const Self, context: &mut (dyn DynContext + '_)) -> Result<&'a Self, Self::Error> {
+            let (_, vtable) = core::mem::transmute::<*const Self, (*const (), *const ())>(value);
+            if let Some(validation) = CHECK_BYTES_REGISTRY.get(VTable(vtable)) {
+                (validation.check_bytes_dyn)(value.cast(), context)?;
+                Ok(&*value)
+            } else {
+                Err(CheckDynError::InvalidMetadata(vtable as usize as u64))
+            }
+        }
+    }
+
+    impl<C: ?Sized> CheckLayout<C> for (dyn TestTrait + '_)
+    where
+        for<'a> (dyn TestTrait + 'a): CheckBytes<C, Error = CheckDynError>,
+    {
+        fn layout(ptr: *const Self, _: &mut C) -> Result<core::alloc::Layout, Self::Error> {
+            let (_, vtable) = unsafe { core::mem::transmute::<*const Self, (*const (), *const ())>(ptr) };
+            if let Some(validation) = CHECK_BYTES_REGISTRY.get(VTable(vtable)) {
+                Ok(validation.layout)
+            } else {
+                Err(CheckDynError::InvalidMetadata(vtable as usize as u64))
+            }
+        }
+    }
+
+    impl<C: DynContext> CheckBytes<C> for (dyn TestTrait + '_) {
+        type Error = CheckDynError;
+
+        unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+            Self::check_bytes(value, context as &mut dyn DynContext)
+        }
     }
 
     #[derive(Archive, Serialize)]

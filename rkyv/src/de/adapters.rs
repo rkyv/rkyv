@@ -1,13 +1,37 @@
 //! Adapters wrap deserializers and add support for deserializer traits.
 
-use core::{alloc, any::Any};
-use std::collections::HashMap;
+use core::{alloc, any::Any, fmt};
+use std::{collections::HashMap, error::Error};
 use crate::{
     de::{Deserializer, SharedDeserializer},
-    ArchiveRef,
-    DeserializeRef,
+    ArchiveUnsized,
+    DeserializeUnsized,
     Fallible,
 };
+
+#[derive(Debug)]
+pub enum SharedDeserializerError<E> {
+    MismatchedPointerTypeError,
+    InnerError(E),
+}
+
+impl<E: fmt::Display> fmt::Display for SharedDeserializerError<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SharedDeserializerError::MismatchedPointerTypeError => write!(f, "mismatched shared pointer types"),
+            SharedDeserializerError::InnerError(e) => write!(f, "{}", e),
+        }
+    }
+}
+
+impl<E: Error + 'static> Error for SharedDeserializerError<E> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            SharedDeserializerError::MismatchedPointerTypeError => None,
+            SharedDeserializerError::InnerError(e) => Some(e as &(dyn Error + 'static)),
+        }
+    }
+}
 
 /// An adapter that adds shared deserialization support to a deserializer.
 pub struct SharedDeserializerAdapter<D> {
@@ -31,32 +55,27 @@ impl<D> SharedDeserializerAdapter<D> {
 }
 
 impl<D: Deserializer> Fallible for SharedDeserializerAdapter<D> {
-    type Error = D::Error;
+    type Error = SharedDeserializerError<D::Error>;
 }
 
 impl<D: Deserializer> Deserializer for SharedDeserializerAdapter<D> {
     unsafe fn alloc(&mut self, layout: alloc::Layout) -> Result<*mut u8, Self::Error> {
-        self.inner.alloc(layout)
+        Ok(self.inner.alloc(layout).map_err(SharedDeserializerError::InnerError)?)
     }
 }
 
 impl<D: Deserializer> SharedDeserializer for SharedDeserializerAdapter<D> {
-    fn deserialize_shared<T: ArchiveRef + ?Sized, P: Clone + 'static>(&mut self, reference: &T::Reference, to_shared: impl FnOnce(*mut T) -> P) -> Result<P, Self::Error>
+    fn deserialize_shared<T: ArchiveUnsized + ?Sized, P: Clone + 'static>(&mut self, value: &T::Archived, to_shared: impl FnOnce(*mut T) -> P) -> Result<P, Self::Error>
     where
-        T::Reference: DeserializeRef<T, Self>,
+        T::Archived: DeserializeUnsized<T, Self>,
     {
-        let archived_ptr = &**reference as *const T::Archived;
-
-        // This is safe to read a single pointer from because it's at least a thin pointer
-        let data_ptr = unsafe { (&archived_ptr as *const *const T::Archived).cast::<*const ()>().read() };
-
-        let shared_ptr = if let Some(shared_ptr) = self.shared_pointers.get(&data_ptr) {
-            // TODO: custom error type with variant for downcast failure
-            (**shared_ptr).downcast_ref::<P>().unwrap().clone()
+        let key = value as *const T::Archived as *const ();
+        let shared_ptr = if let Some(shared_ptr) = self.shared_pointers.get(&key) {
+            (**shared_ptr).downcast_ref::<P>().ok_or(SharedDeserializerError::MismatchedPointerTypeError)?.clone()
         } else {
-            let deserialized = unsafe { reference.deserialize_ref(self)? };
+            let deserialized = unsafe { value.deserialize_unsized(self)? };
             let shared_ptr = to_shared(deserialized);
-            self.shared_pointers.insert(data_ptr, Box::new(shared_ptr.clone()));
+            self.shared_pointers.insert(key, Box::new(shared_ptr.clone()));
             shared_ptr
         };
         Ok(shared_ptr)

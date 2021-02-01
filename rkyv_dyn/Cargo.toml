@@ -25,7 +25,7 @@ rkyv_typename = { version = "0.3.0", path = "../rkyv_typename" }
 default = []
 nightly = []
 strict = ["rkyv/strict"]
-validation = ["bytecheck", "rkyv/validation"]
+validation = ["bytecheck", "rkyv/validation", "rkyv_dyn_derive/validation"]
 vtable_cache = []
 
 [package.metadata.docs.rs]

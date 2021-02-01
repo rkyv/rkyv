@@ -7,13 +7,13 @@ mod validation;
 mod util {
     use rkyv::{
         archived_value,
-        archived_value_ref,
+        archived_unsized_value,
         de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer},
         ser::{adapters::SharedSerializerAdapter, serializers::BufferSerializer, Serializer},
         Aligned,
         Deserialize,
         Serialize,
-        SerializeRef,
+        SerializeUnsized,
     };
 
     pub const BUFFER_SIZE: usize = 256;
@@ -34,15 +34,15 @@ mod util {
         assert!(&archived_value.deserialize(&mut deserializer).unwrap() == value);
     }
 
-    pub fn test_archive_ref<T: SerializeRef<DefaultSerializer> + ?Sized>(value: &T)
+    pub fn test_archive_ref<T: SerializeUnsized<DefaultSerializer> + ?Sized>(value: &T)
     where
         T::Archived: PartialEq<T>,
     {
         let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
         let pos = serializer.archive_ref(value).expect("failed to archive ref");
         let buf = serializer.into_inner().into_inner();
-        let archived_ref = unsafe { archived_value_ref::<T>(buf.as_ref(), pos) };
-        assert!(&**archived_ref == value);
+        let archived_ref = unsafe { archived_unsized_value::<T>(buf.as_ref(), pos) };
+        assert!(archived_ref == value);
     }
 
     pub fn test_archive_container<
@@ -92,12 +92,12 @@ mod tests {
         },
         Aligned,
         Archive,
-        ArchiveRef,
+        ArchiveUnsized,
         Archived,
         Deserialize,
-        DeserializeRef,
+        DeserializeUnsized,
         Serialize,
-        SerializeRef,
+        SerializeUnsized,
     };
     use crate::util::*;
 
@@ -498,20 +498,12 @@ mod tests {
     }
 
     #[test]
-    fn archived_dyn_size() {
-        use rkyv_dyn::ArchivedDyn;
-
-        pub trait Test {}
-
-        assert_eq!(core::mem::size_of::<ArchivedDyn<dyn Test>>(), 16);
-    }
-
-    #[test]
     fn manual_archive_dyn() {
+        use rkyv::ArchivePtr;
         use rkyv_dyn::{
             register_impl,
-            ArchivedDyn,
             DeserializeDyn,
+            DynAugment,
             DynDeserializer,
             DynError,
             RegisteredImpl,
@@ -525,10 +517,10 @@ mod tests {
 
         pub trait SerializeTestTrait: TestTrait + SerializeDyn {}
 
-        impl<T: Archive + SerializeDyn + TestTrait> SerializeTestTrait for T where
-            T::Archived: RegisteredImpl<dyn DeserializeTestTrait>
-        {
-        }
+        impl<T: Archive + SerializeDyn + TestTrait> SerializeTestTrait for T
+        where
+            T::Archived: RegisteredImpl<dyn DeserializeTestTrait>,
+        {}
 
         pub trait DeserializeTestTrait: TestTrait + DeserializeDyn<dyn SerializeTestTrait> {}
 
@@ -540,17 +532,28 @@ mod tests {
             }
         }
 
-        impl ArchiveRef for dyn SerializeTestTrait {
+        impl ArchiveUnsized for dyn SerializeTestTrait {
             type Archived = dyn DeserializeTestTrait;
-            type Reference = ArchivedDyn<dyn DeserializeTestTrait>;
 
-            fn resolve_ref(&self, pos: usize, resolver: usize) -> Self::Reference {
-                ArchivedDyn::new(self.archived_type_id(), pos, resolver)
+            fn make_augment(&self) -> DynAugment<dyn DeserializeTestTrait> {
+                DynAugment::new(self.archived_type_id())
             }
         }
 
-        impl<S: Serializer + ?Sized> SerializeRef<S> for dyn SerializeTestTrait {
-            fn serialize_ref(
+        impl ArchivePtr for dyn DeserializeTestTrait {
+            type Augment = DynAugment<Self>;
+
+            fn augment_ptr(ptr: *const u8, augment: &Self::Augment) -> *const Self {
+                unsafe { core::mem::transmute((ptr, augment.vtable())) }
+            }
+
+            fn augment_ptr_mut(ptr: *mut u8, augment: &Self::Augment) -> *mut Self {
+                unsafe { core::mem::transmute((ptr, augment.vtable())) }
+            }
+        }
+
+        impl<S: Serializer + ?Sized> SerializeUnsized<S> for dyn SerializeTestTrait {
+            fn serialize_unsized(
                 &self,
                 mut serializer: &mut S,
             ) -> Result<usize, S::Error> {
@@ -558,8 +561,8 @@ mod tests {
             }
         }
 
-        impl<D: Deserializer + ?Sized> DeserializeRef<dyn SerializeTestTrait, D> for ArchivedDyn<dyn DeserializeTestTrait> {
-            unsafe fn deserialize_ref(
+        impl<D: Deserializer + ?Sized> DeserializeUnsized<dyn SerializeTestTrait, D> for dyn DeserializeTestTrait {
+            unsafe fn deserialize_unsized(
                 &self,
                 mut deserializer: &mut D,
             ) -> Result<*mut dyn SerializeTestTrait, D::Error> {

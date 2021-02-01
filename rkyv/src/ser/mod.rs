@@ -7,10 +7,11 @@ pub mod serializers;
 use core::{mem, slice};
 use crate::{
     Archive,
-    ArchiveRef,
+    ArchiveUnsized,
     Fallible,
+    RelPtr,
     Serialize,
-    SerializeRef,
+    SerializeUnsized,
 };
 
 /// A byte sink that knows where it is.
@@ -98,26 +99,26 @@ pub trait Serializer: Fallible {
     ///
     /// This is only safe to call when the serializer is already aligned for the
     /// archived reference of the given type.
-    unsafe fn resolve_ref_aligned<T: ArchiveRef + ?Sized>(
+    unsafe fn resolve_unsized_aligned<T: ArchiveUnsized + ?Sized>(
         &mut self,
         value: &T,
         resolver: usize,
     ) -> Result<usize, Self::Error> {
         let pos = self.pos();
-        debug_assert!(pos & (mem::align_of::<T::Reference>() - 1) == 0);
-        let reference = &value.resolve_ref(pos, resolver);
-        let data = (reference as *const T::Reference).cast::<u8>();
-        let len = mem::size_of::<T::Reference>();
+        debug_assert!(pos & (mem::align_of::<RelPtr<T::Archived>>() - 1) == 0);
+        let rel_ptr = &value.resolve_unsized(pos, resolver);
+        let data = (rel_ptr as *const RelPtr<T::Archived>).cast::<u8>();
+        let len = mem::size_of::<RelPtr<T::Archived>>();
         self.write(slice::from_raw_parts(data, len))?;
         Ok(pos)
     }
 
     /// Archives a reference to the given object and returns the position it was
     /// archived at.
-    fn archive_ref<T: SerializeRef<Self> + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error> {
-        let resolver = value.serialize_ref(self)?;
-        self.align_for::<T::Reference>()?;
-        unsafe { self.resolve_ref_aligned(value, resolver) }
+    fn archive_ref<T: SerializeUnsized<Self> + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error> {
+        let resolver = value.serialize_unsized(self)?;
+        self.align_for::<RelPtr<T::Archived>>()?;
+        unsafe { self.resolve_unsized_aligned(value, resolver) }
     }
 }
 
@@ -143,17 +144,17 @@ pub trait SeekSerializer: Serializer {
     /// Archives a reference to the given value at the nearest available
     /// position. If the serializer is already aligned, it will archive it at the
     /// current position.
-    fn archive_ref_root<T: SerializeRef<Self> + ?Sized>(
+    fn archive_ref_root<T: SerializeUnsized<Self> + ?Sized>(
         &mut self,
         value: &T,
     ) -> Result<usize, Self::Error> {
-        self.align_for::<T::Reference>()?;
+        self.align_for::<RelPtr<T::Archived>>()?;
         let pos = self.pos();
-        self.seek(pos + mem::size_of::<T::Reference>())?;
-        let resolver = value.serialize_ref(self)?;
+        self.seek(pos + mem::size_of::<RelPtr<T::Archived>>())?;
+        let resolver = value.serialize_unsized(self)?;
         self.seek(pos)?;
         unsafe {
-            self.resolve_ref_aligned(value, resolver)?;
+            self.resolve_unsized_aligned(value, resolver)?;
         }
         Ok(pos)
     }
@@ -166,9 +167,7 @@ pub trait SharedSerializer: Serializer {
     /// Archives the given shared value and returns its position. If the value
     /// has already been serialized then it returns the position of the
     /// previously serialized value.
-    fn archive_shared<T: ArchiveRef + ?Sized>(&mut self, key: *const (), value: &T) -> Result<usize, Self::Error>
-    where
-        T: SerializeRef<Self>;
+    fn archive_shared<T: SerializeUnsized<Self> + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error>;
 }
 
 pub trait WeakSerializer: SharedSerializer {

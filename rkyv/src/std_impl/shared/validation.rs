@@ -1,80 +1,97 @@
 //! Validation implementations for shared pointers.
 
-use core::fmt;
+use core::{any::TypeId, fmt};
 use std::error::Error;
-use bytecheck::CheckBytes;
+use bytecheck::{CheckBytes, CheckLayout};
 use super::{ArchivedArc, ArchivedRc};
-use crate::validation::{ArchiveBoundsContext, ArchiveBoundsError, CheckBytesRef, SharedArchiveContext, SharedArchiveError};
+use crate::{
+    validation::{
+        ArchiveBoundsContext,
+        SharedArchiveContext,
+    },
+    ArchivePtr,
+    RelPtr,
+};
 
 /// Errors that can occur while checking archived shared pointers.
 #[derive(Debug)]
-pub enum SharedPointerError<T, R> {
-    /// A bounds error occurred
-    BoundsError(ArchiveBoundsError),
-    /// A shared memory error occurred
-    SharedError(SharedArchiveError),
+pub enum SharedPointerError<T, R, C> {
     /// An error occurred while checking the bytes of a shared value
-    CheckBytes(T),
+    PointerCheckBytesError(T),
     /// An error occurred while checking the bytes of a shared reference
-    RefCheckBytes(R),
+    ValueCheckBytesError(R),
+    /// A context error occurred
+    ContextError(C),
 }
 
-impl<T, R> From<ArchiveBoundsError> for SharedPointerError<T, R> {
-    fn from(e: ArchiveBoundsError) -> Self {
-        Self::BoundsError(e)
-    }
-}
-
-impl<T, R> From<SharedArchiveError> for SharedPointerError<T, R> {
-    fn from(e: SharedArchiveError) -> Self {
-        Self::SharedError(e)
-    }
-}
-
-impl<T: fmt::Display, R: fmt::Display> fmt::Display for SharedPointerError<T, R> {
+impl<T: fmt::Display, R: fmt::Display, C: fmt::Display> fmt::Display for SharedPointerError<T, R, C> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SharedPointerError::BoundsError(e) => write!(f, "{}", e),
-            SharedPointerError::SharedError(e) => write!(f, "{}", e),
-            SharedPointerError::CheckBytes(e) => write!(f, "{}", e),
-            SharedPointerError::RefCheckBytes(e) => write!(f, "{}", e),
+            SharedPointerError::PointerCheckBytesError(e) => e.fmt(f),
+            SharedPointerError::ValueCheckBytesError(e) => e.fmt(f),
+            SharedPointerError::ContextError(e) => e.fmt(f),
         }
     }
 }
 
-impl<T: fmt::Debug + fmt::Display + Error + 'static, R: fmt::Debug + fmt::Display + Error + 'static> Error for SharedPointerError<T, R> {
+impl<T: Error + 'static, R: Error + 'static, C: Error + 'static> Error for SharedPointerError<T, R, C> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            SharedPointerError::BoundsError(e) => Some(e as &dyn Error),
-            SharedPointerError::SharedError(e) => Some(e as &dyn Error),
-            SharedPointerError::CheckBytes(e) => Some(e as &dyn Error),
-            SharedPointerError::RefCheckBytes(e) => Some(e as &dyn Error),
+            SharedPointerError::PointerCheckBytesError(e) => Some(e as &dyn Error),
+            SharedPointerError::ValueCheckBytesError(e) => Some(e as &dyn Error),
+            SharedPointerError::ContextError(e) => Some(e as &dyn Error),
         }
     }
 }
 
-impl<T: CheckBytesRef<C> + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedRc<T> {
-    type Error = SharedPointerError<T::Error, T::RefError>;
+impl<T: ArchivePtr + CheckLayout<C> + ?Sized + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedRc<T>
+where
+    T::Augment: CheckBytes<C>,
+    C::Error: Error,
+{
+    type Error = SharedPointerError<<T::Augment as CheckBytes<C>>::Error, T::Error, C::Error>;
 
-    unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
-        let reference = T::check_bytes(bytes, context).map_err(SharedPointerError::CheckBytes)?;
-        let (start, len) = reference.check_ptr(context)?;
-        if let Some(ref_bytes) = context.claim_shared_bytes::<ArchivedRc<T>>(start, len)? {
-            reference.check_ref_bytes(ref_bytes, context).map_err(SharedPointerError::RefCheckBytes)?;
+    unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+        let rel_ptr = RelPtr::<T>::manual_check_bytes(value.cast(), context)
+            .map_err(SharedPointerError::PointerCheckBytesError)?;
+        let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
+            .map_err(SharedPointerError::ContextError)?;
+        let ptr = T::augment_ptr(data, rel_ptr.augment());
+        let layout = T::layout(ptr, context)
+            .map_err(SharedPointerError::ValueCheckBytesError)?;
+        if context
+            .claim_shared_bytes(ptr.cast(), layout.size(), TypeId::of::<ArchivedRc<T>>())
+            .map_err(SharedPointerError::ContextError)?
+        {
+            T::check_bytes(ptr, context)
+                .map_err(SharedPointerError::ValueCheckBytesError)?;
         }
-        Ok(&*bytes.cast())
+        Ok(&*value)
     }
 }
 
-impl<T: CheckBytesRef<C> + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedArc<T> {
-    type Error = SharedPointerError<T::Error, T::RefError>;
+impl<T: ArchivePtr + CheckLayout<C> + ?Sized + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedArc<T>
+where
+    T::Augment: CheckBytes<C>,
+    C::Error: Error,
+{
+    type Error = SharedPointerError<<T::Augment as CheckBytes<C>>::Error, T::Error, C::Error>;
 
-    unsafe fn check_bytes<'a>(bytes: *const u8, context: &mut C) -> Result<&'a Self, Self::Error> {
-        let reference = T::check_bytes(bytes, context).map_err(SharedPointerError::CheckBytes)?;
-        let (start, len) = reference.check_ptr(context)?;
-        if let Some(ref_bytes) = context.claim_shared_bytes::<ArchivedArc<T>>(start, len)? {
-            reference.check_ref_bytes(ref_bytes, context).map_err(SharedPointerError::RefCheckBytes)?;
+    unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+        let rel_ptr = RelPtr::<T>::manual_check_bytes(value.cast(), context)
+            .map_err(SharedPointerError::PointerCheckBytesError)?;
+        let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
+            .map_err(SharedPointerError::ContextError)?;
+        let ptr = T::augment_ptr(data, rel_ptr.augment());
+        let layout = T::layout(ptr, context)
+            .map_err(SharedPointerError::ValueCheckBytesError)?;
+        if context
+            .claim_shared_bytes(ptr.cast(), layout.size(), TypeId::of::<ArchivedArc<T>>())
+            .map_err(SharedPointerError::ContextError)?
+        {
+            T::check_bytes(ptr, context)
+                .map_err(SharedPointerError::ValueCheckBytesError)?;
         }
-        Ok(&*bytes.cast())
+        Ok(&*value)
     }
 }

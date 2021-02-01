@@ -1,38 +1,22 @@
 //! Validation implementations and helper types.
 
-use crate::{Archive, Archived, offset_of, Offset, RelPtr};
-use bytecheck::{CheckBytes, Unreachable};
-use core::{any::TypeId, fmt, marker::PhantomPinned, mem};
+use crate::{Archive, ArchivePtr, Archived, Fallible, Offset, RelPtr, core_impl::SizedAugment, offset_of};
+use bytecheck::{CheckBytes, CheckLayout};
+use core::{alloc::Layout, any::TypeId, fmt, marker::PhantomPinned};
 use std::{collections::HashMap, error::Error};
 
-impl<C: ?Sized> CheckBytes<C> for RelPtr
-where
-    Offset: CheckBytes<C, Error = Unreachable>,
-{
-    type Error = Unreachable;
-
-    unsafe fn check_bytes<'a>(
-        bytes: *const u8,
-        context: &mut C,
-    ) -> Result<&'a Self, Self::Error> {
-        Offset::check_bytes(bytes.add(offset_of!(Self, offset)), context)?;
-        PhantomPinned::check_bytes(bytes.add(offset_of!(Self, _phantom)), context)?;
-        Ok(&*bytes.cast())
+impl<T: ArchivePtr + ?Sized> RelPtr<T> {
+    pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(value: *const RelPtr<T>, context: &mut C) -> Result<&'a Self, <T::Augment as CheckBytes<C>>::Error>
+    where
+        T: CheckBytes<C>,
+        T::Augment: CheckBytes<C>,
+    {
+        let bytes = value.cast::<u8>();
+        Offset::check_bytes(bytes.add(offset_of!(Self, offset)).cast(), context).unwrap();
+        T::Augment::check_bytes(bytes.add(offset_of!(Self, augment)).cast(), context)?;
+        PhantomPinned::check_bytes(bytes.add(offset_of!(Self, _phantom)).cast(), context).unwrap();
+        Ok(&*value)
     }
-}
-
-/// Checks the memory referenced by a reference type.
-pub trait CheckBytesRef<C: ArchiveBoundsContext + ?Sized>: CheckBytes<C> {
-    /// The error that can occur when checking the referenced memory
-    type RefError: Error + 'static;
-    /// The type of the referenced value
-    type Target: ?Sized;
-
-    /// Checks the reference's internal pointer and returns a pointer to the
-    /// referenced bytes and the number of bytes referenced
-    fn check_ptr(&self, context: &mut C) -> Result<(*const u8, usize), ArchiveBoundsError>;
-    /// Checks the value of the referenced bytes
-    unsafe fn check_ref_bytes<'a>(&'a self, bytes: *const u8, context: &mut C) -> Result<&'a Self::Target, Self::RefError>;
 }
 
 /// Errors that can occur when checking a relative pointer
@@ -51,8 +35,8 @@ pub enum ArchiveBoundsError {
     Overrun {
         /// The position of the type
         pos: usize,
-        /// The desired length of the type
-        len: usize,
+        /// The desired size of the type
+        size: usize,
         /// The length of the archive
         archive_len: usize,
     },
@@ -79,12 +63,12 @@ impl fmt::Display for ArchiveBoundsError {
             ),
             ArchiveBoundsError::Overrun {
                 pos,
-                len,
+                size,
                 archive_len,
             } => write!(
                 f,
-                "archive overrun: pos {} len {} in archive len {}",
-                pos, len, archive_len
+                "archive overrun: pos {} size {} in archive len {}",
+                pos, size, archive_len
             ),
             ArchiveBoundsError::Unaligned { pos, align } => write!(
                 f,
@@ -98,27 +82,19 @@ impl fmt::Display for ArchiveBoundsError {
 impl Error for ArchiveBoundsError {}
 
 /// A context that can check relative pointers.
-pub trait ArchiveBoundsContext {
+pub trait ArchiveBoundsContext: Fallible {
     /// Checks the given parts of a relative pointer for bounds issues
-    unsafe fn check_raw_ptr(
+    unsafe fn check_rel_ptr(
         &mut self,
         base: *const u8,
         offset: isize,
-        len: usize,
-        align: usize,
-    ) -> Result<*const u8, ArchiveBoundsError>;
+    ) -> Result<*const u8, Self::Error>;
 
-    /// Checks the given relative pointer for bounds issues
-    unsafe fn check_rel_ptr(
+    unsafe fn bounds_check_ptr(
         &mut self,
-        rel_ptr: &RelPtr,
-        len: usize,
-        align: usize,
-    ) -> Result<*const u8, ArchiveBoundsError> {
-        let base = (rel_ptr as *const RelPtr).cast::<u8>();
-        let offset = rel_ptr.offset();
-        self.check_raw_ptr(base, offset, len, align)
-    }
+        ptr: *const u8,
+        layout: &Layout,
+    ) -> Result<(), Self::Error>;
 }
 
 /// A validator that can bounds check pointers in an archive.
@@ -147,14 +123,16 @@ impl ArchiveBoundsValidator {
     }
 }
 
+impl Fallible for ArchiveBoundsValidator {
+    type Error = ArchiveBoundsError;
+}
+
 impl ArchiveBoundsContext for ArchiveBoundsValidator {
-    unsafe fn check_raw_ptr(
+    unsafe fn check_rel_ptr(
         &mut self,
         base: *const u8,
         offset: isize,
-        len: usize,
-        align: usize,
-    ) -> Result<*const u8, ArchiveBoundsError> {
+    ) -> Result<*const u8, Self::Error> {
         let base_pos = base.offset_from(self.begin);
         if offset < -base_pos || offset > self.len as isize - base_pos {
             Err(ArchiveBoundsError::OutOfBounds {
@@ -163,21 +141,25 @@ impl ArchiveBoundsContext for ArchiveBoundsValidator {
                 archive_len: self.len,
             })
         } else {
-            let target_pos = (base_pos + offset) as usize;
-            if target_pos & (align - 1) != 0 {
-                Err(ArchiveBoundsError::Unaligned {
-                    pos: target_pos,
-                    align,
-                })
-            } else if self.len - target_pos < len {
-                Err(ArchiveBoundsError::Overrun {
-                    pos: target_pos,
-                    len: len,
-                    archive_len: self.len,
-                })
-            } else {
-                Ok(base.offset(offset))
-            }
+            Ok(base.offset(offset))
+        }
+    }
+
+    unsafe fn bounds_check_ptr(&mut self, ptr: *const u8, layout: &Layout) -> Result<(), Self::Error> {
+        let target_pos = ptr.offset_from(self.begin) as usize;
+        if target_pos & (layout.align() - 1) != 0 {
+            Err(ArchiveBoundsError::Unaligned {
+                pos: target_pos,
+                align: layout.align(),
+            })
+        } else if self.len - target_pos < layout.size() {
+            Err(ArchiveBoundsError::Overrun {
+                pos: target_pos,
+                size: layout.size(),
+                archive_len: self.len,
+            })
+        } else {
+            Ok(())
         }
     }
 }
@@ -200,7 +182,9 @@ impl Interval {
 
 /// Errors that can occur related to archive memory.
 #[derive(Debug)]
-pub enum ArchiveMemoryError {
+pub enum ArchiveMemoryError<E> {
+    /// An error from the wrapped validator
+    Inner(E),
     /// Multiple objects claim to own the same memory region
     ClaimOverlap {
         /// A previous interval of bytes claimed by some object
@@ -210,9 +194,10 @@ pub enum ArchiveMemoryError {
     },
 }
 
-impl fmt::Display for ArchiveMemoryError {
+impl<E: fmt::Display> fmt::Display for ArchiveMemoryError<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            ArchiveMemoryError::Inner(e) => e.fmt(f),
             ArchiveMemoryError::ClaimOverlap { previous, current } => write!(
                 f,
                 "memory claim overlap: current [{:#?}..{:#?}] overlaps previous [{:#?}..{:#?}]",
@@ -222,7 +207,14 @@ impl fmt::Display for ArchiveMemoryError {
     }
 }
 
-impl Error for ArchiveMemoryError {}
+impl<E: Error + 'static> Error for ArchiveMemoryError<E> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            ArchiveMemoryError::Inner(e) => Some(e as &dyn Error),
+            ArchiveMemoryError::ClaimOverlap { .. } => None,
+        }
+    }
+}
 
 /// A context that can validate archive memory.
 ///
@@ -231,158 +223,13 @@ impl Error for ArchiveMemoryError {}
 /// bytes, they must be claimed in the context. This prevents infinite-loop
 /// attacks by malicious actors by ensuring that each block of memory has one
 /// and only one owner.
-///
-/// # Example
-/// ```
-/// use core::{fmt, marker::PhantomData, mem};
-/// use std::error::Error;
-/// use rkyv::{
-///     ser::Serializer,
-///     validation::{
-///         ArchiveBoundsContext,
-///         ArchiveBoundsError,
-///         ArchiveMemoryContext,
-///         ArchiveMemoryError,
-///     },
-///     Archive,
-///     RelPtr,
-///     Serialize,
-/// };
-/// use bytecheck::{CheckBytes, Unreachable};
-///
-/// pub struct MyBox<T> {
-///     value: *mut T,
-/// }
-///
-/// impl<T> MyBox<T> {
-///     fn new(value: T) -> Self {
-///         Self {
-///             value: Box::into_raw(Box::new(value)),
-///         }
-///     }
-///
-///     fn value(&self) -> &T {
-///         unsafe { &*self.value }
-///     }
-/// }
-///
-/// impl<T> Drop for MyBox<T> {
-///     fn drop(&mut self) {
-///         unsafe {
-///             Box::from_raw(self.value);
-///         }
-///     }
-/// }
-///
-/// // A transparent representation guarantees us the same representation as
-/// // a RelPtr
-/// #[repr(transparent)]
-/// pub struct ArchivedMyBox<T> {
-///     value: RelPtr,
-///     _phantom: PhantomData<T>,
-/// }
-///
-/// impl<T> ArchivedMyBox<T> {
-///     fn value(&self) -> &T {
-///         unsafe { &*self.value.as_ptr() }
-///     }
-/// }
-///
-/// pub struct MyBoxResolver {
-///     value_pos: usize,
-/// }
-///
-/// impl<T: Archive> Archive for MyBox<T> {
-///     type Archived = ArchivedMyBox<T::Archived>;
-///     type Resolver = MyBoxResolver;
-///
-///     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-///         unsafe {
-///             ArchivedMyBox {
-///                 value: RelPtr::new(pos, resolver.value_pos),
-///                 _phantom: PhantomData,
-///             }
-///         }
-///     }
-/// }
-///
-/// impl<T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for MyBox<T> {
-///     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-///         Ok(MyBoxResolver {
-///             value_pos: serializer.archive(self.value())?,
-///         })
-///     }
-/// }
-///
-/// #[derive(Debug)]
-/// pub enum ArchivedMyBoxError<T> {
-///     BoundsError(ArchiveBoundsError),
-///     MemoryError(ArchiveMemoryError),
-///     CheckValueError(T),
-/// }
-///
-/// impl<T: fmt::Display> fmt::Display for ArchivedMyBoxError<T> {
-///     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-///         match self {
-///             ArchivedMyBoxError::BoundsError(e) => write!(f, "bounds error: {}", e),
-///             ArchivedMyBoxError::MemoryError(e) => write!(f, "memory error: {}", e),
-///             ArchivedMyBoxError::CheckValueError(e) => write!(f, "check value error: {}", e),
-///         }
-///     }
-/// }
-///
-/// impl<T: Error + 'static> Error for ArchivedMyBoxError<T> {
-///     fn source(&self) -> Option<&(dyn Error + 'static)> {
-///         match self {
-///             ArchivedMyBoxError::BoundsError(e) => Some(e as &dyn Error),
-///             ArchivedMyBoxError::MemoryError(e) => Some(e as &dyn Error),
-///             ArchivedMyBoxError::CheckValueError(e) => Some(e as &dyn Error),
-///         }
-///     }
-/// }
-///
-/// impl<T> From<Unreachable> for ArchivedMyBoxError<T> {
-///     fn from(e: Unreachable) -> Self {
-///         unreachable!()
-///     }
-/// }
-///
-/// impl<T> From<ArchiveBoundsError> for ArchivedMyBoxError<T> {
-///     fn from(e: ArchiveBoundsError) -> Self {
-///         ArchivedMyBoxError::BoundsError(e)
-///     }
-/// }
-///
-/// impl<T> From<ArchiveMemoryError> for ArchivedMyBoxError<T> {
-///     fn from(e: ArchiveMemoryError) -> Self {
-///         ArchivedMyBoxError::MemoryError(e)
-///     }
-/// }
-///
-/// impl<T: CheckBytes<C>, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedMyBox<T> {
-///     type Error = ArchivedMyBoxError<T::Error>;
-///
-///     unsafe fn check_bytes<'a>(
-///         bytes: *const u8,
-///         context: &mut C
-///     ) -> Result<&'a Self, Self::Error> {
-///         let rel_ptr = RelPtr::check_bytes(bytes, context)?;
-///         let len = mem::size_of::<T>();
-///         let start = context.check_rel_ptr(rel_ptr, len, mem::align_of::<T>())?;
-///         let value_bytes = context.claim_bytes(start, len)?;
-///         T::check_bytes(value_bytes, context)
-///             .map_err(|e| ArchivedMyBoxError::CheckValueError(e))?;
-///         Ok(&*bytes.cast())
-///     }
-/// }
-/// ```
-pub trait ArchiveMemoryContext {
+pub trait ArchiveMemoryContext: Fallible {
     /// Claims `count` bytes located `offset` bytes away from `base`.
     ///
     /// # Safety
     ///
     /// `base` must be inside the archive this context was created for.
-    unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<*const u8, ArchiveMemoryError>;
+    unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<(), Self::Error>;
 }
 
 /// An adapter that adds memory validation to a context.
@@ -406,15 +253,25 @@ impl<C> ArchiveValidator<C> {
     }
 }
 
+impl<C: Fallible> Fallible for ArchiveValidator<C> {
+    type Error = ArchiveMemoryError<C::Error>;
+}
+
 impl<C: ArchiveBoundsContext> ArchiveBoundsContext for ArchiveValidator<C> {
-    unsafe fn check_raw_ptr(
+    unsafe fn check_rel_ptr(
         &mut self,
         base: *const u8,
         offset: isize,
-        len: usize,
-        align: usize,
-    ) -> Result<*const u8, ArchiveBoundsError> {
-        self.inner.check_raw_ptr(base, offset, len, align)
+    ) -> Result<*const u8, Self::Error> {
+        self.inner.check_rel_ptr(base, offset).map_err(ArchiveMemoryError::Inner)
+    }
+
+    unsafe fn bounds_check_ptr(
+        &mut self,
+        ptr: *const u8,
+        layout: &Layout,
+    ) -> Result<(), Self::Error> {
+        self.inner.bounds_check_ptr(ptr, layout).map_err(ArchiveMemoryError::Inner)
     }
 }
 
@@ -423,7 +280,7 @@ impl<C: ArchiveBoundsContext> ArchiveMemoryContext for ArchiveValidator<C> {
         &mut self,
         start: *const u8,
         len: usize,
-    ) -> Result<*const u8, ArchiveMemoryError> {
+    ) -> Result<(), Self::Error> {
         let interval = Interval {
             start,
             end: start.add(len),
@@ -442,7 +299,7 @@ impl<C: ArchiveBoundsContext> ArchiveMemoryContext for ArchiveValidator<C> {
                         });
                     } else if self.intervals[index].start == interval.end {
                         self.intervals[index].start = interval.start;
-                        return Ok(start);
+                        return Ok(());
                     }
                 }
 
@@ -454,12 +311,12 @@ impl<C: ArchiveBoundsContext> ArchiveMemoryContext for ArchiveValidator<C> {
                         });
                     } else if self.intervals[index - 1].end == interval.start {
                         self.intervals[index - 1].end = interval.end;
-                        return Ok(start);
+                        return Ok(());
                     }
                 }
 
                 self.intervals.insert(index, interval);
-                Ok(start)
+                Ok(())
             }
         }
     }
@@ -467,9 +324,9 @@ impl<C: ArchiveBoundsContext> ArchiveMemoryContext for ArchiveValidator<C> {
 
 /// Errors that can occur when checking shared memory.
 #[derive(Debug)]
-pub enum SharedArchiveError {
+pub enum SharedArchiveError<E> {
     /// An error occurred while checking the memory of the archive
-    MemoryError(ArchiveMemoryError),
+    Inner(E),
     /// Multiple pointers exist to the same location with different types
     TypeMismatch {
         /// A previous type that the location was checked as
@@ -479,16 +336,10 @@ pub enum SharedArchiveError {
     }
 }
 
-impl From<ArchiveMemoryError> for SharedArchiveError {
-    fn from(e: ArchiveMemoryError) -> Self {
-        Self::MemoryError(e)
-    }
-}
-
-impl fmt::Display for SharedArchiveError {
+impl<E: fmt::Display> fmt::Display for SharedArchiveError<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SharedArchiveError::MemoryError(e) => e.fmt(f),
+            SharedArchiveError::Inner(e) => e.fmt(f),
             SharedArchiveError::TypeMismatch { previous, current } => write!(
                 f,
                 "the same memory region has been claimed as two different types ({:?} and {:?})",
@@ -498,10 +349,10 @@ impl fmt::Display for SharedArchiveError {
     }
 }
 
-impl Error for SharedArchiveError {
+impl<E: Error + 'static> Error for SharedArchiveError<E> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            SharedArchiveError::MemoryError(e) => Some(e as &dyn Error),
+            SharedArchiveError::Inner(e) => Some(e as &dyn Error),
             SharedArchiveError::TypeMismatch { .. } => None,
         }
     }
@@ -519,7 +370,7 @@ pub trait SharedArchiveContext: ArchiveMemoryContext {
     /// # Safety
     ///
     /// `base` must be inside the archive this context was created for.
-    unsafe fn claim_shared_bytes<T: 'static>(&mut self, start: *const u8, len: usize) -> Result<Option<*const u8>, SharedArchiveError>;
+    unsafe fn claim_shared_bytes(&mut self, start: *const u8, len: usize, type_id: TypeId) -> Result<bool, Self::Error>;
 }
 
 /// An adapter that adds shared memory validation.
@@ -543,79 +394,74 @@ impl<C> SharedArchiveValidator<C> {
     }
 }
 
+impl<C: Fallible> Fallible for SharedArchiveValidator<C> {
+    type Error = SharedArchiveError<C::Error>;
+}
+
 impl<C: ArchiveBoundsContext> ArchiveBoundsContext for SharedArchiveValidator<C> {
-    unsafe fn check_raw_ptr(
+    unsafe fn check_rel_ptr(
         &mut self,
         base: *const u8,
         offset: isize,
-        len: usize,
-        align: usize,
-    ) -> Result<*const u8, ArchiveBoundsError> {
-        self.inner.check_raw_ptr(base, offset, len, align)
+    ) -> Result<*const u8, Self::Error> {
+        self.inner.check_rel_ptr(base, offset).map_err(SharedArchiveError::Inner)
+    }
+
+    unsafe fn bounds_check_ptr(
+        &mut self,
+        ptr: *const u8,
+        layout: &Layout,
+    ) -> Result<(), Self::Error> {
+        self.inner.bounds_check_ptr(ptr, layout).map_err(SharedArchiveError::Inner)
     }
 }
 
 impl<C: ArchiveMemoryContext> ArchiveMemoryContext for SharedArchiveValidator<C> {
-    unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<*const u8, ArchiveMemoryError> {
-        self.inner.claim_bytes(start, len)
+    unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<(), Self::Error> {
+        self.inner.claim_bytes(start, len).map_err(SharedArchiveError::Inner)
     }
 }
 
 impl<C: ArchiveMemoryContext> SharedArchiveContext for SharedArchiveValidator<C> {
-    unsafe fn claim_shared_bytes<T: 'static>(&mut self, start: *const u8, len: usize) -> Result<Option<*const u8>, SharedArchiveError> {
-        let type_id = TypeId::of::<T>();
+    unsafe fn claim_shared_bytes(&mut self, start: *const u8, len: usize, type_id: TypeId) -> Result<bool, Self::Error> {
         if let Some(previous_type_id) = self.shared_blocks.get(&start) {
             if previous_type_id != &type_id {
                 Err(SharedArchiveError::TypeMismatch { previous: *previous_type_id, current: type_id })
             } else {
-                Ok(None)
+                Ok(false)
             }
         } else {
             self.shared_blocks.insert(start, type_id);
-            Ok(Some(self.inner.claim_bytes(start, len)?))
+            self.inner.claim_bytes(start, len)
+                .map_err(SharedArchiveError::Inner)?;
+            Ok(true)
         }
     }
 }
 
 /// Errors that can occur when checking an archive.
 #[derive(Debug)]
-pub enum CheckArchiveError<T> {
-    /// A bounds error
-    BoundsError(ArchiveBoundsError),
-    /// A memory error
-    MemoryError(ArchiveMemoryError),
+pub enum CheckArchiveError<T, C> {
     /// An error that occurred while validating an object
-    CheckBytes(T),
+    CheckBytesError(T),
+    /// A context error occurred
+    ContextError(C),
 }
 
-impl<T> From<ArchiveBoundsError> for CheckArchiveError<T> {
-    fn from(e: ArchiveBoundsError) -> Self {
-        Self::BoundsError(e)
-    }
-}
-
-impl<T> From<ArchiveMemoryError> for CheckArchiveError<T> {
-    fn from(e: ArchiveMemoryError) -> Self {
-        Self::MemoryError(e)
-    }
-}
-
-impl<T: fmt::Display> fmt::Display for CheckArchiveError<T> {
+impl<T: fmt::Display, C: fmt::Display> fmt::Display for CheckArchiveError<T, C> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CheckArchiveError::BoundsError(e) => write!(f, "bounds check error: {}", e),
-            CheckArchiveError::MemoryError(e) => write!(f, "archive memory error: {}", e),
-            CheckArchiveError::CheckBytes(e) => write!(f, "check bytes error: {}", e),
+            CheckArchiveError::CheckBytesError(e) => write!(f, "check bytes error: {}", e),
+            CheckArchiveError::ContextError(e) => write!(f, "context error: {}", e),
         }
     }
 }
 
-impl<T: fmt::Debug + fmt::Display + Error + 'static> Error for CheckArchiveError<T> {
+impl<T: Error + 'static, C: Error + 'static> Error for CheckArchiveError<T, C> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            CheckArchiveError::BoundsError(e) => Some(e as &dyn Error),
-            CheckArchiveError::MemoryError(e) => Some(e as &dyn Error),
-            CheckArchiveError::CheckBytes(e) => Some(e as &dyn Error),
+            CheckArchiveError::CheckBytesError(e) => Some(e as &dyn Error),
+            CheckArchiveError::ContextError(e) => Some(e as &dyn Error),
         }
     }
 }
@@ -660,7 +506,7 @@ pub type DefaultArchiveValidator = SharedArchiveValidator<ArchiveValidator<Archi
 pub fn check_archive<T: Archive>(
     buf: &[u8],
     pos: usize,
-) -> Result<&T::Archived, CheckArchiveError<<T::Archived as CheckBytes<DefaultArchiveValidator>>::Error>>
+) -> Result<&T::Archived, CheckArchiveError<<T::Archived as CheckBytes<DefaultArchiveValidator>>::Error, <DefaultArchiveValidator as Fallible>::Error>>
 where
     T::Archived: CheckBytes<DefaultArchiveValidator>,
 {
@@ -675,14 +521,23 @@ pub fn check_archive_with_context<'a, T: Archive, C: ArchiveBoundsContext + Arch
     buf: &'a [u8],
     pos: usize,
     context: &mut C,
-) -> Result<&'a T::Archived, CheckArchiveError<<T::Archived as CheckBytes<C>>::Error>>
+) -> Result<&'a T::Archived, CheckArchiveError<<T::Archived as CheckBytes<C>>::Error, C::Error>>
 where
     T::Archived: CheckBytes<C>,
 {
     unsafe {
-        let len = mem::size_of::<T::Archived>();
-        let start = context.check_raw_ptr(buf.as_ptr(), pos as isize, len, mem::align_of::<T::Archived>())?;
-        let bytes = context.claim_bytes(start, len)?;
-        Ok(Archived::<T>::check_bytes(bytes, context).map_err(CheckArchiveError::CheckBytes)?)
+        let data = context.check_rel_ptr(buf.as_ptr(), pos as isize)
+            .map_err(CheckArchiveError::ContextError)?;
+        let ptr = T::Archived::augment_ptr(data, &SizedAugment);
+        let layout = T::Archived::layout(ptr, context)
+            .map_err(CheckArchiveError::CheckBytesError)?;
+        context.bounds_check_ptr(ptr.cast(), &layout)
+            .map_err(CheckArchiveError::ContextError)?;
+        context.claim_bytes(ptr.cast(), layout.size())
+            .map_err(CheckArchiveError::ContextError)?;
+        Ok(
+            Archived::<T>::check_bytes(ptr, context)
+                .map_err(CheckArchiveError::CheckBytesError)?
+        )
     }
 }
