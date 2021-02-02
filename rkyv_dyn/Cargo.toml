@@ -1,6 +1,6 @@
 [package]
 name = "rkyv_dyn"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Trait object support for rkyv"
@@ -17,12 +17,12 @@ readme = "crates-io.md"
 bytecheck = { version = "0.3", optional = true }
 inventory = "0.1"
 lazy_static = "1.4"
-rkyv = { version = "0.3.0", path = "../rkyv" }
-rkyv_dyn_derive = { version = "=0.3.0", path = "../rkyv_dyn_derive" }
+rkyv = { version = "0.3.1", path = "../rkyv" }
+rkyv_dyn_derive = { version = "=0.3.1", path = "../rkyv_dyn_derive" }
 rkyv_typename = { version = "0.3.0", path = "../rkyv_typename" }
 
 [dev-dependencies]
-rkyv_dyn_derive = { version = "0.3.0", path = "../rkyv_dyn_derive" }
+rkyv_dyn_derive = { version = "0.3.1", path = "../rkyv_dyn_derive" }
 
 [features]
 default = []

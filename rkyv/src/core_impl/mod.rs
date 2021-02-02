@@ -16,11 +16,14 @@ use core::{
     },
     ops::{Deref, DerefMut},
     ptr, slice, str,
-    sync::atomic::{
-        self, AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32,
-        AtomicU64, AtomicU8,
-    },
 };
+#[cfg(rkyv_atomic)]
+use core::sync::atomic::{
+    self, AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicU16, AtomicU32, AtomicU8,
+};
+#[cfg(rkyv_atomic_64)]
+use core::sync::atomic::{AtomicI64, AtomicU64};
+
 pub mod range;
 #[cfg(feature = "validation")]
 pub mod validation;
@@ -267,6 +270,7 @@ impl_primitive!(NonZeroU128);
 /// The resolver for atomic types.
 pub struct AtomicResolver;
 
+#[cfg(rkyv_atomic)]
 macro_rules! impl_atomic {
     ($type:ty) => {
         impl Resolve<$type> for AtomicResolver {
@@ -297,14 +301,23 @@ macro_rules! impl_atomic {
     };
 }
 
+#[cfg(rkyv_atomic)]
 impl_atomic!(AtomicBool);
+#[cfg(rkyv_atomic)]
 impl_atomic!(AtomicI8);
+#[cfg(rkyv_atomic)]
 impl_atomic!(AtomicI16);
+#[cfg(rkyv_atomic)]
 impl_atomic!(AtomicI32);
+#[cfg(rkyv_atomic_64)]
 impl_atomic!(AtomicI64);
+#[cfg(rkyv_atomic)]
 impl_atomic!(AtomicU8);
+#[cfg(rkyv_atomic)]
 impl_atomic!(AtomicU16);
+#[cfg(rkyv_atomic)]
 impl_atomic!(AtomicU32);
+#[cfg(rkyv_atomic_64)]
 impl_atomic!(AtomicU64);
 
 #[cfg(not(feature = "strict"))]

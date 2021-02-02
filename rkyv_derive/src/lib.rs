@@ -172,18 +172,6 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
 /// Adding the attribute `#[recursive]` to a field will suppress this trait
 /// bound and allow recursive structures. This may be too coarse for some types,
 /// in which case `Archive` will have to be implemented manually.
-///
-/// # Example
-///
-/// ```
-/// use rkyv::Archive;
-///
-/// #[derive(Archive)]
-/// enum Node<T> {
-///     Nil,
-///     Cons(T, #[recursive] Box<Node<T>>),
-/// }
-/// ```
 #[proc_macro_derive(Archive, attributes(archive, recursive))]
 pub fn archive_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
