@@ -522,6 +522,7 @@ mod tests {
             T::Archived: RegisteredImpl<dyn DeserializeTestTrait>,
         {}
 
+        #[ptr_meta::pointee]
         pub trait DeserializeTestTrait: TestTrait + DeserializeDyn<dyn SerializeTestTrait> {}
 
         impl<T: TestTrait + DeserializeDyn<dyn SerializeTestTrait>> DeserializeTestTrait for T {}
@@ -544,11 +545,13 @@ mod tests {
             type Augment = DynAugment<Self>;
 
             fn augment_ptr(ptr: *const u8, augment: &Self::Augment) -> *const Self {
-                unsafe { core::mem::transmute((ptr, augment.vtable())) }
+                let vtable = unsafe { core::mem::transmute(augment.vtable()) };
+                ptr_meta::from_raw_parts(ptr as *const (), vtable)
             }
 
             fn augment_ptr_mut(ptr: *mut u8, augment: &Self::Augment) -> *mut Self {
-                unsafe { core::mem::transmute((ptr, augment.vtable())) }
+                let vtable = unsafe { core::mem::transmute(augment.vtable()) };
+                ptr_meta::from_raw_parts_mut(ptr as *mut (), vtable)
             }
         }
 

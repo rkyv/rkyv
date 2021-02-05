@@ -260,7 +260,6 @@ fn hashmap() {
 
 #[test]
 fn check_dyn() {
-    use bytecheck::CheckLayout;
     use rkyv::Archived;
     use rkyv_dyn::{
         archive_dyn,
@@ -280,24 +279,10 @@ fn check_dyn() {
         type Error = CheckDynError;
 
         unsafe fn check_bytes<'a>(value: *const Self, context: &mut (dyn DynContext + '_)) -> Result<&'a Self, Self::Error> {
-            let (_, vtable) = core::mem::transmute::<*const Self, (*const (), *const ())>(value);
+            let vtable = core::mem::transmute(ptr_meta::metadata(value));
             if let Some(validation) = CHECK_BYTES_REGISTRY.get(VTable(vtable)) {
                 (validation.check_bytes_dyn)(value.cast(), context)?;
                 Ok(&*value)
-            } else {
-                Err(CheckDynError::InvalidMetadata(vtable as usize as u64))
-            }
-        }
-    }
-
-    impl<C: ?Sized> CheckLayout<C> for (dyn TestTrait + '_)
-    where
-        for<'a> (dyn TestTrait + 'a): CheckBytes<C, Error = CheckDynError>,
-    {
-        fn layout(ptr: *const Self, _: &mut C) -> Result<core::alloc::Layout, Self::Error> {
-            let (_, vtable) = unsafe { core::mem::transmute::<*const Self, (*const (), *const ())>(ptr) };
-            if let Some(validation) = CHECK_BYTES_REGISTRY.get(VTable(vtable)) {
-                Ok(validation.layout)
             } else {
                 Err(CheckDynError::InvalidMetadata(vtable as usize as u64))
             }

@@ -17,6 +17,7 @@ readme = "crates-io.md"
 bytecheck = { path = "../../bytecheck/bytecheck", version = "0.3", optional = true }
 inventory = "0.1"
 lazy_static = "1.4"
+ptr_meta = { path = "../../ptr_meta/ptr_meta", version = "0.1" }
 rkyv = { version = "0.3.0", path = "../rkyv" }
 rkyv_dyn_derive = { version = "=0.3.0", path = "../rkyv_dyn_derive" }
 rkyv_typename = { version = "0.3.0", path = "../rkyv_typename" }

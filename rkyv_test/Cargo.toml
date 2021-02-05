@@ -11,6 +11,7 @@ repository = "https://github.com/djkoloski/rkyv"
 
 [dependencies]
 bytecheck = { path = "../../bytecheck/bytecheck", version = "0.3.0", optional = true }
+ptr_meta = { path = "../../ptr_meta/ptr_meta", version = "0.1" }
 rkyv = { path = "../rkyv", default-features = false }
 rkyv_dyn = { path = "../rkyv_dyn" }
 rkyv_typename = { path = "../rkyv_typename", default-features = false }

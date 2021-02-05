@@ -3,17 +3,19 @@
 use crate::{
     offset_of,
     std_impl::chd::{ArchivedHashMap, ArchivedHashSet, Entry},
-    validation::{ArchiveBoundsContext, ArchiveMemoryContext},
+    validation::{ArchiveBoundsContext, ArchiveMemoryContext, LayoutMetadata},
     Fallible,
     RelPtr,
 };
-use bytecheck::{CheckBytes, CheckLayout, SliceCheckError, Unreachable};
+use bytecheck::{CheckBytes, SliceCheckError, Unreachable};
+use ptr_meta::metadata;
 use core::{
+    alloc::Layout,
     fmt,
     hash::{Hash, Hasher},
     ptr,
 };
-use std::error::Error;
+use std::{alloc::LayoutErr, error::Error};
 
 /// Errors that can occur while checking an archived hash map entry.
 #[derive(Debug)]
@@ -59,6 +61,8 @@ impl<K: CheckBytes<C>, V: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> Check
 /// Errors that can occur while checking an archived hash map.
 #[derive(Debug)]
 pub enum HashMapError<K, V, C> {
+    /// An error occured while checking the layouts of displacements or entries
+    LayoutError(LayoutErr),
     /// An error occured while checking the displacements
     CheckDisplaceError(SliceCheckError<Unreachable>),
     /// An error occured while checking the entries
@@ -77,6 +81,7 @@ pub enum HashMapError<K, V, C> {
 impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display for HashMapError<K, V, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            HashMapError::LayoutError(e) => write!(f, "layout error: {}", e),
             HashMapError::CheckDisplaceError(e) => write!(f, "displacements check error: {}", e),
             HashMapError::CheckEntryError(e) => write!(f, "entry check error: {}", e),
             HashMapError::InvalidDisplacement { index, value } => write!(
@@ -97,6 +102,7 @@ impl<K: Error + 'static, V: Error + 'static, C: Error + 'static> Error
 {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
+            HashMapError::LayoutError(e) => Some(e as &dyn Error),
             HashMapError::CheckDisplaceError(e) => Some(e as &dyn Error),
             HashMapError::CheckEntryError(e) => Some(e as &dyn Error),
             HashMapError::InvalidDisplacement { .. } => None,
@@ -109,6 +115,12 @@ impl<K: Error + 'static, V: Error + 'static, C: Error + 'static> Error
 impl<K, V, C> From<Unreachable> for HashMapError<K, V, C> {
     fn from(_: Unreachable) -> Self {
         unreachable!();
+    }
+}
+
+impl<K, V, C> From<LayoutErr> for HashMapError<K, V, C> {
+    fn from(e: LayoutErr) -> Self {
+        Self::LayoutError(e)
     }
 }
 
@@ -145,8 +157,9 @@ where
         )?;
         let displace_data_ptr = context.check_rel_ptr(displace_rel_ptr.base(), displace_rel_ptr.offset())
             .map_err(HashMapError::ContextError)?;
+        Layout::array::<u32>(len as usize)?;
         let displace_ptr = ptr::slice_from_raw_parts(displace_data_ptr.cast::<u32>(), len as usize);
-        let layout = <[u32]>::layout(displace_ptr, context)?;
+        let layout = LayoutMetadata::<[u32]>::layout(metadata(displace_ptr));
         context.bounds_check_ptr(displace_ptr.cast(), &layout)
             .map_err(HashMapError::ContextError)?;
         context.claim_bytes(displace_ptr.cast(), layout.size())
@@ -165,8 +178,9 @@ where
         )?;
         let entries_data_ptr = context.check_rel_ptr(entries_rel_ptr.base(), entries_rel_ptr.offset())
             .map_err(HashMapError::ContextError)?;
+        Layout::array::<Entry<K, V>>(len as usize)?;
         let entries_ptr = ptr::slice_from_raw_parts(entries_data_ptr.cast::<Entry<K, V>>(), len as usize);
-        let layout = <[Entry<K, V>]>::layout(entries_ptr, context)?;
+        let layout = LayoutMetadata::<[Entry<K, V>]>::layout(metadata(entries_ptr));
         context.bounds_check_ptr(entries_ptr.cast(), &layout)
             .map_err(HashMapError::ContextError)?;
         context.claim_bytes(entries_ptr.cast(), layout.size())

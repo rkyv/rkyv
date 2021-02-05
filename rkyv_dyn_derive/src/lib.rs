@@ -231,7 +231,7 @@ pub fn archive_dyn(
             });
             let type_name_wheres = quote! { #(#type_name_wheres,)* };
 
-            let (deserialize_trait, deserialize_trait_def, deserialize_trait_impl) = if let Some(deserialize) = args.deserialize {
+            let (deserialize_trait, deserialize_trait_def, deserialize_trait_impl, pointee_input) = if let Some(deserialize) = args.deserialize {
                 let deserialize_trait = if let Some(ua_name) = deserialize {
                     Ident::new(&ua_name.value(), ua_name.span())
                 } else {
@@ -241,6 +241,7 @@ pub fn archive_dyn(
                 (
                     deserialize_trait.clone(),
                     quote! {
+                        #[ptr_meta::pointee]
                         #vis trait #deserialize_trait<#generic_params>: #name<#generic_args> + rkyv_dyn::DeserializeDyn<dyn #serialize_trait<#generic_args>> {}
                     },
                     quote! {
@@ -252,9 +253,10 @@ pub fn archive_dyn(
                             }
                         }
                     },
+                    quote! {}
                 )
             } else {
-                (name.clone(), quote! {}, quote! {})
+                (name.clone(), quote! {}, quote! {}, quote! { #[ptr_meta::pointee] })
             };
 
             let build_type_name = if !input.generics.params.is_empty() {
@@ -275,6 +277,7 @@ pub fn archive_dyn(
             };
 
             quote! {
+                #pointee_input
                 #input
 
                 #vis trait #serialize_trait<#generic_params>: #name<#generic_args> + rkyv_dyn::SerializeDyn {}
@@ -329,11 +332,13 @@ pub fn archive_dyn(
                         type Augment = DynAugment<Self>;
 
                         fn augment_ptr(ptr: *const u8, augment: &Self::Augment) -> *const Self {
-                            unsafe { core::mem::transmute((ptr, augment.vtable())) }
+                            let vtable = unsafe { core::mem::transmute(augment.vtable()) };
+                            ptr_meta::from_raw_parts(ptr as *const (), vtable)
                         }
 
                         fn augment_ptr_mut(ptr: *mut u8, augment: &Self::Augment) -> *mut Self {
-                            unsafe { core::mem::transmute((ptr, augment.vtable())) }
+                            let vtable = unsafe { core::mem::transmute(augment.vtable()) };
+                            ptr_meta::from_raw_parts_mut(ptr as *mut (), vtable)
                         }
                     }
 

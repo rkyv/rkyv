@@ -2,11 +2,13 @@
 
 use core::{any::TypeId, fmt};
 use std::error::Error;
-use bytecheck::{CheckBytes, CheckLayout};
+use bytecheck::CheckBytes;
+use ptr_meta::{metadata, Pointee};
 use super::{ArchivedArc, ArchivedRc};
 use crate::{
     validation::{
         ArchiveBoundsContext,
+        LayoutMetadata,
         SharedArchiveContext,
     },
     ArchivePtr,
@@ -44,10 +46,11 @@ impl<T: Error + 'static, R: Error + 'static, C: Error + 'static> Error for Share
     }
 }
 
-impl<T: ArchivePtr + CheckLayout<C> + ?Sized + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedRc<T>
+impl<T: ArchivePtr + CheckBytes<C> + Pointee + ?Sized + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedRc<T>
 where
     T::Augment: CheckBytes<C>,
     C::Error: Error,
+    <T as Pointee>::Metadata: LayoutMetadata<T>,
 {
     type Error = SharedPointerError<<T::Augment as CheckBytes<C>>::Error, T::Error, C::Error>;
 
@@ -57,8 +60,7 @@ where
         let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
             .map_err(SharedPointerError::ContextError)?;
         let ptr = T::augment_ptr(data, rel_ptr.augment());
-        let layout = T::layout(ptr, context)
-            .map_err(SharedPointerError::ValueCheckBytesError)?;
+        let layout = LayoutMetadata::<T>::layout(metadata(ptr));
         if context
             .claim_shared_bytes(ptr.cast(), layout.size(), TypeId::of::<ArchivedRc<T>>())
             .map_err(SharedPointerError::ContextError)?
@@ -70,10 +72,11 @@ where
     }
 }
 
-impl<T: ArchivePtr + CheckLayout<C> + ?Sized + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedArc<T>
+impl<T: ArchivePtr + CheckBytes<C> + Pointee + ?Sized + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedArc<T>
 where
     T::Augment: CheckBytes<C>,
     C::Error: Error,
+    <T as Pointee>::Metadata: LayoutMetadata<T>,
 {
     type Error = SharedPointerError<<T::Augment as CheckBytes<C>>::Error, T::Error, C::Error>;
 
@@ -83,8 +86,7 @@ where
         let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
             .map_err(SharedPointerError::ContextError)?;
         let ptr = T::augment_ptr(data, rel_ptr.augment());
-        let layout = T::layout(ptr, context)
-            .map_err(SharedPointerError::ValueCheckBytesError)?;
+        let layout = LayoutMetadata::<T>::layout(metadata(ptr));
         if context
             .claim_shared_bytes(ptr.cast(), layout.size(), TypeId::of::<ArchivedArc<T>>())
             .map_err(SharedPointerError::ContextError)?

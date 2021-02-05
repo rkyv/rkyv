@@ -12,7 +12,7 @@ use crate::{
     offset_of,
 };
 use bytecheck::{CheckBytes, StructCheckError, Unreachable};
-use core::fmt;
+use core::{alloc::{Layout, LayoutErr}, fmt};
 use std::error::Error;
 
 impl<C: ?Sized> CheckBytes<C> for SizedAugment {
@@ -23,10 +23,46 @@ impl<C: ?Sized> CheckBytes<C> for SizedAugment {
     }
 }
 
-impl<C: ?Sized> CheckBytes<C> for SliceAugment {
-    type Error = Unreachable;
+#[derive(Debug)]
+pub enum CheckSliceAugmentError {
+    LayoutError(LayoutErr),
+}
 
-    unsafe fn check_bytes<'a>(value: *const Self, _: &mut C) -> Result<&'a Self, Self::Error> {
+impl From<Unreachable> for CheckSliceAugmentError {
+    fn from(_: Unreachable) -> Self {
+        unreachable!()
+    }
+}
+
+impl From<LayoutErr> for CheckSliceAugmentError {
+    fn from(e: LayoutErr) -> Self {
+        Self::LayoutError(e)
+    }
+}
+
+impl fmt::Display for CheckSliceAugmentError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CheckSliceAugmentError::LayoutError(e) => e.fmt(f),
+        }
+    }
+}
+
+impl Error for CheckSliceAugmentError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            CheckSliceAugmentError::LayoutError(e) => Some(e as &dyn Error),
+        }
+    }
+}
+
+impl<T, C: ?Sized> CheckBytes<C> for SliceAugment<T> {
+    type Error = CheckSliceAugmentError;
+
+    unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+        let bytes = value.cast::<u8>();
+        let len = u32::check_bytes(bytes.add(offset_of!(Self, len)).cast(), context)?;
+        Layout::array::<T>(*len as usize)?;
         Ok(&*value)
     }
 }

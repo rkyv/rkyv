@@ -2,15 +2,16 @@ use core::fmt;
 use std::error::Error;
 use super::{ArchivedBox, ArchivedString, ArchivedVec};
 use crate::{
-    core_impl::SliceAugment,
     validation::{
         ArchiveBoundsContext,
         ArchiveMemoryContext,
+        LayoutMetadata,
     },
     ArchivePtr,
     RelPtr,
 };
-use bytecheck::{CheckBytes, CheckLayout};
+use bytecheck::CheckBytes;
+use ptr_meta::{metadata, Pointee};
 
 #[derive(Debug)]
 pub enum OwnedPointerError<T, R, C> {
@@ -43,7 +44,7 @@ impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for 
 where
     C::Error: Error,
 {
-    type Error = OwnedPointerError<<SliceAugment as CheckBytes<C>>::Error, <str as CheckBytes<C>>::Error, C::Error>;
+    type Error = OwnedPointerError<<<str as ArchivePtr>::Augment as CheckBytes<C>>::Error, <str as CheckBytes<C>>::Error, C::Error>;
 
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::<str>::manual_check_bytes(value.cast(), context)
@@ -51,8 +52,7 @@ where
         let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
             .map_err(OwnedPointerError::ContextError)?;
         let ptr = str::augment_ptr(data, rel_ptr.augment());
-        let layout = str::layout(ptr, context)
-            .map_err(OwnedPointerError::ValueCheckBytesError)?;
+        let layout = LayoutMetadata::<str>::layout(metadata(ptr));
         context.claim_bytes(ptr.cast(), layout.size())
             .map_err(OwnedPointerError::ContextError)?;
         <str as CheckBytes<C>>::check_bytes(ptr, context)
@@ -61,10 +61,11 @@ where
     }
 }
 
-impl<T: ArchivePtr + CheckLayout<C> + ?Sized, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedBox<T>
+impl<T: ArchivePtr + CheckBytes<C> + Pointee + ?Sized, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedBox<T>
 where
     T::Augment: CheckBytes<C>,
     C::Error: Error,
+    <T as Pointee>::Metadata: LayoutMetadata<T>,
 {
     type Error = OwnedPointerError<<T::Augment as CheckBytes<C>>::Error, T::Error, C::Error>;
 
@@ -74,8 +75,7 @@ where
         let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
             .map_err(OwnedPointerError::ContextError)?;
         let ptr = T::augment_ptr(data, rel_ptr.augment());
-        let layout = T::layout(ptr, context)
-            .map_err(OwnedPointerError::ValueCheckBytesError)?;
+        let layout = LayoutMetadata::<T>::layout(metadata(ptr));
         context.claim_bytes(ptr.cast(), layout.size())
             .map_err(OwnedPointerError::ContextError)?;
         T::check_bytes(ptr, context)
@@ -84,7 +84,7 @@ where
     }
 }
 
-impl<T: CheckLayout<C>, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedVec<T>
+impl<T: CheckBytes<C>, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedVec<T>
 where
     [T]: ArchivePtr,
     <[T] as ArchivePtr>::Augment: CheckBytes<C>,
@@ -98,8 +98,7 @@ where
         let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
             .map_err(OwnedPointerError::ContextError)?;
         let ptr = <[T]>::augment_ptr(data, rel_ptr.augment());
-        let layout = <[T]>::layout(ptr, context)
-            .map_err(OwnedPointerError::ValueCheckBytesError)?;
+        let layout = LayoutMetadata::<[T]>::layout(metadata(ptr));
         context.claim_bytes(ptr.cast(), layout.size())
             .map_err(OwnedPointerError::ContextError)?;
         <[T]>::check_bytes(ptr, context)

@@ -20,7 +20,6 @@ use core::{
     cmp,
     hash::{Hash, Hasher},
     marker::PhantomData,
-    mem,
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
         NonZeroU32, NonZeroU64, NonZeroU8,
@@ -371,14 +370,16 @@ where
 /// the hood and stores an additional length parameter.
 #[cfg_attr(feature = "strict", repr(C))]
 #[derive(Debug)]
-pub struct SliceAugment {
+pub struct SliceAugment<T> {
     len: u32,
+    _phantom: PhantomData<T>,
 }
 
-impl SliceAugment {
+impl<T> SliceAugment<T> {
     pub fn new(len: u32) -> Self {
         Self {
             len,
+            _phantom: PhantomData,
         }
     }
 }
@@ -386,13 +387,13 @@ impl SliceAugment {
 impl<T: Archive> ArchiveUnsized for [T] {
     type Archived = [T::Archived];
 
-    fn make_augment(&self) -> SliceAugment {
+    fn make_augment(&self) -> SliceAugment<T::Archived> {
         SliceAugment::new(self.len() as u32)
     }
 }
 
 impl<T> ArchivePtr for [T] {
-    type Augment = SliceAugment;
+    type Augment = SliceAugment<T>;
 
     fn augment_ptr(ptr: *const u8, augment: &Self::Augment) -> *const Self {
         ptr::slice_from_raw_parts(ptr.cast(), augment.len as usize)
@@ -473,14 +474,14 @@ impl ArchiveUnsized for str {
 }
 
 impl ArchivePtr for str {
-    type Augment = SliceAugment;
+    type Augment = SliceAugment<u8>;
 
     fn augment_ptr(ptr: *const u8, augment: &Self::Augment) -> *const Self {
-        unsafe { mem::transmute(ptr::slice_from_raw_parts(ptr, augment.len as usize)) }
+        ptr_meta::from_raw_parts(ptr as *const (), augment.len as usize)
     }
 
     fn augment_ptr_mut(ptr: *mut u8, augment: &Self::Augment) -> *mut Self {
-        unsafe { mem::transmute(ptr::slice_from_raw_parts_mut(ptr, augment.len as usize)) }
+        ptr_meta::from_raw_parts_mut(ptr as *mut (), augment.len as usize)
     }
 }
 

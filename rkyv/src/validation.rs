@@ -1,8 +1,9 @@
 //! Validation implementations and helper types.
 
 use crate::{Archive, ArchivePtr, Archived, Fallible, Offset, RelPtr, core_impl::SizedAugment, offset_of};
-use bytecheck::{CheckBytes, CheckLayout};
+use bytecheck::CheckBytes;
 use core::{alloc::Layout, any::TypeId, fmt, marker::PhantomPinned};
+use ptr_meta::{DynMetadata, Pointee};
 use std::{collections::HashMap, error::Error};
 
 impl<T: ArchivePtr + ?Sized> RelPtr<T> {
@@ -16,6 +17,34 @@ impl<T: ArchivePtr + ?Sized> RelPtr<T> {
         T::Augment::check_bytes(bytes.add(offset_of!(Self, augment)).cast(), context)?;
         PhantomPinned::check_bytes(bytes.add(offset_of!(Self, _phantom)).cast(), context).unwrap();
         Ok(&*value)
+    }
+}
+
+pub trait LayoutMetadata<T: ?Sized> {
+    fn layout(self) -> Layout;
+}
+
+impl<T> LayoutMetadata<T> for () {
+    fn layout(self) -> Layout {
+        Layout::new::<T>()
+    }
+}
+
+impl<T> LayoutMetadata<[T]> for usize {
+    fn layout(self) -> Layout {
+        Layout::array::<T>(self).unwrap()
+    }
+}
+
+impl LayoutMetadata<str> for usize {
+    fn layout(self) -> Layout {
+        Layout::array::<u8>(self).unwrap()
+    }
+}
+
+impl<T: ?Sized> LayoutMetadata<T> for DynMetadata<T> {
+    fn layout(self) -> Layout {
+        self.layout()
     }
 }
 
@@ -523,14 +552,14 @@ pub fn check_archive_with_context<'a, T: Archive, C: ArchiveBoundsContext + Arch
     context: &mut C,
 ) -> Result<&'a T::Archived, CheckArchiveError<<T::Archived as CheckBytes<C>>::Error, C::Error>>
 where
-    T::Archived: CheckBytes<C>,
+    T::Archived: CheckBytes<C> + Pointee,
+    <T::Archived as Pointee>::Metadata: LayoutMetadata<T::Archived>,
 {
     unsafe {
         let data = context.check_rel_ptr(buf.as_ptr(), pos as isize)
             .map_err(CheckArchiveError::ContextError)?;
         let ptr = T::Archived::augment_ptr(data, &SizedAugment);
-        let layout = T::Archived::layout(ptr, context)
-            .map_err(CheckArchiveError::CheckBytesError)?;
+        let layout = ptr_meta::metadata(ptr).layout();
         context.bounds_check_ptr(ptr.cast(), &layout)
             .map_err(CheckArchiveError::ContextError)?;
         context.claim_bytes(ptr.cast(), layout.size())
