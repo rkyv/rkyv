@@ -624,7 +624,6 @@ mod tests {
         use rkyv_dyn::archive_dyn;
         use rkyv_typename::TypeName;
 
-
         #[archive_dyn(serialize = "STestTrait", deserialize = "DTestTrait")]
         pub trait TestTrait {
             fn get_id(&self) -> i32;

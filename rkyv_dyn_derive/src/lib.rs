@@ -276,6 +276,37 @@ pub fn archive_dyn(
                 quote! { f(stringify!(dyn #deserialize_trait)); }
             };
 
+            #[cfg(feature = "validation")]
+            let validation_impl = quote! {
+                use bytecheck::CheckBytes;
+                use rkyv_dyn::validation::{CHECK_BYTES_REGISTRY, CheckDynError, DynContext};
+
+                impl<#generic_params> CheckBytes<dyn DynContext + '_> for (dyn #deserialize_trait<#generic_args> + '_) {
+                    type Error = CheckDynError;
+
+                    unsafe fn check_bytes<'a>(value: *const Self, context: &mut (dyn DynContext + '_)) -> Result<&'a Self, Self::Error> {
+                        let vtable = core::mem::transmute(ptr_meta::metadata(value));
+                        if let Some(validation) = CHECK_BYTES_REGISTRY.get(vtable) {
+                            (validation.check_bytes_dyn)(value.cast(), context)?;
+                            Ok(&*value)
+                        } else {
+                            Err(CheckDynError::InvalidMetadata(vtable as usize as u64))
+                        }
+                    }
+                }
+
+                impl<__C: DynContext, #generic_params> CheckBytes<__C> for (dyn #deserialize_trait<#generic_args> + '_) {
+                    type Error = CheckDynError;
+
+                    unsafe fn check_bytes<'a>(value: *const Self, context: &mut __C) -> Result<&'a Self, Self::Error> {
+                        Self::check_bytes(value, context as &mut dyn DynContext)
+                    }
+                }
+            };
+
+            #[cfg(not(feature = "validation"))]
+            let validation_impl = quote! {};
+
             quote! {
                 #pointee_input
                 #input
@@ -341,6 +372,8 @@ pub fn archive_dyn(
                             self.serialize_dyn(&mut serializer).map_err(|e| *e.downcast::<__S::Error>().unwrap())
                         }
                     }
+
+                    #validation_impl
                 };
             }
         }

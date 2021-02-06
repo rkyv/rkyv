@@ -261,6 +261,7 @@ pub trait DeserializeDyn<T: ?Sized> {
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedDynMetadata<T: ?Sized> {
     type_id: u64,
+    #[cfg_attr(not(feature = "vtable_cache"), allow(dead_code))]
     cached_vtable: AtomicU64,
     phantom: PhantomData<T>,
 }
@@ -292,7 +293,7 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
             return cached_vtable as usize;
         }
         let vtable = self.lookup_vtable();
-        self.cached_vtable.store(ptr as usize as u64, Ordering::Relaxed);
+        self.cached_vtable.store(vtable as usize as u64, Ordering::Relaxed);
         vtable
     }
 
@@ -471,7 +472,6 @@ macro_rules! register_impl {
                 debug_info,
                 inventory,
                 register_validation,
-                validation,
                 ImplData,
                 ImplDebugInfo,
                 ImplEntry,

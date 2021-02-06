@@ -261,39 +261,12 @@ fn hashmap() {
 #[test]
 fn check_dyn() {
     use rkyv::Archived;
-    use rkyv_dyn::{
-        archive_dyn,
-        validation::CHECK_BYTES_REGISTRY,
-        CheckDynError,
-        DynContext,
-    };
+    use rkyv_dyn::archive_dyn;
     use rkyv_typename::TypeName;
 
     #[archive_dyn]
     pub trait TestTrait {
         fn get_id(&self) -> i32;
-    }
-
-    impl CheckBytes<dyn DynContext + '_> for (dyn TestTrait + '_) {
-        type Error = CheckDynError;
-
-        unsafe fn check_bytes<'a>(value: *const Self, context: &mut (dyn DynContext + '_)) -> Result<&'a Self, Self::Error> {
-            let vtable = core::mem::transmute(ptr_meta::metadata(value));
-            if let Some(validation) = CHECK_BYTES_REGISTRY.get(vtable) {
-                (validation.check_bytes_dyn)(value.cast(), context)?;
-                Ok(&*value)
-            } else {
-                Err(CheckDynError::InvalidMetadata(vtable as usize as u64))
-            }
-        }
-    }
-
-    impl<C: DynContext> CheckBytes<C> for (dyn TestTrait + '_) {
-        type Error = CheckDynError;
-
-        unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
-            Self::check_bytes(value, context as &mut dyn DynContext)
-        }
     }
 
     #[derive(Archive, Serialize)]
