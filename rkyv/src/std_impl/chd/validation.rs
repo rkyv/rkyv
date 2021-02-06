@@ -3,17 +3,15 @@
 use crate::{
     offset_of,
     std_impl::chd::{ArchivedHashMap, ArchivedHashSet, Entry},
-    validation::{ArchiveBoundsContext, ArchiveMemoryContext, LayoutMetadata},
+    validation::{ArchiveBoundsContext, ArchiveMemoryContext},
     Fallible,
     RelPtr,
 };
 use bytecheck::{CheckBytes, SliceCheckError, Unreachable};
-use ptr_meta::metadata;
 use core::{
     alloc::Layout,
     fmt,
     hash::{Hash, Hasher},
-    ptr,
 };
 use std::{alloc::LayoutErr, error::Error};
 
@@ -35,10 +33,7 @@ impl<K: fmt::Display, V: fmt::Display> fmt::Display for ArchivedHashMapEntryErro
     }
 }
 
-impl<K: fmt::Debug + fmt::Display, V: fmt::Debug + fmt::Display> Error
-    for ArchivedHashMapEntryError<K, V>
-{
-}
+impl<K: fmt::Debug + fmt::Display, V: fmt::Debug + fmt::Display> Error for ArchivedHashMapEntryError<K, V> {}
 
 impl<K: CheckBytes<C>, V: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> CheckBytes<C>
     for Entry<K, V>
@@ -158,11 +153,8 @@ where
         let displace_data_ptr = context.check_rel_ptr(displace_rel_ptr.base(), displace_rel_ptr.offset())
             .map_err(HashMapError::ContextError)?;
         Layout::array::<u32>(len as usize)?;
-        let displace_ptr = ptr::slice_from_raw_parts(displace_data_ptr.cast::<u32>(), len as usize);
-        let layout = LayoutMetadata::<[u32]>::layout(metadata(displace_ptr));
-        context.bounds_check_ptr(displace_ptr.cast(), &layout)
-            .map_err(HashMapError::ContextError)?;
-        context.claim_bytes(displace_ptr.cast(), layout.size())
+        let displace_ptr = ptr_meta::from_raw_parts(displace_data_ptr.cast(), len as usize);
+        context.claim_owned_ptr(displace_ptr)
             .map_err(HashMapError::ContextError)?;
         let displace = <[u32]>::check_bytes(displace_ptr, context)?;
 
@@ -179,11 +171,8 @@ where
         let entries_data_ptr = context.check_rel_ptr(entries_rel_ptr.base(), entries_rel_ptr.offset())
             .map_err(HashMapError::ContextError)?;
         Layout::array::<Entry<K, V>>(len as usize)?;
-        let entries_ptr = ptr::slice_from_raw_parts(entries_data_ptr.cast::<Entry<K, V>>(), len as usize);
-        let layout = LayoutMetadata::<[Entry<K, V>]>::layout(metadata(entries_ptr));
-        context.bounds_check_ptr(entries_ptr.cast(), &layout)
-            .map_err(HashMapError::ContextError)?;
-        context.claim_bytes(entries_ptr.cast(), layout.size())
+        let entries_ptr = ptr_meta::from_raw_parts(entries_data_ptr.cast(), len as usize);
+        context.claim_owned_ptr(entries_ptr)
             .map_err(HashMapError::ContextError)?;
         let entries = <[Entry<K, V>]>::check_bytes(entries_ptr, context)?;
 

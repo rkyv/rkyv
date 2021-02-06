@@ -11,7 +11,7 @@ use crate::{
     RelPtr,
 };
 use bytecheck::CheckBytes;
-use ptr_meta::{metadata, Pointee};
+use ptr_meta::Pointee;
 
 #[derive(Debug)]
 pub enum OwnedPointerError<T, R, C> {
@@ -49,11 +49,7 @@ where
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::<str>::manual_check_bytes(value.cast(), context)
             .map_err(OwnedPointerError::PointerCheckBytesError)?;
-        let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
-            .map_err(OwnedPointerError::ContextError)?;
-        let ptr = ptr_meta::from_raw_parts::<str>(data.cast(), str::to_metadata(rel_ptr.metadata()));
-        let layout = LayoutMetadata::<str>::layout(metadata(ptr));
-        context.claim_bytes(ptr.cast(), layout.size())
+        let ptr = context.claim_owned_rel_ptr(rel_ptr)
             .map_err(OwnedPointerError::ContextError)?;
         <str as CheckBytes<C>>::check_bytes(ptr, context)
             .map_err(OwnedPointerError::ValueCheckBytesError)?;
@@ -72,11 +68,7 @@ where
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::<T>::manual_check_bytes(value.cast(), context)
             .map_err(OwnedPointerError::PointerCheckBytesError)?;
-        let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
-            .map_err(OwnedPointerError::ContextError)?;
-        let ptr = ptr_meta::from_raw_parts::<T>(data.cast(), T::to_metadata(rel_ptr.metadata()));
-        let layout = LayoutMetadata::<T>::layout(metadata(ptr));
-        context.claim_bytes(ptr.cast(), layout.size())
+        let ptr = context.claim_owned_rel_ptr(rel_ptr)
             .map_err(OwnedPointerError::ContextError)?;
         T::check_bytes(ptr, context)
             .map_err(OwnedPointerError::ValueCheckBytesError)?;
@@ -96,11 +88,7 @@ where
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::<[T]>::manual_check_bytes(value.cast(), context)
             .map_err(OwnedPointerError::PointerCheckBytesError)?;
-        let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
-            .map_err(OwnedPointerError::ContextError)?;
-        let ptr = ptr_meta::from_raw_parts::<[T]>(data.cast(), <[T]>::to_metadata(rel_ptr.metadata()));
-        let layout = LayoutMetadata::<[T]>::layout(metadata(ptr));
-        context.claim_bytes(ptr.cast(), layout.size())
+        let ptr = context.claim_owned_rel_ptr(rel_ptr)
             .map_err(OwnedPointerError::ContextError)?;
         <[T]>::check_bytes(ptr, context)
             .map_err(OwnedPointerError::ValueCheckBytesError)?;

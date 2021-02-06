@@ -3,7 +3,7 @@
 use core::{any::TypeId, fmt};
 use std::error::Error;
 use bytecheck::CheckBytes;
-use ptr_meta::{metadata, Pointee};
+use ptr_meta::Pointee;
 use super::{ArchivedArc, ArchivedRc};
 use crate::{
     validation::{
@@ -57,14 +57,7 @@ where
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::<T>::manual_check_bytes(value.cast(), context)
             .map_err(SharedPointerError::PointerCheckBytesError)?;
-        let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
-            .map_err(SharedPointerError::ContextError)?;
-        let ptr = ptr_meta::from_raw_parts::<T>(data.cast(), T::to_metadata(rel_ptr.metadata()));
-        let layout = LayoutMetadata::<T>::layout(metadata(ptr));
-        if context
-            .claim_shared_bytes(ptr.cast(), layout.size(), TypeId::of::<ArchivedRc<T>>())
-            .map_err(SharedPointerError::ContextError)?
-        {
+        if let Some(ptr) = context.claim_shared_ptr(rel_ptr, TypeId::of::<ArchivedRc<T>>()).map_err(SharedPointerError::ContextError)? {
             T::check_bytes(ptr, context)
                 .map_err(SharedPointerError::ValueCheckBytesError)?;
         }
@@ -83,14 +76,7 @@ where
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::<T>::manual_check_bytes(value.cast(), context)
             .map_err(SharedPointerError::PointerCheckBytesError)?;
-        let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
-            .map_err(SharedPointerError::ContextError)?;
-        let ptr = ptr_meta::from_raw_parts::<T>(data.cast(), T::to_metadata(rel_ptr.metadata()));
-        let layout = LayoutMetadata::<T>::layout(metadata(ptr));
-        if context
-            .claim_shared_bytes(ptr.cast(), layout.size(), TypeId::of::<ArchivedArc<T>>())
-            .map_err(SharedPointerError::ContextError)?
-        {
+        if let Some(ptr) = context.claim_shared_ptr(rel_ptr, TypeId::of::<ArchivedArc<T>>()).map_err(SharedPointerError::ContextError)? {
             T::check_bytes(ptr, context)
                 .map_err(SharedPointerError::ValueCheckBytesError)?;
         }

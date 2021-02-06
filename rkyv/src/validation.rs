@@ -259,6 +259,32 @@ pub trait ArchiveMemoryContext: Fallible {
     ///
     /// `base` must be inside the archive this context was created for.
     unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<(), Self::Error>;
+
+    unsafe fn claim_owned_ptr<T: ArchivePointee + ?Sized>(&mut self, ptr: *const T) -> Result<(), Self::Error>
+    where
+        Self: ArchiveBoundsContext,
+        <T as Pointee>::Metadata: LayoutMetadata<T>,
+    {
+        let metadata = ptr_meta::metadata(ptr);
+        let layout = LayoutMetadata::<T>::layout(metadata);
+        self.bounds_check_ptr(ptr.cast(), &layout)?;
+        self.claim_bytes(ptr.cast(), layout.size())?;
+        Ok(())
+    }
+
+    /// Claims the memory referenced by the given relative pointer.
+    fn claim_owned_rel_ptr<T: ArchivePointee + ?Sized>(&mut self, rel_ptr: &RelPtr<T>) -> Result<*const T, Self::Error>
+    where
+        Self: ArchiveBoundsContext,
+        <T as Pointee>::Metadata: LayoutMetadata<T>,
+    {
+        unsafe {
+            let data = self.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())?;
+            let ptr = ptr_meta::from_raw_parts::<T>(data.cast(), T::to_metadata(rel_ptr.metadata()));
+            self.claim_owned_ptr(ptr)?;
+            Ok(ptr)
+        }
+    }
 }
 
 /// An adapter that adds memory validation to a context.
@@ -390,16 +416,38 @@ impl<E: Error + 'static> Error for SharedArchiveError<E> {
 /// A context that can validate shared archive memory.
 ///
 /// Shared pointers require this kind of context to validate.
-pub trait SharedArchiveContext: ArchiveMemoryContext {
+pub trait SharedArchiveContext: Fallible {
     /// Claims `count` shared bytes located `offset` bytes away from `base`.
     ///
-    /// If the bytes need to be checked, returns `Some`. If the bytes have
-    /// have already been checked, returns `None`.
+    /// Returns whether the bytes need to be checked.
     ///
     /// # Safety
     ///
     /// `base` must be inside the archive this context was created for.
     unsafe fn claim_shared_bytes(&mut self, start: *const u8, len: usize, type_id: TypeId) -> Result<bool, Self::Error>;
+
+    /// Claims the memory referenced by the given relative pointer.
+    ///
+    /// If the pointer needs to be checked, returns `Some` with the pointer to
+    /// check.
+    fn claim_shared_ptr<T: ArchivePointee + CheckBytes<Self> + ?Sized>(&mut self, rel_ptr: &RelPtr<T>, type_id: TypeId) -> Result<Option<*const T>, Self::Error>
+    where
+        Self: ArchiveBoundsContext,
+        <T as Pointee>::Metadata: LayoutMetadata<T>,
+    {
+        unsafe {
+            let data = self.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())?;
+            let metadata = T::to_metadata(rel_ptr.metadata());
+            let ptr = ptr_meta::from_raw_parts::<T>(data.cast(), metadata);
+            let layout = LayoutMetadata::<T>::layout(metadata);
+            self.bounds_check_ptr(ptr.cast(), &layout)?;
+            if self.claim_shared_bytes(ptr.cast(), layout.size(), type_id)? {
+                Ok(Some(ptr))
+            } else {
+                Ok(None)
+            }
+        }
+    }
 }
 
 /// An adapter that adds shared memory validation.
