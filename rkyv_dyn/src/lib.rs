@@ -27,7 +27,7 @@ use core::{
     any::Any,
     hash::{Hash, Hasher},
     marker::PhantomData,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::atomic::AtomicU64,
 };
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use ptr_meta::DynMetadata;
@@ -259,41 +259,48 @@ pub trait DeserializeDyn<T: ?Sized> {
 }
 
 #[cfg_attr(feature = "strict", repr(C))]
-#[repr(transparent)]
 pub struct ArchivedDynMetadata<T: ?Sized> {
-    type_id: AtomicU64,
-    // TODO: store the vtable in an AtomicU64 here
+    type_id: u64,
+    cached_vtable: AtomicU64,
     phantom: PhantomData<T>,
 }
 
 impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     pub fn new(type_id: u64) -> Self {
         Self {
-            type_id: AtomicU64::new(type_id),
+            type_id,
+            cached_vtable: AtomicU64::new(0),
             phantom: PhantomData,
         }
     }
 
-    /// Gets the vtable pointer for this trait object. With the `vtable_cache`
-    /// feature, this will store the vtable locally on the first lookup.
-    pub fn vtable(&self) -> *const () {
-        let type_id = self.type_id.load(Ordering::Relaxed);
-
-        #[cfg(feature = "vtable_cache")]
-        if likely(type_id & 1 == 0) {
-            return type_id as usize as *const ();
-        }
-
-        let ptr = IMPL_REGISTRY
-            .get::<T>(type_id)
+    fn lookup_vtable(&self) -> usize {
+        IMPL_REGISTRY
+            .get::<T>(self.type_id)
             .expect("attempted to get vtable for an unregistered impl")
             .vtable
-            .0;
+    }
 
-        #[cfg(feature = "vtable_cache")]
-        self.type_id.store(ptr as usize as u64, Ordering::Relaxed);
+    /// Gets the vtable address for this trait object. With the `vtable_cache`
+    /// feature, this will store the address locally on the first lookup.
+    #[cfg(feature = "vtable_cache")]
+    pub fn vtable(&self) -> usize {
+        use core::sync::atomic::Ordering;
 
-        ptr
+        let cached_vtable = self.cached_vtable.load(Ordering::Relaxed);
+        if likely(cached_vtable != 0) {
+            return cached_vtable as usize;
+        }
+        let vtable = self.lookup_vtable();
+        self.cached_vtable.store(ptr as usize as u64, Ordering::Relaxed);
+        vtable
+    }
+
+    /// Gets the vtable address for this trait object. With the `vtable_cache`
+    /// feature, this will store the address locally on the first lookup.
+    #[cfg(not(feature = "vtable_cache"))]
+    pub fn vtable(&self) -> usize {
+        self.lookup_vtable()
     }
 
     pub fn to_metadata(&self) -> DynMetadata<T> {
@@ -340,7 +347,7 @@ macro_rules! debug_info {
 #[doc(hidden)]
 #[derive(Clone, Copy)]
 pub struct ImplData {
-    pub vtable: VTable,
+    pub vtable: usize,
     pub debug_info: ImplDebugInfo,
 }
 
@@ -386,13 +393,6 @@ impl ImplEntry {
 
 inventory::collect!(ImplEntry);
 
-#[doc(hidden)]
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
-pub struct VTable(pub *const ());
-
-unsafe impl Send for VTable {}
-unsafe impl Sync for VTable {}
-
 struct ImplRegistry {
     id_to_data: HashMap<ImplId, ImplData>,
 }
@@ -405,10 +405,6 @@ impl ImplRegistry {
     }
 
     fn add_entry(&mut self, entry: &ImplEntry) {
-        debug_assert!(
-            (entry.data.vtable.0 as usize) & 1 == 0,
-            "vtable has a non-zero least significant bit which breaks vtable caching"
-        );
         let old_value = self.id_to_data.insert(entry.impl_id, entry.data);
 
         #[cfg(debug_assertions)]
@@ -449,7 +445,7 @@ lazy_static::lazy_static! {
 /// object.
 #[doc(hidden)]
 pub unsafe trait RegisteredImpl<T: ?Sized> {
-    fn vtable() -> VTable;
+    fn vtable() -> usize;
     fn debug_info() -> ImplDebugInfo;
 }
 
@@ -480,18 +476,14 @@ macro_rules! register_impl {
                 ImplDebugInfo,
                 ImplEntry,
                 RegisteredImpl,
-                VTable,
             };
 
             unsafe impl RegisteredImpl<$trait> for $type {
-                fn vtable() -> VTable {
+                fn vtable() -> usize {
                     unsafe {
-                        // This is wildly unsafe but someone has to do it
-                        let uninit = MaybeUninit::<$type>::uninit();
-                        let vtable = core::mem::transmute::<&$trait, (*const (), *const ())>(
-                            core::mem::transmute::<*const $type, &$type>(uninit.as_ptr()) as &$trait,
-                        ).1;
-                        VTable(vtable)
+                        core::mem::transmute(
+                            ptr_meta::metadata(core::ptr::null::<$type>() as *const $trait)
+                        )
                     }
                 }
 

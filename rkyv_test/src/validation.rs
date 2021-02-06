@@ -266,7 +266,6 @@ fn check_dyn() {
         validation::CHECK_BYTES_REGISTRY,
         CheckDynError,
         DynContext,
-        VTable,
     };
     use rkyv_typename::TypeName;
 
@@ -280,7 +279,7 @@ fn check_dyn() {
 
         unsafe fn check_bytes<'a>(value: *const Self, context: &mut (dyn DynContext + '_)) -> Result<&'a Self, Self::Error> {
             let vtable = core::mem::transmute(ptr_meta::metadata(value));
-            if let Some(validation) = CHECK_BYTES_REGISTRY.get(VTable(vtable)) {
+            if let Some(validation) = CHECK_BYTES_REGISTRY.get(vtable) {
                 (validation.check_bytes_dyn)(value.cast(), context)?;
                 Ok(&*value)
             } else {

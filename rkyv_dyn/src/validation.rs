@@ -22,7 +22,7 @@ use rkyv::{
     Fallible,
 };
 use rkyv_typename::TypeName;
-use crate::{ArchivedDynMetadata, IMPL_REGISTRY, RegisteredImpl, VTable};
+use crate::{ArchivedDynMetadata, IMPL_REGISTRY, RegisteredImpl};
 
 pub trait DynContext {
     unsafe fn check_rel_ptr_dyn(
@@ -161,19 +161,27 @@ macro_rules! validation {
 /// Errors that can occur when checking archived trait objects
 #[derive(Debug)]
 pub enum DynMetadataError {
-    /// The trait object has an invalid impl id or was stomped by vtable caching
+    /// The trait object has an invalid type id
     InvalidImplId(u64),
+    /// The cached vtable does not match the vtable for the type id
+    MismatchedCachedVtable {
+        /// The type id of the trait object
+        type_id: u64,
+        /// The expected vtable
+        expected: usize,
+        /// The found vtable
+        found: usize,
+    }
 }
 
 impl fmt::Display for DynMetadataError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             DynMetadataError::InvalidImplId(id) => {
-                if id & 1 == 0 {
-                    write!(f, "invalid impl id: overwritten with vtable pointer")
-                } else {
-                    write!(f, "invalid impl id: {} not registered", id)
-                }
+                write!(f, "invalid impl id: {} not registered", id)
+            },
+            DynMetadataError::MismatchedCachedVtable { type_id, expected, found } => {
+                write!(f, "mismatched cached vtable for {}: expected {} but found {}", type_id, expected, found)
             }
         }
     }
@@ -196,10 +204,15 @@ impl<T: TypeName + ?Sized, C: ?Sized> CheckBytes<C> for ArchivedDynMetadata<T> {
     ) -> Result<&'a Self, Self::Error> {
         let bytes = value.cast::<u8>();
 
-        let type_id = AtomicU64::check_bytes(bytes.add(offset_of!(Self, type_id)).cast(), context)?.load(Ordering::Relaxed);
+        let type_id = *u64::check_bytes(bytes.add(offset_of!(Self, type_id)).cast(), context)?;
         PhantomData::<T>::check_bytes(bytes.add(offset_of!(Self, phantom)).cast(), context)?;
-        if type_id & 1 == 0 || IMPL_REGISTRY.get::<T>(type_id).is_some() {
-            Ok(&*value)
+        if let Some(impl_data) = IMPL_REGISTRY.get::<T>(type_id) {
+            let cached_vtable = AtomicU64::check_bytes(bytes.add(offset_of!(Self, cached_vtable)).cast(), context)?.load(Ordering::Relaxed);
+            if cached_vtable == 0 || cached_vtable as usize == impl_data.vtable {
+                Ok(&*value)
+            } else {
+                Err(DynMetadataError::MismatchedCachedVtable { type_id, expected: impl_data.vtable, found: cached_vtable as usize })
+            }
         } else {
             Err(DynMetadataError::InvalidImplId(type_id))
         }
@@ -241,7 +254,7 @@ impl From<Box<dyn Error>> for CheckDynError {
 
 #[doc(hidden)]
 pub struct CheckBytesEntry {
-    vtable: VTable,
+    vtable: usize,
     validation: ImplValidation,
 }
 
@@ -260,7 +273,7 @@ impl CheckBytesEntry {
 inventory::collect!(CheckBytesEntry);
 
 pub struct CheckBytesRegistry {
-    vtable_to_check_bytes: HashMap<VTable, ImplValidation>,
+    vtable_to_check_bytes: HashMap<usize, ImplValidation>,
 }
 
 impl CheckBytesRegistry {
@@ -276,7 +289,7 @@ impl CheckBytesRegistry {
         debug_assert!(old_value.is_none(), "vtable conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
     }
 
-    pub fn get(&self, vtable: VTable) -> Option<&ImplValidation> {
+    pub fn get(&self, vtable: usize) -> Option<&ImplValidation> {
         self.vtable_to_check_bytes.get(&vtable)
     }
 }
