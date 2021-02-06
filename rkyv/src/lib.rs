@@ -89,6 +89,7 @@ use core::{
 };
 
 pub use memoffset::offset_of;
+use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 #[cfg(feature = "validation")]
 pub use validation::check_archive;
@@ -210,7 +211,7 @@ pub use validation::check_archive;
 ///             ptr: unsafe { RelPtr::new(
 ///                 pos + offset_of!(Self::Archived, ptr),
 ///                 resolver.bytes_pos,
-///                 self.inner.make_augment(),
+///                 self.inner.archived_metadata(),
 ///             ) },
 ///         }
 ///     }
@@ -295,13 +296,14 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     mem,
 ///     ops::{Deref, DerefMut},
 /// };
+/// use ptr_meta::Pointee;
 /// use rkyv::{
 ///     archived_unsized_value,
 ///     offset_of,
 ///     ser::{serializers::WriteSerializer, Serializer},
 ///     Archive,
 ///     Archived,
-///     ArchivePtr,
+///     ArchivePointee,
 ///     ArchiveUnsized,
 ///     RelPtr,
 ///     Serialize,
@@ -314,39 +316,29 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     tail: T,
 /// }
 ///
+/// impl<H, T> Pointee for Block<H, [T]> {
+///     type Metadata = usize;
+/// }
+///
 /// // For blocks with trailing slices, we need to store the length of the slice
-/// // in the augment.
-/// pub struct BlockSliceAugment {
+/// // in the metadata.
+/// pub struct BlockSliceMetadata {
 ///     len: u32,
 /// }
 ///
-/// // ArchivePtr is automatically derived for sized types because pointers to
-/// // sized types don't need to be augmented. Because we're making an unsized
-/// // block, we need to define what augment gets stored with our data pointer.
-/// impl<H, T> ArchivePtr for Block<H, [T]> {
+/// // ArchivePointee is automatically derived for sized types because pointers
+/// // to sized types don't need to store any extra information. Because we're
+/// // making an unsized block, we need to define what metadata gets stored with
+/// // our data pointer.
+/// impl<H, T> ArchivePointee for Block<H, [T]> {
 ///     // This is the extra data that needs to get stored for blocks with
 ///     // trailing slices
-///     type Augment = BlockSliceAugment;
+///     type ArchivedMetadata = BlockSliceMetadata;
 ///
-///     // This function takes a data pointer and an augment and makes a
-///     // 'complete' pointer to the type
-///     fn augment_ptr(ptr: *const u8, augment: &Self::Augment) -> *const Self {
-///         // We're going to construct a wide pointer to our target type. Wide
-///         // pointers are laid out the same as a (*const (), usize) tuple. The
-///         // pointer part holds a pointer to the start of the unsized type and
-///         // the usize part holds some extra metadata about the pointer.
-///
-///         // In the case of structs with trailing slices, the metadata is the
-///         // length of the slice in items. We'll make our tuple with the right
-///         // data and then transmute it to a wide pointer to create our wide
-///         // pointer.
-///         unsafe { mem::transmute((ptr, augment.len as usize)) }
-///     }
-///
-///     // We also need a version that can augment mutable pointers
-///     fn augment_ptr_mut(ptr: *mut u8, augment: &Self::Augment) -> *mut Self {
-///         // It should be the same as our augment_ptr function
-///         unsafe { mem::transmute((ptr, augment.len as usize)) }
+///     // We need to be able to turn our archived metadata into regular
+///     // metadata for our type
+///     fn to_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
+///         archived.len as usize
 ///     }
 /// }
 ///
@@ -356,9 +348,9 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     // We'll reuse our block type as our archived type.
 ///     type Archived = Block<Archived<H>, [Archived<T>]>;
 ///
-///     // Here's where we make our augment for our pointer
-///     fn make_augment(&self) -> <Self::Archived as ArchivePtr>::Augment {
-///         BlockSliceAugment {
+///     // Here's where we make our metadata for our pointer
+///     fn archived_metadata(&self) -> <Self::Archived as ArchivePointee>::ArchivedMetadata {
+///         BlockSliceMetadata {
 ///             len: self.tail.len() as u32,
 ///         }
 ///     }
@@ -415,22 +407,21 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 pub trait ArchiveUnsized {
     /// The archived counterpart of this type. Unlike `Archive`, it may be
     /// unsized.
-    type Archived: ArchivePtr + ?Sized;
+    type Archived: ArchivePointee + ?Sized;
 
     /// Creates an archived reference of the reference type at the given
     /// position.
-    fn make_augment(&self) -> <Self::Archived as ArchivePtr>::Augment;
+    fn archived_metadata(&self) -> <Self::Archived as ArchivePointee>::ArchivedMetadata;
 
     fn resolve_unsized(&self, from: usize, to: usize) -> RelPtr<Self::Archived> {
-        unsafe { RelPtr::new(from, to, self.make_augment()) }
+        unsafe { RelPtr::new(from, to, self.archived_metadata()) }
     }
 }
 
-pub trait ArchivePtr {
-    type Augment;
+pub trait ArchivePointee: Pointee {
+    type ArchivedMetadata;
 
-    fn augment_ptr(ptr: *const u8, augment: &Self::Augment) -> *const Self;
-    fn augment_ptr_mut(ptr: *mut u8, augment: &Self::Augment) -> *mut Self;
+    fn to_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata;
 }
 
 /// A counterpart of [`Serialize`] that's suitable for unsized types.
@@ -503,23 +494,23 @@ pub type Offset = i64;
 ///
 /// See [`Archive`] for an example of creating one.
 #[cfg_attr(feature = "strict", repr(C))]
-pub struct RelPtr<T: ArchivePtr + ?Sized> {
+pub struct RelPtr<T: ArchivePointee + ?Sized> {
     offset: Offset,
-    augment: T::Augment,
+    metadata: T::ArchivedMetadata,
     _phantom: PhantomPinned,
 }
 
-impl<T: ArchivePtr + ?Sized> RelPtr<T> {
+impl<T: ArchivePointee + ?Sized> RelPtr<T> {
     /// Creates a relative pointer from one position to another.
     ///
     /// # Safety
     ///
     /// `from` must be the position of the relative pointer and `to` must be the
     /// position of some valid memory.
-    pub unsafe fn new(from: usize, to: usize, augment: T::Augment) -> Self {
+    pub unsafe fn new(from: usize, to: usize, metadata: T::ArchivedMetadata) -> Self {
         Self {
             offset: (to as isize - from as isize) as Offset,
-            augment,
+            metadata,
             _phantom: PhantomPinned,
         }
     }
@@ -533,34 +524,32 @@ impl<T: ArchivePtr + ?Sized> RelPtr<T> {
         self.offset as isize
     }
 
-    pub fn augment(&self) -> &T::Augment {
-        &self.augment
+    pub fn metadata(&self) -> &T::ArchivedMetadata {
+        &self.metadata
     }
 
     /// Calculates the memory address being pointed to by this relative pointer.
     pub fn as_ptr(&self) -> *const T {
-        unsafe {
-            T::augment_ptr((self as *const Self).cast::<u8>().offset(self.offset as isize), &self.augment)
-        }
+        let data_address = unsafe { (self as *const Self).cast::<u8>().offset(self.offset as isize).cast() };
+        ptr_meta::from_raw_parts(data_address, T::to_metadata(&self.metadata))
     }
 
     /// Returns an unsafe mutable pointer to the memory address being pointed to
     /// by this relative pointer.
     pub fn as_mut_ptr(&mut self) -> *mut T {
-        unsafe {
-            T::augment_ptr_mut((self as *mut Self).cast::<u8>().offset(self.offset as isize), &self.augment)
-        }
+        let data_address = unsafe { (self as *mut Self).cast::<u8>().offset(self.offset as isize).cast() };
+        ptr_meta::from_raw_parts_mut(data_address, T::to_metadata(&self.metadata))
     }
 }
 
-impl<T: ArchivePtr + ?Sized> fmt::Debug for RelPtr<T>
+impl<T: ArchivePointee + ?Sized> fmt::Debug for RelPtr<T>
 where
-    T::Augment: fmt::Debug,
+    T::ArchivedMetadata: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RelPtr")
             .field("offset", &self.offset)
-            .field("augment", &self.augment)
+            .field("metadata", &self.metadata)
             .field("_phantom", &self._phantom)
             .finish()
     }

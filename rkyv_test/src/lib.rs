@@ -499,11 +499,11 @@ mod tests {
 
     #[test]
     fn manual_archive_dyn() {
-        use rkyv::ArchivePtr;
+        use rkyv::ArchivePointee;
         use rkyv_dyn::{
             register_impl,
+            ArchivedDynMetadata,
             DeserializeDyn,
-            DynAugment,
             DynDeserializer,
             DynError,
             RegisteredImpl,
@@ -536,22 +536,16 @@ mod tests {
         impl ArchiveUnsized for dyn SerializeTestTrait {
             type Archived = dyn DeserializeTestTrait;
 
-            fn make_augment(&self) -> DynAugment<dyn DeserializeTestTrait> {
-                DynAugment::new(self.archived_type_id())
+            fn archived_metadata(&self) -> <Self::Archived as ArchivePointee>::ArchivedMetadata {
+                ArchivedDynMetadata::new(self.archived_type_id())
             }
         }
 
-        impl ArchivePtr for dyn DeserializeTestTrait {
-            type Augment = DynAugment<Self>;
+        impl ArchivePointee for dyn DeserializeTestTrait {
+            type ArchivedMetadata = ArchivedDynMetadata<Self>;
 
-            fn augment_ptr(ptr: *const u8, augment: &Self::Augment) -> *const Self {
-                let vtable = unsafe { core::mem::transmute(augment.vtable()) };
-                ptr_meta::from_raw_parts(ptr as *const (), vtable)
-            }
-
-            fn augment_ptr_mut(ptr: *mut u8, augment: &Self::Augment) -> *mut Self {
-                let vtable = unsafe { core::mem::transmute(augment.vtable()) };
-                ptr_meta::from_raw_parts_mut(ptr as *mut (), vtable)
+            fn to_metadata(archived: &Self::ArchivedMetadata) -> <Self as ptr_meta::Pointee>::Metadata {
+                archived.to_metadata()
             }
         }
 

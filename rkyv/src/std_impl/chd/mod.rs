@@ -6,7 +6,7 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{Archive, Archived, Deserialize, Fallible, RelPtr, Serialize, core_impl::SizedAugment, offset_of, ser::Serializer};
+use crate::{Archive, Archived, Deserialize, Fallible, RelPtr, Serialize, offset_of, ser::Serializer};
 use core::{
     borrow::Borrow,
     cmp::Reverse,
@@ -565,8 +565,8 @@ impl ArchivedHashMapResolver {
         unsafe {
             ArchivedHashMap {
                 len: len as u32,
-                displace: RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, displace), self.displace_pos, SizedAugment),
-                entries: RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, entries), self.entries_pos, SizedAugment),
+                displace: RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, displace), self.displace_pos, ()),
+                entries: RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, entries), self.entries_pos, ()),
             }
         }
     }

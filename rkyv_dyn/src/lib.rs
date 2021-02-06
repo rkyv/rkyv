@@ -30,6 +30,7 @@ use core::{
     sync::atomic::{AtomicU64, Ordering},
 };
 use std::collections::{hash_map::DefaultHasher, HashMap};
+use ptr_meta::DynMetadata;
 use rkyv::{
     de::Deserializer,
     ser::Serializer,
@@ -259,16 +260,17 @@ pub trait DeserializeDyn<T: ?Sized> {
 
 #[cfg_attr(feature = "strict", repr(C))]
 #[repr(transparent)]
-pub struct DynAugment<T: ?Sized> {
+pub struct ArchivedDynMetadata<T: ?Sized> {
     type_id: AtomicU64,
-    _phantom: PhantomData<T>,
+    // TODO: store the vtable in an AtomicU64 here
+    phantom: PhantomData<T>,
 }
 
-impl<T: TypeName + ?Sized> DynAugment<T> {
+impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     pub fn new(type_id: u64) -> Self {
         Self {
             type_id: AtomicU64::new(type_id),
-            _phantom: PhantomData,
+            phantom: PhantomData,
         }
     }
 
@@ -292,6 +294,10 @@ impl<T: TypeName + ?Sized> DynAugment<T> {
         self.type_id.store(ptr as usize as u64, Ordering::Relaxed);
 
         ptr
+    }
+
+    pub fn to_metadata(&self) -> DynMetadata<T> {
+        unsafe { core::mem::transmute(self.vtable()) }
     }
 }
 

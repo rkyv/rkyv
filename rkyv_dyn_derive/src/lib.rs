@@ -289,13 +289,13 @@ pub fn archive_dyn(
                         de::Deserializer,
                         ser::Serializer,
                         Archived,
-                        ArchivePtr,
+                        ArchivePointee,
                         ArchiveUnsized,
                         DeserializeUnsized,
                         SerializeUnsized,
                     };
                     use rkyv_dyn::{
-                        DynAugment,
+                        ArchivedDynMetadata,
                         DynDeserializer,
                         RegisteredImpl,
                         SerializeDyn,
@@ -323,22 +323,16 @@ pub fn archive_dyn(
                     impl<#generic_params> ArchiveUnsized for dyn #serialize_trait<#generic_args> {
                         type Archived = dyn #deserialize_trait<#generic_args>;
 
-                        fn make_augment(&self) -> DynAugment<dyn #deserialize_trait<#generic_args>> {
-                            DynAugment::new(self.archived_type_id())
+                        fn archived_metadata(&self) -> <Self::Archived as ArchivePointee>::ArchivedMetadata {
+                            ArchivedDynMetadata::new(self.archived_type_id())
                         }
                     }
 
-                    impl<#generic_params> ArchivePtr for dyn #deserialize_trait<#generic_args> {
-                        type Augment = DynAugment<Self>;
+                    impl<#generic_params> ArchivePointee for dyn #deserialize_trait<#generic_args> {
+                        type ArchivedMetadata = ArchivedDynMetadata<Self>;
 
-                        fn augment_ptr(ptr: *const u8, augment: &Self::Augment) -> *const Self {
-                            let vtable = unsafe { core::mem::transmute(augment.vtable()) };
-                            ptr_meta::from_raw_parts(ptr as *const (), vtable)
-                        }
-
-                        fn augment_ptr_mut(ptr: *mut u8, augment: &Self::Augment) -> *mut Self {
-                            let vtable = unsafe { core::mem::transmute(augment.vtable()) };
-                            ptr_meta::from_raw_parts_mut(ptr as *mut (), vtable)
+                        fn to_metadata(archived: &Self::ArchivedMetadata) -> <Self as ptr_meta::Pointee>::Metadata {
+                            archived.to_metadata()
                         }
                     }
 

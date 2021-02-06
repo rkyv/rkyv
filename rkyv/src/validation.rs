@@ -1,20 +1,20 @@
 //! Validation implementations and helper types.
 
-use crate::{Archive, ArchivePtr, Archived, Fallible, Offset, RelPtr, core_impl::SizedAugment, offset_of};
+use crate::{Archive, ArchivePointee, Archived, Fallible, Offset, RelPtr, offset_of};
 use bytecheck::CheckBytes;
 use core::{alloc::Layout, any::TypeId, fmt, marker::PhantomPinned};
 use ptr_meta::{DynMetadata, Pointee};
 use std::{collections::HashMap, error::Error};
 
-impl<T: ArchivePtr + ?Sized> RelPtr<T> {
-    pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(value: *const RelPtr<T>, context: &mut C) -> Result<&'a Self, <T::Augment as CheckBytes<C>>::Error>
+impl<T: ArchivePointee + ?Sized> RelPtr<T> {
+    pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(value: *const RelPtr<T>, context: &mut C) -> Result<&'a Self, <T::ArchivedMetadata as CheckBytes<C>>::Error>
     where
         T: CheckBytes<C>,
-        T::Augment: CheckBytes<C>,
+        T::ArchivedMetadata: CheckBytes<C>,
     {
         let bytes = value.cast::<u8>();
         Offset::check_bytes(bytes.add(offset_of!(Self, offset)).cast(), context).unwrap();
-        T::Augment::check_bytes(bytes.add(offset_of!(Self, augment)).cast(), context)?;
+        T::ArchivedMetadata::check_bytes(bytes.add(offset_of!(Self, metadata)).cast(), context)?;
         PhantomPinned::check_bytes(bytes.add(offset_of!(Self, _phantom)).cast(), context).unwrap();
         Ok(&*value)
     }
@@ -552,14 +552,13 @@ pub fn check_archive_with_context<'a, T: Archive, C: ArchiveBoundsContext + Arch
     context: &mut C,
 ) -> Result<&'a T::Archived, CheckArchiveError<<T::Archived as CheckBytes<C>>::Error, C::Error>>
 where
-    T::Archived: CheckBytes<C> + Pointee,
-    <T::Archived as Pointee>::Metadata: LayoutMetadata<T::Archived>,
+    T::Archived: CheckBytes<C> + Pointee<Metadata = ()>,
 {
     unsafe {
         let data = context.check_rel_ptr(buf.as_ptr(), pos as isize)
             .map_err(CheckArchiveError::ContextError)?;
-        let ptr = T::Archived::augment_ptr(data, &SizedAugment);
-        let layout = ptr_meta::metadata(ptr).layout();
+        let ptr = ptr_meta::from_raw_parts::<<T as Archive>::Archived>(data.cast(), ());
+        let layout = LayoutMetadata::<T::Archived>::layout(ptr_meta::metadata(ptr));
         context.bounds_check_ptr(ptr.cast(), &layout)
             .map_err(CheckArchiveError::ContextError)?;
         context.claim_bytes(ptr.cast(), layout.size())

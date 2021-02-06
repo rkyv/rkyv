@@ -8,7 +8,7 @@ use crate::{
     ArchiveCopy,
     ArchiveUnsized,
     Archived,
-    ArchivePtr,
+    ArchivePointee,
     Fallible,
     Serialize,
     SerializeUnsized,
@@ -30,30 +30,25 @@ use core::{
         AtomicU64, AtomicU8,
     },
 };
+use ptr_meta::Pointee;
+
 pub mod range;
 #[cfg(feature = "validation")]
 pub mod validation;
 
-#[derive(Debug)]
-pub struct SizedAugment;
+impl<T> ArchivePointee for T {
+    type ArchivedMetadata = ();
 
-impl<T> ArchivePtr for T {
-    type Augment = SizedAugment;
-
-    fn augment_ptr(ptr: *const u8, _: &Self::Augment) -> *const Self {
-        ptr.cast()
-    }
-
-    fn augment_ptr_mut(ptr: *mut u8, _: &Self::Augment) -> *mut Self {
-        ptr.cast()
+    fn to_metadata(_: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
+        ()
     }
 }
 
 impl<T: Archive> ArchiveUnsized for T {
     type Archived = T::Archived;
 
-    fn make_augment(&self) -> <Self::Archived as ArchivePtr>::Augment {
-        SizedAugment
+    fn archived_metadata(&self) -> <Self::Archived as ArchivePointee>::ArchivedMetadata {
+        ()
     }
 }
 
@@ -370,16 +365,25 @@ where
 /// the hood and stores an additional length parameter.
 #[cfg_attr(feature = "strict", repr(C))]
 #[derive(Debug)]
-pub struct SliceAugment<T> {
+pub struct SliceMetadata<T> {
     len: u32,
-    _phantom: PhantomData<T>,
+    phantom: PhantomData<T>,
 }
 
-impl<T> SliceAugment<T> {
+impl<T> SliceMetadata<T> {
     pub fn new(len: u32) -> Self {
         Self {
             len,
-            _phantom: PhantomData,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<T> Clone for SliceMetadata<T> {
+    fn clone(&self) -> Self {
+        Self {
+            len: self.len.clone(),
+            phantom: self.phantom.clone(),
         }
     }
 }
@@ -387,20 +391,16 @@ impl<T> SliceAugment<T> {
 impl<T: Archive> ArchiveUnsized for [T] {
     type Archived = [T::Archived];
 
-    fn make_augment(&self) -> SliceAugment<T::Archived> {
-        SliceAugment::new(self.len() as u32)
+    fn archived_metadata(&self) -> SliceMetadata<T::Archived> {
+        SliceMetadata::new(self.len() as u32)
     }
 }
 
-impl<T> ArchivePtr for [T] {
-    type Augment = SliceAugment<T>;
+impl<T> ArchivePointee for [T] {
+    type ArchivedMetadata = SliceMetadata<T>;
 
-    fn augment_ptr(ptr: *const u8, augment: &Self::Augment) -> *const Self {
-        ptr::slice_from_raw_parts(ptr.cast(), augment.len as usize)
-    }
-
-    fn augment_ptr_mut(ptr: *mut u8, augment: &Self::Augment) -> *mut Self {
-        ptr::slice_from_raw_parts_mut(ptr.cast(), augment.len as usize)
+    fn to_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
+        archived.len as usize
     }
 }
 
@@ -468,20 +468,16 @@ where
 impl ArchiveUnsized for str {
     type Archived = str;
 
-    fn make_augment(&self) -> <Self::Archived as ArchivePtr>::Augment {
-        SliceAugment::new(self.len() as u32)
+    fn archived_metadata(&self) -> <Self::Archived as ArchivePointee>::ArchivedMetadata {
+        SliceMetadata::new(self.len() as u32)
     }
 }
 
-impl ArchivePtr for str {
-    type Augment = SliceAugment<u8>;
+impl ArchivePointee for str {
+    type ArchivedMetadata = SliceMetadata<u8>;
 
-    fn augment_ptr(ptr: *const u8, augment: &Self::Augment) -> *const Self {
-        ptr_meta::from_raw_parts(ptr as *const (), augment.len as usize)
-    }
-
-    fn augment_ptr_mut(ptr: *mut u8, augment: &Self::Augment) -> *mut Self {
-        ptr_meta::from_raw_parts_mut(ptr as *mut (), augment.len as usize)
+    fn to_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
+        <[u8]>::to_metadata(archived)
     }
 }
 

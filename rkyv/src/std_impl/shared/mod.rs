@@ -10,7 +10,7 @@ use crate::{
     ser::SharedSerializer,
     Archive,
     Archived,
-    ArchivePtr,
+    ArchivePointee,
     ArchiveUnsized,
     Deserialize,
     DeserializeUnsized,
@@ -27,9 +27,9 @@ pub struct RcResolver(usize);
 /// This is a thin wrapper around the reference type for whatever type was
 /// archived. Multiple `ArchivedRc` may point to the same value.
 #[repr(transparent)]
-pub struct ArchivedRc<T: ArchivePtr + ?Sized>(RelPtr<T>);
+pub struct ArchivedRc<T: ArchivePointee + ?Sized>(RelPtr<T>);
 
-impl<T: ArchivePtr + ?Sized> ArchivedRc<T> {
+impl<T: ArchivePointee + ?Sized> ArchivedRc<T> {
     /// Gets the value of this archived `Rc`.
     ///
     /// # Safety
@@ -41,7 +41,7 @@ impl<T: ArchivePtr + ?Sized> ArchivedRc<T> {
     }
 }
 
-impl<T: ArchivePtr + ?Sized> Deref for ArchivedRc<T> {
+impl<T: ArchivePointee + ?Sized> Deref for ArchivedRc<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -49,7 +49,7 @@ impl<T: ArchivePtr + ?Sized> Deref for ArchivedRc<T> {
     }
 }
 
-impl<T: ArchivePtr + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Rc<U>> for ArchivedRc<T> {
+impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Rc<U>> for ArchivedRc<T> {
     fn eq(&self, other: &Rc<U>) -> bool {
         self.deref().eq(other.deref())
     }
@@ -90,9 +90,9 @@ pub struct ArcResolver(usize);
 /// This is a thin wrapper around the reference type for whatever type was
 /// archived. Multiple `ArchivedArc` may point to the same value.
 #[repr(transparent)]
-pub struct ArchivedArc<T: ArchivePtr + ?Sized>(RelPtr<T>);
+pub struct ArchivedArc<T: ArchivePointee + ?Sized>(RelPtr<T>);
 
-impl<T: ArchivePtr + ?Sized> ArchivedArc<T> {
+impl<T: ArchivePointee + ?Sized> ArchivedArc<T> {
     /// Gets the value of this archived `Arc`.
     ///
     /// # Safety
@@ -104,7 +104,7 @@ impl<T: ArchivePtr + ?Sized> ArchivedArc<T> {
     }
 }
 
-impl<T: ArchivePtr + ?Sized> Deref for ArchivedArc<T> {
+impl<T: ArchivePointee + ?Sized> Deref for ArchivedArc<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -112,7 +112,7 @@ impl<T: ArchivePtr + ?Sized> Deref for ArchivedArc<T> {
     }
 }
 
-impl<T: ArchivePtr + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Arc<U>> for ArchivedArc<T> {
+impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Arc<U>> for ArchivedArc<T> {
     fn eq(&self, other: &Arc<U>) -> bool {
         self.deref().eq(other.deref())
     }

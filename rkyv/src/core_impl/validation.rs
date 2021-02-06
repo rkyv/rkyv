@@ -6,8 +6,7 @@ use crate::{
         ArchivedOption,
         ArchivedOptionTag,
         ArchivedOptionVariantSome,
-        SizedAugment,
-        SliceAugment,
+        SliceMetadata,
     },
     offset_of,
 };
@@ -15,49 +14,41 @@ use bytecheck::{CheckBytes, StructCheckError, Unreachable};
 use core::{alloc::{Layout, LayoutErr}, fmt};
 use std::error::Error;
 
-impl<C: ?Sized> CheckBytes<C> for SizedAugment {
-    type Error = Unreachable;
-
-    unsafe fn check_bytes<'a>(value: *const Self, _: &mut C) -> Result<&'a Self, Self::Error> {
-        Ok(&*value)
-    }
-}
-
 #[derive(Debug)]
-pub enum CheckSliceAugmentError {
+pub enum CheckSliceMetadataError {
     LayoutError(LayoutErr),
 }
 
-impl From<Unreachable> for CheckSliceAugmentError {
+impl From<Unreachable> for CheckSliceMetadataError {
     fn from(_: Unreachable) -> Self {
         unreachable!()
     }
 }
 
-impl From<LayoutErr> for CheckSliceAugmentError {
+impl From<LayoutErr> for CheckSliceMetadataError {
     fn from(e: LayoutErr) -> Self {
         Self::LayoutError(e)
     }
 }
 
-impl fmt::Display for CheckSliceAugmentError {
+impl fmt::Display for CheckSliceMetadataError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CheckSliceAugmentError::LayoutError(e) => e.fmt(f),
+            CheckSliceMetadataError::LayoutError(e) => e.fmt(f),
         }
     }
 }
 
-impl Error for CheckSliceAugmentError {
+impl Error for CheckSliceMetadataError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            CheckSliceAugmentError::LayoutError(e) => Some(e as &dyn Error),
+            CheckSliceMetadataError::LayoutError(e) => Some(e as &dyn Error),
         }
     }
 }
 
-impl<T, C: ?Sized> CheckBytes<C> for SliceAugment<T> {
-    type Error = CheckSliceAugmentError;
+impl<T, C: ?Sized> CheckBytes<C> for SliceMetadata<T> {
+    type Error = CheckSliceMetadataError;
 
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         let bytes = value.cast::<u8>();

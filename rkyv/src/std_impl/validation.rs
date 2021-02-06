@@ -7,7 +7,7 @@ use crate::{
         ArchiveMemoryContext,
         LayoutMetadata,
     },
-    ArchivePtr,
+    ArchivePointee,
     RelPtr,
 };
 use bytecheck::CheckBytes;
@@ -44,14 +44,14 @@ impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for 
 where
     C::Error: Error,
 {
-    type Error = OwnedPointerError<<<str as ArchivePtr>::Augment as CheckBytes<C>>::Error, <str as CheckBytes<C>>::Error, C::Error>;
+    type Error = OwnedPointerError<<<str as ArchivePointee>::ArchivedMetadata as CheckBytes<C>>::Error, <str as CheckBytes<C>>::Error, C::Error>;
 
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::<str>::manual_check_bytes(value.cast(), context)
             .map_err(OwnedPointerError::PointerCheckBytesError)?;
         let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
             .map_err(OwnedPointerError::ContextError)?;
-        let ptr = str::augment_ptr(data, rel_ptr.augment());
+        let ptr = ptr_meta::from_raw_parts::<str>(data.cast(), str::to_metadata(rel_ptr.metadata()));
         let layout = LayoutMetadata::<str>::layout(metadata(ptr));
         context.claim_bytes(ptr.cast(), layout.size())
             .map_err(OwnedPointerError::ContextError)?;
@@ -61,20 +61,20 @@ where
     }
 }
 
-impl<T: ArchivePtr + CheckBytes<C> + Pointee + ?Sized, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedBox<T>
+impl<T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedBox<T>
 where
-    T::Augment: CheckBytes<C>,
+    T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,
     <T as Pointee>::Metadata: LayoutMetadata<T>,
 {
-    type Error = OwnedPointerError<<T::Augment as CheckBytes<C>>::Error, T::Error, C::Error>;
+    type Error = OwnedPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
 
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::<T>::manual_check_bytes(value.cast(), context)
             .map_err(OwnedPointerError::PointerCheckBytesError)?;
         let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
             .map_err(OwnedPointerError::ContextError)?;
-        let ptr = T::augment_ptr(data, rel_ptr.augment());
+        let ptr = ptr_meta::from_raw_parts::<T>(data.cast(), T::to_metadata(rel_ptr.metadata()));
         let layout = LayoutMetadata::<T>::layout(metadata(ptr));
         context.claim_bytes(ptr.cast(), layout.size())
             .map_err(OwnedPointerError::ContextError)?;
@@ -86,18 +86,19 @@ where
 
 impl<T: CheckBytes<C>, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedVec<T>
 where
-    [T]: ArchivePtr,
-    <[T] as ArchivePtr>::Augment: CheckBytes<C>,
+    [T]: ArchivePointee,
+    <[T] as ArchivePointee>::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,
+    <[T] as Pointee>::Metadata: LayoutMetadata<[T]>,
 {
-    type Error = OwnedPointerError<<<[T] as ArchivePtr>::Augment as CheckBytes<C>>::Error, <[T] as CheckBytes<C>>::Error, C::Error>;
+    type Error = OwnedPointerError<<<[T] as ArchivePointee>::ArchivedMetadata as CheckBytes<C>>::Error, <[T] as CheckBytes<C>>::Error, C::Error>;
 
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::<[T]>::manual_check_bytes(value.cast(), context)
             .map_err(OwnedPointerError::PointerCheckBytesError)?;
         let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
             .map_err(OwnedPointerError::ContextError)?;
-        let ptr = <[T]>::augment_ptr(data, rel_ptr.augment());
+        let ptr = ptr_meta::from_raw_parts::<[T]>(data.cast(), <[T]>::to_metadata(rel_ptr.metadata()));
         let layout = LayoutMetadata::<[T]>::layout(metadata(ptr));
         context.claim_bytes(ptr.cast(), layout.size())
             .map_err(OwnedPointerError::ContextError)?;

@@ -9,7 +9,7 @@ use crate::{
     de::Deserializer,
     Archive,
     Archived,
-    ArchivePtr,
+    ArchivePointee,
     ArchiveUnsized,
     Deserialize,
     DeserializeUnsized,
@@ -160,11 +160,11 @@ impl<D: Fallible + ?Sized> Deserialize<String, D> for Archived<String> {
 /// This is a thin wrapper around the reference type for whatever type was
 /// archived.
 #[repr(transparent)]
-pub struct ArchivedBox<T: ArchivePtr + ?Sized>(RelPtr<T>);
+pub struct ArchivedBox<T: ArchivePointee + ?Sized>(RelPtr<T>);
 
-impl<T: ArchivePtr + ?Sized> fmt::Debug for ArchivedBox<T>
+impl<T: ArchivePointee + ?Sized> fmt::Debug for ArchivedBox<T>
 where
-    T::Augment: fmt::Debug,
+    T::ArchivedMetadata: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("ArchivedBox")
@@ -173,14 +173,14 @@ where
     }
 }
 
-impl<T: ArchivePtr + ?Sized> ArchivedBox<T> {
+impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     /// Gets the value of this archived box as a pinned mutable reference.
     pub fn get_pin(self: Pin<&mut Self>) -> Pin<&mut T> {
         unsafe { self.map_unchecked_mut(|s| &mut **s) }
     }
 }
 
-impl<T: ArchivePtr + ?Sized> Deref for ArchivedBox<T> {
+impl<T: ArchivePointee + ?Sized> Deref for ArchivedBox<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -188,13 +188,13 @@ impl<T: ArchivePtr + ?Sized> Deref for ArchivedBox<T> {
     }
 }
 
-impl<T: ArchivePtr + ?Sized> DerefMut for ArchivedBox<T> {
+impl<T: ArchivePointee + ?Sized> DerefMut for ArchivedBox<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe { &mut *self.0.as_mut_ptr() }
     }
 }
 
-impl<T: ArchivePtr + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Box<U>> for ArchivedBox<T> {
+impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Box<U>> for ArchivedBox<T> {
     fn eq(&self, other: &Box<U>) -> bool {
         self.deref().eq(other.deref())
     }

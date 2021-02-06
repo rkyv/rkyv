@@ -22,7 +22,7 @@ use rkyv::{
     Fallible,
 };
 use rkyv_typename::TypeName;
-use crate::{DynAugment, IMPL_REGISTRY, RegisteredImpl, VTable};
+use crate::{ArchivedDynMetadata, IMPL_REGISTRY, RegisteredImpl, VTable};
 
 pub trait DynContext {
     unsafe fn check_rel_ptr_dyn(
@@ -160,15 +160,15 @@ macro_rules! validation {
 
 /// Errors that can occur when checking archived trait objects
 #[derive(Debug)]
-pub enum DynAugmentError {
+pub enum DynMetadataError {
     /// The trait object has an invalid impl id or was stomped by vtable caching
     InvalidImplId(u64),
 }
 
-impl fmt::Display for DynAugmentError {
+impl fmt::Display for DynMetadataError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DynAugmentError::InvalidImplId(id) => {
+            DynMetadataError::InvalidImplId(id) => {
                 if id & 1 == 0 {
                     write!(f, "invalid impl id: overwritten with vtable pointer")
                 } else {
@@ -179,16 +179,16 @@ impl fmt::Display for DynAugmentError {
     }
 }
 
-impl Error for DynAugmentError {}
+impl Error for DynMetadataError {}
 
-impl From<Unreachable> for DynAugmentError {
+impl From<Unreachable> for DynMetadataError {
     fn from(_: Unreachable) -> Self {
         unreachable!();
     }
 }
 
-impl<T: TypeName + ?Sized, C: ?Sized> CheckBytes<C> for DynAugment<T> {
-    type Error = DynAugmentError;
+impl<T: TypeName + ?Sized, C: ?Sized> CheckBytes<C> for ArchivedDynMetadata<T> {
+    type Error = DynMetadataError;
 
     unsafe fn check_bytes<'a>(
         value: *const Self,
@@ -197,11 +197,11 @@ impl<T: TypeName + ?Sized, C: ?Sized> CheckBytes<C> for DynAugment<T> {
         let bytes = value.cast::<u8>();
 
         let type_id = AtomicU64::check_bytes(bytes.add(offset_of!(Self, type_id)).cast(), context)?.load(Ordering::Relaxed);
-        PhantomData::<T>::check_bytes(bytes.add(offset_of!(Self, _phantom)).cast(), context)?;
+        PhantomData::<T>::check_bytes(bytes.add(offset_of!(Self, phantom)).cast(), context)?;
         if type_id & 1 == 0 || IMPL_REGISTRY.get::<T>(type_id).is_some() {
             Ok(&*value)
         } else {
-            Err(DynAugmentError::InvalidImplId(type_id))
+            Err(DynMetadataError::InvalidImplId(type_id))
         }
     }
 }

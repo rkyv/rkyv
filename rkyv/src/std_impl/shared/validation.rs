@@ -11,7 +11,7 @@ use crate::{
         LayoutMetadata,
         SharedArchiveContext,
     },
-    ArchivePtr,
+    ArchivePointee,
     RelPtr,
 };
 
@@ -46,20 +46,20 @@ impl<T: Error + 'static, R: Error + 'static, C: Error + 'static> Error for Share
     }
 }
 
-impl<T: ArchivePtr + CheckBytes<C> + Pointee + ?Sized + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedRc<T>
+impl<T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedRc<T>
 where
-    T::Augment: CheckBytes<C>,
+    T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,
     <T as Pointee>::Metadata: LayoutMetadata<T>,
 {
-    type Error = SharedPointerError<<T::Augment as CheckBytes<C>>::Error, T::Error, C::Error>;
+    type Error = SharedPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
 
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::<T>::manual_check_bytes(value.cast(), context)
             .map_err(SharedPointerError::PointerCheckBytesError)?;
         let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
             .map_err(SharedPointerError::ContextError)?;
-        let ptr = T::augment_ptr(data, rel_ptr.augment());
+        let ptr = ptr_meta::from_raw_parts::<T>(data.cast(), T::to_metadata(rel_ptr.metadata()));
         let layout = LayoutMetadata::<T>::layout(metadata(ptr));
         if context
             .claim_shared_bytes(ptr.cast(), layout.size(), TypeId::of::<ArchivedRc<T>>())
@@ -72,20 +72,20 @@ where
     }
 }
 
-impl<T: ArchivePtr + CheckBytes<C> + Pointee + ?Sized + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedArc<T>
+impl<T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static, C: ArchiveBoundsContext + SharedArchiveContext + ?Sized> CheckBytes<C> for ArchivedArc<T>
 where
-    T::Augment: CheckBytes<C>,
+    T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,
     <T as Pointee>::Metadata: LayoutMetadata<T>,
 {
-    type Error = SharedPointerError<<T::Augment as CheckBytes<C>>::Error, T::Error, C::Error>;
+    type Error = SharedPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
 
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::<T>::manual_check_bytes(value.cast(), context)
             .map_err(SharedPointerError::PointerCheckBytesError)?;
         let data = context.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())
             .map_err(SharedPointerError::ContextError)?;
-        let ptr = T::augment_ptr(data, rel_ptr.augment());
+        let ptr = ptr_meta::from_raw_parts::<T>(data.cast(), T::to_metadata(rel_ptr.metadata()));
         let layout = LayoutMetadata::<T>::layout(metadata(ptr));
         if context
             .claim_shared_bytes(ptr.cast(), layout.size(), TypeId::of::<ArchivedArc<T>>())
