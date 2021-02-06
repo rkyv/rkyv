@@ -70,8 +70,6 @@
 //! See [`Archive`] for examples of how to use rkyv.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "const_generics", allow(incomplete_features))]
-#![cfg_attr(feature = "const_generics", feature(const_generics))]
 
 pub mod core_impl;
 pub mod de;
