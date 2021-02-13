@@ -9,7 +9,7 @@ and [`Resolve`](https://docs.rs/rkyv/latest/rkyv/trait.Resolve.html).
 
 Writers are types that accept bytes and write them in order to some output. The most basic example
 of a writer might be a simple file. Writers can additionally provide the position of the next byte,
-which is important for [relative pointers](/relative-pointers.html).
+which is important for [relative pointers](relative-pointers.html).
 
 ## Archive
 
