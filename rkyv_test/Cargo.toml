@@ -19,7 +19,7 @@ rkyv_typename = { path = "../rkyv_typename", default-features = false }
 [features]
 default = ["std", "validation"]
 const_generics = ["rkyv/const_generics", "rkyv_typename/const_generics"]
-long_rel_ptrs = ["rkyv/long_rel_ptrs"]
+size_64 = ["rkyv/size_64"]
 nightly = ["rkyv_dyn/nightly"]
 std = ["rkyv/std", "rkyv_typename/std"]
 strict = ["rkyv/strict"]

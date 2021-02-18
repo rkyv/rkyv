@@ -41,7 +41,7 @@ fn basic_functionality() {
     let result = check_archive::<Option<String>>(buf.as_ref(), pos);
     result.unwrap();
 
-    #[cfg(not(feature = "long_rel_ptrs"))]
+    #[cfg(not(feature = "size_64"))]
     // Synthetic archive (correct)
     let synthetic_buf = [
         1u8, 0u8, 0u8, 0u8, // Some + padding
@@ -51,7 +51,7 @@ fn basic_functionality() {
         0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
     ];
 
-    #[cfg(feature = "long_rel_ptrs")]
+    #[cfg(feature = "size_64")]
     // Synthetic archive (correct)
     let synthetic_buf = [
         1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // Some + padding

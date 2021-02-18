@@ -56,8 +56,8 @@
 //!
 //! - `const_generics`: Improves the trait implementations for arrays with
 //!   support for all lengths
-//! - `long_rel_ptrs`: Increases the size of relative pointers to 64 bits for
-//!   large archive support
+//! - `size_64`: Archives `*size` as `*64` instead of `*32`. This is for large
+//!   archive support
 //! - `std`: Enables standard library support (enabled by default)
 //! - `strict`: Guarantees that types will have the same representations across
 //!   platforms and compilations. This is already the case in practice, but this
@@ -509,18 +509,18 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
 /// ```
 pub unsafe trait ArchiveCopy: Archive<Archived = Self> + Copy {}
 
-#[cfg(not(feature = "long_rel_ptrs"))]
+#[cfg(not(feature = "size_64"))]
 pub type ArchivedUsize = u32;
 
 /// The type used for offsets in relative pointers.
-#[cfg(not(feature = "long_rel_ptrs"))]
+#[cfg(not(feature = "size_64"))]
 pub type ArchivedIsize = i32;
 
-#[cfg(feature = "long_rel_ptrs")]
+#[cfg(feature = "size_64")]
 pub type ArchivedUsize = u64;
 
 /// The type used for offsets in relative pointers.
-#[cfg(feature = "long_rel_ptrs")]
+#[cfg(feature = "size_64")]
 pub type ArchivedIsize = i64;
 
 #[derive(Debug)]

@@ -23,7 +23,7 @@ seahash = { version = "4.0", optional = true }
 [features]
 default = ["std"]
 const_generics = []
-long_rel_ptrs = []
+size_64 = []
 std = ["seahash"]
 strict = ["rkyv_derive/strict"]
 validation = ["bytecheck", "std"]
