@@ -81,7 +81,7 @@ pub mod validation;
 
 use core::{
     fmt,
-    marker::PhantomPinned,
+    marker::{PhantomData, PhantomPinned},
     ops::{Deref, DerefMut},
     pin::Pin,
 };
@@ -437,7 +437,7 @@ pub trait ArchiveUnsized: Pointee {
     fn resolve_metadata(&self, pos: usize, resolver: Self::MetadataResolver) -> ArchivedMetadata<Self>;
 
     unsafe fn resolve_unsized(&self, from: usize, to: usize, resolver: Self::MetadataResolver) -> RelPtr<Self::Archived> {
-        RelPtr::new(from, to, self, resolver)
+        RelPtr::resolve(from, to, self, resolver)
     }
 }
 
@@ -527,12 +527,21 @@ pub type ArchivedIsize = i64;
 #[repr(transparent)]
 pub struct RawRelPtr {
     offset: ArchivedIsize,
+    _phantom: PhantomPinned,
 }
 
 impl RawRelPtr {
     pub unsafe fn new(from: usize, to: usize) -> Self {
         Self {
             offset: (to as isize - from as isize) as ArchivedIsize,
+            _phantom: PhantomPinned,
+        }
+    }
+
+    pub fn null() -> Self {
+        Self {
+            offset: 0,
+            _phantom: PhantomPinned,
         }
     }
 
@@ -564,25 +573,32 @@ impl RawRelPtr {
 pub struct RelPtr<T: ArchivePointee + ?Sized> {
     raw_ptr: RawRelPtr,
     metadata: T::ArchivedMetadata,
-    _phantom: PhantomPinned,
+    _phantom: PhantomData<T>,
 }
 
 impl<T: ArchivePointee + ?Sized> RelPtr<T> {
+    pub unsafe fn new(raw_ptr: RawRelPtr, metadata: T::ArchivedMetadata) -> Self {
+        Self {
+            raw_ptr,
+            metadata,
+            _phantom: PhantomData,
+        }
+    }
+
     /// Creates a relative pointer from one position to another.
     ///
     /// # Safety
     ///
     /// `from` must be the position of the relative pointer and `to` must be the
     /// position of some valid memory.
-    pub unsafe fn new<U: ArchiveUnsized<Archived = T> + ?Sized>(from: usize, to: usize, value: &U, metadata_resolver: U::MetadataResolver) -> Self {
+    pub unsafe fn resolve<U: ArchiveUnsized<Archived = T> + ?Sized>(from: usize, to: usize, value: &U, metadata_resolver: U::MetadataResolver) -> Self {
         let raw_ptr_pos = from + offset_of!(Self, raw_ptr);
         let metadata_pos = from + offset_of!(Self, metadata);
 
-        Self {
-            raw_ptr: RawRelPtr::new(raw_ptr_pos, to),
-            metadata: value.resolve_metadata(metadata_pos, metadata_resolver),
-            _phantom: PhantomPinned,
-        }
+        Self::new(
+            RawRelPtr::new(raw_ptr_pos, to),
+            value.resolve_metadata(metadata_pos, metadata_resolver),
+        )
     }
 
     pub fn base(&self) -> *const u8 {

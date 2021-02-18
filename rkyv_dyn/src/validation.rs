@@ -241,7 +241,7 @@ impl Error for CheckDynError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             CheckDynError::InvalidMetadata(_) => None,
-            CheckDynError::CheckBytes(e) => Some(&**e),
+            CheckDynError::CheckBytes(e) => Some(e.as_ref()),
         }
     }
 }

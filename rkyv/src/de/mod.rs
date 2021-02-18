@@ -27,7 +27,7 @@ pub trait SharedDeserializer: Deserializer {
     /// Checks whether the given reference has been deserialized and either
     /// clones the existing shared pointer to it, or deserializes it and uses
     /// `to_shared` to create a shared pointer.
-    fn deserialize_shared<T: ArchiveUnsized + ?Sized, P: 'static + SharedPointer, F: FnOnce(*mut T) -> P>(&mut self, value: &T::Archived, to_shared: F) -> Result<*const T, Self::Error>
+    fn deserialize_shared<T: ArchiveUnsized + ?Sized, P: SharedPointer + 'static, F: FnOnce(*mut T) -> P>(&mut self, value: &T::Archived, to_shared: F) -> Result<*const T, Self::Error>
     where
         T::Archived: DeserializeUnsized<T, Self>;
 }

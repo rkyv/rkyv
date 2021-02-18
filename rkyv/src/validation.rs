@@ -2,7 +2,7 @@
 
 use crate::{Archive, ArchivedIsize, ArchivePointee, Archived, Fallible, RawRelPtr, RelPtr, offset_of};
 use bytecheck::{CheckBytes, Unreachable};
-use core::{alloc::Layout, any::TypeId, fmt, marker::PhantomPinned};
+use core::{alloc::Layout, any::TypeId, fmt, marker::{PhantomData, PhantomPinned}};
 use ptr_meta::{DynMetadata, Pointee};
 use std::{collections::HashMap, error::Error};
 
@@ -10,6 +10,7 @@ impl RawRelPtr {
     pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(value: *const RawRelPtr, context: &mut C) -> Result<&'a Self, Unreachable> {
         let bytes = value.cast::<u8>();
         ArchivedIsize::check_bytes(bytes.add(offset_of!(Self, offset)).cast(), context).unwrap();
+        PhantomPinned::check_bytes(bytes.add(offset_of!(Self, _phantom)).cast(), context).unwrap();
         Ok(&*value)
     }
 }
@@ -23,7 +24,7 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
         let bytes = value.cast::<u8>();
         RawRelPtr::manual_check_bytes(bytes.add(offset_of!(Self, raw_ptr)).cast(), context).unwrap();
         T::ArchivedMetadata::check_bytes(bytes.add(offset_of!(Self, metadata)).cast(), context)?;
-        PhantomPinned::check_bytes(bytes.add(offset_of!(Self, _phantom)).cast(), context).unwrap();
+        PhantomData::<T>::check_bytes(bytes.add(offset_of!(Self, _phantom)).cast(), context).unwrap();
         Ok(&*value)
     }
 }

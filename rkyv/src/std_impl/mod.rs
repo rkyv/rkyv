@@ -39,17 +39,17 @@ pub struct ArchivedString(RelPtr<str>);
 impl ArchivedString {
     /// Extracts a string slice containing the entire `ArchivedString`.
     pub fn as_str(&self) -> &str {
-        &**self
+        self.deref()
     }
 
     /// Converts an `ArchivedString` into a mutable string slice.
     pub fn as_mut_str(&mut self) -> &mut str {
-        &mut **self
+        self.deref_mut()
     }
 
     /// Gets the value of this archived string as a pinned mutable reference.
     pub fn str_pin(self: Pin<&mut Self>) -> Pin<&mut str> {
-        unsafe { self.map_unchecked_mut(|s| &mut **s) }
+        unsafe { self.map_unchecked_mut(|s| s.deref_mut()) }
     }
 }
 
@@ -101,31 +101,31 @@ impl Borrow<str> for ArchivedString {
 
 impl PartialEq<&str> for ArchivedString {
     fn eq(&self, other: &&str) -> bool {
-        PartialEq::eq(&**self, *other)
+        PartialEq::eq(self.as_str(), *other)
     }
 }
 
 impl PartialEq<ArchivedString> for &str {
     fn eq(&self, other: &ArchivedString) -> bool {
-        PartialEq::eq(&**other, *self)
+        PartialEq::eq(other.as_str(), *self)
     }
 }
 
 impl PartialEq<String> for ArchivedString {
     fn eq(&self, other: &String) -> bool {
-        PartialEq::eq(&**self, &**other)
+        PartialEq::eq(self.as_str(), other.as_str())
     }
 }
 
 impl PartialEq<ArchivedString> for String {
     fn eq(&self, other: &ArchivedString) -> bool {
-        PartialEq::eq(&**other, &**self)
+        PartialEq::eq(other.as_str(), self.as_str())
     }
 }
 
 impl fmt::Display for ArchivedString {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&**self, f)
+        fmt::Display::fmt(self.as_str(), f)
     }
 }
 
@@ -191,7 +191,7 @@ where
 impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     /// Gets the value of this archived box as a pinned mutable reference.
     pub fn get_pin(self: Pin<&mut Self>) -> Pin<&mut T> {
-        unsafe { self.map_unchecked_mut(|s| &mut **s) }
+        unsafe { self.map_unchecked_mut(|s| s.deref_mut()) }
     }
 }
 
@@ -262,11 +262,11 @@ pub struct ArchivedVec<T>(RelPtr<[T]>);
 
 impl<T> ArchivedVec<T> {
     pub fn as_slice(&self) -> &[T] {
-        &**self
+        self.deref()
     }
 
     pub fn as_mut_slice(&mut self) -> &mut [T] {
-        &mut **self
+        self.deref_mut()
     }
 
     /// Gets the element at the given index ot this archived vec as a pinned
@@ -275,7 +275,7 @@ impl<T> ArchivedVec<T> {
     where
         [T]: IndexMut<I>,
     {
-        unsafe { self.map_unchecked_mut(|s| &mut (**s)[index]) }
+        unsafe { self.map_unchecked_mut(|s| &mut s.deref_mut()[index]) }
     }
 }
 

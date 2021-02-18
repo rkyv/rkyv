@@ -57,7 +57,7 @@ mod util {
         let pos = serializer.archive(value).expect("failed to archive ref");
         let buf = serializer.into_inner().into_inner();
         let archived_ref = unsafe { archived_value::<T>(buf.as_ref(), pos) };
-        assert!(&**archived_ref == &**value);
+        assert!(archived_ref.deref() == value.deref());
     }
 }
 
@@ -1221,6 +1221,85 @@ mod tests {
         };
 
         test_archive(&value);
+    }
+
+    #[test]
+    fn archive_weak_ptr() {
+        use std::rc::{Rc, Weak};
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct Test {
+            a: Rc<u32>,
+            b: Weak<u32>,
+        }
+
+        impl ArchivedTest {
+            fn a(self: Pin<&mut Self>) -> Pin<&mut Archived<Rc<u32>>> {
+                unsafe { self.map_unchecked_mut(|s| &mut s.a) }
+            }
+
+            fn b(self: Pin<&mut Self>) -> Pin<&mut Archived<Weak<u32>>> {
+                unsafe { self.map_unchecked_mut(|s| &mut s.b) }
+            }
+        }
+
+        let shared = Rc::new(10);
+        let value = Test {
+            a: shared.clone(),
+            b: Rc::downgrade(&shared),
+        };
+
+        let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
+        let pos = serializer.archive(&value).expect("failed to archive value");
+        let mut buf = serializer.into_inner().into_inner();
+
+        let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        assert_eq!(*archived.a, 10);
+        assert!(archived.b.upgrade().is_some());
+        assert_eq!(**archived.b.upgrade().unwrap(), 10);
+
+        let mut mutable_archived = unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
+        unsafe {
+            *mutable_archived.as_mut().a().get_pin_unchecked() = 42;
+        }
+
+        let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        assert_eq!(*archived.a, 42);
+        assert!(archived.b.upgrade().is_some());
+        assert_eq!(**archived.b.upgrade().unwrap(), 42);
+
+        let mut mutable_archived = unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
+        unsafe {
+            *mutable_archived.as_mut().b().upgrade_pin_unchecked().unwrap().get_pin_unchecked() = 17;
+        }
+
+        let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        assert_eq!(*archived.a, 17);
+        assert!(archived.b.upgrade().is_some());
+        assert_eq!(**archived.b.upgrade().unwrap(), 17);
+
+        let mut deserializer = SharedDeserializerAdapter::new(AllocDeserializer);
+        let deserialized = archived.deserialize(&mut deserializer).unwrap();
+
+        assert_eq!(*deserialized.a, 17);
+        assert!(deserialized.b.upgrade().is_some());
+        assert_eq!(*deserialized.b.upgrade().unwrap(), 17);
+        assert_eq!(&*deserialized.a as *const u32, &*deserialized.b.upgrade().unwrap() as *const u32);
+        assert_eq!(Rc::strong_count(&deserialized.a), 2);
+        assert_eq!(Weak::strong_count(&deserialized.b), 2);
+        assert_eq!(Rc::weak_count(&deserialized.a), 1);
+        assert_eq!(Weak::weak_count(&deserialized.b), 1);
+
+        core::mem::drop(deserializer);
+
+        assert_eq!(*deserialized.a, 17);
+        assert!(deserialized.b.upgrade().is_some());
+        assert_eq!(*deserialized.b.upgrade().unwrap(), 17);
+        assert_eq!(&*deserialized.a as *const u32, &*deserialized.b.upgrade().unwrap() as *const u32);
+        assert_eq!(Rc::strong_count(&deserialized.a), 1);
+        assert_eq!(Weak::strong_count(&deserialized.b), 1);
+        assert_eq!(Rc::weak_count(&deserialized.a), 1);
+        assert_eq!(Weak::weak_count(&deserialized.b), 1);
     }
 
     #[test]

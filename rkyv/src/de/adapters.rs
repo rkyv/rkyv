@@ -65,7 +65,7 @@ impl<D: Deserializer> Deserializer for SharedDeserializerAdapter<D> {
 }
 
 impl<D: Deserializer> SharedDeserializer for SharedDeserializerAdapter<D> {
-    fn deserialize_shared<T: ArchiveUnsized + ?Sized, P: 'static + SharedPointer, F: FnOnce(*mut T) -> P>(&mut self, value: &T::Archived, to_shared: F) -> Result<*const T, Self::Error>
+    fn deserialize_shared<T: ArchiveUnsized + ?Sized, P: SharedPointer + 'static, F: FnOnce(*mut T) -> P>(&mut self, value: &T::Archived, to_shared: F) -> Result<*const T, Self::Error>
     where
         T::Archived: DeserializeUnsized<T, Self>,
     {
