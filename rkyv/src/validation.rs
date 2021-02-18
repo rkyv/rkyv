@@ -1,10 +1,18 @@
 //! Validation implementations and helper types.
 
-use crate::{Archive, ArchivePointee, Archived, Fallible, Offset, RelPtr, offset_of};
-use bytecheck::CheckBytes;
+use crate::{Archive, ArchivedIsize, ArchivePointee, Archived, Fallible, RawRelPtr, RelPtr, offset_of};
+use bytecheck::{CheckBytes, Unreachable};
 use core::{alloc::Layout, any::TypeId, fmt, marker::PhantomPinned};
 use ptr_meta::{DynMetadata, Pointee};
 use std::{collections::HashMap, error::Error};
+
+impl RawRelPtr {
+    pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(value: *const RawRelPtr, context: &mut C) -> Result<&'a Self, Unreachable> {
+        let bytes = value.cast::<u8>();
+        ArchivedIsize::check_bytes(bytes.add(offset_of!(Self, offset)).cast(), context).unwrap();
+        Ok(&*value)
+    }
+}
 
 impl<T: ArchivePointee + ?Sized> RelPtr<T> {
     pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(value: *const RelPtr<T>, context: &mut C) -> Result<&'a Self, <T::ArchivedMetadata as CheckBytes<C>>::Error>
@@ -13,7 +21,7 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
         T::ArchivedMetadata: CheckBytes<C>,
     {
         let bytes = value.cast::<u8>();
-        Offset::check_bytes(bytes.add(offset_of!(Self, offset)).cast(), context).unwrap();
+        RawRelPtr::manual_check_bytes(bytes.add(offset_of!(Self, raw_ptr)).cast(), context).unwrap();
         T::ArchivedMetadata::check_bytes(bytes.add(offset_of!(Self, metadata)).cast(), context)?;
         PhantomPinned::check_bytes(bytes.add(offset_of!(Self, _phantom)).cast(), context).unwrap();
         Ok(&*value)

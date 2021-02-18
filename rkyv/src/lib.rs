@@ -92,6 +92,12 @@ pub use rkyv_derive::{Archive, Deserialize, Serialize};
 #[cfg(feature = "validation")]
 pub use validation::check_archive;
 
+/// Contains the error type for traits with methods that can fail
+pub trait Fallible {
+    /// The error produced by any failing methods
+    type Error: 'static;
+}
+
 /// A type that can be used without deserializing.
 ///
 /// Archiving is done depth-first, writing any data owned by a type before
@@ -161,8 +167,10 @@ pub use validation::check_archive;
 ///     Archive,
 ///     Archived,
 ///     ArchiveUnsized,
+///     MetadataResolver,
 ///     RelPtr,
 ///     Serialize,
+///     SerializeUnsized,
 /// };
 ///
 /// struct OwnedStr {
@@ -186,8 +194,11 @@ pub use validation::check_archive;
 ///
 /// struct OwnedStrResolver {
 ///     // This will be the position that the bytes of our string are stored at.
-///     // We'll use this to make the relative pointer of our ArchivedOwnedStr.
-///     bytes_pos: usize,
+///     // We'll use this to resolve the relative pointer of our
+///     // ArchivedOwnedStr.
+///     pos: usize,
+///     // The archived metadata for our str may also need a resolver.
+///     metadata_resolver: MetadataResolver<str>,
 /// }
 ///
 /// // The Archive implementation defines the archived version of our type and
@@ -204,12 +215,11 @@ pub use validation::check_archive;
 ///         Self::Archived {
 ///             // We have to be careful to add the offset of the ptr field,
 ///             // otherwise we'll be using the position of the ArchivedOwnedStr
-///             // instead of the position of the ptr. That's the reason why
-///             // RelPtr::new is unsafe.
-///             ptr: unsafe { RelPtr::new(
+///             // instead of the position of the relative pointer.
+///             ptr: unsafe { self.inner.resolve_unsized(
 ///                 pos + offset_of!(Self::Archived, ptr),
-///                 resolver.bytes_pos,
-///                 self.inner.archived_metadata(),
+///                 resolver.pos,
+///                 resolver.metadata_resolver,
 ///             ) },
 ///         }
 ///     }
@@ -222,9 +232,11 @@ pub use validation::check_archive;
 ///     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
 ///         // This is where we want to write the bytes of our string and return
 ///         // a resolver that knows where those bytes were written.
-///         let bytes_pos = serializer.pos();
-///         serializer.write(self.inner.as_bytes())?;
-///         Ok(Self::Resolver { bytes_pos })
+///         // We also need to serialize the metadata for our str.
+///         Ok(OwnedStrResolver {
+///             pos: self.inner.serialize_unsized(serializer)?,
+///             metadata_resolver: self.inner.serialize_metadata(serializer)?
+///         })
 ///     }
 /// }
 ///
@@ -258,12 +270,6 @@ pub trait Serialize<S: Fallible + ?Sized>: Archive {
     /// Writes the dependencies for the object and returns a resolver that can
     /// create the archived type.
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error>;
-}
-
-/// Contains the error type for traits with methods that can fail
-pub trait Fallible {
-    /// The error produced by any failing methods
-    type Error: 'static;
 }
 
 /// Converts a type back from its archived form.
@@ -301,6 +307,8 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     ser::{serializers::WriteSerializer, Serializer},
 ///     Archive,
 ///     Archived,
+///     ArchivedMetadata,
+///     ArchivedUsize,
 ///     ArchivePointee,
 ///     ArchiveUnsized,
 ///     RelPtr,
@@ -321,7 +329,7 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 /// // For blocks with trailing slices, we need to store the length of the slice
 /// // in the metadata.
 /// pub struct BlockSliceMetadata {
-///     len: u32,
+///     len: ArchivedUsize,
 /// }
 ///
 /// // ArchivePointee is automatically derived for sized types because pointers
@@ -346,10 +354,21 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     // We'll reuse our block type as our archived type.
 ///     type Archived = Block<Archived<H>, [Archived<T>]>;
 ///
-///     // Here's where we make our metadata for our pointer
-///     fn archived_metadata(&self) -> <Self::Archived as ArchivePointee>::ArchivedMetadata {
+///     // This is where we'd put any resolve data for our metadata.
+///     // Most of the time, this can just be () because most metadata is Copy,
+///     // but the option is there if you need it.
+///     type MetadataResolver = ();
+///
+///     // Here's where we make the metadata for our pointer.
+///     // This also gets the position and resolver for the metadata, but we
+///     // don't need it in this case.
+///     fn resolve_metadata(
+///         &self,
+///         _: usize,
+///         _: Self::MetadataResolver
+///     ) -> ArchivedMetadata<Self> {
 ///         BlockSliceMetadata {
-///             len: self.tail.len() as u32,
+///             len: self.tail.len() as ArchivedUsize,
 ///         }
 ///     }
 /// }
@@ -381,6 +400,12 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///         }
 ///         Ok(result)
 ///     }
+///
+///     // This is where we serialize the metadata for our type. In this case,
+///     // we do all the work in resolve and don't need to do anything here.
+///     fn serialize_metadata(&self, serializer: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+///         Ok(())
+///     }
 /// }
 ///
 /// let value = Block {
@@ -393,7 +418,7 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 /// let unsized_value = unsafe { &*mem::transmute::<(*const (), usize), *const Block<String, [i32]>>((ptr, 4)) };
 ///
 /// let mut serializer = WriteSerializer::new(Vec::new());
-/// let pos = serializer.archive_ref(unsized_value)
+/// let pos = serializer.archive_unsized(unsized_value)
 ///     .expect("failed to archive block");
 /// let buf = serializer.into_inner();
 ///
@@ -402,17 +427,17 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 /// assert_eq!(archived_ref.tail.len(), 4);
 /// assert_eq!(archived_ref.tail, [1, 2, 3, 4]);
 /// ```
-pub trait ArchiveUnsized {
+pub trait ArchiveUnsized: Pointee {
     /// The archived counterpart of this type. Unlike `Archive`, it may be
     /// unsized.
     type Archived: ArchivePointee + ?Sized;
 
-    /// Creates an archived reference of the reference type at the given
-    /// position.
-    fn archived_metadata(&self) -> <Self::Archived as ArchivePointee>::ArchivedMetadata;
+    type MetadataResolver;
 
-    fn resolve_unsized(&self, from: usize, to: usize) -> RelPtr<Self::Archived> {
-        unsafe { RelPtr::new(from, to, self.archived_metadata()) }
+    fn resolve_metadata(&self, pos: usize, resolver: Self::MetadataResolver) -> ArchivedMetadata<Self>;
+
+    unsafe fn resolve_unsized(&self, from: usize, to: usize, resolver: Self::MetadataResolver) -> RelPtr<Self::Archived> {
+        RelPtr::new(from, to, self, resolver)
     }
 }
 
@@ -428,19 +453,23 @@ pub trait ArchivePointee: Pointee {
 pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
     /// Writes the object and returns the position of the archived type.
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error>;
+
+    fn serialize_metadata(&self, serializer: &mut S) -> Result<Self::MetadataResolver, S::Error>;
 }
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
 ///
 /// Most types that implement `DeserializeRef` will need a
 /// [`Deserializer`](de::Deserializer) bound so that they can allocate memory.
-pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fallible + ?Sized> {
+pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fallible + ?Sized>: ArchivePointee {
     /// Deserializes a reference to the given value.
     ///
     /// # Safety
     ///
     /// The caller must ensure that the memory returned is properly deallocated.
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut T, D::Error>;
+    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error>;
+
+    fn deserialize_metadata(&self, deserializer: &mut D) -> Result<T::Metadata, D::Error>;
 }
 
 /// An [`Archive`] type that is a bitwise copy of itself and without additional
@@ -480,36 +509,30 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
 /// ```
 pub unsafe trait ArchiveCopy: Archive<Archived = Self> + Copy {}
 
+#[cfg(not(feature = "long_rel_ptrs"))]
+pub type ArchivedUsize = u32;
+
 /// The type used for offsets in relative pointers.
 #[cfg(not(feature = "long_rel_ptrs"))]
-pub type Offset = i32;
+pub type ArchivedIsize = i32;
+
+#[cfg(feature = "long_rel_ptrs")]
+pub type ArchivedUsize = u64;
 
 /// The type used for offsets in relative pointers.
 #[cfg(feature = "long_rel_ptrs")]
-pub type Offset = i64;
+pub type ArchivedIsize = i64;
 
-/// A pointer which resolves to relative to its position in memory.
-///
-/// See [`Archive`] for an example of creating one.
-#[cfg_attr(feature = "strict", repr(C))]
-pub struct RelPtr<T: ArchivePointee + ?Sized> {
-    offset: Offset,
-    metadata: T::ArchivedMetadata,
-    _phantom: PhantomPinned,
+#[derive(Debug)]
+#[repr(transparent)]
+pub struct RawRelPtr {
+    offset: ArchivedIsize,
 }
 
-impl<T: ArchivePointee + ?Sized> RelPtr<T> {
-    /// Creates a relative pointer from one position to another.
-    ///
-    /// # Safety
-    ///
-    /// `from` must be the position of the relative pointer and `to` must be the
-    /// position of some valid memory.
-    pub unsafe fn new(from: usize, to: usize, metadata: T::ArchivedMetadata) -> Self {
+impl RawRelPtr {
+    pub unsafe fn new(from: usize, to: usize) -> Self {
         Self {
-            offset: (to as isize - from as isize) as Offset,
-            metadata,
-            _phantom: PhantomPinned,
+            offset: (to as isize - from as isize) as ArchivedIsize,
         }
     }
 
@@ -522,21 +545,68 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
         self.offset as isize
     }
 
+    /// Calculates the memory address being pointed to by this relative pointer.
+    pub fn as_ptr(&self) -> *const () {
+        unsafe { (self as *const Self).cast::<u8>().offset(self.offset as isize).cast() }
+    }
+
+    /// Returns an unsafe mutable pointer to the memory address being pointed to
+    /// by this relative pointer.
+    pub fn as_mut_ptr(&mut self) -> *mut () {
+        unsafe { (self as *mut Self).cast::<u8>().offset(self.offset as isize).cast() }
+    }
+}
+
+/// A pointer which resolves to relative to its position in memory.
+///
+/// See [`Archive`] for an example of creating one.
+#[cfg_attr(feature = "strict", repr(C))]
+pub struct RelPtr<T: ArchivePointee + ?Sized> {
+    raw_ptr: RawRelPtr,
+    metadata: T::ArchivedMetadata,
+    _phantom: PhantomPinned,
+}
+
+impl<T: ArchivePointee + ?Sized> RelPtr<T> {
+    /// Creates a relative pointer from one position to another.
+    ///
+    /// # Safety
+    ///
+    /// `from` must be the position of the relative pointer and `to` must be the
+    /// position of some valid memory.
+    pub unsafe fn new<U: ArchiveUnsized<Archived = T> + ?Sized>(from: usize, to: usize, value: &U, metadata_resolver: U::MetadataResolver) -> Self {
+        let raw_ptr_pos = from + offset_of!(Self, raw_ptr);
+        let metadata_pos = from + offset_of!(Self, metadata);
+
+        Self {
+            raw_ptr: RawRelPtr::new(raw_ptr_pos, to),
+            metadata: value.resolve_metadata(metadata_pos, metadata_resolver),
+            _phantom: PhantomPinned,
+        }
+    }
+
+    pub fn base(&self) -> *const u8 {
+        self.raw_ptr.base()
+    }
+
+    /// Gets the offset of the relative pointer.
+    pub fn offset(&self) -> isize {
+        self.raw_ptr.offset()
+    }
+
     pub fn metadata(&self) -> &T::ArchivedMetadata {
         &self.metadata
     }
 
     /// Calculates the memory address being pointed to by this relative pointer.
     pub fn as_ptr(&self) -> *const T {
-        let data_address = unsafe { (self as *const Self).cast::<u8>().offset(self.offset as isize).cast() };
-        ptr_meta::from_raw_parts(data_address, T::to_metadata(&self.metadata))
+        ptr_meta::from_raw_parts(self.raw_ptr.as_ptr(), T::to_metadata(&self.metadata))
     }
 
     /// Returns an unsafe mutable pointer to the memory address being pointed to
     /// by this relative pointer.
     pub fn as_mut_ptr(&mut self) -> *mut T {
-        let data_address = unsafe { (self as *mut Self).cast::<u8>().offset(self.offset as isize).cast() };
-        ptr_meta::from_raw_parts_mut(data_address, T::to_metadata(&self.metadata))
+        ptr_meta::from_raw_parts_mut(self.raw_ptr.as_mut_ptr(), T::to_metadata(&self.metadata))
     }
 }
 
@@ -546,7 +616,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("RelPtr")
-            .field("offset", &self.offset)
+            .field("raw_ptr", &self.raw_ptr)
             .field("metadata", &self.metadata)
             .field("_phantom", &self._phantom)
             .finish()
@@ -557,6 +627,10 @@ where
 pub type Archived<T> = <T as Archive>::Archived;
 /// Alias for the resolver for some [`Archive`] type.
 pub type Resolver<T> = <T as Archive>::Resolver;
+/// Alias for the archived metadata for some [`ArchiveUnsized`] type.
+pub type ArchivedMetadata<T> = <<T as ArchiveUnsized>::Archived as ArchivePointee>::ArchivedMetadata;
+/// Alias for the metadata resolver for some [`ArchiveUnsized`] type.
+pub type MetadataResolver<T> = <T as ArchiveUnsized>::MetadataResolver;
 
 /// Wraps a type and aligns it to at least 16 bytes. Mainly used to align byte
 /// buffers for [`BufferSerializer`](ser::serializers::BufferSerializer).

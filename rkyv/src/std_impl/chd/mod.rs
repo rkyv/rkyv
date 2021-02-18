@@ -6,7 +6,7 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{Archive, Archived, Deserialize, Fallible, RelPtr, Serialize, offset_of, ser::Serializer};
+use crate::{Archive, Archived, ArchivedUsize, Deserialize, Fallible, RawRelPtr, Serialize, offset_of, ser::Serializer};
 use core::{
     borrow::Borrow,
     cmp::Reverse,
@@ -20,6 +20,7 @@ use core::{
 };
 use std::collections::{HashMap, HashSet};
 
+#[cfg_attr(feature = "strict", repr(C))]
 struct Entry<K, V> {
     key: K,
     value: V,
@@ -28,9 +29,10 @@ struct Entry<K, V> {
 /// An archived `HashMap`.
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedHashMap<K, V> {
-    len: u32,
-    displace: RelPtr<u32>,
-    entries: RelPtr<Entry<K, V>>,
+    len: ArchivedUsize,
+    displace: RawRelPtr,
+    entries: RawRelPtr,
+    _phantom: PhantomData<(K, V)>,
 }
 
 impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
@@ -56,15 +58,15 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     }
 
     unsafe fn displace(&self, index: usize) -> u32 {
-        *self.displace.as_ptr().add(index)
+        *self.displace.as_ptr().cast::<u32>().add(index)
     }
 
     unsafe fn entry(&self, index: usize) -> &Entry<K, V> {
-        &*self.entries.as_ptr().add(index)
+        &*self.entries.as_ptr().cast::<Entry<K, V>>().add(index)
     }
 
     unsafe fn entry_mut(&mut self, index: usize) -> &mut Entry<K, V> {
-        &mut *self.entries.as_mut_ptr().add(index)
+        &mut *self.entries.as_mut_ptr().cast::<Entry<K, V>>().add(index)
     }
 
     #[inline]
@@ -170,14 +172,14 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
     #[inline]
     fn raw_iter(&self) -> RawIter<'_, K, V> {
-        RawIter::new(self.entries.as_ptr(), self.len())
+        RawIter::new(self.entries.as_ptr().cast(), self.len())
     }
 
     #[inline]
     fn raw_iter_pin(self: Pin<&mut Self>) -> RawIterPin<'_, K, V> {
         unsafe {
             let hash_map = self.get_unchecked_mut();
-            RawIterPin::new(hash_map.entries.as_mut_ptr(), hash_map.len())
+            RawIterPin::new(hash_map.entries.as_mut_ptr().cast(), hash_map.len())
         }
     }
 
@@ -564,9 +566,10 @@ impl ArchivedHashMapResolver {
     fn resolve_from_len<K, V>(self, pos: usize, len: usize) -> ArchivedHashMap<K, V> {
         unsafe {
             ArchivedHashMap {
-                len: len as u32,
-                displace: RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, displace), self.displace_pos, ()),
-                entries: RelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, entries), self.entries_pos, ()),
+                len: len as ArchivedUsize,
+                displace: RawRelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, displace), self.displace_pos),
+                entries: RawRelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, entries), self.entries_pos),
+                _phantom: PhantomData,
             }
         }
     }

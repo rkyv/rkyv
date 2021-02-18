@@ -5,14 +5,7 @@ pub mod adapters;
 pub mod serializers;
 
 use core::{mem, slice};
-use crate::{
-    Archive,
-    ArchiveUnsized,
-    Fallible,
-    RelPtr,
-    Serialize,
-    SerializeUnsized,
-};
+use crate::{Archive, ArchivePointee, Archived, ArchiveUnsized, Fallible, RelPtr, Serialize, SerializeUnsized};
 
 /// A byte sink that knows where it is.
 ///
@@ -102,23 +95,25 @@ pub trait Serializer: Fallible {
     unsafe fn resolve_unsized_aligned<T: ArchiveUnsized + ?Sized>(
         &mut self,
         value: &T,
-        resolver: usize,
+        to: usize,
+        metadata_resolver: T::MetadataResolver,
     ) -> Result<usize, Self::Error> {
-        let pos = self.pos();
-        debug_assert!(pos & (mem::align_of::<RelPtr<T::Archived>>() - 1) == 0);
-        let rel_ptr = &value.resolve_unsized(pos, resolver);
-        let data = (rel_ptr as *const RelPtr<T::Archived>).cast::<u8>();
+        let from = self.pos();
+        debug_assert!(from & (mem::align_of::<RelPtr<T::Archived>>() - 1) == 0);
+        let rel_ptr = value.resolve_unsized(from, to, metadata_resolver);
+        let data = (&rel_ptr as *const RelPtr<T::Archived>).cast::<u8>();
         let len = mem::size_of::<RelPtr<T::Archived>>();
         self.write(slice::from_raw_parts(data, len))?;
-        Ok(pos)
+        Ok(from)
     }
 
     /// Archives a reference to the given object and returns the position it was
     /// archived at.
-    fn archive_ref<T: SerializeUnsized<Self> + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error> {
-        let resolver = value.serialize_unsized(self)?;
+    fn archive_unsized<T: SerializeUnsized<Self> + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error> {
+        let to = value.serialize_unsized(self)?;
+        let metadata_resolver = value.serialize_metadata(self)?;
         self.align_for::<RelPtr<T::Archived>>()?;
-        unsafe { self.resolve_unsized_aligned(value, resolver) }
+        unsafe { self.resolve_unsized_aligned(value, to, metadata_resolver) }
     }
 }
 
@@ -147,16 +142,18 @@ pub trait SeekSerializer: Serializer {
     fn archive_ref_root<T: SerializeUnsized<Self> + ?Sized>(
         &mut self,
         value: &T,
-    ) -> Result<usize, Self::Error> {
+    ) -> Result<usize, Self::Error>
+    where
+        T::Metadata: Serialize<Self>,
+        T::Archived: ArchivePointee<ArchivedMetadata = Archived<T::Metadata>>,
+    {
         self.align_for::<RelPtr<T::Archived>>()?;
         let pos = self.pos();
         self.seek(pos + mem::size_of::<RelPtr<T::Archived>>())?;
-        let resolver = value.serialize_unsized(self)?;
+        let to = value.serialize_unsized(self)?;
+        let metadata_resolver = value.serialize_metadata(self)?;
         self.seek(pos)?;
-        unsafe {
-            self.resolve_unsized_aligned(value, resolver)?;
-        }
-        Ok(pos)
+        unsafe { self.resolve_unsized_aligned(value, to, metadata_resolver) }
     }
 }
 

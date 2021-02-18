@@ -30,7 +30,7 @@ use core::{
     sync::atomic::AtomicU64,
 };
 use std::collections::{hash_map::DefaultHasher, HashMap};
-use ptr_meta::DynMetadata;
+use ptr_meta::{Pointee, DynMetadata};
 use rkyv::{
     de::Deserializer,
     ser::Serializer,
@@ -249,13 +249,15 @@ impl<D: Deserializer + ?Sized> DynDeserializer for &mut D {
 /// A trait object that can be deserialized.
 ///
 /// See [`SerializeDyn`] for more information.
-pub trait DeserializeDyn<T: ?Sized> {
+pub trait DeserializeDyn<T: Pointee + ?Sized> {
     /// Deserializes the given value as a trait object.
     ///
     /// # Safety
     ///
     /// The caller must ensure that the memory returned is properly deallocated.
-    unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer) -> Result<*mut T, DynError>;
+    unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer) -> Result<*mut (), DynError>;
+
+    fn deserialize_dyn_metadata(&self, deserializer: &mut dyn DynDeserializer) -> Result<T::Metadata, DynError>;
 }
 
 #[cfg_attr(feature = "strict", repr(C))]

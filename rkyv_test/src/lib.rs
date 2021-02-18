@@ -39,7 +39,7 @@ mod util {
         T::Archived: PartialEq<T>,
     {
         let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer.archive_ref(value).expect("failed to archive ref");
+        let pos = serializer.archive_unsized(value).expect("failed to archive ref");
         let buf = serializer.into_inner().into_inner();
         let archived_ref = unsafe { archived_unsized_value::<T>(buf.as_ref(), pos) };
         assert!(archived_ref == value);
@@ -499,7 +499,7 @@ mod tests {
 
     #[test]
     fn manual_archive_dyn() {
-        use rkyv::ArchivePointee;
+        use rkyv::{ArchivedMetadata, ArchivePointee};
         use rkyv_dyn::{
             register_impl,
             ArchivedDynMetadata,
@@ -515,6 +515,7 @@ mod tests {
             fn get_id(&self) -> i32;
         }
 
+        #[ptr_meta::pointee]
         pub trait SerializeTestTrait: TestTrait + SerializeDyn {}
 
         impl<T: Archive + SerializeDyn + TestTrait> SerializeTestTrait for T
@@ -535,8 +536,9 @@ mod tests {
 
         impl ArchiveUnsized for dyn SerializeTestTrait {
             type Archived = dyn DeserializeTestTrait;
+            type MetadataResolver = ();
 
-            fn archived_metadata(&self) -> <Self::Archived as ArchivePointee>::ArchivedMetadata {
+            fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {
                 ArchivedDynMetadata::new(self.archived_type_id())
             }
         }
@@ -556,14 +558,22 @@ mod tests {
             ) -> Result<usize, S::Error> {
                 self.serialize_dyn(&mut serializer).map_err(|e| *e.downcast::<S::Error>().unwrap())
             }
+
+            fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+                Ok(())
+            }
         }
 
         impl<D: Deserializer + ?Sized> DeserializeUnsized<dyn SerializeTestTrait, D> for dyn DeserializeTestTrait {
             unsafe fn deserialize_unsized(
                 &self,
                 mut deserializer: &mut D,
-            ) -> Result<*mut dyn SerializeTestTrait, D::Error> {
+            ) -> Result<*mut (), D::Error> {
                 self.deserialize_dyn(&mut deserializer).map_err(|e| *e.downcast().unwrap())
+            }
+
+            fn deserialize_metadata(&self, mut deserializer: &mut D) -> Result<<dyn SerializeTestTrait as ptr_meta::Pointee>::Metadata, D::Error> {
+                self.deserialize_dyn_metadata(&mut deserializer).map_err(|e| *e.downcast().unwrap())
             }
         }
 
@@ -589,10 +599,18 @@ mod tests {
             unsafe fn deserialize_dyn(
                 &self,
                 deserializer: &mut dyn DynDeserializer,
-            ) -> Result<*mut dyn SerializeTestTrait, DynError> {
+            ) -> Result<*mut (), DynError> {
                 let result = deserializer.alloc_dyn(core::alloc::Layout::new::<Test>())? as *mut Test;
                 result.write(self.deserialize(deserializer)?);
-                Ok(result as *mut dyn SerializeTestTrait)
+                Ok(result as *mut ())
+            }
+
+            fn deserialize_dyn_metadata(&self, _: &mut dyn DynDeserializer) -> Result<<dyn SerializeTestTrait as ptr_meta::Pointee>::Metadata, DynError> {
+                unsafe {
+                    Ok(core::mem::transmute(
+                        ptr_meta::metadata(core::ptr::null::<Test>() as *const dyn SerializeTestTrait)
+                    ))
+                }
             }
         }
 
@@ -711,10 +729,18 @@ mod tests {
             unsafe fn deserialize_dyn(
                 &self,
                 deserializer: &mut dyn DynDeserializer,
-            ) -> Result<*mut dyn STestTrait<String>, DynError> {
+            ) -> Result<*mut (), DynError> {
                 let result = deserializer.alloc(core::alloc::Layout::new::<Test<T>>())? as *mut Test<T>;
                 result.write(self.deserialize(deserializer)?);
-                Ok(result as *mut dyn STestTrait<String>)
+                Ok(result as *mut ())
+            }
+
+            fn deserialize_dyn_metadata(&self, _: &mut dyn DynDeserializer) -> Result<<dyn STestTrait<String> as ptr_meta::Pointee>::Metadata, DynError> {
+                unsafe {
+                    Ok(core::mem::transmute(
+                        ptr_meta::metadata(core::ptr::null::<Test<T>>() as *const dyn STestTrait<String>)
+                    ))
+                }
             }
         }
 

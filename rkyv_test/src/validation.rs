@@ -110,6 +110,10 @@ fn overlapping_claims() {
 fn cycle_detection() {
     use rkyv::{Archived, validation::{ArchiveBoundsContext, ArchiveMemoryContext}};
 
+    #[derive(Archive)]
+    #[archive(derive(Debug))]
+    struct NodePtr(Box<Node>);
+
     #[allow(dead_code)]
     #[derive(Archive)]
     #[archive(derive(Debug))]

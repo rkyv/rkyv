@@ -1,9 +1,9 @@
 //! Adapters wrap deserializers and add support for deserializer traits.
 
-use core::{alloc, any::Any, fmt};
+use core::{alloc, fmt};
 use std::{collections::HashMap, error::Error};
 use crate::{
-    de::{Deserializer, SharedDeserializer},
+    de::{Deserializer, SharedDeserializer, SharedPointer},
     ArchiveUnsized,
     DeserializeUnsized,
     Fallible,
@@ -36,7 +36,7 @@ impl<E: Error + 'static> Error for SharedDeserializerError<E> {
 /// An adapter that adds shared deserialization support to a deserializer.
 pub struct SharedDeserializerAdapter<D> {
     inner: D,
-    shared_pointers: HashMap<*const (), Box<dyn Any>>,
+    shared_pointers: HashMap<*const (), Box<dyn SharedPointer>>,
 }
 
 impl<D> SharedDeserializerAdapter<D> {
@@ -65,19 +65,22 @@ impl<D: Deserializer> Deserializer for SharedDeserializerAdapter<D> {
 }
 
 impl<D: Deserializer> SharedDeserializer for SharedDeserializerAdapter<D> {
-    fn deserialize_shared<T: ArchiveUnsized + ?Sized, P: Clone + 'static>(&mut self, value: &T::Archived, to_shared: impl FnOnce(*mut T) -> P) -> Result<P, Self::Error>
+    fn deserialize_shared<T: ArchiveUnsized + ?Sized, P: 'static + SharedPointer, F: FnOnce(*mut T) -> P>(&mut self, value: &T::Archived, to_shared: F) -> Result<*const T, Self::Error>
     where
         T::Archived: DeserializeUnsized<T, Self>,
     {
         let key = value as *const T::Archived as *const ();
-        let shared_ptr = if let Some(shared_ptr) = self.shared_pointers.get(&key) {
-            (**shared_ptr).downcast_ref::<P>().ok_or(SharedDeserializerError::MismatchedPointerTypeError)?.clone()
+        let metadata = T::Archived::deserialize_metadata(value, self)?;
+
+        if let Some(shared_pointer) = self.shared_pointers.get(&key) {
+            Ok(ptr_meta::from_raw_parts(shared_pointer.data_address() as *const (), metadata))
         } else {
-            let deserialized = unsafe { value.deserialize_unsized(self)? };
-            let shared_ptr = to_shared(deserialized);
-            self.shared_pointers.insert(key, Box::new(shared_ptr.clone()));
-            shared_ptr
-        };
-        Ok(shared_ptr)
+            let deserialized_data = unsafe { value.deserialize_unsized(self)? };
+            let shared_ptr = to_shared(ptr_meta::from_raw_parts_mut(deserialized_data, metadata));
+            let data_address = shared_ptr.data_address();
+
+            self.shared_pointers.insert(key, Box::new(shared_ptr) as Box<dyn SharedPointer>);
+            Ok(ptr_meta::from_raw_parts(data_address, metadata))
+        }
     }
 }

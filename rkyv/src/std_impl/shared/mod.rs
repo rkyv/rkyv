@@ -3,24 +3,21 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use core::{cmp::PartialEq, ops::Deref, pin::Pin};
+use core::{cmp::PartialEq, mem, ops::Deref, pin::Pin};
 use std::{rc::Rc, sync::Arc};
-use crate::{
-    de::SharedDeserializer,
-    ser::SharedSerializer,
-    Archive,
-    Archived,
-    ArchivePointee,
-    ArchiveUnsized,
-    Deserialize,
-    DeserializeUnsized,
-    RelPtr,
-    Serialize,
-    SerializeUnsized,
-};
+use crate::{Archive, ArchivePointee, ArchiveUnsized, Archived, Deserialize, DeserializeUnsized, RelPtr, Serialize, SerializeUnsized, de::{SharedDeserializer, SharedPointer}, ser::SharedSerializer};
+
+impl<T: ?Sized> SharedPointer for Rc<T> {
+    fn data_address(&self) -> *const () {
+        Rc::as_ptr(self) as *const ()
+    }
+}
 
 /// The resolver for [`Rc`].
-pub struct RcResolver(usize);
+pub struct RcResolver<T> {
+    pos: usize,
+    metadata_resolver: T,
+}
 
 /// An archived [`Rc`].
 ///
@@ -57,16 +54,19 @@ impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Rc<U>> for 
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Rc<T> {
     type Archived = ArchivedRc<T::Archived>;
-    type Resolver = RcResolver;
+    type Resolver = RcResolver<T::MetadataResolver>;
 
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        ArchivedRc(self.as_ref().resolve_unsized(pos, resolver.0))
+        unsafe { ArchivedRc(self.as_ref().resolve_unsized(pos, resolver.pos, resolver.metadata_resolver)) }
     }
 }
 
-impl<T: ArchiveUnsized + SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for Rc<T> {
+impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for Rc<T> {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(RcResolver(serializer.archive_shared(&**self)?))
+        Ok(RcResolver {
+            pos: serializer.archive_shared(&**self)?,
+            metadata_resolver: self.deref().serialize_metadata(serializer)?,
+        })
     }
 }
 
@@ -75,15 +75,27 @@ where
     T::Archived: DeserializeUnsized<T, D>,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<Rc<T>, D::Error> {
-        deserializer.deserialize_shared(
+        let raw_shared_ptr = deserializer.deserialize_shared::<T, Rc<T>, _>(
             &**self,
-            |ptr| Rc::<T>::from(unsafe { Box::from_raw(ptr) })
-        )
+            |ptr| Rc::<T>::from(unsafe { Box::from_raw(ptr) }),
+        )?;
+        let shared_ptr = unsafe { Rc::<T>::from_raw(raw_shared_ptr) };
+        mem::forget(shared_ptr.clone());
+        Ok(shared_ptr)
+    }
+}
+
+impl<T: ?Sized> SharedPointer for Arc<T> {
+    fn data_address(&self) -> *const () {
+        Arc::as_ptr(self) as *const ()
     }
 }
 
 /// The resolver for [`Arc`].
-pub struct ArcResolver(usize);
+pub struct ArcResolver<T> {
+    pos: usize,
+    metadata_resolver: T,
+}
 
 /// An archived [`Arc`].
 ///
@@ -120,16 +132,19 @@ impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Arc<U>> for
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Arc<T> {
     type Archived = ArchivedArc<T::Archived>;
-    type Resolver = ArcResolver;
+    type Resolver = ArcResolver<T::MetadataResolver>;
 
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        ArchivedArc(self.as_ref().resolve_unsized(pos, resolver.0))
+        unsafe { ArchivedArc(self.as_ref().resolve_unsized(pos, resolver.pos, resolver.metadata_resolver)) }
     }
 }
 
 impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for Arc<T> {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(ArcResolver(serializer.archive_shared(&**self)?))
+        Ok(ArcResolver {
+            pos: serializer.archive_shared(&**self)?,
+            metadata_resolver: self.deref().serialize_metadata(serializer)?,
+        })
     }
 }
 
@@ -138,9 +153,12 @@ where
     T::Archived: DeserializeUnsized<T, D>,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<Arc<T>, D::Error> {
-        deserializer.deserialize_shared(
+        let raw_shared_ptr = deserializer.deserialize_shared(
             &**self,
-            |ptr| Arc::<T>::from(unsafe { Box::from_raw(ptr) })
-        )
+            |ptr| Arc::<T>::from(unsafe { Box::from_raw(ptr) }),
+        )?;
+        let shared_ptr = unsafe { Arc::<T>::from_raw(raw_shared_ptr) };
+        mem::forget(shared_ptr.clone());
+        Ok(shared_ptr)
     }
 }

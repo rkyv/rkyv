@@ -14,6 +14,7 @@ use crate::{
     Deserialize,
     DeserializeUnsized,
     Fallible,
+    MetadataResolver,
     RelPtr,
     Serialize,
     SerializeUnsized,
@@ -129,14 +130,17 @@ impl fmt::Display for ArchivedString {
 }
 
 /// The resolver for `String`.
-pub struct StringResolver(usize);
+pub struct StringResolver {
+    pos: usize,
+    metadata_resolver: MetadataResolver<str>,
+}
 
 impl Archive for String {
     type Archived = ArchivedString;
     type Resolver = StringResolver;
 
     fn resolve(&self, pos: usize, resolver: StringResolver) -> Self::Archived {
-        ArchivedString(self.as_str().resolve_unsized(pos, resolver.0))
+        unsafe { ArchivedString(self.as_str().resolve_unsized(pos, resolver.pos, resolver.metadata_resolver)) }
     }
 }
 
@@ -145,13 +149,24 @@ where
     str: SerializeUnsized<S>,
 {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(StringResolver(self.as_str().serialize_unsized(serializer)?))
+        Ok(StringResolver {
+            pos: self.as_str().serialize_unsized(serializer)?,
+            metadata_resolver: self.as_str().serialize_metadata(serializer)?,
+        })
     }
 }
 
-impl<D: Fallible + ?Sized> Deserialize<String, D> for Archived<String> {
-    fn deserialize(&self, _: &mut D) -> Result<String, D::Error> {
-        Ok(self.as_str().to_string())
+impl<D: Fallible + ?Sized> Deserialize<String, D> for Archived<String>
+where
+    str: DeserializeUnsized<str, D>,
+{
+    fn deserialize(&self, deserializer: &mut D) -> Result<String, D::Error> {
+        unsafe {
+            let data_address = self.as_str().deserialize_unsized(deserializer)?;
+            let metadata = self.0.metadata().deserialize(deserializer)?;
+            let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
+            Ok(Box::<str>::from_raw(ptr).into())
+        }
     }
 }
 
@@ -201,20 +216,26 @@ impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Box<U>> for
 }
 
 /// The resolver for `Box`.
-pub struct BoxResolver(usize);
+pub struct BoxResolver<T> {
+    pos: usize,
+    metadata_resolver: T,
+}
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     type Archived = ArchivedBox<T::Archived>;
-    type Resolver = BoxResolver;
+    type Resolver = BoxResolver<T::MetadataResolver>;
 
-    fn resolve(&self, pos: usize, resolver: BoxResolver) -> Self::Archived {
-        ArchivedBox(self.as_ref().resolve_unsized(pos, resolver.0))
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        unsafe { ArchivedBox(self.as_ref().resolve_unsized(pos, resolver.pos, resolver.metadata_resolver)) }
     }
 }
 
 impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> Serialize<S> for Box<T> {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(BoxResolver(self.as_ref().serialize_unsized(serializer)?))
+        Ok(BoxResolver {
+            pos: self.as_ref().serialize_unsized(serializer)?,
+            metadata_resolver: self.as_ref().serialize_metadata(serializer)?,
+        })
     }
 }
 
@@ -223,7 +244,12 @@ where
     T::Archived: DeserializeUnsized<T, D>,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {
-        unsafe { Ok(Box::from_raw(self.deref().deserialize_unsized(deserializer)?)) }
+        unsafe {
+            let data_address = self.deref().deserialize_unsized(deserializer)?;
+            let metadata = self.deref().deserialize_metadata(deserializer)?;
+            let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
+            Ok(Box::from_raw(ptr))
+        }
     }
 }
 
@@ -268,16 +294,17 @@ impl<T> DerefMut for ArchivedVec<T> {
 }
 
 /// The resolver for `Vec`.
-pub struct VecResolver(usize);
+pub struct VecResolver<T> {
+    pos: usize,
+    metadata_resolver: T,
+}
 
 impl<T: Archive> Archive for Vec<T> {
     type Archived = ArchivedVec<T::Archived>;
-    type Resolver = VecResolver;
+    type Resolver = VecResolver<MetadataResolver<[T]>>;
 
-    fn resolve(&self, pos: usize, resolver: VecResolver) -> Self::Archived {
-        ArchivedVec(
-            self.as_slice().resolve_unsized(pos, resolver.0),
-        )
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        unsafe { ArchivedVec(self.as_slice().resolve_unsized(pos, resolver.pos, resolver.metadata_resolver)) }
     }
 }
 
@@ -286,7 +313,10 @@ where
     [T]: SerializeUnsized<S>,
 {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(VecResolver(self.as_slice().serialize_unsized(serializer)?))
+        Ok(VecResolver {
+            pos: self.as_slice().serialize_unsized(serializer)?,
+            metadata_resolver: self.as_slice().serialize_metadata(serializer)?,
+        })
     }
 }
 
@@ -296,7 +326,10 @@ where
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<Vec<T>, D::Error> {
         unsafe {
-            Ok(Box::from_raw(self.as_slice().deserialize_unsized(deserializer)?).into_vec())
+            let data_address = self.deref().deserialize_unsized(deserializer)?;
+            let metadata = self.deref().deserialize_metadata(deserializer)?;
+            let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
+            Ok(Box::<[T]>::from_raw(ptr).into())
         }
     }
 }

@@ -5,7 +5,7 @@ use crate::{
     std_impl::chd::{ArchivedHashMap, ArchivedHashSet, Entry},
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
     Fallible,
-    RelPtr,
+    RawRelPtr,
 };
 use bytecheck::{CheckBytes, SliceCheckError, Unreachable};
 use core::{
@@ -146,7 +146,7 @@ where
 
         let len = *u32::check_bytes(bytes.add(offset_of!(ArchivedHashMap<K, V>, len)).cast(), context)?;
 
-        let displace_rel_ptr = RelPtr::<u32>::manual_check_bytes(
+        let displace_rel_ptr = RawRelPtr::manual_check_bytes(
             bytes.add(offset_of!(ArchivedHashMap<K, V>, displace)).cast(),
             context,
         )?;
@@ -164,7 +164,7 @@ where
             }
         }
 
-        let entries_rel_ptr = RelPtr::<Entry<K, V>>::manual_check_bytes(
+        let entries_rel_ptr = RawRelPtr::manual_check_bytes(
             bytes.add(offset_of!(ArchivedHashMap<K, V>, entries)).cast(),
             context,
         )?;

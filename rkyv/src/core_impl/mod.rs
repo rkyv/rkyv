@@ -6,6 +6,9 @@ use crate::{
     ser::Serializer,
     Archive,
     ArchiveCopy,
+    ArchivedIsize,
+    ArchivedMetadata,
+    ArchivedUsize,
     ArchiveUnsized,
     Archived,
     ArchivePointee,
@@ -24,7 +27,8 @@ use core::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
         NonZeroU32, NonZeroU64, NonZeroU8,
     },
-    ptr, slice, str,
+    ptr,
+    str,
     sync::atomic::{
         self, AtomicBool, AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32,
         AtomicU64, AtomicU8,
@@ -47,7 +51,9 @@ impl<T> ArchivePointee for T {
 impl<T: Archive> ArchiveUnsized for T {
     type Archived = T::Archived;
 
-    fn archived_metadata(&self) -> <Self::Archived as ArchivePointee>::ArchivedMetadata {
+    type MetadataResolver = ();
+
+    fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {
         ()
     }
 }
@@ -56,17 +62,25 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for T {
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         Ok(serializer.archive(self)?)
     }
+
+    fn serialize_metadata(&self, _: &mut S) -> Result<ArchivedMetadata<Self>, S::Error> {
+        Ok(())
+    }
 }
 
 impl<T: Archive, D: Deserializer + ?Sized> DeserializeUnsized<T, D> for T::Archived
 where
     T::Archived: Deserialize<T, D>,
 {
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut T, D::Error> {
+    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
         let ptr = deserializer.alloc(alloc::Layout::new::<T>())?.cast::<T>();
         let deserialized = self.deserialize(deserializer)?;
         ptr.write(deserialized);
-        Ok(ptr)
+        Ok(ptr.cast())
+    }
+
+    fn deserialize_metadata(&self, _: &mut D) -> Result<<T as Pointee>::Metadata, D::Error> {
+        Ok(())
     }
 }
 
@@ -151,6 +165,48 @@ impl_primitive!(NonZeroU16);
 impl_primitive!(NonZeroU32);
 impl_primitive!(NonZeroU64);
 impl_primitive!(NonZeroU128);
+
+impl Archive for usize {
+    type Archived = ArchivedUsize;
+    type Resolver = ();
+
+    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
+        *self as ArchivedUsize
+    }
+}
+
+impl<S: Fallible + ?Sized> Serialize<S> for usize {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
+    }
+}
+
+impl<D: Fallible + ?Sized> Deserialize<usize, D> for ArchivedUsize {
+    fn deserialize(&self, _: &mut D) -> Result<usize, D::Error> {
+        Ok(*self as usize)
+    }
+}
+
+impl Archive for isize {
+    type Archived = ArchivedIsize;
+    type Resolver = ();
+
+    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
+        *self as ArchivedIsize
+    }
+}
+
+impl<S: Fallible + ?Sized> Serialize<S> for isize {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
+    }
+}
+
+impl<D: Fallible + ?Sized> Deserialize<isize, D> for ArchivedIsize {
+    fn deserialize(&self, _: &mut D) -> Result<isize, D::Error> {
+        Ok(*self as isize)
+    }
+}
 
 /// The resolver for atomic types.
 pub struct AtomicResolver;
@@ -359,48 +415,21 @@ where
     }
 }
 
-/// A strongly typed relative slice reference.
-///
-/// This is the reference type for all archived slices. It uses [`RelPtr`] under
-/// the hood and stores an additional length parameter.
-#[cfg_attr(feature = "strict", repr(C))]
-#[derive(Debug)]
-pub struct SliceMetadata<T> {
-    len: u32,
-    phantom: PhantomData<T>,
-}
-
-impl<T> SliceMetadata<T> {
-    pub fn new(len: u32) -> Self {
-        Self {
-            len,
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<T> Clone for SliceMetadata<T> {
-    fn clone(&self) -> Self {
-        Self {
-            len: self.len.clone(),
-            phantom: self.phantom.clone(),
-        }
-    }
-}
-
 impl<T: Archive> ArchiveUnsized for [T] {
     type Archived = [T::Archived];
 
-    fn archived_metadata(&self) -> SliceMetadata<T::Archived> {
-        SliceMetadata::new(self.len() as u32)
+    type MetadataResolver = ();
+
+    fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {
+        ptr_meta::metadata(self) as ArchivedUsize
     }
 }
 
 impl<T> ArchivePointee for [T] {
-    type ArchivedMetadata = SliceMetadata<T>;
+    type ArchivedMetadata = ArchivedUsize;
 
     fn to_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
-        archived.len as usize
+        *archived as usize
     }
 }
 
@@ -415,6 +444,10 @@ impl<T: ArchiveCopy, D: Serializer + ?Sized> SerializeUnsized<S> for [T] {
         } else {
             Ok(0)
         }
+    }
+
+    fn serialize_metadata(&self, serializer: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+        Ok(())
     }
 }
 
@@ -437,6 +470,10 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
             Ok(0)
         }
     }
+
+    fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+        Ok(())
+    }
 }
 
 #[cfg(not(feature = "std"))]
@@ -444,10 +481,10 @@ impl<T: ArchiveCopy, D: Deserializer + ?Sized> DeserializeUnsized<[T], D> for <[
 where
     T::Archived: Deserialize<T, D>,
 {
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut [T], D::Error> {
+    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
         let result = deserializer.alloc(alloc::Layout::array::<T>(self.len()).unwrap())?.cast::<T>();
         ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
-        Ok(slice::from_raw_parts_mut(result, self.len()))
+        Ok(result.cast())
     }
 }
 
@@ -456,25 +493,31 @@ impl<T: Archive, D: Deserializer + ?Sized> DeserializeUnsized<[T], D> for <[T] a
 where
     T::Archived: Deserialize<T, D>,
 {
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut [T], D::Error> {
+    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
         let result = deserializer.alloc(alloc::Layout::array::<T>(self.len()).unwrap())?.cast::<T>();
         for i in 0..self.len() {
             result.add(i).write(self[i].deserialize(deserializer)?);
         }
-        Ok(slice::from_raw_parts_mut(result, self.len()))
+        Ok(result.cast())
+    }
+
+    fn deserialize_metadata(&self, _: &mut D) -> Result<<[T] as Pointee>::Metadata, D::Error> {
+        Ok(ptr_meta::metadata(self))
     }
 }
 
 impl ArchiveUnsized for str {
     type Archived = str;
 
-    fn archived_metadata(&self) -> <Self::Archived as ArchivePointee>::ArchivedMetadata {
-        SliceMetadata::new(self.len() as u32)
+    type MetadataResolver = ();
+
+    fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {
+        ptr_meta::metadata(self) as ArchivedUsize
     }
 }
 
 impl ArchivePointee for str {
-    type ArchivedMetadata = SliceMetadata<u8>;
+    type ArchivedMetadata = ArchivedUsize;
 
     fn to_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
         <[u8]>::to_metadata(archived)
@@ -487,14 +530,21 @@ impl<S: Serializer + ?Sized> SerializeUnsized<S> for str {
         serializer.write(self.as_bytes())?;
         Ok(result)
     }
+
+    fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+        Ok(())
+    }
 }
 
 impl<D: Deserializer + ?Sized> DeserializeUnsized<str, D> for <str as ArchiveUnsized>::Archived {
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut str, D::Error> {
+    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
         let bytes = deserializer.alloc(alloc::Layout::array::<u8>(self.len()).unwrap())?;
         ptr::copy_nonoverlapping(self.as_ptr(), bytes, self.len());
-        let slice = slice::from_raw_parts_mut(bytes, self.len());
-        Ok(str::from_utf8_unchecked_mut(slice))
+        Ok(bytes.cast())
+    }
+
+    fn deserialize_metadata(&self, _: &mut D) -> Result<<str as Pointee>::Metadata, D::Error> {
+        Ok(ptr_meta::metadata(self))
     }
 }
 

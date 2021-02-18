@@ -164,10 +164,18 @@ pub fn archive_dyn(
                             where
                                 Archived<#ty>: for<'a> Deserialize<#ty, (dyn DynDeserializer + 'a)>,
                             {
-                                unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer) -> Result<*mut dyn #serialize_trait, DynError> {
+                                unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer) -> Result<*mut (), DynError> {
                                     let result = deserializer.alloc_dyn(core::alloc::Layout::new::<#ty>())? as *mut #ty;
                                     result.write(self.deserialize(deserializer)?);
-                                    Ok(result as *mut dyn #serialize_trait)
+                                    Ok(result as *mut ())
+                                }
+
+                                fn deserialize_dyn_metadata(&self, deserializer: &mut dyn DynDeserializer) -> Result<<dyn #serialize_trait as ptr_meta::Pointee>::Metadata, DynError> {
+                                    unsafe {
+                                        Ok(core::mem::transmute(
+                                            ptr_meta::metadata(core::ptr::null::<#ty>() as *const dyn #serialize_trait)
+                                        ))
+                                    }
                                 }
                             }
                         },
@@ -248,8 +256,12 @@ pub fn archive_dyn(
                         impl<__T: #name<#generic_args> + DeserializeDyn<dyn #serialize_trait<#generic_args>>, #generic_params> #deserialize_trait<#generic_args> for __T {}
 
                         impl<__D: Deserializer + ?Sized, #generic_params> DeserializeUnsized<dyn #serialize_trait<#generic_args>, __D> for dyn #deserialize_trait<#generic_args> {
-                            unsafe fn deserialize_unsized(&self, mut deserializer: &mut __D) -> Result<*mut dyn #serialize_trait<#generic_args>, __D::Error> {
-                                (*self).deserialize_dyn(&mut deserializer).map_err(|e| *e.downcast().unwrap())
+                            unsafe fn deserialize_unsized(&self, mut deserializer: &mut __D) -> Result<*mut (), __D::Error> {
+                                self.deserialize_dyn(&mut deserializer).map_err(|e| *e.downcast().unwrap())
+                            }
+
+                            fn deserialize_metadata(&self, mut deserializer: &mut __D) -> Result<<dyn #serialize_trait<#generic_args> as ptr_meta::Pointee>::Metadata, __D::Error> {
+                                self.deserialize_dyn_metadata(&mut deserializer).map_err(|e| *e.downcast().unwrap())
                             }
                         }
                     },
@@ -311,6 +323,7 @@ pub fn archive_dyn(
                 #pointee_input
                 #input
 
+                #[ptr_meta::pointee]
                 #vis trait #serialize_trait<#generic_params>: #name<#generic_args> + rkyv_dyn::SerializeDyn {}
 
                 #deserialize_trait_def
@@ -320,6 +333,7 @@ pub fn archive_dyn(
                         de::Deserializer,
                         ser::Serializer,
                         Archived,
+                        ArchivedMetadata,
                         ArchivePointee,
                         ArchiveUnsized,
                         DeserializeUnsized,
@@ -353,8 +367,9 @@ pub fn archive_dyn(
 
                     impl<#generic_params> ArchiveUnsized for dyn #serialize_trait<#generic_args> {
                         type Archived = dyn #deserialize_trait<#generic_args>;
+                        type MetadataResolver = ();
 
-                        fn archived_metadata(&self) -> <Self::Archived as ArchivePointee>::ArchivedMetadata {
+                        fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {
                             ArchivedDynMetadata::new(self.archived_type_id())
                         }
                     }
@@ -370,6 +385,10 @@ pub fn archive_dyn(
                     impl<__S: Serializer + ?Sized, #generic_params> SerializeUnsized<__S> for dyn #serialize_trait<#generic_args> {
                         fn serialize_unsized(&self, mut serializer: &mut __S) -> Result<usize, __S::Error> {
                             self.serialize_dyn(&mut serializer).map_err(|e| *e.downcast::<__S::Error>().unwrap())
+                        }
+
+                        fn serialize_metadata(&self, _: &mut __S) -> Result<Self::MetadataResolver, __S::Error> {
+                            Ok(())
                         }
                     }
 
