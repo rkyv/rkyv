@@ -28,8 +28,7 @@ pub struct RcResolver<T> {
 
 /// An archived `Rc`.
 ///
-/// This is a thin wrapper around the reference type for whatever type was
-/// archived. Multiple `ArchivedRc` may point to the same value.
+/// This is a thin wrapper around a [`RelPtr`] to the archived type.
 #[repr(transparent)]
 pub struct ArchivedRc<T: ArchivePointee + ?Sized>(RelPtr<T>);
 
@@ -206,8 +205,7 @@ pub struct ArcResolver<T> {
 
 /// An archived `Arc`.
 ///
-/// This is a thin wrapper around the reference type for whatever type was
-/// archived. Multiple `ArchivedArc` may point to the same value.
+/// This is a thin wrapper around a [`RelPtr`] to the archived type.
 #[repr(transparent)]
 pub struct ArchivedArc<T: ArchivePointee + ?Sized>(RelPtr<T>);
 

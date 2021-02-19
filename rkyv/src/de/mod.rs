@@ -32,8 +32,8 @@ pub trait SharedPointer {
 /// Shared pointers require this kind of context to deserialize.
 pub trait SharedDeserializer: Deserializer {
     /// Checks whether the given reference has been deserialized and either
-    /// uses the existing shared pointer to it or deserializes it. Then it uses
-    /// `to_shared` to create a shared pointer.
+    /// uses the existing shared pointer to it, or deserializes it and converts
+    /// it to a shared pointer with `to_shared`.
     fn deserialize_shared<
         T: ArchiveUnsized + ?Sized,
         P: SharedPointer + 'static,

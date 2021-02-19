@@ -17,25 +17,40 @@ use rkyv::{
 use rkyv_typename::TypeName;
 use std::{collections::HashMap, error::Error};
 
+/// A context that's object safe and suitable for checking most types.
 pub trait DynContext {
+    /// Checks the given parts of a relative pointer for bounds issues.
     unsafe fn check_rel_ptr_dyn(
         &mut self,
         base: *const u8,
         offset: isize,
     ) -> Result<*const u8, Box<dyn Error>>;
 
+    /// Checks the given memory block for bounds issues.
     unsafe fn bounds_check_ptr_dyn(
         &mut self,
         ptr: *const u8,
         layout: &Layout,
     ) -> Result<(), Box<dyn Error>>;
 
+    /// Claims `count` bytes located `offset` bytes away from `base`.
+    ///
+    /// # Safety
+    ///
+    /// `base` must be inside the archive this context was created for.
     unsafe fn claim_bytes_dyn(
         &mut self,
         start: *const u8,
         len: usize,
     ) -> Result<(), Box<dyn Error>>;
 
+    /// Claims `count` shared bytes located `offset` bytes away from `base`.
+    ///
+    /// Returns whether the bytes need to be checked.
+    ///
+    /// # Safety
+    ///
+    /// `base` must be inside the archive this context was created for.
     unsafe fn claim_shared_bytes_dyn(
         &mut self,
         start: *const u8,
@@ -314,6 +329,7 @@ impl CheckBytesEntry {
 
 inventory::collect!(CheckBytesEntry);
 
+#[doc(hidden)]
 pub struct CheckBytesRegistry {
     vtable_to_check_bytes: HashMap<usize, ImplValidation>,
 }
@@ -339,6 +355,7 @@ impl CheckBytesRegistry {
 }
 
 lazy_static::lazy_static! {
+    #[doc(hidden)]
     pub static ref CHECK_BYTES_REGISTRY: CheckBytesRegistry =  {
         let mut result = CheckBytesRegistry::new();
         for entry in inventory::iter::<CheckBytesEntry> {

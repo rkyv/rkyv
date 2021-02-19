@@ -1,3 +1,5 @@
+//! Validation implementations for std types.
+
 use super::{ArchivedBox, ArchivedString, ArchivedVec};
 use crate::{
     validation::{ArchiveBoundsContext, ArchiveMemoryContext, LayoutMetadata},
@@ -8,10 +10,14 @@ use core::fmt;
 use ptr_meta::Pointee;
 use std::error::Error;
 
+/// Errors that can occur while chechking archived owned pointers
 #[derive(Debug)]
 pub enum OwnedPointerError<T, R, C> {
+    /// The pointer failed to validate due to invalid metadata.
     PointerCheckBytesError(T),
+    /// The value pointed to by the owned pointer was invalid.
     ValueCheckBytesError(R),
+    /// An error occurred from the validation context.
     ContextError(C),
 }
 

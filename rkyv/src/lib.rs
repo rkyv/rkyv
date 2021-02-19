@@ -789,7 +789,8 @@ pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
     Pin::new_unchecked(&mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast())
 }
 
-/// Casts an archived reference from the given byte array at the given position.
+/// Casts a [`RelPtr`] to the given unsized type from the given byte array at
+/// the given position and returns the value it points to.
 ///
 /// This helps avoid situations where lifetimes get inappropriately assigned and
 /// allow buffer mutation after getting archived value references.
@@ -807,8 +808,8 @@ pub unsafe fn archived_unsized_value<T: ArchiveUnsized + ?Sized>(
     &*rel_ptr.as_ptr()
 }
 
-/// Casts a mutable archived reference from the given byte array at the given
-/// position.
+/// Casts a mutable [`RelPtr`] to the given unsized type from the given byte
+/// array at the given position and returns the value it points to.
 ///
 /// This helps avoid situations where lifetimes get inappropriately assigned and
 /// allow buffer mutation after getting archived value references.

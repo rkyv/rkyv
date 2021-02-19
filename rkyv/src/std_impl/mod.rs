@@ -166,8 +166,7 @@ where
 
 /// An archived [`Box`].
 ///
-/// This is a thin wrapper around the reference type for whatever type was
-/// archived.
+/// This is a thin wrapper around a [`RelPtr`] to the archived type.
 #[repr(transparent)]
 pub struct ArchivedBox<T: ArchivePointee + ?Sized>(RelPtr<T>);
 

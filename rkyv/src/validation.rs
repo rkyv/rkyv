@@ -54,7 +54,9 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
     }
 }
 
+/// Gets the layout of a type from its metadata.
 pub trait LayoutMetadata<T: ?Sized> {
+    /// Gets the layout of the type.
     fn layout(self) -> Layout;
 }
 
@@ -153,6 +155,7 @@ pub trait ArchiveBoundsContext: Fallible {
         offset: isize,
     ) -> Result<*const u8, Self::Error>;
 
+    /// Checks the given memory block for bounds issues.
     unsafe fn bounds_check_ptr(
         &mut self,
         ptr: *const u8,
