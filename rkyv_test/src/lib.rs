@@ -84,14 +84,27 @@ mod tests {
     use crate::util::*;
     use core::pin::Pin;
     use rkyv::{
-        archived_value, archived_value_mut,
-        de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer, Deserializer},
-        ser::{
-            adapters::SharedSerializerAdapter, serializers::BufferSerializer, SeekSerializer,
-            Serializer,
-        },
-        Aligned, Archive, ArchiveUnsized, Archived, Deserialize, DeserializeUnsized, Serialize,
+        Aligned,
+        Archive,
+        ArchiveUnsized,
+        Archived,
+        Deserialize,
+        DeserializeUnsized,
+        Serialize,
         SerializeUnsized,
+        archived_value,
+        archived_value_mut,
+        de::{
+            adapters::SharedDeserializerAdapter,
+            deserializers::AllocDeserializer,
+            Deserializer,
+        },
+        ser::{
+            SeekSerializer,
+            Serializer,
+            adapters::SharedSerializerAdapter,
+            serializers::BufferSerializer,
+        },
     };
 
     #[test]
@@ -147,6 +160,49 @@ mod tests {
         test_archive(&Some("hello world".to_string()));
         test_archive(&Some(vec![1, 2, 3, 4]));
         test_archive(&Some(Box::new(vec![1, 2, 3, 4])));
+    }
+
+    mod example {
+        #[test]
+        fn archive_example() {
+            use rkyv::{
+                archived_value,
+                de::deserializers::AllocDeserializer,
+                ser::{
+                    serializers::WriteSerializer,
+                    Serializer,
+                },
+                Archive,
+                Serialize,
+                Deserialize,
+            };
+
+            #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
+            struct Test {
+                int: u8,
+                string: String,
+                option: Option<Vec<i32>>,
+            }
+
+            let value = Test {
+                int: 42,
+                string: "hello world".to_string(),
+                option: Some(vec![1, 2, 3, 4]),
+            };
+
+            let mut serializer = WriteSerializer::new(Vec::new());
+            let pos = serializer.serialize_value(&value).expect("failed to serialize value");
+            let buf = serializer.into_inner();
+
+            let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+            assert_eq!(archived.int, value.int);
+            assert_eq!(archived.string, value.string);
+            assert_eq!(archived.option, value.option);
+
+            let mut deserializer = AllocDeserializer;
+            let deserialized = archived.deserialize(&mut deserializer).expect("failed to deserialize value");
+            assert_eq!(deserialized, value);
+        }
     }
 
     #[cfg(feature = "std")]

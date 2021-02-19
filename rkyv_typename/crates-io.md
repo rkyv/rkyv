@@ -15,6 +15,7 @@ rkyv_typename adds type names for rkyv_dyn.
 ## Sister Crates:
 
 - [bytecheck](https://github.com/djkoloski/bytecheck), which rkyv uses for validation
+- [ptr_meta](https://github.com/djkoloski/ptr_meta), which rkyv uses for pointer manipulation
 
 ---
 
