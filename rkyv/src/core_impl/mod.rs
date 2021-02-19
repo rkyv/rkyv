@@ -60,7 +60,7 @@ impl<T: Archive> ArchiveUnsized for T {
 
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for T {
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        Ok(serializer.archive(self)?)
+        Ok(serializer.serialize_value(self)?)
     }
 
     fn serialize_metadata(&self, _: &mut S) -> Result<ArchivedMetadata<Self>, S::Error> {

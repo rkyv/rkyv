@@ -32,7 +32,7 @@ use crate::{
 /// }
 ///
 /// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-/// let pos = serializer.archive(&Event::Speak("Help me!".to_string()))
+/// let pos = serializer.serialize_value(&Event::Speak("Help me!".to_string()))
 ///     .expect("failed to archive event");
 /// let buf = serializer.into_inner();
 /// let archived = unsafe { archived_value::<Event>(buf.as_ref(), pos) };

@@ -189,9 +189,9 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// let boxed_int = Box::new(IntStruct(42)) as Box<dyn SerializeExampleTrait>;
 /// let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn SerializeExampleTrait>;
 /// let mut serializer = WriteSerializer::new(Vec::new());
-/// let int_pos = serializer.archive(&boxed_int)
+/// let int_pos = serializer.serialize_value(&boxed_int)
 ///     .expect("failed to archive boxed int");
-/// let string_pos = serializer.archive(&boxed_string)
+/// let string_pos = serializer.serialize_value(&boxed_string)
 ///     .expect("failed to archive boxed string");
 /// let buf = serializer.into_inner();
 /// let archived_int = unsafe { archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), int_pos) };
@@ -218,7 +218,7 @@ where
     T::Archived: TypeName,
 {
     fn serialize_dyn(&self, serializer: &mut dyn DynSerializer) -> Result<usize, DynError> {
-        Ok(serializer.archive(self)?)
+        Ok(serializer.serialize_value(self)?)
     }
 
     fn archived_type_id(&self) -> u64 {

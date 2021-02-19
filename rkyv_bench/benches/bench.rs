@@ -397,12 +397,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("serialize", |b| {
             b.iter(|| {
                 let mut serializer = WriteSerializer::new(black_box(serialize_buffer.as_mut_slice()));
-                black_box(serializer.archive(black_box(&players)).unwrap());
+                black_box(serializer.serialize_value(black_box(&players)).unwrap());
             });
         });
 
         let mut serializer = WriteSerializer::new(Vec::new());
-        let pos = serializer.archive(&players).unwrap();
+        let pos = serializer.serialize_value(&players).unwrap();
         let buffer = serializer.into_inner();
 
         group.bench_function("access", |b| {

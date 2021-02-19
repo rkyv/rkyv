@@ -24,7 +24,7 @@ where
     T::Archived: CheckBytes<DefaultArchiveValidator>,
 {
     let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = serializer.archive(value).expect("failed to archive value");
+    let pos = serializer.serialize_value(value).expect("failed to archive value");
     let buf = serializer.into_inner();
     check_archive::<T>(buf.as_ref(), pos).unwrap();
 }
@@ -35,7 +35,7 @@ fn basic_functionality() {
     let value = Some("Hello world".to_string());
 
     let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = serializer.archive(&value).expect("failed to archive value");
+    let pos = serializer.serialize_value(&value).expect("failed to archive value");
     let buf = serializer.into_inner();
 
     let result = check_archive::<Option<String>>(buf.as_ref(), pos);
@@ -318,7 +318,7 @@ fn check_dyn() {
     let value: Box<dyn SerializeTestTrait> = Box::new(TestUnchecked { id: 42 });
 
     let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = serializer.archive(&value).expect("failed to archive value");
+    let pos = serializer.serialize_value(&value).expect("failed to archive value");
     let buf = serializer.into_inner();
     if let Ok(_) = check_archive::<Box<dyn SerializeTestTrait>>(buf.as_ref(), pos) {
         panic!("check passed for type that does not implement CheckBytes");
@@ -343,7 +343,7 @@ fn check_shared_ptr() {
     };
 
     let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-    let pos = serializer.archive(&value).expect("failed to archive value");
+    let pos = serializer.serialize_value(&value).expect("failed to archive value");
     let buf = serializer.into_inner().into_inner();
 
     check_archive::<Test>(buf.as_ref(), pos).unwrap();

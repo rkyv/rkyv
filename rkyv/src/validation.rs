@@ -594,7 +594,7 @@ pub type DefaultArchiveValidator = SharedArchiveValidator<ArchiveValidator<Archi
 /// };
 ///
 /// let mut serializer = WriteSerializer::new(Vec::new());
-/// let pos = serializer.archive(&value)
+/// let pos = serializer.serialize_value(&value)
 ///     .expect("failed to archive test");
 /// let buf = serializer.into_inner();
 /// let archived = check_archive::<Example>(buf.as_ref(), pos).unwrap();

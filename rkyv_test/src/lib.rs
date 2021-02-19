@@ -26,7 +26,7 @@ mod util {
         T::Archived: PartialEq<T> + Deserialize<T, DefaultDeserializer>,
     {
         let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer.archive(value).expect("failed to archive value");
+        let pos = serializer.serialize_value(value).expect("failed to archive value");
         let buf = serializer.into_inner().into_inner();
         let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
@@ -39,7 +39,7 @@ mod util {
         T::Archived: PartialEq<T>,
     {
         let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer.archive_unsized(value).expect("failed to archive ref");
+        let pos = serializer.serialize_unsized_value(value).expect("failed to archive ref");
         let buf = serializer.into_inner().into_inner();
         let archived_ref = unsafe { archived_unsized_value::<T>(buf.as_ref(), pos) };
         assert!(archived_ref == value);
@@ -54,7 +54,7 @@ mod util {
         value: &T,
     ) {
         let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer.archive(value).expect("failed to archive ref");
+        let pos = serializer.serialize_value(value).expect("failed to archive ref");
         let buf = serializer.into_inner().into_inner();
         let archived_ref = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_ref.deref() == value.deref());
@@ -177,7 +177,7 @@ mod tests {
         hash_map.insert("baz".to_string(), "bat".to_string());
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.archive(&hash_map).expect("failed to archive value");
+        let pos = serializer.serialize_value(&hash_map).expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value =
             unsafe { archived_value::<HashMap<String, String>>(buf.as_ref(), pos) };
@@ -490,7 +490,7 @@ mod tests {
         let value = Test(42);
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.archive(&value).expect("failed to archive value");
+        let pos = serializer.serialize_value(&value).expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 
@@ -623,7 +623,7 @@ mod tests {
         let value: Box<dyn SerializeTestTrait> = Box::new(Test { id: 42 });
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.archive(&value).expect("failed to archive value");
+        let pos = serializer.serialize_value(&value).expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value =
             unsafe { archived_value::<Box<dyn SerializeTestTrait>>(buf.as_ref(), pos) };
@@ -669,7 +669,7 @@ mod tests {
         let value: Box<dyn STestTrait> = Box::new(Test { id: 42 });
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.archive(&value).expect("failed to archive value");
+        let pos = serializer.serialize_value(&value).expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value = unsafe { archived_value::<Box<dyn STestTrait>>(buf.as_ref(), pos) };
         assert_eq!(value.get_id(), archived_value.get_id());
@@ -761,9 +761,9 @@ mod tests {
         });
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let i32_pos = serializer.archive(&i32_value).expect("failed to archive value");
+        let i32_pos = serializer.serialize_value(&i32_value).expect("failed to archive value");
         let string_pos = serializer
-            .archive(&string_value)
+            .serialize_value(&string_value)
             .expect("failed to archive value");
         let buf = serializer.into_inner();
         let i32_archived_value =
@@ -831,7 +831,7 @@ mod tests {
     #[test]
     fn basic_mutable_refs() {
         let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-        let pos = serializer.archive(&42i32).unwrap();
+        let pos = serializer.serialize_value(&42i32).unwrap();
         let mut buf = serializer.into_inner();
         let mut value = unsafe { archived_value_mut::<i32>(Pin::new(buf.as_mut()), pos) };
         assert_eq!(*value, 42);
@@ -874,7 +874,7 @@ mod tests {
         value.c.insert(5, [17, 24]);
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-        let pos = serializer.archive(&value).unwrap();
+        let pos = serializer.serialize_value(&value).unwrap();
         let mut buf = serializer.into_inner();
         let mut value = unsafe { archived_value_mut::<Test>(Pin::new(buf.as_mut()), pos) };
 
@@ -927,7 +927,7 @@ mod tests {
         let value = Test::A;
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-        let pos = serializer.archive(&value).unwrap();
+        let pos = serializer.serialize_value(&value).unwrap();
         let mut buf = serializer.into_inner();
         let mut value = unsafe { archived_value_mut::<Test>(Pin::new(buf.as_mut()), pos) };
 
@@ -989,7 +989,7 @@ mod tests {
         let value = Box::new(Test(10)) as Box<dyn SerializeTestTrait>;
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-        let pos = serializer.archive(&value).unwrap();
+        let pos = serializer.serialize_value(&value).unwrap();
         let mut buf = serializer.into_inner();
         let mut value =
             unsafe { archived_value_mut::<Box<dyn SerializeTestTrait>>(Pin::new(buf.as_mut()), pos) };
@@ -1152,7 +1152,7 @@ mod tests {
         };
 
         let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer.archive(&value).expect("failed to archive value");
+        let pos = serializer.serialize_value(&value).expect("failed to archive value");
         let mut buf = serializer.into_inner().into_inner();
 
         let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
@@ -1250,7 +1250,7 @@ mod tests {
         };
 
         let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer.archive(&value).expect("failed to archive value");
+        let pos = serializer.serialize_value(&value).expect("failed to archive value");
         let mut buf = serializer.into_inner().into_inner();
 
         let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };

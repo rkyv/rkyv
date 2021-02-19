@@ -136,7 +136,7 @@ pub trait Fallible {
 /// };
 ///
 /// let mut serializer = WriteSerializer::new(Vec::new());
-/// let pos = serializer.archive(&value)
+/// let pos = serializer.serialize_value(&value)
 ///     .expect("failed to archive test");
 /// let buf = serializer.into_inner();
 ///
@@ -244,7 +244,7 @@ pub trait Fallible {
 /// const STR_VAL: &'static str = "I'm in an OwnedStr!";
 /// let value = OwnedStr { inner: STR_VAL };
 /// // It works!
-/// let pos = serializer.archive(&value)
+/// let pos = serializer.serialize_value(&value)
 ///     .expect("failed to archive test");
 /// let buf = serializer.into_inner();
 /// let archived = unsafe { archived_value::<OwnedStr>(buf.as_ref(), pos) };
@@ -418,7 +418,7 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 /// let unsized_value = unsafe { &*mem::transmute::<(*const (), usize), *const Block<String, [i32]>>((ptr, 4)) };
 ///
 /// let mut serializer = WriteSerializer::new(Vec::new());
-/// let pos = serializer.archive_unsized(unsized_value)
+/// let pos = serializer.serialize_unsized_value(unsized_value)
 ///     .expect("failed to archive block");
 /// let buf = serializer.into_inner();
 ///
@@ -514,7 +514,7 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
 ///
 /// let mut serializer = WriteSerializer::new(Vec::new());
 /// let value = Vector4(1f32, 2f32, 3f32, 4f32);
-/// let pos = serializer.archive(&value)
+/// let pos = serializer.serialize_value(&value)
 ///     .expect("failed to archive Vector4");
 /// let buf = serializer.into_inner();
 /// let archived_value = unsafe { archived_value::<Vector4<f32>>(buf.as_ref(), pos) };
