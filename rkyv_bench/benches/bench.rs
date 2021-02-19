@@ -2,8 +2,12 @@ use bytecheck::CheckBytes;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
-use rkyv::{archived_value, check_archive, Aligned, Archive, ArchiveBuffer, Unarchive, Write};
-use serde::{Deserialize, Serialize};
+use rkyv::{
+    archived_value, check_archive,
+    de::deserializers::AllocDeserializer,
+    ser::{serializers::WriteSerializer, Serializer},
+    Archive, Deserialize, Serialize,
+};
 use std::collections::HashMap;
 
 trait Generate {
@@ -82,7 +86,9 @@ fn generate_vec<R: Rng, T: Generate>(rng: &mut R, range: core::ops::Range<usize>
     result
 }
 
-#[derive(Archive, CheckBytes, Clone, Copy, Deserialize, Serialize, Unarchive)]
+#[derive(
+    Archive, Serialize, CheckBytes, Clone, Copy, Deserialize, serde::Deserialize, serde::Serialize,
+)]
 #[archive(copy)]
 #[repr(u8)]
 pub enum GameType {
@@ -104,7 +110,7 @@ impl Generate for GameType {
     }
 }
 
-#[derive(Archive, Deserialize, Serialize, Unarchive)]
+#[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
 #[archive(derive(CheckBytes))]
 pub struct Item {
     count: i8,
@@ -132,7 +138,9 @@ impl Generate for Item {
     }
 }
 
-#[derive(Archive, CheckBytes, Clone, Copy, Deserialize, Serialize, Unarchive)]
+#[derive(
+    Archive, Serialize, CheckBytes, Clone, Copy, Deserialize, serde::Serialize, serde::Deserialize,
+)]
 #[archive(copy)]
 pub struct Abilities {
     walk_speed: f32,
@@ -158,7 +166,7 @@ impl Generate for Abilities {
     }
 }
 
-#[derive(Archive, Deserialize, Serialize, Unarchive)]
+#[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
 #[archive(derive(CheckBytes))]
 pub struct Entity {
     id: String,
@@ -210,7 +218,7 @@ impl Generate for Entity {
     }
 }
 
-#[derive(Archive, Deserialize, Serialize, Unarchive)]
+#[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
 #[archive(derive(CheckBytes))]
 pub struct RecipeBook {
     recipes: Vec<String>,
@@ -260,7 +268,7 @@ impl Generate for RecipeBook {
     }
 }
 
-#[derive(Archive, Deserialize, Serialize, Unarchive)]
+#[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
 #[archive(derive(CheckBytes))]
 pub struct Player {
     game_type: GameType,
@@ -363,17 +371,21 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }
 
     const BUFFER_LEN: usize = 10_000_000;
+
     let mut group = c.benchmark_group("bincode");
     {
-        let mut buffer = Vec::with_capacity(BUFFER_LEN);
+        let mut serialize_buffer = vec![0; BUFFER_LEN];
         group.bench_function("serialize", |b| {
             b.iter(|| {
-                black_box(&mut buffer).clear();
-                bincode::serialize_into(black_box(&mut buffer), black_box(&players)).unwrap();
+                bincode::serialize_into(
+                    black_box(serialize_buffer.as_mut_slice()),
+                    black_box(&players),
+                )
+                .unwrap();
             })
         });
 
-        buffer.clear();
+        let mut buffer = Vec::new();
         bincode::serialize_into(&mut buffer, &players).unwrap();
 
         group.bench_function("deserialize", |b| {
@@ -386,18 +398,18 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("rkyv");
     {
-        let mut buffer = vec![Aligned(0u8); BUFFER_LEN];
-        let mut buffer =
-            unsafe { core::slice::from_raw_parts_mut(buffer.as_mut_ptr().cast(), buffer.len()) };
+        let mut serialize_buffer = vec![0u8; BUFFER_LEN];
         group.bench_function("serialize", |b| {
             b.iter(|| {
-                let mut writer = ArchiveBuffer::new(black_box(&mut buffer));
-                black_box(writer.archive(black_box(&players)).unwrap());
-            })
+                let mut serializer =
+                    WriteSerializer::new(black_box(serialize_buffer.as_mut_slice()));
+                black_box(serializer.serialize_value(black_box(&players)).unwrap());
+            });
         });
 
-        let mut writer = ArchiveBuffer::new(&mut buffer);
-        let pos = writer.archive(&players).unwrap();
+        let mut serializer = WriteSerializer::new(Vec::new());
+        let pos = serializer.serialize_value(&players).unwrap();
+        let buffer = serializer.into_inner();
 
         group.bench_function("access", |b| {
             b.iter(|| {
@@ -416,16 +428,16 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 let value = unsafe {
                     archived_value::<Players>(black_box(buffer.as_ref()), black_box(pos))
                 };
-                let unarchived: Players = value.unarchive();
-                black_box(unarchived);
+                let deserialized: Players = value.deserialize(&mut AllocDeserializer).unwrap();
+                black_box(deserialized);
             })
         });
         group.bench_function("deserialize with validate", |b| {
             b.iter(|| {
                 let value =
                     check_archive::<Players>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
-                let unarchived: Players = value.unarchive();
-                black_box(unarchived);
+                let deserialize: Players = value.deserialize(&mut AllocDeserializer).unwrap();
+                black_box(deserialize);
             })
         });
     }

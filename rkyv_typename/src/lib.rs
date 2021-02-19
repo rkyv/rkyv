@@ -22,14 +22,12 @@
 //!
 //! ## Features
 //!
-//! - `const_generics`: Uses the incomplete `const_generics` feature to
+//! - `const_generics`: Uses the unstable `min_const_generics` feature to
 //!   implement array type names.
 //! - `std`: Implements [`TypeName`] for standard library types (enabled by
 //!   default)
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "const_generics", allow(incomplete_features))]
-#![cfg_attr(feature = "const_generics", feature(const_generics))]
 
 mod core_impl;
 #[cfg(feature = "std")]

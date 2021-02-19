@@ -1,6 +1,11 @@
 use bytecheck::CheckBytes;
 use core::fmt;
-use rkyv::{check_archive, Aligned, Archive, ArchiveBuffer, ArchiveContext, Write};
+use rkyv::{
+    check_archive,
+    ser::{adapters::SharedSerializerAdapter, serializers::BufferSerializer, Serializer},
+    validation::DefaultArchiveValidator,
+    Aligned, Archive, Serialize,
+};
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
@@ -8,13 +13,15 @@ use std::{
 
 const BUFFER_SIZE: usize = 512;
 
-fn archive_and_check<T: Archive>(value: &T)
+fn serialize_and_check<T: Serialize<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>>(value: &T)
 where
-    T::Archived: CheckBytes<ArchiveContext>,
+    T::Archived: CheckBytes<DefaultArchiveValidator>,
 {
-    let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = writer.archive(value).expect("failed to archive value");
-    let buf = writer.into_inner();
+    let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
+    let pos = serializer
+        .serialize_value(value)
+        .expect("failed to archive value");
+    let buf = serializer.into_inner();
     check_archive::<T>(buf.as_ref(), pos).unwrap();
 }
 
@@ -23,14 +30,16 @@ fn basic_functionality() {
     // Regular archiving
     let value = Some("Hello world".to_string());
 
-    let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = writer.archive(&value).expect("failed to archive value");
-    let buf = writer.into_inner();
+    let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
+    let pos = serializer
+        .serialize_value(&value)
+        .expect("failed to archive value");
+    let buf = serializer.into_inner();
 
     let result = check_archive::<Option<String>>(buf.as_ref(), pos);
     result.unwrap();
 
-    #[cfg(not(feature = "long_rel_ptrs"))]
+    #[cfg(not(feature = "size_64"))]
     // Synthetic archive (correct)
     let synthetic_buf = [
         1u8, 0u8, 0u8, 0u8, // Some + padding
@@ -40,7 +49,7 @@ fn basic_functionality() {
         0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
     ];
 
-    #[cfg(feature = "long_rel_ptrs")]
+    #[cfg(feature = "size_64")]
     // Synthetic archive (correct)
     let synthetic_buf = [
         1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // Some + padding
@@ -97,14 +106,30 @@ fn overlapping_claims() {
 
 #[test]
 fn cycle_detection() {
-    use rkyv::{ArchiveContext, Archived};
+    use rkyv::{
+        validation::{ArchiveBoundsContext, ArchiveMemoryContext},
+        Archived,
+    };
 
     #[derive(Archive)]
-    #[archive(derive(Debug), name)]
+    #[archive(derive(Debug))]
+    struct NodePtr(Box<Node>);
+
+    #[allow(dead_code)]
+    #[derive(Archive)]
+    #[archive(derive(Debug))]
     enum Node {
         Nil,
-        #[allow(dead_code)]
         Cons(#[recursive] Box<Node>),
+    }
+
+    impl<S: Serializer + ?Sized> Serialize<S> for Node {
+        fn serialize(&self, serializer: &mut S) -> Result<NodeResolver, S::Error> {
+            Ok(match self {
+                Node::Nil => NodeResolver::Nil,
+                Node::Cons(inner) => NodeResolver::Cons(inner.serialize(serializer)?),
+            })
+        }
     }
 
     #[derive(Debug)]
@@ -116,21 +141,29 @@ fn cycle_detection() {
         }
     }
 
-    impl Error for NodeError {}
+    impl Error for NodeError {
+        fn source(&self) -> Option<&(dyn Error + 'static)> {
+            Some(&*self.0)
+        }
+    }
 
-    impl CheckBytes<ArchiveContext> for ArchivedNode {
+    impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedNode
+    where
+        C::Error: Error,
+    {
         type Error = NodeError;
 
         unsafe fn check_bytes<'a>(
-            bytes: *const u8,
-            context: &mut ArchiveContext,
+            value: *const Self,
+            context: &mut C,
         ) -> Result<&'a Self, Self::Error> {
-            let tag = *bytes.cast::<u8>();
+            let bytes = value.cast::<u8>();
+            let tag = *bytes;
             match tag {
                 0 => (),
                 1 => {
-                    <Archived<Box<Node>> as CheckBytes<ArchiveContext>>::check_bytes(
-                        bytes.add(4),
+                    <Archived<Box<Node>> as CheckBytes<C>>::check_bytes(
+                        bytes.add(4).cast(),
                         context,
                     )
                     .map_err(|e| NodeError(e.into()))?;
@@ -156,16 +189,16 @@ fn cycle_detection() {
 
 #[test]
 fn derive_unit_struct() {
-    #[derive(Archive)]
+    #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
     struct Test;
 
-    archive_and_check(&Test);
+    serialize_and_check(&Test);
 }
 
 #[test]
 fn derive_struct() {
-    #[derive(Archive)]
+    #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
     struct Test {
         a: u32,
@@ -173,7 +206,7 @@ fn derive_struct() {
         c: Box<Vec<String>>,
     }
 
-    archive_and_check(&Test {
+    serialize_and_check(&Test {
         a: 42,
         b: "hello world".to_string(),
         c: Box::new(vec!["yes".to_string(), "no".to_string()]),
@@ -182,11 +215,11 @@ fn derive_struct() {
 
 #[test]
 fn derive_tuple_struct() {
-    #[derive(Archive)]
+    #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
     struct Test(u32, String, Box<Vec<String>>);
 
-    archive_and_check(&Test(
+    serialize_and_check(&Test(
         42,
         "hello world".to_string(),
         Box::new(vec!["yes".to_string(), "no".to_string()]),
@@ -195,7 +228,7 @@ fn derive_tuple_struct() {
 
 #[test]
 fn derive_enum() {
-    #[derive(Archive)]
+    #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
     enum Test {
         A(u32),
@@ -203,9 +236,9 @@ fn derive_enum() {
         C(Box<Vec<String>>),
     }
 
-    archive_and_check(&Test::A(42));
-    archive_and_check(&Test::B("hello world".to_string()));
-    archive_and_check(&Test::C(Box::new(vec![
+    serialize_and_check(&Test::A(42));
+    serialize_and_check(&Test::B("hello world".to_string()));
+    serialize_and_check(&Test::C(Box::new(vec![
         "yes".to_string(),
         "no".to_string(),
     ])));
@@ -219,7 +252,7 @@ fn hashmap() {
     map.insert("foo".to_string(), 56);
     map.insert("bar".to_string(), 78);
     map.insert("baz".to_string(), 90);
-    archive_and_check(&map);
+    serialize_and_check(&map);
 
     let mut set = HashSet::new();
     set.insert("Hello".to_string());
@@ -227,7 +260,7 @@ fn hashmap() {
     set.insert("foo".to_string());
     set.insert("bar".to_string());
     set.insert("baz".to_string());
-    archive_and_check(&set);
+    serialize_and_check(&set);
 }
 
 #[test]
@@ -241,7 +274,7 @@ fn check_dyn() {
         fn get_id(&self) -> i32;
     }
 
-    #[derive(Archive)]
+    #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes, TypeName))]
     pub struct Test {
         id: i32,
@@ -260,11 +293,11 @@ fn check_dyn() {
         }
     }
 
-    let value: Box<dyn ArchiveTestTrait> = Box::new(Test { id: 42 });
+    let value: Box<dyn SerializeTestTrait> = Box::new(Test { id: 42 });
 
-    archive_and_check(&value);
+    serialize_and_check(&value);
 
-    #[derive(Archive)]
+    #[derive(Archive, Serialize)]
     #[archive(derive(TypeName))]
     pub struct TestUnchecked {
         id: i32,
@@ -283,12 +316,41 @@ fn check_dyn() {
         }
     }
 
-    let value: Box<dyn ArchiveTestTrait> = Box::new(TestUnchecked { id: 42 });
+    let value: Box<dyn SerializeTestTrait> = Box::new(TestUnchecked { id: 42 });
 
-    let mut writer = ArchiveBuffer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = writer.archive(&value).expect("failed to archive value");
-    let buf = writer.into_inner();
-    if let Ok(_) = check_archive::<Box<dyn ArchiveTestTrait>>(buf.as_ref(), pos) {
+    let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
+    let pos = serializer
+        .serialize_value(&value)
+        .expect("failed to archive value");
+    let buf = serializer.into_inner();
+    if let Ok(_) = check_archive::<Box<dyn SerializeTestTrait>>(buf.as_ref(), pos) {
         panic!("check passed for type that does not implement CheckBytes");
     }
+}
+
+#[test]
+fn check_shared_ptr() {
+    use std::rc::Rc;
+
+    #[derive(Archive, Serialize, Eq, PartialEq)]
+    #[archive(derive(CheckBytes))]
+    struct Test {
+        a: Rc<u32>,
+        b: Rc<u32>,
+    }
+
+    let shared = Rc::new(10);
+    let value = Test {
+        a: shared.clone(),
+        b: shared.clone(),
+    };
+
+    let mut serializer =
+        SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
+    let pos = serializer
+        .serialize_value(&value)
+        .expect("failed to archive value");
+    let buf = serializer.into_inner().into_inner();
+
+    check_archive::<Test>(buf.as_ref(), pos).unwrap();
 }

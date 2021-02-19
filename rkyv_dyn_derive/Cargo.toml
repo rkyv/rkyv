@@ -1,6 +1,6 @@
 [package]
 name = "rkyv_dyn_derive"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Macros for rkyv_dyn"
@@ -17,6 +17,10 @@ proc-macro = true
 proc-macro2 = "1.0"
 syn = { version = "1.0", features = ["full"] }
 quote = "1.0"
+
+[features]
+default = []
+validation = []
 
 [package.metadata.docs.rs]
 all-features = true

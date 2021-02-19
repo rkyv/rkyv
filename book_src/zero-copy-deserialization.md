@@ -3,7 +3,7 @@
 Zero-copy deserialization is a technique that reduces the time and memory required to deserialize
 data by directly referencing bytes in the serialized form.
 
-## Partial ZCD
+## Partial zero-copy
 
 Serde and others have support for partial zero-copy deserialization, where bits and pieces of the
 deserialized data are borrowed from the serialized form. Strings, for example, can borrow their
@@ -14,7 +14,7 @@ to the borrowed characters.
 Partial zero-copy deserialization can considerably improve memory usage and often speed up
 some deserialiation, but with some work we can go further.
 
-## Total ZCD
+## Total zero-copy
 
 rkyv implements total zero-copy deserialization, which guarantees that no data is copied during
 deserialization and no work is done to deserialize data. It achieves this by structuring its encoded

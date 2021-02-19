@@ -6,7 +6,10 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{offset_of, Archive, Archived, RelPtr, Resolve, Unarchive, Write};
+use crate::{
+    offset_of, ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible, RawRelPtr,
+    Serialize,
+};
 use core::{
     borrow::Borrow,
     cmp::Reverse,
@@ -20,6 +23,7 @@ use core::{
 };
 use std::collections::{HashMap, HashSet};
 
+#[cfg_attr(feature = "strict", repr(C))]
 struct Entry<K, V> {
     key: K,
     value: V,
@@ -27,12 +31,11 @@ struct Entry<K, V> {
 
 /// An archived `HashMap`.
 #[cfg_attr(feature = "strict", repr(C))]
-#[derive(Debug)]
 pub struct ArchivedHashMap<K, V> {
-    len: u32,
-    displace: RelPtr,
-    entries: RelPtr,
-    phantom: PhantomData<(K, V)>,
+    len: ArchivedUsize,
+    displace: RawRelPtr,
+    entries: RawRelPtr,
+    _phantom: PhantomData<(K, V)>,
 }
 
 impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
@@ -51,20 +54,22 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         )
     }
 
+    /// Gets the hasher for this hashmap. The hasher for all archived hashmaps
+    /// is the same for reproducibility.
     pub fn hasher(&self) -> seahash::SeaHasher {
         Self::make_hasher()
     }
 
     unsafe fn displace(&self, index: usize) -> u32 {
-        *self.displace.as_ptr::<u32>().add(index)
+        *self.displace.as_ptr().cast::<u32>().add(index)
     }
 
     unsafe fn entry(&self, index: usize) -> &Entry<K, V> {
-        &*self.entries.as_ptr::<Entry<K, V>>().add(index)
+        &*self.entries.as_ptr().cast::<Entry<K, V>>().add(index)
     }
 
     unsafe fn entry_mut(&mut self, index: usize) -> &mut Entry<K, V> {
-        &mut *self.entries.as_mut_ptr::<Entry<K, V>>().add(index)
+        &mut *self.entries.as_mut_ptr().cast::<Entry<K, V>>().add(index)
     }
 
     #[inline]
@@ -97,7 +102,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         }
     }
 
-    /// Find the key-value entry for a key.
+    /// Finds the key-value entry for a key.
     #[inline]
     pub fn get_key_value<Q: ?Sized>(&self, k: &Q) -> Option<(&K, &V)>
     where
@@ -110,7 +115,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         })
     }
 
-    /// Find the mutable key-value entry for a key.
+    /// Finds the mutable key-value entry for a key.
     #[inline]
     pub fn get_key_value_pin<Q: ?Sized>(self: Pin<&mut Self>, k: &Q) -> Option<(&K, Pin<&mut V>)>
     where
@@ -170,14 +175,14 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
     #[inline]
     fn raw_iter(&self) -> RawIter<'_, K, V> {
-        RawIter::new(self.entries.as_ptr(), self.len())
+        RawIter::new(self.entries.as_ptr().cast(), self.len())
     }
 
     #[inline]
     fn raw_iter_pin(self: Pin<&mut Self>) -> RawIterPin<'_, K, V> {
         unsafe {
             let hash_map = self.get_unchecked_mut();
-            RawIterPin::new(hash_map.entries.as_mut_ptr(), hash_map.len())
+            RawIterPin::new(hash_map.entries.as_mut_ptr().cast(), hash_map.len())
         }
     }
 
@@ -222,16 +227,16 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     }
 
     #[inline]
-    fn archive_from_iter<
+    fn serialize_from_iter<
         'a,
-        KU: 'a + Archive<Archived = K> + Hash + Eq,
-        VU: 'a + Archive<Archived = V>,
-        W: Write + ?Sized,
+        KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
+        VU: 'a + Serialize<S, Archived = V>,
+        S: Serializer + ?Sized,
     >(
         iter: impl Iterator<Item = (&'a KU, &'a VU)>,
         len: usize,
-        writer: &mut W,
-    ) -> Result<ArchivedHashMapResolver, W::Error> {
+        serializer: &mut S,
+    ) -> Result<ArchivedHashMapResolver, S::Error> {
         let mut bucket_size = vec![0u32; len];
         let mut displaces = Vec::with_capacity(len);
 
@@ -301,28 +306,28 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
             .iter()
             .map(|e| {
                 let (key, value) = e.unwrap();
-                Ok((key.archive(writer)?, value.archive(writer)?))
+                Ok((key.serialize(serializer)?, value.serialize(serializer)?))
             })
             .collect::<Result<Vec<_>, _>>()?;
 
         // Write blocks
-        let displace_pos = writer.align_for::<u32>()?;
+        let displace_pos = serializer.align_for::<u32>()?;
         let displacements_slice = unsafe {
             slice::from_raw_parts(
                 displacements.as_ptr().cast::<u8>(),
                 displacements.len() * size_of::<u32>(),
             )
         };
-        writer.write(displacements_slice)?;
+        serializer.write(displacements_slice)?;
 
-        let entries_pos = writer.align_for::<Entry<K, V>>()?;
+        let entries_pos = serializer.align_for::<Entry<K, V>>()?;
         for ((key, value), (key_resolver, value_resolver)) in
             entries.iter().map(|r| r.unwrap()).zip(resolvers.drain(..))
         {
-            let entry_pos = writer.pos();
+            let entry_pos = serializer.pos();
             let entry = Entry {
-                key: key_resolver.resolve(entry_pos + offset_of!(Entry<K, V>, key), key),
-                value: value_resolver.resolve(entry_pos + offset_of!(Entry<K, V>, value), value),
+                key: key.resolve(entry_pos + offset_of!(Entry<K, V>, key), key_resolver),
+                value: value.resolve(entry_pos + offset_of!(Entry<K, V>, value), value_resolver),
             };
             let entry_slice = unsafe {
                 slice::from_raw_parts(
@@ -330,7 +335,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
                     size_of::<Entry<K, V>>(),
                 )
             };
-            writer.write(entry_slice)?;
+            serializer.write(entry_slice)?;
         }
 
         Ok(ArchivedHashMapResolver {
@@ -564,26 +569,18 @@ impl ArchivedHashMapResolver {
     fn resolve_from_len<K, V>(self, pos: usize, len: usize) -> ArchivedHashMap<K, V> {
         unsafe {
             ArchivedHashMap {
-                len: len as u32,
-                displace: RelPtr::new(
+                len: len as ArchivedUsize,
+                displace: RawRelPtr::new(
                     pos + offset_of!(ArchivedHashMap<K, V>, displace),
                     self.displace_pos,
                 ),
-                entries: RelPtr::new(
+                entries: RawRelPtr::new(
                     pos + offset_of!(ArchivedHashMap<K, V>, entries),
                     self.entries_pos,
                 ),
-                phantom: PhantomData,
+                _phantom: PhantomData,
             }
         }
-    }
-}
-
-impl<K: Archive + Hash + Eq, V: Archive> Resolve<HashMap<K, V>> for ArchivedHashMapResolver {
-    type Archived = ArchivedHashMap<K::Archived, V::Archived>;
-
-    fn resolve(self, pos: usize, value: &HashMap<K, V>) -> Self::Archived {
-        self.resolve_from_len(pos, value.len())
     }
 }
 
@@ -594,26 +591,37 @@ where
     type Archived = ArchivedHashMap<K::Archived, V::Archived>;
     type Resolver = ArchivedHashMapResolver;
 
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(ArchivedHashMap::archive_from_iter(
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        resolver.resolve_from_len(pos, self.len())
+    }
+}
+
+impl<K: Serialize<S> + Hash + Eq, V: Serialize<S>, S: Serializer + ?Sized> Serialize<S>
+    for HashMap<K, V>
+where
+    K::Archived: Hash + Eq,
+{
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(ArchivedHashMap::serialize_from_iter(
             self.iter(),
             self.len(),
-            writer,
+            serializer,
         )?)
     }
 }
 
-impl<K: Archive + Hash + Eq, V: Archive> Unarchive<HashMap<K, V>> for Archived<HashMap<K, V>>
+impl<K: Archive + Hash + Eq, V: Archive, D: Fallible + ?Sized> Deserialize<HashMap<K, V>, D>
+    for Archived<HashMap<K, V>>
 where
-    K::Archived: Unarchive<K> + Hash + Eq,
-    V::Archived: Unarchive<V>,
+    K::Archived: Deserialize<K, D> + Hash + Eq,
+    V::Archived: Deserialize<V, D>,
 {
-    fn unarchive(&self) -> HashMap<K, V> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<HashMap<K, V>, D::Error> {
         let mut result = HashMap::new();
         for (k, v) in self.iter() {
-            result.insert(k.unarchive(), v.unarchive());
+            result.insert(k.deserialize(deserializer)?, v.deserialize(deserializer)?);
         }
-        result
+        Ok(result)
     }
 }
 
@@ -661,11 +669,12 @@ impl<K: Eq + Hash + Borrow<Q>, Q: Eq + Hash + ?Sized, V> Index<&'_ Q> for Archiv
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key
 /// and a value of `()`.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
 #[repr(transparent)]
 pub struct ArchivedHashSet<K: Hash + Eq>(ArchivedHashMap<K, ()>);
 
 impl<K: Hash + Eq> ArchivedHashSet<K> {
+    /// Gets the number of items in the hash set.
     #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
@@ -713,17 +722,6 @@ impl<K: Hash + Eq> ArchivedHashSet<K> {
 /// The resolver for archived hash sets.
 pub struct ArchivedHashSetResolver(ArchivedHashMapResolver);
 
-impl<K: Archive + Hash + Eq> Resolve<HashSet<K>> for ArchivedHashSetResolver
-where
-    K::Archived: Hash + Eq,
-{
-    type Archived = ArchivedHashSet<K::Archived>;
-
-    fn resolve(self, pos: usize, value: &HashSet<K>) -> Self::Archived {
-        ArchivedHashSet(self.0.resolve_from_len(pos, value.len()))
-    }
-}
-
 impl<K: Archive + Hash + Eq> Archive for HashSet<K>
 where
     K::Archived: Hash + Eq,
@@ -731,11 +729,36 @@ where
     type Archived = ArchivedHashSet<K::Archived>;
     type Resolver = ArchivedHashSetResolver;
 
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(ArchivedHashSetResolver(ArchivedHashMap::archive_from_iter(
-            self.iter().map(|x| (x, &())),
-            self.len(),
-            writer,
-        )?))
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        ArchivedHashSet(resolver.0.resolve_from_len(pos, self.len()))
+    }
+}
+
+impl<K: Serialize<S> + Hash + Eq, S: Serializer + ?Sized> Serialize<S> for HashSet<K>
+where
+    K::Archived: Hash + Eq,
+{
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(ArchivedHashSetResolver(
+            ArchivedHashMap::serialize_from_iter(
+                self.iter().map(|x| (x, &())),
+                self.len(),
+                serializer,
+            )?,
+        ))
+    }
+}
+
+impl<K: Archive + Hash + Eq, D: Fallible + ?Sized> Deserialize<HashSet<K>, D>
+    for Archived<HashSet<K>>
+where
+    K::Archived: Deserialize<K, D> + Hash + Eq,
+{
+    fn deserialize(&self, deserializer: &mut D) -> Result<HashSet<K>, D::Error> {
+        let mut result = HashSet::new();
+        for k in self.iter() {
+            result.insert(k.deserialize(deserializer)?);
+        }
+        Ok(result)
     }
 }

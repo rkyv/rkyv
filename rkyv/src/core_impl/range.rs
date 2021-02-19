@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{offset_of, Archive, ArchiveCopy, Archived, CopyResolver, Resolve, Unarchive, Write};
+use crate::{offset_of, Archive, ArchiveCopy, Archived, Deserialize, Fallible, Serialize};
 use core::{
     cmp, fmt,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
@@ -8,18 +8,24 @@ use core::{
 
 impl Archive for RangeFull {
     type Archived = Self;
-    type Resolver = CopyResolver;
+    type Resolver = ();
 
-    fn archive<W: Write + ?Sized>(&self, _: &mut W) -> Result<Self::Resolver, W::Error> {
-        Ok(CopyResolver)
+    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
+        RangeFull
+    }
+}
+
+impl<S: Fallible + ?Sized> Serialize<S> for RangeFull {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
     }
 }
 
 unsafe impl ArchiveCopy for RangeFull {}
 
-impl Unarchive<RangeFull> for RangeFull {
-    fn unarchive(&self) -> Self {
-        RangeFull
+impl<D: Fallible + ?Sized> Deserialize<RangeFull, D> for RangeFull {
+    fn deserialize(&self, _: &mut D) -> Result<Self, D::Error> {
+        Ok(RangeFull)
     }
 }
 
@@ -76,42 +82,40 @@ impl<T, U: PartialEq<T>> PartialEq<Range<T>> for ArchivedRange<U> {
     }
 }
 
-impl<T: Archive> Resolve<Range<T>> for Range<T::Resolver> {
-    type Archived = ArchivedRange<T::Archived>;
-
-    fn resolve(self, pos: usize, value: &Range<T>) -> Self::Archived {
-        ArchivedRange {
-            start: self
-                .start
-                .resolve(pos + offset_of!(Self::Archived, start), &value.start),
-            end: self
-                .end
-                .resolve(pos + offset_of!(Self::Archived, end), &value.end),
-        }
-    }
-}
-
 impl<T: Archive> Archive for Range<T> {
     type Archived = ArchivedRange<T::Archived>;
     type Resolver = Range<T::Resolver>;
 
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        ArchivedRange {
+            start: self
+                .start
+                .resolve(pos + offset_of!(Self::Archived, start), resolver.start),
+            end: self
+                .end
+                .resolve(pos + offset_of!(Self::Archived, end), resolver.end),
+        }
+    }
+}
+
+impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Range<T> {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(Range {
-            start: self.start.archive(writer)?,
-            end: self.end.archive(writer)?,
+            start: self.start.serialize(serializer)?,
+            end: self.end.serialize(serializer)?,
         })
     }
 }
 
-impl<T: Archive> Unarchive<Range<T>> for Archived<Range<T>>
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<Range<T>, D> for Archived<Range<T>>
 where
-    T::Archived: Unarchive<T>,
+    T::Archived: Deserialize<T, D>,
 {
-    fn unarchive(&self) -> Range<T> {
-        Range {
-            start: self.start.unarchive(),
-            end: self.end.unarchive(),
-        }
+    fn deserialize(&self, deserializer: &mut D) -> Result<Range<T>, D::Error> {
+        Ok(Range {
+            start: self.start.deserialize(deserializer)?,
+            end: self.end.deserialize(deserializer)?,
+        })
     }
 }
 
@@ -135,6 +139,7 @@ impl<T: fmt::Debug> fmt::Debug for ArchivedRangeInclusive<T> {
 }
 
 impl<T: PartialOrd<T>> ArchivedRangeInclusive<T> {
+    /// Returns `true` if `item` is contained in the range.
     pub fn contains<U>(&self, item: &U) -> bool
     where
         T: PartialOrd<U>,
@@ -143,6 +148,7 @@ impl<T: PartialOrd<T>> ArchivedRangeInclusive<T> {
         <Self as RangeBounds<T>>::contains(self, item)
     }
 
+    /// Returns `true` if the range contains no items.
     pub fn is_empty(&self) -> bool {
         match self.start.partial_cmp(&self.end) {
             None | Some(cmp::Ordering::Greater) => true,
@@ -166,38 +172,40 @@ impl<T, U: PartialEq<T>> PartialEq<RangeInclusive<T>> for ArchivedRangeInclusive
     }
 }
 
-impl<T: Archive> Resolve<RangeInclusive<T>> for Range<T::Resolver> {
-    type Archived = ArchivedRangeInclusive<T::Archived>;
-
-    fn resolve(self, pos: usize, value: &RangeInclusive<T>) -> Self::Archived {
-        ArchivedRangeInclusive {
-            start: self
-                .start
-                .resolve(pos + offset_of!(Self::Archived, start), &value.start()),
-            end: self
-                .end
-                .resolve(pos + offset_of!(Self::Archived, end), &value.end()),
-        }
-    }
-}
-
 impl<T: Archive> Archive for RangeInclusive<T> {
     type Archived = ArchivedRangeInclusive<T::Archived>;
     type Resolver = Range<T::Resolver>;
 
-    fn archive<W: Write + ?Sized>(&self, writer: &mut W) -> Result<Self::Resolver, W::Error> {
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        ArchivedRangeInclusive {
+            start: self
+                .start()
+                .resolve(pos + offset_of!(Self::Archived, start), resolver.start),
+            end: self
+                .end()
+                .resolve(pos + offset_of!(Self::Archived, end), resolver.end),
+        }
+    }
+}
+
+impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeInclusive<T> {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(Range {
-            start: self.start().archive(writer)?,
-            end: self.end().archive(writer)?,
+            start: self.start().serialize(serializer)?,
+            end: self.end().serialize(serializer)?,
         })
     }
 }
 
-impl<T: Archive> Unarchive<RangeInclusive<T>> for Archived<RangeInclusive<T>>
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<RangeInclusive<T>, D>
+    for Archived<RangeInclusive<T>>
 where
-    T::Archived: Unarchive<T>,
+    T::Archived: Deserialize<T, D>,
 {
-    fn unarchive(&self) -> RangeInclusive<T> {
-        RangeInclusive::new(self.start.unarchive(), self.end.unarchive())
+    fn deserialize(&self, deserializer: &mut D) -> Result<RangeInclusive<T>, D::Error> {
+        Ok(RangeInclusive::new(
+            self.start.deserialize(deserializer)?,
+            self.end.deserialize(deserializer)?,
+        ))
     }
 }

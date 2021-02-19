@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "rkyv",
+    "rkyv_bench",
     "rkyv_derive",
     "rkyv_dyn",
     "rkyv_dyn_derive",

@@ -1,20 +1,145 @@
 //! Validation implementations and helper types.
 
-use super::{ArchivedDyn, IMPL_REGISTRY};
+use crate::{ArchivedDynMetadata, RegisteredImpl, IMPL_REGISTRY};
 use bytecheck::{CheckBytes, Unreachable};
 use core::{
+    alloc::Layout,
+    any::TypeId,
     fmt,
     marker::PhantomData,
-    mem,
     sync::atomic::{AtomicU64, Ordering},
 };
 use rkyv::{
     offset_of,
-    validation::{ArchiveContext, ArchiveMemoryError},
-    RelPtr,
+    validation::{ArchiveBoundsContext, ArchiveMemoryContext, SharedArchiveContext},
+    Fallible,
 };
 use rkyv_typename::TypeName;
-use std::error::Error;
+use std::{collections::HashMap, error::Error};
+
+/// A context that's object safe and suitable for checking most types.
+pub trait DynContext {
+    /// Checks the given parts of a relative pointer for bounds issues.
+    unsafe fn check_rel_ptr_dyn(
+        &mut self,
+        base: *const u8,
+        offset: isize,
+    ) -> Result<*const u8, Box<dyn Error>>;
+
+    /// Checks the given memory block for bounds issues.
+    unsafe fn bounds_check_ptr_dyn(
+        &mut self,
+        ptr: *const u8,
+        layout: &Layout,
+    ) -> Result<(), Box<dyn Error>>;
+
+    /// Claims `count` bytes located `offset` bytes away from `base`.
+    ///
+    /// # Safety
+    ///
+    /// `base` must be inside the archive this context was created for.
+    unsafe fn claim_bytes_dyn(
+        &mut self,
+        start: *const u8,
+        len: usize,
+    ) -> Result<(), Box<dyn Error>>;
+
+    /// Claims `count` shared bytes located `offset` bytes away from `base`.
+    ///
+    /// Returns whether the bytes need to be checked.
+    ///
+    /// # Safety
+    ///
+    /// `base` must be inside the archive this context was created for.
+    unsafe fn claim_shared_bytes_dyn(
+        &mut self,
+        start: *const u8,
+        len: usize,
+        type_id: TypeId,
+    ) -> Result<bool, Box<dyn Error>>;
+}
+
+impl<C: ArchiveBoundsContext + ArchiveMemoryContext + SharedArchiveContext + ?Sized> DynContext
+    for C
+where
+    C::Error: Error,
+{
+    unsafe fn check_rel_ptr_dyn(
+        &mut self,
+        base: *const u8,
+        offset: isize,
+    ) -> Result<*const u8, Box<dyn Error>> {
+        self.check_rel_ptr(base, offset)
+            .map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
+
+    unsafe fn bounds_check_ptr_dyn(
+        &mut self,
+        ptr: *const u8,
+        layout: &Layout,
+    ) -> Result<(), Box<dyn Error>> {
+        self.bounds_check_ptr(ptr, layout)
+            .map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
+
+    unsafe fn claim_bytes_dyn(
+        &mut self,
+        start: *const u8,
+        len: usize,
+    ) -> Result<(), Box<dyn Error>> {
+        self.claim_bytes(start, len)
+            .map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
+
+    unsafe fn claim_shared_bytes_dyn(
+        &mut self,
+        start: *const u8,
+        len: usize,
+        type_id: TypeId,
+    ) -> Result<bool, Box<dyn Error>> {
+        self.claim_shared_bytes(start, len, type_id)
+            .map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
+}
+
+impl Fallible for (dyn DynContext + '_) {
+    type Error = Box<dyn Error>;
+}
+
+impl ArchiveBoundsContext for (dyn DynContext + '_) {
+    unsafe fn check_rel_ptr(
+        &mut self,
+        base: *const u8,
+        offset: isize,
+    ) -> Result<*const u8, Self::Error> {
+        self.check_rel_ptr_dyn(base, offset)
+    }
+
+    unsafe fn bounds_check_ptr(
+        &mut self,
+        ptr: *const u8,
+        layout: &Layout,
+    ) -> Result<(), Self::Error> {
+        self.bounds_check_ptr_dyn(ptr, layout)
+    }
+}
+
+impl ArchiveMemoryContext for (dyn DynContext + '_) {
+    unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<(), Self::Error> {
+        self.claim_bytes_dyn(start, len)
+    }
+}
+
+impl SharedArchiveContext for (dyn DynContext + '_) {
+    unsafe fn claim_shared_bytes(
+        &mut self,
+        start: *const u8,
+        len: usize,
+        type_id: TypeId,
+    ) -> Result<bool, Box<dyn Error>> {
+        self.claim_shared_bytes_dyn(start, len, type_id)
+    }
+}
 
 // This error just always says that check bytes isn't implemented for a type
 #[derive(Debug)]
@@ -28,41 +153,35 @@ impl fmt::Display for CheckBytesUnimplemented {
 
 impl Error for CheckBytesUnimplemented {}
 
+type CheckBytesDyn = unsafe fn(*const u8, &mut dyn DynContext) -> Result<(), Box<dyn Error>>;
+
 // This is the fallback function that gets called if the archived type doesn't
 // implement CheckBytes.
-unsafe fn check_rel_ptr_unimplemented(
-    _rel_ptr: &RelPtr,
-    _context: &mut ArchiveContext,
+unsafe fn check_bytes_dyn_unimplemented(
+    _bytes: *const u8,
+    _context: &mut dyn DynContext,
 ) -> Result<(), Box<dyn Error>> {
     Err(Box::new(CheckBytesUnimplemented).into())
 }
 
-type FnCheckRelPtr = unsafe fn(&RelPtr, &mut ArchiveContext) -> Result<(), Box<dyn Error>>;
-
 #[doc(hidden)]
 pub trait NotCheckBytesDyn {
-    const CHECK_REL_PTR: FnCheckRelPtr = check_rel_ptr_unimplemented;
+    const CHECK_BYTES_DYN: CheckBytesDyn = check_bytes_dyn_unimplemented;
 }
 
-impl<T> NotCheckBytesDyn for T {}
+impl<T: ?Sized> NotCheckBytesDyn for T {}
 
 #[doc(hidden)]
-pub struct IsCheckBytesDyn<T>(PhantomData<T>);
+pub struct IsCheckBytesDyn<T: ?Sized>(PhantomData<T>);
 
-impl<T: CheckBytes<ArchiveContext>> IsCheckBytesDyn<T> {
-    pub const CHECK_REL_PTR: FnCheckRelPtr = Self::check_bytes_dyn;
+impl<T: for<'a> CheckBytes<dyn DynContext + 'a>> IsCheckBytesDyn<T> {
+    pub const CHECK_BYTES_DYN: CheckBytesDyn = Self::check_bytes_dyn;
 
-    unsafe fn check_bytes_dyn(
-        rel_ptr: &RelPtr,
-        context: &mut ArchiveContext,
+    unsafe fn check_bytes_dyn<'a>(
+        bytes: *const u8,
+        context: &mut dyn DynContext,
     ) -> Result<(), Box<dyn Error>> {
-        let data = context.claim_bytes(
-            (rel_ptr as *const RelPtr).cast(),
-            rel_ptr.offset(),
-            mem::size_of::<T>(),
-            mem::align_of::<T>(),
-        )?;
-        T::check_bytes(data, context)?;
+        T::check_bytes(bytes.cast(), context)?;
         Ok(())
     }
 }
@@ -70,84 +189,188 @@ impl<T: CheckBytes<ArchiveContext>> IsCheckBytesDyn<T> {
 #[doc(hidden)]
 #[derive(Copy, Clone)]
 pub struct ImplValidation {
-    pub size: usize,
-    pub align: usize,
-    pub check_rel_ptr: FnCheckRelPtr,
+    pub layout: Layout,
+    pub check_bytes_dyn: CheckBytesDyn,
 }
 
 #[doc(hidden)]
 #[macro_export]
 macro_rules! validation {
-    ($type:ty) => {{
+    ($type:ty as $trait:ty) => {
         use rkyv_dyn::validation::{ImplValidation, IsCheckBytesDyn, NotCheckBytesDyn};
-        ImplValidation {
-            size: core::mem::size_of::<$type>(),
-            align: core::mem::align_of::<$type>(),
-            check_rel_ptr: IsCheckBytesDyn::<$type>::CHECK_REL_PTR,
-        }
-    }};
+    };
 }
 
 /// Errors that can occur when checking archived trait objects
 #[derive(Debug)]
-pub enum ArchivedDynError {
-    /// The trait object has an invalid impl id or was stomped by vtable caching
+pub enum DynMetadataError {
+    /// The trait object has an invalid type id
     InvalidImplId(u64),
-    /// A memory error occurred while checking the data for the trait object
-    MemoryError(ArchiveMemoryError),
-    /// The trait object check failed or the type does not implement CheckBytes
-    CheckBytes(Box<dyn Error>),
+    /// The cached vtable does not match the vtable for the type id
+    MismatchedCachedVtable {
+        /// The type id of the trait object
+        type_id: u64,
+        /// The expected vtable
+        expected: usize,
+        /// The found vtable
+        found: usize,
+    },
 }
 
-impl fmt::Display for ArchivedDynError {
+impl fmt::Display for DynMetadataError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArchivedDynError::InvalidImplId(id) => {
-                if id & 1 == 0 {
-                    write!(f, "invalid impl id: overwritten with vtable pointer")
-                } else {
-                    write!(f, "invalid impl id: {} not registered", id)
-                }
+            DynMetadataError::InvalidImplId(id) => {
+                write!(f, "invalid impl id: {} not registered", id)
             }
-            ArchivedDynError::MemoryError(e) => write!(f, "archived dyn memory error: {}", e),
-            ArchivedDynError::CheckBytes(e) => write!(f, "invalid trait object: {}", e),
+            DynMetadataError::MismatchedCachedVtable {
+                type_id,
+                expected,
+                found,
+            } => {
+                write!(
+                    f,
+                    "mismatched cached vtable for {}: expected {} but found {}",
+                    type_id, expected, found
+                )
+            }
         }
     }
 }
 
-impl Error for ArchivedDynError {}
+impl Error for DynMetadataError {}
 
-impl From<ArchiveMemoryError> for ArchivedDynError {
-    fn from(e: ArchiveMemoryError) -> Self {
-        Self::MemoryError(e)
-    }
-}
-
-impl From<Unreachable> for ArchivedDynError {
+impl From<Unreachable> for DynMetadataError {
     fn from(_: Unreachable) -> Self {
         unreachable!();
     }
 }
 
-impl<T: TypeName + ?Sized> CheckBytes<ArchiveContext> for ArchivedDyn<T> {
-    type Error = ArchivedDynError;
+impl<T: TypeName + ?Sized, C: ?Sized> CheckBytes<C> for ArchivedDynMetadata<T> {
+    type Error = DynMetadataError;
 
     unsafe fn check_bytes<'a>(
-        bytes: *const u8,
-        context: &mut ArchiveContext,
+        value: *const Self,
+        context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let archived_type_id =
-            AtomicU64::check_bytes(bytes.add(offset_of!(Self, type_id)), context)?;
-        let type_id = archived_type_id.load(Ordering::Relaxed);
-        if let Some(impl_data) = IMPL_REGISTRY.data::<T>(type_id) {
-            let rel_ptr = RelPtr::check_bytes(bytes.add(offset_of!(Self, ptr)), context)?;
-            let check_rel_ptr = impl_data.validation.check_rel_ptr;
-            check_rel_ptr(rel_ptr, context).map_err(ArchivedDynError::CheckBytes)?;
-            #[cfg(feature = "vtable_cache")]
-            archived_type_id.store(impl_data.vtable.0 as usize as u64, Ordering::Relaxed);
-            Ok(&*bytes.cast())
+        let bytes = value.cast::<u8>();
+
+        let type_id = *u64::check_bytes(bytes.add(offset_of!(Self, type_id)).cast(), context)?;
+        PhantomData::<T>::check_bytes(bytes.add(offset_of!(Self, phantom)).cast(), context)?;
+        if let Some(impl_data) = IMPL_REGISTRY.get::<T>(type_id) {
+            let cached_vtable =
+                AtomicU64::check_bytes(bytes.add(offset_of!(Self, cached_vtable)).cast(), context)?
+                    .load(Ordering::Relaxed);
+            if cached_vtable == 0 || cached_vtable as usize == impl_data.vtable {
+                Ok(&*value)
+            } else {
+                Err(DynMetadataError::MismatchedCachedVtable {
+                    type_id,
+                    expected: impl_data.vtable,
+                    found: cached_vtable as usize,
+                })
+            }
         } else {
-            Err(ArchivedDynError::InvalidImplId(type_id))
+            Err(DynMetadataError::InvalidImplId(type_id))
         }
+    }
+}
+
+/// Errors that can occur when checking archived trait objects
+#[derive(Debug)]
+pub enum CheckDynError {
+    /// The pointer metadata did not match any registered impl
+    InvalidMetadata(u64),
+    /// An error occurred while checking the bytes of the trait object
+    CheckBytes(Box<dyn Error>),
+}
+
+impl fmt::Display for CheckDynError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CheckDynError::InvalidMetadata(n) => write!(f, "invalid metadata: {}", n),
+            CheckDynError::CheckBytes(e) => write!(f, "check bytes: {}", e),
+        }
+    }
+}
+
+impl Error for CheckDynError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            CheckDynError::InvalidMetadata(_) => None,
+            CheckDynError::CheckBytes(e) => Some(e.as_ref()),
+        }
+    }
+}
+
+impl From<Box<dyn Error>> for CheckDynError {
+    fn from(e: Box<dyn Error>) -> Self {
+        Self::CheckBytes(e)
+    }
+}
+
+#[doc(hidden)]
+pub struct CheckBytesEntry {
+    vtable: usize,
+    validation: ImplValidation,
+}
+
+impl CheckBytesEntry {
+    pub fn new<TY: RegisteredImpl<TR>, TR: ?Sized>(check_bytes_dyn: CheckBytesDyn) -> Self {
+        Self {
+            vtable: <TY as RegisteredImpl<TR>>::vtable(),
+            validation: ImplValidation {
+                layout: Layout::new::<TY>(),
+                check_bytes_dyn,
+            },
+        }
+    }
+}
+
+inventory::collect!(CheckBytesEntry);
+
+#[doc(hidden)]
+pub struct CheckBytesRegistry {
+    vtable_to_check_bytes: HashMap<usize, ImplValidation>,
+}
+
+impl CheckBytesRegistry {
+    fn new() -> Self {
+        Self {
+            vtable_to_check_bytes: HashMap::new(),
+        }
+    }
+
+    fn add_entry(&mut self, entry: &CheckBytesEntry) {
+        let old_value = self
+            .vtable_to_check_bytes
+            .insert(entry.vtable, entry.validation);
+
+        debug_assert!(old_value.is_none(), "vtable conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
+    }
+
+    pub fn get(&self, vtable: usize) -> Option<&ImplValidation> {
+        self.vtable_to_check_bytes.get(&vtable)
+    }
+}
+
+lazy_static::lazy_static! {
+    #[doc(hidden)]
+    pub static ref CHECK_BYTES_REGISTRY: CheckBytesRegistry =  {
+        let mut result = CheckBytesRegistry::new();
+        for entry in inventory::iter::<CheckBytesEntry> {
+            result.add_entry(entry);
+        }
+        result
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! register_validation {
+    ($type:ty as $trait:ty) => {
+        use rkyv_dyn::validation::{CheckBytesEntry, IsCheckBytesDyn, NotCheckBytesDyn};
+
+        inventory::submit! { CheckBytesEntry::new::<$type, $trait>(IsCheckBytesDyn::<$type>::CHECK_BYTES_DYN) }
     }
 }

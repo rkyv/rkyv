@@ -15,15 +15,26 @@ rkyv (*archive*) is a zero-copy deserialization framework for Rust.
 ## Sister Crates:
 
 - [bytecheck](https://github.com/djkoloski/bytecheck), which rkyv uses for validation
+- [ptr_meta](https://github.com/djkoloski/ptr_meta), which rkyv uses for pointer manipulation
 
 ---
 
 ## rkyv in action
 
 ```rust
-use rkyv::{Aligned, Archive, ArchiveBuffer, Archived, archived_value, Write};
+use rkyv::{
+    archived_value,
+    de::deserializers::AllocDeserializer,
+    ser::{
+        serializers::WriteSerializer,
+        Serializer,
+    },
+    Archive,
+    Serialize,
+    Deserialize,
+};
 
-#[derive(Archive)]
+#[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 struct Test {
     int: u8,
     string: String,
@@ -37,13 +48,17 @@ fn main() {
         option: Some(vec![1, 2, 3, 4]),
     };
 
-    let mut writer = ArchiveBuffer::new(Aligned([0u8; 256]));
-    let pos = writer.archive(&value).expect("failed to archive test");
-    let buf = writer.into_inner();
+    let mut serializer = WriteSerializer::new(Vec::new());
+    let pos = serializer.serialize_value(&value).expect("failed to serialize value");
+    let buf = serializer.into_inner();
 
     let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
     assert_eq!(archived.int, value.int);
     assert_eq!(archived.string, value.string);
     assert_eq!(archived.option, value.option);
+
+    let mut deserializer = AllocDeserializer;
+    let deserialized = archived.deserialize(&mut deserializer).expect("failed to deserialize value");
+    assert_eq!(deserialized, value);
 }
 ```

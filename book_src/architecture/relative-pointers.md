@@ -4,7 +4,7 @@ Relative pointers are the bread and butter of total zero-copy deserialization, c
 the use of normal pointers. But why can't we use normal pointers?
 
 Consider some zero-copy data on disc. Before we can use it, we need to load it into memory. But we
-can't control _where_ in memory it gets loaded! Every time we load it, it could be located at a
+can't control _where_ in memory it gets loaded. Every time we load it, it could be located at a
 different address, and therefore the objects inside of it will be located at a different address.
 This means that we can't store any pointers to that data, inside of it or outside of it. Some
 libraries like [abomonation](https://github.com/TimelyDataflow/abomonation) store some extra data
@@ -22,3 +22,6 @@ This is exactly the property we need to build data structures with total zero-co
 By using relative pointers, we can load data at any position in memory and still have valid pointers
 inside of it. Relative pointers don't require write access to memory either, so we can memory map
 entire files and instantly have access to their data in a structured manner.
+
+rkyv's implementation of relative pointers is the
+[`RelPtr`](https://docs.rs/rkyv/latest/rkyv/struct.RelPtr.html) type.
