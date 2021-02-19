@@ -3,9 +3,7 @@
 use crate::{
     core_impl::{
         range::{ArchivedRange, ArchivedRangeInclusive},
-        ArchivedOption,
-        ArchivedOptionTag,
-        ArchivedOptionVariantSome,
+        ArchivedOption, ArchivedOptionTag, ArchivedOptionVariantSome,
     },
     offset_of,
 };
@@ -25,7 +23,9 @@ pub enum ArchivedOptionError<T> {
 impl<T: fmt::Display> fmt::Display for ArchivedOptionError<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArchivedOptionError::InvalidTag(tag) => write!(f, "archived option had invalid tag: {}", tag),
+            ArchivedOptionError::InvalidTag(tag) => {
+                write!(f, "archived option had invalid tag: {}", tag)
+            }
             ArchivedOptionError::CheckBytes(e) => write!(f, "archived option check error: {}", e),
         }
     }
@@ -54,14 +54,19 @@ impl ArchivedOptionTag {
 impl<C: ?Sized, T: CheckBytes<C>> CheckBytes<C> for ArchivedOption<T> {
     type Error = ArchivedOptionError<T::Error>;
 
-    unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+    unsafe fn check_bytes<'a>(
+        value: *const Self,
+        context: &mut C,
+    ) -> Result<&'a Self, Self::Error> {
         let bytes = value.cast::<u8>();
         let tag = *u8::check_bytes(bytes, context)?;
         match tag {
             ArchivedOptionTag::TAG_NONE => (),
             ArchivedOptionTag::TAG_SOME => {
                 T::check_bytes(
-                    bytes.add(offset_of!(ArchivedOptionVariantSome<T>, 1)).cast(),
+                    bytes
+                        .add(offset_of!(ArchivedOptionVariantSome<T>, 1))
+                        .cast(),
                     context,
                 )
                 .map_err(ArchivedOptionError::CheckBytes)?;
@@ -75,20 +80,25 @@ impl<C: ?Sized, T: CheckBytes<C>> CheckBytes<C> for ArchivedOption<T> {
 impl<C: ?Sized, T: CheckBytes<C>> CheckBytes<C> for ArchivedRange<T> {
     type Error = StructCheckError;
 
-    unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+    unsafe fn check_bytes<'a>(
+        value: *const Self,
+        context: &mut C,
+    ) -> Result<&'a Self, Self::Error> {
         let bytes = value.cast::<u8>();
-        T::check_bytes(bytes.add(offset_of!(ArchivedRange<T>, start)).cast(), context).map_err(|e| {
-            StructCheckError {
-                field_name: "start",
-                inner: Box::new(e),
-            }
+        T::check_bytes(
+            bytes.add(offset_of!(ArchivedRange<T>, start)).cast(),
+            context,
+        )
+        .map_err(|e| StructCheckError {
+            field_name: "start",
+            inner: Box::new(e),
         })?;
-        T::check_bytes(bytes.add(offset_of!(ArchivedRange<T>, end)).cast(), context).map_err(|e| {
-            StructCheckError {
+        T::check_bytes(bytes.add(offset_of!(ArchivedRange<T>, end)).cast(), context).map_err(
+            |e| StructCheckError {
                 field_name: "end",
                 inner: Box::new(e),
-            }
-        })?;
+            },
+        )?;
         Ok(&*value)
     }
 }
@@ -96,10 +106,15 @@ impl<C: ?Sized, T: CheckBytes<C>> CheckBytes<C> for ArchivedRange<T> {
 impl<C: ?Sized, T: CheckBytes<C>> CheckBytes<C> for ArchivedRangeInclusive<T> {
     type Error = StructCheckError;
 
-    unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+    unsafe fn check_bytes<'a>(
+        value: *const Self,
+        context: &mut C,
+    ) -> Result<&'a Self, Self::Error> {
         let bytes = value.cast::<u8>();
         T::check_bytes(
-            bytes.add(offset_of!(ArchivedRangeInclusive<T>, start)).cast(),
+            bytes
+                .add(offset_of!(ArchivedRangeInclusive<T>, start))
+                .cast(),
             context,
         )
         .map_err(|e| StructCheckError {

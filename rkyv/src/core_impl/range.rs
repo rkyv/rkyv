@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{offset_of, Archive, ArchiveCopy, Archived, Fallible, Serialize, Deserialize};
+use crate::{offset_of, Archive, ArchiveCopy, Archived, Deserialize, Fallible, Serialize};
 use core::{
     cmp, fmt,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
@@ -197,7 +197,8 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeInclusive<T> {
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<RangeInclusive<T>, D> for Archived<RangeInclusive<T>>
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<RangeInclusive<T>, D>
+    for Archived<RangeInclusive<T>>
 where
     T::Archived: Deserialize<T, D>,
 {

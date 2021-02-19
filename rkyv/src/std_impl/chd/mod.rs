@@ -6,7 +6,10 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{Archive, Archived, ArchivedUsize, Deserialize, Fallible, RawRelPtr, Serialize, offset_of, ser::Serializer};
+use crate::{
+    offset_of, ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible, RawRelPtr,
+    Serialize,
+};
 use core::{
     borrow::Borrow,
     cmp::Reverse,
@@ -567,8 +570,14 @@ impl ArchivedHashMapResolver {
         unsafe {
             ArchivedHashMap {
                 len: len as ArchivedUsize,
-                displace: RawRelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, displace), self.displace_pos),
-                entries: RawRelPtr::new(pos + offset_of!(ArchivedHashMap<K, V>, entries), self.entries_pos),
+                displace: RawRelPtr::new(
+                    pos + offset_of!(ArchivedHashMap<K, V>, displace),
+                    self.displace_pos,
+                ),
+                entries: RawRelPtr::new(
+                    pos + offset_of!(ArchivedHashMap<K, V>, entries),
+                    self.entries_pos,
+                ),
                 _phantom: PhantomData,
             }
         }
@@ -587,7 +596,8 @@ where
     }
 }
 
-impl<K: Serialize<S> + Hash + Eq, V: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for HashMap<K, V>
+impl<K: Serialize<S> + Hash + Eq, V: Serialize<S>, S: Serializer + ?Sized> Serialize<S>
+    for HashMap<K, V>
 where
     K::Archived: Hash + Eq,
 {
@@ -600,7 +610,8 @@ where
     }
 }
 
-impl<K: Archive + Hash + Eq, V: Archive, D: Fallible + ?Sized> Deserialize<HashMap<K, V>, D> for Archived<HashMap<K, V>>
+impl<K: Archive + Hash + Eq, V: Archive, D: Fallible + ?Sized> Deserialize<HashMap<K, V>, D>
+    for Archived<HashMap<K, V>>
 where
     K::Archived: Deserialize<K, D> + Hash + Eq,
     V::Archived: Deserialize<V, D>,
@@ -728,15 +739,18 @@ where
     K::Archived: Hash + Eq,
 {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(ArchivedHashSetResolver(ArchivedHashMap::serialize_from_iter(
-            self.iter().map(|x| (x, &())),
-            self.len(),
-            serializer,
-        )?))
+        Ok(ArchivedHashSetResolver(
+            ArchivedHashMap::serialize_from_iter(
+                self.iter().map(|x| (x, &())),
+                self.len(),
+                serializer,
+            )?,
+        ))
     }
 }
 
-impl<K: Archive + Hash + Eq, D: Fallible + ?Sized> Deserialize<HashSet<K>, D> for Archived<HashSet<K>>
+impl<K: Archive + Hash + Eq, D: Fallible + ?Sized> Deserialize<HashSet<K>, D>
+    for Archived<HashSet<K>>
 where
     K::Archived: Deserialize<K, D> + Hash + Eq,
 {

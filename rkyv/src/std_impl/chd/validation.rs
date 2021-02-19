@@ -4,8 +4,7 @@ use crate::{
     offset_of,
     std_impl::chd::{ArchivedHashMap, ArchivedHashSet, Entry},
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
-    Fallible,
-    RawRelPtr,
+    Fallible, RawRelPtr,
 };
 use bytecheck::{CheckBytes, SliceCheckError, Unreachable};
 use core::{
@@ -33,7 +32,10 @@ impl<K: fmt::Display, V: fmt::Display> fmt::Display for ArchivedHashMapEntryErro
     }
 }
 
-impl<K: fmt::Debug + fmt::Display, V: fmt::Debug + fmt::Display> Error for ArchivedHashMapEntryError<K, V> {}
+impl<K: fmt::Debug + fmt::Display, V: fmt::Debug + fmt::Display> Error
+    for ArchivedHashMapEntryError<K, V>
+{
+}
 
 impl<K: CheckBytes<C>, V: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> CheckBytes<C>
     for Entry<K, V>
@@ -86,15 +88,13 @@ impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display for HashMap
             ),
             HashMapError::InvalidKeyPosition { index } => {
                 write!(f, "invalid key position: at index {}", index)
-            },
+            }
             HashMapError::ContextError(e) => e.fmt(f),
         }
     }
 }
 
-impl<K: Error + 'static, V: Error + 'static, C: Error + 'static> Error
-    for HashMapError<K, V, C>
-{
+impl<K: Error + 'static, V: Error + 'static, C: Error + 'static> Error for HashMapError<K, V, C> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             HashMapError::LayoutError(e) => Some(e as &dyn Error),
@@ -131,8 +131,11 @@ impl<K, V, C> From<SliceCheckError<ArchivedHashMapEntryError<K, V>>> for HashMap
     }
 }
 
-impl<K: CheckBytes<C> + Eq + Hash, V: CheckBytes<C>, C: ArchiveBoundsContext + ArchiveMemoryContext + Fallible + ?Sized>
-    CheckBytes<C> for ArchivedHashMap<K, V>
+impl<
+        K: CheckBytes<C> + Eq + Hash,
+        V: CheckBytes<C>,
+        C: ArchiveBoundsContext + ArchiveMemoryContext + Fallible + ?Sized,
+    > CheckBytes<C> for ArchivedHashMap<K, V>
 where
     C::Error: Error,
 {
@@ -144,17 +147,24 @@ where
     ) -> Result<&'a Self, Self::Error> {
         let bytes = value.cast::<u8>();
 
-        let len = *u32::check_bytes(bytes.add(offset_of!(ArchivedHashMap<K, V>, len)).cast(), context)?;
-
-        let displace_rel_ptr = RawRelPtr::manual_check_bytes(
-            bytes.add(offset_of!(ArchivedHashMap<K, V>, displace)).cast(),
+        let len = *u32::check_bytes(
+            bytes.add(offset_of!(ArchivedHashMap<K, V>, len)).cast(),
             context,
         )?;
-        let displace_data_ptr = context.check_rel_ptr(displace_rel_ptr.base(), displace_rel_ptr.offset())
+
+        let displace_rel_ptr = RawRelPtr::manual_check_bytes(
+            bytes
+                .add(offset_of!(ArchivedHashMap<K, V>, displace))
+                .cast(),
+            context,
+        )?;
+        let displace_data_ptr = context
+            .check_rel_ptr(displace_rel_ptr.base(), displace_rel_ptr.offset())
             .map_err(HashMapError::ContextError)?;
         Layout::array::<u32>(len as usize)?;
         let displace_ptr = ptr_meta::from_raw_parts(displace_data_ptr.cast(), len as usize);
-        context.claim_owned_ptr(displace_ptr)
+        context
+            .claim_owned_ptr(displace_ptr)
             .map_err(HashMapError::ContextError)?;
         let displace = <[u32]>::check_bytes(displace_ptr, context)?;
 
@@ -168,11 +178,13 @@ where
             bytes.add(offset_of!(ArchivedHashMap<K, V>, entries)).cast(),
             context,
         )?;
-        let entries_data_ptr = context.check_rel_ptr(entries_rel_ptr.base(), entries_rel_ptr.offset())
+        let entries_data_ptr = context
+            .check_rel_ptr(entries_rel_ptr.base(), entries_rel_ptr.offset())
             .map_err(HashMapError::ContextError)?;
         Layout::array::<Entry<K, V>>(len as usize)?;
         let entries_ptr = ptr_meta::from_raw_parts(entries_data_ptr.cast(), len as usize);
-        context.claim_owned_ptr(entries_ptr)
+        context
+            .claim_owned_ptr(entries_ptr)
             .map_err(HashMapError::ContextError)?;
         let entries = <[Entry<K, V>]>::check_bytes(entries_ptr, context)?;
 
@@ -204,7 +216,10 @@ where
     }
 }
 
-impl<K: CheckBytes<C> + Hash + Eq, C: ArchiveBoundsContext + ArchiveMemoryContext + Fallible + ?Sized> CheckBytes<C> for ArchivedHashSet<K>
+impl<
+        K: CheckBytes<C> + Hash + Eq,
+        C: ArchiveBoundsContext + ArchiveMemoryContext + Fallible + ?Sized,
+    > CheckBytes<C> for ArchivedHashSet<K>
 where
     C::Error: Error,
 {

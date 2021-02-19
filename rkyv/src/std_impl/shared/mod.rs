@@ -10,15 +10,8 @@ use crate::{
     de::{SharedDeserializer, SharedPointer},
     offset_of,
     ser::SharedSerializer,
-    Archive,
-    Archived,
-    ArchivePointee,
-    ArchiveUnsized,
-    Deserialize,
-    DeserializeUnsized,
-    RelPtr,
-    Serialize,
-    SerializeUnsized,
+    Archive, ArchivePointee, ArchiveUnsized, Archived, Deserialize, DeserializeUnsized, RelPtr,
+    Serialize, SerializeUnsized,
 };
 
 impl<T: ?Sized> SharedPointer for rc::Rc<T> {
@@ -71,11 +64,18 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
     type Resolver = RcResolver<T::MetadataResolver>;
 
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        unsafe { ArchivedRc(self.as_ref().resolve_unsized(pos, resolver.pos, resolver.metadata_resolver)) }
+        unsafe {
+            ArchivedRc(
+                self.as_ref()
+                    .resolve_unsized(pos, resolver.pos, resolver.metadata_resolver),
+            )
+        }
     }
 }
 
-impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for rc::Rc<T> {
+impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S>
+    for rc::Rc<T>
+{
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(RcResolver {
             pos: serializer.archive_shared(self.deref())?,
@@ -84,15 +84,16 @@ impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Se
     }
 }
 
-impl<T: ArchiveUnsized + ?Sized + 'static, D: SharedDeserializer + ?Sized> Deserialize<rc::Rc<T>, D> for Archived<rc::Rc<T>>
+impl<T: ArchiveUnsized + ?Sized + 'static, D: SharedDeserializer + ?Sized> Deserialize<rc::Rc<T>, D>
+    for Archived<rc::Rc<T>>
 where
     T::Archived: DeserializeUnsized<T, D>,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<rc::Rc<T>, D::Error> {
-        let raw_shared_ptr = deserializer.deserialize_shared::<T, rc::Rc<T>, _>(
-            self.deref(),
-            |ptr| rc::Rc::<T>::from(unsafe { Box::from_raw(ptr) }),
-        )?;
+        let raw_shared_ptr = deserializer
+            .deserialize_shared::<T, rc::Rc<T>, _>(self.deref(), |ptr| {
+                rc::Rc::<T>::from(unsafe { Box::from_raw(ptr) })
+            })?;
         let shared_ptr = unsafe { rc::Rc::<T>::from_raw(raw_shared_ptr) };
         mem::forget(shared_ptr.clone());
         Ok(shared_ptr)
@@ -158,14 +159,16 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
             RcWeakResolver::Some(resolver) => unsafe {
                 ArchivedRcWeak::Some(self.upgrade().unwrap().resolve(
                     pos + offset_of!(ArchivedRcWeakVariantSome<T::Archived>, 1),
-                    resolver
+                    resolver,
                 ))
             },
         }
     }
 }
 
-impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for rc::Weak<T> {
+impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S>
+    for rc::Weak<T>
+{
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(match self.upgrade() {
             None => RcWeakResolver::None,
@@ -176,7 +179,8 @@ impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Se
 
 // Deserialize can only be implemented for sized types because weak pointers don't have from/into
 // raw functions.
-impl<T: Archive + 'static, D: SharedDeserializer + ?Sized> Deserialize<rc::Weak<T>, D> for Archived<rc::Weak<T>>
+impl<T: Archive + 'static, D: SharedDeserializer + ?Sized> Deserialize<rc::Weak<T>, D>
+    for Archived<rc::Weak<T>>
 where
     T::Archived: DeserializeUnsized<T, D>,
 {
@@ -227,7 +231,9 @@ impl<T: ArchivePointee + ?Sized> Deref for ArchivedArc<T> {
     }
 }
 
-impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<sync::Arc<U>> for ArchivedArc<T> {
+impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<sync::Arc<U>>
+    for ArchivedArc<T>
+{
     fn eq(&self, other: &sync::Arc<U>) -> bool {
         self.deref().eq(other.deref())
     }
@@ -238,11 +244,19 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     type Resolver = ArcResolver<T::MetadataResolver>;
 
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        unsafe { ArchivedArc(self.as_ref().resolve_unsized(pos, resolver.pos, resolver.metadata_resolver)) }
+        unsafe {
+            ArchivedArc(self.as_ref().resolve_unsized(
+                pos,
+                resolver.pos,
+                resolver.metadata_resolver,
+            ))
+        }
     }
 }
 
-impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for sync::Arc<T> {
+impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S>
+    for sync::Arc<T>
+{
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(ArcResolver {
             pos: serializer.archive_shared(self.deref())?,
@@ -251,15 +265,15 @@ impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Se
     }
 }
 
-impl<T: ArchiveUnsized + ?Sized + 'static, D: SharedDeserializer + ?Sized> Deserialize<sync::Arc<T>, D> for Archived<sync::Arc<T>>
+impl<T: ArchiveUnsized + ?Sized + 'static, D: SharedDeserializer + ?Sized>
+    Deserialize<sync::Arc<T>, D> for Archived<sync::Arc<T>>
 where
     T::Archived: DeserializeUnsized<T, D>,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<sync::Arc<T>, D::Error> {
-        let raw_shared_ptr = deserializer.deserialize_shared(
-            self.deref(),
-            |ptr| sync::Arc::<T>::from(unsafe { Box::from_raw(ptr) }),
-        )?;
+        let raw_shared_ptr = deserializer.deserialize_shared(self.deref(), |ptr| {
+            sync::Arc::<T>::from(unsafe { Box::from_raw(ptr) })
+        })?;
         let shared_ptr = unsafe { sync::Arc::<T>::from_raw(raw_shared_ptr) };
         mem::forget(shared_ptr.clone());
         Ok(shared_ptr)
@@ -325,14 +339,16 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
             ArcWeakResolver::Some(resolver) => unsafe {
                 ArchivedArcWeak::Some(self.upgrade().unwrap().resolve(
                     pos + offset_of!(ArchivedArcWeakVariantSome<T::Archived>, 1),
-                    resolver
+                    resolver,
                 ))
             },
         }
     }
 }
 
-impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S> for sync::Weak<T> {
+impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S>
+    for sync::Weak<T>
+{
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(match self.upgrade() {
             None => ArcWeakResolver::None,
@@ -343,7 +359,8 @@ impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Se
 
 // Deserialize can only be implemented for sized types because weak pointers don't have from/into
 // raw functions.
-impl<T: Archive + 'static, D: SharedDeserializer + ?Sized> Deserialize<sync::Weak<T>, D> for Archived<sync::Weak<T>>
+impl<T: Archive + 'static, D: SharedDeserializer + ?Sized> Deserialize<sync::Weak<T>, D>
+    for Archived<sync::Weak<T>>
 where
     T::Archived: DeserializeUnsized<T, D>,
 {

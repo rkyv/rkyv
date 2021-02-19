@@ -93,10 +93,7 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                                         if let Lit::Str(ref lit_str) = meta.lit {
                                             if result.archived.is_none() {
                                                 result.archived = Some((
-                                                    Ident::new(
-                                                        &lit_str.value(),
-                                                        lit_str.span(),
-                                                    ),
+                                                    Ident::new(&lit_str.value(), lit_str.span()),
                                                     lit_str.span(),
                                                 ));
                                             } else {
@@ -117,10 +114,7 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
                                         if let Lit::Str(ref lit_str) = meta.lit {
                                             if result.resolver.is_none() {
                                                 result.resolver = Some((
-                                                    Ident::new(
-                                                        &lit_str.value(),
-                                                        lit_str.span(),
-                                                    ),
+                                                    Ident::new(&lit_str.value(), lit_str.span()),
                                                     lit_str.span(),
                                                 ));
                                             } else {
@@ -615,7 +609,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> TokenStr
                     {
                         #(#archived_variants,)*
                     }
-                    
+
                     #vis enum #resolver<#generic_params>
                     where
                         #generic_predicates
@@ -944,7 +938,7 @@ fn derive_serialize_impl(input: &DeriveInput, attributes: &Attributes) -> TokenS
                     }
                 }
             }
-        }
+        },
         Data::Enum(ref data) => {
             let serialize_predicates = data.variants.iter().map(|v| match v.fields {
                 Fields::Named(ref fields) => {
@@ -1029,7 +1023,8 @@ fn derive_serialize_impl(input: &DeriveInput, attributes: &Attributes) -> TokenS
             }
         }
         Data::Union(_) => {
-            return Error::new(input.span(), "Serialize cannot be derived for unions").to_compile_error()
+            return Error::new(input.span(), "Serialize cannot be derived for unions")
+                .to_compile_error()
         }
     };
 

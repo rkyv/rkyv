@@ -29,16 +29,11 @@ use core::{
     marker::PhantomData,
     sync::atomic::AtomicU64,
 };
-use std::collections::{hash_map::DefaultHasher, HashMap};
-use ptr_meta::{Pointee, DynMetadata};
-use rkyv::{
-    de::Deserializer,
-    ser::Serializer,
-    Fallible,
-    Serialize,
-};
+use ptr_meta::{DynMetadata, Pointee};
+use rkyv::{de::Deserializer, ser::Serializer, Fallible, Serialize};
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
+use std::collections::{hash_map::DefaultHasher, HashMap};
 #[cfg(feature = "validation")]
 pub use validation::{CheckDynError, DynContext};
 
@@ -229,6 +224,11 @@ where
 /// An object-safe version of `Deserializer`.
 pub trait DynDeserializer {
     /// Allocates and returns memory with the given layout.
+    ///
+    /// # Safety
+    ///
+    /// The memory returned by this function must be deallocated by the global
+    /// allocator.
     unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> Result<*mut u8, DynError>;
 }
 
@@ -257,10 +257,16 @@ pub trait DeserializeDyn<T: Pointee + ?Sized> {
     /// # Safety
     ///
     /// The caller must ensure that the memory returned is properly deallocated.
-    unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer) -> Result<*mut (), DynError>;
+    unsafe fn deserialize_dyn(
+        &self,
+        deserializer: &mut dyn DynDeserializer,
+    ) -> Result<*mut (), DynError>;
 
     /// Returns the metadata for the deserialized version of this value.
-    fn deserialize_dyn_metadata(&self, deserializer: &mut dyn DynDeserializer) -> Result<T::Metadata, DynError>;
+    fn deserialize_dyn_metadata(
+        &self,
+        deserializer: &mut dyn DynDeserializer,
+    ) -> Result<T::Metadata, DynError>;
 }
 
 /// The archived version of `DynMetadata`.
@@ -300,7 +306,8 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
             return cached_vtable as usize;
         }
         let vtable = self.lookup_vtable();
-        self.cached_vtable.store(vtable as usize as u64, Ordering::Relaxed);
+        self.cached_vtable
+            .store(vtable as usize as u64, Ordering::Relaxed);
         vtable
     }
 
@@ -312,7 +319,7 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     }
 
     /// Gets the `DynMetadata` associated with this `ArchivedDynMetadata`.
-    pub fn to_metadata(&self) -> DynMetadata<T> {
+    pub fn pointer_metadata(&self) -> DynMetadata<T> {
         unsafe { core::mem::transmute(self.vtable()) }
     }
 }
@@ -462,7 +469,7 @@ pub unsafe trait RegisteredImpl<T: ?Sized> {
 #[cfg(not(feature = "validation"))]
 #[macro_export]
 macro_rules! register_validation {
-    ($type:ty as $trait:ty) => {}
+    ($type:ty as $trait:ty) => {};
 }
 
 /// Registers a new impl with the trait object system.
@@ -478,21 +485,16 @@ macro_rules! register_impl {
         const _: () = {
             use core::mem::MaybeUninit;
             use rkyv_dyn::{
-                debug_info,
-                inventory,
-                register_validation,
-                ImplData,
-                ImplDebugInfo,
-                ImplEntry,
+                debug_info, inventory, register_validation, ImplData, ImplDebugInfo, ImplEntry,
                 RegisteredImpl,
             };
 
             unsafe impl RegisteredImpl<$trait> for $type {
                 fn vtable() -> usize {
                     unsafe {
-                        core::mem::transmute(
-                            ptr_meta::metadata(core::ptr::null::<$type>() as *const $trait)
-                        )
+                        core::mem::transmute(ptr_meta::metadata(
+                            core::ptr::null::<$type>() as *const $trait
+                        ))
                     }
                 }
 

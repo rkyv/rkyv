@@ -6,24 +6,12 @@ pub mod shared;
 pub mod validation;
 
 use crate::{
-    de::Deserializer,
-    Archive,
-    Archived,
-    ArchivePointee,
-    ArchiveUnsized,
-    Deserialize,
-    DeserializeUnsized,
-    Fallible,
-    MetadataResolver,
-    RelPtr,
-    Serialize,
-    SerializeUnsized,
+    de::Deserializer, Archive, ArchivePointee, ArchiveUnsized, Archived, Deserialize,
+    DeserializeUnsized, Fallible, MetadataResolver, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{
     borrow::Borrow,
-    cmp,
-    fmt,
-    hash,
+    cmp, fmt, hash,
     ops::{Deref, DerefMut, Index, IndexMut},
     pin::Pin,
 };
@@ -139,7 +127,14 @@ impl Archive for String {
     type Resolver = StringResolver;
 
     fn resolve(&self, pos: usize, resolver: StringResolver) -> Self::Archived {
-        unsafe { ArchivedString(self.as_str().resolve_unsized(pos, resolver.pos, resolver.metadata_resolver)) }
+        #[allow(clippy::unit_arg)]
+        unsafe {
+            ArchivedString(self.as_str().resolve_unsized(
+                pos,
+                resolver.pos,
+                resolver.metadata_resolver,
+            ))
+        }
     }
 }
 
@@ -181,9 +176,7 @@ where
     T::ArchivedMetadata: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("ArchivedBox")
-            .field(&self.0)
-            .finish()
+        f.debug_tuple("ArchivedBox").field(&self.0).finish()
     }
 }
 
@@ -225,7 +218,13 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     type Resolver = BoxResolver<T::MetadataResolver>;
 
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        unsafe { ArchivedBox(self.as_ref().resolve_unsized(pos, resolver.pos, resolver.metadata_resolver)) }
+        unsafe {
+            ArchivedBox(self.as_ref().resolve_unsized(
+                pos,
+                resolver.pos,
+                resolver.metadata_resolver,
+            ))
+        }
     }
 }
 
@@ -238,7 +237,8 @@ impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> Serialize<S> for Box
     }
 }
 
-impl<T: ArchiveUnsized + ?Sized, D: Deserializer + ?Sized> Deserialize<Box<T>, D> for Archived<Box<T>>
+impl<T: ArchiveUnsized + ?Sized, D: Deserializer + ?Sized> Deserialize<Box<T>, D>
+    for Archived<Box<T>>
 where
     T::Archived: DeserializeUnsized<T, D>,
 {
@@ -303,7 +303,14 @@ impl<T: Archive> Archive for Vec<T> {
     type Resolver = VecResolver<MetadataResolver<[T]>>;
 
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        unsafe { ArchivedVec(self.as_slice().resolve_unsized(pos, resolver.pos, resolver.metadata_resolver)) }
+        #[allow(clippy::unit_arg)]
+        unsafe {
+            ArchivedVec(self.as_slice().resolve_unsized(
+                pos,
+                resolver.pos,
+                resolver.metadata_resolver,
+            ))
+        }
     }
 }
 

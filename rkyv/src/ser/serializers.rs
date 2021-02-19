@@ -1,12 +1,12 @@
 //! Serializers that can be used standalone and provide basic capabilities.
 
+use crate::{
+    ser::{SeekSerializer, Serializer},
+    Fallible,
+};
 use core::ptr;
 #[cfg(feature = "std")]
 use std::io;
-use crate::{
-    ser::{Serializer, SeekSerializer},
-    Fallible,
-};
 
 /// Wraps a byte buffer and equips it with [`Serializer`].
 ///
@@ -178,7 +178,7 @@ impl<W: io::Write> WriteSerializer<W> {
         Self { inner, pos }
     }
 
-    /// Consumes the serializer and returns the internal writer used to create 
+    /// Consumes the serializer and returns the internal writer used to create
     /// it.
     pub fn into_inner(self) -> W {
         self.inner

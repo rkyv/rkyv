@@ -6,18 +6,15 @@ mod validation;
 #[cfg(test)]
 mod util {
     use rkyv::{
-        archived_value,
-        archived_unsized_value,
+        archived_unsized_value, archived_value,
         de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer},
         ser::{adapters::SharedSerializerAdapter, serializers::BufferSerializer, Serializer},
-        Aligned,
-        Deserialize,
-        Serialize,
-        SerializeUnsized,
+        Aligned, Deserialize, Serialize, SerializeUnsized,
     };
 
     pub const BUFFER_SIZE: usize = 256;
-    pub type DefaultSerializer = SharedSerializerAdapter<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>;
+    pub type DefaultSerializer =
+        SharedSerializerAdapter<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>;
     pub type DefaultDeserializer = SharedDeserializerAdapter<AllocDeserializer>;
 
     pub fn test_archive<T: Serialize<DefaultSerializer>>(value: &T)
@@ -25,8 +22,11 @@ mod util {
         T: PartialEq,
         T::Archived: PartialEq<T> + Deserialize<T, DefaultDeserializer>,
     {
-        let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer.serialize_value(value).expect("failed to archive value");
+        let mut serializer =
+            SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
+        let pos = serializer
+            .serialize_value(value)
+            .expect("failed to archive value");
         let buf = serializer.into_inner().into_inner();
         let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
@@ -38,8 +38,11 @@ mod util {
     where
         T::Archived: PartialEq<T>,
     {
-        let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer.serialize_unsized_value(value).expect("failed to archive ref");
+        let mut serializer =
+            SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
+        let pos = serializer
+            .serialize_unsized_value(value)
+            .expect("failed to archive ref");
         let buf = serializer.into_inner().into_inner();
         let archived_ref = unsafe { archived_unsized_value::<T>(buf.as_ref(), pos) };
         assert!(archived_ref == value);
@@ -53,8 +56,11 @@ mod util {
     >(
         value: &T,
     ) {
-        let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer.serialize_value(value).expect("failed to archive ref");
+        let mut serializer =
+            SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
+        let pos = serializer
+            .serialize_value(value)
+            .expect("failed to archive ref");
         let buf = serializer.into_inner().into_inner();
         let archived_ref = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_ref.deref() == value.deref());
@@ -75,31 +81,18 @@ mod no_std_tests {
 #[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
+    use crate::util::*;
     use core::pin::Pin;
     use rkyv::{
-        archived_value,
-        archived_value_mut,
-        de::{
-            adapters::SharedDeserializerAdapter,
-            deserializers::AllocDeserializer,
-            Deserializer,
-        },
+        archived_value, archived_value_mut,
+        de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer, Deserializer},
         ser::{
-            adapters::SharedSerializerAdapter,
-            serializers::BufferSerializer,
-            SeekSerializer,
+            adapters::SharedSerializerAdapter, serializers::BufferSerializer, SeekSerializer,
             Serializer,
         },
-        Aligned,
-        Archive,
-        ArchiveUnsized,
-        Archived,
-        Deserialize,
-        DeserializeUnsized,
-        Serialize,
+        Aligned, Archive, ArchiveUnsized, Archived, Deserialize, DeserializeUnsized, Serialize,
         SerializeUnsized,
     };
-    use crate::util::*;
 
     #[test]
     fn archive_primitives() {
@@ -177,7 +170,9 @@ mod tests {
         hash_map.insert("baz".to_string(), "bat".to_string());
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.serialize_value(&hash_map).expect("failed to archive value");
+        let pos = serializer
+            .serialize_value(&hash_map)
+            .expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value =
             unsafe { archived_value::<HashMap<String, String>>(buf.as_ref(), pos) };
@@ -490,7 +485,9 @@ mod tests {
         let value = Test(42);
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.serialize_value(&value).expect("failed to archive value");
+        let pos = serializer
+            .serialize_value(&value)
+            .expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
 
@@ -499,15 +496,10 @@ mod tests {
 
     #[test]
     fn manual_archive_dyn() {
-        use rkyv::{ArchivedMetadata, ArchivePointee};
+        use rkyv::{ArchivePointee, ArchivedMetadata};
         use rkyv_dyn::{
-            register_impl,
-            ArchivedDynMetadata,
-            DeserializeDyn,
-            DynDeserializer,
-            DynError,
-            RegisteredImpl,
-            SerializeDyn,
+            register_impl, ArchivedDynMetadata, DeserializeDyn, DynDeserializer, DynError,
+            RegisteredImpl, SerializeDyn,
         };
         use rkyv_typename::TypeName;
 
@@ -518,10 +510,10 @@ mod tests {
         #[ptr_meta::pointee]
         pub trait SerializeTestTrait: TestTrait + SerializeDyn {}
 
-        impl<T: Archive + SerializeDyn + TestTrait> SerializeTestTrait for T
-        where
-            T::Archived: RegisteredImpl<dyn DeserializeTestTrait>,
-        {}
+        impl<T: Archive + SerializeDyn + TestTrait> SerializeTestTrait for T where
+            T::Archived: RegisteredImpl<dyn DeserializeTestTrait>
+        {
+        }
 
         #[ptr_meta::pointee]
         pub trait DeserializeTestTrait: TestTrait + DeserializeDyn<dyn SerializeTestTrait> {}
@@ -538,7 +530,11 @@ mod tests {
             type Archived = dyn DeserializeTestTrait;
             type MetadataResolver = ();
 
-            fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {
+            fn resolve_metadata(
+                &self,
+                _: usize,
+                _: Self::MetadataResolver,
+            ) -> ArchivedMetadata<Self> {
                 ArchivedDynMetadata::new(self.archived_type_id())
             }
         }
@@ -546,17 +542,17 @@ mod tests {
         impl ArchivePointee for dyn DeserializeTestTrait {
             type ArchivedMetadata = ArchivedDynMetadata<Self>;
 
-            fn to_metadata(archived: &Self::ArchivedMetadata) -> <Self as ptr_meta::Pointee>::Metadata {
-                archived.to_metadata()
+            fn pointer_metadata(
+                archived: &Self::ArchivedMetadata,
+            ) -> <Self as ptr_meta::Pointee>::Metadata {
+                archived.pointer_metadata()
             }
         }
 
         impl<S: Serializer + ?Sized> SerializeUnsized<S> for dyn SerializeTestTrait {
-            fn serialize_unsized(
-                &self,
-                mut serializer: &mut S,
-            ) -> Result<usize, S::Error> {
-                self.serialize_dyn(&mut serializer).map_err(|e| *e.downcast::<S::Error>().unwrap())
+            fn serialize_unsized(&self, mut serializer: &mut S) -> Result<usize, S::Error> {
+                self.serialize_dyn(&mut serializer)
+                    .map_err(|e| *e.downcast::<S::Error>().unwrap())
             }
 
             fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
@@ -564,16 +560,24 @@ mod tests {
             }
         }
 
-        impl<D: Deserializer + ?Sized> DeserializeUnsized<dyn SerializeTestTrait, D> for dyn DeserializeTestTrait {
+        impl<D: Deserializer + ?Sized> DeserializeUnsized<dyn SerializeTestTrait, D>
+            for dyn DeserializeTestTrait
+        {
             unsafe fn deserialize_unsized(
                 &self,
                 mut deserializer: &mut D,
             ) -> Result<*mut (), D::Error> {
-                self.deserialize_dyn(&mut deserializer).map_err(|e| *e.downcast().unwrap())
+                self.deserialize_dyn(&mut deserializer)
+                    .map_err(|e| *e.downcast().unwrap())
             }
 
-            fn deserialize_metadata(&self, mut deserializer: &mut D) -> Result<<dyn SerializeTestTrait as ptr_meta::Pointee>::Metadata, D::Error> {
-                self.deserialize_dyn_metadata(&mut deserializer).map_err(|e| *e.downcast().unwrap())
+            fn deserialize_metadata(
+                &self,
+                mut deserializer: &mut D,
+            ) -> Result<<dyn SerializeTestTrait as ptr_meta::Pointee>::Metadata, D::Error>
+            {
+                self.deserialize_dyn_metadata(&mut deserializer)
+                    .map_err(|e| *e.downcast().unwrap())
             }
         }
 
@@ -600,16 +604,21 @@ mod tests {
                 &self,
                 deserializer: &mut dyn DynDeserializer,
             ) -> Result<*mut (), DynError> {
-                let result = deserializer.alloc_dyn(core::alloc::Layout::new::<Test>())? as *mut Test;
+                let result =
+                    deserializer.alloc_dyn(core::alloc::Layout::new::<Test>())? as *mut Test;
                 result.write(self.deserialize(deserializer)?);
                 Ok(result as *mut ())
             }
 
-            fn deserialize_dyn_metadata(&self, _: &mut dyn DynDeserializer) -> Result<<dyn SerializeTestTrait as ptr_meta::Pointee>::Metadata, DynError> {
+            fn deserialize_dyn_metadata(
+                &self,
+                _: &mut dyn DynDeserializer,
+            ) -> Result<<dyn SerializeTestTrait as ptr_meta::Pointee>::Metadata, DynError>
+            {
                 unsafe {
-                    Ok(core::mem::transmute(
-                        ptr_meta::metadata(core::ptr::null::<Test>() as *const dyn SerializeTestTrait)
-                    ))
+                    Ok(core::mem::transmute(ptr_meta::metadata(
+                        core::ptr::null::<Test>() as *const dyn SerializeTestTrait,
+                    )))
                 }
             }
         }
@@ -623,7 +632,9 @@ mod tests {
         let value: Box<dyn SerializeTestTrait> = Box::new(Test { id: 42 });
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.serialize_value(&value).expect("failed to archive value");
+        let pos = serializer
+            .serialize_value(&value)
+            .expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value =
             unsafe { archived_value::<Box<dyn SerializeTestTrait>>(buf.as_ref(), pos) };
@@ -633,7 +644,8 @@ mod tests {
         assert_eq!(value.get_id(), archived_value.get_id());
         assert_eq!(value.get_id(), archived_value.get_id());
 
-        let deserialized_value: Box<dyn SerializeTestTrait> = archived_value.deserialize(&mut AllocDeserializer).unwrap();
+        let deserialized_value: Box<dyn SerializeTestTrait> =
+            archived_value.deserialize(&mut AllocDeserializer).unwrap();
         assert_eq!(value.get_id(), deserialized_value.get_id());
     }
 
@@ -669,7 +681,9 @@ mod tests {
         let value: Box<dyn STestTrait> = Box::new(Test { id: 42 });
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer.serialize_value(&value).expect("failed to archive value");
+        let pos = serializer
+            .serialize_value(&value)
+            .expect("failed to archive value");
         let buf = serializer.into_inner();
         let archived_value = unsafe { archived_value::<Box<dyn STestTrait>>(buf.as_ref(), pos) };
         assert_eq!(value.get_id(), archived_value.get_id());
@@ -679,7 +693,8 @@ mod tests {
         assert_eq!(value.get_id(), archived_value.get_id());
 
         // deserialize
-        let deserialized_value: Box<dyn STestTrait> = archived_value.deserialize(&mut AllocDeserializer).unwrap();
+        let deserialized_value: Box<dyn STestTrait> =
+            archived_value.deserialize(&mut AllocDeserializer).unwrap();
         assert_eq!(value.get_id(), deserialized_value.get_id());
         assert_eq!(value.get_id(), deserialized_value.get_id());
     }
@@ -721,25 +736,36 @@ mod tests {
             }
         }
 
-        impl<T: Archive + for<'a> Serialize<dyn DynSerializer + 'a> + core::fmt::Display + TypeName + 'static>
-            rkyv_dyn::DeserializeDyn<dyn STestTrait<String>> for ArchivedTest<T>
+        impl<
+                T: Archive
+                    + for<'a> Serialize<dyn DynSerializer + 'a>
+                    + core::fmt::Display
+                    + TypeName
+                    + 'static,
+            > rkyv_dyn::DeserializeDyn<dyn STestTrait<String>> for ArchivedTest<T>
         where
-            ArchivedTest<T>: for<'a> Deserialize<Test<T>, (dyn DynDeserializer + 'a)> + rkyv_dyn::RegisteredImpl<dyn DTestTrait<String>>,
+            ArchivedTest<T>: for<'a> Deserialize<Test<T>, (dyn DynDeserializer + 'a)>
+                + rkyv_dyn::RegisteredImpl<dyn DTestTrait<String>>,
         {
             unsafe fn deserialize_dyn(
                 &self,
                 deserializer: &mut dyn DynDeserializer,
             ) -> Result<*mut (), DynError> {
-                let result = deserializer.alloc(core::alloc::Layout::new::<Test<T>>())? as *mut Test<T>;
+                let result =
+                    deserializer.alloc(core::alloc::Layout::new::<Test<T>>())? as *mut Test<T>;
                 result.write(self.deserialize(deserializer)?);
                 Ok(result as *mut ())
             }
 
-            fn deserialize_dyn_metadata(&self, _: &mut dyn DynDeserializer) -> Result<<dyn STestTrait<String> as ptr_meta::Pointee>::Metadata, DynError> {
+            fn deserialize_dyn_metadata(
+                &self,
+                _: &mut dyn DynDeserializer,
+            ) -> Result<<dyn STestTrait<String> as ptr_meta::Pointee>::Metadata, DynError>
+            {
                 unsafe {
-                    Ok(core::mem::transmute(
-                        ptr_meta::metadata(core::ptr::null::<Test<T>>() as *const dyn STestTrait<String>)
-                    ))
+                    Ok(core::mem::transmute(ptr_meta::metadata(
+                        core::ptr::null::<Test<T>>() as *const dyn STestTrait<String>,
+                    )))
                 }
             }
         }
@@ -761,7 +787,9 @@ mod tests {
         });
 
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let i32_pos = serializer.serialize_value(&i32_value).expect("failed to archive value");
+        let i32_pos = serializer
+            .serialize_value(&i32_value)
+            .expect("failed to archive value");
         let string_pos = serializer
             .serialize_value(&string_value)
             .expect("failed to archive value");
@@ -777,14 +805,18 @@ mod tests {
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
 
-        let i32_deserialized_value: Box<dyn STestTrait<i32>> = i32_archived_value.deserialize(&mut AllocDeserializer).unwrap();
+        let i32_deserialized_value: Box<dyn STestTrait<i32>> = i32_archived_value
+            .deserialize(&mut AllocDeserializer)
+            .unwrap();
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
 
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
-        let string_deserialized_value: Box<dyn STestTrait<String>> = string_archived_value.deserialize(&mut AllocDeserializer).unwrap();
+        let string_deserialized_value: Box<dyn STestTrait<String>> = string_archived_value
+            .deserialize(&mut AllocDeserializer)
+            .unwrap();
         assert_eq!(
             string_value.get_value(),
             string_deserialized_value.get_value()
@@ -991,8 +1023,9 @@ mod tests {
         let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
         let pos = serializer.serialize_value(&value).unwrap();
         let mut buf = serializer.into_inner();
-        let mut value =
-            unsafe { archived_value_mut::<Box<dyn SerializeTestTrait>>(Pin::new(buf.as_mut()), pos) };
+        let mut value = unsafe {
+            archived_value_mut::<Box<dyn SerializeTestTrait>>(Pin::new(buf.as_mut()), pos)
+        };
 
         assert_eq!(value.value(), 10);
         value.as_mut().get_pin().set_value(64);
@@ -1151,14 +1184,18 @@ mod tests {
             b: shared.clone(),
         };
 
-        let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer.serialize_value(&value).expect("failed to archive value");
+        let mut serializer =
+            SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
+        let pos = serializer
+            .serialize_value(&value)
+            .expect("failed to archive value");
         let mut buf = serializer.into_inner().into_inner();
 
         let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
         assert!(archived == &value);
 
-        let mut mutable_archived = unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
+        let mut mutable_archived =
+            unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
         unsafe {
             *mutable_archived.as_mut().a().get_pin_unchecked() = 42;
         }
@@ -1167,7 +1204,8 @@ mod tests {
         assert_eq!(*archived.a, 42);
         assert_eq!(*archived.b, 42);
 
-        let mut mutable_archived = unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
+        let mut mutable_archived =
+            unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
         unsafe {
             *mutable_archived.as_mut().b().get_pin_unchecked() = 17;
         }
@@ -1181,7 +1219,10 @@ mod tests {
 
         assert_eq!(*deserialized.a, 17);
         assert_eq!(*deserialized.b, 17);
-        assert_eq!(&*deserialized.a as *const u32, &*deserialized.b as *const u32);
+        assert_eq!(
+            &*deserialized.a as *const u32,
+            &*deserialized.b as *const u32
+        );
         assert_eq!(Rc::strong_count(&deserialized.a), 3);
         assert_eq!(Rc::strong_count(&deserialized.b), 3);
         assert_eq!(Rc::weak_count(&deserialized.a), 0);
@@ -1191,7 +1232,10 @@ mod tests {
 
         assert_eq!(*deserialized.a, 17);
         assert_eq!(*deserialized.b, 17);
-        assert_eq!(&*deserialized.a as *const u32, &*deserialized.b as *const u32);
+        assert_eq!(
+            &*deserialized.a as *const u32,
+            &*deserialized.b as *const u32
+        );
         assert_eq!(Rc::strong_count(&deserialized.a), 2);
         assert_eq!(Rc::strong_count(&deserialized.b), 2);
         assert_eq!(Rc::weak_count(&deserialized.a), 0);
@@ -1214,7 +1258,8 @@ mod tests {
             }
         }
 
-        let rc_slice = Rc::<[String]>::from(vec!["hello".to_string(), "world".to_string()].into_boxed_slice());
+        let rc_slice =
+            Rc::<[String]>::from(vec!["hello".to_string(), "world".to_string()].into_boxed_slice());
         let value = Test {
             a: rc_slice.clone(),
             b: rc_slice,
@@ -1249,8 +1294,11 @@ mod tests {
             b: Rc::downgrade(&shared),
         };
 
-        let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer.serialize_value(&value).expect("failed to archive value");
+        let mut serializer =
+            SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
+        let pos = serializer
+            .serialize_value(&value)
+            .expect("failed to archive value");
         let mut buf = serializer.into_inner().into_inner();
 
         let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
@@ -1258,7 +1306,8 @@ mod tests {
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 10);
 
-        let mut mutable_archived = unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
+        let mut mutable_archived =
+            unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
         unsafe {
             *mutable_archived.as_mut().a().get_pin_unchecked() = 42;
         }
@@ -1268,9 +1317,15 @@ mod tests {
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 42);
 
-        let mut mutable_archived = unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
+        let mut mutable_archived =
+            unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
         unsafe {
-            *mutable_archived.as_mut().b().upgrade_pin().unwrap().get_pin_unchecked() = 17;
+            *mutable_archived
+                .as_mut()
+                .b()
+                .upgrade_pin()
+                .unwrap()
+                .get_pin_unchecked() = 17;
         }
 
         let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
@@ -1284,7 +1339,10 @@ mod tests {
         assert_eq!(*deserialized.a, 17);
         assert!(deserialized.b.upgrade().is_some());
         assert_eq!(*deserialized.b.upgrade().unwrap(), 17);
-        assert_eq!(&*deserialized.a as *const u32, &*deserialized.b.upgrade().unwrap() as *const u32);
+        assert_eq!(
+            &*deserialized.a as *const u32,
+            &*deserialized.b.upgrade().unwrap() as *const u32
+        );
         assert_eq!(Rc::strong_count(&deserialized.a), 2);
         assert_eq!(Weak::strong_count(&deserialized.b), 2);
         assert_eq!(Rc::weak_count(&deserialized.a), 1);
@@ -1295,7 +1353,10 @@ mod tests {
         assert_eq!(*deserialized.a, 17);
         assert!(deserialized.b.upgrade().is_some());
         assert_eq!(*deserialized.b.upgrade().unwrap(), 17);
-        assert_eq!(&*deserialized.a as *const u32, &*deserialized.b.upgrade().unwrap() as *const u32);
+        assert_eq!(
+            &*deserialized.a as *const u32,
+            &*deserialized.b.upgrade().unwrap() as *const u32
+        );
         assert_eq!(Rc::strong_count(&deserialized.a), 1);
         assert_eq!(Weak::strong_count(&deserialized.b), 1);
         assert_eq!(Rc::weak_count(&deserialized.a), 1);

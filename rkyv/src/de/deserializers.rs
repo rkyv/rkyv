@@ -1,11 +1,11 @@
 //! Deserializers that can be used standalone and provide basic capabilities.
 
 #[cfg(feature = "std")]
+use crate::{de::Deserializer, Fallible};
+#[cfg(feature = "std")]
 use core::alloc;
 #[cfg(feature = "std")]
 use std::{error::Error, fmt};
-#[cfg(feature = "std")]
-use crate::{de::Deserializer, Fallible};
 
 /// Errors that may be returned by [`AllocDeserializer`].
 #[cfg(feature = "std")]

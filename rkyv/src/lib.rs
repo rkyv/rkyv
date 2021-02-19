@@ -343,7 +343,7 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///
 ///     // We need to be able to turn our archived metadata into regular
 ///     // metadata for our type
-///     fn to_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
+///     fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
 ///         archived.len as usize
 ///     }
 /// }
@@ -437,11 +437,25 @@ pub trait ArchiveUnsized: Pointee {
 
     /// Creates the archived version of the metadata for this value at the given
     /// position.
-    fn resolve_metadata(&self, pos: usize, resolver: Self::MetadataResolver) -> ArchivedMetadata<Self>;
+    fn resolve_metadata(
+        &self,
+        pos: usize,
+        resolver: Self::MetadataResolver,
+    ) -> ArchivedMetadata<Self>;
 
     /// Resolves a relative pointer to this value with the given `from` and
     /// `to`.
-    unsafe fn resolve_unsized(&self, from: usize, to: usize, resolver: Self::MetadataResolver) -> RelPtr<Self::Archived> {
+    ///
+    /// # Safety
+    ///
+    /// `to` must be the location of an archived value and `resolver` must be
+    /// the metadata resolver for that value.
+    unsafe fn resolve_unsized(
+        &self,
+        from: usize,
+        to: usize,
+        resolver: Self::MetadataResolver,
+    ) -> RelPtr<Self::Archived> {
         RelPtr::resolve(from, to, self, resolver)
     }
 }
@@ -455,7 +469,7 @@ pub trait ArchivePointee: Pointee {
     type ArchivedMetadata;
 
     /// Converts some archived metadata to the pointer metadata for itself.
-    fn to_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata;
+    fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata;
 }
 
 /// A counterpart of [`Serialize`] that's suitable for unsized types.
@@ -473,7 +487,9 @@ pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
 ///
 /// Most types that implement `DeserializeUnsized` will need a
 /// [`Deserializer`](de::Deserializer) bound so that they can allocate memory.
-pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fallible + ?Sized>: ArchivePointee {
+pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fallible + ?Sized>:
+    ArchivePointee
+{
     /// Deserializes a reference to the given value.
     ///
     /// # Safety
@@ -580,13 +596,23 @@ impl RawRelPtr {
 
     /// Calculates the memory address being pointed to by this relative pointer.
     pub fn as_ptr(&self) -> *const () {
-        unsafe { (self as *const Self).cast::<u8>().offset(self.offset as isize).cast() }
+        unsafe {
+            (self as *const Self)
+                .cast::<u8>()
+                .offset(self.offset as isize)
+                .cast()
+        }
     }
 
     /// Returns an unsafe mutable pointer to the memory address being pointed to
     /// by this relative pointer.
     pub fn as_mut_ptr(&mut self) -> *mut () {
-        unsafe { (self as *mut Self).cast::<u8>().offset(self.offset as isize).cast() }
+        unsafe {
+            (self as *mut Self)
+                .cast::<u8>()
+                .offset(self.offset as isize)
+                .cast()
+        }
     }
 }
 
@@ -622,7 +648,12 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
     ///
     /// `from` must be the position of the relative pointer and `to` must be the
     /// position of some valid memory.
-    pub unsafe fn resolve<U: ArchiveUnsized<Archived = T> + ?Sized>(from: usize, to: usize, value: &U, metadata_resolver: U::MetadataResolver) -> Self {
+    pub unsafe fn resolve<U: ArchiveUnsized<Archived = T> + ?Sized>(
+        from: usize,
+        to: usize,
+        value: &U,
+        metadata_resolver: U::MetadataResolver,
+    ) -> Self {
         let raw_ptr_pos = from + offset_of!(Self, raw_ptr);
         let metadata_pos = from + offset_of!(Self, metadata);
 
@@ -649,13 +680,16 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
 
     /// Calculates the memory address being pointed to by this relative pointer.
     pub fn as_ptr(&self) -> *const T {
-        ptr_meta::from_raw_parts(self.raw_ptr.as_ptr(), T::to_metadata(&self.metadata))
+        ptr_meta::from_raw_parts(self.raw_ptr.as_ptr(), T::pointer_metadata(&self.metadata))
     }
 
     /// Returns an unsafe mutable pointer to the memory address being pointed to
     /// by this relative pointer.
     pub fn as_mut_ptr(&mut self) -> *mut T {
-        ptr_meta::from_raw_parts_mut(self.raw_ptr.as_mut_ptr(), T::to_metadata(&self.metadata))
+        ptr_meta::from_raw_parts_mut(
+            self.raw_ptr.as_mut_ptr(),
+            T::pointer_metadata(&self.metadata),
+        )
     }
 }
 
@@ -677,7 +711,8 @@ pub type Archived<T> = <T as Archive>::Archived;
 /// Alias for the resolver for some [`Archive`] type.
 pub type Resolver<T> = <T as Archive>::Resolver;
 /// Alias for the archived metadata for some [`ArchiveUnsized`] type.
-pub type ArchivedMetadata<T> = <<T as ArchiveUnsized>::Archived as ArchivePointee>::ArchivedMetadata;
+pub type ArchivedMetadata<T> =
+    <<T as ArchiveUnsized>::Archived as ArchivePointee>::ArchivedMetadata;
 /// Alias for the metadata resolver for some [`ArchiveUnsized`] type.
 pub type MetadataResolver<T> = <T as ArchiveUnsized>::MetadataResolver;
 
@@ -764,7 +799,10 @@ pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
 /// This is only safe to call if the reference is archived at the given position
 /// in the byte array.
 #[inline]
-pub unsafe fn archived_unsized_value<T: ArchiveUnsized + ?Sized>(bytes: &[u8], pos: usize) -> &T::Archived {
+pub unsafe fn archived_unsized_value<T: ArchiveUnsized + ?Sized>(
+    bytes: &[u8],
+    pos: usize,
+) -> &T::Archived {
     let rel_ptr = &*bytes.as_ptr().add(pos).cast::<RelPtr<T::Archived>>();
     &*rel_ptr.as_ptr()
 }
@@ -784,6 +822,10 @@ pub unsafe fn archived_unsized_value_mut<T: ArchiveUnsized + ?Sized>(
     bytes: Pin<&mut [u8]>,
     pos: usize,
 ) -> Pin<&mut T::Archived> {
-    let rel_ptr = &mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast::<RelPtr<T::Archived>>();
+    let rel_ptr = &mut *bytes
+        .get_unchecked_mut()
+        .as_mut_ptr()
+        .add(pos)
+        .cast::<RelPtr<T::Archived>>();
     Pin::new_unchecked(&mut *rel_ptr.as_mut_ptr())
 }

@@ -3,13 +3,10 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
 use rkyv::{
-    archived_value,
-    check_archive,
+    archived_value, check_archive,
     de::deserializers::AllocDeserializer,
-    ser::{Serializer, serializers::WriteSerializer},
-    Archive,
-    Deserialize,
-    Serialize,
+    ser::{serializers::WriteSerializer, Serializer},
+    Archive, Deserialize, Serialize,
 };
 use std::collections::HashMap;
 
@@ -89,7 +86,9 @@ fn generate_vec<R: Rng, T: Generate>(rng: &mut R, range: core::ops::Range<usize>
     result
 }
 
-#[derive(Archive, Serialize, CheckBytes, Clone, Copy, Deserialize, serde::Deserialize, serde::Serialize)]
+#[derive(
+    Archive, Serialize, CheckBytes, Clone, Copy, Deserialize, serde::Deserialize, serde::Serialize,
+)]
 #[archive(copy)]
 #[repr(u8)]
 pub enum GameType {
@@ -139,7 +138,9 @@ impl Generate for Item {
     }
 }
 
-#[derive(Archive, Serialize, CheckBytes, Clone, Copy, Deserialize, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Archive, Serialize, CheckBytes, Clone, Copy, Deserialize, serde::Serialize, serde::Deserialize,
+)]
 #[archive(copy)]
 pub struct Abilities {
     walk_speed: f32,
@@ -376,7 +377,11 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let mut serialize_buffer = vec![0; BUFFER_LEN];
         group.bench_function("serialize", |b| {
             b.iter(|| {
-                bincode::serialize_into(black_box(serialize_buffer.as_mut_slice()), black_box(&players)).unwrap();
+                bincode::serialize_into(
+                    black_box(serialize_buffer.as_mut_slice()),
+                    black_box(&players),
+                )
+                .unwrap();
             })
         });
 
@@ -396,7 +401,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let mut serialize_buffer = vec![0u8; BUFFER_LEN];
         group.bench_function("serialize", |b| {
             b.iter(|| {
-                let mut serializer = WriteSerializer::new(black_box(serialize_buffer.as_mut_slice()));
+                let mut serializer =
+                    WriteSerializer::new(black_box(serialize_buffer.as_mut_slice()));
                 black_box(serializer.serialize_value(black_box(&players)).unwrap());
             });
         });

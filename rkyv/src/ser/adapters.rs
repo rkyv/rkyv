@@ -1,12 +1,10 @@
 //! Adapters wrap serializers and add support for serializer traits.
 
-use std::collections::HashMap;
 use crate::{
     ser::{Serializer, SharedSerializer},
-    Archive,
-    Fallible,
-    SerializeUnsized,
+    Archive, Fallible, SerializeUnsized,
 };
+use std::collections::HashMap;
 
 /// An adapter that adds shared serialization support to a serializer.
 pub struct SharedSerializerAdapter<S> {
@@ -64,10 +62,13 @@ impl<S: Serializer> Serializer for SharedSerializerAdapter<S> {
 }
 
 impl<S: Serializer> SharedSerializer for SharedSerializerAdapter<S> {
-    fn archive_shared<T: SerializeUnsized<Self> + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error> {
+    fn archive_shared<T: SerializeUnsized<Self> + ?Sized>(
+        &mut self,
+        value: &T,
+    ) -> Result<usize, Self::Error> {
         let key = (value as *const T).cast();
         if let Some(existing) = self.shared_resolvers.get(&key) {
-            Ok(existing.clone())
+            Ok(*existing)
         } else {
             let resolver = value.serialize_unsized(self)?;
             self.shared_resolvers.insert(key, resolver);

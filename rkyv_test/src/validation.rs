@@ -2,15 +2,9 @@ use bytecheck::CheckBytes;
 use core::fmt;
 use rkyv::{
     check_archive,
-    ser::{
-        adapters::SharedSerializerAdapter,
-        serializers::BufferSerializer,
-        Serializer,
-    },
+    ser::{adapters::SharedSerializerAdapter, serializers::BufferSerializer, Serializer},
     validation::DefaultArchiveValidator,
-    Aligned,
-    Archive,
-    Serialize,
+    Aligned, Archive, Serialize,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -24,7 +18,9 @@ where
     T::Archived: CheckBytes<DefaultArchiveValidator>,
 {
     let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = serializer.serialize_value(value).expect("failed to archive value");
+    let pos = serializer
+        .serialize_value(value)
+        .expect("failed to archive value");
     let buf = serializer.into_inner();
     check_archive::<T>(buf.as_ref(), pos).unwrap();
 }
@@ -35,7 +31,9 @@ fn basic_functionality() {
     let value = Some("Hello world".to_string());
 
     let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = serializer.serialize_value(&value).expect("failed to archive value");
+    let pos = serializer
+        .serialize_value(&value)
+        .expect("failed to archive value");
     let buf = serializer.into_inner();
 
     let result = check_archive::<Option<String>>(buf.as_ref(), pos);
@@ -108,7 +106,10 @@ fn overlapping_claims() {
 
 #[test]
 fn cycle_detection() {
-    use rkyv::{Archived, validation::{ArchiveBoundsContext, ArchiveMemoryContext}};
+    use rkyv::{
+        validation::{ArchiveBoundsContext, ArchiveMemoryContext},
+        Archived,
+    };
 
     #[derive(Archive)]
     #[archive(derive(Debug))]
@@ -318,7 +319,9 @@ fn check_dyn() {
     let value: Box<dyn SerializeTestTrait> = Box::new(TestUnchecked { id: 42 });
 
     let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = serializer.serialize_value(&value).expect("failed to archive value");
+    let pos = serializer
+        .serialize_value(&value)
+        .expect("failed to archive value");
     let buf = serializer.into_inner();
     if let Ok(_) = check_archive::<Box<dyn SerializeTestTrait>>(buf.as_ref(), pos) {
         panic!("check passed for type that does not implement CheckBytes");
@@ -342,8 +345,11 @@ fn check_shared_ptr() {
         b: shared.clone(),
     };
 
-    let mut serializer = SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-    let pos = serializer.serialize_value(&value).expect("failed to archive value");
+    let mut serializer =
+        SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
+    let pos = serializer
+        .serialize_value(&value)
+        .expect("failed to archive value");
     let buf = serializer.into_inner().into_inner();
 
     check_archive::<Test>(buf.as_ref(), pos).unwrap();
