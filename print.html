@@ -97,7 +97,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">4.2.</strong> Unsized types</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unarchive.html"><strong aria-hidden="true">6.</strong> Unarchive</a></li><li class="chapter-item expanded "><a href="seek-and-rooted-archives.html"><strong aria-hidden="true">7.</strong> Seek and rooted archives</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">8.</strong> Validation</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unsized_types.html"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait_objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="shared_pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -183,7 +183,7 @@ objects.</li>
 <li><code>rkyv_dyn_derive</code></li>
 <li><code>rkyv_typename_derive</code></li>
 </ul>
-<p>And a test crate: <code>rkyv_test</code>.</p>
+<p>There is a test crate: <code>rkyv_test</code>, and a benchmarking crate: <code>rkyv_bench</code>.</p>
 <h2><a class="header" href="#links" id="links">Links</a></h2>
 <ul>
 <li><a href="https://github.com/djkoloski/rkyv">Github repo</a></li>
@@ -194,6 +194,8 @@ objects.</li>
 <p>rkyv has sister crates that are standalone but were designed for use with rkyv:</p>
 <ul>
 <li><a href="https://github.com/djkoloski/bytecheck">bytecheck</a>: A type validation framework for Rust.</li>
+<li><a href="https://github.com/djkoloski/ptr_meta">ptr_meta</a>: A radioactive stabilization of the <code>ptr_meta</code>
+RFC.</li>
 </ul>
 <h1><a class="header" href="#motivation" id="motivation">Motivation</a></h1>
 <p>Most serialization frameworks like <a href="https://serde.rs">serde</a> define an internal data model that
@@ -213,7 +215,7 @@ deserialization.</p>
 <h1><a class="header" href="#zero-copy-deserialization" id="zero-copy-deserialization">Zero-copy deserialization</a></h1>
 <p>Zero-copy deserialization is a technique that reduces the time and memory required to deserialize
 data by directly referencing bytes in the serialized form.</p>
-<h2><a class="header" href="#partial-zcd" id="partial-zcd">Partial ZCD</a></h2>
+<h2><a class="header" href="#partial-zero-copy" id="partial-zero-copy">Partial zero-copy</a></h2>
 <p>Serde and others have support for partial zero-copy deserialization, where bits and pieces of the
 deserialized data are borrowed from the serialized form. Strings, for example, can borrow their
 bytes directly from the serialized form in encodings like bincode that don't perform any character
@@ -221,67 +223,30 @@ escaping. However, a string object must still be created to hold the deserialize
 to the borrowed characters.</p>
 <p>Partial zero-copy deserialization can considerably improve memory usage and often speed up
 some deserialiation, but with some work we can go further.</p>
-<h2><a class="header" href="#total-zcd" id="total-zcd">Total ZCD</a></h2>
+<h2><a class="header" href="#total-zero-copy" id="total-zero-copy">Total zero-copy</a></h2>
 <p>rkyv implements total zero-copy deserialization, which guarantees that no data is copied during
 deserialization and no work is done to deserialize data. It achieves this by structuring its encoded
 representation so that it is the same as the in-memory representation of the source type.</p>
 <p>This opens up blazingly-fast data loading and enables data access orders of magnitude more quickly
 than traditional serialization.</p>
 <h1><a class="header" href="#architecture" id="architecture">Architecture</a></h1>
-<p>The core of rkyv is built around three core traits:
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.Write.html"><code>Write</code></a>,
+<p>The core of rkyv is built around
+<a href="https://docs.rs/rkyv/latest/rkyv/struct.RelPtr.html">relative pointers</a> and three core traits:
 <a href="https://docs.rs/rkyv/latest/rkyv/trait.Archive.html"><code>Archive</code></a>,
-and <a href="https://docs.rs/rkyv/latest/rkyv/trait.Resolve.html"><code>Resolve</code></a>.</p>
-<h2><a class="header" href="#write" id="write">Write</a></h2>
-<p>Writers are types that accept bytes and write them in order to some output. The most basic example
-of a writer might be a simple file. Writers can additionally provide the position of the next byte,
-which is important for <a href="relative-pointers.html">relative pointers</a>.</p>
-<h2><a class="header" href="#archive" id="archive">Archive</a></h2>
-<p>Archive types are able to convert themselves to their archived counterparts and write them to a
-Writer. This happens in two steps:</p>
-<ol>
-<li>Any dependencies of the type are written to the writer. For strings this would be the characters
-of the string, for boxes it would be the boxed value, and for vectors it would be any contained
-values. This is the archive step.</li>
-<li>The value itself is written to the writer. For strings this would be the length and a pointer to
-the characters, for boxes it would be a pointer to the boxed value, and for vectors it would be a
-length and pointer to the archived values. This is the resolve step.</li>
-</ol>
-<h2><a class="header" href="#resolve" id="resolve">Resolve</a></h2>
-<p>Archiveable types have a resolver type, which is just any information that needs to get carried from
-the first step to the second. In most cases, a resolver is just the positions where the dependencies
-of the type were written.</p>
-<p>A good example of why resolvers are necessary is when archiving a tuple. Say we have two strings:</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>let value = (&quot;hello&quot;.to_string(), &quot;world&quot;.to_string());
-<span class="boring">}
-</span></code></pre></pre>
-<p>The archived tuple needs to have both of the strings right next to each other:</p>
-<pre><code>0x0000      AA AA AA AA BB BB BB BB
-0x0008      CC CC CC CC DD DD DD DD
-</code></pre>
-<p>A and B might be the length and pointer for the first string of the tuple, and C and D might be the
-length and pointer for the second string.</p>
-<p>When archiving, we might be tempted to archive and resolve the first string, then archive and
-resolve the second one. But this might place the second string's bytes (&quot;world&quot;) between the two!
-Instead, we need to write out the bytes for both strings, and then finish archiving both of them.
-The tuple doesn't know what information the strings need to finish archiving themselves, so they
-have to provide it to the tuple through their Resolver.</p>
-<p>This way, the tuple can:</p>
-<ol>
-<li>Archive the first string (save the resolver)</li>
-<li>Archive the second string (save the resolver)</li>
-<li>Resolve the first string with its resolver</li>
-<li>Resolve the second string with its resolver</li>
-</ol>
-<p>And we're guaranteed that the two strings are placed right next to each other like we need.</p>
+<a href="https://docs.rs/rkyv/latest/rkyv/trait.Serialize.html"><code>Serialize</code></a>, and
+<a href="https://docs.rs/rkyv/latest/rkyv/trait.Deserialize.html"><code>Deserialize</code></a>. Each of these traits has a
+corresponding variant that supports unsized types:
+<a href="https://docs.rs/rkyv/latest/rkyv/trait.ArchiveUnsized.html"><code>ArchiveUnsized</code></a>,
+<a href="https://docs.rs/rkyv/latest/rkyv/trait.SerializeUnsized.html"><code>SerializeUnsized</code></a>, and
+<a href="https://docs.rs/rkyv/latest/rkyv/trait.DeserializeUnsized.html"><code>DeserializeUnsized</code></a>.</p>
+<p>The system is built to be flexible and can be extended beyond the provided types. For example, the
+<code>rkyv_dyn</code> crate adds support for trait objects by introducing new traits and defining how they
+build up to allow trait objects to be serialized and deserialized.</p>
 <h1><a class="header" href="#relative-pointers" id="relative-pointers">Relative pointers</a></h1>
 <p>Relative pointers are the bread and butter of total zero-copy deserialization, completely replacing
 the use of normal pointers. But why can't we use normal pointers?</p>
 <p>Consider some zero-copy data on disc. Before we can use it, we need to load it into memory. But we
-can't control <em>where</em> in memory it gets loaded! Every time we load it, it could be located at a
+can't control <em>where</em> in memory it gets loaded. Every time we load it, it could be located at a
 different address, and therefore the objects inside of it will be located at a different address.
 This means that we can't store any pointers to that data, inside of it or outside of it. Some
 libraries like <a href="https://github.com/TimelyDataflow/abomonation">abomonation</a> store some extra data
@@ -296,19 +261,87 @@ the pointer behaves under moves:</p>
 By using relative pointers, we can load data at any position in memory and still have valid pointers
 inside of it. Relative pointers don't require write access to memory either, so we can memory map
 entire files and instantly have access to their data in a structured manner.</p>
-<h1><a class="header" href="#unsized-types" id="unsized-types">Unsized types</a></h1>
-<p>Unlike traditional sized types, unsized types are archived through the
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.ArchiveRef.html"><code>ArchiveRef</code></a> trait. Unlike <code>Archive</code>,
-which directly stores a type in an archive, <code>ArchiveRef</code> stores a reference to a type. Crucially,
-that reference can store additional data about the archived type, such as size or length. This
-allows unsized types to be archived, such as slices and structs with a trailing slice.</p>
-<p><code>ArchiveRef</code> is blanket implemented for all <code>Archive</code> types, with a reference type that's just a
-relative pointer. This allows <code>Box</code> to archive sized and unsized types the same way without extra
-annotations or wrapper types.</p>
-<h2><a class="header" href="#trait-objects" id="trait-objects">Trait objects</a></h2>
-<p>The <a href="https://docs.rs/rkyv_dyn"><code>rkyv_dyn</code></a> crate adds support for trait object serialization and
-deserialization. Trait objects can be archived and treated as a trait object while archived. The
-crate documentation has examples of how to use it.</p>
+<p>rkyv's implementation of relative pointers is the
+<a href="https://docs.rs/rkyv/latest/rkyv/struct.RelPtr.html"><code>RelPtr</code></a> type.</p>
+<h1><a class="header" href="#archive" id="archive">Archive</a></h1>
+<p>Types that implement <code>Archive</code> have an alternate representation that supports zero-copy
+deserialization. The construction of archived types happens in two steps:</p>
+<ol>
+<li>Any dependencies of the type are serialized. For strings this would be the characters of the
+string, for boxes it would be the boxed value, and for vectors it would be any contained values. Any
+bookkeeping from this step is bundled into a <code>Resolver</code> type and held onto for later. This is the
+<em>serialize</em> step.</li>
+<li>The resolver and original value are used to construct the archived value, then the value itself
+is written to the writer. For strings the resolver would the position of the characters, for boxes
+it would be the position of the boxed value, and for vectors it would be the position of the
+archived values. Along with the original values, the archived types of each of these can be
+constructed. This is the <em>resolve</em> step.</li>
+</ol>
+<h2><a class="header" href="#resolvers" id="resolvers">Resolvers</a></h2>
+<p>A good example of why resolvers are necessary is when archiving a tuple. Say we have two strings:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let value = (&quot;hello&quot;.to_string(), &quot;world&quot;.to_string());
+<span class="boring">}
+</span></code></pre></pre>
+<p>The archived tuple needs to have both of the strings right next to each other:</p>
+<pre><code>0x0000      AA AA AA AA BB BB BB BB
+0x0008      CC CC CC CC DD DD DD DD
+</code></pre>
+<p>A and B might be the length and pointer for the first string of the tuple, and C and D might be the
+length and pointer for the second string.</p>
+<p>When archiving, we might be tempted to serialize and resolve the first string, then serialize and
+resolve the second one. But this might place the second string's bytes (&quot;world&quot;) between the two!
+Instead, we need to write out the bytes for both strings, and then finish archiving both of them.
+The tuple doesn't know what information the strings need to finish archiving themselves, so they
+have to provide it to the tuple through their Resolver.</p>
+<p>This way, the tuple can:</p>
+<ol>
+<li>Archive the first string (save the resolver)</li>
+<li>Archive the second string (save the resolver)</li>
+<li>Resolve the first string with its resolver</li>
+<li>Resolve the second string with its resolver</li>
+</ol>
+<p>And we're guaranteed that the two strings are placed right next to each other like we need.</p>
+<h1><a class="header" href="#serialize" id="serialize">Serialize</a></h1>
+<p>Types implement <a href="https://docs.rs/rkyv/latest/rkyv/trait.Serialize.html"><code>Serialize</code></a> separately from
+<code>Archive</code>. <code>Serialize</code> creates a resolver for some object, then <code>Archive</code> turns the value and that
+resolver into an archived type. Having a separate <code>Serialize</code> trait is necessary because although a
+type may have only one archived representation, different requirements may need to be met in order
+to create one.</p>
+<p><code>Archive</code> doesn't parameterize over the serializer used to make it, since it shouldn't matter what
+serializer an archived type was made with. But <code>Serialize</code> does, because it needs to specify the
+requirements on its <code>Serializer</code> that need to be met for it to create a resolver.</p>
+<h2><a class="header" href="#serializer" id="serializer">Serializer</a></h2>
+<p>Serializers are types that provide capabilities to objects during serialization. For primitive
+types, any serializer can be used because no additional capabilities are required. More complex
+types may require the ability to write bytes to the archive, seek throughout the archive, pool
+shared resources, and more. rkyv provides serializers with some basic functionality as well as
+adapters that add new capabilities to existing serializers.</p>
+<p>The most basic serializers used are
+<a href="https://docs.rs/rkyv/latest/rkyv/ser/serializers/struct.BufferSerializer.html"><code>BufferSerializer</code></a>
+for serializing into fixed-size byte buffers and
+<a href="https://docs.rs/rkyv/latest/rkyv/ser/serialisers/struct.WriteSerializer.html"><code>WriteSerializer</code></a>
+for serializing into any <a href="https://doc.rust-lang.org/std/io/trait.Write.html"><code>Writer</code></a>.</p>
+<h1><a class="header" href="#deserialize" id="deserialize">Deserialize</a></h1>
+<p>Similarly to <code>Serialize</code>, <a href="https://docs.rs/rkyv/latest/rkyv/trait.Deserialize.html"><code>Deserialize</code></a>
+parameterizes over and takes a deserializer, and converts a type from its archived form back to its
+original one. Unlike serialization, deserialization occurs in a single step and doesn't have an
+equivalent of a resolver.</p>
+<p>This provides a more or less a traditional deserialization with the added benefit of being sped up
+somewhat by having very compatible representations. It also incurs both the memory and performance
+penalties of traditional deserialization, so make sure that it's what you need before you use it.
+Deserialization is not required to access archived data as long as you can do so through the
+archived versions.</p>
+<p>A good use for <code>Deserialize</code> is deserializing portions of archives. You can easily traverse the
+archived data to locate some subobject, then deserialize just that piece instead of the archive as a
+whole. This granular approach provides the benefits of both zero-copy deserialization as well as
+traditional deserialization.</p>
+<h2><a class="header" href="#deserializer" id="deserializer">Deserializer</a></h2>
+<p>Deserializers, like serializers, provide capabilities to objects during deserialization. The most
+basic capability provides the ability to allocate memory, which is required for deserializing
+unsized types.</p>
 <h1><a class="header" href="#format" id="format">Format</a></h1>
 <p>The rkyv crate provides <code>Archive</code> implementations for common core and std types. In general they
 follow the same format as derived implementations, but may differ in some cases. For more details
@@ -345,28 +378,88 @@ possible type that can represent all of the variants.</li>
 </span></code></pre></pre>
 <p>With the strict feature, these structs are additionally annotated with <code>#[repr(C)]</code> for guaranteed
 portability and stability.</p>
-<h1><a class="header" href="#unarchive" id="unarchive">Unarchive</a></h1>
-<p>The <a href="https://docs.rs/rkyv/latest/rkyv/trait.Unarchive.html"><code>Unarchive</code></a> trait provides a method to
-convert the archived type back into the original one. This is more or less a traditional
-deserialization with the added benefit of being sped up somewhat by having very compatible
-representations. The process of unarchiving data incurs both the memory and performance penalties
-of traditional serialization, so make sure that it's what you need before you use it.</p>
-<p>A good use for <code>Unarchive</code> is unarchiving portions of archives. You can easily traverse the archived
-data to locate some subobject, then unarchive just that piece instead of the archive as a whole.
-This granular approach provides the benefits of both zero-copy deserialization as well as
-traditional deserialization.</p>
-<h1><a class="header" href="#seek-and-rooted-archives" id="seek-and-rooted-archives">Seek and rooted archives</a></h1>
-<p><a href="https://docs.rs/rkyv/latest/trait.Seek.html"><code>Seek</code></a> is an extension trait for <code>Write</code> that enables
-a writer to move throughout an archive, and allows the creation of <em>rooted archives</em>.</p>
-<p>Normally, archiving a value will return the position that the archive was archived at. This means
-that in most situations the user will have to store the position of the root object alongside the
-archive data in order to access the archive properly. One possible solution to this problem would be
-to store the offset of the root in the first few bytes of the archive, but this would still require
-going back to fix those bytes up after finishing archiving.</p>
-<p>If we have the ability to seek backwards in the archive, we can use it to archive the root object
-at the start of the archive and guarantee that it will be located at position <code>0</code>. This is
-essentially what the functions <code>archive_root</code> and <code>archive_ref_root</code> do, archiving the rest of the
-data in the normal manner then backtracking to resolve the root object at the start of the archive.</p>
+<h1><a class="header" href="#unsized-types" id="unsized-types">Unsized Types</a></h1>
+<p>rkyv supports unsized types out of the box and ships with implementations for the most common
+unsized types (<code>str</code>s and slices). Trait objects can also be supported with <code>rkyv_dyn</code>, see
+<a href="trait_objects.html">&quot;Trait Objects&quot;</a> for more details.</p>
+<h2><a class="header" href="#metadata" id="metadata">Metadata</a></h2>
+<p>The core concept that enables unsized types is metadata. In rust, pointers to types can be different
+sizes, in contrast with languages like C and C++ where all pointers are the same size. This is
+important for the concept of sizing, which you may have encountered through rust's
+<a href="https://doc.rust-lang.org/std/marker/trait.Sized.html">Sized</a> trait.</p>
+<p>Pointers are composed of two pieces: a data address and some metadata. The data address is what most
+people think of when they think about pointers; it's the location of the pointed data. The metadata
+for a pointer is some extra data that is needed to work safely with the data at the pointed
+location. It can be almost anything, or nothing at all (for Sized types). Pointers with no extra
+metadata are sometimes called &quot;thin&quot; pointers, and pointers <em>with</em> metadata are sometimes called
+&quot;fat&quot; pointers.</p>
+<p>Fundamentally, the metadata of a pointer exists to provide the program enough information to safely
+access, drop, and deallocate structures that are pointed to. For slices, the metadata carries the
+length of the slice, for trait objects it carries the virtual function table (vtable) pointer, and
+for custom unsized structs it carries the metadata of the single trailing unsized member.</p>
+<h2><a class="header" href="#archived-metadata" id="archived-metadata">Archived Metadata</a></h2>
+<p>For unsized types, the metadata for a type is archived separately from the relative pointer to the
+data. This mirrors how rust works internally to support archiving shared pointers and other exotic
+use cases. This does complicate things somewhat, but for most people the metadata archiving process
+will end up as just filling out a few functions and returning <code>()</code>.</p>
+<h1><a class="header" href="#trait-objects" id="trait-objects">Trait Objects</a></h1>
+<p>Trait object serialization is supported through the <code>rkyv_dyn</code> crate. This crate is maintained as
+part of rkyv, but is separate from the main crate to allow other implementations to be used instead.
+This section will focus primarily on the architecture of <code>rkyv_dyn</code> and how to use it effectively.</p>
+<h2><a class="header" href="#core-traits" id="core-traits">Core traits</a></h2>
+<p>The new traits introduced by <code>rkyv_dyn</code> are
+<a href="https://docs.rs/rkyv_dyn/latest/rkyv_dyn/trait.SerializeDyn.html"><code>SerializeDyn</code></a> and
+<a href="https://docs.rs/rkyv_dyn/latest/rkyv_dyn/trait.DeserializeDyn.html"><code>DeserializeDyn</code></a>. These are
+effectively type-erased versions of <code>SerializeUnsized</code> and <code>DeserializeUnsized</code> so that the traits
+are object-safe. Likewise, it introduces type-erased versions of serializers and deserializers:
+<a href="https://docs.rs/rkyv_dyn/latest/rkyv_dyn/trait.DynSerializer.html"><code>DynSerializer</code></a> and
+<a href="https://docs.rs/rkyv_dyn/latest/rkyv_dyn/trait.DynDeserializer.html"><code>DynDeserializer</code></a>. These
+attempt to provide the basic functionality required to serialize most types, but may be more or less
+capable than custom types require.</p>
+<h2><a class="header" href="#architecture-1" id="architecture-1">Architecture</a></h2>
+<p>It is highly recommended to use the provided
+<a href="https://docs.rs/rkyv_dyn/latest/rkyv_dyn/attr.archive_dyn.html"><code>archive_dyn</code></a> macro to implement
+the new traits and set everything up correctly.</p>
+<p>Using <code>archive_dyn</code> on a trait definition creates another trait definition with supertraits of your
+trait and <code>SerializeDyn</code>. This &quot;shim&quot; trait is blanket implemented for all types that implement your
+trait and <code>SerializeDyn</code>, so you should only ever have to implement your trait to use it.</p>
+<p>The shim trait should be used everywhere that you have a trait object of your trait that you want to
+serialize. By default, it will be named &quot;Serialize&quot; + your trait name. A different approach that
+similar libraries take is directly adding <code>SerializeDyn</code> as a supertrait of your trait. While more
+ergonomic, this approach does not allow the implementation of the trait on types that cannot or
+should not implement <code>SerializeDyn</code>, so the shim trait approach was favored for <code>rkyv_dyn</code>.</p>
+<p>When the shim trait is serialized, it stores the type hash of the underlying type in its metadata so
+it can get the correct vtable for it when accessed. This requires that all vtables for implementing
+types must be known ahead of time, which is when we use <code>archive_dyn</code> for the second time.</p>
+<p>Using <code>archive_dyn</code> on a trait implementation registers the vtable for that implementation with a
+global lookup, allowing it to be retrieved later on. Because this process can be slow, the
+<code>vtable_cache</code> feature allows the vtable lookup to be performed only the first time, then cached
+locally for future lookups. This is one of the places where alternate implementations may take a
+different approach and choose a different set of benefits and tradeoffs.</p>
+<h1><a class="header" href="#shared-pointers" id="shared-pointers">Shared Pointers</a></h1>
+<p>The implementation details of shared pointers may be of interest to those using them. Specifically,
+the rules surrounding how and when shared and weak pointers are serialized and pooled may affect how
+you choose to use them.</p>
+<h2><a class="header" href="#serialization" id="serialization">Serialization</a></h2>
+<p>Shared pointers (<code>Rc</code> and <code>Arc</code>) are serialized whenever they're encountered for the first time, and
+the data address is reused when subsequent shared pointers point to the same data. This means that
+you can expect shared pointers to always point to the same value when archived, even if they are
+unsized to different types.</p>
+<p>Weak pointers (<code>rc::Weak</code> and <code>sync::Weak</code>) have serialization attempted as soon as they're
+encountered. The serialization process upgrades them, and if it succeeds it serializes them like
+shared pointers. Otherwise, it serializes them like <code>None</code>.</p>
+<h2><a class="header" href="#deserialization" id="deserialization">Deserialization</a></h2>
+<p>Similarly, shared pointers are deserialized on the first encounter and reused afterward. Weak
+pointers do a similar upgrade attempt when they're encountered for the first time.</p>
+<h2><a class="header" href="#serializers-and-deserializers" id="serializers-and-deserializers">Serializers and Deserializers</a></h2>
+<p>The serializers for shared pointers hold the location of the serialized data. This means it's safe
+to serialize shared pointers to an archive across multiple <code>serialize</code> calls as long as you use the
+same serializer for each one. Using a new serializer will still do the right thing, but may end up
+duplicating the shared data.</p>
+<p>The deserializers for shared pointers hold a shared pointer to any deserialized values, and will
+hold them in memory until the deserializer is dropped. This means that if you serialize only weak
+pointers to some shared data, they will point to the correct value when deserialized but will point
+to nothing as soon as the deserializer is dropped.</p>
 <h1><a class="header" href="#validation" id="validation">Validation</a></h1>
 <p>Validation can be enabled with the <code>validation</code> feature. Validation leverages the
 <a href="https://docs.rs/bytecheck"><code>bytecheck</code></a> crate to perform archive validation, and allows the
@@ -374,6 +467,49 @@ consumption of untrusted and malicious data.</p>
 <p>To validate an archive, use
 <a href="https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archive.html"><code>check_archive</code></a>. Examples of
 how to enable and perform validation can be found in the <code>rkyv_test</code> crate's <code>validation</code> module.</p>
+<h2><a class="header" href="#validation-and-shared-pointers" id="validation-and-shared-pointers">Validation and Shared Pointers</a></h2>
+<p>While validating shared pointers is supported, some additional restrictions are in place to prevent
+malicious data from validating:</p>
+<p>Shared pointers that point to the same object will fail to validate if they are different types.
+This can cause issues if you have a shared pointer to the same array, but the pointers are an array
+pointer and a slice pointer. Similarly, it can cause issues if you have shared pointers to the same
+value as a concrete type (e.g. <code>i32</code>) and a trait object (e.g. <code>dyn Any</code>).</p>
+<p>rkyv still supports these use cases, but it's not possible or feasible to ensure data integrity with
+these use cases. Alternative validation solutions like archive signatures and data hashes may be a
+better approach in these cases.</p>
+<h1><a class="header" href="#extensions" id="extensions">Extensions</a></h1>
+<p>From time to time, the basic capabilities that rkyv provides may not be enough to serialize or
+deserialize a new type. Luckily, it's easy to extend the capabilities of rkyv to support new
+functionality through trait extensions.</p>
+<h2><a class="header" href="#fallible" id="fallible">Fallible</a></h2>
+<p>The most basic constraint that serializers and deserializers must satisfy is
+<a href="https://docs.rs/rkyv/latest/rkyv/trait.Fallible.html"><code>Fallible</code></a>. <code>Fallible</code> types have a single
+error type that can be produced by their methods, much like <code>std::io</code>. All special functionality
+that serializers and deserializers have come as extensions on top of <code>Fallible</code>.</p>
+<h2><a class="header" href="#serializers" id="serializers">Serializers</a></h2>
+<p>rkyv provides three serializer extensions:</p>
+<ul>
+<li><a href="https://docs.rs/rkyv/latest/rkyv/ser/trait.Serializer.html"><code>Serializer</code></a>, which provides the
+basic functionality to serialize types that contain pointers and nonlocal data.</li>
+<li><a href="https://docs.rs/rkyv/latest/rkyv/ser/trait.SharedSerializer.html"><code>SharedSerializer</code></a>, which adds
+support for serializing shared pointers like <code>Rc</code> and <code>Arc</code>.</li>
+<li><a href="https://docs.rs/rkyv/latest/rkyv/ser/trait.SeekSerializer.html"><code>SeekSerializer</code></a>, which adds
+support for rooted archives and seeking.</li>
+</ul>
+<h2><a class="header" href="#deserializers" id="deserializers">Deserializers</a></h2>
+<p>rkyv also provides two deserializer extensions:</p>
+<ul>
+<li><a href="https://docs.rs/rkyv/latest/rkyv/de/trait.Deserializer.html"><code>Deserializer</code></a>, which provides the
+basic functionality to allocate memory for deserializing types that contain relative pointers.</li>
+<li><a href="https://docs.rs/rkyv/latest/rkyv/de/trait.SharedDeserializer.html"><code>SharedDeserializer</code></a>, which
+adds support for deserializing shared pointers like <code>Rc</code> and <code>Arc</code>.</li>
+</ul>
+<h2><a class="header" href="#validation-1" id="validation-1">Validation</a></h2>
+<p>Similarly to serialization and deserialization, rkyv also has extensions for <code>CheckBytes</code> to support
+some of the extended types. These types can be found in the
+<a href="https://docs.rs/rkyv/latest/rkyv/validation/index.html"><code>validation</code></a> module, and most use cases
+should be covered by
+<a href="https://docs.rs/rkyv/latest/rkyv/validation/type.DefaultArchiveValidator.html"><code>DefaultArchiveValidator</code></a>.</p>
 
                     </main>
 
