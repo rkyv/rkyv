@@ -4,7 +4,7 @@ Relative pointers are the bread and butter of total zero-copy deserialization, c
 the use of normal pointers. But why can't we use normal pointers?
 
 Consider some zero-copy data on disc. Before we can use it, we need to load it into memory. But we
-can't control _where_ in memory it gets loaded! Every time we load it, it could be located at a
+can't control _where_ in memory it gets loaded. Every time we load it, it could be located at a
 different address, and therefore the objects inside of it will be located at a different address.
 This means that we can't store any pointers to that data, inside of it or outside of it. Some
 libraries like [abomonation](https://github.com/TimelyDataflow/abomonation) store some extra data

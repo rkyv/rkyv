@@ -9,5 +9,8 @@
   - [Serialize](./architecture/serialize.md)
   - [Deserialize](./architecture/deserialize.md)
 - [Format](./format.md)
+- [Unsized Types](./unsized_types.md)
+- [Trait Objects](./trait_objects.md)
+- [Shared Pointers](./shared_pointers.md)
 - [Validation](./validation.md)
 - [Extensions](./extensions.md)

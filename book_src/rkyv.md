@@ -19,7 +19,7 @@ The project has three derive crates that are exposed through the core crates:
 - `rkyv_dyn_derive`
 - `rkyv_typename_derive`
 
-A test crate: `rkyv_test`, and a benchmarking crate: `rkyv_bench`.
+There is a test crate: `rkyv_test`, and a benchmarking crate: `rkyv_bench`.
 
 ## Links
 
@@ -32,3 +32,5 @@ A test crate: `rkyv_test`, and a benchmarking crate: `rkyv_bench`.
 rkyv has sister crates that are standalone but were designed for use with rkyv:
 
 - [bytecheck](https://github.com/djkoloski/bytecheck): A type validation framework for Rust.
+- [ptr_meta](https://github.com/djkoloski/ptr_meta): A radioactive stabilization of the `ptr_meta`
+  RFC.
