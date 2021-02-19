@@ -1,37 +1,13 @@
 //! Adapters wrap deserializers and add support for deserializer traits.
 
-use core::{alloc, fmt};
-use std::{collections::HashMap, error::Error};
+use core::alloc;
+use std::collections::HashMap;
 use crate::{
     de::{Deserializer, SharedDeserializer, SharedPointer},
     ArchiveUnsized,
     DeserializeUnsized,
     Fallible,
 };
-
-#[derive(Debug)]
-pub enum SharedDeserializerError<E> {
-    MismatchedPointerTypeError,
-    InnerError(E),
-}
-
-impl<E: fmt::Display> fmt::Display for SharedDeserializerError<E> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SharedDeserializerError::MismatchedPointerTypeError => write!(f, "mismatched shared pointer types"),
-            SharedDeserializerError::InnerError(e) => write!(f, "{}", e),
-        }
-    }
-}
-
-impl<E: Error + 'static> Error for SharedDeserializerError<E> {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            SharedDeserializerError::MismatchedPointerTypeError => None,
-            SharedDeserializerError::InnerError(e) => Some(e as &(dyn Error + 'static)),
-        }
-    }
-}
 
 /// An adapter that adds shared deserialization support to a deserializer.
 pub struct SharedDeserializerAdapter<D> {
@@ -55,12 +31,12 @@ impl<D> SharedDeserializerAdapter<D> {
 }
 
 impl<D: Deserializer> Fallible for SharedDeserializerAdapter<D> {
-    type Error = SharedDeserializerError<D::Error>;
+    type Error = D::Error;
 }
 
 impl<D: Deserializer> Deserializer for SharedDeserializerAdapter<D> {
     unsafe fn alloc(&mut self, layout: alloc::Layout) -> Result<*mut u8, Self::Error> {
-        Ok(self.inner.alloc(layout).map_err(SharedDeserializerError::InnerError)?)
+        Ok(self.inner.alloc(layout)?)
     }
 }
 

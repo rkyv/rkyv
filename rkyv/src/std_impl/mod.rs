@@ -30,8 +30,7 @@ use core::{
 
 /// An archived [`String`].
 ///
-/// Uses [`ArchivedStringSlice`](crate::core_impl::ArchivedStringSlice) under
-/// the hood.
+/// Uses a [`RelPtr`] to a `str` under the hood.
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct ArchivedString(RelPtr<str>);
@@ -255,7 +254,7 @@ where
 
 /// An archived [`Vec`].
 ///
-/// Uses [`ArchivedSlice`](crate::core_impl::ArchivedSlice) under the hood.
+/// Uses a [`RelPtr`] to a `T` slice under the hood.
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct ArchivedVec<T>(RelPtr<[T]>);

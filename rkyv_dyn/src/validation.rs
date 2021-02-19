@@ -304,6 +304,7 @@ lazy_static::lazy_static! {
     };
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! register_validation {
     ($type:ty as $trait:ty) => {

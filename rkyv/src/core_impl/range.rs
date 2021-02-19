@@ -139,6 +139,7 @@ impl<T: fmt::Debug> fmt::Debug for ArchivedRangeInclusive<T> {
 }
 
 impl<T: PartialOrd<T>> ArchivedRangeInclusive<T> {
+    /// Returns `true` if `item` is contained in the range.
     pub fn contains<U>(&self, item: &U) -> bool
     where
         T: PartialOrd<U>,
@@ -147,6 +148,7 @@ impl<T: PartialOrd<T>> ArchivedRangeInclusive<T> {
         <Self as RangeBounds<T>>::contains(self, item)
     }
 
+    /// Returns `true` if the range contains no items.
     pub fn is_empty(&self) -> bool {
         match self.start.partial_cmp(&self.end) {
             None | Some(cmp::Ordering::Greater) => true,

@@ -14,8 +14,8 @@
 //!   feature provides a guarantee.
 //! - `validation`: Enables validation support through `bytecheck`.
 //! - `vtable_cache`: Enables local vtable caching to speed up lookups after the
-//!   first. This requires mutating the archive, which can cause subsequent
-//!   validation to fail after a vtable is cached.
+//!   first. This requires mutating the archive, which is not possible for all
+//!   use cases.
 
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
@@ -53,6 +53,7 @@ fn likely(b: bool) -> bool {
     b
 }
 
+/// An error that can occur while serializing and deserializing trait objects.
 pub type DynError = Box<dyn Any>;
 
 /// An object-safe version of `Serializer`.
@@ -204,10 +205,11 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```
 pub trait SerializeDyn {
-    /// Writes the value to the serializer and returns a resolver that can
-    /// create an [`ArchivedDyn`] reference.
+    /// Writes the value to the serializer and returns the position it was
+    /// written to.
     fn serialize_dyn(&self, serializer: &mut dyn DynSerializer) -> Result<usize, DynError>;
 
+    /// Returns the type ID of the archived version of this type.
     fn archived_type_id(&self) -> u64;
 }
 
@@ -257,9 +259,11 @@ pub trait DeserializeDyn<T: Pointee + ?Sized> {
     /// The caller must ensure that the memory returned is properly deallocated.
     unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer) -> Result<*mut (), DynError>;
 
+    /// Returns the metadata for the deserialized version of this value.
     fn deserialize_dyn_metadata(&self, deserializer: &mut dyn DynDeserializer) -> Result<T::Metadata, DynError>;
 }
 
+/// The archived version of `DynMetadata`.
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedDynMetadata<T: ?Sized> {
     type_id: u64,
@@ -269,6 +273,7 @@ pub struct ArchivedDynMetadata<T: ?Sized> {
 }
 
 impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
+    /// Creates a new `ArchivedDynMetadata` for the given type.
     pub fn new(type_id: u64) -> Self {
         Self {
             type_id,
@@ -306,6 +311,7 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
         self.lookup_vtable()
     }
 
+    /// Gets the `DynMetadata` associated with this `ArchivedDynMetadata`.
     pub fn to_metadata(&self) -> DynMetadata<T> {
         unsafe { core::mem::transmute(self.vtable()) }
     }
@@ -452,6 +458,7 @@ pub unsafe trait RegisteredImpl<T: ?Sized> {
     fn debug_info() -> ImplDebugInfo;
 }
 
+#[doc(hidden)]
 #[cfg(not(feature = "validation"))]
 #[macro_export]
 macro_rules! register_validation {

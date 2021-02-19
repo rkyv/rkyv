@@ -259,7 +259,7 @@ pub trait Archive {
     /// to make the archived type from the normal type.
     type Resolver;
 
-    /// Creates the archived version of the given value at the given position.
+    /// Creates the archived version of this value at the given position.
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived;
 }
 
@@ -282,16 +282,16 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 
 /// A counterpart of [`Archive`] that's suitable for unsized types.
 ///
-/// Instead of archiving its value directly, `ArchiveRef` archives a type that
-/// dereferences to its archived type. As a consequence, its resolver must be
-/// `usize`.
+/// Instead of archiving its value directly, `ArchiveUnsized` archives a
+/// [`RelPtr`] to its archived type. As a consequence, its resolver must
+/// be `usize`.
 ///
-/// `ArchiveRef` is automatically implemented for all types that implement
-/// [`Archive`], and uses a [`RelPtr`] as the reference type.
+/// `ArchiveUnsized` is automatically implemented for all types that implement
+/// [`Archive`].
 ///
-/// `ArchiveRef` is already implemented for slices and string slices, and the
-/// `rkyv_dyn` crate can be used to archive trait objects. Other unsized types
-/// must manually implement `ArchiveRef`.
+/// `ArchiveUnsized` is already implemented for slices and string slices, and
+/// the `rkyv_dyn` crate can be used to archive trait objects. Other unsized
+/// types must manually implement `ArchiveUnsized`.
 ///
 /// ## Examples
 ///
@@ -432,34 +432,46 @@ pub trait ArchiveUnsized: Pointee {
     /// unsized.
     type Archived: ArchivePointee + ?Sized;
 
+    /// The resolver for the metadata of this type.
     type MetadataResolver;
 
+    /// Creates the archived version of the metadata for this value at the given
+    /// position.
     fn resolve_metadata(&self, pos: usize, resolver: Self::MetadataResolver) -> ArchivedMetadata<Self>;
 
+    /// Resolves a relative pointer to this value with the given `from` and
+    /// `to`.
     unsafe fn resolve_unsized(&self, from: usize, to: usize, resolver: Self::MetadataResolver) -> RelPtr<Self::Archived> {
         RelPtr::resolve(from, to, self, resolver)
     }
 }
 
+/// An archived type with associated metadata for its relative pointer.
+///
+/// This is mostly used in the context of smart pointers and unsized types, and
+/// is implemented for all sized types by default.
 pub trait ArchivePointee: Pointee {
+    /// The archived version of the pointer metadata for this type.
     type ArchivedMetadata;
 
+    /// Converts some archived metadata to the pointer metadata for itself.
     fn to_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata;
 }
 
 /// A counterpart of [`Serialize`] that's suitable for unsized types.
 ///
-/// See [`ArchiveRef`] for examples of implementing `SerializeRef`.
+/// See [`ArchiveUnsized`] for examples of implementing `SerializeUnsized`.
 pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
     /// Writes the object and returns the position of the archived type.
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error>;
 
+    /// Serializes the metadata for the given type.
     fn serialize_metadata(&self, serializer: &mut S) -> Result<Self::MetadataResolver, S::Error>;
 }
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
 ///
-/// Most types that implement `DeserializeRef` will need a
+/// Most types that implement `DeserializeUnsized` will need a
 /// [`Deserializer`](de::Deserializer) bound so that they can allocate memory.
 pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fallible + ?Sized>: ArchivePointee {
     /// Deserializes a reference to the given value.
@@ -469,6 +481,7 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
     /// The caller must ensure that the memory returned is properly deallocated.
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error>;
 
+    /// Deserializes the metadata for the given type.
     fn deserialize_metadata(&self, deserializer: &mut D) -> Result<T::Metadata, D::Error>;
 }
 
@@ -509,6 +522,7 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
 /// ```
 pub unsafe trait ArchiveCopy: Archive<Archived = Self> + Copy {}
 
+/// The type used for sizes in archived types.
 #[cfg(not(feature = "size_64"))]
 pub type ArchivedUsize = u32;
 
@@ -516,6 +530,7 @@ pub type ArchivedUsize = u32;
 #[cfg(not(feature = "size_64"))]
 pub type ArchivedIsize = i32;
 
+/// The type used for sizes in archived types.
 #[cfg(feature = "size_64")]
 pub type ArchivedUsize = u64;
 
@@ -523,6 +538,7 @@ pub type ArchivedUsize = u64;
 #[cfg(feature = "size_64")]
 pub type ArchivedIsize = i64;
 
+/// An untyped pointer which resolves relative to its position in memory.
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct RawRelPtr {
@@ -531,13 +547,15 @@ pub struct RawRelPtr {
 }
 
 impl RawRelPtr {
-    pub unsafe fn new(from: usize, to: usize) -> Self {
+    /// Creates a new relative pointer between the given positions.
+    pub fn new(from: usize, to: usize) -> Self {
         Self {
             offset: (to as isize - from as isize) as ArchivedIsize,
             _phantom: PhantomPinned,
         }
     }
 
+    /// Creates a new relative pointer that has an offset of 0.
     pub fn null() -> Self {
         Self {
             offset: 0,
@@ -545,6 +563,12 @@ impl RawRelPtr {
         }
     }
 
+    /// Checks whether the relative pointer is null.
+    pub fn is_null(&self) -> bool {
+        self.offset == 0
+    }
+
+    /// Gets the base pointer for the relative pointer.
     pub fn base(&self) -> *const u8 {
         (self as *const Self).cast::<u8>()
     }
@@ -577,6 +601,13 @@ pub struct RelPtr<T: ArchivePointee + ?Sized> {
 }
 
 impl<T: ArchivePointee + ?Sized> RelPtr<T> {
+    /// Creates a new relative pointer from the given raw pointer and metadata.
+    ///
+    /// # Safety
+    ///
+    /// `raw_ptr` must be a valid relative pointer in its final position and
+    /// must point to a valid value.
+    /// `metadata` must be valid metadata for the pointed value.
     pub unsafe fn new(raw_ptr: RawRelPtr, metadata: T::ArchivedMetadata) -> Self {
         Self {
             raw_ptr,
@@ -601,6 +632,7 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
         )
     }
 
+    /// Gets the base pointer for the relative pointer.
     pub fn base(&self) -> *const u8 {
         self.raw_ptr.base()
     }
@@ -610,6 +642,7 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
         self.raw_ptr.offset()
     }
 
+    /// Gets the metadata of the relative pointer.
     pub fn metadata(&self) -> &T::ArchivedMetadata {
         &self.metadata
     }

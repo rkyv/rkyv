@@ -7,6 +7,11 @@ use ptr_meta::{DynMetadata, Pointee};
 use std::{collections::HashMap, error::Error};
 
 impl RawRelPtr {
+    /// Checks the bytes of the given raw relative pointer.
+    ///
+    /// This is done rather than implementing `CheckBytes` to force users to
+    /// manually write their `CheckBytes` implementation since they need to also
+    /// provide the ownership model of their memory.
     pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(value: *const RawRelPtr, context: &mut C) -> Result<&'a Self, Unreachable> {
         let bytes = value.cast::<u8>();
         ArchivedIsize::check_bytes(bytes.add(offset_of!(Self, offset)).cast(), context).unwrap();
@@ -16,6 +21,11 @@ impl RawRelPtr {
 }
 
 impl<T: ArchivePointee + ?Sized> RelPtr<T> {
+    /// Checks the bytes of the given relative pointer.
+    ///
+    /// This is done rather than implementing `CheckBytes` to force users to
+    /// manually write their `CheckBytes` implementation since they need to also
+    /// provide the ownership model of their memory.
     pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(value: *const RelPtr<T>, context: &mut C) -> Result<&'a Self, <T::ArchivedMetadata as CheckBytes<C>>::Error>
     where
         T: CheckBytes<C>,

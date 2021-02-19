@@ -27,13 +27,13 @@ impl<T: ?Sized> SharedPointer for rc::Rc<T> {
     }
 }
 
-/// The resolver for [`Rc`].
+/// The resolver for `Rc`.
 pub struct RcResolver<T> {
     pos: usize,
     metadata_resolver: T,
 }
 
-/// An archived [`Rc`].
+/// An archived `Rc`.
 ///
 /// This is a thin wrapper around the reference type for whatever type was
 /// archived. Multiple `ArchivedRc` may point to the same value.
@@ -99,14 +99,20 @@ where
     }
 }
 
+/// The resolver for `rc::Weak`.
 pub enum RcWeakResolver<T> {
+    /// The weak pointer was null
     None,
+    /// The weak pointer was to some shared pointer
     Some(RcResolver<T>),
 }
 
+/// An archived `rc::Weak`.
 #[repr(u8)]
 pub enum ArchivedRcWeak<T: ArchivePointee + ?Sized> {
+    /// A null weak pointer
     None,
+    /// A weak pointer to some shared pointer
     Some(ArchivedRc<T>),
 }
 
@@ -121,6 +127,9 @@ enum ArchivedRcWeakTag {
 struct ArchivedRcWeakVariantSome<T: ArchivePointee + ?Sized>(ArchivedRcWeakTag, ArchivedRc<T>);
 
 impl<T: ArchivePointee + ?Sized> ArchivedRcWeak<T> {
+    /// Attempts to upgrade the weak pointer to an `ArchivedArc`.
+    ///
+    /// Returns `None` if a null weak pointer was serialized.
     pub fn upgrade(&self) -> Option<&ArchivedRc<T>> {
         match self {
             ArchivedRcWeak::None => None,
@@ -128,10 +137,13 @@ impl<T: ArchivePointee + ?Sized> ArchivedRcWeak<T> {
         }
     }
 
-    pub unsafe fn upgrade_pin_unchecked(self: Pin<&mut Self>) -> Option<Pin<&mut ArchivedRc<T>>> {
-        match self.get_unchecked_mut() {
-            ArchivedRcWeak::None => None,
-            ArchivedRcWeak::Some(r) => Some(Pin::new_unchecked(r)),
+    /// Attempts to upgrade a pinned mutable weak pointer.
+    pub fn upgrade_pin(self: Pin<&mut Self>) -> Option<Pin<&mut ArchivedRc<T>>> {
+        unsafe {
+            match self.get_unchecked_mut() {
+                ArchivedRcWeak::None => None,
+                ArchivedRcWeak::Some(r) => Some(Pin::new_unchecked(r)),
+            }
         }
     }
 }
@@ -182,13 +194,13 @@ impl<T: ?Sized> SharedPointer for sync::Arc<T> {
     }
 }
 
-/// The resolver for [`Arc`].
+/// The resolver for `Arc`.
 pub struct ArcResolver<T> {
     pos: usize,
     metadata_resolver: T,
 }
 
-/// An archived [`Arc`].
+/// An archived `Arc`.
 ///
 /// This is a thin wrapper around the reference type for whatever type was
 /// archived. Multiple `ArchivedArc` may point to the same value.
@@ -254,14 +266,20 @@ where
     }
 }
 
+/// The resolver for `sync::Weak`.
 pub enum ArcWeakResolver<T> {
+    /// The weak pointer was null
     None,
+    /// The weak pointer was to some shared pointer
     Some(ArcResolver<T>),
 }
 
+/// An archived `sync::Weak`.
 #[repr(u8)]
 pub enum ArchivedArcWeak<T: ArchivePointee + ?Sized> {
+    /// A null weak pointer
     None,
+    /// A weak pointer to some shared pointer
     Some(ArchivedArc<T>),
 }
 
@@ -276,6 +294,9 @@ enum ArchivedArcWeakTag {
 struct ArchivedArcWeakVariantSome<T: ArchivePointee + ?Sized>(ArchivedArcWeakTag, ArchivedArc<T>);
 
 impl<T: ArchivePointee + ?Sized> ArchivedArcWeak<T> {
+    /// Attempts to upgrade the weak pointer to an `ArchivedArc`.
+    ///
+    /// Returns `None` if a null weak pointer was serialized.
     pub fn upgrade(&self) -> Option<&ArchivedArc<T>> {
         match self {
             ArchivedArcWeak::None => None,
@@ -283,10 +304,13 @@ impl<T: ArchivePointee + ?Sized> ArchivedArcWeak<T> {
         }
     }
 
-    pub unsafe fn upgrade_pin_unchecked(self: Pin<&mut Self>) -> Option<Pin<&mut ArchivedArc<T>>> {
-        match self.get_unchecked_mut() {
-            ArchivedArcWeak::None => None,
-            ArchivedArcWeak::Some(r) => Some(Pin::new_unchecked(r)),
+    /// Attempts to upgrade a pinned mutable weak pointer.
+    pub fn upgrade_pin(self: Pin<&mut Self>) -> Option<Pin<&mut ArchivedArc<T>>> {
+        unsafe {
+            match self.get_unchecked_mut() {
+                ArchivedArcWeak::None => None,
+                ArchivedArcWeak::Some(r) => Some(Pin::new_unchecked(r)),
+            }
         }
     }
 }

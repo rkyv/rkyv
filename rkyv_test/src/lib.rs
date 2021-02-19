@@ -1270,7 +1270,7 @@ mod tests {
 
         let mut mutable_archived = unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
         unsafe {
-            *mutable_archived.as_mut().b().upgrade_pin_unchecked().unwrap().get_pin_unchecked() = 17;
+            *mutable_archived.as_mut().b().upgrade_pin().unwrap().get_pin_unchecked() = 17;
         }
 
         let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };

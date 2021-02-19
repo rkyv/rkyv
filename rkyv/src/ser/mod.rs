@@ -166,7 +166,3 @@ pub trait SharedSerializer: Serializer {
     /// previously serialized value.
     fn archive_shared<T: SerializeUnsized<Self> + ?Sized>(&mut self, value: &T) -> Result<usize, Self::Error>;
 }
-
-pub trait WeakSerializer: SharedSerializer {
-    fn archive_weak(&mut self, key: *const ()) -> Result<usize, Self::Error>;
-}
