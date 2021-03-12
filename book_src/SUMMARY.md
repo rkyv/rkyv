@@ -14,3 +14,4 @@
 - [Shared Pointers](./shared_pointers.md)
 - [Validation](./validation.md)
 - [Extensions](./extensions.md)
+- [FAQ](./faq.md)
