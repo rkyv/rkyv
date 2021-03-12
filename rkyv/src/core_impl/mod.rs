@@ -425,22 +425,24 @@ impl<T> ArchivePointee for [T] {
 }
 
 #[cfg(not(feature = "std"))]
-impl<T: ArchiveCopy, D: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+impl<T: ArchiveCopy, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         if !self.is_empty() {
-            let bytes = slice::from_raw_parts(
-                (self as *const T).cast::<u8>(),
-                self.len() * mem::size_of::<T>(),
-            );
-            let result = serializer.align_for::<T>()?;
-            serializer.write(bytes)?;
-            Ok(result)
+            unsafe {
+                let bytes = core::slice::from_raw_parts(
+                    (self.as_ptr() as *const T).cast::<u8>(),
+                    self.len() * core::mem::size_of::<T>(),
+                );
+                let result = serializer.align_for::<T>()?;
+                serializer.write(bytes)?;
+                Ok(result)
+            }
         } else {
             Ok(0)
         }
     }
 
-    fn serialize_metadata(&self, serializer: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+    fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
         Ok(())
     }
 }
@@ -482,6 +484,10 @@ where
             .cast::<T>();
         ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
         Ok(result.cast())
+    }
+
+    fn deserialize_metadata(&self, _: &mut D) -> Result<<[T] as Pointee>::Metadata, D::Error> {
+        Ok(ptr_meta::metadata(self))
     }
 }
 
