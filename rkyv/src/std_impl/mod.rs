@@ -259,10 +259,12 @@ where
 pub struct ArchivedVec<T>(RelPtr<[T]>);
 
 impl<T> ArchivedVec<T> {
+    /// Gets the elements of the archived vec as a slice.
     pub fn as_slice(&self) -> &[T] {
         self.deref()
     }
 
+    /// Gets the elements of the archived vec as a mutable slice.
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         self.deref_mut()
     }
