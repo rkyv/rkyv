@@ -70,6 +70,8 @@
 //! See [`Archive`] for examples of how to use rkyv.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(feature = "specialization", feature(min_specialization))]
+#![cfg_attr(feature = "specialization", feature(rustc_attrs))]
 
 pub mod core_impl;
 pub mod de;
@@ -537,6 +539,7 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
 /// let archived_value = unsafe { archived_value::<Vector4<f32>>(buf.as_ref(), pos) };
 /// assert_eq!(&value, archived_value);
 /// ```
+#[cfg_attr(feature = "specialization", rustc_unsafe_specialization_marker)]
 pub unsafe trait ArchiveCopy: Archive<Archived = Self> + Copy {}
 
 /// The type used for sizes in archived types.

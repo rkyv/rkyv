@@ -27,6 +27,16 @@ pub mod range;
 #[cfg(feature = "validation")]
 pub mod validation;
 
+#[cfg(feature = "specialization")]
+macro_rules! default {
+    ($($fn:tt)*) => { default $($fn)* };
+}
+
+#[cfg(not(feature = "specialization"))]
+macro_rules! default {
+    ($($fn:tt)*) => { $($fn)* };
+}
+
 impl<T> ArchivePointee for T {
     type ArchivedMetadata = ();
 
@@ -447,8 +457,8 @@ impl<T> ArchivePointee for [T] {
     }
 }
 
-#[cfg(not(feature = "std"))]
-impl<T: ArchiveCopy, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+#[cfg(any(not(feature = "std"), feature = "specialization"))]
+impl<T: ArchiveCopy + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         if !self.is_empty() {
@@ -472,39 +482,39 @@ impl<T: ArchiveCopy, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", feature = "specialization"))]
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
-    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        if !self.is_empty() {
-            let mut resolvers = Vec::with_capacity(self.len());
-            for value in self {
-                resolvers.push(value.serialize(serializer)?);
-            }
-            let result = serializer.align_for::<T::Archived>()?;
-            unsafe {
-                for (i, resolver) in resolvers.drain(..).enumerate() {
-                    serializer.resolve_aligned(&self[i], resolver)?;
+    default! {
+        fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
+            if !self.is_empty() {
+                let mut resolvers = Vec::with_capacity(self.len());
+                for value in self {
+                    resolvers.push(value.serialize(serializer)?);
                 }
+                let result = serializer.align_for::<T::Archived>()?;
+                unsafe {
+                    for (i, resolver) in resolvers.drain(..).enumerate() {
+                        serializer.resolve_aligned(&self[i], resolver)?;
+                    }
+                }
+                Ok(result)
+            } else {
+                Ok(0)
             }
-            Ok(result)
-        } else {
-            Ok(0)
         }
     }
 
     #[inline]
-    fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
-        Ok(())
+    default! {
+        fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+            Ok(())
+        }
     }
 }
 
-#[cfg(not(feature = "std"))]
-impl<T: ArchiveCopy, D: Deserializer + ?Sized> DeserializeUnsized<[T], D>
-    for <[T] as ArchiveUnsized>::Archived
-where
-    T::Archived: Deserialize<T, D>,
-{
+#[cfg(any(not(feature = "std"), feature = "specialization"))]
+impl<T: Deserialize<T, D> + ArchiveCopy, D: Deserializer + ?Sized> DeserializeUnsized<[T], D> for [T] {
     #[inline]
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
         let result = deserializer
@@ -520,26 +530,26 @@ where
     }
 }
 
-#[cfg(feature = "std")]
-impl<T: Archive, D: Deserializer + ?Sized> DeserializeUnsized<[T], D>
-    for <[T] as ArchiveUnsized>::Archived
-where
-    T::Archived: Deserialize<T, D>,
-{
+#[cfg(any(feature = "std", feature = "specialization"))]
+impl<T: Deserialize<U, D>, U: Archive<Archived = T>, D: Deserializer + ?Sized> DeserializeUnsized<[U], D> for [T] {
     #[inline]
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-        let result = deserializer
-            .alloc(alloc::Layout::array::<T>(self.len()).unwrap())?
-            .cast::<T>();
-        for (i, item) in self.iter().enumerate() {
-            result.add(i).write(item.deserialize(deserializer)?);
+    default! {
+        unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
+            let result = deserializer
+                .alloc(alloc::Layout::array::<U>(self.len()).unwrap())?
+                .cast::<U>();
+            for (i, item) in self.iter().enumerate() {
+                result.add(i).write(item.deserialize(deserializer)?);
+            }
+            Ok(result.cast())
         }
-        Ok(result.cast())
     }
 
     #[inline]
-    fn deserialize_metadata(&self, _: &mut D) -> Result<<[T] as Pointee>::Metadata, D::Error> {
-        Ok(ptr_meta::metadata(self))
+    default! {
+        fn deserialize_metadata(&self, _: &mut D) -> Result<<[U] as Pointee>::Metadata, D::Error> {
+            Ok(ptr_meta::metadata(self))
+        }
     }
 }
 
