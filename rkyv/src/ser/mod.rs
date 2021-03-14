@@ -28,28 +28,21 @@ pub trait Serializer: Fallible {
 
     /// Advances the given number of bytes as padding.
     #[inline]
-    fn pad(&mut self, mut padding: usize) -> Result<(), Self::Error> {
-        const ZEROES_LEN: usize = 16;
-        const ZEROES: [u8; ZEROES_LEN] = [0; ZEROES_LEN];
+    fn pad(&mut self, padding: usize) -> Result<(), Self::Error> {
+        const MAX_ZEROES: usize = 32;
+        const ZEROES: [u8; MAX_ZEROES] = [0; MAX_ZEROES];
+        debug_assert!(padding < MAX_ZEROES);
 
-        while padding > 0 {
-            let len = usize::min(ZEROES_LEN, padding);
-            self.write(&ZEROES[0..len])?;
-            padding -= len;
-        }
-
-        Ok(())
+        self.write(&ZEROES[0..padding])
     }
 
     /// Aligns the position of the serializer to the given alignment.
     #[inline]
     fn align(&mut self, align: usize) -> Result<usize, Self::Error> {
-        debug_assert!(align & (align - 1) == 0);
+        let mask = align - 1;
+        debug_assert!(align & mask == 0);
 
-        let offset = self.pos() & (align - 1);
-        if offset != 0 {
-            self.pad(align - offset)?;
-        }
+        self.pad((align - self.pos() & mask) & mask)?;
         Ok(self.pos())
     }
 
