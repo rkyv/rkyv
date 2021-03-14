@@ -27,6 +27,7 @@ pub trait Serializer: Fallible {
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error>;
 
     /// Advances the given number of bytes as padding.
+    #[inline]
     fn pad(&mut self, mut padding: usize) -> Result<(), Self::Error> {
         const ZEROES_LEN: usize = 16;
         const ZEROES: [u8; ZEROES_LEN] = [0; ZEROES_LEN];
@@ -41,6 +42,7 @@ pub trait Serializer: Fallible {
     }
 
     /// Aligns the position of the serializer to the given alignment.
+    #[inline]
     fn align(&mut self, align: usize) -> Result<usize, Self::Error> {
         debug_assert!(align & (align - 1) == 0);
 
@@ -53,6 +55,7 @@ pub trait Serializer: Fallible {
 
     /// Aligns the position of the serializer to be suitable to write the given
     /// type.
+    #[inline]
     fn align_for<T>(&mut self) -> Result<usize, Self::Error> {
         self.align(mem::align_of::<T>())
     }

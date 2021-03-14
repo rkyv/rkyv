@@ -14,6 +14,7 @@ pub struct SharedSerializerAdapter<S> {
 
 impl<S> SharedSerializerAdapter<S> {
     /// Wraps the given serializer and adds shared memory support.
+    #[inline]
     pub fn new(inner: S) -> Self {
         Self {
             inner,
@@ -22,6 +23,7 @@ impl<S> SharedSerializerAdapter<S> {
     }
 
     /// Consumes the adapter and returns the underlying serializer.
+    #[inline]
     pub fn into_inner(self) -> S {
         self.inner
     }
@@ -32,26 +34,32 @@ impl<S: Fallible> Fallible for SharedSerializerAdapter<S> {
 }
 
 impl<S: Serializer> Serializer for SharedSerializerAdapter<S> {
+    #[inline]
     fn pos(&self) -> usize {
         self.inner.pos()
     }
 
+    #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
         self.inner.write(bytes)
     }
 
+    #[inline]
     fn pad(&mut self, padding: usize) -> Result<(), Self::Error> {
         self.inner.pad(padding)
     }
 
+    #[inline]
     fn align(&mut self, align: usize) -> Result<usize, Self::Error> {
         self.inner.align(align)
     }
 
+    #[inline]
     fn align_for<T>(&mut self) -> Result<usize, Self::Error> {
         self.inner.align_for::<T>()
     }
 
+    #[inline]
     unsafe fn resolve_aligned<T: Archive + ?Sized>(
         &mut self,
         value: &T,

@@ -450,6 +450,7 @@ pub trait ArchiveUnsized: Pointee {
     ///
     /// `to` must be the location of an archived value and `resolver` must be
     /// the metadata resolver for that value.
+    #[inline]
     unsafe fn resolve_unsized(
         &self,
         from: usize,
@@ -564,6 +565,7 @@ pub struct RawRelPtr {
 
 impl RawRelPtr {
     /// Creates a new relative pointer between the given positions.
+    #[inline]
     pub fn new(from: usize, to: usize) -> Self {
         Self {
             offset: (to as isize - from as isize) as ArchivedIsize,
@@ -572,6 +574,7 @@ impl RawRelPtr {
     }
 
     /// Creates a new relative pointer that has an offset of 0.
+    #[inline]
     pub fn null() -> Self {
         Self {
             offset: 0,
@@ -580,21 +583,25 @@ impl RawRelPtr {
     }
 
     /// Checks whether the relative pointer is null.
+    #[inline]
     pub fn is_null(&self) -> bool {
         self.offset == 0
     }
 
     /// Gets the base pointer for the relative pointer.
+    #[inline]
     pub fn base(&self) -> *const u8 {
         (self as *const Self).cast::<u8>()
     }
 
     /// Gets the offset of the relative pointer.
+    #[inline]
     pub fn offset(&self) -> isize {
         self.offset as isize
     }
 
     /// Calculates the memory address being pointed to by this relative pointer.
+    #[inline]
     pub fn as_ptr(&self) -> *const () {
         unsafe {
             (self as *const Self)
@@ -606,6 +613,7 @@ impl RawRelPtr {
 
     /// Returns an unsafe mutable pointer to the memory address being pointed to
     /// by this relative pointer.
+    #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut () {
         unsafe {
             (self as *mut Self)
@@ -634,6 +642,7 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
     /// `raw_ptr` must be a valid relative pointer in its final position and
     /// must point to a valid value.
     /// `metadata` must be valid metadata for the pointed value.
+    #[inline]
     pub unsafe fn new(raw_ptr: RawRelPtr, metadata: T::ArchivedMetadata) -> Self {
         Self {
             raw_ptr,
@@ -648,6 +657,7 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
     ///
     /// `from` must be the position of the relative pointer and `to` must be the
     /// position of some valid memory.
+    #[inline]
     pub unsafe fn resolve<U: ArchiveUnsized<Archived = T> + ?Sized>(
         from: usize,
         to: usize,
@@ -664,27 +674,32 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
     }
 
     /// Gets the base pointer for the relative pointer.
+    #[inline]
     pub fn base(&self) -> *const u8 {
         self.raw_ptr.base()
     }
 
     /// Gets the offset of the relative pointer.
+    #[inline]
     pub fn offset(&self) -> isize {
         self.raw_ptr.offset()
     }
 
     /// Gets the metadata of the relative pointer.
+    #[inline]
     pub fn metadata(&self) -> &T::ArchivedMetadata {
         &self.metadata
     }
 
     /// Calculates the memory address being pointed to by this relative pointer.
+    #[inline]
     pub fn as_ptr(&self) -> *const T {
         ptr_meta::from_raw_parts(self.raw_ptr.as_ptr(), T::pointer_metadata(&self.metadata))
     }
 
     /// Returns an unsafe mutable pointer to the memory address being pointed to
     /// by this relative pointer.
+    #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut T {
         ptr_meta::from_raw_parts_mut(
             self.raw_ptr.as_mut_ptr(),
@@ -734,24 +749,28 @@ pub struct Aligned<T>(pub T);
 impl<T: Deref> Deref for Aligned<T> {
     type Target = T::Target;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &*self.0
     }
 }
 
 impl<T: DerefMut> DerefMut for Aligned<T> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.0
     }
 }
 
 impl<T: AsRef<[U]>, U> AsRef<[U]> for Aligned<T> {
+    #[inline]
     fn as_ref(&self) -> &[U] {
         self.0.as_ref()
     }
 }
 
 impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
+    #[inline]
     fn as_mut(&mut self) -> &mut [U] {
         self.0.as_mut()
     }
