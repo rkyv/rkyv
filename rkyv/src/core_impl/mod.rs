@@ -452,13 +452,15 @@ impl<T: ArchiveCopy, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         if !self.is_empty() {
-            let bytes = slice::from_raw_parts(
-                (self as *const T).cast::<u8>(),
-                self.len() * mem::size_of::<T>(),
-            );
-            let result = serializer.align_for::<T>()?;
-            serializer.write(bytes)?;
-            Ok(result)
+            unsafe {
+                let bytes = core::slice::from_raw_parts(
+                    (self.as_ptr() as *const T).cast::<u8>(),
+                    self.len() * core::mem::size_of::<T>(),
+                );
+                let result = serializer.align_for::<T>()?;
+                serializer.write(bytes)?;
+                Ok(result)
+            }
         } else {
             Ok(0)
         }

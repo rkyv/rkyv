@@ -7,30 +7,78 @@ mod validation;
 mod util {
     use rkyv::{
         archived_unsized_value, archived_value,
-        de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer},
-        ser::{adapters::SharedSerializerAdapter, serializers::BufferSerializer, Serializer},
+        ser::{serializers::BufferSerializer, Serializer},
         Aligned, Deserialize, Serialize, SerializeUnsized,
+    };
+    #[cfg(feature = "std")]
+    use rkyv::{
+        de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer},
+        ser::adapters::SharedSerializerAdapter,
     };
 
     pub const BUFFER_SIZE: usize = 256;
+
+    #[cfg(feature = "std")]
     pub type DefaultSerializer =
         SharedSerializerAdapter<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>;
+
+    #[cfg(feature = "std")]
+    pub fn make_default_serializer() -> DefaultSerializer {
+        SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])))
+    }
+
+    #[cfg(feature = "std")]
+    pub fn unwrap_default_serializer(s: DefaultSerializer) -> Aligned<[u8; BUFFER_SIZE]> {
+        s.into_inner().into_inner()
+    }
+
+    #[cfg(feature = "std")]
     pub type DefaultDeserializer = SharedDeserializerAdapter<AllocDeserializer>;
+
+    #[cfg(feature = "std")]
+    pub fn make_default_deserializer() -> DefaultDeserializer {
+        SharedDeserializerAdapter::new(AllocDeserializer)
+    }
+    
+    #[cfg(not(feature = "std"))]
+    pub type DefaultSerializer = BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>;
+
+    #[cfg(not(feature = "std"))]
+    pub fn make_default_serializer() -> DefaultSerializer {
+        BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]))
+    }
+
+    #[cfg(not(feature = "std"))]
+    pub fn unwrap_default_serializer(s: DefaultSerializer) -> Aligned<[u8; BUFFER_SIZE]> {
+        s.into_inner()
+    }
+
+    #[cfg(not(feature = "std"))]
+    pub struct DefaultDeserializer;
+
+    #[cfg(not(feature = "std"))]
+    impl rkyv::Fallible for DefaultDeserializer {
+        type Error = ();
+    }
+
+    #[cfg(not(feature = "std"))]
+    pub fn make_default_deserializer() -> DefaultDeserializer {
+        DefaultDeserializer
+    }
 
     pub fn test_archive<T: Serialize<DefaultSerializer>>(value: &T)
     where
         T: PartialEq,
         T::Archived: PartialEq<T> + Deserialize<T, DefaultDeserializer>,
     {
-        let mut serializer =
-            SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
+        let mut serializer = make_default_serializer();
         let pos = serializer
             .serialize_value(value)
             .expect("failed to archive value");
-        let buf = serializer.into_inner().into_inner();
+        let buf = unwrap_default_serializer(serializer);
         let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_value == value);
-        let mut deserializer = SharedDeserializerAdapter::new(AllocDeserializer);
+        let mut deserializer = make_default_deserializer();
         assert!(&archived_value.deserialize(&mut deserializer).unwrap() == value);
     }
 
@@ -38,16 +86,16 @@ mod util {
     where
         T::Archived: PartialEq<T>,
     {
-        let mut serializer =
-            SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
+        let mut serializer = make_default_serializer();
         let pos = serializer
             .serialize_unsized_value(value)
             .expect("failed to archive ref");
-        let buf = serializer.into_inner().into_inner();
+        let buf = unwrap_default_serializer(serializer);
         let archived_ref = unsafe { archived_unsized_value::<T>(buf.as_ref(), pos) };
         assert!(archived_ref == value);
     }
 
+    #[cfg(feature = "std")]
     pub fn test_archive_container<
         T: Serialize<DefaultSerializer, Archived = U> + core::ops::Deref<Target = TV>,
         TV: ?Sized,
@@ -56,12 +104,11 @@ mod util {
     >(
         value: &T,
     ) {
-        let mut serializer =
-            SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
+        let mut serializer = make_default_serializer();
         let pos = serializer
             .serialize_value(value)
             .expect("failed to archive ref");
-        let buf = serializer.into_inner().into_inner();
+        let buf = unwrap_default_serializer(serializer);
         let archived_ref = unsafe { archived_value::<T>(buf.as_ref(), pos) };
         assert!(archived_ref.deref() == value.deref());
     }
@@ -70,42 +117,6 @@ mod util {
 #[cfg(test)]
 mod no_std_tests {
     use crate::util::*;
-
-    #[test]
-    fn archive_slices() {
-        test_archive_ref::<str>("hello world");
-        test_archive_ref::<[i32]>([1, 2, 3, 4].as_ref());
-    }
-}
-
-#[cfg(feature = "std")]
-#[cfg(test)]
-mod tests {
-    use crate::util::*;
-    use core::pin::Pin;
-    use rkyv::{
-        Aligned,
-        Archive,
-        ArchiveUnsized,
-        Archived,
-        Deserialize,
-        DeserializeUnsized,
-        Serialize,
-        SerializeUnsized,
-        archived_value,
-        archived_value_mut,
-        de::{
-            adapters::SharedDeserializerAdapter,
-            deserializers::AllocDeserializer,
-            Deserializer,
-        },
-        ser::{
-            SeekSerializer,
-            Serializer,
-            adapters::SharedSerializerAdapter,
-            serializers::BufferSerializer,
-        },
-    };
 
     #[test]
     fn archive_primitives() {
@@ -137,11 +148,47 @@ mod tests {
     }
 
     #[test]
+    fn archive_slices() {
+        test_archive_ref::<str>("hello world");
+        test_archive_ref::<[i32]>([1, 2, 3, 4].as_ref());
+    }
+
+    #[test]
     fn archive_empty_slice() {
         test_archive_ref::<[i32; 0]>(&[]);
         test_archive_ref::<[i32]>([].as_ref());
         test_archive_ref::<str>("");
     }
+}
+
+#[cfg(feature = "std")]
+#[cfg(test)]
+mod tests {
+    use crate::util::*;
+    use core::pin::Pin;
+    use rkyv::{
+        Aligned,
+        Archive,
+        ArchiveUnsized,
+        Archived,
+        Deserialize,
+        DeserializeUnsized,
+        Serialize,
+        SerializeUnsized,
+        archived_value,
+        archived_value_mut,
+        de::{
+            adapters::SharedDeserializerAdapter,
+            deserializers::AllocDeserializer,
+            Deserializer,
+        },
+        ser::{
+            SeekSerializer,
+            Serializer,
+            adapters::SharedSerializerAdapter,
+            serializers::BufferSerializer,
+        },
+    };
 
     #[test]
     fn archive_containers() {

@@ -13,11 +13,11 @@ repository = "https://github.com/djkoloski/rkyv"
 bytecheck = { version = "0.4", optional = true }
 ptr_meta = { version = "0.1.1" }
 rkyv = { path = "../rkyv", default-features = false }
-rkyv_dyn = { path = "../rkyv_dyn", default-features = false }
-rkyv_typename = { path = "../rkyv_typename", default-features = false }
+rkyv_dyn = { path = "../rkyv_dyn", default-features = false, optional = true }
+rkyv_typename = { path = "../rkyv_typename", default-features = false, optional = true }
 
 [features]
-default = ["std", "validation"]
+default = ["validation", "std"]
 const_generics = ["rkyv/const_generics", "rkyv_typename/const_generics"]
 size_64 = ["rkyv/size_64"]
 nightly = ["rkyv_dyn/nightly"]
