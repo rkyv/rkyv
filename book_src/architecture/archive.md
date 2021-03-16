@@ -8,7 +8,7 @@ string, for boxes it would be the boxed value, and for vectors it would be any c
 bookkeeping from this step is bundled into a `Resolver` type and held onto for later. This is the
 *serialize* step.
 2. The resolver and original value are used to construct the archived value, then the value itself
-is written to the writer. For strings the resolver would the position of the characters, for boxes
+is written to the writer. For strings the resolver would be the position of the characters, for boxes
 it would be the position of the boxed value, and for vectors it would be the position of the
 archived values. Along with the original values, the archived types of each of these can be
 constructed. This is the *resolve* step.
