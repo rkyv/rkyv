@@ -617,7 +617,7 @@ where
     V::Archived: Deserialize<V, D>,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<HashMap<K, V>, D::Error> {
-        let mut result = HashMap::new();
+        let mut result = HashMap::with_capacity(self.len());
         for (k, v) in self.iter() {
             result.insert(k.deserialize(deserializer)?, v.deserialize(deserializer)?);
         }
