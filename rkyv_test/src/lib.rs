@@ -296,13 +296,8 @@ mod tests {
     #[test]
     fn archive_unit_struct() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct Test;
-
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, _other: &Test) -> bool {
-                true
-            }
-        }
 
         test_archive(&Test);
         test_archive(&vec![Test, Test]);
@@ -311,13 +306,8 @@ mod tests {
     #[test]
     fn archive_tuple_struct() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct Test((), i32, String, Option<i32>);
-
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, other: &Test) -> bool {
-                self.0 == other.0 && self.1 == other.1 && self.2 == other.2 && self.3 == other.3
-            }
-        }
 
         test_archive(&Test((), 42, "hello world".to_string(), Some(42)));
     }
@@ -325,17 +315,12 @@ mod tests {
     #[test]
     fn archive_simple_struct() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct Test {
             a: (),
             b: i32,
             c: String,
             d: Option<i32>,
-        }
-
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, other: &Test) -> bool {
-                self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
-            }
         }
 
         test_archive(&Test {
@@ -371,21 +356,12 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct Test<T: TestTrait> {
             a: (),
             b: <T as TestTrait>::Associated,
             c: String,
             d: Option<i32>,
-        }
-
-        impl<T: TestTrait> PartialEq<Test<T>> for Archived<Test<T>>
-        where
-            <T as TestTrait>::Associated: Archive,
-            Archived<<T as TestTrait>::Associated>: PartialEq<<T as TestTrait>::Associated>,
-        {
-            fn eq(&self, other: &Test<T>) -> bool {
-                self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
-            }
         }
 
         test_archive(&Test::<()> {
@@ -1185,17 +1161,12 @@ mod tests {
     #[test]
     fn archive_root() {
         #[derive(Archive, Serialize)]
+        #[archive(compare(PartialEq))]
         struct Test {
             a: (),
             b: i32,
             c: String,
             d: Option<i32>,
-        }
-
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, other: &Test) -> bool {
-                self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
-            }
         }
 
         let value = Test {
@@ -1471,7 +1442,7 @@ mod tests {
         use rkyv::Fallible;
 
         #[derive(Archive, PartialEq)]
-        #[archive(archived = "ATest", resolver = "RTest")]
+        #[archive(archived = "ATest", resolver = "RTest", compare(PartialEq))]
         struct Test {
             a: i32,
             b: Option<u32>,
@@ -1510,12 +1481,6 @@ mod tests {
                     c: self.c.deserialize(deserializer)?,
                     d: self.d.deserialize(deserializer)?,
                 })
-            }
-        }
-
-        impl PartialEq<Test> for ATest {
-            fn eq(&self, other: &Test) -> bool {
-                self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
             }
         }
 

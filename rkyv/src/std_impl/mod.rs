@@ -381,3 +381,10 @@ impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
         self.as_slice().eq(other.as_slice())
     }
 }
+
+impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for Vec<T> {
+    #[inline]
+    fn eq(&self, other: &ArchivedVec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
