@@ -42,7 +42,7 @@ pub trait Serializer: Fallible {
         let mask = align - 1;
         debug_assert!(align & mask == 0);
 
-        self.pad((align - self.pos() & mask) & mask)?;
+        self.pad((align - (self.pos() & mask)) & mask)?;
         Ok(self.pos())
     }
 

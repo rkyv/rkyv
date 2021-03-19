@@ -16,19 +16,9 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
 fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<TokenStream, Error> {
     let name = &input.ident;
     let vis = &input.vis;
+    let generics = &input.generics;
 
-    let generic_params = input
-        .generics
-        .params
-        .iter()
-        .map(|p| quote_spanned! { p.span() => #p });
-    let generic_params = quote! { #(#generic_params,)* };
-
-    let generic_args = input.generics.type_params().map(|p| {
-        let name = &p.ident;
-        quote_spanned! { name.span() => #name }
-    });
-    let generic_args = quote! { #(#generic_args,)* };
+    let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
 
     let generic_predicates = match input.generics.where_clause {
         Some(ref clause) => {
@@ -90,7 +80,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
 
                 let archived_values = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote_spanned! { f.span() => #name: self.#name.resolve(pos + offset_of!(#archived<#generic_args>, #name), resolver.#name) }
+                    quote_spanned! { f.span() => #name: self.#name.resolve(pos + offset_of!(#archived #ty_generics, #name), resolver.#name) }
                 });
 
                 let mut compare_impls = Vec::new();
@@ -106,24 +96,24 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                             let field_names = fields.named.iter().map(|f| &f.ident);
 
                             compare_impls.push(quote! {
-                                impl<#generic_params> PartialEq<#archived<#generic_args>> for #name<#generic_args>
+                                impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics
                                 where
                                     #generic_predicates
                                     #partial_eq_predicates
                                 {
                                     #[inline]
-                                    fn eq(&self, other: &#archived<#generic_args>) -> bool {
+                                    fn eq(&self, other: &#archived #ty_generics) -> bool {
                                         #(other.#field_names == self.#field_names)&&*
                                     }
                                 }
 
-                                impl<#generic_params> PartialEq<#name<#generic_args>> for #archived<#generic_args>
+                                impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics
                                 where
                                     #generic_predicates
                                     #partial_eq_predicates
                                 {
                                     #[inline]
-                                    fn eq(&self, other: &#name<#generic_args>) -> bool {
+                                    fn eq(&self, other: &#name #ty_generics) -> bool {
                                         other.eq(self)
                                     }
                                 }
@@ -138,7 +128,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                     quote! {
                         #archive_derives
                         #strict
-                        #vis struct #archived<#generic_params>
+                        #vis struct #archived #generics
                         where
                             #generic_predicates
                             #archive_predicates
@@ -146,7 +136,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                             #(#archived_fields,)*
                         }
 
-                        #vis struct #resolver<#generic_params>
+                        #vis struct #resolver #generics
                         where
                             #generic_predicates
                             #archive_predicates
@@ -155,13 +145,13 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                         }
                     },
                     quote! {
-                        impl<#generic_params> Archive for #name<#generic_args>
+                        impl #impl_generics Archive for #name #ty_generics
                         where
                             #generic_predicates
                             #archive_predicates
                         {
-                            type Archived = #archived<#generic_args>;
-                            type Resolver = #resolver<#generic_args>;
+                            type Archived = #archived #ty_generics;
+                            type Resolver = #resolver #ty_generics;
 
                             fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
                                 Self::Archived {
@@ -198,7 +188,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
 
                 let archived_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = Index::from(i);
-                    quote_spanned! { f.span() => self.#index.resolve(pos + offset_of!(#archived<#generic_args>, #index), resolver.#index) }
+                    quote_spanned! { f.span() => self.#index.resolve(pos + offset_of!(#archived #ty_generics, #index), resolver.#index) }
                 });
 
                 let mut compare_impls = Vec::new();
@@ -214,24 +204,24 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                             let field_names = fields.unnamed.iter().enumerate().map(|(i, _)| Index::from(i));
 
                             compare_impls.push(quote! {
-                                impl<#generic_params> PartialEq<#archived<#generic_args>> for #name<#generic_args>
+                                impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics
                                 where
                                     #generic_predicates
                                     #partial_eq_predicates
                                 {
                                     #[inline]
-                                    fn eq(&self, other: &#archived<#generic_args>) -> bool {
+                                    fn eq(&self, other: &#archived #ty_generics) -> bool {
                                         #(other.#field_names == self.#field_names)&&*
                                     }
                                 }
 
-                                impl<#generic_params> PartialEq<#name<#generic_args>> for #archived<#generic_args>
+                                impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics
                                 where
                                     #generic_predicates
                                     #partial_eq_predicates
                                 {
                                     #[inline]
-                                    fn eq(&self, other: &#name<#generic_args>) -> bool {
+                                    fn eq(&self, other: &#name #ty_generics) -> bool {
                                         other.eq(self)
                                     }
                                 }
@@ -246,27 +236,27 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                     quote! {
                         #archive_derives
                         #strict
-                        #vis struct #archived<#generic_params>(#(#archived_fields,)*)
+                        #vis struct #archived #generics (#(#archived_fields,)*)
                         where
                             #generic_predicates
                             #archive_predicates;
 
-                        #vis struct #resolver<#generic_params>(#(#resolver_fields,)*)
+                        #vis struct #resolver #generics (#(#resolver_fields,)*)
                         where
                             #generic_predicates
                             #archive_predicates;
                     },
                     quote! {
-                        impl<#generic_params> Archive for #name<#generic_args>
+                        impl #impl_generics Archive for #name #ty_generics
                         where
                             #generic_predicates
                             #archive_predicates
                         {
-                            type Archived = #archived<#generic_args>;
-                            type Resolver = #resolver<#generic_args>;
+                            type Archived = #archived #ty_generics;
+                            type Resolver = #resolver #ty_generics;
 
                             fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-                                #archived::<#generic_args>(
+                                #archived(
                                     #(#archived_values,)*
                                 )
                             }
@@ -282,22 +272,22 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                     for compare in compares {
                         if compare.is_ident("PartialEq") {
                             compare_impls.push(quote! {
-                                impl<#generic_params> PartialEq<#archived<#generic_args>> for #name<#generic_args>
+                                impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics
                                 where
                                     #generic_predicates
                                 {
                                     #[inline]
-                                    fn eq(&self, _: &#archived<#generic_args>) -> bool {
+                                    fn eq(&self, _: &#archived #ty_generics) -> bool {
                                         true
                                     }
                                 }
 
-                                impl<#generic_params> PartialEq<#name<#generic_args>> for #archived<#generic_args>
+                                impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics
                                 where
                                     #generic_predicates
                                 {
                                     #[inline]
-                                    fn eq(&self, _: &#name<#generic_args>) -> bool {
+                                    fn eq(&self, _: &#name #ty_generics) -> bool {
                                         true
                                     }
                                 }
@@ -312,24 +302,24 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                     quote! {
                         #archive_derives
                         #strict
-                        #vis struct #archived<#generic_params>
+                        #vis struct #archived #generics
                         where
                             #generic_predicates;
 
-                        #vis struct #resolver<#generic_params>
+                        #vis struct #resolver #generics
                         where
                             #generic_predicates;
                     },
                     quote! {
-                        impl<#generic_params> Archive for #name<#generic_args>
+                        impl #impl_generics Archive for #name #ty_generics
                         where
                             #generic_predicates
                         {
-                            type Archived = #archived<#generic_args>;
-                            type Resolver = #resolver<#generic_args>;
+                            type Archived = #archived #ty_generics;
+                            type Resolver = #resolver #ty_generics;
 
                             fn resolve(&self, _pos: usize, _resolver: Self::Resolver) -> Self::Archived {
-                                #archived::<#generic_args>
+                                #archived
                             }
                         }
 
@@ -414,7 +404,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                             let self_binding = Ident::new(&format!("self_{}", name.as_ref().unwrap().to_string()), name.span());
                             let resolver_binding = Ident::new(&format!("resolver_{}", name.as_ref().unwrap().to_string()), name.span());
                             quote! {
-                                #name: #self_binding.resolve(pos + offset_of!(#archived_variant_name<#generic_args>, #name), #resolver_binding)
+                                #name: #self_binding.resolve(pos + offset_of!(#archived_variant_name #ty_generics, #name), #resolver_binding)
                             }
                         });
                         quote_spanned! { name.span() =>
@@ -437,7 +427,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                             let self_binding = Ident::new(&format!("self_{}", i), f.span());
                             let resolver_binding = Ident::new(&format!("resolver_{}", i), f.span());
                             quote! {
-                                #self_binding.resolve(pos + offset_of!(#archived_variant_name<#generic_args>, #index), #resolver_binding)
+                                #self_binding.resolve(pos + offset_of!(#archived_variant_name #ty_generics, #index), #resolver_binding)
                             }
                         });
                         quote_spanned! { name.span() =>
@@ -505,14 +495,14 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                         });
                         quote_spanned! { name.span() =>
                             #[repr(C)]
-                            struct #archived_variant_name<#generic_params>
+                            struct #archived_variant_name #generics
                             where
                                 #generic_predicates
                                 #archive_predicates
                             {
                                 __tag: ArchivedTag,
                                 #(#fields,)*
-                                __phantom: PhantomData<(#generic_args)>,
+                                __phantom: PhantomData<#name #ty_generics>,
                             }
                         }
                     }
@@ -523,7 +513,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                         });
                         quote_spanned! { name.span() =>
                             #[repr(C)]
-                            struct #archived_variant_name<#generic_params>(ArchivedTag, #(#fields,)* PhantomData<(#generic_args)>)
+                            struct #archived_variant_name #generics (ArchivedTag, #(#fields,)* PhantomData<#name #ty_generics>)
                             where
                                 #generic_predicates
                                 #archive_predicates;
@@ -537,7 +527,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                 quote! {
                     #archive_derives
                     #[repr(#archived_repr)]
-                    #vis enum #archived<#generic_params>
+                    #vis enum #archived #generics
                     where
                         #generic_predicates
                         #archive_predicates
@@ -545,7 +535,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                         #(#archived_variants,)*
                     }
 
-                    #vis enum #resolver<#generic_params>
+                    #vis enum #resolver #generics
                     where
                         #generic_predicates
                         #archive_predicates
@@ -561,13 +551,13 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
 
                     #(#archived_variant_structs)*
 
-                    impl<#generic_params> Archive for #name<#generic_args>
+                    impl #impl_generics Archive for #name #ty_generics
                     where
                         #generic_predicates
                         #archive_predicates
                     {
-                        type Archived = #archived<#generic_args>;
-                        type Resolver = #resolver<#generic_args>;
+                        type Archived = #archived #ty_generics;
+                        type Resolver = #resolver #ty_generics;
 
                         fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
                             match resolver {
