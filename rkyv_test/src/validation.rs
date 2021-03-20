@@ -41,56 +41,76 @@ fn basic_functionality() {
 
     #[cfg(not(feature = "size_64"))]
     // Synthetic archive (correct)
-    let synthetic_buf = [
+    let synthetic_buf = Aligned([
         1u8, 0u8, 0u8, 0u8, // Some + padding
         8u8, 0u8, 0u8, 0u8, // points 8 bytes forward
         11u8, 0u8, 0u8, 0u8, // string is 11 characters long
         // "Hello world"
         0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
-    ];
+    ]);
 
     #[cfg(feature = "size_64")]
     // Synthetic archive (correct)
-    let synthetic_buf = [
+    let synthetic_buf = Aligned([
         1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // Some + padding
         16u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // points 16 bytes forward
         11u8, 0u8, 0u8, 0u8, // string is 11 characters long
         0u8, 0u8, 0u8, 0u8, // padding
         // "Hello world"
         0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
-    ];
+    ]);
 
-    let result = check_archive::<Option<String>>(&synthetic_buf, 0);
+    let result = check_archive::<Option<String>>(synthetic_buf.as_ref(), 0);
     result.unwrap();
 
     // Various buffer errors:
+    use rkyv::validation::{
+        CheckArchiveError,
+        SharedArchiveError,
+        ArchiveMemoryError,
+        ArchiveBoundsError,
+    };
     // Out of bounds
-    check_archive::<u32>(&[0, 1, 2, 3, 4], 5).unwrap_err();
+    match check_archive::<u32>(&[0, 1, 2, 3, 4], 8) {
+        Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(ArchiveMemoryError::Inner(ArchiveBoundsError::OutOfBounds { .. })))) => (),
+        other => panic!("expected out of bounds error, got {:?}", other),
+    }
     // Overrun
-    check_archive::<u32>(&[0, 1, 2, 3, 4], 4).unwrap_err();
+    match check_archive::<u32>(&[0, 1, 2, 3, 4], 4) {
+        Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(ArchiveMemoryError::Inner(ArchiveBoundsError::Overrun { .. })))) => (),
+        other => panic!("expected overrun error, got {:?}", other),
+    }
     // Unaligned
-    check_archive::<u32>(&[0, 1, 2, 3, 4], 1).unwrap_err();
+    match check_archive::<u32>(&[0, 1, 2, 3, 4], 1) {
+        Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(ArchiveMemoryError::Inner(ArchiveBoundsError::Unaligned { .. })))) => (),
+        other => panic!("expected unaligned error, got {:?}", other),
+    }
+    // Underaligned
+    match check_archive::<u32>(&[0, 1, 2, 3, 4][1..], 0) {
+        Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(ArchiveMemoryError::Inner(ArchiveBoundsError::Underaligned { .. })))) => (),
+        other => panic!("expected underaligned error, got {:?}", other),
+    }
 }
 
 #[test]
 fn invalid_tags() {
     // Invalid archive (invalid tag)
-    let synthetic_buf = [
+    let synthetic_buf = Aligned([
         2u8, 0u8, 0u8, 0u8, // invalid tag + padding
         8u8, 0u8, 0u8, 0u8, // points 8 bytes forward
         11u8, 0u8, 0u8, 0u8, // string is 11 characters long
         // "Hello world"
         0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
-    ];
+    ]);
 
-    let result = check_archive::<Option<String>>(&synthetic_buf, 0);
+    let result = check_archive::<Option<String>>(synthetic_buf.as_ref(), 0);
     result.unwrap_err();
 }
 
 #[test]
 fn overlapping_claims() {
     // Invalid archive (overlapping claims)
-    let synthetic_buf = [
+    let synthetic_buf = Aligned([
         // First string
         16u8, 0u8, 0u8, 0u8, // points 16 bytes forward
         11u8, 0u8, 0u8, 0u8, // string is 11 characters long
@@ -99,9 +119,9 @@ fn overlapping_claims() {
         11u8, 0u8, 0u8, 0u8, // string is 11 characters long
         // "Hello world"
         0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
-    ];
+    ]);
 
-    check_archive::<[String; 2]>(&synthetic_buf, 0).unwrap_err();
+    check_archive::<[String; 2]>(synthetic_buf.as_ref(), 0).unwrap_err();
 }
 
 #[test]
@@ -175,16 +195,16 @@ fn cycle_detection() {
     }
 
     // Invalid archive (cyclic claims)
-    let synthetic_buf = [
+    let synthetic_buf = Aligned([
         // First node
         1u8, 0u8, 0u8, 0u8, // Cons
         4u8, 0u8, 0u8, 0u8, // Node is 4 bytes forward
         // Second string
         1u8, 0u8, 0u8, 0u8, // Cons
         244u8, 255u8, 255u8, 255u8, // Node is 12 bytes back
-    ];
+    ]);
 
-    check_archive::<Node>(&synthetic_buf, 0).unwrap_err();
+    check_archive::<Node>(synthetic_buf.as_ref(), 0).unwrap_err();
 }
 
 #[test]
