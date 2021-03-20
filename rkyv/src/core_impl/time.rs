@@ -1,7 +1,7 @@
 //! [`Archive`] implementations for times.
 
-use core::time::Duration;
 use crate::{Archive, Deserialize, Fallible, Serialize};
+use core::time::Duration;
 
 /// An archived [`Duration`](core::time::Duration).
 #[derive(Clone, Copy, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
