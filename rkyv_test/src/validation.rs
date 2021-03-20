@@ -71,22 +71,22 @@ fn basic_functionality() {
         ArchiveBoundsError,
     };
     // Out of bounds
-    match check_archive::<u32>(&[0, 1, 2, 3, 4], 8) {
+    match check_archive::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 8) {
         Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(ArchiveMemoryError::Inner(ArchiveBoundsError::OutOfBounds { .. })))) => (),
         other => panic!("expected out of bounds error, got {:?}", other),
     }
     // Overrun
-    match check_archive::<u32>(&[0, 1, 2, 3, 4], 4) {
+    match check_archive::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 4) {
         Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(ArchiveMemoryError::Inner(ArchiveBoundsError::Overrun { .. })))) => (),
         other => panic!("expected overrun error, got {:?}", other),
     }
     // Unaligned
-    match check_archive::<u32>(&[0, 1, 2, 3, 4], 1) {
+    match check_archive::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 1) {
         Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(ArchiveMemoryError::Inner(ArchiveBoundsError::Unaligned { .. })))) => (),
         other => panic!("expected unaligned error, got {:?}", other),
     }
     // Underaligned
-    match check_archive::<u32>(&[0, 1, 2, 3, 4][1..], 0) {
+    match check_archive::<u32>(&Aligned([0, 1, 2, 3, 4]).as_ref()[1..], 0) {
         Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(ArchiveMemoryError::Inner(ArchiveBoundsError::Underaligned { .. })))) => (),
         other => panic!("expected underaligned error, got {:?}", other),
     }
