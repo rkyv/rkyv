@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Unsized Types - rkyv</title>
+        <title>Shared Pointers - rkyv</title>
         
         
 
@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unsized_types.html" class="active"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait_objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="shared_pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">11.</strong> FAQ</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="shared-pointers.html" class="active"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -163,43 +163,43 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#unsized-types" id="unsized-types">Unsized Types</a></h1>
-<p>rkyv supports unsized types out of the box and ships with implementations for the most common
-unsized types (<code>str</code>s and slices). Trait objects can also be supported with <code>rkyv_dyn</code>, see
-<a href="trait_objects.html">&quot;Trait Objects&quot;</a> for more details.</p>
-<h2><a class="header" href="#metadata" id="metadata">Metadata</a></h2>
-<p>The core concept that enables unsized types is metadata. In rust, pointers to types can be different
-sizes, in contrast with languages like C and C++ where all pointers are the same size. This is
-important for the concept of sizing, which you may have encountered through rust's
-<a href="https://doc.rust-lang.org/std/marker/trait.Sized.html">Sized</a> trait.</p>
-<p>Pointers are composed of two pieces: a data address and some metadata. The data address is what most
-people think of when they think about pointers; it's the location of the pointed data. The metadata
-for a pointer is some extra data that is needed to work safely with the data at the pointed
-location. It can be almost anything, or nothing at all (for Sized types). Pointers with no extra
-metadata are sometimes called &quot;thin&quot; pointers, and pointers <em>with</em> metadata are sometimes called
-&quot;fat&quot; pointers.</p>
-<p>Fundamentally, the metadata of a pointer exists to provide the program enough information to safely
-access, drop, and deallocate structures that are pointed to. For slices, the metadata carries the
-length of the slice, for trait objects it carries the virtual function table (vtable) pointer, and
-for custom unsized structs it carries the metadata of the single trailing unsized member.</p>
-<h2><a class="header" href="#archived-metadata" id="archived-metadata">Archived Metadata</a></h2>
-<p>For unsized types, the metadata for a type is archived separately from the relative pointer to the
-data. This mirrors how rust works internally to support archiving shared pointers and other exotic
-use cases. This does complicate things somewhat, but for most people the metadata archiving process
-will end up as just filling out a few functions and returning <code>()</code>.</p>
+                        <h1><a class="header" href="#shared-pointers" id="shared-pointers">Shared Pointers</a></h1>
+<p>The implementation details of shared pointers may be of interest to those using them. Specifically,
+the rules surrounding how and when shared and weak pointers are serialized and pooled may affect how
+you choose to use them.</p>
+<h2><a class="header" href="#serialization" id="serialization">Serialization</a></h2>
+<p>Shared pointers (<code>Rc</code> and <code>Arc</code>) are serialized whenever they're encountered for the first time, and
+the data address is reused when subsequent shared pointers point to the same data. This means that
+you can expect shared pointers to always point to the same value when archived, even if they are
+unsized to different types.</p>
+<p>Weak pointers (<code>rc::Weak</code> and <code>sync::Weak</code>) have serialization attempted as soon as they're
+encountered. The serialization process upgrades them, and if it succeeds it serializes them like
+shared pointers. Otherwise, it serializes them like <code>None</code>.</p>
+<h2><a class="header" href="#deserialization" id="deserialization">Deserialization</a></h2>
+<p>Similarly, shared pointers are deserialized on the first encounter and reused afterward. Weak
+pointers do a similar upgrade attempt when they're encountered for the first time.</p>
+<h2><a class="header" href="#serializers-and-deserializers" id="serializers-and-deserializers">Serializers and Deserializers</a></h2>
+<p>The serializers for shared pointers hold the location of the serialized data. This means it's safe
+to serialize shared pointers to an archive across multiple <code>serialize</code> calls as long as you use the
+same serializer for each one. Using a new serializer will still do the right thing, but may end up
+duplicating the shared data.</p>
+<p>The deserializers for shared pointers hold a shared pointer to any deserialized values, and will
+hold them in memory until the deserializer is dropped. This means that if you serialize only weak
+pointers to some shared data, they will point to the correct value when deserialized but will point
+to nothing as soon as the deserializer is dropped.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="format.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="trait-objects.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="trait_objects.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="validation.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -211,13 +211,13 @@ will end up as just filling out a few functions and returning <code>()</code>.</
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="format.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="trait-objects.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="trait_objects.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="validation.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

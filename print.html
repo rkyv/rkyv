@@ -97,7 +97,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unsized_types.html"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait_objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="shared_pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">11.</strong> FAQ</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -510,6 +510,41 @@ some of the extended types. These types can be found in the
 <a href="https://docs.rs/rkyv/latest/rkyv/validation/index.html"><code>validation</code></a> module, and most use cases
 should be covered by
 <a href="https://docs.rs/rkyv/latest/rkyv/validation/type.DefaultArchiveValidator.html"><code>DefaultArchiveValidator</code></a>.</p>
+<h1><a class="header" href="#feature-comparison" id="feature-comparison">Feature Comparison</a></h1>
+<p>This is a best-effort feaure comparison between rkyv, FlatBuffers, and Cap'n Proto. This is by no
+means completely comprehensive, and pull requests that improve this are welcomed.</p>
+<h2><a class="header" href="#feature-matrix" id="feature-matrix">Feature matrix</a></h2>
+<table><thead><tr><th>Feature</th><th>rkyv</th><th>Cap'n Proto</th><th>FlatBuffers</th></tr></thead><tbody>
+<tr><td>Open type system</td><td>yes</td><td>no</td><td>no</td></tr>
+<tr><td>Scalars</td><td>yes</td><td>no</td><td>yes</td></tr>
+<tr><td>Tables</td><td>no*</td><td>yes</td><td>yes</td></tr>
+<tr><td>Schema evolution</td><td>no*</td><td>yes</td><td>yes</td></tr>
+<tr><td>Zero-copy</td><td>yes</td><td>yes</td><td>yes</td></tr>
+<tr><td>Random-access reads</td><td>yes</td><td>yes</td><td>yes</td></tr>
+<tr><td>Validation</td><td>upfront*</td><td>on-demand</td><td>upfront</td></tr>
+<tr><td>Reflection</td><td>no*</td><td>yes</td><td>yes</td></tr>
+<tr><td>Object order</td><td>bottom-up†</td><td>either</td><td>bottom-up</td></tr>
+<tr><td>Schema language</td><td>derive</td><td>custom</td><td>custom</td></tr>
+<tr><td>Usable as mutable state</td><td>yes</td><td>no</td><td>no</td></tr>
+<tr><td>Padding takes space on wire?</td><td>yes*</td><td>optional</td><td>no</td></tr>
+<tr><td>Unset fields take space on wire?</td><td>yes</td><td>yes</td><td>no</td></tr>
+<tr><td>Pointers take space on wire?</td><td>yes</td><td>yes</td><td>yes</td></tr>
+<tr><td>Cross-language</td><td>no</td><td>yes</td><td>yes</td></tr>
+</tbody></table>
+<p>* <em>rkyv's open type system allows extension types that provide these capabilities</em></p>
+<p>† <em>rkyv supports rooted archives, which have bottom-up order for everything except the root object</em></p>
+<h2><a class="header" href="#open-type-system" id="open-type-system">Open type system</a></h2>
+<p>One of rkyv's primary features is that its type system is <em>open</em>. This means that users can write
+custom types and control their properties very finely. You can think of rkyv as a solid foundation
+to build many other features on top of. In fact, the open type system is already a fundamental part
+of how rkyv works.</p>
+<h3><a class="header" href="#unsized-types-1" id="unsized-types-1">Unsized types</a></h3>
+<p>Even though they're part of the main library, unsized types are built on top of the core
+serialization functionality. Types like <code>Box</code> and <code>Rc/Arc</code> that can hold unsized types are entry
+points for unsized types into the sized system.</p>
+<h3><a class="header" href="#trait-objects-1" id="trait-objects-1">Trait objects</a></h3>
+<p>Trait objects are further built on top of unsized types to make serializing and using trait objects
+easy and safe.</p>
 <h1><a class="header" href="#faq" id="faq">FAQ</a></h1>
 <p>Because it's so different from traditional serialization systems, a lot of people have questions
 about rkyv. This is meant to serve as a comprehensive, centralized source for answers.</p>

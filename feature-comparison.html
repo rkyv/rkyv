@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>FAQ - rkyv</title>
+        <title>Feature Comparison - rkyv</title>
         
         
 
@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html" class="active"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="feature-comparison.html" class="active"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -163,78 +163,56 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#faq" id="faq">FAQ</a></h1>
-<p>Because it's so different from traditional serialization systems, a lot of people have questions
-about rkyv. This is meant to serve as a comprehensive, centralized source for answers.</p>
-<h2><a class="header" href="#how-is-rkyv-zero-copy-it-definitely-copies-the-archive-into-memory" id="how-is-rkyv-zero-copy-it-definitely-copies-the-archive-into-memory">How is rkyv zero-copy? It definitely copies the archive into memory.</a></h2>
-<p>Traditional serialization works in two steps:</p>
-<ol>
-<li>Read the data from disk into a buffer (maybe in pieces)</li>
-<li>Process the data in the buffer into the deserialized data structure</li>
-</ol>
-<p>The copy happens when the data in the buffer ends up duplicated in the data structure. Zero-copy
-deserialization doesn't deserialize the buffer into a separate structure and thus avoids this copy.</p>
-<p>You can actually even avoid reading the data from disk into a buffer in most environments by using
-memory mapping.</p>
-<h2><a class="header" href="#how-does-rkyv-handle-endianness" id="how-does-rkyv-handle-endianness">How does rkyv handle endianness?</a></h2>
-<p>rkyv does not natively support reconciling endianness. That means that little-endian systems will
-write little-endian archives and big-endian systems will write big-endian archives.</p>
-<p>You can still write your own custom type wrappers and use those to achieve cross-endian archives.
-For example, a wrapper type could always serialize integers as little-endian and then provide a
-getter that converts the on-disk representation to native endianness. Deserialization would also
-simply convert to native endianness.</p>
-<h2><a class="header" href="#is-rkyv-cross-platform" id="is-rkyv-cross-platform">Is rkyv cross-platform?</a></h2>
-<p>Yes, but with caveats:</p>
-<ul>
-<li>You can use it on either little- or big-endian systems, but it will always use native endianness.
-See &quot;How does rkyv handle endianness?&quot; for more information.</li>
-<li>rkyv has not been widely tested and there may be bugs that need to get fixed.</li>
-</ul>
-<p>That said, it is explicitly a goal of rkyv to be cross-platform within reason (and that reason is
-very wide).</p>
-<h2><a class="header" href="#can-i-use-this-in-embedded-and-no_std-environments" id="can-i-use-this-in-embedded-and-no_std-environments">Can I use this in embedded and <code>#[no_std]</code> environments?</a></h2>
-<p>Yes, but be on the lookout for bugs because these environments have not been thoroughly tested.</p>
-<h1><a class="header" href="#safety" id="safety">Safety</a></h1>
-<h2><a class="header" href="#isnt-this-very-unsafe-if-you-access-untrusted-data" id="isnt-this-very-unsafe-if-you-access-untrusted-data">Isn't this very unsafe if you access untrusted data?</a></h2>
-<p>Yes, <em>but</em> you can still access untrusted data if you validate the archive first with
-<a href="https://github.com/djkoloski/bytecheck">bytecheck</a>. It's an extra step and requires a decent amount
-of processing, but it's typically still less than the cost of deserializing using a traditional
-format.</p>
-<h2><a class="header" href="#doesnt-that-mean-i-basically-cant-use-it-anywhere" id="doesnt-that-mean-i-basically-cant-use-it-anywhere">Doesn't that mean I basically can't use it anywhere?</a></h2>
-<p><strong>No</strong>. There are many other ways you can verify your data, for example with checksums and signed
-buffers. If your security model prevents you from using those techniques, then it definitely
-prevents you from using most or all zero-copy deserialization solutions and you're stuck with slower
-traditional serialization.</p>
-<h2><a class="header" href="#isnt-it-kind-of-deceptive-to-say-rkyv-is-fast-and-then-require-validation" id="isnt-it-kind-of-deceptive-to-say-rkyv-is-fast-and-then-require-validation">Isn't it kind of deceptive to say rkyv is fast and then require validation?</a></h2>
-<p>The regular (fast) path to access archived data is marked as <code>unsafe</code>. This doesn't mean that it's
-unusable, it means that it's only safe to call if you can verify its preconditions:</p>
-<blockquote>
-<p>This is only safe to call if the value is archived at the given position in the byte array.</p>
-</blockquote>
-<p>As long as you can (reasonably) guarantee that, then accessing the archive is safe. Not every
-archive needs to be validated, and you can use a variety of different techniques to guarantee data
-integrity and security.</p>
-<p>Validation is provided for archives because it's still typically faster to validate and access an
-archive than it is to deserialize traditional formats. Additionally, it has more uses than just
-checking potentially malicious archives.</p>
-<h2><a class="header" href="#isnt-it-unfair-if-competitors-like-capn-proto-validate-their-archives-but-you-dont" id="isnt-it-unfair-if-competitors-like-capn-proto-validate-their-archives-but-you-dont">Isn't it unfair if competitors like Cap'n Proto validate their archives but you don't?</a></h2>
-<p>Cap'n Proto does validate their archives before use, but it comes with the
-<a href="https://capnproto.org/faq.html#security">same security guarantees</a> as rkyv. The primary difference
-is that Cap'n Proto always validates their data and rkyv gives the user the decision. Rust's
-safe/unsafe system makes this choice explicit and different users will choose differently.</p>
-<p>FlatBuffers <a href="https://github.com/dvidelabs/flatcc/blob/master/doc/security.md">also has verification</a>
-(for rust?) but they have the same set of warnings and caveats as rkyv and Cap'n Proto.</p>
+                        <h1><a class="header" href="#feature-comparison" id="feature-comparison">Feature Comparison</a></h1>
+<p>This is a best-effort feaure comparison between rkyv, FlatBuffers, and Cap'n Proto. This is by no
+means completely comprehensive, and pull requests that improve this are welcomed.</p>
+<h2><a class="header" href="#feature-matrix" id="feature-matrix">Feature matrix</a></h2>
+<table><thead><tr><th>Feature</th><th>rkyv</th><th>Cap'n Proto</th><th>FlatBuffers</th></tr></thead><tbody>
+<tr><td>Open type system</td><td>yes</td><td>no</td><td>no</td></tr>
+<tr><td>Scalars</td><td>yes</td><td>no</td><td>yes</td></tr>
+<tr><td>Tables</td><td>no*</td><td>yes</td><td>yes</td></tr>
+<tr><td>Schema evolution</td><td>no*</td><td>yes</td><td>yes</td></tr>
+<tr><td>Zero-copy</td><td>yes</td><td>yes</td><td>yes</td></tr>
+<tr><td>Random-access reads</td><td>yes</td><td>yes</td><td>yes</td></tr>
+<tr><td>Validation</td><td>upfront*</td><td>on-demand</td><td>upfront</td></tr>
+<tr><td>Reflection</td><td>no*</td><td>yes</td><td>yes</td></tr>
+<tr><td>Object order</td><td>bottom-up†</td><td>either</td><td>bottom-up</td></tr>
+<tr><td>Schema language</td><td>derive</td><td>custom</td><td>custom</td></tr>
+<tr><td>Usable as mutable state</td><td>yes</td><td>no</td><td>no</td></tr>
+<tr><td>Padding takes space on wire?</td><td>yes*</td><td>optional</td><td>no</td></tr>
+<tr><td>Unset fields take space on wire?</td><td>yes</td><td>yes</td><td>no</td></tr>
+<tr><td>Pointers take space on wire?</td><td>yes</td><td>yes</td><td>yes</td></tr>
+<tr><td>Cross-language</td><td>no</td><td>yes</td><td>yes</td></tr>
+</tbody></table>
+<p>* <em>rkyv's open type system allows extension types that provide these capabilities</em></p>
+<p>† <em>rkyv supports rooted archives, which have bottom-up order for everything except the root object</em></p>
+<h2><a class="header" href="#open-type-system" id="open-type-system">Open type system</a></h2>
+<p>One of rkyv's primary features is that its type system is <em>open</em>. This means that users can write
+custom types and control their properties very finely. You can think of rkyv as a solid foundation
+to build many other features on top of. In fact, the open type system is already a fundamental part
+of how rkyv works.</p>
+<h3><a class="header" href="#unsized-types" id="unsized-types">Unsized types</a></h3>
+<p>Even though they're part of the main library, unsized types are built on top of the core
+serialization functionality. Types like <code>Box</code> and <code>Rc/Arc</code> that can hold unsized types are entry
+points for unsized types into the sized system.</p>
+<h3><a class="header" href="#trait-objects" id="trait-objects">Trait objects</a></h3>
+<p>Trait objects are further built on top of unsized types to make serializing and using trait objects
+easy and safe.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="feature-comparison.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="extensions.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
+                        
+                            <a rel="next" href="faq.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -244,11 +222,15 @@ safe/unsafe system makes this choice explicit and different users will choose di
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="feature-comparison.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="extensions.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
+                
+                    <a rel="next" href="faq.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
                 
             </nav>
 
