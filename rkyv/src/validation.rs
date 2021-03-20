@@ -93,6 +93,13 @@ impl<T: ?Sized> LayoutMetadata<T> for DynMetadata<T> {
 /// Errors that can occur when checking a relative pointer
 #[derive(Debug)]
 pub enum ArchiveBoundsError {
+    /// The archive is under-aligned for one of the types inside
+    Underaligned {
+        /// The expected alignment of the archive
+        expected_align: usize,
+        /// The actual alignment of the archive
+        actual_align: usize,
+    },
     /// A pointer pointed outside the bounds of the archive
     OutOfBounds {
         /// The position of the relative pointer
@@ -123,6 +130,14 @@ pub enum ArchiveBoundsError {
 impl fmt::Display for ArchiveBoundsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            ArchiveBoundsError::Underaligned {
+                expected_align,
+                actual_align,
+            } => write!(
+                f,
+                "archive underaligned: need alignment {} but have alignment {}",
+                expected_align, actual_align
+            ),
             ArchiveBoundsError::OutOfBounds {
                 base,
                 offset,
@@ -225,20 +240,27 @@ impl ArchiveBoundsContext for ArchiveBoundsValidator {
         ptr: *const u8,
         layout: &Layout,
     ) -> Result<(), Self::Error> {
-        let target_pos = ptr.offset_from(self.begin) as usize;
-        if target_pos & (layout.align() - 1) != 0 {
-            Err(ArchiveBoundsError::Unaligned {
-                pos: target_pos,
-                align: layout.align(),
-            })
-        } else if self.len - target_pos < layout.size() {
-            Err(ArchiveBoundsError::Overrun {
-                pos: target_pos,
-                size: layout.size(),
-                archive_len: self.len,
+        if (self.begin as usize) & (layout.align() - 1) != 0 {
+            Err(ArchiveBoundsError::Underaligned {
+                expected_align: layout.align(),
+                actual_align: 1 << (self.begin as usize).trailing_zeros(),
             })
         } else {
-            Ok(())
+            let target_pos = ptr.offset_from(self.begin) as usize;
+            if target_pos & (layout.align() - 1) != 0 {
+                Err(ArchiveBoundsError::Unaligned {
+                    pos: target_pos,
+                    align: layout.align(),
+                })
+            } else if self.len - target_pos < layout.size() {
+                Err(ArchiveBoundsError::Overrun {
+                    pos: target_pos,
+                    size: layout.size(),
+                    archive_len: self.len,
+                })
+            } else {
+                Ok(())
+            }
         }
     }
 }

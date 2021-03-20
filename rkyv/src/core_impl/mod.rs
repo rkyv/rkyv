@@ -24,6 +24,7 @@ use core::{
 use ptr_meta::Pointee;
 
 pub mod range;
+pub mod time;
 #[cfg(feature = "validation")]
 pub mod validation;
 

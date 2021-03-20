@@ -100,6 +100,27 @@ pub trait Fallible {
     type Error: 'static;
 }
 
+/// An error that can never be produced
+#[derive(Debug)]
+pub enum Unreachable {}
+
+impl fmt::Display for Unreachable {
+    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
+        unreachable!();
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Unreachable {}
+
+/// A fallible type that cannot produce errors
+#[derive(Debug)]
+pub struct Infallible;
+
+impl Fallible for Infallible {
+    type Error = Unreachable;
+}
+
 /// A type that can be used without deserializing.
 ///
 /// Archiving is done depth-first, writing any data owned by a type before
