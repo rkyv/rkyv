@@ -6,7 +6,7 @@ use rkyv::{
     archived_value, check_archive,
     de::deserializers::AllocDeserializer,
     ser::{serializers::WriteSerializer, Serializer},
-    Archive, Deserialize, Serialize,
+    AlignedVec, Archive, Deserialize, Serialize,
 };
 use std::collections::HashMap;
 
@@ -407,7 +407,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             });
         });
 
-        let mut serializer = WriteSerializer::new(Vec::new());
+        let mut serializer = WriteSerializer::new(AlignedVec::new());
         let pos = serializer.serialize_value(&players).unwrap();
         let buffer = serializer.into_inner();
 

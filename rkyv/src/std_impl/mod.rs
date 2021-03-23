@@ -66,6 +66,18 @@ impl cmp::PartialOrd for ArchivedString {
     }
 }
 
+impl AsRef<str> for ArchivedString {
+    fn as_ref(&self) -> &str {
+        self.deref()
+    }
+}
+
+impl AsMut<str> for ArchivedString {
+    fn as_mut(&mut self) -> &mut str {
+        self.deref_mut()
+    }
+}
+
 impl Deref for ArchivedString {
     type Target = str;
 

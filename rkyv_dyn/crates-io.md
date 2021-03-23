@@ -29,6 +29,7 @@ use rkyv::{
         serializers::WriteSerializer,
         Serializer,
     },
+    AlignedVec,
     Archive,
     Archived,
     Deserialize,
@@ -79,7 +80,7 @@ impl ExampleTrait for Archived<IntStruct> {
 fn main() {
     let boxed_int = Box::new(IntStruct(42)) as Box<dyn SerializeExampleTrait>;
     let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn SerializeExampleTrait>;
-    let mut serializer = WriteSerializer::new(Vec::new());
+    let mut serializer = WriteSerializer::new(AlignedVec::new());
 
     let int_pos = serializer.serialize_value(&boxed_int)
         .expect("failed to archive boxed int");

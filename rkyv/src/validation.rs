@@ -651,6 +651,7 @@ pub type DefaultArchiveValidator = SharedArchiveValidator<ArchiveValidator<Archi
 /// use rkyv::{
 ///     check_archive,
 ///     ser::{Serializer, serializers::WriteSerializer},
+///     AlignedVec,
 ///     Archive,
 ///     Serialize,
 /// };
@@ -668,7 +669,7 @@ pub type DefaultArchiveValidator = SharedArchiveValidator<ArchiveValidator<Archi
 ///     value: 31415926,
 /// };
 ///
-/// let mut serializer = WriteSerializer::new(Vec::new());
+/// let mut serializer = WriteSerializer::new(AlignedVec::new());
 /// let pos = serializer.serialize_value(&value)
 ///     .expect("failed to archive test");
 /// let buf = serializer.into_inner();

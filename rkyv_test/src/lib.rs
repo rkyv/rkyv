@@ -219,6 +219,7 @@ mod tests {
                     serializers::WriteSerializer,
                     Serializer,
                 },
+                AlignedVec,
                 Archive,
                 Serialize,
                 Deserialize,
@@ -237,7 +238,7 @@ mod tests {
                 option: Some(vec![1, 2, 3, 4]),
             };
 
-            let mut serializer = WriteSerializer::new(Vec::new());
+            let mut serializer = WriteSerializer::new(AlignedVec::new());
             let pos = serializer.serialize_value(&value).expect("failed to serialize value");
             let buf = serializer.into_inner();
 
