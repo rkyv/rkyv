@@ -214,7 +214,7 @@ where
     T::Archived: TypeName,
 {
     fn serialize_dyn(&self, serializer: &mut dyn DynSerializer) -> Result<usize, DynError> {
-        Ok(serializer.serialize_value(self)?)
+        serializer.serialize_value(self)
     }
 
     fn archived_type_id(&self) -> u64 {

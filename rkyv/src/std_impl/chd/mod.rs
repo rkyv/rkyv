@@ -602,11 +602,7 @@ where
     K::Archived: Hash + Eq,
 {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(ArchivedHashMap::serialize_from_iter(
-            self.iter(),
-            self.len(),
-            serializer,
-        )?)
+        ArchivedHashMap::serialize_from_iter(self.iter(), self.len(), serializer)
     }
 }
 

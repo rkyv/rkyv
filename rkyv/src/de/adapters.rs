@@ -34,7 +34,7 @@ impl<D: Deserializer> Fallible for SharedDeserializerAdapter<D> {
 
 impl<D: Deserializer> Deserializer for SharedDeserializerAdapter<D> {
     unsafe fn alloc(&mut self, layout: alloc::Layout) -> Result<*mut u8, Self::Error> {
-        Ok(self.inner.alloc(layout)?)
+        self.inner.alloc(layout)
     }
 }
 

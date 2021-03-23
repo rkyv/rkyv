@@ -44,7 +44,7 @@ impl<T: Archive> ArchiveUnsized for T {
 
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for T {
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        Ok(serializer.serialize_value(self)?)
+        serializer.serialize_value(self)
     }
 
     fn serialize_metadata(&self, _: &mut S) -> Result<ArchivedMetadata<Self>, S::Error> {
@@ -480,7 +480,7 @@ where
     T::Archived: Deserialize<T, D>,
 {
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-        if self.len() == 0 {
+        if self.is_empty() {
             Ok(ptr::null_mut())
         } else {
             let result = deserializer
@@ -503,7 +503,7 @@ where
     T::Archived: Deserialize<T, D>,
 {
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-        if self.len() == 0 {
+        if self.is_empty() {
             Ok(ptr::null_mut())
         } else {
             let result = deserializer

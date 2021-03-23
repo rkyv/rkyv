@@ -3,7 +3,7 @@
 use super::{ArchivedBox, ArchivedString, ArchivedVec};
 use crate::{
     validation::{ArchiveBoundsContext, ArchiveMemoryContext, LayoutMetadata},
-    ArchivePointee, RelPtr,
+    ArchivePointee, Fallible, RelPtr,
 };
 use bytecheck::CheckBytes;
 use core::fmt;
@@ -45,15 +45,17 @@ impl<T: Error + 'static, R: Error + 'static, C: Error + 'static> Error
     }
 }
 
+type CheckOwnedPointerError<T, C> = OwnedPointerError<
+    <<T as ArchivePointee>::ArchivedMetadata as CheckBytes<C>>::Error,
+    <T as CheckBytes<C>>::Error,
+    <C as Fallible>::Error,
+>;
+
 impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedString
 where
     C::Error: Error,
 {
-    type Error = OwnedPointerError<
-        <<str as ArchivePointee>::ArchivedMetadata as CheckBytes<C>>::Error,
-        <str as CheckBytes<C>>::Error,
-        C::Error,
-    >;
+    type Error = CheckOwnedPointerError<str, C>;
 
     unsafe fn check_bytes<'a>(
         value: *const Self,
@@ -104,11 +106,7 @@ where
     C::Error: Error,
     <[T] as Pointee>::Metadata: LayoutMetadata<[T]>,
 {
-    type Error = OwnedPointerError<
-        <<[T] as ArchivePointee>::ArchivedMetadata as CheckBytes<C>>::Error,
-        <[T] as CheckBytes<C>>::Error,
-        C::Error,
-    >;
+    type Error = CheckOwnedPointerError<[T], C>;
 
     unsafe fn check_bytes<'a>(
         value: *const Self,
