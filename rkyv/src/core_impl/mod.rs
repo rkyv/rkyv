@@ -480,11 +480,15 @@ where
     T::Archived: Deserialize<T, D>,
 {
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-        let result = deserializer
-            .alloc(alloc::Layout::array::<T>(self.len()).unwrap())?
-            .cast::<T>();
-        ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
-        Ok(result.cast())
+        if self.len() == 0 {
+            Ok(ptr::null_mut())
+        } else {
+            let result = deserializer
+                .alloc(alloc::Layout::array::<T>(self.len()).unwrap())?
+                .cast::<T>();
+            ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
+            Ok(result.cast())
+        }
     }
 
     fn deserialize_metadata(&self, _: &mut D) -> Result<<[T] as Pointee>::Metadata, D::Error> {
@@ -499,13 +503,17 @@ where
     T::Archived: Deserialize<T, D>,
 {
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-        let result = deserializer
-            .alloc(alloc::Layout::array::<T>(self.len()).unwrap())?
-            .cast::<T>();
-        for (i, item) in self.iter().enumerate() {
-            result.add(i).write(item.deserialize(deserializer)?);
+        if self.len() == 0 {
+            Ok(ptr::null_mut())
+        } else {
+            let result = deserializer
+                .alloc(alloc::Layout::array::<T>(self.len()).unwrap())?
+                .cast::<T>();
+            for (i, item) in self.iter().enumerate() {
+                result.add(i).write(item.deserialize(deserializer)?);
+            }
+            Ok(result.cast())
         }
-        Ok(result.cast())
     }
 
     fn deserialize_metadata(&self, _: &mut D) -> Result<<[T] as Pointee>::Metadata, D::Error> {

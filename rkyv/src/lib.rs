@@ -90,7 +90,10 @@ pub use memoffset::offset_of;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 #[doc(inline)]
-pub use util::{Aligned, AlignedVec};
+pub use util::Aligned;
+#[cfg(feature = "std")]
+#[doc(inline)]
+pub use util::AlignedVec;
 #[doc(inline)]
 #[cfg(feature = "validation")]
 pub use validation::check_archive;
