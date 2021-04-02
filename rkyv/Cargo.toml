@@ -21,7 +21,7 @@ rkyv_derive = { version = "=0.4.0", path = "../rkyv_derive" }
 seahash = { version = "4.0", optional = true }
 
 [features]
-default = ["std"]
+default = ["std", "const_generics"]
 const_generics = []
 size_64 = []
 specialization = []

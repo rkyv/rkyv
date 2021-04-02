@@ -17,7 +17,7 @@ readme = "crates-io.md"
 rkyv_typename_derive = { version = "=0.4.0", path = "../rkyv_typename_derive" }
 
 [features]
-default = ["std"]
+default = ["std", "const_generics"]
 const_generics = []
 std = []
 
