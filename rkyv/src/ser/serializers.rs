@@ -16,9 +16,9 @@ use std::io;
 /// ## Examples
 /// ```
 /// use rkyv::{
-///     archived_value,
-///     ser::{Serializer, serializers::BufferSerializer},
-///     Aligned,
+///     archived_root,
+///     ser::{Serializer, serializers::WriteSerializer},
+///     AlignedVec,
 ///     Archive,
 ///     Archived,
 ///     Serialize,
@@ -31,11 +31,11 @@ use std::io;
 ///     Die,
 /// }
 ///
-/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-/// let pos = serializer.serialize_value(&Event::Speak("Help me!".to_string()))
+/// let mut serializer = WriteSerializer::new(AlignedVec::new());
+/// serializer.serialize_value(&Event::Speak("Help me!".to_string()))
 ///     .expect("failed to archive event");
 /// let buf = serializer.into_inner();
-/// let archived = unsafe { archived_value::<Event>(buf.as_ref(), pos) };
+/// let archived = unsafe { archived_root::<Event>(buf.as_ref()) };
 /// if let Archived::<Event>::Speak(message) = archived {
 ///     assert_eq!(message.as_str(), "Help me!");
 /// } else {

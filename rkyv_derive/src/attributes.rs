@@ -45,12 +45,19 @@ impl Default for Attributes {
     }
 }
 
-fn try_set_attribute<T: ToTokens>(attribute: &mut Option<T>, value: T, name: &'static str) -> Result<(), Error> {
+fn try_set_attribute<T: ToTokens>(
+    attribute: &mut Option<T>,
+    value: T,
+    name: &'static str,
+) -> Result<(), Error> {
     if attribute.is_none() {
         *attribute = Some(value);
         Ok(())
     } else {
-        Err(Error::new_spanned(value, &format!("{} already specified", name)))
+        Err(Error::new_spanned(
+            value,
+            &format!("{} already specified", name),
+        ))
     }
 }
 
@@ -75,7 +82,10 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                         if let NestedMeta::Meta(Meta::Path(path)) = compare {
                             compares.push(path.clone());
                         } else {
-                            return Err(Error::new_spanned(compare, "compare arguments must be compare traits to derive"))
+                            return Err(Error::new_spanned(
+                                compare,
+                                "compare arguments must be compare traits to derive",
+                            ));
                         }
                     }
                     attributes.compares = Some((list.path.clone(), compares));
@@ -84,19 +94,30 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                     Err(Error::new_spanned(list, "compares already specified"))
                 }
             } else {
-                Err(Error::new_spanned(&list.path, "unrecognized archive parameter"))
+                Err(Error::new_spanned(
+                    &list.path,
+                    "unrecognized archive parameter",
+                ))
             }
         }
         Meta::NameValue(meta) => {
             if meta.path.is_ident("archived") {
                 if let Lit::Str(ref lit_str) = meta.lit {
-                    try_set_attribute(&mut attributes.archived, Ident::new(&lit_str.value(), lit_str.span()), "archived")
+                    try_set_attribute(
+                        &mut attributes.archived,
+                        Ident::new(&lit_str.value(), lit_str.span()),
+                        "archived",
+                    )
                 } else {
                     Err(Error::new_spanned(meta, "archived must be a string"))
                 }
             } else if meta.path.is_ident("resolver") {
                 if let Lit::Str(ref lit_str) = meta.lit {
-                    try_set_attribute(&mut attributes.resolver, Ident::new(&lit_str.value(), lit_str.span()), "resolver")
+                    try_set_attribute(
+                        &mut attributes.resolver,
+                        Ident::new(&lit_str.value(), lit_str.span()),
+                        "resolver",
+                    )
                 } else {
                     Err(Error::new_spanned(meta, "resolver must be a string"))
                 }

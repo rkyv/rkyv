@@ -1,10 +1,14 @@
 use bytecheck::CheckBytes;
 use core::fmt;
 use rkyv::{
-    check_archive,
-    ser::{adapters::SharedSerializerAdapter, serializers::BufferSerializer, Serializer},
+    check_archived_root, check_archived_value,
+    ser::{
+        adapters::SharedSerializerAdapter,
+        serializers::{BufferSerializer, WriteSerializer},
+        Serializer,
+    },
     validation::DefaultArchiveValidator,
-    Aligned, Archive, Serialize,
+    Aligned, AlignedVec, Archive, Serialize,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -13,16 +17,16 @@ use std::{
 
 const BUFFER_SIZE: usize = 512;
 
-fn serialize_and_check<T: Serialize<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>>(value: &T)
+fn serialize_and_check<T: Serialize<WriteSerializer<AlignedVec>>>(value: &T)
 where
     T::Archived: CheckBytes<DefaultArchiveValidator>,
 {
-    let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = serializer
+    let mut serializer = WriteSerializer::new(AlignedVec::new());
+    serializer
         .serialize_value(value)
         .expect("failed to archive value");
     let buf = serializer.into_inner();
-    check_archive::<T>(buf.as_ref(), pos).unwrap();
+    check_archived_root::<T>(buf.as_ref()).unwrap();
 }
 
 #[test]
@@ -30,13 +34,13 @@ fn basic_functionality() {
     // Regular archiving
     let value = Some("Hello world".to_string());
 
-    let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = serializer
+    let mut serializer = WriteSerializer::new(AlignedVec::new());
+    serializer
         .serialize_value(&value)
         .expect("failed to archive value");
     let buf = serializer.into_inner();
 
-    let result = check_archive::<Option<String>>(buf.as_ref(), pos);
+    let result = check_archived_root::<Option<String>>(buf.as_ref());
     result.unwrap();
 
     #[cfg(not(feature = "size_64"))]
@@ -60,34 +64,39 @@ fn basic_functionality() {
         0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
     ]);
 
-    let result = check_archive::<Option<String>>(synthetic_buf.as_ref(), 0);
+    let result = check_archived_value::<Option<String>>(synthetic_buf.as_ref(), 0);
     result.unwrap();
 
     // Various buffer errors:
     use rkyv::validation::{
-        CheckArchiveError,
-        SharedArchiveError,
-        ArchiveMemoryError,
-        ArchiveBoundsError,
+        ArchiveBoundsError, ArchiveMemoryError, CheckArchiveError, SharedArchiveError,
     };
     // Out of bounds
-    match check_archive::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 8) {
-        Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(ArchiveMemoryError::Inner(ArchiveBoundsError::OutOfBounds { .. })))) => (),
+    match check_archived_value::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 8) {
+        Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(
+            ArchiveMemoryError::Inner(ArchiveBoundsError::OutOfBounds { .. }),
+        ))) => (),
         other => panic!("expected out of bounds error, got {:?}", other),
     }
     // Overrun
-    match check_archive::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 4) {
-        Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(ArchiveMemoryError::Inner(ArchiveBoundsError::Overrun { .. })))) => (),
+    match check_archived_value::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 4) {
+        Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(
+            ArchiveMemoryError::Inner(ArchiveBoundsError::Overrun { .. }),
+        ))) => (),
         other => panic!("expected overrun error, got {:?}", other),
     }
     // Unaligned
-    match check_archive::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 1) {
-        Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(ArchiveMemoryError::Inner(ArchiveBoundsError::Unaligned { .. })))) => (),
+    match check_archived_value::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 1) {
+        Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(
+            ArchiveMemoryError::Inner(ArchiveBoundsError::Unaligned { .. }),
+        ))) => (),
         other => panic!("expected unaligned error, got {:?}", other),
     }
     // Underaligned
-    match check_archive::<u32>(&Aligned([0, 1, 2, 3, 4]).as_ref()[1..], 0) {
-        Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(ArchiveMemoryError::Inner(ArchiveBoundsError::Underaligned { .. })))) => (),
+    match check_archived_value::<u32>(&Aligned([0, 1, 2, 3, 4]).as_ref()[1..], 0) {
+        Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(
+            ArchiveMemoryError::Inner(ArchiveBoundsError::Underaligned { .. }),
+        ))) => (),
         other => panic!("expected underaligned error, got {:?}", other),
     }
 }
@@ -103,7 +112,7 @@ fn invalid_tags() {
         0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
     ]);
 
-    let result = check_archive::<Option<String>>(synthetic_buf.as_ref(), 0);
+    let result = check_archived_value::<Option<String>>(synthetic_buf.as_ref(), 0);
     result.unwrap_err();
 }
 
@@ -121,7 +130,7 @@ fn overlapping_claims() {
         0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
     ]);
 
-    check_archive::<[String; 2]>(synthetic_buf.as_ref(), 0).unwrap_err();
+    check_archived_value::<[String; 2]>(synthetic_buf.as_ref(), 0).unwrap_err();
 }
 
 #[test]
@@ -204,7 +213,7 @@ fn cycle_detection() {
         244u8, 255u8, 255u8, 255u8, // Node is 12 bytes back
     ]);
 
-    check_archive::<Node>(synthetic_buf.as_ref(), 0).unwrap_err();
+    check_archived_value::<Node>(synthetic_buf.as_ref(), 0).unwrap_err();
 }
 
 #[test]
@@ -338,12 +347,12 @@ fn check_dyn() {
 
     let value: Box<dyn SerializeTestTrait> = Box::new(TestUnchecked { id: 42 });
 
-    let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-    let pos = serializer
+    let mut serializer = WriteSerializer::new(AlignedVec::new());
+    serializer
         .serialize_value(&value)
         .expect("failed to archive value");
     let buf = serializer.into_inner();
-    if let Ok(_) = check_archive::<Box<dyn SerializeTestTrait>>(buf.as_ref(), pos) {
+    if let Ok(_) = check_archived_root::<Box<dyn SerializeTestTrait>>(buf.as_ref()) {
         panic!("check passed for type that does not implement CheckBytes");
     }
 }
@@ -365,6 +374,10 @@ fn check_shared_ptr() {
         b: shared.clone(),
     };
 
+    // FIXME: A `BufferSerializer` is used here because `Seek` is required. For most purposes,
+    // we should use a `Vec` and wrap it in a `Cursor` to get `Seek`. In this case,
+    // `Cursor<AlignedVec>` can't implement `Write` because it's not implemented in this crate
+    // so we use a buffer serializer instead.
     let mut serializer =
         SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
     let pos = serializer
@@ -372,5 +385,5 @@ fn check_shared_ptr() {
         .expect("failed to archive value");
     let buf = serializer.into_inner().into_inner();
 
-    check_archive::<Test>(buf.as_ref(), pos).unwrap();
+    check_archived_value::<Test>(buf.as_ref(), pos).unwrap();
 }

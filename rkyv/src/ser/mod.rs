@@ -126,7 +126,7 @@ pub trait SeekSerializer: Serializer {
 
     /// Archives the given value at the nearest available position. If the
     /// serializer is already aligned, it will archive it at the current position.
-    fn archive_root<T: Serialize<Self>>(&mut self, value: &T) -> Result<usize, Self::Error> {
+    fn serialize_front<T: Serialize<Self>>(&mut self, value: &T) -> Result<usize, Self::Error> {
         self.align_for::<T::Archived>()?;
         let pos = self.pos();
         self.seek(pos + mem::size_of::<T::Archived>())?;
@@ -141,7 +141,7 @@ pub trait SeekSerializer: Serializer {
     /// Archives a reference to the given value at the nearest available
     /// position. If the serializer is already aligned, it will archive it at the
     /// current position.
-    fn archive_ref_root<T: SerializeUnsized<Self> + ?Sized>(
+    fn serialize_unsized_front<T: SerializeUnsized<Self> + ?Sized>(
         &mut self,
         value: &T,
     ) -> Result<usize, Self::Error>
@@ -166,7 +166,7 @@ pub trait SharedSerializer: Serializer {
     /// Archives the given shared value and returns its position. If the value
     /// has already been serialized then it returns the position of the
     /// previously serialized value.
-    fn archive_shared<T: SerializeUnsized<Self> + ?Sized>(
+    fn serialize_shared<T: SerializeUnsized<Self> + ?Sized>(
         &mut self,
         value: &T,
     ) -> Result<usize, Self::Error>;

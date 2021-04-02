@@ -1,7 +1,7 @@
-use crate::attributes::{Attributes, parse_attributes};
+use crate::attributes::{parse_attributes, Attributes};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::{Data, DeriveInput, Error, Fields, Ident, Index, spanned::Spanned};
+use syn::{spanned::Spanned, Data, DeriveInput, Error, Fields, Ident, Index};
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     let attributes = parse_attributes(&input)?;
@@ -202,7 +202,11 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                             });
                             let partial_eq_predicates = quote! { #(#partial_eq_predicates,)* };
 
-                            let field_names = fields.unnamed.iter().enumerate().map(|(i, _)| Index::from(i));
+                            let field_names = fields
+                                .unnamed
+                                .iter()
+                                .enumerate()
+                                .map(|(i, _)| Index::from(i));
 
                             compare_impls.push(quote! {
                                 impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics
@@ -328,7 +332,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                         #(#compare_impls)*
                     },
                 )
-            },
+            }
         },
         Data::Enum(ref data) => {
             let archive_predicates = data.variants.iter().map(|v| match v.fields {
@@ -572,7 +576,10 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
             )
         }
         Data::Union(_) => {
-            return Err(Error::new_spanned(input, "Archive cannot be derived for unions"))
+            return Err(Error::new_spanned(
+                input,
+                "Archive cannot be derived for unions",
+            ))
         }
     };
 
@@ -588,19 +595,34 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
     })
 }
 
-fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Result<TokenStream, Error> {
+fn derive_archive_copy_impl(
+    input: &DeriveInput,
+    attributes: &Attributes,
+) -> Result<TokenStream, Error> {
     if let Some(ref derives) = attributes.derives {
-        return Err(Error::new_spanned(derives, "derives should be placed on the derived type for archive self derives"));
+        return Err(Error::new_spanned(
+            derives,
+            "derives should be placed on the derived type for archive self derives",
+        ));
     }
 
     if let Some((ref compares, _)) = attributes.compares {
-        return Err(Error::new_spanned(compares, "compares should be placed on the derived type for archive self derives"));
+        return Err(Error::new_spanned(
+            compares,
+            "compares should be placed on the derived type for archive self derives",
+        ));
     }
 
     if let Some(ref archived) = attributes.archived {
-        return Err(Error::new_spanned(archived, "archive copy types cannot be named"));
+        return Err(Error::new_spanned(
+            archived,
+            "archive copy types cannot be named",
+        ));
     } else if let Some(ref resolver) = attributes.resolver {
-        return Err(Error::new_spanned(resolver, "archive copy resolvers cannot be named"));
+        return Err(Error::new_spanned(
+            resolver,
+            "archive copy resolvers cannot be named",
+        ));
     };
 
     let name = &input.ident;
@@ -666,15 +688,24 @@ fn derive_archive_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Res
             }
         }
         Data::Enum(ref data) => {
-            if let Some(ref path) = attributes.repr.rust.as_ref()
-                .or(attributes.repr.transparent.as_ref())
-                .or(attributes.repr.packed.as_ref())
+            if let Some(ref path) = attributes
+                .repr
+                .rust
+                .as_ref()
+                .or_else(|| attributes.repr.transparent.as_ref())
+                .or_else(|| attributes.repr.packed.as_ref())
             {
-                return Err(Error::new_spanned(path, "archive copy enums must be repr(C) or repr(Int)"))
+                return Err(Error::new_spanned(
+                    path,
+                    "archive copy enums must be repr(C) or repr(Int)",
+                ));
             }
 
             if attributes.repr.c.is_none() && attributes.repr.int.is_none() {
-                return Err(Error::new_spanned(input, "archive copy enums must be repr(C) or repr(Int)"));
+                return Err(Error::new_spanned(
+                    input,
+                    "archive copy enums must be repr(C) or repr(Int)",
+                ));
             }
 
             let copy_predicates = data.variants.iter().map(|v| match v.fields {

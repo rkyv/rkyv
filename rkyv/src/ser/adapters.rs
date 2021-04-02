@@ -70,7 +70,7 @@ impl<S: Serializer> Serializer for SharedSerializerAdapter<S> {
 }
 
 impl<S: Serializer> SharedSerializer for SharedSerializerAdapter<S> {
-    fn archive_shared<T: SerializeUnsized<Self> + ?Sized>(
+    fn serialize_shared<T: SerializeUnsized<Self> + ?Sized>(
         &mut self,
         value: &T,
     ) -> Result<usize, Self::Error> {

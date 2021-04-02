@@ -1,7 +1,7 @@
-use crate::attributes::{Attributes, parse_attributes};
+use crate::attributes::{parse_attributes, Attributes};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::{Data, DeriveInput, Error, Fields, Ident, Index, spanned::Spanned};
+use syn::{spanned::Spanned, Data, DeriveInput, Error, Fields, Ident, Index};
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     let attributes = parse_attributes(&input)?;
@@ -13,7 +13,10 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     }
 }
 
-fn derive_serialize_impl(input: &DeriveInput, attributes: &Attributes) -> Result<TokenStream, Error> {
+fn derive_serialize_impl(
+    input: &DeriveInput,
+    attributes: &Attributes,
+) -> Result<TokenStream, Error> {
     let name = &input.ident;
 
     let generic_params = input
@@ -199,7 +202,10 @@ fn derive_serialize_impl(input: &DeriveInput, attributes: &Attributes) -> Result
             }
         }
         Data::Union(_) => {
-            return Err(Error::new_spanned(input, "Serialize cannot be derived for unions"))
+            return Err(Error::new_spanned(
+                input,
+                "Serialize cannot be derived for unions",
+            ))
         }
     };
 
@@ -215,11 +221,20 @@ fn derive_serialize_impl(input: &DeriveInput, attributes: &Attributes) -> Result
     })
 }
 
-fn derive_serialize_copy_impl(input: &DeriveInput, attributes: &Attributes) -> Result<TokenStream, Error> {
+fn derive_serialize_copy_impl(
+    input: &DeriveInput,
+    attributes: &Attributes,
+) -> Result<TokenStream, Error> {
     if let Some(ref archived) = attributes.archived {
-        return Err(Error::new_spanned(archived, "archive copy types cannot be named"))
+        return Err(Error::new_spanned(
+            archived,
+            "archive copy types cannot be named",
+        ));
     } else if let Some(ref resolver) = attributes.resolver {
-        return Err(Error::new_spanned(resolver, "archive copy resolvers cannot be named"))
+        return Err(Error::new_spanned(
+            resolver,
+            "archive copy resolvers cannot be named",
+        ));
     };
 
     let name = &input.ident;
@@ -276,15 +291,24 @@ fn derive_serialize_copy_impl(input: &DeriveInput, attributes: &Attributes) -> R
             }
         }
         Data::Enum(ref data) => {
-            if let Some(ref path) = attributes.repr.rust.as_ref()
-                .or(attributes.repr.transparent.as_ref())
-                .or(attributes.repr.packed.as_ref())
+            if let Some(ref path) = attributes
+                .repr
+                .rust
+                .as_ref()
+                .or_else(|| attributes.repr.transparent.as_ref())
+                .or_else(|| attributes.repr.packed.as_ref())
             {
-                return Err(Error::new_spanned(path, "archive copy enums must be repr(C) or repr(Int)"));
+                return Err(Error::new_spanned(
+                    path,
+                    "archive copy enums must be repr(C) or repr(Int)",
+                ));
             }
 
             if attributes.repr.c.is_none() && attributes.repr.int.is_none() {
-                return Err(Error::new_spanned(input, "archive copy enums must be repr(C) or repr(Int)"));
+                return Err(Error::new_spanned(
+                    input,
+                    "archive copy enums must be repr(C) or repr(Int)",
+                ));
             }
 
             let copy_predicates = data.variants.iter().map(|v| match v.fields {

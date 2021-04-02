@@ -28,12 +28,12 @@ pub mod time;
 #[cfg(feature = "validation")]
 pub mod validation;
 
-#[cfg(feature = "specialization")]
+#[cfg(all(feature = "std", feature = "specialization"))]
 macro_rules! default {
     ($($fn:tt)*) => { default $($fn)* };
 }
 
-#[cfg(not(feature = "specialization"))]
+#[cfg(all(feature = "std", not(feature = "specialization")))]
 macro_rules! default {
     ($($fn:tt)*) => { $($fn)* };
 }
@@ -515,7 +515,9 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
 }
 
 #[cfg(any(not(feature = "std"), feature = "specialization"))]
-impl<T: Deserialize<T, D> + ArchiveCopy, D: Deserializer + ?Sized> DeserializeUnsized<[T], D> for [T] {
+impl<T: Deserialize<T, D> + ArchiveCopy, D: Deserializer + ?Sized> DeserializeUnsized<[T], D>
+    for [T]
+{
     #[inline]
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
         if self.is_empty() {
@@ -536,7 +538,9 @@ impl<T: Deserialize<T, D> + ArchiveCopy, D: Deserializer + ?Sized> DeserializeUn
 }
 
 #[cfg(any(feature = "std", feature = "specialization"))]
-impl<T: Deserialize<U, D>, U: Archive<Archived = T>, D: Deserializer + ?Sized> DeserializeUnsized<[U], D> for [T] {
+impl<T: Deserialize<U, D>, U: Archive<Archived = T>, D: Deserializer + ?Sized>
+    DeserializeUnsized<[U], D> for [T]
+{
     #[inline]
     default! {
         unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {

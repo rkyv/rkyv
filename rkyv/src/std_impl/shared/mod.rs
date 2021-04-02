@@ -77,7 +77,7 @@ impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Se
 {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(RcResolver {
-            pos: serializer.archive_shared(self.deref())?,
+            pos: serializer.serialize_shared(self.deref())?,
             metadata_resolver: self.deref().serialize_metadata(serializer)?,
         })
     }
@@ -257,7 +257,7 @@ impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Se
 {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(ArcResolver {
-            pos: serializer.archive_shared(self.deref())?,
+            pos: serializer.serialize_shared(self.deref())?,
             metadata_resolver: self.deref().serialize_metadata(serializer)?,
         })
     }

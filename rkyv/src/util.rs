@@ -1,13 +1,97 @@
 //! Utilities for common archive operations.
 //!
-//! Alignment helpers ensure that byte buffers are properly aligned when
-//! accessing and deserializing data.
+//! ## Buffer access
+//!
+//! Helper functions to get the root object of an archive under certain conditions.
+//!
+//! ## Alignment
+//!
+//! Alignment helpers ensure that byte buffers are properly aligned when accessing and deserializing
+//! data.
 
-use core::ops::{Deref, DerefMut};
+use crate::{Archive, ArchiveUnsized, RelPtr};
+use core::{
+    mem,
+    ops::{Deref, DerefMut},
+    pin::Pin,
+};
 
 #[cfg(feature = "std")]
 #[doc(inline)]
 pub use self::std::*;
+
+/// Casts an archived value from the given byte array by calculating the root position.
+///
+/// This is a wrapper for [`archived_value`](crate::archived_value) that calculates the correct
+/// position of the root using the length of the byte array. If your byte array is not guaranteed to
+/// end immediately after the root object, you may need to store the position of the root object or
+/// use [`serialize_front`](crate::ser::SeekSerializer::serialize_front) instead.
+///
+/// # Safety
+///
+/// The caller must guarantee that the byte array represents an archived object and that the root
+/// object is stored at the end of the byte array.
+#[inline]
+pub unsafe fn archived_root<T: Archive + ?Sized>(bytes: &[u8]) -> &T::Archived {
+    crate::archived_value::<T>(bytes, bytes.len() - mem::size_of::<T::Archived>())
+}
+
+/// Casts a mutable archived value from the given byte array by calculating the root position.
+///
+/// This is a wrapper for [`archived_value_mut`](crate::archived_value_mut) that calculates the
+/// correct position of the root using the length of the byte array. If your byte array is not
+/// guaranteed to end immediately after the root object, you may need to store the position of the
+/// root object or use [`serialize_front`](crate::ser::SeekSerializer::serialize_front) instead.
+///
+/// # Safety
+///
+/// The caller must guarantee that the byte array represents an archived object and that the root
+/// object is stored at the end of the byte array.
+#[inline]
+pub unsafe fn archived_root_mut<T: Archive + ?Sized>(
+    bytes: Pin<&mut [u8]>,
+) -> Pin<&mut T::Archived> {
+    let pos = bytes.len() - mem::size_of::<T::Archived>();
+    crate::archived_value_mut::<T>(bytes, pos)
+}
+
+/// Casts a [`RelPtr`] to the given unsized type from the given byte array by calculating the root
+/// position.
+///
+/// This is a wrapper for [`archived_unsized_value`](crate::archived_unsized_value) that calculates
+/// the correct position of the root using the length of the byte array. If your byte array is not
+/// guaranteed to end immediately after the root object, you may need to store the position of the
+/// root object or use [`serialize_front`](crate::ser::SeekSerializer::serialize_front) instead.
+///
+/// # Safety
+///
+/// The caller must guarantee that the byte array represents an archived object and that the root
+/// object is stored at the end of the byte array.
+#[inline]
+pub unsafe fn archived_unsized_root<T: ArchiveUnsized + ?Sized>(bytes: &[u8]) -> &T::Archived {
+    crate::archived_unsized_value::<T>(bytes, bytes.len() - mem::size_of::<RelPtr<T::Archived>>())
+}
+
+/// Casts a [`RelPtr`] to the given unsized type from the given byte array by calculating the root
+/// position.
+///
+/// This is a wrapper for [`archived_unsized_value_mut`](crate::archived_unsized_value_mut) that
+/// calculates the correct position of the root using the length of the byte array. If your byte
+/// array is not guaranteed to end immediately after the root object, you may need to store the
+/// position of the root object or use
+/// [`serialize_front`](crate::ser::SeekSerializer::serialize_front) instead.
+///
+/// # Safety
+///
+/// The caller must guarantee that the byte array represents an archived object and that the root
+/// object is stored at the end of the byte array.
+#[inline]
+pub unsafe fn archived_unsized_root_mut<T: ArchiveUnsized + ?Sized>(
+    bytes: Pin<&mut [u8]>,
+) -> Pin<&mut T::Archived> {
+    let pos = bytes.len() - mem::size_of::<RelPtr<T::Archived>>();
+    crate::archived_unsized_value_mut::<T>(bytes, pos)
+}
 
 /// Wraps a type and aligns it to 16 bytes.
 ///
@@ -102,8 +186,8 @@ pub mod std {
 
         /// Constructs a new, empty `AlignedVec` with the specified capacity.
         ///
-        /// The vector will be able to hold exactly `capacity` bytes without
-        /// reallocating. If `capacity` is 0, the vector will not allocate.
+        /// The vector will be able to hold exactly `capacity` bytes without reallocating. If
+        /// `capacity` is 0, the vector will not allocate.
         ///
         /// # Examples
         /// ```
@@ -184,9 +268,8 @@ pub mod std {
 
         /// Shrinks the capacity of the vector as much as possible.
         ///
-        /// It will drop down as close as possible to the length but the
-        /// allocator may still inform the vector that there is space for a few
-        /// more elements.
+        /// It will drop down as close as possible to the length but the allocator may still inform
+        /// the vector that there is space for a few more elements.
         ///
         /// # Examples
         /// ```
@@ -209,10 +292,9 @@ pub mod std {
 
         /// Returns an unsafe mutable pointer to the vector's buffer.
         ///
-        /// The caller must ensure that the vector outlives the pointer this
-        /// function returns, or else it will end up pointing to garbage.
-        /// Modifying the vector may cause its buffer to be reallocated, which
-        /// would also make any pointers to it invalid.
+        /// The caller must ensure that the vector outlives the pointer this function returns, or
+        /// else it will end up pointing to garbage. Modifying the vector may cause its buffer to be
+        /// reallocated, which would also make any pointers to it invalid.
         ///
         /// # Examples
         /// ```
@@ -261,15 +343,13 @@ pub mod std {
 
         /// Returns a raw pointer to the vector's buffer.
         ///
-        /// The caller must ensure that the vector outlives the pointer this
-        /// function returns, or else it will end up pointing to garbage.
-        /// Modifying the vector may cause its buffer to be reallocated, which
-        /// would also make any pointers to it invalid.
+        /// The caller must ensure that the vector outlives the pointer this function returns, or
+        /// else it will end up pointing to garbage. Modifying the vector may cause its buffer to be
+        /// reallocated, which would also make any pointers to it invalid.
         ///
-        /// The caller must also ensure that the memory the pointer
-        /// (non-transitively) points to is never written to (except inside an
-        /// `UnsafeCell`) using this pointer or any pointer derived from it. If
-        /// you need to mutate the contents of the slice, use
+        /// The caller must also ensure that the memory the pointer (non-transitively) points to is
+        /// never written to (except inside an `UnsafeCell`) using this pointer or any pointer
+        /// derived from it. If you need to mutate the contents of the slice, use
         /// [`as_mut_ptr`](AlignedVec::as_mut_ptr).
         ///
         /// # Examples
@@ -311,8 +391,7 @@ pub mod std {
             unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
         }
 
-        /// Returns the number of elements the vector can hold without
-        /// reallocating.
+        /// Returns the number of elements the vector can hold without reallocating.
         ///
         /// # Examples
         /// ```
@@ -326,11 +405,10 @@ pub mod std {
             self.cap
         }
 
-        /// Reserves capacity for at least `additional` more bytes to be
-        /// inserted int othe given `AlignedVec`. The collection may reserve
-        /// more space to avoid frequent reallocations. After calling `reserve`,
-        /// capacity will be greater than or equal to `self.len() + additional`.
-        /// Does nothing if capacity is already sufficient.
+        /// Reserves capacity for at least `additional` more bytes to be inserted int othe given
+        /// `AlignedVec`. The collection may reserve more space to avoid frequent reallocations.
+        /// After calling `reserve`, capacity will be greater than or equal to `self.len() +
+        /// additional`. Does nothing if capacity is already sufficient.
         ///
         /// # Panics
         ///
@@ -386,8 +464,7 @@ pub mod std {
             self.len == 0
         }
 
-        /// Returns the number of elements in the vector, also referred to as
-        /// its 'length'.
+        /// Returns the number of elements in the vector, also referred to as its 'length'.
         ///
         /// # Examples
         /// ```
@@ -428,8 +505,7 @@ pub mod std {
             self.len += other.len();
         }
 
-        /// Removes the last element from a vector and returns it, or `None` if
-        /// it is empty.
+        /// Removes the last element from a vector and returns it, or `None` if it is empty.
         ///
         /// # Examples
         /// ```
@@ -475,15 +551,13 @@ pub mod std {
             }
         }
 
-        /// Reserves the minimum capacity for exactly `additional` more elements
-        /// to be inserted in the given `AlignedVec`. After calling
-        /// `reserve_exact`, capacity will be greater than or equal to
-        /// `self.len() + additional`. Does nothing if the capacity is already
-        /// sufficient.
+        /// Reserves the minimum capacity for exactly `additional` more elements to be inserted in
+        /// the given `AlignedVec`. After calling `reserve_exact`, capacity will be greater than or
+        /// equal to `self.len() + additional`. Does nothing if the capacity is already sufficient.
         ///
-        /// Note that the allocator may give the collection more space than it
-        /// requests. Therefore, capacity can not be relied upon to be precisely
-        /// minimal. Prefer reserve if future insertions are expected.
+        /// Note that the allocator may give the collection more space than it requests. Therefore,
+        /// capacity can not be relied upon to be precisely minimal. Prefer reserve if future
+        /// insertions are expected.
         ///
         /// # Panics
         ///
@@ -510,13 +584,11 @@ pub mod std {
 
         /// Forces the length of the vector to `new_len`.
         ///
-        /// This is a low-level operation that maintains none of the normal
-        /// invariants of the type.
+        /// This is a low-level operation that maintains none of the normal invariants of the type.
         ///
         /// # Safety
         ///
-        /// - `new_len` must be less than or equal to
-        ///   [`capacity()`](AlignedVec::capacity).
+        /// - `new_len` must be less than or equal to [`capacity()`](AlignedVec::capacity).
         /// - The elements at `old_len..new_len` must be initialized.
         ///
         /// # Examples

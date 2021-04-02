@@ -91,14 +91,17 @@ use core::{
 pub use memoffset::offset_of;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
-#[doc(inline)]
-pub use util::Aligned;
 #[cfg(feature = "std")]
 #[doc(inline)]
 pub use util::AlignedVec;
 #[doc(inline)]
+pub use util::{
+    archived_root, archived_root_mut, archived_unsized_root, archived_unsized_root_mut, Aligned,
+};
+#[doc(inline)]
+#[doc(inline)]
 #[cfg(feature = "validation")]
-pub use validation::check_archive;
+pub use validation::{check_archived_root, check_archived_value};
 
 /// Contains the error type for traits with methods that can fail
 pub trait Fallible {
@@ -142,7 +145,7 @@ impl Fallible for Infallible {
 ///
 /// ```
 /// use rkyv::{
-///     archived_value,
+///     archived_root,
 ///     de::deserializers::AllocDeserializer,
 ///     ser::{Serializer, serializers::WriteSerializer},
 ///     AlignedVec,
@@ -166,11 +169,10 @@ impl Fallible for Infallible {
 /// };
 ///
 /// let mut serializer = WriteSerializer::new(AlignedVec::new());
-/// let pos = serializer.serialize_value(&value)
-///     .expect("failed to archive test");
+/// serializer.serialize_value(&value).expect("failed to archive test");
 /// let buf = serializer.into_inner();
 ///
-/// let archived = unsafe { archived_value::<Test>(buf.as_slice(), pos) };
+/// let archived = unsafe { archived_root::<Test>(buf.as_slice()) };
 /// assert_eq!(archived.int, value.int);
 /// assert_eq!(archived.string, value.string);
 /// assert_eq!(archived.option, value.option);
@@ -191,7 +193,7 @@ impl Fallible for Infallible {
 /// ```
 /// use core::{slice, str};
 /// use rkyv::{
-///     archived_value,
+///     archived_root,
 ///     offset_of,
 ///     ser::{Serializer, serializers::WriteSerializer},
 ///     AlignedVec,
@@ -275,10 +277,9 @@ impl Fallible for Infallible {
 /// const STR_VAL: &'static str = "I'm in an OwnedStr!";
 /// let value = OwnedStr { inner: STR_VAL };
 /// // It works!
-/// let pos = serializer.serialize_value(&value)
-///     .expect("failed to archive test");
+/// serializer.serialize_value(&value).expect("failed to archive test");
 /// let buf = serializer.into_inner();
-/// let archived = unsafe { archived_value::<OwnedStr>(buf.as_ref(), pos) };
+/// let archived = unsafe { archived_root::<OwnedStr>(buf.as_ref()) };
 /// // Let's make sure our data got written correctly
 /// assert_eq!(archived.as_str(), STR_VAL);
 /// ```
@@ -551,7 +552,7 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
 /// ## Examples
 /// ```
 /// use rkyv::{
-///     archived_value,
+///     archived_root,
 ///     ser::{Serializer, serializers::WriteSerializer},
 ///     AlignedVec,
 ///     Archive,
@@ -567,7 +568,7 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
 /// let pos = serializer.serialize_value(&value)
 ///     .expect("failed to archive Vector4");
 /// let buf = serializer.into_inner();
-/// let archived_value = unsafe { archived_value::<Vector4<f32>>(buf.as_ref(), pos) };
+/// let archived_value = unsafe { archived_root::<Vector4<f32>>(buf.as_ref()) };
 /// assert_eq!(&value, archived_value);
 /// ```
 #[cfg_attr(feature = "specialization", rustc_unsafe_specialization_marker)]

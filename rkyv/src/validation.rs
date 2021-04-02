@@ -700,7 +700,7 @@ pub type CheckTypeError<T, C> =
 /// # Example
 /// ```
 /// use rkyv::{
-///     check_archive,
+///     check_archived_value,
 ///     ser::{Serializer, serializers::WriteSerializer},
 ///     AlignedVec,
 ///     Archive,
@@ -724,10 +724,10 @@ pub type CheckTypeError<T, C> =
 /// let pos = serializer.serialize_value(&value)
 ///     .expect("failed to archive test");
 /// let buf = serializer.into_inner();
-/// let archived = check_archive::<Example>(buf.as_ref(), pos).unwrap();
+/// let archived = check_archived_value::<Example>(buf.as_ref(), pos).unwrap();
 /// ```
 #[inline]
-pub fn check_archive<T: Archive>(
+pub fn check_archived_value<T: Archive>(
     buf: &[u8],
     pos: usize,
 ) -> Result<&T::Archived, CheckTypeError<T::Archived, DefaultArchiveValidator>>
@@ -736,14 +736,31 @@ where
 {
     let mut validator =
         SharedArchiveValidator::new(ArchiveValidator::new(ArchiveBoundsValidator::new(buf)));
-    check_archive_with_context::<T, DefaultArchiveValidator>(buf, pos, &mut validator)
+    check_archived_value_with_context::<T, DefaultArchiveValidator>(buf, pos, &mut validator)
+}
+
+/// Checks the given archive at the given position for an archived version of
+/// the given type.
+///
+/// This is a safe alternative to [`archived_value`](crate::archived_value) for types that implement
+/// `CheckBytes`.
+///
+/// See [`check_archived_value`] for more details.
+#[inline]
+pub fn check_archived_root<T: Archive>(
+    buf: &[u8],
+) -> Result<&T::Archived, CheckTypeError<T::Archived, DefaultArchiveValidator>>
+where
+    T::Archived: CheckBytes<DefaultArchiveValidator>,
+{
+    check_archived_value::<T>(buf, buf.len() - core::mem::size_of::<T::Archived>())
 }
 
 /// Checks the given archive with an additional context.
 ///
-/// See [`check_archive`] for more details.
+/// See [`check_archived_value`] for more details.
 #[inline]
-pub fn check_archive_with_context<
+pub fn check_archived_value_with_context<
     'a,
     T: Archive,
     C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
@@ -769,4 +786,26 @@ where
             .map_err(CheckArchiveError::ContextError)?;
         Ok(Archived::<T>::check_bytes(ptr, context).map_err(CheckArchiveError::CheckBytesError)?)
     }
+}
+
+/// Checks the given archive with an additional context.
+///
+/// See [`check_archived_value`] for more details.
+#[inline]
+pub fn check_archived_root_with_context<
+    'a,
+    T: Archive,
+    C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
+>(
+    buf: &'a [u8],
+    context: &mut C,
+) -> Result<&'a T::Archived, CheckTypeError<T::Archived, C>>
+where
+    T::Archived: CheckBytes<C> + Pointee<Metadata = ()>,
+{
+    check_archived_value_with_context::<T, C>(
+        buf,
+        buf.len() - core::mem::size_of::<T::Archived>(),
+        context,
+    )
 }
