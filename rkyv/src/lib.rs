@@ -78,19 +78,25 @@ pub mod de;
 pub mod ser;
 #[cfg(feature = "std")]
 pub mod std_impl;
+pub mod util;
 #[cfg(feature = "validation")]
 pub mod validation;
 
 use core::{
     fmt,
     marker::{PhantomData, PhantomPinned},
-    ops::{Deref, DerefMut},
     pin::Pin,
 };
 
 pub use memoffset::offset_of;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
+#[doc(inline)]
+pub use util::Aligned;
+#[cfg(feature = "std")]
+#[doc(inline)]
+pub use util::AlignedVec;
+#[doc(inline)]
 #[cfg(feature = "validation")]
 pub use validation::check_archive;
 
@@ -139,6 +145,7 @@ impl Fallible for Infallible {
 ///     archived_value,
 ///     de::deserializers::AllocDeserializer,
 ///     ser::{Serializer, serializers::WriteSerializer},
+///     AlignedVec,
 ///     Archive,
 ///     Archived,
 ///     Deserialize,
@@ -158,7 +165,7 @@ impl Fallible for Infallible {
 ///     option: Some(vec![1, 2, 3, 4]),
 /// };
 ///
-/// let mut serializer = WriteSerializer::new(Vec::new());
+/// let mut serializer = WriteSerializer::new(AlignedVec::new());
 /// let pos = serializer.serialize_value(&value)
 ///     .expect("failed to archive test");
 /// let buf = serializer.into_inner();
@@ -187,6 +194,7 @@ impl Fallible for Infallible {
 ///     archived_value,
 ///     offset_of,
 ///     ser::{Serializer, serializers::WriteSerializer},
+///     AlignedVec,
 ///     Archive,
 ///     Archived,
 ///     ArchiveUnsized,
@@ -263,7 +271,7 @@ impl Fallible for Infallible {
 ///     }
 /// }
 ///
-/// let mut serializer = WriteSerializer::new(Vec::new());
+/// let mut serializer = WriteSerializer::new(AlignedVec::new());
 /// const STR_VAL: &'static str = "I'm in an OwnedStr!";
 /// let value = OwnedStr { inner: STR_VAL };
 /// // It works!
@@ -328,6 +336,7 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     archived_unsized_value,
 ///     offset_of,
 ///     ser::{serializers::WriteSerializer, Serializer},
+///     AlignedVec,
 ///     Archive,
 ///     Archived,
 ///     ArchivedMetadata,
@@ -440,7 +449,7 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 /// let ptr = (&value as *const Block<String, [i32; 4]>).cast::<()>();
 /// let unsized_value = unsafe { &*mem::transmute::<(*const (), usize), *const Block<String, [i32]>>((ptr, 4)) };
 ///
-/// let mut serializer = WriteSerializer::new(Vec::new());
+/// let mut serializer = WriteSerializer::new(AlignedVec::new());
 /// let pos = serializer.serialize_unsized_value(unsized_value)
 ///     .expect("failed to archive block");
 /// let buf = serializer.into_inner();
@@ -544,6 +553,7 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
 /// use rkyv::{
 ///     archived_value,
 ///     ser::{Serializer, serializers::WriteSerializer},
+///     AlignedVec,
 ///     Archive,
 ///     Serialize,
 /// };
@@ -552,7 +562,7 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
 /// #[archive(copy)]
 /// struct Vector4<T>(T, T, T, T);
 ///
-/// let mut serializer = WriteSerializer::new(Vec::new());
+/// let mut serializer = WriteSerializer::new(AlignedVec::new());
 /// let value = Vector4(1f32, 2f32, 3f32, 4f32);
 /// let pos = serializer.serialize_value(&value)
 ///     .expect("failed to archive Vector4");
@@ -755,49 +765,18 @@ pub type ArchivedMetadata<T> =
 /// Alias for the metadata resolver for some [`ArchiveUnsized`] type.
 pub type MetadataResolver<T> = <T as ArchiveUnsized>::MetadataResolver;
 
-/// Wraps a type and aligns it to at least 16 bytes. Mainly used to align byte
-/// buffers for [`BufferSerializer`](ser::serializers::BufferSerializer).
-///
-/// ## Examples
-/// ```
-/// use core::mem;
-/// use rkyv::Aligned;
-///
-/// assert_eq!(mem::align_of::<u8>(), 1);
-/// assert_eq!(mem::align_of::<Aligned<u8>>(), 16);
-/// ```
-#[derive(Clone, Copy)]
-#[repr(align(16))]
-pub struct Aligned<T>(pub T);
-
-impl<T: Deref> Deref for Aligned<T> {
-    type Target = T::Target;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &*self.0
-    }
-}
-
-impl<T: DerefMut> DerefMut for Aligned<T> {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut *self.0
-    }
-}
-
-impl<T: AsRef<[U]>, U> AsRef<[U]> for Aligned<T> {
-    #[inline]
-    fn as_ref(&self) -> &[U] {
-        self.0.as_ref()
-    }
-}
-
-impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
-    #[inline]
-    fn as_mut(&mut self) -> &mut [U] {
-        self.0.as_mut()
-    }
+#[cfg(debug_assertions)]
+#[inline]
+fn check_alignment<T>(ptr: *const u8) {
+    let expect_align = core::mem::align_of::<T>();
+    let actual_align = (ptr as usize) & (expect_align - 1);
+    debug_assert_eq!(
+        actual_align,
+        0,
+        "unaligned buffer, expected alignment {} but found alignment {}",
+        expect_align,
+        1 << actual_align
+    );
 }
 
 /// Casts an archived value from the given byte array at the given position.
@@ -811,6 +790,9 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 /// the byte array.
 #[inline]
 pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &T::Archived {
+    #[cfg(debug_assertions)]
+    check_alignment::<T::Archived>(bytes.as_ptr());
+
     &*bytes.as_ptr().add(pos).cast()
 }
 
@@ -829,6 +811,9 @@ pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
     bytes: Pin<&mut [u8]>,
     pos: usize,
 ) -> Pin<&mut T::Archived> {
+    #[cfg(debug_assertions)]
+    check_alignment::<T::Archived>(bytes.as_ptr());
+
     Pin::new_unchecked(&mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast())
 }
 
@@ -847,6 +832,9 @@ pub unsafe fn archived_unsized_value<T: ArchiveUnsized + ?Sized>(
     bytes: &[u8],
     pos: usize,
 ) -> &T::Archived {
+    #[cfg(debug_assertions)]
+    check_alignment::<RelPtr<T::Archived>>(bytes.as_ptr());
+
     let rel_ptr = &*bytes.as_ptr().add(pos).cast::<RelPtr<T::Archived>>();
     &*rel_ptr.as_ptr()
 }
@@ -866,6 +854,9 @@ pub unsafe fn archived_unsized_value_mut<T: ArchiveUnsized + ?Sized>(
     bytes: Pin<&mut [u8]>,
     pos: usize,
 ) -> Pin<&mut T::Archived> {
+    #[cfg(debug_assertions)]
+    check_alignment::<RelPtr<T::Archived>>(bytes.as_ptr());
+
     let rel_ptr = &mut *bytes
         .get_unchecked_mut()
         .as_mut_ptr()

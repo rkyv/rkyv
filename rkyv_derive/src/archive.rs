@@ -153,6 +153,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                             type Archived = #archived #ty_generics;
                             type Resolver = #resolver #ty_generics;
 
+                            #[allow(clippy::unit_arg)]
                             fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
                                 Self::Archived {
                                     #(#archived_values,)*
@@ -255,6 +256,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                             type Archived = #archived #ty_generics;
                             type Resolver = #resolver #ty_generics;
 
+                            #[allow(clippy::unit_arg)]
                             fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
                                 #archived(
                                     #(#archived_values,)*
@@ -559,6 +561,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                         type Archived = #archived #ty_generics;
                         type Resolver = #resolver #ty_generics;
 
+                        #[allow(clippy::unit_arg)]
                         fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
                             match resolver {
                                 #(#resolve_arms,)*

@@ -54,7 +54,7 @@ impl<T: Archive> ArchiveUnsized for T {
 
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for T {
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        Ok(serializer.serialize_value(self)?)
+        serializer.serialize_value(self)
     }
 
     fn serialize_metadata(&self, _: &mut S) -> Result<ArchivedMetadata<Self>, S::Error> {
@@ -518,11 +518,15 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
 impl<T: Deserialize<T, D> + ArchiveCopy, D: Deserializer + ?Sized> DeserializeUnsized<[T], D> for [T] {
     #[inline]
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-        let result = deserializer
-            .alloc(alloc::Layout::array::<T>(self.len()).unwrap())?
-            .cast::<T>();
-        ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
-        Ok(result.cast())
+        if self.is_empty() {
+            Ok(ptr::null_mut())
+        } else {
+            let result = deserializer
+                .alloc(alloc::Layout::array::<T>(self.len()).unwrap())?
+                .cast::<T>();
+            ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
+            Ok(result.cast())
+        }
     }
 
     #[inline]
@@ -536,13 +540,17 @@ impl<T: Deserialize<U, D>, U: Archive<Archived = T>, D: Deserializer + ?Sized> D
     #[inline]
     default! {
         unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-            let result = deserializer
-                .alloc(alloc::Layout::array::<U>(self.len()).unwrap())?
-                .cast::<U>();
-            for (i, item) in self.iter().enumerate() {
-                result.add(i).write(item.deserialize(deserializer)?);
+            if self.is_empty() {
+                Ok(ptr::null_mut())
+            } else {
+                let result = deserializer
+                    .alloc(alloc::Layout::array::<U>(self.len()).unwrap())?
+                    .cast::<U>();
+                for (i, item) in self.iter().enumerate() {
+                    result.add(i).write(item.deserialize(deserializer)?);
+                }
+                Ok(result.cast())
             }
-            Ok(result.cast())
         }
     }
 

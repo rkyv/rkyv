@@ -188,9 +188,7 @@ where
             .map_err(HashMapError::ContextError)?;
         let entries = <[Entry<K, V>]>::check_bytes(entries_ptr, context)?;
 
-        for i in 0..len as usize {
-            let entry = &entries[i];
-
+        for (i, entry) in entries.iter().enumerate() {
             let mut hasher = ArchivedHashMap::<K, V>::make_hasher();
             entry.key.hash(&mut hasher);
             let displace_index = hasher.finish() % len as u64;

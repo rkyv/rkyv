@@ -1,5 +1,7 @@
-# rkyv &emsp; [![Latest Version]][crates.io] [![License]][license path] [![requires: rustc 1.47+]][Rust 1.47]
+# rkyv &emsp; [![Discord]][discord invite] [![Latest Version]][crates.io] [![License]][license path] [![requires: rustc 1.47+]][Rust 1.47]
 
+[Discord]: https://img.shields.io/discord/822925794249539645
+[discord invite]: https://discord.gg/65F6MdnbQh
 [Latest Version]: https://img.shields.io/crates/v/rkyv.svg
 [crates.io]: https://crates.io/crates/rkyv
 [License]: https://img.shields.io/badge/license-MIT-blue.svg
@@ -38,6 +40,7 @@ use rkyv::{
         serializers::WriteSerializer,
         Serializer,
     },
+    AlignedVec,
     Archive,
     Serialize,
     Deserialize,
@@ -57,7 +60,7 @@ fn main() {
         option: Some(vec![1, 2, 3, 4]),
     };
 
-    let mut serializer = WriteSerializer::new(Vec::new());
+    let mut serializer = WriteSerializer::new(AlignedVec::new());
     let pos = serializer.serialize_value(&value).expect("failed to serialize value");
     let buf = serializer.into_inner();
 

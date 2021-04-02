@@ -193,9 +193,13 @@ mod tests {
     #[test]
     fn archive_containers() {
         test_archive_container(&Box::new(42));
+        test_archive_container(&"".to_string().into_boxed_str());
         test_archive_container(&"hello world".to_string().into_boxed_str());
+        test_archive_container(&Vec::<i32>::new().into_boxed_slice());
         test_archive_container(&vec![1, 2, 3, 4].into_boxed_slice());
+        test_archive_container(&"".to_string());
         test_archive_container(&"hello world".to_string());
+        test_archive_container(&Vec::<i32>::new());
         test_archive_container(&vec![1, 2, 3, 4]);
     }
 
@@ -219,6 +223,7 @@ mod tests {
                     serializers::WriteSerializer,
                     Serializer,
                 },
+                AlignedVec,
                 Archive,
                 Serialize,
                 Deserialize,
@@ -237,7 +242,7 @@ mod tests {
                 option: Some(vec![1, 2, 3, 4]),
             };
 
-            let mut serializer = WriteSerializer::new(Vec::new());
+            let mut serializer = WriteSerializer::new(AlignedVec::new());
             let pos = serializer.serialize_value(&value).expect("failed to serialize value");
             let buf = serializer.into_inner();
 

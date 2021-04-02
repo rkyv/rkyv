@@ -20,6 +20,10 @@ use std::{collections::HashMap, error::Error};
 /// A context that's object safe and suitable for checking most types.
 pub trait DynContext {
     /// Checks the given parts of a relative pointer for bounds issues.
+    ///
+    /// # Safety
+    ///
+    /// The base pointer must be inside the archive for this context.
     unsafe fn check_rel_ptr_dyn(
         &mut self,
         base: *const u8,
@@ -27,6 +31,10 @@ pub trait DynContext {
     ) -> Result<*const u8, Box<dyn Error>>;
 
     /// Checks the given memory block for bounds issues.
+    ///
+    /// # Safety
+    ///
+    /// The pointer must be inside the archive for this context.
     unsafe fn bounds_check_ptr_dyn(
         &mut self,
         ptr: *const u8,
@@ -177,7 +185,7 @@ pub struct IsCheckBytesDyn<T: ?Sized>(PhantomData<T>);
 impl<T: for<'a> CheckBytes<dyn DynContext + 'a>> IsCheckBytesDyn<T> {
     pub const CHECK_BYTES_DYN: CheckBytesDyn = Self::check_bytes_dyn;
 
-    unsafe fn check_bytes_dyn<'a>(
+    unsafe fn check_bytes_dyn(
         bytes: *const u8,
         context: &mut dyn DynContext,
     ) -> Result<(), Box<dyn Error>> {

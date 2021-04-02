@@ -19,6 +19,11 @@ impl RawRelPtr {
     /// This is done rather than implementing `CheckBytes` to force users to
     /// manually write their `CheckBytes` implementation since they need to also
     /// provide the ownership model of their memory.
+    ///
+    /// # Safety
+    ///
+    /// The given pointer must be aligned and point to enough bytes to represent
+    /// a `RawRelPtr`.
     #[inline]
     pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(
         value: *const RawRelPtr,
@@ -37,6 +42,11 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
     /// This is done rather than implementing `CheckBytes` to force users to
     /// manually write their `CheckBytes` implementation since they need to also
     /// provide the ownership model of their memory.
+    ///
+    /// # Safety
+    ///
+    /// The given pointer must be aligned and point to enough bytes to represent
+    /// a `RelPtr<T>`.
     #[inline]
     pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(
         value: *const RelPtr<T>,
@@ -170,6 +180,10 @@ impl Error for ArchiveBoundsError {}
 /// A context that can check relative pointers.
 pub trait ArchiveBoundsContext: Fallible {
     /// Checks the given parts of a relative pointer for bounds issues
+    ///
+    /// # Safety
+    ///
+    /// The base pointer must be inside the archive for this context.
     unsafe fn check_rel_ptr(
         &mut self,
         base: *const u8,
@@ -177,6 +191,10 @@ pub trait ArchiveBoundsContext: Fallible {
     ) -> Result<*const u8, Self::Error>;
 
     /// Checks the given memory block for bounds issues.
+    ///
+    /// # Safety
+    ///
+    /// The pointer must be inside the archive for this context.
     unsafe fn bounds_check_ptr(
         &mut self,
         ptr: *const u8,
@@ -210,6 +228,11 @@ impl ArchiveBoundsValidator {
     #[inline]
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    /// Returns whether the byte range is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
     }
 }
 
@@ -333,11 +356,11 @@ pub trait ArchiveMemoryContext: Fallible {
     /// `base` must be inside the archive this context was created for.
     unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<(), Self::Error>;
 
-    /// Claims the memory referenced by the given pointer.
+    /// Claims the memory at the given location as the given type.
     ///
     /// # Safety
-    /// 
-    /// The pointer must point inside the archive this context was created for.
+    ///
+    /// `ptr` must be inside the archive this context was created for.
     unsafe fn claim_owned_ptr<T: ArchivePointee + ?Sized>(
         &mut self,
         ptr: *const T,
@@ -664,6 +687,10 @@ impl<T: Error + 'static, C: Error + 'static> Error for CheckArchiveError<T, C> {
 /// A validator that supports all builtin types.
 pub type DefaultArchiveValidator = SharedArchiveValidator<ArchiveValidator<ArchiveBoundsValidator>>;
 
+/// The error type that can be produced by checking the given type with the given validator.
+pub type CheckTypeError<T, C> =
+    CheckArchiveError<<T as CheckBytes<C>>::Error, <C as Fallible>::Error>;
+
 /// Checks the given archive at the given position for an archived version of
 /// the given type.
 ///
@@ -675,6 +702,7 @@ pub type DefaultArchiveValidator = SharedArchiveValidator<ArchiveValidator<Archi
 /// use rkyv::{
 ///     check_archive,
 ///     ser::{Serializer, serializers::WriteSerializer},
+///     AlignedVec,
 ///     Archive,
 ///     Serialize,
 /// };
@@ -692,7 +720,7 @@ pub type DefaultArchiveValidator = SharedArchiveValidator<ArchiveValidator<Archi
 ///     value: 31415926,
 /// };
 ///
-/// let mut serializer = WriteSerializer::new(Vec::new());
+/// let mut serializer = WriteSerializer::new(AlignedVec::new());
 /// let pos = serializer.serialize_value(&value)
 ///     .expect("failed to archive test");
 /// let buf = serializer.into_inner();
@@ -702,13 +730,7 @@ pub type DefaultArchiveValidator = SharedArchiveValidator<ArchiveValidator<Archi
 pub fn check_archive<T: Archive>(
     buf: &[u8],
     pos: usize,
-) -> Result<
-    &T::Archived,
-    CheckArchiveError<
-        <T::Archived as CheckBytes<DefaultArchiveValidator>>::Error,
-        <DefaultArchiveValidator as Fallible>::Error,
-    >,
->
+) -> Result<&T::Archived, CheckTypeError<T::Archived, DefaultArchiveValidator>>
 where
     T::Archived: CheckBytes<DefaultArchiveValidator>,
 {
@@ -729,7 +751,7 @@ pub fn check_archive_with_context<
     buf: &'a [u8],
     pos: usize,
     context: &mut C,
-) -> Result<&'a T::Archived, CheckArchiveError<<T::Archived as CheckBytes<C>>::Error, C::Error>>
+) -> Result<&'a T::Archived, CheckTypeError<T::Archived, C>>
 where
     T::Archived: CheckBytes<C> + Pointee<Metadata = ()>,
 {
@@ -738,7 +760,7 @@ where
             .check_rel_ptr(buf.as_ptr(), pos as isize)
             .map_err(CheckArchiveError::ContextError)?;
         let ptr = ptr_meta::from_raw_parts::<<T as Archive>::Archived>(data.cast(), ());
-        let layout = LayoutMetadata::<T::Archived>::layout(ptr_meta::metadata(ptr));
+        let layout = LayoutMetadata::<T::Archived>::layout(());
         context
             .bounds_check_ptr(ptr.cast(), &layout)
             .map_err(CheckArchiveError::ContextError)?;
