@@ -54,8 +54,8 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         )
     }
 
-    /// Gets the hasher for this hashmap. The hasher for all archived hashmaps
-    /// is the same for reproducibility.
+    /// Gets the hasher for this hashmap. The hasher for all archived hashmaps is the same for
+    /// reproducibility.
     pub fn hasher(&self) -> seahash::SeaHasher {
         Self::make_hasher()
     }
@@ -663,8 +663,8 @@ impl<K: Eq + Hash + Borrow<Q>, Q: Eq + Hash + ?Sized, V> Index<&'_ Q> for Archiv
     }
 }
 
-/// An archived `HashSet`. This is a wrapper around a hash map with the same key
-/// and a value of `()`.
+/// An archived `HashSet`. This is a wrapper around a hash map with the same key and a value of
+/// `()`.
 #[derive(Eq, PartialEq)]
 #[repr(transparent)]
 pub struct ArchivedHashSet<K: Hash + Eq>(ArchivedHashMap<K, ()>);

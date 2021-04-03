@@ -37,7 +37,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedRc<T> {
     ///
     /// # Safety
     ///
-    /// Any other `ArchivedRc` pointers to the same value must not be
+    /// The caller must guarantee that any other `ArchivedRc` pointers to the same value are not
     /// dereferenced for the duration of the returned borrow.
     pub unsafe fn get_pin_unchecked(self: Pin<&mut Self>) -> Pin<&mut T> {
         self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr())
@@ -214,7 +214,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedArc<T> {
     ///
     /// # Safety
     ///
-    /// Any other `ArchivedArc` pointers to the same value must not be
+    /// The caller must guarantee that any other `ArchivedArc` pointers to the same value are not
     /// dereferenced for the duration of the returned borrow.
     pub unsafe fn get_pin_unchecked(self: Pin<&mut Self>) -> Pin<&mut T> {
         self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr())

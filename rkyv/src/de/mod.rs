@@ -9,15 +9,14 @@ use core::alloc;
 
 /// A context that provides a memory allocator.
 ///
-/// Most types that support [`DeserializeUnsized`] will require this kind of
-/// context.
+/// Most types that support [`DeserializeUnsized`] will require this kind of context.
 pub trait Deserializer: Fallible {
     /// Allocates and returns memory with the given layout.
     ///
     /// # Safety
     ///
-    /// The memory returned by this function must be deallocated by the global
-    /// allocator.
+    /// The caller must guarantee that the memory returned by this function is deallocated by the
+    /// global allocator.
     unsafe fn alloc(&mut self, layout: alloc::Layout) -> Result<*mut u8, Self::Error>;
 }
 
@@ -31,9 +30,8 @@ pub trait SharedPointer {
 ///
 /// Shared pointers require this kind of context to deserialize.
 pub trait SharedDeserializer: Deserializer {
-    /// Checks whether the given reference has been deserialized and either
-    /// uses the existing shared pointer to it, or deserializes it and converts
-    /// it to a shared pointer with `to_shared`.
+    /// Checks whether the given reference has been deserialized and either uses the existing shared
+    /// pointer to it, or deserializes it and converts it to a shared pointer with `to_shared`.
     fn deserialize_shared<
         T: ArchiveUnsized + ?Sized,
         P: SharedPointer + 'static,

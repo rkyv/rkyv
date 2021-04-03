@@ -3,66 +3,57 @@
 //! rkyv (*archive*) is a zero-copy deserialization framework for Rust.
 //!
 //! It's similar to other zero-copy deserialization frameworks such as
-//! [Cap'n Proto](https://capnproto.org) and
-//! [FlatBuffers](https://google.github.io/flatbuffers). However, while the
-//! former have external schemas and heavily restricted data types, rkyv allows
-//! all serialized types to be defined in code and can serialize a wide variety
-//! of types that the others cannot. Additionally, rkyv is designed to have
-//! little to no overhead, and in most cases will perform exactly the same as
-//! native types.
+//! [Cap'n Proto](https://capnproto.org) and [FlatBuffers](https://google.github.io/flatbuffers).
+//! However, while the former have external schemas and heavily restricted data types, rkyv allows
+//! all serialized types to be defined in code and can serialize a wide variety of types that the
+//! others cannot. Additionally, rkyv is designed to have little to no overhead, and in most cases
+//! will perform exactly the same as native types.
 //!
 //! ## Design
 //!
-//! Like [serde](https://serde.rs), rkyv uses Rust's powerful trait system to
-//! serialize data without the need for reflection. Despite having a wide array
-//! of features, you also only pay for what you use. If your data checks out,
-//! the serialization process can be as simple as a `memcpy`! Like serde, this
-//! allows rkyv to perform at speeds similar to handwritten serializers.
+//! Like [serde](https://serde.rs), rkyv uses Rust's powerful trait system to serialize data without
+//! the need for reflection. Despite having a wide array of features, you also only pay for what you
+//! use. If your data checks out, the serialization process can be as simple as a `memcpy`! Like
+//! serde, this allows rkyv to perform at speeds similar to handwritten serializers.
 //!
-//! Unlike serde, rkyv produces data that is guaranteed deserialization free. If
-//! you wrote your data to disk, you can just `mmap` your file into memory, cast
-//! a pointer, and your data is ready to use. This makes it ideal for
-//! high-performance and IO-bound applications.
+//! Unlike serde, rkyv produces data that is guaranteed deserialization free. If you wrote your data
+//! to disk, you can just `mmap` your file into memory, cast a pointer, and your data is ready to
+//! use. This makes it ideal for high-performance and IO-bound applications.
 //!
-//! Limited data mutation is supported through `Pin` APIs, and archived values can
-//! be truly deserialized with [`Deserialize`] if full mutation capabilities are
-//! needed.
+//! Limited data mutation is supported through `Pin` APIs, and archived values can be truly
+//! deserialized with [`Deserialize`] if full mutation capabilities are needed.
 //!
 //! ## Type support
 //!
-//! rkyv has a hashmap implementation that is built for zero-copy
-//! deserialization, so you can serialize your hashmaps with abandon. The
-//! implementation performs perfect hashing with the compress, hash and displace
-//! algorithm to use as little memory as possible while still performing fast
-//! lookups.
+//! rkyv has a hashmap implementation that is built for zero-copy deserialization, so you can
+//! serialize your hashmaps with abandon. The implementation performs perfect hashing with the
+//! compress, hash and displace algorithm to use as little memory as possible while still performing
+//! fast lookups.
 //!
-//! rkyv also has support for contextual serialization, deserialization, and
-//! validation. It can properly serialize and deserialize shared pointers like
-//! `Rc` and `Arc`, and can be extended to support custom contextual types.
+//! rkyv also has support for contextual serialization, deserialization, and validation. It can
+//! properly serialize and deserialize shared pointers like `Rc` and `Arc`, and can be extended to
+//! support custom contextual types.
 //!
-//! One of the most impactful features made possible by rkyv is the ability to
-//! serialize trait objects and use them *as trait objects* without
-//! deserialization. See the `archive_dyn` crate for more details.
+//! One of the most impactful features made possible by rkyv is the ability to serialize trait
+//! objects and use them *as trait objects* without deserialization. See the `archive_dyn` crate for
+//! more details.
 //!
 //! ## Tradeoffs
 //!
-//! rkyv is designed primarily for loading bulk game data as efficiently as
-//! possible. While rkyv is a great format for final data, it lacks a full
-//! schema system and isn't well equipped for data migration. Using a
-//! serialization library like serde can help fill these gaps, and you can use
+//! rkyv is designed primarily for loading bulk game data as efficiently as possible. While rkyv is
+//! a great format for final data, it lacks a full schema system and isn't well equipped for data
+//! migration. Using a serialization library like serde can help fill these gaps, and you can use
 //! serde with the same types as rkyv conflict-free.
 //!
 //! ## Features
 //!
-//! - `const_generics`: Improves the trait implementations for arrays with
-//!   support for all lengths
-//! - `size_64`: Archives `*size` as `*64` instead of `*32`. This is for large
-//!   archive support
+//! - `const_generics`: Improves the trait implementations for arrays with support for all lengths
+//!   (enabled by default)
+//! - `size_64`: Archives `*size` as `*64` instead of `*32`. This is for large archive support
 //! - `std`: Enables standard library support (enabled by default)
-//! - `strict`: Guarantees that types will have the same representations across
-//!   platforms and compilations. This is already the case in practice, but this
-//!   feature provides a guarantee. It additionally provides C type
-//!   compatibility.
+//! - `strict`: Guarantees that types will have the same representations across platforms and
+//!   compilations. This is already the case in practice, but this feature provides a guarantee. It
+//!   additionally provides C type compatibility.
 //! - `validation`: Enables validation support through `bytecheck`
 //!
 //! ## Examples
@@ -132,16 +123,15 @@ impl Fallible for Infallible {
 
 /// A type that can be used without deserializing.
 ///
-/// Archiving is done depth-first, writing any data owned by a type before
-/// writing the data for the type itself. The type must be able to create the
-/// archived type from only its own data and its resolver.
+/// Archiving is done depth-first, writing any data owned by a type before writing the data for the
+/// type itself. The type must be able to create the archived type from only its own data and its
+/// resolver.
 ///
 /// ## Examples
 ///
-/// Most of the time, `#[derive(Archive)]` will create an acceptable
-/// implementation. You can use the `#[archive(...)]` attribute to control how
-/// the implementation is generated. See the [`Archive`](macro@Archive) derive
-/// macro for more details.
+/// Most of the time, `#[derive(Archive)]` will create an acceptable implementation. You can use the
+/// `#[archive(...)]` attribute to control how the implementation is generated. See the
+/// [`Archive`](macro@Archive) derive macro for more details.
 ///
 /// ```
 /// use rkyv::{
@@ -181,14 +171,13 @@ impl Fallible for Infallible {
 /// assert_eq!(value, deserialized);
 /// ```
 ///
-/// Many of the core and standard library types already have `Archive`
-/// implementations available, but you may need to implement `Archive` for your
-/// own types in some cases the derive macro cannot handle.
+/// Many of the core and standard library types already have `Archive` implementations available,
+/// but you may need to implement `Archive` for your own types in some cases the derive macro cannot
+/// handle.
 ///
-/// In this example, we add our own wrapper that serializes a `&'static str` as
-/// if it's owned. Normally you can lean on the archived version of `String` to
-/// do most of the work, but this example does everything to demonstrate how to
-/// implement `Archive` for your own types.
+/// In this example, we add our own wrapper that serializes a `&'static str` as if it's owned.
+/// Normally you can lean on the archived version of `String` to do most of the work, but this
+/// example does everything to demonstrate how to implement `Archive` for your own types.
 ///
 /// ```
 /// use core::{slice, str};
@@ -227,28 +216,27 @@ impl Fallible for Infallible {
 ///
 /// struct OwnedStrResolver {
 ///     // This will be the position that the bytes of our string are stored at.
-///     // We'll use this to resolve the relative pointer of our
-///     // ArchivedOwnedStr.
+///     // We'll use this to resolve the relative pointer of our ArchivedOwnedStr.
 ///     pos: usize,
 ///     // The archived metadata for our str may also need a resolver.
 ///     metadata_resolver: MetadataResolver<str>,
 /// }
 ///
-/// // The Archive implementation defines the archived version of our type and
-/// // determines how to turn the resolver into the archived form. The Serialize
-/// // implementations determine how to make a resolver from the original value.
+/// // The Archive implementation defines the archived version of our type and determines how to
+/// // turn the resolver into the archived form. The Serialize implementations determine how to make
+/// // a resolver from the original value.
 /// impl Archive for OwnedStr {
 ///     type Archived = ArchivedOwnedStr;
 ///     // This is the resolver we can create our Archived verison from.
 ///     type Resolver = OwnedStrResolver;
 ///
-///     // The resolve function consumes the resolver and produces the archived
-///     // value at the given position.
+///     // The resolve function consumes the resolver and produces the archived value at the given
+///     // position.
 ///     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
 ///         Self::Archived {
-///             // We have to be careful to add the offset of the ptr field,
-///             // otherwise we'll be using the position of the ArchivedOwnedStr
-///             // instead of the position of the relative pointer.
+///             // We have to be careful to add the offset of the ptr field, otherwise we'll be
+///             // using the position of the ArchivedOwnedStr instead of the position of the
+///             // relative pointer.
 ///             ptr: unsafe { self.inner.resolve_unsized(
 ///                 pos + offset_of!(Self::Archived, ptr),
 ///                 resolver.pos,
@@ -258,13 +246,12 @@ impl Fallible for Infallible {
 ///     }
 /// }
 ///
-/// // We restrict our serializer types with Serializer because we need its
-/// // capabilities to archive our type. For other types, we might need more or
-/// // less restrictive bounds on the type of S.
+/// // We restrict our serializer types with Serializer because we need its capabilities to archive
+/// // our type. For other types, we might need more or less restrictive bounds on the type of S.
 /// impl<S: Serializer + ?Sized> Serialize<S> for OwnedStr {
 ///     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-///         // This is where we want to write the bytes of our string and return
-///         // a resolver that knows where those bytes were written.
+///         // This is where we want to write the bytes of our string and return a resolver that
+///         // knows where those bytes were written.
 ///         // We also need to serialize the metadata for our str.
 ///         Ok(OwnedStrResolver {
 ///             pos: self.inner.serialize_unsized(serializer)?,
@@ -287,8 +274,8 @@ pub trait Archive {
     /// The archived version of this type.
     type Archived;
 
-    /// The resolver for this type. It must contain all the information needed
-    /// to make the archived type from the normal type.
+    /// The resolver for this type. It must contain all the information needed to make the archived
+    /// type from the normal type.
     type Resolver;
 
     /// Creates the archived version of this value at the given position.
@@ -299,8 +286,8 @@ pub trait Archive {
 ///
 /// See [`Archive`] for examples of implementing `Serialize`.
 pub trait Serialize<S: Fallible + ?Sized>: Archive {
-    /// Writes the dependencies for the object and returns a resolver that can
-    /// create the archived type.
+    /// Writes the dependencies for the object and returns a resolver that can create the archived
+    /// type.
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error>;
 }
 
@@ -314,16 +301,14 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 
 /// A counterpart of [`Archive`] that's suitable for unsized types.
 ///
-/// Instead of archiving its value directly, `ArchiveUnsized` archives a
-/// [`RelPtr`] to its archived type. As a consequence, its resolver must
-/// be `usize`.
+/// Instead of archiving its value directly, `ArchiveUnsized` archives a [`RelPtr`] to its archived
+/// type. As a consequence, its resolver must be `usize`.
 ///
-/// `ArchiveUnsized` is automatically implemented for all types that implement
-/// [`Archive`].
+/// `ArchiveUnsized` is automatically implemented for all types that implement [`Archive`].
 ///
-/// `ArchiveUnsized` is already implemented for slices and string slices, and
-/// the `rkyv_dyn` crate can be used to archive trait objects. Other unsized
-/// types must manually implement `ArchiveUnsized`.
+/// `ArchiveUnsized` is already implemented for slices and string slices, and the `rkyv_dyn` crate
+/// can be used to archive trait objects. Other unsized types must manually implement
+/// `ArchiveUnsized`.
 ///
 /// ## Examples
 ///
@@ -359,42 +344,38 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     type Metadata = usize;
 /// }
 ///
-/// // For blocks with trailing slices, we need to store the length of the slice
-/// // in the metadata.
+/// // For blocks with trailing slices, we need to store the length of the slice in the metadata.
 /// pub struct BlockSliceMetadata {
 ///     len: ArchivedUsize,
 /// }
 ///
-/// // ArchivePointee is automatically derived for sized types because pointers
-/// // to sized types don't need to store any extra information. Because we're
-/// // making an unsized block, we need to define what metadata gets stored with
-/// // our data pointer.
+/// // ArchivePointee is automatically derived for sized types because pointers to sized types don't
+/// // need to store any extra information. Because we're making an unsized block, we need to define
+/// // what metadata gets stored with our data pointer.
 /// impl<H, T> ArchivePointee for Block<H, [T]> {
-///     // This is the extra data that needs to get stored for blocks with
-///     // trailing slices
+///     // This is the extra data that needs to get stored for blocks with trailing slices
 ///     type ArchivedMetadata = BlockSliceMetadata;
 ///
-///     // We need to be able to turn our archived metadata into regular
-///     // metadata for our type
+///     // We need to be able to turn our archived metadata into regular metadata for our type
 ///     fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
 ///         archived.len as usize
 ///     }
 /// }
 ///
-/// // We're implementing ArchiveUnsized for just Block<H, [T]>. We can still
-/// // implement Archive for blocks with sized tails and they won't conflict.
+/// // We're implementing ArchiveUnsized for just Block<H, [T]>. We can still implement Archive for
+/// // blocks with sized tails and they won't conflict.
 /// impl<H: Archive, T: Archive> ArchiveUnsized for Block<H, [T]> {
 ///     // We'll reuse our block type as our archived type.
 ///     type Archived = Block<Archived<H>, [Archived<T>]>;
 ///
 ///     // This is where we'd put any resolve data for our metadata.
-///     // Most of the time, this can just be () because most metadata is Copy,
-///     // but the option is there if you need it.
+///     // Most of the time, this can just be () because most metadata is Copy, but the option is
+///     // there if you need it.
 ///     type MetadataResolver = ();
 ///
 ///     // Here's where we make the metadata for our pointer.
-///     // This also gets the position and resolver for the metadata, but we
-///     // don't need it in this case.
+///     // This also gets the position and resolver for the metadata, but we don't need it in this
+///     // case.
 ///     fn resolve_metadata(
 ///         &self,
 ///         _: usize,
@@ -406,23 +387,22 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     }
 /// }
 ///
-/// // The bounds we use on our serializer type indicate that we need basic
-/// // serializer capabilities, and then whatever capabilities our head and tail
-/// // types need to serialize themselves.
+/// // The bounds we use on our serializer type indicate that we need basic serializer capabilities,
+/// // and then whatever capabilities our head and tail types need to serialize themselves.
 /// impl<H: Serialize<S>, T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for Block<H, [T]> {
 ///     // This is where we construct our unsized type in the serializer
 ///     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-///         // First, we archive the head and all the tails. This will make sure
-///         // that when we finally build our block, we don't accidentally mess
-///         // up the structure with serialized dependencies.
+///         // First, we archive the head and all the tails. This will make sure that when we
+///         // finally build our block, we don't accidentally mess up the structure with serialized
+///         // dependencies.
 ///         let head_resolver = self.head.serialize(serializer)?;
 ///         let mut tail_resolvers = Vec::new();
 ///         for tail in self.tail.iter() {
 ///             tail_resolvers.push(tail.serialize(serializer)?);
 ///         }
 ///         // Now we align our serializer for our archived type and write it.
-///         // We can't align for unsized types so we treat the trailing slice
-///         // like an array of 0 length for now.
+///         // We can't align for unsized types so we treat the trailing slice like an array of 0
+///         // length for now.
 ///         serializer.align_for::<Block<Archived<H>, [Archived<T>; 0]>>()?;
 ///         let result = unsafe { serializer.resolve_aligned(&self.head, head_resolver)? };
 ///         serializer.align_for::<Archived<T>>()?;
@@ -434,8 +414,8 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///         Ok(result)
 ///     }
 ///
-///     // This is where we serialize the metadata for our type. In this case,
-///     // we do all the work in resolve and don't need to do anything here.
+///     // This is where we serialize the metadata for our type. In this case, we do all the work in
+///     // resolve and don't need to do anything here.
 ///     fn serialize_metadata(&self, serializer: &mut S) -> Result<Self::MetadataResolver, S::Error> {
 ///         Ok(())
 ///     }
@@ -445,8 +425,8 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     head: "Numbers 1-4".to_string(),
 ///     tail: [1, 2, 3, 4],
 /// };
-/// // We have a Block<String, [i32; 4]> but we want to it to be a
-/// // Block<String, [i32]>, so we need to do more pointer transmutation
+/// // We have a Block<String, [i32; 4]> but we want to it to be a Block<String, [i32]>, so we need
+/// // to do more pointer transmutation
 /// let ptr = (&value as *const Block<String, [i32; 4]>).cast::<()>();
 /// let unsized_value = unsafe { &*mem::transmute::<(*const (), usize), *const Block<String, [i32]>>((ptr, 4)) };
 ///
@@ -461,27 +441,24 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 /// assert_eq!(archived_ref.tail, [1, 2, 3, 4]);
 /// ```
 pub trait ArchiveUnsized: Pointee {
-    /// The archived counterpart of this type. Unlike `Archive`, it may be
-    /// unsized.
+    /// The archived counterpart of this type. Unlike `Archive`, it may be unsized.
     type Archived: ArchivePointee + ?Sized;
 
     /// The resolver for the metadata of this type.
     type MetadataResolver;
 
-    /// Creates the archived version of the metadata for this value at the given
-    /// position.
+    /// Creates the archived version of the metadata for this value at the given position.
     fn resolve_metadata(
         &self,
         pos: usize,
         resolver: Self::MetadataResolver,
     ) -> ArchivedMetadata<Self>;
 
-    /// Resolves a relative pointer to this value with the given `from` and
-    /// `to`.
+    /// Resolves a relative pointer to this value with the given `from` and `to`.
     ///
     /// # Safety
     ///
-    /// `to` must be the location of an archived value and `resolver` must be
+    /// The caller must guarantee that `to` is the location of an archived value and `resolver` is
     /// the metadata resolver for that value.
     #[inline]
     unsafe fn resolve_unsized(
@@ -496,8 +473,8 @@ pub trait ArchiveUnsized: Pointee {
 
 /// An archived type with associated metadata for its relative pointer.
 ///
-/// This is mostly used in the context of smart pointers and unsized types, and
-/// is implemented for all sized types by default.
+/// This is mostly used in the context of smart pointers and unsized types, and is implemented for
+/// all sized types by default.
 pub trait ArchivePointee: Pointee {
     /// The archived version of the pointer metadata for this type.
     type ArchivedMetadata;
@@ -519,8 +496,8 @@ pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
 ///
-/// Most types that implement `DeserializeUnsized` will need a
-/// [`Deserializer`](de::Deserializer) bound so that they can allocate memory.
+/// Most types that implement `DeserializeUnsized` will need a [`Deserializer`](de::Deserializer)
+/// bound so that they can allocate memory.
 pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fallible + ?Sized>:
     ArchivePointee
 {
@@ -528,26 +505,24 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
     ///
     /// # Safety
     ///
-    /// The caller must ensure that the memory returned is properly deallocated.
+    /// The caller must guarantee that the memory returned is properly deallocated.
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error>;
 
     /// Deserializes the metadata for the given type.
     fn deserialize_metadata(&self, deserializer: &mut D) -> Result<T::Metadata, D::Error>;
 }
 
-/// An [`Archive`] type that is a bitwise copy of itself and without additional
-/// processing.
+/// An [`Archive`] type that is a bitwise copy of itself and without additional processing.
 ///
-/// Types that implement `ArchiveCopy` are not guaranteed to have a
-/// [`Serialize`] implementation called on them to archive their value.
+/// Types that implement `ArchiveCopy` are not guaranteed to have a [`Serialize`] implementation
+/// called on them to archive their value.
 ///
-/// You can derive an implementation of `ArchiveCopy` by adding
-/// `#[archive(copy)]` to the struct or enum. Types that implement `ArchiveCopy`
-/// must also implement [`Copy`](core::marker::Copy).
+/// You can derive an implementation of `ArchiveCopy` by adding `#[archive(copy)]` to the struct or
+/// enum. Types that implement `ArchiveCopy` must also implement [`Copy`](core::marker::Copy).
 ///
-/// `ArchiveCopy` must be manually implemented even if a type implements
-/// [`Archive`] and [`Copy`](core::marker::Copy) because some types may
-/// transform their data when writing to an archive.
+/// `ArchiveCopy` must be manually implemented even if a type implements [`Archive`] and
+/// [`Copy`](core::marker::Copy) because some types may transform their data when writing to an
+/// archive.
 ///
 /// ## Examples
 /// ```
@@ -674,9 +649,10 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
     ///
     /// # Safety
     ///
-    /// `raw_ptr` must be a valid relative pointer in its final position and
-    /// must point to a valid value.
-    /// `metadata` must be valid metadata for the pointed value.
+    /// The caller must guarantee that:
+    /// - `raw_ptr` is a valid relative pointer in its final position
+    /// - `raw_ptr` points to a valid value
+    /// - `metadata` is valid metadata for the pointed value.
     #[inline]
     pub unsafe fn new(raw_ptr: RawRelPtr, metadata: T::ArchivedMetadata) -> Self {
         Self {
@@ -690,8 +666,8 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
     ///
     /// # Safety
     ///
-    /// `from` must be the position of the relative pointer and `to` must be the
-    /// position of some valid memory.
+    /// The caller must guarantee that `from` is the position of the relative pointer and `to` is
+    /// the position of some valid memory.
     #[inline]
     pub unsafe fn resolve<U: ArchiveUnsized<Archived = T> + ?Sized>(
         from: usize,
@@ -732,8 +708,8 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
         ptr_meta::from_raw_parts(self.raw_ptr.as_ptr(), T::pointer_metadata(&self.metadata))
     }
 
-    /// Returns an unsafe mutable pointer to the memory address being pointed to
-    /// by this relative pointer.
+    /// Returns an unsafe mutable pointer to the memory address being pointed to by this relative
+    /// pointer.
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut T {
         ptr_meta::from_raw_parts_mut(
@@ -780,15 +756,14 @@ fn check_alignment<T>(ptr: *const u8) {
     );
 }
 
-/// Casts an archived value from the given byte array at the given position.
+/// Casts an archived value from the given byte slice at the given position.
 ///
-/// This helps avoid situations where lifetimes get inappropriately assigned and
-/// allow buffer mutation after getting archived value references.
+/// This helps avoid situations where lifetimes get inappropriately assigned and allow buffer
+/// mutation after getting archived value references.
 ///
 /// # Safety
 ///
-/// This is only safe to call if the value is archived at the given position in
-/// the byte array.
+/// The caller must guarantee that a value is archived at the given position in the byte slice.
 #[inline]
 pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &T::Archived {
     #[cfg(debug_assertions)]
@@ -797,16 +772,14 @@ pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &
     &*bytes.as_ptr().add(pos).cast()
 }
 
-/// Casts a mutable archived value from the given byte array at the given
-/// position.
+/// Casts a mutable archived value from the given byte slice at the given position.
 ///
-/// This helps avoid situations where lifetimes get inappropriately assigned and
-/// allow buffer mutation after getting archived value references.
+/// This helps avoid situations where lifetimes get inappropriately assigned and allow buffer
+/// mutation after getting archived value references.
 ///
 /// # Safety
 ///
-/// This is only safe to call if the value is archived at the given position in
-/// the byte array.
+/// The caller must guarantee that a value is archived at the given position in the byte slice.
 #[inline]
 pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
     bytes: Pin<&mut [u8]>,
@@ -818,16 +791,15 @@ pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
     Pin::new_unchecked(&mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast())
 }
 
-/// Casts a [`RelPtr`] to the given unsized type from the given byte array at
-/// the given position and returns the value it points to.
+/// Casts a [`RelPtr`] to the given unsized type from the given byte slice at the given position and
+/// returns the value it points to.
 ///
-/// This helps avoid situations where lifetimes get inappropriately assigned and
-/// allow buffer mutation after getting archived value references.
+/// This helps avoid situations where lifetimes get inappropriately assigned and allow buffer
+/// mutation after getting archived value references.
 ///
 /// # Safety
 ///
-/// This is only safe to call if the reference is archived at the given position
-/// in the byte array.
+/// The caller must guarantee that a reference is archived at the given position in the byte slice.
 #[inline]
 pub unsafe fn archived_unsized_value<T: ArchiveUnsized + ?Sized>(
     bytes: &[u8],
@@ -840,16 +812,15 @@ pub unsafe fn archived_unsized_value<T: ArchiveUnsized + ?Sized>(
     &*rel_ptr.as_ptr()
 }
 
-/// Casts a mutable [`RelPtr`] to the given unsized type from the given byte
-/// array at the given position and returns the value it points to.
+/// Casts a mutable [`RelPtr`] to the given unsized type from the given byte slice at the given
+/// position and returns the value it points to.
 ///
-/// This helps avoid situations where lifetimes get inappropriately assigned and
-/// allow buffer mutation after getting archived value references.
+/// This helps avoid situations where lifetimes get inappropriately assigned and allow buffer
+/// mutation after getting archived value references.
 ///
 /// # Safety
 ///
-/// This is only safe to call if the reference is archived at the given position
-/// in the byte array.
+/// The caller must guarantee that a reference is archived at the given position in the byte slice.
 #[inline]
 pub unsafe fn archived_unsized_value_mut<T: ArchiveUnsized + ?Sized>(
     bytes: Pin<&mut [u8]>,

@@ -10,8 +10,8 @@ use std::io;
 
 /// Wraps a byte buffer and equips it with [`Serializer`].
 ///
-/// Common uses include archiving in `#![no_std]` environments and archiving
-/// small objects without allocating.
+/// Common uses include archiving in `#![no_std]` environments and archiving small objects without
+/// allocating.
 ///
 /// ## Examples
 /// ```
@@ -54,9 +54,9 @@ impl<T> BufferSerializer<T> {
         Self::with_pos(inner, 0)
     }
 
-    /// Creates a new archive buffer from a byte buffer. The buffer will start
-    /// writing at the given position, but the buffer must contain all bytes
-    /// (otherwise the alignments of types may not be correct).
+    /// Creates a new archive buffer from a byte buffer. The buffer will start writing at the given
+    /// position, but the buffer must contain all bytes (otherwise the alignments of types may not
+    /// be correct).
     #[inline]
     pub fn with_pos(inner: T, pos: usize) -> Self {
         Self { inner, pos }
@@ -148,8 +148,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> SeekSerializer for BufferSerializer<T> {
     }
 }
 
-/// Wraps a type that implements [`io::Write`](std::io::Write) and equips it
-/// with [`Serializer`].
+/// Wraps a type that implements [`io::Write`](std::io::Write) and equips it with [`Serializer`].
 ///
 /// ## Examples
 /// ```
@@ -177,15 +176,14 @@ impl<W: io::Write> WriteSerializer<W> {
         Self::with_pos(inner, 0)
     }
 
-    /// Creates a new serializer from a writer, and assumes that the underlying
-    /// writer is currently at the given position.
+    /// Creates a new serializer from a writer, and assumes that the underlying writer is currently
+    /// at the given position.
     #[inline]
     pub fn with_pos(inner: W, pos: usize) -> Self {
         Self { inner, pos }
     }
 
-    /// Consumes the serializer and returns the internal writer used to create
-    /// it.
+    /// Consumes the serializer and returns the internal writer used to create it.
     #[inline]
     pub fn into_inner(self) -> W {
         self.inner

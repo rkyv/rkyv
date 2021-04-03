@@ -309,8 +309,7 @@ impl<T> ArchivedVec<T> {
         self.deref_mut()
     }
 
-    /// Gets the element at the given index ot this archived vec as a pinned
-    /// mutable reference.
+    /// Gets the element at the given index ot this archived vec as a pinned mutable reference.
     #[inline]
     pub fn index_pin<I>(self: Pin<&mut Self>, index: I) -> Pin<&mut <[T] as Index<I>>::Output>
     where
