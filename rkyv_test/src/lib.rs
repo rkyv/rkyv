@@ -381,38 +381,11 @@ mod tests {
     #[test]
     fn archive_enum() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         enum Test {
             A,
             B(String),
             C { a: i32, b: String },
-        }
-
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, other: &Test) -> bool {
-                match self {
-                    Self::A => {
-                        if let Test::A = other {
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                    Self::B(self_value) => {
-                        if let Test::B(other_value) = other {
-                            self_value == other_value
-                        } else {
-                            false
-                        }
-                    }
-                    Self::C { a, b } => {
-                        if let Test::C { a: _a, b: _b } = other {
-                            a == _a && b == _b
-                        } else {
-                            false
-                        }
-                    }
-                }
-            }
         }
 
         test_archive(&Test::A);
@@ -442,6 +415,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         enum Test<T: TestTrait> {
             A,
             B(String),
@@ -449,38 +423,6 @@ mod tests {
                 a: <T as TestTrait>::Associated,
                 b: String,
             },
-        }
-
-        impl<T: TestTrait> PartialEq<Test<T>> for Archived<Test<T>>
-        where
-            <T as TestTrait>::Associated: Archive,
-            Archived<<T as TestTrait>::Associated>: PartialEq<<T as TestTrait>::Associated>,
-        {
-            fn eq(&self, other: &Test<T>) -> bool {
-                match self {
-                    Self::A => {
-                        if let Test::A = other {
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                    Self::B(self_value) => {
-                        if let Test::B(other_value) = other {
-                            self_value == other_value
-                        } else {
-                            false
-                        }
-                    }
-                    Self::C { a, b } => {
-                        if let Test::C { a: _a, b: _b } = other {
-                            a == _a && b == _b
-                        } else {
-                            false
-                        }
-                    }
-                }
-            }
         }
 
         test_archive(&Test::<()>::A);
@@ -1106,6 +1048,7 @@ mod tests {
     #[test]
     fn recursive_structures() {
         #[derive(Archive, PartialEq)]
+        #[archive(compare(PartialEq))]
         enum Node {
             Nil,
             Cons(#[recursive] Box<Node>),
@@ -1129,21 +1072,6 @@ mod tests {
                     ArchivedNode::Nil => Node::Nil,
                     ArchivedNode::Cons(inner) => Node::Cons(inner.deserialize(deserializer)?),
                 })
-            }
-        }
-
-        impl PartialEq<Node> for Archived<Node> {
-            fn eq(&self, other: &Node) -> bool {
-                match self {
-                    Archived::<Node>::Nil => match other {
-                        Node::Nil => true,
-                        _ => false,
-                    },
-                    Archived::<Node>::Cons(ar_inner) => match other {
-                        Node::Cons(inner) => ar_inner == inner,
-                        _ => false,
-                    },
-                }
             }
         }
 
@@ -1207,6 +1135,7 @@ mod tests {
             }
         }
 
+        // Can't derive PartialEq automatically because AtomicU32 doesn't implement PartialEq
         impl PartialEq<Test> for Archived<Test> {
             fn eq(&self, other: &Test) -> bool {
                 self.a.load(Ordering::Relaxed) == other.a.load(Ordering::Relaxed)
@@ -1229,6 +1158,7 @@ mod tests {
         use std::rc::Rc;
 
         #[derive(Archive, Deserialize, Serialize, Eq, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct Test {
             a: Rc<u32>,
             b: Rc<u32>,
@@ -1241,12 +1171,6 @@ mod tests {
 
             fn b(self: Pin<&mut Self>) -> Pin<&mut Archived<Rc<u32>>> {
                 unsafe { self.map_unchecked_mut(|s| &mut s.b) }
-            }
-        }
-
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, other: &Test) -> bool {
-                *self.a == *other.a && *self.b == *other.b
             }
         }
 
@@ -1318,15 +1242,10 @@ mod tests {
         use std::rc::Rc;
 
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct Test {
             a: Rc<[String]>,
             b: Rc<[String]>,
-        }
-
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, other: &Test) -> bool {
-                *self.a == *other.a && *self.b == *other.b
-            }
         }
 
         let rc_slice =

@@ -1,69 +1,51 @@
 use crate::attributes::{parse_attributes, Attributes};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::{spanned::Spanned, Data, DeriveInput, Error, Fields, Ident, Index};
+use syn::{spanned::Spanned, Attribute, Data, DeriveInput, Error, Fields, Ident, Index, parse_quote};
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     let attributes = parse_attributes(&input)?;
 
     if attributes.copy.is_some() {
-        derive_archive_copy_impl(&input, &attributes)
+        derive_archive_copy_impl(input, &attributes)
     } else {
-        derive_archive_impl(&input, &attributes)
+        derive_archive_impl(input, &attributes)
     }
 }
 
-fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<TokenStream, Error> {
+fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Result<TokenStream, Error> {
+    input.generics.make_where_clause();
+
     let name = &input.ident;
     let vis = &input.vis;
     let generics = &input.generics;
 
-    let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let where_clause = where_clause.unwrap();
 
-    let generic_predicates = match input.generics.where_clause {
-        Some(ref clause) => {
-            let predicates = clause.predicates.iter().map(|p| quote! { #p });
-            quote! { #(#predicates,)* }
-        }
-        None => quote! {},
-    };
+    let archive_derives = attributes.derives.as_ref().map::<Attribute, _>(|d| parse_quote! { #[#d] });
 
-    let archive_derives = if let Some(derives) = attributes.derives.as_ref() {
-        quote! { #[#derives] }
-    } else {
-        quote! {}
-    };
+    let archived = attributes.archived.as_ref().map_or_else(
+        || Ident::new(&format!("Archived{}", name), name.span()),
+        |value| value.clone()
+    );
 
-    let archived = if let Some(ref archived) = attributes.archived {
-        archived.clone()
-    } else {
-        Ident::new(&format!("Archived{}", name), name.span())
-    };
+    let resolver = attributes.resolver.as_ref().map_or_else(
+        || Ident::new(&format!("{}Resolver", name), name.span()),
+        |value| value.clone()
+    );
 
-    let resolver = if let Some(ref resolver) = attributes.resolver {
-        resolver.clone()
-    } else {
-        Ident::new(&format!("{}Resolver", name), name.span())
-    };
-
-    let strict = if cfg!(feature = "strict") || attributes.strict.is_some() {
-        quote! { #[repr(C)] }
-    } else {
-        quote! {}
-    };
+    let is_strict = cfg!(feature = "strict") || attributes.strict.is_some();
+    let strict = is_strict.then::<Attribute, _>(|| parse_quote! { #[repr(C)] });
 
     let (archive_types, archive_impls) = match input.data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
-                let archive_predicates = fields.named.iter().filter_map(|f| {
-                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                        None
-                    } else {
-                        let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: rkyv::Archive })
-                    }
-                });
-                let archive_predicates = quote! { #(#archive_predicates,)* };
+                let mut archive_where = where_clause.clone();
+                for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                    let ty = &field.ty;
+                    archive_where.predicates.push(parse_quote! { #ty: rkyv::Archive });
+                }
 
                 let resolver_fields = fields.named.iter().map(|f| {
                     let name = &f.ident;
@@ -83,35 +65,27 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                     quote_spanned! { f.span() => #name: self.#name.resolve(pos + offset_of!(#archived #ty_generics, #name), resolver.#name) }
                 });
 
-                let mut compare_impls = Vec::new();
+                let mut partial_eq_impl = None;
                 if let Some((_, ref compares)) = attributes.compares {
                     for compare in compares {
                         if compare.is_ident("PartialEq") {
-                            let partial_eq_predicates = fields.named.iter().map(|f| {
-                                let ty = &f.ty;
-                                quote_spanned! { f.span() => #ty: Archive, rkyv::Archived<#ty>: PartialEq<#ty> }
-                            });
-                            let partial_eq_predicates = quote! { #(#partial_eq_predicates,)* };
+                            let mut partial_eq_where = archive_where.clone();
+                            for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                                let ty = &field.ty;
+                                partial_eq_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
+                            }
 
                             let field_names = fields.named.iter().map(|f| &f.ident);
 
-                            compare_impls.push(quote! {
-                                impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics
-                                where
-                                    #generic_predicates
-                                    #partial_eq_predicates
-                                {
+                            partial_eq_impl = Some(quote! {
+                                impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #partial_eq_where {
                                     #[inline]
                                     fn eq(&self, other: &#archived #ty_generics) -> bool {
-                                        #(other.#field_names == self.#field_names)&&*
+                                        #(other.#field_names.eq(&self.#field_names) &&)* true
                                     }
                                 }
 
-                                impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics
-                                where
-                                    #generic_predicates
-                                    #partial_eq_predicates
-                                {
+                                impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #partial_eq_where {
                                     #[inline]
                                     fn eq(&self, other: &#name #ty_generics) -> bool {
                                         other.eq(self)
@@ -128,28 +102,16 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                     quote! {
                         #archive_derives
                         #strict
-                        #vis struct #archived #generics
-                        where
-                            #generic_predicates
-                            #archive_predicates
-                        {
+                        #vis struct #archived #generics #archive_where {
                             #(#archived_fields,)*
                         }
 
-                        #vis struct #resolver #generics
-                        where
-                            #generic_predicates
-                            #archive_predicates
-                        {
+                        #vis struct #resolver #generics #archive_where {
                             #(#resolver_fields,)*
                         }
                     },
                     quote! {
-                        impl #impl_generics Archive for #name #ty_generics
-                        where
-                            #generic_predicates
-                            #archive_predicates
-                        {
+                        impl #impl_generics Archive for #name #ty_generics #archive_where {
                             type Archived = #archived #ty_generics;
                             type Resolver = #resolver #ty_generics;
 
@@ -161,20 +123,16 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                             }
                         }
 
-                        #(#compare_impls)*
+                        #partial_eq_impl
                     },
                 )
             }
             Fields::Unnamed(ref fields) => {
-                let archive_predicates = fields.unnamed.iter().filter_map(|f| {
-                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                        None
-                    } else {
-                        let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: rkyv::Archive })
-                    }
-                });
-                let archive_predicates = quote! { #(#archive_predicates,)* };
+                let mut archive_where = where_clause.clone();
+                for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                    let ty = &field.ty;
+                    archive_where.predicates.push(parse_quote! { #ty: rkyv::Archive });
+                }
 
                 let resolver_fields = fields.unnamed.iter().map(|f| {
                     let ty = &f.ty;
@@ -192,15 +150,15 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                     quote_spanned! { f.span() => self.#index.resolve(pos + offset_of!(#archived #ty_generics, #index), resolver.#index) }
                 });
 
-                let mut compare_impls = Vec::new();
+                let mut partial_eq_impl = None;
                 if let Some((_, ref compares)) = attributes.compares {
                     for compare in compares {
                         if compare.is_ident("PartialEq") {
-                            let partial_eq_predicates = fields.unnamed.iter().map(|f| {
-                                let ty = &f.ty;
-                                quote_spanned! { f.span() => #ty: Archive, rkyv::Archived<#ty>: PartialEq<#ty> }
-                            });
-                            let partial_eq_predicates = quote! { #(#partial_eq_predicates,)* };
+                            let mut partial_eq_where = archive_where.clone();
+                            for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                                let ty = &field.ty;
+                                partial_eq_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
+                            }
 
                             let field_names = fields
                                 .unnamed
@@ -208,23 +166,15 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                                 .enumerate()
                                 .map(|(i, _)| Index::from(i));
 
-                            compare_impls.push(quote! {
-                                impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics
-                                where
-                                    #generic_predicates
-                                    #partial_eq_predicates
-                                {
+                                partial_eq_impl = Some(quote! {
+                                impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #partial_eq_where {
                                     #[inline]
                                     fn eq(&self, other: &#archived #ty_generics) -> bool {
-                                        #(other.#field_names == self.#field_names)&&*
+                                        #(other.#field_names.eq(&self.#field_names) &&)* true
                                     }
                                 }
 
-                                impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics
-                                where
-                                    #generic_predicates
-                                    #partial_eq_predicates
-                                {
+                                impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #partial_eq_where {
                                     #[inline]
                                     fn eq(&self, other: &#name #ty_generics) -> bool {
                                         other.eq(self)
@@ -241,22 +191,12 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                     quote! {
                         #archive_derives
                         #strict
-                        #vis struct #archived #generics (#(#archived_fields,)*)
-                        where
-                            #generic_predicates
-                            #archive_predicates;
+                        #vis struct #archived #generics (#(#archived_fields,)*) #archive_where;
 
-                        #vis struct #resolver #generics (#(#resolver_fields,)*)
-                        where
-                            #generic_predicates
-                            #archive_predicates;
+                        #vis struct #resolver #generics (#(#resolver_fields,)*) #archive_where;
                     },
                     quote! {
-                        impl #impl_generics Archive for #name #ty_generics
-                        where
-                            #generic_predicates
-                            #archive_predicates
-                        {
+                        impl #impl_generics Archive for #name #ty_generics #archive_where {
                             type Archived = #archived #ty_generics;
                             type Resolver = #resolver #ty_generics;
 
@@ -268,30 +208,24 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                             }
                         }
 
-                        #(#compare_impls)*
+                        #partial_eq_impl
                     },
                 )
             }
             Fields::Unit => {
-                let mut compare_impls = Vec::new();
+                let mut partial_eq_impl = None;
                 if let Some((_, ref compares)) = attributes.compares {
                     for compare in compares {
                         if compare.is_ident("PartialEq") {
-                            compare_impls.push(quote! {
-                                impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics
-                                where
-                                    #generic_predicates
-                                {
+                            partial_eq_impl = Some(quote! {
+                                impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #where_clause {
                                     #[inline]
                                     fn eq(&self, _: &#archived #ty_generics) -> bool {
                                         true
                                     }
                                 }
 
-                                impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics
-                                where
-                                    #generic_predicates
-                                {
+                                impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #where_clause {
                                     #[inline]
                                     fn eq(&self, _: &#name #ty_generics) -> bool {
                                         true
@@ -309,18 +243,13 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                         #archive_derives
                         #strict
                         #vis struct #archived #generics
-                        where
-                            #generic_predicates;
+                        #where_clause;
 
                         #vis struct #resolver #generics
-                        where
-                            #generic_predicates;
+                        #where_clause;
                     },
                     quote! {
-                        impl #impl_generics Archive for #name #ty_generics
-                        where
-                            #generic_predicates
-                        {
+                        impl #impl_generics Archive for #name #ty_generics #where_clause {
                             type Archived = #archived #ty_generics;
                             type Resolver = #resolver #ty_generics;
 
@@ -329,38 +258,30 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                             }
                         }
 
-                        #(#compare_impls)*
+                        #partial_eq_impl
                     },
                 )
             }
         },
         Data::Enum(ref data) => {
-            let archive_predicates = data.variants.iter().map(|v| match v.fields {
-                Fields::Named(ref fields) => {
-                    let archive_predicates = fields.named.iter().filter_map(|f| {
-                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                            None
-                        } else {
-                            let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: rkyv::Archive })
+            let mut archive_where = where_clause.clone();
+            for variant in data.variants.iter() {
+                match variant.fields {
+                    Fields::Named(ref fields) => {
+                        for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                            let ty = &field.ty;
+                            archive_where.predicates.push(parse_quote! { #ty: rkyv::Archive });
                         }
-                    });
-                    quote! { #(#archive_predicates,)* }
-                }
-                Fields::Unnamed(ref fields) => {
-                    let archive_predicates = fields.unnamed.iter().filter_map(|f| {
-                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                            None
-                        } else {
-                            let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: rkyv::Archive })
+                    }
+                    Fields::Unnamed(ref fields) => {
+                        for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                            let ty = &field.ty;
+                            archive_where.predicates.push(parse_quote! { #ty: rkyv::Archive });
                         }
-                    });
-                    quote! { #(#archive_predicates,)* }
+                    }
+                    Fields::Unit => (),
                 }
-                Fields::Unit => quote! {},
-            });
-            let archive_predicates = quote! { #(#archive_predicates)* };
+            }
 
             let resolver_variants = data.variants.iter().map(|v| {
                 let variant = &v.ident;
@@ -382,9 +303,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                             let ty = &f.ty;
                             quote_spanned! { f.span() => rkyv::Resolver<#ty> }
                         });
-                        quote_spanned! { variant.span() =>
-                            #variant(#(#fields,)*)
-                        }
+                        quote_spanned! { variant.span() => #variant(#(#fields,)*) }
                     }
                     Fields::Unit => quote_spanned! { variant.span() => #variant },
                 }
@@ -501,11 +420,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                         });
                         quote_spanned! { name.span() =>
                             #[repr(C)]
-                            struct #archived_variant_name #generics
-                            where
-                                #generic_predicates
-                                #archive_predicates
-                            {
+                            struct #archived_variant_name #generics #archive_where {
                                 __tag: ArchivedTag,
                                 #(#fields,)*
                                 __phantom: PhantomData<#name #ty_generics>,
@@ -519,33 +434,115 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                         });
                         quote_spanned! { name.span() =>
                             #[repr(C)]
-                            struct #archived_variant_name #generics (ArchivedTag, #(#fields,)* PhantomData<#name #ty_generics>)
-                            where
-                                #generic_predicates
-                                #archive_predicates;
+                            struct #archived_variant_name #generics (ArchivedTag, #(#fields,)* PhantomData<#name #ty_generics>) #archive_where;
                         }
                     }
                     Fields::Unit => quote! {}
                 }
             });
 
+            let mut partial_eq_impl = None;
+            if let Some((_, ref compares)) = attributes.compares {
+                for compare in compares {
+                    if compare.is_ident("PartialEq") {
+                        let mut partial_eq_where = archive_where.clone();
+                        for v in data.variants.iter() {
+                            match v.fields {
+                                Fields::Named(ref fields) => {
+                                    for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                                        let ty = &field.ty;
+                                        partial_eq_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
+                                    }
+                                }
+                                Fields::Unnamed(ref fields) => {
+                                    for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                                        let ty = &field.ty;
+                                        partial_eq_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
+                                    }
+                                }
+                                Fields::Unit => ()
+                            }
+                        }
+
+                        let variant_impls = data.variants.iter().map(|v| {
+                            let variant = &v.ident;
+                            match v.fields {
+                                Fields::Named(ref fields) => {
+                                    let field_names = fields.named.iter()
+                                        .map(|f| &f.ident)
+                                        .collect::<Vec<_>>();
+                                    let self_bindings = fields.named.iter().map(|f| {
+                                        f.ident.as_ref().map(|ident| {
+                                            Ident::new(&format!("self_{}", ident.to_string()), ident.span())
+                                        })
+                                    }).collect::<Vec<_>>();
+                                    let other_bindings = fields.named.iter().map(|f| {
+                                        f.ident.as_ref().map(|ident| {
+                                            Ident::new(&format!("other_{}", ident.to_string()), ident.span())
+                                        })
+                                    }).collect::<Vec<_>>();
+                                    quote! {
+                                        #name::#variant { #(#field_names: #self_bindings,)* } => match other {
+                                            #archived::#variant { #(#field_names: #other_bindings,)* } => #(#other_bindings.eq(#self_bindings) &&)* true,
+                                            _ => false,
+                                        }
+                                    }
+                                }
+                                Fields::Unnamed(ref fields) => {
+                                    let self_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                                        Ident::new(&format!("self_{}", i), f.span())
+                                    }).collect::<Vec<_>>();
+                                    let other_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                                        Ident::new(&format!("other_{}", i), f.span())
+                                    }).collect::<Vec<_>>();
+                                    quote! {
+                                        #name::#variant(#(#self_bindings,)*) => match other {
+                                            #archived::#variant(#(#other_bindings,)*) => #(#other_bindings.eq(#self_bindings) &&)* true,
+                                            _ => false,
+                                        }
+                                    }
+                                }
+                                Fields::Unit => quote! {
+                                    #name::#variant => match other {
+                                        #archived::#variant => true,
+                                        _ => false,
+                                    }
+                                }
+                            }
+                        });
+
+                        partial_eq_impl = Some(quote! {
+                            impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #partial_eq_where {
+                                #[inline]
+                                fn eq(&self, other: &#archived #ty_generics) -> bool {
+                                    match self {
+                                        #(#variant_impls,)*
+                                    }
+                                }
+                            }
+
+                            impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #partial_eq_where {
+                                #[inline]
+                                fn eq(&self, other: &#name #ty_generics) -> bool {
+                                    other.eq(self)
+                                }
+                            }
+                        });
+                    } else {
+                        return Err(Error::new_spanned(compare, "unrecognized compare argument, supported compares are PartialEq and PartialOrd"));
+                    }
+                }
+            }
+
             (
                 quote! {
                     #archive_derives
                     #[repr(#archived_repr)]
-                    #vis enum #archived #generics
-                    where
-                        #generic_predicates
-                        #archive_predicates
-                    {
+                    #vis enum #archived #generics #archive_where {
                         #(#archived_variants,)*
                     }
 
-                    #vis enum #resolver #generics
-                    where
-                        #generic_predicates
-                        #archive_predicates
-                    {
+                    #vis enum #resolver #generics #archive_where {
                         #(#resolver_variants,)*
                     }
                 },
@@ -557,11 +554,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
 
                     #(#archived_variant_structs)*
 
-                    impl #impl_generics Archive for #name #ty_generics
-                    where
-                        #generic_predicates
-                        #archive_predicates
-                    {
+                    impl #impl_generics Archive for #name #ty_generics #archive_where {
                         type Archived = #archived #ty_generics;
                         type Resolver = #resolver #ty_generics;
 
@@ -572,6 +565,8 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
                             }
                         }
                     }
+
+                    #partial_eq_impl
                 },
             )
         }
@@ -596,7 +591,7 @@ fn derive_archive_impl(input: &DeriveInput, attributes: &Attributes) -> Result<T
 }
 
 fn derive_archive_copy_impl(
-    input: &DeriveInput,
+    mut input: DeriveInput,
     attributes: &Attributes,
 ) -> Result<TokenStream, Error> {
     if let Some(ref derives) = attributes.derives {
@@ -625,59 +620,35 @@ fn derive_archive_copy_impl(
         ));
     };
 
+    input.generics.make_where_clause();
+
     let name = &input.ident;
-
-    let generic_params = input.generics.params.iter().map(|p| quote! { #p });
-    let generic_params = quote! { #(#generic_params,)* };
-
-    let generic_args = input.generics.type_params().map(|p| {
-        let name = &p.ident;
-        quote_spanned! { p.ident.span() => #name }
-    });
-    let generic_args = quote! { #(#generic_args,)* };
-
-    let generic_predicates = match input.generics.where_clause {
-        Some(ref clause) => {
-            let predicates = clause.predicates.iter().map(|p| quote! { #p });
-            quote! { #(#predicates,)* }
-        }
-        None => quote! {},
-    };
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let where_clause = where_clause.unwrap();
 
     let archive_copy_impl = match input.data {
         Data::Struct(ref data) => {
-            let copy_predicates = match data.fields {
+            let mut copy_where = where_clause.clone();
+            match data.fields {
                 Fields::Named(ref fields) => {
-                    let copy_predicates = fields.named.iter().map(|f| {
-                        let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: ArchiveCopy }
-                    });
-
-                    quote! { #(#copy_predicates,)* }
+                    for field in fields.named.iter() {
+                        let ty = &field.ty;
+                        copy_where.predicates.push(parse_quote! { #ty: rkyv::ArchiveCopy });
+                    }
                 }
                 Fields::Unnamed(ref fields) => {
-                    let copy_predicates = fields.unnamed.iter().map(|f| {
-                        let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: ArchiveCopy }
-                    });
-
-                    quote! { #(#copy_predicates,)* }
+                    for field in fields.unnamed.iter() {
+                        let ty = &field.ty;
+                        copy_where.predicates.push(parse_quote! { #ty: rkyv::ArchiveCopy });
+                    }
                 }
-                Fields::Unit => quote! {},
-            };
+                Fields::Unit => (),
+            }
 
             quote! {
-                unsafe impl<#generic_params> ArchiveCopy for #name<#generic_args>
-                where
-                    #generic_predicates
-                    #copy_predicates
-                {}
+                unsafe impl #impl_generics ArchiveCopy for #name #ty_generics #copy_where {}
 
-                impl<#generic_params> Archive for #name<#generic_args>
-                where
-                    #generic_predicates
-                    #copy_predicates
-                {
+                impl #impl_generics Archive for #name #ty_generics #copy_where {
                     type Archived = Self;
                     type Resolver = ();
 
@@ -708,37 +679,29 @@ fn derive_archive_copy_impl(
                 ));
             }
 
-            let copy_predicates = data.variants.iter().map(|v| match v.fields {
-                Fields::Named(ref fields) => {
-                    let copy_predicates = fields.named.iter().map(|f| {
-                        let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: ArchiveCopy }
-                    });
-                    quote! { #(#copy_predicates,)* }
+            let mut copy_where = where_clause.clone();
+            for variant in data.variants.iter() {
+                match variant.fields {
+                    Fields::Named(ref fields) => {
+                        for field in fields.named.iter() {
+                            let ty = &field.ty;
+                            copy_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
+                        }
+                    }
+                    Fields::Unnamed(ref fields) => {
+                        for field in fields.unnamed.iter() {
+                            let ty = &field.ty;
+                            copy_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
+                        }
+                    }
+                    Fields::Unit => (),
                 }
-                Fields::Unnamed(ref fields) => {
-                    let copy_predicates = fields.unnamed.iter().map(|f| {
-                        let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: ArchiveCopy }
-                    });
-                    quote! { #(#copy_predicates,)* }
-                }
-                Fields::Unit => quote! {},
-            });
-            let copy_predicates = quote! { #(#copy_predicates)* };
+            }
 
             quote! {
-                unsafe impl<#generic_params> ArchiveCopy for #name<#generic_args>
-                where
-                    #generic_predicates
-                    #copy_predicates
-                {}
+                unsafe impl #impl_generics ArchiveCopy for #name #ty_generics #copy_where {}
 
-                impl<#generic_params> Archive for #name<#generic_args>
-                where
-                    #generic_predicates
-                    #copy_predicates
-                {
+                impl #impl_generics Archive for #name #ty_generics #copy_where {
                     type Archived = Self;
                     type Resolver = ();
 
