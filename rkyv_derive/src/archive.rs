@@ -81,7 +81,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                                 impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #partial_eq_where {
                                     #[inline]
                                     fn eq(&self, other: &#archived #ty_generics) -> bool {
-                                        #(other.#field_names.eq(&self.#field_names) &&)* true
+                                        true #(&& other.#field_names.eq(&self.#field_names))*
                                     }
                                 }
 
@@ -170,7 +170,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                                 impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #partial_eq_where {
                                     #[inline]
                                     fn eq(&self, other: &#archived #ty_generics) -> bool {
-                                        #(other.#field_names.eq(&self.#field_names) &&)* true
+                                        true #(&& other.#field_names.eq(&self.#field_names))*
                                     }
                                 }
 
@@ -511,7 +511,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                                     }).collect::<Vec<_>>();
                                     quote! {
                                         #name::#variant { #(#field_names: #self_bindings,)* } => match other {
-                                            #archived::#variant { #(#field_names: #other_bindings,)* } => #(#other_bindings.eq(#self_bindings) &&)* true,
+                                            #archived::#variant { #(#field_names: #other_bindings,)* } => true #(&& #other_bindings.eq(#self_bindings))*,
                                             #[allow(unreachable_patterns)]
                                             _ => false,
                                         }
@@ -526,7 +526,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                                     }).collect::<Vec<_>>();
                                     quote! {
                                         #name::#variant(#(#self_bindings,)*) => match other {
-                                            #archived::#variant(#(#other_bindings,)*) => #(#other_bindings.eq(#self_bindings) &&)* true,
+                                            #archived::#variant(#(#other_bindings,)*) => true #(&& #other_bindings.eq(#self_bindings))*,
                                             #[allow(unreachable_patterns)]
                                             _ => false,
                                         }
