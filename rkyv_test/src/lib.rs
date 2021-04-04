@@ -1408,4 +1408,21 @@ mod tests {
 
         test_archive(&value);
     }
+
+    #[test]
+    fn default_type_parameters() {
+        #[derive(Archive)]
+        pub struct TupleFoo<T = i32>(T);
+
+        #[derive(Archive)]
+        pub struct StructFoo<T = i32> {
+            t: T,
+        }
+
+        #[derive(Archive)]
+        pub enum EnumFoo<T = i32> {
+            #[allow(dead_code)]
+            T(T),
+        }
+    }
 }

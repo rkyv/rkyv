@@ -293,6 +293,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                             quote_spanned! { f.span() => #name: rkyv::Resolver<#ty> }
                         });
                         quote_spanned! { variant.span() =>
+                            #[allow(dead_code)]
                             #variant {
                                 #(#fields,)*
                             }
@@ -303,9 +304,15 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                             let ty = &f.ty;
                             quote_spanned! { f.span() => rkyv::Resolver<#ty> }
                         });
-                        quote_spanned! { variant.span() => #variant(#(#fields,)*) }
+                        quote_spanned! { variant.span() =>
+                            #[allow(dead_code)]
+                            #variant(#(#fields,)*)
+                        }
                     }
-                    Fields::Unit => quote_spanned! { variant.span() => #variant },
+                    Fields::Unit => quote_spanned! { variant.span() =>
+                        #[allow(dead_code)]
+                        #variant
+                    },
                 }
             });
 
@@ -334,7 +341,15 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                         });
                         quote_spanned! { name.span() =>
                             #resolver::#variant { #(#resolver_bindings,)* } => {
-                                if let #name::#variant { #(#self_bindings,)* } = self { #archived::#variant { #(#fields,)* } } else { panic!("enum resolver variant does not match value variant") }
+                                match self {
+                                    #name::#variant { #(#self_bindings,)* } => {
+                                        #archived::#variant {
+                                            #(#fields,)*
+                                        }
+                                    },
+                                    #[allow(unreachable_patterns)]
+                                    _ => panic!("enum resolver variant does not match value variant"),
+                                }
                             }
                         }
                     }
@@ -357,7 +372,15 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                         });
                         quote_spanned! { name.span() =>
                             #resolver::#variant( #(#resolver_bindings,)* ) => {
-                                if let #name::#variant(#(#self_bindings,)*) = self { #archived::#variant(#(#fields,)*) } else { panic!("enum resolver variant does not match value variant") }
+                                match self {
+                                    #name::#variant(#(#self_bindings,)*) => {
+                                        #archived::#variant(
+                                            #(#fields,)*
+                                        )
+                                    },
+                                    #[allow(unreachable_patterns)]
+                                    _ => panic!("enum resolver variant does not match value variant"),
+                                }
                             }
                         }
                     }
@@ -384,6 +407,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                             quote_spanned! { f.span() => #vis #name: rkyv::Archived<#ty> }
                         });
                         quote_spanned! { variant.span() =>
+                            #[allow(dead_code)]
                             #variant {
                                 #(#fields,)*
                             }
@@ -396,10 +420,14 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                             quote_spanned! { f.span() => #vis rkyv::Archived<#ty> }
                         });
                         quote_spanned! { variant.span() =>
+                            #[allow(dead_code)]
                             #variant(#(#fields,)*)
                         }
                     }
-                    Fields::Unit => quote_spanned! { variant.span() => #variant },
+                    Fields::Unit => quote_spanned! { variant.span() =>
+                        #[allow(dead_code)]
+                        #variant
+                    },
                 }
             });
 
@@ -484,6 +512,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                                     quote! {
                                         #name::#variant { #(#field_names: #self_bindings,)* } => match other {
                                             #archived::#variant { #(#field_names: #other_bindings,)* } => #(#other_bindings.eq(#self_bindings) &&)* true,
+                                            #[allow(unreachable_patterns)]
                                             _ => false,
                                         }
                                     }
@@ -498,6 +527,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                                     quote! {
                                         #name::#variant(#(#self_bindings,)*) => match other {
                                             #archived::#variant(#(#other_bindings,)*) => #(#other_bindings.eq(#self_bindings) &&)* true,
+                                            #[allow(unreachable_patterns)]
                                             _ => false,
                                         }
                                     }
@@ -505,6 +535,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                                 Fields::Unit => quote! {
                                     #name::#variant => match other {
                                         #archived::#variant => true,
+                                        #[allow(unreachable_patterns)]
                                         _ => false,
                                     }
                                 }
