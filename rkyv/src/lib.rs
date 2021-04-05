@@ -540,8 +540,7 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
 ///
 /// let mut serializer = WriteSerializer::new(AlignedVec::new());
 /// let value = Vector4(1f32, 2f32, 3f32, 4f32);
-/// let pos = serializer.serialize_value(&value)
-///     .expect("failed to archive Vector4");
+/// serializer.serialize_value(&value).expect("failed to archive Vector4");
 /// let buf = serializer.into_inner();
 /// let archived_value = unsafe { archived_root::<Vector4<f32>>(buf.as_ref()) };
 /// assert_eq!(&value, archived_value);
