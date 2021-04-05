@@ -54,20 +54,24 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         )
     }
 
-    /// Gets the hasher for this hashmap. The hasher for all archived hashmaps
-    /// is the same for reproducibility.
+    /// Gets the hasher for this hashmap. The hasher for all archived hashmaps is the same for
+    /// reproducibility.
+    #[inline]
     pub fn hasher(&self) -> seahash::SeaHasher {
         Self::make_hasher()
     }
 
+    #[inline]
     unsafe fn displace(&self, index: usize) -> u32 {
         *self.displace.as_ptr().cast::<u32>().add(index)
     }
 
+    #[inline]
     unsafe fn entry(&self, index: usize) -> &Entry<K, V> {
         &*self.entries.as_ptr().cast::<Entry<K, V>>().add(index)
     }
 
+    #[inline]
     unsafe fn entry_mut(&mut self, index: usize) -> &mut Entry<K, V> {
         &mut *self.entries.as_mut_ptr().cast::<Entry<K, V>>().add(index)
     }
@@ -226,7 +230,6 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         }
     }
 
-    #[inline]
     fn serialize_from_iter<
         'a,
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
@@ -352,6 +355,7 @@ struct RawIter<'a, K: Hash + Eq, V> {
 }
 
 impl<'a, K: Hash + Eq, V> RawIter<'a, K, V> {
+    #[inline]
     fn new(pairs: *const Entry<K, V>, len: usize) -> Self {
         Self {
             current: pairs,
@@ -394,6 +398,7 @@ struct RawIterPin<'a, K: Hash + Eq, V> {
 }
 
 impl<'a, K: Hash + Eq, V> RawIterPin<'a, K, V> {
+    #[inline]
     fn new(pairs: *mut Entry<K, V>, len: usize) -> Self {
         Self {
             current: pairs,
@@ -566,6 +571,7 @@ pub struct ArchivedHashMapResolver {
 }
 
 impl ArchivedHashMapResolver {
+    #[inline]
     fn resolve_from_len<K, V>(self, pos: usize, len: usize) -> ArchivedHashMap<K, V> {
         unsafe {
             ArchivedHashMap {
@@ -591,6 +597,7 @@ where
     type Archived = ArchivedHashMap<K::Archived, V::Archived>;
     type Resolver = ArchivedHashMapResolver;
 
+    #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
         resolver.resolve_from_len(pos, self.len())
     }
@@ -601,6 +608,7 @@ impl<K: Serialize<S> + Hash + Eq, V: Serialize<S>, S: Serializer + ?Sized> Seria
 where
     K::Archived: Hash + Eq,
 {
+    #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         ArchivedHashMap::serialize_from_iter(self.iter(), self.len(), serializer)
     }
@@ -612,6 +620,7 @@ where
     K::Archived: Deserialize<K, D> + Hash + Eq,
     V::Archived: Deserialize<V, D>,
 {
+    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<HashMap<K, V>, D::Error> {
         let mut result = HashMap::with_capacity(self.len());
         for (k, v) in self.iter() {
@@ -622,6 +631,7 @@ where
 }
 
 impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         if self.len() != other.len() {
             false
@@ -637,6 +647,7 @@ impl<K: Hash + Eq, V: Eq> Eq for ArchivedHashMap<K, V> {}
 impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>> PartialEq<HashMap<K, V>>
     for ArchivedHashMap<AK, AV>
 {
+    #[inline]
     fn eq(&self, other: &HashMap<K, V>) -> bool {
         if self.len() != other.len() {
             false
@@ -650,6 +661,7 @@ impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>> PartialEq<Ha
 impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>>
     PartialEq<ArchivedHashMap<AK, AV>> for HashMap<K, V>
 {
+    #[inline]
     fn eq(&self, other: &ArchivedHashMap<AK, AV>) -> bool {
         other.eq(self)
     }
@@ -658,13 +670,14 @@ impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>>
 impl<K: Eq + Hash + Borrow<Q>, Q: Eq + Hash + ?Sized, V> Index<&'_ Q> for ArchivedHashMap<K, V> {
     type Output = V;
 
+    #[inline]
     fn index(&self, key: &Q) -> &V {
         self.get(key).unwrap()
     }
 }
 
-/// An archived `HashSet`. This is a wrapper around a hash map with the same key
-/// and a value of `()`.
+/// An archived `HashSet`. This is a wrapper around a hash map with the same key and a value of
+/// `()`.
 #[derive(Eq, PartialEq)]
 #[repr(transparent)]
 pub struct ArchivedHashSet<K: Hash + Eq>(ArchivedHashMap<K, ()>);
@@ -725,6 +738,7 @@ where
     type Archived = ArchivedHashSet<K::Archived>;
     type Resolver = ArchivedHashSetResolver;
 
+    #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
         ArchivedHashSet(resolver.0.resolve_from_len(pos, self.len()))
     }
@@ -734,6 +748,7 @@ impl<K: Serialize<S> + Hash + Eq, S: Serializer + ?Sized> Serialize<S> for HashS
 where
     K::Archived: Hash + Eq,
 {
+    #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(ArchivedHashSetResolver(
             ArchivedHashMap::serialize_from_iter(
@@ -750,6 +765,7 @@ impl<K: Archive + Hash + Eq, D: Fallible + ?Sized> Deserialize<HashSet<K>, D>
 where
     K::Archived: Deserialize<K, D> + Hash + Eq,
 {
+    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<HashSet<K>, D::Error> {
         let mut result = HashSet::new();
         for k in self.iter() {

@@ -42,7 +42,7 @@ impl<T: Error + 'static> Error for ArchivedOptionError<T> {
 
 impl<T> From<Unreachable> for ArchivedOptionError<T> {
     fn from(_: Unreachable) -> Self {
-        unreachable!();
+        unsafe { core::hint::unreachable_unchecked() }
     }
 }
 
@@ -80,6 +80,7 @@ impl<C: ?Sized, T: CheckBytes<C>> CheckBytes<C> for ArchivedOption<T> {
 impl<C: ?Sized, T: CheckBytes<C>> CheckBytes<C> for ArchivedRange<T> {
     type Error = StructCheckError;
 
+    #[inline]
     unsafe fn check_bytes<'a>(
         value: *const Self,
         context: &mut C,
@@ -106,6 +107,7 @@ impl<C: ?Sized, T: CheckBytes<C>> CheckBytes<C> for ArchivedRange<T> {
 impl<C: ?Sized, T: CheckBytes<C>> CheckBytes<C> for ArchivedRangeInclusive<T> {
     type Error = StructCheckError;
 
+    #[inline]
     unsafe fn check_bytes<'a>(
         value: *const Self,
         context: &mut C,

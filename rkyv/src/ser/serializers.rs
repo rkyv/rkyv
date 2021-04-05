@@ -10,15 +10,15 @@ use std::io;
 
 /// Wraps a byte buffer and equips it with [`Serializer`].
 ///
-/// Common uses include archiving in `#![no_std]` environments and archiving
-/// small objects without allocating.
+/// Common uses include archiving in `#![no_std]` environments and archiving small objects without
+/// allocating.
 ///
 /// ## Examples
 /// ```
 /// use rkyv::{
-///     archived_value,
-///     ser::{Serializer, serializers::BufferSerializer},
-///     Aligned,
+///     archived_root,
+///     ser::{Serializer, serializers::WriteSerializer},
+///     AlignedVec,
 ///     Archive,
 ///     Archived,
 ///     Serialize,
@@ -31,11 +31,11 @@ use std::io;
 ///     Die,
 /// }
 ///
-/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-/// let pos = serializer.serialize_value(&Event::Speak("Help me!".to_string()))
+/// let mut serializer = WriteSerializer::new(AlignedVec::new());
+/// serializer.serialize_value(&Event::Speak("Help me!".to_string()))
 ///     .expect("failed to archive event");
 /// let buf = serializer.into_inner();
-/// let archived = unsafe { archived_value::<Event>(buf.as_ref(), pos) };
+/// let archived = unsafe { archived_root::<Event>(buf.as_ref()) };
 /// if let Archived::<Event>::Speak(message) = archived {
 ///     assert_eq!(message.as_str(), "Help me!");
 /// } else {
@@ -49,18 +49,21 @@ pub struct BufferSerializer<T> {
 
 impl<T> BufferSerializer<T> {
     /// Creates a new archive buffer from a byte buffer.
+    #[inline]
     pub fn new(inner: T) -> Self {
         Self::with_pos(inner, 0)
     }
 
-    /// Creates a new archive buffer from a byte buffer. The buffer will start
-    /// writing at the given position, but the buffer must contain all bytes
-    /// (otherwise the alignments of types may not be correct).
+    /// Creates a new archive buffer from a byte buffer. The buffer will start writing at the given
+    /// position, but the buffer must contain all bytes (otherwise the alignments of types may not
+    /// be correct).
+    #[inline]
     pub fn with_pos(inner: T, pos: usize) -> Self {
         Self { inner, pos }
     }
 
     /// Consumes the buffer and returns the internal buffer used to create it.
+    #[inline]
     pub fn into_inner(self) -> T {
         self.inner
     }
@@ -87,6 +90,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Fallible for BufferSerializer<T> {
 }
 
 impl<T: AsRef<[u8]> + AsMut<[u8]>> Serializer for BufferSerializer<T> {
+    #[inline]
     fn pos(&self) -> usize {
         self.pos
     }
@@ -144,8 +148,7 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> SeekSerializer for BufferSerializer<T> {
     }
 }
 
-/// Wraps a type that implements [`io::Write`](std::io::Write) and equips it
-/// with [`Serializer`].
+/// Wraps a type that implements [`io::Write`](std::io::Write) and equips it with [`Serializer`].
 ///
 /// ## Examples
 /// ```
@@ -168,18 +171,20 @@ pub struct WriteSerializer<W: io::Write> {
 #[cfg(feature = "std")]
 impl<W: io::Write> WriteSerializer<W> {
     /// Creates a new serializer from a writer.
+    #[inline]
     pub fn new(inner: W) -> Self {
         Self::with_pos(inner, 0)
     }
 
-    /// Creates a new serializer from a writer, and assumes that the underlying
-    /// writer is currently at the given position.
+    /// Creates a new serializer from a writer, and assumes that the underlying writer is currently
+    /// at the given position.
+    #[inline]
     pub fn with_pos(inner: W, pos: usize) -> Self {
         Self { inner, pos }
     }
 
-    /// Consumes the serializer and returns the internal writer used to create
-    /// it.
+    /// Consumes the serializer and returns the internal writer used to create it.
+    #[inline]
     pub fn into_inner(self) -> W {
         self.inner
     }
@@ -192,10 +197,12 @@ impl<W: io::Write> Fallible for WriteSerializer<W> {
 
 #[cfg(feature = "std")]
 impl<W: io::Write> Serializer for WriteSerializer<W> {
+    #[inline]
     fn pos(&self) -> usize {
         self.pos
     }
 
+    #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
         self.pos += self.inner.write(bytes)?;
         Ok(())
@@ -204,6 +211,7 @@ impl<W: io::Write> Serializer for WriteSerializer<W> {
 
 #[cfg(feature = "std")]
 impl<W: io::Write + io::Seek> SeekSerializer for WriteSerializer<W> {
+    #[inline]
     fn seek(&mut self, offset: usize) -> Result<(), Self::Error> {
         self.inner.seek(io::SeekFrom::Start(offset as u64))?;
         self.pos = offset;

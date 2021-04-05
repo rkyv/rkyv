@@ -23,7 +23,7 @@ pub trait DynContext {
     ///
     /// # Safety
     ///
-    /// The base pointer must be inside the archive for this context.
+    /// The caller must guarantee that the base pointer is inside the archive for this context.
     unsafe fn check_rel_ptr_dyn(
         &mut self,
         base: *const u8,
@@ -34,7 +34,7 @@ pub trait DynContext {
     ///
     /// # Safety
     ///
-    /// The pointer must be inside the archive for this context.
+    /// The caller must guarantee that the pointer is inside the archive for this context.
     unsafe fn bounds_check_ptr_dyn(
         &mut self,
         ptr: *const u8,
@@ -45,7 +45,7 @@ pub trait DynContext {
     ///
     /// # Safety
     ///
-    /// `base` must be inside the archive this context was created for.
+    /// The caller must guarantee that `base` is inside the archive this context was created for.
     unsafe fn claim_bytes_dyn(
         &mut self,
         start: *const u8,
@@ -58,7 +58,7 @@ pub trait DynContext {
     ///
     /// # Safety
     ///
-    /// `base` must be inside the archive this context was created for.
+    /// The caller must guarantee that `base` is inside the archive this context was created for.
     unsafe fn claim_shared_bytes_dyn(
         &mut self,
         start: *const u8,
@@ -163,8 +163,7 @@ impl Error for CheckBytesUnimplemented {}
 
 type CheckBytesDyn = unsafe fn(*const u8, &mut dyn DynContext) -> Result<(), Box<dyn Error>>;
 
-// This is the fallback function that gets called if the archived type doesn't
-// implement CheckBytes.
+// This is the fallback function that gets called if the archived type doesn't implement CheckBytes.
 unsafe fn check_bytes_dyn_unimplemented(
     _bytes: *const u8,
     _context: &mut dyn DynContext,
@@ -250,7 +249,7 @@ impl Error for DynMetadataError {}
 
 impl From<Unreachable> for DynMetadataError {
     fn from(_: Unreachable) -> Self {
-        unreachable!();
+        unsafe { core::hint::unreachable_unchecked() }
     }
 }
 

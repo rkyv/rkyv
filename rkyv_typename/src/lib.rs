@@ -1,11 +1,10 @@
 //! Type names for rkyv_dyn.
 //!
-//! The goal of `TypeName` is to avoid allocations if possible. If all you need
-//! is the hash of a type name, then there's no reason to allocate a string to
-//! do it.
+//! The goal of `TypeName` is to avoid allocations if possible. If all you need is the hash of a
+//! type name, then there's no reason to allocate a string to do it.
 //!
-//! rkyv_typename provides a derive macro to easily implement [`TypeName`], and
-//! has options to easily customize your type's name.
+//! rkyv_typename provides a derive macro to easily implement [`TypeName`], and has options to
+//! easily customize your type's name.
 //!
 //! ## Examples
 //!
@@ -22,10 +21,9 @@
 //!
 //! ## Features
 //!
-//! - `const_generics`: Uses the unstable `min_const_generics` feature to
-//!   implement array type names.
-//! - `std`: Implements [`TypeName`] for standard library types (enabled by
-//!   default)
+//! - `const_generics`: Uses the unstable `min_const_generics` feature to implement array type names
+//!   (enabled by default)
+//! - `std`: Implements [`TypeName`] for standard library types (enabled by default)
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -37,17 +35,17 @@ pub use rkyv_typename_derive::TypeName;
 
 /// Builds a name for a type.
 ///
-/// An implementation can be derived automatically with `#[derive(TypeName)]`.
-/// See [TypeName](macro@TypeName) for more details.
+/// An implementation can be derived automatically with `#[derive(TypeName)]`. See
+/// [TypeName](macro@TypeName) for more details.
 ///
-/// Names cannot be guaranteed to be unique and although they are usually
-/// suitable to use as keys, precautions should be taken to ensure that if name
-/// collisions happen that they are detected and fixable.
+/// Names cannot be guaranteed to be unique and although they are usually suitable to use as keys,
+/// precautions should be taken to ensure that if name collisions happen that they are detected and
+/// fixable.
 ///
 /// ## Examples
 ///
-/// Most of the time, `#[derive(TypeName)]` will suit your needs. However, if
-/// you need more control, you can always implement it manually:
+/// Most of the time, `#[derive(TypeName)]` will suit your needs. However, if you need more control,
+/// you can always implement it manually:
 ///
 /// ```
 /// use rkyv_typename::TypeName;

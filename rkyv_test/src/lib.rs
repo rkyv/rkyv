@@ -6,7 +6,7 @@ mod validation;
 #[cfg(test)]
 mod util {
     use rkyv::{
-        archived_unsized_value, archived_value,
+        archived_root, archived_unsized_root,
         ser::{serializers::BufferSerializer, Serializer},
         Aligned, Deserialize, Serialize, SerializeUnsized,
     };
@@ -39,7 +39,7 @@ mod util {
     pub fn make_default_deserializer() -> DefaultDeserializer {
         SharedDeserializerAdapter::new(AllocDeserializer)
     }
-    
+
     #[cfg(not(feature = "std"))]
     pub type DefaultSerializer = BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>;
 
@@ -72,11 +72,12 @@ mod util {
         T::Archived: PartialEq<T> + Deserialize<T, DefaultDeserializer>,
     {
         let mut serializer = make_default_serializer();
-        let pos = serializer
+        serializer
             .serialize_value(value)
             .expect("failed to archive value");
+        let len = serializer.pos();
         let buf = unwrap_default_serializer(serializer);
-        let archived_value = unsafe { archived_value::<T>(buf.as_ref(), pos) };
+        let archived_value = unsafe { archived_root::<T>(&buf.as_ref()[0..len]) };
         assert!(archived_value == value);
         let mut deserializer = make_default_deserializer();
         assert!(&archived_value.deserialize(&mut deserializer).unwrap() == value);
@@ -87,11 +88,12 @@ mod util {
         T::Archived: PartialEq<T>,
     {
         let mut serializer = make_default_serializer();
-        let pos = serializer
+        serializer
             .serialize_unsized_value(value)
             .expect("failed to archive ref");
+        let len = serializer.pos();
         let buf = unwrap_default_serializer(serializer);
-        let archived_ref = unsafe { archived_unsized_value::<T>(buf.as_ref(), pos) };
+        let archived_ref = unsafe { archived_unsized_root::<T>(&buf.as_ref()[0..len]) };
         assert!(archived_ref == value);
     }
 
@@ -105,11 +107,12 @@ mod util {
         value: &T,
     ) {
         let mut serializer = make_default_serializer();
-        let pos = serializer
+        serializer
             .serialize_value(value)
             .expect("failed to archive ref");
+        let len = serializer.pos();
         let buf = unwrap_default_serializer(serializer);
-        let archived_ref = unsafe { archived_value::<T>(buf.as_ref(), pos) };
+        let archived_ref = unsafe { archived_root::<T>(&buf.as_ref()[0..len]) };
         assert!(archived_ref.deref() == value.deref());
     }
 }
@@ -167,27 +170,15 @@ mod tests {
     use crate::util::*;
     use core::pin::Pin;
     use rkyv::{
-        Aligned,
-        Archive,
-        ArchiveUnsized,
-        Archived,
-        Deserialize,
-        DeserializeUnsized,
-        Serialize,
-        SerializeUnsized,
-        archived_value,
-        archived_value_mut,
-        de::{
-            adapters::SharedDeserializerAdapter,
-            deserializers::AllocDeserializer,
-            Deserializer,
-        },
+        archived_root, archived_root_mut,
+        de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer, Deserializer},
         ser::{
-            SeekSerializer,
-            Serializer,
             adapters::SharedSerializerAdapter,
-            serializers::BufferSerializer,
+            serializers::{BufferSerializer, WriteSerializer},
+            SeekSerializer, Serializer,
         },
+        AlignedVec, Archive, ArchiveUnsized, Archived, Deserialize, DeserializeUnsized, Serialize,
+        SerializeUnsized,
     };
 
     #[test]
@@ -217,16 +208,10 @@ mod tests {
         #[test]
         fn archive_example() {
             use rkyv::{
-                archived_value,
+                archived_root,
                 de::deserializers::AllocDeserializer,
-                ser::{
-                    serializers::WriteSerializer,
-                    Serializer,
-                },
-                AlignedVec,
-                Archive,
-                Serialize,
-                Deserialize,
+                ser::{serializers::WriteSerializer, Serializer},
+                AlignedVec, Archive, Deserialize, Serialize,
             };
 
             #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
@@ -243,21 +228,24 @@ mod tests {
             };
 
             let mut serializer = WriteSerializer::new(AlignedVec::new());
-            let pos = serializer.serialize_value(&value).expect("failed to serialize value");
+            serializer
+                .serialize_value(&value)
+                .expect("failed to serialize value");
             let buf = serializer.into_inner();
 
-            let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+            let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
             assert_eq!(archived.int, value.int);
             assert_eq!(archived.string, value.string);
             assert_eq!(archived.option, value.option);
 
             let mut deserializer = AllocDeserializer;
-            let deserialized = archived.deserialize(&mut deserializer).expect("failed to deserialize value");
+            let deserialized = archived
+                .deserialize(&mut deserializer)
+                .expect("failed to deserialize value");
             assert_eq!(deserialized, value);
         }
     }
 
-    #[cfg(feature = "std")]
     #[test]
     fn archive_hash_map() {
         use std::collections::HashMap;
@@ -277,13 +265,12 @@ mod tests {
         hash_map.insert("foo".to_string(), "bar".to_string());
         hash_map.insert("baz".to_string(), "bat".to_string());
 
-        let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer
+        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        serializer
             .serialize_value(&hash_map)
             .expect("failed to archive value");
         let buf = serializer.into_inner();
-        let archived_value =
-            unsafe { archived_value::<HashMap<String, String>>(buf.as_ref(), pos) };
+        let archived_value = unsafe { archived_root::<HashMap<String, String>>(buf.as_ref()) };
 
         assert!(archived_value.len() == hash_map.len());
 
@@ -301,13 +288,8 @@ mod tests {
     #[test]
     fn archive_unit_struct() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct Test;
-
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, _other: &Test) -> bool {
-                true
-            }
-        }
 
         test_archive(&Test);
         test_archive(&vec![Test, Test]);
@@ -316,13 +298,8 @@ mod tests {
     #[test]
     fn archive_tuple_struct() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct Test((), i32, String, Option<i32>);
-
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, other: &Test) -> bool {
-                self.0 == other.0 && self.1 == other.1 && self.2 == other.2 && self.3 == other.3
-            }
-        }
 
         test_archive(&Test((), 42, "hello world".to_string(), Some(42)));
     }
@@ -330,17 +307,12 @@ mod tests {
     #[test]
     fn archive_simple_struct() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct Test {
             a: (),
             b: i32,
             c: String,
             d: Option<i32>,
-        }
-
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, other: &Test) -> bool {
-                self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
-            }
         }
 
         test_archive(&Test {
@@ -376,21 +348,12 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct Test<T: TestTrait> {
             a: (),
             b: <T as TestTrait>::Associated,
             c: String,
             d: Option<i32>,
-        }
-
-        impl<T: TestTrait> PartialEq<Test<T>> for Archived<Test<T>>
-        where
-            <T as TestTrait>::Associated: Archive,
-            Archived<<T as TestTrait>::Associated>: PartialEq<<T as TestTrait>::Associated>,
-        {
-            fn eq(&self, other: &Test<T>) -> bool {
-                self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
-            }
         }
 
         test_archive(&Test::<()> {
@@ -418,38 +381,11 @@ mod tests {
     #[test]
     fn archive_enum() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         enum Test {
             A,
             B(String),
             C { a: i32, b: String },
-        }
-
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, other: &Test) -> bool {
-                match self {
-                    Self::A => {
-                        if let Test::A = other {
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                    Self::B(self_value) => {
-                        if let Test::B(other_value) = other {
-                            self_value == other_value
-                        } else {
-                            false
-                        }
-                    }
-                    Self::C { a, b } => {
-                        if let Test::C { a: _a, b: _b } = other {
-                            a == _a && b == _b
-                        } else {
-                            false
-                        }
-                    }
-                }
-            }
         }
 
         test_archive(&Test::A);
@@ -479,6 +415,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         enum Test<T: TestTrait> {
             A,
             B(String),
@@ -486,38 +423,6 @@ mod tests {
                 a: <T as TestTrait>::Associated,
                 b: String,
             },
-        }
-
-        impl<T: TestTrait> PartialEq<Test<T>> for Archived<Test<T>>
-        where
-            <T as TestTrait>::Associated: Archive,
-            Archived<<T as TestTrait>::Associated>: PartialEq<<T as TestTrait>::Associated>,
-        {
-            fn eq(&self, other: &Test<T>) -> bool {
-                match self {
-                    Self::A => {
-                        if let Test::A = other {
-                            true
-                        } else {
-                            false
-                        }
-                    }
-                    Self::B(self_value) => {
-                        if let Test::B(other_value) = other {
-                            self_value == other_value
-                        } else {
-                            false
-                        }
-                    }
-                    Self::C { a, b } => {
-                        if let Test::C { a: _a, b: _b } = other {
-                            a == _a && b == _b
-                        } else {
-                            false
-                        }
-                    }
-                }
-            }
         }
 
         test_archive(&Test::<()>::A);
@@ -592,12 +497,12 @@ mod tests {
 
         let value = Test(42);
 
-        let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer
+        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        serializer
             .serialize_value(&value)
             .expect("failed to archive value");
         let buf = serializer.into_inner();
-        let archived_value = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        let archived_value = unsafe { archived_root::<Test>(buf.as_ref()) };
 
         assert_eq!(archived_value, &archived_value.clone());
     }
@@ -690,7 +595,6 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        // TODO: archive parameter to set typename
         #[archive(derive(TypeName))]
         pub struct Test {
             id: i32,
@@ -739,13 +643,12 @@ mod tests {
 
         let value: Box<dyn SerializeTestTrait> = Box::new(Test { id: 42 });
 
-        let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer
+        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        serializer
             .serialize_value(&value)
             .expect("failed to archive value");
         let buf = serializer.into_inner();
-        let archived_value =
-            unsafe { archived_value::<Box<dyn SerializeTestTrait>>(buf.as_ref(), pos) };
+        let archived_value = unsafe { archived_root::<Box<dyn SerializeTestTrait>>(buf.as_ref()) };
         assert_eq!(value.get_id(), archived_value.get_id());
 
         // exercise vtable cache
@@ -759,6 +662,7 @@ mod tests {
 
     #[test]
     fn archive_dyn() {
+        use rkyv::AlignedVec;
         use rkyv_dyn::archive_dyn;
         use rkyv_typename::TypeName;
 
@@ -788,12 +692,12 @@ mod tests {
 
         let value: Box<dyn STestTrait> = Box::new(Test { id: 42 });
 
-        let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer
+        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        serializer
             .serialize_value(&value)
             .expect("failed to archive value");
         let buf = serializer.into_inner();
-        let archived_value = unsafe { archived_value::<Box<dyn STestTrait>>(buf.as_ref(), pos) };
+        let archived_value = unsafe { archived_root::<Box<dyn STestTrait>>(buf.as_ref()) };
         assert_eq!(value.get_id(), archived_value.get_id());
 
         // exercise vtable cache
@@ -809,6 +713,7 @@ mod tests {
 
     #[test]
     fn archive_dyn_generic() {
+        use rkyv::archived_value;
         use rkyv_dyn::archive_dyn;
         use rkyv_typename::TypeName;
 
@@ -894,7 +799,7 @@ mod tests {
             value: "hello world".to_string(),
         });
 
-        let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
+        let mut serializer = WriteSerializer::new(AlignedVec::new());
         let i32_pos = serializer
             .serialize_value(&i32_value)
             .expect("failed to archive value");
@@ -970,10 +875,10 @@ mod tests {
 
     #[test]
     fn basic_mutable_refs() {
-        let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-        let pos = serializer.serialize_value(&42i32).unwrap();
+        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&42i32).unwrap();
         let mut buf = serializer.into_inner();
-        let mut value = unsafe { archived_value_mut::<i32>(Pin::new(buf.as_mut()), pos) };
+        let mut value = unsafe { archived_root_mut::<i32>(Pin::new(buf.as_mut())) };
         assert_eq!(*value, 42);
         *value = 11;
         assert_eq!(*value, 11);
@@ -1013,10 +918,10 @@ mod tests {
         value.c.insert(1, [4, 2]);
         value.c.insert(5, [17, 24]);
 
-        let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-        let pos = serializer.serialize_value(&value).unwrap();
+        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
         let mut buf = serializer.into_inner();
-        let mut value = unsafe { archived_value_mut::<Test>(Pin::new(buf.as_mut()), pos) };
+        let mut value = unsafe { archived_root_mut::<Test>(Pin::new(buf.as_mut())) };
 
         assert_eq!(*value.a, 10);
         assert_eq!(value.b.len(), 2);
@@ -1066,10 +971,10 @@ mod tests {
 
         let value = Test::A;
 
-        let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-        let pos = serializer.serialize_value(&value).unwrap();
+        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
         let mut buf = serializer.into_inner();
-        let mut value = unsafe { archived_value_mut::<Test>(Pin::new(buf.as_mut()), pos) };
+        let mut value = unsafe { archived_root_mut::<Test>(Pin::new(buf.as_mut())) };
 
         if let Archived::<Test>::A = *value {
             ()
@@ -1128,12 +1033,11 @@ mod tests {
 
         let value = Box::new(Test(10)) as Box<dyn SerializeTestTrait>;
 
-        let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
-        let pos = serializer.serialize_value(&value).unwrap();
+        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
         let mut buf = serializer.into_inner();
-        let mut value = unsafe {
-            archived_value_mut::<Box<dyn SerializeTestTrait>>(Pin::new(buf.as_mut()), pos)
-        };
+        let mut value =
+            unsafe { archived_root_mut::<Box<dyn SerializeTestTrait>>(Pin::new(buf.as_mut())) };
 
         assert_eq!(value.value(), 10);
         value.as_mut().get_pin().set_value(64);
@@ -1142,46 +1046,14 @@ mod tests {
 
     #[test]
     fn recursive_structures() {
-        #[derive(Archive, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
+        // The derive macros don't apply the right bounds from Box so we have to manually specify
+        // what bounds to apply
+        #[archive(bound(serialize = "__S: Serializer", deserialize = "__D: Deserializer"))]
         enum Node {
             Nil,
-            Cons(#[recursive] Box<Node>),
-        }
-
-        // Right now the derive macros don't apply the right bounds from Box so
-        // we have to implement it manually. Luckily it's not too bad, but
-        // hopefully in the future there's a better way to do this.
-        impl<S: Serializer + ?Sized> Serialize<S> for Node {
-            fn serialize(&self, serializer: &mut S) -> Result<NodeResolver, S::Error> {
-                Ok(match self {
-                    Node::Nil => NodeResolver::Nil,
-                    Node::Cons(inner) => NodeResolver::Cons(inner.serialize(serializer)?),
-                })
-            }
-        }
-
-        impl<D: Deserializer + ?Sized> Deserialize<Node, D> for ArchivedNode {
-            fn deserialize(&self, deserializer: &mut D) -> Result<Node, D::Error> {
-                Ok(match self {
-                    ArchivedNode::Nil => Node::Nil,
-                    ArchivedNode::Cons(inner) => Node::Cons(inner.deserialize(deserializer)?),
-                })
-            }
-        }
-
-        impl PartialEq<Node> for Archived<Node> {
-            fn eq(&self, other: &Node) -> bool {
-                match self {
-                    Archived::<Node>::Nil => match other {
-                        Node::Nil => true,
-                        _ => false,
-                    },
-                    Archived::<Node>::Cons(ar_inner) => match other {
-                        Node::Cons(inner) => ar_inner == inner,
-                        _ => false,
-                    },
-                }
-            }
+            Cons(#[omit_bounds] Box<Node>),
         }
 
         test_archive(&Node::Cons(Box::new(Node::Cons(Box::new(Node::Nil)))));
@@ -1189,18 +1061,15 @@ mod tests {
 
     #[test]
     fn archive_root() {
+        use rkyv::{archived_value, Aligned};
+
         #[derive(Archive, Serialize)]
+        #[archive(compare(PartialEq))]
         struct Test {
             a: (),
             b: i32,
             c: String,
             d: Option<i32>,
-        }
-
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, other: &Test) -> bool {
-                self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
-            }
         }
 
         let value = Test {
@@ -1210,13 +1079,17 @@ mod tests {
             d: Some(42),
         };
 
+        // FIXME: A `BufferSerializer` is used here because `Seek` is required. For most purposes,
+        // we should use a `Vec` and wrap it in a `Cursor` to get `Seek`. In this case,
+        // `Cursor<AlignedVec>` can't implement `Write` because it's not implemented in this crate
+        // so we use a buffer serializer instead.
         let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = serializer
-            .archive_root(&value)
+            .serialize_front(&value)
             .expect("failed to archive value");
         assert_eq!(pos, 0);
         let buf = serializer.into_inner();
-        let archived_value = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        let archived_value = unsafe { archived_value::<Test>(buf.as_ref(), 0) };
         assert!(*archived_value == value);
     }
 
@@ -1243,6 +1116,7 @@ mod tests {
             }
         }
 
+        // Can't derive PartialEq automatically because AtomicU32 doesn't implement PartialEq
         impl PartialEq<Test> for Archived<Test> {
             fn eq(&self, other: &Test) -> bool {
                 self.a.load(Ordering::Relaxed) == other.a.load(Ordering::Relaxed)
@@ -1265,6 +1139,7 @@ mod tests {
         use std::rc::Rc;
 
         #[derive(Archive, Deserialize, Serialize, Eq, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct Test {
             a: Rc<u32>,
             b: Rc<u32>,
@@ -1280,45 +1155,38 @@ mod tests {
             }
         }
 
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, other: &Test) -> bool {
-                *self.a == *other.a && *self.b == *other.b
-            }
-        }
-
         let shared = Rc::new(10);
         let value = Test {
             a: shared.clone(),
             b: shared.clone(),
         };
 
-        let mut serializer =
-            SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer
+        let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(AlignedVec::new()));
+        serializer
             .serialize_value(&value)
             .expect("failed to archive value");
         let mut buf = serializer.into_inner().into_inner();
 
-        let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
         assert!(archived == &value);
 
         let mut mutable_archived =
-            unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
+            unsafe { archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut())) };
         unsafe {
             *mutable_archived.as_mut().a().get_pin_unchecked() = 42;
         }
 
-        let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
         assert_eq!(*archived.a, 42);
         assert_eq!(*archived.b, 42);
 
         let mut mutable_archived =
-            unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
+            unsafe { archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut())) };
         unsafe {
             *mutable_archived.as_mut().b().get_pin_unchecked() = 17;
         }
 
-        let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
         assert_eq!(*archived.a, 17);
         assert_eq!(*archived.b, 17);
 
@@ -1355,15 +1223,10 @@ mod tests {
         use std::rc::Rc;
 
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct Test {
             a: Rc<[String]>,
             b: Rc<[String]>,
-        }
-
-        impl PartialEq<Test> for Archived<Test> {
-            fn eq(&self, other: &Test) -> bool {
-                *self.a == *other.a && *self.b == *other.b
-            }
         }
 
         let rc_slice =
@@ -1402,31 +1265,30 @@ mod tests {
             b: Rc::downgrade(&shared),
         };
 
-        let mut serializer =
-            SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
-        let pos = serializer
+        let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(AlignedVec::new()));
+        serializer
             .serialize_value(&value)
             .expect("failed to archive value");
         let mut buf = serializer.into_inner().into_inner();
 
-        let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
         assert_eq!(*archived.a, 10);
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 10);
 
         let mut mutable_archived =
-            unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
+            unsafe { archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut())) };
         unsafe {
             *mutable_archived.as_mut().a().get_pin_unchecked() = 42;
         }
 
-        let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
         assert_eq!(*archived.a, 42);
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 42);
 
         let mut mutable_archived =
-            unsafe { archived_value_mut::<Test>(Pin::new_unchecked(buf.as_mut()), pos) };
+            unsafe { archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut())) };
         unsafe {
             *mutable_archived
                 .as_mut()
@@ -1436,7 +1298,7 @@ mod tests {
                 .get_pin_unchecked() = 17;
         }
 
-        let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
+        let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
         assert_eq!(*archived.a, 17);
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 17);
@@ -1476,7 +1338,7 @@ mod tests {
         use rkyv::Fallible;
 
         #[derive(Archive, PartialEq)]
-        #[archive(archived = "ATest", resolver = "RTest")]
+        #[archive(archived = "ATest", resolver = "RTest", compare(PartialEq))]
         struct Test {
             a: i32,
             b: Option<u32>,
@@ -1518,12 +1380,6 @@ mod tests {
             }
         }
 
-        impl PartialEq<Test> for ATest {
-            fn eq(&self, other: &Test) -> bool {
-                self.a == other.a && self.b == other.b && self.c == other.c && self.d == other.d
-            }
-        }
-
         let value = Test {
             a: 42,
             b: Some(12),
@@ -1532,5 +1388,46 @@ mod tests {
         };
 
         test_archive(&value);
+    }
+
+    #[test]
+    fn compare() {
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq, PartialOrd))]
+        pub struct UnitFoo;
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq, PartialOrd))]
+        pub struct TupleFoo(i32);
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq, PartialOrd))]
+        pub struct StructFoo {
+            t: i32,
+        }
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq, PartialOrd))]
+        pub enum EnumFoo {
+            #[allow(dead_code)]
+            Foo(i32),
+        }
+    }
+
+    #[test]
+    fn default_type_parameters() {
+        #[derive(Archive, Serialize, Deserialize)]
+        pub struct TupleFoo<T = i32>(T);
+
+        #[derive(Archive, Serialize, Deserialize)]
+        pub struct StructFoo<T = i32> {
+            t: T,
+        }
+
+        #[derive(Archive, Serialize, Deserialize)]
+        pub enum EnumFoo<T = i32> {
+            #[allow(dead_code)]
+            T(T),
+        }
     }
 }

@@ -82,7 +82,7 @@ impl<T: Error + 'static, R: Error + 'static, C: Error + 'static> Error
 
 impl<T, R, C> From<Unreachable> for WeakPointerError<T, R, C> {
     fn from(_: Unreachable) -> Self {
-        unreachable!();
+        unsafe { core::hint::unreachable_unchecked() }
     }
 }
 

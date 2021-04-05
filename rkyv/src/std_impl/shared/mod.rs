@@ -15,6 +15,7 @@ use crate::{
 };
 
 impl<T: ?Sized> SharedPointer for rc::Rc<T> {
+    #[inline]
     fn data_address(&self) -> *const () {
         rc::Rc::as_ptr(self) as *const ()
     }
@@ -37,7 +38,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedRc<T> {
     ///
     /// # Safety
     ///
-    /// Any other `ArchivedRc` pointers to the same value must not be
+    /// The caller must guarantee that any other `ArchivedRc` pointers to the same value are not
     /// dereferenced for the duration of the returned borrow.
     pub unsafe fn get_pin_unchecked(self: Pin<&mut Self>) -> Pin<&mut T> {
         self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr())
@@ -47,12 +48,14 @@ impl<T: ArchivePointee + ?Sized> ArchivedRc<T> {
 impl<T: ArchivePointee + ?Sized> Deref for ArchivedRc<T> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         unsafe { &*self.0.as_ptr() }
     }
 }
 
 impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<rc::Rc<U>> for ArchivedRc<T> {
+    #[inline]
     fn eq(&self, other: &rc::Rc<U>) -> bool {
         self.deref().eq(other.deref())
     }
@@ -62,6 +65,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
     type Archived = ArchivedRc<T::Archived>;
     type Resolver = RcResolver<T::MetadataResolver>;
 
+    #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
         unsafe {
             ArchivedRc(
@@ -75,9 +79,10 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
 impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S>
     for rc::Rc<T>
 {
+    #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(RcResolver {
-            pos: serializer.archive_shared(self.deref())?,
+            pos: serializer.serialize_shared(self.deref())?,
             metadata_resolver: self.deref().serialize_metadata(serializer)?,
         })
     }
@@ -88,6 +93,7 @@ impl<T: ArchiveUnsized + ?Sized + 'static, D: SharedDeserializer + ?Sized> Deser
 where
     T::Archived: DeserializeUnsized<T, D>,
 {
+    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<rc::Rc<T>, D::Error> {
         let raw_shared_ptr = deserializer
             .deserialize_shared::<T, rc::Rc<T>, _>(self.deref(), |ptr| {
@@ -130,6 +136,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedRcWeak<T> {
     /// Attempts to upgrade the weak pointer to an `ArchivedArc`.
     ///
     /// Returns `None` if a null weak pointer was serialized.
+    #[inline]
     pub fn upgrade(&self) -> Option<&ArchivedRc<T>> {
         match self {
             ArchivedRcWeak::None => None,
@@ -138,6 +145,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedRcWeak<T> {
     }
 
     /// Attempts to upgrade a pinned mutable weak pointer.
+    #[inline]
     pub fn upgrade_pin(self: Pin<&mut Self>) -> Option<Pin<&mut ArchivedRc<T>>> {
         unsafe {
             match self.get_unchecked_mut() {
@@ -152,6 +160,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
     type Archived = ArchivedRcWeak<T::Archived>;
     type Resolver = RcWeakResolver<T::MetadataResolver>;
 
+    #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
         match resolver {
             RcWeakResolver::None => ArchivedRcWeak::None,
@@ -168,6 +177,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
 impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S>
     for rc::Weak<T>
 {
+    #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(match self.upgrade() {
             None => RcWeakResolver::None,
@@ -183,6 +193,7 @@ impl<T: Archive + 'static, D: SharedDeserializer + ?Sized> Deserialize<rc::Weak<
 where
     T::Archived: DeserializeUnsized<T, D>,
 {
+    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<rc::Weak<T>, D::Error> {
         Ok(match self {
             ArchivedRcWeak::None => rc::Weak::new(),
@@ -192,6 +203,7 @@ where
 }
 
 impl<T: ?Sized> SharedPointer for sync::Arc<T> {
+    #[inline]
     fn data_address(&self) -> *const () {
         sync::Arc::as_ptr(self) as *const ()
     }
@@ -214,8 +226,9 @@ impl<T: ArchivePointee + ?Sized> ArchivedArc<T> {
     ///
     /// # Safety
     ///
-    /// Any other `ArchivedArc` pointers to the same value must not be
+    /// The caller must guarantee that any other `ArchivedArc` pointers to the same value are not
     /// dereferenced for the duration of the returned borrow.
+    #[inline]
     pub unsafe fn get_pin_unchecked(self: Pin<&mut Self>) -> Pin<&mut T> {
         self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr())
     }
@@ -224,6 +237,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedArc<T> {
 impl<T: ArchivePointee + ?Sized> Deref for ArchivedArc<T> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         unsafe { &*self.0.as_ptr() }
     }
@@ -232,6 +246,7 @@ impl<T: ArchivePointee + ?Sized> Deref for ArchivedArc<T> {
 impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<sync::Arc<U>>
     for ArchivedArc<T>
 {
+    #[inline]
     fn eq(&self, other: &sync::Arc<U>) -> bool {
         self.deref().eq(other.deref())
     }
@@ -241,6 +256,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     type Archived = ArchivedArc<T::Archived>;
     type Resolver = ArcResolver<T::MetadataResolver>;
 
+    #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
         unsafe {
             ArchivedArc(self.as_ref().resolve_unsized(
@@ -255,9 +271,10 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
 impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S>
     for sync::Arc<T>
 {
+    #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(ArcResolver {
-            pos: serializer.archive_shared(self.deref())?,
+            pos: serializer.serialize_shared(self.deref())?,
             metadata_resolver: self.deref().serialize_metadata(serializer)?,
         })
     }
@@ -268,6 +285,7 @@ impl<T: ArchiveUnsized + ?Sized + 'static, D: SharedDeserializer + ?Sized>
 where
     T::Archived: DeserializeUnsized<T, D>,
 {
+    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<sync::Arc<T>, D::Error> {
         let raw_shared_ptr = deserializer.deserialize_shared(self.deref(), |ptr| {
             sync::Arc::<T>::from(unsafe { Box::from_raw(ptr) })
@@ -309,6 +327,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedArcWeak<T> {
     /// Attempts to upgrade the weak pointer to an `ArchivedArc`.
     ///
     /// Returns `None` if a null weak pointer was serialized.
+    #[inline]
     pub fn upgrade(&self) -> Option<&ArchivedArc<T>> {
         match self {
             ArchivedArcWeak::None => None,
@@ -317,6 +336,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedArcWeak<T> {
     }
 
     /// Attempts to upgrade a pinned mutable weak pointer.
+    #[inline]
     pub fn upgrade_pin(self: Pin<&mut Self>) -> Option<Pin<&mut ArchivedArc<T>>> {
         unsafe {
             match self.get_unchecked_mut() {
@@ -331,6 +351,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
     type Archived = ArchivedArcWeak<T::Archived>;
     type Resolver = ArcWeakResolver<T::MetadataResolver>;
 
+    #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
         match resolver {
             ArcWeakResolver::None => ArchivedArcWeak::None,
@@ -347,6 +368,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
 impl<T: SerializeUnsized<S> + ?Sized + 'static, S: SharedSerializer + ?Sized> Serialize<S>
     for sync::Weak<T>
 {
+    #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(match self.upgrade() {
             None => ArcWeakResolver::None,
@@ -362,6 +384,7 @@ impl<T: Archive + 'static, D: SharedDeserializer + ?Sized> Deserialize<sync::Wea
 where
     T::Archived: DeserializeUnsized<T, D>,
 {
+    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<sync::Weak<T>, D::Error> {
         Ok(match self {
             ArchivedArcWeak::None => sync::Weak::new(),

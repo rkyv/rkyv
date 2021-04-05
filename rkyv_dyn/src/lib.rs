@@ -1,21 +1,18 @@
 //! Trait object serialization for rkyv.
 //!
-//! With `rkyv_dyn`, trait objects can be serialized with rkyv then the methods
-//! can be called without deserializing. All it takes is some macro magic.
+//! With `rkyv_dyn`, trait objects can be serialized with rkyv then the methods can be called
+//! without deserializing. All it takes is some macro magic.
 //!
 //! See [`SerializeDyn`] for an example of how to use rkyv_dyn.
 //!
 //! ## Features
 //!
-//! - `nightly`: Enables some nightly features, such as
-//!   [`likely`](std::intrinsics::likely).
-//! - `strict`: Guarantees that types will have the same representations across
-//!   platforms and compilations. This is already the case in practice, but this
-//!   feature provides a guarantee.
+//! - `nightly`: Enables some nightly features, such as [`likely`](std::intrinsics::likely).
+//! - `strict`: Guarantees that types will have the same representations across platforms and
+//!   compilations. This is already the case in practice, but this feature provides a guarantee.
 //! - `validation`: Enables validation support through `bytecheck`.
-//! - `vtable_cache`: Enables local vtable caching to speed up lookups after the
-//!   first. This requires mutating the archive, which is not possible for all
-//!   use cases.
+//! - `vtable_cache`: Enables local vtable caching to speed up lookups after the first. This
+//!   requires mutating the archive, which is not possible for all use cases.
 
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
@@ -53,9 +50,9 @@ pub type DynError = Box<dyn Any>;
 
 /// An object-safe version of `Serializer`.
 ///
-/// Instead of an associated error type, `DynSerializer` returns the
-/// [`DynError`] type. If you have a serializer that already implements
-/// `Serializer`, then it will automatically implement `DynSerializer`.
+/// Instead of an associated error type, `DynSerializer` returns the [`DynError`] type. If you have
+/// a serializer that already implements `Serializer`, then it will automatically implement
+/// `DynSerializer`.
 pub trait DynSerializer {
     /// Returns the current position of the serializer.
     fn pos_dyn(&self) -> usize;
@@ -101,26 +98,23 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///
 /// To add archive support for a trait object:
 ///
-/// 1. Add [`archive_dyn`](macro@archive_dyn) on your trait to make a
-/// serializable version of it. By default, it will be named "Serialize" + your
-/// trait name. To rename the trait, pass the argument `serialize = "..."` as a
-/// parameter.
-/// 2. Implement `Archive` and `Serialize` for the type you want to make trait
-/// objects of and `TypeName` for the archived versions of them.
-/// 3. Implement your trait for your type and add the attribute `#[archive_dyn]`
-/// to it. Make sure to implement your trait for your archived type as well.
-/// This invocation must have the same attributes as the trait invocation.
-/// 4. If deserialization support is desired, add `deserialize` or
-/// `deserialize = "..."` as parameters and implement `Deserialize` for the
-/// type. By default, the deserialize trait will be named "Deserialize" + your
-/// trait name. Passing a trait name will use that name instead.
+/// 1. Add [`archive_dyn`](macro@archive_dyn) on your trait to make a serializable version of it. By
+///    default, it will be named "Serialize" + your trait name. To rename the trait, pass the
+///    argument `serialize = "..."` as a parameter.
+/// 2. Implement `Archive` and `Serialize` for the type you want to make trait objects of and
+///    `TypeName` for the archived versions of them.
+/// 3. Implement your trait for your type and add the attribute `#[archive_dyn]` to it. Make sure to
+///    implement your trait for your archived type as well. This invocation must have the same
+///    attributes as the trait invocation.
+/// 4. If deserialization support is desired, add `deserialize` or `deserialize = "..."` as
+///    parameters and implement `Deserialize` for the type. By default, the deserialize trait will
+///    be named "Deserialize" + your trait name. Passing a trait name will use that name instead.
 ///
 /// Then you're ready to serialize boxed trait objects!
 ///
-/// Even though your deserialized values are boxed as serialize trait objects,
-/// your archived values are boxed as regular trait objects. This is because
-/// your deserialized values have to implement `SerializeDyn` but your archived
-/// values do not.
+/// Even though your deserialized values are boxed as serialize trait objects, your archived values
+/// are boxed as regular trait objects. This is because your deserialized values have to implement
+/// `SerializeDyn` but your archived values do not.
 ///
 /// ## Examples
 ///
@@ -201,8 +195,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```
 pub trait SerializeDyn {
-    /// Writes the value to the serializer and returns the position it was
-    /// written to.
+    /// Writes the value to the serializer and returns the position it was written to.
     fn serialize_dyn(&self, serializer: &mut dyn DynSerializer) -> Result<usize, DynError>;
 
     /// Returns the type ID of the archived version of this type.
@@ -228,8 +221,8 @@ pub trait DynDeserializer {
     ///
     /// # Safety
     ///
-    /// The memory returned by this function must be deallocated by the global
-    /// allocator.
+    /// The caller must guarantee that the memory returned by this function is deallocated by the
+    /// global allocator.
     unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> Result<*mut u8, DynError>;
 }
 
@@ -257,7 +250,7 @@ pub trait DeserializeDyn<T: Pointee + ?Sized> {
     ///
     /// # Safety
     ///
-    /// The caller must ensure that the memory returned is properly deallocated.
+    /// The caller must guarantee that the memory returned is properly deallocated.
     unsafe fn deserialize_dyn(
         &self,
         deserializer: &mut dyn DynDeserializer,
@@ -296,8 +289,8 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
             .vtable
     }
 
-    /// Gets the vtable address for this trait object. With the `vtable_cache`
-    /// feature, this will store the address locally on the first lookup.
+    /// Gets the vtable address for this trait object. With the `vtable_cache` feature, this will
+    /// store the address locally on the first lookup.
     #[cfg(feature = "vtable_cache")]
     pub fn vtable(&self) -> usize {
         use core::sync::atomic::Ordering;
@@ -312,8 +305,8 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
         vtable
     }
 
-    /// Gets the vtable address for this trait object. With the `vtable_cache`
-    /// feature, this will store the address locally on the first lookup.
+    /// Gets the vtable address for this trait object. With the `vtable_cache` feature, this will
+    /// store the address locally on the first lookup.
     #[cfg(not(feature = "vtable_cache"))]
     pub fn vtable(&self) -> usize {
         self.lookup_vtable()
@@ -382,9 +375,8 @@ impl ImplId {
     fn from_type_id<TR: TypeName + ?Sized>(type_id: u64) -> Self {
         Self {
             trait_id: hash_type::<TR>(),
-            // The last bit of the type ID is set to 1 to make sure we can
-            // differentiate between cached and uncached vtables when the
-            // feature is turned on
+            // The last bit of the type ID is set to 1 to make sure we can differentiate between
+            // cached and uncached vtables when the feature is turned on
             type_id: type_id | 1,
         }
     }
@@ -458,8 +450,7 @@ lazy_static::lazy_static! {
     };
 }
 
-/// Guarantees that an impl has been registered for the type as the given trait
-/// object.
+/// Guarantees that an impl has been registered for the type as the given trait object.
 #[doc(hidden)]
 pub unsafe trait RegisteredImpl<T: ?Sized> {
     fn vtable() -> usize;
@@ -475,9 +466,9 @@ macro_rules! register_validation {
 
 /// Registers a new impl with the trait object system.
 ///
-/// This is called by `#[archive_dyn]` when attached to a trait implementation.
-/// You might need to call this manually if you're using generic traits and
-/// types, since each specific instance needs to be individually registered.
+/// This is called by `#[archive_dyn]` when attached to a trait implementation. You might need to
+/// call this manually if you're using generic traits and types, since each specific instance needs
+/// to be individually registered.
 ///
 /// Call it like `register_impl!(MyType as dyn MyTrait)`.
 #[macro_export]

@@ -23,16 +23,10 @@ rkyv (*archive*) is a zero-copy deserialization framework for Rust.
 
 ```rust
 use rkyv::{
-    archived_value,
+    archived_root,
     de::deserializers::AllocDeserializer,
-    ser::{
-        serializers::WriteSerializer,
-        Serializer,
-    },
-    AlignedVec,
-    Archive,
-    Serialize,
-    Deserialize,
+    ser::{serializers::WriteSerializer, Serializer},
+    AlignedVec, Archive, Deserialize, Serialize,
 };
 
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
@@ -42,24 +36,26 @@ struct Test {
     option: Option<Vec<i32>>,
 }
 
-fn main() {
-    let value = Test {
-        int: 42,
-        string: "hello world".to_string(),
-        option: Some(vec![1, 2, 3, 4]),
-    };
+let value = Test {
+    int: 42,
+    string: "hello world".to_string(),
+    option: Some(vec![1, 2, 3, 4]),
+};
 
-    let mut serializer = WriteSerializer::new(AlignedVec::new());
-    let pos = serializer.serialize_value(&value).expect("failed to serialize value");
-    let buf = serializer.into_inner();
+let mut serializer = WriteSerializer::new(AlignedVec::new());
+serializer
+    .serialize_value(&value)
+    .expect("failed to serialize value");
+let buf = serializer.into_inner();
 
-    let archived = unsafe { archived_value::<Test>(buf.as_ref(), pos) };
-    assert_eq!(archived.int, value.int);
-    assert_eq!(archived.string, value.string);
-    assert_eq!(archived.option, value.option);
+let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
+assert_eq!(archived.int, value.int);
+assert_eq!(archived.string, value.string);
+assert_eq!(archived.option, value.option);
 
-    let mut deserializer = AllocDeserializer;
-    let deserialized = archived.deserialize(&mut deserializer).expect("failed to deserialize value");
-    assert_eq!(deserialized, value);
-}
+let mut deserializer = AllocDeserializer;
+let deserialized = archived
+    .deserialize(&mut deserializer)
+    .expect("failed to deserialize value");
+assert_eq!(deserialized, value);
 ```

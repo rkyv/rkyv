@@ -109,23 +109,26 @@ impl<K: Error + 'static, V: Error + 'static, C: Error + 'static> Error for HashM
 
 impl<K, V, C> From<Unreachable> for HashMapError<K, V, C> {
     fn from(_: Unreachable) -> Self {
-        unreachable!();
+        unsafe { core::hint::unreachable_unchecked() }
     }
 }
 
 impl<K, V, C> From<LayoutErr> for HashMapError<K, V, C> {
+    #[inline]
     fn from(e: LayoutErr) -> Self {
         Self::LayoutError(e)
     }
 }
 
 impl<K, V, C> From<SliceCheckError<Unreachable>> for HashMapError<K, V, C> {
+    #[inline]
     fn from(e: SliceCheckError<Unreachable>) -> Self {
         Self::CheckDisplaceError(e)
     }
 }
 
 impl<K, V, C> From<SliceCheckError<ArchivedHashMapEntryError<K, V>>> for HashMapError<K, V, C> {
+    #[inline]
     fn from(e: SliceCheckError<ArchivedHashMapEntryError<K, V>>) -> Self {
         Self::CheckEntryError(e)
     }
@@ -223,6 +226,7 @@ where
 {
     type Error = HashMapError<K::Error, <() as CheckBytes<C>>::Error, C::Error>;
 
+    #[inline]
     unsafe fn check_bytes<'a>(
         value: *const Self,
         context: &mut C,

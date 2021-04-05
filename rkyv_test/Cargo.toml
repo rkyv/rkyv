@@ -1,6 +1,6 @@
 [package]
 name = "rkyv_test"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Test suite for rkyv crates"
@@ -11,17 +11,17 @@ repository = "https://github.com/djkoloski/rkyv"
 
 [dependencies]
 bytecheck = { version = "0.4", optional = true }
-ptr_meta = { version = "0.1.1" }
+ptr_meta = { version = "0.1" }
 rkyv = { path = "../rkyv", default-features = false }
 rkyv_dyn = { path = "../rkyv_dyn", default-features = false, optional = true }
 rkyv_typename = { path = "../rkyv_typename", default-features = false, optional = true }
 
 [features]
-default = ["validation", "std"]
+default = ["std", "const_generics", "validation"]
 const_generics = ["rkyv/const_generics", "rkyv_typename/const_generics"]
 size_64 = ["rkyv/size_64"]
 nightly = ["rkyv_dyn/nightly"]
-std = ["rkyv/std", "rkyv_typename/std"]
+std = ["rkyv/std", "rkyv_dyn", "rkyv_typename/std"]
 strict = ["rkyv/strict"]
 validation = ["bytecheck", "std", "rkyv/validation", "rkyv_dyn/validation"]
 vtable_cache = ["rkyv_dyn/vtable_cache"]

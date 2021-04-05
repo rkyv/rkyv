@@ -16,6 +16,7 @@ impl Fallible for AllocDeserializer {
 
 #[cfg(feature = "std")]
 impl Deserializer for AllocDeserializer {
+    #[inline]
     unsafe fn alloc(&mut self, layout: alloc::Layout) -> Result<*mut u8, Self::Error> {
         Ok(std::alloc::alloc(layout))
     }

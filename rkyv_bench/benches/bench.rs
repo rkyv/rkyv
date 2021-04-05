@@ -3,7 +3,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
 use rkyv::{
-    archived_value, check_archive,
+    archived_root, check_archived_root,
     de::deserializers::AllocDeserializer,
     ser::{serializers::WriteSerializer, Serializer},
     AlignedVec, Archive, Deserialize, Serialize,
@@ -105,7 +105,7 @@ impl Generate for GameType {
             1 => GameType::Creative,
             2 => GameType::Adventure,
             3 => GameType::Spectator,
-            _ => unreachable!(),
+            _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
 }
@@ -408,34 +408,29 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         });
 
         let mut serializer = WriteSerializer::new(AlignedVec::new());
-        let pos = serializer.serialize_value(&players).unwrap();
+        serializer.serialize_value(&players).unwrap();
         let buffer = serializer.into_inner();
 
         group.bench_function("access", |b| {
             b.iter(|| {
-                black_box(unsafe {
-                    archived_value::<Players>(black_box(buffer.as_ref()), black_box(pos))
-                });
+                black_box(unsafe { archived_root::<Players>(black_box(buffer.as_ref())) });
             })
         });
         group.bench_function("validate", |b| {
             b.iter(|| {
-                check_archive::<Players>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
+                check_archived_root::<Players>(black_box(buffer.as_ref())).unwrap();
             })
         });
         group.bench_function("deserialize", |b| {
             b.iter(|| {
-                let value = unsafe {
-                    archived_value::<Players>(black_box(buffer.as_ref()), black_box(pos))
-                };
+                let value = unsafe { archived_root::<Players>(black_box(buffer.as_ref())) };
                 let deserialized: Players = value.deserialize(&mut AllocDeserializer).unwrap();
                 black_box(deserialized);
             })
         });
         group.bench_function("deserialize with validate", |b| {
             b.iter(|| {
-                let value =
-                    check_archive::<Players>(black_box(buffer.as_ref()), black_box(pos)).unwrap();
+                let value = check_archived_root::<Players>(black_box(buffer.as_ref())).unwrap();
                 let deserialize: Players = value.deserialize(&mut AllocDeserializer).unwrap();
                 black_box(deserialize);
             })

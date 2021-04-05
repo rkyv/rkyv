@@ -52,7 +52,7 @@ macro_rules! impl_tuple {
 
 impl_tuple! { T11, T10, T9, T8, T7, T6, T5, T4, T3, T2, T1, T0, }
 
-#[cfg(not(feature = "const_generics"))]
+#[cfg(any(not(feature = "std"), not(feature = "const_generics")))]
 macro_rules! impl_array {
     () => ();
     ($len:literal, $($rest:literal,)*) => {
@@ -70,10 +70,10 @@ macro_rules! impl_array {
     };
 }
 
-#[cfg(not(feature = "const_generics"))]
+#[cfg(any(not(feature = "std"), not(feature = "const_generics")))]
 impl_array! { 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, }
 
-#[cfg(feature = "const_generics")]
+#[cfg(all(feature = "std", feature = "const_generics"))]
 impl<T: TypeName, const N: usize> TypeName for [T; N] {
     fn build_type_name<F: FnMut(&str)>(mut f: F) {
         f("[");

@@ -28,9 +28,20 @@ pub mod time;
 #[cfg(feature = "validation")]
 pub mod validation;
 
+#[cfg(all(feature = "std", feature = "specialization"))]
+macro_rules! default {
+    ($($fn:tt)*) => { default $($fn)* };
+}
+
+#[cfg(all(feature = "std", not(feature = "specialization")))]
+macro_rules! default {
+    ($($fn:tt)*) => { $($fn)* };
+}
+
 impl<T> ArchivePointee for T {
     type ArchivedMetadata = ();
 
+    #[inline]
     fn pointer_metadata(_: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {}
 }
 
@@ -39,14 +50,17 @@ impl<T: Archive> ArchiveUnsized for T {
 
     type MetadataResolver = ();
 
+    #[inline]
     fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {}
 }
 
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for T {
+    #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         serializer.serialize_value(self)
     }
 
+    #[inline]
     fn serialize_metadata(&self, _: &mut S) -> Result<ArchivedMetadata<Self>, S::Error> {
         Ok(())
     }
@@ -56,6 +70,7 @@ impl<T: Archive, D: Deserializer + ?Sized> DeserializeUnsized<T, D> for T::Archi
 where
     T::Archived: Deserialize<T, D>,
 {
+    #[inline]
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
         let ptr = deserializer.alloc(alloc::Layout::new::<T>())?.cast::<T>();
         let deserialized = self.deserialize(deserializer)?;
@@ -63,6 +78,7 @@ where
         Ok(ptr.cast())
     }
 
+    #[inline]
     fn deserialize_metadata(&self, _: &mut D) -> Result<<T as Pointee>::Metadata, D::Error> {
         Ok(())
     }
@@ -72,12 +88,14 @@ impl<T: ?Sized> Archive for PhantomData<T> {
     type Archived = PhantomData<T>;
     type Resolver = ();
 
+    #[inline]
     fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
         PhantomData
     }
 }
 
 impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
+    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
@@ -86,6 +104,7 @@ impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
 unsafe impl<T: ?Sized> ArchiveCopy for PhantomData<T> {}
 
 impl<T: ?Sized, D: Fallible + ?Sized> Deserialize<PhantomData<T>, D> for PhantomData<T> {
+    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<PhantomData<T>, D::Error> {
         Ok(PhantomData)
     }
@@ -100,12 +119,14 @@ macro_rules! impl_primitive {
             type Archived = Self;
             type Resolver = ();
 
+            #[inline]
             fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
                 *self
             }
         }
 
         impl<S: Fallible + ?Sized> Serialize<S> for $type {
+            #[inline]
             fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
                 Ok(())
             }
@@ -117,6 +138,7 @@ macro_rules! impl_primitive {
         where
             $type: Copy,
         {
+            #[inline]
             fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
                 Ok(*self)
             }
@@ -154,18 +176,21 @@ impl Archive for usize {
     type Archived = ArchivedUsize;
     type Resolver = ();
 
+    #[inline]
     fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
         *self as ArchivedUsize
     }
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for usize {
+    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
 impl<D: Fallible + ?Sized> Deserialize<usize, D> for ArchivedUsize {
+    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<usize, D::Error> {
         Ok(*self as usize)
     }
@@ -175,18 +200,21 @@ impl Archive for isize {
     type Archived = ArchivedIsize;
     type Resolver = ();
 
+    #[inline]
     fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
         *self as ArchivedIsize
     }
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for isize {
+    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
 impl<D: Fallible + ?Sized> Deserialize<isize, D> for ArchivedIsize {
+    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<isize, D::Error> {
         Ok(*self as isize)
     }
@@ -202,18 +230,21 @@ macro_rules! impl_atomic {
             type Archived = Self;
             type Resolver = AtomicResolver;
 
+            #[inline]
             fn resolve(&self, _pos: usize, _resolver: AtomicResolver) -> $type {
                 <$type>::new(self.load(atomic::Ordering::Relaxed))
             }
         }
 
         impl<S: Fallible + ?Sized> Serialize<S> for $type {
+            #[inline]
             fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
                 Ok(AtomicResolver)
             }
         }
 
         impl<D: Fallible + ?Sized> Deserialize<$type, D> for $type {
+            #[inline]
             fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
                 Ok(<$type>::new(self.load(atomic::Ordering::Relaxed)))
             }
@@ -255,6 +286,7 @@ macro_rules! impl_tuple {
             type Archived = ($($type::Archived,)+);
             type Resolver = ($($type::Resolver,)+);
 
+            #[inline]
             fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
                 #[allow(clippy::unneeded_wildcard_pattern)]
                 let rev = ($(self.$index.resolve(pos + memoffset::offset_of_tuple!(Self::Archived, $index), resolver.$index),)+);
@@ -263,6 +295,7 @@ macro_rules! impl_tuple {
         }
 
         impl<$($type: Serialize<S>),+, S: Fallible + ?Sized> Serialize<S> for ($($type,)+) {
+            #[inline]
             fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
                 let rev = ($(self.$index.serialize(serializer)?,)+);
                 Ok(($(rev.$index,)+))
@@ -273,6 +306,7 @@ macro_rules! impl_tuple {
         where
             $($type::Archived: Deserialize<$type, D>,)+
         {
+            #[inline]
             fn deserialize(&self, deserializer: &mut D) -> Result<($($type,)+), D::Error> {
                 let rev = ($(&self.$index,)+);
                 Ok(($(rev.$index.deserialize(deserializer)?,)+))
@@ -296,6 +330,7 @@ macro_rules! impl_array {
             type Archived = [T::Archived; $len];
             type Resolver = [T::Resolver; $len];
 
+            #[inline]
             fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
                 let mut resolvers = core::mem::MaybeUninit::new(resolver);
                 let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
@@ -314,6 +349,7 @@ macro_rules! impl_array {
         }
 
         impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for [T; $len] {
+            #[inline]
             fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
                 let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
                 let result_ptr = result.as_mut_ptr().cast::<T::Resolver>();
@@ -331,6 +367,7 @@ macro_rules! impl_array {
         where
             T::Archived: Deserialize<T, D>,
         {
+            #[inline]
             fn deserialize(&self, deserializer: &mut D) -> Result<[T; $len], D::Error> {
                 let mut result = core::mem::MaybeUninit::<[T; $len]>::uninit();
                 let result_ptr = result.as_mut_ptr().cast::<T>();
@@ -359,14 +396,15 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     type Archived = [T::Archived; N];
     type Resolver = [T::Resolver; N];
 
+    #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
         let mut resolvers = core::mem::MaybeUninit::new(resolver);
         let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
         let mut result = core::mem::MaybeUninit::<Self::Archived>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T::Archived>();
-        for i in 0..N {
+        for (i, value) in self.iter().enumerate() {
             unsafe {
-                result_ptr.add(i).write(self[i].resolve(
+                result_ptr.add(i).write(value.resolve(
                     pos + i * core::mem::size_of::<T::Archived>(),
                     resolvers_ptr.add(i).read(),
                 ));
@@ -378,12 +416,13 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
 
 #[cfg(feature = "const_generics")]
 impl<T: Serialize<S>, S: Fallible + ?Sized, const N: usize> Serialize<S> for [T; N] {
+    #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T::Resolver>();
-        for i in 0..N {
+        for (i, value) in self.iter().enumerate() {
             unsafe {
-                result_ptr.add(i).write(self[i].serialize(serializer)?);
+                result_ptr.add(i).write(value.serialize(serializer)?);
             }
         }
         unsafe { Ok(result.assume_init()) }
@@ -395,12 +434,13 @@ impl<T: Archive, D: Fallible + ?Sized, const N: usize> Deserialize<[T; N], D> fo
 where
     T::Archived: Deserialize<T, D>,
 {
+    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<[T; N], D::Error> {
         let mut result = core::mem::MaybeUninit::<[T; N]>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T>();
-        for i in 0..N {
+        for (i, value) in self.iter().enumerate() {
             unsafe {
-                result_ptr.add(i).write(self[i].deserialize(deserializer)?);
+                result_ptr.add(i).write(value.deserialize(deserializer)?);
             }
         }
         unsafe { Ok(result.assume_init()) }
@@ -412,6 +452,7 @@ impl<T: Archive> ArchiveUnsized for [T] {
 
     type MetadataResolver = ();
 
+    #[inline]
     fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {
         ptr_meta::metadata(self) as ArchivedUsize
     }
@@ -420,13 +461,15 @@ impl<T: Archive> ArchiveUnsized for [T] {
 impl<T> ArchivePointee for [T] {
     type ArchivedMetadata = ArchivedUsize;
 
+    #[inline]
     fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
         *archived as usize
     }
 }
 
-#[cfg(not(feature = "std"))]
-impl<T: ArchiveCopy, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+#[cfg(any(not(feature = "std"), feature = "specialization"))]
+impl<T: ArchiveCopy + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+    #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         if !self.is_empty() {
             unsafe {
@@ -443,42 +486,48 @@ impl<T: ArchiveCopy, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
         }
     }
 
+    #[inline]
     fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
         Ok(())
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", feature = "specialization"))]
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
-    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        if !self.is_empty() {
-            let mut resolvers = Vec::with_capacity(self.len());
-            for value in self {
-                resolvers.push(value.serialize(serializer)?);
-            }
-            let result = serializer.align_for::<T::Archived>()?;
-            unsafe {
-                for (i, resolver) in resolvers.drain(..).enumerate() {
-                    serializer.resolve_aligned(&self[i], resolver)?;
+    #[inline]
+    default! {
+        fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
+            if !self.is_empty() {
+                let mut resolvers = Vec::with_capacity(self.len());
+                for value in self {
+                    resolvers.push(value.serialize(serializer)?);
                 }
+                let result = serializer.align_for::<T::Archived>()?;
+                unsafe {
+                    for (i, resolver) in resolvers.drain(..).enumerate() {
+                        serializer.resolve_aligned(&self[i], resolver)?;
+                    }
+                }
+                Ok(result)
+            } else {
+                Ok(0)
             }
-            Ok(result)
-        } else {
-            Ok(0)
         }
     }
 
-    fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
-        Ok(())
+    #[inline]
+    default! {
+        fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+            Ok(())
+        }
     }
 }
 
-#[cfg(not(feature = "std"))]
-impl<T: ArchiveCopy, D: Deserializer + ?Sized> DeserializeUnsized<[T], D>
-    for <[T] as ArchiveUnsized>::Archived
-where
-    T::Archived: Deserialize<T, D>,
+#[cfg(any(not(feature = "std"), feature = "specialization"))]
+impl<T: Deserialize<T, D> + ArchiveCopy, D: Deserializer + ?Sized> DeserializeUnsized<[T], D>
+    for [T]
 {
+    #[inline]
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
         if self.is_empty() {
             Ok(ptr::null_mut())
@@ -491,33 +540,38 @@ where
         }
     }
 
+    #[inline]
     fn deserialize_metadata(&self, _: &mut D) -> Result<<[T] as Pointee>::Metadata, D::Error> {
         Ok(ptr_meta::metadata(self))
     }
 }
 
-#[cfg(feature = "std")]
-impl<T: Archive, D: Deserializer + ?Sized> DeserializeUnsized<[T], D>
-    for <[T] as ArchiveUnsized>::Archived
-where
-    T::Archived: Deserialize<T, D>,
+#[cfg(any(feature = "std", feature = "specialization"))]
+impl<T: Deserialize<U, D>, U: Archive<Archived = T>, D: Deserializer + ?Sized>
+    DeserializeUnsized<[U], D> for [T]
 {
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-        if self.is_empty() {
-            Ok(ptr::null_mut())
-        } else {
-            let result = deserializer
-                .alloc(alloc::Layout::array::<T>(self.len()).unwrap())?
-                .cast::<T>();
-            for (i, item) in self.iter().enumerate() {
-                result.add(i).write(item.deserialize(deserializer)?);
+    #[inline]
+    default! {
+        unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
+            if self.is_empty() {
+                Ok(ptr::null_mut())
+            } else {
+                let result = deserializer
+                    .alloc(alloc::Layout::array::<U>(self.len()).unwrap())?
+                    .cast::<U>();
+                for (i, item) in self.iter().enumerate() {
+                    result.add(i).write(item.deserialize(deserializer)?);
+                }
+                Ok(result.cast())
             }
-            Ok(result.cast())
         }
     }
 
-    fn deserialize_metadata(&self, _: &mut D) -> Result<<[T] as Pointee>::Metadata, D::Error> {
-        Ok(ptr_meta::metadata(self))
+    #[inline]
+    default! {
+        fn deserialize_metadata(&self, _: &mut D) -> Result<<[U] as Pointee>::Metadata, D::Error> {
+            Ok(ptr_meta::metadata(self))
+        }
     }
 }
 
@@ -526,6 +580,7 @@ impl ArchiveUnsized for str {
 
     type MetadataResolver = ();
 
+    #[inline]
     fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {
         ptr_meta::metadata(self) as ArchivedUsize
     }
@@ -534,30 +589,35 @@ impl ArchiveUnsized for str {
 impl ArchivePointee for str {
     type ArchivedMetadata = ArchivedUsize;
 
+    #[inline]
     fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
         <[u8]>::pointer_metadata(archived)
     }
 }
 
 impl<S: Serializer + ?Sized> SerializeUnsized<S> for str {
+    #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         let result = serializer.pos();
         serializer.write(self.as_bytes())?;
         Ok(result)
     }
 
+    #[inline]
     fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
         Ok(())
     }
 }
 
 impl<D: Deserializer + ?Sized> DeserializeUnsized<str, D> for <str as ArchiveUnsized>::Archived {
+    #[inline]
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
         let bytes = deserializer.alloc(alloc::Layout::array::<u8>(self.len()).unwrap())?;
         ptr::copy_nonoverlapping(self.as_ptr(), bytes, self.len());
         Ok(bytes.cast())
     }
 
+    #[inline]
     fn deserialize_metadata(&self, _: &mut D) -> Result<<str as Pointee>::Metadata, D::Error> {
         Ok(ptr_meta::metadata(self))
     }
@@ -578,6 +638,7 @@ pub enum ArchivedOption<T> {
 
 impl<T> ArchivedOption<T> {
     /// Returns `true` if the option is a `None` value.
+    #[inline]
     pub fn is_none(&self) -> bool {
         match self {
             ArchivedOption::None => true,
@@ -586,6 +647,7 @@ impl<T> ArchivedOption<T> {
     }
 
     /// Returns `true` if the option is a `Some` value.
+    #[inline]
     pub fn is_some(&self) -> bool {
         match self {
             ArchivedOption::None => false,
@@ -594,6 +656,7 @@ impl<T> ArchivedOption<T> {
     }
 
     /// Converts to an `Option<&T>`.
+    #[inline]
     pub fn as_ref(&self) -> Option<&T> {
         match self {
             ArchivedOption::None => None,
@@ -602,6 +665,7 @@ impl<T> ArchivedOption<T> {
     }
 
     /// Converts to an `Option<&mut T>`.
+    #[inline]
     pub fn as_mut(&mut self) -> Option<&mut T> {
         match self {
             ArchivedOption::None => None,
@@ -611,12 +675,14 @@ impl<T> ArchivedOption<T> {
 
     /// Inserts `v` into the option if it is `None`, then returns a mutable
     /// reference to the contained value.
+    #[inline]
     pub fn get_or_insert(&mut self, v: T) -> &mut T {
         self.get_or_insert_with(move || v)
     }
 
     /// Inserts a value computed from `f` into the option if it is `None`, then
     /// returns a mutable reference to the contained value.
+    #[inline]
     pub fn get_or_insert_with<F: FnOnce() -> T>(&mut self, f: F) -> &mut T {
         if let ArchivedOption::Some(ref mut value) = self {
             value
@@ -641,6 +707,7 @@ impl<T: Archive> Archive for Option<T> {
     type Archived = ArchivedOption<T::Archived>;
     type Resolver = Option<T::Resolver>;
 
+    #[inline]
     fn resolve(&self, pos: usize, resolver: Option<T::Resolver>) -> Self::Archived {
         match resolver {
             None => ArchivedOption::None,
@@ -653,6 +720,7 @@ impl<T: Archive> Archive for Option<T> {
 }
 
 impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Option<T> {
+    #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         self.as_ref()
             .map(|value| value.serialize(serializer))
@@ -664,6 +732,7 @@ impl<T: Archive, D: Fallible + ?Sized> Deserialize<Option<T>, D> for Archived<Op
 where
     T::Archived: Deserialize<T, D>,
 {
+    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Option<T>, D::Error> {
         match self {
             ArchivedOption::Some(value) => Ok(Some(value.deserialize(deserializer)?)),
@@ -675,30 +744,35 @@ where
 impl<T: Eq> Eq for ArchivedOption<T> {}
 
 impl<T: Hash> Hash for ArchivedOption<T> {
+    #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_ref().hash(state)
     }
 }
 
 impl<T: Ord> Ord for ArchivedOption<T> {
+    #[inline]
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.as_ref().cmp(&other.as_ref())
     }
 }
 
 impl<T: PartialEq> PartialEq for ArchivedOption<T> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_ref().eq(&other.as_ref())
     }
 }
 
 impl<T: PartialOrd> PartialOrd for ArchivedOption<T> {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.as_ref().partial_cmp(&other.as_ref())
     }
 }
 
 impl<T, U: PartialEq<T>> PartialEq<Option<T>> for ArchivedOption<U> {
+    #[inline]
     fn eq(&self, other: &Option<T>) -> bool {
         if let ArchivedOption::Some(self_value) = self {
             if let Some(other_value) = other {
@@ -713,6 +787,7 @@ impl<T, U: PartialEq<T>> PartialEq<Option<T>> for ArchivedOption<U> {
 }
 
 impl<T: PartialEq<U>, U> PartialEq<ArchivedOption<T>> for Option<U> {
+    #[inline]
     fn eq(&self, other: &ArchivedOption<T>) -> bool {
         other.eq(self)
     }
