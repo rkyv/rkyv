@@ -42,7 +42,7 @@ impl<T: Error + 'static> Error for ArchivedOptionError<T> {
 
 impl<T> From<Unreachable> for ArchivedOptionError<T> {
     fn from(_: Unreachable) -> Self {
-        unreachable!();
+        unsafe { core::hint::unreachable_unchecked() }
     }
 }
 

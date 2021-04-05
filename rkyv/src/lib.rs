@@ -106,7 +106,7 @@ pub enum Unreachable {}
 
 impl fmt::Display for Unreachable {
     fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
-        unreachable!();
+        unsafe { core::hint::unreachable_unchecked() }
     }
 }
 

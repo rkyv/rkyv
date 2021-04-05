@@ -249,7 +249,7 @@ impl Error for DynMetadataError {}
 
 impl From<Unreachable> for DynMetadataError {
     fn from(_: Unreachable) -> Self {
-        unreachable!();
+        unsafe { core::hint::unreachable_unchecked() }
     }
 }
 

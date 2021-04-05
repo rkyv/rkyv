@@ -109,7 +109,7 @@ impl<K: Error + 'static, V: Error + 'static, C: Error + 'static> Error for HashM
 
 impl<K, V, C> From<Unreachable> for HashMapError<K, V, C> {
     fn from(_: Unreachable) -> Self {
-        unreachable!();
+        unsafe { core::hint::unreachable_unchecked() }
     }
 }
 

@@ -105,7 +105,7 @@ impl Generate for GameType {
             1 => GameType::Creative,
             2 => GameType::Adventure,
             3 => GameType::Spectator,
-            _ => unreachable!(),
+            _ => unsafe { core::hint::unreachable_unchecked() },
         }
     }
 }
