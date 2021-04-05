@@ -66,6 +66,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                 });
 
                 let mut partial_eq_impl = None;
+                let mut partial_ord_impl = None;
                 if let Some((_, ref compares)) = attributes.compares {
                     for compare in compares {
                         if compare.is_ident("PartialEq") {
@@ -89,6 +90,36 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                                     #[inline]
                                     fn eq(&self, other: &#name #ty_generics) -> bool {
                                         other.eq(self)
+                                    }
+                                }
+                            });
+                        } else if compare.is_ident("PartialOrd") {
+                            let mut partial_ord_where = archive_where.clone();
+                            for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                                let ty = &field.ty;
+                                partial_ord_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> });
+                            }
+
+                            let field_names = fields.named.iter().map(|f| &f.ident);
+
+                            partial_ord_impl = Some(quote! {
+                                impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #partial_ord_where {
+                                    #[inline]
+                                    fn partial_cmp(&self, other: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
+                                        #(
+                                            match other.#field_names.partial_cmp(&self.#field_names) {
+                                                Some(::core::cmp::Ordering::Equal) => (),
+                                                x => return x,
+                                            }
+                                        )*
+                                        Some(::core::cmp::Ordering::Equal)
+                                    }
+                                }
+
+                                impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #partial_ord_where {
+                                    #[inline]
+                                    fn partial_cmp(&self, other: &#name #ty_generics) -> Option<::core::cmp::Ordering> {
+                                        other.partial_cmp(self)
                                     }
                                 }
                             });
@@ -124,6 +155,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                         }
 
                         #partial_eq_impl
+                        #partial_ord_impl
                     },
                 )
             }
@@ -151,6 +183,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                 });
 
                 let mut partial_eq_impl = None;
+                let mut partial_ord_impl = None;
                 if let Some((_, ref compares)) = attributes.compares {
                     for compare in compares {
                         if compare.is_ident("PartialEq") {
@@ -178,6 +211,40 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                                     #[inline]
                                     fn eq(&self, other: &#name #ty_generics) -> bool {
                                         other.eq(self)
+                                    }
+                                }
+                            });
+                        } else if compare.is_ident("PartialOrd") {
+                            let mut partial_ord_where = archive_where.clone();
+                            for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                                let ty = &field.ty;
+                                partial_ord_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> });
+                            }
+
+                            let field_names = fields
+                                .unnamed
+                                .iter()
+                                .enumerate()
+                                .map(|(i, _)| Index::from(i));
+
+                            partial_ord_impl = Some(quote! {
+                                impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #partial_ord_where {
+                                    #[inline]
+                                    fn partial_cmp(&self, other: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
+                                        #(
+                                            match other.#field_names.partial_cmp(&self.#field_names) {
+                                                Some(::core::cmp::Ordering::Equal) => (),
+                                                x => return x,
+                                            }
+                                        )*
+                                        Some(::core::cmp::Ordering::Equal)
+                                    }
+                                }
+
+                                impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #partial_ord_where {
+                                    #[inline]
+                                    fn partial_cmp(&self, other: &#name #ty_generics) -> Option<::core::cmp::Ordering> {
+                                        other.partial_cmp(self)
                                     }
                                 }
                             });
@@ -209,11 +276,13 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                         }
 
                         #partial_eq_impl
+                        #partial_ord_impl
                     },
                 )
             }
             Fields::Unit => {
                 let mut partial_eq_impl = None;
+                let mut partial_ord_impl = None;
                 if let Some((_, ref compares)) = attributes.compares {
                     for compare in compares {
                         if compare.is_ident("PartialEq") {
@@ -229,6 +298,22 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                                     #[inline]
                                     fn eq(&self, _: &#name #ty_generics) -> bool {
                                         true
+                                    }
+                                }
+                            });
+                        } else if compare.is_ident("PartialOrd") {
+                            partial_ord_impl = Some(quote! {
+                                impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #where_clause {
+                                    #[inline]
+                                    fn partial_cmp(&self, _: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
+                                        Some(::core::cmp::Ordering::Equal)
+                                    }
+                                }
+
+                                impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #where_clause {
+                                    #[inline]
+                                    fn partial_cmp(&self, _:&#name #ty_generics) -> Option<::core::cmp::Ordering> {
+                                        Some(::core::cmp::Ordering::Equal)
                                     }
                                 }
                             });
@@ -259,6 +344,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                         }
 
                         #partial_eq_impl
+                        #partial_ord_impl
                     },
                 )
             }

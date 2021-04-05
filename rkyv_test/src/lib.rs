@@ -1410,6 +1410,30 @@ mod tests {
     }
 
     #[test]
+    fn compare() {
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq, PartialOrd))]
+        pub struct UnitFoo;
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq, PartialOrd))]
+        pub struct TupleFoo(i32);
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq, PartialOrd))]
+        pub struct StructFoo {
+            t: i32,
+        }
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq))]
+        pub enum EnumFoo {
+            #[allow(dead_code)]
+            Foo(i32),
+        }
+    }
+
+    #[test]
     fn default_type_parameters() {
         #[derive(Archive, Serialize, Deserialize)]
         pub struct TupleFoo<T = i32>(T);
