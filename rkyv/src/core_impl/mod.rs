@@ -402,9 +402,9 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
         let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
         let mut result = core::mem::MaybeUninit::<Self::Archived>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T::Archived>();
-        for i in 0..N {
+        for (i, value) in self.iter().enumerate() {
             unsafe {
-                result_ptr.add(i).write(self[i].resolve(
+                result_ptr.add(i).write(value.resolve(
                     pos + i * core::mem::size_of::<T::Archived>(),
                     resolvers_ptr.add(i).read(),
                 ));
@@ -420,9 +420,9 @@ impl<T: Serialize<S>, S: Fallible + ?Sized, const N: usize> Serialize<S> for [T;
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T::Resolver>();
-        for i in 0..N {
+        for (i, value) in self.iter().enumerate() {
             unsafe {
-                result_ptr.add(i).write(self[i].serialize(serializer)?);
+                result_ptr.add(i).write(value.serialize(serializer)?);
             }
         }
         unsafe { Ok(result.assume_init()) }
@@ -438,9 +438,9 @@ where
     fn deserialize(&self, deserializer: &mut D) -> Result<[T; N], D::Error> {
         let mut result = core::mem::MaybeUninit::<[T; N]>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T>();
-        for i in 0..N {
+        for (i, value) in self.iter().enumerate() {
             unsafe {
-                result_ptr.add(i).write(self[i].deserialize(deserializer)?);
+                result_ptr.add(i).write(value.deserialize(deserializer)?);
             }
         }
         unsafe { Ok(result.assume_init()) }

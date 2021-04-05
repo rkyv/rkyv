@@ -107,7 +107,7 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                                 } else {
                                     return Err(Error::new_spanned(
                                         bound,
-                                        "serialize bound already specified"
+                                        "serialize bound already specified",
                                     ));
                                 }
                             } else if name_value.path.is_ident("deserialize") {
@@ -116,25 +116,25 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                                 } else {
                                     return Err(Error::new_spanned(
                                         bound,
-                                        "serialize bound already specified"
+                                        "serialize bound already specified",
                                     ));
                                 }
                             } else {
                                 return Err(Error::new_spanned(
                                     bound,
-                                    "bounds must be either serialize or deserialize"
+                                    "bounds must be either serialize or deserialize",
                                 ));
                             }
                         } else {
                             return Err(Error::new_spanned(
                                 bound,
-                                "bounds arguments must be a string"
+                                "bounds arguments must be a string",
                             ));
                         }
                     } else {
                         return Err(Error::new_spanned(
                             bound,
-                            "bounds arguments must be serialize or deserialize bounds to apply"
+                            "bounds arguments must be serialize or deserialize bounds to apply",
                         ));
                     }
                 }

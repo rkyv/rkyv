@@ -1,7 +1,9 @@
 use crate::attributes::{parse_attributes, Attributes};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::{spanned::Spanned, Attribute, Data, DeriveInput, Error, Fields, Ident, Index, parse_quote};
+use syn::{
+    parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Fields, Ident, Index,
+};
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     let attributes = parse_attributes(&input)?;
@@ -13,7 +15,10 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     }
 }
 
-fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Result<TokenStream, Error> {
+fn derive_archive_impl(
+    mut input: DeriveInput,
+    attributes: &Attributes,
+) -> Result<TokenStream, Error> {
     input.generics.make_where_clause();
 
     let name = &input.ident;
@@ -23,349 +28,394 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 
-    let archive_derives = attributes.derives.as_ref().map::<Attribute, _>(|d| parse_quote! { #[#d] });
+    let archive_derives = attributes
+        .derives
+        .as_ref()
+        .map::<Attribute, _>(|d| parse_quote! { #[#d] });
 
     let archived = attributes.archived.as_ref().map_or_else(
         || Ident::new(&format!("Archived{}", name), name.span()),
-        |value| value.clone()
+        |value| value.clone(),
     );
 
     let resolver = attributes.resolver.as_ref().map_or_else(
         || Ident::new(&format!("{}Resolver", name), name.span()),
-        |value| value.clone()
+        |value| value.clone(),
     );
 
     let is_strict = cfg!(feature = "strict") || attributes.strict.is_some();
     let strict = is_strict.then::<Attribute, _>(|| parse_quote! { #[repr(C)] });
 
     let (archive_types, archive_impls) = match input.data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(ref fields) => {
-                let mut archive_where = where_clause.clone();
-                for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
-                    let ty = &field.ty;
-                    archive_where.predicates.push(parse_quote! { #ty: rkyv::Archive });
-                }
+        Data::Struct(ref data) => {
+            match data.fields {
+                Fields::Named(ref fields) => {
+                    let mut archive_where = where_clause.clone();
+                    for field in fields
+                        .named
+                        .iter()
+                        .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
+                    {
+                        let ty = &field.ty;
+                        archive_where
+                            .predicates
+                            .push(parse_quote! { #ty: rkyv::Archive });
+                    }
 
-                let resolver_fields = fields.named.iter().map(|f| {
-                    let name = &f.ident;
-                    let ty = &f.ty;
-                    quote_spanned! { f.span() => #name: rkyv::Resolver<#ty> }
-                });
+                    let resolver_fields = fields.named.iter().map(|f| {
+                        let name = &f.ident;
+                        let ty = &f.ty;
+                        quote_spanned! { f.span() => #name: rkyv::Resolver<#ty> }
+                    });
 
-                let archived_fields = fields.named.iter().map(|f| {
-                    let name = &f.ident;
-                    let ty = &f.ty;
-                    let vis = &f.vis;
-                    quote_spanned! { f.span() => #vis #name: rkyv::Archived<#ty> }
-                });
+                    let archived_fields = fields.named.iter().map(|f| {
+                        let name = &f.ident;
+                        let ty = &f.ty;
+                        let vis = &f.vis;
+                        quote_spanned! { f.span() => #vis #name: rkyv::Archived<#ty> }
+                    });
 
-                let archived_values = fields.named.iter().map(|f| {
+                    let archived_values = fields.named.iter().map(|f| {
                     let name = &f.ident;
                     quote_spanned! { f.span() => #name: self.#name.resolve(pos + rkyv::offset_of!(#archived #ty_generics, #name), resolver.#name) }
                 });
 
-                let mut partial_eq_impl = None;
-                let mut partial_ord_impl = None;
-                if let Some((_, ref compares)) = attributes.compares {
-                    for compare in compares {
-                        if compare.is_ident("PartialEq") {
-                            let mut partial_eq_where = archive_where.clone();
-                            for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
-                                let ty = &field.ty;
-                                partial_eq_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
+                    let mut partial_eq_impl = None;
+                    let mut partial_ord_impl = None;
+                    if let Some((_, ref compares)) = attributes.compares {
+                        for compare in compares {
+                            if compare.is_ident("PartialEq") {
+                                let mut partial_eq_where = archive_where.clone();
+                                for field in fields.named.iter().filter(|f| {
+                                    !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                                }) {
+                                    let ty = &field.ty;
+                                    partial_eq_where
+                                        .predicates
+                                        .push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
+                                }
+
+                                let field_names = fields.named.iter().map(|f| &f.ident);
+
+                                partial_eq_impl = Some(quote! {
+                                    impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #partial_eq_where {
+                                        #[inline]
+                                        fn eq(&self, other: &#archived #ty_generics) -> bool {
+                                            true #(&& other.#field_names.eq(&self.#field_names))*
+                                        }
+                                    }
+
+                                    impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #partial_eq_where {
+                                        #[inline]
+                                        fn eq(&self, other: &#name #ty_generics) -> bool {
+                                            other.eq(self)
+                                        }
+                                    }
+                                });
+                            } else if compare.is_ident("PartialOrd") {
+                                let mut partial_ord_where = archive_where.clone();
+                                for field in fields.named.iter().filter(|f| {
+                                    !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                                }) {
+                                    let ty = &field.ty;
+                                    partial_ord_where.predicates.push(
+                                        parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> },
+                                    );
+                                }
+
+                                let field_names = fields.named.iter().map(|f| &f.ident);
+
+                                partial_ord_impl = Some(quote! {
+                                    impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #partial_ord_where {
+                                        #[inline]
+                                        fn partial_cmp(&self, other: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
+                                            #(
+                                                match other.#field_names.partial_cmp(&self.#field_names) {
+                                                    Some(::core::cmp::Ordering::Equal) => (),
+                                                    x => return x,
+                                                }
+                                            )*
+                                            Some(::core::cmp::Ordering::Equal)
+                                        }
+                                    }
+
+                                    impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #partial_ord_where {
+                                        #[inline]
+                                        fn partial_cmp(&self, other: &#name #ty_generics) -> Option<::core::cmp::Ordering> {
+                                            other.partial_cmp(self)
+                                        }
+                                    }
+                                });
+                            } else {
+                                return Err(Error::new_spanned(compare, "unrecognized compare argument, supported compares are PartialEq and PartialOrd"));
                             }
-
-                            let field_names = fields.named.iter().map(|f| &f.ident);
-
-                            partial_eq_impl = Some(quote! {
-                                impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #partial_eq_where {
-                                    #[inline]
-                                    fn eq(&self, other: &#archived #ty_generics) -> bool {
-                                        true #(&& other.#field_names.eq(&self.#field_names))*
-                                    }
-                                }
-
-                                impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #partial_eq_where {
-                                    #[inline]
-                                    fn eq(&self, other: &#name #ty_generics) -> bool {
-                                        other.eq(self)
-                                    }
-                                }
-                            });
-                        } else if compare.is_ident("PartialOrd") {
-                            let mut partial_ord_where = archive_where.clone();
-                            for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
-                                let ty = &field.ty;
-                                partial_ord_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> });
-                            }
-
-                            let field_names = fields.named.iter().map(|f| &f.ident);
-
-                            partial_ord_impl = Some(quote! {
-                                impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #partial_ord_where {
-                                    #[inline]
-                                    fn partial_cmp(&self, other: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
-                                        #(
-                                            match other.#field_names.partial_cmp(&self.#field_names) {
-                                                Some(::core::cmp::Ordering::Equal) => (),
-                                                x => return x,
-                                            }
-                                        )*
-                                        Some(::core::cmp::Ordering::Equal)
-                                    }
-                                }
-
-                                impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #partial_ord_where {
-                                    #[inline]
-                                    fn partial_cmp(&self, other: &#name #ty_generics) -> Option<::core::cmp::Ordering> {
-                                        other.partial_cmp(self)
-                                    }
-                                }
-                            });
-                        } else {
-                            return Err(Error::new_spanned(compare, "unrecognized compare argument, supported compares are PartialEq and PartialOrd"));
                         }
                     }
-                }
 
-                (
-                    quote! {
-                        #archive_derives
-                        #strict
-                        #vis struct #archived #generics #archive_where {
-                            #(#archived_fields,)*
-                        }
+                    (
+                        quote! {
+                            #archive_derives
+                            #strict
+                            #vis struct #archived #generics #archive_where {
+                                #(#archived_fields,)*
+                            }
 
-                        #vis struct #resolver #generics #archive_where {
-                            #(#resolver_fields,)*
-                        }
-                    },
-                    quote! {
-                        impl #impl_generics rkyv::Archive for #name #ty_generics #archive_where {
-                            type Archived = #archived #ty_generics;
-                            type Resolver = #resolver #ty_generics;
+                            #vis struct #resolver #generics #archive_where {
+                                #(#resolver_fields,)*
+                            }
+                        },
+                        quote! {
+                            impl #impl_generics rkyv::Archive for #name #ty_generics #archive_where {
+                                type Archived = #archived #ty_generics;
+                                type Resolver = #resolver #ty_generics;
 
-                            #[allow(clippy::unit_arg)]
-                            #[inline]
-                            fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-                                Self::Archived {
-                                    #(#archived_values,)*
+                                #[allow(clippy::unit_arg)]
+                                #[inline]
+                                fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+                                    Self::Archived {
+                                        #(#archived_values,)*
+                                    }
                                 }
                             }
-                        }
 
-                        #partial_eq_impl
-                        #partial_ord_impl
-                    },
-                )
-            }
-            Fields::Unnamed(ref fields) => {
-                let mut archive_where = where_clause.clone();
-                for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
-                    let ty = &field.ty;
-                    archive_where.predicates.push(parse_quote! { #ty: rkyv::Archive });
+                            #partial_eq_impl
+                            #partial_ord_impl
+                        },
+                    )
                 }
+                Fields::Unnamed(ref fields) => {
+                    let mut archive_where = where_clause.clone();
+                    for field in fields
+                        .unnamed
+                        .iter()
+                        .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
+                    {
+                        let ty = &field.ty;
+                        archive_where
+                            .predicates
+                            .push(parse_quote! { #ty: rkyv::Archive });
+                    }
 
-                let resolver_fields = fields.unnamed.iter().map(|f| {
-                    let ty = &f.ty;
-                    quote_spanned! { f.span() => rkyv::Resolver<#ty> }
-                });
+                    let resolver_fields = fields.unnamed.iter().map(|f| {
+                        let ty = &f.ty;
+                        quote_spanned! { f.span() => rkyv::Resolver<#ty> }
+                    });
 
-                let archived_fields = fields.unnamed.iter().map(|f| {
-                    let ty = &f.ty;
-                    let vis = &f.vis;
-                    quote_spanned! { f.span() => #vis rkyv::Archived<#ty> }
-                });
+                    let archived_fields = fields.unnamed.iter().map(|f| {
+                        let ty = &f.ty;
+                        let vis = &f.vis;
+                        quote_spanned! { f.span() => #vis rkyv::Archived<#ty> }
+                    });
 
-                let archived_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                    let archived_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = Index::from(i);
                     quote_spanned! { f.span() => self.#index.resolve(pos + rkyv::offset_of!(#archived #ty_generics, #index), resolver.#index) }
                 });
 
-                let mut partial_eq_impl = None;
-                let mut partial_ord_impl = None;
-                if let Some((_, ref compares)) = attributes.compares {
-                    for compare in compares {
-                        if compare.is_ident("PartialEq") {
-                            let mut partial_eq_where = archive_where.clone();
-                            for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
-                                let ty = &field.ty;
-                                partial_eq_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
-                            }
+                    let mut partial_eq_impl = None;
+                    let mut partial_ord_impl = None;
+                    if let Some((_, ref compares)) = attributes.compares {
+                        for compare in compares {
+                            if compare.is_ident("PartialEq") {
+                                let mut partial_eq_where = archive_where.clone();
+                                for field in fields.unnamed.iter().filter(|f| {
+                                    !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                                }) {
+                                    let ty = &field.ty;
+                                    partial_eq_where
+                                        .predicates
+                                        .push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
+                                }
 
-                            let field_names = fields
-                                .unnamed
-                                .iter()
-                                .enumerate()
-                                .map(|(i, _)| Index::from(i));
+                                let field_names = fields
+                                    .unnamed
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i, _)| Index::from(i));
 
                                 partial_eq_impl = Some(quote! {
-                                impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #partial_eq_where {
-                                    #[inline]
-                                    fn eq(&self, other: &#archived #ty_generics) -> bool {
-                                        true #(&& other.#field_names.eq(&self.#field_names))*
+                                    impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #partial_eq_where {
+                                        #[inline]
+                                        fn eq(&self, other: &#archived #ty_generics) -> bool {
+                                            true #(&& other.#field_names.eq(&self.#field_names))*
+                                        }
                                     }
+
+                                    impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #partial_eq_where {
+                                        #[inline]
+                                        fn eq(&self, other: &#name #ty_generics) -> bool {
+                                            other.eq(self)
+                                        }
+                                    }
+                                });
+                            } else if compare.is_ident("PartialOrd") {
+                                let mut partial_ord_where = archive_where.clone();
+                                for field in fields.unnamed.iter().filter(|f| {
+                                    !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                                }) {
+                                    let ty = &field.ty;
+                                    partial_ord_where.predicates.push(
+                                        parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> },
+                                    );
                                 }
 
-                                impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #partial_eq_where {
-                                    #[inline]
-                                    fn eq(&self, other: &#name #ty_generics) -> bool {
-                                        other.eq(self)
+                                let field_names = fields
+                                    .unnamed
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i, _)| Index::from(i));
+
+                                partial_ord_impl = Some(quote! {
+                                    impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #partial_ord_where {
+                                        #[inline]
+                                        fn partial_cmp(&self, other: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
+                                            #(
+                                                match other.#field_names.partial_cmp(&self.#field_names) {
+                                                    Some(::core::cmp::Ordering::Equal) => (),
+                                                    x => return x,
+                                                }
+                                            )*
+                                            Some(::core::cmp::Ordering::Equal)
+                                        }
                                     }
-                                }
-                            });
-                        } else if compare.is_ident("PartialOrd") {
-                            let mut partial_ord_where = archive_where.clone();
-                            for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
-                                let ty = &field.ty;
-                                partial_ord_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> });
+
+                                    impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #partial_ord_where {
+                                        #[inline]
+                                        fn partial_cmp(&self, other: &#name #ty_generics) -> Option<::core::cmp::Ordering> {
+                                            other.partial_cmp(self)
+                                        }
+                                    }
+                                });
+                            } else {
+                                return Err(Error::new_spanned(compare, "unrecognized compare argument, supported compares are PartialEq and PartialOrd"));
                             }
-
-                            let field_names = fields
-                                .unnamed
-                                .iter()
-                                .enumerate()
-                                .map(|(i, _)| Index::from(i));
-
-                            partial_ord_impl = Some(quote! {
-                                impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #partial_ord_where {
-                                    #[inline]
-                                    fn partial_cmp(&self, other: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
-                                        #(
-                                            match other.#field_names.partial_cmp(&self.#field_names) {
-                                                Some(::core::cmp::Ordering::Equal) => (),
-                                                x => return x,
-                                            }
-                                        )*
-                                        Some(::core::cmp::Ordering::Equal)
-                                    }
-                                }
-
-                                impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #partial_ord_where {
-                                    #[inline]
-                                    fn partial_cmp(&self, other: &#name #ty_generics) -> Option<::core::cmp::Ordering> {
-                                        other.partial_cmp(self)
-                                    }
-                                }
-                            });
-                        } else {
-                            return Err(Error::new_spanned(compare, "unrecognized compare argument, supported compares are PartialEq and PartialOrd"));
                         }
                     }
-                }
 
-                (
-                    quote! {
-                        #archive_derives
-                        #strict
-                        #vis struct #archived #generics (#(#archived_fields,)*) #archive_where;
+                    (
+                        quote! {
+                            #archive_derives
+                            #strict
+                            #vis struct #archived #generics (#(#archived_fields,)*) #archive_where;
 
-                        #vis struct #resolver #generics (#(#resolver_fields,)*) #archive_where;
-                    },
-                    quote! {
-                        impl #impl_generics rkyv::Archive for #name #ty_generics #archive_where {
-                            type Archived = #archived #ty_generics;
-                            type Resolver = #resolver #ty_generics;
+                            #vis struct #resolver #generics (#(#resolver_fields,)*) #archive_where;
+                        },
+                        quote! {
+                            impl #impl_generics rkyv::Archive for #name #ty_generics #archive_where {
+                                type Archived = #archived #ty_generics;
+                                type Resolver = #resolver #ty_generics;
 
-                            #[allow(clippy::unit_arg)]
-                            #[inline]
-                            fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-                                #archived(
-                                    #(#archived_values,)*
-                                )
+                                #[allow(clippy::unit_arg)]
+                                #[inline]
+                                fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+                                    #archived(
+                                        #(#archived_values,)*
+                                    )
+                                }
                             }
-                        }
 
-                        #partial_eq_impl
-                        #partial_ord_impl
-                    },
-                )
-            }
-            Fields::Unit => {
-                let mut partial_eq_impl = None;
-                let mut partial_ord_impl = None;
-                if let Some((_, ref compares)) = attributes.compares {
-                    for compare in compares {
-                        if compare.is_ident("PartialEq") {
-                            partial_eq_impl = Some(quote! {
-                                impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #where_clause {
-                                    #[inline]
-                                    fn eq(&self, _: &#archived #ty_generics) -> bool {
-                                        true
+                            #partial_eq_impl
+                            #partial_ord_impl
+                        },
+                    )
+                }
+                Fields::Unit => {
+                    let mut partial_eq_impl = None;
+                    let mut partial_ord_impl = None;
+                    if let Some((_, ref compares)) = attributes.compares {
+                        for compare in compares {
+                            if compare.is_ident("PartialEq") {
+                                partial_eq_impl = Some(quote! {
+                                    impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #where_clause {
+                                        #[inline]
+                                        fn eq(&self, _: &#archived #ty_generics) -> bool {
+                                            true
+                                        }
                                     }
-                                }
 
-                                impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #where_clause {
-                                    #[inline]
-                                    fn eq(&self, _: &#name #ty_generics) -> bool {
-                                        true
+                                    impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #where_clause {
+                                        #[inline]
+                                        fn eq(&self, _: &#name #ty_generics) -> bool {
+                                            true
+                                        }
                                     }
-                                }
-                            });
-                        } else if compare.is_ident("PartialOrd") {
-                            partial_ord_impl = Some(quote! {
-                                impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #where_clause {
-                                    #[inline]
-                                    fn partial_cmp(&self, _: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
-                                        Some(::core::cmp::Ordering::Equal)
+                                });
+                            } else if compare.is_ident("PartialOrd") {
+                                partial_ord_impl = Some(quote! {
+                                    impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #where_clause {
+                                        #[inline]
+                                        fn partial_cmp(&self, _: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
+                                            Some(::core::cmp::Ordering::Equal)
+                                        }
                                     }
-                                }
 
-                                impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #where_clause {
-                                    #[inline]
-                                    fn partial_cmp(&self, _:&#name #ty_generics) -> Option<::core::cmp::Ordering> {
-                                        Some(::core::cmp::Ordering::Equal)
+                                    impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #where_clause {
+                                        #[inline]
+                                        fn partial_cmp(&self, _:&#name #ty_generics) -> Option<::core::cmp::Ordering> {
+                                            Some(::core::cmp::Ordering::Equal)
+                                        }
                                     }
-                                }
-                            });
-                        } else {
-                            return Err(Error::new_spanned(compare, "unrecognized compare argument, supported compares are PartialEq and PartialOrd"));
+                                });
+                            } else {
+                                return Err(Error::new_spanned(compare, "unrecognized compare argument, supported compares are PartialEq and PartialOrd"));
+                            }
                         }
                     }
-                }
 
-                (
-                    quote! {
-                        #archive_derives
-                        #strict
-                        #vis struct #archived #generics
-                        #where_clause;
+                    (
+                        quote! {
+                            #archive_derives
+                            #strict
+                            #vis struct #archived #generics
+                            #where_clause;
 
-                        #vis struct #resolver #generics
-                        #where_clause;
-                    },
-                    quote! {
-                        impl #impl_generics rkyv::Archive for #name #ty_generics #where_clause {
-                            type Archived = #archived #ty_generics;
-                            type Resolver = #resolver #ty_generics;
+                            #vis struct #resolver #generics
+                            #where_clause;
+                        },
+                        quote! {
+                            impl #impl_generics rkyv::Archive for #name #ty_generics #where_clause {
+                                type Archived = #archived #ty_generics;
+                                type Resolver = #resolver #ty_generics;
 
-                            #[inline]
-                            fn resolve(&self, _pos: usize, _resolver: Self::Resolver) -> Self::Archived {
-                                #archived
+                                #[inline]
+                                fn resolve(&self, _pos: usize, _resolver: Self::Resolver) -> Self::Archived {
+                                    #archived
+                                }
                             }
-                        }
 
-                        #partial_eq_impl
-                        #partial_ord_impl
-                    },
-                )
+                            #partial_eq_impl
+                            #partial_ord_impl
+                        },
+                    )
+                }
             }
-        },
+        }
         Data::Enum(ref data) => {
             let mut archive_where = where_clause.clone();
             for variant in data.variants.iter() {
                 match variant.fields {
                     Fields::Named(ref fields) => {
-                        for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
+                        for field in fields
+                            .named
+                            .iter()
+                            .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
+                        {
                             let ty = &field.ty;
-                            archive_where.predicates.push(parse_quote! { #ty: rkyv::Archive });
+                            archive_where
+                                .predicates
+                                .push(parse_quote! { #ty: rkyv::Archive });
                         }
                     }
                     Fields::Unnamed(ref fields) => {
-                        for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
+                        for field in fields
+                            .unnamed
+                            .iter()
+                            .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
+                        {
                             let ty = &field.ty;
-                            archive_where.predicates.push(parse_quote! { #ty: rkyv::Archive });
+                            archive_where
+                                .predicates
+                                .push(parse_quote! { #ty: rkyv::Archive });
                         }
                     }
                     Fields::Unit => (),
@@ -567,18 +617,26 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                         for variant in data.variants.iter() {
                             match variant.fields {
                                 Fields::Named(ref fields) => {
-                                    for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
+                                    for field in fields.named.iter().filter(|f| {
+                                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                                    }) {
                                         let ty = &field.ty;
-                                        partial_eq_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
+                                        partial_eq_where.predicates.push(
+                                            parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> },
+                                        );
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
-                                    for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
+                                    for field in fields.unnamed.iter().filter(|f| {
+                                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                                    }) {
                                         let ty = &field.ty;
-                                        partial_eq_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
+                                        partial_eq_where.predicates.push(
+                                            parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> },
+                                        );
                                     }
                                 }
-                                Fields::Unit => ()
+                                Fields::Unit => (),
                             }
                         }
 
@@ -654,15 +712,23 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                         for variant in data.variants.iter() {
                             match variant.fields {
                                 Fields::Named(ref fields) => {
-                                    for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
+                                    for field in fields.named.iter().filter(|f| {
+                                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                                    }) {
                                         let ty = &field.ty;
-                                        partial_ord_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> });
+                                        partial_ord_where.predicates.push(
+                                            parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> },
+                                        );
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
-                                    for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
+                                    for field in fields.unnamed.iter().filter(|f| {
+                                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                                    }) {
                                         let ty = &field.ty;
-                                        partial_ord_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> });
+                                        partial_ord_where.predicates.push(
+                                            parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> },
+                                        );
                                     }
                                 }
                                 Fields::Unit => (),
@@ -897,13 +963,17 @@ fn derive_archive_copy_impl(
                 Fields::Named(ref fields) => {
                     for field in fields.named.iter() {
                         let ty = &field.ty;
-                        copy_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
+                        copy_where
+                            .predicates
+                            .push(parse_quote! { #ty: ArchiveCopy });
                     }
                 }
                 Fields::Unnamed(ref fields) => {
                     for field in fields.unnamed.iter() {
                         let ty = &field.ty;
-                        copy_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
+                        copy_where
+                            .predicates
+                            .push(parse_quote! { #ty: ArchiveCopy });
                     }
                 }
                 Fields::Unit => (),
@@ -950,13 +1020,17 @@ fn derive_archive_copy_impl(
                     Fields::Named(ref fields) => {
                         for field in fields.named.iter() {
                             let ty = &field.ty;
-                            copy_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
+                            copy_where
+                                .predicates
+                                .push(parse_quote! { #ty: ArchiveCopy });
                         }
                     }
                     Fields::Unnamed(ref fields) => {
                         for field in fields.unnamed.iter() {
                             let ty = &field.ty;
-                            copy_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
+                            copy_where
+                                .predicates
+                                .push(parse_quote! { #ty: ArchiveCopy });
                         }
                     }
                     Fields::Unit => (),
