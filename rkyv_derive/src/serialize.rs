@@ -1,63 +1,45 @@
 use crate::attributes::{parse_attributes, Attributes};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::{spanned::Spanned, Data, DeriveInput, Error, Fields, Ident, Index};
+use syn::{spanned::Spanned, Data, DeriveInput, Error, Fields, Ident, Index, parse_quote};
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     let attributes = parse_attributes(&input)?;
 
     if attributes.copy.is_some() {
-        derive_serialize_copy_impl(&input, &attributes)
+        derive_serialize_copy_impl(input, &attributes)
     } else {
-        derive_serialize_impl(&input, &attributes)
+        derive_serialize_impl(input, &attributes)
     }
 }
 
 fn derive_serialize_impl(
-    input: &DeriveInput,
+    mut input: DeriveInput,
     attributes: &Attributes,
 ) -> Result<TokenStream, Error> {
+    input.generics.make_where_clause();
+
+    let mut impl_input_generics = input.generics.clone();
+    impl_input_generics.params.push(parse_quote! { __S: rkyv::Fallible + ?Sized });
+
     let name = &input.ident;
+    let (impl_generics, _, _) = impl_input_generics.split_for_impl();
+    let (_, ty_generics, where_clause) = input.generics.split_for_impl();
+    let where_clause = where_clause.unwrap();
 
-    let generic_params = input
-        .generics
-        .params
-        .iter()
-        .map(|p| quote_spanned! { p.span() => #p });
-    let generic_params = quote! { #(#generic_params,)* };
-
-    let generic_args = input.generics.type_params().map(|p| {
-        let name = &p.ident;
-        quote_spanned! { name.span() => #name }
-    });
-    let generic_args = quote! { #(#generic_args,)* };
-
-    let generic_predicates = match input.generics.where_clause {
-        Some(ref clause) => {
-            let predicates = clause.predicates.iter().map(|p| quote! { #p });
-            quote! { #(#predicates,)* }
-        }
-        None => quote! {},
-    };
-
-    let resolver = if let Some(ref resolver) = attributes.resolver {
-        resolver.clone()
-    } else {
-        Ident::new(&format!("{}Resolver", name), name.span())
-    };
+    let resolver = attributes.resolver.as_ref().map_or_else(
+        || Ident::new(&format!("{}Resolver", name), name.span()),
+        |value| value.clone()
+    );
 
     let serialize_impl = match input.data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
-                let serialize_predicates = fields.named.iter().filter_map(|f| {
-                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                        None
-                    } else {
-                        let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__S> })
-                    }
-                });
-                let serialize_predicates = quote! { #(#serialize_predicates,)* };
+                let mut serialize_where = where_clause.clone();
+                for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                    let ty = &field.ty;
+                    serialize_where.predicates.push(parse_quote! { #ty: rkyv::Serialize<__S> });
+                }
 
                 let resolver_values = fields.named.iter().map(|f| {
                     let name = &f.ident;
@@ -65,11 +47,7 @@ fn derive_serialize_impl(
                 });
 
                 quote! {
-                    impl<__S: Fallible + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
-                    where
-                        #generic_predicates
-                        #serialize_predicates
-                    {
+                    impl #impl_generics Serialize<__S> for #name #ty_generics #serialize_where {
                         fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
                             Ok(#resolver {
                                 #(#resolver_values,)*
@@ -79,15 +57,11 @@ fn derive_serialize_impl(
                 }
             }
             Fields::Unnamed(ref fields) => {
-                let serialize_predicates = fields.unnamed.iter().filter_map(|f| {
-                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                        None
-                    } else {
-                        let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__S> })
-                    }
-                });
-                let serialize_predicates = quote! { #(#serialize_predicates,)* };
+                let mut serialize_where = where_clause.clone();
+                for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                    let ty = &field.ty;
+                    serialize_where.predicates.push(parse_quote! { #ty: rkyv::Serialize<__S> });
+                }
 
                 let resolver_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = Index::from(i);
@@ -95,13 +69,9 @@ fn derive_serialize_impl(
                 });
 
                 quote! {
-                    impl<__S: Fallible + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
-                    where
-                        #generic_predicates
-                        #serialize_predicates
-                    {
+                    impl #impl_generics Serialize<__S> for #name #ty_generics #serialize_where {
                         fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
-                            Ok(#resolver::<#generic_args>(
+                            Ok(#resolver(
                                 #(#resolver_values,)*
                             ))
                         }
@@ -110,7 +80,7 @@ fn derive_serialize_impl(
             }
             Fields::Unit => {
                 quote! {
-                    impl<__S: Fallible + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args> {
+                    impl #impl_generics Serialize<__S> for #name #ty_generics #where_clause {
                         fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
                             Ok(#resolver)
                         }
@@ -119,32 +89,24 @@ fn derive_serialize_impl(
             }
         },
         Data::Enum(ref data) => {
-            let serialize_predicates = data.variants.iter().map(|v| match v.fields {
-                Fields::Named(ref fields) => {
-                    let serialize_predicates = fields.named.iter().filter_map(|f| {
-                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                            None
-                        } else {
-                            let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__S> })
+            let mut serialize_where = where_clause.clone();
+            for variant in data.variants.iter() {
+                match variant.fields {
+                    Fields::Named(ref fields) => {
+                        for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                            let ty = &field.ty;
+                            serialize_where.predicates.push(parse_quote! { #ty: rkyv::Serialize<__S> });
                         }
-                    });
-                    quote! { #(#serialize_predicates,)* }
-                }
-                Fields::Unnamed(ref fields) => {
-                    let serialize_predicates = fields.unnamed.iter().filter_map(|f| {
-                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                            None
-                        } else {
-                            let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: rkyv::Serialize<__S> })
+                    }
+                    Fields::Unnamed(ref fields) => {
+                        for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                            let ty = &field.ty;
+                            serialize_where.predicates.push(parse_quote! { #ty: rkyv::Serialize<__S> });
                         }
-                    });
-                    quote! { #(#serialize_predicates,)* }
+                    }
+                    Fields::Unit => (),
                 }
-                Fields::Unit => quote! {},
-            });
-            let serialize_predicates = quote! { #(#serialize_predicates)* };
+            }
 
             let serialize_arms = data.variants.iter().map(|v| {
                 let variant = &v.ident;
@@ -188,11 +150,7 @@ fn derive_serialize_impl(
             });
 
             quote! {
-                impl<__S: Fallible + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
-                where
-                    #generic_predicates
-                    #serialize_predicates
-                {
+                impl #impl_generics Serialize<__S> for #name #ty_generics #serialize_where {
                     fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
                         Ok(match self {
                             #(#serialize_arms,)*
@@ -222,7 +180,7 @@ fn derive_serialize_impl(
 }
 
 fn derive_serialize_copy_impl(
-    input: &DeriveInput,
+    mut input: DeriveInput,
     attributes: &Attributes,
 ) -> Result<TokenStream, Error> {
     if let Some(ref archived) = attributes.archived {
@@ -237,53 +195,37 @@ fn derive_serialize_copy_impl(
         ));
     };
 
+    input.generics.make_where_clause();
+
+    let mut impl_input_generics = input.generics.clone();
+    impl_input_generics.params.push(parse_quote! { __S: rkyv::Fallible + ?Sized });
+
     let name = &input.ident;
-
-    let generic_params = input.generics.params.iter().map(|p| quote! { #p });
-    let generic_params = quote! { #(#generic_params,)* };
-
-    let generic_args = input.generics.type_params().map(|p| {
-        let name = &p.ident;
-        quote_spanned! { p.ident.span() => #name }
-    });
-    let generic_args = quote! { #(#generic_args,)* };
-
-    let generic_predicates = match input.generics.where_clause {
-        Some(ref clause) => {
-            let predicates = clause.predicates.iter().map(|p| quote! { #p });
-            quote! { #(#predicates,)* }
-        }
-        None => quote! {},
-    };
+    let (impl_generics, _, _) = impl_input_generics.split_for_impl();
+    let (_, ty_generics, where_clause) = input.generics.split_for_impl();
+    let where_clause = where_clause.unwrap();
 
     let serialize_copy_impl = match input.data {
         Data::Struct(ref data) => {
-            let copy_predicates = match data.fields {
+            let mut copy_where = where_clause.clone();
+            match data.fields {
                 Fields::Named(ref fields) => {
-                    let copy_predicates = fields.named.iter().map(|f| {
-                        let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: ArchiveCopy }
-                    });
-
-                    quote! { #(#copy_predicates,)* }
+                    for field in fields.named.iter() {
+                        let ty = &field.ty;
+                        copy_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
+                    }
                 }
                 Fields::Unnamed(ref fields) => {
-                    let copy_predicates = fields.unnamed.iter().map(|f| {
-                        let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: ArchiveCopy }
-                    });
-
-                    quote! { #(#copy_predicates,)* }
+                    for field in fields.unnamed.iter() {
+                        let ty = &field.ty;
+                        copy_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
+                    }
                 }
-                Fields::Unit => quote! {},
+                Fields::Unit => (),
             };
 
             quote! {
-                impl<__S: Fallible + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
-                where
-                    #generic_predicates
-                    #copy_predicates
-                {
+                impl #impl_generics Serialize<__S> for #name #ty_generics #copy_where {
                     fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
                         Ok(())
                     }
@@ -311,31 +253,27 @@ fn derive_serialize_copy_impl(
                 ));
             }
 
-            let copy_predicates = data.variants.iter().map(|v| match v.fields {
-                Fields::Named(ref fields) => {
-                    let copy_predicates = fields.named.iter().map(|f| {
-                        let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: ArchiveCopy }
-                    });
-                    quote! { #(#copy_predicates,)* }
+            let mut copy_where = where_clause.clone();
+            for variant in data.variants.iter() {
+                match variant.fields {
+                    Fields::Named(ref fields) => {
+                        for field in fields.named.iter() {
+                            let ty = &field.ty;
+                            copy_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
+                        }
+                    }
+                    Fields::Unnamed(ref fields) => {
+                        for field in fields.unnamed.iter() {
+                            let ty = &field.ty;
+                            copy_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
+                        }
+                    }
+                    Fields::Unit => (),
                 }
-                Fields::Unnamed(ref fields) => {
-                    let copy_predicates = fields.unnamed.iter().map(|f| {
-                        let ty = &f.ty;
-                        quote_spanned! { f.span() => #ty: ArchiveCopy }
-                    });
-                    quote! { #(#copy_predicates,)* }
-                }
-                Fields::Unit => quote! {},
-            });
-            let copy_predicates = quote! { #(#copy_predicates)* };
+            }
 
             quote! {
-                impl<__S: Fallible + ?Sized, #generic_params> Serialize<__S> for #name<#generic_args>
-                where
-                    #generic_predicates
-                    #copy_predicates
-                {
+                impl #impl_generics Serialize<__S> for #name #ty_generics #copy_where {
                     fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
                         Ok(())
                     }
