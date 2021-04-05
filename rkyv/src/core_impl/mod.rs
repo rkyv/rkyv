@@ -41,6 +41,7 @@ macro_rules! default {
 impl<T> ArchivePointee for T {
     type ArchivedMetadata = ();
 
+    #[inline]
     fn pointer_metadata(_: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {}
 }
 
@@ -49,14 +50,17 @@ impl<T: Archive> ArchiveUnsized for T {
 
     type MetadataResolver = ();
 
+    #[inline]
     fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {}
 }
 
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for T {
+    #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         serializer.serialize_value(self)
     }
 
+    #[inline]
     fn serialize_metadata(&self, _: &mut S) -> Result<ArchivedMetadata<Self>, S::Error> {
         Ok(())
     }
@@ -66,6 +70,7 @@ impl<T: Archive, D: Deserializer + ?Sized> DeserializeUnsized<T, D> for T::Archi
 where
     T::Archived: Deserialize<T, D>,
 {
+    #[inline]
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
         let ptr = deserializer.alloc(alloc::Layout::new::<T>())?.cast::<T>();
         let deserialized = self.deserialize(deserializer)?;
@@ -73,6 +78,7 @@ where
         Ok(ptr.cast())
     }
 
+    #[inline]
     fn deserialize_metadata(&self, _: &mut D) -> Result<<T as Pointee>::Metadata, D::Error> {
         Ok(())
     }
@@ -82,12 +88,14 @@ impl<T: ?Sized> Archive for PhantomData<T> {
     type Archived = PhantomData<T>;
     type Resolver = ();
 
+    #[inline]
     fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
         PhantomData
     }
 }
 
 impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
+    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
@@ -96,6 +104,7 @@ impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
 unsafe impl<T: ?Sized> ArchiveCopy for PhantomData<T> {}
 
 impl<T: ?Sized, D: Fallible + ?Sized> Deserialize<PhantomData<T>, D> for PhantomData<T> {
+    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<PhantomData<T>, D::Error> {
         Ok(PhantomData)
     }

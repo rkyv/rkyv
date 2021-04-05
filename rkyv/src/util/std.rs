@@ -18,6 +18,7 @@ pub struct AlignedVec {
 }
 
 impl Drop for AlignedVec {
+    #[inline]
     fn drop(&mut self) {
         self.clear()
     }

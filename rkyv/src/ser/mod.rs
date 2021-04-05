@@ -73,6 +73,7 @@ pub trait Serializer: Fallible {
     }
 
     /// Archives the given object and returns the position it was archived at.
+    #[inline]
     fn serialize_value<T: Serialize<Self>>(&mut self, value: &T) -> Result<usize, Self::Error> {
         let resolver = value.serialize(self)?;
         self.align_for::<T::Archived>()?;
@@ -103,6 +104,7 @@ pub trait Serializer: Fallible {
     }
 
     /// Archives a reference to the given object and returns the position it was archived at.
+    #[inline]
     fn serialize_unsized_value<T: SerializeUnsized<Self> + ?Sized>(
         &mut self,
         value: &T,

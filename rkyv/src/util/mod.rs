@@ -114,24 +114,28 @@ pub struct Aligned<T>(pub T);
 impl<T: Deref> Deref for Aligned<T> {
     type Target = T::Target;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         &*self.0
     }
 }
 
 impl<T: DerefMut> DerefMut for Aligned<T> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut *self.0
     }
 }
 
 impl<T: AsRef<[U]>, U> AsRef<[U]> for Aligned<T> {
+    #[inline]
     fn as_ref(&self) -> &[U] {
         self.0.as_ref()
     }
 }
 
 impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
+    #[inline]
     fn as_mut(&mut self) -> &mut [U] {
         self.0.as_mut()
     }

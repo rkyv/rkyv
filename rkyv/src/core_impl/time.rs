@@ -99,6 +99,7 @@ impl Archive for Duration {
     type Archived = ArchivedDuration;
     type Resolver = ();
 
+    #[inline]
     fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
         ArchivedDuration {
             secs: self.as_secs(),
@@ -108,12 +109,14 @@ impl Archive for Duration {
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for Duration {
+    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
 impl<D: Fallible + ?Sized> Deserialize<Duration, D> for ArchivedDuration {
+    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<Duration, D::Error> {
         Ok(Duration::new(self.secs, self.nanos))
     }

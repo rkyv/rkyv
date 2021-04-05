@@ -15,6 +15,7 @@ pub struct SharedDeserializerAdapter<D> {
 
 impl<D> SharedDeserializerAdapter<D> {
     /// Wraps the given deserializer and adds shared memory support.
+    #[inline]
     pub fn new(inner: D) -> Self {
         Self {
             inner,
@@ -23,6 +24,7 @@ impl<D> SharedDeserializerAdapter<D> {
     }
 
     /// Consumes the adapter and returns the underlying deserializer.
+    #[inline]
     pub fn into_inner(self) -> D {
         self.inner
     }
