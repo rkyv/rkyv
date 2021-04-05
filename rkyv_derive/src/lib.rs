@@ -15,6 +15,9 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// - `copy`: Implements `ArchiveCopy` as well as `Archive`. Only suitable for types that can be
 ///   directly archived (i.e. plain data).
+/// - `compare(...)`: Implements common comparison operators between the original and archived
+///   types. Supported comparisons are `PartialEq` and `PartialOrd` (i.e.
+///   `#[archive(compare(PartialEq, PartialOrd))]`).
 /// - `derive(...)`: Adds a `#[derive(...)]` attribute to the archived type.
 /// - `name`, `name = "..."`: Exposes the archived type with the given name. If used without a name
 ///   assignment, uses the name `"Archived" + name`.
