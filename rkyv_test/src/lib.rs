@@ -1411,15 +1411,15 @@ mod tests {
 
     #[test]
     fn default_type_parameters() {
-        #[derive(Archive, Serialize)]
+        #[derive(Archive, Serialize, Deserialize)]
         pub struct TupleFoo<T = i32>(T);
 
-        #[derive(Archive, Serialize)]
+        #[derive(Archive, Serialize, Deserialize)]
         pub struct StructFoo<T = i32> {
             t: T,
         }
 
-        #[derive(Archive, Serialize)]
+        #[derive(Archive, Serialize, Deserialize)]
         pub enum EnumFoo<T = i32> {
             #[allow(dead_code)]
             T(T),

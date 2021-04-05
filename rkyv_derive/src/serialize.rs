@@ -20,7 +20,7 @@ fn derive_serialize_impl(
     input.generics.make_where_clause();
 
     let mut impl_input_generics = input.generics.clone();
-    impl_input_generics.params.push(parse_quote! { __S: rkyv::Fallible + ?Sized });
+    impl_input_generics.params.push(parse_quote! { __S: Fallible + ?Sized });
 
     let name = &input.ident;
     let (impl_generics, _, _) = impl_input_generics.split_for_impl();
@@ -38,7 +38,7 @@ fn derive_serialize_impl(
                 let mut serialize_where = where_clause.clone();
                 for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
                     let ty = &field.ty;
-                    serialize_where.predicates.push(parse_quote! { #ty: rkyv::Serialize<__S> });
+                    serialize_where.predicates.push(parse_quote! { #ty: Serialize<__S> });
                 }
 
                 let resolver_values = fields.named.iter().map(|f| {
@@ -60,7 +60,7 @@ fn derive_serialize_impl(
                 let mut serialize_where = where_clause.clone();
                 for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
                     let ty = &field.ty;
-                    serialize_where.predicates.push(parse_quote! { #ty: rkyv::Serialize<__S> });
+                    serialize_where.predicates.push(parse_quote! { #ty: Serialize<__S> });
                 }
 
                 let resolver_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
@@ -95,13 +95,13 @@ fn derive_serialize_impl(
                     Fields::Named(ref fields) => {
                         for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
                             let ty = &field.ty;
-                            serialize_where.predicates.push(parse_quote! { #ty: rkyv::Serialize<__S> });
+                            serialize_where.predicates.push(parse_quote! { #ty: Serialize<__S> });
                         }
                     }
                     Fields::Unnamed(ref fields) => {
                         for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
                             let ty = &field.ty;
-                            serialize_where.predicates.push(parse_quote! { #ty: rkyv::Serialize<__S> });
+                            serialize_where.predicates.push(parse_quote! { #ty: Serialize<__S> });
                         }
                     }
                     Fields::Unit => (),
@@ -169,11 +169,7 @@ fn derive_serialize_impl(
 
     Ok(quote! {
         const _: () = {
-            use rkyv::{
-                Archive,
-                Serialize,
-                Fallible,
-            };
+            use rkyv::{Archive, Fallible, Serialize};
             #serialize_impl
         };
     })
@@ -198,7 +194,7 @@ fn derive_serialize_copy_impl(
     input.generics.make_where_clause();
 
     let mut impl_input_generics = input.generics.clone();
-    impl_input_generics.params.push(parse_quote! { __S: rkyv::Fallible + ?Sized });
+    impl_input_generics.params.push(parse_quote! { __S: Fallible + ?Sized });
 
     let name = &input.ident;
     let (impl_generics, _, _) = impl_input_generics.split_for_impl();
@@ -287,12 +283,7 @@ fn derive_serialize_copy_impl(
 
     Ok(quote! {
         const _: () = {
-            use rkyv::{
-                Archive,
-                ArchiveCopy,
-                Serialize,
-                Fallible,
-            };
+            use rkyv::{Archive, ArchiveCopy, Fallible, Serialize};
 
             #serialize_copy_impl
         };

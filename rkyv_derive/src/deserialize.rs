@@ -1,54 +1,38 @@
 use crate::attributes::{parse_attributes, Attributes};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::{spanned::Spanned, Data, DeriveInput, Error, Fields, Ident, Index};
+use syn::{spanned::Spanned, Data, DeriveInput, Error, Fields, Ident, Index, parse_quote};
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     let attributes = parse_attributes(&input)?;
 
     if attributes.copy.is_some() {
-        derive_deserialize_copy_impl(&input, &attributes)
+        derive_deserialize_copy_impl(input, &attributes)
     } else {
-        derive_deserialize_impl(&input)
+        derive_deserialize_impl(input)
     }
 }
 
-fn derive_deserialize_impl(input: &DeriveInput) -> Result<TokenStream, Error> {
+fn derive_deserialize_impl(mut input: DeriveInput) -> Result<TokenStream, Error> {
+    input.generics.make_where_clause();
+
+    let mut impl_input_generics = input.generics.clone();
+    impl_input_generics.params.push(parse_quote! { __D: Fallible + ?Sized });
+
     let name = &input.ident;
-
-    let generic_params = input
-        .generics
-        .params
-        .iter()
-        .map(|p| quote_spanned! { p.span() => #p });
-    let generic_params = quote! { #(#generic_params,)* };
-
-    let generic_args = input.generics.type_params().map(|p| {
-        let name = &p.ident;
-        quote_spanned! { name.span() => #name }
-    });
-    let generic_args = quote! { #(#generic_args,)* };
-
-    let generic_predicates = match input.generics.where_clause {
-        Some(ref clause) => {
-            let predicates = clause.predicates.iter().map(|p| quote! { #p });
-            quote! { #(#predicates,)* }
-        }
-        None => quote! {},
-    };
+    let (impl_generics, _, _) = impl_input_generics.split_for_impl();
+    let (_, ty_generics, where_clause) = input.generics.split_for_impl();
+    let where_clause = where_clause.unwrap();
 
     let deserialize_impl = match input.data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
-                let deserialize_predicates = fields.named.iter().filter_map(|f| {
-                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                        None
-                    } else {
-                        let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty, __D> })
-                    }
-                });
-                let deserialize_predicates = quote! { #(#deserialize_predicates,)* };
+                let mut deserialize_where = where_clause.clone();
+                for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                    let ty = &field.ty;
+                    deserialize_where.predicates.push(parse_quote! { #ty: Archive });
+                    deserialize_where.predicates.push(parse_quote! { Archived<#ty>: Deserialize<#ty, __D> });
+                }
 
                 let deserialize_fields = fields.named.iter().map(|f| {
                     let name = &f.ident;
@@ -56,13 +40,9 @@ fn derive_deserialize_impl(input: &DeriveInput) -> Result<TokenStream, Error> {
                 });
 
                 quote! {
-                    impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
-                    where
-                        #generic_predicates
-                        #deserialize_predicates
-                    {
-                        fn deserialize(&self, deserializer: &mut __D) -> Result<#name<#generic_args>, __D::Error> {
-                            Ok(#name::<#generic_args> {
+                    impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
+                        fn deserialize(&self, deserializer: &mut __D) -> Result<#name #ty_generics, __D::Error> {
+                            Ok(#name {
                                 #(#deserialize_fields,)*
                             })
                         }
@@ -70,15 +50,12 @@ fn derive_deserialize_impl(input: &DeriveInput) -> Result<TokenStream, Error> {
                 }
             }
             Fields::Unnamed(ref fields) => {
-                let deserialize_predicates = fields.unnamed.iter().filter_map(|f| {
-                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                        None
-                    } else {
-                        let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty, __D> })
-                    }
-                });
-                let deserialize_predicates = quote! { #(#deserialize_predicates,)* };
+                let mut deserialize_where = where_clause.clone();
+                for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                    let ty = &field.ty;
+                    deserialize_where.predicates.push(parse_quote! { #ty: Archive });
+                    deserialize_where.predicates.push(parse_quote! { Archived<#ty>: Deserialize<#ty, __D> });
+                }
 
                 let deserialize_fields = fields.unnamed.iter().enumerate().map(|(i, _)| {
                     let index = Index::from(i);
@@ -86,13 +63,9 @@ fn derive_deserialize_impl(input: &DeriveInput) -> Result<TokenStream, Error> {
                 });
 
                 quote! {
-                    impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
-                    where
-                        #generic_predicates
-                        #deserialize_predicates
-                    {
-                        fn deserialize(&self, deserializer: &mut __D) -> Result<#name<#generic_args>, __D::Error> {
-                            Ok(#name::<#generic_args>(
+                    impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
+                        fn deserialize(&self, deserializer: &mut __D) -> Result<#name #ty_generics, __D::Error> {
+                            Ok(#name(
                                 #(#deserialize_fields,)*
                             ))
                         }
@@ -100,43 +73,34 @@ fn derive_deserialize_impl(input: &DeriveInput) -> Result<TokenStream, Error> {
                 }
             }
             Fields::Unit => quote! {
-                impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
-                where
-                    #generic_predicates
-                {
-                    fn deserialize(&self, _: &mut __D) -> Result<#name<#generic_args>, __D::Error> {
-                        Ok(#name::<#generic_args>)
+                impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #where_clause {
+                    fn deserialize(&self, _: &mut __D) -> Result<#name #ty_generics, __D::Error> {
+                        Ok(#name)
                     }
                 }
             },
         },
         Data::Enum(ref data) => {
-            let deserialize_predicates = data.variants.iter().map(|v| match v.fields {
-                Fields::Named(ref fields) => {
-                    let deserialize_predicates = fields.named.iter().filter_map(|f| {
-                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                            None
-                        } else {
-                            let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty, __D> })
+            let mut deserialize_where = where_clause.clone();
+            for variant in data.variants.iter() {
+                match variant.fields {
+                    Fields::Named(ref fields) => {
+                        for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                            let ty = &field.ty;
+                            deserialize_where.predicates.push(parse_quote! { #ty: Archive });
+                            deserialize_where.predicates.push(parse_quote! { Archived<#ty>: Deserialize<#ty, __D> });
                         }
-                    });
-                    quote! { #(#deserialize_predicates,)* }
-                }
-                Fields::Unnamed(ref fields) => {
-                    let deserialize_predicates = fields.unnamed.iter().filter_map(|f| {
-                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                            None
-                        } else {
-                            let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: Archive, Archived<#ty>: Deserialize<#ty, __D> })
+                    }
+                    Fields::Unnamed(ref fields) => {
+                        for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                            let ty = &field.ty;
+                            deserialize_where.predicates.push(parse_quote! { #ty: Archive });
+                            deserialize_where.predicates.push(parse_quote! { Archived<#ty>: Deserialize<#ty, __D> });
                         }
-                    });
-                    quote! { #(#deserialize_predicates,)* }
+                    }
+                    Fields::Unit => (),
                 }
-                Fields::Unit => quote! {}
-            });
-            let deserialize_predicates = quote! { #(#deserialize_predicates)* };
+            }
 
             let deserialize_variants = data.variants.iter().map(|v| {
                 let variant = &v.ident;
@@ -153,7 +117,7 @@ fn derive_deserialize_impl(input: &DeriveInput) -> Result<TokenStream, Error> {
                             }
                         });
                         quote_spanned! { variant.span() =>
-                            Self::#variant { #(#bindings,)* } => #name::<#generic_args>::#variant { #(#fields,)* }
+                            Self::#variant { #(#bindings,)* } => #name::#variant { #(#fields,)* }
                         }
                     }
                     Fields::Unnamed(ref fields) => {
@@ -168,22 +132,18 @@ fn derive_deserialize_impl(input: &DeriveInput) -> Result<TokenStream, Error> {
                             }
                         });
                         quote_spanned! { variant.span() =>
-                            Self::#variant( #(#bindings,)* ) => #name::<#generic_args>::#variant(#(#fields,)*)
+                            Self::#variant( #(#bindings,)* ) => #name::#variant(#(#fields,)*)
                         }
                     }
                     Fields::Unit => {
-                        quote_spanned! { name.span() => Self::#variant => #name::<#generic_args>::#variant }
+                        quote_spanned! { name.span() => Self::#variant => #name::#variant }
                     }
                 }
             });
 
             quote! {
-                impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
-                where
-                    #generic_predicates
-                    #deserialize_predicates
-                {
-                    fn deserialize(&self, deserializer: &mut __D) -> Result<#name<#generic_args>, __D::Error> {
+                impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
+                    fn deserialize(&self, deserializer: &mut __D) -> Result<#name #ty_generics, __D::Error> {
                         Ok(match self {
                             #(#deserialize_variants,)*
                         })
@@ -208,7 +168,7 @@ fn derive_deserialize_impl(input: &DeriveInput) -> Result<TokenStream, Error> {
 }
 
 fn derive_deserialize_copy_impl(
-    input: &DeriveInput,
+    mut input: DeriveInput,
     attributes: &Attributes,
 ) -> Result<TokenStream, Error> {
     if let Some(ref archived) = attributes.archived {
@@ -223,48 +183,27 @@ fn derive_deserialize_copy_impl(
         ));
     };
 
+    input.generics.make_where_clause();
+
+    let mut impl_input_generics = input.generics.clone();
+    impl_input_generics.params.push(parse_quote! { __D: Fallible + ?Sized });
+
     let name = &input.ident;
-
-    let generic_params = input
-        .generics
-        .params
-        .iter()
-        .map(|p| quote_spanned! { p.span() => #p });
-    let generic_params = quote! { #(#generic_params,)* };
-
-    let generic_args = input.generics.type_params().map(|p| {
-        let name = &p.ident;
-        quote_spanned! { name.span() => #name }
-    });
-    let generic_args = quote! { #(#generic_args,)* };
-
-    let generic_predicates = match input.generics.where_clause {
-        Some(ref clause) => {
-            let predicates = clause.predicates.iter().map(|p| quote! { #p });
-            quote! { #(#predicates,)* }
-        }
-        None => quote! {},
-    };
+    let (impl_generics, _, _) = impl_input_generics.split_for_impl();
+    let (_, ty_generics, where_clause) = input.generics.split_for_impl();
+    let where_clause = where_clause.unwrap();
 
     let deserialize_impl = match input.data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
-                let deserialize_predicates = fields.named.iter().filter_map(|f| {
-                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                        None
-                    } else {
-                        let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: ArchiveCopy })
-                    }
-                });
-                let deserialize_predicates = quote! { #(#deserialize_predicates,)* };
+                let mut deserialize_where = where_clause.clone();
+                for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                    let ty = &field.ty;
+                    deserialize_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
+                }
 
                 quote! {
-                    impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
-                    where
-                        #generic_predicates
-                        #deserialize_predicates
-                    {
+                    impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
                         fn deserialize(&self, _: &mut __D) -> Result<Self, __D::Error> {
                             Ok(*self)
                         }
@@ -272,22 +211,14 @@ fn derive_deserialize_copy_impl(
                 }
             }
             Fields::Unnamed(ref fields) => {
-                let deserialize_predicates = fields.unnamed.iter().filter_map(|f| {
-                    if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                        None
-                    } else {
-                        let ty = &f.ty;
-                        Some(quote_spanned! { f.span() => #ty: ArchiveCopy })
-                    }
-                });
-                let deserialize_predicates = quote! { #(#deserialize_predicates,)* };
+                let mut deserialize_where = where_clause.clone();
+                for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                    let ty = &field.ty;
+                    deserialize_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
+                }
 
                 quote! {
-                    impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
-                    where
-                        #generic_predicates
-                        #deserialize_predicates
-                    {
+                    impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
                         fn deserialize(&self, _: &mut __D) -> Result<Self, __D::Error> {
                             Ok(*self)
                         }
@@ -295,10 +226,7 @@ fn derive_deserialize_copy_impl(
                 }
             }
             Fields::Unit => quote! {
-                impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
-                where
-                    #generic_predicates
-                {
+                impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #where_clause {
                     fn deserialize(&self, _: &mut __D) -> Result<Self, __D::Error> {
                         Ok(*self)
                     }
@@ -306,39 +234,27 @@ fn derive_deserialize_copy_impl(
             },
         },
         Data::Enum(ref data) => {
-            let deserialize_predicates = data.variants.iter().map(|v| match v.fields {
-                Fields::Named(ref fields) => {
-                    let deserialize_predicates = fields.named.iter().filter_map(|f| {
-                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                            None
-                        } else {
-                            let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: ArchiveCopy })
+            let mut deserialize_where = where_clause.clone();
+            for variant in data.variants.iter() {
+                match variant.fields {
+                    Fields::Named(ref fields) => {
+                        for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                            let ty = &field.ty;
+                            deserialize_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
                         }
-                    });
-                    quote! { #(#deserialize_predicates,)* }
-                }
-                Fields::Unnamed(ref fields) => {
-                    let deserialize_predicates = fields.unnamed.iter().filter_map(|f| {
-                        if f.attrs.iter().any(|a| a.path.is_ident("recursive")) {
-                            None
-                        } else {
-                            let ty = &f.ty;
-                            Some(quote_spanned! { f.span() => #ty: ArchiveCopy })
+                    }
+                    Fields::Unnamed(ref fields) => {
+                        for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                            let ty = &field.ty;
+                            deserialize_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
                         }
-                    });
-                    quote! { #(#deserialize_predicates,)* }
+                    }
+                    Fields::Unit => (),
                 }
-                Fields::Unit => quote! {},
-            });
-            let deserialize_predicates = quote! { #(#deserialize_predicates)* };
+            }
 
             quote! {
-                impl<__D: Fallible + ?Sized, #generic_params> Deserialize<#name<#generic_args>, __D> for Archived<#name<#generic_args>>
-                where
-                    #generic_predicates
-                    #deserialize_predicates
-                {
+                impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
                     fn deserialize(&self, _: &mut __D) -> Result<Self, __D::Error> {
                         Ok(*self)
                     }
@@ -355,7 +271,7 @@ fn derive_deserialize_copy_impl(
 
     Ok(quote! {
         const _: () = {
-            use rkyv::{Archive, Archived, ArchiveCopy, Deserialize, Fallible};
+            use rkyv::{ArchiveCopy, Archived, Deserialize, Fallible};
             #deserialize_impl
         };
     })

@@ -62,7 +62,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
 
                 let archived_values = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote_spanned! { f.span() => #name: self.#name.resolve(pos + offset_of!(#archived #ty_generics, #name), resolver.#name) }
+                    quote_spanned! { f.span() => #name: self.#name.resolve(pos + rkyv::offset_of!(#archived #ty_generics, #name), resolver.#name) }
                 });
 
                 let mut partial_eq_impl = None;
@@ -111,7 +111,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                         }
                     },
                     quote! {
-                        impl #impl_generics Archive for #name #ty_generics #archive_where {
+                        impl #impl_generics rkyv::Archive for #name #ty_generics #archive_where {
                             type Archived = #archived #ty_generics;
                             type Resolver = #resolver #ty_generics;
 
@@ -147,7 +147,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
 
                 let archived_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = Index::from(i);
-                    quote_spanned! { f.span() => self.#index.resolve(pos + offset_of!(#archived #ty_generics, #index), resolver.#index) }
+                    quote_spanned! { f.span() => self.#index.resolve(pos + rkyv::offset_of!(#archived #ty_generics, #index), resolver.#index) }
                 });
 
                 let mut partial_eq_impl = None;
@@ -196,7 +196,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                         #vis struct #resolver #generics (#(#resolver_fields,)*) #archive_where;
                     },
                     quote! {
-                        impl #impl_generics Archive for #name #ty_generics #archive_where {
+                        impl #impl_generics rkyv::Archive for #name #ty_generics #archive_where {
                             type Archived = #archived #ty_generics;
                             type Resolver = #resolver #ty_generics;
 
@@ -249,7 +249,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                         #where_clause;
                     },
                     quote! {
-                        impl #impl_generics Archive for #name #ty_generics #where_clause {
+                        impl #impl_generics rkyv::Archive for #name #ty_generics #where_clause {
                             type Archived = #archived #ty_generics;
                             type Resolver = #resolver #ty_generics;
 
@@ -336,7 +336,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                             let self_binding = Ident::new(&format!("self_{}", name.as_ref().unwrap().to_string()), name.span());
                             let resolver_binding = Ident::new(&format!("resolver_{}", name.as_ref().unwrap().to_string()), name.span());
                             quote! {
-                                #name: #self_binding.resolve(pos + offset_of!(#archived_variant_name #ty_generics, #name), #resolver_binding)
+                                #name: #self_binding.resolve(pos + rkyv::offset_of!(#archived_variant_name #ty_generics, #name), #resolver_binding)
                             }
                         });
                         quote_spanned! { name.span() =>
@@ -367,7 +367,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                             let self_binding = Ident::new(&format!("self_{}", i), f.span());
                             let resolver_binding = Ident::new(&format!("resolver_{}", i), f.span());
                             quote! {
-                                #self_binding.resolve(pos + offset_of!(#archived_variant_name #ty_generics, #index), #resolver_binding)
+                                #self_binding.resolve(pos + rkyv::offset_of!(#archived_variant_name #ty_generics, #index), #resolver_binding)
                             }
                         });
                         quote_spanned! { name.span() =>
@@ -585,7 +585,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
 
                     #(#archived_variant_structs)*
 
-                    impl #impl_generics Archive for #name #ty_generics #archive_where {
+                    impl #impl_generics rkyv::Archive for #name #ty_generics #archive_where {
                         type Archived = #archived #ty_generics;
                         type Resolver = #resolver #ty_generics;
 
@@ -614,7 +614,6 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
 
         const _: () = {
             use core::marker::PhantomData;
-            use rkyv::{Archive, offset_of};
 
             #archive_impls
         };
@@ -664,13 +663,13 @@ fn derive_archive_copy_impl(
                 Fields::Named(ref fields) => {
                     for field in fields.named.iter() {
                         let ty = &field.ty;
-                        copy_where.predicates.push(parse_quote! { #ty: rkyv::ArchiveCopy });
+                        copy_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
                     }
                 }
                 Fields::Unnamed(ref fields) => {
                     for field in fields.unnamed.iter() {
                         let ty = &field.ty;
-                        copy_where.predicates.push(parse_quote! { #ty: rkyv::ArchiveCopy });
+                        copy_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
                     }
                 }
                 Fields::Unit => (),
