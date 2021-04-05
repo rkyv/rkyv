@@ -1426,7 +1426,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(compare(PartialEq))]
+        #[archive(compare(PartialEq, PartialOrd))]
         pub enum EnumFoo {
             #[allow(dead_code)]
             Foo(i32),

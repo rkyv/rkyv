@@ -556,12 +556,13 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
             });
 
             let mut partial_eq_impl = None;
+            let mut partial_ord_impl = None;
             if let Some((_, ref compares)) = attributes.compares {
                 for compare in compares {
                     if compare.is_ident("PartialEq") {
                         let mut partial_eq_where = archive_where.clone();
-                        for v in data.variants.iter() {
-                            match v.fields {
+                        for variant in data.variants.iter() {
+                            match variant.fields {
                                 Fields::Named(ref fields) => {
                                     for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
                                         let ty = &field.ty;
@@ -645,8 +646,150 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                                 }
                             }
                         });
+                    } else if compare.is_ident("PartialOrd") {
+                        let mut partial_ord_where = archive_where.clone();
+                        for variant in data.variants.iter() {
+                            match variant.fields {
+                                Fields::Named(ref fields) => {
+                                    for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                                        let ty = &field.ty;
+                                        partial_ord_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> });
+                                    }
+                                }
+                                Fields::Unnamed(ref fields) => {
+                                    for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                                        let ty = &field.ty;
+                                        partial_ord_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> });
+                                    }
+                                }
+                                Fields::Unit => (),
+                            }
+                        }
+
+                        let self_disc = data.variants.iter().enumerate().map(|(i, v)| {
+                            let variant = &v.ident;
+                            match v.fields {
+                                Fields::Named(_) => quote! {
+                                    #name::#variant { .. } => #i
+                                },
+                                Fields::Unnamed(_) => quote! {
+                                    #name::#variant ( .. ) => #i
+                                },
+                                Fields::Unit => quote! {
+                                    #name::#variant => #i
+                                },
+                            }
+                        });
+                        let other_disc = data.variants.iter().enumerate().map(|(i, v)| {
+                            let variant = &v.ident;
+                            match v.fields {
+                                Fields::Named(_) => quote! {
+                                    #archived::#variant { .. } => #i
+                                },
+                                Fields::Unnamed(_) => quote! {
+                                    #archived::#variant ( .. ) => #i
+                                },
+                                Fields::Unit => quote! {
+                                    #archived::#variant => #i
+                                },
+                            }
+                        });
+
+                        let variant_impls = data.variants.iter().map(|v| {
+                            let variant = &v.ident;
+                            match v.fields {
+                                Fields::Named(ref fields) => {
+                                    let field_names = fields.named.iter()
+                                        .map(|f| &f.ident)
+                                        .collect::<Vec<_>>();
+                                    let self_bindings = fields.named.iter().map(|f| {
+                                        f.ident.as_ref().map(|ident| {
+                                            Ident::new(&format!("self_{}", ident.to_string()), ident.span())
+                                        })
+                                    }).collect::<Vec<_>>();
+                                    let other_bindings = fields.named.iter().map(|f| {
+                                        f.ident.as_ref().map(|ident| {
+                                            Ident::new(&format!("other_{}", ident.to_string()), ident.span())
+                                        })
+                                    }).collect::<Vec<_>>();
+                                    quote! {
+                                        #name::#variant { #(#field_names: #self_bindings,)* } => match other {
+                                            #archived::#variant { #(#field_names: #other_bindings,)* } => {
+                                                #(
+                                                    match #other_bindings.partial_cmp(#self_bindings) {
+                                                        Some(::core::cmp::Ordering::Equal) => (),
+                                                        cmp => return cmp,
+                                                    }
+                                                )*
+                                                Some(::core::cmp::Ordering::Equal)
+                                            }
+                                            #[allow(unreachable_patterns)]
+                                            _ => unsafe { ::core::hint::unreachable_unchecked() },
+                                        }
+                                    }
+                                }
+                                Fields::Unnamed(ref fields) => {
+                                    let self_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                                        Ident::new(&format!("self_{}", i), f.span())
+                                    }).collect::<Vec<_>>();
+                                    let other_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                                        Ident::new(&format!("other_{}", i), f.span())
+                                    }).collect::<Vec<_>>();
+                                    quote! {
+                                        #name::#variant(#(#self_bindings,)*) => match other {
+                                            #archived::#variant(#(#other_bindings,)*) => {
+                                                #(
+                                                    match #other_bindings.partial_cmp(#self_bindings) {
+                                                        Some(::core::cmp::Ordering::Equal) => (),
+                                                        cmp => return cmp,
+                                                    }
+                                                )*
+                                                Some(::core::cmp::Ordering::Equal)
+                                            }
+                                            #[allow(unreachable_patterns)]
+                                            _ => unsafe { ::core::hint::unreachable_unchecked() },
+                                        }
+                                    }
+                                }
+                                Fields::Unit => quote! {
+                                    #name::#variant => match other {
+                                        #archived::#variant => Some(::core::cmp::Ordering::Equal),
+                                        #[allow(unreachable_patterns)]
+                                        _ => unsafe { ::core::hint::unreachable_unchecked() },
+                                    }
+                                }
+                            }
+                        });
+
+                        partial_ord_impl = Some(quote! {
+                            impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #partial_ord_where {
+                                #[inline]
+                                fn partial_cmp(&self, other: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
+                                    let self_disc = match self { #(#self_disc,)* };
+                                    let other_disc = match other { #(#other_disc,)* };
+                                    if self_disc == other_disc {
+                                        match self {
+                                            #(#variant_impls,)*
+                                        }
+                                    } else {
+                                        self_disc.partial_cmp(&other_disc)
+                                    }
+                                }
+                            }
+
+                            impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #partial_ord_where {
+                                #[inline]
+                                fn partial_cmp(&self, other: &#name #ty_generics) -> Option<::core::cmp::Ordering> {
+                                    match other.partial_cmp(self) {
+                                        Some(::core::cmp::Ordering::Less) => Some(::core::cmp::Ordering::Greater),
+                                        Some(::core::cmp::Ordering::Greater) => Some(::core::cmp::Ordering::Less),
+                                        cmp => cmp,
+                                    }
+                                }
+                            }
+                        });
                     } else {
-                        return Err(Error::new_spanned(compare, "unrecognized compare argument, supported compares are PartialEq and PartialOrd"));
+                        return Err(Error::new_spanned(compare, "unrecognized compare argument, supported compares are PartialEq (PartialOrd is not supported for enums)"));
                     }
                 }
             }
@@ -684,6 +827,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                     }
 
                     #partial_eq_impl
+                    #partial_ord_impl
                 },
             )
         }
