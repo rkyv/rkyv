@@ -147,6 +147,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                             type Resolver = #resolver #ty_generics;
 
                             #[allow(clippy::unit_arg)]
+                            #[inline]
                             fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
                                 Self::Archived {
                                     #(#archived_values,)*
@@ -268,6 +269,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                             type Resolver = #resolver #ty_generics;
 
                             #[allow(clippy::unit_arg)]
+                            #[inline]
                             fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
                                 #archived(
                                     #(#archived_values,)*
@@ -338,6 +340,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                             type Archived = #archived #ty_generics;
                             type Resolver = #resolver #ty_generics;
 
+                            #[inline]
                             fn resolve(&self, _pos: usize, _resolver: Self::Resolver) -> Self::Archived {
                                 #archived
                             }
@@ -819,6 +822,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                         type Resolver = #resolver #ty_generics;
 
                         #[allow(clippy::unit_arg)]
+                        #[inline]
                         fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
                             match resolver {
                                 #(#resolve_arms,)*
@@ -912,6 +916,7 @@ fn derive_archive_copy_impl(
                     type Archived = Self;
                     type Resolver = ();
 
+                    #[inline]
                     fn resolve(&self, _pos: usize, _resolver: Self::Resolver) -> Self::Archived {
                         *self
                     }
@@ -965,6 +970,7 @@ fn derive_archive_copy_impl(
                     type Archived = Self;
                     type Resolver = ();
 
+                    #[inline]
                     fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
                         *self
                     }

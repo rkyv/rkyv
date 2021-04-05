@@ -41,6 +41,7 @@ fn derive_deserialize_impl(mut input: DeriveInput) -> Result<TokenStream, Error>
 
                 quote! {
                     impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
+                        #[inline]
                         fn deserialize(&self, deserializer: &mut __D) -> Result<#name #ty_generics, __D::Error> {
                             Ok(#name {
                                 #(#deserialize_fields,)*
@@ -64,6 +65,7 @@ fn derive_deserialize_impl(mut input: DeriveInput) -> Result<TokenStream, Error>
 
                 quote! {
                     impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
+                        #[inline]
                         fn deserialize(&self, deserializer: &mut __D) -> Result<#name #ty_generics, __D::Error> {
                             Ok(#name(
                                 #(#deserialize_fields,)*
@@ -74,6 +76,7 @@ fn derive_deserialize_impl(mut input: DeriveInput) -> Result<TokenStream, Error>
             }
             Fields::Unit => quote! {
                 impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #where_clause {
+                    #[inline]
                     fn deserialize(&self, _: &mut __D) -> Result<#name #ty_generics, __D::Error> {
                         Ok(#name)
                     }
@@ -143,6 +146,7 @@ fn derive_deserialize_impl(mut input: DeriveInput) -> Result<TokenStream, Error>
 
             quote! {
                 impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
+                    #[inline]
                     fn deserialize(&self, deserializer: &mut __D) -> Result<#name #ty_generics, __D::Error> {
                         Ok(match self {
                             #(#deserialize_variants,)*
@@ -194,44 +198,32 @@ fn derive_deserialize_copy_impl(
     let where_clause = where_clause.unwrap();
 
     let deserialize_impl = match input.data {
-        Data::Struct(ref data) => match data.fields {
-            Fields::Named(ref fields) => {
-                let mut deserialize_where = where_clause.clone();
-                for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
-                    let ty = &field.ty;
-                    deserialize_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
-                }
-
-                quote! {
-                    impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
-                        fn deserialize(&self, _: &mut __D) -> Result<Self, __D::Error> {
-                            Ok(*self)
-                        }
+        Data::Struct(ref data) => {
+            let mut deserialize_where = where_clause.clone();
+            match data.fields {
+                Fields::Named(ref fields) => {
+                    for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                        let ty = &field.ty;
+                        deserialize_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
                     }
                 }
-            }
-            Fields::Unnamed(ref fields) => {
-                let mut deserialize_where = where_clause.clone();
-                for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
-                    let ty = &field.ty;
-                    deserialize_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
-                }
-
-                quote! {
-                    impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
-                        fn deserialize(&self, _: &mut __D) -> Result<Self, __D::Error> {
-                            Ok(*self)
-                        }
+                Fields::Unnamed(ref fields) => {
+                    for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                        let ty = &field.ty;
+                        deserialize_where.predicates.push(parse_quote! { #ty: ArchiveCopy });
                     }
                 }
+                Fields::Unit => (),
             }
-            Fields::Unit => quote! {
-                impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #where_clause {
+
+            quote! {
+                impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
+                    #[inline]
                     fn deserialize(&self, _: &mut __D) -> Result<Self, __D::Error> {
                         Ok(*self)
                     }
                 }
-            },
+            }
         },
         Data::Enum(ref data) => {
             let mut deserialize_where = where_clause.clone();
@@ -255,6 +247,7 @@ fn derive_deserialize_copy_impl(
 
             quote! {
                 impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
+                    #[inline]
                     fn deserialize(&self, _: &mut __D) -> Result<Self, __D::Error> {
                         Ok(*self)
                     }
