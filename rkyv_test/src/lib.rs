@@ -595,7 +595,6 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        // TODO: archive parameter to set typename
         #[archive(derive(TypeName))]
         pub struct Test {
             id: i32,
@@ -1047,32 +1046,14 @@ mod tests {
 
     #[test]
     fn recursive_structures() {
-        #[derive(Archive, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
         #[archive(compare(PartialEq))]
+        // The derive macros don't apply the right bounds from Box so we have to manually specify
+        // what bounds to apply
+        #[archive(bound(serialize = "__S: Serializer", deserialize = "__D: Deserializer"))]
         enum Node {
             Nil,
-            Cons(#[recursive] Box<Node>),
-        }
-
-        // Right now the derive macros don't apply the right bounds from Box so
-        // we have to implement it manually. Luckily it's not too bad, but
-        // hopefully in the future there's a better way to do this.
-        impl<S: Serializer + ?Sized> Serialize<S> for Node {
-            fn serialize(&self, serializer: &mut S) -> Result<NodeResolver, S::Error> {
-                Ok(match self {
-                    Node::Nil => NodeResolver::Nil,
-                    Node::Cons(inner) => NodeResolver::Cons(inner.serialize(serializer)?),
-                })
-            }
-        }
-
-        impl<D: Deserializer + ?Sized> Deserialize<Node, D> for ArchivedNode {
-            fn deserialize(&self, deserializer: &mut D) -> Result<Node, D::Error> {
-                Ok(match self {
-                    ArchivedNode::Nil => Node::Nil,
-                    ArchivedNode::Cons(inner) => Node::Cons(inner.deserialize(deserializer)?),
-                })
-            }
+            Cons(#[omit_bounds] Box<Node>),
         }
 
         test_archive(&Node::Cons(Box::new(Node::Cons(Box::new(Node::Nil)))));

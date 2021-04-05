@@ -42,7 +42,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
                 let mut archive_where = where_clause.clone();
-                for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                     let ty = &field.ty;
                     archive_where.predicates.push(parse_quote! { #ty: rkyv::Archive });
                 }
@@ -71,7 +71,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                     for compare in compares {
                         if compare.is_ident("PartialEq") {
                             let mut partial_eq_where = archive_where.clone();
-                            for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                            for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                                 let ty = &field.ty;
                                 partial_eq_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
                             }
@@ -95,7 +95,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                             });
                         } else if compare.is_ident("PartialOrd") {
                             let mut partial_ord_where = archive_where.clone();
-                            for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                            for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                                 let ty = &field.ty;
                                 partial_ord_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> });
                             }
@@ -162,7 +162,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
             }
             Fields::Unnamed(ref fields) => {
                 let mut archive_where = where_clause.clone();
-                for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                     let ty = &field.ty;
                     archive_where.predicates.push(parse_quote! { #ty: rkyv::Archive });
                 }
@@ -189,7 +189,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                     for compare in compares {
                         if compare.is_ident("PartialEq") {
                             let mut partial_eq_where = archive_where.clone();
-                            for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                            for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                                 let ty = &field.ty;
                                 partial_eq_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
                             }
@@ -217,7 +217,7 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                             });
                         } else if compare.is_ident("PartialOrd") {
                             let mut partial_ord_where = archive_where.clone();
-                            for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                            for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                                 let ty = &field.ty;
                                 partial_ord_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> });
                             }
@@ -357,13 +357,13 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
             for variant in data.variants.iter() {
                 match variant.fields {
                     Fields::Named(ref fields) => {
-                        for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                        for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                             let ty = &field.ty;
                             archive_where.predicates.push(parse_quote! { #ty: rkyv::Archive });
                         }
                     }
                     Fields::Unnamed(ref fields) => {
-                        for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                        for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                             let ty = &field.ty;
                             archive_where.predicates.push(parse_quote! { #ty: rkyv::Archive });
                         }
@@ -567,13 +567,13 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                         for variant in data.variants.iter() {
                             match variant.fields {
                                 Fields::Named(ref fields) => {
-                                    for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                                    for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                                         let ty = &field.ty;
                                         partial_eq_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
-                                    for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                                    for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                                         let ty = &field.ty;
                                         partial_eq_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
                                     }
@@ -654,13 +654,13 @@ fn derive_archive_impl(mut input: DeriveInput, attributes: &Attributes) -> Resul
                         for variant in data.variants.iter() {
                             match variant.fields {
                                 Fields::Named(ref fields) => {
-                                    for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                                    for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                                         let ty = &field.ty;
                                         partial_ord_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> });
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
-                                    for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                                    for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                                         let ty = &field.ty;
                                         partial_ord_where.predicates.push(parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> });
                                     }

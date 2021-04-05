@@ -1,7 +1,7 @@
 use crate::attributes::{parse_attributes, Attributes};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::{spanned::Spanned, Data, DeriveInput, Error, Fields, Ident, Index, parse_quote};
+use syn::{spanned::Spanned, Data, DeriveInput, Error, Fields, Ident, Index, parse_quote, punctuated::Punctuated, Token, WherePredicate};
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     let attributes = parse_attributes(&input)?;
@@ -17,7 +17,13 @@ fn derive_serialize_impl(
     mut input: DeriveInput,
     attributes: &Attributes,
 ) -> Result<TokenStream, Error> {
-    input.generics.make_where_clause();
+    let where_clause = input.generics.make_where_clause();
+    if let Some(ref bounds) = attributes.serialize_bound {
+        let clauses = bounds.parse_with(Punctuated::<WherePredicate, Token![,]>::parse_terminated)?;
+        for clause in clauses {
+            where_clause.predicates.push(clause);
+        }
+    }
 
     let mut impl_input_generics = input.generics.clone();
     impl_input_generics.params.push(parse_quote! { __S: Fallible + ?Sized });
@@ -36,7 +42,7 @@ fn derive_serialize_impl(
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
                 let mut serialize_where = where_clause.clone();
-                for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                     let ty = &field.ty;
                     serialize_where.predicates.push(parse_quote! { #ty: Serialize<__S> });
                 }
@@ -59,7 +65,7 @@ fn derive_serialize_impl(
             }
             Fields::Unnamed(ref fields) => {
                 let mut serialize_where = where_clause.clone();
-                for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                     let ty = &field.ty;
                     serialize_where.predicates.push(parse_quote! { #ty: Serialize<__S> });
                 }
@@ -96,13 +102,13 @@ fn derive_serialize_impl(
             for variant in data.variants.iter() {
                 match variant.fields {
                     Fields::Named(ref fields) => {
-                        for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                        for field in fields.named.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                             let ty = &field.ty;
                             serialize_where.predicates.push(parse_quote! { #ty: Serialize<__S> });
                         }
                     }
                     Fields::Unnamed(ref fields) => {
-                        for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("recursive"))) {
+                        for field in fields.unnamed.iter().filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))) {
                             let ty = &field.ty;
                             serialize_where.predicates.push(parse_quote! { #ty: Serialize<__S> });
                         }

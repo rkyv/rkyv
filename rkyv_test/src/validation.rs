@@ -149,7 +149,7 @@ fn cycle_detection() {
     #[archive(derive(Debug))]
     enum Node {
         Nil,
-        Cons(#[recursive] Box<Node>),
+        Cons(#[omit_bounds] Box<Node>),
     }
 
     impl<S: Serializer + ?Sized> Serialize<S> for Node {

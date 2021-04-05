@@ -1,5 +1,5 @@
 use quote::ToTokens;
-use syn::{AttrStyle, DeriveInput, Error, Ident, Lit, Meta, MetaList, NestedMeta, Path};
+use syn::{AttrStyle, DeriveInput, Error, Ident, Lit, LitStr, Meta, MetaList, NestedMeta, Path};
 
 pub struct Repr {
     pub rust: Option<Path>,
@@ -26,6 +26,8 @@ pub struct Attributes {
     pub repr: Repr,
     pub derives: Option<MetaList>,
     pub compares: Option<(Path, Vec<Path>)>,
+    pub serialize_bound: Option<LitStr>,
+    pub deserialize_bound: Option<LitStr>,
     pub archived: Option<Ident>,
     pub resolver: Option<Ident>,
     pub strict: Option<Path>,
@@ -38,6 +40,8 @@ impl Default for Attributes {
             repr: Default::default(),
             derives: None,
             compares: None,
+            serialize_bound: None,
+            deserialize_bound: None,
             archived: None,
             resolver: None,
             strict: None,
@@ -93,6 +97,48 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                 } else {
                     Err(Error::new_spanned(list, "compares already specified"))
                 }
+            } else if list.path.is_ident("bound") {
+                for bound in list.nested.iter() {
+                    if let NestedMeta::Meta(Meta::NameValue(name_value)) = bound {
+                        if let Lit::Str(ref lit_str) = name_value.lit {
+                            if name_value.path.is_ident("serialize") {
+                                if attributes.serialize_bound.is_none() {
+                                    attributes.serialize_bound = Some(lit_str.clone());
+                                } else {
+                                    return Err(Error::new_spanned(
+                                        bound,
+                                        "serialize bound already specified"
+                                    ));
+                                }
+                            } else if name_value.path.is_ident("deserialize") {
+                                if attributes.deserialize_bound.is_none() {
+                                    attributes.deserialize_bound = Some(lit_str.clone());
+                                } else {
+                                    return Err(Error::new_spanned(
+                                        bound,
+                                        "serialize bound already specified"
+                                    ));
+                                }
+                            } else {
+                                return Err(Error::new_spanned(
+                                    bound,
+                                    "bounds must be either serialize or deserialize"
+                                ));
+                            }
+                        } else {
+                            return Err(Error::new_spanned(
+                                bound,
+                                "bounds arguments must be a string"
+                            ));
+                        }
+                    } else {
+                        return Err(Error::new_spanned(
+                            bound,
+                            "bounds arguments must be serialize or deserialize bounds to apply"
+                        ));
+                    }
+                }
+                Ok(())
             } else {
                 Err(Error::new_spanned(
                     &list.path,
