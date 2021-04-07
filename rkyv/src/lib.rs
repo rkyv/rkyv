@@ -50,6 +50,8 @@
 //! - `const_generics`: Improves the trait implementations for arrays with support for all lengths
 //!   (enabled by default)
 //! - `size_64`: Archives `*size` as `*64` instead of `*32`. This is for large archive support
+//! - `specialization`: Enables support for the unstable specialization feature for increased
+//!   performance for a few specific cases
 //! - `std`: Enables standard library support (enabled by default)
 //! - `strict`: Guarantees that types will have the same representations across platforms and
 //!   compilations. This is already the case in practice, but this feature provides a guarantee. It
