@@ -1,5 +1,5 @@
 use crate::{Archive, ArchiveUnsized, Fallible, ser::{SeekSerializer, Serializer}, util::AlignedVec, RelPtr, Unreachable};
-use core::mem;
+use core::{borrow::{Borrow, BorrowMut}, mem};
 use std::io;
 
 /// Wraps a type that implements [`io::Write`](std::io::Write) and equips it with [`Serializer`].
@@ -72,32 +72,39 @@ impl<W: io::Write + io::Seek> SeekSerializer for WriteSerializer<W> {
 ///
 /// This serializer makes it easier for the compiler to perform emplacement optimizations and may
 /// give better performance than a basic `WriteSerializer`.
-pub struct AlignedSerializer<'a> {
-    inner: &'a mut AlignedVec,
+pub struct AlignedSerializer<A> {
+    inner: A,
 }
 
-impl<'a> AlignedSerializer<'a> {
-    /// Creates a new `AlignedSerializer` by wrapping an `AlignedVec`.
-    pub fn new(inner: &'a mut AlignedVec) -> Self {
+impl<A: Borrow<AlignedVec>> AlignedSerializer<A> {
+    /// Creates a new `AlignedSerializer` by wrapping a `Borrow<AlignedVec>`.
+    #[inline]
+    pub fn new(inner: A) -> Self {
         Self {
             inner,
         }
     }
+
+    /// Consumes the serializer and returns the underlying type.
+    #[inline]
+    pub fn into_inner(self) -> A {
+        self.inner
+    }
 }
 
-impl<'a> Fallible for AlignedSerializer<'a> {
+impl<A> Fallible for AlignedSerializer<A> {
     type Error = Unreachable;
 }
 
-impl<'a> Serializer for AlignedSerializer<'a> {
+impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerializer<A> {
     #[inline]
     fn pos(&self) -> usize {
-        self.inner.len()
+        self.inner.borrow().len()
     }
 
     #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
-        self.inner.extend_from_slice(bytes);
+        self.inner.borrow_mut().extend_from_slice(bytes);
         Ok(())
     }
 
@@ -105,8 +112,8 @@ impl<'a> Serializer for AlignedSerializer<'a> {
     unsafe fn resolve_aligned<T: Archive + ?Sized>(&mut self, value: &T, resolver: T::Resolver) -> Result<usize, Self::Error> {
         let pos = self.pos();
         debug_assert!(pos & (mem::align_of::<T::Archived>() - 1) == 0);
-        self.inner.reserve(mem::size_of::<T::Archived>());
-        self.inner.as_mut_ptr().add(pos).cast::<T::Archived>().write(value.resolve(pos, resolver));
+        self.inner.borrow_mut().reserve(mem::size_of::<T::Archived>());
+        self.inner.borrow_mut().as_mut_ptr().add(pos).cast::<T::Archived>().write(value.resolve(pos, resolver));
         Ok(pos)
     }
 
@@ -114,8 +121,8 @@ impl<'a> Serializer for AlignedSerializer<'a> {
     unsafe fn resolve_unsized_aligned<T: ArchiveUnsized + ?Sized>(&mut self, value: &T, to: usize, metadata_resolver: T::MetadataResolver) -> Result<usize, Self::Error> {
         let from = self.pos();
         debug_assert!(from & (mem::align_of::<RelPtr<T::Archived>>() - 1) == 0);
-        self.inner.reserve(mem::size_of::<RelPtr<T::Archived>>());
-        self.inner.as_mut_ptr().add(from).cast::<RelPtr<T::Archived>>().write(value.resolve_unsized(from, to, metadata_resolver));
+        self.inner.borrow_mut().reserve(mem::size_of::<RelPtr<T::Archived>>());
+        self.inner.borrow_mut().as_mut_ptr().add(from).cast::<RelPtr<T::Archived>>().write(value.resolve_unsized(from, to, metadata_resolver));
         Ok(from)
     }
 }

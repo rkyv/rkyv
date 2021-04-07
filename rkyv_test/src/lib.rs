@@ -19,12 +19,17 @@ mod util {
     pub const BUFFER_SIZE: usize = 256;
 
     #[cfg(feature = "std")]
-    pub type DefaultSerializer<'a> =
-        SharedSerializerAdapter<BufferSerializer<'a, Aligned<[u8; BUFFER_SIZE]>>>;
+    pub type DefaultSerializer =
+        SharedSerializerAdapter<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>;
 
     #[cfg(feature = "std")]
-    pub fn make_default_serializer<'a>(buffer: &'a mut Aligned<[u8; BUFFER_SIZE]>) -> DefaultSerializer<'a> {
-        SharedSerializerAdapter::new(BufferSerializer::new(buffer))
+    pub fn make_default_serializer() -> DefaultSerializer {
+        SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])))
+    }
+
+    #[cfg(feature = "std")]
+    pub fn unwrap_default_serializer(s: DefaultSerializer) -> Aligned<[u8; BUFFER_SIZE]> {
+        s.into_inner().into_inner()
     }
 
     #[cfg(feature = "std")]
@@ -36,11 +41,16 @@ mod util {
     }
 
     #[cfg(not(feature = "std"))]
-    pub type DefaultSerializer<'a> = BufferSerializer<'a, Aligned<[u8; BUFFER_SIZE]>>;
+    pub type DefaultSerializer = BufferSerializer<'a, Aligned<[u8; BUFFER_SIZE]>>;
 
     #[cfg(not(feature = "std"))]
-    pub fn make_default_serializer<'a>(buffer: &'a mut Aligned<[u8; BUFFER_SIZE]>) -> DefaultSerializer<'a> {
-        BufferSerializer::new(buffer)
+    pub fn make_default_serializer() -> DefaultSerializer {
+        BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]))
+    }
+
+    #[cfg(not(feature = "std"))]
+    pub fn unwrap_default_serializer(s: DefaultSerializer) -> Aligned<[u8; BUFFER_SIZE]> {
+        s.into_inner()
     }
 
     #[cfg(not(feature = "std"))]
@@ -56,52 +66,55 @@ mod util {
         DefaultDeserializer
     }
 
-    pub fn test_archive<T: for<'a> Serialize<DefaultSerializer<'a>>>(value: &T)
+    pub fn test_archive<T: Serialize<DefaultSerializer>>(value: &T)
     where
         T: PartialEq,
         T::Archived: PartialEq<T> + Deserialize<T, DefaultDeserializer>,
     {
-        let mut buffer = Aligned([0u8; BUFFER_SIZE]);
-        let mut serializer = make_default_serializer(&mut buffer);
+        let mut serializer = make_default_serializer();
         serializer
             .serialize_value(value)
             .expect("failed to archive value");
         let len = serializer.pos();
+        let buffer = unwrap_default_serializer(serializer);
+
         let archived_value = unsafe { archived_root::<T>(&buffer.as_ref()[0..len]) };
         assert!(archived_value == value);
         let mut deserializer = make_default_deserializer();
         assert!(&archived_value.deserialize(&mut deserializer).unwrap() == value);
     }
 
-    pub fn test_archive_ref<T: for<'a> SerializeUnsized<DefaultSerializer<'a>> + ?Sized>(value: &T)
+    pub fn test_archive_ref<T: SerializeUnsized<DefaultSerializer> + ?Sized>(value: &T)
     where
         T::Archived: PartialEq<T>,
     {
-        let mut buffer = Aligned([0u8; BUFFER_SIZE]);
-        let mut serializer = make_default_serializer(&mut buffer);
+        let mut serializer = make_default_serializer();
         serializer
             .serialize_unsized_value(value)
             .expect("failed to archive ref");
         let len = serializer.pos();
+        let buffer = unwrap_default_serializer(serializer);
+
         let archived_ref = unsafe { archived_unsized_root::<T>(&buffer.as_ref()[0..len]) };
         assert!(archived_ref == value);
     }
 
     #[cfg(feature = "std")]
     pub fn test_archive_container<
-        T: for<'a> Serialize<DefaultSerializer<'a>, Archived = U> + core::ops::Deref<Target = TV>,
+        T: Serialize<DefaultSerializer, Archived = U> + core::ops::Deref<Target = TV>,
         TV: ?Sized,
         U: core::ops::Deref<Target = TU>,
         TU: PartialEq<TV> + ?Sized,
     >(
         value: &T,
     ) {
-        let mut buffer = Aligned([0u8; BUFFER_SIZE]);
-        let mut serializer = make_default_serializer(&mut buffer);
+        let mut serializer = make_default_serializer();
         serializer
             .serialize_value(value)
             .expect("failed to archive ref");
         let len = serializer.pos();
+        let buffer = unwrap_default_serializer(serializer);
+
         let archived_ref = unsafe { archived_root::<T>(&buffer.as_ref()[0..len]) };
         assert!(archived_ref.deref() == value.deref());
     }
@@ -1073,11 +1086,11 @@ mod tests {
         // we should use a `Vec` and wrap it in a `Cursor` to get `Seek`. In this case,
         // `Cursor<AlignedVec>` can't implement `Write` because it's not implemented in this crate
         // so we use a buffer serializer instead.
-        let mut buffer = Aligned([0u8; BUFFER_SIZE]);
-        let mut serializer = BufferSerializer::new(&mut buffer);
+        let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
         let pos = serializer
             .serialize_front(&value)
             .expect("failed to archive value");
+        let buffer = serializer.into_inner();
         assert_eq!(pos, 0);
         let archived_value = unsafe { archived_value::<Test>(buffer.as_ref(), 0) };
         assert!(*archived_value == value);
@@ -1419,5 +1432,19 @@ mod tests {
             #[allow(dead_code)]
             T(T),
         }
+    }
+
+    #[test]
+    fn check_util_bounds() {
+        use rkyv::{Aligned, ser::{Serializer, serializers::AlignedSerializer}};
+        fn check<T: Serializer>() {}
+
+        check::<BufferSerializer<[u8; 256]>>();
+        check::<BufferSerializer<&mut [u8; 256]>>();
+        check::<BufferSerializer<&mut [u8]>>();
+        check::<BufferSerializer<Aligned<[u8; 256]>>>();
+        check::<BufferSerializer<&mut Aligned<[u8; 256]>>>();
+        check::<AlignedSerializer<AlignedVec>>();
+        check::<AlignedSerializer<&mut AlignedVec>>();
     }
 }

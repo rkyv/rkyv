@@ -47,15 +47,15 @@ pub use self::std::*;
 ///     panic!("archived event was of the wrong type");
 /// }
 /// ```
-pub struct BufferSerializer<'a, T> {
-    inner: &'a mut T,
+pub struct BufferSerializer<T> {
+    inner: T,
     pos: usize,
 }
 
-impl<'a, T> BufferSerializer<'a, T> {
+impl<T> BufferSerializer<T> {
     /// Creates a new archive buffer from a byte buffer.
     #[inline]
-    pub fn new(inner: &'a mut T) -> Self {
+    pub fn new(inner: T) -> Self {
         Self::with_pos(inner, 0)
     }
 
@@ -63,8 +63,14 @@ impl<'a, T> BufferSerializer<'a, T> {
     /// position, but the buffer must contain all bytes (otherwise the alignments of types may not
     /// be correct).
     #[inline]
-    pub fn with_pos(inner: &'a mut T, pos: usize) -> Self {
+    pub fn with_pos(inner: T, pos: usize) -> Self {
         Self { inner, pos }
+    }
+
+    /// Consumes the serializer and returns the underlying type.
+    #[inline]
+    pub fn into_inner(self) -> T {
+        self.inner
     }
 }
 
@@ -84,11 +90,11 @@ pub enum BufferSerializerError {
     },
 }
 
-impl<'a, T: AsRef<[u8]> + AsMut<[u8]>> Fallible for BufferSerializer<'a, T> {
+impl<T> Fallible for BufferSerializer<T> {
     type Error = BufferSerializerError;
 }
 
-impl<'a, T: AsRef<[u8]> + AsMut<[u8]>> Serializer for BufferSerializer<'a, T> {
+impl<T: AsRef<[u8]> + AsMut<[u8]>> Serializer for BufferSerializer<T> {
     #[inline]
     fn pos(&self) -> usize {
         self.pos
@@ -132,7 +138,7 @@ impl<'a, T: AsRef<[u8]> + AsMut<[u8]>> Serializer for BufferSerializer<'a, T> {
     }
 }
 
-impl<'a, T: AsRef<[u8]> + AsMut<[u8]>> SeekSerializer for BufferSerializer<'a, T> {
+impl<T: AsRef<[u8]> + AsMut<[u8]>> SeekSerializer for BufferSerializer<T> {
     fn seek(&mut self, pos: usize) -> Result<(), Self::Error> {
         let len = self.inner.as_ref().len();
         if pos > len {
