@@ -112,8 +112,11 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerial
     unsafe fn resolve_aligned<T: Archive + ?Sized>(&mut self, value: &T, resolver: T::Resolver) -> Result<usize, Self::Error> {
         let pos = self.pos();
         debug_assert!(pos & (mem::align_of::<T::Archived>() - 1) == 0);
-        self.inner.borrow_mut().reserve(mem::size_of::<T::Archived>());
-        self.inner.borrow_mut().as_mut_ptr().add(pos).cast::<T::Archived>().write(value.resolve(pos, resolver));
+        let vec = self.inner.borrow_mut();
+        let additional = mem::size_of::<T::Archived>();
+        vec.reserve(additional);
+        vec.set_len(vec.len() + additional);
+        vec.as_mut_ptr().add(pos).cast::<T::Archived>().write(value.resolve(pos, resolver));
         Ok(pos)
     }
 
@@ -121,8 +124,11 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerial
     unsafe fn resolve_unsized_aligned<T: ArchiveUnsized + ?Sized>(&mut self, value: &T, to: usize, metadata_resolver: T::MetadataResolver) -> Result<usize, Self::Error> {
         let from = self.pos();
         debug_assert!(from & (mem::align_of::<RelPtr<T::Archived>>() - 1) == 0);
-        self.inner.borrow_mut().reserve(mem::size_of::<RelPtr<T::Archived>>());
-        self.inner.borrow_mut().as_mut_ptr().add(from).cast::<RelPtr<T::Archived>>().write(value.resolve_unsized(from, to, metadata_resolver));
+        let vec = self.inner.borrow_mut();
+        let additional = mem::size_of::<RelPtr<T::Archived>>();
+        vec.reserve(additional);
+        vec.set_len(vec.len() + additional);
+        vec.as_mut_ptr().add(from).cast::<RelPtr<T::Archived>>().write(value.resolve_unsized(from, to, metadata_resolver));
         Ok(from)
     }
 }

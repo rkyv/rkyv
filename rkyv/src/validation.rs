@@ -698,7 +698,7 @@ pub type CheckTypeError<T, C> =
 /// ```
 /// use rkyv::{
 ///     check_archived_value,
-///     ser::{Serializer, serializers::WriteSerializer},
+///     ser::{Serializer, serializers::AlignedSerializer},
 ///     AlignedVec,
 ///     Archive,
 ///     Serialize,
@@ -717,7 +717,7 @@ pub type CheckTypeError<T, C> =
 ///     value: 31415926,
 /// };
 ///
-/// let mut serializer = WriteSerializer::new(AlignedVec::new());
+/// let mut serializer = AlignedSerializer::new(AlignedVec::new());
 /// let pos = serializer.serialize_value(&value)
 ///     .expect("failed to archive test");
 /// let buf = serializer.into_inner();

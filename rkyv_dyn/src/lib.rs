@@ -125,7 +125,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///     archived_value,
 ///     de::deserializers::AllocDeserializer,
 ///     ser::{
-///         serializers::WriteSerializer,
+///         serializers::AlignedSerializer,
 ///         Serializer,
 ///     },
 ///     AlignedVec,
@@ -178,7 +178,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///
 /// let boxed_int = Box::new(IntStruct(42)) as Box<dyn SerializeExampleTrait>;
 /// let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn SerializeExampleTrait>;
-/// let mut serializer = WriteSerializer::new(AlignedVec::new());
+/// let mut serializer = AlignedSerializer::new(AlignedVec::new());
 /// let int_pos = serializer.serialize_value(&boxed_int)
 ///     .expect("failed to archive boxed int");
 /// let string_pos = serializer.serialize_value(&boxed_string)

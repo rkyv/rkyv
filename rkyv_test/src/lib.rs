@@ -177,7 +177,7 @@ mod tests {
         de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer, Deserializer},
         ser::{
             adapters::SharedSerializerAdapter,
-            serializers::{BufferSerializer, WriteSerializer},
+            serializers::{AlignedSerializer, BufferSerializer},
             SeekSerializer, Serializer,
         },
         AlignedVec, Archive, ArchiveUnsized, Archived, Deserialize, DeserializeUnsized, Serialize,
@@ -213,7 +213,7 @@ mod tests {
             use rkyv::{
                 archived_root,
                 de::deserializers::AllocDeserializer,
-                ser::{serializers::WriteSerializer, Serializer},
+                ser::{serializers::AlignedSerializer, Serializer},
                 AlignedVec, Archive, Deserialize, Serialize,
             };
 
@@ -230,7 +230,7 @@ mod tests {
                 option: Some(vec![1, 2, 3, 4]),
             };
 
-            let mut serializer = WriteSerializer::new(AlignedVec::new());
+            let mut serializer = AlignedSerializer::new(AlignedVec::new());
             serializer
                 .serialize_value(&value)
                 .expect("failed to serialize value");
@@ -268,7 +268,7 @@ mod tests {
         hash_map.insert("foo".to_string(), "bar".to_string());
         hash_map.insert("baz".to_string(), "bat".to_string());
 
-        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer
             .serialize_value(&hash_map)
             .expect("failed to archive value");
@@ -500,11 +500,11 @@ mod tests {
 
         let value = Test(42);
 
-        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        let mut buf = AlignedVec::new();
+        let mut serializer = AlignedSerializer::new(&mut buf);
         serializer
             .serialize_value(&value)
             .expect("failed to archive value");
-        let buf = serializer.into_inner();
         let archived_value = unsafe { archived_root::<Test>(buf.as_ref()) };
 
         assert_eq!(archived_value, &archived_value.clone());
@@ -646,7 +646,7 @@ mod tests {
 
         let value: Box<dyn SerializeTestTrait> = Box::new(Test { id: 42 });
 
-        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer
             .serialize_value(&value)
             .expect("failed to archive value");
@@ -695,7 +695,7 @@ mod tests {
 
         let value: Box<dyn STestTrait> = Box::new(Test { id: 42 });
 
-        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer
             .serialize_value(&value)
             .expect("failed to archive value");
@@ -802,7 +802,7 @@ mod tests {
             value: "hello world".to_string(),
         });
 
-        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
         let i32_pos = serializer
             .serialize_value(&i32_value)
             .expect("failed to archive value");
@@ -878,7 +878,7 @@ mod tests {
 
     #[test]
     fn basic_mutable_refs() {
-        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&42i32).unwrap();
         let mut buf = serializer.into_inner();
         let mut value = unsafe { archived_root_mut::<i32>(Pin::new(buf.as_mut())) };
@@ -921,7 +921,7 @@ mod tests {
         value.c.insert(1, [4, 2]);
         value.c.insert(5, [17, 24]);
 
-        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&value).unwrap();
         let mut buf = serializer.into_inner();
         let mut value = unsafe { archived_root_mut::<Test>(Pin::new(buf.as_mut())) };
@@ -974,7 +974,7 @@ mod tests {
 
         let value = Test::A;
 
-        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&value).unwrap();
         let mut buf = serializer.into_inner();
         let mut value = unsafe { archived_root_mut::<Test>(Pin::new(buf.as_mut())) };
@@ -1036,7 +1036,7 @@ mod tests {
 
         let value = Box::new(Test(10)) as Box<dyn SerializeTestTrait>;
 
-        let mut serializer = WriteSerializer::new(AlignedVec::new());
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&value).unwrap();
         let mut buf = serializer.into_inner();
         let mut value =
@@ -1164,7 +1164,7 @@ mod tests {
             b: shared.clone(),
         };
 
-        let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(AlignedVec::new()));
+        let mut serializer = SharedSerializerAdapter::new(AlignedSerializer::new(AlignedVec::new()));
         serializer
             .serialize_value(&value)
             .expect("failed to archive value");
@@ -1268,7 +1268,7 @@ mod tests {
             b: Rc::downgrade(&shared),
         };
 
-        let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(AlignedVec::new()));
+        let mut serializer = SharedSerializerAdapter::new(AlignedSerializer::new(AlignedVec::new()));
         serializer
             .serialize_value(&value)
             .expect("failed to archive value");

@@ -4,7 +4,7 @@ use rkyv::{
     check_archived_root, check_archived_value,
     ser::{
         adapters::SharedSerializerAdapter,
-        serializers::{BufferSerializer, WriteSerializer},
+        serializers::{AlignedSerializer, BufferSerializer},
         Serializer,
     },
     validation::DefaultArchiveValidator,
@@ -17,11 +17,11 @@ use std::{
 
 const BUFFER_SIZE: usize = 512;
 
-fn serialize_and_check<T: Serialize<WriteSerializer<AlignedVec>>>(value: &T)
+fn serialize_and_check<T: Serialize<AlignedSerializer<AlignedVec>>>(value: &T)
 where
     T::Archived: CheckBytes<DefaultArchiveValidator>,
 {
-    let mut serializer = WriteSerializer::new(AlignedVec::new());
+    let mut serializer = AlignedSerializer::new(AlignedVec::new());
     serializer
         .serialize_value(value)
         .expect("failed to archive value");
@@ -34,7 +34,7 @@ fn basic_functionality() {
     // Regular archiving
     let value = Some("Hello world".to_string());
 
-    let mut serializer = WriteSerializer::new(AlignedVec::new());
+    let mut serializer = AlignedSerializer::new(AlignedVec::new());
     serializer
         .serialize_value(&value)
         .expect("failed to archive value");
@@ -347,7 +347,7 @@ fn check_dyn() {
 
     let value: Box<dyn SerializeTestTrait> = Box::new(TestUnchecked { id: 42 });
 
-    let mut serializer = WriteSerializer::new(AlignedVec::new());
+    let mut serializer = AlignedSerializer::new(AlignedVec::new());
     serializer
         .serialize_value(&value)
         .expect("failed to archive value");

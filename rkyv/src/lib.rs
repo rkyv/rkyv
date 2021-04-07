@@ -125,7 +125,7 @@ impl Fallible for Infallible {
 /// use rkyv::{
 ///     archived_root,
 ///     de::deserializers::AllocDeserializer,
-///     ser::{Serializer, serializers::WriteSerializer},
+///     ser::{Serializer, serializers::AlignedSerializer},
 ///     AlignedVec,
 ///     Archive,
 ///     Archived,
@@ -146,7 +146,7 @@ impl Fallible for Infallible {
 ///     option: Some(vec![1, 2, 3, 4]),
 /// };
 ///
-/// let mut serializer = WriteSerializer::new(AlignedVec::new());
+/// let mut serializer = AlignedSerializer::new(AlignedVec::new());
 /// serializer.serialize_value(&value).expect("failed to archive test");
 /// let buf = serializer.into_inner();
 ///
@@ -172,7 +172,7 @@ impl Fallible for Infallible {
 /// use rkyv::{
 ///     archived_root,
 ///     offset_of,
-///     ser::{Serializer, serializers::WriteSerializer},
+///     ser::{Serializer, serializers::AlignedSerializer},
 ///     AlignedVec,
 ///     Archive,
 ///     Archived,
@@ -248,7 +248,7 @@ impl Fallible for Infallible {
 ///     }
 /// }
 ///
-/// let mut serializer = WriteSerializer::new(AlignedVec::new());
+/// let mut serializer = AlignedSerializer::new(AlignedVec::new());
 /// const STR_VAL: &'static str = "I'm in an OwnedStr!";
 /// let value = OwnedStr { inner: STR_VAL };
 /// // It works!
@@ -309,7 +309,7 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 /// use rkyv::{
 ///     archived_unsized_value,
 ///     offset_of,
-///     ser::{serializers::WriteSerializer, Serializer},
+///     ser::{serializers::AlignedSerializer, Serializer},
 ///     AlignedVec,
 ///     Archive,
 ///     Archived,
@@ -418,7 +418,7 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 /// let ptr = (&value as *const Block<String, [i32; 4]>).cast::<()>();
 /// let unsized_value = unsafe { &*mem::transmute::<(*const (), usize), *const Block<String, [i32]>>((ptr, 4)) };
 ///
-/// let mut serializer = WriteSerializer::new(AlignedVec::new());
+/// let mut serializer = AlignedSerializer::new(AlignedVec::new());
 /// let pos = serializer.serialize_unsized_value(unsized_value)
 ///     .expect("failed to archive block");
 /// let buf = serializer.into_inner();
@@ -516,7 +516,7 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
 /// ```
 /// use rkyv::{
 ///     archived_root,
-///     ser::{Serializer, serializers::WriteSerializer},
+///     ser::{Serializer, serializers::AlignedSerializer},
 ///     AlignedVec,
 ///     Archive,
 ///     Serialize,
@@ -526,7 +526,7 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
 /// #[archive(copy)]
 /// struct Vector4<T>(T, T, T, T);
 ///
-/// let mut serializer = WriteSerializer::new(AlignedVec::new());
+/// let mut serializer = AlignedSerializer::new(AlignedVec::new());
 /// let value = Vector4(1f32, 2f32, 3f32, 4f32);
 /// serializer.serialize_value(&value).expect("failed to archive Vector4");
 /// let buf = serializer.into_inner();
