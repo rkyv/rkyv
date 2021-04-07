@@ -268,7 +268,7 @@ impl AlignedVec {
         self.cap
     }
 
-    /// Reserves capacity for at least `additional` more bytes to be inserted int othe given
+    /// Reserves capacity for at least `additional` more bytes to be inserted into the given
     /// `AlignedVec`. The collection may reserve more space to avoid frequent reallocations. After
     /// calling `reserve`, capacity will be greater than or equal to `self.len() + additional`. Does
     /// nothing if capacity is already sufficient.

@@ -73,24 +73,12 @@ pub mod util;
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use core::{
-    fmt,
-    marker::{PhantomData, PhantomPinned},
-    pin::Pin,
-};
+use core::{fmt, marker::{PhantomData, PhantomPinned}};
 
 pub use memoffset::offset_of;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
-#[cfg(feature = "std")]
-#[doc(inline)]
-pub use util::AlignedVec;
-#[doc(inline)]
-pub use util::{
-    archived_root, archived_root_mut, archived_unsized_root, archived_unsized_root_mut, Aligned,
-};
-#[doc(inline)]
-#[doc(inline)]
+pub use util::*;
 #[cfg(feature = "validation")]
 pub use validation::{check_archived_root, check_archived_value};
 
@@ -740,98 +728,3 @@ pub type ArchivedMetadata<T> =
     <<T as ArchiveUnsized>::Archived as ArchivePointee>::ArchivedMetadata;
 /// Alias for the metadata resolver for some [`ArchiveUnsized`] type.
 pub type MetadataResolver<T> = <T as ArchiveUnsized>::MetadataResolver;
-
-#[cfg(debug_assertions)]
-#[inline]
-fn check_alignment<T>(ptr: *const u8) {
-    let expect_align = core::mem::align_of::<T>();
-    let actual_align = (ptr as usize) & (expect_align - 1);
-    debug_assert_eq!(
-        actual_align,
-        0,
-        "unaligned buffer, expected alignment {} but found alignment {}",
-        expect_align,
-        1 << actual_align
-    );
-}
-
-/// Casts an archived value from the given byte slice at the given position.
-///
-/// This helps avoid situations where lifetimes get inappropriately assigned and allow buffer
-/// mutation after getting archived value references.
-///
-/// # Safety
-///
-/// The caller must guarantee that a value is archived at the given position in the byte slice.
-#[inline]
-pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &T::Archived {
-    #[cfg(debug_assertions)]
-    check_alignment::<T::Archived>(bytes.as_ptr());
-
-    &*bytes.as_ptr().add(pos).cast()
-}
-
-/// Casts a mutable archived value from the given byte slice at the given position.
-///
-/// This helps avoid situations where lifetimes get inappropriately assigned and allow buffer
-/// mutation after getting archived value references.
-///
-/// # Safety
-///
-/// The caller must guarantee that a value is archived at the given position in the byte slice.
-#[inline]
-pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
-    bytes: Pin<&mut [u8]>,
-    pos: usize,
-) -> Pin<&mut T::Archived> {
-    #[cfg(debug_assertions)]
-    check_alignment::<T::Archived>(bytes.as_ptr());
-
-    Pin::new_unchecked(&mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast())
-}
-
-/// Casts a [`RelPtr`] to the given unsized type from the given byte slice at the given position and
-/// returns the value it points to.
-///
-/// This helps avoid situations where lifetimes get inappropriately assigned and allow buffer
-/// mutation after getting archived value references.
-///
-/// # Safety
-///
-/// The caller must guarantee that a reference is archived at the given position in the byte slice.
-#[inline]
-pub unsafe fn archived_unsized_value<T: ArchiveUnsized + ?Sized>(
-    bytes: &[u8],
-    pos: usize,
-) -> &T::Archived {
-    #[cfg(debug_assertions)]
-    check_alignment::<RelPtr<T::Archived>>(bytes.as_ptr());
-
-    let rel_ptr = &*bytes.as_ptr().add(pos).cast::<RelPtr<T::Archived>>();
-    &*rel_ptr.as_ptr()
-}
-
-/// Casts a mutable [`RelPtr`] to the given unsized type from the given byte slice at the given
-/// position and returns the value it points to.
-///
-/// This helps avoid situations where lifetimes get inappropriately assigned and allow buffer
-/// mutation after getting archived value references.
-///
-/// # Safety
-///
-/// The caller must guarantee that a reference is archived at the given position in the byte slice.
-#[inline]
-pub unsafe fn archived_unsized_value_mut<T: ArchiveUnsized + ?Sized>(
-    bytes: Pin<&mut [u8]>,
-    pos: usize,
-) -> Pin<&mut T::Archived> {
-    #[cfg(debug_assertions)]
-    check_alignment::<RelPtr<T::Archived>>(bytes.as_ptr());
-
-    let rel_ptr = &mut *bytes
-        .get_unchecked_mut()
-        .as_mut_ptr()
-        .add(pos)
-        .cast::<RelPtr<T::Archived>>();
-    Pin::new_unchecked(&mut *rel_ptr.as_mut_ptr())
-}

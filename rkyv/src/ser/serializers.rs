@@ -4,6 +4,10 @@ use crate::{
     ser::{SeekSerializer, Serializer},
     Fallible,
 };
+#[cfg(feature = "std")]
+use crate::{Archive, ArchiveUnsized, util::AlignedVec, RelPtr, Unreachable};
+#[cfg(feature = "std")]
+use core::mem;
 use core::ptr;
 #[cfg(feature = "std")]
 use std::io;
@@ -216,5 +220,61 @@ impl<W: io::Write + io::Seek> SeekSerializer for WriteSerializer<W> {
         self.inner.seek(io::SeekFrom::Start(offset as u64))?;
         self.pos = offset;
         Ok(())
+    }
+}
+
+/// A serializer made specifically to work with [`AlignedVec`](crate::util::AlignedVec).
+///
+/// This serializer makes it easier for the compiler to perform emplacement optimizations and may
+/// give better performance than a basic `WriteSerializer`.
+#[cfg(feature = "std")]
+pub struct AlignedSerializer<'a> {
+    inner: &'a mut AlignedVec,
+}
+
+#[cfg(feature = "std")]
+impl<'a> AlignedSerializer<'a> {
+    /// Creates a new `AlignedSerializer` by wrapping an `AlignedVec`.
+    pub fn new(inner: &'a mut AlignedVec) -> Self {
+        Self {
+            inner,
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl<'a> Fallible for AlignedSerializer<'a> {
+    type Error = Unreachable;
+}
+
+#[cfg(feature = "std")]
+impl<'a> Serializer for AlignedSerializer<'a> {
+    #[inline]
+    fn pos(&self) -> usize {
+        self.inner.len()
+    }
+
+    #[inline]
+    fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
+        self.inner.extend_from_slice(bytes);
+        Ok(())
+    }
+
+    #[inline]
+    unsafe fn resolve_aligned<T: Archive + ?Sized>(&mut self, value: &T, resolver: T::Resolver) -> Result<usize, Self::Error> {
+        let pos = self.pos();
+        debug_assert!(pos & (mem::align_of::<T::Archived>() - 1) == 0);
+        self.inner.reserve(mem::size_of::<T::Archived>());
+        self.inner.as_mut_ptr().add(pos).cast::<T::Archived>().write(value.resolve(pos, resolver));
+        Ok(pos)
+    }
+
+    #[inline]
+    unsafe fn resolve_unsized_aligned<T: ArchiveUnsized + ?Sized>(&mut self, value: &T, to: usize, metadata_resolver: T::MetadataResolver) -> Result<usize, Self::Error> {
+        let from = self.pos();
+        debug_assert!(from & (mem::align_of::<RelPtr<T::Archived>>() - 1) == 0);
+        self.inner.reserve(mem::size_of::<RelPtr<T::Archived>>());
+        self.inner.as_mut_ptr().add(from).cast::<RelPtr<T::Archived>>().write(value.resolve_unsized(from, to, metadata_resolver));
+        Ok(from)
     }
 }
