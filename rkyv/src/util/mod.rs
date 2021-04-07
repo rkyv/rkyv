@@ -12,10 +12,6 @@
 #[cfg(feature = "std")]
 mod std;
 
-#[doc(inline)]
-#[cfg(feature = "std")]
-pub use self::std::*;
-
 use crate::{Archive, ArchiveUnsized, RelPtr};
 use core::{
     mem,
@@ -23,6 +19,7 @@ use core::{
     pin::Pin,
 };
 
+#[doc(inline)]
 #[cfg(feature = "std")]
 pub use self::std::*;
 

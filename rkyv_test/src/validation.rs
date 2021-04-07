@@ -378,12 +378,12 @@ fn check_shared_ptr() {
     // we should use a `Vec` and wrap it in a `Cursor` to get `Seek`. In this case,
     // `Cursor<AlignedVec>` can't implement `Write` because it's not implemented in this crate
     // so we use a buffer serializer instead.
+    let mut buffer = Aligned([0u8; BUFFER_SIZE]);
     let mut serializer =
-        SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])));
+        SharedSerializerAdapter::new(BufferSerializer::new(&mut buffer));
     let pos = serializer
         .serialize_value(&value)
         .expect("failed to archive value");
-    let buf = serializer.into_inner().into_inner();
 
-    check_archived_value::<Test>(buf.as_ref(), pos).unwrap();
+    check_archived_value::<Test>(buffer.as_ref(), pos).unwrap();
 }
