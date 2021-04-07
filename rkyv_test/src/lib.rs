@@ -41,7 +41,7 @@ mod util {
     }
 
     #[cfg(not(feature = "std"))]
-    pub type DefaultSerializer = BufferSerializer<'a, Aligned<[u8; BUFFER_SIZE]>>;
+    pub type DefaultSerializer = BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>;
 
     #[cfg(not(feature = "std"))]
     pub fn make_default_serializer() -> DefaultSerializer {
