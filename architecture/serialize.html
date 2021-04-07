@@ -181,8 +181,11 @@ adapters that add new capabilities to existing serializers.</p>
 <p>The most basic serializers used are
 <a href="https://docs.rs/rkyv/latest/rkyv/ser/serializers/struct.BufferSerializer.html"><code>BufferSerializer</code></a>
 for serializing into fixed-size byte buffers and
-<a href="https://docs.rs/rkyv/latest/rkyv/ser/serialisers/struct.WriteSerializer.html"><code>WriteSerializer</code></a>
-for serializing into any <a href="https://doc.rust-lang.org/std/io/trait.Write.html"><code>Writer</code></a>.</p>
+<a href="https://docs.rs/rkyv/latest/rkyv/ser/serializers/struct.WriteSerializer.html"><code>WriteSerializer</code></a>
+for serializing into any <a href="https://doc.rust-lang.org/std/io/trait.Write.html"><code>Writer</code></a>. In many
+cases,
+<a href="https://docs.rs/rkyv/latest/rkyv/ser/serializers/struct.AlignedSerializer.html"><code>AlignedSerializer</code></a>
+may have better performance.</p>
 
                     </main>
 
