@@ -538,27 +538,31 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
 #[cfg_attr(feature = "specialization", rustc_unsafe_specialization_marker)]
 pub unsafe trait ArchiveCopy: Archive<Archived = Self> + Copy {}
 
-/// The type used for sizes in archived types.
+/// The native type that `usize` is converted to for archiving.
 #[cfg(not(feature = "size_64"))]
-pub type ArchivedUsize = u32;
+pub type FixedUsize = u32;
 
-/// The type used for offsets in relative pointers.
+/// The native type that `usize` is converted to for archiving.
+#[cfg(feature = "size_64")]
+pub type FixedUsize = u64;
+
+/// The native type that `isize` is converted to for archiving.
 #[cfg(not(feature = "size_64"))]
-pub type ArchivedIsize = i32;
+pub type FixedIsize = i32;
 
-/// The type used for sizes in archived types.
+/// The native type that `isize` is converted to for archiving.
 #[cfg(feature = "size_64")]
-pub type ArchivedUsize = u64;
+pub type FixedIsize = i64;
 
-/// The type used for offsets in relative pointers.
-#[cfg(feature = "size_64")]
-pub type ArchivedIsize = i64;
+pub type ArchivedUsize = Archived<FixedUsize>;
+
+pub type ArchivedIsize = Archived<FixedIsize>;
 
 /// An untyped pointer which resolves relative to its position in memory.
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct RawRelPtr {
-    offset: ArchivedIsize,
+    offset: Archived<isize>,
     _phantom: PhantomPinned,
 }
 
@@ -567,7 +571,7 @@ impl RawRelPtr {
     #[inline]
     pub fn new(from: usize, to: usize) -> Self {
         Self {
-            offset: (to as isize - from as isize) as ArchivedIsize,
+            offset: ((to as isize - from as isize) as FixedIsize).into(),
             _phantom: PhantomPinned,
         }
     }

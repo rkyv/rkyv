@@ -2,27 +2,17 @@
 
 use crate::{
     de::Deserializer, offset_of, ser::Serializer, Archive, ArchiveCopy, ArchivePointee,
-    ArchiveUnsized, Archived, ArchivedIsize, ArchivedMetadata, ArchivedUsize, Deserialize,
-    DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
+    ArchiveUnsized, Archived, ArchivedMetadata, Deserialize,
+    DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
 };
-#[cfg(rkyv_atomic)]
-use core::sync::atomic::{
-    self, AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicU16, AtomicU32, AtomicU8,
-};
-#[cfg(rkyv_atomic_64)]
-use core::sync::atomic::{AtomicI64, AtomicU64};
 use core::{
     alloc, cmp,
     hash::{Hash, Hasher},
-    marker::PhantomData,
-    num::{
-        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
-        NonZeroU32, NonZeroU64, NonZeroU8,
-    },
     ptr, str,
 };
 use ptr_meta::Pointee;
 
+pub mod primitive;
 pub mod range;
 pub mod time;
 #[cfg(feature = "validation")]
@@ -83,193 +73,6 @@ where
         Ok(())
     }
 }
-
-impl<T: ?Sized> Archive for PhantomData<T> {
-    type Archived = PhantomData<T>;
-    type Resolver = ();
-
-    #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-        PhantomData
-    }
-}
-
-impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
-    #[inline]
-    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(())
-    }
-}
-
-unsafe impl<T: ?Sized> ArchiveCopy for PhantomData<T> {}
-
-impl<T: ?Sized, D: Fallible + ?Sized> Deserialize<PhantomData<T>, D> for PhantomData<T> {
-    #[inline]
-    fn deserialize(&self, _: &mut D) -> Result<PhantomData<T>, D::Error> {
-        Ok(PhantomData)
-    }
-}
-
-macro_rules! impl_primitive {
-    ($type:ty) => {
-        impl Archive for $type
-        where
-            $type: Copy,
-        {
-            type Archived = Self;
-            type Resolver = ();
-
-            #[inline]
-            fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-                *self
-            }
-        }
-
-        impl<S: Fallible + ?Sized> Serialize<S> for $type {
-            #[inline]
-            fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
-                Ok(())
-            }
-        }
-
-        unsafe impl ArchiveCopy for $type {}
-
-        impl<D: Fallible + ?Sized> Deserialize<$type, D> for $type
-        where
-            $type: Copy,
-        {
-            #[inline]
-            fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
-                Ok(*self)
-            }
-        }
-    };
-}
-
-impl_primitive!(());
-impl_primitive!(bool);
-impl_primitive!(i8);
-impl_primitive!(i16);
-impl_primitive!(i32);
-impl_primitive!(i64);
-impl_primitive!(i128);
-impl_primitive!(u8);
-impl_primitive!(u16);
-impl_primitive!(u32);
-impl_primitive!(u64);
-impl_primitive!(u128);
-impl_primitive!(f32);
-impl_primitive!(f64);
-impl_primitive!(char);
-impl_primitive!(NonZeroI8);
-impl_primitive!(NonZeroI16);
-impl_primitive!(NonZeroI32);
-impl_primitive!(NonZeroI64);
-impl_primitive!(NonZeroI128);
-impl_primitive!(NonZeroU8);
-impl_primitive!(NonZeroU16);
-impl_primitive!(NonZeroU32);
-impl_primitive!(NonZeroU64);
-impl_primitive!(NonZeroU128);
-
-impl Archive for usize {
-    type Archived = ArchivedUsize;
-    type Resolver = ();
-
-    #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-        *self as ArchivedUsize
-    }
-}
-
-impl<S: Fallible + ?Sized> Serialize<S> for usize {
-    #[inline]
-    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(())
-    }
-}
-
-impl<D: Fallible + ?Sized> Deserialize<usize, D> for ArchivedUsize {
-    #[inline]
-    fn deserialize(&self, _: &mut D) -> Result<usize, D::Error> {
-        Ok(*self as usize)
-    }
-}
-
-impl Archive for isize {
-    type Archived = ArchivedIsize;
-    type Resolver = ();
-
-    #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-        *self as ArchivedIsize
-    }
-}
-
-impl<S: Fallible + ?Sized> Serialize<S> for isize {
-    #[inline]
-    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(())
-    }
-}
-
-impl<D: Fallible + ?Sized> Deserialize<isize, D> for ArchivedIsize {
-    #[inline]
-    fn deserialize(&self, _: &mut D) -> Result<isize, D::Error> {
-        Ok(*self as isize)
-    }
-}
-
-/// The resolver for atomic types.
-pub struct AtomicResolver;
-
-#[cfg(rkyv_atomic)]
-macro_rules! impl_atomic {
-    ($type:ty) => {
-        impl Archive for $type {
-            type Archived = Self;
-            type Resolver = AtomicResolver;
-
-            #[inline]
-            fn resolve(&self, _pos: usize, _resolver: AtomicResolver) -> $type {
-                <$type>::new(self.load(atomic::Ordering::Relaxed))
-            }
-        }
-
-        impl<S: Fallible + ?Sized> Serialize<S> for $type {
-            #[inline]
-            fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
-                Ok(AtomicResolver)
-            }
-        }
-
-        impl<D: Fallible + ?Sized> Deserialize<$type, D> for $type {
-            #[inline]
-            fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
-                Ok(<$type>::new(self.load(atomic::Ordering::Relaxed)))
-            }
-        }
-    };
-}
-
-#[cfg(rkyv_atomic)]
-impl_atomic!(AtomicBool);
-#[cfg(rkyv_atomic)]
-impl_atomic!(AtomicI8);
-#[cfg(rkyv_atomic)]
-impl_atomic!(AtomicI16);
-#[cfg(rkyv_atomic)]
-impl_atomic!(AtomicI32);
-#[cfg(rkyv_atomic_64)]
-impl_atomic!(AtomicI64);
-#[cfg(rkyv_atomic)]
-impl_atomic!(AtomicU8);
-#[cfg(rkyv_atomic)]
-impl_atomic!(AtomicU16);
-#[cfg(rkyv_atomic)]
-impl_atomic!(AtomicU32);
-#[cfg(rkyv_atomic_64)]
-impl_atomic!(AtomicU64);
 
 #[cfg(not(feature = "strict"))]
 macro_rules! peel_tuple {
@@ -453,17 +256,17 @@ impl<T: Archive> ArchiveUnsized for [T] {
     type MetadataResolver = ();
 
     #[inline]
-    fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {
-        ptr_meta::metadata(self) as ArchivedUsize
+    fn resolve_metadata(&self, pos: usize, resolver: Self::MetadataResolver) -> ArchivedMetadata<Self> {
+        ptr_meta::metadata(self).resolve(pos, resolver)
     }
 }
 
 impl<T> ArchivePointee for [T] {
-    type ArchivedMetadata = ArchivedUsize;
+    type ArchivedMetadata = Archived<usize>;
 
     #[inline]
     fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
-        *archived as usize
+        FixedUsize::from(*archived) as usize
     }
 }
 
@@ -581,13 +384,13 @@ impl ArchiveUnsized for str {
     type MetadataResolver = ();
 
     #[inline]
-    fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {
-        ptr_meta::metadata(self) as ArchivedUsize
+    fn resolve_metadata(&self, pos: usize, resolver: Self::MetadataResolver) -> ArchivedMetadata<Self> {
+        ptr_meta::metadata(self).resolve(pos, resolver)
     }
 }
 
 impl ArchivePointee for str {
-    type ArchivedMetadata = ArchivedUsize;
+    type ArchivedMetadata = Archived<usize>;
 
     #[inline]
     fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {

@@ -1,7 +1,7 @@
 //! Validation implementations and helper types.
 
 use crate::{
-    offset_of, Archive, ArchivePointee, Archived, ArchivedIsize, Fallible, RawRelPtr, RelPtr,
+    offset_of, Archive, ArchivePointee, Archived, Fallible, FixedIsize, RawRelPtr, RelPtr,
 };
 use bytecheck::{CheckBytes, Unreachable};
 use core::{
@@ -30,7 +30,7 @@ impl RawRelPtr {
         context: &mut C,
     ) -> Result<&'a Self, Unreachable> {
         let bytes = value.cast::<u8>();
-        ArchivedIsize::check_bytes(bytes.add(offset_of!(Self, offset)).cast(), context).unwrap();
+        Archived::<FixedIsize>::check_bytes(bytes.add(offset_of!(Self, offset)).cast(), context).unwrap();
         PhantomPinned::check_bytes(bytes.add(offset_of!(Self, _phantom)).cast(), context).unwrap();
         Ok(&*value)
     }

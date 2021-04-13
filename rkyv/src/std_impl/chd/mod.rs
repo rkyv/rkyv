@@ -7,8 +7,8 @@
 pub mod validation;
 
 use crate::{
-    offset_of, ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible, RawRelPtr,
-    Serialize,
+    offset_of, ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible, FixedUsize,
+    RawRelPtr, Serialize,
 };
 use core::{
     borrow::Borrow,
@@ -575,7 +575,7 @@ impl ArchivedHashMapResolver {
     fn resolve_from_len<K, V>(self, pos: usize, len: usize) -> ArchivedHashMap<K, V> {
         unsafe {
             ArchivedHashMap {
-                len: len as ArchivedUsize,
+                len: (len as FixedUsize).into(),
                 displace: RawRelPtr::new(
                     pos + offset_of!(ArchivedHashMap<K, V>, displace),
                     self.displace_pos,

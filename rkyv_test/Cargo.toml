@@ -18,6 +18,8 @@ rkyv_typename = { path = "../rkyv_typename", default-features = false, optional 
 
 [features]
 default = ["std", "const_generics", "validation"]
+archive_be = ["rkyv/archive_be"]
+archive_le = ["rkyv/archive_le"]
 const_generics = ["rkyv/const_generics", "rkyv_typename/const_generics"]
 size_64 = ["rkyv/size_64"]
 nightly = ["rkyv_dyn/nightly"]
