@@ -15,7 +15,7 @@ use std::{
     error::Error,
 };
 
-#[cfg(wasm_bindgen)]
+#[cfg(feature = "wasm")]
 use wasm_bindgen_test::*;
 
 const BUFFER_SIZE: usize = 512;
@@ -33,7 +33,7 @@ where
 }
 
 #[test]
-#[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
+#[cfg_attr(feature = "wasm", wasm_bindgen_test)]
 fn basic_functionality() {
     // Regular archiving
     let value = Some("Hello world".to_string());
@@ -106,7 +106,7 @@ fn basic_functionality() {
 }
 
 #[test]
-#[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
+#[cfg_attr(feature = "wasm", wasm_bindgen_test)]
 fn invalid_tags() {
     // Invalid archive (invalid tag)
     let synthetic_buf = Aligned([
@@ -122,7 +122,7 @@ fn invalid_tags() {
 }
 
 #[test]
-#[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
+#[cfg_attr(feature = "wasm", wasm_bindgen_test)]
 fn overlapping_claims() {
     // Invalid archive (overlapping claims)
     let synthetic_buf = Aligned([
@@ -140,7 +140,7 @@ fn overlapping_claims() {
 }
 
 #[test]
-#[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
+#[cfg_attr(feature = "wasm", wasm_bindgen_test)]
 fn cycle_detection() {
     use rkyv::{
         validation::{ArchiveBoundsContext, ArchiveMemoryContext},
@@ -224,7 +224,7 @@ fn cycle_detection() {
 }
 
 #[test]
-#[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
+#[cfg_attr(feature = "wasm", wasm_bindgen_test)]
 fn derive_unit_struct() {
     #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
@@ -234,7 +234,7 @@ fn derive_unit_struct() {
 }
 
 #[test]
-#[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
+#[cfg_attr(feature = "wasm", wasm_bindgen_test)]
 fn derive_struct() {
     #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
@@ -252,7 +252,7 @@ fn derive_struct() {
 }
 
 #[test]
-#[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
+#[cfg_attr(feature = "wasm", wasm_bindgen_test)]
 fn derive_tuple_struct() {
     #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
@@ -266,7 +266,7 @@ fn derive_tuple_struct() {
 }
 
 #[test]
-#[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
+#[cfg_attr(feature = "wasm", wasm_bindgen_test)]
 fn derive_enum() {
     #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
@@ -285,7 +285,7 @@ fn derive_enum() {
 }
 
 #[test]
-#[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
+#[cfg_attr(feature = "wasm", wasm_bindgen_test)]
 fn hashmap() {
     let mut map = HashMap::new();
     map.insert("Hello".to_string(), 12);
@@ -305,7 +305,7 @@ fn hashmap() {
 }
 
 #[test]
-#[cfg(all(feature = "rkyv_dyn", feature = "not_wasm"))]
+#[cfg(not(feature = "wasm"))]
 fn check_dyn() {
     use rkyv::Archived;
     use rkyv_dyn::archive_dyn;
