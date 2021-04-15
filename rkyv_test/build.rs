@@ -11,7 +11,9 @@ fn main() {
 
     if !emscripten {
         println!("cargo:rustc-cfg=feature=\"not_wasm\"");
-    } else {
+    }
+
+    if target == "wasm32-unknown-unknown" {
         println!("cargo:rustc-cfg=wasm_bindgen");
     }
 
