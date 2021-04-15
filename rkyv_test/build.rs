@@ -4,14 +4,15 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
     let target = env::var("TARGET").unwrap();
-    let using_default = env::var("CARGO_FEATURE_DEFAULT").is_ok();
 
     let emscripten = target == "asmjs-unknown-emscripten"
         || target == "wasm32-unknown-emscripten"
         || target == "wasm32-unknown-unknown";
 
-    if !emscripten && using_default {
-        println!("cargo:rustc-cfg=feature=\"default_not_wasm\"");
+    if !emscripten {
+        println!("cargo:rustc-cfg=feature=\"not_wasm\"");
+    } else {
+        println!("cargo:rustc-cfg=wasm_bindgen");
     }
 
     let has_atomic64 = target.starts_with("x86_64")

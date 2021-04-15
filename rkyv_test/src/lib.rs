@@ -5,6 +5,7 @@ mod validation;
 
 #[cfg(test)]
 mod util {
+    #[cfg(wasm_bindgen)]
     wasm_bindgen_test::wasm_bindgen_test_configure!();
 
     use rkyv::{
@@ -125,10 +126,12 @@ mod util {
 #[cfg(test)]
 mod no_std_tests {
     use crate::util::*;
+
+    #[cfg(wasm_bindgen)]
     use wasm_bindgen_test::*;
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_primitives() {
         test_archive(&());
         test_archive(&true);
@@ -150,7 +153,7 @@ mod no_std_tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_refs() {
         #[cfg(not(feature = "strict"))]
         test_archive_ref::<[i32; 4]>(&[1, 2, 3, 4]);
@@ -159,14 +162,14 @@ mod no_std_tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_slices() {
         test_archive_ref::<str>("hello world");
         test_archive_ref::<[i32]>([1, 2, 3, 4].as_ref());
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_empty_slice() {
         test_archive_ref::<[i32; 0]>(&[]);
         test_archive_ref::<[i32]>([].as_ref());
@@ -191,10 +194,11 @@ mod tests {
         SerializeUnsized,
     };
 
+    #[cfg(wasm_bindgen)]
     use wasm_bindgen_test::*;
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_containers() {
         test_archive_container(&Box::new(42));
         test_archive_container(&"".to_string().into_boxed_str());
@@ -208,7 +212,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_composition() {
         test_archive(&Some(Box::new(42)));
         test_archive(&Some("hello world".to_string().into_boxed_str()));
@@ -219,10 +223,11 @@ mod tests {
     }
 
     mod example {
+        #[cfg(wasm_bindgen)]
         use wasm_bindgen_test::*;
 
         #[test]
-        #[wasm_bindgen_test]
+        #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
         fn archive_example() {
             use rkyv::{
                 archived_root,
@@ -264,7 +269,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_hash_map() {
         use std::collections::HashMap;
 
@@ -304,7 +309,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_unit_struct() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
         #[archive(compare(PartialEq))]
@@ -315,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_tuple_struct() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
         #[archive(compare(PartialEq))]
@@ -325,7 +330,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_simple_struct() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
         #[archive(compare(PartialEq))]
@@ -359,7 +364,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_generic_struct() {
         pub trait TestTrait {
             type Associated: PartialEq;
@@ -401,7 +406,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_enum() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
         #[archive(compare(PartialEq))]
@@ -428,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_generic_enum() {
         pub trait TestTrait {
             type Associated: PartialEq;
@@ -466,7 +471,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_copy() {
         #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
         #[archive(copy)]
@@ -515,7 +520,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_derives() {
         #[derive(Archive, Serialize, Clone)]
         #[archive(derive(Clone, Debug, PartialEq))]
@@ -534,7 +539,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "rkyv_dyn")]
+    #[cfg(all(feature = "rkyv_dyn", feature = "not_wasm"))]
     fn manual_archive_dyn() {
         use rkyv::{ArchivePointee, ArchivedMetadata};
         use rkyv_dyn::{
@@ -688,7 +693,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "rkyv_dyn")]
+    #[cfg(all(feature = "rkyv_dyn", feature = "not_wasm"))]
     fn archive_dyn() {
         use rkyv::AlignedVec;
         use rkyv_dyn::archive_dyn;
@@ -740,7 +745,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "rkyv_dyn")]
+    #[cfg(all(feature = "rkyv_dyn", feature = "not_wasm"))]
     fn archive_dyn_generic() {
         use rkyv::archived_value;
         use rkyv_dyn::archive_dyn;
@@ -870,7 +875,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn derive_visibility() {
         mod inner {
             #[derive(super::Archive, super::Serialize)]
@@ -904,7 +909,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn basic_mutable_refs() {
         let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&42i32).unwrap();
@@ -916,7 +921,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn struct_mutable_refs() {
         use std::collections::HashMap;
 
@@ -992,7 +997,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn enum_mutable_ref() {
         #[allow(dead_code)]
         #[derive(Archive, Serialize)]
@@ -1025,7 +1030,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "rkyv_dyn")]
+    #[cfg(all(feature = "rkyv_dyn", feature = "not_wasm"))]
     fn mutable_dyn_ref() {
         use rkyv_dyn::archive_dyn;
         use rkyv_typename::TypeName;
@@ -1079,7 +1084,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn recursive_structures() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
         #[archive(compare(PartialEq))]
@@ -1095,7 +1100,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_root() {
         use rkyv::{archived_value, Aligned};
 
@@ -1130,7 +1135,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_more_std() {
         use core::{
             num::NonZeroU8,
@@ -1172,7 +1177,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_shared_ptr() {
         use std::rc::Rc;
 
@@ -1258,7 +1263,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_unsized_shared_ptr() {
         use std::rc::Rc;
 
@@ -1280,7 +1285,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn archive_weak_ptr() {
         use std::rc::{Rc, Weak};
 
@@ -1376,7 +1381,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn derive_attributes() {
         use rkyv::Fallible;
 
@@ -1434,7 +1439,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn compare() {
         #[derive(Archive, Serialize, Deserialize)]
         #[archive(compare(PartialEq, PartialOrd))]
@@ -1459,7 +1464,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn default_type_parameters() {
         #[derive(Archive, Serialize, Deserialize)]
         pub struct TupleFoo<T = i32>(T);
@@ -1477,7 +1482,7 @@ mod tests {
     }
 
     #[test]
-    #[wasm_bindgen_test]
+    #[cfg_attr(wasm_bindgen, wasm_bindgen_test)]
     fn check_util_bounds() {
         use rkyv::{
             ser::{serializers::AlignedSerializer, Serializer},
