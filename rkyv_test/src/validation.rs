@@ -15,6 +15,8 @@ use std::{
     error::Error,
 };
 
+use wasm_bindgen_test::*;
+
 const BUFFER_SIZE: usize = 512;
 
 fn serialize_and_check<T: Serialize<AlignedSerializer<AlignedVec>>>(value: &T)
@@ -30,6 +32,7 @@ where
 }
 
 #[test]
+#[wasm_bindgen_test]
 fn basic_functionality() {
     // Regular archiving
     let value = Some("Hello world".to_string());
@@ -102,6 +105,7 @@ fn basic_functionality() {
 }
 
 #[test]
+#[wasm_bindgen_test]
 fn invalid_tags() {
     // Invalid archive (invalid tag)
     let synthetic_buf = Aligned([
@@ -117,6 +121,7 @@ fn invalid_tags() {
 }
 
 #[test]
+#[wasm_bindgen_test]
 fn overlapping_claims() {
     // Invalid archive (overlapping claims)
     let synthetic_buf = Aligned([
@@ -134,6 +139,7 @@ fn overlapping_claims() {
 }
 
 #[test]
+#[wasm_bindgen_test]
 fn cycle_detection() {
     use rkyv::{
         validation::{ArchiveBoundsContext, ArchiveMemoryContext},
@@ -217,6 +223,7 @@ fn cycle_detection() {
 }
 
 #[test]
+#[wasm_bindgen_test]
 fn derive_unit_struct() {
     #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
@@ -226,6 +233,7 @@ fn derive_unit_struct() {
 }
 
 #[test]
+#[wasm_bindgen_test]
 fn derive_struct() {
     #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
@@ -243,6 +251,7 @@ fn derive_struct() {
 }
 
 #[test]
+#[wasm_bindgen_test]
 fn derive_tuple_struct() {
     #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
@@ -256,6 +265,7 @@ fn derive_tuple_struct() {
 }
 
 #[test]
+#[wasm_bindgen_test]
 fn derive_enum() {
     #[derive(Archive, Serialize)]
     #[archive(derive(CheckBytes))]
@@ -274,6 +284,7 @@ fn derive_enum() {
 }
 
 #[test]
+#[wasm_bindgen_test]
 fn hashmap() {
     let mut map = HashMap::new();
     map.insert("Hello".to_string(), 12);
@@ -293,6 +304,7 @@ fn hashmap() {
 }
 
 #[test]
+#[cfg(feature = "rkyv_dyn")]
 fn check_dyn() {
     use rkyv::Archived;
     use rkyv_dyn::archive_dyn;

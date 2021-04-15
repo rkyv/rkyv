@@ -18,10 +18,16 @@ rkyv_typename = { path = "../rkyv_typename", default-features = false, optional 
 
 [features]
 default = ["std", "const_generics", "validation"]
+default_not_wasm = ["std_not_wasm", "validation_not_wasm"] # https://github.com/rustwasm/wasm-pack/issues/698
 const_generics = ["rkyv/const_generics", "rkyv_typename/const_generics"]
 size_64 = ["rkyv/size_64"]
 nightly = ["rkyv_dyn/nightly"]
-std = ["rkyv/std", "rkyv_dyn", "rkyv_typename/std"]
+std = ["rkyv/std", "rkyv_typename/std"]
+std_not_wasm = ["rkyv/std", "rkyv_dyn", "rkyv_typename/std"]
 strict = ["rkyv/strict"]
-validation = ["bytecheck", "std", "rkyv/validation", "rkyv_dyn/validation"]
+validation = ["bytecheck", "std", "rkyv/validation"]
+validation_not_wasm = ["bytecheck", "std", "rkyv/validation", "rkyv_dyn/validation"]
 vtable_cache = ["rkyv_dyn/vtable_cache"]
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
