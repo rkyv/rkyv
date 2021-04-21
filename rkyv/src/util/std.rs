@@ -20,7 +20,9 @@ pub struct AlignedVec {
 impl Drop for AlignedVec {
     #[inline]
     fn drop(&mut self) {
-        self.clear()
+        unsafe {
+            alloc::dealloc(self.ptr.as_mut(), self.layout());
+        }
     }
 }
 
