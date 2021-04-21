@@ -42,7 +42,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     /// Gets the number of items in the hash map.
     #[inline]
     pub fn len(&self) -> usize {
-        self.len as usize
+        FixedUsize::from(self.len) as usize
     }
 
     fn make_hasher() -> seahash::SeaHasher {
@@ -84,7 +84,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     {
         let mut hasher = self.hasher();
         k.hash(&mut hasher);
-        let displace_index = hasher.finish() % self.len as u64;
+        let displace_index = hasher.finish() % self.len() as u64;
         let displace = unsafe { self.displace(displace_index as usize) };
 
         let index = if displace == u32::MAX {
@@ -95,7 +95,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
             let mut hasher = self.hasher();
             displace.hash(&mut hasher);
             k.hash(&mut hasher);
-            hasher.finish() % self.len as u64
+            hasher.finish() % self.len() as u64
         };
 
         let entry = unsafe { self.entry(index as usize) };

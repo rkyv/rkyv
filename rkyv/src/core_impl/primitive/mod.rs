@@ -3,18 +3,11 @@ use crate::{
     Serialize, Deserialize,
 };
 use core::{
+    cmp::Ordering,
     marker::PhantomData,
     num::{
-        NonZeroI8,
-        NonZeroI16,
-        NonZeroI32,
-        NonZeroI64,
-        NonZeroI128,
-        NonZeroU8,
-        NonZeroU16,
-        NonZeroU32,
-        NonZeroU64,
-        NonZeroU128,
+        NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroU8, NonZeroU16,
+        NonZeroU32, NonZeroU64, NonZeroU128,
     },
 };
 #[cfg(rkyv_atomic)]
@@ -23,6 +16,9 @@ use core::sync::atomic::{
 };
 #[cfg(rkyv_atomic_64)]
 use core::sync::atomic::{AtomicI64, AtomicU64};
+
+#[cfg(feature = "validation")]
+pub mod validation;
 
 macro_rules! impl_primitive {
     ($type:ty) => {
@@ -69,6 +65,7 @@ impl_primitive!(NonZeroU8);
 
 macro_rules! impl_integer {
     ($ne:ty, $le:ident, $be:ident) => {
+        #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
         #[repr(transparent)]
         pub struct $le($ne);
 
@@ -100,6 +97,35 @@ macro_rules! impl_integer {
             }
         }
 
+        impl PartialEq<$ne> for $le {
+            #[inline]
+            fn eq(&self, other: &$ne) -> bool {
+                <$ne>::from(*self).eq(other)
+            }
+        }
+
+        impl PartialEq<$le> for $ne {
+            #[inline]
+            fn eq(&self, other: &$le) -> bool {
+                self.eq(&<$ne>::from(*other))
+            }
+        }
+
+        impl PartialOrd<$ne> for $le {
+            #[inline]
+            fn partial_cmp(&self, other: &$ne) -> Option<Ordering> {
+                <$ne>::from(*self).partial_cmp(other)
+            }
+        }
+
+        impl PartialOrd<$le> for $ne {
+            #[inline]
+            fn partial_cmp(&self, other: &$le) -> Option<Ordering> {
+                self.partial_cmp(&<$ne>::from(*other))
+            }
+        }
+
+        #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
         #[repr(transparent)]
         pub struct $be($ne);
 
@@ -128,6 +154,34 @@ macro_rules! impl_integer {
             #[inline]
             fn from(value: $ne) -> Self {
                 $be(value)
+            }
+        }
+
+        impl PartialEq<$ne> for $be {
+            #[inline]
+            fn eq(&self, other: &$ne) -> bool {
+                <$ne>::from(*self).eq(other)
+            }
+        }
+
+        impl PartialEq<$be> for $ne {
+            #[inline]
+            fn eq(&self, other: &$be) -> bool {
+                self.eq(&<$ne>::from(*other))
+            }
+        }
+
+        impl PartialOrd<$ne> for $be {
+            #[inline]
+            fn partial_cmp(&self, other: &$ne) -> Option<Ordering> {
+                <$ne>::from(*self).partial_cmp(other)
+            }
+        }
+
+        impl PartialOrd<$be> for $ne {
+            #[inline]
+            fn partial_cmp(&self, other: &$be) -> Option<Ordering> {
+                self.partial_cmp(&<$ne>::from(*other))
             }
         }
 
@@ -181,6 +235,7 @@ impl_integer!(u128, U128LE, U128BE);
 
 macro_rules! impl_float {
     ($ne:ty, $le:ident, $be:ident, $width:expr) => {
+        #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
         #[repr(transparent)]
         pub struct $le([u8; $width]);
 
@@ -198,6 +253,7 @@ macro_rules! impl_float {
             }
         }
 
+        #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
         #[repr(transparent)]
         pub struct $be([u8; $width]);
 
@@ -257,6 +313,7 @@ macro_rules! impl_float {
 impl_float!(f32, F32LE, F32BE, 4);
 impl_float!(f64, F64LE, F64BE, 8);
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct CharLE(u32);
 
@@ -288,6 +345,7 @@ impl From<char> for CharLE {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct CharBE(u32);
 
@@ -358,6 +416,7 @@ impl<D: Fallible + ?Sized> Deserialize<char, D> for Archived<char> {
 
 macro_rules! impl_nonzero {
     ($ne:ty, $le:ident, $be:ident) => {
+        #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
         #[repr(transparent)]
         pub struct $le($ne);
 
@@ -389,6 +448,7 @@ macro_rules! impl_nonzero {
             }
         }
 
+        #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
         #[repr(transparent)]
         pub struct $be($ne);
 

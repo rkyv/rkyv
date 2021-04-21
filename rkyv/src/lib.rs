@@ -567,28 +567,30 @@ pub struct RawRelPtr {
 }
 
 impl RawRelPtr {
+    #[inline]
+    fn from_offset(offset: isize) -> Self {
+        Self {
+            offset: (offset as FixedIsize).into(),
+            _phantom: PhantomPinned,
+        }
+    }
+
     /// Creates a new relative pointer between the given positions.
     #[inline]
     pub fn new(from: usize, to: usize) -> Self {
-        Self {
-            offset: ((to as isize - from as isize) as FixedIsize).into(),
-            _phantom: PhantomPinned,
-        }
+        Self::from_offset(to as isize - from as isize)
     }
 
     /// Creates a new relative pointer that has an offset of 0.
     #[inline]
     pub fn null() -> Self {
-        Self {
-            offset: 0,
-            _phantom: PhantomPinned,
-        }
+        Self::from_offset(0)
     }
 
     /// Checks whether the relative pointer is null.
     #[inline]
     pub fn is_null(&self) -> bool {
-        self.offset == 0
+        self.offset() == 0
     }
 
     /// Gets the base pointer for the relative pointer.
@@ -600,7 +602,7 @@ impl RawRelPtr {
     /// Gets the offset of the relative pointer.
     #[inline]
     pub fn offset(&self) -> isize {
-        self.offset as isize
+        FixedIsize::from(self.offset) as isize
     }
 
     /// Calculates the memory address being pointed to by this relative pointer.
@@ -609,7 +611,7 @@ impl RawRelPtr {
         unsafe {
             (self as *const Self)
                 .cast::<u8>()
-                .offset(self.offset as isize)
+                .offset(self.offset())
                 .cast()
         }
     }
@@ -621,7 +623,7 @@ impl RawRelPtr {
         unsafe {
             (self as *mut Self)
                 .cast::<u8>()
-                .offset(self.offset as isize)
+                .offset(self.offset())
                 .cast()
         }
     }

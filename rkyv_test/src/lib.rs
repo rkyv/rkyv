@@ -453,7 +453,7 @@ mod tests {
         test_archive(&TestUnit);
 
         #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
-        #[archive(copy)]
+        #[cfg_attr(not(any(feature = "archive_be", feature = "archive_be")), archive(copy))]
         struct TestStruct {
             a: (),
             b: i32,
@@ -471,14 +471,14 @@ mod tests {
         });
 
         #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
-        #[archive(copy)]
+        #[cfg_attr(not(any(feature = "archive_be", feature = "archive_le")), archive(copy))]
         struct TestTuple((), i32, bool, f32, TestUnit);
 
         test_archive(&TestTuple((), 42, true, 3.14f32, TestUnit));
 
         #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
         #[repr(u8)]
-        #[archive(copy)]
+        #[cfg_attr(not(any(feature = "archive_be", feature = "archive_le")), archive(copy))]
         enum TestEnum {
             A((), i32, bool, f32, TestUnit),
         }
@@ -486,7 +486,7 @@ mod tests {
         test_archive(&TestEnum::A((), 42, true, 3.14f32, TestUnit));
 
         #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
-        #[archive(copy)]
+        #[cfg_attr(not(any(feature = "archive_be", feature = "archive_le")), archive(copy))]
         struct TestGeneric<T>(T);
 
         test_archive(&TestGeneric(42));
