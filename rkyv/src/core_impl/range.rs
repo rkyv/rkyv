@@ -1,8 +1,8 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{offset_of, Archive, ArchiveCopy, Archived, Deserialize, Fallible, Serialize};
+use crate::{Archive, ArchiveCopy, Archived, Deserialize, Fallible, resolve_struct, Serialize};
 use core::{
-    cmp, fmt,
+    cmp, fmt, mem::MaybeUninit,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
 };
 
@@ -11,9 +11,7 @@ impl Archive for RangeFull {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-        RangeFull
-    }
+    fn resolve(&self, _: usize, _: Self::Resolver, _: &mut MaybeUninit<Self::Archived>) {}
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for RangeFull {
@@ -96,15 +94,11 @@ impl<T: Archive> Archive for Range<T> {
     type Resolver = Range<T::Resolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        ArchivedRange {
-            start: self
-                .start
-                .resolve(pos + offset_of!(Self::Archived, start), resolver.start),
-            end: self
-                .end
-                .resolve(pos + offset_of!(Self::Archived, end), resolver.end),
-        }
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        resolve_struct!(out = |pos, resolver| -> Self::Archived {
+            start: self.start,
+            end: self.end,
+        });
     }
 }
 
@@ -196,15 +190,11 @@ impl<T: Archive> Archive for RangeInclusive<T> {
     type Resolver = Range<T::Resolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        ArchivedRangeInclusive {
-            start: self
-                .start()
-                .resolve(pos + offset_of!(Self::Archived, start), resolver.start),
-            end: self
-                .end()
-                .resolve(pos + offset_of!(Self::Archived, end), resolver.end),
-        }
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        resolve_struct!(out = |pos, resolver| -> Self::Archived {
+            start: self.start(),
+            end: self.end(),
+        });
     }
 }
 

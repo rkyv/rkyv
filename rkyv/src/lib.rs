@@ -71,11 +71,12 @@ pub mod de;
 pub mod ser;
 #[cfg(feature = "std")]
 pub mod std_impl;
+#[macro_use]
 pub mod util;
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use core::{fmt, marker::{PhantomData, PhantomPinned}};
+use core::{fmt, marker::{PhantomData, PhantomPinned}, mem::MaybeUninit};
 
 pub use memoffset::offset_of;
 use ptr_meta::Pointee;
@@ -268,8 +269,14 @@ pub trait Archive {
     /// type from the normal type.
     type Resolver;
 
-    /// Creates the archived version of this value at the given position.
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived;
+    /// Creates the archived version of this value at the given position and writes it to the given
+    /// output.
+    ///
+    /// The output should be initialized field-by-field rather than by writing a whole struct. This
+    /// is because performing a typed copy will set all of the padding bytes to uninitialized, but
+    /// they must remain whatever value they currently have. This is so that uninitialized memory
+    /// doesn't get leaked to the final archive.
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>);
 }
 
 /// Converts a type to its archived form.
@@ -437,27 +444,31 @@ pub trait ArchiveUnsized: Pointee {
     /// The resolver for the metadata of this type.
     type MetadataResolver;
 
-    /// Creates the archived version of the metadata for this value at the given position.
+    /// Creates the archived version of the metadata for this value at the given position and writes
+    /// it to the given output.
+    ///
+    /// The output should be initialized field-by-field rather than by writing a whole struct. This
+    /// is because performing a typed copy will set all of the padding bytes to uninitialized, but
+    /// they must remain whatever value they currently have. This is so that uninitialized memory
+    /// doesn't get leaked to the final archive.
     fn resolve_metadata(
         &self,
         pos: usize,
         resolver: Self::MetadataResolver,
-    ) -> ArchivedMetadata<Self>;
+        out: &mut MaybeUninit<ArchivedMetadata<Self>>,
+    );
 
-    /// Resolves a relative pointer to this value with the given `from` and `to`.
-    ///
-    /// # Safety
-    ///
-    /// The caller must guarantee that `to` is the location of an archived value and `resolver` is
-    /// the metadata resolver for that value.
+    /// Resolves a relative pointer to this value with the given `from` and `to` and writes it to
+    /// the given output.
     #[inline]
-    unsafe fn resolve_unsized(
+    fn resolve_unsized(
         &self,
         from: usize,
         to: usize,
         resolver: Self::MetadataResolver,
-    ) -> RelPtr<Self::Archived> {
-        RelPtr::resolve(from, to, self, resolver)
+        out: &mut MaybeUninit<RelPtr<Self::Archived>>
+    ) {
+        RelPtr::resolve_emplace(from, to, self, resolver, out);
     }
 }
 
@@ -563,13 +574,12 @@ pub struct RawRelPtr {
 }
 
 impl RawRelPtr {
-    /// Creates a new relative pointer between the given positions.
+    /// Emplaces a new relative pointer between the given positions and stores it in the given
+    /// output.
     #[inline]
-    pub fn new(from: usize, to: usize) -> Self {
-        Self {
-            offset: (to as isize - from as isize) as ArchivedIsize,
-            _phantom: PhantomPinned,
-        }
+    pub fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
+        let offset = (to as isize - from as isize) as ArchivedIsize;
+        unsafe { project_struct!(out: Self => offset: ArchivedIsize).as_mut_ptr().write(offset); }
     }
 
     /// Creates a new relative pointer that has an offset of 0.
@@ -643,7 +653,7 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
     /// - `raw_ptr` points to a valid value
     /// - `metadata` is valid metadata for the pointed value.
     #[inline]
-    pub unsafe fn new(raw_ptr: RawRelPtr, metadata: T::ArchivedMetadata) -> Self {
+    pub fn new(raw_ptr: RawRelPtr, metadata: T::ArchivedMetadata) -> Self {
         Self {
             raw_ptr,
             metadata,
@@ -658,19 +668,23 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
     /// The caller must guarantee that `from` is the position of the relative pointer and `to` is
     /// the position of some valid memory.
     #[inline]
-    pub unsafe fn resolve<U: ArchiveUnsized<Archived = T> + ?Sized>(
+    pub fn resolve_emplace<U: ArchiveUnsized<Archived = T> + ?Sized>(
         from: usize,
         to: usize,
         value: &U,
         metadata_resolver: U::MetadataResolver,
-    ) -> Self {
-        let raw_ptr_pos = from + offset_of!(Self, raw_ptr);
-        let metadata_pos = from + offset_of!(Self, metadata);
-
-        Self::new(
-            RawRelPtr::new(raw_ptr_pos, to),
-            value.resolve_metadata(metadata_pos, metadata_resolver),
-        )
+        out: &mut MaybeUninit<Self>,
+    ) {
+        RawRelPtr::emplace(
+            from + offset_of!(Self, raw_ptr),
+            to,
+            project_struct!(out: Self => raw_ptr)
+        );
+        value.resolve_metadata(
+            from + offset_of!(Self, metadata),
+            metadata_resolver,
+            project_struct!(out: Self => metadata)
+        );
     }
 
     /// Gets the base pointer for the relative pointer.

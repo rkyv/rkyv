@@ -3,7 +3,7 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use core::{cmp::PartialEq, mem, ops::Deref, pin::Pin};
+use core::{cmp::PartialEq, mem::{forget, MaybeUninit}, ops::Deref, pin::Pin};
 use std::{rc, sync};
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
     offset_of,
     ser::SharedSerializer,
     Archive, ArchivePointee, ArchiveUnsized, Archived, Deserialize, DeserializeUnsized, RelPtr,
-    Serialize, SerializeUnsized,
+    Serialize, SerializeUnsized, project_struct,
 };
 
 impl<T: ?Sized> SharedPointer for rc::Rc<T> {
@@ -66,13 +66,13 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
     type Resolver = RcResolver<T::MetadataResolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        unsafe {
-            ArchivedRc(
-                self.as_ref()
-                    .resolve_unsized(pos, resolver.pos, resolver.metadata_resolver),
-            )
-        }
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        self.as_ref().resolve_unsized(
+            pos,
+            resolver.pos,
+            resolver.metadata_resolver,
+            project_struct!(out: Self::Archived => 0),
+        );
     }
 }
 
@@ -100,7 +100,7 @@ where
                 rc::Rc::<T>::from(unsafe { Box::from_raw(ptr) })
             })?;
         let shared_ptr = unsafe { rc::Rc::<T>::from_raw(raw_shared_ptr) };
-        mem::forget(shared_ptr.clone());
+        forget(shared_ptr.clone());
         Ok(shared_ptr)
     }
 }
@@ -128,6 +128,9 @@ enum ArchivedRcWeakTag {
     None,
     Some,
 }
+
+#[repr(C)]
+struct ArchivedRcWeakVariantNone(ArchivedRcWeakTag);
 
 #[repr(C)]
 struct ArchivedRcWeakVariantSome<T: ArchivePointee + ?Sized>(ArchivedRcWeakTag, ArchivedRc<T>);
@@ -161,15 +164,25 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
     type Resolver = RcWeakResolver<T::MetadataResolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         match resolver {
-            RcWeakResolver::None => ArchivedRcWeak::None,
+            RcWeakResolver::None => unsafe {
+                let variant = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedRcWeakVariantNone>>();
+                project_struct!(variant: ArchivedRcWeakVariantNone => 0: ArchivedRcWeakTag)
+                    .as_mut_ptr()
+                    .write(ArchivedRcWeakTag::None);
+            }
             RcWeakResolver::Some(resolver) => unsafe {
-                ArchivedRcWeak::Some(self.upgrade().unwrap().resolve(
+                let variant = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedRcWeakVariantSome<T::Archived>>>();
+                project_struct!(variant: ArchivedRcWeakVariantSome<T::Archived> => 0: ArchivedRcWeakTag)
+                    .as_mut_ptr()
+                    .write(ArchivedRcWeakTag::Some);
+                self.upgrade().unwrap().resolve(
                     pos + offset_of!(ArchivedRcWeakVariantSome<T::Archived>, 1),
                     resolver,
-                ))
-            },
+                    project_struct!(variant: ArchivedRcWeakVariantSome<T::Archived> => 1),
+                );
+            }
         }
     }
 }
@@ -257,14 +270,13 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     type Resolver = ArcResolver<T::MetadataResolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        unsafe {
-            ArchivedArc(self.as_ref().resolve_unsized(
-                pos,
-                resolver.pos,
-                resolver.metadata_resolver,
-            ))
-        }
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        self.as_ref().resolve_unsized(
+            pos,
+            resolver.pos,
+            resolver.metadata_resolver,
+            project_struct!(out: Self::Archived => 0),
+        );
     }
 }
 
@@ -291,7 +303,7 @@ where
             sync::Arc::<T>::from(unsafe { Box::from_raw(ptr) })
         })?;
         let shared_ptr = unsafe { sync::Arc::<T>::from_raw(raw_shared_ptr) };
-        mem::forget(shared_ptr.clone());
+        forget(shared_ptr.clone());
         Ok(shared_ptr)
     }
 }
@@ -319,6 +331,9 @@ enum ArchivedArcWeakTag {
     None,
     Some,
 }
+
+#[repr(C)]
+struct ArchivedArcWeakVariantNone(ArchivedRcWeakTag);
 
 #[repr(C)]
 struct ArchivedArcWeakVariantSome<T: ArchivePointee + ?Sized>(ArchivedArcWeakTag, ArchivedArc<T>);
@@ -352,14 +367,24 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
     type Resolver = ArcWeakResolver<T::MetadataResolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         match resolver {
-            ArcWeakResolver::None => ArchivedArcWeak::None,
+            ArcWeakResolver::None => unsafe {
+                let variant = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedArcWeakVariantNone>>();
+                project_struct!(variant: ArchivedArcWeakVariantNone => 0: ArchivedArcWeakTag)
+                    .as_mut_ptr()
+                    .write(ArchivedArcWeakTag::None);
+            }
             ArcWeakResolver::Some(resolver) => unsafe {
-                ArchivedArcWeak::Some(self.upgrade().unwrap().resolve(
+                let variant = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedArcWeakVariantSome<T::Archived>>>();
+                project_struct!(variant: ArchivedArcWeakVariantSome<T::Archived> => 0: ArchivedArcWeakTag)
+                    .as_mut_ptr()
+                    .write(ArchivedArcWeakTag::Some);
+                self.upgrade().unwrap().resolve(
                     pos + offset_of!(ArchivedArcWeakVariantSome<T::Archived>, 1),
                     resolver,
-                ))
+                    project_struct!(variant: ArchivedArcWeakVariantSome<T::Archived> => 1),
+                );
             },
         }
     }

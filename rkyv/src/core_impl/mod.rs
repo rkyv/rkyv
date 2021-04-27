@@ -3,7 +3,7 @@
 use crate::{
     de::Deserializer, offset_of, ser::Serializer, Archive, ArchiveCopy, ArchivePointee,
     ArchiveUnsized, Archived, ArchivedIsize, ArchivedMetadata, ArchivedUsize, Deserialize,
-    DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
+    DeserializeUnsized, Fallible, Serialize, SerializeUnsized, project_tuple,
 };
 #[cfg(rkyv_atomic)]
 use core::sync::atomic::{
@@ -15,6 +15,7 @@ use core::{
     alloc, cmp,
     hash::{Hash, Hasher},
     marker::PhantomData,
+    mem::MaybeUninit,
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
         NonZeroU32, NonZeroU64, NonZeroU8,
@@ -51,7 +52,12 @@ impl<T: Archive> ArchiveUnsized for T {
     type MetadataResolver = ();
 
     #[inline]
-    fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {}
+    fn resolve_metadata(
+        &self,
+        _: usize,
+        _: Self::MetadataResolver,
+        _: &mut MaybeUninit<ArchivedMetadata<Self>>
+    ) {}
 }
 
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for T {
@@ -89,9 +95,7 @@ impl<T: ?Sized> Archive for PhantomData<T> {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-        PhantomData
-    }
+    fn resolve(&self, _: usize, _: Self::Resolver, _: &mut MaybeUninit<Self::Archived>) {}
 }
 
 impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
@@ -120,8 +124,8 @@ macro_rules! impl_primitive {
             type Resolver = ();
 
             #[inline]
-            fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-                *self
+            fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                unsafe { out.as_mut_ptr().write(*self); }
             }
         }
 
@@ -177,8 +181,8 @@ impl Archive for usize {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-        *self as ArchivedUsize
+    fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        unsafe { out.as_mut_ptr().write(*self as ArchivedUsize); }
     }
 }
 
@@ -201,8 +205,8 @@ impl Archive for isize {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-        *self as ArchivedIsize
+    fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        unsafe { out.as_mut_ptr().write(*self as ArchivedIsize); }
     }
 }
 
@@ -231,8 +235,10 @@ macro_rules! impl_atomic {
             type Resolver = AtomicResolver;
 
             #[inline]
-            fn resolve(&self, _pos: usize, _resolver: AtomicResolver) -> $type {
-                <$type>::new(self.load(atomic::Ordering::Relaxed))
+            fn resolve(&self, _pos: usize, _resolver: AtomicResolver, out: &mut MaybeUninit<$type>) {
+                unsafe {
+                    out.as_mut_ptr().write(<$type>::new(self.load(atomic::Ordering::Relaxed)));
+                }
             }
         }
 
@@ -287,10 +293,15 @@ macro_rules! impl_tuple {
             type Resolver = ($($type::Resolver,)+);
 
             #[inline]
-            fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-                #[allow(clippy::unneeded_wildcard_pattern)]
-                let rev = ($(self.$index.resolve(pos + memoffset::offset_of_tuple!(Self::Archived, $index), resolver.$index),)+);
-                ($(rev.$index,)+)
+            fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                $(
+                    #[allow(clippy::unneeded_wildcard_pattern)]
+                    self.$index.resolve(
+                        pos + memoffset::offset_of_tuple!(Self::Archived, $index),
+                        resolver.$index,
+                        project_tuple!(out: Self::Archived => $index)
+                    );
+                )+
             }
         }
 
@@ -397,20 +408,19 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     type Resolver = [T::Resolver; N];
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let mut resolvers = core::mem::MaybeUninit::new(resolver);
         let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
-        let mut result = core::mem::MaybeUninit::<Self::Archived>::uninit();
-        let result_ptr = result.as_mut_ptr().cast::<T::Archived>();
+        let out_ptr = out.as_mut_ptr().cast::<MaybeUninit<T::Archived>>();
         for (i, value) in self.iter().enumerate() {
             unsafe {
-                result_ptr.add(i).write(value.resolve(
+                value.resolve(
                     pos + i * core::mem::size_of::<T::Archived>(),
                     resolvers_ptr.add(i).read(),
-                ));
+                    &mut *out_ptr.add(i),
+                );
             }
         }
-        unsafe { result.assume_init() }
     }
 }
 
@@ -453,8 +463,13 @@ impl<T: Archive> ArchiveUnsized for [T] {
     type MetadataResolver = ();
 
     #[inline]
-    fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {
-        ptr_meta::metadata(self) as ArchivedUsize
+    fn resolve_metadata(
+        &self,
+        _: usize,
+        _: Self::MetadataResolver,
+        out: &mut MaybeUninit<ArchivedMetadata<Self>>
+    ) {
+        unsafe { out.as_mut_ptr().write(ptr_meta::metadata(self) as ArchivedUsize); }
     }
 }
 
@@ -581,8 +596,13 @@ impl ArchiveUnsized for str {
     type MetadataResolver = ();
 
     #[inline]
-    fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {
-        ptr_meta::metadata(self) as ArchivedUsize
+    fn resolve_metadata(
+        &self,
+        _: usize,
+        _: Self::MetadataResolver,
+        out: &mut MaybeUninit<ArchivedMetadata<Self>>,
+    ) {
+        unsafe { out.as_mut_ptr().write(ptr_meta::metadata(self) as ArchivedUsize); }
     }
 }
 
@@ -701,6 +721,9 @@ enum ArchivedOptionTag {
 }
 
 #[repr(C)]
+struct ArchivedOptionVariantNone(ArchivedOptionTag);
+
+#[repr(C)]
 struct ArchivedOptionVariantSome<T>(ArchivedOptionTag, T);
 
 impl<T: Archive> Archive for Option<T> {
@@ -708,13 +731,28 @@ impl<T: Archive> Archive for Option<T> {
     type Resolver = Option<T::Resolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Option<T::Resolver>) -> Self::Archived {
-        match resolver {
-            None => ArchivedOption::None,
-            Some(resolver) => ArchivedOption::Some(self.as_ref().unwrap().resolve(
-                pos + offset_of!(ArchivedOptionVariantSome<T::Archived>, 1),
-                resolver,
-            )),
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        unsafe {
+            match resolver {
+                None => {
+                    let variant = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedOptionVariantNone>>();
+                    variant.as_mut_ptr()
+                        .cast::<u8>()
+                        .add(offset_of!(ArchivedOptionVariantNone, 0))
+                        .cast::<ArchivedOptionTag>()
+                        .write(ArchivedOptionTag::None);
+                }
+                Some(resolver) => {
+                    let variant = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedOptionVariantSome<T::Archived>>>();
+                    variant.as_mut_ptr()
+                        .cast::<u8>()
+                        .add(offset_of!(ArchivedOptionVariantSome<T::Archived>, 0))
+                        .cast::<ArchivedOptionTag>()
+                        .write(ArchivedOptionTag::Some);
+                    let field_offset = offset_of!(ArchivedOptionVariantSome<T::Archived>, 1);
+                    self.as_ref().unwrap().resolve(pos + field_offset, resolver, &mut *variant.as_mut_ptr().cast::<u8>().add(field_offset).cast());
+                }
+            }
         }
     }
 }
