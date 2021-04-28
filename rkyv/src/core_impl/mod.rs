@@ -486,7 +486,9 @@ impl<T> ArchivePointee for [T] {
 impl<T: ArchiveCopy + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        if !self.is_empty() {
+        if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
+            Ok(0)
+        } else {
             unsafe {
                 let bytes = core::slice::from_raw_parts(
                     (self.as_ptr() as *const T).cast::<u8>(),
@@ -496,8 +498,6 @@ impl<T: ArchiveCopy + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> 
                 serializer.write(bytes)?;
                 Ok(result)
             }
-        } else {
-            Ok(0)
         }
     }
 
@@ -512,7 +512,9 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
     default! {
         fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-            if !self.is_empty() {
+            if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
+                Ok(0)
+            } else {
                 let mut resolvers = Vec::with_capacity(self.len());
                 for value in self {
                     resolvers.push(value.serialize(serializer)?);
@@ -524,8 +526,6 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
                     }
                 }
                 Ok(result)
-            } else {
-                Ok(0)
             }
         }
     }
@@ -544,7 +544,7 @@ impl<T: Deserialize<T, D> + ArchiveCopy, D: Deserializer + ?Sized> DeserializeUn
 {
     #[inline]
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-        if self.is_empty() {
+        if self.is_empty() || core::mem::size_of::<T>() == 0 {
             Ok(ptr::null_mut())
         } else {
             let result = deserializer
@@ -568,7 +568,7 @@ impl<T: Deserialize<U, D>, U: Archive<Archived = T>, D: Deserializer + ?Sized>
     #[inline]
     default! {
         unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-            if self.is_empty() {
+            if self.is_empty() || core::mem::size_of::<U>() == 0 {
                 Ok(ptr::null_mut())
             } else {
                 let result = deserializer
