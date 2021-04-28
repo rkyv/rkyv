@@ -171,10 +171,11 @@ impl Fallible for Infallible {
 /// example does everything to demonstrate how to implement `Archive` for your own types.
 ///
 /// ```
-/// use core::{slice, str};
+/// use core::{mem::MaybeUninit, slice, str};
 /// use rkyv::{
 ///     archived_root,
 ///     offset_of,
+///     project_struct,
 ///     ser::{Serializer, serializers::AlignedSerializer},
 ///     AlignedVec,
 ///     Archive,
@@ -223,16 +224,17 @@ impl Fallible for Infallible {
 ///
 ///     // The resolve function consumes the resolver and produces the archived value at the given
 ///     // position.
-///     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-///         Self::Archived {
-///             // We have to be careful to add the offset of the ptr field, otherwise we'll be
-///             // using the position of the ArchivedOwnedStr instead of the position of the
-///             // relative pointer.
-///             ptr: unsafe { self.inner.resolve_unsized(
+///     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+///         // We have to be careful to add the offset of the ptr field, otherwise we'll be
+///         // using the position of the ArchivedOwnedStr instead of the position of the
+///         // relative pointer.
+///         unsafe {
+///             self.inner.resolve_unsized(
 ///                 pos + offset_of!(Self::Archived, ptr),
 ///                 resolver.pos,
 ///                 resolver.metadata_resolver,
-///             ) },
+///                 project_struct!(out: Self::Archived => ptr),
+///             );
 ///         }
 ///     }
 /// }
@@ -311,7 +313,7 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///
 /// ```
 /// use core::{
-///     mem,
+///     mem::{transmute, MaybeUninit},
 ///     ops::{Deref, DerefMut},
 /// };
 /// use ptr_meta::Pointee;
@@ -376,10 +378,13 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     fn resolve_metadata(
 ///         &self,
 ///         _: usize,
-///         _: Self::MetadataResolver
-///     ) -> ArchivedMetadata<Self> {
-///         BlockSliceMetadata {
-///             len: self.tail.len() as ArchivedUsize,
+///         _: Self::MetadataResolver,
+///         out: &mut MaybeUninit<ArchivedMetadata<Self>>,
+///     ) {
+///         unsafe {
+///             out.as_mut_ptr().write(BlockSliceMetadata {
+///                 len: self.tail.len() as ArchivedUsize,
+///             });
 ///         }
 ///     }
 /// }
@@ -425,7 +430,7 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 /// // We have a Block<String, [i32; 4]> but we want to it to be a Block<String, [i32]>, so we need
 /// // to do more pointer transmutation
 /// let ptr = (&value as *const Block<String, [i32; 4]>).cast::<()>();
-/// let unsized_value = unsafe { &*mem::transmute::<(*const (), usize), *const Block<String, [i32]>>((ptr, 4)) };
+/// let unsized_value = unsafe { &*transmute::<(*const (), usize), *const Block<String, [i32]>>((ptr, 4)) };
 ///
 /// let mut serializer = AlignedSerializer::new(AlignedVec::new());
 /// let pos = serializer.serialize_unsized_value(unsized_value)

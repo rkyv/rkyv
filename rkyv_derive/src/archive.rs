@@ -492,11 +492,13 @@ fn derive_archive_impl(
                             #resolver::#variant { #(#resolver_bindings,)* } => {
                                 match self {
                                     #name::#variant { #(#self_bindings,)* } => {
-                                        let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
-                                        rkyv::project_struct!(out: #archived_variant_name #ty_generics => __tag: ArchivedTag)
-                                            .as_mut_ptr()
-                                            .write(ArchivedTag::#variant);
-                                        #(#resolves;)*
+                                        unsafe {
+                                            let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
+                                            rkyv::project_struct!(out: #archived_variant_name #ty_generics => __tag: ArchivedTag)
+                                                .as_mut_ptr()
+                                                .write(ArchivedTag::#variant);
+                                            #(#resolves;)*
+                                        }
                                     },
                                     #[allow(unreachable_patterns)]
                                     _ => panic!("enum resolver variant does not match value variant"),
@@ -529,11 +531,13 @@ fn derive_archive_impl(
                             #resolver::#variant( #(#resolver_bindings,)* ) => {
                                 match self {
                                     #name::#variant(#(#self_bindings,)*) => {
-                                        let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
-                                        rkyv::project_struct!(out: #archived_variant_name #ty_generics => 0: ArchivedTag)
-                                            .as_mut_ptr()
-                                            .write(ArchivedTag::#variant);
-                                        #(#resolves;)*
+                                        unsafe {
+                                            let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
+                                            rkyv::project_struct!(out: #archived_variant_name #ty_generics => 0: ArchivedTag)
+                                                .as_mut_ptr()
+                                                .write(ArchivedTag::#variant);
+                                            #(#resolves;)*
+                                        }
                                     },
                                     #[allow(unreachable_patterns)]
                                     _ => panic!("enum resolver variant does not match value variant"),
@@ -543,7 +547,9 @@ fn derive_archive_impl(
                     }
                     Fields::Unit => quote_spanned! { name.span() => 
                         #resolver::#variant => {
-                            out.as_mut_ptr().cast::<ArchivedTag>().write(ArchivedTag::#variant);
+                            unsafe {
+                                out.as_mut_ptr().cast::<ArchivedTag>().write(ArchivedTag::#variant);
+                            }
                         }
                     }
                 }
@@ -1010,7 +1016,9 @@ fn derive_archive_copy_impl(
 
                     #[inline]
                     fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-                        out.as_mut_ptr().write(*self);
+                        unsafe {
+                            out.as_mut_ptr().write(*self);
+                        }
                     }
                 }
             }
@@ -1068,7 +1076,9 @@ fn derive_archive_copy_impl(
 
                     #[inline]
                     fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-                        out.as_mut_ptr().write(*self)
+                        unsafe {
+                            out.as_mut_ptr().write(*self);
+                        }
                     }
                 }
             }
