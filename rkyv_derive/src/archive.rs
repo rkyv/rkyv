@@ -75,10 +75,16 @@ fn derive_archive_impl(
                         quote_spanned! { f.span() => #vis #name: rkyv::Archived<#ty> }
                     });
 
-                    let archived_values = fields.named.iter().map(|f| {
-                    let name = &f.ident;
-                    quote_spanned! { f.span() => #name: self.#name.resolve(pos + rkyv::offset_of!(#archived #ty_generics, #name), resolver.#name) }
-                });
+                    let resolve_fields = fields.named.iter().map(|f| {
+                        let name = &f.ident;
+                        quote_spanned! { f.span() =>
+                            self.#name.resolve(
+                                pos + rkyv::offset_of!(#archived #ty_generics, #name),
+                                resolver.#name,
+                                rkyv::project_struct!(out: Self::Archived => #name)
+                            )
+                        }
+                    });
 
                     let mut partial_eq_impl = None;
                     let mut partial_ord_impl = None;
@@ -171,10 +177,8 @@ fn derive_archive_impl(
 
                                 #[allow(clippy::unit_arg)]
                                 #[inline]
-                                fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-                                    Self::Archived {
-                                        #(#archived_values,)*
-                                    }
+                                fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                                    #(#resolve_fields;)*
                                 }
                             }
 
@@ -207,10 +211,16 @@ fn derive_archive_impl(
                         quote_spanned! { f.span() => #vis rkyv::Archived<#ty> }
                     });
 
-                    let archived_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                    let index = Index::from(i);
-                    quote_spanned! { f.span() => self.#index.resolve(pos + rkyv::offset_of!(#archived #ty_generics, #index), resolver.#index) }
-                });
+                    let resolve_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                        let index = Index::from(i);
+                        quote_spanned! { f.span() =>
+                            self.#index.resolve(
+                                pos + rkyv::offset_of!(#archived #ty_generics, #index),
+                                resolver.#index,
+                                rkyv::project_struct!(out: Self::Archived => #index)
+                            )
+                        }
+                    });
 
                     let mut partial_eq_impl = None;
                     let mut partial_ord_impl = None;
@@ -307,10 +317,8 @@ fn derive_archive_impl(
 
                                 #[allow(clippy::unit_arg)]
                                 #[inline]
-                                fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-                                    #archived(
-                                        #(#archived_values,)*
-                                    )
+                                fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                                    #(#resolve_fields;)*
                                 }
                             }
 
@@ -378,9 +386,7 @@ fn derive_archive_impl(
                                 type Resolver = #resolver #ty_generics;
 
                                 #[inline]
-                                fn resolve(&self, _pos: usize, _resolver: Self::Resolver) -> Self::Archived {
-                                    #archived
-                                }
+                                fn resolve(&self, _: usize, _: Self::Resolver, _: &mut MaybeUninit<Self::Archived>) {}
                             }
 
                             #partial_eq_impl
@@ -470,21 +476,27 @@ fn derive_archive_impl(
                             let binding = Ident::new(&format!("resolver_{}", name.as_ref().unwrap().to_string()), name.span());
                             quote_spanned! { binding.span() => #name: #binding }
                         });
-                        let fields = fields.named.iter().map(|f| {
+                        let resolves = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             let self_binding = Ident::new(&format!("self_{}", name.as_ref().unwrap().to_string()), name.span());
                             let resolver_binding = Ident::new(&format!("resolver_{}", name.as_ref().unwrap().to_string()), name.span());
                             quote! {
-                                #name: #self_binding.resolve(pos + rkyv::offset_of!(#archived_variant_name #ty_generics, #name), #resolver_binding)
+                                #self_binding.resolve(
+                                    pos + rkyv::offset_of!(#archived_variant_name #ty_generics, #name),
+                                    #resolver_binding,
+                                    rkyv::project_struct!(out: #archived_variant_name #ty_generics => #name),
+                                )
                             }
                         });
                         quote_spanned! { name.span() =>
                             #resolver::#variant { #(#resolver_bindings,)* } => {
                                 match self {
                                     #name::#variant { #(#self_bindings,)* } => {
-                                        #archived::#variant {
-                                            #(#fields,)*
-                                        }
+                                        let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
+                                        rkyv::project_struct!(out: #archived_variant_name #ty_generics => __tag: ArchivedTag)
+                                            .as_mut_ptr()
+                                            .write(ArchivedTag::#variant);
+                                        #(#resolves;)*
                                     },
                                     #[allow(unreachable_patterns)]
                                     _ => panic!("enum resolver variant does not match value variant"),
@@ -501,21 +513,27 @@ fn derive_archive_impl(
                             let name = Ident::new(&format!("resolver_{}", i), f.span());
                             quote_spanned! { f.span() => #name }
                         });
-                        let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                        let resolves = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let index = Index::from(i + 1);
                             let self_binding = Ident::new(&format!("self_{}", i), f.span());
                             let resolver_binding = Ident::new(&format!("resolver_{}", i), f.span());
                             quote! {
-                                #self_binding.resolve(pos + rkyv::offset_of!(#archived_variant_name #ty_generics, #index), #resolver_binding)
+                                #self_binding.resolve(
+                                    pos + rkyv::offset_of!(#archived_variant_name #ty_generics, #index),
+                                    #resolver_binding,
+                                    rkyv::project_struct!(out: #archived_variant_name #ty_generics => #index),
+                                )
                             }
                         });
                         quote_spanned! { name.span() =>
                             #resolver::#variant( #(#resolver_bindings,)* ) => {
                                 match self {
                                     #name::#variant(#(#self_bindings,)*) => {
-                                        #archived::#variant(
-                                            #(#fields,)*
-                                        )
+                                        let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
+                                        rkyv::project_struct!(out: #archived_variant_name #ty_generics => 0: ArchivedTag)
+                                            .as_mut_ptr()
+                                            .write(ArchivedTag::#variant);
+                                        #(#resolves;)*
                                     },
                                     #[allow(unreachable_patterns)]
                                     _ => panic!("enum resolver variant does not match value variant"),
@@ -523,7 +541,11 @@ fn derive_archive_impl(
                             }
                         }
                     }
-                    Fields::Unit => quote_spanned! { name.span() => #resolver::#variant => #archived::#variant }
+                    Fields::Unit => quote_spanned! { name.span() => 
+                        #resolver::#variant => {
+                            out.as_mut_ptr().cast::<ArchivedTag>().write(ArchivedTag::#variant);
+                        }
+                    }
                 }
             });
 
@@ -889,7 +911,7 @@ fn derive_archive_impl(
 
                         #[allow(clippy::unit_arg)]
                         #[inline]
-                        fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+                        fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
                             match resolver {
                                 #(#resolve_arms,)*
                             }
@@ -913,7 +935,7 @@ fn derive_archive_impl(
         #archive_types
 
         const _: () = {
-            use core::marker::PhantomData;
+            use core::{marker::PhantomData, mem::MaybeUninit};
 
             #archive_impls
         };
@@ -987,8 +1009,8 @@ fn derive_archive_copy_impl(
                     type Resolver = ();
 
                     #[inline]
-                    fn resolve(&self, _pos: usize, _resolver: Self::Resolver) -> Self::Archived {
-                        *self
+                    fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                        out.as_mut_ptr().write(*self);
                     }
                 }
             }
@@ -1045,8 +1067,8 @@ fn derive_archive_copy_impl(
                     type Resolver = ();
 
                     #[inline]
-                    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-                        *self
+                    fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                        out.as_mut_ptr().write(*self)
                     }
                 }
             }
@@ -1058,6 +1080,7 @@ fn derive_archive_copy_impl(
 
     Ok(quote! {
         const _: () = {
+            use core::mem::MaybeUninit;
             use rkyv::{
                 Archive,
                 ArchiveCopy,

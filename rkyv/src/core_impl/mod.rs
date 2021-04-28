@@ -3,7 +3,7 @@
 use crate::{
     de::Deserializer, offset_of, ser::Serializer, Archive, ArchiveCopy, ArchivePointee,
     ArchiveUnsized, Archived, ArchivedIsize, ArchivedMetadata, ArchivedUsize, Deserialize,
-    DeserializeUnsized, Fallible, Serialize, SerializeUnsized, project_tuple,
+    DeserializeUnsized, Fallible, Serialize, SerializeUnsized, project_tuple, project_struct,
 };
 #[cfg(rkyv_atomic)]
 use core::sync::atomic::{
@@ -735,22 +735,21 @@ impl<T: Archive> Archive for Option<T> {
         unsafe {
             match resolver {
                 None => {
-                    let variant = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedOptionVariantNone>>();
-                    variant.as_mut_ptr()
-                        .cast::<u8>()
-                        .add(offset_of!(ArchivedOptionVariantNone, 0))
-                        .cast::<ArchivedOptionTag>()
+                    let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedOptionVariantNone>>();
+                    project_struct!(out: ArchivedOptionVariantNone => 0: ArchivedOptionTag)
+                        .as_mut_ptr()
                         .write(ArchivedOptionTag::None);
                 }
                 Some(resolver) => {
-                    let variant = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedOptionVariantSome<T::Archived>>>();
-                    variant.as_mut_ptr()
-                        .cast::<u8>()
-                        .add(offset_of!(ArchivedOptionVariantSome<T::Archived>, 0))
-                        .cast::<ArchivedOptionTag>()
+                    let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedOptionVariantSome<T::Archived>>>();
+                    project_struct!(out: ArchivedOptionVariantSome<T::Archived> => 0: ArchivedOptionTag)
+                        .as_mut_ptr()
                         .write(ArchivedOptionTag::Some);
-                    let field_offset = offset_of!(ArchivedOptionVariantSome<T::Archived>, 1);
-                    self.as_ref().unwrap().resolve(pos + field_offset, resolver, &mut *variant.as_mut_ptr().cast::<u8>().add(field_offset).cast());
+                    self.as_ref().unwrap().resolve(
+                        pos + offset_of!(ArchivedOptionVariantSome<T::Archived>, 1),
+                        resolver,
+                        project_struct!(out: ArchivedOptionVariantSome<T::Archived> => 1)
+                    );
                 }
             }
         }

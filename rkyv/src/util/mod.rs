@@ -243,7 +243,7 @@ macro_rules! project_struct {
             &mut *($struct as &mut MaybeUninit<$ty>)
                 .as_mut_ptr()
                 .cast::<u8>()
-                .add(memoffset::offset_of!($ty, $field))
+                .add($crate::offset_of!($ty, $field))
                 .cast()
         })
     };
@@ -253,7 +253,7 @@ macro_rules! project_struct {
             &mut *($struct as &mut MaybeUninit<$struct_ty>)
                 .as_mut_ptr()
                 .cast::<u8>()
-                .add(memoffset::offset_of!($struct_ty, $field))
+                .add($crate::offset_of!($struct_ty, $field))
                 .cast::<MaybeUninit<$field_ty>>()
         })
     };

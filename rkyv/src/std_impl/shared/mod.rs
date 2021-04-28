@@ -167,20 +167,20 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         match resolver {
             RcWeakResolver::None => unsafe {
-                let variant = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedRcWeakVariantNone>>();
-                project_struct!(variant: ArchivedRcWeakVariantNone => 0: ArchivedRcWeakTag)
+                let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedRcWeakVariantNone>>();
+                project_struct!(out: ArchivedRcWeakVariantNone => 0: ArchivedRcWeakTag)
                     .as_mut_ptr()
                     .write(ArchivedRcWeakTag::None);
             }
             RcWeakResolver::Some(resolver) => unsafe {
-                let variant = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedRcWeakVariantSome<T::Archived>>>();
-                project_struct!(variant: ArchivedRcWeakVariantSome<T::Archived> => 0: ArchivedRcWeakTag)
+                let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedRcWeakVariantSome<T::Archived>>>();
+                project_struct!(out: ArchivedRcWeakVariantSome<T::Archived> => 0: ArchivedRcWeakTag)
                     .as_mut_ptr()
                     .write(ArchivedRcWeakTag::Some);
                 self.upgrade().unwrap().resolve(
                     pos + offset_of!(ArchivedRcWeakVariantSome<T::Archived>, 1),
                     resolver,
-                    project_struct!(variant: ArchivedRcWeakVariantSome<T::Archived> => 1),
+                    project_struct!(out: ArchivedRcWeakVariantSome<T::Archived> => 1),
                 );
             }
         }
