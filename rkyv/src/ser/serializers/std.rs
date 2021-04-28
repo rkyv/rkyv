@@ -118,7 +118,7 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerial
         vec.set_len(vec.len() + additional);
 
         let ptr = vec.as_mut_ptr().add(pos).cast::<mem::MaybeUninit<T::Archived>>();
-        core::ptr::write_bytes(ptr, 0, 1);
+        ptr.write_bytes(0, 1);
 
         value.resolve(pos, resolver, &mut *ptr);
         Ok(pos)
@@ -132,12 +132,11 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerial
         let additional = mem::size_of::<RelPtr<T::Archived>>();
         vec.reserve(additional);
         vec.set_len(vec.len() + additional);
-        value.resolve_unsized(
-            from,
-            to,
-            metadata_resolver,
-            &mut *vec.as_mut_ptr().add(from).cast::<mem::MaybeUninit<RelPtr<T::Archived>>>()
-        );
+
+        let ptr = vec.as_mut_ptr().add(from).cast::<mem::MaybeUninit<RelPtr<T::Archived>>>();
+        ptr.write_bytes(0, 1);
+
+        value.resolve_unsized(from, to, metadata_resolver, &mut *ptr);
         Ok(from)
     }
 }

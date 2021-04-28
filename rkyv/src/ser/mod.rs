@@ -65,8 +65,11 @@ pub trait Serializer: Fallible {
     ) -> Result<usize, Self::Error> {
         let pos = self.pos();
         debug_assert!(pos & (mem::align_of::<T::Archived>() - 1) == 0);
-        let mut resolved = mem::MaybeUninit::zeroed();
+
+        let mut resolved = mem::MaybeUninit::<T::Archived>::uninit();
+        resolved.as_mut_ptr().write_bytes(0, 1);
         value.resolve(pos, resolver, &mut resolved);
+
         let data = resolved.as_ptr().cast::<u8>();
         let len = mem::size_of::<T::Archived>();
         self.write(slice::from_raw_parts(data, len))?;
@@ -97,8 +100,11 @@ pub trait Serializer: Fallible {
     ) -> Result<usize, Self::Error> {
         let from = self.pos();
         debug_assert!(from & (mem::align_of::<RelPtr<T::Archived>>() - 1) == 0);
-        let mut resolved = mem::MaybeUninit::zeroed();
+
+        let mut resolved = mem::MaybeUninit::<RelPtr<T::Archived>>::uninit();
+        resolved.as_mut_ptr().write_bytes(0, 1);
         value.resolve_unsized(from, to, metadata_resolver, &mut resolved);
+
         let data = resolved.as_ptr().cast::<u8>();
         let len = mem::size_of::<RelPtr<T::Archived>>();
         self.write(slice::from_raw_parts(data, len))?;
