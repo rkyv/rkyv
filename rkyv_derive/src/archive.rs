@@ -545,7 +545,7 @@ fn derive_archive_impl(
                             }
                         }
                     }
-                    Fields::Unit => quote_spanned! { name.span() => 
+                    Fields::Unit => quote_spanned! { name.span() =>
                         #resolver::#variant => {
                             unsafe {
                                 out.as_mut_ptr().cast::<ArchivedTag>().write(ArchivedTag::#variant);

@@ -1,8 +1,9 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{Archive, ArchiveCopy, Archived, Deserialize, Fallible, resolve_struct, Serialize};
+use crate::{resolve_struct, Archive, ArchiveCopy, Archived, Deserialize, Fallible, Serialize};
 use core::{
-    cmp, fmt, mem::MaybeUninit,
+    cmp, fmt,
+    mem::MaybeUninit,
     ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
 };
 

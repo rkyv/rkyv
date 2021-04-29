@@ -3,15 +3,20 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use core::{cmp::PartialEq, mem::{forget, MaybeUninit}, ops::Deref, pin::Pin};
+use core::{
+    cmp::PartialEq,
+    mem::{forget, MaybeUninit},
+    ops::Deref,
+    pin::Pin,
+};
 use std::{rc, sync};
 
 use crate::{
     de::{SharedDeserializer, SharedPointer},
-    offset_of,
+    offset_of, project_struct,
     ser::SharedSerializer,
     Archive, ArchivePointee, ArchiveUnsized, Archived, Deserialize, DeserializeUnsized, RelPtr,
-    Serialize, SerializeUnsized, project_struct,
+    Serialize, SerializeUnsized,
 };
 
 impl<T: ?Sized> SharedPointer for rc::Rc<T> {
@@ -167,13 +172,17 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         match resolver {
             RcWeakResolver::None => unsafe {
-                let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedRcWeakVariantNone>>();
+                let out = &mut *out
+                    .as_mut_ptr()
+                    .cast::<MaybeUninit<ArchivedRcWeakVariantNone>>();
                 project_struct!(out: ArchivedRcWeakVariantNone => 0: ArchivedRcWeakTag)
                     .as_mut_ptr()
                     .write(ArchivedRcWeakTag::None);
-            }
+            },
             RcWeakResolver::Some(resolver) => unsafe {
-                let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedRcWeakVariantSome<T::Archived>>>();
+                let out = &mut *out
+                    .as_mut_ptr()
+                    .cast::<MaybeUninit<ArchivedRcWeakVariantSome<T::Archived>>>();
                 project_struct!(out: ArchivedRcWeakVariantSome<T::Archived> => 0: ArchivedRcWeakTag)
                     .as_mut_ptr()
                     .write(ArchivedRcWeakTag::Some);
@@ -182,7 +191,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
                     resolver,
                     project_struct!(out: ArchivedRcWeakVariantSome<T::Archived> => 1),
                 );
-            }
+            },
         }
     }
 }
@@ -370,13 +379,17 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         match resolver {
             ArcWeakResolver::None => unsafe {
-                let variant = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedArcWeakVariantNone>>();
+                let variant = &mut *out
+                    .as_mut_ptr()
+                    .cast::<MaybeUninit<ArchivedArcWeakVariantNone>>();
                 project_struct!(variant: ArchivedArcWeakVariantNone => 0: ArchivedArcWeakTag)
                     .as_mut_ptr()
                     .write(ArchivedArcWeakTag::None);
-            }
+            },
             ArcWeakResolver::Some(resolver) => unsafe {
-                let variant = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedArcWeakVariantSome<T::Archived>>>();
+                let variant = &mut *out
+                    .as_mut_ptr()
+                    .cast::<MaybeUninit<ArchivedArcWeakVariantSome<T::Archived>>>();
                 project_struct!(variant: ArchivedArcWeakVariantSome<T::Archived> => 0: ArchivedArcWeakTag)
                     .as_mut_ptr()
                     .write(ArchivedArcWeakTag::Some);

@@ -28,7 +28,7 @@ use core::{
     sync::atomic::AtomicU64,
 };
 use ptr_meta::{DynMetadata, Pointee};
-use rkyv::{de::Deserializer, ser::Serializer, Fallible, Serialize, project_struct};
+use rkyv::{de::Deserializer, project_struct, ser::Serializer, Fallible, Serialize};
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
@@ -277,7 +277,9 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     /// Creates a new `ArchivedDynMetadata` for the given type.
     pub fn emplace(type_id: u64, out: &mut MaybeUninit<Self>) {
         unsafe {
-            project_struct!(out: Self => type_id: u64).as_mut_ptr().write(type_id);
+            project_struct!(out: Self => type_id: u64)
+                .as_mut_ptr()
+                .write(type_id);
             project_struct!(out: Self => cached_vtable: AtomicU64)
                 .as_mut_ptr()
                 .write(AtomicU64::new(0));

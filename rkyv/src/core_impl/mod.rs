@@ -1,9 +1,9 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    de::Deserializer, offset_of, ser::Serializer, Archive, ArchiveCopy, ArchivePointee,
-    ArchiveUnsized, Archived, ArchivedIsize, ArchivedMetadata, ArchivedUsize, Deserialize,
-    DeserializeUnsized, Fallible, Serialize, SerializeUnsized, project_tuple, project_struct,
+    de::Deserializer, offset_of, project_struct, project_tuple, ser::Serializer, Archive,
+    ArchiveCopy, ArchivePointee, ArchiveUnsized, Archived, ArchivedIsize, ArchivedMetadata,
+    ArchivedUsize, Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
 };
 #[cfg(rkyv_atomic)]
 use core::sync::atomic::{
@@ -56,8 +56,9 @@ impl<T: Archive> ArchiveUnsized for T {
         &self,
         _: usize,
         _: Self::MetadataResolver,
-        _: &mut MaybeUninit<ArchivedMetadata<Self>>
-    ) {}
+        _: &mut MaybeUninit<ArchivedMetadata<Self>>,
+    ) {
+    }
 }
 
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for T {
@@ -125,7 +126,9 @@ macro_rules! impl_primitive {
 
             #[inline]
             fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-                unsafe { out.as_mut_ptr().write(*self); }
+                unsafe {
+                    out.as_mut_ptr().write(*self);
+                }
             }
         }
 
@@ -182,7 +185,9 @@ impl Archive for usize {
 
     #[inline]
     fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        unsafe { out.as_mut_ptr().write(*self as ArchivedUsize); }
+        unsafe {
+            out.as_mut_ptr().write(*self as ArchivedUsize);
+        }
     }
 }
 
@@ -206,7 +211,9 @@ impl Archive for isize {
 
     #[inline]
     fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        unsafe { out.as_mut_ptr().write(*self as ArchivedIsize); }
+        unsafe {
+            out.as_mut_ptr().write(*self as ArchivedIsize);
+        }
     }
 }
 
@@ -235,9 +242,15 @@ macro_rules! impl_atomic {
             type Resolver = AtomicResolver;
 
             #[inline]
-            fn resolve(&self, _pos: usize, _resolver: AtomicResolver, out: &mut MaybeUninit<$type>) {
+            fn resolve(
+                &self,
+                _pos: usize,
+                _resolver: AtomicResolver,
+                out: &mut MaybeUninit<$type>,
+            ) {
                 unsafe {
-                    out.as_mut_ptr().write(<$type>::new(self.load(atomic::Ordering::Relaxed)));
+                    out.as_mut_ptr()
+                        .write(<$type>::new(self.load(atomic::Ordering::Relaxed)));
                 }
             }
         }
@@ -467,9 +480,12 @@ impl<T: Archive> ArchiveUnsized for [T] {
         &self,
         _: usize,
         _: Self::MetadataResolver,
-        out: &mut MaybeUninit<ArchivedMetadata<Self>>
+        out: &mut MaybeUninit<ArchivedMetadata<Self>>,
     ) {
-        unsafe { out.as_mut_ptr().write(ptr_meta::metadata(self) as ArchivedUsize); }
+        unsafe {
+            out.as_mut_ptr()
+                .write(ptr_meta::metadata(self) as ArchivedUsize);
+        }
     }
 }
 
@@ -602,7 +618,10 @@ impl ArchiveUnsized for str {
         _: Self::MetadataResolver,
         out: &mut MaybeUninit<ArchivedMetadata<Self>>,
     ) {
-        unsafe { out.as_mut_ptr().write(ptr_meta::metadata(self) as ArchivedUsize); }
+        unsafe {
+            out.as_mut_ptr()
+                .write(ptr_meta::metadata(self) as ArchivedUsize);
+        }
     }
 }
 
@@ -735,20 +754,24 @@ impl<T: Archive> Archive for Option<T> {
         unsafe {
             match resolver {
                 None => {
-                    let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedOptionVariantNone>>();
+                    let out = &mut *out
+                        .as_mut_ptr()
+                        .cast::<MaybeUninit<ArchivedOptionVariantNone>>();
                     project_struct!(out: ArchivedOptionVariantNone => 0: ArchivedOptionTag)
                         .as_mut_ptr()
                         .write(ArchivedOptionTag::None);
                 }
                 Some(resolver) => {
-                    let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<ArchivedOptionVariantSome<T::Archived>>>();
+                    let out = &mut *out
+                        .as_mut_ptr()
+                        .cast::<MaybeUninit<ArchivedOptionVariantSome<T::Archived>>>();
                     project_struct!(out: ArchivedOptionVariantSome<T::Archived> => 0: ArchivedOptionTag)
                         .as_mut_ptr()
                         .write(ArchivedOptionTag::Some);
                     self.as_ref().unwrap().resolve(
                         pos + offset_of!(ArchivedOptionVariantSome<T::Archived>, 1),
                         resolver,
-                        project_struct!(out: ArchivedOptionVariantSome<T::Archived> => 1)
+                        project_struct!(out: ArchivedOptionVariantSome<T::Archived> => 1),
                     );
                 }
             }

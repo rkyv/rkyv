@@ -76,7 +76,11 @@ pub mod util;
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use core::{fmt, marker::{PhantomData, PhantomPinned}, mem::MaybeUninit};
+use core::{
+    fmt,
+    marker::{PhantomData, PhantomPinned},
+    mem::MaybeUninit,
+};
 
 pub use memoffset::offset_of;
 use ptr_meta::Pointee;
@@ -471,7 +475,7 @@ pub trait ArchiveUnsized: Pointee {
         from: usize,
         to: usize,
         resolver: Self::MetadataResolver,
-        out: &mut MaybeUninit<RelPtr<Self::Archived>>
+        out: &mut MaybeUninit<RelPtr<Self::Archived>>,
     ) {
         RelPtr::resolve_emplace(from, to, self, resolver, out);
     }
@@ -584,7 +588,11 @@ impl RawRelPtr {
     #[inline]
     pub fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
         let offset = (to as isize - from as isize) as ArchivedIsize;
-        unsafe { project_struct!(out: Self => offset: ArchivedIsize).as_mut_ptr().write(offset); }
+        unsafe {
+            project_struct!(out: Self => offset: ArchivedIsize)
+                .as_mut_ptr()
+                .write(offset);
+        }
     }
 
     /// Creates a new relative pointer that has an offset of 0.
@@ -683,12 +691,12 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
         RawRelPtr::emplace(
             from + offset_of!(Self, raw_ptr),
             to,
-            project_struct!(out: Self => raw_ptr)
+            project_struct!(out: Self => raw_ptr),
         );
         value.resolve_metadata(
             from + offset_of!(Self, metadata),
             metadata_resolver,
-            project_struct!(out: Self => metadata)
+            project_struct!(out: Self => metadata),
         );
     }
 

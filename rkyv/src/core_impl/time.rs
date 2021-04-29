@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for times.
 
-use crate::{Archive, Deserialize, Fallible, Serialize, offset_of, project_struct};
+use crate::{offset_of, project_struct, Archive, Deserialize, Fallible, Serialize};
 use core::{mem::MaybeUninit, time::Duration};
 
 /// An archived [`Duration`](core::time::Duration).

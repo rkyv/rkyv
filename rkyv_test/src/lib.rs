@@ -540,7 +540,9 @@ mod tests {
     #[test]
     #[cfg(not(feature = "wasm"))]
     fn manual_archive_dyn() {
-        use rkyv::{ArchivePointee, ArchiveUnsized, ArchivedMetadata, DeserializeUnsized, SerializeUnsized};
+        use rkyv::{
+            ArchivePointee, ArchiveUnsized, ArchivedMetadata, DeserializeUnsized, SerializeUnsized,
+        };
         use rkyv_dyn::{
             register_impl, ArchivedDynMetadata, DeserializeDyn, DynDeserializer, DynError,
             RegisteredImpl, SerializeDyn,

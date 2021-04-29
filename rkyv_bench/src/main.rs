@@ -4,7 +4,10 @@ use rand_pcg::Lcg64Xsh32;
 use rkyv::{
     archived_root, check_archived_root,
     de::deserializers::AllocDeserializer,
-    ser::{serializers::{AlignedSerializer, WriteSerializer}, Serializer},
+    ser::{
+        serializers::{AlignedSerializer, WriteSerializer},
+        Serializer,
+    },
     AlignedVec, Archive, Deserialize, Serialize,
 };
 use std::collections::HashMap;
@@ -13,9 +16,7 @@ trait Generate {
 }
 
 impl Generate for () {
-    fn generate<R: Rng>(_: &mut R) -> Self {
-        ()
-    }
+    fn generate<R: Rng>(_: &mut R) -> Self {}
 }
 
 impl Generate for bool {
@@ -84,9 +85,16 @@ fn generate_vec<R: Rng, T: Generate>(rng: &mut R, range: core::ops::Range<usize>
     result
 }
 
-#[derive(Debug)]
 #[derive(
-    Archive, Serialize, CheckBytes, Clone, Copy, Deserialize, serde::Deserialize, serde::Serialize,
+    Debug,
+    Archive,
+    Serialize,
+    CheckBytes,
+    Clone,
+    Copy,
+    Deserialize,
+    serde::Deserialize,
+    serde::Serialize,
 )]
 #[archive(copy)]
 #[repr(u8)]
@@ -109,8 +117,7 @@ impl Generate for GameType {
     }
 }
 
-#[derive(Debug)]
-#[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
 #[archive(derive(CheckBytes))]
 pub struct Item {
     count: i8,
@@ -120,7 +127,7 @@ pub struct Item {
 
 impl Generate for Item {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const IDS: [&'static str; 8] = [
+        const IDS: [&str; 8] = [
             "dirt",
             "stone",
             "pickaxe",
@@ -138,9 +145,16 @@ impl Generate for Item {
     }
 }
 
-#[derive(Debug)]
 #[derive(
-    Archive, Serialize, CheckBytes, Clone, Copy, Deserialize, serde::Serialize, serde::Deserialize,
+    Debug,
+    Archive,
+    Serialize,
+    CheckBytes,
+    Clone,
+    Copy,
+    Deserialize,
+    serde::Serialize,
+    serde::Deserialize,
 )]
 #[archive(copy)]
 pub struct Abilities {
@@ -167,8 +181,7 @@ impl Generate for Abilities {
     }
 }
 
-#[derive(Debug)]
-#[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
 #[archive(derive(CheckBytes))]
 pub struct Entity {
     id: String,
@@ -191,10 +204,10 @@ pub struct Entity {
 
 impl Generate for Entity {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const IDS: [&'static str; 8] = [
+        const IDS: [&str; 8] = [
             "cow", "sheep", "zombie", "skeleton", "spider", "creeper", "parrot", "bee",
         ];
-        const CUSTOM_NAMES: [&'static str; 8] = [
+        const CUSTOM_NAMES: [&str; 8] = [
             "rainbow", "princess", "steve", "johnny", "missy", "coward", "fairy", "howard",
         ];
 
@@ -220,8 +233,7 @@ impl Generate for Entity {
     }
 }
 
-#[derive(Debug)]
-#[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
 #[archive(derive(CheckBytes))]
 pub struct RecipeBook {
     recipes: Vec<String>,
@@ -238,7 +250,7 @@ pub struct RecipeBook {
 
 impl Generate for RecipeBook {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const RECIPES: [&'static str; 8] = [
+        const RECIPES: [&str; 8] = [
             "pickaxe",
             "torch",
             "bow",
@@ -271,8 +283,7 @@ impl Generate for RecipeBook {
     }
 }
 
-#[derive(Debug)]
-#[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
+#[derive(Debug, Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
 #[archive(derive(CheckBytes))]
 pub struct Player {
     game_type: GameType,
@@ -307,7 +318,7 @@ pub struct Player {
 
 impl Generate for Player {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const DIMENSIONS: [&'static str; 3] = ["overworld", "nether", "end"];
+        const DIMENSIONS: [&str; 3] = ["overworld", "nether", "end"];
         const MAX_ITEMS: usize = 40;
         const MAX_ENDER_ITEMS: usize = 27;
         Self {
@@ -345,8 +356,7 @@ impl Generate for Player {
 }
 
 fn generate_player_name<R: Rng>(rng: &mut R) -> String {
-    const LEGAL_CHARS: &'static [u8] =
-        b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_";
+    const LEGAL_CHARS: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_";
 
     let len = rng.gen_range(10..40);
     let mut result = String::new();

@@ -238,7 +238,7 @@ impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
 #[macro_export]
 macro_rules! project_struct {
     ($struct:ident: $ty:path => $field:tt) => {
-        #[allow(unused_unsafe)] 
+        #[allow(unused_unsafe)]
         (unsafe {
             &mut *($struct as &mut MaybeUninit<$ty>)
                 .as_mut_ptr()
@@ -248,7 +248,7 @@ macro_rules! project_struct {
         })
     };
     ($struct:ident: $struct_ty:path => $field:tt: $field_ty:path) => {
-        #[allow(unused_unsafe)] 
+        #[allow(unused_unsafe)]
         (unsafe {
             &mut *($struct as &mut MaybeUninit<$struct_ty>)
                 .as_mut_ptr()

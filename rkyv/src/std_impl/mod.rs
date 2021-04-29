@@ -6,13 +6,14 @@ pub mod shared;
 pub mod validation;
 
 use crate::{
-    de::Deserializer, Archive, ArchivePointee, ArchiveUnsized, Archived, Deserialize,
-    DeserializeUnsized, Fallible, MetadataResolver, RelPtr, Serialize, SerializeUnsized, offset_of,
-    project_struct,
+    de::Deserializer, offset_of, project_struct, Archive, ArchivePointee, ArchiveUnsized, Archived,
+    Deserialize, DeserializeUnsized, Fallible, MetadataResolver, RelPtr, Serialize,
+    SerializeUnsized,
 };
 use core::{
     borrow::Borrow,
-    cmp, fmt, hash, mem::MaybeUninit,
+    cmp, fmt, hash,
+    mem::MaybeUninit,
     ops::{Deref, DerefMut, Index, IndexMut},
     pin::Pin,
 };

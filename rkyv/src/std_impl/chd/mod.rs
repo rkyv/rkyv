@@ -7,8 +7,8 @@
 pub mod validation;
 
 use crate::{
-    offset_of, ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible, RawRelPtr,
-    Serialize, project_struct,
+    offset_of, project_struct, ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize,
+    Fallible, RawRelPtr, Serialize,
 };
 use core::{
     borrow::Borrow,
@@ -34,8 +34,16 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
     type Resolver = (K::Resolver, V::Resolver);
 
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        self.key.resolve(pos + offset_of!(Self::Archived, key), resolver.0, project_struct!(out: Self::Archived => key));
-        self.value.resolve(pos + offset_of!(Self::Archived, value), resolver.1, project_struct!(out: Self::Archived => value));
+        self.key.resolve(
+            pos + offset_of!(Self::Archived, key),
+            resolver.0,
+            project_struct!(out: Self::Archived => key),
+        );
+        self.value.resolve(
+            pos + offset_of!(Self::Archived, value),
+            resolver.1,
+            project_struct!(out: Self::Archived => value),
+        );
     }
 }
 
@@ -338,10 +346,8 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
             entries.iter().map(|r| r.unwrap()).zip(resolvers.drain(..))
         {
             unsafe {
-                serializer.resolve_aligned(
-                    &Entry { key, value },
-                    (key_resolver, value_resolver),
-                )?;
+                serializer
+                    .resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
             }
         }
 
@@ -576,7 +582,12 @@ pub struct ArchivedHashMapResolver {
 
 impl ArchivedHashMapResolver {
     #[inline]
-    fn resolve_from_len<K, V>(self, pos: usize, len: usize, out: &mut MaybeUninit<ArchivedHashMap<K, V>>) {
+    fn resolve_from_len<K, V>(
+        self,
+        pos: usize,
+        len: usize,
+        out: &mut MaybeUninit<ArchivedHashMap<K, V>>,
+    ) {
         unsafe {
             project_struct!(out: ArchivedHashMap<K, V> => len: ArchivedUsize)
                 .as_mut_ptr()
@@ -584,7 +595,7 @@ impl ArchivedHashMapResolver {
             RawRelPtr::emplace(
                 pos + offset_of!(ArchivedHashMap<K, V>, displace),
                 self.displace_pos,
-                project_struct!(out: ArchivedHashMap<K, V> => displace)
+                project_struct!(out: ArchivedHashMap<K, V> => displace),
             );
             RawRelPtr::emplace(
                 pos + offset_of!(ArchivedHashMap<K, V>, entries),
@@ -748,7 +759,7 @@ where
         resolver.0.resolve_from_len(
             pos,
             self.len(),
-            project_struct!(out: Self::Archived => 0: ArchivedHashMap<K, ()>)
+            project_struct!(out: Self::Archived => 0: ArchivedHashMap<K, ()>),
         );
     }
 }
