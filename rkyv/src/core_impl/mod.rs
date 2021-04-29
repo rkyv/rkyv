@@ -1,7 +1,7 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    de::Deserializer, offset_of, project_struct, project_tuple, ser::Serializer, Archive,
+    de::Deserializer, offset_of, project_struct, ser::Serializer, Archive,
     ArchiveCopy, ArchivePointee, ArchiveUnsized, Archived, ArchivedIsize, ArchivedMetadata,
     ArchivedUsize, Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
 };
@@ -312,7 +312,7 @@ macro_rules! impl_tuple {
                     self.$index.resolve(
                         pos + memoffset::offset_of_tuple!(Self::Archived, $index),
                         resolver.$index,
-                        project_tuple!(out: Self::Archived => $index)
+                        crate::project_tuple!(out: Self::Archived => $index)
                     );
                 )+
             }
@@ -355,19 +355,19 @@ macro_rules! impl_array {
             type Resolver = [T::Resolver; $len];
 
             #[inline]
-            fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+            fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
                 let mut resolvers = core::mem::MaybeUninit::new(resolver);
                 let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
-                let mut result = core::mem::MaybeUninit::<Self::Archived>::uninit();
-                let result_ptr = result.as_mut_ptr().cast::<T::Archived>();
+                let out_ptr = out.as_mut_ptr().cast::<MaybeUninit<T::Archived>>();
                 #[allow(clippy::reversed_empty_ranges)]
-                for i in 0..$len {
+                for (i, value) in self.iter().enumerate() {
                     unsafe {
-                        result_ptr.add(i).write(self[i].resolve(pos + i * core::mem::size_of::<T>(), resolvers_ptr.add(i).read()));
+                        value.resolve(
+                            pos + i * core::mem::size_of::<T::Archived>(),
+                            resolvers_ptr.add(i).read(),
+                            &mut *out_ptr.add(i),
+                        );
                     }
-                }
-                unsafe {
-                    result.assume_init()
                 }
             }
         }

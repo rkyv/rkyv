@@ -181,7 +181,7 @@ mod no_std_tests {
 #[cfg(test)]
 mod tests {
     use crate::util::*;
-    use core::{mem::MaybeUninit, pin::Pin};
+    use core::pin::Pin;
     use rkyv::{
         archived_root, archived_root_mut,
         de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer, Deserializer},
@@ -580,7 +580,7 @@ mod tests {
                 &self,
                 _: usize,
                 _: Self::MetadataResolver,
-                out: &mut MaybeUninit<ArchivedMetadata<Self>>,
+                out: &mut core::mem::MaybeUninit<ArchivedMetadata<Self>>,
             ) {
                 ArchivedDynMetadata::emplace(self.archived_type_id(), out);
             }
