@@ -178,20 +178,27 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// }
 ///
 /// let boxed_int = Box::new(IntStruct(42)) as Box<dyn SerializeExampleTrait>;
-/// let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn SerializeExampleTrait>;
+/// let boxed_string = Box::new(StringStruct("hello world".to_string()))
+///     as Box<dyn SerializeExampleTrait>;
 /// let mut serializer = AlignedSerializer::new(AlignedVec::new());
 /// let int_pos = serializer.serialize_value(&boxed_int)
 ///     .expect("failed to archive boxed int");
-/// let string_pos = serializer.serialize_value(&boxed_string)
+/// let str_pos = serializer.serialize_value(&boxed_string)
 ///     .expect("failed to archive boxed string");
 /// let buf = serializer.into_inner();
-/// let archived_int = unsafe { archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), int_pos) };
-/// let archived_string = unsafe { archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), string_pos) };
+/// let archived_int = unsafe {
+///     archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), int_pos)
+/// };
+/// let archived_string = unsafe {
+///     archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), str_pos)
+/// };
 /// assert_eq!(archived_int.value(), "42");
 /// assert_eq!(archived_string.value(), "hello world");
 ///
-/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int.deserialize(&mut AllocDeserializer).unwrap();
-/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string.deserialize(&mut AllocDeserializer).unwrap();
+/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int
+///     .deserialize(&mut AllocDeserializer).unwrap();
+/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string
+///     .deserialize(&mut AllocDeserializer).unwrap();
 /// assert_eq!(deserialized_int.value(), "42");
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```

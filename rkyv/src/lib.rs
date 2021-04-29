@@ -212,26 +212,32 @@ impl Fallible for Infallible {
 ///
 /// struct OwnedStrResolver {
 ///     // This will be the position that the bytes of our string are stored at.
-///     // We'll use this to resolve the relative pointer of our ArchivedOwnedStr.
+///     // We'll use this to resolve the relative pointer of our
+///     // ArchivedOwnedStr.
 ///     pos: usize,
 ///     // The archived metadata for our str may also need a resolver.
 ///     metadata_resolver: MetadataResolver<str>,
 /// }
 ///
-/// // The Archive implementation defines the archived version of our type and determines how to
-/// // turn the resolver into the archived form. The Serialize implementations determine how to make
-/// // a resolver from the original value.
+/// // The Archive implementation defines the archived version of our type and
+/// // determines how to turn the resolver into the archived form. The Serialize
+/// // implementations determine how to make a resolver from the original value.
 /// impl Archive for OwnedStr {
 ///     type Archived = ArchivedOwnedStr;
 ///     // This is the resolver we can create our Archived verison from.
 ///     type Resolver = OwnedStrResolver;
 ///
-///     // The resolve function consumes the resolver and produces the archived value at the given
-///     // position.
-///     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-///         // We have to be careful to add the offset of the ptr field, otherwise we'll be
-///         // using the position of the ArchivedOwnedStr instead of the position of the
-///         // relative pointer.
+///     // The resolve function consumes the resolver and produces the archived
+///     // value at the given position.
+///     fn resolve(
+///         &self,
+///         pos: usize,
+///         resolver: Self::Resolver,
+///         out: &mut MaybeUninit<Self::Archived>
+///     ) {
+///         // We have to be careful to add the offset of the ptr field,
+///         // otherwise we'll be using the position of the ArchivedOwnedStr
+///         // instead of the position of the relative pointer.
 ///         unsafe {
 ///             self.inner.resolve_unsized(
 ///                 pos + offset_of!(Self::Archived, ptr),
@@ -243,12 +249,16 @@ impl Fallible for Infallible {
 ///     }
 /// }
 ///
-/// // We restrict our serializer types with Serializer because we need its capabilities to archive
-/// // our type. For other types, we might need more or less restrictive bounds on the type of S.
+/// // We restrict our serializer types with Serializer because we need its
+/// // capabilities to archive our type. For other types, we might need more or
+/// // less restrictive bounds on the type of S.
 /// impl<S: Serializer + ?Sized> Serialize<S> for OwnedStr {
-///     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-///         // This is where we want to write the bytes of our string and return a resolver that
-///         // knows where those bytes were written.
+///     fn serialize(
+///         &self,
+///         serializer: &mut S
+///     ) -> Result<Self::Resolver, S::Error> {
+///         // This is where we want to write the bytes of our string and return
+///         // a resolver that knows where those bytes were written.
 ///         // We also need to serialize the metadata for our str.
 ///         Ok(OwnedStrResolver {
 ///             pos: self.inner.serialize_unsized(serializer)?,
@@ -347,38 +357,44 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     type Metadata = usize;
 /// }
 ///
-/// // For blocks with trailing slices, we need to store the length of the slice in the metadata.
+/// // For blocks with trailing slices, we need to store the length of the slice
+/// // in the metadata.
 /// pub struct BlockSliceMetadata {
 ///     len: ArchivedUsize,
 /// }
 ///
-/// // ArchivePointee is automatically derived for sized types because pointers to sized types don't
-/// // need to store any extra information. Because we're making an unsized block, we need to define
-/// // what metadata gets stored with our data pointer.
+/// // ArchivePointee is automatically derived for sized types because pointers
+/// // to sized types don't need to store any extra information. Because we're
+/// // making an unsized block, we need to define what metadata gets stored with
+/// // our data pointer.
 /// impl<H, T> ArchivePointee for Block<H, [T]> {
-///     // This is the extra data that needs to get stored for blocks with trailing slices
+///     // This is the extra data that needs to get stored for blocks with
+///     // trailing slices
 ///     type ArchivedMetadata = BlockSliceMetadata;
 ///
-///     // We need to be able to turn our archived metadata into regular metadata for our type
-///     fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
+///     // We need to be able to turn our archived metadata into regular
+///     // metadata for our type
+///     fn pointer_metadata(
+///         archived: &Self::ArchivedMetadata
+///     ) -> <Self as Pointee>::Metadata {
 ///         archived.len as usize
 ///     }
 /// }
 ///
-/// // We're implementing ArchiveUnsized for just Block<H, [T]>. We can still implement Archive for
-/// // blocks with sized tails and they won't conflict.
+/// // We're implementing ArchiveUnsized for just Block<H, [T]>. We can still
+/// // implement Archive for blocks with sized tails and they won't conflict.
 /// impl<H: Archive, T: Archive> ArchiveUnsized for Block<H, [T]> {
 ///     // We'll reuse our block type as our archived type.
 ///     type Archived = Block<Archived<H>, [Archived<T>]>;
 ///
 ///     // This is where we'd put any resolve data for our metadata.
-///     // Most of the time, this can just be () because most metadata is Copy, but the option is
-///     // there if you need it.
+///     // Most of the time, this can just be () because most metadata is Copy,
+///     // but the option is there if you need it.
 ///     type MetadataResolver = ();
 ///
 ///     // Here's where we make the metadata for our pointer.
-///     // This also gets the position and resolver for the metadata, but we don't need it in this
-///     // case.
+///     // This also gets the position and resolver for the metadata, but we
+///     // don't need it in this case.
 ///     fn resolve_metadata(
 ///         &self,
 ///         _: usize,
@@ -393,36 +409,49 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     }
 /// }
 ///
-/// // The bounds we use on our serializer type indicate that we need basic serializer capabilities,
-/// // and then whatever capabilities our head and tail types need to serialize themselves.
-/// impl<H: Serialize<S>, T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for Block<H, [T]> {
+/// // The bounds we use on our serializer type indicate that we need basic
+/// // serializer capabilities, and then whatever capabilities our head and tail
+/// // types need to serialize themselves.
+/// impl<
+///     H: Serialize<S>,
+///     T: Serialize<S>,
+///     S: Serializer + ?Sized
+/// > SerializeUnsized<S> for Block<H, [T]> {
 ///     // This is where we construct our unsized type in the serializer
-///     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-///         // First, we archive the head and all the tails. This will make sure that when we
-///         // finally build our block, we don't accidentally mess up the structure with serialized
-///         // dependencies.
+///     fn serialize_unsized(
+///         &self,
+///         serializer: &mut S
+///     ) -> Result<usize, S::Error> {
+///         // First, we archive the head and all the tails. This will make sure
+///         // that when we finally build our block, we don't accidentally mess
+///         // up the structure with serialized dependencies.
 ///         let head_resolver = self.head.serialize(serializer)?;
-///         let mut tail_resolvers = Vec::new();
+///         let mut resolvers = Vec::new();
 ///         for tail in self.tail.iter() {
-///             tail_resolvers.push(tail.serialize(serializer)?);
+///             resolvers.push(tail.serialize(serializer)?);
 ///         }
 ///         // Now we align our serializer for our archived type and write it.
-///         // We can't align for unsized types so we treat the trailing slice like an array of 0
-///         // length for now.
+///         // We can't align for unsized types so we treat the trailing slice
+///         // like an array of 0 length for now.
 ///         serializer.align_for::<Block<Archived<H>, [Archived<T>; 0]>>()?;
-///         let result = unsafe { serializer.resolve_aligned(&self.head, head_resolver)? };
+///         let result = unsafe {
+///             serializer.resolve_aligned(&self.head, head_resolver)?
+///         };
 ///         serializer.align_for::<Archived<T>>()?;
-///         for (tail, tail_resolver) in self.tail.iter().zip(tail_resolvers.drain(..)) {
+///         for (item, resolver) in self.tail.iter().zip(resolvers.drain(..)) {
 ///             unsafe {
-///                 serializer.resolve_aligned(tail, tail_resolver)?;
+///                 serializer.resolve_aligned(item, resolver)?;
 ///             }
 ///         }
 ///         Ok(result)
 ///     }
 ///
-///     // This is where we serialize the metadata for our type. In this case, we do all the work in
-///     // resolve and don't need to do anything here.
-///     fn serialize_metadata(&self, serializer: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+///     // This is where we serialize the metadata for our type. In this case,
+///     // we do all the work in resolve and don't need to do anything here.
+///     fn serialize_metadata(
+///         &self,
+///         serializer: &mut S
+///     ) -> Result<Self::MetadataResolver, S::Error> {
 ///         Ok(())
 ///     }
 /// }
@@ -431,17 +460,21 @@ pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
 ///     head: "Numbers 1-4".to_string(),
 ///     tail: [1, 2, 3, 4],
 /// };
-/// // We have a Block<String, [i32; 4]> but we want to it to be a Block<String, [i32]>, so we need
-/// // to do more pointer transmutation
+/// // We have a Block<String, [i32; 4]> but we want to it to be a
+/// // Block<String, [i32]>, so we need to do more pointer transmutation
 /// let ptr = (&value as *const Block<String, [i32; 4]>).cast::<()>();
-/// let unsized_value = unsafe { &*transmute::<(*const (), usize), *const Block<String, [i32]>>((ptr, 4)) };
+/// let unsized_value = unsafe {
+///     &*transmute::<(*const (), usize), *const Block<String, [i32]>>((ptr, 4))
+/// };
 ///
 /// let mut serializer = AlignedSerializer::new(AlignedVec::new());
 /// let pos = serializer.serialize_unsized_value(unsized_value)
 ///     .expect("failed to archive block");
 /// let buf = serializer.into_inner();
 ///
-/// let archived_ref = unsafe { archived_unsized_value::<Block<String, [i32]>>(buf.as_slice(), pos) };
+/// let archived_ref = unsafe {
+///     archived_unsized_value::<Block<String, [i32]>>(buf.as_slice(), pos)
+/// };
 /// assert_eq!(archived_ref.head, "Numbers 1-4");
 /// assert_eq!(archived_ref.tail.len(), 4);
 /// assert_eq!(archived_ref.tail, [1, 2, 3, 4]);
