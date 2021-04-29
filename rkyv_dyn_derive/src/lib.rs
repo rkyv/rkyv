@@ -339,6 +339,7 @@ pub fn archive_dyn(
                 #deserialize_trait_def
 
                 const _: ()  = {
+                    use core::mem::MaybeUninit;
                     use rkyv::{
                         de::Deserializer,
                         ser::Serializer,
@@ -379,8 +380,8 @@ pub fn archive_dyn(
                         type Archived = dyn #deserialize_trait<#generic_args>;
                         type MetadataResolver = ();
 
-                        fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {
-                            ArchivedDynMetadata::new(self.archived_type_id())
+                        fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver, out: &mut MaybeUninit<ArchivedMetadata<Self>>) {
+                            ArchivedDynMetadata::emplace(self.archived_type_id(), out);
                         }
                     }
 

@@ -1,13 +1,15 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    de::Deserializer, offset_of, ser::Serializer, Archive, ArchiveCopy, ArchivePointee,
-    ArchiveUnsized, Archived, ArchivedMetadata, Deserialize,
-    DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
+    de::Deserializer, offset_of, project_struct, ser::Serializer, Archive,
+    ArchiveCopy, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
+    ArchivedUsize, Deserialize, DeserializeUnsized, Fallible, FixedUsize, Serialize,
+    SerializeUnsized,
 };
 use core::{
     alloc, cmp,
     hash::{Hash, Hasher},
+    mem::MaybeUninit,
     ptr, str,
 };
 use ptr_meta::Pointee;
@@ -41,7 +43,13 @@ impl<T: Archive> ArchiveUnsized for T {
     type MetadataResolver = ();
 
     #[inline]
-    fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver) -> ArchivedMetadata<Self> {}
+    fn resolve_metadata(
+        &self,
+        _: usize,
+        _: Self::MetadataResolver,
+        _: &mut MaybeUninit<ArchivedMetadata<Self>>,
+    ) {
+    }
 }
 
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for T {
@@ -90,10 +98,15 @@ macro_rules! impl_tuple {
             type Resolver = ($($type::Resolver,)+);
 
             #[inline]
-            fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-                #[allow(clippy::unneeded_wildcard_pattern)]
-                let rev = ($(self.$index.resolve(pos + memoffset::offset_of_tuple!(Self::Archived, $index), resolver.$index),)+);
-                ($(rev.$index,)+)
+            fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                $(
+                    #[allow(clippy::unneeded_wildcard_pattern)]
+                    self.$index.resolve(
+                        pos + memoffset::offset_of_tuple!(Self::Archived, $index),
+                        resolver.$index,
+                        crate::project_tuple!(out: Self::Archived => $index)
+                    );
+                )+
             }
         }
 
@@ -134,19 +147,19 @@ macro_rules! impl_array {
             type Resolver = [T::Resolver; $len];
 
             #[inline]
-            fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+            fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
                 let mut resolvers = core::mem::MaybeUninit::new(resolver);
                 let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
-                let mut result = core::mem::MaybeUninit::<Self::Archived>::uninit();
-                let result_ptr = result.as_mut_ptr().cast::<T::Archived>();
+                let out_ptr = out.as_mut_ptr().cast::<MaybeUninit<T::Archived>>();
                 #[allow(clippy::reversed_empty_ranges)]
-                for i in 0..$len {
+                for (i, value) in self.iter().enumerate() {
                     unsafe {
-                        result_ptr.add(i).write(self[i].resolve(pos + i * core::mem::size_of::<T>(), resolvers_ptr.add(i).read()));
+                        value.resolve(
+                            pos + i * core::mem::size_of::<T::Archived>(),
+                            resolvers_ptr.add(i).read(),
+                            &mut *out_ptr.add(i),
+                        );
                     }
-                }
-                unsafe {
-                    result.assume_init()
                 }
             }
         }
@@ -200,20 +213,19 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     type Resolver = [T::Resolver; N];
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let mut resolvers = core::mem::MaybeUninit::new(resolver);
         let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
-        let mut result = core::mem::MaybeUninit::<Self::Archived>::uninit();
-        let result_ptr = result.as_mut_ptr().cast::<T::Archived>();
+        let out_ptr = out.as_mut_ptr().cast::<MaybeUninit<T::Archived>>();
         for (i, value) in self.iter().enumerate() {
             unsafe {
-                result_ptr.add(i).write(value.resolve(
+                value.resolve(
                     pos + i * core::mem::size_of::<T::Archived>(),
                     resolvers_ptr.add(i).read(),
-                ));
+                    &mut *out_ptr.add(i),
+                );
             }
         }
-        unsafe { result.assume_init() }
     }
 }
 
@@ -256,8 +268,16 @@ impl<T: Archive> ArchiveUnsized for [T] {
     type MetadataResolver = ();
 
     #[inline]
-    fn resolve_metadata(&self, pos: usize, resolver: Self::MetadataResolver) -> ArchivedMetadata<Self> {
-        ptr_meta::metadata(self).resolve(pos, resolver)
+    fn resolve_metadata(
+        &self,
+        _: usize,
+        _: Self::MetadataResolver,
+        out: &mut MaybeUninit<ArchivedMetadata<Self>>,
+    ) {
+        unsafe {
+            out.as_mut_ptr()
+                .write(ptr_meta::metadata(self) as ArchivedUsize);
+        }
     }
 }
 
@@ -274,7 +294,9 @@ impl<T> ArchivePointee for [T] {
 impl<T: ArchiveCopy + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        if !self.is_empty() {
+        if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
+            Ok(0)
+        } else {
             unsafe {
                 let bytes = core::slice::from_raw_parts(
                     (self.as_ptr() as *const T).cast::<u8>(),
@@ -284,8 +306,6 @@ impl<T: ArchiveCopy + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> 
                 serializer.write(bytes)?;
                 Ok(result)
             }
-        } else {
-            Ok(0)
         }
     }
 
@@ -300,7 +320,9 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
     default! {
         fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-            if !self.is_empty() {
+            if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
+                Ok(0)
+            } else {
                 let mut resolvers = Vec::with_capacity(self.len());
                 for value in self {
                     resolvers.push(value.serialize(serializer)?);
@@ -312,8 +334,6 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
                     }
                 }
                 Ok(result)
-            } else {
-                Ok(0)
             }
         }
     }
@@ -332,7 +352,7 @@ impl<T: Deserialize<T, D> + ArchiveCopy, D: Deserializer + ?Sized> DeserializeUn
 {
     #[inline]
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-        if self.is_empty() {
+        if self.is_empty() || core::mem::size_of::<T>() == 0 {
             Ok(ptr::null_mut())
         } else {
             let result = deserializer
@@ -356,7 +376,7 @@ impl<T: Deserialize<U, D>, U: Archive<Archived = T>, D: Deserializer + ?Sized>
     #[inline]
     default! {
         unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-            if self.is_empty() {
+            if self.is_empty() || core::mem::size_of::<U>() == 0 {
                 Ok(ptr::null_mut())
             } else {
                 let result = deserializer
@@ -384,8 +404,16 @@ impl ArchiveUnsized for str {
     type MetadataResolver = ();
 
     #[inline]
-    fn resolve_metadata(&self, pos: usize, resolver: Self::MetadataResolver) -> ArchivedMetadata<Self> {
-        ptr_meta::metadata(self).resolve(pos, resolver)
+    fn resolve_metadata(
+        &self,
+        _: usize,
+        _: Self::MetadataResolver,
+        out: &mut MaybeUninit<ArchivedMetadata<Self>>,
+    ) {
+        unsafe {
+            out.as_mut_ptr()
+                .write(ptr_meta::metadata(self) as ArchivedUsize);
+        }
     }
 }
 
@@ -504,6 +532,9 @@ enum ArchivedOptionTag {
 }
 
 #[repr(C)]
+struct ArchivedOptionVariantNone(ArchivedOptionTag);
+
+#[repr(C)]
 struct ArchivedOptionVariantSome<T>(ArchivedOptionTag, T);
 
 impl<T: Archive> Archive for Option<T> {
@@ -511,13 +542,31 @@ impl<T: Archive> Archive for Option<T> {
     type Resolver = Option<T::Resolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Option<T::Resolver>) -> Self::Archived {
-        match resolver {
-            None => ArchivedOption::None,
-            Some(resolver) => ArchivedOption::Some(self.as_ref().unwrap().resolve(
-                pos + offset_of!(ArchivedOptionVariantSome<T::Archived>, 1),
-                resolver,
-            )),
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        unsafe {
+            match resolver {
+                None => {
+                    let out = &mut *out
+                        .as_mut_ptr()
+                        .cast::<MaybeUninit<ArchivedOptionVariantNone>>();
+                    project_struct!(out: ArchivedOptionVariantNone => 0: ArchivedOptionTag)
+                        .as_mut_ptr()
+                        .write(ArchivedOptionTag::None);
+                }
+                Some(resolver) => {
+                    let out = &mut *out
+                        .as_mut_ptr()
+                        .cast::<MaybeUninit<ArchivedOptionVariantSome<T::Archived>>>();
+                    project_struct!(out: ArchivedOptionVariantSome<T::Archived> => 0: ArchivedOptionTag)
+                        .as_mut_ptr()
+                        .write(ArchivedOptionTag::Some);
+                    self.as_ref().unwrap().resolve(
+                        pos + offset_of!(ArchivedOptionVariantSome<T::Archived>, 1),
+                        resolver,
+                        project_struct!(out: ArchivedOptionVariantSome<T::Archived> => 1),
+                    );
+                }
+            }
         }
     }
 }

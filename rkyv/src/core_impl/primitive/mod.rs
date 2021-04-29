@@ -5,6 +5,7 @@ use crate::{
 use core::{
     cmp::Ordering,
     marker::PhantomData,
+    mem::MaybeUninit,
     num::{
         NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroU8, NonZeroU16,
         NonZeroU32, NonZeroU64, NonZeroU128,
@@ -30,8 +31,10 @@ macro_rules! impl_primitive {
             type Resolver = ();
 
             #[inline]
-            fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-                *self
+            fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                unsafe {
+                    out.as_mut_ptr().write(*self);
+                }
             }
         }
 
@@ -196,8 +199,10 @@ macro_rules! impl_integer {
             type Resolver = ();
 
             #[inline]
-            fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-                (*self).into()
+            fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                unsafe {
+                    out.as_mut_ptr().write((*self).into());
+                }
             }
         }
 
@@ -282,8 +287,10 @@ macro_rules! impl_float {
             type Resolver = ();
 
             #[inline]
-            fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-                (*self).into()
+            fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                unsafe {
+                    out.as_mut_ptr().write((*self).into());
+                }
             }
         }
 
@@ -388,8 +395,10 @@ impl Archive for char {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-        (*self).into()
+    fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        unsafe {
+            out.as_mut_ptr().write((*self).into());
+        }
     }
 }
 
@@ -491,8 +500,10 @@ macro_rules! impl_nonzero {
             type Resolver = ();
 
             #[inline]
-            fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-                (*self).into()
+            fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                unsafe {
+                    out.as_mut_ptr().write((*self).into());
+                }
             }
         }
 
@@ -526,8 +537,7 @@ impl<T: ?Sized> Archive for PhantomData<T> {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-        PhantomData
+    fn resolve(&self, _: usize, _: Self::Resolver, _: &mut MaybeUninit<Self::Archived>) {
     }
 }
 
@@ -552,8 +562,10 @@ impl Archive for usize {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-        (*self as FixedUsize).into()
+    fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        unsafe {
+            out.as_mut_ptr().write((*self as FixedUsize).into());
+        }
     }
 }
 
@@ -576,8 +588,10 @@ impl Archive for isize {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-        (*self as FixedIsize).into()
+    fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        unsafe {
+            out.as_mut_ptr().write((*self as FixedIsize).into());
+        }
     }
 }
 
@@ -608,8 +622,10 @@ macro_rules! impl_atomic {
             type Resolver = AtomicResolver;
 
             #[inline]
-            fn resolve(&self, _pos: usize, _resolver: AtomicResolver) -> $type {
-                <$type>::new(self.load(atomic::Ordering::Relaxed))
+            fn resolve(&self, _: usize, _: AtomicResolver, out: &mut MaybeUninit<$type>) {
+                unsafe {
+                    out.as_mut_ptr().write(<$type>::new(self.load(atomic::Ordering::Relaxed)));
+                }
             }
         }
 

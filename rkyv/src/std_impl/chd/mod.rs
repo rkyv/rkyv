@@ -7,8 +7,8 @@
 pub mod validation;
 
 use crate::{
-    offset_of, ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible, FixedUsize,
-    RawRelPtr, Serialize,
+    offset_of, project_struct, ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize,
+    Fallible, FixedUsize, RawRelPtr, Serialize,
 };
 use core::{
     borrow::Borrow,
@@ -16,7 +16,7 @@ use core::{
     hash::{Hash, Hasher},
     iter::FusedIterator,
     marker::PhantomData,
-    mem::size_of,
+    mem::{size_of, MaybeUninit},
     ops::Index,
     pin::Pin,
     slice,
@@ -27,6 +27,24 @@ use std::collections::{HashMap, HashSet};
 struct Entry<K, V> {
     key: K,
     value: V,
+}
+
+impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
+    type Archived = Entry<K::Archived, V::Archived>;
+    type Resolver = (K::Resolver, V::Resolver);
+
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        self.key.resolve(
+            pos + offset_of!(Self::Archived, key),
+            resolver.0,
+            project_struct!(out: Self::Archived => key),
+        );
+        self.value.resolve(
+            pos + offset_of!(Self::Archived, value),
+            resolver.1,
+            project_struct!(out: Self::Archived => value),
+        );
+    }
 }
 
 /// An archived `HashMap`.
@@ -327,18 +345,10 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         for ((key, value), (key_resolver, value_resolver)) in
             entries.iter().map(|r| r.unwrap()).zip(resolvers.drain(..))
         {
-            let entry_pos = serializer.pos();
-            let entry = Entry {
-                key: key.resolve(entry_pos + offset_of!(Entry<K, V>, key), key_resolver),
-                value: value.resolve(entry_pos + offset_of!(Entry<K, V>, value), value_resolver),
-            };
-            let entry_slice = unsafe {
-                slice::from_raw_parts(
-                    (&entry as *const Entry<K, V>).cast::<u8>(),
-                    size_of::<Entry<K, V>>(),
-                )
-            };
-            serializer.write(entry_slice)?;
+            unsafe {
+                serializer
+                    .resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
+            }
         }
 
         Ok(ArchivedHashMapResolver {
@@ -572,20 +582,26 @@ pub struct ArchivedHashMapResolver {
 
 impl ArchivedHashMapResolver {
     #[inline]
-    fn resolve_from_len<K, V>(self, pos: usize, len: usize) -> ArchivedHashMap<K, V> {
+    fn resolve_from_len<K, V>(
+        self,
+        pos: usize,
+        len: usize,
+        out: &mut MaybeUninit<ArchivedHashMap<K, V>>,
+    ) {
         unsafe {
-            ArchivedHashMap {
-                len: (len as FixedUsize).into(),
-                displace: RawRelPtr::new(
-                    pos + offset_of!(ArchivedHashMap<K, V>, displace),
-                    self.displace_pos,
-                ),
-                entries: RawRelPtr::new(
-                    pos + offset_of!(ArchivedHashMap<K, V>, entries),
-                    self.entries_pos,
-                ),
-                _phantom: PhantomData,
-            }
+            project_struct!(out: ArchivedHashMap<K, V> => len: ArchivedUsize)
+                .as_mut_ptr()
+                .write(len as ArchivedUsize);
+            RawRelPtr::emplace(
+                pos + offset_of!(ArchivedHashMap<K, V>, displace),
+                self.displace_pos,
+                project_struct!(out: ArchivedHashMap<K, V> => displace),
+            );
+            RawRelPtr::emplace(
+                pos + offset_of!(ArchivedHashMap<K, V>, entries),
+                self.entries_pos,
+                project_struct!(out: ArchivedHashMap<K, V> => entries),
+            );
         }
     }
 }
@@ -598,8 +614,8 @@ where
     type Resolver = ArchivedHashMapResolver;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        resolver.resolve_from_len(pos, self.len())
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        resolver.resolve_from_len(pos, self.len(), out);
     }
 }
 
@@ -739,8 +755,12 @@ where
     type Resolver = ArchivedHashSetResolver;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        ArchivedHashSet(resolver.0.resolve_from_len(pos, self.len()))
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        resolver.0.resolve_from_len(
+            pos,
+            self.len(),
+            project_struct!(out: Self::Archived => 0: ArchivedHashMap<K, ()>),
+        );
     }
 }
 

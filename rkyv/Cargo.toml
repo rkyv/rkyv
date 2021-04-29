@@ -1,6 +1,6 @@
 [package]
 name = "rkyv"
-version = "0.5.1"
+version = "0.6.0"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Zero-copy deserialization framework for Rust"
@@ -17,7 +17,7 @@ readme = "crates-io.md"
 bytecheck = { version = "0.4", optional = true }
 memoffset = "0.6"
 ptr_meta = { version = "0.1" }
-rkyv_derive = { version = "=0.5.1", path = "../rkyv_derive" }
+rkyv_derive = { version = "=0.6.0", path = "../rkyv_derive" }
 seahash = { version = "4.0", optional = true }
 
 [features]

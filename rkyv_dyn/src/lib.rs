@@ -24,10 +24,11 @@ use core::{
     any::Any,
     hash::{Hash, Hasher},
     marker::PhantomData,
+    mem::MaybeUninit,
     sync::atomic::AtomicU64,
 };
 use ptr_meta::{DynMetadata, Pointee};
-use rkyv::{de::Deserializer, ser::Serializer, Fallible, Serialize};
+use rkyv::{de::Deserializer, project_struct, ser::Serializer, Fallible, Serialize};
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
@@ -177,20 +178,27 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// }
 ///
 /// let boxed_int = Box::new(IntStruct(42)) as Box<dyn SerializeExampleTrait>;
-/// let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn SerializeExampleTrait>;
+/// let boxed_string = Box::new(StringStruct("hello world".to_string()))
+///     as Box<dyn SerializeExampleTrait>;
 /// let mut serializer = AlignedSerializer::new(AlignedVec::new());
 /// let int_pos = serializer.serialize_value(&boxed_int)
 ///     .expect("failed to archive boxed int");
-/// let string_pos = serializer.serialize_value(&boxed_string)
+/// let str_pos = serializer.serialize_value(&boxed_string)
 ///     .expect("failed to archive boxed string");
 /// let buf = serializer.into_inner();
-/// let archived_int = unsafe { archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), int_pos) };
-/// let archived_string = unsafe { archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), string_pos) };
+/// let archived_int = unsafe {
+///     archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), int_pos)
+/// };
+/// let archived_string = unsafe {
+///     archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), str_pos)
+/// };
 /// assert_eq!(archived_int.value(), "42");
 /// assert_eq!(archived_string.value(), "hello world");
 ///
-/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int.deserialize(&mut AllocDeserializer).unwrap();
-/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string.deserialize(&mut AllocDeserializer).unwrap();
+/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int
+///     .deserialize(&mut AllocDeserializer).unwrap();
+/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string
+///     .deserialize(&mut AllocDeserializer).unwrap();
 /// assert_eq!(deserialized_int.value(), "42");
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```
@@ -274,11 +282,14 @@ pub struct ArchivedDynMetadata<T: ?Sized> {
 
 impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     /// Creates a new `ArchivedDynMetadata` for the given type.
-    pub fn new(type_id: u64) -> Self {
-        Self {
-            type_id,
-            cached_vtable: AtomicU64::new(0),
-            phantom: PhantomData,
+    pub fn emplace(type_id: u64, out: &mut MaybeUninit<Self>) {
+        unsafe {
+            project_struct!(out: Self => type_id: u64)
+                .as_mut_ptr()
+                .write(type_id);
+            project_struct!(out: Self => cached_vtable: AtomicU64)
+                .as_mut_ptr()
+                .write(AtomicU64::new(0));
         }
     }
 

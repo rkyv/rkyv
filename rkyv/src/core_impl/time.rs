@@ -1,7 +1,7 @@
 //! [`Archive`] implementations for times.
 
-use crate::{Archive, Deserialize, Fallible, Serialize};
-use core::time::Duration;
+use crate::{offset_of, project_struct, Archive, Deserialize, Fallible, Serialize};
+use core::{mem::MaybeUninit, time::Duration};
 
 /// An archived [`Duration`](core::time::Duration).
 #[derive(Clone, Copy, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -100,10 +100,18 @@ impl Archive for Duration {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver) -> Self::Archived {
-        ArchivedDuration {
-            secs: self.as_secs(),
-            nanos: self.subsec_nanos(),
+    fn resolve(&self, pos: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        unsafe {
+            self.as_secs().resolve(
+                pos + offset_of!(ArchivedDuration, secs),
+                (),
+                project_struct!(out: Self::Archived => secs),
+            );
+            self.subsec_nanos().resolve(
+                pos + offset_of!(ArchivedDuration, nanos),
+                (),
+                project_struct!(out: Self::Archived => nanos),
+            );
         }
     }
 }

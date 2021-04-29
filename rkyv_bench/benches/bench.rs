@@ -5,7 +5,10 @@ use rand_pcg::Lcg64Xsh32;
 use rkyv::{
     archived_root, check_archived_root,
     de::deserializers::AllocDeserializer,
-    ser::{serializers::{AlignedSerializer, WriteSerializer}, Serializer},
+    ser::{
+        serializers::{AlignedSerializer, WriteSerializer},
+        Serializer,
+    },
     AlignedVec, Archive, Deserialize, Serialize,
 };
 use std::collections::HashMap;

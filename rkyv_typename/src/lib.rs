@@ -60,7 +60,11 @@ pub use rkyv_typename_derive::TypeName;
 ///
 /// struct GenericExample<T, U, V>(T, U, V);
 ///
-/// impl<T: TypeName, U: TypeName, V: TypeName> TypeName for GenericExample<T, U, V> {
+/// impl<
+///     T: TypeName,
+///     U: TypeName,
+///     V: TypeName
+/// > TypeName for GenericExample<T, U, V> {
 ///     fn build_type_name<F: FnMut(&str)>(mut f: F) {
 ///         f("CoolGeneric<");
 ///         T::build_type_name(&mut f);
