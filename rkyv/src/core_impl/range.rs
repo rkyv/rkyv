@@ -222,3 +222,50 @@ where
         ))
     }
 }
+
+/// An archived [`RangeFrom`].
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "strict", repr(C))]
+pub struct ArchivedRangeFrom<T> {
+    /// The lower bound of the range (inclusive).
+    pub start: T,
+}
+
+impl<T: fmt::Debug> fmt::Debug for ArchivedRangeFrom<T> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.start.fmt(fmt)?;
+        write!(fmt, "..")?;
+        Ok(())
+    }
+}
+
+impl<T: PartialOrd<T>> ArchivedRangeFrom<T> {
+    /// Returns `true` if `item` is contained in the range.
+    #[inline]
+    pub fn contains<U>(&self, item: &U) -> bool
+    where
+        T: PartialOrd<U>,
+        U: ?Sized + PartialOrd<T>,
+    {
+        <Self as RangeBounds<T>>::contains(self, item)
+    }
+}
+
+impl<T> RangeBounds<T> for ArchivedRangeFrom<T> {
+    #[inline]
+    fn start_bound(&self) -> Bound<&T> {
+        Bound::Included(&self.start)
+    }
+
+    #[inline]
+    fn end_bound(&self) -> Bound<&T> {
+        Bound::Unbounded
+    }
+}
+
+impl<T, U: PartialEq<T>> PartialEq<RangeFrom<T>> for ArchivedRangeFrom<U> {
+    #[inline]
+    fn eq(&self, other: &RangeFrom<T>) -> bool {
+        self.start.eq(&other.start) && self.end.eq(&other.end)
+    }
+}
