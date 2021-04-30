@@ -6,6 +6,7 @@
   - [ ] Every link is correct
 - [ ] Make sure that `crates-io.md` and `README.md` are up to date with the most recent examples
 - [ ] Run all tests, then run all tests in the test crate with all combinations of features
+- [ ] Run all tests in release
 - [ ] Bump version numbers and check that all crates have their dependencies updated to match
 - [ ] Commit with the name `"Release X.X.X"` and push
 - [ ] Merge development branch into `master`
