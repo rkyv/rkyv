@@ -1,3 +1,10 @@
+<p align="center">
+    <picture>
+        <source srcset="https://raw.githubusercontent.com/djkoloski/rkyv/master/media/logo_text_white.svg" media="(prefers-color-scheme: dark)">
+        <img src="https://raw.githubusercontent.com/djkoloski/rkyv/master/media/logo_text_black.svg">
+    </picture>
+</p>
+
 # rkyv &emsp; [![Discord]][discord invite] [![Latest Version]][crates.io] [![License]][license path] [![requires: rustc 1.47+]][Rust 1.47]
 
 [Discord]: https://img.shields.io/discord/822925794249539645
