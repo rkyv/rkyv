@@ -5,6 +5,7 @@ use core::{mem::MaybeUninit, time::Duration};
 
 /// An archived [`Duration`](core::time::Duration).
 #[derive(Clone, Copy, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "valiation", derive(bytecheck::CheckBytes))]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedDuration {
     secs: u64,

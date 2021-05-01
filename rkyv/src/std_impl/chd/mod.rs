@@ -695,6 +695,7 @@ impl<K: Eq + Hash + Borrow<Q>, Q: Eq + Hash + ?Sized, V> Index<&'_ Q> for Archiv
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key and a value of
 /// `()`.
 #[derive(Eq, PartialEq)]
+#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct ArchivedHashSet<K: Hash + Eq>(ArchivedHashMap<K, ()>);
 

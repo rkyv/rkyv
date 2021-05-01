@@ -17,8 +17,6 @@ use ptr_meta::Pointee;
 pub mod primitive;
 pub mod range;
 pub mod time;
-#[cfg(feature = "validation")]
-pub mod validation;
 
 #[cfg(all(feature = "std", feature = "specialization"))]
 macro_rules! default {
@@ -459,6 +457,7 @@ impl<D: Deserializer + ?Sized> DeserializeUnsized<str, D> for <str as ArchiveUns
 /// It functions identically to [`Option`] but has a different internal
 /// representation to allow for archiving.
 #[derive(Debug)]
+#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
 #[repr(u8)]
 pub enum ArchivedOption<T> {
     /// No value
