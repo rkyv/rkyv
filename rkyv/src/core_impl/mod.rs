@@ -353,7 +353,7 @@ impl<T: Deserialize<T, D> + ArchiveCopy, D: Deserializer + ?Sized> DeserializeUn
     #[inline]
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
         if self.is_empty() || core::mem::size_of::<T>() == 0 {
-            Ok(ptr::null_mut())
+            Ok(ptr::NonNull::dangling().as_ptr())
         } else {
             let result = deserializer
                 .alloc(alloc::Layout::array::<T>(self.len()).unwrap())?
@@ -377,7 +377,7 @@ impl<T: Deserialize<U, D>, U: Archive<Archived = T>, D: Deserializer + ?Sized>
     default! {
         unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
             if self.is_empty() || core::mem::size_of::<U>() == 0 {
-                Ok(ptr::null_mut())
+                Ok(ptr::NonNull::dangling().as_ptr())
             } else {
                 let result = deserializer
                     .alloc(alloc::Layout::array::<U>(self.len()).unwrap())?
