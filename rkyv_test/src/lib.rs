@@ -1141,15 +1141,20 @@ mod tests {
     fn archive_more_std() {
         use core::{
             num::NonZeroU8,
-            ops::Range,
+            ops::{RangeFull, Range, RangeInclusive, RangeFrom, RangeTo, RangeToInclusive},
             sync::atomic::{AtomicU32, Ordering},
         };
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
             a: AtomicU32,
-            b: Range<i32>,
-            c: NonZeroU8,
+            b: NonZeroU8,
+            c: RangeFull,
+            d: Range<i32>,
+            e: RangeInclusive<i32>,
+            f: RangeFrom<i32>,
+            g: RangeTo<i32>,
+            h: RangeToInclusive<i32>,
         }
 
         impl PartialEq for Test {
@@ -1157,6 +1162,11 @@ mod tests {
                 self.a.load(Ordering::Relaxed) == other.a.load(Ordering::Relaxed)
                     && self.b == other.b
                     && self.c == other.c
+                    && self.d == other.d
+                    && self.e == other.e
+                    && self.f == other.f
+                    && self.g == other.g
+                    && self.h == other.h
             }
         }
 
@@ -1166,13 +1176,23 @@ mod tests {
                 self.a.load(Ordering::Relaxed) == other.a.load(Ordering::Relaxed)
                     && self.b == other.b
                     && self.c == other.c
+                    && self.d == other.d
+                    && self.e == other.e
+                    && self.f == other.f
+                    && self.g == other.g
+                    && self.h == other.h
             }
         }
 
         let value = Test {
             a: AtomicU32::new(42),
-            b: Range { start: 14, end: 46 },
-            c: NonZeroU8::new(8).unwrap(),
+            b: NonZeroU8::new(8).unwrap(),
+            c: RangeFull,
+            d: Range { start: 14, end: 46 },
+            e: RangeInclusive::new(12, 22),
+            f: RangeFrom { start: 60 },
+            g: RangeTo { end: 35 },
+            h: RangeToInclusive { end: 87 },
         };
 
         test_archive(&value);

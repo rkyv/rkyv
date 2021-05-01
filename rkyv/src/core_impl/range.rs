@@ -4,7 +4,9 @@ use crate::{resolve_struct, Archive, ArchiveCopy, Archived, Deserialize, Fallibl
 use core::{
     cmp, fmt,
     mem::MaybeUninit,
-    ops::{Bound, Range, RangeBounds, RangeFull, RangeInclusive},
+    ops::{
+        Bound, Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
+    },
 };
 
 impl Archive for RangeFull {
@@ -266,6 +268,199 @@ impl<T> RangeBounds<T> for ArchivedRangeFrom<T> {
 impl<T, U: PartialEq<T>> PartialEq<RangeFrom<T>> for ArchivedRangeFrom<U> {
     #[inline]
     fn eq(&self, other: &RangeFrom<T>) -> bool {
-        self.start.eq(&other.start) && self.end.eq(&other.end)
+        self.start.eq(&other.start)
+    }
+}
+
+impl<T: Archive> Archive for RangeFrom<T> {
+    type Archived = ArchivedRangeFrom<T::Archived>;
+    type Resolver = RangeFrom<T::Resolver>;
+
+    #[inline]
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        resolve_struct!(out = |pos, resolver| -> Self::Archived {
+            start: self.start,
+        });
+    }
+}
+
+impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeFrom<T> {
+    #[inline]
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(RangeFrom {
+            start: self.start.serialize(serializer)?,
+        })
+    }
+}
+
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<RangeFrom<T>, D> for Archived<RangeFrom<T>>
+where
+    T::Archived: Deserialize<T, D>,
+{
+    #[inline]
+    fn deserialize(&self, deserializer: &mut D) -> Result<RangeFrom<T>, D::Error> {
+        Ok(RangeFrom {
+            start: self.start.deserialize(deserializer)?,
+        })
+    }
+}
+
+/// An archived [`RangeTo`].
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "strict", repr(C))]
+pub struct ArchivedRangeTo<T> {
+    /// The upper bound of the range (exclusive).
+    pub end: T,
+}
+
+impl<T: fmt::Debug> fmt::Debug for ArchivedRangeTo<T> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "..")?;
+        self.end.fmt(fmt)?;
+        Ok(())
+    }
+}
+
+impl<T: PartialOrd<T>> ArchivedRangeTo<T> {
+    /// Returns `true` if `item` is contained in the range.
+    #[inline]
+    pub fn contains<U>(&self, item: &U) -> bool
+    where
+        T: PartialOrd<U>,
+        U: ?Sized + PartialOrd<T>,
+    {
+        <Self as RangeBounds<T>>::contains(self, item)
+    }
+}
+
+impl<T> RangeBounds<T> for ArchivedRangeTo<T> {
+    #[inline]
+    fn start_bound(&self) -> Bound<&T> {
+        Bound::Unbounded
+    }
+
+    #[inline]
+    fn end_bound(&self) -> Bound<&T> {
+        Bound::Excluded(&self.end)
+    }
+}
+
+impl<T, U: PartialEq<T>> PartialEq<RangeTo<T>> for ArchivedRangeTo<U> {
+    #[inline]
+    fn eq(&self, other: &RangeTo<T>) -> bool {
+        self.end.eq(&other.end)
+    }
+}
+
+impl<T: Archive> Archive for RangeTo<T> {
+    type Archived = ArchivedRangeTo<T::Archived>;
+    type Resolver = RangeTo<T::Resolver>;
+
+    #[inline]
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        resolve_struct!(out = |pos, resolver| -> Self::Archived {
+            end: self.end,
+        });
+    }
+}
+
+impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeTo<T> {
+    #[inline]
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(RangeTo {
+            end: self.end.serialize(serializer)?,
+        })
+    }
+}
+
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<RangeTo<T>, D> for Archived<RangeTo<T>>
+where
+    T::Archived: Deserialize<T, D>,
+{
+    #[inline]
+    fn deserialize(&self, deserializer: &mut D) -> Result<RangeTo<T>, D::Error> {
+        Ok(RangeTo {
+            end: self.end.deserialize(deserializer)?,
+        })
+    }
+}
+
+/// An archived [`RangeToInclusive`].
+#[derive(Clone, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "strict", repr(C))]
+pub struct ArchivedRangeToInclusive<T> {
+    /// The upper bound of the range (inclusive).
+    pub end: T,
+}
+
+impl<T: fmt::Debug> fmt::Debug for ArchivedRangeToInclusive<T> {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "..=")?;
+        self.end.fmt(fmt)?;
+        Ok(())
+    }
+}
+
+impl<T: PartialOrd<T>> ArchivedRangeToInclusive<T> {
+    /// Returns `true` if `item` is contained in the range.
+    #[inline]
+    pub fn contains<U>(&self, item: &U) -> bool
+    where
+        T: PartialOrd<U>,
+        U: ?Sized + PartialOrd<T>,
+    {
+        <Self as RangeBounds<T>>::contains(self, item)
+    }
+}
+
+impl<T> RangeBounds<T> for ArchivedRangeToInclusive<T> {
+    #[inline]
+    fn start_bound(&self) -> Bound<&T> {
+        Bound::Unbounded
+    }
+
+    #[inline]
+    fn end_bound(&self) -> Bound<&T> {
+        Bound::Included(&self.end)
+    }
+}
+
+impl<T, U: PartialEq<T>> PartialEq<RangeToInclusive<T>> for ArchivedRangeToInclusive<U> {
+    #[inline]
+    fn eq(&self, other: &RangeToInclusive<T>) -> bool {
+        self.end.eq(&other.end)
+    }
+}
+
+impl<T: Archive> Archive for RangeToInclusive<T> {
+    type Archived = ArchivedRangeToInclusive<T::Archived>;
+    type Resolver = RangeToInclusive<T::Resolver>;
+
+    #[inline]
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        resolve_struct!(out = |pos, resolver| -> Self::Archived {
+            end: self.end,
+        });
+    }
+}
+
+impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeToInclusive<T> {
+    #[inline]
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(RangeToInclusive {
+            end: self.end.serialize(serializer)?,
+        })
+    }
+}
+
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<RangeToInclusive<T>, D> for Archived<RangeToInclusive<T>>
+where
+    T::Archived: Deserialize<T, D>,
+{
+    #[inline]
+    fn deserialize(&self, deserializer: &mut D) -> Result<RangeToInclusive<T>, D::Error> {
+        Ok(RangeToInclusive {
+            end: self.end.deserialize(deserializer)?,
+        })
     }
 }
