@@ -1199,6 +1199,44 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_net() {
+        use std::net::{Ipv4Addr, Ipv6Addr, IpAddr, SocketAddrV4, SocketAddrV6, SocketAddr};
+
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
+        struct TestNet {
+            ipv4: Ipv4Addr,
+            ipv6: Ipv6Addr,
+            ip: IpAddr,
+            sockv4: SocketAddrV4,
+            sockv6: SocketAddrV6,
+            sock: SocketAddr,
+        }
+
+        let value = TestNet {
+            ipv4: Ipv4Addr::new(31, 41, 59, 26),
+            ipv6: Ipv6Addr::new(31, 41, 59, 26, 53, 58, 97, 93),
+            ip: IpAddr::V4(Ipv4Addr::new(31, 41, 59, 26)),
+            sockv4: SocketAddrV4::new(Ipv4Addr::new(31, 41, 59, 26), 5358),
+            sockv6: SocketAddrV6::new(
+                Ipv6Addr::new(31, 31, 59, 26, 53, 58, 97, 93),
+                2384,
+                0,
+                0,
+            ),
+            sock: SocketAddr::V6(SocketAddrV6::new(
+                Ipv6Addr::new(31, 31, 59, 26, 53, 58, 97, 93),
+                2384,
+                0,
+                0,
+            )),
+        };
+
+        test_archive(&value);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_shared_ptr() {
         use std::rc::Rc;
 

@@ -1,10 +1,9 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    de::Deserializer, offset_of, project_struct, ser::Serializer, Archive,
-    ArchiveCopy, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
-    ArchivedUsize, Deserialize, DeserializeUnsized, Fallible, FixedUsize, Serialize,
-    SerializeUnsized,
+    de::Deserializer, offset_of, project_struct, ser::Serializer, Archive, ArchiveCopy,
+    ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata, ArchivedUsize,
+    Deserialize, DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
 };
 use core::{
     alloc, cmp,
@@ -17,16 +16,6 @@ use ptr_meta::Pointee;
 pub mod primitive;
 pub mod range;
 pub mod time;
-
-#[cfg(all(feature = "std", feature = "specialization"))]
-macro_rules! default {
-    ($($fn:tt)*) => { default $($fn)* };
-}
-
-#[cfg(all(feature = "std", not(feature = "specialization")))]
-macro_rules! default {
-    ($($fn:tt)*) => { $($fn)* };
-}
 
 impl<T> ArchivePointee for T {
     type ArchivedMetadata = ();

@@ -1,6 +1,7 @@
 //! [`Archive`] implementations for std types.
 
 pub mod chd;
+pub mod net;
 pub mod shared;
 #[cfg(feature = "validation")]
 pub mod validation;

@@ -77,12 +77,13 @@
     2.702-2.702 2.702 13.512-13.512-2.702 2.703-2.702-8.107-8.107z"/%3E%3C/svg%3E
 "#)]
 
+#[macro_use]
+pub mod macros;
 pub mod core_impl;
 pub mod de;
 pub mod ser;
 #[cfg(feature = "std")]
 pub mod std_impl;
-#[macro_use]
 pub mod util;
 #[cfg(feature = "validation")]
 pub mod validation;
