@@ -252,16 +252,15 @@ mod tests {
             serializer
                 .serialize_value(&value)
                 .expect("failed to serialize value");
-            let buf = serializer.into_inner();
+            let bytes = serializer.into_inner();
 
-            let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
+            let archived = unsafe { archived_root::<Test>(&bytes[..]) };
             assert_eq!(archived.int, value.int);
             assert_eq!(archived.string, value.string);
             assert_eq!(archived.option, value.option);
 
-            let mut deserializer = AllocDeserializer;
             let deserialized = archived
-                .deserialize(&mut deserializer)
+                .deserialize(&mut AllocDeserializer)
                 .expect("failed to deserialize value");
             assert_eq!(deserialized, value);
         }
