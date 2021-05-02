@@ -29,16 +29,6 @@ pub mod time;
 #[cfg(feature = "validation")]
 pub mod validation;
 
-#[cfg(all(feature = "std", feature = "specialization"))]
-macro_rules! default {
-    ($($fn:tt)*) => { default $($fn)* };
-}
-
-#[cfg(all(feature = "std", not(feature = "specialization")))]
-macro_rules! default {
-    ($($fn:tt)*) => { $($fn)* };
-}
-
 impl<T> ArchivePointee for T {
     type ArchivedMetadata = ();
 

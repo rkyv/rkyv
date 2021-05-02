@@ -66,12 +66,13 @@
 #![cfg_attr(feature = "specialization", feature(min_specialization))]
 #![cfg_attr(feature = "specialization", feature(rustc_attrs))]
 
+#[macro_use]
+pub mod macros;
 pub mod core_impl;
 pub mod de;
 pub mod ser;
 #[cfg(feature = "std")]
 pub mod std_impl;
-#[macro_use]
 pub mod util;
 #[cfg(feature = "validation")]
 pub mod validation;
