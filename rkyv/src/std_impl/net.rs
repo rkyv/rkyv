@@ -91,18 +91,20 @@ impl ArchivedIpv4Addr {
 
     /// Converts this address to an IPv4-compatible [`IPv6` address](std::net::Ipv6Addr).
     ///
-    /// See [`Ipv4Addr::as_ipv6_compatible()`](std::net::Ipv4Addr::as_ipv6_compatible()) for more
+    /// See [`Ipv4Addr::to_ipv6_compatible()`](std::net::Ipv4Addr::to_ipv6_compatible()) for more
     /// details.
     #[inline]
-    pub const fn as_ipv6_compatible(&self) -> Ipv6Addr {
+    #[allow(clippy::wrong_self_convention)]
+    pub const fn to_ipv6_compatible(&self) -> Ipv6Addr {
         self.as_ipv4().to_ipv6_compatible()
     }
 
     /// Converts this address to an IPv4-mapped [`IPv6` address](std::net::Ipv6Addr).
     ///
-    /// See [`Ipv4Addr::as_ipv6_mapped()`](std::net::Ipv4Addr::as_ipv6_mapped()) for more details.
+    /// See [`Ipv4Addr::to_ipv6_mapped()`](std::net::Ipv4Addr::to_ipv6_mapped()) for more details.
     #[inline]
-    pub const fn as_ipv6_mapped(&self) -> Ipv6Addr {
+    #[allow(clippy::wrong_self_convention)]
+    pub const fn to_ipv6_mapped(&self) -> Ipv6Addr {
         self.as_ipv4().to_ipv6_mapped()
     }
 }
@@ -225,7 +227,8 @@ impl ArchivedIpv6Addr {
     /// [`None`](std::option::Option::None) if this address is neither IPv4-compatible or
     /// IPv4-mapped.
     #[inline]
-    pub const fn as_ipv4(&self) -> Option<Ipv4Addr> {
+    #[allow(clippy::wrong_self_convention)]
+    pub const fn to_ipv4(&self) -> Option<Ipv4Addr> {
         self.as_ipv6().to_ipv4()
     }
 }

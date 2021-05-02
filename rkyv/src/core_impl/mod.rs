@@ -1,9 +1,9 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    de::Deserializer, offset_of, project_struct, ser::Serializer, Archive,
-    ArchiveCopy, ArchivePointee, ArchiveUnsized, Archived, ArchivedIsize, ArchivedMetadata,
-    ArchivedUsize, Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
+    de::Deserializer, offset_of, project_struct, ser::Serializer, Archive, ArchiveCopy,
+    ArchivePointee, ArchiveUnsized, Archived, ArchivedIsize, ArchivedMetadata, ArchivedUsize,
+    Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
 };
 #[cfg(rkyv_atomic)]
 use core::sync::atomic::{
