@@ -18,8 +18,13 @@ pub struct ArchivedIpv4Addr {
 impl ArchivedIpv4Addr {
     /// Returns an [`Ipv4Addr`](std::net::Ipv4Addr) with the same value.
     #[inline]
-    pub const fn to_ipv4(&self) -> Ipv4Addr {
-        Ipv4Addr::new(self.octets[0], self.octets[1], self.octets[2], self.octets[3])
+    pub const fn as_ipv4(&self) -> Ipv4Addr {
+        Ipv4Addr::new(
+            self.octets[0],
+            self.octets[1],
+            self.octets[2],
+            self.octets[3],
+        )
     }
 
     /// Returns `true` if this is a broadcast address (255.255.255.255).
@@ -27,7 +32,7 @@ impl ArchivedIpv4Addr {
     /// See [`Ipv4Addr::is_broadcast()`](std::net::Ipv4Addr::is_broadcast()) for more details.
     #[inline]
     pub const fn is_broadcast(&self) -> bool {
-        self.to_ipv4().is_broadcast()
+        self.as_ipv4().is_broadcast()
     }
 
     /// Returns `true` if this address is in a range designated for documentation.
@@ -35,7 +40,7 @@ impl ArchivedIpv4Addr {
     /// See [`Ipv4Addr::is_documentation()`](std::net::Ipv4Addr::is_documentation()) for more details.
     #[inline]
     pub const fn is_documentation(&self) -> bool {
-        self.to_ipv4().is_documentation()
+        self.as_ipv4().is_documentation()
     }
 
     /// Returns `true` if the address is link-local (169.254.0.0/16).
@@ -43,7 +48,7 @@ impl ArchivedIpv4Addr {
     /// See [`Ipv4Addr::is_link_local()`](std::net::Ipv4Addr::is_link_local()) for more details.
     #[inline]
     pub const fn is_link_local(&self) -> bool {
-        self.to_ipv4().is_link_local()
+        self.as_ipv4().is_link_local()
     }
 
     /// Returns `true` if this is a loopback address (127.0.0.0/8).
@@ -51,7 +56,7 @@ impl ArchivedIpv4Addr {
     /// See [`Ipv4Addr::is_loopback()`](std::net::Ipv4Addr::is_loopback()) for more details.
     #[inline]
     pub const fn is_loopback(&self) -> bool {
-        self.to_ipv4().is_loopback()
+        self.as_ipv4().is_loopback()
     }
 
     /// Returns `true` if this is a multicast address (224.0.0.0/4).
@@ -59,7 +64,7 @@ impl ArchivedIpv4Addr {
     /// See [`Ipv4Addr::is_multicast()`](std::net::Ipv4Addr::is_multicast()) for more details.
     #[inline]
     pub const fn is_multicast(&self) -> bool {
-        self.to_ipv4().is_multicast()
+        self.as_ipv4().is_multicast()
     }
 
     /// Returns `true` if this is a private address.
@@ -67,7 +72,7 @@ impl ArchivedIpv4Addr {
     /// See [`Ipv4Addr::is_private()`](std::net::Ipv4Addr::is_private()) for more details.
     #[inline]
     pub const fn is_private(&self) -> bool {
-        self.to_ipv4().is_private()
+        self.as_ipv4().is_private()
     }
 
     /// Returns `true` for the special 'unspecified' address (0.0.0.0).
@@ -75,7 +80,7 @@ impl ArchivedIpv4Addr {
     /// See [`Ipv4Addr::is_unspecified()`](std::net::Ipv4Addr::is_unspecified()) for more details.
     #[inline]
     pub const fn is_unspecified(&self) -> bool {
-        self.to_ipv4().is_unspecified()
+        self.as_ipv4().is_unspecified()
     }
 
     /// Returns the four eight-bit integers that make up this address.
@@ -86,19 +91,19 @@ impl ArchivedIpv4Addr {
 
     /// Converts this address to an IPv4-compatible [`IPv6` address](std::net::Ipv6Addr).
     ///
-    /// See [`Ipv4Addr::to_ipv6_compatible()`](std::net::Ipv4Addr::to_ipv6_compatible()) for more
+    /// See [`Ipv4Addr::as_ipv6_compatible()`](std::net::Ipv4Addr::as_ipv6_compatible()) for more
     /// details.
     #[inline]
-    pub const fn to_ipv6_compatible(&self) -> Ipv6Addr {
-        self.to_ipv4().to_ipv6_compatible()
+    pub const fn as_ipv6_compatible(&self) -> Ipv6Addr {
+        self.as_ipv4().to_ipv6_compatible()
     }
 
     /// Converts this address to an IPv4-mapped [`IPv6` address](std::net::Ipv6Addr).
     ///
-    /// See [`Ipv4Addr::to_ipv6_mapped()`](std::net::Ipv4Addr::to_ipv6_mapped()) for more details.
+    /// See [`Ipv4Addr::as_ipv6_mapped()`](std::net::Ipv4Addr::as_ipv6_mapped()) for more details.
     #[inline]
-    pub const fn to_ipv6_mapped(&self) -> Ipv6Addr {
-        self.to_ipv4().to_ipv6_mapped()
+    pub const fn as_ipv6_mapped(&self) -> Ipv6Addr {
+        self.as_ipv4().to_ipv6_mapped()
     }
 }
 
@@ -124,14 +129,14 @@ impl<S: Fallible + ?Sized> Serialize<S> for Ipv4Addr {
 impl<D: Fallible + ?Sized> Deserialize<Ipv4Addr, D> for ArchivedIpv4Addr {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<Ipv4Addr, D::Error> {
-        Ok(self.to_ipv4())
+        Ok(self.as_ipv4())
     }
 }
 
 impl PartialEq<Ipv4Addr> for ArchivedIpv4Addr {
     #[inline]
     fn eq(&self, other: &Ipv4Addr) -> bool {
-        self.to_ipv4().eq(other)
+        self.as_ipv4().eq(other)
     }
 }
 
@@ -145,7 +150,7 @@ impl PartialEq<ArchivedIpv4Addr> for Ipv4Addr {
 impl PartialOrd<Ipv4Addr> for ArchivedIpv4Addr {
     #[inline]
     fn partial_cmp(&self, other: &Ipv4Addr) -> Option<cmp::Ordering> {
-        self.to_ipv4().partial_cmp(other)
+        self.as_ipv4().partial_cmp(other)
     }
 }
 
@@ -167,7 +172,7 @@ pub struct ArchivedIpv6Addr {
 impl ArchivedIpv6Addr {
     /// Returns an [`Ipv6Addr`](std::net::Ipv6Addr) with the same value.
     #[inline]
-    pub const fn to_ipv6(&self) -> Ipv6Addr {
+    pub const fn as_ipv6(&self) -> Ipv6Addr {
         Ipv6Addr::new(
             u16::from_be(self.segments[0]),
             u16::from_be(self.segments[1]),
@@ -185,7 +190,7 @@ impl ArchivedIpv6Addr {
     /// See [`Ipv6Addr::is_loopback()`](std::net::Ipv6Addr::is_loopback()) for more details.
     #[inline]
     pub const fn is_loopback(&self) -> bool {
-        self.to_ipv6().is_loopback()
+        self.as_ipv6().is_loopback()
     }
 
     /// Returns `true` if this is a multicast address (ff00::/8).
@@ -193,7 +198,7 @@ impl ArchivedIpv6Addr {
     /// See [`Ipv6Addr::is_multicast()`](std::net::Ipv6Addr::is_multicast()) for more details.
     #[inline]
     pub const fn is_multicast(&self) -> bool {
-        self.to_ipv6().is_multicast()
+        self.as_ipv6().is_multicast()
     }
 
     /// Returns `true` for the special 'unspecified' address (::).
@@ -201,13 +206,13 @@ impl ArchivedIpv6Addr {
     /// See [`Ipv6Addr::is_unspecified()`](std::net::Ipv6Addr::is_unspecified()) for more details.
     #[inline]
     pub const fn is_unspecified(&self) -> bool {
-        self.to_ipv6().is_unspecified()
+        self.as_ipv6().is_unspecified()
     }
 
     /// Returns the sixteen eight-bit integers the IPv6 address consists of.
     #[inline]
     pub const fn octets(&self) -> [u8; 16] {
-        self.to_ipv6().octets()
+        self.as_ipv6().octets()
     }
 
     /// Returns the eight 16-bit segments that make up this address.
@@ -220,8 +225,8 @@ impl ArchivedIpv6Addr {
     /// [`None`](std::option::Option::None) if this address is neither IPv4-compatible or
     /// IPv4-mapped.
     #[inline]
-    pub const fn to_ipv4(&self) -> Option<Ipv4Addr> {
-        self.to_ipv6().to_ipv4()
+    pub const fn as_ipv4(&self) -> Option<Ipv4Addr> {
+        self.as_ipv6().to_ipv4()
     }
 }
 
@@ -247,14 +252,14 @@ impl<S: Fallible + ?Sized> Serialize<S> for Ipv6Addr {
 impl<D: Fallible + ?Sized> Deserialize<Ipv6Addr, D> for ArchivedIpv6Addr {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<Ipv6Addr, D::Error> {
-        Ok(self.to_ipv6())
+        Ok(self.as_ipv6())
     }
 }
 
 impl PartialEq<Ipv6Addr> for ArchivedIpv6Addr {
     #[inline]
     fn eq(&self, other: &Ipv6Addr) -> bool {
-        self.to_ipv6().eq(other)
+        self.as_ipv6().eq(other)
     }
 }
 
@@ -268,7 +273,7 @@ impl PartialEq<ArchivedIpv6Addr> for Ipv6Addr {
 impl PartialOrd<Ipv6Addr> for ArchivedIpv6Addr {
     #[inline]
     fn partial_cmp(&self, other: &Ipv6Addr) -> Option<cmp::Ordering> {
-        self.to_ipv6().partial_cmp(other)
+        self.as_ipv6().partial_cmp(other)
     }
 }
 
@@ -293,10 +298,10 @@ pub enum ArchivedIpAddr {
 impl ArchivedIpAddr {
     /// Returns an [`IpAddr`](std::net::IpAddr) with the same value.
     #[inline]
-    pub const fn to_ipaddr(&self) -> IpAddr {
+    pub const fn as_ipaddr(&self) -> IpAddr {
         match self {
-            ArchivedIpAddr::V4(ipv4) => IpAddr::V4(ipv4.to_ipv4()),
-            ArchivedIpAddr::V6(ipv6) => IpAddr::V6(ipv6.to_ipv6()),
+            ArchivedIpAddr::V4(ipv4) => IpAddr::V4(ipv4.as_ipv4()),
+            ArchivedIpAddr::V6(ipv6) => IpAddr::V6(ipv6.as_ipv6()),
         }
     }
 
@@ -304,20 +309,14 @@ impl ArchivedIpAddr {
     /// otherwise.
     #[inline]
     pub const fn is_ipv4(&self) -> bool {
-        match self {
-            ArchivedIpAddr::V4(_) => true,
-            _ => false,
-        }
+        matches!(self, ArchivedIpAddr::V4(_))
     }
 
     /// Returns `true` if this address is an [`IPv6` address](std::net::IpAddr::V6), and `false`
     /// otherwise.
     #[inline]
     pub const fn is_ipv6(&self) -> bool {
-        match self {
-            ArchivedIpAddr::V6(_) => true,
-            _ => false,
-        }
+        matches!(self, ArchivedIpAddr::V6(_))
     }
 
     /// Returns `true` if this is a loopback address.
@@ -430,16 +429,20 @@ impl PartialEq<IpAddr> for ArchivedIpAddr {
     #[inline]
     fn eq(&self, other: &IpAddr) -> bool {
         match self {
-            ArchivedIpAddr::V4(self_ip) => if let IpAddr::V4(other_ip) = other {
-                self_ip.eq(other_ip)
-            } else {
-                false
-            },
-            ArchivedIpAddr::V6(self_ip) => if let IpAddr::V6(other_ip) = other {
-                self_ip.eq(other_ip)
-            } else {
-                false
-            },
+            ArchivedIpAddr::V4(self_ip) => {
+                if let IpAddr::V4(other_ip) = other {
+                    self_ip.eq(other_ip)
+                } else {
+                    false
+                }
+            }
+            ArchivedIpAddr::V6(self_ip) => {
+                if let IpAddr::V6(other_ip) = other {
+                    self_ip.eq(other_ip)
+                } else {
+                    false
+                }
+            }
         }
     }
 }
@@ -454,7 +457,7 @@ impl PartialEq<ArchivedIpAddr> for IpAddr {
 impl PartialOrd<IpAddr> for ArchivedIpAddr {
     #[inline]
     fn partial_cmp(&self, other: &IpAddr) -> Option<cmp::Ordering> {
-        self.to_ipaddr().partial_cmp(other)
+        self.as_ipaddr().partial_cmp(other)
     }
 }
 
@@ -477,8 +480,8 @@ pub struct ArchivedSocketAddrV4 {
 impl ArchivedSocketAddrV4 {
     /// Returns a [`SocketAddrV4`](std::net::SocketAddrV4) with the same value.
     #[inline]
-    pub fn to_socket_addr_v4(&self) -> SocketAddrV4 {
-        SocketAddrV4::new(self.ip.to_ipv4(), self.port)
+    pub fn as_socket_addr_v4(&self) -> SocketAddrV4 {
+        SocketAddrV4::new(self.ip.as_ipv4(), self.port)
     }
 
     /// Returns the IP address associated with this socket address.
@@ -498,7 +501,7 @@ impl ToSocketAddrs for ArchivedSocketAddrV4 {
     type Iter = <SocketAddrV4 as ToSocketAddrs>::Iter;
 
     fn to_socket_addrs(&self) -> io::Result<Self::Iter> {
-        self.to_socket_addr_v4().to_socket_addrs()
+        self.as_socket_addr_v4().to_socket_addrs()
     }
 }
 
@@ -541,7 +544,7 @@ impl<D: Fallible + ?Sized> Deserialize<SocketAddrV4, D> for ArchivedSocketAddrV4
 impl PartialEq<SocketAddrV4> for ArchivedSocketAddrV4 {
     #[inline]
     fn eq(&self, other: &SocketAddrV4) -> bool {
-        self.to_socket_addr_v4().eq(other)
+        self.as_socket_addr_v4().eq(other)
     }
 }
 
@@ -555,7 +558,7 @@ impl PartialEq<ArchivedSocketAddrV4> for SocketAddrV4 {
 impl PartialOrd<SocketAddrV4> for ArchivedSocketAddrV4 {
     #[inline]
     fn partial_cmp(&self, other: &SocketAddrV4) -> Option<cmp::Ordering> {
-        self.to_socket_addr_v4().partial_cmp(other)
+        self.as_socket_addr_v4().partial_cmp(other)
     }
 }
 
@@ -580,13 +583,8 @@ pub struct ArchivedSocketAddrV6 {
 impl ArchivedSocketAddrV6 {
     /// Returns a [`SocketAddrV6`](std::net::SocketAddrV6) with the same value.
     #[inline]
-    pub fn to_socket_addr_v6(&self) -> SocketAddrV6 {
-        SocketAddrV6::new(
-            self.ip.to_ipv6(),
-            self.port,
-            self.flowinfo,
-            self.scope_id,
-        )
+    pub fn as_socket_addr_v6(&self) -> SocketAddrV6 {
+        SocketAddrV6::new(self.ip.as_ipv6(), self.port, self.flowinfo, self.scope_id)
     }
 
     /// Returns the flow information associated with this address.
@@ -622,7 +620,7 @@ impl ToSocketAddrs for ArchivedSocketAddrV6 {
     type Iter = <SocketAddrV6 as ToSocketAddrs>::Iter;
 
     fn to_socket_addrs(&self) -> io::Result<Self::Iter> {
-        self.to_socket_addr_v6().to_socket_addrs()
+        self.as_socket_addr_v6().to_socket_addrs()
     }
 }
 
@@ -680,7 +678,7 @@ impl<D: Fallible + ?Sized> Deserialize<SocketAddrV6, D> for ArchivedSocketAddrV6
 impl PartialEq<SocketAddrV6> for ArchivedSocketAddrV6 {
     #[inline]
     fn eq(&self, other: &SocketAddrV6) -> bool {
-        self.to_socket_addr_v6().eq(other)
+        self.as_socket_addr_v6().eq(other)
     }
 }
 
@@ -694,7 +692,7 @@ impl PartialEq<ArchivedSocketAddrV6> for SocketAddrV6 {
 impl PartialOrd<SocketAddrV6> for ArchivedSocketAddrV6 {
     #[inline]
     fn partial_cmp(&self, other: &SocketAddrV6) -> Option<cmp::Ordering> {
-        self.to_socket_addr_v6().partial_cmp(other)
+        self.as_socket_addr_v6().partial_cmp(other)
     }
 }
 
@@ -719,10 +717,10 @@ pub enum ArchivedSocketAddr {
 impl ArchivedSocketAddr {
     /// Returns a [`SocketAddr`](std::net::SocketAddr) with the same value.
     #[inline]
-    pub fn to_socket_addr(&self) -> SocketAddr {
+    pub fn as_socket_addr(&self) -> SocketAddr {
         match self {
-            ArchivedSocketAddr::V4(addr) => SocketAddr::V4(addr.to_socket_addr_v4()),
-            ArchivedSocketAddr::V6(addr) => SocketAddr::V6(addr.to_socket_addr_v6()),
+            ArchivedSocketAddr::V4(addr) => SocketAddr::V4(addr.as_socket_addr_v4()),
+            ArchivedSocketAddr::V6(addr) => SocketAddr::V6(addr.as_socket_addr_v6()),
         }
     }
 
@@ -730,8 +728,8 @@ impl ArchivedSocketAddr {
     #[inline]
     pub fn ip(&self) -> IpAddr {
         match self {
-            ArchivedSocketAddr::V4(addr) => IpAddr::V4(addr.ip().to_ipv4()),
-            ArchivedSocketAddr::V6(addr) => IpAddr::V6(addr.ip().to_ipv6()),
+            ArchivedSocketAddr::V4(addr) => IpAddr::V4(addr.ip().as_ipv4()),
+            ArchivedSocketAddr::V6(addr) => IpAddr::V6(addr.ip().as_ipv6()),
         }
     }
 
@@ -748,20 +746,14 @@ impl ArchivedSocketAddr {
     /// [`IPv4` address](std::net::IpAddr::V4), and `false` otherwise.
     #[inline]
     pub fn is_ipv4(&self) -> bool {
-        match self {
-            ArchivedSocketAddr::V4(_) => true,
-            _ => false,
-        }
+        matches!(self, ArchivedSocketAddr::V4(_))
     }
 
     /// Returns `true` if the [IP address](std::net::IpAddr) in this `ArchivedSocketAddr` is an
     /// [`IPv6` address](std::net::IpAddr::V6), and `false` otherwise.
     #[inline]
     pub fn is_ipv6(&self) -> bool {
-        match self {
-            ArchivedSocketAddr::V6(_) => true,
-            _ => false,
-        }
+        matches!(self, ArchivedSocketAddr::V6(_))
     }
 }
 
@@ -769,7 +761,7 @@ impl ToSocketAddrs for ArchivedSocketAddr {
     type Iter = <SocketAddr as ToSocketAddrs>::Iter;
 
     fn to_socket_addrs(&self) -> io::Result<Self::Iter> {
-        self.to_socket_addr().to_socket_addrs()
+        self.as_socket_addr().to_socket_addrs()
     }
 }
 
@@ -852,7 +844,7 @@ impl<D: Fallible + ?Sized> Deserialize<SocketAddr, D> for Archived<SocketAddr> {
 impl PartialEq<SocketAddr> for ArchivedSocketAddr {
     #[inline]
     fn eq(&self, other: &SocketAddr) -> bool {
-        self.to_socket_addr().eq(other)
+        self.as_socket_addr().eq(other)
     }
 }
 
@@ -866,7 +858,7 @@ impl PartialEq<ArchivedSocketAddr> for SocketAddr {
 impl PartialOrd<SocketAddr> for ArchivedSocketAddr {
     #[inline]
     fn partial_cmp(&self, other: &SocketAddr) -> Option<cmp::Ordering> {
-        self.to_socket_addr().partial_cmp(other)
+        self.as_socket_addr().partial_cmp(other)
     }
 }
 
