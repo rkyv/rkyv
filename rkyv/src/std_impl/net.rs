@@ -284,7 +284,9 @@ impl PartialOrd<ArchivedIpv6Addr> for Ipv6Addr {
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
 pub enum ArchivedIpAddr {
+    /// An IPv4 address.
     V4(ArchivedIpv4Addr),
+    /// An IPv6 address.
     V6(ArchivedIpv6Addr),
 }
 
@@ -708,7 +710,9 @@ impl PartialOrd<ArchivedSocketAddrV6> for SocketAddrV6 {
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
 pub enum ArchivedSocketAddr {
+    /// An IPv4 socket address.
     V4(ArchivedSocketAddrV4),
+    /// An IPv6 socket address.
     V6(ArchivedSocketAddrV6),
 }
 
