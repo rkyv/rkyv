@@ -3,7 +3,7 @@ use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{
     parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Error, Fields, Ident,
-    Index, Token, WherePredicate,
+    Index, Token, WherePredicate, Generics,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -29,10 +29,14 @@ fn derive_deserialize_impl(
         }
     }
 
-    let mut impl_input_generics = input.generics.clone();
-    impl_input_generics
-        .params
-        .push(parse_quote! { __D: Fallible + ?Sized });
+    let mut impl_input_generics = Generics::default();
+    impl_input_generics.lt_token = Some(Default::default());
+    impl_input_generics.params.push(parse_quote! { __D: Fallible + ?Sized });
+    for param in input.generics.params.iter() {
+        impl_input_generics.params.push(param.clone());
+    }
+    impl_input_generics.gt_token = Some(Default::default());
+    impl_input_generics.where_clause = input.generics.where_clause.clone();
 
     let name = &input.ident;
     let (impl_generics, _, _) = impl_input_generics.split_for_impl();

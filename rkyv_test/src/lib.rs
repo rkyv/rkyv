@@ -1557,4 +1557,11 @@ mod tests {
         check::<AlignedSerializer<AlignedVec>>();
         check::<AlignedSerializer<&mut AlignedVec>>();
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn const_generics() {
+        #[derive(Archive, Deserialize, Serialize)]
+        pub struct Array<T, const N: usize>([T; N]);
+    }
 }
