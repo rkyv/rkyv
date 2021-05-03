@@ -48,7 +48,7 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
             } else if path.is_ident("strict") {
                 try_set_attribute(&mut attributes.strict, path.clone(), "strict")
             } else {
-                Err(Error::new_spanned(path, "unrecognized archive parameter"))
+                Err(Error::new_spanned(path, "unrecognized archive argument"))
             }
         }
         Meta::List(list) => {
@@ -95,19 +95,19 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                             } else {
                                 return Err(Error::new_spanned(
                                     bound,
-                                    "bounds must be either serialize or deserialize",
+                                    "bound must be either serialize or deserialize",
                                 ));
                             }
                         } else {
                             return Err(Error::new_spanned(
                                 bound,
-                                "bounds arguments must be a string",
+                                "bound arguments must be a string",
                             ));
                         }
                     } else {
                         return Err(Error::new_spanned(
                             bound,
-                            "bounds arguments must be serialize or deserialize bounds to apply",
+                            "bound arguments must be serialize or deserialize bounds to apply",
                         ));
                     }
                 }
@@ -115,7 +115,7 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
             } else {
                 Err(Error::new_spanned(
                     &list.path,
-                    "unrecognized archive parameter",
+                    "unrecognized archive argument",
                 ))
             }
         }
@@ -141,7 +141,7 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                     Err(Error::new_spanned(meta, "resolver must be a string"))
                 }
             } else {
-                Err(Error::new_spanned(meta, "unrecognized archive parameter"))
+                Err(Error::new_spanned(meta, "unrecognized archive argument"))
             }
         }
     }
@@ -159,7 +159,7 @@ pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
                         } else {
                             return Err(Error::new_spanned(
                                 nested,
-                                "archive parameters must be metas"
+                                "archive arguments must be metas"
                             ));
                         }
                     }
@@ -170,7 +170,7 @@ pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
                         } else {
                             return Err(Error::new_spanned(
                                 nested,
-                                "archive_attr parameters must be metas"
+                                "archive_attr arguments must be metas"
                             ));
                         }
                     }

@@ -22,8 +22,7 @@ fn derive_serialize_impl(
 ) -> Result<TokenStream, Error> {
     let where_clause = input.generics.make_where_clause();
     if let Some(ref bounds) = attributes.serialize_bound {
-        let clauses =
-            bounds.parse_with(Punctuated::<WherePredicate, Token![,]>::parse_terminated)?;
+        let clauses = bounds.parse_with(Punctuated::<WherePredicate, Token![,]>::parse_terminated)?;
         for clause in clauses {
             where_clause.predicates.push(clause);
         }
