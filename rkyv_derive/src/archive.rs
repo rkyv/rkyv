@@ -28,9 +28,7 @@ fn derive_archive_impl(
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 
-    let archive_derives = attributes
-        .derives
-        .as_ref()
+    let archive_attrs = attributes.attrs.iter()
         .map::<Attribute, _>(|d| parse_quote! { #[#d] });
 
     let archived = attributes.archived.as_ref().map_or_else(
@@ -160,7 +158,7 @@ fn derive_archive_impl(
 
                     (
                         quote! {
-                            #archive_derives
+                            #(#archive_attrs)*
                             #strict
                             #vis struct #archived #generics #archive_where {
                                 #(#archived_fields,)*
@@ -304,7 +302,7 @@ fn derive_archive_impl(
 
                     (
                         quote! {
-                            #archive_derives
+                            #(#archive_attrs)*
                             #strict
                             #vis struct #archived #generics (#(#archived_fields,)*) #archive_where;
 
@@ -372,7 +370,7 @@ fn derive_archive_impl(
 
                     (
                         quote! {
-                            #archive_derives
+                            #(#archive_attrs)*
                             #strict
                             #vis struct #archived #generics
                             #where_clause;
@@ -893,7 +891,7 @@ fn derive_archive_impl(
 
             (
                 quote! {
-                    #archive_derives
+                    #(#archive_attrs)*
                     #[repr(#archived_repr)]
                     #vis enum #archived #generics #archive_where {
                         #(#archived_variants,)*

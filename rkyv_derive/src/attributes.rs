@@ -1,6 +1,7 @@
 use quote::ToTokens;
 use syn::{AttrStyle, DeriveInput, Error, Ident, Lit, LitStr, Meta, MetaList, NestedMeta, Path};
 
+#[derive(Default)]
 pub struct Repr {
     pub rust: Option<Path>,
     pub transparent: Option<Path>,
@@ -9,19 +10,9 @@ pub struct Repr {
     pub int: Option<Path>,
 }
 
-impl Default for Repr {
-    fn default() -> Self {
-        Self {
-            rust: None,
-            transparent: None,
-            packed: None,
-            c: None,
-            int: None,
-        }
-    }
-}
-
+#[derive(Default)]
 pub struct Attributes {
+    pub attrs: Vec<Meta>,
     pub copy: Option<Path>,
     pub repr: Repr,
     pub derives: Option<MetaList>,
@@ -31,22 +22,6 @@ pub struct Attributes {
     pub archived: Option<Ident>,
     pub resolver: Option<Ident>,
     pub strict: Option<Path>,
-}
-
-impl Default for Attributes {
-    fn default() -> Self {
-        Self {
-            copy: None,
-            repr: Default::default(),
-            derives: None,
-            compares: None,
-            serialize_bound: None,
-            deserialize_bound: None,
-            archived: None,
-            resolver: None,
-            strict: None,
-        }
-    }
 }
 
 fn try_set_attribute<T: ToTokens>(
@@ -77,9 +52,7 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
             }
         }
         Meta::List(list) => {
-            if list.path.is_ident("derive") {
-                try_set_attribute(&mut attributes.derives, list.clone(), "derive")
-            } else if list.path.is_ident("compare") {
+            if list.path.is_ident("compare") {
                 if attributes.compares.is_none() {
                     let mut compares = Vec::new();
                     for compare in list.nested.iter() {
@@ -183,6 +156,22 @@ pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
                     for nested in meta.nested.iter() {
                         if let NestedMeta::Meta(meta) = nested {
                             parse_archive_attributes(&mut result, meta)?;
+                        } else {
+                            return Err(Error::new_spanned(
+                                nested,
+                                "archive parameters must be metas"
+                            ));
+                        }
+                    }
+                } else if meta.path.is_ident("archive_attr") {
+                    for nested in meta.nested.iter() {
+                        if let NestedMeta::Meta(meta) = nested {
+                            result.attrs.push(meta.clone());
+                        } else {
+                            return Err(Error::new_spanned(
+                                nested,
+                                "archive_attr parameters must be metas"
+                            ));
                         }
                     }
                 } else if meta.path.is_ident("repr") {

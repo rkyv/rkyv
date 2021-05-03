@@ -521,7 +521,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_derives() {
         #[derive(Archive, Serialize, Clone)]
-        #[archive(derive(Clone, Debug, PartialEq))]
+        #[archive_attr(derive(Clone, Debug, PartialEq))]
         struct Test(i32);
 
         let value = Test(42);
@@ -628,7 +628,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(derive(TypeName))]
+        #[archive_attr(derive(TypeName))]
         pub struct Test {
             id: i32,
         }
@@ -706,7 +706,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(derive(TypeName))]
+        #[archive_attr(derive(TypeName))]
         pub struct Test {
             id: i32,
         }
@@ -760,7 +760,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(derive(TypeName))]
+        #[archive_attr(derive(TypeName))]
         pub struct Test<T> {
             value: T,
         }
@@ -1043,7 +1043,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize)]
-        #[archive(derive(TypeName))]
+        #[archive_attr(derive(TypeName))]
         struct Test(i32);
 
         #[archive_dyn]

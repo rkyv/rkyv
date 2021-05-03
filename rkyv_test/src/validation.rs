@@ -148,12 +148,12 @@ fn cycle_detection() {
     };
 
     #[derive(Archive)]
-    #[archive(derive(Debug))]
+    #[archive_attr(derive(Debug))]
     struct NodePtr(Box<Node>);
 
     #[allow(dead_code)]
     #[derive(Archive)]
-    #[archive(derive(Debug))]
+    #[archive_attr(derive(Debug))]
     enum Node {
         Nil,
         Cons(#[omit_bounds] Box<Node>),
@@ -227,7 +227,7 @@ fn cycle_detection() {
 #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
 fn derive_unit_struct() {
     #[derive(Archive, Serialize)]
-    #[archive(derive(CheckBytes))]
+    #[archive_attr(derive(CheckBytes))]
     struct Test;
 
     serialize_and_check(&Test);
@@ -237,7 +237,7 @@ fn derive_unit_struct() {
 #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
 fn derive_struct() {
     #[derive(Archive, Serialize)]
-    #[archive(derive(CheckBytes))]
+    #[archive_attr(derive(CheckBytes))]
     struct Test {
         a: u32,
         b: String,
@@ -255,7 +255,7 @@ fn derive_struct() {
 #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
 fn derive_tuple_struct() {
     #[derive(Archive, Serialize)]
-    #[archive(derive(CheckBytes))]
+    #[archive_attr(derive(CheckBytes))]
     struct Test(u32, String, Box<Vec<String>>);
 
     serialize_and_check(&Test(
@@ -269,7 +269,7 @@ fn derive_tuple_struct() {
 #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
 fn derive_enum() {
     #[derive(Archive, Serialize)]
-    #[archive(derive(CheckBytes))]
+    #[archive_attr(derive(CheckBytes))]
     enum Test {
         A(u32),
         B(String),
@@ -283,6 +283,22 @@ fn derive_enum() {
         "no".to_string(),
     ])));
 }
+
+// #[test]
+// #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+// fn recursive_type() {
+//     #[derive(Archive, Serialize)]
+//     // The derive macros don't apply the right bounds from Box so we have to manually specify
+//     // what bounds to apply
+//     #[archive(bound(serialize = "__S: Serializer", deserialize = "__D: Deserializer"))]
+//     #[archive_attr(derive(CheckBytes))]
+//     enum Node {
+//         Nil,
+//         Cons(#[omit_bounds] Box<Node>),
+//     }
+
+//     serialize_and_check(&Node::Cons(Box::new(Node::Cons(Box::new(Node::Nil)))));
+// }
 
 #[test]
 #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
@@ -317,7 +333,7 @@ fn check_dyn() {
     }
 
     #[derive(Archive, Serialize)]
-    #[archive(derive(CheckBytes, TypeName))]
+    #[archive_attr(derive(CheckBytes, TypeName))]
     pub struct Test {
         id: i32,
     }
@@ -340,7 +356,7 @@ fn check_dyn() {
     serialize_and_check(&value);
 
     #[derive(Archive, Serialize)]
-    #[archive(derive(TypeName))]
+    #[archive_attr(derive(TypeName))]
     pub struct TestUnchecked {
         id: i32,
     }
@@ -375,7 +391,7 @@ fn check_shared_ptr() {
     use std::rc::Rc;
 
     #[derive(Archive, Serialize, Eq, PartialEq)]
-    #[archive(derive(CheckBytes))]
+    #[archive_attr(derive(CheckBytes))]
     struct Test {
         a: Rc<u32>,
         b: Rc<u32>,

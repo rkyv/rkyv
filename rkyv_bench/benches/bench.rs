@@ -114,7 +114,7 @@ impl Generate for GameType {
 }
 
 #[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
-#[archive(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes))]
 pub struct Item {
     count: i8,
     slot: u8,
@@ -170,7 +170,7 @@ impl Generate for Abilities {
 }
 
 #[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
-#[archive(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes))]
 pub struct Entity {
     id: String,
     pos: (f64, f64, f64),
@@ -222,7 +222,7 @@ impl Generate for Entity {
 }
 
 #[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
-#[archive(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes))]
 pub struct RecipeBook {
     recipes: Vec<String>,
     to_be_displayed: Vec<String>,
@@ -272,7 +272,7 @@ impl Generate for RecipeBook {
 }
 
 #[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
-#[archive(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes))]
 pub struct Player {
     game_type: GameType,
     previous_game_type: GameType,
