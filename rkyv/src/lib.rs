@@ -66,6 +66,7 @@
 #![cfg_attr(feature = "specialization", feature(min_specialization))]
 #![cfg_attr(feature = "specialization", feature(rustc_attrs))]
 
+#[doc(hidden)]
 #[macro_use]
 pub mod macros;
 pub mod core_impl;
