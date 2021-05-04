@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="https://raw.githubusercontent.com/djkoloski/rkyv/master/media/logo_text_black.svg">
+    <img src="https://raw.githubusercontent.com/djkoloski/rkyv/master/media/logo_text_color.svg">
 </p>
 <p align="center">
     rkyv (<em>archive</em>) is a zero-copy deserialization framework for Rust
