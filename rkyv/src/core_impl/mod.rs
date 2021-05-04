@@ -276,32 +276,37 @@ impl<T> ArchivePointee for [T] {
     }
 }
 
-#[cfg(any(not(feature = "std"), feature = "specialization"))]
-impl<T: ArchiveCopy + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+#[cfg(not(feature = "std"))]
+impl<T: Archive<Resolver = ()> + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
-    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
-            Ok(0)
-        } else {
-            unsafe {
-                let bytes = core::slice::from_raw_parts(
-                    (self.as_ptr() as *const T).cast::<u8>(),
-                    self.len() * core::mem::size_of::<T>(),
-                );
-                let result = serializer.align_for::<T>()?;
-                serializer.write(bytes)?;
+    default! {
+        fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
+            if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
+                Ok(0)
+            } else {
+                for value in self {
+                    value.serialize(serializer)?;
+                }
+                let result = serializer.align_for::<T::Archived>()?;
+                unsafe {
+                    for value in self {
+                        serializer.resolve_aligned(value, ())?;
+                    }
+                }
                 Ok(result)
             }
         }
     }
 
     #[inline]
-    fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
-        Ok(())
+    default! {
+        fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+            Ok(())
+        }
     }
 }
 
-#[cfg(any(feature = "std", feature = "specialization"))]
+#[cfg(feature = "std")]
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
     default! {
@@ -329,6 +334,31 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
         fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
             Ok(())
         }
+    }
+}
+
+#[cfg(feature = "specialization")]
+impl<T: Archive<Resolver = ()> + ArchiveCopy + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+    #[inline]
+    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
+        if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
+            Ok(0)
+        } else {
+            unsafe {
+                let bytes = core::slice::from_raw_parts(
+                    (self.as_ptr() as *const T).cast::<u8>(),
+                    self.len() * core::mem::size_of::<T>(),
+                );
+                let result = serializer.align_for::<T>()?;
+                serializer.write(bytes)?;
+                Ok(result)
+            }
+        }
+    }
+
+    #[inline]
+    fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+        Ok(())
     }
 }
 
