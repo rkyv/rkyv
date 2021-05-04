@@ -16,10 +16,10 @@ fn main() {
     let has_atomic32 = has_atomic64 || is_wasm;
 
     if has_atomic64 {
-        println!("cargo:rustc-cfg=rkyv_atomic_64");
+        println!("cargo:rustc-cfg=has_atomics_64");
     }
 
     if has_atomic32 {
-        println!("cargo:rustc-cfg=rkyv_atomic");
+        println!("cargo:rustc-cfg=has_atomics");
     }
 }

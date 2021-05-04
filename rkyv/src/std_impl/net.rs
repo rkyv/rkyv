@@ -168,22 +168,23 @@ impl PartialOrd<ArchivedIpv4Addr> for Ipv4Addr {
 #[derive(Clone, Copy, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedIpv6Addr {
-    segments: [u16; 8],
+    octets: [u8; 16],
 }
 
 impl ArchivedIpv6Addr {
     /// Returns an [`Ipv6Addr`](std::net::Ipv6Addr) with the same value.
     #[inline]
     pub const fn as_ipv6(&self) -> Ipv6Addr {
+        let segments = self.segments();
         Ipv6Addr::new(
-            u16::from_be(self.segments[0]),
-            u16::from_be(self.segments[1]),
-            u16::from_be(self.segments[2]),
-            u16::from_be(self.segments[3]),
-            u16::from_be(self.segments[4]),
-            u16::from_be(self.segments[5]),
-            u16::from_be(self.segments[6]),
-            u16::from_be(self.segments[7]),
+            segments[0],
+            segments[1],
+            segments[2],
+            segments[3],
+            segments[4],
+            segments[5],
+            segments[6],
+            segments[7],
         )
     }
 
@@ -220,7 +221,16 @@ impl ArchivedIpv6Addr {
     /// Returns the eight 16-bit segments that make up this address.
     #[inline]
     pub const fn segments(&self) -> [u16; 8] {
-        self.segments
+        [
+            u16::from_be_bytes([self.octets[0], self.octets[1]]),
+            u16::from_be_bytes([self.octets[2], self.octets[3]]),
+            u16::from_be_bytes([self.octets[4], self.octets[5]]),
+            u16::from_be_bytes([self.octets[6], self.octets[7]]),
+            u16::from_be_bytes([self.octets[8], self.octets[9]]),
+            u16::from_be_bytes([self.octets[10], self.octets[11]]),
+            u16::from_be_bytes([self.octets[12], self.octets[13]]),
+            u16::from_be_bytes([self.octets[14], self.octets[15]]),
+        ]
     }
 
     /// Converts this address to an [`IPv4` address](std::net::Ipv4Addr). Returns
@@ -477,14 +487,14 @@ impl PartialOrd<ArchivedIpAddr> for IpAddr {
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedSocketAddrV4 {
     ip: ArchivedIpv4Addr,
-    port: u16,
+    port: Archived<u16>,
 }
 
 impl ArchivedSocketAddrV4 {
     /// Returns a [`SocketAddrV4`](std::net::SocketAddrV4) with the same value.
     #[inline]
     pub fn as_socket_addr_v4(&self) -> SocketAddrV4 {
-        SocketAddrV4::new(self.ip.as_ipv4(), self.port)
+        SocketAddrV4::new(self.ip.as_ipv4(), self.port())
     }
 
     /// Returns the IP address associated with this socket address.
@@ -496,7 +506,7 @@ impl ArchivedSocketAddrV4 {
     /// Returns the port number associated with this socket address.
     #[inline]
     pub fn port(&self) -> u16 {
-        self.port
+        self.port.into()
     }
 }
 
@@ -540,7 +550,7 @@ impl<D: Fallible + ?Sized> Deserialize<SocketAddrV4, D> for ArchivedSocketAddrV4
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<SocketAddrV4, D::Error> {
         let ip = self.ip.deserialize(deserializer)?;
-        Ok(SocketAddrV4::new(ip, self.port))
+        Ok(SocketAddrV4::new(ip, self.port()))
     }
 }
 
@@ -578,16 +588,16 @@ impl PartialOrd<ArchivedSocketAddrV4> for SocketAddrV4 {
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedSocketAddrV6 {
     ip: ArchivedIpv6Addr,
-    port: u16,
-    flowinfo: u32,
-    scope_id: u32,
+    port: Archived<u16>,
+    flowinfo: Archived<u32>,
+    scope_id: Archived<u32>,
 }
 
 impl ArchivedSocketAddrV6 {
     /// Returns a [`SocketAddrV6`](std::net::SocketAddrV6) with the same value.
     #[inline]
     pub fn as_socket_addr_v6(&self) -> SocketAddrV6 {
-        SocketAddrV6::new(self.ip.as_ipv6(), self.port, self.flowinfo, self.scope_id)
+        SocketAddrV6::new(self.ip.as_ipv6(), self.port(), self.flowinfo(), self.scope_id())
     }
 
     /// Returns the flow information associated with this address.
@@ -595,7 +605,7 @@ impl ArchivedSocketAddrV6 {
     /// See [`SocketAddrV6::flowinfo()`](std::net::SocketAddrV6::flowinfo()) for more details.
     #[inline]
     pub fn flowinfo(&self) -> u32 {
-        self.flowinfo
+        self.flowinfo.into()
     }
 
     /// Returns the IP address associated with this socket address.
@@ -607,7 +617,7 @@ impl ArchivedSocketAddrV6 {
     /// Returns the port number associated with this socket address.
     #[inline]
     pub fn port(&self) -> u16 {
-        self.port
+        self.port.into()
     }
 
     /// Returns the scope ID associated with this address.
@@ -615,7 +625,7 @@ impl ArchivedSocketAddrV6 {
     /// See [`SocketAddrV6::scope_id()`](std::net::SocketAddrV6::scope_id()) for more details.
     #[inline]
     pub fn scope_id(&self) -> u32 {
-        self.scope_id
+        self.scope_id.into()
     }
 }
 
@@ -671,9 +681,9 @@ impl<D: Fallible + ?Sized> Deserialize<SocketAddrV6, D> for ArchivedSocketAddrV6
         let ip = self.ip.deserialize(deserializer)?;
         Ok(SocketAddrV6::new(
             ip,
-            self.port,
-            self.flowinfo,
-            self.scope_id,
+            self.port(),
+            self.flowinfo(),
+            self.scope_id(),
         ))
     }
 }

@@ -96,7 +96,8 @@ fn generate_vec<R: Rng, T: Generate>(rng: &mut R, range: core::ops::Range<usize>
     serde::Deserialize,
     serde::Serialize,
 )]
-#[archive(copy)]
+#[cfg_attr(not(any(feature = "archive_le", feature = "archive_be")), archive(copy))]
+#[cfg_attr(any(feature = "archive_le", feature = "archive_be"), archive_attr(derive(CheckBytes)))]
 #[repr(u8)]
 pub enum GameType {
     Survival,
@@ -156,7 +157,8 @@ impl Generate for Item {
     serde::Serialize,
     serde::Deserialize,
 )]
-#[archive(copy)]
+#[cfg_attr(not(any(feature = "archive_le", feature = "archive_be")), archive(copy))]
+#[cfg_attr(any(feature = "archive_le", feature = "archive_be"), archive_attr(derive(CheckBytes)))]
 pub struct Abilities {
     walk_speed: f32,
     fly_speed: f32,

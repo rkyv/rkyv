@@ -4,7 +4,7 @@ use crate::{
     offset_of,
     std_impl::chd::{ArchivedHashMap, Entry},
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
-    Fallible, RawRelPtr,
+    Archived, Fallible, FixedUsize, RawRelPtr,
 };
 use bytecheck::{CheckBytes, SliceCheckError, Unreachable};
 use core::{
@@ -150,10 +150,11 @@ where
     ) -> Result<&'a Self, Self::Error> {
         let bytes = value.cast::<u8>();
 
-        let len = *u32::check_bytes(
+        let len = *Archived::<u32>::check_bytes(
             bytes.add(offset_of!(ArchivedHashMap<K, V>, len)).cast(),
             context,
         )?;
+        let len = FixedUsize::from(len) as usize;
 
         let displace_rel_ptr = RawRelPtr::manual_check_bytes(
             bytes
@@ -164,15 +165,16 @@ where
         let displace_data_ptr = context
             .check_rel_ptr(displace_rel_ptr.base(), displace_rel_ptr.offset())
             .map_err(HashMapError::ContextError)?;
-        Layout::array::<u32>(len as usize)?;
-        let displace_ptr = ptr_meta::from_raw_parts(displace_data_ptr.cast(), len as usize);
+        Layout::array::<Archived<u32>>(len)?;
+        let displace_ptr = ptr_meta::from_raw_parts(displace_data_ptr.cast(), len);
         context
             .claim_owned_ptr(displace_ptr)
             .map_err(HashMapError::ContextError)?;
-        let displace = <[u32]>::check_bytes(displace_ptr, context)?;
+        let displace = <[Archived<u32>]>::check_bytes(displace_ptr, context)?;
 
         for (i, &d) in displace.iter().enumerate() {
-            if d >= len && d < 0x80_00_00_00 {
+            let d = u32::from(d);
+            if d as usize >= len && d < 0x80_00_00_00 {
                 return Err(HashMapError::InvalidDisplacement { index: i, value: d });
             }
         }
@@ -200,7 +202,7 @@ where
             let index = if displace == u32::MAX {
                 return Err(HashMapError::InvalidKeyPosition { index: i as usize });
             } else if displace & 0x80_00_00_00 == 0 {
-                displace as u64
+                u32::from(displace) as u64
             } else {
                 let mut hasher = ArchivedHashMap::<K, V>::make_hasher();
                 displace.hash(&mut hasher);

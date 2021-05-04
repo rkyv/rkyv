@@ -53,7 +53,7 @@ trait ExampleTrait {
 }
 
 #[derive(Archive, Serialize, Deserialize)]
-#[archive(derive(TypeName))]
+#[archive_attr(derive(TypeName))]
 struct StringStruct(String);
 
 #[archive_dyn]
@@ -70,7 +70,7 @@ impl ExampleTrait for Archived<StringStruct> {
 }
 
 #[derive(Archive, Serialize, Deserialize)]
-#[archive(derive(TypeName))]
+#[archive_attr(derive(TypeName))]
 struct IntStruct(i32);
 
 #[archive_dyn(deserialize)]

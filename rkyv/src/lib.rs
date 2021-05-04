@@ -636,7 +636,7 @@ impl RawRelPtr {
     /// output.
     #[inline]
     pub fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
-        let offset = (to as isize - from as isize) as ArchivedIsize;
+        let offset = ArchivedIsize::from((to as isize - from as isize) as FixedIsize);
         unsafe {
             project_struct!(out: Self => offset: ArchivedIsize)
                 .as_mut_ptr()

@@ -706,7 +706,7 @@ pub type CheckTypeError<T, C> =
 /// use bytecheck::CheckBytes;
 ///
 /// #[derive(Archive, Serialize)]
-/// #[archive(derive(CheckBytes))]
+/// #[archive_attr(derive(CheckBytes))]
 /// struct Example {
 ///     name: String,
 ///     value: i32,

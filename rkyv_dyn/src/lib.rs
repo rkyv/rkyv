@@ -144,7 +144,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// }
 ///
 /// #[derive(Archive, Serialize, Deserialize)]
-/// #[archive(derive(TypeName))]
+/// #[archive_attr(derive(TypeName))]
 /// struct StringStruct(String);
 ///
 /// #[archive_dyn(deserialize)]
@@ -161,7 +161,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// }
 ///
 /// #[derive(Archive, Serialize, Deserialize)]
-/// #[archive(derive(TypeName))]
+/// #[archive_attr(derive(TypeName))]
 /// struct IntStruct(i32);
 ///
 /// #[archive_dyn(deserialize)]

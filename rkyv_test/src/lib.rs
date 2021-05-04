@@ -144,7 +144,7 @@ mod no_std_tests {
         test_archive(&123u8);
         test_archive(&123456u32);
         test_archive(&1234567890u128);
-        #[cfg(not(feature = "strict"))]
+        #[cfg(not(any(feature = "strict", feature = "archive_le", feature = "archive_be")))]
         test_archive(&(24, true, 16f32));
         test_archive(&[1, 2, 3, 4, 5, 6]);
 
@@ -271,15 +271,18 @@ mod tests {
     fn archive_hash_map() {
         use std::collections::HashMap;
 
-        test_archive(&HashMap::<i32, i32>::new());
+        #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
+        {
+            test_archive(&HashMap::<i32, i32>::new());
 
-        let mut hash_map = HashMap::new();
-        hash_map.insert(1, 2);
-        hash_map.insert(3, 4);
-        hash_map.insert(5, 6);
-        hash_map.insert(7, 8);
+            let mut hash_map = HashMap::new();
+            hash_map.insert(1, 2);
+            hash_map.insert(3, 4);
+            hash_map.insert(5, 6);
+            hash_map.insert(7, 8);
 
-        test_archive(&hash_map);
+            test_archive(&hash_map);
+        }
 
         let mut hash_map = HashMap::new();
         hash_map.insert("hello".to_string(), "world".to_string());
@@ -470,6 +473,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
     fn archive_copy() {
         #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
         #[archive(copy)]
@@ -670,7 +674,7 @@ mod tests {
 
         impl TestTrait for Archived<Test> {
             fn get_id(&self) -> i32 {
-                self.id
+                self.id.into()
             }
         }
 
@@ -720,7 +724,7 @@ mod tests {
 
         impl TestTrait for Archived<Test> {
             fn get_id(&self) -> i32 {
-                self.id
+                self.id.into()
             }
         }
 
@@ -774,7 +778,7 @@ mod tests {
 
         impl TestTrait<i32> for ArchivedTest<i32> {
             fn get_value(&self) -> i32 {
-                self.value
+                self.value.into()
             }
         }
 
@@ -899,14 +903,14 @@ mod tests {
             TestTuple,
         };
 
-        TestTuple(42);
-        ArchivedTestTuple(42);
-        TestStruct { value: 42 };
-        ArchivedTestStruct { value: 42 };
-        TestEnum::B(42);
-        TestEnum::C { value: 42 };
-        ArchivedTestEnum::B(42);
-        ArchivedTestEnum::C { value: 42 };
+        TestTuple(42.into());
+        ArchivedTestTuple(42.into());
+        TestStruct { value: 42.into() };
+        ArchivedTestStruct { value: 42.into() };
+        TestEnum::B(42.into());
+        TestEnum::C { value: 42.into() };
+        ArchivedTestEnum::B(42.into());
+        ArchivedTestEnum::C { value: 42.into() };
     }
 
     #[test]
@@ -917,7 +921,7 @@ mod tests {
         let mut buf = serializer.into_inner();
         let mut value = unsafe { archived_root_mut::<i32>(Pin::new(buf.as_mut())) };
         assert_eq!(*value, 42);
-        *value = 11;
+        *value = 11.into();
         assert_eq!(*value, 11);
     }
 
@@ -966,10 +970,10 @@ mod tests {
         assert_eq!(value.b[0], "hello");
         assert_eq!(value.b[1], "world");
         assert_eq!(value.c.len(), 2);
-        assert_eq!(value.c.get(&1).unwrap(), &[4, 2]);
-        assert_eq!(value.c.get(&5).unwrap(), &[17, 24]);
+        assert_eq!(value.c.get(&1.into()).unwrap(), &[4, 2]);
+        assert_eq!(value.c.get(&5.into()).unwrap(), &[17, 24]);
 
-        *value.as_mut().a().get_pin() = 50;
+        *value.as_mut().a().get_pin() = 50.into();
         assert_eq!(*value.a, 50);
 
         value
@@ -987,14 +991,14 @@ mod tests {
         assert_eq!(value.b[0], "HELLO");
         assert_eq!(value.b[1], "WORLD");
 
-        let mut c1 = value.as_mut().c().get_pin(&1).unwrap();
-        c1[0] = 7;
-        c1[1] = 18;
-        assert_eq!(value.c.get(&1).unwrap(), &[7, 18]);
-        let mut c5 = value.as_mut().c().get_pin(&5).unwrap();
-        c5[0] = 6;
-        c5[1] = 99;
-        assert_eq!(value.c.get(&5).unwrap(), &[6, 99]);
+        let mut c1 = value.as_mut().c().get_pin(&1.into()).unwrap();
+        c1[0] = 7.into();
+        c1[1] = 18.into();
+        assert_eq!(value.c.get(&1.into()).unwrap(), &[7, 18]);
+        let mut c5 = value.as_mut().c().get_pin(&5.into()).unwrap();
+        c5[0] = 6.into();
+        c5[1] = 99.into();
+        assert_eq!(value.c.get(&5.into()).unwrap(), &[6, 99]);
     }
 
     #[test]
@@ -1021,7 +1025,7 @@ mod tests {
             panic!("incorrect enum after archiving");
         }
 
-        *value = Archived::<Test>::C(42);
+        *value = Archived::<Test>::C(42.into());
 
         if let Archived::<Test>::C(i) = *value {
             assert_eq!(i, 42);
@@ -1061,12 +1065,12 @@ mod tests {
 
         impl TestTrait for Archived<Test> {
             fn value(&self) -> i32 {
-                self.0
+                self.0.into()
             }
             fn set_value(self: Pin<&mut Self>, value: i32) {
                 unsafe {
                     let s = self.get_unchecked_mut();
-                    s.0 = value;
+                    s.0 = value.into();
                 }
             }
         }
@@ -1276,7 +1280,7 @@ mod tests {
         let mut mutable_archived =
             unsafe { archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut())) };
         unsafe {
-            *mutable_archived.as_mut().a().get_pin_unchecked() = 42;
+            *mutable_archived.as_mut().a().get_pin_unchecked() = 42u32.into();
         }
 
         let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
@@ -1286,7 +1290,7 @@ mod tests {
         let mut mutable_archived =
             unsafe { archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut())) };
         unsafe {
-            *mutable_archived.as_mut().b().get_pin_unchecked() = 17;
+            *mutable_archived.as_mut().b().get_pin_unchecked() = 17u32.into();
         }
 
         let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
@@ -1385,7 +1389,7 @@ mod tests {
         let mut mutable_archived =
             unsafe { archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut())) };
         unsafe {
-            *mutable_archived.as_mut().a().get_pin_unchecked() = 42;
+            *mutable_archived.as_mut().a().get_pin_unchecked() = 42u32.into();
         }
 
         let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
@@ -1401,7 +1405,7 @@ mod tests {
                 .b()
                 .upgrade_pin()
                 .unwrap()
-                .get_pin_unchecked() = 17;
+                .get_pin_unchecked() = 17u32.into();
         }
 
         let archived = unsafe { archived_root::<Test>(buf.as_ref()) };

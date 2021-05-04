@@ -262,8 +262,7 @@ impl<T: Archive> ArchiveUnsized for [T] {
         out: &mut MaybeUninit<ArchivedMetadata<Self>>,
     ) {
         unsafe {
-            out.as_mut_ptr()
-                .write(ptr_meta::metadata(self) as ArchivedUsize);
+            out.as_mut_ptr().write(ArchivedUsize::from(ptr_meta::metadata(self) as FixedUsize));
         }
     }
 }
@@ -398,8 +397,7 @@ impl ArchiveUnsized for str {
         out: &mut MaybeUninit<ArchivedMetadata<Self>>,
     ) {
         unsafe {
-            out.as_mut_ptr()
-                .write(ptr_meta::metadata(self) as ArchivedUsize);
+            out.as_mut_ptr().write(ArchivedUsize::from(ptr_meta::metadata(self) as FixedUsize));
         }
     }
 }

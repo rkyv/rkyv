@@ -81,7 +81,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
     #[inline]
     unsafe fn displace(&self, index: usize) -> u32 {
-        *self.displace.as_ptr().cast::<u32>().add(index)
+        (*self.displace.as_ptr().cast::<Archived<u32>>().add(index)).into()
     }
 
     #[inline]
@@ -273,7 +273,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
         let mut entries = Vec::with_capacity(len);
         entries.resize_with(len, || None);
-        let mut displacements = vec![u32::MAX; len];
+        let mut displacements = vec![Archived::<u32>::from(u32::MAX); len];
 
         let mut first_empty = 0;
         let mut assignments = Vec::with_capacity(8);
@@ -287,7 +287,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
             start = end;
 
             if bucket_size > 1 {
-                'find_seed: for seed in 0x80_00_00_00..=0xFF_FF_FF_FF {
+                'find_seed: for seed in 0x80_00_00_00u32..=0xFF_FF_FF_FFu32 {
                     let mut base_hasher = Self::make_hasher();
                     seed.hash(&mut base_hasher);
 
@@ -307,7 +307,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
                     for i in 0..bucket_size {
                         entries[assignments[i] as usize] = Some(bucket[i].1);
                     }
-                    displacements[displace as usize] = seed;
+                    displacements[displace as usize] = seed.into();
                     break;
                 }
             } else {
@@ -317,7 +317,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
                     .unwrap();
                 first_empty += offset;
                 entries[first_empty] = Some(bucket[0].1);
-                displacements[displace as usize] = first_empty as u32;
+                displacements[displace as usize] = (first_empty as u32).into();
                 first_empty += 1;
             }
         }
@@ -591,7 +591,7 @@ impl ArchivedHashMapResolver {
         unsafe {
             project_struct!(out: ArchivedHashMap<K, V> => len: ArchivedUsize)
                 .as_mut_ptr()
-                .write(len as ArchivedUsize);
+                .write(ArchivedUsize::from(len as FixedUsize));
             RawRelPtr::emplace(
                 pos + offset_of!(ArchivedHashMap<K, V>, displace),
                 self.displace_pos,

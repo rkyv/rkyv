@@ -48,6 +48,10 @@ fn basic_functionality() {
     result.unwrap();
 
     #[cfg(not(feature = "size_64"))]
+    #[cfg(any(
+        all(target_endian = "little", not(feature = "archive_be")),
+        feature = "archive_le"
+    ))]
     // Synthetic archive (correct)
     let synthetic_buf = Aligned([
         1u8, 0u8, 0u8, 0u8, // Some + padding
@@ -57,12 +61,45 @@ fn basic_functionality() {
         0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
     ]);
 
+    #[cfg(not(feature = "size_64"))]
+    #[cfg(any(
+        all(target_endian = "big", not(feature = "archive_le")),
+        feature = "archive_be"
+    ))]
+    // Synthetic archive (correct)
+    let synthetic_buf = Aligned([
+        1u8, 0u8, 0u8, 0u8, // Some + padding
+        0u8, 0u8, 0u8, 8u8, // points 8 bytes forward
+        0u8, 0u8, 0u8, 11u8, // string is 11 characters long
+        // "Hello world"
+        0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+    ]);
+
     #[cfg(feature = "size_64")]
+    #[cfg(any(
+        all(target_endian = "little", not(feature = "archive_be")),
+        feature = "archive_le"
+    ))]
     // Synthetic archive (correct)
     let synthetic_buf = Aligned([
         1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // Some + padding
         16u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // points 16 bytes forward
         11u8, 0u8, 0u8, 0u8, // string is 11 characters long
+        0u8, 0u8, 0u8, 0u8, // padding
+        // "Hello world"
+        0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+    ]);
+
+    #[cfg(feature = "size_64")]
+    #[cfg(any(
+        all(target_endian = "big", not(feature = "archive_le")),
+        feature = "archive_be"
+    ))]
+    // Synthetic archive (correct)
+    let synthetic_buf = Aligned([
+        1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // Some + padding
+        0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 16u8, // points 16 bytes forward
+        0u8, 0u8, 0u8, 11u8, // string is 11 characters long
         0u8, 0u8, 0u8, 0u8, // padding
         // "Hello world"
         0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
@@ -347,7 +384,7 @@ fn check_dyn() {
 
     impl TestTrait for Archived<Test> {
         fn get_id(&self) -> i32 {
-            self.id
+            self.id.into()
         }
     }
 
@@ -370,7 +407,7 @@ fn check_dyn() {
 
     impl TestTrait for Archived<TestUnchecked> {
         fn get_id(&self) -> i32 {
-            self.id
+            self.id.into()
         }
     }
 
