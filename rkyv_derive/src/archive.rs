@@ -35,11 +35,13 @@ fn derive_archive_impl(
         || Ident::new(&format!("Archived{}", name), name.span()),
         |value| value.clone(),
     );
+    let archived_doc = format!("An archived `{}`", name);
 
     let resolver = attributes.resolver.as_ref().map_or_else(
         || Ident::new(&format!("{}Resolver", name), name.span()),
         |value| value.clone(),
     );
+    let resolver_doc = format!("The resolver for archived `{}`", name);
 
     let is_strict = cfg!(feature = "strict") || attributes.strict.is_some();
     let strict = is_strict.then::<Attribute, _>(|| parse_quote! { #[repr(C)] });
@@ -67,10 +69,14 @@ fn derive_archive_impl(
                     });
 
                     let archived_fields = fields.named.iter().map(|f| {
-                        let name = &f.ident;
+                        let field_name = f.ident.as_ref();
                         let ty = &f.ty;
                         let vis = &f.vis;
-                        quote_spanned! { f.span() => #vis #name: rkyv::Archived<#ty> }
+                        let field_doc = format!("The archived counterpart of `{}::{}`", name, field_name.unwrap());
+                        quote_spanned! { f.span() =>
+                            #[doc = #field_doc]
+                            #vis #field_name: rkyv::Archived<#ty>
+                        }
                     });
 
                     let resolve_fields = fields.named.iter().map(|f| {
@@ -158,12 +164,14 @@ fn derive_archive_impl(
 
                     (
                         quote! {
+                            #[doc = #archived_doc]
                             #(#archive_attrs)*
                             #strict
                             #vis struct #archived #generics #archive_where {
                                 #(#archived_fields,)*
                             }
 
+                            #[doc = #resolver_doc]
                             #vis struct #resolver #generics #archive_where {
                                 #(#resolver_fields,)*
                             }
@@ -203,10 +211,14 @@ fn derive_archive_impl(
                         quote_spanned! { f.span() => rkyv::Resolver<#ty> }
                     });
 
-                    let archived_fields = fields.unnamed.iter().map(|f| {
+                    let archived_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                         let ty = &f.ty;
                         let vis = &f.vis;
-                        quote_spanned! { f.span() => #vis rkyv::Archived<#ty> }
+                        let field_doc = format!("The archived counterpart of `{}::{}`", name, i);
+                        quote_spanned! { f.span() =>
+                            #[doc = #field_doc]
+                            #vis rkyv::Archived<#ty>
+                        }
                     });
 
                     let resolve_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
@@ -302,10 +314,12 @@ fn derive_archive_impl(
 
                     (
                         quote! {
+                            #[doc = #archived_doc]
                             #(#archive_attrs)*
                             #strict
                             #vis struct #archived #generics (#(#archived_fields,)*) #archive_where;
 
+                            #[doc = #resolver_doc]
                             #vis struct #resolver #generics (#(#resolver_fields,)*) #archive_where;
                         },
                         quote! {
@@ -370,11 +384,13 @@ fn derive_archive_impl(
 
                     (
                         quote! {
+                            #[doc = #archived_doc]
                             #(#archive_attrs)*
                             #strict
                             #vis struct #archived #generics
                             #where_clause;
 
+                            #[doc = #resolver_doc]
                             #vis struct #resolver #generics
                             #where_clause;
                         },
@@ -891,12 +907,14 @@ fn derive_archive_impl(
 
             (
                 quote! {
+                    #[doc = #archived_doc]
                     #(#archive_attrs)*
                     #[repr(#archived_repr)]
                     #vis enum #archived #generics #archive_where {
                         #(#archived_variants,)*
                     }
 
+                    #[doc = #resolver_doc]
                     #vis enum #resolver #generics #archive_where {
                         #(#resolver_variants,)*
                     }

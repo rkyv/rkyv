@@ -1565,6 +1565,14 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn const_generics() {
+        #[derive(Archive, Deserialize, Serialize, PartialEq)]
+        #[archive(compare(PartialEq))]
+        pub struct Const<const N: usize>;
+
+        test_archive(&Const::<1>);
+        test_archive(&Const::<2>);
+        test_archive(&Const::<3>);
+
         #[derive(Archive, Deserialize, Serialize)]
         pub struct Array<T, const N: usize>([T; N]);
     }

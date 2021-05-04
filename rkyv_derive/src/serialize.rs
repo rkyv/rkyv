@@ -236,10 +236,14 @@ fn derive_serialize_copy_impl(
 
     input.generics.make_where_clause();
 
-    let mut impl_input_generics = input.generics.clone();
-    impl_input_generics
-        .params
-        .push(parse_quote! { __S: Fallible + ?Sized });
+    let mut impl_input_generics = Generics::default();
+    impl_input_generics.lt_token = Some(Default::default());
+    impl_input_generics.params.push(parse_quote! { __S: Fallible + ?Sized });
+    for param in input.generics.params.iter() {
+        impl_input_generics.params.push(param.clone());
+    }
+    impl_input_generics.gt_token = Some(Default::default());
+    impl_input_generics.where_clause = input.generics.where_clause.clone();
 
     let name = &input.ident;
     let (impl_generics, _, _) = impl_input_generics.split_for_impl();
