@@ -77,6 +77,7 @@
     2.702-2.702 2.702 13.512-13.512-2.702 2.703-2.702-8.107-8.107z"/%3E%3C/svg%3E
 "#)]
 
+#[doc(hidden)]
 #[macro_use]
 pub mod macros;
 pub mod core_impl;
