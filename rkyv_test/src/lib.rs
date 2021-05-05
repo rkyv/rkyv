@@ -1633,4 +1633,67 @@ mod tests {
         let deserialized = archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(deserialized, ReallyBigEnum::V100);
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    #[cfg(not(feature = "strict"))]
+    fn repr_rust() {
+        #[derive(Archive)]
+        pub struct Test {
+            a: u8,
+            b: u16,
+            c: u8,
+        }
+
+        assert_eq!(core::mem::size_of::<ArchivedTest>(), 4);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn repr_transparent() {
+        #[derive(Archive)]
+        #[archive(repr(transparent))]
+        pub struct Test {
+            a: u32,
+        }
+
+        assert_eq!(core::mem::size_of::<ArchivedTest>(), 4);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn repr_c() {
+        #[derive(Archive)]
+        #[archive(repr(C))]
+        pub struct TestStruct {
+            a: u8,
+            b: u16,
+            c: u8,
+        }
+
+        assert_eq!(core::mem::size_of::<ArchivedTestStruct>(), 6);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn repr_int() {
+        #[derive(Archive)]
+        #[allow(dead_code)]
+        pub enum InferredRepr {
+            V0,
+            V1,
+        }
+
+        assert_eq!(core::mem::size_of::<ArchivedInferredRepr>(), 1);
+
+        #[derive(Archive)]
+        #[archive(repr(u16))]
+        #[allow(dead_code)]
+        pub enum ExplicitRepr {
+            V0,
+            V1,
+        }
+
+        assert_eq!(core::mem::size_of::<ArchivedExplicitRepr>(), 2);
+    }
 }

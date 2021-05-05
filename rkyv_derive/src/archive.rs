@@ -1,6 +1,9 @@
-use crate::attributes::{parse_attributes, Attributes};
-use proc_macro2::{Literal, Punct, Spacing, Span, TokenStream};
-use quote::{TokenStreamExt, ToTokens, quote, quote_spanned};
+use crate::{
+    attributes::{parse_attributes, Attributes},
+    repr::{Repr, ReprAttr, IntRepr},
+};
+use proc_macro2::{TokenStream};
+use quote::{quote, quote_spanned};
 use syn::{
     parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Fields, Ident, Index,
 };
@@ -12,93 +15,6 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
         derive_archive_copy_impl(input, &attributes)
     } else {
         derive_archive_impl(input, &attributes)
-    }
-}
-
-// None of these variants are constructed unless the arbitrary_enum_discriminant feature is enabled
-#[allow(dead_code)]
-enum EnumDiscriminant {
-    U8(u8),
-    U16(u16),
-    U32(u32),
-    U64(u64),
-    U128(u128),
-}
-
-impl ToTokens for EnumDiscriminant {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.append(Punct::new('=', Spacing::Alone));
-        match self {
-            Self::U8(value) => tokens.append(Literal::u8_suffixed(*value)),
-            Self::U16(value) => tokens.append(Literal::u16_suffixed(*value)),
-            Self::U32(value) => tokens.append(Literal::u32_suffixed(*value)),
-            Self::U64(value) => tokens.append(Literal::u64_suffixed(*value)),
-            Self::U128(value) => tokens.append(Literal::u128_suffixed(*value)),
-        }
-    }
-}
-
-enum EnumRepr {
-    U8,
-    U16,
-    U32,
-    U64,
-    U128,
-}
-
-impl ToTokens for EnumRepr {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let name = Ident::new(
-            match self {
-                Self::U8 => "u8",
-                Self::U16 => "u16",
-                Self::U32 => "u32",
-                Self::U64 => "u64",
-                Self::U128 => "u128",
-            },
-            Span::call_site()
-        );
-        tokens.append_all(quote! { #[repr(#name)] });
-    }
-}
-
-impl EnumRepr {
-    #[inline]
-    #[cfg(not(feature = "arbitrary_enum_discriminant"))]
-    fn discriminant(&self, _: usize) -> Option<EnumDiscriminant> {
-        None
-    }
-
-    #[inline]
-    #[cfg(feature = "arbitrary_enum_discriminant")]
-    fn discriminant(&self, index: usize) -> Option<EnumDiscriminant> {
-        #[cfg(not(any(
-            all(target_endian = "little", feature = "archive_be"),
-            all(target_endian = "big", feature = "archive_le"),
-        )))]
-        {
-            Some(match self {
-                EnumRepr::U8 => EnumDiscriminant::U8(index as u8),
-                EnumRepr::U16 => EnumDiscriminant::U16(index as u16),
-                EnumRepr::U32 => EnumDiscriminant::U32(index as u32),
-                EnumRepr::U64 => EnumDiscriminant::U64(index as u64),
-                EnumRepr::U128 => EnumDiscriminant::U128(index as u128),
-            })
-        }
-
-        #[cfg(any(
-            all(target_endian = "little", feature = "archive_be"),
-            all(target_endian = "big", feature = "archive_le"),
-        ))]
-        {
-            Some(match self {
-                EnumRepr::U8 => EnumDiscriminant::U8((index as u8).swap_bytes()),
-                EnumRepr::U16 => EnumDiscriminant::U16((index as u16).swap_bytes()),
-                EnumRepr::U32 => EnumDiscriminant::U32((index as u32).swap_bytes()),
-                EnumRepr::U64 => EnumDiscriminant::U64((index as u64).swap_bytes()),
-                EnumRepr::U128 => EnumDiscriminant::U128((index as u128).swap_bytes()),
-            })
-        }
     }
 }
 
@@ -130,11 +46,22 @@ fn derive_archive_impl(
     );
     let resolver_doc = format!("The resolver for archived `{}`", name);
 
-    let is_strict = cfg!(feature = "strict") || attributes.strict.is_some();
-    let strict = is_strict.then::<Attribute, _>(|| parse_quote! { #[repr(C)] });
-
     let (archive_types, archive_impls) = match input.data {
         Data::Struct(ref data) => {
+            let is_strict = cfg!(feature = "strict");
+            let is_strict_repr = matches!(attributes.archived_repr, None | Some(ReprAttr { repr: Repr::C, span: _ }) | Some(ReprAttr { repr: Repr::Transparent, span: _ }));
+            if is_strict && !is_strict_repr {
+                return Err(Error::new_spanned(name, "archived structs may only be repr(C) in strict mode"))
+            }
+
+            let repr = if is_strict {
+                Some(Repr::C)
+            } else if let Some(ref repr_attr) = attributes.archived_repr {
+                Some(repr_attr.repr)
+            } else {
+                None
+            };
+
             match data.fields {
                 Fields::Named(ref fields) => {
                     let mut archive_where = where_clause.clone();
@@ -253,7 +180,7 @@ fn derive_archive_impl(
                         quote! {
                             #[doc = #archived_doc]
                             #(#archive_attrs)*
-                            #strict
+                            #repr
                             #vis struct #archived #generics #archive_where {
                                 #(#archived_fields,)*
                             }
@@ -403,7 +330,7 @@ fn derive_archive_impl(
                         quote! {
                             #[doc = #archived_doc]
                             #(#archive_attrs)*
-                            #strict
+                            #repr
                             #vis struct #archived #generics (#(#archived_fields,)*) #archive_where;
 
                             #[doc = #resolver_doc]
@@ -473,7 +400,7 @@ fn derive_archive_impl(
                         quote! {
                             #[doc = #archived_doc]
                             #(#archive_attrs)*
-                            #strict
+                            #repr
                             #vis struct #archived #generics
                             #where_clause;
 
@@ -656,19 +583,27 @@ fn derive_archive_impl(
                 }
             });
 
-            let archived_repr = match data.variants.len() {
-                0..=255 => EnumRepr::U8,
-                256..=65_535 => EnumRepr::U16,
-                65_536..=4_294_967_295 => EnumRepr::U32,
-                4_294_967_296..=18_446_744_073_709_551_615 => EnumRepr::U64,
-                _ => EnumRepr::U128,
+            let archived_repr = if let Some(ref repr_attr) = attributes.archived_repr {
+                if let Repr::Int(int_repr) = repr_attr.repr {
+                    int_repr
+                } else {
+                    return Err(Error::new(repr_attr.span, "enums may only be repr(i*) or repr(u*)"));
+                }
+            } else {
+                match data.variants.len() {
+                    0..=255 => IntRepr::U8,
+                    256..=65_535 => IntRepr::U16,
+                    65_536..=4_294_967_295 => IntRepr::U32,
+                    4_294_967_296..=18_446_744_073_709_551_615 => IntRepr::U64,
+                    _ => IntRepr::U128,
+                }
             };
 
             #[cfg(all(
                 not(feature = "arbitrary_enum_discriminant"),
                 any(feature = "archive_be", feature = "archive_le")
             ))]
-            if !matches!(archived_repr, EnumRepr::U8) {
+            if !matches!(archived_repr, IntRepr::U8) {
                 return Err(Error::new_spanned(
                     name,
                     "multibyte enum discriminants cannot be used with endian-aware archives"
@@ -677,7 +612,7 @@ fn derive_archive_impl(
 
             let archived_variants = data.variants.iter().enumerate().map(|(i, v)| {
                 let variant = &v.ident;
-                let discriminant = archived_repr.discriminant(i);
+                let discriminant = archived_repr.enum_discriminant(i);
                 match v.fields {
                     Fields::Named(ref fields) => {
                         let fields = fields.named.iter().map(|f| {
@@ -713,7 +648,7 @@ fn derive_archive_impl(
 
             let archived_variant_tags = data.variants.iter().enumerate().map(|(i, v)| {
                 let variant = &v.ident;
-                let discriminant = archived_repr.discriminant(i);
+                let discriminant = archived_repr.enum_discriminant(i);
                 quote_spanned! { variant.span() => #variant #discriminant }
             });
 
@@ -1140,20 +1075,14 @@ fn derive_archive_copy_impl(
             }
         }
         Data::Enum(ref data) => {
-            if let Some(ref path) = attributes
-                .repr
-                .rust
-                .as_ref()
-                .or_else(|| attributes.repr.transparent.as_ref())
-                .or_else(|| attributes.repr.packed.as_ref())
-            {
-                return Err(Error::new_spanned(
-                    path,
-                    "archive copy enums must be repr(C) or repr(Int)",
-                ));
-            }
-
-            if attributes.repr.c.is_none() && attributes.repr.int.is_none() {
+            if let Some(ref repr_attr) = attributes.repr {
+                if matches!(repr_attr.repr, Repr::Rust | Repr::Transparent | Repr::Packed) {
+                    return Err(Error::new(
+                        repr_attr.span,
+                        "archive copy enums must be repr(C) or repr(Int)",
+                    ));
+                }
+            } else {
                 return Err(Error::new_spanned(
                     input,
                     "archive copy enums must be repr(C) or repr(Int)",

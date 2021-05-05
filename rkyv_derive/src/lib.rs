@@ -3,6 +3,7 @@
 mod archive;
 mod attributes;
 mod deserialize;
+mod repr;
 mod serialize;
 
 extern crate proc_macro;
@@ -20,13 +21,13 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// - `copy`: Implements `ArchiveCopy` as well as `Archive`. Only suitable for types that can be
 ///   directly archived (i.e. plain data).
+/// - `name`, `name = "..."`: Exposes the archived type with the given name. If used without a name
+///   assignment, uses the name `"Archived" + name`.
+/// - `repr(...)`: Sets the representation for the archived type to the given representation.
+///   Available representation options may vary depending on features and type layout.
 /// - `compare(...)`: Implements common comparison operators between the original and archived
 ///   types. Supported comparisons are `PartialEq` and `PartialOrd` (i.e.
 ///   `#[archive(compare(PartialEq, PartialOrd))]`).
-/// - `name`, `name = "..."`: Exposes the archived type with the given name. If used without a name
-///   assignment, uses the name `"Archived" + name`.
-/// - `strict`: Marks structs at `#[repr(C)]` for strictly guaranteed stability and compatibility.
-///   This is equivalent to enabling the `strict` feature for only this struct.
 /// - `bound(...)`: Adds additional bounds to the `Serialize` and `Deserialize` implementations.
 ///   This can be especially useful when dealing with recursive structures, where bounds may need to
 ///   be omitted to prevent recursive type definitions.

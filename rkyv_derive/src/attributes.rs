@@ -1,27 +1,19 @@
 use quote::ToTokens;
 use syn::{AttrStyle, DeriveInput, Error, Ident, Lit, LitStr, Meta, MetaList, NestedMeta, Path};
-
-#[derive(Default)]
-pub struct Repr {
-    pub rust: Option<Path>,
-    pub transparent: Option<Path>,
-    pub packed: Option<Path>,
-    pub c: Option<Path>,
-    pub int: Option<Path>,
-}
+use crate::repr::ReprAttr;
 
 #[derive(Default)]
 pub struct Attributes {
     pub attrs: Vec<Meta>,
     pub copy: Option<Path>,
-    pub repr: Repr,
+    pub repr: Option<ReprAttr>,
     pub derives: Option<MetaList>,
     pub compares: Option<(Path, Vec<Path>)>,
     pub serialize_bound: Option<LitStr>,
     pub deserialize_bound: Option<LitStr>,
     pub archived: Option<Ident>,
+    pub archived_repr: Option<ReprAttr>,
     pub resolver: Option<Ident>,
-    pub strict: Option<Path>,
 }
 
 fn try_set_attribute<T: ToTokens>(
@@ -45,8 +37,6 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
         Meta::Path(path) => {
             if path.is_ident("copy") {
                 try_set_attribute(&mut attributes.copy, path.clone(), "copy")
-            } else if path.is_ident("strict") {
-                try_set_attribute(&mut attributes.strict, path.clone(), "strict")
             } else {
                 Err(Error::new_spanned(path, "unrecognized archive argument"))
             }
@@ -112,6 +102,20 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                     }
                 }
                 Ok(())
+            } else if list.path.is_ident("repr") {
+                if list.nested.len() != 1 {
+                    Err(Error::new_spanned(list, "repr must have exactly one argument"))
+                } else {
+                    if let Some(NestedMeta::Meta(Meta::Path(path))) = list.nested.first() {
+                        try_set_attribute(
+                            &mut attributes.archived_repr,
+                            ReprAttr::try_from_path(path)?,
+                            "repr"
+                        )
+                    } else {
+                        Err(Error::new_spanned(list.nested.first(), "invalid repr argument"))
+                    }
+                }
             } else {
                 Err(Error::new_spanned(
                     &list.path,
@@ -151,9 +155,9 @@ pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
     let mut result = Attributes::default();
     for attr in input.attrs.iter() {
         if let AttrStyle::Outer = attr.style {
-            if let Ok(Meta::List(meta)) = attr.parse_meta() {
-                if meta.path.is_ident("archive") {
-                    for nested in meta.nested.iter() {
+            if let Ok(Meta::List(list)) = attr.parse_meta() {
+                if list.path.is_ident("archive") {
+                    for nested in list.nested.iter() {
                         if let NestedMeta::Meta(meta) = nested {
                             parse_archive_attributes(&mut result, meta)?;
                         } else {
@@ -163,8 +167,8 @@ pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
                             ));
                         }
                     }
-                } else if meta.path.is_ident("archive_attr") {
-                    for nested in meta.nested.iter() {
+                } else if list.path.is_ident("archive_attr") {
+                    for nested in list.nested.iter() {
                         if let NestedMeta::Meta(meta) = nested {
                             result.attrs.push(meta.clone());
                         } else {
@@ -174,20 +178,21 @@ pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
                             ));
                         }
                     }
-                } else if meta.path.is_ident("repr") {
-                    for n in meta.nested.iter() {
-                        if let NestedMeta::Meta(Meta::Path(path)) = n {
-                            if path.is_ident("rust") {
-                                result.repr.rust = Some(path.clone());
-                            } else if path.is_ident("transparent") {
-                                result.repr.transparent = Some(path.clone());
-                            } else if path.is_ident("packed") {
-                                result.repr.packed = Some(path.clone());
-                            } else if path.is_ident("C") {
-                                result.repr.c = Some(path.clone());
-                            } else {
-                                result.repr.int = Some(path.clone());
-                            }
+                } else if list.path.is_ident("repr") {
+                    if list.nested.len() != 1 {
+                        return Err(Error::new_spanned(list, "repr must have exactly one argument"));
+                    } else {
+                        if let Some(NestedMeta::Meta(Meta::Path(path))) = list.nested.first() {
+                            try_set_attribute(
+                                &mut result.repr,
+                                ReprAttr::try_from_path(path)?,
+                                "repr"
+                            )?;
+                        } else {
+                            return Err(Error::new_spanned(
+                                list.nested.first(),
+                                "invalid repr argument"
+                            ));
                         }
                     }
                 }

@@ -1,4 +1,7 @@
-use crate::attributes::{parse_attributes, Attributes};
+use crate::{
+    attributes::{parse_attributes, Attributes},
+    repr::Repr,
+};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{
@@ -289,20 +292,14 @@ fn derive_serialize_copy_impl(
             }
         }
         Data::Enum(ref data) => {
-            if let Some(ref path) = attributes
-                .repr
-                .rust
-                .as_ref()
-                .or_else(|| attributes.repr.transparent.as_ref())
-                .or_else(|| attributes.repr.packed.as_ref())
-            {
-                return Err(Error::new_spanned(
-                    path,
-                    "archive copy enums must be repr(C) or repr(Int)",
-                ));
-            }
-
-            if attributes.repr.c.is_none() && attributes.repr.int.is_none() {
+            if let Some(ref repr_attr) = attributes.repr {
+                if matches!(repr_attr.repr, Repr::Rust | Repr::Transparent | Repr::Packed) {
+                    return Err(Error::new(
+                        repr_attr.span,
+                        "archive copy enums must be repr(C) or repr(Int)",
+                    ));
+                }
+            } else {
                 return Err(Error::new_spanned(
                     input,
                     "archive copy enums must be repr(C) or repr(Int)",
