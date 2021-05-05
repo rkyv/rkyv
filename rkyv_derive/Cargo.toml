@@ -20,6 +20,7 @@ quote = "1.0"
 
 [features]
 default = []
+arbitrary_enum_discriminant = []
 archive_be = []
 archive_le = []
 strict = []

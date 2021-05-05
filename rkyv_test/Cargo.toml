@@ -19,6 +19,7 @@ wasm-bindgen-test = { version = "0.3", optional = true }
 
 [features]
 default = ["std", "const_generics", "validation"]
+arbitrary_enum_discriminant = ["rkyv/arbitrary_enum_discriminant"]
 archive_be = ["rkyv/archive_be"]
 archive_le = ["rkyv/archive_le"]
 const_generics = ["rkyv/const_generics", "rkyv_typename/const_generics"]

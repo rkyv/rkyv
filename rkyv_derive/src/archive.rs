@@ -1,5 +1,5 @@
 use crate::attributes::{parse_attributes, Attributes};
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::{Literal, Punct, Spacing, Span, TokenStream};
 use quote::{TokenStreamExt, ToTokens, quote, quote_spanned};
 use syn::{
     parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Fields, Ident, Index,
@@ -12,6 +12,29 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
         derive_archive_copy_impl(input, &attributes)
     } else {
         derive_archive_impl(input, &attributes)
+    }
+}
+
+// None of these variants are constructed unless the arbitrary_enum_discriminant feature is enabled
+#[allow(dead_code)]
+enum EnumDiscriminant {
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    U128(u128),
+}
+
+impl ToTokens for EnumDiscriminant {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.append(Punct::new('=', Spacing::Alone));
+        match self {
+            Self::U8(value) => tokens.append(Literal::u8_suffixed(*value)),
+            Self::U16(value) => tokens.append(Literal::u16_suffixed(*value)),
+            Self::U32(value) => tokens.append(Literal::u32_suffixed(*value)),
+            Self::U64(value) => tokens.append(Literal::u64_suffixed(*value)),
+            Self::U128(value) => tokens.append(Literal::u128_suffixed(*value)),
+        }
     }
 }
 
@@ -36,6 +59,46 @@ impl ToTokens for EnumRepr {
             Span::call_site()
         );
         tokens.append_all(quote! { #[repr(#name)] });
+    }
+}
+
+impl EnumRepr {
+    #[inline]
+    #[cfg(not(feature = "arbitrary_enum_discriminant"))]
+    fn discriminant(&self, _: usize) -> Option<EnumDiscriminant> {
+        None
+    }
+
+    #[inline]
+    #[cfg(feature = "arbitrary_enum_discriminant")]
+    fn discriminant(&self, index: usize) -> Option<EnumDiscriminant> {
+        #[cfg(not(any(
+            all(target_endian = "little", feature = "archive_be"),
+            all(target_endian = "big", feature = "archive_le"),
+        )))]
+        {
+            Some(match self {
+                EnumRepr::U8 => EnumDiscriminant::U8(index as u8),
+                EnumRepr::U16 => EnumDiscriminant::U16(index as u16),
+                EnumRepr::U32 => EnumDiscriminant::U32(index as u32),
+                EnumRepr::U64 => EnumDiscriminant::U64(index as u64),
+                EnumRepr::U128 => EnumDiscriminant::U128(index as u128),
+            })
+        }
+
+        #[cfg(any(
+            all(target_endian = "little", feature = "archive_be"),
+            all(target_endian = "big", feature = "archive_le"),
+        ))]
+        {
+            Some(match self {
+                EnumRepr::U8 => EnumDiscriminant::U8((index as u8).swap_bytes()),
+                EnumRepr::U16 => EnumDiscriminant::U16((index as u16).swap_bytes()),
+                EnumRepr::U32 => EnumDiscriminant::U32((index as u32).swap_bytes()),
+                EnumRepr::U64 => EnumDiscriminant::U64((index as u64).swap_bytes()),
+                EnumRepr::U128 => EnumDiscriminant::U128((index as u128).swap_bytes()),
+            })
+        }
     }
 }
 
@@ -601,7 +664,10 @@ fn derive_archive_impl(
                 _ => EnumRepr::U128,
             };
 
-            #[cfg(any(feature = "archive_be", feature = "archive_le"))]
+            #[cfg(all(
+                not(feature = "arbitrary_enum_discriminant"),
+                any(feature = "archive_be", feature = "archive_le")
+            ))]
             if !matches!(archived_repr, EnumRepr::U8) {
                 return Err(Error::new_spanned(
                     name,
@@ -609,8 +675,9 @@ fn derive_archive_impl(
                 ));
             }
 
-            let archived_variants = data.variants.iter().map(|v| {
+            let archived_variants = data.variants.iter().enumerate().map(|(i, v)| {
                 let variant = &v.ident;
+                let discriminant = archived_repr.discriminant(i);
                 match v.fields {
                     Fields::Named(ref fields) => {
                         let fields = fields.named.iter().map(|f| {
@@ -623,7 +690,7 @@ fn derive_archive_impl(
                             #[allow(dead_code)]
                             #variant {
                                 #(#fields,)*
-                            }
+                            } #discriminant
                         }
                     }
                     Fields::Unnamed(ref fields) => {
@@ -634,19 +701,20 @@ fn derive_archive_impl(
                         });
                         quote_spanned! { variant.span() =>
                             #[allow(dead_code)]
-                            #variant(#(#fields,)*)
+                            #variant(#(#fields,)*) #discriminant
                         }
                     }
                     Fields::Unit => quote_spanned! { variant.span() =>
                         #[allow(dead_code)]
-                        #variant
+                        #variant #discriminant
                     },
                 }
             });
 
-            let archived_variant_tags = data.variants.iter().map(|v| {
+            let archived_variant_tags = data.variants.iter().enumerate().map(|(i, v)| {
                 let variant = &v.ident;
-                quote_spanned! { variant.span() => #variant }
+                let discriminant = archived_repr.discriminant(i);
+                quote_spanned! { variant.span() => #variant #discriminant }
             });
 
             let archived_variant_structs = data.variants.iter().map(|v| {
