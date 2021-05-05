@@ -13,7 +13,7 @@ repository = "https://github.com/djkoloski/rkyv"
 bytecheck = { version = "0.5", optional = true }
 ptr_meta = { version = "0.1" }
 rkyv = { path = "../rkyv", default-features = false }
-rkyv_dyn = { path = "../rkyv_dyn", default-features = false, optional = true }
+rkyv_dyn = { path = "../rkyv_dyn", features = ["validation"], optional = true }
 rkyv_typename = { path = "../rkyv_typename", default-features = false, optional = true }
 wasm-bindgen-test = { version = "0.3", optional = true }
 
@@ -25,9 +25,9 @@ archive_le = ["rkyv/archive_le"]
 const_generics = ["rkyv/const_generics", "rkyv_typename/const_generics"]
 size_64 = ["rkyv/size_64"]
 nightly = ["rkyv_dyn/nightly"]
-std = ["rkyv/std", "rkyv_dyn", "rkyv_typename/std"]
+std = ["bytecheck/std", "rkyv/std", "rkyv_dyn", "rkyv_typename/std"]
 strict = ["rkyv/strict"]
-validation = ["bytecheck", "std", "rkyv/validation", "rkyv_dyn/validation"]
+validation = ["bytecheck", "rkyv/validation"]
 vtable_cache = ["rkyv_dyn/vtable_cache"]
 wasm = ["wasm-bindgen-test"]
 

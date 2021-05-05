@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "arbitrary_enum_discriminant", feature(arbitrary_enum_discriminant))]
 
-#[cfg(all(test, feature = "validation"))]
+#[cfg(all(test, feature = "std", feature = "validation"))]
 mod validation;
 
 #[cfg(test)]

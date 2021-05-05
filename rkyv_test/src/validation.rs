@@ -7,7 +7,7 @@ use rkyv::{
         serializers::{AlignedSerializer, BufferSerializer},
         Serializer,
     },
-    validation::DefaultArchiveValidator,
+    validation::validators::DefaultArchiveValidator,
     Aligned, AlignedVec, Archive, Serialize,
 };
 use std::{
@@ -22,7 +22,7 @@ const BUFFER_SIZE: usize = 512;
 
 fn serialize_and_check<T: Serialize<AlignedSerializer<AlignedVec>>>(value: &T)
 where
-    T::Archived: CheckBytes<DefaultArchiveValidator>,
+    T::Archived: for<'a> CheckBytes<DefaultArchiveValidator<'a>>,
 {
     let mut serializer = AlignedSerializer::new(AlignedVec::new());
     serializer
@@ -110,7 +110,8 @@ fn basic_functionality() {
 
     // Various buffer errors:
     use rkyv::validation::{
-        ArchiveBoundsError, ArchiveMemoryError, CheckArchiveError, SharedArchiveError,
+        CheckArchiveError,
+        validators::{ArchiveBoundsError, ArchiveMemoryError, SharedArchiveError},
     };
     // Out of bounds
     match check_archived_value::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 8) {
