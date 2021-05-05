@@ -23,8 +23,8 @@ seahash = { version = "4.0", optional = true }
 
 [features]
 default = ["std", "const_generics"]
-archive_be = ["rend"]
-archive_le = ["rend"]
+archive_be = ["rend", "rkyv_derive/archive_be"]
+archive_le = ["rend", "rkyv_derive/archive_le"]
 const_generics = []
 size_64 = []
 specialization = []

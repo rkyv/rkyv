@@ -1,6 +1,6 @@
 use crate::attributes::{parse_attributes, Attributes};
-use proc_macro2::TokenStream;
-use quote::{quote, quote_spanned};
+use proc_macro2::{Span, TokenStream};
+use quote::{TokenStreamExt, ToTokens, quote, quote_spanned};
 use syn::{
     parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Fields, Ident, Index,
 };
@@ -12,6 +12,30 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
         derive_archive_copy_impl(input, &attributes)
     } else {
         derive_archive_impl(input, &attributes)
+    }
+}
+
+enum EnumRepr {
+    U8,
+    U16,
+    U32,
+    U64,
+    U128,
+}
+
+impl ToTokens for EnumRepr {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let name = Ident::new(
+            match self {
+                Self::U8 => "u8",
+                Self::U16 => "u16",
+                Self::U32 => "u32",
+                Self::U64 => "u64",
+                Self::U128 => "u128",
+            },
+            Span::call_site()
+        );
+        tokens.append_all(quote! { #[repr(#name)] });
     }
 }
 
@@ -570,12 +594,20 @@ fn derive_archive_impl(
             });
 
             let archived_repr = match data.variants.len() {
-                0..=255 => quote! { u8 },
-                256..=65_535 => quote! { u16 },
-                65_536..=4_294_967_295 => quote! { u32 },
-                4_294_967_296..=18_446_744_073_709_551_615 => quote! { u64 },
-                _ => quote! { u128 },
+                0..=255 => EnumRepr::U8,
+                256..=65_535 => EnumRepr::U16,
+                65_536..=4_294_967_295 => EnumRepr::U32,
+                4_294_967_296..=18_446_744_073_709_551_615 => EnumRepr::U64,
+                _ => EnumRepr::U128,
             };
+
+            #[cfg(any(feature = "archive_be", feature = "archive_le"))]
+            if !matches!(archived_repr, EnumRepr::U8) {
+                return Err(Error::new_spanned(
+                    name,
+                    "multibyte enum discriminants cannot be used with endian-aware archives"
+                ));
+            }
 
             let archived_variants = data.variants.iter().map(|v| {
                 let variant = &v.ident;
@@ -909,7 +941,7 @@ fn derive_archive_impl(
                 quote! {
                     #[doc = #archived_doc]
                     #(#archive_attrs)*
-                    #[repr(#archived_repr)]
+                    #archived_repr
                     #vis enum #archived #generics #archive_where {
                         #(#archived_variants,)*
                     }
@@ -920,7 +952,7 @@ fn derive_archive_impl(
                     }
                 },
                 quote! {
-                    #[repr(#archived_repr)]
+                    #archived_repr
                     enum ArchivedTag {
                         #(#archived_variant_tags,)*
                     }
