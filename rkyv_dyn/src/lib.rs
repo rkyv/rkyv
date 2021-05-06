@@ -28,7 +28,7 @@ use core::{
     sync::atomic::AtomicU64,
 };
 use ptr_meta::{DynMetadata, Pointee};
-use rkyv::{de::Deserializer, project_struct, ser::Serializer, Fallible, Serialize};
+use rkyv::{Archived, de::Deserializer, project_struct, ser::Serializer, Fallible, Serialize};
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
@@ -274,9 +274,9 @@ pub trait DeserializeDyn<T: Pointee + ?Sized> {
 /// The archived version of `DynMetadata`.
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedDynMetadata<T: ?Sized> {
-    type_id: u64,
+    type_id: Archived<u64>,
     #[cfg_attr(not(feature = "vtable_cache"), allow(dead_code))]
-    cached_vtable: AtomicU64,
+    cached_vtable: Archived<AtomicU64>,
     phantom: PhantomData<T>,
 }
 
@@ -284,12 +284,12 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     /// Creates a new `ArchivedDynMetadata` for the given type.
     pub fn emplace(type_id: u64, out: &mut MaybeUninit<Self>) {
         unsafe {
-            project_struct!(out: Self => type_id: u64)
+            project_struct!(out: Self => type_id: Archived<u64>)
                 .as_mut_ptr()
-                .write(type_id);
-            project_struct!(out: Self => cached_vtable: AtomicU64)
+                .write(type_id.into());
+            project_struct!(out: Self => cached_vtable: Archived<AtomicU64>)
                 .as_mut_ptr()
-                .write(AtomicU64::new(0));
+                .write(AtomicU64::new(0).into());
         }
     }
 

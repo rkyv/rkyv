@@ -343,6 +343,7 @@ pub fn archive_dyn(
                     use rkyv::{
                         de::Deserializer,
                         ser::Serializer,
+                        Archive,
                         Archived,
                         ArchivedMetadata,
                         ArchivePointee,

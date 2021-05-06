@@ -1,9 +1,9 @@
 [package]
-name = "rkyv_test"
-version = "0.6.0"
+name = "rkyv_dyn_test"
+version = "0.1.0"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
-description = "Test suite for rkyv crates"
+description = "Test suit for rkyv_dyn"
 license = "MIT"
 repository = "https://github.com/djkoloski/rkyv"
 
@@ -11,20 +11,18 @@ repository = "https://github.com/djkoloski/rkyv"
 
 [dependencies]
 bytecheck = { version = "0.5", optional = true }
-ptr_meta = { version = "0.1" }
-rkyv = { path = "../rkyv", default-features = false }
+ptr_meta = "0.1"
+rkyv = { path = "../rkyv" }
+rkyv_dyn = { path = "../rkyv_dyn", default-features = false }
+rkyv_typename = { path = "../rkyv_typename", default-features = false }
 wasm-bindgen-test = { version = "0.3", optional = true }
 
 [features]
-default = ["std", "const_generics", "validation"]
-arbitrary_enum_discriminant = ["rkyv/arbitrary_enum_discriminant"]
-archive_be = ["rkyv/archive_be"]
-archive_le = ["rkyv/archive_le"]
-const_generics = ["rkyv/const_generics"]
-size_64 = ["rkyv/size_64"]
-std = ["rkyv/std"]
-strict = ["rkyv/strict"]
-validation = ["bytecheck", "std", "rkyv/validation"]
+default = ["validation"]
+nightly = ["rkyv_dyn/nightly"]
+strict = ["rkyv_dyn/strict"]
+validation = ["bytecheck", "rkyv_dyn/validation"]
+vtable_cache = ["rkyv_dyn/vtable_cache"]
 wasm = ["wasm-bindgen-test"]
 
 # HACK: Tests should be run with `wasm-pack test --node -- --features "wasm"` but wasm-pack runs

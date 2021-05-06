@@ -5,6 +5,7 @@ members = [
     "rkyv_derive",
     "rkyv_dyn",
     "rkyv_dyn_derive",
+    "rkyv_dyn_test",
     "rkyv_test",
     "rkyv_typename",
     "rkyv_typename_derive",
