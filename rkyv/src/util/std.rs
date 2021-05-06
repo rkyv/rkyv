@@ -480,7 +480,8 @@ impl AlignedVec {
 
     /// Converts the vector into `Box<[u8]>`.
     ///
-    /// Note that this will drop any excess capacity.
+    /// This will preserve the alignment guarantees provided by `AlignedVec`. Note that this will
+    /// drop any excess capacity.
     ///
     /// # Examples
     /// ```
@@ -512,6 +513,53 @@ impl AlignedVec {
             core::mem::forget(self);
             Box::from_raw(slice_ptr)
         }
+    }
+
+    /// Converts the vector into `Vec<u8>`.
+    ///
+    /// This will preserve the alignment guarantees provided by `AlignedVec` until the vector is
+    /// modified. This will not drop any excess capacity, unlike
+    /// [`into_boxed_slice()`](AlignedVec::into_boxed_slice()).
+    ///
+    /// # Examples
+    /// ```
+    /// use rkyv::AlignedVec;
+    ///
+    /// let mut v = AlignedVec::new();
+    /// v.extend_from_slice(&[1, 2, 3]);
+    ///
+    /// let vec = v.into_vec();
+    /// assert_eq!(vec.len(), 3);
+    /// assert_eq!(vec.as_slice(), &[1, 2, 3]);
+    /// ```
+    ///
+    /// Any excess capacity is preserved:
+    ///
+    /// ```
+    /// use rkyv::AlignedVec;
+    ///
+    /// let mut vec = AlignedVec::with_capacity(10);
+    /// vec.extend_from_slice(&[1, 2, 3]);
+    ///
+    /// assert_eq!(vec.capacity(), 10);
+    /// let vec = vec.into_vec();
+    /// assert_eq!(vec.len(), 3);
+    /// assert_eq!(vec.capacity(), 10);
+    /// ```
+    #[inline]
+    pub fn into_vec(self) -> Vec<u8> {
+        unsafe {
+            let result = Vec::from_raw_parts(self.ptr.as_ptr(), self.len, self.cap);
+            core::mem::forget(self);
+            result
+        }
+    }
+}
+
+impl From<AlignedVec> for Vec<u8> {
+    #[inline]
+    fn from(aligned: AlignedVec) -> Self {
+        aligned.to_vec()
     }
 }
 

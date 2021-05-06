@@ -1,4 +1,4 @@
-# rkyv &emsp; [![Discord]][discord invite] [![Latest Version]][crates.io] [![License]][license path] [![requires: rustc 1.47+]][Rust 1.47]
+# rkyv &emsp; [![Discord]][discord invite] [![Latest Version]][crates.io] [![License]][license path] [![requires: rustc 1.50+]][Rust 1.50]
 
 [Discord]: https://img.shields.io/discord/822925794249539645
 [discord invite]: https://discord.gg/65F6MdnbQh
@@ -6,8 +6,8 @@
 [crates.io]: https://crates.io/crates/rkyv
 [License]: https://img.shields.io/badge/license-MIT-blue.svg
 [license path]: https://github.com/djkoloski/rkyv/blob/master/LICENSE
-[requires: rustc 1.47+]: https://img.shields.io/badge/rustc-1.47+-lightgray.svg
-[Rust 1.47]: https://blog.rust-lang.org/2020/10/08/Rust-1.47.html
+[requires: rustc 1.50+]: https://img.shields.io/badge/rustc-1.50+-lightgray.svg
+[Rust 1.50]: https://blog.rust-lang.org/2020/10/08/Rust-1.50.html
 
 rkyv (*archive*) is a zero-copy deserialization framework for Rust.
 
