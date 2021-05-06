@@ -24,7 +24,7 @@ const_generics = ["rkyv/const_generics"]
 size_64 = ["rkyv/size_64"]
 std = ["rkyv/std"]
 strict = ["rkyv/strict"]
-validation = ["bytecheck", "std", "rkyv/validation"]
+validation = ["bytecheck", "rkyv/validation"]
 wasm = ["wasm-bindgen-test"]
 
 # HACK: Tests should be run with `wasm-pack test --node -- --features "wasm"` but wasm-pack runs

@@ -550,6 +550,8 @@ mod tests {
             d: Some(42),
         };
 
+        const BUFFER_SIZE: usize = 256;
+
         // FIXME: A `BufferSerializer` is used here because `Seek` is required. For most purposes,
         // we should use a `Vec` and wrap it in a `Cursor` to get `Seek`. In this case,
         // `Cursor<AlignedVec>` can't implement `Write` because it's not implemented in this crate

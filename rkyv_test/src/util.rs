@@ -2,65 +2,75 @@
 wasm_bindgen_test::wasm_bindgen_test_configure!();
 
 use rkyv::{
-    archived_root, archived_unsized_root,
-    ser::{serializers::BufferSerializer, Serializer},
-    Aligned, Deserialize, Serialize, SerializeUnsized,
-};
-#[cfg(feature = "std")]
-use rkyv::{
-    de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer},
-    ser::adapters::SharedSerializerAdapter,
+    Deserialize,
+    Serialize,
+    SerializeUnsized,
+    archived_root,
+    archived_unsized_root,
+    ser::Serializer,
 };
 
-pub const BUFFER_SIZE: usize = 256;
+const BUFFER_SIZE: usize = 256;
 
 #[cfg(feature = "std")]
-pub type DefaultSerializer =
-    SharedSerializerAdapter<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>;
+mod types {
+    use rkyv::{
+        de::{
+            adapters::SharedDeserializerAdapter,
+            deserializers::AllocDeserializer,
+        },
+        ser::{
+            adapters::SharedSerializerAdapter,
+            serializers::BufferSerializer,
+        },
+        Aligned,
+    };
+    use super::BUFFER_SIZE;
 
-#[cfg(feature = "std")]
-pub fn make_default_serializer() -> DefaultSerializer {
-    SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])))
-}
+    pub type DefaultSerializer = SharedSerializerAdapter<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>;
 
-#[cfg(feature = "std")]
-pub fn unwrap_default_serializer(s: DefaultSerializer) -> Aligned<[u8; BUFFER_SIZE]> {
-    s.into_inner().into_inner()
-}
+    pub fn make_default_serializer() -> DefaultSerializer {
+        SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])))
+    }
 
-#[cfg(feature = "std")]
-pub type DefaultDeserializer = SharedDeserializerAdapter<AllocDeserializer>;
+    pub fn unwrap_default_serializer(s: DefaultSerializer) -> Aligned<[u8; BUFFER_SIZE]> {
+        s.into_inner().into_inner()
+    }
 
-#[cfg(feature = "std")]
-pub fn make_default_deserializer() -> DefaultDeserializer {
-    SharedDeserializerAdapter::new(AllocDeserializer)
-}
+    pub type DefaultDeserializer = SharedDeserializerAdapter<AllocDeserializer>;
 
-#[cfg(not(feature = "std"))]
-pub type DefaultSerializer = BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>;
-
-#[cfg(not(feature = "std"))]
-pub fn make_default_serializer() -> DefaultSerializer {
-    BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]))
-}
-
-#[cfg(not(feature = "std"))]
-pub fn unwrap_default_serializer(s: DefaultSerializer) -> Aligned<[u8; BUFFER_SIZE]> {
-    s.into_inner()
+    pub fn make_default_deserializer() -> DefaultDeserializer {
+        SharedDeserializerAdapter::new(AllocDeserializer)
+    }
 }
 
 #[cfg(not(feature = "std"))]
-pub struct DefaultDeserializer;
+mod types {
+    use rkyv::{ser::serializers::BufferSerializer, Aligned};
+    use super::BUFFER_SIZE;
 
-#[cfg(not(feature = "std"))]
-impl rkyv::Fallible for DefaultDeserializer {
-    type Error = ();
+    pub type DefaultSerializer = BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>;
+
+    pub fn make_default_serializer() -> DefaultSerializer {
+        BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]))
+    }
+
+    pub fn unwrap_default_serializer(s: DefaultSerializer) -> Aligned<[u8; BUFFER_SIZE]> {
+        s.into_inner()
+    }
+
+    pub struct DefaultDeserializer;
+
+    impl rkyv::Fallible for DefaultDeserializer {
+        type Error = ();
+    }
+
+    pub fn make_default_deserializer() -> DefaultDeserializer {
+        DefaultDeserializer
+    }
 }
 
-#[cfg(not(feature = "std"))]
-pub fn make_default_deserializer() -> DefaultDeserializer {
-    DefaultDeserializer
-}
+pub use types::*;
 
 pub fn test_archive<T: Serialize<DefaultSerializer>>(value: &T)
 where
