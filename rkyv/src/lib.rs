@@ -83,7 +83,7 @@ use core::{
     mem::MaybeUninit,
 };
 
-pub use memoffset::offset_of;
+pub use memoffset::{offset_of, offset_of_tuple};
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 pub use util::*;
