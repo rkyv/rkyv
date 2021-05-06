@@ -1,7 +1,7 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    de::Deserializer, offset_of, project_struct, ser::Serializer, Archive, ArchiveCopy,
+    de::Deserializer, offset_of, project_struct, ser::Serializer, Archive,
     ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata, ArchivedUsize,
     Deserialize, DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
 };
@@ -78,8 +78,6 @@ macro_rules! peel_tuple {
 macro_rules! impl_tuple {
     () => ();
     ($($type:ident $index:tt,)+) => {
-        unsafe impl<$($type: ArchiveCopy),+> ArchiveCopy for ($($type,)+) {}
-
         impl<$($type: Archive),+> Archive for ($($type,)+) {
             type Archived = ($($type::Archived,)+);
             type Resolver = ($($type::Resolver,)+);
@@ -127,8 +125,6 @@ impl_tuple! { T11 11, T10 10, T9 9, T8 8, T7 7, T6 6, T5 5, T4 4, T3 3, T2 2, T1
 macro_rules! impl_array {
     () => ();
     ($len:literal, $($rest:literal,)*) => {
-        unsafe impl<T: ArchiveCopy> ArchiveCopy for [T; $len] {}
-
         impl<T: Archive> Archive for [T; $len] {
             type Archived = [T::Archived; $len];
             type Resolver = [T::Resolver; $len];
@@ -190,9 +186,6 @@ macro_rules! impl_array {
 
 #[cfg(not(feature = "const_generics"))]
 impl_array! { 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, }
-
-#[cfg(feature = "const_generics")]
-unsafe impl<T: ArchiveCopy, const N: usize> ArchiveCopy for [T; N] {}
 
 #[cfg(feature = "const_generics")]
 impl<T: Archive, const N: usize> Archive for [T; N] {
@@ -306,6 +299,31 @@ impl<T: Archive<Resolver = ()> + Serialize<S>, S: Serializer + ?Sized> Serialize
     }
 }
 
+#[cfg(all(not(feature = "std"), feature = "specialization"))]
+impl<T: Archive<Resolver = ()> + crate::copy::ArchiveCopySafe + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+    #[inline]
+    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
+        if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
+            Ok(0)
+        } else {
+            unsafe {
+                let bytes = core::slice::from_raw_parts(
+                    (self.as_ptr() as *const T).cast::<u8>(),
+                    self.len() * core::mem::size_of::<T>(),
+                );
+                let result = serializer.align_for::<T>()?;
+                serializer.write(bytes)?;
+                Ok(result)
+            }
+        }
+    }
+
+    #[inline]
+    fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+        Ok(())
+    }
+}
+
 #[cfg(feature = "std")]
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
@@ -337,8 +355,8 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     }
 }
 
-#[cfg(feature = "specialization")]
-impl<T: Archive<Resolver = ()> + ArchiveCopy + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+#[cfg(all(feature = "std", feature = "specialization"))]
+impl<T: crate::copy::ArchiveCopySafe + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
@@ -362,30 +380,6 @@ impl<T: Archive<Resolver = ()> + ArchiveCopy + Serialize<S>, S: Serializer + ?Si
     }
 }
 
-#[cfg(any(not(feature = "std"), feature = "specialization"))]
-impl<T: Deserialize<T, D> + ArchiveCopy, D: Deserializer + ?Sized> DeserializeUnsized<[T], D>
-    for [T]
-{
-    #[inline]
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-        if self.is_empty() || core::mem::size_of::<T>() == 0 {
-            Ok(ptr::NonNull::dangling().as_ptr())
-        } else {
-            let result = deserializer
-                .alloc(alloc::Layout::array::<T>(self.len()).unwrap())?
-                .cast::<T>();
-            ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
-            Ok(result.cast())
-        }
-    }
-
-    #[inline]
-    fn deserialize_metadata(&self, _: &mut D) -> Result<<[T] as Pointee>::Metadata, D::Error> {
-        Ok(ptr_meta::metadata(self))
-    }
-}
-
-#[cfg(any(feature = "std", feature = "specialization"))]
 impl<T: Deserialize<U, D>, U: Archive<Archived = T>, D: Deserializer + ?Sized>
     DeserializeUnsized<[U], D> for [T]
 {
@@ -411,6 +405,29 @@ impl<T: Deserialize<U, D>, U: Archive<Archived = T>, D: Deserializer + ?Sized>
         fn deserialize_metadata(&self, _: &mut D) -> Result<<[U] as Pointee>::Metadata, D::Error> {
             Ok(ptr_meta::metadata(self))
         }
+    }
+}
+
+#[cfg(feature = "copy")]
+impl<T: Deserialize<T, D> + ArchiveCopySafe, D: Deserializer + ?Sized> DeserializeUnsized<[T], D>
+    for [T]
+{
+    #[inline]
+    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
+        if self.is_empty() || core::mem::size_of::<T>() == 0 {
+            Ok(ptr::NonNull::dangling().as_ptr())
+        } else {
+            let result = deserializer
+                .alloc(alloc::Layout::array::<T>(self.len()).unwrap())?
+                .cast::<T>();
+            ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
+            Ok(result.cast())
+        }
+    }
+
+    #[inline]
+    fn deserialize_metadata(&self, _: &mut D) -> Result<<[T] as Pointee>::Metadata, D::Error> {
+        Ok(ptr_meta::metadata(self))
     }
 }
 

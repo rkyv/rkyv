@@ -63,8 +63,10 @@
 //! See [`Archive`] for examples of how to use rkyv.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "specialization", feature(min_specialization))]
-#![cfg_attr(feature = "specialization", feature(rustc_attrs))]
+#![cfg_attr(feature = "copy", feature(auto_traits))]
+#![cfg_attr(feature = "copy", feature(min_specialization))]
+#![cfg_attr(feature = "copy", feature(negative_impls))]
+#![cfg_attr(feature = "copy", feature(rustc_attrs))]
 
 #![doc(html_favicon_url = r#"
     data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'
@@ -81,6 +83,8 @@
 #[macro_use]
 pub mod macros;
 pub mod core_impl;
+#[cfg(feature = "copy")]
+pub mod copy;
 pub mod de;
 pub mod ser;
 #[cfg(feature = "std")]
@@ -572,42 +576,6 @@ pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fal
     /// Deserializes the metadata for the given type.
     fn deserialize_metadata(&self, deserializer: &mut D) -> Result<T::Metadata, D::Error>;
 }
-
-/// An [`Archive`] type that is a bitwise copy of itself and without additional processing.
-///
-/// Types that implement `ArchiveCopy` are not guaranteed to have a [`Serialize`] implementation
-/// called on them to archive their value.
-///
-/// You can derive an implementation of `ArchiveCopy` by adding `#[archive(copy)]` to the struct or
-/// enum. Types that implement `ArchiveCopy` must also implement [`Copy`](core::marker::Copy).
-///
-/// `ArchiveCopy` must be manually implemented even if a type implements [`Archive`] and
-/// [`Copy`](core::marker::Copy) because some types may transform their data when writing to an
-/// archive.
-///
-/// ## Examples
-/// ```
-/// use rkyv::{
-///     archived_root,
-///     ser::{Serializer, serializers::AlignedSerializer},
-///     AlignedVec,
-///     Archive,
-///     Serialize,
-/// };
-///
-/// #[derive(Archive, Serialize, Clone, Copy, Debug, PartialEq)]
-/// #[archive(copy)]
-/// struct Vector4<T>(T, T, T, T);
-///
-/// let mut serializer = AlignedSerializer::new(AlignedVec::new());
-/// let value = Vector4(1f32, 2f32, 3f32, 4f32);
-/// serializer.serialize_value(&value).expect("failed to archive Vector4");
-/// let buf = serializer.into_inner();
-/// let archived_value = unsafe { archived_root::<Vector4<f32>>(buf.as_ref()) };
-/// assert_eq!(&value, archived_value);
-/// ```
-#[cfg_attr(feature = "specialization", rustc_unsafe_specialization_marker)]
-pub unsafe trait ArchiveCopy: Archive<Archived = Self> + Copy {}
 
 /// The native type that `usize` is converted to for archiving.
 #[cfg(not(feature = "size_64"))]
