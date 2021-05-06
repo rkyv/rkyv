@@ -1,8 +1,8 @@
 #[cfg(feature = "validation")]
-mod validation;
+pub mod validation;
 
 #[cfg(test)]
-mod test {
+mod tests {
     use core::pin::Pin;
     use rkyv::{
         archived_root, archived_root_mut,

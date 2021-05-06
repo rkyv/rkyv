@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod test {
+mod tests {
     use bytecheck::CheckBytes;
     use rkyv::{
         check_archived_root,
