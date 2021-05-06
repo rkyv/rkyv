@@ -5,7 +5,7 @@ mod tests {
         check_archived_root,
         ser::{serializers::AlignedSerializer, Serializer},
         util::AlignedVec,
-        validation::DefaultArchiveValidator,
+        validation::validators::DefaultArchiveValidator,
         Archive, Archived, Serialize,
     };
     use rkyv_dyn::archive_dyn;
@@ -13,7 +13,7 @@ mod tests {
 
     fn serialize_and_check<T: Serialize<AlignedSerializer<AlignedVec>>>(value: &T)
     where
-        T::Archived: CheckBytes<DefaultArchiveValidator>,
+        T::Archived: for<'a> CheckBytes<DefaultArchiveValidator<'a>>,
     {
         let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer
