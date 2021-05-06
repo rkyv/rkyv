@@ -1,5 +1,5 @@
 #[cfg(feature = "validation")]
-pub mod validation;
+mod validation;
 
 #[cfg(test)]
 mod tests {

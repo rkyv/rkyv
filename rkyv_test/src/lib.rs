@@ -2,10 +2,10 @@
 #![cfg_attr(feature = "arbitrary_enum_discriminant", feature(arbitrary_enum_discriminant))]
 
 #[cfg(feature = "std")]
-pub mod std;
+mod std;
 pub mod util;
 #[cfg(feature = "validation")]
-pub mod validation;
+mod validation;
 
 #[cfg(test)]
 mod tests {
