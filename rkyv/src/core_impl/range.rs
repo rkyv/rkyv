@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for ranges.
 
-use crate::{Archive, ArchiveCopy, Archived, Deserialize, Fallible, Serialize};
+use crate::{Archive, Archived, Deserialize, Fallible, Serialize};
 use core::{
     cmp, fmt,
     mem::MaybeUninit,
@@ -23,8 +23,6 @@ impl<S: Fallible + ?Sized> Serialize<S> for RangeFull {
         Ok(())
     }
 }
-
-unsafe impl ArchiveCopy for RangeFull {}
 
 impl<D: Fallible + ?Sized> Deserialize<RangeFull, D> for RangeFull {
     #[inline]

@@ -293,16 +293,20 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
+    #[cfg(feature = "copy")]
     fn archive_copy() {
-        #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
-        #[archive(copy)]
+        use rkyv::copy::{ArchiveCopy, ArchiveCopySafe};
+
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct TestUnit;
+
+        unsafe impl ArchiveCopySafe for TestUnit {}
 
         test_archive(&TestUnit);
 
-        #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
-        #[cfg_attr(not(any(feature = "archive_be", feature = "archive_be")), archive(copy))]
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct TestStruct {
             a: (),
             b: i32,
@@ -310,6 +314,9 @@ mod tests {
             d: f32,
             e: TestUnit,
         }
+
+        // This is not technically safe but we're here to test
+        unsafe impl ArchiveCopySafe for TestStruct {}
 
         test_archive(&TestStruct {
             a: (),
@@ -319,24 +326,33 @@ mod tests {
             e: TestUnit,
         });
 
-        #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
-        #[cfg_attr(not(any(feature = "archive_be", feature = "archive_le")), archive(copy))]
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct TestTuple((), i32, bool, f32, TestUnit);
+
+        // This is not technically safe but we're here to test
+        unsafe impl ArchiveCopySafe for TestTuple {}
 
         test_archive(&TestTuple((), 42, true, 3.14f32, TestUnit));
 
-        #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         #[repr(u8)]
-        #[cfg_attr(not(any(feature = "archive_be", feature = "archive_le")), archive(copy))]
         enum TestEnum {
             A((), i32, bool, f32, TestUnit),
         }
 
+        // This is not technically safe but we're here to test
+        unsafe impl ArchiveCopySafe for TestEnum {}
+
         test_archive(&TestEnum::A((), 42, true, 3.14f32, TestUnit));
 
-        #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
-        #[cfg_attr(not(any(feature = "archive_be", feature = "archive_le")), archive(copy))]
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(compare(PartialEq))]
         struct TestGeneric<T>(T);
+
+        // This is not technically safe but we're here to test
+        unsafe impl<T: ArchiveCopy> ArchiveCopySafe for TestGeneric<T> {}
 
         test_archive(&TestGeneric(42));
     }

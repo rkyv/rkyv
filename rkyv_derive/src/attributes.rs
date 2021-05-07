@@ -5,7 +5,6 @@ use crate::repr::ReprAttr;
 #[derive(Default)]
 pub struct Attributes {
     pub attrs: Vec<Meta>,
-    pub copy: Option<Path>,
     pub repr: Option<ReprAttr>,
     pub derives: Option<MetaList>,
     pub compares: Option<(Path, Vec<Path>)>,
@@ -34,13 +33,6 @@ fn try_set_attribute<T: ToTokens>(
 
 fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<(), Error> {
     match meta {
-        Meta::Path(path) => {
-            if path.is_ident("copy") {
-                try_set_attribute(&mut attributes.copy, path.clone(), "copy")
-            } else {
-                Err(Error::new_spanned(path, "unrecognized archive argument"))
-            }
-        }
         Meta::List(list) => {
             if list.path.is_ident("compare") {
                 if attributes.compares.is_none() {
@@ -148,6 +140,7 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                 Err(Error::new_spanned(meta, "unrecognized archive argument"))
             }
         }
+        _ => Err(Error::new_spanned(meta, "unrecognized archive argument")),
     }
 }
 

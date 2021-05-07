@@ -329,7 +329,7 @@ pub trait Serialize<S: Fallible + ?Sized>: Archive {
 /// Converts a type back from its archived form.
 ///
 /// This can be derived with [`Deserialize`](macro@Deserialize).
-pub trait Deserialize<T: Archive<Archived = Self>, D: Fallible + ?Sized> {
+pub trait Deserialize<T, D: Fallible + ?Sized> {
     /// Deserializes using the given deserializer
     fn deserialize(&self, deserializer: &mut D) -> Result<T, D::Error>;
 }
@@ -563,7 +563,7 @@ pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
 ///
 /// Most types that implement `DeserializeUnsized` will need a [`Deserializer`](de::Deserializer)
 /// bound so that they can allocate memory.
-pub trait DeserializeUnsized<T: ArchiveUnsized<Archived = Self> + ?Sized, D: Fallible + ?Sized>:
+pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>:
     ArchivePointee
 {
     /// Deserializes a reference to the given value.

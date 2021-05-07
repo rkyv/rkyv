@@ -1,7 +1,4 @@
-use crate::{
-    attributes::{parse_attributes, Attributes},
-    repr::Repr,
-};
+use crate::attributes::{parse_attributes, Attributes};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{
@@ -11,12 +8,7 @@ use syn::{
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     let attributes = parse_attributes(&input)?;
-
-    if attributes.copy.is_some() {
-        derive_serialize_copy_impl(input, &attributes)
-    } else {
-        derive_serialize_impl(input, &attributes)
-    }
+    derive_serialize_impl(input, &attributes)
 }
 
 fn derive_serialize_impl(
@@ -220,134 +212,6 @@ fn derive_serialize_impl(
         const _: () = {
             use rkyv::{Archive, Fallible, Serialize};
             #serialize_impl
-        };
-    })
-}
-
-fn derive_serialize_copy_impl(
-    mut input: DeriveInput,
-    attributes: &Attributes,
-) -> Result<TokenStream, Error> {
-    if let Some(ref archived) = attributes.archived {
-        return Err(Error::new_spanned(
-            archived,
-            "archive copy types cannot be named",
-        ));
-    } else if let Some(ref resolver) = attributes.resolver {
-        return Err(Error::new_spanned(
-            resolver,
-            "archive copy resolvers cannot be named",
-        ));
-    };
-
-    input.generics.make_where_clause();
-
-    let mut impl_input_params = Punctuated::default();
-    impl_input_params.push(parse_quote! { __S: Fallible + ?Sized });
-    for param in input.generics.params.iter() {
-        impl_input_params.push(param.clone());
-    }
-    let impl_input_generics = Generics {
-        lt_token: Some(Default::default()),
-        params: impl_input_params,
-        gt_token: Some(Default::default()),
-        where_clause: input.generics.where_clause.clone(),
-    };
-
-    let name = &input.ident;
-    let (impl_generics, _, _) = impl_input_generics.split_for_impl();
-    let (_, ty_generics, where_clause) = input.generics.split_for_impl();
-    let where_clause = where_clause.unwrap();
-
-    let serialize_copy_impl = match input.data {
-        Data::Struct(ref data) => {
-            let mut copy_where = where_clause.clone();
-            match data.fields {
-                Fields::Named(ref fields) => {
-                    for field in fields.named.iter() {
-                        let ty = &field.ty;
-                        copy_where
-                            .predicates
-                            .push(parse_quote! { #ty: ArchiveCopy });
-                    }
-                }
-                Fields::Unnamed(ref fields) => {
-                    for field in fields.unnamed.iter() {
-                        let ty = &field.ty;
-                        copy_where
-                            .predicates
-                            .push(parse_quote! { #ty: ArchiveCopy });
-                    }
-                }
-                Fields::Unit => (),
-            };
-
-            quote! {
-                impl #impl_generics Serialize<__S> for #name #ty_generics #copy_where {
-                    #[inline]
-                    fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
-                        Ok(())
-                    }
-                }
-            }
-        }
-        Data::Enum(ref data) => {
-            if let Some(ref repr_attr) = attributes.repr {
-                if matches!(repr_attr.repr, Repr::Rust | Repr::Transparent | Repr::Packed) {
-                    return Err(Error::new(
-                        repr_attr.span,
-                        "archive copy enums must be repr(C) or repr(Int)",
-                    ));
-                }
-            } else {
-                return Err(Error::new_spanned(
-                    input,
-                    "archive copy enums must be repr(C) or repr(Int)",
-                ));
-            }
-
-            let mut copy_where = where_clause.clone();
-            for variant in data.variants.iter() {
-                match variant.fields {
-                    Fields::Named(ref fields) => {
-                        for field in fields.named.iter() {
-                            let ty = &field.ty;
-                            copy_where
-                                .predicates
-                                .push(parse_quote! { #ty: ArchiveCopy });
-                        }
-                    }
-                    Fields::Unnamed(ref fields) => {
-                        for field in fields.unnamed.iter() {
-                            let ty = &field.ty;
-                            copy_where
-                                .predicates
-                                .push(parse_quote! { #ty: ArchiveCopy });
-                        }
-                    }
-                    Fields::Unit => (),
-                }
-            }
-
-            quote! {
-                impl #impl_generics Serialize<__S> for #name #ty_generics #copy_where {
-                    #[inline]
-                    fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
-                        Ok(())
-                    }
-                }
-            }
-        }
-        Data::Union(_) => {
-            Error::new(input.span(), "Serialize cannot be derived for unions").to_compile_error()
-        }
-    };
-
-    Ok(quote! {
-        const _: () = {
-            use rkyv::{Archive, ArchiveCopy, Fallible, Serialize};
-
-            #serialize_copy_impl
         };
     })
 }

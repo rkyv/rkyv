@@ -19,8 +19,6 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// `#[archive(...)]` takes the following arguments:
 ///
-/// - `copy`: Implements `ArchiveCopy` as well as `Archive`. Only suitable for types that can be
-///   directly archived (i.e. plain data).
 /// - `name`, `name = "..."`: Exposes the archived type with the given name. If used without a name
 ///   assignment, uses the name `"Archived" + name`.
 /// - `repr(...)`: Sets the representation for the archived type to the given representation.

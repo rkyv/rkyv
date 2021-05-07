@@ -1,5 +1,5 @@
 use crate::{
-    Archive, ArchiveCopy, Archived, ArchivedIsize, ArchivedUsize, Fallible, FixedIsize, FixedUsize,
+    Archive, Archived, ArchivedIsize, ArchivedUsize, Fallible, FixedIsize, FixedUsize,
     Serialize, Deserialize,
 };
 use core::{
@@ -16,6 +16,7 @@ use core::sync::atomic::{
 };
 #[cfg(has_atomics_64)]
 use core::sync::atomic::{AtomicI64, AtomicU64};
+use std::marker::PhantomPinned;
 
 macro_rules! impl_primitive {
     (@serialize_deserialize $type:ty) => {
@@ -47,8 +48,6 @@ macro_rules! impl_primitive {
         }
 
         impl_primitive!(@serialize_deserialize $type);
-
-        unsafe impl ArchiveCopy for $type {}
     };
     ($type:ty, $type_le:ident, $type_be:ident) => {
         impl Archive for $type {
@@ -70,9 +69,6 @@ macro_rules! impl_primitive {
         }
 
         impl_primitive!(@serialize_deserialize $type);
-
-        #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
-        unsafe impl ArchiveCopy for $type {}
     };
 }
 
@@ -197,12 +193,34 @@ impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
     }
 }
 
-unsafe impl<T: ?Sized> ArchiveCopy for PhantomData<T> {}
-
 impl<T: ?Sized, D: Fallible + ?Sized> Deserialize<PhantomData<T>, D> for PhantomData<T> {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<PhantomData<T>, D::Error> {
         Ok(PhantomData)
+    }
+}
+
+// PhantomPinned
+impl Archive for PhantomPinned {
+    type Archived = PhantomPinned;
+    type Resolver = ();
+
+    #[inline]
+    fn resolve(&self, _: usize, _: Self::Resolver, _: &mut MaybeUninit<Self::Archived>) {
+    }
+}
+
+impl<S: Fallible + ?Sized> Serialize<S> for PhantomPinned {
+    #[inline]
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
+    }
+}
+
+impl<D: Fallible + ?Sized> Deserialize<PhantomPinned, D> for PhantomPinned {
+    #[inline]
+    fn deserialize(&self, _: &mut D) -> Result<PhantomPinned, D::Error> {
+        Ok(PhantomPinned)
     }
 }
 

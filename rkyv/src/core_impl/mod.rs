@@ -5,6 +5,8 @@ use crate::{
     ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata, ArchivedUsize,
     Deserialize, DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
 };
+#[cfg(feature = "copy")]
+use crate::copy::ArchiveCopySafe;
 use core::{
     alloc, cmp,
     hash::{Hash, Hasher},
@@ -299,8 +301,8 @@ impl<T: Archive<Resolver = ()> + Serialize<S>, S: Serializer + ?Sized> Serialize
     }
 }
 
-#[cfg(all(not(feature = "std"), feature = "specialization"))]
-impl<T: Archive<Resolver = ()> + crate::copy::ArchiveCopySafe + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+#[cfg(all(not(feature = "std"), feature = "copy"))]
+impl<T: Archive<Resolver = ()> + Serialize<S> + crate::copy::ArchiveCopySafe, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
@@ -355,8 +357,8 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     }
 }
 
-#[cfg(all(feature = "std", feature = "specialization"))]
-impl<T: crate::copy::ArchiveCopySafe + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+#[cfg(all(feature = "std", feature = "copy"))]
+impl<T: Serialize<S> + crate::copy::ArchiveCopySafe, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
@@ -380,7 +382,7 @@ impl<T: crate::copy::ArchiveCopySafe + Serialize<S>, S: Serializer + ?Sized> Ser
     }
 }
 
-impl<T: Deserialize<U, D>, U: Archive<Archived = T>, D: Deserializer + ?Sized>
+impl<T: Deserialize<U, D>, U, D: Deserializer + ?Sized>
     DeserializeUnsized<[U], D> for [T]
 {
     #[inline]
@@ -409,8 +411,8 @@ impl<T: Deserialize<U, D>, U: Archive<Archived = T>, D: Deserializer + ?Sized>
 }
 
 #[cfg(feature = "copy")]
-impl<T: Deserialize<T, D> + ArchiveCopySafe, D: Deserializer + ?Sized> DeserializeUnsized<[T], D>
-    for [T]
+impl<T: Deserialize<U, D>, U: ArchiveCopySafe, D: Deserializer + ?Sized>
+    DeserializeUnsized<[U], D> for [T]
 {
     #[inline]
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {

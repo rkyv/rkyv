@@ -1,9 +1,9 @@
-#[cfg(feature = "specialization")]
+#[cfg(feature = "copy")]
 macro_rules! default {
     ($($fn:tt)*) => { default $($fn)* };
 }
 
-#[cfg(not(feature = "specialization"))]
+#[cfg(not(feature = "copy"))]
 macro_rules! default {
     ($($fn:tt)*) => { $($fn)* };
 }

@@ -1,4 +1,35 @@
-use std::marker::{PhantomData, PhantomPinned};
+use core::{
+    marker::{PhantomData, PhantomPinned},
+    num::{
+        NonZeroI8,
+        NonZeroI16,
+        NonZeroI32,
+        NonZeroI64,
+        NonZeroI128,
+        NonZeroIsize,
+        NonZeroU8,
+        NonZeroU16,
+        NonZeroU32,
+        NonZeroU64,
+        NonZeroU128,
+        NonZeroUsize
+    },
+};
+#[cfg(has_atomics)]
+use core::sync::atomic::{
+    AtomicBool,
+    AtomicI8,
+    AtomicI16,
+    AtomicI32,
+    AtomicU8,
+    AtomicU16,
+    AtomicU32,
+};
+#[cfg(has_atomics_64)]
+use core::sync::atomic::{
+    AtomicI64,
+    AtomicU64,
+};
 
 /// A type that is `Copy` and can be archived without additional processing.
 ///
@@ -8,6 +39,10 @@ use std::marker::{PhantomData, PhantomPinned};
 #[rustc_unsafe_specialization_marker]
 pub auto trait ArchiveCopy {}
 
+// (), PhantomData, PhantomPinned, bool, i8, u8, NonZeroI8, and NonZeroU8 are always ArchiveCopy
+impl<T: ?Sized> ArchiveCopy for PhantomData<T> {}
+
+// Multibyte integers are not ArchiveCopy if the target does not match the archive endianness
 #[cfg(any(
     all(target_endian = "little", feature = "archive_be"),
     all(target_endian = "big", feature = "archive_le"),
@@ -24,31 +59,71 @@ const _: () = {
     impl !ArchiveCopy for f32 {}
     impl !ArchiveCopy for f64 {}
     impl !ArchiveCopy for char {}
+    impl !ArchiveCopy for NonZeroI16 {}
+    impl !ArchiveCopy for NonZeroI32 {}
+    impl !ArchiveCopy for NonZeroI64 {}
+    impl !ArchiveCopy for NonZeroI128 {}
+    impl !ArchiveCopy for NonZeroU16 {}
+    impl !ArchiveCopy for NonZeroU32 {}
+    impl !ArchiveCopy for NonZeroU64 {}
+    impl !ArchiveCopy for NonZeroU128 {}
 };
 
-impl !ArchiveCopy for isize {}
-impl !ArchiveCopy for usize {}
+// Pointer-sized integers are not ArchiveCopy if the target pointer width does not match the archive
+// pointer width
+#[cfg(any(
+    target_pointer_width = "16",
+    all(target_pointer_width = "32", feature = "size_64"),
+    all(target_pointer_width = "64", not(feature = "size_64"))
+))]
+const _: () = {
+    impl !ArchiveCopy for isize {}
+    impl !ArchiveCopy for usize {}
+    impl !ArchiveCopy for NonZeroIsize {}
+    impl !ArchiveCopy for NonZeroUsize {}
+};
 
+// Atomics are not ArchiveCopy if the platform supports them
+#[cfg(has_atomics)]
+const _: () = {
+    impl !ArchiveCopy for AtomicBool {}
+    impl !ArchiveCopy for AtomicI8 {}
+    impl !ArchiveCopy for AtomicI16 {}
+    impl !ArchiveCopy for AtomicI32 {}
+    impl !ArchiveCopy for AtomicU8 {}
+    impl !ArchiveCopy for AtomicU16 {}
+    impl !ArchiveCopy for AtomicU32 {}
+};
+#[cfg(has_atomics_64)]
+const _: () = {
+    impl !ArchiveCopy for AtomicI64 {}
+    impl !ArchiveCopy for AtomicU64 {}
+};
+
+// Pointers and references are never ArchiveCopy
 impl<T: ?Sized> !ArchiveCopy for *const T {}
 impl<T: ?Sized> !ArchiveCopy for *mut T {}
 impl<T: ?Sized> !ArchiveCopy for &T {}
 impl<T: ?Sized> !ArchiveCopy for &mut T {}
-
-impl !ArchiveCopy for PhantomPinned {}
 
 /// Types that are `ArchiveCopy` and have no padding.
 ///
 /// These types are always safe to `memcpy` around because they will never contain uninitialized
 /// padding.
 #[rustc_unsafe_specialization_marker]
-pub unsafe trait ArchiveCopySafe: ArchiveCopy + Sized {
-    const PACKED_SIZE: usize;
-}
+pub unsafe trait ArchiveCopySafe: ArchiveCopy + Sized {}
 
+// (), PhantomData, PhantomPinned, bool, i8, u8, NonZeroI8, and NonZeroU8 are always ArchiveCopySafe
+unsafe impl ArchiveCopySafe for () {}
+unsafe impl<T: ?Sized> ArchiveCopySafe for PhantomData<T> {}
+unsafe impl ArchiveCopySafe for PhantomPinned {}
+unsafe impl ArchiveCopySafe for bool {}
 unsafe impl ArchiveCopySafe for i8 {}
 unsafe impl ArchiveCopySafe for u8 {}
-unsafe impl ArchiveCopySafe for bool {}
+unsafe impl ArchiveCopySafe for NonZeroI8 {}
+unsafe impl ArchiveCopySafe for NonZeroU8 {}
 
+// Multibytes integers are ArchiveCopySafe if the target matches the archived endianness
 #[cfg(not(any(
     all(target_endian = "little", feature = "archive_be"),
     all(target_endian = "big", feature = "archive_le"),
@@ -65,18 +140,39 @@ const _: () = {
     unsafe impl ArchiveCopySafe for f32 {}
     unsafe impl ArchiveCopySafe for f64 {}
     unsafe impl ArchiveCopySafe for char {}
+    unsafe impl ArchiveCopySafe for NonZeroI16 {}
+    unsafe impl ArchiveCopySafe for NonZeroI32 {}
+    unsafe impl ArchiveCopySafe for NonZeroI64 {}
+    unsafe impl ArchiveCopySafe for NonZeroI128 {}
+    unsafe impl ArchiveCopySafe for NonZeroU16 {}
+    unsafe impl ArchiveCopySafe for NonZeroU32 {}
+    unsafe impl ArchiveCopySafe for NonZeroU64 {}
+    unsafe impl ArchiveCopySafe for NonZeroU128 {}
 };
 
-unsafe impl ArchiveCopySafe for () {}
-unsafe impl<T: ?Sized> ArchiveCopySafe for PhantomData<T> {}
-unsafe impl<T: ArchiveCopySafe, const N: usize> ArchiveCopySafe for [T; N] {}
+// Pointer-sized integers are ArchiveCopySafe if the target pointer width matches the archive
+// pointer width
+#[cfg(not(any(
+    target_pointer_width = "16",
+    all(target_pointer_width = "32", feature = "size_64"),
+    all(target_pointer_width = "64", not(feature = "size_64"))
+)))]
+const _: () = {
+    impl ArchiveCopySafe for isize {}
+    impl ArchiveCopySafe for usize {}
+    impl ArchiveCopySafe for NonZeroIsize {}
+    impl ArchiveCopySafe for NonZeroUsize {}
+};
 
 macro_rules! impl_tuple {
     () => {};
     (T, $($ts:ident,)*) => {
         unsafe impl<T: ArchiveCopySafe> ArchiveCopySafe for (T, $($ts,)*) {}
+
         impl_tuple!($($ts,)*);
     };
 }
 
 impl_tuple!(T, T, T, T, T, T, T, T, T, T, T,);
+
+unsafe impl<T: ArchiveCopySafe, const N: usize> ArchiveCopySafe for [T; N] {}
