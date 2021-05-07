@@ -1086,7 +1086,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn repr_transparent() {
         #[derive(Archive)]
-        #[archive(repr(transparent))]
+        #[archive_attr(repr(transparent))]
         pub struct Test {
             a: u32,
         }
@@ -1098,7 +1098,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn repr_c() {
         #[derive(Archive)]
-        #[archive(repr(C))]
+        #[archive_attr(repr(C))]
         pub struct TestStruct {
             a: u8,
             b: u16,
@@ -1121,7 +1121,7 @@ mod tests {
         assert_eq!(core::mem::size_of::<ArchivedInferredRepr>(), 1);
 
         #[derive(Archive)]
-        #[archive(repr(u16))]
+        #[archive_attr(repr(u16))]
         #[allow(dead_code)]
         pub enum ExplicitRepr {
             V0,

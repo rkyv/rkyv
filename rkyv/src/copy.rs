@@ -106,6 +106,8 @@ impl<T: ?Sized> !ArchiveCopy for *mut T {}
 impl<T: ?Sized> !ArchiveCopy for &T {}
 impl<T: ?Sized> !ArchiveCopy for &mut T {}
 
+impl !ArchiveCopy for crate::RawRelPtr {}
+
 /// Types that are `ArchiveCopy` and have no padding.
 ///
 /// These types are always safe to `memcpy` around because they will never contain uninitialized

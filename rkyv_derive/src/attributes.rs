@@ -1,12 +1,10 @@
 use quote::ToTokens;
-use syn::{AttrStyle, DeriveInput, Error, Ident, Lit, LitStr, Meta, MetaList, NestedMeta, Path};
+use syn::{AttrStyle, DeriveInput, Error, Ident, Lit, LitStr, Meta, NestedMeta, Path};
 use crate::repr::ReprAttr;
 
 #[derive(Default)]
 pub struct Attributes {
     pub attrs: Vec<Meta>,
-    pub repr: Option<ReprAttr>,
-    pub derives: Option<MetaList>,
     pub compares: Option<(Path, Vec<Path>)>,
     pub serialize_bound: Option<LitStr>,
     pub deserialize_bound: Option<LitStr>,
@@ -163,28 +161,34 @@ pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
                 } else if list.path.is_ident("archive_attr") {
                     for nested in list.nested.iter() {
                         if let NestedMeta::Meta(meta) = nested {
-                            result.attrs.push(meta.clone());
+                            if let Meta::List(list) = meta {
+                                if list.path.is_ident("repr") {
+                                    if list.nested.len() != 1 {
+                                        return Err(Error::new_spanned(list, "repr must have exactly one argument"));
+                                    } else {
+                                        if let Some(NestedMeta::Meta(Meta::Path(path))) = list.nested.first() {
+                                            try_set_attribute(
+                                                &mut result.archived_repr,
+                                                ReprAttr::try_from_path(path)?,
+                                                "repr"
+                                            )?;
+                                        } else {
+                                            return Err(Error::new_spanned(
+                                                list.nested.first(),
+                                                "invalid repr argument"
+                                            ));
+                                        }
+                                    }
+                                } else {
+                                    result.attrs.push(meta.clone());
+                                }
+                            } else {
+                                result.attrs.push(meta.clone());
+                            }
                         } else {
                             return Err(Error::new_spanned(
                                 nested,
                                 "archive_attr arguments must be metas"
-                            ));
-                        }
-                    }
-                } else if list.path.is_ident("repr") {
-                    if list.nested.len() != 1 {
-                        return Err(Error::new_spanned(list, "repr must have exactly one argument"));
-                    } else {
-                        if let Some(NestedMeta::Meta(Meta::Path(path))) = list.nested.first() {
-                            try_set_attribute(
-                                &mut result.repr,
-                                ReprAttr::try_from_path(path)?,
-                                "repr"
-                            )?;
-                        } else {
-                            return Err(Error::new_spanned(
-                                list.nested.first(),
-                                "invalid repr argument"
                             ));
                         }
                     }
