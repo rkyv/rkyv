@@ -40,7 +40,7 @@ macro_rules! project_struct {
     ($struct:ident: $ty:path => $field:tt) => {
         #[allow(unused_unsafe)]
         (unsafe {
-            &mut *($struct as &mut MaybeUninit<$ty>)
+            &mut *($struct as &mut ::core::mem::MaybeUninit<$ty>)
                 .as_mut_ptr()
                 .cast::<u8>()
                 .add($crate::offset_of!($ty, $field))
@@ -50,11 +50,11 @@ macro_rules! project_struct {
     ($struct:ident: $struct_ty:path => $field:tt: $field_ty:path) => {
         #[allow(unused_unsafe)]
         (unsafe {
-            &mut *($struct as &mut MaybeUninit<$struct_ty>)
+            &mut *($struct as &mut ::core::mem::MaybeUninit<$struct_ty>)
                 .as_mut_ptr()
                 .cast::<u8>()
                 .add($crate::offset_of!($struct_ty, $field))
-                .cast::<MaybeUninit<$field_ty>>()
+                .cast::<::core::mem::MaybeUninit<$field_ty>>()
         })
     };
 }
@@ -85,20 +85,20 @@ macro_rules! project_struct {
 macro_rules! project_tuple {
     ($tuple:ident: $ty:ty => $index:tt) => {
         (unsafe {
-            &mut *($tuple as &mut MaybeUninit<$ty>)
+            &mut *($tuple as &mut ::core::mem::MaybeUninit<$ty>)
                 .as_mut_ptr()
                 .cast::<u8>()
-                .add(memoffset::offset_of_tuple!($ty, $index))
+                .add($crate::offset_of_tuple!($ty, $index))
                 .cast()
         })
     };
     ($tuple:ident: $tuple_ty:ty => $index:tt: $index_ty:path) => {
         (unsafe {
-            &mut *($tuple as &mut MaybeUninit<$tuple_ty>)
+            &mut *($tuple as &mut ::core::mem::MaybeUninit<$tuple_ty>)
                 .as_mut_ptr()
                 .cast::<u8>()
-                .add(memoffset::offset_of_tuple!($tuple_ty, $index))
-                .cast::<MaybeUninit<$index_ty>>()
+                .add($crate::offset_of_tuple!($tuple_ty, $index))
+                .cast::<::core::mem::MaybeUninit<$index_ty>>()
         })
     };
 }
@@ -110,7 +110,7 @@ macro_rules! resolve_struct {
     ($out:ident = |$pos:ident, $resolver:ident| -> $out_ty:path { $($field:ident: $field_expr:expr,)* }) => {
         $(
             unsafe {
-                let field_offset = memoffset::offset_of!($out_ty, $field);
+                let field_offset = $crate::offset_of!($out_ty, $field);
                 $field_expr.resolve(
                     $pos + field_offset,
                     $resolver.$field,

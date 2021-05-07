@@ -17,8 +17,8 @@
     <a href="https://github.com/djkoloski/rkyv/blob/master/LICENSE">
         <img src="https://img.shields.io/badge/license-MIT-blue.svg">
     </a>
-    <a href="https://blog.rust-lang.org/2020/10/08/Rust-1.47.html">
-        <img src="https://img.shields.io/badge/rustc-1.47+-lightgray.svg">
+    <a href="https://blog.rust-lang.org/2020/10/08/Rust-1.50.html">
+        <img src="https://img.shields.io/badge/rustc-1.50+-lightgray.svg">
     </a>
 </p>
 
