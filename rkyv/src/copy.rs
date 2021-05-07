@@ -36,7 +36,6 @@ use core::sync::atomic::{
 /// This trait is similar to `Copy` in that it's automatically implemented for all types composed
 /// entirely of other `ArchiveCopy` types. `Copy` is necessary, but not sufficient for `ArchiveCopy`
 /// as some `Copy` type representations may vary from platform to platform.
-#[rustc_unsafe_specialization_marker]
 pub auto trait ArchiveCopy {}
 
 // (), PhantomData, PhantomPinned, bool, i8, u8, NonZeroI8, and NonZeroU8 are always ArchiveCopy
@@ -112,7 +111,6 @@ impl !ArchiveCopy for crate::RawRelPtr {}
 ///
 /// These types are always safe to `memcpy` around because they will never contain uninitialized
 /// padding.
-#[rustc_unsafe_specialization_marker]
 pub unsafe trait ArchiveCopySafe: ArchiveCopy + Sized {}
 
 // (), PhantomData, PhantomPinned, bool, i8, u8, NonZeroI8, and NonZeroU8 are always ArchiveCopySafe
@@ -178,3 +176,25 @@ macro_rules! impl_tuple {
 impl_tuple!(T, T, T, T, T, T, T, T, T, T, T,);
 
 unsafe impl<T: ArchiveCopySafe, const N: usize> ArchiveCopySafe for [T; N] {}
+
+/// Types that are may be copy optimized.
+///
+/// By default, only [`ArchiveCopySafe`] types may be copy optimized. By enabling the `copy_unsafe`
+/// feature, all types that are [`ArchiveCopy`] may be copy optimized.
+#[cfg(not(feature = "copy_unsafe"))]
+#[rustc_unsafe_specialization_marker]
+pub trait ArchiveCopyOptimize: ArchiveCopySafe {}
+
+#[cfg(not(feature = "copy_unsafe"))]
+impl<T: ArchiveCopySafe> ArchiveCopyOptimize for T {}
+
+/// Types that are may be copy optimized.
+///
+/// By default, only [`ArchiveCopySafe`] types may be copy optimized. By enabling the `copy_unsafe`
+/// feature, all types that are [`ArchiveCopy`] may be copy optimized.
+#[cfg(feature = "copy_unsafe")]
+#[rustc_unsafe_specialization_marker]
+pub trait ArchiveCopyOptimize: ArchiveCopy {}
+
+#[cfg(feature = "copy_unsafe")]
+impl<T: ArchiveCopy> ArchiveCopyOptimize for T {}
