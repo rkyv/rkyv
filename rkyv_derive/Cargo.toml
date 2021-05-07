@@ -23,6 +23,7 @@ default = []
 arbitrary_enum_discriminant = []
 archive_be = []
 archive_le = []
+copy = []
 strict = []
 
 [package.metadata.docs.rs]

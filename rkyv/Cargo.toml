@@ -22,12 +22,12 @@ rkyv_derive = { version = "=0.6.3", path = "../rkyv_derive" }
 seahash = { version = "4.0", optional = true }
 
 [features]
-default = ["copy", "std", "const_generics"]
+default = ["std", "const_generics"]
 arbitrary_enum_discriminant = ["rkyv_derive/arbitrary_enum_discriminant"]
 archive_be = ["rend", "rkyv_derive/archive_be"]
 archive_le = ["rend", "rkyv_derive/archive_le"]
 const_generics = []
-copy = []
+copy = ["rkyv_derive/copy"]
 copy_unsafe = []
 size_64 = []
 std = ["bytecheck/std", "seahash", "rend/std"]

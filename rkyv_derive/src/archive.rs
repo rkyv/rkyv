@@ -171,6 +171,26 @@ fn derive_archive_impl(
                         }
                     }
 
+                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some() {
+                        let mut copy_safe_where = where_clause.clone();
+                        for field in fields
+                            .named
+                            .iter()
+                            .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
+                        {
+                            let ty = &field.ty;
+                            copy_safe_where
+                                .predicates
+                                .push(parse_quote! { #ty: rkyv::copy::ArchiveCopySafe });
+                        }
+
+                        Some(quote! {
+                            unsafe impl #impl_generics rkyv::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
+                        })
+                    } else {
+                        None
+                    };
+
                     (
                         quote! {
                             #[doc = #archived_doc]
@@ -199,6 +219,7 @@ fn derive_archive_impl(
 
                             #partial_eq_impl
                             #partial_ord_impl
+                            #copy_safe_impl
                         },
                     )
                 }
@@ -321,6 +342,26 @@ fn derive_archive_impl(
                         }
                     }
 
+                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some() {
+                        let mut copy_safe_where = where_clause.clone();
+                        for field in fields
+                            .unnamed
+                            .iter()
+                            .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
+                        {
+                            let ty = &field.ty;
+                            copy_safe_where
+                                .predicates
+                                .push(parse_quote! { #ty: rkyv::copy::ArchiveCopySafe });
+                        }
+
+                        Some(quote! {
+                            unsafe impl #impl_generics rkyv::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
+                        })
+                    } else {
+                        None
+                    };
+
                     (
                         quote! {
                             #[doc = #archived_doc]
@@ -345,6 +386,7 @@ fn derive_archive_impl(
 
                             #partial_eq_impl
                             #partial_ord_impl
+                            #copy_safe_impl
                         },
                     )
                 }
@@ -391,6 +433,14 @@ fn derive_archive_impl(
                         }
                     }
 
+                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some() {
+                        Some(quote! {
+                            unsafe impl #impl_generics rkyv::copy::ArchiveCopySafe for #name #ty_generics #where_clause {}
+                        })
+                    } else {
+                        None
+                    };
+
                     (
                         quote! {
                             #[doc = #archived_doc]
@@ -414,6 +464,7 @@ fn derive_archive_impl(
 
                             #partial_eq_impl
                             #partial_ord_impl
+                            #copy_safe_impl
                         },
                     )
                 }
@@ -935,6 +986,45 @@ fn derive_archive_impl(
                 }
             }
 
+            let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some() {
+                let mut copy_safe_where = where_clause.clone();
+                for variant in data.variants.iter() {
+                    match variant.fields {
+                        Fields::Named(ref fields) => {
+                            for field in fields
+                                .named
+                                .iter()
+                                .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
+                            {
+                                let ty = &field.ty;
+                                copy_safe_where
+                                    .predicates
+                                    .push(parse_quote! { #ty: rkyv::copy::ArchiveCopySafe });
+                            }
+                        }
+                        Fields::Unnamed(ref fields) => {
+                            for field in fields
+                                .unnamed
+                                .iter()
+                                .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
+                            {
+                                let ty = &field.ty;
+                                copy_safe_where
+                                    .predicates
+                                    .push(parse_quote! { #ty: rkyv::copy::ArchiveCopySafe });
+                            }
+                        }
+                        Fields::Unit => (),
+                    }
+                }
+
+                Some(quote! {
+                    unsafe impl #impl_generics rkyv::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
+                })
+            } else {
+                None
+            };
+
             (
                 quote! {
                     #[doc = #archived_doc]
@@ -972,6 +1062,7 @@ fn derive_archive_impl(
 
                     #partial_eq_impl
                     #partial_ord_impl
+                    #copy_safe_impl
                 },
             )
         }

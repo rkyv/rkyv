@@ -4,13 +4,14 @@ use crate::repr::ReprAttr;
 
 #[derive(Default)]
 pub struct Attributes {
+    pub archived: Option<Ident>,
+    pub resolver: Option<Ident>,
     pub attrs: Vec<Meta>,
+    pub archived_repr: Option<ReprAttr>,
     pub compares: Option<(Path, Vec<Path>)>,
     pub serialize_bound: Option<LitStr>,
     pub deserialize_bound: Option<LitStr>,
-    pub archived: Option<Ident>,
-    pub archived_repr: Option<ReprAttr>,
-    pub resolver: Option<Ident>,
+    pub copy_safe: Option<Path>,
 }
 
 fn try_set_attribute<T: ToTokens>(
@@ -31,6 +32,13 @@ fn try_set_attribute<T: ToTokens>(
 
 fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<(), Error> {
     match meta {
+        Meta::Path(path) => {
+            if path.is_ident("copy_safe") {
+                try_set_attribute(&mut attributes.copy_safe, path.clone(), "copy_safe")
+            } else {
+                Err(Error::new_spanned(meta, "unrecognized archive argument"))
+            }
+        }
         Meta::List(list) => {
             if list.path.is_ident("compare") {
                 if attributes.compares.is_none() {
@@ -55,23 +63,17 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                     if let NestedMeta::Meta(Meta::NameValue(name_value)) = bound {
                         if let Lit::Str(ref lit_str) = name_value.lit {
                             if name_value.path.is_ident("serialize") {
-                                if attributes.serialize_bound.is_none() {
-                                    attributes.serialize_bound = Some(lit_str.clone());
-                                } else {
-                                    return Err(Error::new_spanned(
-                                        bound,
-                                        "serialize bound already specified",
-                                    ));
-                                }
+                                try_set_attribute(
+                                    &mut attributes.serialize_bound,
+                                    lit_str.clone(),
+                                    "serialize bound"
+                                )?;
                             } else if name_value.path.is_ident("deserialize") {
-                                if attributes.deserialize_bound.is_none() {
-                                    attributes.deserialize_bound = Some(lit_str.clone());
-                                } else {
-                                    return Err(Error::new_spanned(
-                                        bound,
-                                        "serialize bound already specified",
-                                    ));
-                                }
+                                try_set_attribute(
+                                    &mut attributes.deserialize_bound,
+                                    lit_str.clone(),
+                                    "deserialize bound"
+                                )?;
                             } else {
                                 return Err(Error::new_spanned(
                                     bound,
@@ -138,7 +140,6 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                 Err(Error::new_spanned(meta, "unrecognized archive argument"))
             }
         }
-        _ => Err(Error::new_spanned(meta, "unrecognized archive argument")),
     }
 }
 
