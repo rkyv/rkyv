@@ -21,8 +21,6 @@
 //!
 //! ## Features
 //!
-//! - `const_generics`: Uses the unstable `min_const_generics` feature to implement array type names
-//!   (enabled by default)
 //! - `std`: Implements [`TypeName`] for standard library types (enabled by default)
 
 #![cfg_attr(not(feature = "std"), no_std)]

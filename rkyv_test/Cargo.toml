@@ -16,11 +16,10 @@ rkyv = { path = "../rkyv", default-features = false }
 wasm-bindgen-test = { version = "0.3", optional = true }
 
 [features]
-default = ["std", "const_generics", "validation"]
+default = ["std", "validation"]
 arbitrary_enum_discriminant = ["rkyv/arbitrary_enum_discriminant"]
 archive_be = ["rkyv/archive_be"]
 archive_le = ["rkyv/archive_le"]
-const_generics = ["rkyv/const_generics"]
 copy = ["rkyv/copy"]
 copy_unsafe = ["rkyv/copy_unsafe"]
 size_64 = ["rkyv/size_64"]

@@ -120,73 +120,6 @@ macro_rules! impl_tuple {
 #[cfg(not(feature = "strict"))]
 impl_tuple! { T11 11, T10 10, T9 9, T8 8, T7 7, T6 6, T5 5, T4 4, T3 3, T2 2, T1 1, T0 0, }
 
-#[cfg(not(feature = "const_generics"))]
-macro_rules! impl_array {
-    () => ();
-    ($len:literal, $($rest:literal,)*) => {
-        impl<T: Archive> Archive for [T; $len] {
-            type Archived = [T::Archived; $len];
-            type Resolver = [T::Resolver; $len];
-
-            #[inline]
-            fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-                let mut resolvers = core::mem::MaybeUninit::new(resolver);
-                let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
-                let out_ptr = out.as_mut_ptr().cast::<MaybeUninit<T::Archived>>();
-                #[allow(clippy::reversed_empty_ranges)]
-                for (i, value) in self.iter().enumerate() {
-                    unsafe {
-                        value.resolve(
-                            pos + i * core::mem::size_of::<T::Archived>(),
-                            resolvers_ptr.add(i).read(),
-                            &mut *out_ptr.add(i),
-                        );
-                    }
-                }
-            }
-        }
-
-        impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for [T; $len] {
-            #[inline]
-            fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-                let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
-                let result_ptr = result.as_mut_ptr().cast::<T::Resolver>();
-                #[allow(clippy::reversed_empty_ranges)]
-                for i in 0..$len {
-                    unsafe {
-                        result_ptr.add(i).write(self[i].serialize(serializer)?);
-                    }
-                }
-                unsafe { Ok(result.assume_init()) }
-            }
-        }
-
-        impl<T: Archive, D: Fallible + ?Sized> Deserialize<[T; $len], D> for [T::Archived; $len]
-        where
-            T::Archived: Deserialize<T, D>,
-        {
-            #[inline]
-            fn deserialize(&self, deserializer: &mut D) -> Result<[T; $len], D::Error> {
-                let mut result = core::mem::MaybeUninit::<[T; $len]>::uninit();
-                let result_ptr = result.as_mut_ptr().cast::<T>();
-                #[allow(clippy::reversed_empty_ranges)]
-                for i in 0..$len {
-                    unsafe {
-                        result_ptr.add(i).write(self[i].deserialize(deserializer)?);
-                    }
-                }
-                unsafe { Ok(result.assume_init()) }
-            }
-        }
-
-        impl_array! { $($rest,)* }
-    };
-}
-
-#[cfg(not(feature = "const_generics"))]
-impl_array! { 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, }
-
-#[cfg(feature = "const_generics")]
 impl<T: Archive, const N: usize> Archive for [T; N] {
     type Archived = [T::Archived; N];
     type Resolver = [T::Resolver; N];
@@ -208,7 +141,6 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     }
 }
 
-#[cfg(feature = "const_generics")]
 impl<T: Serialize<S>, S: Fallible + ?Sized, const N: usize> Serialize<S> for [T; N] {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
@@ -223,7 +155,6 @@ impl<T: Serialize<S>, S: Fallible + ?Sized, const N: usize> Serialize<S> for [T;
     }
 }
 
-#[cfg(feature = "const_generics")]
 impl<T: Archive, D: Fallible + ?Sized, const N: usize> Deserialize<[T; N], D> for [T::Archived; N]
 where
     T::Archived: Deserialize<T, D>,
