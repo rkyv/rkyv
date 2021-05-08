@@ -1,16 +1,16 @@
 //! Validation implementations for HashMap and HashSet.
 
 use crate::{
-    offset_of,
     std_impl::chd::{ArchivedHashMap, Entry},
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
-    Archived, Fallible, FixedUsize, RawRelPtr,
+    Archived, ArchivedUsize, Fallible, FixedUsize, RawRelPtr,
 };
 use bytecheck::{CheckBytes, SliceCheckError, Unreachable};
 use core::{
     alloc::Layout,
     fmt,
     hash::{Hash, Hasher},
+    ptr,
 };
 use std::{alloc::LayoutError, error::Error};
 
@@ -46,10 +46,9 @@ impl<K: CheckBytes<C>, V: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> Check
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let bytes = value.cast::<u8>();
-        K::check_bytes(bytes.add(offset_of!(Entry<K, V>, key)).cast(), context)
+        K::check_bytes(ptr::addr_of!((*value).key), context)
             .map_err(ArchivedHashMapEntryError::KeyCheckError)?;
-        V::check_bytes(bytes.add(offset_of!(Entry<K, V>, value)).cast(), context)
+        V::check_bytes(ptr::addr_of!((*value).value), context)
             .map_err(ArchivedHashMapEntryError::ValueCheckError)?;
         Ok(&*value)
     }
@@ -148,18 +147,13 @@ where
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let bytes = value.cast::<u8>();
-
-        let len = *Archived::<u32>::check_bytes(
-            bytes.add(offset_of!(ArchivedHashMap<K, V>, len)).cast(),
-            context,
-        )?;
-        let len = FixedUsize::from(len) as usize;
+        let len = FixedUsize::from(*ArchivedUsize::check_bytes(
+            ptr::addr_of!((*value).len),
+            context
+        )?) as usize;
 
         let displace_rel_ptr = RawRelPtr::manual_check_bytes(
-            bytes
-                .add(offset_of!(ArchivedHashMap<K, V>, displace))
-                .cast(),
+            ptr::addr_of!((*value).displace),
             context,
         )?;
         let displace_data_ptr = context
@@ -180,7 +174,7 @@ where
         }
 
         let entries_rel_ptr = RawRelPtr::manual_check_bytes(
-            bytes.add(offset_of!(ArchivedHashMap<K, V>, entries)).cast(),
+            ptr::addr_of!((*value).entries),
             context,
         )?;
         let entries_data_ptr = context
@@ -215,6 +209,6 @@ where
             }
         }
 
-        Ok(&*bytes.cast())
+        Ok(&*value)
     }
 }

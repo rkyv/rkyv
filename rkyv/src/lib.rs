@@ -99,7 +99,7 @@ use core::{
     mem::MaybeUninit,
 };
 
-pub use memoffset::{offset_of, offset_of_tuple};
+use core::ptr;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 pub use util::*;
@@ -200,9 +200,8 @@ impl Fallible for Infallible {
 /// use core::{mem::MaybeUninit, slice, str};
 /// use rkyv::{
 ///     archived_root,
-///     offset_of,
-///     project_struct,
 ///     ser::{Serializer, serializers::AlignedSerializer},
+///     out_field,
 ///     AlignedVec,
 ///     Archive,
 ///     Archived,
@@ -260,14 +259,13 @@ impl Fallible for Infallible {
 ///         // We have to be careful to add the offset of the ptr field,
 ///         // otherwise we'll be using the position of the ArchivedOwnedStr
 ///         // instead of the position of the relative pointer.
-///         unsafe {
-///             self.inner.resolve_unsized(
-///                 pos + offset_of!(Self::Archived, ptr),
-///                 resolver.pos,
-///                 resolver.metadata_resolver,
-///                 project_struct!(out: Self::Archived => ptr),
-///             );
-///         }
+///         let (fp, fo) = out_field!(out.ptr);
+///         self.inner.resolve_unsized(
+///             pos + fp,
+///             resolver.pos,
+///             resolver.metadata_resolver,
+///             fo,
+///         );
 ///     }
 /// }
 ///
@@ -355,7 +353,6 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// use ptr_meta::Pointee;
 /// use rkyv::{
 ///     archived_unsized_value,
-///     offset_of,
 ///     ser::{serializers::AlignedSerializer, Serializer},
 ///     AlignedVec,
 ///     Archive,
@@ -610,11 +607,9 @@ impl RawRelPtr {
     /// output.
     #[inline]
     pub fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
-        let offset = ArchivedIsize::from((to as isize - from as isize) as FixedIsize);
         unsafe {
-            project_struct!(out: Self => offset: ArchivedIsize)
-                .as_mut_ptr()
-                .write(offset);
+            ptr::addr_of_mut!((*out.as_mut_ptr()).offset)
+                .write(((to as isize - from as isize) as FixedIsize).into());
         }
     }
 
@@ -708,16 +703,10 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
         metadata_resolver: U::MetadataResolver,
         out: &mut MaybeUninit<Self>,
     ) {
-        RawRelPtr::emplace(
-            from + offset_of!(Self, raw_ptr),
-            to,
-            project_struct!(out: Self => raw_ptr),
-        );
-        value.resolve_metadata(
-            from + offset_of!(Self, metadata),
-            metadata_resolver,
-            project_struct!(out: Self => metadata),
-        );
+        let (fp, fo) = out_field!(out.raw_ptr);
+        RawRelPtr::emplace(from + fp, to, fo);
+        let (fp, fo) = out_field!(out.metadata);
+        value.resolve_metadata(from + fp, metadata_resolver, fo);
     }
 
     /// Gets the base pointer for the relative pointer.

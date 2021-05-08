@@ -2,15 +2,14 @@
 
 pub mod validators;
 
-use crate::{
-    offset_of, Archive, ArchivePointee, Archived, Fallible, FixedIsize, RawRelPtr, RelPtr,
-};
+use crate::{Archive, ArchivePointee, Archived, Fallible, FixedIsize, RawRelPtr, RelPtr};
 use bytecheck::{CheckBytes, Unreachable};
 use core::{
     alloc::Layout,
     any::TypeId,
     fmt,
     marker::{PhantomData, PhantomPinned},
+    ptr,
 };
 #[cfg(feature = "std")]
 use std::error::Error;
@@ -32,9 +31,14 @@ impl RawRelPtr {
         value: *const RawRelPtr,
         context: &mut C,
     ) -> Result<&'a Self, Unreachable> {
-        let bytes = value.cast::<u8>();
-        Archived::<FixedIsize>::check_bytes(bytes.add(offset_of!(Self, offset)).cast(), context).unwrap();
-        PhantomPinned::check_bytes(bytes.add(offset_of!(Self, _phantom)).cast(), context).unwrap();
+        Archived::<FixedIsize>::check_bytes(
+            ptr::addr_of!((*value).offset),
+            context,
+        ).unwrap();
+        PhantomPinned::check_bytes(
+            ptr::addr_of!((*value)._phantom),
+            context,
+        ).unwrap();
         Ok(&*value)
     }
 }
@@ -59,12 +63,18 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
         T: CheckBytes<C>,
         T::ArchivedMetadata: CheckBytes<C>,
     {
-        let bytes = value.cast::<u8>();
-        RawRelPtr::manual_check_bytes(bytes.add(offset_of!(Self, raw_ptr)).cast(), context)
-            .unwrap();
-        T::ArchivedMetadata::check_bytes(bytes.add(offset_of!(Self, metadata)).cast(), context)?;
-        PhantomData::<T>::check_bytes(bytes.add(offset_of!(Self, _phantom)).cast(), context)
-            .unwrap();
+        RawRelPtr::manual_check_bytes(
+            ptr::addr_of!((*value).raw_ptr),
+            context,
+        ).unwrap();
+        T::ArchivedMetadata::check_bytes(
+            ptr::addr_of!((*value).metadata),
+            context,
+        )?;
+        PhantomData::<T>::check_bytes(
+            ptr::addr_of!((*value)._phantom),
+            context,
+        ).unwrap();
         Ok(&*value)
     }
 }

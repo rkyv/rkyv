@@ -7,8 +7,8 @@
 pub mod validation;
 
 use crate::{
-    offset_of, project_struct, ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize,
-    Fallible, FixedUsize, RawRelPtr, Serialize,
+    ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible, FixedUsize, RawRelPtr,
+    Serialize,
 };
 use core::{
     borrow::Borrow,
@@ -19,6 +19,7 @@ use core::{
     mem::{size_of, MaybeUninit},
     ops::Index,
     pin::Pin,
+    ptr,
     slice,
 };
 use std::collections::{HashMap, HashSet};
@@ -34,16 +35,11 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
     type Resolver = (K::Resolver, V::Resolver);
 
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        self.key.resolve(
-            pos + offset_of!(Self::Archived, key),
-            resolver.0,
-            project_struct!(out: Self::Archived => key),
-        );
-        self.value.resolve(
-            pos + offset_of!(Self::Archived, value),
-            resolver.1,
-            project_struct!(out: Self::Archived => value),
-        );
+        let (fp, fo) = out_field!(out.key);
+        self.key.resolve(pos + fp, resolver.0, fo);
+
+        let (fp, fo) = out_field!(out.value);
+        self.value.resolve(pos + fp, resolver.1, fo);
     }
 }
 
@@ -589,20 +585,14 @@ impl ArchivedHashMapResolver {
         out: &mut MaybeUninit<ArchivedHashMap<K, V>>,
     ) {
         unsafe {
-            project_struct!(out: ArchivedHashMap<K, V> => len: ArchivedUsize)
-                .as_mut_ptr()
-                .write(ArchivedUsize::from(len as FixedUsize));
-            RawRelPtr::emplace(
-                pos + offset_of!(ArchivedHashMap<K, V>, displace),
-                self.displace_pos,
-                project_struct!(out: ArchivedHashMap<K, V> => displace),
-            );
-            RawRelPtr::emplace(
-                pos + offset_of!(ArchivedHashMap<K, V>, entries),
-                self.entries_pos,
-                project_struct!(out: ArchivedHashMap<K, V> => entries),
-            );
+            ptr::addr_of_mut!((*out.as_mut_ptr()).len).write((len as FixedUsize).into());
         }
+
+        let (fp, fo) = out_field!(out.displace);
+        RawRelPtr::emplace(pos + fp, self.displace_pos, fo);
+
+        let (fp, fo) = out_field!(out.entries);
+        RawRelPtr::emplace(pos + fp, self.entries_pos, fo);
     }
 }
 
@@ -757,11 +747,8 @@ where
 
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        resolver.0.resolve_from_len(
-            pos,
-            self.len(),
-            project_struct!(out: Self::Archived => 0: ArchivedHashMap<K, ()>),
-        );
+        let (fp, fo) = out_field!(out.0);
+        resolver.0.resolve_from_len(pos + fp, self.len(), fo);
     }
 }
 

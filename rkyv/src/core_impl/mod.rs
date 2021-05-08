@@ -1,7 +1,7 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    de::Deserializer, offset_of, project_struct, ser::Serializer, Archive,
+    de::Deserializer, ser::Serializer, Archive,
     ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata, ArchivedUsize,
     Deserialize, DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
 };
@@ -87,12 +87,9 @@ macro_rules! impl_tuple {
             #[inline]
             fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
                 $(
+                    let (fp, fo) = out_field!(out.$index);
                     #[allow(clippy::unneeded_wildcard_pattern)]
-                    self.$index.resolve(
-                        pos + memoffset::offset_of_tuple!(Self::Archived, $index),
-                        resolver.$index,
-                        crate::project_tuple!(out: Self::Archived => $index)
-                    );
+                    self.$index.resolve(pos + fp, resolver.$index, fo);
                 )+
             }
         }
@@ -584,22 +581,16 @@ impl<T: Archive> Archive for Option<T> {
                     let out = &mut *out
                         .as_mut_ptr()
                         .cast::<MaybeUninit<ArchivedOptionVariantNone>>();
-                    project_struct!(out: ArchivedOptionVariantNone => 0: ArchivedOptionTag)
-                        .as_mut_ptr()
-                        .write(ArchivedOptionTag::None);
+                    ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedOptionTag::None);
                 }
                 Some(resolver) => {
                     let out = &mut *out
                         .as_mut_ptr()
                         .cast::<MaybeUninit<ArchivedOptionVariantSome<T::Archived>>>();
-                    project_struct!(out: ArchivedOptionVariantSome<T::Archived> => 0: ArchivedOptionTag)
-                        .as_mut_ptr()
-                        .write(ArchivedOptionTag::Some);
-                    self.as_ref().unwrap().resolve(
-                        pos + offset_of!(ArchivedOptionVariantSome<T::Archived>, 1),
-                        resolver,
-                        project_struct!(out: ArchivedOptionVariantSome<T::Archived> => 1),
-                    );
+                    ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedOptionTag::Some);
+
+                    let (fp, fo) = out_field!(out.1);
+                    self.as_ref().unwrap().resolve(pos + fp, resolver, fo);
                 }
             }
         }

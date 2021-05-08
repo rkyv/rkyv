@@ -7,7 +7,7 @@ pub mod shared;
 pub mod validation;
 
 use crate::{
-    de::Deserializer, offset_of, project_struct, Archive, ArchivePointee, ArchiveUnsized, Archived,
+    de::Deserializer, Archive, ArchivePointee, ArchiveUnsized, Archived,
     Deserialize, DeserializeUnsized, Fallible, MetadataResolver, RelPtr, Serialize,
     SerializeUnsized,
 };
@@ -158,13 +158,9 @@ impl Archive for String {
 
     #[inline]
     fn resolve(&self, pos: usize, resolver: StringResolver, out: &mut MaybeUninit<Self::Archived>) {
+        let (fp, fo) = out_field!(out.0);
         #[allow(clippy::unit_arg)]
-        self.as_str().resolve_unsized(
-            pos + offset_of!(Self::Archived, 0),
-            resolver.pos,
-            resolver.metadata_resolver,
-            project_struct!(out: Self::Archived => 0),
-        );
+        self.as_str().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 }
 
@@ -255,12 +251,8 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
 
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        self.as_ref().resolve_unsized(
-            pos + offset_of!(Self::Archived, 0),
-            resolver.pos,
-            resolver.metadata_resolver,
-            project_struct!(out: Self::Archived => 0),
-        );
+        let (fp, fo) = out_field!(out.0);
+        self.as_ref().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 }
 
@@ -348,13 +340,8 @@ impl<T: Archive> Archive for Vec<T> {
 
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        #[allow(clippy::unit_arg)]
-        self.as_slice().resolve_unsized(
-            pos + offset_of!(Self::Archived, 0),
-            resolver.pos,
-            resolver.metadata_resolver,
-            project_struct!(out: Self::Archived => 0),
-        );
+        let (fp, fo) = out_field!(out.0);
+        self.as_slice().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 }
 

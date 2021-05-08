@@ -97,10 +97,10 @@ impl<T: Archive> Archive for Range<T> {
 
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        resolve_struct!(out = |pos, resolver| -> Self::Archived {
-            start: self.start,
-            end: self.end,
-        });
+        let (fp, fo) = out_field!(out.start);
+        self.start.resolve(pos + fp, resolver.start, fo);
+        let (fp, fo) = out_field!(out.end);
+        self.end.resolve(pos + fp, resolver.end, fo);
     }
 }
 
@@ -194,10 +194,10 @@ impl<T: Archive> Archive for RangeInclusive<T> {
 
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        resolve_struct!(out = |pos, resolver| -> Self::Archived {
-            start: self.start(),
-            end: self.end(),
-        });
+        let (fp, fo) = out_field!(out.start);
+        self.start().resolve(pos + fp, resolver.start, fo);
+        let (fp, fo) = out_field!(out.end);
+        self.end().resolve(pos + fp, resolver.end, fo);
     }
 }
 
@@ -279,9 +279,8 @@ impl<T: Archive> Archive for RangeFrom<T> {
 
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        resolve_struct!(out = |pos, resolver| -> Self::Archived {
-            start: self.start,
-        });
+        let (fp, fo) = out_field!(out.start);
+        self.start.resolve(pos + fp, resolver.start, fo);
     }
 }
 
@@ -360,9 +359,8 @@ impl<T: Archive> Archive for RangeTo<T> {
 
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        resolve_struct!(out = |pos, resolver| -> Self::Archived {
-            end: self.end,
-        });
+        let (fp, fo) = out_field!(out.end);
+        self.end.resolve(pos + fp, resolver.end, fo);
     }
 }
 
@@ -441,9 +439,8 @@ impl<T: Archive> Archive for RangeToInclusive<T> {
 
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        resolve_struct!(out = |pos, resolver| -> Self::Archived {
-            end: self.end,
-        });
+        let (fp, fo) = out_field!(out.end);
+        self.end.resolve(pos + fp, resolver.end, fo);
     }
 }
 

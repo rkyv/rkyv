@@ -91,11 +91,8 @@ fn derive_archive_impl(
                     let resolve_fields = fields.named.iter().map(|f| {
                         let name = &f.ident;
                         quote_spanned! { f.span() =>
-                            self.#name.resolve(
-                                pos + rkyv::offset_of!(#archived #ty_generics, #name),
-                                resolver.#name,
-                                rkyv::project_struct!(out: Self::Archived => #name)
-                            )
+                            let (fp, fo) = ::rkyv::out_field!(out.#name);
+                            self.#name.resolve(pos + fp, resolver.#name, fo);
                         }
                     });
 
@@ -213,7 +210,7 @@ fn derive_archive_impl(
                                 #[allow(clippy::unit_arg)]
                                 #[inline]
                                 fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-                                    #(#resolve_fields;)*
+                                    #(#resolve_fields)*
                                 }
                             }
 
@@ -254,11 +251,8 @@ fn derive_archive_impl(
                     let resolve_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                         let index = Index::from(i);
                         quote_spanned! { f.span() =>
-                            self.#index.resolve(
-                                pos + rkyv::offset_of!(#archived #ty_generics, #index),
-                                resolver.#index,
-                                rkyv::project_struct!(out: Self::Archived => #index)
-                            )
+                            let (fp, fo) = ::rkyv::out_field!(out.#index);
+                            self.#index.resolve(pos + fp, resolver.#index, fo);
                         }
                     });
 
@@ -380,7 +374,7 @@ fn derive_archive_impl(
                                 #[allow(clippy::unit_arg)]
                                 #[inline]
                                 fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-                                    #(#resolve_fields;)*
+                                    #(#resolve_fields)*
                                 }
                             }
 
@@ -555,11 +549,8 @@ fn derive_archive_impl(
                             let self_binding = Ident::new(&format!("self_{}", name.as_ref().unwrap().to_string()), name.span());
                             let resolver_binding = Ident::new(&format!("resolver_{}", name.as_ref().unwrap().to_string()), name.span());
                             quote! {
-                                #self_binding.resolve(
-                                    pos + rkyv::offset_of!(#archived_variant_name #ty_generics, #name),
-                                    #resolver_binding,
-                                    rkyv::project_struct!(out: #archived_variant_name #ty_generics => #name),
-                                )
+                                let (fp, fo) = ::rkyv::out_field!(out.#name);
+                                #self_binding.resolve(pos + fp, #resolver_binding, fo);
                             }
                         });
                         quote_spanned! { name.span() =>
@@ -568,10 +559,9 @@ fn derive_archive_impl(
                                     #name::#variant { #(#self_bindings,)* } => {
                                         unsafe {
                                             let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
-                                            rkyv::project_struct!(out: #archived_variant_name #ty_generics => __tag: ArchivedTag)
-                                                .as_mut_ptr()
+                                            ::core::ptr::addr_of_mut!((*out.as_mut_ptr()).__tag)
                                                 .write(ArchivedTag::#variant);
-                                            #(#resolves;)*
+                                            #(#resolves)*
                                         }
                                     },
                                     #[allow(unreachable_patterns)]
@@ -594,11 +584,8 @@ fn derive_archive_impl(
                             let self_binding = Ident::new(&format!("self_{}", i), f.span());
                             let resolver_binding = Ident::new(&format!("resolver_{}", i), f.span());
                             quote! {
-                                #self_binding.resolve(
-                                    pos + rkyv::offset_of!(#archived_variant_name #ty_generics, #index),
-                                    #resolver_binding,
-                                    rkyv::project_struct!(out: #archived_variant_name #ty_generics => #index),
-                                )
+                                let (fp, fo) = ::rkyv::out_field!(out.#index);
+                                #self_binding.resolve(pos + fp, #resolver_binding, fo);
                             }
                         });
                         quote_spanned! { name.span() =>
@@ -607,10 +594,8 @@ fn derive_archive_impl(
                                     #name::#variant(#(#self_bindings,)*) => {
                                         unsafe {
                                             let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
-                                            rkyv::project_struct!(out: #archived_variant_name #ty_generics => 0: ArchivedTag)
-                                                .as_mut_ptr()
-                                                .write(ArchivedTag::#variant);
-                                            #(#resolves;)*
+                                            ::core::ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedTag::#variant);
+                                            #(#resolves)*
                                         }
                                     },
                                     #[allow(unreachable_patterns)]

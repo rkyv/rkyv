@@ -5,12 +5,11 @@ use super::{
     ArchivedRcWeak, ArchivedRcWeakTag, ArchivedRcWeakVariantSome,
 };
 use crate::{
-    offset_of,
     validation::{ArchiveBoundsContext, LayoutMetadata, SharedArchiveContext},
     ArchivePointee, RelPtr,
 };
 use bytecheck::{CheckBytes, Unreachable};
-use core::{any::TypeId, fmt};
+use core::{any::TypeId, fmt, ptr};
 use ptr_meta::Pointee;
 use std::error::Error;
 
@@ -135,18 +134,13 @@ where
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let bytes = value.cast::<u8>();
-        let tag = *u8::check_bytes(bytes, context)?;
+        let tag = *u8::check_bytes(value.cast::<u8>(), context)?;
         match tag {
             ArchivedRcWeakTag::TAG_NONE => (),
             ArchivedRcWeakTag::TAG_SOME => {
-                ArchivedRc::<T>::check_bytes(
-                    bytes
-                        .add(offset_of!(ArchivedRcWeakVariantSome<T>, 1))
-                        .cast(),
-                    context,
-                )
-                .map_err(WeakPointerError::CheckBytes)?;
+                let value = value.cast::<ArchivedRcWeakVariantSome<T>>();
+                ArchivedRc::<T>::check_bytes(ptr::addr_of!((*value).1), context)
+                    .map_err(WeakPointerError::CheckBytes)?;
             }
             _ => return Err(WeakPointerError::InvalidTag(tag)),
         }
@@ -203,18 +197,13 @@ where
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let bytes = value.cast::<u8>();
-        let tag = *u8::check_bytes(bytes, context)?;
+        let tag = *u8::check_bytes(value.cast::<u8>(), context)?;
         match tag {
             ArchivedArcWeakTag::TAG_NONE => (),
             ArchivedArcWeakTag::TAG_SOME => {
-                ArchivedArc::<T>::check_bytes(
-                    bytes
-                        .add(offset_of!(ArchivedArcWeakVariantSome<T>, 1))
-                        .cast(),
-                    context,
-                )
-                .map_err(WeakPointerError::CheckBytes)?;
+                let value = value.cast::<ArchivedArcWeakVariantSome<T>>();
+                ArchivedArc::<T>::check_bytes(ptr::addr_of!((*value).1), context)
+                    .map_err(WeakPointerError::CheckBytes)?;
             }
             _ => return Err(WeakPointerError::InvalidTag(tag)),
         }

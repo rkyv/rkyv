@@ -1,7 +1,7 @@
 //! [`Archive`] implementations for network types.
 
-use crate::{offset_of, project_struct, Archive, Archived, Deserialize, Fallible, Serialize};
-use core::{cmp, mem::MaybeUninit};
+use crate::{Archive, Archived, Deserialize, Fallible, Serialize};
+use core::{cmp, mem::MaybeUninit, ptr};
 use std::{
     io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs},
@@ -390,29 +390,21 @@ impl Archive for IpAddr {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedIpAddrVariantV4>>();
-                project_struct!(out: ArchivedIpAddrVariantV4 => 0: ArchivedIpAddrTag)
-                    .as_mut_ptr()
-                    .write(ArchivedIpAddrTag::V4);
+                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedIpAddrTag::V4);
+
+                let (fp, fo) = out_field!(out.1);
                 #[allow(clippy::unit_arg)]
-                ipv4_addr.resolve(
-                    pos + offset_of!(ArchivedIpAddrVariantV4, 1),
-                    resolver,
-                    project_struct!(out: ArchivedIpAddrVariantV4 => 1),
-                );
+                ipv4_addr.resolve(pos + fp, resolver, fo);
             },
             IpAddr::V6(ipv6_addr) => unsafe {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedIpAddrVariantV6>>();
-                project_struct!(out: ArchivedIpAddrVariantV6 => 0: ArchivedIpAddrTag)
-                    .as_mut_ptr()
-                    .write(ArchivedIpAddrTag::V6);
+                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedIpAddrTag::V6);
+
+                let (fp, fo) = out_field!(out.1);
                 #[allow(clippy::unit_arg)]
-                ipv6_addr.resolve(
-                    pos + offset_of!(ArchivedIpAddrVariantV6, 1),
-                    resolver,
-                    project_struct!(out: ArchivedIpAddrVariantV6 => 1),
-                );
+                ipv6_addr.resolve(pos + fp, resolver, fo);
             },
         }
     }
@@ -524,18 +516,10 @@ impl Archive for SocketAddrV4 {
 
     #[inline]
     fn resolve(&self, pos: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        unsafe {
-            self.ip().resolve(
-                pos + offset_of!(ArchivedSocketAddrV4, ip),
-                (),
-                project_struct!(out: Self::Archived => ip),
-            );
-            self.port().resolve(
-                pos + offset_of!(ArchivedSocketAddrV4, port),
-                (),
-                project_struct!(out: Self::Archived => port),
-            );
-        }
+        let (fp, fo) = out_field!(out.ip);
+        self.ip().resolve(pos + fp, (), fo);
+        let (fp, fo) = out_field!(out.port);
+        self.port().resolve(pos + fp, (), fo);
     }
 }
 
@@ -643,28 +627,14 @@ impl Archive for SocketAddrV6 {
 
     #[inline]
     fn resolve(&self, pos: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        unsafe {
-            self.ip().resolve(
-                pos + offset_of!(ArchivedSocketAddrV6, ip),
-                (),
-                project_struct!(out: Self::Archived => ip),
-            );
-            self.port().resolve(
-                pos + offset_of!(ArchivedSocketAddrV6, port),
-                (),
-                project_struct!(out: Self::Archived => port),
-            );
-            self.flowinfo().resolve(
-                pos + offset_of!(ArchivedSocketAddrV6, flowinfo),
-                (),
-                project_struct!(out: Self::Archived => flowinfo),
-            );
-            self.scope_id().resolve(
-                pos + offset_of!(ArchivedSocketAddrV6, scope_id),
-                (),
-                project_struct!(out: Self::Archived => scope_id),
-            )
-        }
+        let (fp, fo) = out_field!(out.ip);
+        self.ip().resolve(pos + fp, (), fo);
+        let (fp, fo) = out_field!(out.port);
+        self.port().resolve(pos + fp, (), fo);
+        let (fp, fo) = out_field!(out.flowinfo);
+        self.flowinfo().resolve(pos + fp, (), fo);
+        let (fp, fo) = out_field!(out.scope_id);
+        self.scope_id().resolve(pos + fp, (), fo);
     }
 }
 
@@ -802,29 +772,21 @@ impl Archive for SocketAddr {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedSocketAddrVariantV4>>();
-                project_struct!(out: ArchivedSocketAddrVariantV4 => 0: ArchivedSocketAddrTag)
-                    .as_mut_ptr()
-                    .write(ArchivedSocketAddrTag::V4);
+                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedSocketAddrTag::V4);
+                
+                let (fp, fo) = out_field!(out.1);
                 #[allow(clippy::unit_arg)]
-                socket_addr.resolve(
-                    pos + offset_of!(ArchivedSocketAddrVariantV4, 1),
-                    resolver,
-                    project_struct!(out: ArchivedSocketAddrVariantV4 => 1),
-                );
+                socket_addr.resolve(pos + fp, resolver, fo);
             },
             SocketAddr::V6(socket_addr) => unsafe {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedSocketAddrVariantV6>>();
-                project_struct!(out: ArchivedSocketAddrVariantV6 => 0: ArchivedSocketAddrTag)
-                    .as_mut_ptr()
-                    .write(ArchivedSocketAddrTag::V6);
+                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedSocketAddrTag::V6);
+
+                let (fp, fo) = out_field!(out.1);
                 #[allow(clippy::unit_arg)]
-                socket_addr.resolve(
-                    pos + offset_of!(ArchivedSocketAddrVariantV6, 1),
-                    resolver,
-                    project_struct!(out: ArchivedSocketAddrVariantV6 => 1),
-                );
+                socket_addr.resolve(pos + fp, resolver, fo);
             },
         }
     }

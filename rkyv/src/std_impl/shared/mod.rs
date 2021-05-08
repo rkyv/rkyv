@@ -8,12 +8,12 @@ use core::{
     mem::{forget, MaybeUninit},
     ops::Deref,
     pin::Pin,
+    ptr,
 };
 use std::{rc, sync};
 
 use crate::{
     de::{SharedDeserializer, SharedPointer},
-    offset_of, project_struct,
     ser::SharedSerializer,
     Archive, ArchivePointee, ArchiveUnsized, Archived, Deserialize, DeserializeUnsized, RelPtr,
     Serialize, SerializeUnsized,
@@ -72,12 +72,8 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
 
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        self.as_ref().resolve_unsized(
-            pos,
-            resolver.pos,
-            resolver.metadata_resolver,
-            project_struct!(out: Self::Archived => 0),
-        );
+        let (fp, fo) = out_field!(out.0);
+        self.as_ref().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 }
 
@@ -175,22 +171,16 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedRcWeakVariantNone>>();
-                project_struct!(out: ArchivedRcWeakVariantNone => 0: ArchivedRcWeakTag)
-                    .as_mut_ptr()
-                    .write(ArchivedRcWeakTag::None);
+                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedRcWeakTag::None);
             },
             RcWeakResolver::Some(resolver) => unsafe {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedRcWeakVariantSome<T::Archived>>>();
-                project_struct!(out: ArchivedRcWeakVariantSome<T::Archived> => 0: ArchivedRcWeakTag)
-                    .as_mut_ptr()
-                    .write(ArchivedRcWeakTag::Some);
-                self.upgrade().unwrap().resolve(
-                    pos + offset_of!(ArchivedRcWeakVariantSome<T::Archived>, 1),
-                    resolver,
-                    project_struct!(out: ArchivedRcWeakVariantSome<T::Archived> => 1),
-                );
+                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedRcWeakTag::Some);
+
+                let (fp, fo) = out_field!(out.1);
+                self.upgrade().unwrap().resolve(pos + fp, resolver, fo);
             },
         }
     }
@@ -280,12 +270,8 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
 
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        self.as_ref().resolve_unsized(
-            pos,
-            resolver.pos,
-            resolver.metadata_resolver,
-            project_struct!(out: Self::Archived => 0),
-        );
+        let (fp, fo) = out_field!(out.0);
+        self.as_ref().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 }
 
@@ -342,7 +328,7 @@ enum ArchivedArcWeakTag {
 }
 
 #[repr(C)]
-struct ArchivedArcWeakVariantNone(ArchivedRcWeakTag);
+struct ArchivedArcWeakVariantNone(ArchivedArcWeakTag);
 
 #[repr(C)]
 struct ArchivedArcWeakVariantSome<T: ArchivePointee + ?Sized>(ArchivedArcWeakTag, ArchivedArc<T>);
@@ -379,25 +365,19 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         match resolver {
             ArcWeakResolver::None => unsafe {
-                let variant = &mut *out
+                let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedArcWeakVariantNone>>();
-                project_struct!(variant: ArchivedArcWeakVariantNone => 0: ArchivedArcWeakTag)
-                    .as_mut_ptr()
-                    .write(ArchivedArcWeakTag::None);
+                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedArcWeakTag::None);
             },
             ArcWeakResolver::Some(resolver) => unsafe {
-                let variant = &mut *out
+                let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedArcWeakVariantSome<T::Archived>>>();
-                project_struct!(variant: ArchivedArcWeakVariantSome<T::Archived> => 0: ArchivedArcWeakTag)
-                    .as_mut_ptr()
-                    .write(ArchivedArcWeakTag::Some);
-                self.upgrade().unwrap().resolve(
-                    pos + offset_of!(ArchivedArcWeakVariantSome<T::Archived>, 1),
-                    resolver,
-                    project_struct!(variant: ArchivedArcWeakVariantSome<T::Archived> => 1),
-                );
+                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedArcWeakTag::Some);
+
+                let (fp, fo) = out_field!(out.1);
+                self.upgrade().unwrap().resolve(pos + fp, resolver, fo);
             },
         }
     }
