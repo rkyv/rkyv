@@ -100,6 +100,7 @@ use core::{
 use core::ptr;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
+use core_impl::primitive::{archived_to_isize, isize_to_archived};
 pub use util::*;
 #[cfg(feature = "validation")]
 pub use validation::{
@@ -607,7 +608,7 @@ impl RawRelPtr {
     pub fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
         unsafe {
             ptr::addr_of_mut!((*out.as_mut_ptr()).offset)
-                .write(((to as isize - from as isize) as FixedIsize).into());
+                .write(isize_to_archived(to as isize - from as isize));
         }
     }
 
@@ -632,7 +633,7 @@ impl RawRelPtr {
     /// Gets the offset of the relative pointer.
     #[inline]
     pub fn offset(&self) -> isize {
-        FixedIsize::from(self.offset) as isize
+        archived_to_isize(self.offset)
     }
 
     /// Calculates the memory address being pointed to by this relative pointer.

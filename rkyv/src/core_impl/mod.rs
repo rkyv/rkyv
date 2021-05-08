@@ -1,9 +1,9 @@
 //! [`Archive`] implementations for core types.
 
 use crate::{
-    de::Deserializer, ser::Serializer, Archive,
-    ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata, ArchivedUsize,
-    Deserialize, DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
+    core_impl::primitive::{archived_to_usize, usize_to_archived}, de::Deserializer, ser::Serializer,
+    Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
+    Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
 };
 #[cfg(feature = "copy")]
 use crate::copy::ArchiveCopyOptimize;
@@ -185,7 +185,7 @@ impl<T: Archive> ArchiveUnsized for [T] {
         out: &mut MaybeUninit<ArchivedMetadata<Self>>,
     ) {
         unsafe {
-            out.as_mut_ptr().write(ArchivedUsize::from(ptr_meta::metadata(self) as FixedUsize));
+            out.as_mut_ptr().write(usize_to_archived(ptr_meta::metadata(self)));
         }
     }
 }
@@ -195,7 +195,7 @@ impl<T> ArchivePointee for [T] {
 
     #[inline]
     fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
-        FixedUsize::from(*archived) as usize
+        archived_to_usize(*archived)
     }
 }
 
@@ -374,7 +374,7 @@ impl ArchiveUnsized for str {
         out: &mut MaybeUninit<ArchivedMetadata<Self>>,
     ) {
         unsafe {
-            out.as_mut_ptr().write(ArchivedUsize::from(ptr_meta::metadata(self) as FixedUsize));
+            out.as_mut_ptr().write(usize_to_archived(ptr_meta::metadata(self)));
         }
     }
 }

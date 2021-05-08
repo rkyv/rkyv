@@ -1,9 +1,10 @@
 //! Validation implementations for HashMap and HashSet.
 
 use crate::{
+    core_impl::primitive::archived_to_usize,
     std_impl::chd::{ArchivedHashMap, Entry},
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
-    Archived, ArchivedUsize, Fallible, FixedUsize, RawRelPtr,
+    Archived, ArchivedUsize, Fallible, RawRelPtr,
 };
 use bytecheck::{CheckBytes, SliceCheckError, Unreachable};
 use core::{
@@ -147,10 +148,10 @@ where
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let len = FixedUsize::from(*ArchivedUsize::check_bytes(
+        let len = archived_to_usize(*ArchivedUsize::check_bytes(
             ptr::addr_of!((*value).len),
             context
-        )?) as usize;
+        )?);
 
         let displace_rel_ptr = RawRelPtr::manual_check_bytes(
             ptr::addr_of!((*value).displace),
@@ -194,18 +195,18 @@ where
             let displace = displace[displace_index as usize];
 
             let index = if displace == u32::MAX {
-                return Err(HashMapError::InvalidKeyPosition { index: i as usize });
+                return Err(HashMapError::InvalidKeyPosition { index: i });
             } else if displace & 0x80_00_00_00 == 0 {
-                u32::from(displace) as u64
+                u32::from(displace) as usize
             } else {
                 let mut hasher = ArchivedHashMap::<K, V>::make_hasher();
                 displace.hash(&mut hasher);
                 entry.key.hash(&mut hasher);
-                hasher.finish() % len as u64
+                hasher.finish() as usize % len
             };
 
-            if index != i as u64 {
-                return Err(HashMapError::InvalidKeyPosition { index: i as usize });
+            if index != i {
+                return Err(HashMapError::InvalidKeyPosition { index: i });
             }
         }
 

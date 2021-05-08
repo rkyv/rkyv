@@ -95,6 +95,7 @@ macro_rules! impl_atomic {
             #[inline]
             fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
                 unsafe {
+                    #[allow(clippy::unnecessary_mut_passed)]
                     (&mut *out.as_mut_ptr()).store(self.load(Ordering::Relaxed), Ordering::Relaxed);
                 }
             }
@@ -114,6 +115,7 @@ macro_rules! impl_atomic {
             type Resolver = ();
 
             #[inline]
+            #[allow(clippy::unnecessary_mut_passed)]
             fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
                 unsafe {
                     (&mut *out.as_mut_ptr()).store(self.load(Ordering::Relaxed), Ordering::Relaxed);
@@ -225,6 +227,18 @@ impl<D: Fallible + ?Sized> Deserialize<PhantomPinned, D> for PhantomPinned {
 
 // usize
 
+#[inline(always)]
+#[allow(clippy::useless_conversion)]
+pub fn usize_to_archived(value: usize) -> ArchivedUsize {
+    (value as FixedUsize).into()
+}
+
+#[inline(always)]
+#[allow(clippy::useless_conversion)]
+pub fn archived_to_usize(value: ArchivedUsize) -> usize {
+    FixedUsize::from(value) as usize
+}
+
 impl Archive for usize {
     type Archived = ArchivedUsize;
     type Resolver = ();
@@ -232,7 +246,7 @@ impl Archive for usize {
     #[inline]
     fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         unsafe {
-            out.as_mut_ptr().write((*self as FixedUsize).into());
+            out.as_mut_ptr().write(usize_to_archived(*self));
         }
     }
 }
@@ -247,11 +261,23 @@ impl<S: Fallible + ?Sized> Serialize<S> for usize {
 impl<D: Fallible + ?Sized> Deserialize<usize, D> for Archived<usize> {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<usize, D::Error> {
-        Ok(FixedUsize::from(*self) as usize)
+        Ok(archived_to_usize(*self))
     }
 }
 
 // isize
+
+#[inline(always)]
+#[allow(clippy::useless_conversion)]
+pub fn isize_to_archived(value: isize) -> ArchivedIsize {
+    (value as FixedIsize).into()
+}
+
+#[inline(always)]
+#[allow(clippy::useless_conversion)]
+pub fn archived_to_isize(value: ArchivedIsize) -> isize {
+    FixedIsize::from(value) as isize
+}
 
 impl Archive for isize {
     type Archived = ArchivedIsize;
@@ -260,7 +286,7 @@ impl Archive for isize {
     #[inline]
     fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         unsafe {
-            out.as_mut_ptr().write((*self as FixedIsize).into());
+            out.as_mut_ptr().write(isize_to_archived(*self));
         }
     }
 }
@@ -275,6 +301,6 @@ impl<S: Fallible + ?Sized> Serialize<S> for isize {
 impl<D: Fallible + ?Sized> Deserialize<isize, D> for Archived<isize> {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<isize, D::Error> {
-        Ok(FixedIsize::from(*self) as isize)
+        Ok(archived_to_isize(*self))
     }
 }

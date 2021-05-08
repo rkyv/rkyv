@@ -51,10 +51,8 @@ fn derive_archive_impl(
 
             let repr = if is_strict {
                 Some(Repr::C)
-            } else if let Some(ref repr_attr) = attributes.archived_repr {
-                Some(repr_attr.repr)
             } else {
-                None
+                attributes.archived_repr.as_ref().map(|repr_attr| repr_attr.repr)
             };
 
             match data.fields {

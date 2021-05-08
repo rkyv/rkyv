@@ -7,7 +7,8 @@
 pub mod validation;
 
 use crate::{
-    ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible, FixedUsize, RawRelPtr,
+    core_impl::primitive::{archived_to_usize, usize_to_archived},
+    ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible, RawRelPtr,
     Serialize,
 };
 use core::{
@@ -56,7 +57,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     /// Gets the number of items in the hash map.
     #[inline]
     pub fn len(&self) -> usize {
-        FixedUsize::from(self.len) as usize
+        archived_to_usize(self.len)
     }
 
     fn make_hasher() -> seahash::SeaHasher {
@@ -585,7 +586,7 @@ impl ArchivedHashMapResolver {
         out: &mut MaybeUninit<ArchivedHashMap<K, V>>,
     ) {
         unsafe {
-            ptr::addr_of_mut!((*out.as_mut_ptr()).len).write((len as FixedUsize).into());
+            ptr::addr_of_mut!((*out.as_mut_ptr()).len).write(usize_to_archived(len));
         }
 
         let (fp, fo) = out_field!(out.displace);

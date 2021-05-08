@@ -329,19 +329,18 @@ impl<T> DerefMut for ArchivedVec<T> {
 }
 
 /// The resolver for `Vec`.
-pub struct VecResolver<T> {
+pub struct VecResolver {
     pos: usize,
-    metadata_resolver: T,
 }
 
 impl<T: Archive> Archive for Vec<T> {
     type Archived = ArchivedVec<T::Archived>;
-    type Resolver = VecResolver<MetadataResolver<[T]>>;
+    type Resolver = VecResolver;
 
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
-        self.as_slice().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        self.as_slice().resolve_unsized(pos + fp, resolver.pos, (), fo);
     }
 }
 
@@ -351,9 +350,9 @@ where
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        self.as_slice().serialize_metadata(serializer)?;
         Ok(VecResolver {
             pos: self.as_slice().serialize_unsized(serializer)?,
-            metadata_resolver: self.as_slice().serialize_metadata(serializer)?,
         })
     }
 }
