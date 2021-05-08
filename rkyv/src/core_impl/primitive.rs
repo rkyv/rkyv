@@ -3,7 +3,7 @@ use crate::{
     Serialize, Deserialize,
 };
 use core::{
-    marker::PhantomData,
+    marker::{PhantomData, PhantomPinned},
     mem::MaybeUninit,
     num::{
         NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroU8, NonZeroU16,
@@ -16,7 +16,6 @@ use core::sync::atomic::{
 };
 #[cfg(has_atomics_64)]
 use core::sync::atomic::{AtomicI64, AtomicU64};
-use std::marker::PhantomPinned;
 
 macro_rules! impl_primitive {
     (@serialize_deserialize $type:ty) => {

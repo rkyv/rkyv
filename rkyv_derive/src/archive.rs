@@ -68,13 +68,13 @@ fn derive_archive_impl(
                         let ty = &field.ty;
                         archive_where
                             .predicates
-                            .push(parse_quote! { #ty: rkyv::Archive });
+                            .push(parse_quote! { #ty: ::rkyv::Archive });
                     }
 
                     let resolver_fields = fields.named.iter().map(|f| {
                         let name = &f.ident;
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => #name: rkyv::Resolver<#ty> }
+                        quote_spanned! { f.span() => #name: ::rkyv::Resolver<#ty> }
                     });
 
                     let archived_fields = fields.named.iter().map(|f| {
@@ -84,14 +84,14 @@ fn derive_archive_impl(
                         let field_doc = format!("The archived counterpart of `{}::{}`", name, field_name.unwrap());
                         quote_spanned! { f.span() =>
                             #[doc = #field_doc]
-                            #vis #field_name: rkyv::Archived<#ty>
+                            #vis #field_name: ::rkyv::Archived<#ty>
                         }
                     });
 
                     let resolve_fields = fields.named.iter().map(|f| {
                         let name = &f.ident;
                         quote_spanned! { f.span() =>
-                            let (fp, fo) = ::rkyv::out_field!(out.#name);
+                            let (fp, fo) = out_field!(out.#name);
                             self.#name.resolve(pos + fp, resolver.#name, fo);
                         }
                     });
@@ -108,7 +108,7 @@ fn derive_archive_impl(
                                     let ty = &field.ty;
                                     partial_eq_where
                                         .predicates
-                                        .push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
+                                        .push(parse_quote! { Archived<#ty>: PartialEq<#ty> });
                                 }
 
                                 let field_names = fields.named.iter().map(|f| &f.ident);
@@ -135,7 +135,7 @@ fn derive_archive_impl(
                                 }) {
                                     let ty = &field.ty;
                                     partial_ord_where.predicates.push(
-                                        parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> },
+                                        parse_quote! { Archived<#ty>: PartialOrd<#ty> },
                                     );
                                 }
 
@@ -178,11 +178,11 @@ fn derive_archive_impl(
                             let ty = &field.ty;
                             copy_safe_where
                                 .predicates
-                                .push(parse_quote! { #ty: rkyv::copy::ArchiveCopySafe });
+                                .push(parse_quote! { #ty: ::rkyv::copy::ArchiveCopySafe });
                         }
 
                         Some(quote! {
-                            unsafe impl #impl_generics rkyv::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
+                            unsafe impl #impl_generics ::rkyv::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
                         })
                     } else {
                         None
@@ -203,7 +203,7 @@ fn derive_archive_impl(
                             }
                         },
                         quote! {
-                            impl #impl_generics rkyv::Archive for #name #ty_generics #archive_where {
+                            impl #impl_generics Archive for #name #ty_generics #archive_where {
                                 type Archived = #archived #ty_generics;
                                 type Resolver = #resolver #ty_generics;
 
@@ -230,12 +230,12 @@ fn derive_archive_impl(
                         let ty = &field.ty;
                         archive_where
                             .predicates
-                            .push(parse_quote! { #ty: rkyv::Archive });
+                            .push(parse_quote! { #ty: ::rkyv::Archive });
                     }
 
                     let resolver_fields = fields.unnamed.iter().map(|f| {
                         let ty = &f.ty;
-                        quote_spanned! { f.span() => rkyv::Resolver<#ty> }
+                        quote_spanned! { f.span() => ::rkyv::Resolver<#ty> }
                     });
 
                     let archived_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
@@ -244,14 +244,14 @@ fn derive_archive_impl(
                         let field_doc = format!("The archived counterpart of `{}::{}`", name, i);
                         quote_spanned! { f.span() =>
                             #[doc = #field_doc]
-                            #vis rkyv::Archived<#ty>
+                            #vis ::rkyv::Archived<#ty>
                         }
                     });
 
                     let resolve_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                         let index = Index::from(i);
                         quote_spanned! { f.span() =>
-                            let (fp, fo) = ::rkyv::out_field!(out.#index);
+                            let (fp, fo) = out_field!(out.#index);
                             self.#index.resolve(pos + fp, resolver.#index, fo);
                         }
                     });
@@ -268,7 +268,7 @@ fn derive_archive_impl(
                                     let ty = &field.ty;
                                     partial_eq_where
                                         .predicates
-                                        .push(parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> });
+                                        .push(parse_quote! { Archived<#ty>: PartialEq<#ty> });
                                 }
 
                                 let field_names = fields
@@ -299,7 +299,7 @@ fn derive_archive_impl(
                                 }) {
                                     let ty = &field.ty;
                                     partial_ord_where.predicates.push(
-                                        parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> },
+                                        parse_quote! { Archived<#ty>: PartialOrd<#ty> },
                                     );
                                 }
 
@@ -346,11 +346,11 @@ fn derive_archive_impl(
                             let ty = &field.ty;
                             copy_safe_where
                                 .predicates
-                                .push(parse_quote! { #ty: rkyv::copy::ArchiveCopySafe });
+                                .push(parse_quote! { #ty: ::rkyv::copy::ArchiveCopySafe });
                         }
 
                         Some(quote! {
-                            unsafe impl #impl_generics rkyv::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
+                            unsafe impl #impl_generics ::rkyv::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
                         })
                     } else {
                         None
@@ -367,7 +367,7 @@ fn derive_archive_impl(
                             #vis struct #resolver #generics (#(#resolver_fields,)*) #archive_where;
                         },
                         quote! {
-                            impl #impl_generics rkyv::Archive for #name #ty_generics #archive_where {
+                            impl #impl_generics Archive for #name #ty_generics #archive_where {
                                 type Archived = #archived #ty_generics;
                                 type Resolver = #resolver #ty_generics;
 
@@ -429,7 +429,7 @@ fn derive_archive_impl(
 
                     let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some() {
                         Some(quote! {
-                            unsafe impl #impl_generics rkyv::copy::ArchiveCopySafe for #name #ty_generics #where_clause {}
+                            unsafe impl #impl_generics ::rkyv::copy::ArchiveCopySafe for #name #ty_generics #where_clause {}
                         })
                     } else {
                         None
@@ -448,7 +448,7 @@ fn derive_archive_impl(
                             #where_clause;
                         },
                         quote! {
-                            impl #impl_generics rkyv::Archive for #name #ty_generics #where_clause {
+                            impl #impl_generics Archive for #name #ty_generics #where_clause {
                                 type Archived = #archived #ty_generics;
                                 type Resolver = #resolver #ty_generics;
 
@@ -477,7 +477,7 @@ fn derive_archive_impl(
                             let ty = &field.ty;
                             archive_where
                                 .predicates
-                                .push(parse_quote! { #ty: rkyv::Archive });
+                                .push(parse_quote! { #ty: ::rkyv::Archive });
                         }
                     }
                     Fields::Unnamed(ref fields) => {
@@ -489,7 +489,7 @@ fn derive_archive_impl(
                             let ty = &field.ty;
                             archive_where
                                 .predicates
-                                .push(parse_quote! { #ty: rkyv::Archive });
+                                .push(parse_quote! { #ty: ::rkyv::Archive });
                         }
                     }
                     Fields::Unit => (),
@@ -503,7 +503,7 @@ fn derive_archive_impl(
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             let ty = &f.ty;
-                            quote_spanned! { f.span() => #name: rkyv::Resolver<#ty> }
+                            quote_spanned! { f.span() => #name: ::rkyv::Resolver<#ty> }
                         });
                         quote_spanned! { variant.span() =>
                             #[allow(dead_code)]
@@ -515,7 +515,7 @@ fn derive_archive_impl(
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().map(|f| {
                             let ty = &f.ty;
-                            quote_spanned! { f.span() => rkyv::Resolver<#ty> }
+                            quote_spanned! { f.span() => ::rkyv::Resolver<#ty> }
                         });
                         quote_spanned! { variant.span() =>
                             #[allow(dead_code)]
@@ -549,7 +549,7 @@ fn derive_archive_impl(
                             let self_binding = Ident::new(&format!("self_{}", name.as_ref().unwrap().to_string()), name.span());
                             let resolver_binding = Ident::new(&format!("resolver_{}", name.as_ref().unwrap().to_string()), name.span());
                             quote! {
-                                let (fp, fo) = ::rkyv::out_field!(out.#name);
+                                let (fp, fo) = out_field!(out.#name);
                                 #self_binding.resolve(pos + fp, #resolver_binding, fo);
                             }
                         });
@@ -584,7 +584,7 @@ fn derive_archive_impl(
                             let self_binding = Ident::new(&format!("self_{}", i), f.span());
                             let resolver_binding = Ident::new(&format!("resolver_{}", i), f.span());
                             quote! {
-                                let (fp, fo) = ::rkyv::out_field!(out.#index);
+                                let (fp, fo) = out_field!(out.#index);
                                 #self_binding.resolve(pos + fp, #resolver_binding, fo);
                             }
                         });
@@ -650,7 +650,7 @@ fn derive_archive_impl(
                             let name = &f.ident;
                             let ty = &f.ty;
                             let vis = &f.vis;
-                            quote_spanned! { f.span() => #vis #name: rkyv::Archived<#ty> }
+                            quote_spanned! { f.span() => #vis #name: ::rkyv::Archived<#ty> }
                         });
                         quote_spanned! { variant.span() =>
                             #[allow(dead_code)]
@@ -663,7 +663,7 @@ fn derive_archive_impl(
                         let fields = fields.unnamed.iter().map(|f| {
                             let ty = &f.ty;
                             let vis = &f.vis;
-                            quote_spanned! { f.span() => #vis rkyv::Archived<#ty> }
+                            quote_spanned! { f.span() => #vis ::rkyv::Archived<#ty> }
                         });
                         quote_spanned! { variant.span() =>
                             #[allow(dead_code)]
@@ -691,7 +691,7 @@ fn derive_archive_impl(
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             let ty = &f.ty;
-                            quote_spanned! { f.span() => #name: rkyv::Archived<#ty> }
+                            quote_spanned! { f.span() => #name: Archived<#ty> }
                         });
                         quote_spanned! { name.span() =>
                             #[repr(C)]
@@ -705,7 +705,7 @@ fn derive_archive_impl(
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().map(|f| {
                             let ty = &f.ty;
-                            quote_spanned! { f.span() => rkyv::Archived<#ty> }
+                            quote_spanned! { f.span() => Archived<#ty> }
                         });
                         quote_spanned! { name.span() =>
                             #[repr(C)]
@@ -730,7 +730,7 @@ fn derive_archive_impl(
                                     }) {
                                         let ty = &field.ty;
                                         partial_eq_where.predicates.push(
-                                            parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> },
+                                            parse_quote! { Archived<#ty>: PartialEq<#ty> },
                                         );
                                     }
                                 }
@@ -740,7 +740,7 @@ fn derive_archive_impl(
                                     }) {
                                         let ty = &field.ty;
                                         partial_eq_where.predicates.push(
-                                            parse_quote! { rkyv::Archived<#ty>: PartialEq<#ty> },
+                                            parse_quote! { Archived<#ty>: PartialEq<#ty> },
                                         );
                                     }
                                 }
@@ -825,7 +825,7 @@ fn derive_archive_impl(
                                     }) {
                                         let ty = &field.ty;
                                         partial_ord_where.predicates.push(
-                                            parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> },
+                                            parse_quote! { Archived<#ty>: PartialOrd<#ty> },
                                         );
                                     }
                                 }
@@ -835,7 +835,7 @@ fn derive_archive_impl(
                                     }) {
                                         let ty = &field.ty;
                                         partial_ord_where.predicates.push(
-                                            parse_quote! { rkyv::Archived<#ty>: PartialOrd<#ty> },
+                                            parse_quote! { Archived<#ty>: PartialOrd<#ty> },
                                         );
                                     }
                                 }
@@ -984,7 +984,7 @@ fn derive_archive_impl(
                                 let ty = &field.ty;
                                 copy_safe_where
                                     .predicates
-                                    .push(parse_quote! { #ty: rkyv::copy::ArchiveCopySafe });
+                                    .push(parse_quote! { #ty: ::rkyv::copy::ArchiveCopySafe });
                             }
                         }
                         Fields::Unnamed(ref fields) => {
@@ -996,7 +996,7 @@ fn derive_archive_impl(
                                 let ty = &field.ty;
                                 copy_safe_where
                                     .predicates
-                                    .push(parse_quote! { #ty: rkyv::copy::ArchiveCopySafe });
+                                    .push(parse_quote! { #ty: ::rkyv::copy::ArchiveCopySafe });
                             }
                         }
                         Fields::Unit => (),
@@ -1004,7 +1004,7 @@ fn derive_archive_impl(
                 }
 
                 Some(quote! {
-                    unsafe impl #impl_generics rkyv::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
+                    unsafe impl #impl_generics ::rkyv::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
                 })
             } else {
                 None
@@ -1032,7 +1032,7 @@ fn derive_archive_impl(
 
                     #(#archived_variant_structs)*
 
-                    impl #impl_generics rkyv::Archive for #name #ty_generics #archive_where {
+                    impl #impl_generics Archive for #name #ty_generics #archive_where {
                         type Archived = #archived #ty_generics;
                         type Resolver = #resolver #ty_generics;
 
@@ -1063,7 +1063,8 @@ fn derive_archive_impl(
         #archive_types
 
         const _: () = {
-            use core::{marker::PhantomData, mem::MaybeUninit};
+            use ::core::{marker::PhantomData, mem::MaybeUninit};
+            use ::rkyv::{out_field, Archive, Archived};
 
             #archive_impls
         };

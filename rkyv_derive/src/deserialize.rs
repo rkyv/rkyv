@@ -214,7 +214,7 @@ fn derive_deserialize_impl(
 
     Ok(quote! {
         const _: () = {
-            use rkyv::{Archive, Archived, Deserialize, Fallible};
+            use ::rkyv::{Archive, Archived, Deserialize, Fallible};
             #deserialize_impl
         };
     })

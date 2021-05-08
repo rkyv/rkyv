@@ -210,7 +210,7 @@ fn derive_serialize_impl(
 
     Ok(quote! {
         const _: () = {
-            use rkyv::{Archive, Fallible, Serialize};
+            use ::rkyv::{Archive, Fallible, Serialize};
             #serialize_impl
         };
     })
