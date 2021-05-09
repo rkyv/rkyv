@@ -1,34 +1,15 @@
+#[cfg(has_atomics)]
+use core::sync::atomic::{
+    AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicU16, AtomicU32, AtomicU8,
+};
+#[cfg(has_atomics_64)]
+use core::sync::atomic::{AtomicI64, AtomicU64};
 use core::{
     marker::{PhantomData, PhantomPinned},
     num::{
-        NonZeroI8,
-        NonZeroI16,
-        NonZeroI32,
-        NonZeroI64,
-        NonZeroI128,
-        NonZeroIsize,
-        NonZeroU8,
-        NonZeroU16,
-        NonZeroU32,
-        NonZeroU64,
-        NonZeroU128,
-        NonZeroUsize
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
+        NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
     },
-};
-#[cfg(has_atomics)]
-use core::sync::atomic::{
-    AtomicBool,
-    AtomicI8,
-    AtomicI16,
-    AtomicI32,
-    AtomicU8,
-    AtomicU16,
-    AtomicU32,
-};
-#[cfg(has_atomics_64)]
-use core::sync::atomic::{
-    AtomicI64,
-    AtomicU64,
 };
 
 /// A type that is `Copy` and can be archived without additional processing.

@@ -11,9 +11,9 @@ use core::{
     marker::{PhantomData, PhantomPinned},
     ptr,
 };
+use ptr_meta::{DynMetadata, Pointee};
 #[cfg(feature = "std")]
 use std::error::Error;
-use ptr_meta::{DynMetadata, Pointee};
 
 impl RawRelPtr {
     /// Checks the bytes of the given raw relative pointer.
@@ -31,14 +31,8 @@ impl RawRelPtr {
         value: *const RawRelPtr,
         context: &mut C,
     ) -> Result<&'a Self, Unreachable> {
-        Archived::<FixedIsize>::check_bytes(
-            ptr::addr_of!((*value).offset),
-            context,
-        ).unwrap();
-        PhantomPinned::check_bytes(
-            ptr::addr_of!((*value)._phantom),
-            context,
-        ).unwrap();
+        Archived::<FixedIsize>::check_bytes(ptr::addr_of!((*value).offset), context).unwrap();
+        PhantomPinned::check_bytes(ptr::addr_of!((*value)._phantom), context).unwrap();
         Ok(&*value)
     }
 }
@@ -63,18 +57,9 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
         T: CheckBytes<C>,
         T::ArchivedMetadata: CheckBytes<C>,
     {
-        RawRelPtr::manual_check_bytes(
-            ptr::addr_of!((*value).raw_ptr),
-            context,
-        ).unwrap();
-        T::ArchivedMetadata::check_bytes(
-            ptr::addr_of!((*value).metadata),
-            context,
-        )?;
-        PhantomData::<T>::check_bytes(
-            ptr::addr_of!((*value)._phantom),
-            context,
-        ).unwrap();
+        RawRelPtr::manual_check_bytes(ptr::addr_of!((*value).raw_ptr), context).unwrap();
+        T::ArchivedMetadata::check_bytes(ptr::addr_of!((*value).metadata), context)?;
+        PhantomData::<T>::check_bytes(ptr::addr_of!((*value)._phantom), context).unwrap();
         Ok(&*value)
     }
 }

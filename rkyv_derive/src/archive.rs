@@ -1,8 +1,8 @@
 use crate::{
     attributes::{parse_attributes, Attributes},
-    repr::{Repr, ReprAttr, IntRepr},
+    repr::{IntRepr, Repr, ReprAttr},
 };
-use proc_macro2::{TokenStream};
+use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{
     parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Fields, Ident, Index,
@@ -26,7 +26,9 @@ fn derive_archive_impl(
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 
-    let archive_attrs = attributes.attrs.iter()
+    let archive_attrs = attributes
+        .attrs
+        .iter()
         .map::<Attribute, _>(|d| parse_quote! { #[#d] });
 
     let archived = attributes.archived.as_ref().map_or_else(
@@ -44,15 +46,30 @@ fn derive_archive_impl(
     let (archive_types, archive_impls) = match input.data {
         Data::Struct(ref data) => {
             let is_strict = cfg!(feature = "strict");
-            let is_strict_repr = matches!(attributes.archived_repr, None | Some(ReprAttr { repr: Repr::C, span: _ }) | Some(ReprAttr { repr: Repr::Transparent, span: _ }));
+            let is_strict_repr = matches!(
+                attributes.archived_repr,
+                None | Some(ReprAttr {
+                    repr: Repr::C,
+                    span: _
+                }) | Some(ReprAttr {
+                    repr: Repr::Transparent,
+                    span: _
+                })
+            );
             if is_strict && !is_strict_repr {
-                return Err(Error::new_spanned(name, "archived structs may only be repr(C) in strict mode"))
+                return Err(Error::new_spanned(
+                    name,
+                    "archived structs may only be repr(C) in strict mode",
+                ));
             }
 
             let repr = if is_strict {
                 Some(Repr::C)
             } else {
-                attributes.archived_repr.as_ref().map(|repr_attr| repr_attr.repr)
+                attributes
+                    .archived_repr
+                    .as_ref()
+                    .map(|repr_attr| repr_attr.repr)
             };
 
             match data.fields {
@@ -79,7 +96,11 @@ fn derive_archive_impl(
                         let field_name = f.ident.as_ref();
                         let ty = &f.ty;
                         let vis = &f.vis;
-                        let field_doc = format!("The archived counterpart of `{}::{}`", name, field_name.unwrap());
+                        let field_doc = format!(
+                            "The archived counterpart of `{}::{}`",
+                            name,
+                            field_name.unwrap()
+                        );
                         quote_spanned! { f.span() =>
                             #[doc = #field_doc]
                             #vis #field_name: ::rkyv::Archived<#ty>
@@ -132,9 +153,9 @@ fn derive_archive_impl(
                                     !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                 }) {
                                     let ty = &field.ty;
-                                    partial_ord_where.predicates.push(
-                                        parse_quote! { Archived<#ty>: PartialOrd<#ty> },
-                                    );
+                                    partial_ord_where
+                                        .predicates
+                                        .push(parse_quote! { Archived<#ty>: PartialOrd<#ty> });
                                 }
 
                                 let field_names = fields.named.iter().map(|f| &f.ident);
@@ -166,7 +187,8 @@ fn derive_archive_impl(
                         }
                     }
 
-                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some() {
+                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some()
+                    {
                         let mut copy_safe_where = where_clause.clone();
                         for field in fields
                             .named
@@ -296,9 +318,9 @@ fn derive_archive_impl(
                                     !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                 }) {
                                     let ty = &field.ty;
-                                    partial_ord_where.predicates.push(
-                                        parse_quote! { Archived<#ty>: PartialOrd<#ty> },
-                                    );
+                                    partial_ord_where
+                                        .predicates
+                                        .push(parse_quote! { Archived<#ty>: PartialOrd<#ty> });
                                 }
 
                                 let field_names = fields
@@ -334,7 +356,8 @@ fn derive_archive_impl(
                         }
                     }
 
-                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some() {
+                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some()
+                    {
                         let mut copy_safe_where = where_clause.clone();
                         for field in fields
                             .unnamed
@@ -425,7 +448,8 @@ fn derive_archive_impl(
                         }
                     }
 
-                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some() {
+                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some()
+                    {
                         Some(quote! {
                             unsafe impl #impl_generics ::rkyv::copy::ArchiveCopySafe for #name #ty_generics #where_clause {}
                         })
@@ -616,7 +640,10 @@ fn derive_archive_impl(
                 if let Repr::Int(int_repr) = repr_attr.repr {
                     int_repr
                 } else {
-                    return Err(Error::new(repr_attr.span, "enums may only be repr(i*) or repr(u*)"));
+                    return Err(Error::new(
+                        repr_attr.span,
+                        "enums may only be repr(i*) or repr(u*)",
+                    ));
                 }
             } else {
                 match data.variants.len() {
@@ -635,7 +662,7 @@ fn derive_archive_impl(
             if !matches!(archived_repr, IntRepr::U8) {
                 return Err(Error::new_spanned(
                     name,
-                    "multibyte enum discriminants cannot be used with endian-aware archives"
+                    "multibyte enum discriminants cannot be used with endian-aware archives",
                 ));
             }
 
@@ -727,9 +754,9 @@ fn derive_archive_impl(
                                         !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                     }) {
                                         let ty = &field.ty;
-                                        partial_eq_where.predicates.push(
-                                            parse_quote! { Archived<#ty>: PartialEq<#ty> },
-                                        );
+                                        partial_eq_where
+                                            .predicates
+                                            .push(parse_quote! { Archived<#ty>: PartialEq<#ty> });
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
@@ -737,9 +764,9 @@ fn derive_archive_impl(
                                         !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                     }) {
                                         let ty = &field.ty;
-                                        partial_eq_where.predicates.push(
-                                            parse_quote! { Archived<#ty>: PartialEq<#ty> },
-                                        );
+                                        partial_eq_where
+                                            .predicates
+                                            .push(parse_quote! { Archived<#ty>: PartialEq<#ty> });
                                     }
                                 }
                                 Fields::Unit => (),
@@ -822,9 +849,9 @@ fn derive_archive_impl(
                                         !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                     }) {
                                         let ty = &field.ty;
-                                        partial_ord_where.predicates.push(
-                                            parse_quote! { Archived<#ty>: PartialOrd<#ty> },
-                                        );
+                                        partial_ord_where
+                                            .predicates
+                                            .push(parse_quote! { Archived<#ty>: PartialOrd<#ty> });
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
@@ -832,9 +859,9 @@ fn derive_archive_impl(
                                         !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                     }) {
                                         let ty = &field.ty;
-                                        partial_ord_where.predicates.push(
-                                            parse_quote! { Archived<#ty>: PartialOrd<#ty> },
-                                        );
+                                        partial_ord_where
+                                            .predicates
+                                            .push(parse_quote! { Archived<#ty>: PartialOrd<#ty> });
                                     }
                                 }
                                 Fields::Unit => (),

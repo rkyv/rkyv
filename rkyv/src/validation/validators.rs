@@ -1,22 +1,19 @@
 //! Validators add validation capabilities by wrapping and extending basic validators.
 
-use core::{alloc::Layout, any::TypeId, fmt};
-#[cfg(feature = "std")]
-use std::{collections::HashMap, error::Error};
-use crate::{Fallible, validation::ArchiveBoundsContext};
+use crate::{validation::ArchiveBoundsContext, Fallible};
 #[cfg(feature = "std")]
 use crate::{
-    Archive,
     validation::{
-        ArchiveMemoryContext,
-        CheckTypeError,
-        SharedArchiveContext,
-        check_archived_value_with_context,
-        check_archived_root_with_context,
+        check_archived_root_with_context, check_archived_value_with_context, ArchiveMemoryContext,
+        CheckTypeError, SharedArchiveContext,
     },
+    Archive,
 };
 #[cfg(feature = "std")]
 use bytecheck::CheckBytes;
+use core::{alloc::Layout, any::TypeId, fmt};
+#[cfg(feature = "std")]
+use std::{collections::HashMap, error::Error};
 
 /// Errors that can occur when checking a relative pointer
 #[derive(Debug)]
@@ -105,9 +102,7 @@ impl<'a> ArchiveBoundsValidator<'a> {
     /// Creates a new bounds validator for the given bytes.
     #[inline]
     pub fn new(bytes: &'a [u8]) -> Self {
-        Self {
-            bytes,
-        }
+        Self { bytes }
     }
 
     /// Gets a reference to the bytes being validated.
@@ -490,7 +485,8 @@ impl<C: ArchiveMemoryContext> SharedArchiveContext for SharedArchiveValidator<C>
 
 /// A validator that supports all builtin types.
 #[cfg(feature = "std")]
-pub type DefaultArchiveValidator<'a> = SharedArchiveValidator<ArchiveValidator<ArchiveBoundsValidator<'a>>>;
+pub type DefaultArchiveValidator<'a> =
+    SharedArchiveValidator<ArchiveValidator<ArchiveBoundsValidator<'a>>>;
 
 /// Checks the given archive at the given position for an archived version of the given type.
 ///

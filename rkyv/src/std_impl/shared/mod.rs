@@ -73,7 +73,8 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
-        self.as_ref().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        self.as_ref()
+            .resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 }
 
@@ -271,7 +272,8 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
-        self.as_ref().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        self.as_ref()
+            .resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 }
 

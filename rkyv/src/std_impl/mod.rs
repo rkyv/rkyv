@@ -7,9 +7,8 @@ pub mod shared;
 pub mod validation;
 
 use crate::{
-    de::Deserializer, Archive, ArchivePointee, ArchiveUnsized, Archived,
-    Deserialize, DeserializeUnsized, Fallible, MetadataResolver, RelPtr, Serialize,
-    SerializeUnsized,
+    de::Deserializer, Archive, ArchivePointee, ArchiveUnsized, Archived, Deserialize,
+    DeserializeUnsized, Fallible, MetadataResolver, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{
     borrow::Borrow,
@@ -160,7 +159,8 @@ impl Archive for String {
     fn resolve(&self, pos: usize, resolver: StringResolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
         #[allow(clippy::unit_arg)]
-        self.as_str().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        self.as_str()
+            .resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 }
 
@@ -252,7 +252,8 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
-        self.as_ref().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        self.as_ref()
+            .resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 }
 
@@ -340,7 +341,8 @@ impl<T: Archive> Archive for Vec<T> {
     #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
-        self.as_slice().resolve_unsized(pos + fp, resolver.pos, (), fo);
+        self.as_slice()
+            .resolve_unsized(pos + fp, resolver.pos, (), fo);
     }
 }
 

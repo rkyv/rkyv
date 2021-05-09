@@ -65,7 +65,6 @@
 #![cfg_attr(feature = "copy", feature(min_specialization))]
 #![cfg_attr(feature = "copy", feature(negative_impls))]
 #![cfg_attr(feature = "copy", feature(rustc_attrs))]
-
 #![doc(html_favicon_url = r#"
     data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'
     viewBox='0 0 26.458 26.458'%3E%3Cpath d='M0 0v26.458h26.458V0zm9.175 3.772l8.107 8.106
@@ -80,9 +79,9 @@
 #[doc(hidden)]
 #[macro_use]
 pub mod macros;
-pub mod core_impl;
 #[cfg(feature = "copy")]
 pub mod copy;
+pub mod core_impl;
 pub mod de;
 pub mod ser;
 #[cfg(feature = "std")]
@@ -98,17 +97,14 @@ use core::{
 };
 
 use core::ptr;
+pub use core_impl::primitive::ArchivePrimitive;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
-use core_impl::primitive::{archived_to_isize, isize_to_archived};
 pub use util::*;
-#[cfg(feature = "validation")]
-pub use validation::{
-    check_archived_root_with_context,
-    check_archived_value_with_context,
-};
 #[cfg(all(feature = "std", feature = "validation"))]
 pub use validation::validators::{check_archived_root, check_archived_value};
+#[cfg(feature = "validation")]
+pub use validation::{check_archived_root_with_context, check_archived_value_with_context};
 
 /// Contains the error type for traits with methods that can fail
 pub trait Fallible {
@@ -559,9 +555,7 @@ pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
 ///
 /// Most types that implement `DeserializeUnsized` will need a [`Deserializer`](de::Deserializer)
 /// bound so that they can allocate memory.
-pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>:
-    ArchivePointee
-{
+pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: ArchivePointee {
     /// Deserializes a reference to the given value.
     ///
     /// # Safety
@@ -608,7 +602,7 @@ impl RawRelPtr {
     pub fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
         unsafe {
             ptr::addr_of_mut!((*out.as_mut_ptr()).offset)
-                .write(isize_to_archived(to as isize - from as isize));
+                .write((to as isize - from as isize).to_archived());
         }
     }
 
@@ -633,7 +627,7 @@ impl RawRelPtr {
     /// Gets the offset of the relative pointer.
     #[inline]
     pub fn offset(&self) -> isize {
-        archived_to_isize(self.offset)
+        isize::from_archived(&self.offset)
     }
 
     /// Calculates the memory address being pointed to by this relative pointer.

@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for network types.
 
-use crate::{Archive, Archived, Deserialize, Fallible, Serialize};
+use crate::{Archive, ArchivePrimitive, Archived, Deserialize, Fallible, Serialize};
 use core::{cmp, mem::MaybeUninit, ptr};
 use std::{
     io,
@@ -498,7 +498,7 @@ impl ArchivedSocketAddrV4 {
     /// Returns the port number associated with this socket address.
     #[inline]
     pub fn port(&self) -> u16 {
-        self.port.into()
+        u16::from_archived(&self.port)
     }
 }
 
@@ -581,7 +581,12 @@ impl ArchivedSocketAddrV6 {
     /// Returns a [`SocketAddrV6`](std::net::SocketAddrV6) with the same value.
     #[inline]
     pub fn as_socket_addr_v6(&self) -> SocketAddrV6 {
-        SocketAddrV6::new(self.ip.as_ipv6(), self.port(), self.flowinfo(), self.scope_id())
+        SocketAddrV6::new(
+            self.ip.as_ipv6(),
+            self.port(),
+            self.flowinfo(),
+            self.scope_id(),
+        )
     }
 
     /// Returns the flow information associated with this address.
@@ -589,7 +594,7 @@ impl ArchivedSocketAddrV6 {
     /// See [`SocketAddrV6::flowinfo()`](std::net::SocketAddrV6::flowinfo()) for more details.
     #[inline]
     pub fn flowinfo(&self) -> u32 {
-        self.flowinfo.into()
+        u32::from_archived(&self.flowinfo)
     }
 
     /// Returns the IP address associated with this socket address.
@@ -601,7 +606,7 @@ impl ArchivedSocketAddrV6 {
     /// Returns the port number associated with this socket address.
     #[inline]
     pub fn port(&self) -> u16 {
-        self.port.into()
+        u16::from_archived(&self.port)
     }
 
     /// Returns the scope ID associated with this address.
@@ -609,7 +614,7 @@ impl ArchivedSocketAddrV6 {
     /// See [`SocketAddrV6::scope_id()`](std::net::SocketAddrV6::scope_id()) for more details.
     #[inline]
     pub fn scope_id(&self) -> u32 {
-        self.scope_id.into()
+        u32::from_archived(&self.scope_id)
     }
 }
 
@@ -773,7 +778,7 @@ impl Archive for SocketAddr {
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedSocketAddrVariantV4>>();
                 ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedSocketAddrTag::V4);
-                
+
                 let (fp, fo) = out_field!(out.1);
                 #[allow(clippy::unit_arg)]
                 socket_addr.resolve(pos + fp, resolver, fo);

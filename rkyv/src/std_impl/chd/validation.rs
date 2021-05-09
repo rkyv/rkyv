@@ -1,10 +1,9 @@
 //! Validation implementations for HashMap and HashSet.
 
 use crate::{
-    core_impl::primitive::archived_to_usize,
     std_impl::chd::{ArchivedHashMap, Entry},
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
-    Archived, ArchivedUsize, Fallible, RawRelPtr,
+    ArchivePrimitive, Archived, ArchivedUsize, Fallible, RawRelPtr,
 };
 use bytecheck::{CheckBytes, SliceCheckError, Unreachable};
 use core::{
@@ -148,15 +147,13 @@ where
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let len = archived_to_usize(*ArchivedUsize::check_bytes(
+        let len = usize::from_archived(ArchivedUsize::check_bytes(
             ptr::addr_of!((*value).len),
-            context
+            context,
         )?);
 
-        let displace_rel_ptr = RawRelPtr::manual_check_bytes(
-            ptr::addr_of!((*value).displace),
-            context,
-        )?;
+        let displace_rel_ptr =
+            RawRelPtr::manual_check_bytes(ptr::addr_of!((*value).displace), context)?;
         let displace_data_ptr = context
             .check_rel_ptr(displace_rel_ptr.base(), displace_rel_ptr.offset())
             .map_err(HashMapError::ContextError)?;
@@ -168,16 +165,14 @@ where
         let displace = <[Archived<u32>]>::check_bytes(displace_ptr, context)?;
 
         for (i, &d) in displace.iter().enumerate() {
-            let d = u32::from(d);
+            let d = u32::from_archived(&d);
             if d as usize >= len && d < 0x80_00_00_00 {
                 return Err(HashMapError::InvalidDisplacement { index: i, value: d });
             }
         }
 
-        let entries_rel_ptr = RawRelPtr::manual_check_bytes(
-            ptr::addr_of!((*value).entries),
-            context,
-        )?;
+        let entries_rel_ptr =
+            RawRelPtr::manual_check_bytes(ptr::addr_of!((*value).entries), context)?;
         let entries_data_ptr = context
             .check_rel_ptr(entries_rel_ptr.base(), entries_rel_ptr.offset())
             .map_err(HashMapError::ContextError)?;
@@ -197,7 +192,7 @@ where
             let index = if displace == u32::MAX {
                 return Err(HashMapError::InvalidKeyPosition { index: i });
             } else if displace & 0x80_00_00_00 == 0 {
-                u32::from(displace) as usize
+                u32::from_archived(&displace) as usize
             } else {
                 let mut hasher = ArchivedHashMap::<K, V>::make_hasher();
                 displace.hash(&mut hasher);

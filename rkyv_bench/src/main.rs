@@ -86,14 +86,7 @@ fn generate_vec<R: Rng, T: Generate>(rng: &mut R, range: core::ops::Range<usize>
 }
 
 #[derive(
-    Debug,
-    Archive,
-    Serialize,
-    Clone,
-    Copy,
-    Deserialize,
-    serde::Deserialize,
-    serde::Serialize,
+    Debug, Archive, Serialize, Clone, Copy, Deserialize, serde::Deserialize, serde::Serialize,
 )]
 #[archive_attr(derive(CheckBytes))]
 #[repr(u8)]
@@ -145,14 +138,7 @@ impl Generate for Item {
 }
 
 #[derive(
-    Debug,
-    Archive,
-    Serialize,
-    Clone,
-    Copy,
-    Deserialize,
-    serde::Serialize,
-    serde::Deserialize,
+    Debug, Archive, Serialize, Clone, Copy, Deserialize, serde::Serialize, serde::Deserialize,
 )]
 #[archive_attr(derive(CheckBytes))]
 pub struct Abilities {

@@ -1,5 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "arbitrary_enum_discriminant", feature(arbitrary_enum_discriminant))]
+#![cfg_attr(
+    feature = "arbitrary_enum_discriminant",
+    feature(arbitrary_enum_discriminant)
+)]
 
 #[cfg(feature = "std")]
 mod std;

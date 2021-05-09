@@ -112,8 +112,8 @@ mod tests {
 
         // Various buffer errors:
         use rkyv::validation::{
-            CheckArchiveError,
             validators::{ArchiveBoundsError, ArchiveMemoryError, SharedArchiveError},
+            CheckArchiveError,
         };
         // Out of bounds
         match check_archived_value::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 8) {

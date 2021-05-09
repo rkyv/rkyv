@@ -1,6 +1,6 @@
-use proc_macro2::{TokenStream, Literal, Punct, Spacing, Span};
+use proc_macro2::{Literal, Punct, Spacing, Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens, TokenStreamExt};
-use syn::{Error, Path, spanned::Spanned};
+use syn::{spanned::Spanned, Error, Path};
 
 #[derive(Clone, Copy)]
 pub enum IntRepr {
@@ -66,10 +66,7 @@ impl IntRepr {
             Self::U128 => (index as u128).swap_bytes(),
         };
 
-        Some(EnumDiscriminant {
-            repr: *self,
-            value,
-        })
+        Some(EnumDiscriminant { repr: *self, value })
     }
 }
 

@@ -2,8 +2,8 @@ use crate::attributes::{parse_attributes, Attributes};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{
-    parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Error, Fields, Ident,
-    Index, Token, WherePredicate, Generics,
+    parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Error, Fields,
+    Generics, Ident, Index, Token, WherePredicate,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -17,7 +17,8 @@ fn derive_serialize_impl(
 ) -> Result<TokenStream, Error> {
     let where_clause = input.generics.make_where_clause();
     if let Some(ref bounds) = attributes.serialize_bound {
-        let clauses = bounds.parse_with(Punctuated::<WherePredicate, Token![,]>::parse_terminated)?;
+        let clauses =
+            bounds.parse_with(Punctuated::<WherePredicate, Token![,]>::parse_terminated)?;
         for clause in clauses {
             where_clause.predicates.push(clause);
         }

@@ -2,32 +2,22 @@
 wasm_bindgen_test::wasm_bindgen_test_configure!();
 
 use rkyv::{
-    Deserialize,
-    Serialize,
-    SerializeUnsized,
-    archived_root,
-    archived_unsized_root,
-    ser::Serializer,
+    archived_root, archived_unsized_root, ser::Serializer, Deserialize, Serialize, SerializeUnsized,
 };
 
 const BUFFER_SIZE: usize = 256;
 
 #[cfg(feature = "std")]
 mod types {
+    use super::BUFFER_SIZE;
     use rkyv::{
-        de::{
-            adapters::SharedDeserializerAdapter,
-            deserializers::AllocDeserializer,
-        },
-        ser::{
-            adapters::SharedSerializerAdapter,
-            serializers::BufferSerializer,
-        },
+        de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer},
+        ser::{adapters::SharedSerializerAdapter, serializers::BufferSerializer},
         Aligned,
     };
-    use super::BUFFER_SIZE;
 
-    pub type DefaultSerializer = SharedSerializerAdapter<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>;
+    pub type DefaultSerializer =
+        SharedSerializerAdapter<BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>>;
 
     pub fn make_default_serializer() -> DefaultSerializer {
         SharedSerializerAdapter::new(BufferSerializer::new(Aligned([0u8; BUFFER_SIZE])))
@@ -46,8 +36,8 @@ mod types {
 
 #[cfg(not(feature = "std"))]
 mod types {
-    use rkyv::{ser::serializers::BufferSerializer, Aligned};
     use super::BUFFER_SIZE;
+    use rkyv::{ser::serializers::BufferSerializer, Aligned};
 
     pub type DefaultSerializer = BufferSerializer<Aligned<[u8; BUFFER_SIZE]>>;
 

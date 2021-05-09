@@ -1,12 +1,12 @@
 //! [`Archive`] implementations for core types.
 
-use crate::{
-    core_impl::primitive::{archived_to_usize, usize_to_archived}, de::Deserializer, ser::Serializer,
-    Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
-    Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
-};
 #[cfg(feature = "copy")]
 use crate::copy::ArchiveCopyOptimize;
+use crate::{
+    de::Deserializer, ser::Serializer, Archive, ArchivePointee, ArchivePrimitive, ArchiveUnsized,
+    Archived, ArchivedMetadata, Deserialize, DeserializeUnsized, Fallible, Serialize,
+    SerializeUnsized,
+};
 use core::{
     alloc, cmp,
     hash::{Hash, Hasher},
@@ -185,7 +185,8 @@ impl<T: Archive> ArchiveUnsized for [T] {
         out: &mut MaybeUninit<ArchivedMetadata<Self>>,
     ) {
         unsafe {
-            out.as_mut_ptr().write(usize_to_archived(ptr_meta::metadata(self)));
+            out.as_mut_ptr()
+                .write(ptr_meta::metadata(self).to_archived());
         }
     }
 }
@@ -195,12 +196,14 @@ impl<T> ArchivePointee for [T] {
 
     #[inline]
     fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
-        archived_to_usize(*archived)
+        usize::from_archived(archived)
     }
 }
 
 #[cfg(not(feature = "std"))]
-impl<T: Archive<Resolver = ()> + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+impl<T: Archive<Resolver = ()> + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S>
+    for [T]
+{
     #[inline]
     default! {
         fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
@@ -230,7 +233,11 @@ impl<T: Archive<Resolver = ()> + Serialize<S>, S: Serializer + ?Sized> Serialize
 }
 
 #[cfg(all(not(feature = "std"), feature = "copy"))]
-impl<T: Archive<Resolver = ()> + Serialize<S> + crate::copy::ArchiveCopyOptimize, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+impl<
+        T: Archive<Resolver = ()> + Serialize<S> + crate::copy::ArchiveCopyOptimize,
+        S: Serializer + ?Sized,
+    > SerializeUnsized<S> for [T]
+{
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
@@ -286,7 +293,9 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
 }
 
 #[cfg(all(feature = "std", feature = "copy"))]
-impl<T: Serialize<S> + crate::copy::ArchiveCopyOptimize, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+impl<T: Serialize<S> + crate::copy::ArchiveCopyOptimize, S: Serializer + ?Sized> SerializeUnsized<S>
+    for [T]
+{
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
@@ -310,9 +319,7 @@ impl<T: Serialize<S> + crate::copy::ArchiveCopyOptimize, S: Serializer + ?Sized>
     }
 }
 
-impl<T: Deserialize<U, D>, U, D: Deserializer + ?Sized>
-    DeserializeUnsized<[U], D> for [T]
-{
+impl<T: Deserialize<U, D>, U, D: Deserializer + ?Sized> DeserializeUnsized<[U], D> for [T] {
     #[inline]
     default! {
         unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
@@ -374,7 +381,8 @@ impl ArchiveUnsized for str {
         out: &mut MaybeUninit<ArchivedMetadata<Self>>,
     ) {
         unsafe {
-            out.as_mut_ptr().write(usize_to_archived(ptr_meta::metadata(self)));
+            out.as_mut_ptr()
+                .write(ptr_meta::metadata(self).to_archived());
         }
     }
 }

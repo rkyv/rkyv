@@ -7,9 +7,8 @@
 pub mod validation;
 
 use crate::{
-    core_impl::primitive::{archived_to_usize, usize_to_archived},
-    ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible, RawRelPtr,
-    Serialize,
+    ser::Serializer, Archive, ArchivePrimitive, Archived, ArchivedUsize, Deserialize, Fallible,
+    RawRelPtr, Serialize,
 };
 use core::{
     borrow::Borrow,
@@ -20,8 +19,7 @@ use core::{
     mem::{size_of, MaybeUninit},
     ops::Index,
     pin::Pin,
-    ptr,
-    slice,
+    ptr, slice,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -57,7 +55,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     /// Gets the number of items in the hash map.
     #[inline]
     pub fn len(&self) -> usize {
-        archived_to_usize(self.len)
+        usize::from_archived(&self.len)
     }
 
     fn make_hasher() -> seahash::SeaHasher {
@@ -78,7 +76,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
     #[inline]
     unsafe fn displace(&self, index: usize) -> u32 {
-        (*self.displace.as_ptr().cast::<Archived<u32>>().add(index)).into()
+        u32::from_archived(&*self.displace.as_ptr().cast::<Archived<u32>>().add(index))
     }
 
     #[inline]
@@ -270,7 +268,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
         let mut entries = Vec::with_capacity(len);
         entries.resize_with(len, || None);
-        let mut displacements = vec![Archived::<u32>::from(u32::MAX); len];
+        let mut displacements = vec![u32::MAX.to_archived(); len];
 
         let mut first_empty = 0;
         let mut assignments = Vec::with_capacity(8);
@@ -304,7 +302,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
                     for i in 0..bucket_size {
                         entries[assignments[i] as usize] = Some(bucket[i].1);
                     }
-                    displacements[displace as usize] = seed.into();
+                    displacements[displace as usize] = seed.to_archived();
                     break;
                 }
             } else {
@@ -314,7 +312,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
                     .unwrap();
                 first_empty += offset;
                 entries[first_empty] = Some(bucket[0].1);
-                displacements[displace as usize] = (first_empty as u32).into();
+                displacements[displace as usize] = (first_empty as u32).to_archived();
                 first_empty += 1;
             }
         }
@@ -586,7 +584,7 @@ impl ArchivedHashMapResolver {
         out: &mut MaybeUninit<ArchivedHashMap<K, V>>,
     ) {
         unsafe {
-            ptr::addr_of_mut!((*out.as_mut_ptr()).len).write(usize_to_archived(len));
+            ptr::addr_of_mut!((*out.as_mut_ptr()).len).write(len.to_archived());
         }
 
         let (fp, fo) = out_field!(out.displace);
