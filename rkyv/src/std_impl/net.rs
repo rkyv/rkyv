@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for network types.
 
-use crate::{Archive, ArchivePrimitive, Archived, Deserialize, Fallible, Serialize};
+use crate::{Archive, Archived, Deserialize, Fallible, Serialize};
 use core::{cmp, mem::MaybeUninit, ptr};
 use std::{
     io,
@@ -491,14 +491,14 @@ impl ArchivedSocketAddrV4 {
 
     /// Returns the IP address associated with this socket address.
     #[inline]
-    pub fn ip(&self) -> &ArchivedIpv4Addr {
+    pub const fn ip(&self) -> &ArchivedIpv4Addr {
         &self.ip
     }
 
     /// Returns the port number associated with this socket address.
     #[inline]
-    pub fn port(&self) -> u16 {
-        u16::from_archived(&self.port)
+    pub const fn port(&self) -> u16 {
+        from_archived!(self.port)
     }
 }
 
@@ -593,28 +593,28 @@ impl ArchivedSocketAddrV6 {
     ///
     /// See [`SocketAddrV6::flowinfo()`](std::net::SocketAddrV6::flowinfo()) for more details.
     #[inline]
-    pub fn flowinfo(&self) -> u32 {
-        u32::from_archived(&self.flowinfo)
+    pub const fn flowinfo(&self) -> u32 {
+        from_archived!(self.flowinfo)
     }
 
     /// Returns the IP address associated with this socket address.
     #[inline]
-    pub fn ip(&self) -> &ArchivedIpv6Addr {
+    pub const fn ip(&self) -> &ArchivedIpv6Addr {
         &self.ip
     }
 
     /// Returns the port number associated with this socket address.
     #[inline]
-    pub fn port(&self) -> u16 {
-        u16::from_archived(&self.port)
+    pub const fn port(&self) -> u16 {
+        from_archived!(self.port)
     }
 
     /// Returns the scope ID associated with this address.
     ///
     /// See [`SocketAddrV6::scope_id()`](std::net::SocketAddrV6::scope_id()) for more details.
     #[inline]
-    pub fn scope_id(&self) -> u32 {
-        u32::from_archived(&self.scope_id)
+    pub const fn scope_id(&self) -> u32 {
+        from_archived!(self.scope_id)
     }
 }
 

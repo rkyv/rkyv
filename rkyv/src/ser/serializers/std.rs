@@ -11,7 +11,7 @@ use std::io;
 
 /// Wraps a type that implements [`io::Write`](std::io::Write) and equips it with [`Serializer`].
 ///
-/// ## Examples
+/// # Examples
 /// ```
 /// use rkyv::ser::{serializers::WriteSerializer, Serializer};
 ///

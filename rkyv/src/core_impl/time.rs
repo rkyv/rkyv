@@ -1,6 +1,6 @@
 //! [`Archive`] implementations for times.
 
-use crate::{Archive, Deserialize, Fallible, Serialize};
+use crate::{Archive, Archived, Deserialize, Fallible, Serialize};
 use core::{mem::MaybeUninit, time::Duration};
 
 /// An archived [`Duration`](core::time::Duration).
@@ -8,8 +8,8 @@ use core::{mem::MaybeUninit, time::Duration};
 #[cfg_attr(feature = "valiation", derive(bytecheck::CheckBytes))]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedDuration {
-    secs: u64,
-    nanos: u32,
+    secs: Archived<u64>,
+    nanos: Archived<u32>,
 }
 
 const NANOS_PER_SEC: u32 = 1_000_000_000;
@@ -28,7 +28,7 @@ impl ArchivedDuration {
     /// [`subsec_nanos`]: ArchivedDuration::subsec_nanos
     #[inline]
     pub const fn as_secs(&self) -> u64 {
-        self.secs
+        from_archived!(self.secs)
     }
 
     /// Returns the fractional part of this `ArchivedDuration`, in whole milliseconds.
@@ -38,7 +38,7 @@ impl ArchivedDuration {
     /// than one thousand).
     #[inline]
     pub const fn subsec_millis(&self) -> u32 {
-        self.nanos / NANOS_PER_MILLI
+        from_archived!(self.nanos) / NANOS_PER_MILLI
     }
 
     /// Returns the fractional part of this `ArchivedDuration`, in whole microseconds.
@@ -48,7 +48,7 @@ impl ArchivedDuration {
     /// than one million).
     #[inline]
     pub const fn subsec_micros(&self) -> u32 {
-        self.nanos / NANOS_PER_MICRO
+        from_archived!(self.nanos) / NANOS_PER_MICRO
     }
 
     /// Returns the fractional part of this `Duration`, in nanoseconds.
@@ -58,25 +58,25 @@ impl ArchivedDuration {
     /// than one billion).
     #[inline]
     pub const fn subsec_nanos(&self) -> u32 {
-        self.nanos
+        from_archived!(self.nanos)
     }
 
     /// Returns the total number of whole milliseconds contained by this `ArchivedDuration`.
     #[inline]
     pub const fn as_millis(&self) -> u128 {
-        self.secs as u128 * MILLIS_PER_SEC as u128 + (self.nanos / NANOS_PER_MILLI) as u128
+        self.as_secs() as u128 * MILLIS_PER_SEC as u128 + (self.subsec_nanos() / NANOS_PER_MILLI) as u128
     }
 
     /// Returns the total number of whole microseconds contained by this `ArchivedDuration`.
     #[inline]
     pub const fn as_micros(&self) -> u128 {
-        self.secs as u128 * MICROS_PER_SEC as u128 + (self.nanos / NANOS_PER_MICRO) as u128
+        self.as_secs() as u128 * MICROS_PER_SEC as u128 + (self.subsec_nanos() / NANOS_PER_MICRO) as u128
     }
 
     /// Returns the total number of nanoseconds contained by this `ArchivedDuration`.
     #[inline]
     pub const fn as_nanos(&self) -> u128 {
-        self.secs as u128 * NANOS_PER_SEC as u128 + self.nanos as u128
+        self.as_secs() as u128 * NANOS_PER_SEC as u128 + self.subsec_nanos() as u128
     }
 
     /// Returns the number of seconds contained by this `ArchivedDuration` as `f64`.
@@ -84,7 +84,7 @@ impl ArchivedDuration {
     /// The returned value does include the fractional (nanosecond) part of the duration.
     #[inline]
     pub fn as_secs_f64(&self) -> f64 {
-        (self.secs as f64) + (self.nanos as f64) / (NANOS_PER_SEC as f64)
+        (self.as_secs() as f64) + (self.subsec_nanos() as f64) / (NANOS_PER_SEC as f64)
     }
 
     /// Returns the number of seconds contained by this `ArchivedDuration` as `f32`.
@@ -92,7 +92,7 @@ impl ArchivedDuration {
     /// The returned value does include the fractional (nanosecond) part of the duration.
     #[inline]
     pub fn as_secs_f32(&self) -> f32 {
-        (self.secs as f32) + (self.nanos as f32) / (NANOS_PER_SEC as f32)
+        (self.as_secs() as f32) + (self.subsec_nanos() as f32) / (NANOS_PER_SEC as f32)
     }
 }
 
@@ -119,6 +119,6 @@ impl<S: Fallible + ?Sized> Serialize<S> for Duration {
 impl<D: Fallible + ?Sized> Deserialize<Duration, D> for ArchivedDuration {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<Duration, D::Error> {
-        Ok(Duration::new(self.secs, self.nanos))
+        Ok(Duration::new(self.as_secs(), self.subsec_nanos()))
     }
 }

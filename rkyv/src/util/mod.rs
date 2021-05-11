@@ -193,7 +193,7 @@ pub unsafe fn archived_unsized_root_mut<T: ArchiveUnsized + ?Sized>(
 
 /// Wraps a type and aligns it to 16 bytes.
 ///
-/// ## Examples
+/// # Examples
 /// ```
 /// use core::mem;
 /// use rkyv::Aligned;

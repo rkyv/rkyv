@@ -28,3 +28,37 @@ macro_rules! out_field {
         }
     }};
 }
+
+macro_rules! from_archived {
+    ($expr:expr) => {
+        {
+            #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
+            {
+                $expr
+            }
+            #[cfg(any(feature = "archive_le", feature = "archive_be"))]
+            {
+                ($expr).value()
+            }
+        }
+    };
+}
+
+macro_rules! to_archived {
+    ($expr:expr) => {
+        {
+            #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
+            {
+                $expr
+            }
+            #[cfg(feature = "archive_le")]
+            {
+                ::rend::NativeEndian { value: $expr }.to_le()
+            }
+            #[cfg(feature = "archive_be")]
+            {
+                ::rend::NativeEndian { value: $expr }.to_be()
+            }
+        }
+    }
+}

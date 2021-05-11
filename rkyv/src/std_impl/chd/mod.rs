@@ -7,8 +7,8 @@
 pub mod validation;
 
 use crate::{
-    ser::Serializer, Archive, ArchivePrimitive, Archived, ArchivedUsize, Deserialize, Fallible,
-    RawRelPtr, Serialize,
+    ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible,
+    RawRelPtr, Serialize, FixedUsize,
 };
 use core::{
     borrow::Borrow,
@@ -51,11 +51,11 @@ pub struct ArchivedHashMap<K, V> {
     _phantom: PhantomData<(K, V)>,
 }
 
-impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
+impl<K, V> ArchivedHashMap<K, V> {
     /// Gets the number of items in the hash map.
     #[inline]
-    pub fn len(&self) -> usize {
-        usize::from_archived(&self.len)
+    pub const fn len(&self) -> usize {
+        from_archived!(self.len) as usize
     }
 
     fn make_hasher() -> seahash::SeaHasher {
@@ -76,7 +76,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
     #[inline]
     unsafe fn displace(&self, index: usize) -> u32 {
-        u32::from_archived(&*self.displace.as_ptr().cast::<Archived<u32>>().add(index))
+        from_archived!(*self.displace.as_ptr().cast::<Archived<u32>>().add(index))
     }
 
     #[inline]
@@ -186,7 +186,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
     /// Returns whether there are no items in the hashmap.
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
@@ -268,7 +268,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
 
         let mut entries = Vec::with_capacity(len);
         entries.resize_with(len, || None);
-        let mut displacements = vec![u32::MAX.to_archived(); len];
+        let mut displacements = vec![to_archived!(u32::MAX); len];
 
         let mut first_empty = 0;
         let mut assignments = Vec::with_capacity(8);
@@ -302,7 +302,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
                     for i in 0..bucket_size {
                         entries[assignments[i] as usize] = Some(bucket[i].1);
                     }
-                    displacements[displace as usize] = seed.to_archived();
+                    displacements[displace as usize] = to_archived!(seed);
                     break;
                 }
             } else {
@@ -312,7 +312,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
                     .unwrap();
                 first_empty += offset;
                 entries[first_empty] = Some(bucket[0].1);
-                displacements[displace as usize] = (first_empty as u32).to_archived();
+                displacements[displace as usize] = to_archived!(first_empty as u32);
                 first_empty += 1;
             }
         }
@@ -353,13 +353,13 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
     }
 }
 
-struct RawIter<'a, K: Hash + Eq, V> {
+struct RawIter<'a, K, V> {
     current: *const Entry<K, V>,
     remaining: usize,
     _phantom: PhantomData<(&'a K, &'a V)>,
 }
 
-impl<'a, K: Hash + Eq, V> RawIter<'a, K, V> {
+impl<'a, K, V> RawIter<'a, K, V> {
     #[inline]
     fn new(pairs: *const Entry<K, V>, len: usize) -> Self {
         Self {
@@ -370,7 +370,7 @@ impl<'a, K: Hash + Eq, V> RawIter<'a, K, V> {
     }
 }
 
-impl<'a, K: Hash + Eq, V> Iterator for RawIter<'a, K, V> {
+impl<'a, K, V> Iterator for RawIter<'a, K, V> {
     type Item = *const Entry<K, V>;
 
     #[inline]
@@ -393,16 +393,16 @@ impl<'a, K: Hash + Eq, V> Iterator for RawIter<'a, K, V> {
     }
 }
 
-impl<'a, K: Hash + Eq, V> ExactSizeIterator for RawIter<'a, K, V> {}
-impl<'a, K: Hash + Eq, V> FusedIterator for RawIter<'a, K, V> {}
+impl<'a, K, V> ExactSizeIterator for RawIter<'a, K, V> {}
+impl<'a, K, V> FusedIterator for RawIter<'a, K, V> {}
 
-struct RawIterPin<'a, K: Hash + Eq, V> {
+struct RawIterPin<'a, K, V> {
     current: *mut Entry<K, V>,
     remaining: usize,
     _phantom: PhantomData<(&'a K, Pin<&'a mut V>)>,
 }
 
-impl<'a, K: Hash + Eq, V> RawIterPin<'a, K, V> {
+impl<'a, K, V> RawIterPin<'a, K, V> {
     #[inline]
     fn new(pairs: *mut Entry<K, V>, len: usize) -> Self {
         Self {
@@ -413,7 +413,7 @@ impl<'a, K: Hash + Eq, V> RawIterPin<'a, K, V> {
     }
 }
 
-impl<'a, K: Hash + Eq, V> Iterator for RawIterPin<'a, K, V> {
+impl<'a, K, V> Iterator for RawIterPin<'a, K, V> {
     type Item = *mut Entry<K, V>;
 
     #[inline]
@@ -436,16 +436,16 @@ impl<'a, K: Hash + Eq, V> Iterator for RawIterPin<'a, K, V> {
     }
 }
 
-impl<K: Hash + Eq, V> ExactSizeIterator for RawIterPin<'_, K, V> {}
-impl<K: Hash + Eq, V> FusedIterator for RawIterPin<'_, K, V> {}
+impl<K, V> ExactSizeIterator for RawIterPin<'_, K, V> {}
+impl<K, V> FusedIterator for RawIterPin<'_, K, V> {}
 
 /// An iterator over the key-value pairs of a hash map.
 #[repr(transparent)]
-pub struct Iter<'a, K: Hash + Eq, V> {
+pub struct Iter<'a, K, V> {
     inner: RawIter<'a, K, V>,
 }
 
-impl<'a, K: Hash + Eq, V> Iterator for Iter<'a, K, V> {
+impl<'a, K, V> Iterator for Iter<'a, K, V> {
     type Item = (&'a K, &'a V);
 
     #[inline]
@@ -462,16 +462,16 @@ impl<'a, K: Hash + Eq, V> Iterator for Iter<'a, K, V> {
     }
 }
 
-impl<K: Hash + Eq, V> ExactSizeIterator for Iter<'_, K, V> {}
-impl<K: Hash + Eq, V> FusedIterator for Iter<'_, K, V> {}
+impl<K, V> ExactSizeIterator for Iter<'_, K, V> {}
+impl<K, V> FusedIterator for Iter<'_, K, V> {}
 
 /// An iterator over the mutable key-value pairs of a hash map.
 #[repr(transparent)]
-pub struct IterPin<'a, K: Hash + Eq, V> {
+pub struct IterPin<'a, K, V> {
     inner: RawIterPin<'a, K, V>,
 }
 
-impl<'a, K: Hash + Eq, V> Iterator for IterPin<'a, K, V> {
+impl<'a, K, V> Iterator for IterPin<'a, K, V> {
     type Item = (&'a K, Pin<&'a mut V>);
 
     #[inline]
@@ -488,16 +488,16 @@ impl<'a, K: Hash + Eq, V> Iterator for IterPin<'a, K, V> {
     }
 }
 
-impl<K: Hash + Eq, V> ExactSizeIterator for IterPin<'_, K, V> {}
-impl<K: Hash + Eq, V> FusedIterator for IterPin<'_, K, V> {}
+impl<K, V> ExactSizeIterator for IterPin<'_, K, V> {}
+impl<K, V> FusedIterator for IterPin<'_, K, V> {}
 
 /// An iterator over the keys of a hash map.
 #[repr(transparent)]
-pub struct Keys<'a, K: Hash + Eq, V> {
+pub struct Keys<'a, K, V> {
     inner: RawIter<'a, K, V>,
 }
 
-impl<'a, K: Hash + Eq, V> Iterator for Keys<'a, K, V> {
+impl<'a, K, V> Iterator for Keys<'a, K, V> {
     type Item = &'a K;
 
     #[inline]
@@ -514,16 +514,16 @@ impl<'a, K: Hash + Eq, V> Iterator for Keys<'a, K, V> {
     }
 }
 
-impl<K: Hash + Eq, V> ExactSizeIterator for Keys<'_, K, V> {}
-impl<K: Hash + Eq, V> FusedIterator for Keys<'_, K, V> {}
+impl<K, V> ExactSizeIterator for Keys<'_, K, V> {}
+impl<K, V> FusedIterator for Keys<'_, K, V> {}
 
 /// An iterator over the values of a hash map.
 #[repr(transparent)]
-pub struct Values<'a, K: Hash + Eq, V> {
+pub struct Values<'a, K, V> {
     inner: RawIter<'a, K, V>,
 }
 
-impl<'a, K: Hash + Eq, V> Iterator for Values<'a, K, V> {
+impl<'a, K, V> Iterator for Values<'a, K, V> {
     type Item = &'a V;
 
     #[inline]
@@ -540,16 +540,16 @@ impl<'a, K: Hash + Eq, V> Iterator for Values<'a, K, V> {
     }
 }
 
-impl<K: Hash + Eq, V> ExactSizeIterator for Values<'_, K, V> {}
-impl<K: Hash + Eq, V> FusedIterator for Values<'_, K, V> {}
+impl<K, V> ExactSizeIterator for Values<'_, K, V> {}
+impl<K, V> FusedIterator for Values<'_, K, V> {}
 
 /// An iterator over the mutable values of a hash map.
 #[repr(transparent)]
-pub struct ValuesPin<'a, K: Hash + Eq, V> {
+pub struct ValuesPin<'a, K, V> {
     inner: RawIterPin<'a, K, V>,
 }
 
-impl<'a, K: Hash + Eq, V> Iterator for ValuesPin<'a, K, V> {
+impl<'a, K, V> Iterator for ValuesPin<'a, K, V> {
     type Item = Pin<&'a mut V>;
 
     #[inline]
@@ -566,8 +566,8 @@ impl<'a, K: Hash + Eq, V> Iterator for ValuesPin<'a, K, V> {
     }
 }
 
-impl<K: Hash + Eq, V> ExactSizeIterator for ValuesPin<'_, K, V> {}
-impl<K: Hash + Eq, V> FusedIterator for ValuesPin<'_, K, V> {}
+impl<K, V> ExactSizeIterator for ValuesPin<'_, K, V> {}
+impl<K, V> FusedIterator for ValuesPin<'_, K, V> {}
 
 /// The resolver for archived hash maps.
 pub struct ArchivedHashMapResolver {
@@ -584,7 +584,7 @@ impl ArchivedHashMapResolver {
         out: &mut MaybeUninit<ArchivedHashMap<K, V>>,
     ) {
         unsafe {
-            ptr::addr_of_mut!((*out.as_mut_ptr()).len).write(len.to_archived());
+            ptr::addr_of_mut!((*out.as_mut_ptr()).len).write(to_archived!(len as FixedUsize));
         }
 
         let (fp, fo) = out_field!(out.displace);
@@ -683,15 +683,14 @@ impl<K: Eq + Hash + Borrow<Q>, Q: Eq + Hash + ?Sized, V> Index<&'_ Q> for Archiv
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key and a value of
 /// `()`.
-#[derive(Eq, PartialEq)]
 #[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
-pub struct ArchivedHashSet<K: Hash + Eq>(ArchivedHashMap<K, ()>);
+pub struct ArchivedHashSet<K>(ArchivedHashMap<K, ()>);
 
-impl<K: Hash + Eq> ArchivedHashSet<K> {
+impl<K> ArchivedHashSet<K> {
     /// Gets the number of items in the hash set.
     #[inline]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.0.len()
     }
 
@@ -723,7 +722,7 @@ impl<K: Hash + Eq> ArchivedHashSet<K> {
 
     /// Returns whether there are no items in the hash set.
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
@@ -779,5 +778,36 @@ where
             result.insert(k.deserialize(deserializer)?);
         }
         Ok(result)
+    }
+}
+
+impl<K: Hash + Eq> PartialEq for ArchivedHashSet<K> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<K: Hash + Eq> Eq for ArchivedHashSet<K> {}
+
+impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq> PartialEq<HashSet<K>>
+    for ArchivedHashSet<AK>
+{
+    #[inline]
+    fn eq(&self, other: &HashSet<K>) -> bool {
+        if self.len() != other.len() {
+            false
+        } else {
+            self.iter().all(|key| other.get(key).is_some())
+        }
+    }
+}
+
+impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq>
+    PartialEq<ArchivedHashSet<AK>> for HashSet<K>
+{
+    #[inline]
+    fn eq(&self, other: &ArchivedHashSet<AK>) -> bool {
+        other.eq(self)
     }
 }

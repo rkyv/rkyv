@@ -6,8 +6,7 @@
 //! rkyv_typename provides a derive macro to easily implement [`TypeName`], and has options to
 //! easily customize your type's name.
 //!
-//! ## Examples
-//!
+//! # Examples
 //! ```
 //! use rkyv_typename::TypeName;
 //! #[derive(TypeName)]
@@ -40,7 +39,7 @@ pub use rkyv_typename_derive::TypeName;
 /// precautions should be taken to ensure that if name collisions happen that they are detected and
 /// fixable.
 ///
-/// ## Examples
+/// # Examples
 ///
 /// Most of the time, `#[derive(TypeName)]` will suit your needs. However, if you need more control,
 /// you can always implement it manually:

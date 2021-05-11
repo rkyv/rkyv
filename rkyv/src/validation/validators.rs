@@ -493,7 +493,7 @@ pub type DefaultArchiveValidator<'a> =
 /// This is a safe alternative to [`archived_value`](crate::archived_value) for types that implement
 /// `CheckBytes`.
 ///
-/// # Example
+/// # Examples
 /// ```
 /// use rkyv::{
 ///     check_archived_value,

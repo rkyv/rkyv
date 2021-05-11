@@ -97,7 +97,6 @@ use core::{
 };
 
 use core::ptr;
-pub use core_impl::primitive::ArchivePrimitive;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 pub use util::*;
@@ -139,7 +138,7 @@ impl Fallible for Infallible {
 /// type itself. The type must be able to create the archived type from only its own data and its
 /// resolver.
 ///
-/// ## Examples
+/// # Examples
 ///
 /// Most of the time, `#[derive(Archive)]` will create an acceptable implementation. You can use the
 /// `#[archive(...)]` attribute to control how the implementation is generated. See the
@@ -338,8 +337,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// can be used to archive trait objects. Other unsized types must manually implement
 /// `ArchiveUnsized`.
 ///
-/// ## Examples
-///
+/// # Examples
 /// ```
 /// use core::{
 ///     mem::{transmute, MaybeUninit},
@@ -602,7 +600,7 @@ impl RawRelPtr {
     pub fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
         unsafe {
             ptr::addr_of_mut!((*out.as_mut_ptr()).offset)
-                .write((to as isize - from as isize).to_archived());
+                .write(to_archived!((to as isize - from as isize) as FixedIsize));
         }
     }
 
@@ -627,7 +625,7 @@ impl RawRelPtr {
     /// Gets the offset of the relative pointer.
     #[inline]
     pub fn offset(&self) -> isize {
-        isize::from_archived(&self.offset)
+        from_archived!(self.offset) as isize
     }
 
     /// Calculates the memory address being pointed to by this relative pointer.

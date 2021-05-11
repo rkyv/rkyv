@@ -3,7 +3,7 @@
 use crate::{
     std_impl::chd::{ArchivedHashMap, Entry},
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
-    ArchivePrimitive, Archived, ArchivedUsize, Fallible, RawRelPtr,
+    Archived, ArchivedUsize, Fallible, RawRelPtr,
 };
 use bytecheck::{CheckBytes, SliceCheckError, Unreachable};
 use core::{
@@ -147,10 +147,10 @@ where
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let len = usize::from_archived(ArchivedUsize::check_bytes(
+        let len = from_archived!(*ArchivedUsize::check_bytes(
             ptr::addr_of!((*value).len),
             context,
-        )?);
+        )?) as usize;
 
         let displace_rel_ptr =
             RawRelPtr::manual_check_bytes(ptr::addr_of!((*value).displace), context)?;
@@ -165,7 +165,7 @@ where
         let displace = <[Archived<u32>]>::check_bytes(displace_ptr, context)?;
 
         for (i, &d) in displace.iter().enumerate() {
-            let d = u32::from_archived(&d);
+            let d = from_archived!(d);
             if d as usize >= len && d < 0x80_00_00_00 {
                 return Err(HashMapError::InvalidDisplacement { index: i, value: d });
             }
@@ -192,7 +192,7 @@ where
             let index = if displace == u32::MAX {
                 return Err(HashMapError::InvalidKeyPosition { index: i });
             } else if displace & 0x80_00_00_00 == 0 {
-                u32::from_archived(&displace) as usize
+                from_archived!(displace) as usize
             } else {
                 let mut hasher = ArchivedHashMap::<K, V>::make_hasher();
                 displace.hash(&mut hasher);

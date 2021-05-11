@@ -1,7 +1,4 @@
-use crate::{
-    Archive, Archived, ArchivedIsize, ArchivedUsize, Deserialize, Fallible, FixedIsize, FixedUsize,
-    Serialize,
-};
+use crate::{Archive, Archived, ArchivedIsize, ArchivedUsize, Deserialize, Fallible, FixedIsize, FixedUsize, Serialize};
 #[cfg(has_atomics)]
 use core::sync::atomic::{
     AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicU16, AtomicU32, AtomicU8, Ordering,
@@ -18,92 +15,12 @@ use core::{
 };
 use std::usize;
 
-pub trait ArchivePrimitive: Archive {
-    fn to_archived(&self) -> Self::Archived;
-    fn from_archived(archived: &Self::Archived) -> Self;
-}
-
-macro_rules! impl_archive_primitive {
-    ($($ty:ty,)*) => {
-        $(
-            impl ArchivePrimitive for $ty {
-                #[inline(always)]
-                fn to_archived(&self) -> Self::Archived {
-                    (*self).into()
-                }
-
-                #[inline(always)]
-                fn from_archived(archived: &Self::Archived) -> Self {
-                    (*archived).into()
-                }
-            }
-        )*
-    };
-}
-
-impl_archive_primitive!(
-    i16,
-    i32,
-    i64,
-    i128,
-    u16,
-    u32,
-    u64,
-    u128,
-    f32,
-    f64,
-    char,
-    NonZeroI16,
-    NonZeroI32,
-    NonZeroI64,
-    NonZeroI128,
-    NonZeroU16,
-    NonZeroU32,
-    NonZeroU64,
-    NonZeroU128,
-);
-
-impl ArchivePrimitive for isize {
-    #[inline(always)]
-    #[allow(clippy::useless_conversion)]
-    fn to_archived(&self) -> Self::Archived {
-        Self::Archived::from(*self as FixedIsize)
-    }
-
-    #[inline(always)]
-    #[allow(clippy::useless_conversion)]
-    fn from_archived(archived: &Self::Archived) -> Self {
-        FixedIsize::from(*archived) as Self
-    }
-}
-
-impl ArchivePrimitive for usize {
-    #[inline(always)]
-    #[allow(clippy::useless_conversion)]
-    fn to_archived(&self) -> Self::Archived {
-        Self::Archived::from(*self as FixedUsize)
-    }
-
-    #[inline(always)]
-    #[allow(clippy::useless_conversion)]
-    fn from_archived(archived: &Self::Archived) -> Self {
-        FixedUsize::from(*archived) as Self
-    }
-}
-
 macro_rules! impl_primitive {
-    (@serialize_deserialize $type:ty) => {
+    (@serialize $type:ty) => {
         impl<S: Fallible + ?Sized> Serialize<S> for $type {
             #[inline]
             fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
                 Ok(())
-            }
-        }
-
-        impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived<$type> {
-            #[inline]
-            fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
-                Ok((*self).into())
             }
         }
     };
@@ -115,33 +32,47 @@ macro_rules! impl_primitive {
             #[inline]
             fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
                 unsafe {
-                    out.as_mut_ptr().write((*self).into());
+                    out.as_mut_ptr().write(*self);
                 }
             }
         }
 
-        impl_primitive!(@serialize_deserialize $type);
+        impl_primitive!(@serialize $type);
+
+        impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived<$type> {
+            #[inline]
+            fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
+                Ok(*self)
+            }
+        }
     };
-    ($type:ty, $type_le:ident, $type_be:ident) => {
+    (@multibyte $type:ty) => {
         impl Archive for $type {
             #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
             type Archived = Self;
             #[cfg(feature = "archive_le")]
-            type Archived = rend::$type_le;
+            type Archived = rend::LittleEndian<Self>;
             #[cfg(feature = "archive_be")]
-            type Archived = rend::$type_be;
+            type Archived = rend::BigEndian<Self>;
 
             type Resolver = ();
 
             #[inline]
             fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
                 unsafe {
-                    out.as_mut_ptr().write((*self).into());
+                    out.as_mut_ptr().write(to_archived!(*self as Self));
                 }
             }
         }
 
-        impl_primitive!(@serialize_deserialize $type);
+        impl_primitive!(@serialize $type);
+
+        impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived<$type> {
+            #[inline]
+            fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
+                Ok(from_archived!(*self))
+            }
+        }
     };
 }
 
@@ -151,13 +82,6 @@ macro_rules! impl_atomic {
             #[inline]
             fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
                 Ok(())
-            }
-        }
-
-        impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived<$type> {
-            #[inline]
-            fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
-                Ok(self.load(Ordering::Relaxed).into())
             }
         }
     };
@@ -176,15 +100,22 @@ macro_rules! impl_atomic {
         }
 
         impl_atomic!(@serialize_deserialize $type);
+
+        impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived<$type> {
+            #[inline]
+            fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
+                Ok(self.load(Ordering::Relaxed).into())
+            }
+        }
     };
-    ($type:ty, $type_le:ident, $type_be:ident) => {
+    (@multibyte $type:ty) => {
         impl Archive for $type {
             #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
             type Archived = Self;
             #[cfg(feature = "archive_le")]
-            type Archived = rend::$type_le;
+            type Archived = rend::LittleEndian<$type>;
             #[cfg(feature = "archive_be")]
-            type Archived = rend::$type_be;
+            type Archived = rend::BigEndian<$type>;
 
             type Resolver = ();
 
@@ -198,6 +129,13 @@ macro_rules! impl_atomic {
         }
 
         impl_atomic!(@serialize_deserialize $type);
+
+        impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived<$type> {
+            #[inline]
+            fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
+                Ok(self.load(Ordering::Relaxed).into())
+            }
+        }
     };
 }
 
@@ -214,41 +152,41 @@ impl_atomic!(AtomicI8);
 #[cfg(has_atomics)]
 impl_atomic!(AtomicU8);
 
-impl_primitive!(i16, i16_le, i16_be);
-impl_primitive!(i32, i32_le, i32_be);
-impl_primitive!(i64, i64_le, i64_be);
-impl_primitive!(i128, i128_le, i128_be);
-impl_primitive!(u16, u16_le, u16_be);
-impl_primitive!(u32, u32_le, u32_be);
-impl_primitive!(u64, u64_le, u64_be);
-impl_primitive!(u128, u128_le, u128_be);
+impl_primitive!(@multibyte i16);
+impl_primitive!(@multibyte i32);
+impl_primitive!(@multibyte i64);
+impl_primitive!(@multibyte i128);
+impl_primitive!(@multibyte u16);
+impl_primitive!(@multibyte u32);
+impl_primitive!(@multibyte u64);
+impl_primitive!(@multibyte u128);
 
-impl_primitive!(f32, f32_le, f32_be);
-impl_primitive!(f64, f64_le, f64_be);
+impl_primitive!(@multibyte f32);
+impl_primitive!(@multibyte f64);
 
-impl_primitive!(char, char_le, char_be);
+impl_primitive!(@multibyte char);
 
-impl_primitive!(NonZeroI16, NonZeroI16_le, NonZeroI16_be);
-impl_primitive!(NonZeroI32, NonZeroI32_le, NonZeroI32_be);
-impl_primitive!(NonZeroI64, NonZeroI64_le, NonZeroI64_be);
-impl_primitive!(NonZeroI128, NonZeroI128_le, NonZeroI128_be);
-impl_primitive!(NonZeroU16, NonZeroU16_le, NonZeroU16_be);
-impl_primitive!(NonZeroU32, NonZeroU32_le, NonZeroU32_be);
-impl_primitive!(NonZeroU64, NonZeroU64_le, NonZeroU64_be);
-impl_primitive!(NonZeroU128, NonZeroU128_le, NonZeroU128_be);
+impl_primitive!(@multibyte NonZeroI16);
+impl_primitive!(@multibyte NonZeroI32);
+impl_primitive!(@multibyte NonZeroI64);
+impl_primitive!(@multibyte NonZeroI128);
+impl_primitive!(@multibyte NonZeroU16);
+impl_primitive!(@multibyte NonZeroU32);
+impl_primitive!(@multibyte NonZeroU64);
+impl_primitive!(@multibyte NonZeroU128);
 
 #[cfg(has_atomics)]
-impl_atomic!(AtomicI16, AtomicI16_le, AtomicI16_be);
+impl_atomic!(@multibyte AtomicI16);
 #[cfg(has_atomics)]
-impl_atomic!(AtomicI32, AtomicI32_le, AtomicI32_be);
+impl_atomic!(@multibyte AtomicI32);
 #[cfg(has_atomics_64)]
-impl_atomic!(AtomicI64, AtomicI64_le, AtomicI64_be);
+impl_atomic!(@multibyte AtomicI64);
 #[cfg(has_atomics)]
-impl_atomic!(AtomicU16, AtomicU16_le, AtomicU16_be);
+impl_atomic!(@multibyte AtomicU16);
 #[cfg(has_atomics)]
-impl_atomic!(AtomicU32, AtomicU32_le, AtomicU32_be);
+impl_atomic!(@multibyte AtomicU32);
 #[cfg(has_atomics_64)]
-impl_atomic!(AtomicU64, AtomicU64_le, AtomicU64_be);
+impl_atomic!(@multibyte AtomicU64);
 
 // PhantomData
 
@@ -306,7 +244,7 @@ impl Archive for usize {
     #[inline]
     fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         unsafe {
-            out.as_mut_ptr().write(self.to_archived());
+            out.as_mut_ptr().write(to_archived!(*self as FixedUsize));
         }
     }
 }
@@ -321,7 +259,7 @@ impl<S: Fallible + ?Sized> Serialize<S> for usize {
 impl<D: Fallible + ?Sized> Deserialize<usize, D> for Archived<usize> {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<usize, D::Error> {
-        Ok(usize::from_archived(self))
+        Ok(from_archived!(*self) as usize)
     }
 }
 
@@ -334,7 +272,7 @@ impl Archive for isize {
     #[inline]
     fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         unsafe {
-            out.as_mut_ptr().write(self.to_archived());
+            out.as_mut_ptr().write(to_archived!(*self as FixedIsize));
         }
     }
 }
@@ -349,6 +287,6 @@ impl<S: Fallible + ?Sized> Serialize<S> for isize {
 impl<D: Fallible + ?Sized> Deserialize<isize, D> for Archived<isize> {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<isize, D::Error> {
-        Ok(isize::from_archived(self))
+        Ok(from_archived!(*self) as isize)
     }
 }

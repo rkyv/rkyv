@@ -118,7 +118,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// are boxed as regular trait objects. This is because your deserialized values have to implement
 /// `SerializeDyn` but your archived values do not.
 ///
-/// ## Examples
+/// # Examples
 ///
 /// See [`archive_dyn`](macro@archive_dyn) for customization options.
 ///

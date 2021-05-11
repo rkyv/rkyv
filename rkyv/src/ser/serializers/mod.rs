@@ -18,7 +18,7 @@ pub use self::std::*;
 /// Common uses include archiving in `#![no_std]` environments and archiving small objects without
 /// allocating.
 ///
-/// ## Examples
+/// # Examples
 /// ```
 /// use rkyv::{
 ///     archived_value,

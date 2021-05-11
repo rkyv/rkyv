@@ -3,9 +3,9 @@
 #[cfg(feature = "copy")]
 use crate::copy::ArchiveCopyOptimize;
 use crate::{
-    de::Deserializer, ser::Serializer, Archive, ArchivePointee, ArchivePrimitive, ArchiveUnsized,
-    Archived, ArchivedMetadata, Deserialize, DeserializeUnsized, Fallible, Serialize,
-    SerializeUnsized,
+    de::Deserializer, ser::Serializer, Archive, ArchiveUnsized,
+    Archived, ArchivedMetadata, ArchivePointee, Deserialize, DeserializeUnsized, Fallible, Serialize,
+    SerializeUnsized, FixedUsize,
 };
 use core::{
     alloc, cmp,
@@ -186,7 +186,7 @@ impl<T: Archive> ArchiveUnsized for [T] {
     ) {
         unsafe {
             out.as_mut_ptr()
-                .write(ptr_meta::metadata(self).to_archived());
+                .write(to_archived!(ptr_meta::metadata(self) as FixedUsize));
         }
     }
 }
@@ -196,7 +196,7 @@ impl<T> ArchivePointee for [T] {
 
     #[inline]
     fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
-        usize::from_archived(archived)
+        from_archived!(*archived) as usize
     }
 }
 
@@ -382,7 +382,7 @@ impl ArchiveUnsized for str {
     ) {
         unsafe {
             out.as_mut_ptr()
-                .write(ptr_meta::metadata(self).to_archived());
+                .write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
         }
     }
 }
