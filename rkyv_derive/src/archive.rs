@@ -655,20 +655,25 @@ fn derive_archive_impl(
                 }
             };
 
+            let is_fieldless = data.variants.iter().all(|v| matches!(v.fields, Fields::Unit));
             #[cfg(all(
                 not(feature = "arbitrary_enum_discriminant"),
-                any(feature = "archive_be", feature = "archive_le")
+                any(feature = "archive_le", feature = "archive_be")
             ))]
-            if !matches!(archived_repr, IntRepr::U8) {
+            if !is_fieldless && !matches!(archived_repr, IntRepr::U8 | IntRepr::I8) {
                 return Err(Error::new_spanned(
                     name,
-                    "multibyte enum discriminants cannot be used with endian-aware archives",
+                    "enums with variant data cannot have multibyte discriminants when using endian-aware features\nenabling the `arbitrary_enum_discriminant` feature will allow this behavior",
                 ));
             }
 
             let archived_variants = data.variants.iter().enumerate().map(|(i, v)| {
                 let variant = &v.ident;
-                let discriminant = archived_repr.enum_discriminant(i);
+                let discriminant = if is_fieldless || cfg!(feature = "arbitrary_enum_discriminant") {
+                    Some(archived_repr.enum_discriminant(i))
+                } else {
+                    None
+                };
                 match v.fields {
                     Fields::Named(ref fields) => {
                         let fields = fields.named.iter().map(|f| {

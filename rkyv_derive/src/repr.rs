@@ -42,7 +42,7 @@ impl IntRepr {
 
     #[inline]
     #[cfg(feature = "arbitrary_enum_discriminant")]
-    pub fn enum_discriminant(&self, index: usize) -> Option<EnumDiscriminant> {
+    pub fn enum_discriminant(&self, index: usize) -> EnumDiscriminant {
         #[cfg(not(any(
             all(target_endian = "little", feature = "archive_be"),
             all(target_endian = "big", feature = "archive_le"),
@@ -66,7 +66,7 @@ impl IntRepr {
             Self::U128 => (index as u128).swap_bytes(),
         };
 
-        Some(EnumDiscriminant { repr: *self, value })
+        EnumDiscriminant { repr: *self, value }
     }
 }
 

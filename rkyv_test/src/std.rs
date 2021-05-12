@@ -1106,14 +1106,14 @@ mod tests {
 
         assert_eq!(core::mem::size_of::<ArchivedInferredRepr>(), 1);
 
-        // #[derive(Archive)]
-        // #[archive_attr(repr(u16))]
-        // #[allow(dead_code)]
-        // pub enum ExplicitRepr {
-        //     V0,
-        //     V1,
-        // }
+        #[derive(Archive)]
+        #[archive_attr(repr(u16))]
+        #[allow(dead_code)]
+        pub enum ExplicitRepr {
+            V0,
+            V1,
+        }
 
-        // assert_eq!(core::mem::size_of::<ArchivedExplicitRepr>(), 2);
+        assert_eq!(core::mem::size_of::<ArchivedExplicitRepr>(), 2);
     }
 }
