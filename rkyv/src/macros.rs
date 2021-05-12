@@ -8,9 +8,35 @@ macro_rules! default {
     ($($fn:tt)*) => { $($fn)* };
 }
 
+/// Returns a tuple of the field offset and a mutable `MaybeUninit` to the given field of the given
+/// `MaybeUninit` struct.
+///
+/// # Examples
+/// ```
+/// use core::mem::MaybeUninit;
+/// use rkyv::out_field;
+///
+/// struct Example {
+///     a: i32,
+///     b: bool,
+/// }
+///
+/// let mut result = MaybeUninit::<Example>::zeroed();
+/// let out = &mut result;
+///
+/// let (a_off, a) = out_field!(out.a);
+/// unsafe { a.as_mut_ptr().write(42); }
+/// let (b_off, b) = out_field!(out.b);
+/// unsafe { b.as_mut_ptr().write(true); }
+///
+/// let result = unsafe { result.assume_init() };
+/// assert_eq!(result.a, 42);
+/// assert_eq!(result.b, true);
+/// ```
 #[macro_export]
 macro_rules! out_field {
     ($out:ident.$field:tt) => {{
+        #[inline(always)]
         fn as_uninit<'a, T, U>(
             _: &'a mut ::core::mem::MaybeUninit<T>,
             ptr: *mut U,
@@ -29,6 +55,15 @@ macro_rules! out_field {
     }};
 }
 
+/// Returns the unarchived value of the given archived primitive.
+///
+/// This macro is not needed for most use cases. Its primary purpose is to simultaneously:
+/// - Convert values from (potentially) different archived primitives to their native counterparts
+/// - Allow transformation in `const` contexts
+/// - Prevent linter warnings from unused `into()` calls
+///
+/// Users should feel free to use the more ergonomic `into()` where appropriate.
+#[macro_export]
 macro_rules! from_archived {
     ($expr:expr) => {
         {
@@ -44,6 +79,15 @@ macro_rules! from_archived {
     };
 }
 
+/// Returns the archived value of the given archived primitive.
+///
+/// This macro is not needed for most use cases. Its primary purpose is to simultaneously:
+/// - Convert values from (potentially) different primitives to their archived counterparts
+/// - Allow transformation in `const` contexts
+/// - Prevent linter warnings from unused `into()` calls
+///
+/// Users should feel free to use the more ergonomic `into()` where appropriate.
+#[macro_export]
 macro_rules! to_archived {
     ($expr:expr) => {
         {
@@ -53,11 +97,11 @@ macro_rules! to_archived {
             }
             #[cfg(feature = "archive_le")]
             {
-                ::rend::NativeEndian { value: $expr }.to_le()
+                $crate::core_impl::primitive::NativeEndian { value: $expr }.to_le()
             }
             #[cfg(feature = "archive_be")]
             {
-                ::rend::NativeEndian { value: $expr }.to_be()
+                $crate::core_impl::primitive::NativeEndian { value: $expr }.to_be()
             }
         }
     }

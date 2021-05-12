@@ -19,6 +19,8 @@ wasm-bindgen-test = { version = "0.3", optional = true }
 
 [features]
 default = ["validation"]
+archive_le = ["rkyv/archive_le", "rkyv_dyn/archive_le"]
+archive_be = ["rkyv/archive_be", "rkyv_dyn/archive_be"]
 nightly = ["rkyv_dyn/nightly"]
 strict = ["rkyv_dyn/strict"]
 validation = ["bytecheck", "rkyv_dyn/validation"]

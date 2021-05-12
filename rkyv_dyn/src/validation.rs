@@ -11,8 +11,9 @@ use core::{
     sync::atomic::{AtomicU64, Ordering},
 };
 use rkyv::{
+    from_archived,
     validation::{ArchiveBoundsContext, ArchiveMemoryContext, SharedArchiveContext},
-    Fallible,
+    Archived, Fallible,
 };
 use rkyv_typename::TypeName;
 use std::{collections::HashMap, error::Error};
@@ -260,11 +261,14 @@ impl<T: TypeName + ?Sized, C: ?Sized> CheckBytes<C> for ArchivedDynMetadata<T> {
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let type_id = *u64::check_bytes(ptr::addr_of!((*value).type_id), context)?;
+        let type_id = from_archived!(*Archived::<u64>::check_bytes(
+            ptr::addr_of!((*value).type_id),
+            context,
+        )?);
         PhantomData::<T>::check_bytes(ptr::addr_of!((*value).phantom), context)?;
         if let Some(impl_data) = IMPL_REGISTRY.get::<T>(type_id) {
             let cached_vtable =
-                AtomicU64::check_bytes(ptr::addr_of!((*value).cached_vtable), context)?
+                Archived::<AtomicU64>::check_bytes(ptr::addr_of!((*value).cached_vtable), context)?
                     .load(Ordering::Relaxed);
             if cached_vtable == 0 || cached_vtable as usize == impl_data.vtable {
                 Ok(&*value)

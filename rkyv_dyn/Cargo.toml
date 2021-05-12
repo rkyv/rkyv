@@ -24,6 +24,8 @@ rkyv_typename = { version = "0.6", path = "../rkyv_typename" }
 
 [features]
 default = []
+archive_le = ["rkyv/archive_le"]
+archive_be = ["rkyv/archive_be"]
 nightly = []
 strict = ["rkyv/strict"]
 validation = ["bytecheck", "rkyv/validation", "rkyv_dyn_derive/validation"]

@@ -345,6 +345,8 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// };
 /// use ptr_meta::Pointee;
 /// use rkyv::{
+///     from_archived,
+///     to_archived,
 ///     archived_unsized_value,
 ///     ser::{serializers::AlignedSerializer, Serializer},
 ///     AlignedVec,
@@ -354,6 +356,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     ArchivedUsize,
 ///     ArchivePointee,
 ///     ArchiveUnsized,
+///     FixedUsize,
 ///     RelPtr,
 ///     Serialize,
 ///     SerializeUnsized,
@@ -389,7 +392,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     fn pointer_metadata(
 ///         archived: &Self::ArchivedMetadata
 ///     ) -> <Self as Pointee>::Metadata {
-///         archived.len as usize
+///         from_archived!(archived.len) as usize
 ///     }
 /// }
 ///
@@ -415,7 +418,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     ) {
 ///         unsafe {
 ///             out.as_mut_ptr().write(BlockSliceMetadata {
-///                 len: self.tail.len() as ArchivedUsize,
+///                 len: to_archived!(self.tail.len() as FixedUsize),
 ///             });
 ///         }
 ///     }
@@ -612,19 +615,19 @@ impl RawRelPtr {
 
     /// Checks whether the relative pointer is null.
     #[inline]
-    pub fn is_null(&self) -> bool {
+    pub const fn is_null(&self) -> bool {
         self.offset() == 0
     }
 
     /// Gets the base pointer for the relative pointer.
     #[inline]
-    pub fn base(&self) -> *const u8 {
+    pub const fn base(&self) -> *const u8 {
         (self as *const Self).cast::<u8>()
     }
 
     /// Gets the offset of the relative pointer.
     #[inline]
-    pub fn offset(&self) -> isize {
+    pub const fn offset(&self) -> isize {
         from_archived!(self.offset) as isize
     }
 
