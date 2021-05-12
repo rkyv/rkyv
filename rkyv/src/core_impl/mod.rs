@@ -3,9 +3,9 @@
 #[cfg(feature = "copy")]
 use crate::copy::ArchiveCopyOptimize;
 use crate::{
-    de::Deserializer, ser::Serializer, Archive, ArchiveUnsized,
-    Archived, ArchivedMetadata, ArchivePointee, Deserialize, DeserializeUnsized, Fallible, Serialize,
-    SerializeUnsized, FixedUsize,
+    de::Deserializer, ser::Serializer, Archive, ArchivePointee, ArchiveUnsized, Archived,
+    ArchivedMetadata, Deserialize, DeserializeUnsized, Fallible, FixedUsize, Serialize,
+    SerializeUnsized,
 };
 use core::{
     alloc, cmp,

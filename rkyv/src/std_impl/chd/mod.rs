@@ -7,8 +7,8 @@
 pub mod validation;
 
 use crate::{
-    ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible,
-    RawRelPtr, Serialize, FixedUsize,
+    ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible, FixedUsize,
+    RawRelPtr, Serialize,
 };
 use core::{
     borrow::Borrow,
@@ -790,9 +790,7 @@ impl<K: Hash + Eq> PartialEq for ArchivedHashSet<K> {
 
 impl<K: Hash + Eq> Eq for ArchivedHashSet<K> {}
 
-impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq> PartialEq<HashSet<K>>
-    for ArchivedHashSet<AK>
-{
+impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq> PartialEq<HashSet<K>> for ArchivedHashSet<AK> {
     #[inline]
     fn eq(&self, other: &HashSet<K>) -> bool {
         if self.len() != other.len() {
@@ -803,9 +801,7 @@ impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq> PartialEq<HashSet<K>>
     }
 }
 
-impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq>
-    PartialEq<ArchivedHashSet<AK>> for HashSet<K>
-{
+impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq> PartialEq<ArchivedHashSet<AK>> for HashSet<K> {
     #[inline]
     fn eq(&self, other: &ArchivedHashSet<AK>) -> bool {
         other.eq(self)

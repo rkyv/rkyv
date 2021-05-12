@@ -64,13 +64,15 @@ impl ArchivedDuration {
     /// Returns the total number of whole milliseconds contained by this `ArchivedDuration`.
     #[inline]
     pub const fn as_millis(&self) -> u128 {
-        self.as_secs() as u128 * MILLIS_PER_SEC as u128 + (self.subsec_nanos() / NANOS_PER_MILLI) as u128
+        self.as_secs() as u128 * MILLIS_PER_SEC as u128
+            + (self.subsec_nanos() / NANOS_PER_MILLI) as u128
     }
 
     /// Returns the total number of whole microseconds contained by this `ArchivedDuration`.
     #[inline]
     pub const fn as_micros(&self) -> u128 {
-        self.as_secs() as u128 * MICROS_PER_SEC as u128 + (self.subsec_nanos() / NANOS_PER_MICRO) as u128
+        self.as_secs() as u128 * MICROS_PER_SEC as u128
+            + (self.subsec_nanos() / NANOS_PER_MICRO) as u128
     }
 
     /// Returns the total number of nanoseconds contained by this `ArchivedDuration`.

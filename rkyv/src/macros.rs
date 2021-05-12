@@ -65,18 +65,16 @@ macro_rules! out_field {
 /// Users should feel free to use the more ergonomic `into()` where appropriate.
 #[macro_export]
 macro_rules! from_archived {
-    ($expr:expr) => {
+    ($expr:expr) => {{
+        #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
         {
-            #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
-            {
-                $expr
-            }
-            #[cfg(any(feature = "archive_le", feature = "archive_be"))]
-            {
-                ($expr).value()
-            }
+            $expr
         }
-    };
+        #[cfg(any(feature = "archive_le", feature = "archive_be"))]
+        {
+            ($expr).value()
+        }
+    }};
 }
 
 /// Returns the archived value of the given archived primitive.
@@ -89,20 +87,18 @@ macro_rules! from_archived {
 /// Users should feel free to use the more ergonomic `into()` where appropriate.
 #[macro_export]
 macro_rules! to_archived {
-    ($expr:expr) => {
+    ($expr:expr) => {{
+        #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
         {
-            #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
-            {
-                $expr
-            }
-            #[cfg(feature = "archive_le")]
-            {
-                $crate::core_impl::primitive::NativeEndian { value: $expr }.to_le()
-            }
-            #[cfg(feature = "archive_be")]
-            {
-                $crate::core_impl::primitive::NativeEndian { value: $expr }.to_be()
-            }
+            $expr
         }
-    }
+        #[cfg(feature = "archive_le")]
+        {
+            $crate::core_impl::primitive::NativeEndian { value: $expr }.to_le()
+        }
+        #[cfg(feature = "archive_be")]
+        {
+            $crate::core_impl::primitive::NativeEndian { value: $expr }.to_be()
+        }
+    }};
 }

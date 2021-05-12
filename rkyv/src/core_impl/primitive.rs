@@ -1,4 +1,7 @@
-use crate::{Archive, Archived, ArchivedIsize, ArchivedUsize, Deserialize, Fallible, FixedIsize, FixedUsize, Serialize};
+use crate::{
+    Archive, Archived, ArchivedIsize, ArchivedUsize, Deserialize, Fallible, FixedIsize, FixedUsize,
+    Serialize,
+};
 #[cfg(has_atomics)]
 use core::sync::atomic::{
     AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicU16, AtomicU32, AtomicU8, Ordering,

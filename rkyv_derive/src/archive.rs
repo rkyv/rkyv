@@ -210,6 +210,7 @@ fn derive_archive_impl(
 
                     (
                         quote! {
+                            #[automatically_derived]
                             #[doc = #archived_doc]
                             #(#archive_attrs)*
                             #repr
@@ -217,6 +218,7 @@ fn derive_archive_impl(
                                 #(#archived_fields,)*
                             }
 
+                            #[automatically_derived]
                             #[doc = #resolver_doc]
                             #vis struct #resolver #generics #archive_where {
                                 #(#resolver_fields,)*
@@ -379,11 +381,13 @@ fn derive_archive_impl(
 
                     (
                         quote! {
+                            #[automatically_derived]
                             #[doc = #archived_doc]
                             #(#archive_attrs)*
                             #repr
                             #vis struct #archived #generics (#(#archived_fields,)*) #archive_where;
 
+                            #[automatically_derived]
                             #[doc = #resolver_doc]
                             #vis struct #resolver #generics (#(#resolver_fields,)*) #archive_where;
                         },
@@ -459,12 +463,14 @@ fn derive_archive_impl(
 
                     (
                         quote! {
+                            #[automatically_derived]
                             #[doc = #archived_doc]
                             #(#archive_attrs)*
                             #repr
                             #vis struct #archived #generics
                             #where_clause;
 
+                            #[automatically_derived]
                             #[doc = #resolver_doc]
                             #vis struct #resolver #generics
                             #where_clause;
@@ -655,7 +661,10 @@ fn derive_archive_impl(
                 }
             };
 
-            let is_fieldless = data.variants.iter().all(|v| matches!(v.fields, Fields::Unit));
+            let is_fieldless = data
+                .variants
+                .iter()
+                .all(|v| matches!(v.fields, Fields::Unit));
             #[cfg(all(
                 not(feature = "arbitrary_enum_discriminant"),
                 any(feature = "archive_le", feature = "archive_be")
@@ -669,7 +678,8 @@ fn derive_archive_impl(
 
             let archived_variants = data.variants.iter().enumerate().map(|(i, v)| {
                 let variant = &v.ident;
-                let discriminant = if is_fieldless || cfg!(feature = "arbitrary_enum_discriminant") {
+                let discriminant = if is_fieldless || cfg!(feature = "arbitrary_enum_discriminant")
+                {
                     Some(archived_repr.enum_discriminant(i))
                 } else {
                     None
@@ -1042,6 +1052,7 @@ fn derive_archive_impl(
 
             (
                 quote! {
+                    #[automatically_derived]
                     #[doc = #archived_doc]
                     #(#archive_attrs)*
                     #archived_repr
@@ -1049,6 +1060,7 @@ fn derive_archive_impl(
                         #(#archived_variants,)*
                     }
 
+                    #[automatically_derived]
                     #[doc = #resolver_doc]
                     #vis enum #resolver #generics #archive_where {
                         #(#resolver_variants,)*
@@ -1092,6 +1104,7 @@ fn derive_archive_impl(
     Ok(quote! {
         #archive_types
 
+        #[automatically_derived]
         const _: () = {
             use ::core::{marker::PhantomData, mem::MaybeUninit};
             use ::rkyv::{out_field, Archive, Archived};
