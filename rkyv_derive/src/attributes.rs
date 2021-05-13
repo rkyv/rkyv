@@ -4,6 +4,7 @@ use syn::{AttrStyle, DeriveInput, Error, Ident, Lit, LitStr, Meta, NestedMeta, P
 
 #[derive(Default)]
 pub struct Attributes {
+    pub archive_as: Option<LitStr>,
     pub archived: Option<Ident>,
     pub resolver: Option<Ident>,
     pub attrs: Vec<Meta>,
@@ -139,6 +140,16 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                     )
                 } else {
                     Err(Error::new_spanned(meta, "resolver must be a string"))
+                }
+            } else if meta.path.is_ident("as") {
+                if let Lit::Str(ref lit_str) = meta.lit {
+                    try_set_attribute(
+                        &mut attributes.archive_as,
+                        lit_str.clone(),
+                        "archive as"
+                    )
+                } else {
+                    Err(Error::new_spanned(meta, "archive as mut be a string"))
                 }
             } else {
                 Err(Error::new_spanned(meta, "unrecognized archive argument"))

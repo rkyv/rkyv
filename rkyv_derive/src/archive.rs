@@ -5,7 +5,7 @@ use crate::{
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{
-    parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Fields, Ident, Index,
+    parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Fields, Ident, Index, Type,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -31,11 +31,37 @@ fn derive_archive_impl(
         .iter()
         .map::<Attribute, _>(|d| parse_quote! { #[#d] });
 
-    let archived = attributes.archived.as_ref().map_or_else(
+    if let Some(ref archive_as) = attributes.archive_as {
+        if let Some(ref ident) = attributes.archived {
+            return Err(Error::new_spanned(
+                ident,
+                "archived = \"...\" may not be used with as = \"...\" because no type is generated"
+            ));
+        }
+        if attributes.attrs.len() > 0 {
+            return Err(Error::new_spanned(
+                name,
+                format!("archive_attr(...) may not be used with as = \"...\"\nplace any attributes on the archived type ({}) instead", archive_as.value()),
+            ));
+        }
+        if attributes.archived_repr.is_some() {
+            return Err(Error::new_spanned(
+                name,
+                format!("repr(...) may not be used with as = \"...\"\nplace the repr attribute on the archived type ({}) instead", archive_as.value()),
+            ));
+        }
+    }
+
+    let archived_name = attributes.archived.as_ref().map_or_else(
         || Ident::new(&format!("Archived{}", name), name.span()),
         |value| value.clone(),
     );
     let archived_doc = format!("An archived `{}`", name);
+
+    let archived_type = attributes.archive_as.as_ref().map_or_else(
+        || Ok(parse_quote! { #archived_name #ty_generics }),
+        |lit| lit.parse::<Type>(),
+    )?;
 
     let resolver = attributes.resolver.as_ref().map_or_else(
         || Ident::new(&format!("{}Resolver", name), name.span()),
@@ -92,20 +118,34 @@ fn derive_archive_impl(
                         quote_spanned! { f.span() => #name: ::rkyv::Resolver<#ty> }
                     });
 
-                    let archived_fields = fields.named.iter().map(|f| {
-                        let field_name = f.ident.as_ref();
-                        let ty = &f.ty;
-                        let vis = &f.vis;
-                        let field_doc = format!(
-                            "The archived counterpart of `{}::{}`",
-                            name,
-                            field_name.unwrap()
-                        );
-                        quote_spanned! { f.span() =>
-                            #[doc = #field_doc]
-                            #vis #field_name: ::rkyv::Archived<#ty>
-                        }
-                    });
+                    let archived_def = if attributes.archive_as.is_none() {
+                        let archived_fields = fields.named.iter().map(|f| {
+                            let field_name = f.ident.as_ref();
+                            let ty = &f.ty;
+                            let vis = &f.vis;
+                            let field_doc = format!(
+                                "The archived counterpart of `{}::{}`",
+                                name,
+                                field_name.unwrap()
+                            );
+                            quote_spanned! { f.span() =>
+                                #[doc = #field_doc]
+                                #vis #field_name: ::rkyv::Archived<#ty>
+                            }
+                        });
+
+                        Some(quote! {
+                            #[automatically_derived]
+                            #[doc = #archived_doc]
+                            #(#archive_attrs)*
+                            #repr
+                            #vis struct #archived_name #generics #archive_where {
+                                #(#archived_fields,)*
+                            }
+                        })
+                    } else {
+                        None
+                    };
 
                     let resolve_fields = fields.named.iter().map(|f| {
                         let name = &f.ident;
@@ -133,14 +173,14 @@ fn derive_archive_impl(
                                 let field_names = fields.named.iter().map(|f| &f.ident);
 
                                 partial_eq_impl = Some(quote! {
-                                    impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #partial_eq_where {
+                                    impl #impl_generics PartialEq<#archived_type> for #name #ty_generics #partial_eq_where {
                                         #[inline]
-                                        fn eq(&self, other: &#archived #ty_generics) -> bool {
+                                        fn eq(&self, other: &#archived_type) -> bool {
                                             true #(&& other.#field_names.eq(&self.#field_names))*
                                         }
                                     }
 
-                                    impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #partial_eq_where {
+                                    impl #impl_generics PartialEq<#name #ty_generics> for #archived_type #partial_eq_where {
                                         #[inline]
                                         fn eq(&self, other: &#name #ty_generics) -> bool {
                                             other.eq(self)
@@ -161,9 +201,9 @@ fn derive_archive_impl(
                                 let field_names = fields.named.iter().map(|f| &f.ident);
 
                                 partial_ord_impl = Some(quote! {
-                                    impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #partial_ord_where {
+                                    impl #impl_generics PartialOrd<#archived_type> for #name #ty_generics #partial_ord_where {
                                         #[inline]
-                                        fn partial_cmp(&self, other: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
+                                        fn partial_cmp(&self, other: &#archived_type) -> Option<::core::cmp::Ordering> {
                                             #(
                                                 match other.#field_names.partial_cmp(&self.#field_names) {
                                                     Some(::core::cmp::Ordering::Equal) => (),
@@ -174,7 +214,7 @@ fn derive_archive_impl(
                                         }
                                     }
 
-                                    impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #partial_ord_where {
+                                    impl #impl_generics PartialOrd<#name #ty_generics> for #archived_type #partial_ord_where {
                                         #[inline]
                                         fn partial_cmp(&self, other: &#name #ty_generics) -> Option<::core::cmp::Ordering> {
                                             other.partial_cmp(self)
@@ -210,13 +250,7 @@ fn derive_archive_impl(
 
                     (
                         quote! {
-                            #[automatically_derived]
-                            #[doc = #archived_doc]
-                            #(#archive_attrs)*
-                            #repr
-                            #vis struct #archived #generics #archive_where {
-                                #(#archived_fields,)*
-                            }
+                            #archived_def
 
                             #[automatically_derived]
                             #[doc = #resolver_doc]
@@ -226,7 +260,7 @@ fn derive_archive_impl(
                         },
                         quote! {
                             impl #impl_generics Archive for #name #ty_generics #archive_where {
-                                type Archived = #archived #ty_generics;
+                                type Archived = #archived_type;
                                 type Resolver = #resolver #ty_generics;
 
                                 #[allow(clippy::unit_arg)]
@@ -260,15 +294,27 @@ fn derive_archive_impl(
                         quote_spanned! { f.span() => ::rkyv::Resolver<#ty> }
                     });
 
-                    let archived_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                        let ty = &f.ty;
-                        let vis = &f.vis;
-                        let field_doc = format!("The archived counterpart of `{}::{}`", name, i);
-                        quote_spanned! { f.span() =>
-                            #[doc = #field_doc]
-                            #vis ::rkyv::Archived<#ty>
-                        }
-                    });
+                    let archived_def = if attributes.archive_as.is_none() {
+                        let archived_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                            let ty = &f.ty;
+                            let vis = &f.vis;
+                            let field_doc = format!("The archived counterpart of `{}::{}`", name, i);
+                            quote_spanned! { f.span() =>
+                                #[doc = #field_doc]
+                                #vis ::rkyv::Archived<#ty>
+                            }
+                        });
+
+                        Some(quote! {
+                            #[automatically_derived]
+                            #[doc = #archived_doc]
+                            #(#archive_attrs)*
+                            #repr
+                            #vis struct #archived_name #generics (#(#archived_fields,)*) #archive_where;
+                        })
+                    } else {
+                        None
+                    };
 
                     let resolve_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                         let index = Index::from(i);
@@ -300,14 +346,14 @@ fn derive_archive_impl(
                                     .map(|(i, _)| Index::from(i));
 
                                 partial_eq_impl = Some(quote! {
-                                    impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #partial_eq_where {
+                                    impl #impl_generics PartialEq<#archived_type> for #name #ty_generics #partial_eq_where {
                                         #[inline]
-                                        fn eq(&self, other: &#archived #ty_generics) -> bool {
+                                        fn eq(&self, other: &#archived_type) -> bool {
                                             true #(&& other.#field_names.eq(&self.#field_names))*
                                         }
                                     }
 
-                                    impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #partial_eq_where {
+                                    impl #impl_generics PartialEq<#name #ty_generics> for #archived_type #partial_eq_where {
                                         #[inline]
                                         fn eq(&self, other: &#name #ty_generics) -> bool {
                                             other.eq(self)
@@ -332,9 +378,9 @@ fn derive_archive_impl(
                                     .map(|(i, _)| Index::from(i));
 
                                 partial_ord_impl = Some(quote! {
-                                    impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #partial_ord_where {
+                                    impl #impl_generics PartialOrd<#archived_type> for #name #ty_generics #partial_ord_where {
                                         #[inline]
-                                        fn partial_cmp(&self, other: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
+                                        fn partial_cmp(&self, other: &#archived_type) -> Option<::core::cmp::Ordering> {
                                             #(
                                                 match other.#field_names.partial_cmp(&self.#field_names) {
                                                     Some(::core::cmp::Ordering::Equal) => (),
@@ -345,7 +391,7 @@ fn derive_archive_impl(
                                         }
                                     }
 
-                                    impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #partial_ord_where {
+                                    impl #impl_generics PartialOrd<#name #ty_generics> for #archived_type #partial_ord_where {
                                         #[inline]
                                         fn partial_cmp(&self, other: &#name #ty_generics) -> Option<::core::cmp::Ordering> {
                                             other.partial_cmp(self)
@@ -381,11 +427,7 @@ fn derive_archive_impl(
 
                     (
                         quote! {
-                            #[automatically_derived]
-                            #[doc = #archived_doc]
-                            #(#archive_attrs)*
-                            #repr
-                            #vis struct #archived #generics (#(#archived_fields,)*) #archive_where;
+                            #archived_def
 
                             #[automatically_derived]
                             #[doc = #resolver_doc]
@@ -393,7 +435,7 @@ fn derive_archive_impl(
                         },
                         quote! {
                             impl #impl_generics Archive for #name #ty_generics #archive_where {
-                                type Archived = #archived #ty_generics;
+                                type Archived = #archived_type;
                                 type Resolver = #resolver #ty_generics;
 
                                 #[allow(clippy::unit_arg)]
@@ -410,20 +452,33 @@ fn derive_archive_impl(
                     )
                 }
                 Fields::Unit => {
+                    let archived_def = if attributes.archive_as.is_none() {
+                        Some(quote! {
+                            #[automatically_derived]
+                            #[doc = #archived_doc]
+                            #(#archive_attrs)*
+                            #repr
+                            #vis struct #archived_name #generics
+                            #where_clause;
+                        })
+                    } else {
+                        None
+                    };
+
                     let mut partial_eq_impl = None;
                     let mut partial_ord_impl = None;
                     if let Some((_, ref compares)) = attributes.compares {
                         for compare in compares {
                             if compare.is_ident("PartialEq") {
                                 partial_eq_impl = Some(quote! {
-                                    impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #where_clause {
+                                    impl #impl_generics PartialEq<#archived_type> for #name #ty_generics #where_clause {
                                         #[inline]
-                                        fn eq(&self, _: &#archived #ty_generics) -> bool {
+                                        fn eq(&self, _: &#archived_type) -> bool {
                                             true
                                         }
                                     }
 
-                                    impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #where_clause {
+                                    impl #impl_generics PartialEq<#name #ty_generics> for #archived_type #where_clause {
                                         #[inline]
                                         fn eq(&self, _: &#name #ty_generics) -> bool {
                                             true
@@ -432,14 +487,14 @@ fn derive_archive_impl(
                                 });
                             } else if compare.is_ident("PartialOrd") {
                                 partial_ord_impl = Some(quote! {
-                                    impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #where_clause {
+                                    impl #impl_generics PartialOrd<#archived_type> for #name #ty_generics #where_clause {
                                         #[inline]
-                                        fn partial_cmp(&self, _: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
+                                        fn partial_cmp(&self, _: &#archived_type) -> Option<::core::cmp::Ordering> {
                                             Some(::core::cmp::Ordering::Equal)
                                         }
                                     }
 
-                                    impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #where_clause {
+                                    impl #impl_generics PartialOrd<#name #ty_generics> for #archived_type #where_clause {
                                         #[inline]
                                         fn partial_cmp(&self, _:&#name #ty_generics) -> Option<::core::cmp::Ordering> {
                                             Some(::core::cmp::Ordering::Equal)
@@ -463,12 +518,7 @@ fn derive_archive_impl(
 
                     (
                         quote! {
-                            #[automatically_derived]
-                            #[doc = #archived_doc]
-                            #(#archive_attrs)*
-                            #repr
-                            #vis struct #archived #generics
-                            #where_clause;
+                            #archived_def
 
                             #[automatically_derived]
                             #[doc = #resolver_doc]
@@ -477,7 +527,7 @@ fn derive_archive_impl(
                         },
                         quote! {
                             impl #impl_generics Archive for #name #ty_generics #where_clause {
-                                type Archived = #archived #ty_generics;
+                                type Archived = #archived_type;
                                 type Resolver = #resolver #ty_generics;
 
                                 #[inline]
@@ -676,46 +726,60 @@ fn derive_archive_impl(
                 ));
             }
 
-            let archived_variants = data.variants.iter().enumerate().map(|(i, v)| {
-                let variant = &v.ident;
-                let discriminant = if is_fieldless || cfg!(feature = "arbitrary_enum_discriminant")
-                {
-                    Some(archived_repr.enum_discriminant(i))
-                } else {
-                    None
-                };
-                match v.fields {
-                    Fields::Named(ref fields) => {
-                        let fields = fields.named.iter().map(|f| {
-                            let name = &f.ident;
-                            let ty = &f.ty;
-                            let vis = &f.vis;
-                            quote_spanned! { f.span() => #vis #name: ::rkyv::Archived<#ty> }
-                        });
-                        quote_spanned! { variant.span() =>
-                            #[allow(dead_code)]
-                            #variant {
-                                #(#fields,)*
-                            } #discriminant
+            let archived_def = if attributes.archive_as.is_none() {
+                let archived_variants = data.variants.iter().enumerate().map(|(i, v)| {
+                    let variant = &v.ident;
+                    let discriminant = if is_fieldless || cfg!(feature = "arbitrary_enum_discriminant")
+                    {
+                        Some(archived_repr.enum_discriminant(i))
+                    } else {
+                        None
+                    };
+                    match v.fields {
+                        Fields::Named(ref fields) => {
+                            let fields = fields.named.iter().map(|f| {
+                                let name = &f.ident;
+                                let ty = &f.ty;
+                                let vis = &f.vis;
+                                quote_spanned! { f.span() => #vis #name: ::rkyv::Archived<#ty> }
+                            });
+                            quote_spanned! { variant.span() =>
+                                #[allow(dead_code)]
+                                #variant {
+                                    #(#fields,)*
+                                } #discriminant
+                            }
                         }
-                    }
-                    Fields::Unnamed(ref fields) => {
-                        let fields = fields.unnamed.iter().map(|f| {
-                            let ty = &f.ty;
-                            let vis = &f.vis;
-                            quote_spanned! { f.span() => #vis ::rkyv::Archived<#ty> }
-                        });
-                        quote_spanned! { variant.span() =>
-                            #[allow(dead_code)]
-                            #variant(#(#fields,)*) #discriminant
+                        Fields::Unnamed(ref fields) => {
+                            let fields = fields.unnamed.iter().map(|f| {
+                                let ty = &f.ty;
+                                let vis = &f.vis;
+                                quote_spanned! { f.span() => #vis ::rkyv::Archived<#ty> }
+                            });
+                            quote_spanned! { variant.span() =>
+                                #[allow(dead_code)]
+                                #variant(#(#fields,)*) #discriminant
+                            }
                         }
+                        Fields::Unit => quote_spanned! { variant.span() =>
+                            #[allow(dead_code)]
+                            #variant #discriminant
+                        },
                     }
-                    Fields::Unit => quote_spanned! { variant.span() =>
-                        #[allow(dead_code)]
-                        #variant #discriminant
-                    },
-                }
-            });
+                });
+
+                Some(quote! {
+                    #[automatically_derived]
+                    #[doc = #archived_doc]
+                    #(#archive_attrs)*
+                    #archived_repr
+                    #vis enum #archived_name #generics #archive_where {
+                        #(#archived_variants,)*
+                    }
+                })
+            } else {
+                None
+            };
 
             let archived_variant_tags = data.variants.iter().enumerate().map(|(i, v)| {
                 let variant = &v.ident;
@@ -807,7 +871,7 @@ fn derive_archive_impl(
                                     }).collect::<Vec<_>>();
                                     quote! {
                                         #name::#variant { #(#field_names: #self_bindings,)* } => match other {
-                                            #archived::#variant { #(#field_names: #other_bindings,)* } => true #(&& #other_bindings.eq(#self_bindings))*,
+                                            #archived_name::#variant { #(#field_names: #other_bindings,)* } => true #(&& #other_bindings.eq(#self_bindings))*,
                                             #[allow(unreachable_patterns)]
                                             _ => false,
                                         }
@@ -822,7 +886,7 @@ fn derive_archive_impl(
                                     }).collect::<Vec<_>>();
                                     quote! {
                                         #name::#variant(#(#self_bindings,)*) => match other {
-                                            #archived::#variant(#(#other_bindings,)*) => true #(&& #other_bindings.eq(#self_bindings))*,
+                                            #archived_name::#variant(#(#other_bindings,)*) => true #(&& #other_bindings.eq(#self_bindings))*,
                                             #[allow(unreachable_patterns)]
                                             _ => false,
                                         }
@@ -830,7 +894,7 @@ fn derive_archive_impl(
                                 }
                                 Fields::Unit => quote! {
                                     #name::#variant => match other {
-                                        #archived::#variant => true,
+                                        #archived_name::#variant => true,
                                         #[allow(unreachable_patterns)]
                                         _ => false,
                                     }
@@ -839,16 +903,16 @@ fn derive_archive_impl(
                         });
 
                         partial_eq_impl = Some(quote! {
-                            impl #impl_generics PartialEq<#archived #ty_generics> for #name #ty_generics #partial_eq_where {
+                            impl #impl_generics PartialEq<#archived_type> for #name #ty_generics #partial_eq_where {
                                 #[inline]
-                                fn eq(&self, other: &#archived #ty_generics) -> bool {
+                                fn eq(&self, other: &#archived_type) -> bool {
                                     match self {
                                         #(#variant_impls,)*
                                     }
                                 }
                             }
 
-                            impl #impl_generics PartialEq<#name #ty_generics> for #archived #ty_generics #partial_eq_where {
+                            impl #impl_generics PartialEq<#name #ty_generics> for #archived_type #partial_eq_where {
                                 #[inline]
                                 fn eq(&self, other: &#name #ty_generics) -> bool {
                                     other.eq(self)
@@ -901,13 +965,13 @@ fn derive_archive_impl(
                             let variant = &v.ident;
                             match v.fields {
                                 Fields::Named(_) => quote! {
-                                    #archived::#variant { .. } => #i
+                                    #archived_name::#variant { .. } => #i
                                 },
                                 Fields::Unnamed(_) => quote! {
-                                    #archived::#variant ( .. ) => #i
+                                    #archived_name::#variant ( .. ) => #i
                                 },
                                 Fields::Unit => quote! {
-                                    #archived::#variant => #i
+                                    #archived_name::#variant => #i
                                 },
                             }
                         });
@@ -931,7 +995,7 @@ fn derive_archive_impl(
                                     }).collect::<Vec<_>>();
                                     quote! {
                                         #name::#variant { #(#field_names: #self_bindings,)* } => match other {
-                                            #archived::#variant { #(#field_names: #other_bindings,)* } => {
+                                            #archived_name::#variant { #(#field_names: #other_bindings,)* } => {
                                                 #(
                                                     match #other_bindings.partial_cmp(#self_bindings) {
                                                         Some(::core::cmp::Ordering::Equal) => (),
@@ -954,7 +1018,7 @@ fn derive_archive_impl(
                                     }).collect::<Vec<_>>();
                                     quote! {
                                         #name::#variant(#(#self_bindings,)*) => match other {
-                                            #archived::#variant(#(#other_bindings,)*) => {
+                                            #archived_name::#variant(#(#other_bindings,)*) => {
                                                 #(
                                                     match #other_bindings.partial_cmp(#self_bindings) {
                                                         Some(::core::cmp::Ordering::Equal) => (),
@@ -970,7 +1034,7 @@ fn derive_archive_impl(
                                 }
                                 Fields::Unit => quote! {
                                     #name::#variant => match other {
-                                        #archived::#variant => Some(::core::cmp::Ordering::Equal),
+                                        #archived_name::#variant => Some(::core::cmp::Ordering::Equal),
                                         #[allow(unreachable_patterns)]
                                         _ => unsafe { ::core::hint::unreachable_unchecked() },
                                     }
@@ -979,9 +1043,9 @@ fn derive_archive_impl(
                         });
 
                         partial_ord_impl = Some(quote! {
-                            impl #impl_generics PartialOrd<#archived #ty_generics> for #name #ty_generics #partial_ord_where {
+                            impl #impl_generics PartialOrd<#archived_type> for #name #ty_generics #partial_ord_where {
                                 #[inline]
-                                fn partial_cmp(&self, other: &#archived #ty_generics) -> Option<::core::cmp::Ordering> {
+                                fn partial_cmp(&self, other: &#archived_type) -> Option<::core::cmp::Ordering> {
                                     let self_disc = match self { #(#self_disc,)* };
                                     let other_disc = match other { #(#other_disc,)* };
                                     if self_disc == other_disc {
@@ -994,7 +1058,7 @@ fn derive_archive_impl(
                                 }
                             }
 
-                            impl #impl_generics PartialOrd<#name #ty_generics> for #archived #ty_generics #partial_ord_where {
+                            impl #impl_generics PartialOrd<#name #ty_generics> for #archived_type #partial_ord_where {
                                 #[inline]
                                 fn partial_cmp(&self, other: &#name #ty_generics) -> Option<::core::cmp::Ordering> {
                                     match other.partial_cmp(self) {
@@ -1052,13 +1116,7 @@ fn derive_archive_impl(
 
             (
                 quote! {
-                    #[automatically_derived]
-                    #[doc = #archived_doc]
-                    #(#archive_attrs)*
-                    #archived_repr
-                    #vis enum #archived #generics #archive_where {
-                        #(#archived_variants,)*
-                    }
+                    #archived_def
 
                     #[automatically_derived]
                     #[doc = #resolver_doc]
@@ -1075,7 +1133,7 @@ fn derive_archive_impl(
                     #(#archived_variant_structs)*
 
                     impl #impl_generics Archive for #name #ty_generics #archive_where {
-                        type Archived = #archived #ty_generics;
+                        type Archived = #archived_type;
                         type Resolver = #resolver #ty_generics;
 
                         #[allow(clippy::unit_arg)]

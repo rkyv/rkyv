@@ -1116,4 +1116,85 @@ mod tests {
 
         assert_eq!(core::mem::size_of::<ArchivedExplicitRepr>(), 2);
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_as() {
+        // Struct
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(as = "ExampleStruct<T::Archived>")]
+        #[repr(transparent)]
+        struct ExampleStruct<T> {
+            value: T,
+        }
+
+        impl<T: PartialEq<U>, U> PartialEq<ExampleStruct<U>> for ExampleStruct<T> {
+            fn eq(&self, other: &ExampleStruct<U>) -> bool {
+                self.value.eq(&other.value)
+            }
+        }
+
+        let value = ExampleStruct {
+            value: "hello world".to_string(),
+        };
+
+        test_archive(&value);
+
+        // Tuple struct
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(as = "ExampleTupleStruct<T::Archived>")]
+        #[repr(transparent)]
+        struct ExampleTupleStruct<T>(T);
+
+        impl<T: PartialEq<U>, U> PartialEq<ExampleTupleStruct<U>> for ExampleTupleStruct<T> {
+            fn eq(&self, other: &ExampleTupleStruct<U>) -> bool {
+                self.0.eq(&other.0)
+            }
+        }
+
+        let value = ExampleTupleStruct("hello world".to_string());
+
+        test_archive(&value);
+
+        // Unit struct
+
+        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[archive(as = "ExampleUnitStruct")]
+        struct ExampleUnitStruct;
+
+        test_archive(&ExampleUnitStruct);
+
+        // Enum
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(as = "ExampleEnum<T::Archived>")]
+        #[repr(u8)]
+        enum ExampleEnum<T> {
+            A(T),
+            B,
+        }
+
+        impl<T: PartialEq<U>, U> PartialEq<ExampleEnum<U>> for ExampleEnum<T> {
+            fn eq(&self, other: &ExampleEnum<U>) -> bool {
+                match self {
+                    ExampleEnum::A(value) => if let ExampleEnum::A(other) = other {
+                        value.eq(other)
+                    } else {
+                        false
+                    },
+                    ExampleEnum::B => if let ExampleEnum::B = other {
+                        true
+                    } else {
+                        false
+                    },
+                }
+            }
+        }
+
+        let value = ExampleEnum::A("hello world".to_string());
+
+        test_archive(&value);
+    }
 }
