@@ -7,7 +7,7 @@ pub mod shared;
 pub mod validation;
 
 use crate::{
-    de::Deserializer, Archive, ArchivePointee, ArchiveUnsized, Archived, Deserialize,
+    Archive, ArchivePointee, ArchiveUnsized, Archived, Deserialize,
     DeserializeUnsized, Fallible, MetadataResolver, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{
@@ -184,7 +184,7 @@ where
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<String, D::Error> {
         unsafe {
-            let data_address = self.as_str().deserialize_unsized(deserializer)?;
+            let data_address = self.as_str().deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
             let metadata = self.0.metadata().deserialize(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<str>::from_raw(ptr).into())
@@ -267,7 +267,7 @@ impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> Serialize<S> for Box
     }
 }
 
-impl<T: ArchiveUnsized + ?Sized, D: Deserializer + ?Sized> Deserialize<Box<T>, D>
+impl<T: ArchiveUnsized + ?Sized, D: Fallible + ?Sized> Deserialize<Box<T>, D>
     for Archived<Box<T>>
 where
     T::Archived: DeserializeUnsized<T, D>,
@@ -275,7 +275,7 @@ where
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {
         unsafe {
-            let data_address = self.deref().deserialize_unsized(deserializer)?;
+            let data_address = self.deref().deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
             let metadata = self.deref().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::from_raw(ptr))
@@ -366,7 +366,7 @@ where
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Vec<T>, D::Error> {
         unsafe {
-            let data_address = self.deref().deserialize_unsized(deserializer)?;
+            let data_address = self.deref().deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
             let metadata = self.deref().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<[T]>::from_raw(ptr).into())

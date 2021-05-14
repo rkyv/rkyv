@@ -24,9 +24,8 @@ rkyv (*archive*) is a zero-copy deserialization framework for Rust.
 ```rust
 use rkyv::{
     archived_root,
-    de::deserializers::AllocDeserializer,
     ser::{serializers::AlignedSerializer, Serializer},
-    AlignedVec, Archive, Deserialize, Serialize,
+    AlignedVec, Archive, Deserialize, Infallible, Serialize,
 };
 
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
@@ -46,16 +45,15 @@ let mut serializer = AlignedSerializer::new(AlignedVec::new());
 serializer
     .serialize_value(&value)
     .expect("failed to serialize value");
-let buf = serializer.into_inner();
+let bytes = serializer.into_inner();
 
-let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
+let archived = unsafe { archived_root::<Test>(&bytes[..]) };
 assert_eq!(archived.int, value.int);
 assert_eq!(archived.string, value.string);
 assert_eq!(archived.option, value.option);
 
-let mut deserializer = AllocDeserializer;
 let deserialized = archived
-    .deserialize(&mut deserializer)
+    .deserialize(&mut Infallible)
     .expect("failed to deserialize value");
 assert_eq!(deserialized, value);
 ```

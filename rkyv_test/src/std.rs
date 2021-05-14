@@ -4,13 +4,13 @@ mod tests {
     use core::pin::Pin;
     use rkyv::{
         archived_root, archived_root_mut, archived_value,
-        de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer, Deserializer},
+        de::adapters::SharedDeserializerAdapter,
         ser::{
             adapters::SharedSerializerAdapter,
             serializers::{AlignedSerializer, BufferSerializer},
             SeekSerializer, Serializer,
         },
-        Aligned, AlignedVec, Archive, Archived, Deserialize, Fallible, Serialize,
+        Aligned, AlignedVec, Archive, Archived, Deserialize, Fallible, Infallible, Serialize,
     };
 
     #[cfg(feature = "wasm")]
@@ -50,9 +50,8 @@ mod tests {
         fn archive_example() {
             use rkyv::{
                 archived_root,
-                de::deserializers::AllocDeserializer,
                 ser::{serializers::AlignedSerializer, Serializer},
-                AlignedVec, Archive, Deserialize, Serialize,
+                AlignedVec, Archive, Deserialize, Infallible, Serialize,
             };
 
             #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
@@ -80,7 +79,7 @@ mod tests {
             assert_eq!(archived.option, value.option);
 
             let deserialized = archived
-                .deserialize(&mut AllocDeserializer)
+                .deserialize(&mut Infallible)
                 .expect("failed to deserialize value");
             assert_eq!(deserialized, value);
         }
@@ -526,7 +525,7 @@ mod tests {
         #[archive(compare(PartialEq))]
         // The derive macros don't apply the right bounds from Box so we have to manually specify
         // what bounds to apply
-        #[archive(bound(serialize = "__S: Serializer", deserialize = "__D: Deserializer"))]
+        #[archive(bound(serialize = "__S: Serializer"))]
         enum Node {
             Nil,
             Cons(#[omit_bounds] Box<Node>),
@@ -723,7 +722,7 @@ mod tests {
         assert_eq!(*archived.a, 17);
         assert_eq!(*archived.b, 17);
 
-        let mut deserializer = SharedDeserializerAdapter::new(AllocDeserializer);
+        let mut deserializer = SharedDeserializerAdapter::new(Infallible);
         let deserialized = archived.deserialize(&mut deserializer).unwrap();
 
         assert_eq!(*deserialized.a, 17);
@@ -839,7 +838,7 @@ mod tests {
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 17);
 
-        let mut deserializer = SharedDeserializerAdapter::new(AllocDeserializer);
+        let mut deserializer = SharedDeserializerAdapter::new(Infallible);
         let deserialized = archived.deserialize(&mut deserializer).unwrap();
 
         assert_eq!(*deserialized.a, 17);

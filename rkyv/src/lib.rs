@@ -90,13 +90,17 @@ pub mod util;
 #[cfg(feature = "validation")]
 pub mod validation;
 
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std as alloc;
 use core::{
+    alloc::Layout,
     fmt,
     marker::{PhantomData, PhantomPinned},
     mem::MaybeUninit,
+    ptr,
 };
-
-use core::ptr;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 pub use util::*;
@@ -147,13 +151,8 @@ impl Fallible for Infallible {
 /// ```
 /// use rkyv::{
 ///     archived_root,
-///     de::deserializers::AllocDeserializer,
 ///     ser::{Serializer, serializers::AlignedSerializer},
-///     AlignedVec,
-///     Archive,
-///     Archived,
-///     Deserialize,
-///     Serialize,
+///     AlignedVec, Archive, Deserialize, Infallible, Serialize,
 /// };
 ///
 /// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
@@ -170,7 +169,7 @@ impl Fallible for Infallible {
 /// };
 ///
 /// let mut serializer = AlignedSerializer::new(AlignedVec::new());
-/// serializer.serialize_value(&value).expect("failed to archive test");
+/// serializer.serialize_value(&value).unwrap();
 /// let buf = serializer.into_inner();
 ///
 /// let archived = unsafe { archived_root::<Test>(buf.as_slice()) };
@@ -178,7 +177,7 @@ impl Fallible for Infallible {
 /// assert_eq!(archived.string, value.string);
 /// assert_eq!(archived.option, value.option);
 ///
-/// let deserialized = archived.deserialize(&mut AllocDeserializer).unwrap();
+/// let deserialized = archived.deserialize(&mut Infallible).unwrap();
 /// assert_eq!(value, deserialized);
 /// ```
 ///
@@ -562,7 +561,7 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: Archive
     /// # Safety
     ///
     /// The caller must guarantee that the memory returned is properly deallocated.
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error>;
+    unsafe fn deserialize_unsized(&self, deserializer: &mut D, alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error>;
 
     /// Deserializes the metadata for the given type.
     fn deserialize_metadata(&self, deserializer: &mut D) -> Result<T::Metadata, D::Error>;

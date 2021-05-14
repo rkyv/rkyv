@@ -20,7 +20,7 @@
 pub mod validation;
 
 use core::{
-    alloc,
+    alloc::Layout,
     any::Any,
     hash::{Hash, Hasher},
     marker::PhantomData,
@@ -30,7 +30,7 @@ use core::{
 };
 use ptr_meta::{DynMetadata, Pointee};
 use rkyv::{
-    de::Deserializer, from_archived, ser::Serializer, to_archived, Archived, Fallible, Serialize,
+    from_archived, ser::Serializer, to_archived, Archived, Fallible, Serialize,
 };
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
@@ -127,7 +127,6 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// ```
 /// use rkyv::{
 ///     archived_value,
-///     de::deserializers::AllocDeserializer,
 ///     ser::{
 ///         serializers::AlignedSerializer,
 ///         Serializer,
@@ -136,6 +135,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///     Archive,
 ///     Archived,
 ///     Deserialize,
+///     Infallible,
 ///     Serialize,
 /// };
 /// use rkyv_dyn::archive_dyn;
@@ -199,9 +199,9 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// assert_eq!(archived_string.value(), "hello world");
 ///
 /// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int
-///     .deserialize(&mut AllocDeserializer).unwrap();
+///     .deserialize(&mut Infallible).unwrap();
 /// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string
-///     .deserialize(&mut AllocDeserializer).unwrap();
+///     .deserialize(&mut Infallible).unwrap();
 /// assert_eq!(deserialized_int.value(), "42");
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```
@@ -227,31 +227,13 @@ where
 }
 
 /// An object-safe version of `Deserializer`.
-pub trait DynDeserializer {
-    /// Allocates and returns memory with the given layout.
-    ///
-    /// # Safety
-    ///
-    /// The caller must guarantee that the memory returned by this function is deallocated by the
-    /// global allocator.
-    unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> Result<*mut u8, DynError>;
-}
+pub trait DynDeserializer {}
 
 impl<'a> Fallible for dyn DynDeserializer + 'a {
     type Error = DynError;
 }
 
-impl<'a> Deserializer for (dyn DynDeserializer + 'a) {
-    unsafe fn alloc(&mut self, layout: alloc::Layout) -> Result<*mut u8, Self::Error> {
-        self.alloc_dyn(layout)
-    }
-}
-
-impl<D: Deserializer + ?Sized> DynDeserializer for &mut D {
-    unsafe fn alloc_dyn(&mut self, layout: alloc::Layout) -> Result<*mut u8, DynError> {
-        self.alloc(layout).map_err(|e| Box::new(e) as DynError)
-    }
-}
+impl<D: Fallible + ?Sized> DynDeserializer for &mut D {}
 
 /// A trait object that can be deserialized.
 ///
@@ -265,6 +247,7 @@ pub trait DeserializeDyn<T: Pointee + ?Sized> {
     unsafe fn deserialize_dyn(
         &self,
         deserializer: &mut dyn DynDeserializer,
+        alloc: &mut dyn FnMut(Layout) -> *mut u8,
     ) -> Result<*mut (), DynError>;
 
     /// Returns the metadata for the deserialized version of this value.

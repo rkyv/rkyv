@@ -3,12 +3,12 @@
 #[cfg(feature = "copy")]
 use crate::copy::ArchiveCopyOptimize;
 use crate::{
-    de::Deserializer, ser::Serializer, Archive, ArchivePointee, ArchiveUnsized, Archived,
+    ser::Serializer, Archive, ArchivePointee, ArchiveUnsized, Archived,
     ArchivedMetadata, Deserialize, DeserializeUnsized, Fallible, FixedUsize, Serialize,
     SerializeUnsized,
 };
 use core::{
-    alloc, cmp,
+    alloc::Layout, cmp,
     hash::{Hash, Hasher},
     mem::MaybeUninit,
     ptr, str,
@@ -53,13 +53,13 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for T {
     }
 }
 
-impl<T: Archive, D: Deserializer + ?Sized> DeserializeUnsized<T, D> for T::Archived
+impl<T: Archive, D: Fallible + ?Sized> DeserializeUnsized<T, D> for T::Archived
 where
     T::Archived: Deserialize<T, D>,
 {
     #[inline]
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-        let ptr = deserializer.alloc(alloc::Layout::new::<T>())?.cast::<T>();
+    unsafe fn deserialize_unsized(&self, deserializer: &mut D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error> {
+        let ptr = alloc(Layout::new::<T>()).cast::<T>();
         let deserialized = self.deserialize(deserializer)?;
         ptr.write(deserialized);
         Ok(ptr.cast())
@@ -319,16 +319,14 @@ impl<T: Serialize<S> + crate::copy::ArchiveCopyOptimize, S: Serializer + ?Sized>
     }
 }
 
-impl<T: Deserialize<U, D>, U, D: Deserializer + ?Sized> DeserializeUnsized<[U], D> for [T] {
+impl<T: Deserialize<U, D>, U, D: Fallible + ?Sized> DeserializeUnsized<[U], D> for [T] {
     #[inline]
     default! {
-        unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
+        unsafe fn deserialize_unsized(&self, deserializer: &mut D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error> {
             if self.is_empty() || core::mem::size_of::<U>() == 0 {
                 Ok(ptr::NonNull::dangling().as_ptr())
             } else {
-                let result = deserializer
-                    .alloc(alloc::Layout::array::<U>(self.len()).unwrap())?
-                    .cast::<U>();
+                let result = alloc(Layout::array::<U>(self.len()).unwrap()).cast::<U>();
                 for (i, item) in self.iter().enumerate() {
                     result.add(i).write(item.deserialize(deserializer)?);
                 }
@@ -410,10 +408,10 @@ impl<S: Serializer + ?Sized> SerializeUnsized<S> for str {
     }
 }
 
-impl<D: Deserializer + ?Sized> DeserializeUnsized<str, D> for <str as ArchiveUnsized>::Archived {
+impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for <str as ArchiveUnsized>::Archived {
     #[inline]
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-        let bytes = deserializer.alloc(alloc::Layout::array::<u8>(self.len()).unwrap())?;
+    unsafe fn deserialize_unsized(&self, _: &mut D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error> {
+        let bytes = alloc(Layout::array::<u8>(self.len()).unwrap());
         ptr::copy_nonoverlapping(self.as_ptr(), bytes, self.len());
         Ok(bytes.cast())
     }

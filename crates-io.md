@@ -54,9 +54,8 @@
 ```rust
 use rkyv::{
     archived_root,
-    de::deserializers::AllocDeserializer,
     ser::{serializers::AlignedSerializer, Serializer},
-    AlignedVec, Archive, Deserialize, Serialize,
+    AlignedVec, Archive, Deserialize, Infallible, Serialize,
 };
 
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
@@ -84,7 +83,7 @@ assert_eq!(archived.string, value.string);
 assert_eq!(archived.option, value.option);
 
 let deserialized = archived
-    .deserialize(&mut AllocDeserializer)
+    .deserialize(&mut Infallible)
     .expect("failed to deserialize value");
 assert_eq!(deserialized, value);
 ```

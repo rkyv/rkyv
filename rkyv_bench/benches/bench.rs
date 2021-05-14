@@ -4,12 +4,11 @@ use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
 use rkyv::{
     archived_root, check_archived_root,
-    de::deserializers::AllocDeserializer,
     ser::{
         serializers::{AlignedSerializer, WriteSerializer},
         Serializer,
     },
-    AlignedVec, Archive, Deserialize, Serialize,
+    AlignedVec, Archive, Deserialize, Infallible, Serialize,
 };
 use std::collections::HashMap;
 
@@ -431,14 +430,14 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         group.bench_function("deserialize", |b| {
             b.iter(|| {
                 let value = unsafe { archived_root::<Players>(black_box(buffer.as_ref())) };
-                let deserialized: Players = value.deserialize(&mut AllocDeserializer).unwrap();
+                let deserialized: Players = value.deserialize(&mut Infallible).unwrap();
                 black_box(deserialized);
             })
         });
         group.bench_function("deserialize with validate", |b| {
             b.iter(|| {
                 let value = check_archived_root::<Players>(black_box(buffer.as_ref())).unwrap();
-                let deserialize: Players = value.deserialize(&mut AllocDeserializer).unwrap();
+                let deserialize: Players = value.deserialize(&mut Infallible).unwrap();
                 black_box(deserialize);
             })
         });

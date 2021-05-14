@@ -11,9 +11,9 @@ const BUFFER_SIZE: usize = 256;
 mod types {
     use super::BUFFER_SIZE;
     use rkyv::{
-        de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer},
+        de::adapters::SharedDeserializerAdapter,
         ser::{adapters::SharedSerializerAdapter, serializers::BufferSerializer},
-        Aligned,
+        Aligned, Infallible,
     };
 
     pub type DefaultSerializer =
@@ -27,10 +27,10 @@ mod types {
         s.into_inner().into_inner()
     }
 
-    pub type DefaultDeserializer = SharedDeserializerAdapter<AllocDeserializer>;
+    pub type DefaultDeserializer = SharedDeserializerAdapter<Infallible>;
 
     pub fn make_default_deserializer() -> DefaultDeserializer {
-        SharedDeserializerAdapter::new(AllocDeserializer)
+        SharedDeserializerAdapter::new(Infallible)
     }
 }
 

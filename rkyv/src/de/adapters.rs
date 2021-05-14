@@ -1,10 +1,9 @@
 //! Adapters wrap deserializers and add support for deserializer traits.
 
 use crate::{
-    de::{Deserializer, SharedDeserializer, SharedPointer},
+    de::{SharedDeserializer, SharedPointer},
     ArchiveUnsized, DeserializeUnsized, Fallible,
 };
-use core::alloc;
 use std::collections::HashMap;
 
 /// An adapter that adds shared deserialization support to a deserializer.
@@ -30,18 +29,11 @@ impl<D> SharedDeserializerAdapter<D> {
     }
 }
 
-impl<D: Deserializer> Fallible for SharedDeserializerAdapter<D> {
+impl<D: Fallible> Fallible for SharedDeserializerAdapter<D> {
     type Error = D::Error;
 }
 
-impl<D: Deserializer> Deserializer for SharedDeserializerAdapter<D> {
-    #[inline]
-    unsafe fn alloc(&mut self, layout: alloc::Layout) -> Result<*mut u8, Self::Error> {
-        self.inner.alloc(layout)
-    }
-}
-
-impl<D: Deserializer> SharedDeserializer for SharedDeserializerAdapter<D> {
+impl<D: Fallible> SharedDeserializer for SharedDeserializerAdapter<D> {
     fn deserialize_shared<
         T: ArchiveUnsized + ?Sized,
         P: SharedPointer + 'static,
@@ -63,7 +55,7 @@ impl<D: Deserializer> SharedDeserializer for SharedDeserializerAdapter<D> {
                 metadata,
             ))
         } else {
-            let deserialized_data = unsafe { value.deserialize_unsized(self)? };
+            let deserialized_data = unsafe { value.deserialize_unsized(self, |layout| alloc::alloc::alloc(layout))? };
             let shared_ptr = to_shared(ptr_meta::from_raw_parts_mut(deserialized_data, metadata));
             let data_address = shared_ptr.data_address();
 

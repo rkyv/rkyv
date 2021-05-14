@@ -3,12 +3,11 @@ use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
 use rkyv::{
     archived_root, check_archived_root,
-    de::deserializers::AllocDeserializer,
     ser::{
         serializers::{AlignedSerializer, WriteSerializer},
         Serializer,
     },
-    AlignedVec, Archive, Deserialize, Serialize,
+    AlignedVec, Archive, Deserialize, Infallible, Serialize,
 };
 use std::collections::HashMap;
 trait Generate {
@@ -387,12 +386,12 @@ fn main() {
     check_archived_root::<Players>(buffer.as_ref()).unwrap();
 
     let value = unsafe { archived_root::<Players>(buffer.as_ref()) };
-    let deserialized: Players = value.deserialize(&mut AllocDeserializer).unwrap();
+    let deserialized: Players = value.deserialize(&mut Infallible).unwrap();
 
     println!("{:?}", deserialized);
 
     let value = check_archived_root::<Players>(buffer.as_ref()).unwrap();
-    let deserialized: Players = value.deserialize(&mut AllocDeserializer).unwrap();
+    let deserialized: Players = value.deserialize(&mut Infallible).unwrap();
 
     println!("{:?}", deserialized);
 }

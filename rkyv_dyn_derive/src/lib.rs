@@ -168,8 +168,8 @@ pub fn archive_dyn(
                             where
                                 Archived<#ty>: for<'a> Deserialize<#ty, (dyn DynDeserializer + 'a)>,
                             {
-                                unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer) -> Result<*mut (), DynError> {
-                                    let result = deserializer.alloc_dyn(core::alloc::Layout::new::<#ty>())? as *mut #ty;
+                                unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer, alloc: &mut dyn FnMut(Layout) -> *mut u8) -> Result<*mut (), DynError> {
+                                    let result = alloc(core::alloc::Layout::new::<#ty>()).cast::<#ty>();
                                     result.write(self.deserialize(deserializer)?);
                                     Ok(result as *mut ())
                                 }
@@ -192,6 +192,7 @@ pub fn archive_dyn(
                     #input
 
                     const _: () = {
+                        use core::alloc::Layout;
                         use rkyv::{
                             Archived,
                             Deserialize,
@@ -260,9 +261,9 @@ pub fn archive_dyn(
                         quote! {
                             impl<__T: #name<#generic_args> + DeserializeDyn<dyn #serialize_trait<#generic_args>>, #generic_params> #deserialize_trait<#generic_args> for __T {}
 
-                            impl<__D: Deserializer + ?Sized, #generic_params> DeserializeUnsized<dyn #serialize_trait<#generic_args>, __D> for dyn #deserialize_trait<#generic_args> {
-                                unsafe fn deserialize_unsized(&self, mut deserializer: &mut __D) -> Result<*mut (), __D::Error> {
-                                    self.deserialize_dyn(&mut deserializer).map_err(|e| *e.downcast().unwrap())
+                            impl<__D: Fallible + ?Sized, #generic_params> DeserializeUnsized<dyn #serialize_trait<#generic_args>, __D> for dyn #deserialize_trait<#generic_args> {
+                                unsafe fn deserialize_unsized(&self, mut deserializer: &mut __D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), __D::Error> {
+                                    self.deserialize_dyn(&mut deserializer, &mut alloc).map_err(|e| *e.downcast().unwrap())
                                 }
 
                                 fn deserialize_metadata(&self, mut deserializer: &mut __D) -> Result<<dyn #serialize_trait<#generic_args> as ptr_meta::Pointee>::Metadata, __D::Error> {
@@ -339,9 +340,11 @@ pub fn archive_dyn(
                 #deserialize_trait_def
 
                 const _: ()  = {
-                    use core::mem::MaybeUninit;
+                    use core::{
+                        alloc::Layout,
+                        mem::MaybeUninit,
+                    };
                     use rkyv::{
-                        de::Deserializer,
                         ser::Serializer,
                         Archive,
                         Archived,
@@ -349,6 +352,7 @@ pub fn archive_dyn(
                         ArchivePointee,
                         ArchiveUnsized,
                         DeserializeUnsized,
+                        Fallible,
                         SerializeUnsized,
                     };
                     use rkyv_dyn::{

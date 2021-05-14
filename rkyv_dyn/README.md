@@ -33,7 +33,6 @@ Trait object serialization for rkyv.
 ```rust
 use rkyv::{
     archived_value,
-    de::deserializers::AllocDeserializer,
     ser::{
         serializers::AlignedSerializer,
         Serializer,
@@ -42,6 +41,7 @@ use rkyv::{
     Archive,
     Archived,
     Deserialize,
+    Infallible,
     Serialize,
 };
 use rkyv_dyn::archive_dyn;
@@ -102,8 +102,8 @@ fn main() {
     assert_eq!(archived_int.value(), "42");
     assert_eq!(archived_string.value(), "hello world");
 
-    let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int.deserialize(&mut AllocDeserializer).unwrap();
-    let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string.deserialize(&mut AllocDeserializer).unwrap();
+    let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int.deserialize(&mut Infallible).unwrap();
+    let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string.deserialize(&mut Infallible).unwrap();
     assert_eq!(deserialized_int.value(), "42");
     assert_eq!(deserialized_string.value(), "hello world");
 }

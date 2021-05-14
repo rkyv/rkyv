@@ -6,9 +6,8 @@ mod tests {
     use core::pin::Pin;
     use rkyv::{
         archived_root, archived_root_mut,
-        de::{deserializers::AllocDeserializer, Deserializer},
         ser::{serializers::AlignedSerializer, Serializer},
-        AlignedVec, Archive, Archived, Deserialize, Serialize,
+        AlignedVec, Archive, Archived, Deserialize, Infallible, Serialize,
     };
     use rkyv_dyn::archive_dyn;
     use rkyv_typename::TypeName;
@@ -17,13 +16,13 @@ mod tests {
         #[test]
         #[cfg(not(feature = "wasm"))]
         fn manual_archive_dyn() {
+            use core::alloc::Layout;
             use rkyv::{
                 archived_root,
-                de::{deserializers::AllocDeserializer, Deserializer},
                 ser::{serializers::AlignedSerializer, Serializer},
                 util::AlignedVec,
                 Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata, Deserialize,
-                DeserializeUnsized, Serialize, SerializeUnsized,
+                DeserializeUnsized, Fallible, Infallible, Serialize, SerializeUnsized,
             };
             use rkyv_dyn::{
                 register_impl, ArchivedDynMetadata, DeserializeDyn, DynDeserializer, DynError,
@@ -95,14 +94,15 @@ mod tests {
                 }
             }
 
-            impl<D: Deserializer + ?Sized> DeserializeUnsized<dyn SerializeTestTrait, D>
+            impl<D: Fallible + ?Sized> DeserializeUnsized<dyn SerializeTestTrait, D>
                 for dyn DeserializeTestTrait
             {
                 unsafe fn deserialize_unsized(
                     &self,
                     mut deserializer: &mut D,
+                    mut alloc: impl FnMut(Layout) -> *mut u8,
                 ) -> Result<*mut (), D::Error> {
-                    self.deserialize_dyn(&mut deserializer)
+                    self.deserialize_dyn(&mut deserializer, &mut alloc)
                         .map_err(|e| *e.downcast().unwrap())
                 }
 
@@ -137,9 +137,9 @@ mod tests {
                 unsafe fn deserialize_dyn(
                     &self,
                     deserializer: &mut dyn DynDeserializer,
+                    alloc: &mut dyn FnMut(Layout) -> *mut u8,
                 ) -> Result<*mut (), DynError> {
-                    let result =
-                        deserializer.alloc_dyn(core::alloc::Layout::new::<Test>())? as *mut Test;
+                    let result = alloc(core::alloc::Layout::new::<Test>()).cast::<Test>();
                     result.write(self.deserialize(deserializer)?);
                     Ok(result as *mut ())
                 }
@@ -179,7 +179,7 @@ mod tests {
             assert_eq!(value.get_id(), archived_value.get_id());
 
             let deserialized_value: Box<dyn SerializeTestTrait> =
-                archived_value.deserialize(&mut AllocDeserializer).unwrap();
+                archived_value.deserialize(&mut Infallible).unwrap();
             assert_eq!(value.get_id(), deserialized_value.get_id());
         }
     }
@@ -227,7 +227,7 @@ mod tests {
 
         // deserialize
         let deserialized_value: Box<dyn STestTrait> =
-            archived_value.deserialize(&mut AllocDeserializer).unwrap();
+            archived_value.deserialize(&mut Infallible).unwrap();
         assert_eq!(value.get_id(), deserialized_value.get_id());
         assert_eq!(value.get_id(), deserialized_value.get_id());
     }
@@ -235,6 +235,7 @@ mod tests {
     #[test]
     #[cfg(not(feature = "wasm"))]
     fn archive_dyn_generic() {
+        use core::alloc::Layout;
         use rkyv::archived_value;
         use rkyv_dyn::archive_dyn;
         use rkyv_typename::TypeName;
@@ -285,9 +286,9 @@ mod tests {
             unsafe fn deserialize_dyn(
                 &self,
                 deserializer: &mut dyn DynDeserializer,
+                alloc: &mut dyn FnMut(Layout) -> *mut u8,
             ) -> Result<*mut (), DynError> {
-                let result =
-                    deserializer.alloc(core::alloc::Layout::new::<Test<T>>())? as *mut Test<T>;
+                let result = alloc(core::alloc::Layout::new::<Test<T>>()).cast::<Test<T>>();
                 result.write(self.deserialize(deserializer)?);
                 Ok(result as *mut ())
             }
@@ -341,7 +342,7 @@ mod tests {
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
 
         let i32_deserialized_value: Box<dyn STestTrait<i32>> = i32_archived_value
-            .deserialize(&mut AllocDeserializer)
+            .deserialize(&mut Infallible)
             .unwrap();
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
@@ -350,7 +351,7 @@ mod tests {
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
         let string_deserialized_value: Box<dyn STestTrait<String>> = string_archived_value
-            .deserialize(&mut AllocDeserializer)
+            .deserialize(&mut Infallible)
             .unwrap();
         assert_eq!(
             string_value.get_value(),
