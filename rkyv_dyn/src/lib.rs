@@ -26,8 +26,9 @@ use core::{
     marker::PhantomData,
     mem::MaybeUninit,
     ptr,
-    sync::atomic::AtomicU64,
 };
+#[cfg(feature = "vtable_cache")]
+use core::sync::atomic::AtomicU64;
 use ptr_meta::{DynMetadata, Pointee};
 use rkyv::{
     from_archived, ser::Serializer, to_archived, Archived, Fallible, Serialize,
@@ -261,8 +262,11 @@ pub trait DeserializeDyn<T: Pointee + ?Sized> {
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedDynMetadata<T: ?Sized> {
     type_id: Archived<u64>,
-    #[cfg_attr(not(feature = "vtable_cache"), allow(dead_code))]
+    #[cfg(feature = "vtable_cache")]
     cached_vtable: Archived<AtomicU64>,
+    #[cfg(not(feature = "vtable_cache"))]
+    #[allow(dead_code)]
+    cached_vtable: Archived<u64>,
     phantom: PhantomData<T>,
 }
 
@@ -271,8 +275,12 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     pub fn emplace(type_id: u64, out: &mut MaybeUninit<Self>) {
         unsafe {
             ptr::addr_of_mut!((*out.as_mut_ptr()).type_id).write(to_archived!(type_id));
+            #[cfg(feature = "vtable_cache")]
             ptr::addr_of_mut!((*out.as_mut_ptr()).cached_vtable)
-                .write(Archived::<AtomicU64>::from(0));
+                .write(Archived::<AtomicU64>::from(0u64));
+            #[cfg(not(feature = "vtable_cache"))]
+            ptr::addr_of_mut!((*out.as_mut_ptr()).cached_vtable)
+                .write(Archived::<u64>::from(0u64));
         }
     }
 

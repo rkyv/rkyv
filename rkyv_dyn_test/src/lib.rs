@@ -3,13 +3,17 @@ mod validation;
 
 #[cfg(test)]
 mod tests {
+    #[cfg_attr(feature = "wasm", allow(unused_imports))]
     use core::pin::Pin;
+    #[cfg_attr(feature = "wasm", allow(unused_imports))]
     use rkyv::{
         archived_root, archived_root_mut,
         ser::{serializers::AlignedSerializer, Serializer},
         AlignedVec, Archive, Archived, Deserialize, Infallible, Serialize,
     };
+    #[cfg_attr(feature = "wasm", allow(unused_imports))]
     use rkyv_dyn::archive_dyn;
+    #[cfg_attr(feature = "wasm", allow(unused_imports))]
     use rkyv_typename::TypeName;
 
     mod isolate {

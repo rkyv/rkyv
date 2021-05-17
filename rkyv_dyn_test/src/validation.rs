@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests {
+    #[cfg_attr(feature = "wasm", allow(unused_imports))]
     use bytecheck::CheckBytes;
+    #[cfg_attr(feature = "wasm", allow(unused_imports))]
     use rkyv::{
         check_archived_root,
         ser::{serializers::AlignedSerializer, Serializer},
@@ -8,9 +10,12 @@ mod tests {
         validation::validators::DefaultArchiveValidator,
         Archive, Archived, Serialize,
     };
+    #[cfg_attr(feature = "wasm", allow(unused_imports))]
     use rkyv_dyn::archive_dyn;
+    #[cfg_attr(feature = "wasm", allow(unused_imports))]
     use rkyv_typename::TypeName;
 
+    #[cfg_attr(feature = "wasm", allow(dead_code))]
     fn serialize_and_check<T: Serialize<AlignedSerializer<AlignedVec>>>(value: &T)
     where
         T::Archived: for<'a> CheckBytes<DefaultArchiveValidator<'a>>,

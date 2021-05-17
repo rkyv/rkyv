@@ -197,7 +197,7 @@ where
                 let mut hasher = ArchivedHashMap::<K, V>::make_hasher();
                 displace.hash(&mut hasher);
                 entry.key.hash(&mut hasher);
-                hasher.finish() as usize % len
+                (hasher.finish() % len as u64) as usize
             };
 
             if index != i {
