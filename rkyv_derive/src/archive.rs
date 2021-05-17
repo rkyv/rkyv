@@ -4,13 +4,25 @@ use crate::{
 };
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::{
-    parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Fields, Ident, Index, Type,
-};
+use syn::{Attribute, Data, DeriveInput, Error, Field, Fields, Ident, Index, Meta, NestedMeta, Type, parse_quote, spanned::Spanned};
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     let attributes = parse_attributes(&input)?;
     derive_archive_impl(input, &attributes)
+}
+
+fn field_archive_attrs<'a>(field: &'a Field) -> impl 'a + Iterator<Item = NestedMeta> {
+    field.attrs.iter().filter_map(|attr| {
+        if let Ok(Meta::List(list)) = attr.parse_meta() {
+            if list.path.is_ident("archive_attr") {
+                Some(list.nested)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }).flatten()
 }
 
 fn derive_archive_impl(
@@ -128,8 +140,10 @@ fn derive_archive_impl(
                                 name,
                                 field_name.unwrap()
                             );
+                            let archive_attrs = field_archive_attrs(f);
                             quote_spanned! { f.span() =>
                                 #[doc = #field_doc]
+                                #(#[#archive_attrs])*
                                 #vis #field_name: ::rkyv::Archived<#ty>
                             }
                         });
@@ -299,8 +313,10 @@ fn derive_archive_impl(
                             let ty = &f.ty;
                             let vis = &f.vis;
                             let field_doc = format!("The archived counterpart of `{}::{}`", name, i);
+                            let archive_attrs = field_archive_attrs(f);
                             quote_spanned! { f.span() =>
                                 #[doc = #field_doc]
+                                #(#[#archive_attrs])*
                                 #vis ::rkyv::Archived<#ty>
                             }
                         });
@@ -741,7 +757,11 @@ fn derive_archive_impl(
                                 let name = &f.ident;
                                 let ty = &f.ty;
                                 let vis = &f.vis;
-                                quote_spanned! { f.span() => #vis #name: ::rkyv::Archived<#ty> }
+                                let archive_attrs = field_archive_attrs(f);
+                                quote_spanned! { f.span() =>
+                                    #(#[#archive_attrs])*
+                                    #vis #name: ::rkyv::Archived<#ty>
+                                }
                             });
                             quote_spanned! { variant.span() =>
                                 #[allow(dead_code)]
@@ -754,7 +774,11 @@ fn derive_archive_impl(
                             let fields = fields.unnamed.iter().map(|f| {
                                 let ty = &f.ty;
                                 let vis = &f.vis;
-                                quote_spanned! { f.span() => #vis ::rkyv::Archived<#ty> }
+                                let archive_attrs = field_archive_attrs(f);
+                                quote_spanned! { f.span() =>
+                                    #(#[#archive_attrs])*
+                                    #vis ::rkyv::Archived<#ty>
+                                }
                             });
                             quote_spanned! { variant.span() =>
                                 #[allow(dead_code)]

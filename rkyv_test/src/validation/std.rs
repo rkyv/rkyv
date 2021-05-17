@@ -324,21 +324,22 @@ mod tests {
         ])));
     }
 
-    // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    // fn recursive_type() {
-    //     #[derive(Archive, Serialize)]
-    //     // The derive macros don't apply the right bounds from Box so we have to manually specify
-    //     // what bounds to apply
-    //     #[archive(bound(serialize = "__S: Serializer", deserialize = "__D: Deserializer"))]
-    //     #[archive_attr(derive(CheckBytes))]
-    //     enum Node {
-    //         Nil,
-    //         Cons(#[omit_bounds] Box<Node>),
-    //     }
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn recursive_type() {
+        #[derive(Archive, Serialize)]
+        // The derive macros don't apply the right bounds from Box so we have to manually specify
+        // what bounds to apply
+        #[archive(bound(serialize = "__S: Serializer", deserialize = "__D: Deserializer"))]
+        #[archive_attr(derive(CheckBytes))]
+        #[archive_attr(check_bytes(bound = "__C: ::rkyv::validation::ArchiveBoundsContext + ::rkyv::validation::ArchiveMemoryContext, <__C as ::rkyv::Fallible>::Error: ::std::error::Error"))]
+        enum Node {
+            Nil,
+            Cons(#[omit_bounds] #[archive_attr(omit_bounds)] Box<Node>),
+        }
 
-    //     serialize_and_check(&Node::Cons(Box::new(Node::Cons(Box::new(Node::Nil)))));
-    // }
+        serialize_and_check(&Node::Cons(Box::new(Node::Cons(Box::new(Node::Nil)))));
+    }
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
