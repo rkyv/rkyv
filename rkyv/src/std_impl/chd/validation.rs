@@ -12,7 +12,7 @@ use core::{
     fmt,
     hash::{Hash, Hasher},
 };
-use std::{alloc::LayoutErr, error::Error};
+use std::{alloc::LayoutError, error::Error};
 
 /// Errors that can occur while checking an archived hash map entry.
 #[derive(Debug)]
@@ -59,7 +59,7 @@ impl<K: CheckBytes<C>, V: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> Check
 #[derive(Debug)]
 pub enum HashMapError<K, V, C> {
     /// An error occured while checking the layouts of displacements or entries
-    LayoutError(LayoutErr),
+    LayoutError(LayoutError),
     /// An error occured while checking the displacements
     CheckDisplaceError(SliceCheckError<Unreachable>),
     /// An error occured while checking the entries
@@ -113,9 +113,9 @@ impl<K, V, C> From<Unreachable> for HashMapError<K, V, C> {
     }
 }
 
-impl<K, V, C> From<LayoutErr> for HashMapError<K, V, C> {
+impl<K, V, C> From<LayoutError> for HashMapError<K, V, C> {
     #[inline]
-    fn from(e: LayoutErr) -> Self {
+    fn from(e: LayoutError) -> Self {
         Self::LayoutError(e)
     }
 }
