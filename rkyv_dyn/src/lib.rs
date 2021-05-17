@@ -25,8 +25,9 @@ use core::{
     hash::{Hash, Hasher},
     marker::PhantomData,
     mem::MaybeUninit,
-    sync::atomic::AtomicU64,
 };
+#[cfg(feature = "vtable_cache")]
+use core::sync::atomic::{AtomicU64, Ordering};
 use ptr_meta::{DynMetadata, Pointee};
 use rkyv::{de::Deserializer, project_struct, ser::Serializer, Fallible, Serialize};
 pub use rkyv_dyn_derive::archive_dyn;
@@ -275,8 +276,10 @@ pub trait DeserializeDyn<T: Pointee + ?Sized> {
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedDynMetadata<T: ?Sized> {
     type_id: u64,
-    #[cfg_attr(not(feature = "vtable_cache"), allow(dead_code))]
+    #[cfg(feature = "vtable_cache")]
     cached_vtable: AtomicU64,
+    #[cfg(not(feature = "vtable_cache"))]
+    cached_vtable: u64,
     phantom: PhantomData<T>,
 }
 
@@ -287,9 +290,13 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
             project_struct!(out: Self => type_id: u64)
                 .as_mut_ptr()
                 .write(type_id);
-            project_struct!(out: Self => cached_vtable: AtomicU64)
+            #[cfg(feature = "vtable_cache")]
+            (&mut *project_struct!(out: Self => cached_vtable: AtomicU64).as_mut_ptr())
+                .store(0, Ordering::Relaxed);
+            #[cfg(not(feature = "vtable_cache"))]
+            project_struct!(out: Self => cached_vtable: u64)
                 .as_mut_ptr()
-                .write(AtomicU64::new(0));
+                .write(0);
         }
     }
 
@@ -304,8 +311,6 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     /// store the address locally on the first lookup.
     #[cfg(feature = "vtable_cache")]
     pub fn vtable(&self) -> usize {
-        use core::sync::atomic::Ordering;
-
         let cached_vtable = self.cached_vtable.load(Ordering::Relaxed);
         if likely(cached_vtable != 0) {
             return cached_vtable as usize;

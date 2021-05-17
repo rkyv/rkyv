@@ -7,8 +7,9 @@ use core::{
     any::TypeId,
     fmt,
     marker::PhantomData,
-    sync::atomic::{AtomicU64, Ordering},
 };
+#[cfg(feature = "vtable_cache")]
+use core::sync::atomic::{AtomicU64, Ordering};
 use rkyv::{
     offset_of,
     validation::{ArchiveBoundsContext, ArchiveMemoryContext, SharedArchiveContext},
@@ -265,9 +266,12 @@ impl<T: TypeName + ?Sized, C: ?Sized> CheckBytes<C> for ArchivedDynMetadata<T> {
         let type_id = *u64::check_bytes(bytes.add(offset_of!(Self, type_id)).cast(), context)?;
         PhantomData::<T>::check_bytes(bytes.add(offset_of!(Self, phantom)).cast(), context)?;
         if let Some(impl_data) = IMPL_REGISTRY.get::<T>(type_id) {
-            let cached_vtable =
-                AtomicU64::check_bytes(bytes.add(offset_of!(Self, cached_vtable)).cast(), context)?
-                    .load(Ordering::Relaxed);
+            let cached_vtable_ptr = bytes.add(offset_of!(Self, cached_vtable));
+            #[cfg(feature = "vtable_cache")]
+            let cached_vtable = AtomicU64::check_bytes(cached_vtable_ptr.cast(), context)?
+                .load(Ordering::Relaxed);
+            #[cfg(not(feature = "vtable_cache"))]
+            let cached_vtable = *u64::check_bytes(cached_vtable_ptr.cast(), context)?;
             if cached_vtable == 0 || cached_vtable as usize == impl_data.vtable {
                 Ok(&*value)
             } else {
