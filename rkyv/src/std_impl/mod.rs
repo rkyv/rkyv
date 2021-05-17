@@ -7,16 +7,77 @@ pub mod shared;
 pub mod validation;
 
 use crate::{
-    Archive, ArchivePointee, ArchiveUnsized, Archived, Deserialize,
-    DeserializeUnsized, Fallible, MetadataResolver, RelPtr, Serialize, SerializeUnsized,
+    ser::Serializer,
+    Archive, ArchivedMetadata, ArchivePointee, ArchiveUnsized, Archived, Deserialize,
+    DeserializeUnsized, Fallible, FixedUsize, MetadataResolver, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{
+    alloc::Layout,
     borrow::Borrow,
     cmp, fmt, hash,
     mem::MaybeUninit,
     ops::{Deref, DerefMut, Index, IndexMut},
     pin::Pin,
+    ptr,
 };
+use ptr_meta::Pointee;
+use std::ffi::{CStr, CString};
+
+impl ArchiveUnsized for CStr {
+    type Archived = CStr;
+
+    type MetadataResolver = ();
+
+    #[inline]
+    fn resolve_metadata(
+        &self,
+        _: usize,
+        _: Self::MetadataResolver,
+        out: &mut MaybeUninit<ArchivedMetadata<Self>>,
+    ) {
+        unsafe {
+            out.as_mut_ptr().write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
+        }
+    }
+}
+
+impl ArchivePointee for CStr {
+    type ArchivedMetadata = Archived<usize>;
+
+    #[inline]
+    fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
+        <[u8]>::pointer_metadata(archived)
+    }
+}
+
+impl<S: Serializer + ?Sized> SerializeUnsized<S> for CStr {
+    #[inline]
+    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
+        let result = serializer.pos();
+        serializer.write(self.to_bytes_with_nul())?;
+        Ok(result)
+    }
+
+    #[inline]
+    fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+        Ok(())
+    }
+}
+
+impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for <CStr as ArchiveUnsized>::Archived {
+    #[inline]
+    unsafe fn deserialize_unsized(&self, _: &mut D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error> {
+        let slice = self.to_bytes_with_nul();
+        let bytes = alloc(Layout::array::<u8>(slice.len()).unwrap());
+        ptr::copy_nonoverlapping(slice.as_ptr(), bytes, slice.len());
+        Ok(bytes.cast())
+    }
+
+    #[inline]
+    fn deserialize_metadata(&self, _: &mut D) -> Result<<CStr as Pointee>::Metadata, D::Error> {
+        Ok(ptr_meta::metadata(self))
+    }
+}
 
 /// An archived [`String`].
 ///
@@ -29,19 +90,19 @@ impl ArchivedString {
     /// Extracts a string slice containing the entire `ArchivedString`.
     #[inline]
     pub fn as_str(&self) -> &str {
-        self.deref()
+        unsafe { &*self.0.as_ptr() }
     }
 
     /// Converts an `ArchivedString` into a mutable string slice.
     #[inline]
     pub fn as_mut_str(&mut self) -> &mut str {
-        self.deref_mut()
+        unsafe { &mut *self.0.as_mut_ptr() }
     }
 
     /// Gets the value of this archived string as a pinned mutable reference.
     #[inline]
     pub fn str_pin(self: Pin<&mut Self>) -> Pin<&mut str> {
-        unsafe { self.map_unchecked_mut(|s| s.deref_mut()) }
+        unsafe { self.map_unchecked_mut(|s| s.as_mut_str()) }
     }
 }
 
@@ -77,13 +138,13 @@ impl cmp::PartialOrd for ArchivedString {
 
 impl AsRef<str> for ArchivedString {
     fn as_ref(&self) -> &str {
-        self.deref()
+        self.as_str()
     }
 }
 
 impl AsMut<str> for ArchivedString {
     fn as_mut(&mut self) -> &mut str {
-        self.deref_mut()
+        self.as_mut_str()
     }
 }
 
@@ -92,21 +153,21 @@ impl Deref for ArchivedString {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.0.as_ptr() }
+        self.as_str()
     }
 }
 
 impl DerefMut for ArchivedString {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.0.as_mut_ptr() }
+        self.as_mut_str()
     }
 }
 
 impl Borrow<str> for ArchivedString {
     #[inline]
     fn borrow(&self) -> &str {
-        self.deref().borrow()
+        self.as_str()
     }
 }
 
@@ -159,8 +220,7 @@ impl Archive for String {
     fn resolve(&self, pos: usize, resolver: StringResolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
         #[allow(clippy::unit_arg)]
-        self.as_str()
-            .resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        self.as_str().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 }
 
@@ -188,6 +248,183 @@ where
             let metadata = self.0.metadata().deserialize(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<str>::from_raw(ptr).into())
+        }
+    }
+}
+
+/// An archived [`CString`].
+///
+/// Uses a [`RelPtr`] to a `CStr` under the hood.
+#[derive(Debug)]
+#[repr(transparent)]
+pub struct ArchivedCString(RelPtr<CStr>);
+
+impl ArchivedCString {
+    /// Returns the contents of this CString as a slice of bytes.
+    ///
+    /// The returned slice does **not** contain the trailing nul terminator, and it is guaranteed to
+    /// not have any interior nul bytes. If you need the nul terminator, use
+    /// [`as_bytes_with_nul`][ArchivedCString::as_bytes_with_nul()] instead.
+    #[inline]
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.as_c_str().to_bytes()
+    }
+
+    /// Equivalent to [`as_bytes()`] except that the returned slice includes the trailing nul
+    /// terminator.
+    #[inline]
+    pub fn as_bytes_with_nul(&self) -> &[u8] {
+        &self.as_c_str().to_bytes_with_nul()
+    }
+
+    /// Extracts a `CStr` slice containing the entire string.
+    #[inline]
+    pub fn as_c_str(&self) -> &CStr {
+        unsafe { &*self.0.as_ptr() }
+    }
+
+    /// Extracts a mutable `CStr` slice containing the entire string.
+    #[inline]
+    pub fn as_mut_c_str(&mut self) -> &mut CStr {
+        unsafe { &mut *self.0.as_mut_ptr() }
+    }
+}
+
+impl cmp::Eq for ArchivedCString {}
+
+impl hash::Hash for ArchivedCString {
+    #[inline]
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.as_bytes_with_nul().hash(state);
+    }
+}
+
+impl cmp::Ord for ArchivedCString {
+    #[inline]
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.as_bytes().cmp(other.as_bytes())
+    }
+}
+
+impl cmp::PartialEq for ArchivedCString {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.as_bytes() == other.as_bytes()
+    }
+}
+
+impl cmp::PartialOrd for ArchivedCString {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        self.as_bytes().partial_cmp(other.as_bytes())
+    }
+}
+
+impl AsRef<CStr> for ArchivedCString {
+    fn as_ref(&self) -> &CStr {
+        self.as_c_str()
+    }
+}
+
+impl AsMut<CStr> for ArchivedCString {
+    fn as_mut(&mut self) -> &mut CStr {
+        self.as_mut_c_str()
+    }
+}
+
+impl Deref for ArchivedCString {
+    type Target = CStr;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.as_c_str()
+    }
+}
+
+impl DerefMut for ArchivedCString {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_mut_c_str()
+    }
+}
+
+impl Borrow<CStr> for ArchivedCString {
+    #[inline]
+    fn borrow(&self) -> &CStr {
+        self.as_c_str()
+    }
+}
+
+impl PartialEq<&CStr> for ArchivedCString {
+    #[inline]
+    fn eq(&self, other: &&CStr) -> bool {
+        PartialEq::eq(self.as_c_str(), other)
+    }
+}
+
+impl PartialEq<ArchivedCString> for &CStr {
+    #[inline]
+    fn eq(&self, other: &ArchivedCString) -> bool {
+        PartialEq::eq(other.as_c_str(), self)
+    }
+}
+
+impl PartialEq<CString> for ArchivedCString {
+    #[inline]
+    fn eq(&self, other: &CString) -> bool {
+        PartialEq::eq(self.as_c_str(), other.as_c_str())
+    }
+}
+
+impl PartialEq<ArchivedCString> for CString {
+    #[inline]
+    fn eq(&self, other: &ArchivedCString) -> bool {
+        PartialEq::eq(other.as_c_str(), self.as_c_str())
+    }
+}
+
+/// The resolver for `CString`.
+pub struct CStringResolver {
+    pos: usize,
+    metadata_resolver: MetadataResolver<CStr>,
+}
+
+impl Archive for CString {
+    type Archived = ArchivedCString;
+    type Resolver = CStringResolver;
+
+    #[inline]
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        let (fp, fo) = out_field!(out.0);
+        #[allow(clippy::unit_arg)]
+        self.as_c_str().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+    }
+}
+
+impl<S: Fallible + ?Sized> Serialize<S> for CString
+where
+    CStr: SerializeUnsized<S>,
+{
+    #[inline]
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(CStringResolver {
+            pos: self.as_c_str().serialize_unsized(serializer)?,
+            metadata_resolver: self.as_c_str().serialize_metadata(serializer)?,
+        })
+    }
+}
+
+impl<D: Fallible + ?Sized> Deserialize<CString, D> for Archived<CString>
+where
+    CStr: DeserializeUnsized<CStr, D>,
+{
+    #[inline]
+    fn deserialize(&self, deserializer: &mut D) -> Result<CString, D::Error> {
+        unsafe {
+            let data_address = self.as_c_str().deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
+            let metadata = self.0.metadata().deserialize(deserializer)?;
+            let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
+            Ok(Box::<CStr>::from_raw(ptr).into())
         }
     }
 }
@@ -366,8 +603,8 @@ where
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Vec<T>, D::Error> {
         unsafe {
-            let data_address = self.deref().deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
-            let metadata = self.deref().deserialize_metadata(deserializer)?;
+            let data_address = self.as_slice().deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
+            let metadata = self.as_slice().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<[T]>::from_raw(ptr).into())
         }

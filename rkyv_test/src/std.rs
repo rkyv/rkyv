@@ -1196,4 +1196,13 @@ mod tests {
 
         test_archive(&value);
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn c_string() {
+        use std::ffi::CString;
+
+        let value = unsafe { CString::from_vec_unchecked("hello world".to_string().into_bytes()) };
+        test_archive(&value);
+    }
 }
