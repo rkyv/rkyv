@@ -52,32 +52,35 @@ macro_rules! impl_primitive {
         }
     };
     (@multibyte $type:ty) => {
-        impl Archive for $type {
+        const _: () = {
             #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
-            type Archived = Self;
+            type Archived = $type;
             #[cfg(feature = "archive_le")]
-            type Archived = rend::LittleEndian<Self>;
+            type Archived = rend::LittleEndian<$type>;
             #[cfg(feature = "archive_be")]
-            type Archived = rend::BigEndian<Self>;
+            type Archived = rend::BigEndian<$type>;
 
-            type Resolver = ();
+            impl Archive for $type {
+                type Archived = Archived;
+                type Resolver = ();
 
-            #[inline]
-            fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-                unsafe {
-                    out.as_mut_ptr().write(to_archived!(*self as Self));
+                #[inline]
+                fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                    unsafe {
+                        out.as_mut_ptr().write(to_archived!(*self as Self));
+                    }
                 }
             }
-        }
 
-        impl_primitive!(@serialize $type);
+            impl_primitive!(@serialize $type);
 
-        impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived<$type> {
-            #[inline]
-            fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
-                Ok(from_archived!(*self))
+            impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived {
+                #[inline]
+                fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
+                    Ok(from_archived!(*self))
+                }
             }
-        }
+        };
     };
 }
 

@@ -78,8 +78,7 @@ mod tests {
             assert_eq!(archived.string, value.string);
             assert_eq!(archived.option, value.option);
 
-            let deserialized = archived
-                .deserialize(&mut Infallible)
+            let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible)
                 .expect("failed to deserialize value");
             assert_eq!(deserialized, value);
         }
@@ -723,7 +722,7 @@ mod tests {
         assert_eq!(*archived.b, 17);
 
         let mut deserializer = SharedDeserializerAdapter::new(Infallible);
-        let deserialized = archived.deserialize(&mut deserializer).unwrap();
+        let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut deserializer).unwrap();
 
         assert_eq!(*deserialized.a, 17);
         assert_eq!(*deserialized.b, 17);
@@ -839,7 +838,7 @@ mod tests {
         assert_eq!(**archived.b.upgrade().unwrap(), 17);
 
         let mut deserializer = SharedDeserializerAdapter::new(Infallible);
-        let deserialized = archived.deserialize(&mut deserializer).unwrap();
+        let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut deserializer).unwrap();
 
         assert_eq!(*deserialized.a, 17);
         assert!(deserialized.b.upgrade().is_some());
@@ -1049,7 +1048,7 @@ mod tests {
         let archived = unsafe { archived_root::<ReallyBigEnum>(&buf.as_ref()[..len]) };
         assert_eq!(archived, &ArchivedReallyBigEnum::V100);
 
-        let deserialized = archived.deserialize(&mut Infallible).unwrap();
+        let deserialized = Deserialize::<ReallyBigEnum, _>::deserialize(archived, &mut Infallible).unwrap();
         assert_eq!(deserialized, ReallyBigEnum::V100);
     }
 
@@ -1204,5 +1203,149 @@ mod tests {
 
         let value = unsafe { CString::from_vec_unchecked("hello world".to_string().into_bytes()) };
         test_archive(&value);
+    }
+
+    mod with {
+        use core::str::FromStr;
+        use rkyv::{Archive, Archived, ArchiveWith, DeserializeWith, SerializeWith, ser::Serializer, Fallible, Serialize, Deserialize, Infallible, AlignedVec, ser::serializers::AlignedSerializer, archived_root};
+
+        struct ConvertToString;
+
+        impl<T: ToString> ArchiveWith<T> for ConvertToString {
+            type Archived = <String as Archive>::Archived;
+            type Resolver = <String as Archive>::Resolver;
+
+            fn resolve_with(value: &T, pos: usize, resolver: Self::Resolver, out: &mut ::core::mem::MaybeUninit<Self::Archived>) {
+                value.to_string().resolve(pos, resolver, out);
+            }
+        }
+
+        impl<T: ToString, S: Serializer + ?Sized> SerializeWith<T, S> for ConvertToString {
+            fn serialize_with(value: &T, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+                Ok(value.to_string().serialize(serializer)?)
+            }
+        }
+
+        impl<T: FromStr, D: Fallible + ?Sized> DeserializeWith<Archived<String>, T, D> for ConvertToString
+        where
+            <T as FromStr>::Err: core::fmt::Debug,
+        {
+            fn deserialize_with(value: &Archived<String>, _: &mut D) -> Result<T, D::Error> {
+                Ok(T::from_str(value.as_str()).unwrap())
+            }
+        }
+
+        #[test]
+        #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+        fn with_struct() {
+            #[derive(Archive, Serialize, Deserialize)]
+            struct Test {
+                #[with(ConvertToString)]
+                value: i32,
+                other: i32,
+            }
+    
+            let value = Test {
+                value: 10,
+                other: 10,
+            };
+            let mut serializer = AlignedSerializer::new(AlignedVec::new());
+            serializer.serialize_value(&value).unwrap();
+            let result = serializer.into_inner();
+            let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+    
+            assert_eq!(archived.value, "10");
+            assert_eq!(archived.other, 10);
+    
+            let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
+            assert_eq!(deserialized.value, 10);
+            assert_eq!(deserialized.other, 10);
+        }
+
+        #[test]
+        #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+        fn with_tuple_struct() {
+            #[derive(Archive, Serialize, Deserialize)]
+            struct Test(
+                #[with(ConvertToString)]
+                i32,
+                i32,
+            );
+    
+            let value = Test(
+                10,
+                10,
+            );
+            let mut serializer = AlignedSerializer::new(AlignedVec::new());
+            serializer.serialize_value(&value).unwrap();
+            let result = serializer.into_inner();
+            let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+    
+            assert_eq!(archived.0, "10");
+            assert_eq!(archived.1, 10);
+    
+            let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
+            assert_eq!(deserialized.0, 10);
+            assert_eq!(deserialized.1, 10);
+        }
+
+        #[test]
+        #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+        fn with_enum() {
+            #[derive(Archive, Serialize, Deserialize)]
+            enum Test {
+                A {
+                    #[with(ConvertToString)]
+                    value: i32,
+                    other: i32,
+                },
+                B(#[with(ConvertToString)] i32, i32),
+            }
+
+            let value = Test::A {
+                value: 10,
+                other: 10,
+            };
+            let mut serializer = AlignedSerializer::new(AlignedVec::new());
+            serializer.serialize_value(&value).unwrap();
+            let result = serializer.into_inner();
+            let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+            if let ArchivedTest::A { value, other } = archived {
+                assert_eq!(*value, "10");
+                assert_eq!(*other, 10);
+            } else {
+                panic!("expected variant A");
+            };
+
+            let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
+            if let Test::A { value, other } = &deserialized {
+                assert_eq!(*value, 10);
+                assert_eq!(*other, 10);
+            } else {
+                panic!("expected variant A");
+            };
+
+            let value = Test::B(10, 10);
+            let mut serializer = AlignedSerializer::new(AlignedVec::new());
+            serializer.serialize_value(&value).unwrap();
+            let result = serializer.into_inner();
+            let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+            if let ArchivedTest::B(value, other) = archived {
+                assert_eq!(*value, "10");
+                assert_eq!(*other, 10);
+            } else {
+                panic!("expected variant B");
+            };
+
+            let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
+            if let Test::B(value, other) = &deserialized {
+                assert_eq!(*value, 10);
+                assert_eq!(*other, 10);
+            } else {
+                panic!("expected variant B");
+            };
+        }
     }
 }

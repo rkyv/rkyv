@@ -1,4 +1,7 @@
-use crate::attributes::{parse_attributes, Attributes};
+use crate::{
+    attributes::{parse_attributes, Attributes},
+    with::{with_cast, with_ty},
+};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{
@@ -55,7 +58,7 @@ fn derive_serialize_impl(
                     .iter()
                     .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                 {
-                    let ty = &field.ty;
+                    let ty = with_ty(field);
                     serialize_where
                         .predicates
                         .push(parse_quote! { #ty: Serialize<__S> });
@@ -63,7 +66,8 @@ fn derive_serialize_impl(
 
                 let resolver_values = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote_spanned! { f.span() => #name: Serialize::<__S>::serialize(&self.#name, serializer)? }
+                    let field = with_cast(f, parse_quote! { &self.#name });
+                    quote_spanned! { f.span() => #name: Serialize::<__S>::serialize(#field, serializer)? }
                 });
 
                 quote! {
@@ -84,7 +88,7 @@ fn derive_serialize_impl(
                     .iter()
                     .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                 {
-                    let ty = &field.ty;
+                    let ty = with_ty(field);
                     serialize_where
                         .predicates
                         .push(parse_quote! { #ty: Serialize<__S> });
@@ -92,7 +96,8 @@ fn derive_serialize_impl(
 
                 let resolver_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = Index::from(i);
-                    quote_spanned! { f.span() => Serialize::<__S>::serialize(&self.#index, serializer)? }
+                    let field = with_cast(f, parse_quote! { &self.#index });
+                    quote_spanned! { f.span() => Serialize::<__S>::serialize(#field, serializer)? }
                 });
 
                 quote! {
@@ -127,7 +132,7 @@ fn derive_serialize_impl(
                             .iter()
                             .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                         {
-                            let ty = &field.ty;
+                            let ty = with_ty(field);
                             serialize_where
                                 .predicates
                                 .push(parse_quote! { #ty: Serialize<__S> });
@@ -139,7 +144,7 @@ fn derive_serialize_impl(
                             .iter()
                             .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                         {
-                            let ty = &field.ty;
+                            let ty = with_ty(field);
                             serialize_where
                                 .predicates
                                 .push(parse_quote! { #ty: Serialize<__S> });
@@ -159,8 +164,9 @@ fn derive_serialize_impl(
                         });
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
+                            let field = with_cast(f, parse_quote! { #name });
                             quote! {
-                                #name: Serialize::<__S>::serialize(#name, serializer)?
+                                #name: Serialize::<__S>::serialize(#field, serializer)?
                             }
                         });
                         quote_spanned! { variant.span() =>
@@ -176,8 +182,9 @@ fn derive_serialize_impl(
                         });
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let binding = Ident::new(&format!("_{}", i), f.span());
+                            let field = with_cast(f, parse_quote! { #binding });
                             quote! {
-                                Serialize::<__S>::serialize(#binding, serializer)?
+                                Serialize::<__S>::serialize(#field, serializer)?
                             }
                         });
                         quote_spanned! { variant.span() =>

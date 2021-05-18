@@ -1,4 +1,7 @@
-use crate::attributes::{parse_attributes, Attributes};
+use crate::{
+    attributes::{parse_attributes, Attributes},
+    with::{with_ty, with_inner},
+};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{
@@ -50,7 +53,7 @@ fn derive_deserialize_impl(
                     .iter()
                     .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                 {
-                    let ty = &field.ty;
+                    let ty = with_ty(field);
                     deserialize_where
                         .predicates
                         .push(parse_quote! { #ty: Archive });
@@ -61,7 +64,8 @@ fn derive_deserialize_impl(
 
                 let deserialize_fields = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote! { #name: self.#name.deserialize(deserializer)? }
+                    let value = with_inner(f, parse_quote! { self.#name.deserialize(deserializer)? });
+                    quote! { #name: #value }
                 });
 
                 quote! {
@@ -82,7 +86,7 @@ fn derive_deserialize_impl(
                     .iter()
                     .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                 {
-                    let ty = &field.ty;
+                    let ty = with_ty(field);
                     deserialize_where
                         .predicates
                         .push(parse_quote! { #ty: Archive });
@@ -91,9 +95,10 @@ fn derive_deserialize_impl(
                         .push(parse_quote! { Archived<#ty>: Deserialize<#ty, __D> });
                 }
 
-                let deserialize_fields = fields.unnamed.iter().enumerate().map(|(i, _)| {
+                let deserialize_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = Index::from(i);
-                    quote! { self.#index.deserialize(deserializer)? }
+                    let value = with_inner(f, parse_quote! { self.#index.deserialize(deserializer)? });
+                    quote! { #value }
                 });
 
                 quote! {
@@ -126,7 +131,7 @@ fn derive_deserialize_impl(
                             .iter()
                             .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                         {
-                            let ty = &field.ty;
+                            let ty = with_ty(field);
                             deserialize_where
                                 .predicates
                                 .push(parse_quote! { #ty: Archive });
@@ -141,7 +146,7 @@ fn derive_deserialize_impl(
                             .iter()
                             .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                         {
-                            let ty = &field.ty;
+                            let ty = with_ty(field);
                             deserialize_where
                                 .predicates
                                 .push(parse_quote! { #ty: Archive });
@@ -164,9 +169,8 @@ fn derive_deserialize_impl(
                         });
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
-                            quote! {
-                                #name: #name.deserialize(deserializer)?
-                            }
+                            let value = with_inner(f, parse_quote! { #name.deserialize(deserializer)? });
+                            quote! { #name: #value }
                         });
                         quote_spanned! { variant.span() =>
                             Self::#variant { #(#bindings,)* } => #name::#variant { #(#fields,)* }
@@ -179,9 +183,8 @@ fn derive_deserialize_impl(
                         });
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let binding = Ident::new(&format!("_{}", i), f.span());
-                            quote! {
-                                #binding.deserialize(deserializer)?
-                            }
+                            let value = with_inner(f, parse_quote! { #binding.deserialize(deserializer)? });
+                            quote! { #value }
                         });
                         quote_spanned! { variant.span() =>
                             Self::#variant( #(#bindings,)* ) => #name::#variant(#(#fields,)*)

@@ -5,6 +5,7 @@ mod attributes;
 mod deserialize;
 mod repr;
 mod serialize;
+mod with;
 
 extern crate proc_macro;
 
@@ -42,7 +43,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// as well. Adding the attribute `#[omit_bounds]` to a field will suppress this trait bound and
 /// allow recursive structures. This may be too coarse for some types, in which case additional type
 /// bounds may be required with `bound(...)`.
-#[proc_macro_derive(Archive, attributes(archive, archive_attr, omit_bounds))]
+#[proc_macro_derive(Archive, attributes(archive, archive_attr, omit_bounds, with))]
 pub fn derive_archive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match archive::derive(parse_macro_input!(input as DeriveInput)) {
         Ok(result) => result.into(),
@@ -54,7 +55,7 @@ pub fn derive_archive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 ///
 /// This macro also supports the `#[archive]` and `#[omit_bounds]` attributes. See [`Archive`] for
 /// more information.
-#[proc_macro_derive(Serialize, attributes(archive, omit_bounds))]
+#[proc_macro_derive(Serialize, attributes(archive, omit_bounds, with))]
 pub fn derive_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match serialize::derive(parse_macro_input!(input as DeriveInput)) {
         Ok(result) => result.into(),
@@ -66,7 +67,7 @@ pub fn derive_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 ///
 /// This macro also supports the `#[archive]` and `#[omit_bounds]` attributes. See [`Archive`] for
 /// more information.
-#[proc_macro_derive(Deserialize, attributes(archive, omit_bounds))]
+#[proc_macro_derive(Deserialize, attributes(archive, omit_bounds, with))]
 pub fn derive_deserialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match deserialize::derive(parse_macro_input!(input as DeriveInput)) {
         Ok(result) => result.into(),
