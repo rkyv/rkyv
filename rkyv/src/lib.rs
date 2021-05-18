@@ -773,11 +773,13 @@ impl<F, W> With<F, W> {
     /// Casts a `With` reference from a reference to the underlying field.
     ///
     /// This is always safe to do because `With` is a transparent wrapper.
+    #[inline]
     pub fn cast<'a>(field: &'a F) -> &'a With<F, W> {
         unsafe { &*(field as *const F).cast() }
     }
 
     /// Unwraps a `With` into the underlying field.
+    #[inline]
     pub fn into_inner(self) -> F {
         self.field
     }
@@ -798,6 +800,7 @@ impl<F, W: ArchiveWith<F>> Archive for With<F, W> {
     type Archived = W::Archived;
     type Resolver = W::Resolver;
 
+    #[inline]
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let as_with = unsafe { &mut *out.as_mut_ptr().cast() };
         W::resolve_with(&self.field, pos, resolver, as_with);
@@ -811,6 +814,7 @@ pub trait SerializeWith<F, S: Fallible + ?Sized>: ArchiveWith<F> {
 }
 
 impl<F, W: SerializeWith<F, S>, S: Fallible + ?Sized> Serialize<S> for With<F, W> {
+    #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         W::serialize_with(&self.field, serializer)
     }
@@ -823,6 +827,7 @@ pub trait DeserializeWith<F, T, D: Fallible + ?Sized> {
 }
 
 impl<F, W: DeserializeWith<F, T, D>, T, D: Fallible + ?Sized> Deserialize<With<T, W>, D> for F {
+    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<With<T, W>, D::Error> {
         Ok(With {
             _phantom: PhantomData,
