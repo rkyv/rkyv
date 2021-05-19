@@ -1222,6 +1222,9 @@ mod tests {
             AlignedVec, Archive, Archived, Deserialize, Fallible, Infallible, Serialize,
         };
 
+        #[cfg(feature = "wasm")]
+        use wasm_bindgen_test::*;
+
         struct ConvertToString;
 
         impl<T: ToString> ArchiveWith<T> for ConvertToString {
