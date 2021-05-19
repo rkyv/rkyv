@@ -12,6 +12,7 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
     type Archived = Immutable<F::Archived>;
     type Resolver = F::Resolver;
 
+    #[inline]
     fn resolve_with(
         field: &Mutex<F>,
         pos: usize,
@@ -26,6 +27,7 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
 }
 
 impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Mutex<F>, S> for Lock {
+    #[inline]
     fn serialize_with(field: &Mutex<F>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         field.lock().unwrap().serialize(serializer)
     }
@@ -34,6 +36,7 @@ impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Mutex<F>, S> for Lock 
 impl<F: Deserialize<T, D>, T, D: Fallible + ?Sized> DeserializeWith<Immutable<F>, Mutex<T>, D>
     for Lock
 {
+    #[inline]
     fn deserialize_with(field: &Immutable<F>, deserializer: &mut D) -> Result<Mutex<T>, D::Error> {
         Ok(Mutex::new(field.value().deserialize(deserializer)?))
     }
@@ -43,6 +46,7 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
     type Archived = Immutable<F::Archived>;
     type Resolver = F::Resolver;
 
+    #[inline]
     fn resolve_with(
         field: &RwLock<F>,
         pos: usize,
@@ -57,6 +61,7 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
 }
 
 impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<RwLock<F>, S> for Lock {
+    #[inline]
     fn serialize_with(field: &RwLock<F>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         field.read().unwrap().serialize(serializer)
     }
@@ -65,6 +70,7 @@ impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<RwLock<F>, S> for Lock
 impl<F: Deserialize<T, D>, T, D: Fallible + ?Sized> DeserializeWith<Immutable<F>, RwLock<T>, D>
     for Lock
 {
+    #[inline]
     fn deserialize_with(field: &Immutable<F>, deserializer: &mut D) -> Result<RwLock<T>, D::Error> {
         Ok(RwLock::new(field.value().deserialize(deserializer)?))
     }

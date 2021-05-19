@@ -1367,8 +1367,8 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn mutex() {
-        use std::sync::Mutex;
         use rkyv::with::Lock;
+        use std::sync::Mutex;
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
@@ -1386,8 +1386,7 @@ mod tests {
 
         assert_eq!(*archived.value, 10);
 
-        let deserialized =
-            Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
+        let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
 
         assert_eq!(*deserialized.value.lock().unwrap(), 10);
     }
@@ -1395,8 +1394,8 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn rwlock() {
-        use std::sync::RwLock;
         use rkyv::with::Lock;
+        use std::sync::RwLock;
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
@@ -1414,8 +1413,7 @@ mod tests {
 
         assert_eq!(*archived.value, 10);
 
-        let deserialized =
-            Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
+        let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
 
         assert_eq!(*deserialized.value.read().unwrap(), 10);
     }
