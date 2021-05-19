@@ -73,9 +73,9 @@ where
 }
 
 impl<
-    T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized,
-    C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
-> CheckBytes<C> for ArchivedBox<T>
+        T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized,
+        C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
+    > CheckBytes<C> for ArchivedBox<T>
 where
     T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,

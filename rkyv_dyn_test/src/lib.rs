@@ -345,18 +345,16 @@ mod tests {
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
         assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
 
-        let i32_deserialized_value: Box<dyn STestTrait<i32>> = i32_archived_value
-            .deserialize(&mut Infallible)
-            .unwrap();
+        let i32_deserialized_value: Box<dyn STestTrait<i32>> =
+            i32_archived_value.deserialize(&mut Infallible).unwrap();
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
         assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
 
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
         assert_eq!(string_value.get_value(), string_archived_value.get_value());
 
-        let string_deserialized_value: Box<dyn STestTrait<String>> = string_archived_value
-            .deserialize(&mut Infallible)
-            .unwrap();
+        let string_deserialized_value: Box<dyn STestTrait<String>> =
+            string_archived_value.deserialize(&mut Infallible).unwrap();
         assert_eq!(
             string_value.get_value(),
             string_deserialized_value.get_value()

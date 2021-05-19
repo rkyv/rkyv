@@ -55,7 +55,8 @@ impl<D: Fallible> SharedDeserializer for SharedDeserializerAdapter<D> {
                 metadata,
             ))
         } else {
-            let deserialized_data = unsafe { value.deserialize_unsized(self, |layout| alloc::alloc::alloc(layout))? };
+            let deserialized_data =
+                unsafe { value.deserialize_unsized(self, |layout| alloc::alloc::alloc(layout))? };
             let shared_ptr = to_shared(ptr_meta::from_raw_parts_mut(deserialized_data, metadata));
             let data_address = shared_ptr.data_address();
 

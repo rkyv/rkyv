@@ -1,6 +1,6 @@
 use crate::{
     attributes::{parse_attributes, Attributes},
-    with::{with_ty, with_inner},
+    with::{with_inner, with_ty},
 };
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
@@ -64,7 +64,8 @@ fn derive_deserialize_impl(
 
                 let deserialize_fields = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    let value = with_inner(f, parse_quote! { self.#name.deserialize(deserializer)? });
+                    let value =
+                        with_inner(f, parse_quote! { self.#name.deserialize(deserializer)? });
                     quote! { #name: #value }
                 });
 
@@ -97,7 +98,8 @@ fn derive_deserialize_impl(
 
                 let deserialize_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = Index::from(i);
-                    let value = with_inner(f, parse_quote! { self.#index.deserialize(deserializer)? });
+                    let value =
+                        with_inner(f, parse_quote! { self.#index.deserialize(deserializer)? });
                     quote! { #value }
                 });
 
@@ -169,7 +171,8 @@ fn derive_deserialize_impl(
                         });
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
-                            let value = with_inner(f, parse_quote! { #name.deserialize(deserializer)? });
+                            let value =
+                                with_inner(f, parse_quote! { #name.deserialize(deserializer)? });
                             quote! { #name: #value }
                         });
                         quote_spanned! { variant.span() =>
@@ -183,7 +186,8 @@ fn derive_deserialize_impl(
                         });
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let binding = Ident::new(&format!("_{}", i), f.span());
-                            let value = with_inner(f, parse_quote! { #binding.deserialize(deserializer)? });
+                            let value =
+                                with_inner(f, parse_quote! { #binding.deserialize(deserializer)? });
                             quote! { #value }
                         });
                         quote_spanned! { variant.span() =>

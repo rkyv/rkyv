@@ -1,11 +1,14 @@
 use crate::{
     attributes::{parse_attributes, Attributes},
     repr::{IntRepr, Repr, ReprAttr},
-    with::{with_ty, with_cast},
+    with::{with_cast, with_ty},
 };
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::{Attribute, Data, DeriveInput, Error, Field, Fields, Ident, Index, Meta, NestedMeta, Type, parse_quote, spanned::Spanned};
+use syn::{
+    parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Field, Fields, Ident,
+    Index, Meta, NestedMeta, Type,
+};
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     let attributes = parse_attributes(&input)?;
@@ -13,17 +16,21 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
 }
 
 fn field_archive_attrs<'a>(field: &'a Field) -> impl 'a + Iterator<Item = NestedMeta> {
-    field.attrs.iter().filter_map(|attr| {
-        if let Ok(Meta::List(list)) = attr.parse_meta() {
-            if list.path.is_ident("archive_attr") {
-                Some(list.nested)
+    field
+        .attrs
+        .iter()
+        .filter_map(|attr| {
+            if let Ok(Meta::List(list)) = attr.parse_meta() {
+                if list.path.is_ident("archive_attr") {
+                    Some(list.nested)
+                } else {
+                    None
+                }
             } else {
                 None
             }
-        } else {
-            None
-        }
-    }).flatten()
+        })
+        .flatten()
 }
 
 fn derive_archive_impl(
@@ -48,7 +55,7 @@ fn derive_archive_impl(
         if let Some(ref ident) = attributes.archived {
             return Err(Error::new_spanned(
                 ident,
-                "archived = \"...\" may not be used with as = \"...\" because no type is generated"
+                "archived = \"...\" may not be used with as = \"...\" because no type is generated",
             ));
         }
         if attributes.attrs.len() > 0 {
@@ -182,9 +189,9 @@ fn derive_archive_impl(
                                 }) {
                                     let ty = &field.ty;
                                     let wrapped_ty = with_ty(field);
-                                    partial_eq_where
-                                        .predicates
-                                        .push(parse_quote! { Archived<#wrapped_ty>: PartialEq<#ty> });
+                                    partial_eq_where.predicates.push(
+                                        parse_quote! { Archived<#wrapped_ty>: PartialEq<#ty> },
+                                    );
                                 }
 
                                 let field_names = fields.named.iter().map(|f| &f.ident);
@@ -211,9 +218,9 @@ fn derive_archive_impl(
                                 }) {
                                     let ty = &field.ty;
                                     let archived_ty = with_ty(field);
-                                    partial_ord_where
-                                        .predicates
-                                        .push(parse_quote! { Archived<#archived_ty>: PartialOrd<#ty> });
+                                    partial_ord_where.predicates.push(
+                                        parse_quote! { Archived<#archived_ty>: PartialOrd<#ty> },
+                                    );
                                 }
 
                                 let field_names = fields.named.iter().map(|f| &f.ident);
@@ -316,7 +323,8 @@ fn derive_archive_impl(
                         let archived_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let ty = with_ty(f);
                             let vis = &f.vis;
-                            let field_doc = format!("The archived counterpart of `{}::{}`", name, i);
+                            let field_doc =
+                                format!("The archived counterpart of `{}::{}`", name, i);
                             let archive_attrs = field_archive_attrs(f);
                             quote_spanned! { f.span() =>
                                 #[doc = #field_doc]
@@ -425,7 +433,8 @@ fn derive_archive_impl(
                         }
                     }
 
-                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some() {
+                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some()
+                    {
                         let mut copy_safe_where = where_clause.clone();
                         for field in fields
                             .unnamed
@@ -751,12 +760,12 @@ fn derive_archive_impl(
             let archived_def = if attributes.archive_as.is_none() {
                 let archived_variants = data.variants.iter().enumerate().map(|(i, v)| {
                     let variant = &v.ident;
-                    let discriminant = if is_fieldless || cfg!(feature = "arbitrary_enum_discriminant")
-                    {
-                        Some(archived_repr.enum_discriminant(i))
-                    } else {
-                        None
-                    };
+                    let discriminant =
+                        if is_fieldless || cfg!(feature = "arbitrary_enum_discriminant") {
+                            Some(archived_repr.enum_discriminant(i))
+                        } else {
+                            None
+                        };
                     match v.fields {
                         Fields::Named(ref fields) => {
                             let fields = fields.named.iter().map(|f| {

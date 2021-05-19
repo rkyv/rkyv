@@ -89,6 +89,7 @@ pub mod std_impl;
 pub mod util;
 #[cfg(feature = "validation")]
 pub mod validation;
+pub mod with;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 extern crate alloc;
@@ -561,7 +562,11 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: Archive
     /// # Safety
     ///
     /// The caller must guarantee that the memory returned is properly deallocated.
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D, alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error>;
+    unsafe fn deserialize_unsized(
+        &self,
+        deserializer: &mut D,
+        alloc: impl FnMut(Layout) -> *mut u8,
+    ) -> Result<*mut (), D::Error>;
 
     /// Deserializes the metadata for the given type.
     fn deserialize_metadata(&self, deserializer: &mut D) -> Result<T::Metadata, D::Error>;
@@ -759,74 +764,3 @@ pub type ArchivedMetadata<T> =
     <<T as ArchiveUnsized>::Archived as ArchivePointee>::ArchivedMetadata;
 /// Alias for the metadata resolver for some [`ArchiveUnsized`] type.
 pub type MetadataResolver<T> = <T as ArchiveUnsized>::MetadataResolver;
-
-/// A transparent wrapper for archived fields.
-///
-/// This is used by the `#[with(...)]` attribute to create transparent serialization wrappers.
-#[repr(transparent)]
-pub struct With<F, W> {
-    _phantom: PhantomData<W>,
-    field: F,
-}
-
-impl<F, W> With<F, W> {
-    /// Casts a `With` reference from a reference to the underlying field.
-    ///
-    /// This is always safe to do because `With` is a transparent wrapper.
-    pub fn cast<'a>(field: &'a F) -> &'a With<F, W> {
-        unsafe { &*(field as *const F).cast() }
-    }
-
-    /// Unwraps a `With` into the underlying field.
-    pub fn into_inner(self) -> F {
-        self.field
-    }
-}
-
-/// A variant of `Archive` that works with `With` wrappers.
-pub trait ArchiveWith<F> {
-    /// The archived type of a `With<F, Self>`.
-    type Archived;
-    /// The resolver of a `With<F, Self>`.
-    type Resolver;
-
-    /// Resolves the archived type using a reference to the field type `F`.
-    fn resolve_with(field: &F, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>);
-}
-
-impl<F, W: ArchiveWith<F>> Archive for With<F, W> {
-    type Archived = W::Archived;
-    type Resolver = W::Resolver;
-
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        let as_with = unsafe { &mut *out.as_mut_ptr().cast() };
-        W::resolve_with(&self.field, pos, resolver, as_with);
-    }
-}
-
-/// A variant of `Serialize` that works with `With` wrappers.
-pub trait SerializeWith<F, S: Fallible + ?Sized>: ArchiveWith<F> {
-    /// Serializes the field type `F` using the given serializer.
-    fn serialize_with(field: &F, serializer: &mut S) -> Result<Self::Resolver, S::Error>;
-}
-
-impl<F, W: SerializeWith<F, S>, S: Fallible + ?Sized> Serialize<S> for With<F, W> {
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        W::serialize_with(&self.field, serializer)
-    }
-}
-
-/// A variant of `Deserialize` that works with `With` wrappers.
-pub trait DeserializeWith<F, T, D: Fallible + ?Sized> {
-    /// Deserializes the field type `F` using the given deserializer.
-    fn deserialize_with(field: &F, deserializer: &mut D) -> Result<T, D::Error>;
-}
-
-impl<F, W: DeserializeWith<F, T, D>, T, D: Fallible + ?Sized> Deserialize<With<T, W>, D> for F {
-    fn deserialize(&self, deserializer: &mut D) -> Result<With<T, W>, D::Error> {
-        Ok(With {
-            _phantom: PhantomData,
-            field: W::deserialize_with(self, deserializer)?,
-        })
-    }
-}

@@ -19,6 +19,8 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
+#[cfg(feature = "vtable_cache")]
+use core::sync::atomic::AtomicU64;
 use core::{
     alloc::Layout,
     any::Any,
@@ -27,12 +29,8 @@ use core::{
     mem::MaybeUninit,
     ptr,
 };
-#[cfg(feature = "vtable_cache")]
-use core::sync::atomic::AtomicU64;
 use ptr_meta::{DynMetadata, Pointee};
-use rkyv::{
-    from_archived, ser::Serializer, to_archived, Archived, Fallible, Serialize,
-};
+use rkyv::{from_archived, ser::Serializer, to_archived, Archived, Fallible, Serialize};
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
@@ -279,8 +277,7 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
             ptr::addr_of_mut!((*out.as_mut_ptr()).cached_vtable)
                 .write(Archived::<AtomicU64>::from(0u64));
             #[cfg(not(feature = "vtable_cache"))]
-            ptr::addr_of_mut!((*out.as_mut_ptr()).cached_vtable)
-                .write(Archived::<u64>::from(0u64));
+            ptr::addr_of_mut!((*out.as_mut_ptr()).cached_vtable).write(Archived::<u64>::from(0u64));
         }
     }
 

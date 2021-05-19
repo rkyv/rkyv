@@ -2,15 +2,9 @@
 
 use crate::{ArchivedDynMetadata, RegisteredImpl, IMPL_REGISTRY};
 use bytecheck::{CheckBytes, Unreachable};
-use core::{
-    alloc::Layout,
-    any::TypeId,
-    fmt,
-    marker::PhantomData,
-    ptr,
-};
 #[cfg(feature = "vtable_cache")]
 use core::sync::atomic::{AtomicU64, Ordering};
+use core::{alloc::Layout, any::TypeId, fmt, marker::PhantomData, ptr};
 use rkyv::{
     from_archived,
     validation::{ArchiveBoundsContext, ArchiveMemoryContext, SharedArchiveContext},
@@ -273,9 +267,8 @@ impl<T: TypeName + ?Sized, C: ?Sized> CheckBytes<C> for ArchivedDynMetadata<T> {
             let cached_vtable = Archived::<AtomicU64>::check_bytes(cached_vtable_ptr, context)?
                 .load(Ordering::Relaxed);
             #[cfg(not(feature = "vtable_cache"))]
-            let cached_vtable = from_archived!(
-                *Archived::<u64>::check_bytes(cached_vtable_ptr, context)?
-            );
+            let cached_vtable =
+                from_archived!(*Archived::<u64>::check_bytes(cached_vtable_ptr, context)?);
             if cached_vtable == 0 || cached_vtable as usize == impl_data.vtable {
                 Ok(&*value)
             } else {

@@ -7,9 +7,9 @@ pub mod shared;
 pub mod validation;
 
 use crate::{
-    ser::Serializer,
-    Archive, ArchivedMetadata, ArchivePointee, ArchiveUnsized, Archived, Deserialize,
-    DeserializeUnsized, Fallible, FixedUsize, MetadataResolver, RelPtr, Serialize, SerializeUnsized,
+    ser::Serializer, Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
+    Deserialize, DeserializeUnsized, Fallible, FixedUsize, MetadataResolver, RelPtr, Serialize,
+    SerializeUnsized,
 };
 use core::{
     alloc::Layout,
@@ -36,7 +36,8 @@ impl ArchiveUnsized for CStr {
         out: &mut MaybeUninit<ArchivedMetadata<Self>>,
     ) {
         unsafe {
-            out.as_mut_ptr().write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
+            out.as_mut_ptr()
+                .write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
         }
     }
 }
@@ -66,7 +67,11 @@ impl<S: Serializer + ?Sized> SerializeUnsized<S> for CStr {
 
 impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for <CStr as ArchiveUnsized>::Archived {
     #[inline]
-    unsafe fn deserialize_unsized(&self, _: &mut D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error> {
+    unsafe fn deserialize_unsized(
+        &self,
+        _: &mut D,
+        mut alloc: impl FnMut(Layout) -> *mut u8,
+    ) -> Result<*mut (), D::Error> {
         let slice = self.to_bytes_with_nul();
         let bytes = alloc(Layout::array::<u8>(slice.len()).unwrap());
         ptr::copy_nonoverlapping(slice.as_ptr(), bytes, slice.len());
@@ -220,7 +225,8 @@ impl Archive for String {
     fn resolve(&self, pos: usize, resolver: StringResolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
         #[allow(clippy::unit_arg)]
-        self.as_str().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        self.as_str()
+            .resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 }
 
@@ -244,7 +250,9 @@ where
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<String, D::Error> {
         unsafe {
-            let data_address = self.as_str().deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
+            let data_address = self
+                .as_str()
+                .deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
             let metadata = self.0.metadata().deserialize(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<str>::from_raw(ptr).into())
@@ -397,7 +405,8 @@ impl Archive for CString {
     fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
         #[allow(clippy::unit_arg)]
-        self.as_c_str().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        self.as_c_str()
+            .resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 }
 
@@ -421,7 +430,9 @@ where
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<CString, D::Error> {
         unsafe {
-            let data_address = self.as_c_str().deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
+            let data_address = self
+                .as_c_str()
+                .deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
             let metadata = self.0.metadata().deserialize(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<CStr>::from_raw(ptr).into())
@@ -504,15 +515,16 @@ impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> Serialize<S> for Box
     }
 }
 
-impl<T: ArchiveUnsized + ?Sized, D: Fallible + ?Sized> Deserialize<Box<T>, D>
-    for Archived<Box<T>>
+impl<T: ArchiveUnsized + ?Sized, D: Fallible + ?Sized> Deserialize<Box<T>, D> for Archived<Box<T>>
 where
     T::Archived: DeserializeUnsized<T, D>,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {
         unsafe {
-            let data_address = self.deref().deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
+            let data_address = self
+                .deref()
+                .deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
             let metadata = self.deref().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::from_raw(ptr))
@@ -603,7 +615,9 @@ where
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Vec<T>, D::Error> {
         unsafe {
-            let data_address = self.as_slice().deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
+            let data_address = self
+                .as_slice()
+                .deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
             let metadata = self.as_slice().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<[T]>::from_raw(ptr).into())
