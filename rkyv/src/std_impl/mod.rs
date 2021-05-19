@@ -109,6 +109,26 @@ impl ArchivedString {
     pub fn str_pin(self: Pin<&mut Self>) -> Pin<&mut str> {
         unsafe { self.map_unchecked_mut(|s| s.as_mut_str()) }
     }
+
+    /// Resolves the archived string from a given `str`.
+    #[inline]
+    pub fn resolve_from_str(value: &str, pos: usize, resolver: StringResolver, out: &mut MaybeUninit<Self>) {
+        let (fp, fo) = out_field!(out.0);
+        #[allow(clippy::unit_arg)]
+        value.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+    }
+
+    /// Serializes the archived string from a given `str`.
+    #[inline]
+    pub fn serialize_from_str<S: Fallible + ?Sized>(value: &str, serializer: &mut S) -> Result<StringResolver, S::Error>
+    where
+        str: SerializeUnsized<S>,
+    {
+        Ok(StringResolver {
+            pos: value.serialize_unsized(serializer)?,
+            metadata_resolver: value.serialize_metadata(serializer)?,
+        })
+    }
 }
 
 impl cmp::Eq for ArchivedString {}
@@ -223,10 +243,7 @@ impl Archive for String {
 
     #[inline]
     fn resolve(&self, pos: usize, resolver: StringResolver, out: &mut MaybeUninit<Self::Archived>) {
-        let (fp, fo) = out_field!(out.0);
-        #[allow(clippy::unit_arg)]
-        self.as_str()
-            .resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        ArchivedString::resolve_from_str(self.as_str(), pos, resolver, out);
     }
 }
 
@@ -236,10 +253,7 @@ where
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(StringResolver {
-            pos: self.as_str().serialize_unsized(serializer)?,
-            metadata_resolver: self.as_str().serialize_metadata(serializer)?,
-        })
+        ArchivedString::serialize_from_str(self.as_str(), serializer)
     }
 }
 

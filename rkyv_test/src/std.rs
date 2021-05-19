@@ -1417,4 +1417,60 @@ mod tests {
 
         assert_eq!(*deserialized.value.read().unwrap(), 10);
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn os_string() {
+        use rkyv::with::ToString;
+        use core::str::FromStr;
+        use std::ffi::OsString;
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct Test {
+            #[with(ToString)]
+            value: OsString,
+        }
+
+        let value = Test {
+            value: OsString::from_str("hello world").unwrap(),
+        };
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_inner();
+        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+        assert_eq!(archived.value, "hello world");
+
+        let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
+
+        assert_eq!(deserialized.value, "hello world");
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn path_buf() {
+        use rkyv::with::ToString;
+        use core::str::FromStr;
+        use std::path::PathBuf;
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct Test {
+            #[with(ToString)]
+            value: PathBuf,
+        }
+
+        let value = Test {
+            value: PathBuf::from_str("hello world").unwrap(),
+        };
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_inner();
+        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+        assert_eq!(archived.value, "hello world");
+
+        let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
+
+        assert_eq!(deserialized.value.to_str().unwrap(), "hello world");
+    }
 }
