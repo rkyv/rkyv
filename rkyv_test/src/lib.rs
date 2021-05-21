@@ -182,16 +182,11 @@ mod no_std_tests {
 mod tests {
     use crate::util::*;
     use core::pin::Pin;
-    use rkyv::{
-        archived_root, archived_root_mut,
-        de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer, Deserializer},
-        ser::{
+    use rkyv::{AlignedVec, Archive, Archived, Deserialize, Serialize, archived_root, archived_root_mut, de::{adapters::SharedDeserializerAdapter, deserializers::AllocDeserializer, Deserializer}, ser::{
             adapters::SharedSerializerAdapter,
             serializers::{AlignedSerializer, BufferSerializer},
             SeekSerializer, Serializer,
-        },
-        AlignedVec, Archive, Archived, Deserialize, Serialize,
-    };
+        }, std_impl::{ArchivedString, chd::VecForHashMap}};
 
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
@@ -296,6 +291,26 @@ mod tests {
 
         assert!(archived_value.len() == hash_map.len());
 
+        for (key, value) in hash_map.iter() {
+            assert!(archived_value.contains_key(key.as_str()));
+            assert!(archived_value[key.as_str()].eq(value));
+        }
+
+        for (key, value) in archived_value.iter() {
+            assert!(hash_map.contains_key(key.as_str()));
+            assert!(hash_map[key.as_str()].eq(value));
+        }
+
+        let hashmap_vectored = hash_map.iter().map(|(x, y)| (x.to_string(), y.to_string())).collect::<Vec<_>>();
+        let hashmap_vectored: VecForHashMap<ArchivedString, ArchivedString, _, _> = VecForHashMap::new(hashmap_vectored);
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer
+            .serialize_value(&hashmap_vectored)
+            .expect("failed to archive value");
+        let buf = serializer.into_inner();
+        let archived_value = unsafe { archived_root::<HashMap<String, String>>(buf.as_ref()) };
+
+        assert!(archived_value.len() == hash_map.len());
         for (key, value) in hash_map.iter() {
             assert!(archived_value.contains_key(key.as_str()));
             assert!(archived_value[key.as_str()].eq(value));
