@@ -29,6 +29,8 @@ use core::{
     mem::MaybeUninit,
     ptr,
 };
+#[cfg(feature = "vtable_cache")]
+use core::sync::atomic::{AtomicU64, Ordering};
 use ptr_meta::{DynMetadata, Pointee};
 use rkyv::{from_archived, ser::Serializer, to_archived, Archived, Fallible, Serialize};
 pub use rkyv_dyn_derive::archive_dyn;
@@ -292,8 +294,6 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     /// store the address locally on the first lookup.
     #[cfg(feature = "vtable_cache")]
     pub fn vtable(&self) -> usize {
-        use core::sync::atomic::Ordering;
-
         let cached_vtable = self.cached_vtable.load(Ordering::Relaxed);
         if likely(cached_vtable != 0) {
             return cached_vtable as usize;
