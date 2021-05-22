@@ -243,7 +243,7 @@ impl<K, V> ArchivedHashMap<K, V> {
         }
     }
 
-    pub fn serialize_from_iter<
+    pub(crate) fn serialize_from_iter<
         'a,
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
         VU: 'a + Serialize<S, Archived = V>,
