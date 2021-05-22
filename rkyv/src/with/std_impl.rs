@@ -202,6 +202,29 @@ impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, PathBuf, D> for ToStr
 /// library. Therefore, constructing `HashMap` and converting it to `ArchivedHashMap` will create
 /// unnecessary hashes that will never be used. By labeling a vector `AsHashMap`, you can use its
 /// archived version just like `ArchivedHashMap` without having costy `HashMap` creations.
+///
+/// Example:
+///
+/// ```rust
+/// # use rkyv::{AlignedVec, Deserialize, Infallible, archived_root, ser::{Serializer, serializers::AlignedSerializer}};
+/// #[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Debug, PartialEq, Eq)]
+/// struct StructWithHashMap {
+///     #[with(rkyv::with::AsHashMap)]
+///     pub hash_map: Vec<(u32, String)>,
+/// }
+/// let mut serializer = AlignedSerializer::new(AlignedVec::new());
+/// let original = StructWithHashMap {
+///     hash_map: vec![(1, String::from("a")), (2, String::from("b"))]
+/// };
+/// serializer.serialize_value(&original).unwrap();
+/// let buffer = serializer.into_inner();
+/// let output = unsafe {
+///     archived_root::<StructWithHashMap>(&buffer)
+/// };
+/// assert_eq!(output.hash_map.get(&1).unwrap(), &"a");
+/// let deserialized: StructWithHashMap = output.deserialize(&mut Infallible).unwrap();
+/// assert_eq!(deserialized, original);
+/// ```
 pub struct AsHashMap;
 impl<K: Archive, V: Archive> ArchiveWith<Vec<(K, V)>> for AsHashMap {
     type Archived = ArchivedHashMap<K::Archived, V::Archived>;
