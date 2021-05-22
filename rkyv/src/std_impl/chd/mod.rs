@@ -248,7 +248,7 @@ impl<K: Hash + Eq, V> ArchivedHashMap<K, V> {
         }
     }
 
-    fn serialize_from_iter<
+    pub fn serialize_from_iter<
         'a,
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
         VU: 'a + Serialize<S, Archived = V>,
