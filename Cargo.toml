@@ -9,4 +9,3 @@ members = [
     "rkyv_typename",
     "rkyv_typename_derive",
 ]
-
