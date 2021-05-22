@@ -577,7 +577,7 @@ pub struct ArchivedHashMapResolver {
 
 impl ArchivedHashMapResolver {
     #[inline]
-    fn resolve_from_len<K, V>(
+    pub(crate) fn resolve_from_len<K, V>(
         self,
         pos: usize,
         len: usize,

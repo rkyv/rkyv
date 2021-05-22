@@ -1,6 +1,6 @@
-use crate::{Archive, Deserialize, Fallible, Serialize, SerializeUnsized, std_impl::{ArchivedString, StringResolver}, with::{ArchiveWith, DeserializeWith, Immutable, SerializeWith}};
+use crate::{Archive, Deserialize, Fallible, Serialize, SerializeUnsized, std_impl::{ArchivedString, StringResolver, chd::{ArchivedHashMap, ArchivedHashMapResolver}}, with::{ArchiveWith, DeserializeWith, Immutable, SerializeWith}};
 use core::{fmt, mem::MaybeUninit, str::FromStr};
-use std::{ffi::OsString, path::PathBuf, sync::{Mutex, RwLock}};
+use std::{ffi::OsString, hash::Hash, path::PathBuf, sync::{Mutex, RwLock}};
 
 /// A wrapper that locks a lock and serializes the value immutably.
 ///
@@ -193,5 +193,33 @@ impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, PathBuf, D> for ToStr
     #[inline]
     fn deserialize_with(field: &ArchivedString, _: &mut D) -> Result<PathBuf, D::Error> {
         Ok(PathBuf::from_str(field.as_str()).unwrap())
+    }
+}
+
+/// A wrapper that attempts to convert a vector to and from `ArchivedHashMap`
+///
+/// rkyv's `ArchivedHashMap` uses a fairly different implementation than `HashMap` in the standard
+/// library. Therefore, constructing `HashMap` and converting it to `ArchivedHashMap` will create
+/// unnecessary hashes that will never be used. By labeling a vector `AsHashMap`, you can use its
+/// archived version just like `ArchivedHashMap` without having costy `HashMap` creations.
+pub struct AsHashMap;
+impl<K: Archive, V: Archive> ArchiveWith<Vec<(K, V)>> for AsHashMap {
+    type Archived = ArchivedHashMap<K::Archived, V::Archived>;
+    type Resolver = ArchivedHashMapResolver;
+    #[inline]
+    fn resolve_with(field: &Vec<(K,V)>, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        resolver.resolve_from_len(pos, field.len(), out);
+    }
+}
+impl<K: Archive + Serialize<S> + Hash + Eq, V: Archive + Serialize<S>, S: crate::ser::Serializer + Fallible + ?Sized> SerializeWith<Vec<(K, V)>, S> for AsHashMap {
+    #[inline]
+    fn serialize_with(field: &Vec<(K, V)>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        ArchivedHashMap::serialize_from_iter(field.iter().map(|(x, y)| (x, y)), field.len(), serializer)
+    }
+}
+impl<K: Archive, V: Archive, D: Fallible + ?Sized> DeserializeWith<ArchivedHashMap<K::Archived, V::Archived>, Vec<(K, V)>, D> for AsHashMap where K::Archived: Deserialize<K, D>, V::Archived: Deserialize<V, D> {
+    #[inline]
+    fn deserialize_with(field: &ArchivedHashMap<K::Archived, V::Archived>, deserializer: &mut D) -> Result<Vec<(K, V)>, D::Error> {
+        field.iter().map(|(k, v)| Ok((k.deserialize(deserializer)?, v.deserialize(deserializer)?))).collect()
     }
 }
