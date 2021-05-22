@@ -21,7 +21,7 @@ use core::{
     pin::Pin,
     slice,
 };
-use std::collections::{HashMap, HashSet};
+use std::{collections::{HashMap, HashSet}, hash::BuildHasher};
 
 #[cfg_attr(feature = "strict", repr(C))]
 struct Entry<K, V> {
@@ -606,7 +606,7 @@ impl ArchivedHashMapResolver {
     }
 }
 
-impl<K: Archive + Hash + Eq, V: Archive> Archive for HashMap<K, V>
+impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>
 where
     K::Archived: Hash + Eq,
 {
@@ -619,8 +619,8 @@ where
     }
 }
 
-impl<K: Serialize<S> + Hash + Eq, V: Serialize<S>, S: Serializer + ?Sized> Serialize<S>
-    for HashMap<K, V>
+impl<K: Serialize<S> + Hash + Eq, V: Serialize<S>, S: Serializer + ?Sized, RandomState> Serialize<S>
+    for HashMap<K, V, RandomState>
 where
     K::Archived: Hash + Eq,
 {
@@ -630,15 +630,15 @@ where
     }
 }
 
-impl<K: Archive + Hash + Eq, V: Archive, D: Fallible + ?Sized> Deserialize<HashMap<K, V>, D>
+impl<K: Archive + Hash + Eq, V: Archive, D: Fallible + ?Sized, S: Default + BuildHasher> Deserialize<HashMap<K, V, S>, D>
     for Archived<HashMap<K, V>>
 where
     K::Archived: Deserialize<K, D> + Hash + Eq,
     V::Archived: Deserialize<V, D>,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<HashMap<K, V>, D::Error> {
-        let mut result = HashMap::with_capacity(self.len());
+    fn deserialize(&self, deserializer: &mut D) -> Result<HashMap<K, V, S>, D::Error> {
+        let mut result = HashMap::with_capacity_and_hasher(self.len(), S::default());
         for (k, v) in self.iter() {
             result.insert(k.deserialize(deserializer)?, v.deserialize(deserializer)?);
         }
@@ -660,11 +660,11 @@ impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
 
 impl<K: Hash + Eq, V: Eq> Eq for ArchivedHashMap<K, V> {}
 
-impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>> PartialEq<HashMap<K, V>>
+impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>, S: BuildHasher> PartialEq<HashMap<K, V, S>>
     for ArchivedHashMap<AK, AV>
 {
     #[inline]
-    fn eq(&self, other: &HashMap<K, V>) -> bool {
+    fn eq(&self, other: &HashMap<K, V, S>) -> bool {
         if self.len() != other.len() {
             false
         } else {

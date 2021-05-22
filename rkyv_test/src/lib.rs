@@ -309,6 +309,47 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    #[allow(deprecated)]
+    fn archive_hash_map_hasher() {
+        use std::collections::HashMap;
+
+        test_archive(&HashMap::<i32, i32, ahash::RandomState>::default());
+
+        let mut hash_map: HashMap<_, _, ahash::RandomState> = HashMap::default();
+        hash_map.insert(1, 2);
+        hash_map.insert(3, 4);
+        hash_map.insert(5, 6);
+        hash_map.insert(7, 8);
+
+        test_archive(&hash_map);
+
+        let mut hash_map: HashMap<_, _, ahash::RandomState> = HashMap::default();
+        hash_map.insert("hello".to_string(), "world".to_string());
+        hash_map.insert("foo".to_string(), "bar".to_string());
+        hash_map.insert("baz".to_string(), "bat".to_string());
+
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer
+            .serialize_value(&hash_map)
+            .expect("failed to archive value");
+        let buf = serializer.into_inner();
+        let archived_value = unsafe { archived_root::<HashMap<String, String, ahash::RandomState>>(buf.as_ref()) };
+
+        assert!(archived_value.len() == hash_map.len());
+
+        for (key, value) in hash_map.iter() {
+            assert!(archived_value.contains_key(key.as_str()));
+            assert!(archived_value[key.as_str()].eq(value));
+        }
+
+        for (key, value) in archived_value.iter() {
+            assert!(hash_map.contains_key(key.as_str()));
+            assert!(hash_map[key.as_str()].eq(value));
+        }
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_unit_struct() {
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
         #[archive(compare(PartialEq))]
