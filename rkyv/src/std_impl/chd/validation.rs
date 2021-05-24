@@ -2,7 +2,7 @@
 
 use crate::{
     offset_of,
-    std_impl::chd::{ArchivedHashMap, ArchivedHashSet, Entry},
+    std_impl::chd::{ArchivedHashMap, Entry},
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
     Fallible, RawRelPtr,
 };
@@ -214,24 +214,5 @@ where
         }
 
         Ok(&*bytes.cast())
-    }
-}
-
-impl<
-        K: CheckBytes<C> + Hash + Eq,
-        C: ArchiveBoundsContext + ArchiveMemoryContext + Fallible + ?Sized,
-    > CheckBytes<C> for ArchivedHashSet<K>
-where
-    C::Error: Error,
-{
-    type Error = HashMapError<K::Error, <() as CheckBytes<C>>::Error, C::Error>;
-
-    #[inline]
-    unsafe fn check_bytes<'a>(
-        value: *const Self,
-        context: &mut C,
-    ) -> Result<&'a Self, Self::Error> {
-        ArchivedHashMap::<K, ()>::check_bytes(value.cast(), context)?;
-        Ok(&*value)
     }
 }

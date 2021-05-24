@@ -4,11 +4,7 @@ use core::{
     ptr::NonNull,
     slice,
 };
-use std::{
-    alloc,
-    borrow::{Borrow, BorrowMut},
-    io,
-};
+use std::{alloc, borrow::{Borrow, BorrowMut}, io, panic::{RefUnwindSafe, UnwindSafe}};
 
 /// A vector of bytes that aligns its memory to 16 bytes.
 pub struct AlignedVec {
@@ -676,3 +672,13 @@ impl io::Write for AlignedVec {
         Ok(())
     }
 }
+
+impl RefUnwindSafe for AlignedVec {}
+
+unsafe impl Send for AlignedVec {}
+
+unsafe impl Sync for AlignedVec {}
+
+impl Unpin for AlignedVec {}
+
+impl UnwindSafe for AlignedVec {}

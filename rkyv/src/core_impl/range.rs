@@ -33,6 +33,7 @@ impl<D: Fallible + ?Sized> Deserialize<RangeFull, D> for RangeFull {
 
 /// An archived [`Range`].
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedRange<T> {
     /// The lower bound of the range (inclusive).
@@ -128,6 +129,7 @@ where
 
 /// An archived [`RangeInclusive`].
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedRangeInclusive<T> {
     /// The lower bound of the range (inclusive).
