@@ -4,7 +4,12 @@ use core::{
     ptr::NonNull,
     slice,
 };
-use std::{alloc, borrow::{Borrow, BorrowMut}, io, panic::{RefUnwindSafe, UnwindSafe}};
+use std::{
+    alloc,
+    borrow::{Borrow, BorrowMut},
+    io,
+    panic::{RefUnwindSafe, UnwindSafe},
+};
 
 /// A vector of bytes that aligns its memory to 16 bytes.
 pub struct AlignedVec {

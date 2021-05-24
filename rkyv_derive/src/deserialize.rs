@@ -2,8 +2,8 @@ use crate::attributes::{parse_attributes, Attributes};
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{
-    parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Error, Fields, Ident,
-    Index, Token, WherePredicate, Generics,
+    parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Error, Fields,
+    Generics, Ident, Index, Token, WherePredicate,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {

@@ -74,7 +74,11 @@ fn derive_archive_impl(
                         let field_name = f.ident.as_ref();
                         let ty = &f.ty;
                         let vis = &f.vis;
-                        let field_doc = format!("The archived counterpart of `{}::{}`", name, field_name.unwrap());
+                        let field_doc = format!(
+                            "The archived counterpart of `{}::{}`",
+                            name,
+                            field_name.unwrap()
+                        );
                         quote_spanned! { f.span() =>
                             #[doc = #field_doc]
                             #vis #field_name: rkyv::Archived<#ty>
