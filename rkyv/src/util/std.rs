@@ -8,6 +8,7 @@ use std::{
     alloc,
     borrow::{Borrow, BorrowMut},
     io,
+    panic::{RefUnwindSafe, UnwindSafe},
 };
 
 /// A vector of bytes that aligns its memory to 16 bytes.
@@ -676,3 +677,13 @@ impl io::Write for AlignedVec {
         Ok(())
     }
 }
+
+impl RefUnwindSafe for AlignedVec {}
+
+unsafe impl Send for AlignedVec {}
+
+unsafe impl Sync for AlignedVec {}
+
+impl Unpin for AlignedVec {}
+
+impl UnwindSafe for AlignedVec {}

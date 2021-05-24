@@ -29,8 +29,6 @@ use core::{
     mem::MaybeUninit,
     ptr,
 };
-#[cfg(feature = "vtable_cache")]
-use core::sync::atomic::{AtomicU64, Ordering};
 use ptr_meta::{DynMetadata, Pointee};
 use rkyv::{from_archived, ser::Serializer, to_archived, Archived, Fallible, Serialize};
 pub use rkyv_dyn_derive::archive_dyn;

@@ -21,7 +21,10 @@ use core::{
     pin::Pin,
     ptr, slice,
 };
-use std::{collections::{HashMap, HashSet}, hash::BuildHasher};
+use std::{
+    collections::{HashMap, HashSet},
+    hash::BuildHasher,
+};
 
 #[cfg_attr(feature = "strict", repr(C))]
 struct Entry<K, V> {
@@ -619,8 +622,8 @@ where
     }
 }
 
-impl<K: Archive + Hash + Eq, V: Archive, D: Fallible + ?Sized, S: Default + BuildHasher> Deserialize<HashMap<K, V, S>, D>
-    for Archived<HashMap<K, V>>
+impl<K: Archive + Hash + Eq, V: Archive, D: Fallible + ?Sized, S: Default + BuildHasher>
+    Deserialize<HashMap<K, V, S>, D> for Archived<HashMap<K, V>>
 where
     K::Archived: Deserialize<K, D> + Hash + Eq,
     V::Archived: Deserialize<V, D>,
@@ -649,8 +652,8 @@ impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
 
 impl<K: Hash + Eq, V: Eq> Eq for ArchivedHashMap<K, V> {}
 
-impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>, S: BuildHasher> PartialEq<HashMap<K, V, S>>
-    for ArchivedHashMap<AK, AV>
+impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>, S: BuildHasher>
+    PartialEq<HashMap<K, V, S>> for ArchivedHashMap<AK, AV>
 {
     #[inline]
     fn eq(&self, other: &HashMap<K, V, S>) -> bool {
