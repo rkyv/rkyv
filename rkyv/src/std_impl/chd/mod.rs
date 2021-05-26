@@ -580,7 +580,7 @@ pub struct ArchivedHashMapResolver {
 
 impl ArchivedHashMapResolver {
     #[inline]
-    fn resolve_from_len<K, V>(
+    pub fn resolve_from_len<K, V>(
         self,
         pos: usize,
         len: usize,
