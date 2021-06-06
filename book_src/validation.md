@@ -5,7 +5,7 @@ Validation can be enabled with the `validation` feature. Validation leverages th
 consumption of untrusted and malicious data.
 
 To validate an archive, use
-[`check_archive`](https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archive.html). Examples of
+[`check_archived_root`](https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archived_root.html). Examples of
 how to enable and perform validation can be found in the `rkyv_test` crate's `validation` module.
 
 ## Validation and Shared Pointers
