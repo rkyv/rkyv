@@ -1,6 +1,7 @@
 #[cfg(feature = "std")]
 mod std_impl;
 
+#[cfg(feature = "std")]
 pub use std_impl::*;
 
 use crate::{Archive, Deserialize, Fallible, Serialize};

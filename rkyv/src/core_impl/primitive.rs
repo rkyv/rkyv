@@ -16,9 +16,6 @@ use core::{
         NonZeroU32, NonZeroU64, NonZeroU8,
     },
 };
-use std::usize;
-
-pub use ::rend::NativeEndian;
 
 macro_rules! impl_primitive {
     (@serialize $type:ty) => {
