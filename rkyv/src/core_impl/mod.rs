@@ -5,6 +5,10 @@ use crate::{
     ArchivePointee, ArchiveUnsized, Archived, ArchivedIsize, ArchivedMetadata, ArchivedUsize,
     Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
 };
+
+#[cfg(all(not(feature = "std"), feature = "specialization"))]
+use ::alloc::vec::Vec;
+
 #[cfg(rkyv_atomic)]
 use core::sync::atomic::{
     self, AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicU16, AtomicU32, AtomicU8,
