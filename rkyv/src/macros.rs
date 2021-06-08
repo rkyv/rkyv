@@ -1,4 +1,4 @@
-#[cfg(all(feature = "std", feature = "specialization"))]
+#[cfg(feature = "specialization")]
 macro_rules! default {
     ($($fn:tt)*) => { default $($fn)* };
 }
