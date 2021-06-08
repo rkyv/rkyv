@@ -66,6 +66,9 @@
 #![cfg_attr(feature = "specialization", feature(min_specialization))]
 #![cfg_attr(feature = "specialization", feature(rustc_attrs))]
 
+#[cfg(all(not(feature = "std"), feature = "specialization"))]
+extern crate alloc;
+
 #[doc(hidden)]
 #[macro_use]
 pub mod macros;
