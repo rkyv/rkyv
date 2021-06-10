@@ -36,7 +36,8 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
     type Archived = Entry<K::Archived, V::Archived>;
     type Resolver = (K::Resolver, V::Resolver);
 
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    #[inline]
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.key);
         self.key.resolve(pos + fp, resolver.0, fo);
 
@@ -246,7 +247,13 @@ impl<K, V> ArchivedHashMap<K, V> {
         }
     }
 
-    pub fn serialize_from_iter<
+    /// Serializes an iterator of key-value pairs as a hash map.
+    ///
+    /// # Safety
+    ///
+    /// - Keys returned by the iterator must be unique
+    /// - `len` must be the number of elements yielded by `iter`
+    pub unsafe fn serialize_from_iter<
         'a,
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
         VU: 'a + Serialize<S, Archived = V>,
@@ -331,28 +338,47 @@ impl<K, V> ArchivedHashMap<K, V> {
 
         // Write blocks
         let displace_pos = serializer.align_for::<u32>()?;
-        let displacements_slice = unsafe {
-            slice::from_raw_parts(
-                displacements.as_ptr().cast::<u8>(),
-                displacements.len() * size_of::<u32>(),
-            )
-        };
+        let displacements_slice = slice::from_raw_parts(
+            displacements.as_ptr().cast::<u8>(),
+            displacements.len() * size_of::<u32>(),
+        );
         serializer.write(displacements_slice)?;
 
         let entries_pos = serializer.align_for::<Entry<K, V>>()?;
         for ((key, value), (key_resolver, value_resolver)) in
             entries.iter().map(|r| r.unwrap()).zip(resolvers.drain(..))
         {
-            unsafe {
-                serializer
-                    .resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
-            }
+            serializer
+                .resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
         }
 
         Ok(ArchivedHashMapResolver {
             displace_pos,
             entries_pos,
         })
+    }
+
+    /// Resolves the archived hash map from a given `len`.
+    ///
+    /// # Safety
+    ///
+    /// - `len` must be the number of elements that were serialized
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must be the result of serializing a hash map
+    #[inline]
+    pub unsafe fn resolve_from_len(
+        len: usize,
+        pos: usize,
+        resolver: ArchivedHashMapResolver,
+        out: &mut MaybeUninit<Self>,
+    ) {
+        ptr::addr_of_mut!((*out.as_mut_ptr()).len).write(to_archived!(len as FixedUsize));
+
+        let (fp, fo) = out_field!(out.displace);
+        RawRelPtr::emplace(pos + fp, resolver.displace_pos, fo);
+
+        let (fp, fo) = out_field!(out.entries);
+        RawRelPtr::emplace(pos + fp, resolver.entries_pos, fo);
     }
 }
 
@@ -578,26 +604,6 @@ pub struct ArchivedHashMapResolver {
     entries_pos: usize,
 }
 
-impl ArchivedHashMapResolver {
-    #[inline]
-    pub fn resolve_from_len<K, V>(
-        self,
-        pos: usize,
-        len: usize,
-        out: &mut MaybeUninit<ArchivedHashMap<K, V>>,
-    ) {
-        unsafe {
-            ptr::addr_of_mut!((*out.as_mut_ptr()).len).write(to_archived!(len as FixedUsize));
-        }
-
-        let (fp, fo) = out_field!(out.displace);
-        RawRelPtr::emplace(pos + fp, self.displace_pos, fo);
-
-        let (fp, fo) = out_field!(out.entries);
-        RawRelPtr::emplace(pos + fp, self.entries_pos, fo);
-    }
-}
-
 impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>
 where
     K::Archived: Hash + Eq,
@@ -606,8 +612,8 @@ where
     type Resolver = ArchivedHashMapResolver;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        resolver.resolve_from_len(pos, self.len(), out);
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        ArchivedHashMap::resolve_from_len(self.len(), pos, resolver, out);
     }
 }
 
@@ -618,7 +624,9 @@ where
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        ArchivedHashMap::serialize_from_iter(self.iter(), self.len(), serializer)
+        unsafe {
+            ArchivedHashMap::serialize_from_iter(self.iter(), self.len(), serializer)
+        }
     }
 }
 
@@ -747,9 +755,9 @@ where
     type Resolver = ArchivedHashSetResolver;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
-        resolver.0.resolve_from_len(pos + fp, self.len(), fo);
+        ArchivedHashMap::resolve_from_len(self.len(), pos + fp, resolver.0, fo);
     }
 }
 
@@ -759,13 +767,15 @@ where
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(ArchivedHashSetResolver(
-            ArchivedHashMap::serialize_from_iter(
-                self.iter().map(|x| (x, &())),
-                self.len(),
-                serializer,
-            )?,
-        ))
+        unsafe {
+            Ok(ArchivedHashSetResolver(
+                ArchivedHashMap::serialize_from_iter(
+                    self.iter().map(|x| (x, &())),
+                    self.len(),
+                    serializer,
+                )?,
+            ))
+        }
     }
 }
 

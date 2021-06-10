@@ -24,8 +24,7 @@ impl RawRelPtr {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that the given pointer is aligned and points to enough bytes to
-    /// represent a `RawRelPtr`.
+    /// The given pointer must be aligned and point to enough bytes to represent a `RawRelPtr`.
     #[inline]
     pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(
         value: *const RawRelPtr,
@@ -46,8 +45,7 @@ impl<T: ArchivePointee + ?Sized> RelPtr<T> {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that the given pointer is aligned and points to enough bytes to
-    /// represent a `RelPtr<T>`.
+    /// The given pointer must be aligned and point to enough bytes to represent a `RelPtr<T>`.
     #[inline]
     pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(
         value: *const RelPtr<T>,
@@ -104,7 +102,7 @@ pub trait ArchiveBoundsContext: Fallible {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that the base pointer is inside the archive for this context.
+    /// The base pointer must be inside the archive for this context.
     unsafe fn check_rel_ptr(
         &mut self,
         base: *const u8,
@@ -115,7 +113,7 @@ pub trait ArchiveBoundsContext: Fallible {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that the pointer is inside the archive for this context.
+    /// The base pointer must be inside the archive for this context.
     unsafe fn bounds_check_ptr(
         &mut self,
         ptr: *const u8,
@@ -134,14 +132,14 @@ pub trait ArchiveMemoryContext: Fallible {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that `base` is inside the archive this context was created for.
+    /// The base pointer must be inside the archive for this context.
     unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<(), Self::Error>;
 
     /// Claims the memory at the given location as the given type.
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that `ptr` is inside the archive this context was created for.
+    /// `ptr` must be inside the archive this context was created for.
     unsafe fn claim_owned_ptr<T: ArchivePointee + ?Sized>(
         &mut self,
         ptr: *const T,
@@ -186,7 +184,7 @@ pub trait SharedArchiveContext: Fallible {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that `base` is inside the archive this context was created for.
+    /// `base` must be inside the archive this context was created for.
     unsafe fn claim_shared_bytes(
         &mut self,
         start: *const u8,

@@ -1272,7 +1272,7 @@ mod tests {
             type Archived = <String as Archive>::Archived;
             type Resolver = <String as Archive>::Resolver;
 
-            fn resolve_with(
+            unsafe fn resolve_with(
                 value: &T,
                 pos: usize,
                 resolver: Self::Resolver,

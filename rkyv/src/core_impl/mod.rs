@@ -32,7 +32,7 @@ impl<T: Archive> ArchiveUnsized for T {
     type MetadataResolver = ();
 
     #[inline]
-    fn resolve_metadata(
+    unsafe fn resolve_metadata(
         &self,
         _: usize,
         _: Self::MetadataResolver,
@@ -89,7 +89,7 @@ macro_rules! impl_tuple {
             type Resolver = ($($type::Resolver,)+);
 
             #[inline]
-            fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+            unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
                 $(
                     let (fp, fo) = out_field!(out.$index);
                     #[allow(clippy::unneeded_wildcard_pattern)]
@@ -129,18 +129,16 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     type Resolver = [T::Resolver; N];
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let mut resolvers = core::mem::MaybeUninit::new(resolver);
         let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
         let out_ptr = out.as_mut_ptr().cast::<MaybeUninit<T::Archived>>();
         for (i, value) in self.iter().enumerate() {
-            unsafe {
-                value.resolve(
-                    pos + i * core::mem::size_of::<T::Archived>(),
-                    resolvers_ptr.add(i).read(),
-                    &mut *out_ptr.add(i),
-                );
-            }
+            value.resolve(
+                pos + i * core::mem::size_of::<T::Archived>(),
+                resolvers_ptr.add(i).read(),
+                &mut *out_ptr.add(i),
+            );
         }
     }
 }
@@ -182,16 +180,14 @@ impl<T: Archive> ArchiveUnsized for [T] {
     type MetadataResolver = ();
 
     #[inline]
-    fn resolve_metadata(
+    unsafe fn resolve_metadata(
         &self,
         _: usize,
         _: Self::MetadataResolver,
         out: &mut MaybeUninit<ArchivedMetadata<Self>>,
     ) {
-        unsafe {
-            out.as_mut_ptr()
-                .write(to_archived!(ptr_meta::metadata(self) as FixedUsize));
-        }
+        out.as_mut_ptr()
+            .write(to_archived!(ptr_meta::metadata(self) as FixedUsize));
     }
 }
 
@@ -376,16 +372,14 @@ impl ArchiveUnsized for str {
     type MetadataResolver = ();
 
     #[inline]
-    fn resolve_metadata(
+    unsafe fn resolve_metadata(
         &self,
         _: usize,
         _: Self::MetadataResolver,
         out: &mut MaybeUninit<ArchivedMetadata<Self>>,
     ) {
-        unsafe {
-            out.as_mut_ptr()
-                .write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
-        }
+        out.as_mut_ptr()
+            .write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
     }
 }
 
@@ -519,24 +513,22 @@ impl<T: Archive> Archive for Option<T> {
     type Resolver = Option<T::Resolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        unsafe {
-            match resolver {
-                None => {
-                    let out = &mut *out
-                        .as_mut_ptr()
-                        .cast::<MaybeUninit<ArchivedOptionVariantNone>>();
-                    ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedOptionTag::None);
-                }
-                Some(resolver) => {
-                    let out = &mut *out
-                        .as_mut_ptr()
-                        .cast::<MaybeUninit<ArchivedOptionVariantSome<T::Archived>>>();
-                    ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedOptionTag::Some);
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        match resolver {
+            None => {
+                let out = &mut *out
+                    .as_mut_ptr()
+                    .cast::<MaybeUninit<ArchivedOptionVariantNone>>();
+                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedOptionTag::None);
+            }
+            Some(resolver) => {
+                let out = &mut *out
+                    .as_mut_ptr()
+                    .cast::<MaybeUninit<ArchivedOptionVariantSome<T::Archived>>>();
+                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedOptionTag::Some);
 
-                    let (fp, fo) = out_field!(out.1);
-                    self.as_ref().unwrap().resolve(pos + fp, resolver, fo);
-                }
+                let (fp, fo) = out_field!(out.1);
+                self.as_ref().unwrap().resolve(pos + fp, resolver, fo);
             }
         }
     }

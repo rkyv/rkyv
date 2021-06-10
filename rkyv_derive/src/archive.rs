@@ -290,7 +290,7 @@ fn derive_archive_impl(
 
                                 #[allow(clippy::unit_arg)]
                                 #[inline]
-                                fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                                unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
                                     #(#resolve_fields)*
                                 }
                             }
@@ -469,7 +469,7 @@ fn derive_archive_impl(
 
                                 #[allow(clippy::unit_arg)]
                                 #[inline]
-                                fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                                unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
                                     #(#resolve_fields)*
                                 }
                             }
@@ -560,7 +560,7 @@ fn derive_archive_impl(
                                 type Resolver = #resolver #ty_generics;
 
                                 #[inline]
-                                fn resolve(&self, _: usize, _: Self::Resolver, _: &mut MaybeUninit<Self::Archived>) {}
+                                unsafe fn resolve(&self, _: usize, _: Self::Resolver, _: &mut MaybeUninit<Self::Archived>) {}
                             }
 
                             #partial_eq_impl
@@ -665,12 +665,10 @@ fn derive_archive_impl(
                             #resolver::#variant { #(#resolver_bindings,)* } => {
                                 match self {
                                     #name::#variant { #(#self_bindings,)* } => {
-                                        unsafe {
-                                            let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
-                                            ::core::ptr::addr_of_mut!((*out.as_mut_ptr()).__tag)
-                                                .write(ArchivedTag::#variant);
-                                            #(#resolves)*
-                                        }
+                                        let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
+                                        ::core::ptr::addr_of_mut!((*out.as_mut_ptr()).__tag)
+                                            .write(ArchivedTag::#variant);
+                                        #(#resolves)*
                                     },
                                     #[allow(unreachable_patterns)]
                                     _ => panic!("enum resolver variant does not match value variant"),
@@ -701,11 +699,9 @@ fn derive_archive_impl(
                             #resolver::#variant( #(#resolver_bindings,)* ) => {
                                 match self {
                                     #name::#variant(#(#self_bindings,)*) => {
-                                        unsafe {
-                                            let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
-                                            ::core::ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedTag::#variant);
-                                            #(#resolves)*
-                                        }
+                                        let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
+                                        ::core::ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedTag::#variant);
+                                        #(#resolves)*
                                     },
                                     #[allow(unreachable_patterns)]
                                     _ => panic!("enum resolver variant does not match value variant"),
@@ -715,9 +711,7 @@ fn derive_archive_impl(
                     }
                     Fields::Unit => quote_spanned! { name.span() =>
                         #resolver::#variant => {
-                            unsafe {
-                                out.as_mut_ptr().cast::<ArchivedTag>().write(ArchivedTag::#variant);
-                            }
+                            out.as_mut_ptr().cast::<ArchivedTag>().write(ArchivedTag::#variant);
                         }
                     }
                 }
@@ -1177,7 +1171,7 @@ fn derive_archive_impl(
 
                         #[allow(clippy::unit_arg)]
                         #[inline]
-                        fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                        unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
                             match resolver {
                                 #(#resolve_arms,)*
                             }

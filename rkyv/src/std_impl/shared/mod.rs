@@ -43,8 +43,8 @@ impl<T: ArchivePointee + ?Sized> ArchivedRc<T> {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that any other `ArchivedRc` pointers to the same value are not
-    /// dereferenced for the duration of the returned borrow.
+    /// Any other `ArchivedRc` pointers to the same value must not be dereferenced for the duration
+    /// of the returned borrow.
     pub unsafe fn get_pin_unchecked(self: Pin<&mut Self>) -> Pin<&mut T> {
         self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr())
     }
@@ -71,7 +71,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
     type Resolver = RcResolver<T::MetadataResolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
         self.as_ref()
             .resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
@@ -166,15 +166,15 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
     type Resolver = RcWeakResolver<T::MetadataResolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         match resolver {
-            RcWeakResolver::None => unsafe {
+            RcWeakResolver::None => {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedRcWeakVariantNone>>();
                 ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedRcWeakTag::None);
             },
-            RcWeakResolver::Some(resolver) => unsafe {
+            RcWeakResolver::Some(resolver) => {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedRcWeakVariantSome<T::Archived>>>();
@@ -239,8 +239,8 @@ impl<T: ArchivePointee + ?Sized> ArchivedArc<T> {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that any other `ArchivedArc` pointers to the same value are not
-    /// dereferenced for the duration of the returned borrow.
+    /// Any other `ArchivedArc` pointers to the same value must not be dereferenced for the duration
+    /// of the returned borrow.
     #[inline]
     pub unsafe fn get_pin_unchecked(self: Pin<&mut Self>) -> Pin<&mut T> {
         self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr())
@@ -270,7 +270,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     type Resolver = ArcResolver<T::MetadataResolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
         self.as_ref()
             .resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
@@ -364,15 +364,15 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
     type Resolver = ArcWeakResolver<T::MetadataResolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         match resolver {
-            ArcWeakResolver::None => unsafe {
+            ArcWeakResolver::None => {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedArcWeakVariantNone>>();
                 ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedArcWeakTag::None);
             },
-            ArcWeakResolver::Some(resolver) => unsafe {
+            ArcWeakResolver::Some(resolver) => {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedArcWeakVariantSome<T::Archived>>>();

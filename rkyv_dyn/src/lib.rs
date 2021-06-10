@@ -242,7 +242,7 @@ pub trait DeserializeDyn<T: Pointee + ?Sized> {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that the memory returned is properly deallocated.
+    /// The memory returned must be properly deallocated.
     unsafe fn deserialize_dyn(
         &self,
         deserializer: &mut dyn DynDeserializer,

@@ -29,16 +29,14 @@ impl ArchiveUnsized for CStr {
     type MetadataResolver = ();
 
     #[inline]
-    fn resolve_metadata(
+    unsafe fn resolve_metadata(
         &self,
         _: usize,
         _: Self::MetadataResolver,
         out: &mut MaybeUninit<ArchivedMetadata<Self>>,
     ) {
-        unsafe {
-            out.as_mut_ptr()
-                .write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
-        }
+        out.as_mut_ptr()
+            .write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
     }
 }
 
@@ -111,8 +109,13 @@ impl ArchivedString {
     }
 
     /// Resolves the archived string from a given `str`.
+    ///
+    /// # Safety
+    ///
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must be the result of serializing `value`
     #[inline]
-    pub fn resolve_from_str(value: &str, pos: usize, resolver: StringResolver, out: &mut MaybeUninit<Self>) {
+    pub unsafe fn resolve_from_str(value: &str, pos: usize, resolver: StringResolver, out: &mut MaybeUninit<Self>) {
         let (fp, fo) = out_field!(out.0);
         #[allow(clippy::unit_arg)]
         value.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
@@ -242,7 +245,7 @@ impl Archive for String {
     type Resolver = StringResolver;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: StringResolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: StringResolver, out: &mut MaybeUninit<Self::Archived>) {
         ArchivedString::resolve_from_str(self.as_str(), pos, resolver, out);
     }
 }
@@ -416,7 +419,7 @@ impl Archive for CString {
     type Resolver = CStringResolver;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
         #[allow(clippy::unit_arg)]
         self.as_c_str()
@@ -512,7 +515,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     type Resolver = BoxResolver<T::MetadataResolver>;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
         self.as_ref()
             .resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
@@ -602,7 +605,7 @@ impl<T: Archive> Archive for Vec<T> {
     type Resolver = VecResolver;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
         self.as_slice()
             .resolve_unsized(pos + fp, resolver.pos, (), fo);

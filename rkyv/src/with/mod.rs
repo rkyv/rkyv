@@ -40,7 +40,12 @@ pub trait ArchiveWith<F> {
     type Resolver;
 
     /// Resolves the archived type using a reference to the field type `F`.
-    fn resolve_with(
+    ///
+    /// # Safety
+    ///
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must be the result of serializing `field`
+    unsafe fn resolve_with(
         field: &F,
         pos: usize,
         resolver: Self::Resolver,
@@ -53,8 +58,8 @@ impl<F, W: ArchiveWith<F>> Archive for With<F, W> {
     type Resolver = W::Resolver;
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        let as_with = unsafe { &mut *out.as_mut_ptr().cast() };
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        let as_with = &mut *out.as_mut_ptr().cast();
         W::resolve_with(&self.field, pos, resolver, as_with);
     }
 }

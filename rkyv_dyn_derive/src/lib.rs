@@ -385,7 +385,7 @@ pub fn archive_dyn(
                         type Archived = dyn #deserialize_trait<#generic_args>;
                         type MetadataResolver = ();
 
-                        fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver, out: &mut MaybeUninit<ArchivedMetadata<Self>>) {
+                        unsafe fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver, out: &mut MaybeUninit<ArchivedMetadata<Self>>) {
                             ArchivedDynMetadata::emplace(self.archived_type_id(), out);
                         }
                     }

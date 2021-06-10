@@ -244,7 +244,7 @@ impl Fallible for Infallible {
 ///
 ///     // The resolve function consumes the resolver and produces the archived
 ///     // value at the given position.
-///     fn resolve(
+///     unsafe fn resolve(
 ///         &self,
 ///         pos: usize,
 ///         resolver: Self::Resolver,
@@ -306,7 +306,12 @@ pub trait Archive {
     /// is because performing a typed copy will set all of the padding bytes to uninitialized, but
     /// they must remain whatever value they currently have. This is so that uninitialized memory
     /// doesn't get leaked to the final archive.
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>);
+    ///
+    /// # Safety
+    ///
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must be the result of serializing this object
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>);
 }
 
 /// Converts a type to its archived form.
@@ -410,7 +415,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     // Here's where we make the metadata for our pointer.
 ///     // This also gets the position and resolver for the metadata, but we
 ///     // don't need it in this case.
-///     fn resolve_metadata(
+///     unsafe fn resolve_metadata(
 ///         &self,
 ///         _: usize,
 ///         _: Self::MetadataResolver,
@@ -508,7 +513,12 @@ pub trait ArchiveUnsized: Pointee {
     /// is because performing a typed copy will set all of the padding bytes to uninitialized, but
     /// they must remain whatever value they currently have. This is so that uninitialized memory
     /// doesn't get leaked to the final archive.
-    fn resolve_metadata(
+    ///
+    /// # Safety
+    ///
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must be the result of serializing this object's metadata
+    unsafe fn resolve_metadata(
         &self,
         pos: usize,
         resolver: Self::MetadataResolver,
@@ -517,8 +527,19 @@ pub trait ArchiveUnsized: Pointee {
 
     /// Resolves a relative pointer to this value with the given `from` and `to` and writes it to
     /// the given output.
+    ///
+    /// The output should be initialized field-by-field rather than by writing a whole struct. This
+    /// is because performing a typed copy will set all of the padding bytes to uninitialized, but
+    /// they must remain whatever value they currently have. This is so that uninitialized memory
+    /// doesn't get leaked to the final archive.
+    ///
+    /// # Safety
+    ///
+    /// - `from` must be the position of `out` within the archive
+    /// - `to` must be the position of some `Self::Archived` within the archive
+    /// - `resolver` must be the result of serializing this object
     #[inline]
-    fn resolve_unsized(
+    unsafe fn resolve_unsized(
         &self,
         from: usize,
         to: usize,
@@ -561,7 +582,7 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: Archive
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that the memory returned is properly deallocated.
+    /// The memory returned must be properly deallocated.
     unsafe fn deserialize_unsized(
         &self,
         deserializer: &mut D,
@@ -603,18 +624,23 @@ pub struct RawRelPtr {
 impl RawRelPtr {
     /// Emplaces a new relative pointer between the given positions and stores it in the given
     /// output.
+    ///
+    /// # Safety
+    ///
+    /// - `out` must be located at position `from`
+    /// - `to` must be a position within the archive
     #[inline]
-    pub fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
-        unsafe {
-            ptr::addr_of_mut!((*out.as_mut_ptr()).offset)
-                .write(to_archived!((to as isize - from as isize) as FixedIsize));
-        }
+    pub unsafe fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
+        ptr::addr_of_mut!((*out.as_mut_ptr()).offset)
+            .write(to_archived!((to as isize - from as isize) as FixedIsize));
     }
 
     /// Creates a new relative pointer that has an offset of 0.
     #[inline]
     pub fn emplace_null(out: &mut MaybeUninit<Self>) {
-        Self::emplace(0, 0, out);
+        unsafe {
+            Self::emplace(0, 0, out);
+        }
     }
 
     /// Checks whether the relative pointer is null.
@@ -670,31 +696,16 @@ pub struct RelPtr<T: ArchivePointee + ?Sized> {
 }
 
 impl<T: ArchivePointee + ?Sized> RelPtr<T> {
-    /// Creates a new relative pointer from the given raw pointer and metadata.
-    ///
-    /// # Safety
-    ///
-    /// The caller must guarantee that:
-    /// - `raw_ptr` is a valid relative pointer in its final position
-    /// - `raw_ptr` points to a valid value
-    /// - `metadata` is valid metadata for the pointed value.
-    #[inline]
-    pub fn new(raw_ptr: RawRelPtr, metadata: T::ArchivedMetadata) -> Self {
-        Self {
-            raw_ptr,
-            metadata,
-            _phantom: PhantomData,
-        }
-    }
-
     /// Creates a relative pointer from one position to another.
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that `from` is the position of the relative pointer and `to` is
-    /// the position of some valid memory.
+    /// - `from` must be the position of `out` within the archive
+    /// - `to` must be the position of some valid `T`
+    /// - `value` must be the value being serialized
+    /// - `metadata_resolver` must be the result of serializing the metadata of `value`
     #[inline]
-    pub fn resolve_emplace<U: ArchiveUnsized<Archived = T> + ?Sized>(
+    pub unsafe fn resolve_emplace<U: ArchiveUnsized<Archived = T> + ?Sized>(
         from: usize,
         to: usize,
         value: &U,

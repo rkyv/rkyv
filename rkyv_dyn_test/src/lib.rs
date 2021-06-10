@@ -64,7 +64,7 @@ mod tests {
                 type Archived = dyn DeserializeTestTrait;
                 type MetadataResolver = ();
 
-                fn resolve_metadata(
+                unsafe fn resolve_metadata(
                     &self,
                     _: usize,
                     _: Self::MetadataResolver,

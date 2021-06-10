@@ -32,10 +32,8 @@ macro_rules! impl_primitive {
             type Resolver = ();
 
             #[inline]
-            fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-                unsafe {
-                    out.as_mut_ptr().write(*self);
-                }
+            unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                out.as_mut_ptr().write(*self);
             }
         }
 
@@ -62,10 +60,8 @@ macro_rules! impl_primitive {
                 type Resolver = ();
 
                 #[inline]
-                fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-                    unsafe {
-                        out.as_mut_ptr().write(to_archived!(*self as Self));
-                    }
+                unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                    out.as_mut_ptr().write(to_archived!(*self as Self));
                 }
             }
 
@@ -96,11 +92,9 @@ macro_rules! impl_atomic {
             type Resolver = ();
 
             #[inline]
-            fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-                unsafe {
-                    #[allow(clippy::unnecessary_mut_passed)]
-                    (&mut *out.as_mut_ptr()).store(self.load(Ordering::Relaxed), Ordering::Relaxed);
-                }
+            unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                #[allow(clippy::unnecessary_mut_passed)]
+                (&mut *out.as_mut_ptr()).store(self.load(Ordering::Relaxed), Ordering::Relaxed);
             }
         }
 
@@ -126,10 +120,8 @@ macro_rules! impl_atomic {
 
             #[inline]
             #[allow(clippy::unnecessary_mut_passed)]
-            fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-                unsafe {
-                    (&mut *out.as_mut_ptr()).store(self.load(Ordering::Relaxed), Ordering::Relaxed);
-                }
+            unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                (&mut *out.as_mut_ptr()).store(self.load(Ordering::Relaxed), Ordering::Relaxed);
             }
         }
 
@@ -200,7 +192,7 @@ impl<T: ?Sized> Archive for PhantomData<T> {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver, _: &mut MaybeUninit<Self::Archived>) {}
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, _: &mut MaybeUninit<Self::Archived>) {}
 }
 
 impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
@@ -223,7 +215,7 @@ impl Archive for PhantomPinned {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver, _: &mut MaybeUninit<Self::Archived>) {}
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, _: &mut MaybeUninit<Self::Archived>) {}
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for PhantomPinned {
@@ -247,10 +239,8 @@ impl Archive for usize {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        unsafe {
-            out.as_mut_ptr().write(to_archived!(*self as FixedUsize));
-        }
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        out.as_mut_ptr().write(to_archived!(*self as FixedUsize));
     }
 }
 
@@ -275,10 +265,8 @@ impl Archive for isize {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        unsafe {
-            out.as_mut_ptr().write(to_archived!(*self as FixedIsize));
-        }
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        out.as_mut_ptr().write(to_archived!(*self as FixedIsize));
     }
 }
 

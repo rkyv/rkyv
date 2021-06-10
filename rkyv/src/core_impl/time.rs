@@ -103,7 +103,7 @@ impl Archive for Duration {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, pos: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.secs);
         self.as_secs().resolve(pos + fp, (), fo);
         let (fp, fo) = out_field!(out.nanos);

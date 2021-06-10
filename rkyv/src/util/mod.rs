@@ -44,7 +44,7 @@ fn check_alignment<T>(ptr: *const u8) {
 ///
 /// # Safety
 ///
-/// The caller must guarantee that a value is archived at the given position in the byte slice.
+/// A `T::Archived` must be archived at the given position in the byte slice.
 #[inline]
 pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &T::Archived {
     #[cfg(debug_assertions)]
@@ -60,7 +60,7 @@ pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &
 ///
 /// # Safety
 ///
-/// The caller must guarantee that a value is archived at the given position in the byte slice.
+/// A `T::Archived` must be archived at the given position in the byte slice.
 #[inline]
 pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
     bytes: Pin<&mut [u8]>,
@@ -80,7 +80,7 @@ pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
 ///
 /// # Safety
 ///
-/// The caller must guarantee that a reference is archived at the given position in the byte slice.
+/// A `RelPtr<T::Archived>` must be archived at the given position in the byte slice.
 #[inline]
 pub unsafe fn archived_unsized_value<T: ArchiveUnsized + ?Sized>(
     bytes: &[u8],
@@ -101,7 +101,7 @@ pub unsafe fn archived_unsized_value<T: ArchiveUnsized + ?Sized>(
 ///
 /// # Safety
 ///
-/// The caller must guarantee that a reference is archived at the given position in the byte slice.
+/// A `RelPtr<T::Archived>` must be archived at the given position in the byte slice.
 #[inline]
 pub unsafe fn archived_unsized_value_mut<T: ArchiveUnsized + ?Sized>(
     bytes: Pin<&mut [u8]>,
@@ -127,8 +127,8 @@ pub unsafe fn archived_unsized_value_mut<T: ArchiveUnsized + ?Sized>(
 ///
 /// # Safety
 ///
-/// The caller must guarantee that the byte slice represents an archived object and that the root
-/// object is stored at the end of the byte slice.
+/// - The byte slice must represent an archived object
+/// - The root of the object must be stored at the end of the slice (this is the default behavior)
 #[inline]
 pub unsafe fn archived_root<T: Archive + ?Sized>(bytes: &[u8]) -> &T::Archived {
     archived_value::<T>(bytes, bytes.len() - mem::size_of::<T::Archived>())
@@ -143,8 +143,8 @@ pub unsafe fn archived_root<T: Archive + ?Sized>(bytes: &[u8]) -> &T::Archived {
 ///
 /// # Safety
 ///
-/// The caller must guarantee that the byte slice represents an archived object and that the root
-/// object is stored at the end of the byte slice.
+/// - The byte slice must represent an archived object
+/// - The root of the object must be stored at the end of the slice (this is the default behavior)
 #[inline]
 pub unsafe fn archived_root_mut<T: Archive + ?Sized>(
     bytes: Pin<&mut [u8]>,
@@ -163,8 +163,8 @@ pub unsafe fn archived_root_mut<T: Archive + ?Sized>(
 ///
 /// # Safety
 ///
-/// The caller must guarantee that the byte slice represents an archived object and that the root
-/// object is stored at the end of the byte slice.
+/// - The byte slice must represent an archived object
+/// - The root of the object must be stored at the end of the slice (this is the default behavior)
 #[inline]
 pub unsafe fn archived_unsized_root<T: ArchiveUnsized + ?Sized>(bytes: &[u8]) -> &T::Archived {
     archived_unsized_value::<T>(bytes, bytes.len() - mem::size_of::<RelPtr<T::Archived>>())
@@ -181,8 +181,8 @@ pub unsafe fn archived_unsized_root<T: ArchiveUnsized + ?Sized>(bytes: &[u8]) ->
 ///
 /// # Safety
 ///
-/// The caller must guarantee that the byte slice represents an archived object and that the root
-/// object is stored at the end of the byte slice.
+/// - The byte slice must represent an archived object
+/// - The root of the object must be stored at the end of the slice (this is the default behavior)
 #[inline]
 pub unsafe fn archived_unsized_root_mut<T: ArchiveUnsized + ?Sized>(
     bytes: Pin<&mut [u8]>,

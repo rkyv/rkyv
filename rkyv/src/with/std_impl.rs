@@ -35,7 +35,7 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
     type Resolver = F::Resolver;
 
     #[inline]
-    fn resolve_with(
+    unsafe fn resolve_with(
         field: &Mutex<F>,
         pos: usize,
         resolver: Self::Resolver,
@@ -76,7 +76,7 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
     type Resolver = F::Resolver;
 
     #[inline]
-    fn resolve_with(
+    unsafe fn resolve_with(
         field: &RwLock<F>,
         pos: usize,
         resolver: Self::Resolver,
@@ -135,7 +135,7 @@ impl ArchiveWith<OsString> for ToString {
     type Resolver = StringResolver;
 
     #[inline]
-    fn resolve_with(field: &OsString, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve_with(field: &OsString, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         // It's safe to unwrap here because if the OsString wasn't valid UTF-8 it would have failed
         // to serialize
         ArchivedString::resolve_from_str(field.to_str().unwrap(), pos, resolver, out);
@@ -168,7 +168,7 @@ impl ArchiveWith<PathBuf> for ToString {
     type Resolver = StringResolver;
 
     #[inline]
-    fn resolve_with(field: &PathBuf, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve_with(field: &PathBuf, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         // It's safe to unwrap here because if the OsString wasn't valid UTF-8 it would have failed
         // to serialize
         ArchivedString::resolve_from_str(field.to_str().unwrap(), pos, resolver, out);

@@ -114,10 +114,8 @@ impl Archive for Ipv4Addr {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        unsafe {
-            out.as_mut_ptr().cast::<[u8; 4]>().write(self.octets());
-        }
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        out.as_mut_ptr().cast::<[u8; 4]>().write(self.octets());
     }
 }
 
@@ -248,10 +246,8 @@ impl Archive for Ipv6Addr {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        unsafe {
-            out.as_mut_ptr().cast::<[u8; 16]>().write(self.octets());
-        }
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        out.as_mut_ptr().cast::<[u8; 16]>().write(self.octets());
     }
 }
 
@@ -384,9 +380,9 @@ impl Archive for IpAddr {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         match self {
-            IpAddr::V4(ipv4_addr) => unsafe {
+            IpAddr::V4(ipv4_addr) => {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedIpAddrVariantV4>>();
@@ -396,7 +392,7 @@ impl Archive for IpAddr {
                 #[allow(clippy::unit_arg)]
                 ipv4_addr.resolve(pos + fp, resolver, fo);
             },
-            IpAddr::V6(ipv6_addr) => unsafe {
+            IpAddr::V6(ipv6_addr) => {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedIpAddrVariantV6>>();
@@ -515,7 +511,7 @@ impl Archive for SocketAddrV4 {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, pos: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.ip);
         self.ip().resolve(pos + fp, (), fo);
         let (fp, fo) = out_field!(out.port);
@@ -631,7 +627,7 @@ impl Archive for SocketAddrV6 {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, pos: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.ip);
         self.ip().resolve(pos + fp, (), fo);
         let (fp, fo) = out_field!(out.port);
@@ -771,9 +767,9 @@ impl Archive for SocketAddr {
     type Resolver = ();
 
     #[inline]
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         match self {
-            SocketAddr::V4(socket_addr) => unsafe {
+            SocketAddr::V4(socket_addr) => {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedSocketAddrVariantV4>>();
@@ -783,7 +779,7 @@ impl Archive for SocketAddr {
                 #[allow(clippy::unit_arg)]
                 socket_addr.resolve(pos + fp, resolver, fo);
             },
-            SocketAddr::V6(socket_addr) => unsafe {
+            SocketAddr::V6(socket_addr) => {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedSocketAddrVariantV6>>();

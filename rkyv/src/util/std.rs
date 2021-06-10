@@ -456,8 +456,8 @@ impl AlignedVec {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that `new_len` is less than or equal to
-    /// [`capacity()`](AlignedVec::capacity) and the elements at `old_len..new_len` are initialized.
+    /// - `new_len` must be less than or equal to [`capacity()`](AlignedVec::capacity)
+    /// - The elements at `old_len..new_len` must be initialized
     ///
     /// # Examples
     /// ```

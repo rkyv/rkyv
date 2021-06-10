@@ -19,7 +19,7 @@ pub trait DynContext {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that the base pointer is inside the archive for this context.
+    /// The base pointer must be inside the archive for this context.
     unsafe fn check_rel_ptr_dyn(
         &mut self,
         base: *const u8,
@@ -30,7 +30,7 @@ pub trait DynContext {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that the pointer is inside the archive for this context.
+    /// The base pointer must be inside the archive for this context.
     unsafe fn bounds_check_ptr_dyn(
         &mut self,
         ptr: *const u8,
@@ -41,7 +41,7 @@ pub trait DynContext {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that `base` is inside the archive this context was created for.
+    /// The base pointer must be inside the archive for this context.
     unsafe fn claim_bytes_dyn(
         &mut self,
         start: *const u8,
@@ -54,7 +54,7 @@ pub trait DynContext {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that `base` is inside the archive this context was created for.
+    /// The base pointer must be inside the archive for this context.
     unsafe fn claim_shared_bytes_dyn(
         &mut self,
         start: *const u8,

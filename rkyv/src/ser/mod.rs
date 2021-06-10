@@ -56,8 +56,8 @@ pub trait Serializer: Fallible {
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that the serializer is aligned for the archived version of the
-    /// given type.
+    /// - `resolver` must be the result of serializing `value`
+    /// - The serializer must be aligned for a `T::Archived`
     unsafe fn resolve_aligned<T: Archive + ?Sized>(
         &mut self,
         value: &T,
@@ -86,12 +86,13 @@ pub trait Serializer: Fallible {
 
     /// Resolves the given reference with its resolver and writes the archived reference.
     ///
-    /// Returns the position of the written archived reference.
+    /// Returns the position of the written archived `RelPtr`.
     ///
     /// # Safety
     ///
-    /// The caller must guarantee that the serializer is aligned for the archived reference of the
-    /// given type.
+    /// - `metadata_resolver` must be the result of serializing the metadata of `value`
+    /// - `to` must be the position of the serialized `value` within the archive
+    /// - The serializer must be aligned for a `RelPtr<T::Archived>`
     unsafe fn resolve_unsized_aligned<T: ArchiveUnsized + ?Sized>(
         &mut self,
         value: &T,
