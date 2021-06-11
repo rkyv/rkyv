@@ -295,8 +295,8 @@ impl ArchivedCString {
         &self.as_c_str().to_bytes()
     }
 
-    /// Equivalent to [`as_bytes()`] except that the returned slice includes the trailing nul
-    /// terminator.
+    /// Equivalent to [`as_bytes`][ArchivedCString::as_bytes()] except that the returned slice
+    /// includes the trailing nul terminator.
     #[inline]
     pub fn as_bytes_with_nul(&self) -> &[u8] {
         &self.as_c_str().to_bytes_with_nul()

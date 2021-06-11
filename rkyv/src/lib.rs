@@ -574,9 +574,6 @@ pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
 }
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
-///
-/// Most types that implement `DeserializeUnsized` will need a [`Deserializer`](de::Deserializer)
-/// bound so that they can allocate memory.
 pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: ArchivePointee {
     /// Deserializes a reference to the given value.
     ///
