@@ -1,3 +1,5 @@
+//! Wrapper type support and commonly used wrappers.
+
 #[cfg(feature = "std")]
 mod std_impl;
 
