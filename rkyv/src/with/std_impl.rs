@@ -1,6 +1,56 @@
-use crate::{Archive, Deserialize, Fallible, Serialize, SerializeUnsized, std_impl::{ArchivedString, StringResolver}, with::{ArchiveWith, DeserializeWith, Immutable, SerializeWith}};
+use crate::{Archive, ArchiveUnsized, Deserialize, Fallible, Serialize, SerializeUnsized, std_impl::{ArchivedBox, ArchivedString, BoxResolver, StringResolver}, with::{ArchiveWith, DeserializeWith, Immutable, SerializeWith}};
 use core::{fmt, mem::MaybeUninit, str::FromStr};
 use std::{ffi::OsString, path::PathBuf, sync::{Mutex, RwLock}};
+
+/// A wrapper that serializes a reference inline.
+pub struct Inline;
+
+impl<F: Archive> ArchiveWith<&F> for Inline {
+    type Archived = F::Archived;
+    type Resolver = F::Resolver;
+
+    #[inline]
+    unsafe fn resolve_with(
+        field: &&F,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
+        field.resolve(pos, resolver, out);
+    }
+}
+
+impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<&F, S> for Inline {
+    #[inline]
+    fn serialize_with(field: &&F, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        field.serialize(serializer)
+    }
+}
+
+/// A wrapper that serializes a reference as if it were boxed.
+pub struct Boxed;
+
+impl<F: ArchiveUnsized + ?Sized> ArchiveWith<&F> for Boxed {
+    type Archived = ArchivedBox<F::Archived>;
+    type Resolver = BoxResolver<F::MetadataResolver>;
+
+    #[inline]
+    unsafe fn resolve_with(
+        field: &&F,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
+        ArchivedBox::resolve_from_ref(*field, pos, resolver, out);
+    }
+}
+
+impl<F: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> SerializeWith<&F, S> for Boxed {
+    #[inline]
+    fn serialize_with(field: &&F, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        ArchivedBox::serialize_from_ref(*field, serializer)
+    }
+}
 
 /// A wrapper that locks a lock and serializes the value immutably.
 ///

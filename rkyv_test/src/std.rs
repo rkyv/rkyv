@@ -1408,6 +1408,52 @@ mod tests {
         }
     }
 
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn with_inline() {
+        use rkyv::with::Inline;
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct Test<'a> {
+            #[with(Inline)]
+            value: &'a i32,
+        }
+
+        let a = 42;
+        let value = Test {
+            value: &a,
+        };
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_inner();
+        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+        assert_eq!(archived.value, 42);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn with_boxed() {
+        use rkyv::with::Boxed;
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct Test<'a> {
+            #[with(Boxed)]
+            value: &'a str,
+        }
+
+        let a = "hello world";
+        let value = Test {
+            value: &a,
+        };
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_inner();
+        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+        assert_eq!(archived.value.as_ref(), "hello world");
+    }
+
     // TODO: figure out errors
 
     // #[test]

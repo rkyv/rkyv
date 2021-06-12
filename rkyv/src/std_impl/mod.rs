@@ -115,7 +115,12 @@ impl ArchivedString {
     /// - `pos` must be the position of `out` within the archive
     /// - `resolver` must be the result of serializing `value`
     #[inline]
-    pub unsafe fn resolve_from_str(value: &str, pos: usize, resolver: StringResolver, out: &mut MaybeUninit<Self>) {
+    pub unsafe fn resolve_from_str(
+        value: &str,
+        pos: usize,
+        resolver: StringResolver,
+        out: &mut MaybeUninit<Self>,
+    ) {
         let (fp, fo) = out_field!(out.0);
         #[allow(clippy::unit_arg)]
         value.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
@@ -123,7 +128,10 @@ impl ArchivedString {
 
     /// Serializes the archived string from a given `str`.
     #[inline]
-    pub fn serialize_from_str<S: Fallible + ?Sized>(value: &str, serializer: &mut S) -> Result<StringResolver, S::Error>
+    pub fn serialize_from_str<S: Fallible + ?Sized>(
+        value: &str,
+        serializer: &mut S,
+    ) -> Result<StringResolver, S::Error>
     where
         str: SerializeUnsized<S>,
     {
@@ -422,8 +430,7 @@ impl Archive for CString {
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
         #[allow(clippy::unit_arg)]
-        self.as_c_str()
-            .resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        self.as_c_str().resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 }
 
@@ -463,6 +470,50 @@ where
 #[repr(transparent)]
 pub struct ArchivedBox<T: ArchivePointee + ?Sized>(RelPtr<T>);
 
+impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
+    /// Gets the value of this archived box as a pinned mutable reference.
+    #[inline]
+    pub fn get_pin(self: Pin<&mut Self>) -> Pin<&mut T> {
+        unsafe { self.map_unchecked_mut(|s| s.deref_mut()) }
+    }
+
+    #[inline]
+    pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
+        value: &U,
+        pos: usize,
+        resolver: BoxResolver<U::MetadataResolver>,
+        out: &mut MaybeUninit<Self>,
+    ) {
+        let (fp, fo) = out_field!(out.0);
+        value.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+    }
+
+    #[inline]
+    pub fn serialize_from_ref<U: SerializeUnsized<S, Archived = T> + ?Sized, S: Fallible + ?Sized>(
+        value: &U,
+        serializer: &mut S,
+    ) -> Result<BoxResolver<U::MetadataResolver>, S::Error> {
+        Ok(BoxResolver {
+            pos: value.serialize_unsized(serializer)?,
+            metadata_resolver: value.serialize_metadata(serializer)?,
+        })
+    } 
+}
+
+impl<T: ArchivePointee + ?Sized> AsRef<T> for ArchivedBox<T> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        unsafe { &*self.0.as_ptr() }
+    }
+}
+
+impl<T: ArchivePointee + ?Sized> AsMut<T> for ArchivedBox<T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut T {
+        unsafe { &mut *self.0.as_mut_ptr() }
+    }
+}
+
 impl<T: ArchivePointee + ?Sized> fmt::Debug for ArchivedBox<T>
 where
     T::ArchivedMetadata: fmt::Debug,
@@ -473,27 +524,19 @@ where
     }
 }
 
-impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
-    /// Gets the value of this archived box as a pinned mutable reference.
-    #[inline]
-    pub fn get_pin(self: Pin<&mut Self>) -> Pin<&mut T> {
-        unsafe { self.map_unchecked_mut(|s| s.deref_mut()) }
-    }
-}
-
 impl<T: ArchivePointee + ?Sized> Deref for ArchivedBox<T> {
     type Target = T;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.0.as_ptr() }
+        self.as_ref()
     }
 }
 
 impl<T: ArchivePointee + ?Sized> DerefMut for ArchivedBox<T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.0.as_mut_ptr() }
+        self.as_mut()
     }
 }
 
@@ -516,19 +559,14 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
 
     #[inline]
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        let (fp, fo) = out_field!(out.0);
-        self.as_ref()
-            .resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        ArchivedBox::resolve_from_ref(self.as_ref(), pos, resolver, out);
     }
 }
 
 impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> Serialize<S> for Box<T> {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(BoxResolver {
-            pos: self.as_ref().serialize_unsized(serializer)?,
-            metadata_resolver: self.as_ref().serialize_metadata(serializer)?,
-        })
+        ArchivedBox::serialize_from_ref(self.as_ref(), serializer)
     }
 }
 
@@ -607,8 +645,7 @@ impl<T: Archive> Archive for Vec<T> {
     #[inline]
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.0);
-        self.as_slice()
-            .resolve_unsized(pos + fp, resolver.pos, (), fo);
+        self.as_slice().resolve_unsized(pos + fp, resolver.pos, (), fo);
     }
 }
 

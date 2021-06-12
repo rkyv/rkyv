@@ -48,7 +48,7 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for T {
     }
 
     #[inline]
-    fn serialize_metadata(&self, _: &mut S) -> Result<ArchivedMetadata<Self>, S::Error> {
+    fn serialize_metadata(&self, _: &mut S) -> Result<(), S::Error> {
         Ok(())
     }
 }
