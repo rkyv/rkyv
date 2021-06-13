@@ -643,7 +643,7 @@ impl<S: Serializer + ?Sized> SerializeUnsized<S> for str {
 impl<D: Deserializer + ?Sized> DeserializeUnsized<str, D> for <str as ArchiveUnsized>::Archived {
     #[inline]
     unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
-        if self.len() == 0 {
+        if self.is_empty() {
             Ok(ptr::null_mut())
         } else {
             let bytes = deserializer.alloc(alloc::Layout::array::<u8>(self.len()).unwrap())?;
