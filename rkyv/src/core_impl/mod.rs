@@ -413,9 +413,13 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for <str as ArchiveUnsized
         _: &mut D,
         mut alloc: impl FnMut(Layout) -> *mut u8,
     ) -> Result<*mut (), D::Error> {
-        let bytes = alloc(Layout::array::<u8>(self.len()).unwrap());
-        ptr::copy_nonoverlapping(self.as_ptr(), bytes, self.len());
-        Ok(bytes.cast())
+        if self.len() == 0 {
+            Ok(ptr::null_mut())
+        } else {
+            let bytes = alloc(Layout::array::<u8>(self.len()).unwrap());
+            ptr::copy_nonoverlapping(self.as_ptr(), bytes, self.len());
+            Ok(bytes.cast())
+        }
     }
 
     #[inline]
