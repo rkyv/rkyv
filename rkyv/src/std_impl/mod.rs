@@ -17,6 +17,7 @@ use core::{
     mem::MaybeUninit,
     ops::{Deref, DerefMut, Index, IndexMut},
     pin::Pin,
+    slice::SliceIndex,
 };
 
 /// An archived [`String`].
@@ -301,13 +302,13 @@ impl<T> ArchivedVec<T> {
     /// Gets the elements of the archived vec as a slice.
     #[inline]
     pub fn as_slice(&self) -> &[T] {
-        self.deref()
+        unsafe { &*self.0.as_ptr() }
     }
 
     /// Gets the elements of the archived vec as a mutable slice.
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
-        self.deref_mut()
+        unsafe { &mut *self.0.as_mut_ptr() }
     }
 
     /// Gets the element at the given index ot this archived vec as a pinned mutable reference.
@@ -316,7 +317,21 @@ impl<T> ArchivedVec<T> {
     where
         [T]: IndexMut<I>,
     {
-        unsafe { self.map_unchecked_mut(|s| &mut s.deref_mut()[index]) }
+        unsafe { self.map_unchecked_mut(|s| &mut s.as_mut_slice()[index]) }
+    }
+}
+
+impl<T> AsRef<[T]> for ArchivedVec<T> {
+    #[inline]
+    fn as_ref(&self) -> &[T] {
+        self.as_slice()
+    }
+}
+
+impl<T> Borrow<[T]> for ArchivedVec<T> {
+    #[inline]
+    fn borrow(&self) -> &[T] {
+        self.as_slice()
     }
 }
 
@@ -325,14 +340,102 @@ impl<T> Deref for ArchivedVec<T> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.0.as_ptr() }
+        self.as_slice()
     }
 }
 
-impl<T> DerefMut for ArchivedVec<T> {
+impl<T: Eq> Eq for ArchivedVec<T> {}
+
+impl<T: hash::Hash> hash::Hash for ArchivedVec<T> {
     #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.0.as_mut_ptr() }
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.as_slice().hash(state)
+    }
+}
+
+impl<T, I: SliceIndex<[T]>> Index<I> for ArchivedVec<T> {
+    type Output = <[T] as Index<I>>::Output;
+
+    #[inline]
+    fn index(&self, index: I) -> &Self::Output {
+        self.as_slice().index(index)
+    }
+}
+
+impl<T: Ord> Ord for ArchivedVec<T> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.as_slice().cmp(other.as_slice())
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for ArchivedVec<T> {
+    #[inline]
+    fn eq(&self, other: &ArchivedVec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<[U]> for ArchivedVec<T> {
+    #[inline]
+    fn eq(&self, other: &[U]) -> bool {
+        self.as_slice().eq(other)
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for [T] {
+    #[inline]
+    fn eq(&self, other: &ArchivedVec<U>) -> bool {
+        self.eq(other.as_slice())
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
+    #[inline]
+    fn eq(&self, other: &Vec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for Vec<T> {
+    #[inline]
+    fn eq(&self, other: &ArchivedVec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for ArchivedVec<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedVec<T>) -> Option<cmp::Ordering> {
+        self.as_slice().partial_cmp(other.as_slice())
+    }
+}
+
+impl<T: PartialOrd> PartialOrd<[T]> for ArchivedVec<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &[T]) -> Option<cmp::Ordering> {
+        self.as_slice().partial_cmp(other)
+    }
+}
+
+impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for [T] {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedVec<T>) -> Option<cmp::Ordering> {
+        self.partial_cmp(other.as_slice())
+    }
+}
+
+impl<T: PartialOrd> PartialOrd<Vec<T>> for ArchivedVec<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &Vec<T>) -> Option<cmp::Ordering> {
+        self.as_slice().partial_cmp(other.as_slice())
+    }
+}
+
+impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for Vec<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedVec<T>) -> Option<cmp::Ordering> {
+        self.as_slice().partial_cmp(other.as_slice())
     }
 }
 
@@ -383,19 +486,5 @@ where
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<[T]>::from_raw(ptr).into())
         }
-    }
-}
-
-impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
-    #[inline]
-    fn eq(&self, other: &Vec<U>) -> bool {
-        self.as_slice().eq(other.as_slice())
-    }
-}
-
-impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for Vec<T> {
-    #[inline]
-    fn eq(&self, other: &ArchivedVec<U>) -> bool {
-        self.as_slice().eq(other.as_slice())
     }
 }
