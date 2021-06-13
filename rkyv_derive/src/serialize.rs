@@ -73,7 +73,7 @@ fn derive_serialize_impl(
                 quote! {
                     impl #impl_generics Serialize<__S> for #name #ty_generics #serialize_where {
                         #[inline]
-                        fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
+                        fn serialize(&self, serializer: &mut __S) -> ::core::result::Result<Self::Resolver, __S::Error> {
                             Ok(#resolver {
                                 #(#resolver_values,)*
                             })
@@ -103,7 +103,7 @@ fn derive_serialize_impl(
                 quote! {
                     impl #impl_generics Serialize<__S> for #name #ty_generics #serialize_where {
                         #[inline]
-                        fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
+                        fn serialize(&self, serializer: &mut __S) -> ::core::result::Result<Self::Resolver, __S::Error> {
                             Ok(#resolver(
                                 #(#resolver_values,)*
                             ))
@@ -115,7 +115,7 @@ fn derive_serialize_impl(
                 quote! {
                     impl #impl_generics Serialize<__S> for #name #ty_generics #where_clause {
                         #[inline]
-                        fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
+                        fn serialize(&self, serializer: &mut __S) -> ::core::result::Result<Self::Resolver, __S::Error> {
                             Ok(#resolver)
                         }
                     }
@@ -200,7 +200,7 @@ fn derive_serialize_impl(
             quote! {
                 impl #impl_generics Serialize<__S> for #name #ty_generics #serialize_where {
                     #[inline]
-                    fn serialize(&self, serializer: &mut __S) -> Result<Self::Resolver, __S::Error> {
+                    fn serialize(&self, serializer: &mut __S) -> ::core::result::Result<Self::Resolver, __S::Error> {
                         Ok(match self {
                             #(#serialize_arms,)*
                         })

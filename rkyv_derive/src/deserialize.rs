@@ -72,7 +72,7 @@ fn derive_deserialize_impl(
                 quote! {
                     impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
                         #[inline]
-                        fn deserialize(&self, deserializer: &mut __D) -> Result<#name #ty_generics, __D::Error> {
+                        fn deserialize(&self, deserializer: &mut __D) -> ::core::result::Result<#name #ty_generics, __D::Error> {
                             Ok(#name {
                                 #(#deserialize_fields,)*
                             })
@@ -106,7 +106,7 @@ fn derive_deserialize_impl(
                 quote! {
                     impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
                         #[inline]
-                        fn deserialize(&self, deserializer: &mut __D) -> Result<#name #ty_generics, __D::Error> {
+                        fn deserialize(&self, deserializer: &mut __D) -> ::core::result::Result<#name #ty_generics, __D::Error> {
                             Ok(#name(
                                 #(#deserialize_fields,)*
                             ))
@@ -117,7 +117,7 @@ fn derive_deserialize_impl(
             Fields::Unit => quote! {
                 impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #where_clause {
                     #[inline]
-                    fn deserialize(&self, _: &mut __D) -> Result<#name #ty_generics, __D::Error> {
+                    fn deserialize(&self, _: &mut __D) -> ::core::result::Result<#name #ty_generics, __D::Error> {
                         Ok(#name)
                     }
                 }
@@ -203,7 +203,7 @@ fn derive_deserialize_impl(
             quote! {
                 impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
                     #[inline]
-                    fn deserialize(&self, deserializer: &mut __D) -> Result<#name #ty_generics, __D::Error> {
+                    fn deserialize(&self, deserializer: &mut __D) -> ::core::result::Result<#name #ty_generics, __D::Error> {
                         Ok(match self {
                             #(#deserialize_variants,)*
                         })

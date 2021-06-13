@@ -1,6 +1,6 @@
 [package]
 name = "rkyv_dyn"
-version = "0.6.5"
+version = "0.6.6"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Trait object support for rkyv"
