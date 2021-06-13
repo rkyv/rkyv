@@ -80,13 +80,18 @@ impl<T> BufferSerializer<T> {
 pub enum BufferSerializerError {
     /// Writing has overflowed the internal buffer.
     Overflow {
+        /// The position of the serializer
         pos: usize,
+        /// The number of bytes needed
         bytes_needed: usize,
+        /// The total length of the archive
         archive_len: usize,
     },
     /// The serializer sought past the end of the internal buffer.
     SoughtPastEnd {
+        /// The position of the serializer
         seek_position: usize,
+        /// The total length of the archive
         archive_len: usize,
     },
 }

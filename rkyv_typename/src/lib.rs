@@ -25,6 +25,9 @@
 //!   (enabled by default)
 //! - `std`: Implements [`TypeName`] for standard library types (enabled by default)
 
+#![deny(broken_intra_doc_links)]
+#![deny(missing_docs)]
+#![deny(missing_crate_level_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod core_impl;

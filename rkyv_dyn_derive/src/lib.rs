@@ -1,5 +1,9 @@
 //! Procedural macros for `rkyv_dyn`.
 
+#![deny(broken_intra_doc_links)]
+#![deny(missing_docs)]
+#![deny(missing_crate_level_docs)]
+
 extern crate proc_macro;
 
 use quote::{quote, quote_spanned};

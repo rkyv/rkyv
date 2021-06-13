@@ -65,7 +65,12 @@ pub enum HashMapError<K, V, C> {
     /// An error occured while checking the entries
     CheckEntryError(SliceCheckError<ArchivedHashMapEntryError<K, V>>),
     /// A displacement value was invalid
-    InvalidDisplacement { index: usize, value: u32 },
+    InvalidDisplacement {
+        /// The index of the entry with an invalid displacement
+        index: usize,
+        /// The value of the entry at the invalid location
+        value: u32,
+    },
     /// A key is not located at the correct position
     InvalidKeyPosition {
         /// The index of the key when iterating
