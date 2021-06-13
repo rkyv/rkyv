@@ -497,20 +497,20 @@ mod tests {
         assert_eq!(value.c.get(&1.into()).unwrap(), &[4, 2]);
         assert_eq!(value.c.get(&5.into()).unwrap(), &[17, 24]);
 
-        *value.as_mut().a().get_pin() = 50.into();
+        *value.as_mut().a().get_pin_mut() = 50.into();
         assert_eq!(*value.a, 50);
 
         value
             .as_mut()
             .b()
             .index_pin(0)
-            .str_pin()
+            .as_pin_mut_str()
             .make_ascii_uppercase();
         value
             .as_mut()
             .b()
             .index_pin(1)
-            .str_pin()
+            .as_pin_mut_str()
             .make_ascii_uppercase();
         assert_eq!(value.b[0], "HELLO");
         assert_eq!(value.b[1], "WORLD");

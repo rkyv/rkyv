@@ -16,9 +16,10 @@ use core::{
     borrow::Borrow,
     cmp, fmt, hash,
     mem::MaybeUninit,
-    ops::{Deref, DerefMut, Index, IndexMut},
+    ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
     pin::Pin,
     ptr,
+    slice::SliceIndex,
 };
 use ptr_meta::Pointee;
 use std::ffi::{CStr, CString};
@@ -96,16 +97,10 @@ impl ArchivedString {
         unsafe { &*self.0.as_ptr() }
     }
 
-    /// Converts an `ArchivedString` into a mutable string slice.
+    /// Extracts a pinned mutable string slice containing the entire `ArchivedString`.
     #[inline]
-    pub fn as_mut_str(&mut self) -> &mut str {
-        unsafe { &mut *self.0.as_mut_ptr() }
-    }
-
-    /// Gets the value of this archived string as a pinned mutable reference.
-    #[inline]
-    pub fn str_pin(self: Pin<&mut Self>) -> Pin<&mut str> {
-        unsafe { self.map_unchecked_mut(|s| s.as_mut_str()) }
+    pub fn as_pin_mut_str(self: Pin<&mut Self>) -> Pin<&mut str> {
+        unsafe { self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr()) }
     }
 
     /// Resolves the archived string from a given `str`.
@@ -142,45 +137,16 @@ impl ArchivedString {
     }
 }
 
-impl cmp::Eq for ArchivedString {}
-
-impl hash::Hash for ArchivedString {
-    #[inline]
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
-        self.as_str().hash(state)
-    }
-}
-
-impl cmp::Ord for ArchivedString {
-    #[inline]
-    fn cmp(&self, other: &Self) -> cmp::Ordering {
-        self.as_str().cmp(other.as_str())
-    }
-}
-
-impl cmp::PartialEq for ArchivedString {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.as_str() == other.as_str()
-    }
-}
-
-impl cmp::PartialOrd for ArchivedString {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        self.as_str().partial_cmp(other.as_str())
-    }
-}
-
 impl AsRef<str> for ArchivedString {
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
-impl AsMut<str> for ArchivedString {
-    fn as_mut(&mut self) -> &mut str {
-        self.as_mut_str()
+impl Borrow<str> for ArchivedString {
+    #[inline]
+    fn borrow(&self) -> &str {
+        self.as_str()
     }
 }
 
@@ -193,17 +159,60 @@ impl Deref for ArchivedString {
     }
 }
 
-impl DerefMut for ArchivedString {
+impl fmt::Display for ArchivedString {
     #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.as_mut_str()
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(self.as_str(), f)
     }
 }
 
-impl Borrow<str> for ArchivedString {
+impl Eq for ArchivedString {}
+
+impl hash::Hash for ArchivedString {
     #[inline]
-    fn borrow(&self) -> &str {
-        self.as_str()
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state)
+    }
+}
+
+macro_rules! impl_index {
+    ($index:ty) => {
+        impl Index<$index> for ArchivedString {
+            type Output = str;
+
+            #[inline]
+            fn index(&self, index: $index) -> &Self::Output {
+                self.as_str().index(index)
+            }
+        }
+    }
+}
+
+impl_index!(Range<usize>);
+impl_index!(RangeFrom<usize>);
+impl_index!(RangeFull);
+impl_index!(RangeInclusive<usize>);
+impl_index!(RangeTo<usize>);
+impl_index!(RangeToInclusive<usize>);
+
+impl Ord for ArchivedString {
+    #[inline]
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.as_str().cmp(other.as_str())
+    }
+}
+
+impl PartialEq for ArchivedString {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl PartialOrd for ArchivedString {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        self.as_str().partial_cmp(other.as_str())
     }
 }
 
@@ -232,13 +241,6 @@ impl PartialEq<ArchivedString> for String {
     #[inline]
     fn eq(&self, other: &ArchivedString) -> bool {
         PartialEq::eq(other.as_str(), self.as_str())
-    }
-}
-
-impl fmt::Display for ArchivedString {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(self.as_str(), f)
     }
 }
 
@@ -316,40 +318,10 @@ impl ArchivedCString {
         unsafe { &*self.0.as_ptr() }
     }
 
-    /// Extracts a mutable `CStr` slice containing the entire string.
+    /// Extracts a pinned mutable `Cstr` slice containing the entire string.
     #[inline]
-    pub fn as_mut_c_str(&mut self) -> &mut CStr {
-        unsafe { &mut *self.0.as_mut_ptr() }
-    }
-}
-
-impl cmp::Eq for ArchivedCString {}
-
-impl hash::Hash for ArchivedCString {
-    #[inline]
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
-        self.as_bytes_with_nul().hash(state);
-    }
-}
-
-impl cmp::Ord for ArchivedCString {
-    #[inline]
-    fn cmp(&self, other: &Self) -> cmp::Ordering {
-        self.as_bytes().cmp(other.as_bytes())
-    }
-}
-
-impl cmp::PartialEq for ArchivedCString {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.as_bytes() == other.as_bytes()
-    }
-}
-
-impl cmp::PartialOrd for ArchivedCString {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        self.as_bytes().partial_cmp(other.as_bytes())
+    pub fn as_pin_mut_c_str(self: Pin<&mut Self>) -> Pin<&mut CStr> {
+        unsafe { self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr()) }
     }
 }
 
@@ -359,9 +331,10 @@ impl AsRef<CStr> for ArchivedCString {
     }
 }
 
-impl AsMut<CStr> for ArchivedCString {
-    fn as_mut(&mut self) -> &mut CStr {
-        self.as_mut_c_str()
+impl Borrow<CStr> for ArchivedCString {
+    #[inline]
+    fn borrow(&self) -> &CStr {
+        self.as_c_str()
     }
 }
 
@@ -374,17 +347,35 @@ impl Deref for ArchivedCString {
     }
 }
 
-impl DerefMut for ArchivedCString {
+impl Eq for ArchivedCString {}
+
+impl hash::Hash for ArchivedCString {
     #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.as_mut_c_str()
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.as_bytes_with_nul().hash(state);
     }
 }
 
-impl Borrow<CStr> for ArchivedCString {
+impl Index<RangeFull> for ArchivedCString {
+    type Output = CStr;
+
     #[inline]
-    fn borrow(&self) -> &CStr {
+    fn index(&self, _: RangeFull) -> &Self::Output {
         self.as_c_str()
+    }
+}
+
+impl Ord for ArchivedCString {
+    #[inline]
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.as_bytes().cmp(other.as_bytes())
+    }
+}
+
+impl PartialEq for ArchivedCString {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.as_bytes() == other.as_bytes()
     }
 }
 
@@ -413,6 +404,13 @@ impl PartialEq<ArchivedCString> for CString {
     #[inline]
     fn eq(&self, other: &ArchivedCString) -> bool {
         PartialEq::eq(other.as_c_str(), self.as_c_str())
+    }
+}
+
+impl PartialOrd for ArchivedCString {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        self.as_bytes().partial_cmp(other.as_bytes())
     }
 }
 
@@ -471,12 +469,19 @@ where
 pub struct ArchivedBox<T: ArchivePointee + ?Sized>(RelPtr<T>);
 
 impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
-    /// Gets the value of this archived box as a pinned mutable reference.
+    /// Returns a reference to the value of this archived box.
     #[inline]
-    pub fn get_pin(self: Pin<&mut Self>) -> Pin<&mut T> {
-        unsafe { self.map_unchecked_mut(|s| s.deref_mut()) }
+    pub fn get(&self) -> &T {
+        unsafe { &*self.0.as_ptr() }
     }
 
+    /// Returns a pinned mutable reference to the value of this archived box
+    #[inline]
+    pub fn get_pin_mut(self: Pin<&mut Self>) -> Pin<&mut T> {
+        unsafe { self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr()) }
+    }
+
+    /// Resolves an archived box from the given value and parameters.
     #[inline]
     pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: &U,
@@ -488,6 +493,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
         value.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 
+    /// Serializes an archived box from the given value and serializer.
     #[inline]
     pub fn serialize_from_ref<U: SerializeUnsized<S, Archived = T> + ?Sized, S: Fallible + ?Sized>(
         value: &U,
@@ -503,14 +509,14 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
 impl<T: ArchivePointee + ?Sized> AsRef<T> for ArchivedBox<T> {
     #[inline]
     fn as_ref(&self) -> &T {
-        unsafe { &*self.0.as_ptr() }
+        self.get()
     }
 }
 
-impl<T: ArchivePointee + ?Sized> AsMut<T> for ArchivedBox<T> {
+impl<T: ArchivePointee + ?Sized> Borrow<T> for ArchivedBox<T> {
     #[inline]
-    fn as_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.0.as_mut_ptr() }
+    fn borrow(&self) -> &T {
+        self.get()
     }
 }
 
@@ -529,21 +535,59 @@ impl<T: ArchivePointee + ?Sized> Deref for ArchivedBox<T> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        self.as_ref()
+        self.get()
     }
 }
 
-impl<T: ArchivePointee + ?Sized> DerefMut for ArchivedBox<T> {
+impl<T: ArchivePointee + fmt::Display + ?Sized> fmt::Display for ArchivedBox<T> {
     #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.as_mut()
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.get().fmt(f)
+    }
+}
+
+impl<T: ArchivePointee + Eq + ?Sized> Eq for ArchivedBox<T> {}
+
+impl<T: ArchivePointee + hash::Hash + ?Sized> hash::Hash for ArchivedBox<T> {
+    #[inline]
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.get().hash(state);
+    }
+}
+
+impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ArchivePointee + ?Sized> PartialEq<ArchivedBox<U>> for ArchivedBox<T> {
+    #[inline]
+    fn eq(&self, other: &ArchivedBox<U>) -> bool {
+        self.get().eq(other.get())
     }
 }
 
 impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Box<U>> for ArchivedBox<T> {
     #[inline]
     fn eq(&self, other: &Box<U>) -> bool {
-        self.deref().eq(other.deref())
+        self.get().eq(other.as_ref())
+    }
+}
+
+impl<T: ArchivePointee + PartialOrd + ?Sized> PartialOrd for ArchivedBox<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        self.get().partial_cmp(other.get())
+    }
+}
+
+impl<T: ArchivePointee + PartialOrd<U> + ?Sized, U: ?Sized> PartialOrd<Box<U>> for ArchivedBox<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &Box<U>) -> Option<cmp::Ordering> {
+        self.get().partial_cmp(other.as_ref())
+    }
+}
+
+impl<T: ArchivePointee + ?Sized> fmt::Pointer for ArchivedBox<T> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let ptr = self.get() as *const T;
+        fmt::Pointer::fmt(&ptr, f)
     }
 }
 
@@ -578,9 +622,9 @@ where
     fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {
         unsafe {
             let data_address = self
-                .deref()
+                .get()
                 .deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
-            let metadata = self.deref().deserialize_metadata(deserializer)?;
+            let metadata = self.get().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::from_raw(ptr))
         }
@@ -598,14 +642,17 @@ impl<T> ArchivedVec<T> {
     /// Gets the elements of the archived vec as a slice.
     #[inline]
     pub fn as_slice(&self) -> &[T] {
-        self.deref()
+        unsafe { &*self.0.as_ptr() }
     }
 
-    /// Gets the elements of the archived vec as a mutable slice.
+    /// Gets the elements of the archived vec as a pinned mutable slice.
     #[inline]
-    pub fn as_mut_slice(&mut self) -> &mut [T] {
-        self.deref_mut()
+    pub fn as_pin_mut_slice(self: Pin<&mut Self>) -> Pin<&mut [T]> {
+        unsafe { self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr()) }
     }
+
+    // This method can go away once pinned slices have indexing support
+    // https://github.com/rust-lang/rust/pull/78370
 
     /// Gets the element at the given index ot this archived vec as a pinned mutable reference.
     #[inline]
@@ -613,7 +660,21 @@ impl<T> ArchivedVec<T> {
     where
         [T]: IndexMut<I>,
     {
-        unsafe { self.map_unchecked_mut(|s| &mut s.deref_mut()[index]) }
+        unsafe { self.map_unchecked_mut(|s| &mut (*s.0.as_mut_ptr())[index]) }
+    }
+}
+
+impl<T> AsRef<[T]> for ArchivedVec<T> {
+    #[inline]
+    fn as_ref(&self) -> &[T] {
+        self.as_slice()
+    }
+}
+
+impl<T> Borrow<[T]> for ArchivedVec<T> {
+    #[inline]
+    fn borrow(&self) -> &[T] {
+        self.as_slice()
     }
 }
 
@@ -622,14 +683,102 @@ impl<T> Deref for ArchivedVec<T> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.0.as_ptr() }
+        self.as_slice()
     }
 }
 
-impl<T> DerefMut for ArchivedVec<T> {
+impl<T: Eq> Eq for ArchivedVec<T> {}
+
+impl<T: hash::Hash> hash::Hash for ArchivedVec<T> {
     #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.0.as_mut_ptr() }
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.as_slice().hash(state)
+    }
+}
+
+impl<T, I: SliceIndex<[T]>> Index<I> for ArchivedVec<T> {
+    type Output = <[T] as Index<I>>::Output;
+
+    #[inline]
+    fn index(&self, index: I) -> &Self::Output {
+        self.as_slice().index(index)
+    }
+}
+
+impl<T: Ord> Ord for ArchivedVec<T> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.as_slice().cmp(other.as_slice())
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for ArchivedVec<T> {
+    #[inline]
+    fn eq(&self, other: &ArchivedVec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<[U]> for ArchivedVec<T> {
+    #[inline]
+    fn eq(&self, other: &[U]) -> bool {
+        self.as_slice().eq(other)
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for [T] {
+    #[inline]
+    fn eq(&self, other: &ArchivedVec<U>) -> bool {
+        self.eq(other.as_slice())
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
+    #[inline]
+    fn eq(&self, other: &Vec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for Vec<T> {
+    #[inline]
+    fn eq(&self, other: &ArchivedVec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for ArchivedVec<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedVec<T>) -> Option<cmp::Ordering> {
+        self.as_slice().partial_cmp(other.as_slice())
+    }
+}
+
+impl<T: PartialOrd> PartialOrd<[T]> for ArchivedVec<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &[T]) -> Option<cmp::Ordering> {
+        self.as_slice().partial_cmp(other)
+    }
+}
+
+impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for [T] {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedVec<T>) -> Option<cmp::Ordering> {
+        self.partial_cmp(other.as_slice())
+    }
+}
+
+impl<T: PartialOrd> PartialOrd<Vec<T>> for ArchivedVec<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &Vec<T>) -> Option<cmp::Ordering> {
+        self.as_slice().partial_cmp(other.as_slice())
+    }
+}
+
+impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for Vec<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedVec<T>) -> Option<cmp::Ordering> {
+        self.as_slice().partial_cmp(other.as_slice())
     }
 }
 
@@ -676,19 +825,5 @@ where
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<[T]>::from_raw(ptr).into())
         }
-    }
-}
-
-impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
-    #[inline]
-    fn eq(&self, other: &Vec<U>) -> bool {
-        self.as_slice().eq(other.as_slice())
-    }
-}
-
-impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for Vec<T> {
-    #[inline]
-    fn eq(&self, other: &ArchivedVec<U>) -> bool {
-        self.as_slice().eq(other.as_slice())
     }
 }

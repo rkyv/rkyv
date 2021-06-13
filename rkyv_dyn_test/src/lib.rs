@@ -415,7 +415,7 @@ mod tests {
             unsafe { archived_root_mut::<Box<dyn SerializeTestTrait>>(Pin::new(buf.as_mut())) };
 
         assert_eq!(value.value(), 10);
-        value.as_mut().get_pin().set_value(64);
+        value.as_mut().get_pin_mut().set_value(64);
         assert_eq!(value.value(), 64);
     }
 }
