@@ -1,4 +1,4 @@
-//! Archived containers to use with or without the standard library.
+//! Archived versions of standard library containers.
 
 pub mod hash_map;
 pub mod hash_set;

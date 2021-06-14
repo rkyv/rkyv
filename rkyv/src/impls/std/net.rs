@@ -1,33 +1,16 @@
+//! [`Archive`] implementation for `std` networking types.
+
 use crate::{
     net::{
-        ArchivedIpAddr,
-        ArchivedIpv4Addr,
-        ArchivedIpv6Addr,
-        ArchivedSocketAddr,
-        ArchivedSocketAddrV4,
-        ArchivedSocketAddrV6,
+        ArchivedIpAddr, ArchivedIpv4Addr, ArchivedIpv6Addr, ArchivedSocketAddr,
+        ArchivedSocketAddrV4, ArchivedSocketAddrV6,
     },
-    Archive,
-    Deserialize,
-    Fallible,
-    Serialize,
+    Archive, Deserialize, Fallible, Serialize,
 };
-use core::{
-    cmp,
-    mem::MaybeUninit,
-    ptr,
-};
+use core::{cmp, mem::MaybeUninit, ptr};
 use std::{
     io,
-    net::{
-        IpAddr,
-        Ipv4Addr,
-        Ipv6Addr,
-        SocketAddr,
-        SocketAddrV4,
-        SocketAddrV6,
-        ToSocketAddrs,
-    },
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs},
 };
 
 // Ipv4Addr
@@ -37,12 +20,7 @@ impl ArchivedIpv4Addr {
     #[inline]
     pub const fn as_ipv4(&self) -> Ipv4Addr {
         let octets = self.octets();
-        Ipv4Addr::new(
-            octets[0],
-            octets[1],
-            octets[2],
-            octets[3],
-        )
+        Ipv4Addr::new(octets[0], octets[1], octets[2], octets[3])
     }
 
     /// Returns `true` if this is a broadcast address (255.255.255.255).
@@ -391,7 +369,12 @@ impl Archive for IpAddr {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         match self {
             IpAddr::V4(ipv4_addr) => {
                 let out = &mut *out
@@ -400,9 +383,10 @@ impl Archive for IpAddr {
                 ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedIpAddrTag::V4);
 
                 let (fp, fo) = out_field!(out.1);
+                // resolver is guaranteed to be (), but it's better to be explicit about it
                 #[allow(clippy::unit_arg)]
                 ipv4_addr.resolve(pos + fp, resolver, fo);
-            },
+            }
             IpAddr::V6(ipv6_addr) => {
                 let out = &mut *out
                     .as_mut_ptr()
@@ -410,9 +394,10 @@ impl Archive for IpAddr {
                 ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedIpAddrTag::V6);
 
                 let (fp, fo) = out_field!(out.1);
+                // resolver is guaranteed to be (), but it's better to be explicit about it
                 #[allow(clippy::unit_arg)]
                 ipv6_addr.resolve(pos + fp, resolver, fo);
-            },
+            }
         }
     }
 }
@@ -675,7 +660,12 @@ impl Archive for SocketAddr {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         match self {
             SocketAddr::V4(socket_addr) => {
                 let out = &mut *out
@@ -684,9 +674,10 @@ impl Archive for SocketAddr {
                 ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedSocketAddrTag::V4);
 
                 let (fp, fo) = out_field!(out.1);
+                // resolver is guaranteed to be (), but it's better to be explicit about it
                 #[allow(clippy::unit_arg)]
                 socket_addr.resolve(pos + fp, resolver, fo);
-            },
+            }
             SocketAddr::V6(socket_addr) => {
                 let out = &mut *out
                     .as_mut_ptr()
@@ -694,9 +685,10 @@ impl Archive for SocketAddr {
                 ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedSocketAddrTag::V6);
 
                 let (fp, fo) = out_field!(out.1);
+                // resolver is guaranteed to be (), but it's better to be explicit about it
                 #[allow(clippy::unit_arg)]
                 socket_addr.resolve(pos + fp, resolver, fo);
-            },
+            }
         }
     }
 }

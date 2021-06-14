@@ -1,14 +1,7 @@
-use crate::{
-    option::ArchivedOption,
-    Archive,
-    Deserialize,
-    Fallible,
-    Serialize,
-};
-use core::{
-    mem::MaybeUninit,
-    ptr,
-};
+//! [`Archive`] implementation for `Option`.
+
+use crate::{option::ArchivedOption, Archive, Deserialize, Fallible, Serialize};
+use core::{mem::MaybeUninit, ptr};
 
 #[allow(dead_code)]
 #[repr(u8)]
@@ -28,7 +21,12 @@ impl<T: Archive> Archive for Option<T> {
     type Resolver = Option<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         match resolver {
             None => {
                 let out = &mut *out

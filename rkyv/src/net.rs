@@ -1,4 +1,4 @@
-//! [`Archive`] implementations for network types.
+//! Archived versions of network types.
 
 use crate::Archived;
 

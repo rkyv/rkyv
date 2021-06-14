@@ -1,18 +1,17 @@
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use ::alloc::{alloc, boxed::Box, vec::Vec};
+use core::borrow::{Borrow, BorrowMut};
 use core::{
     fmt,
     ops::{Deref, DerefMut, Index, IndexMut},
     ptr::NonNull,
     slice,
 };
-#[cfg(all(feature = "alloc", not(feature = "std")))]
-use ::alloc::{alloc, boxed::Box, vec::Vec};
 #[cfg(feature = "std")]
 use std::{
-    alloc,
-    io,
+    alloc, io,
     panic::{RefUnwindSafe, UnwindSafe},
 };
-use core::borrow::{Borrow, BorrowMut};
 
 /// A vector of bytes that aligns its memory to 16 bytes.
 pub struct AlignedVec {

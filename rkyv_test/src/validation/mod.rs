@@ -9,7 +9,7 @@ pub mod util {
         ser::{serializers::AlignedSerializer, Serializer},
         util::AlignedVec,
         validation::validators::DefaultArchiveValidator,
-        Serialize
+        Serialize,
     };
 
     pub fn serialize_and_check<T: Serialize<AlignedSerializer<AlignedVec>>>(value: &T)

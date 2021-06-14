@@ -1,27 +1,25 @@
+//! [`Archive`] implementation for `Box`.
+
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
-    Archive,
-    ArchivePointee,
-    ArchiveUnsized,
-    Deserialize,
-    DeserializeUnsized,
-    Fallible,
-    Serialize,
+    Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized, Fallible, Serialize,
     SerializeUnsized,
-};
-use core::{
-    cmp,
-    mem::MaybeUninit,
 };
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::boxed::Box;
+use core::{cmp, mem::MaybeUninit};
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     type Archived = ArchivedBox<T::Archived>;
     type Resolver = BoxResolver<T::MetadataResolver>;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         ArchivedBox::resolve_from_ref(self.as_ref(), pos, resolver, out);
     }
 }
@@ -33,7 +31,8 @@ impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> Serialize<S> for Box
     }
 }
 
-impl<T: ArchiveUnsized + ?Sized, D: Fallible + ?Sized> Deserialize<Box<T>, D> for ArchivedBox<T::Archived>
+impl<T: ArchiveUnsized + ?Sized, D: Fallible + ?Sized> Deserialize<Box<T>, D>
+    for ArchivedBox<T::Archived>
 where
     T::Archived: DeserializeUnsized<T, D>,
 {

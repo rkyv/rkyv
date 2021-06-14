@@ -1,15 +1,7 @@
 //! An archived version of `Box`.
 
 use crate::{ArchivePointee, ArchiveUnsized, Fallible, RelPtr, SerializeUnsized};
-use core::{
-    borrow::Borrow,
-    cmp,
-    fmt,
-    hash,
-    ops::Deref,
-    pin::Pin,
-    mem::MaybeUninit,
-};
+use core::{borrow::Borrow, cmp, fmt, hash, mem::MaybeUninit, ops::Deref, pin::Pin};
 
 /// An archived [`Box`].
 ///
@@ -31,6 +23,11 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     }
 
     /// Resolves an archived box from the given value and parameters.
+    ///
+    /// # Safety
+    ///
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must be the result of serializing `value`
     #[inline]
     pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: &U,
@@ -44,7 +41,10 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
 
     /// Serializes an archived box from the given value and serializer.
     #[inline]
-    pub fn serialize_from_ref<U: SerializeUnsized<S, Archived = T> + ?Sized, S: Fallible + ?Sized>(
+    pub fn serialize_from_ref<
+        U: SerializeUnsized<S, Archived = T> + ?Sized,
+        S: Fallible + ?Sized,
+    >(
         value: &U,
         serializer: &mut S,
     ) -> Result<BoxResolver<U::MetadataResolver>, S::Error> {
@@ -52,7 +52,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
             pos: value.serialize_unsized(serializer)?,
             metadata_resolver: value.serialize_metadata(serializer)?,
         })
-    } 
+    }
 }
 
 impl<T: ArchivePointee + ?Sized> AsRef<T> for ArchivedBox<T> {
@@ -104,7 +104,9 @@ impl<T: ArchivePointee + hash::Hash + ?Sized> hash::Hash for ArchivedBox<T> {
     }
 }
 
-impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ArchivePointee + ?Sized> PartialEq<ArchivedBox<U>> for ArchivedBox<T> {
+impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ArchivePointee + ?Sized>
+    PartialEq<ArchivedBox<U>> for ArchivedBox<T>
+{
     #[inline]
     fn eq(&self, other: &ArchivedBox<U>) -> bool {
         self.get().eq(other.get())
@@ -136,17 +138,15 @@ pub struct BoxResolver<T> {
 const _: () = {
     use crate::validation::{
         owned::{CheckOwnedPointerError, OwnedPointerError},
-        ArchiveBoundsContext,
-        ArchiveMemoryContext,
-        LayoutMetadata,
+        ArchiveBoundsContext, ArchiveMemoryContext, LayoutMetadata,
     };
     use bytecheck::{CheckBytes, Error};
     use ptr_meta::Pointee;
 
     impl<
-        T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized,
-        C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
-    > CheckBytes<C> for ArchivedBox<T>
+            T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized,
+            C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
+        > CheckBytes<C> for ArchivedBox<T>
     where
         T::ArchivedMetadata: CheckBytes<C>,
         C::Error: Error,

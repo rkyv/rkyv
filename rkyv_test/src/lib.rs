@@ -9,9 +9,9 @@ extern crate alloc;
 
 #[cfg(feature = "alloc")]
 mod test_alloc;
-pub mod util;
 #[cfg(feature = "std")]
 mod test_std;
+pub mod util;
 #[cfg(feature = "validation")]
 pub mod validation;
 

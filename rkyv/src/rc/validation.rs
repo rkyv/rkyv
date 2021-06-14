@@ -33,8 +33,11 @@ impl<T: fmt::Display, R: fmt::Display, C: fmt::Display> fmt::Display
 }
 
 #[cfg(feature = "std")]
-impl<T: std::error::Error + 'static, R: std::error::Error + 'static, C: std::error::Error + 'static> std::error::Error
-    for SharedPointerError<T, R, C>
+impl<
+        T: std::error::Error + 'static,
+        R: std::error::Error + 'static,
+        C: std::error::Error + 'static,
+    > std::error::Error for SharedPointerError<T, R, C>
 {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
@@ -66,8 +69,11 @@ impl<T: fmt::Display, R: fmt::Display, C: fmt::Display> fmt::Display for WeakPoi
 }
 
 #[cfg(feature = "std")]
-impl<T: std::error::Error + 'static, R: std::error::Error + 'static, C: std::error::Error + 'static> std::error::Error
-    for WeakPointerError<T, R, C>
+impl<
+        T: std::error::Error + 'static,
+        R: std::error::Error + 'static,
+        C: std::error::Error + 'static,
+    > std::error::Error for WeakPointerError<T, R, C>
 {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
@@ -84,15 +90,16 @@ impl<T, R, C> From<Unreachable> for WeakPointerError<T, R, C> {
 }
 
 impl<
-    T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static,
-    C: ArchiveBoundsContext + SharedArchiveContext + ?Sized,
-> CheckBytes<C> for ArchivedRc<T>
+        T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static,
+        C: ArchiveBoundsContext + SharedArchiveContext + ?Sized,
+    > CheckBytes<C> for ArchivedRc<T>
 where
     T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,
     <T as Pointee>::Metadata: LayoutMetadata<T>,
 {
-    type Error = SharedPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
+    type Error =
+        SharedPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
 
     unsafe fn check_bytes<'a>(
         value: *const Self,
@@ -116,9 +123,9 @@ impl ArchivedRcWeakTag {
 }
 
 impl<
-    T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static,
-    C: ArchiveBoundsContext + SharedArchiveContext + ?Sized,
-> CheckBytes<C> for ArchivedRcWeak<T>
+        T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static,
+        C: ArchiveBoundsContext + SharedArchiveContext + ?Sized,
+    > CheckBytes<C> for ArchivedRcWeak<T>
 where
     T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,

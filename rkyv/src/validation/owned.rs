@@ -1,3 +1,5 @@
+//! Common validation utilities for owned containers (`Box`, `String`, `Vec`, etc.).
+
 use crate::{ArchivePointee, Fallible};
 use bytecheck::CheckBytes;
 use core::fmt;
@@ -40,6 +42,7 @@ impl<T: Error + 'static, R: Error + 'static, C: Error + 'static> Error
     }
 }
 
+/// The [`OwnedPointerError`] for an owned `T` being checked with a some context `C`.
 pub type CheckOwnedPointerError<T, C> = OwnedPointerError<
     <<T as ArchivePointee>::ArchivedMetadata as CheckBytes<C>>::Error,
     <T as CheckBytes<C>>::Error,

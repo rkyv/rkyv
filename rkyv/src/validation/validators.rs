@@ -8,10 +8,10 @@ use crate::{
     },
     Archive,
 };
-use bytecheck::CheckBytes;
-use core::{alloc::Layout, any::TypeId, fmt};
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::vec::Vec;
+use bytecheck::CheckBytes;
+use core::{alloc::Layout, any::TypeId, fmt};
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use hashbrown::HashMap;
 #[cfg(feature = "std")]

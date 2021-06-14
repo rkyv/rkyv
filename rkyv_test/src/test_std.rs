@@ -5,9 +5,7 @@ mod tests {
         archived_root,
         ser::{serializers::AlignedSerializer, Serializer},
         util::AlignedVec,
-        Archive,
-        Deserialize,
-        Serialize,
+        Archive, Deserialize, Serialize,
     };
 
     #[test]
@@ -79,7 +77,8 @@ mod tests {
             .serialize_value(&hash_map)
             .expect("failed to archive value");
         let buf = serializer.into_inner();
-        let archived_value = unsafe { archived_root::<HashMap<String, String, ahash::RandomState>>(buf.as_ref()) };
+        let archived_value =
+            unsafe { archived_root::<HashMap<String, String, ahash::RandomState>>(buf.as_ref()) };
 
         assert!(archived_value.len() == hash_map.len());
 

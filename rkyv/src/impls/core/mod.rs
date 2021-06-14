@@ -6,11 +6,7 @@ use crate::{
     ser::Serializer, Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
     Deserialize, DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
 };
-use core::{
-    alloc::Layout,
-    mem::MaybeUninit,
-    ptr, str,
-};
+use core::{alloc::Layout, mem::MaybeUninit, ptr, str};
 use ptr_meta::Pointee;
 
 pub mod option;
@@ -128,7 +124,12 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     type Resolver = [T::Resolver; N];
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         let mut resolvers = core::mem::MaybeUninit::new(resolver);
         let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
         let out_ptr = out.as_mut_ptr().cast::<MaybeUninit<T::Archived>>();
@@ -417,7 +418,7 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for <str as ArchiveUnsized
         _: &mut D,
         mut alloc: impl FnMut(Layout) -> *mut u8,
     ) -> Result<*mut (), D::Error> {
-        if self.len() == 0 {
+        if self.is_empty() {
             Ok(ptr::null_mut())
         } else {
             let bytes = alloc(Layout::array::<u8>(self.len()).unwrap());

@@ -1,10 +1,9 @@
+//! [`Archive`] implementation for `HashMap`.
+
 use crate::{
     collections::hash_map::{ArchivedHashMap, HashMapResolver},
     ser::Serializer,
-    Archive,
-    Deserialize,
-    Fallible,
-    Serialize,
+    Archive, Deserialize, Fallible, Serialize,
 };
 use core::{
     borrow::Borrow,
@@ -21,7 +20,12 @@ where
     type Resolver = HashMapResolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         ArchivedHashMap::resolve_from_len(self.len(), pos, resolver, out);
     }
 }
@@ -33,9 +37,7 @@ where
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        unsafe {
-            ArchivedHashMap::serialize_from_iter(self.iter(), self.len(), serializer)
-        }
+        unsafe { ArchivedHashMap::serialize_from_iter(self.iter(), self.len(), serializer) }
     }
 }
 

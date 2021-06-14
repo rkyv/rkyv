@@ -1,17 +1,9 @@
-//! Archived versions of `String` and `CString`.
+//! Archived versions of string types.
 
-use crate::{
-    ArchiveUnsized,
-    Fallible,
-    MetadataResolver,
-    RelPtr,
-    SerializeUnsized,
-};
+use crate::{ArchiveUnsized, Fallible, MetadataResolver, RelPtr, SerializeUnsized};
 use core::{
     borrow::Borrow,
-    cmp,
-    fmt,
-    hash,
+    cmp, fmt, hash,
     mem::MaybeUninit,
     ops::{Deref, Index, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
     pin::Pin,
@@ -33,11 +25,11 @@ impl ArchivedString {
 
     /// Extracts a pinned mutable string slice containing the entire `ArchivedString`.
     #[inline]
-    pub fn as_pin_mut_str(self: Pin<&mut Self>) -> Pin<&mut str> {
+    pub fn pin_mut_str(self: Pin<&mut Self>) -> Pin<&mut str> {
         unsafe { self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr()) }
     }
 
-    /// Resolves the archived string from a given `str`.
+    /// Resolves an archived string from a given `str`.
     ///
     /// # Safety
     ///
@@ -51,11 +43,12 @@ impl ArchivedString {
         out: &mut MaybeUninit<Self>,
     ) {
         let (fp, fo) = out_field!(out.0);
+        // metadata_resolver is guaranteed to be (), but it's better to be explicit about it
         #[allow(clippy::unit_arg)]
         value.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 
-    /// Serializes the archived string from a given `str`.
+    /// Serializes an archived string from a given `str`.
     #[inline]
     pub fn serialize_from_str<S: Fallible + ?Sized>(
         value: &str,
@@ -119,7 +112,7 @@ macro_rules! impl_index {
                 self.as_str().index(index)
             }
         }
-    }
+    };
 }
 
 impl_index!(Range<usize>);
@@ -174,8 +167,7 @@ pub struct StringResolver {
 const _: () = {
     use crate::validation::{
         owned::{CheckOwnedPointerError, OwnedPointerError},
-        ArchiveBoundsContext,
-        ArchiveMemoryContext,
+        ArchiveBoundsContext, ArchiveMemoryContext,
     };
     use bytecheck::{CheckBytes, Error};
 

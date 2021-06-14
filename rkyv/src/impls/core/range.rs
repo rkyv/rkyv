@@ -96,7 +96,12 @@ impl<T: Archive> Archive for Range<T> {
     type Resolver = Range<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         let (fp, fo) = out_field!(out.start);
         self.start.resolve(pos + fp, resolver.start, fo);
         let (fp, fo) = out_field!(out.end);
@@ -193,7 +198,12 @@ impl<T: Archive> Archive for RangeInclusive<T> {
     type Resolver = Range<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         let (fp, fo) = out_field!(out.start);
         self.start().resolve(pos + fp, resolver.start, fo);
         let (fp, fo) = out_field!(out.end);
@@ -278,7 +288,12 @@ impl<T: Archive> Archive for RangeFrom<T> {
     type Resolver = RangeFrom<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         let (fp, fo) = out_field!(out.start);
         self.start.resolve(pos + fp, resolver.start, fo);
     }
@@ -358,7 +373,12 @@ impl<T: Archive> Archive for RangeTo<T> {
     type Resolver = RangeTo<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         let (fp, fo) = out_field!(out.end);
         self.end.resolve(pos + fp, resolver.end, fo);
     }
@@ -438,7 +458,12 @@ impl<T: Archive> Archive for RangeToInclusive<T> {
     type Resolver = RangeToInclusive<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         let (fp, fo) = out_field!(out.end);
         self.end.resolve(pos + fp, resolver.end, fo);
     }

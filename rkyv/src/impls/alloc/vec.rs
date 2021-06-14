@@ -1,16 +1,13 @@
+//! [`Archive`] implementation for `Vec`.
+
 use crate::{
     ser::Serializer,
     vec::{ArchivedVec, VecResolver},
-    Archive,
-    Deserialize,
-    DeserializeUnsized,
-    Fallible,
-    MetadataResolver,
-    Serialize,
+    Archive, Deserialize, DeserializeUnsized, Fallible, MetadataResolver, Serialize,
 };
-use core::{cmp, mem::MaybeUninit};
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::{boxed::Box, vec::Vec};
+use core::{cmp, mem::MaybeUninit};
 
 // Vec
 
@@ -47,7 +44,12 @@ impl<T: Archive> Archive for Vec<T> {
     type Resolver = VecResolver<MetadataResolver<[T]>>;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
     }
 }

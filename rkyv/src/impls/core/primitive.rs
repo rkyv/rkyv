@@ -1,3 +1,5 @@
+//! [`Archive`] implementations for primitives.
+
 use crate::{
     Archive, Archived, ArchivedIsize, ArchivedUsize, Deserialize, Fallible, FixedIsize, FixedUsize,
     Serialize,

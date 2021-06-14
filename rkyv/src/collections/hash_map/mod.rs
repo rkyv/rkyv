@@ -6,18 +6,9 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{
-    Archive,
-    Archived,
-    ArchivedUsize,
-    FixedUsize,
-    RawRelPtr,
-};
 #[cfg(feature = "alloc")]
-use crate::{
-    ser::Serializer,
-    Serialize,
-};
+use crate::{ser::Serializer, Serialize};
+use crate::{Archive, Archived, ArchivedUsize, FixedUsize, RawRelPtr};
 use core::{
     borrow::Borrow,
     hash::{Hash, Hasher},
@@ -29,11 +20,7 @@ use core::{
     ptr,
 };
 #[cfg(feature = "alloc")]
-use core::{
-    cmp::Reverse,
-    mem::size_of,
-    slice,
-};
+use core::{cmp::Reverse, mem::size_of, slice};
 
 #[cfg_attr(feature = "strict", repr(C))]
 struct Entry<K, V> {
@@ -46,7 +33,12 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
     type Resolver = (K::Resolver, V::Resolver);
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         let (fp, fo) = out_field!(out.key);
         self.key.resolve(pos + fp, resolver.0, fo);
 
@@ -361,8 +353,7 @@ impl<K, V> ArchivedHashMap<K, V> {
         for ((key, value), (key_resolver, value_resolver)) in
             entries.iter().map(|r| r.unwrap()).zip(resolvers.drain(..))
         {
-            serializer
-                .resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
+            serializer.resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
         }
 
         Ok(HashMapResolver {
@@ -371,7 +362,7 @@ impl<K, V> ArchivedHashMap<K, V> {
         })
     }
 
-    /// Resolves the archived hash map from a given `len`.
+    /// Resolves an archived hash map from a given length and parameters.
     ///
     /// # Safety
     ///

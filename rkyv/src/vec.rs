@@ -1,18 +1,11 @@
 //! An archived version of `Vec`.
 
 use crate::{
-    ser::Serializer,
-    Archive,
-    ArchiveUnsized,
-    MetadataResolver,
-    Serialize,
-    SerializeUnsized,
-    RelPtr,
+    ser::Serializer, Archive, ArchiveUnsized, MetadataResolver, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{
     borrow::Borrow,
-    cmp,
-    hash,
+    cmp, hash,
     mem::MaybeUninit,
     ops::{Deref, Index, IndexMut},
     pin::Pin,
@@ -35,7 +28,7 @@ impl<T> ArchivedVec<T> {
 
     /// Gets the elements of the archived vec as a pinned mutable slice.
     #[inline]
-    pub fn as_pin_mut_slice(self: Pin<&mut Self>) -> Pin<&mut [T]> {
+    pub fn pin_mut_slice(self: Pin<&mut Self>) -> Pin<&mut [T]> {
         unsafe { self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr()) }
     }
 
@@ -51,14 +44,31 @@ impl<T> ArchivedVec<T> {
         unsafe { self.map_unchecked_mut(|s| &mut (*s.0.as_mut_ptr())[index]) }
     }
 
+    /// Resolves an archived `Vec` from a given slice.
+    ///
+    /// # Safety
+    ///
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must be the result of serializing `value`
     #[inline]
-    pub unsafe fn resolve_from_slice<U: Archive<Archived = T>>(slice: &[U], pos: usize, resolver: VecResolver<MetadataResolver<[U]>>, out: &mut MaybeUninit<Self>) {
+    pub unsafe fn resolve_from_slice<U: Archive<Archived = T>>(
+        slice: &[U],
+        pos: usize,
+        resolver: VecResolver<MetadataResolver<[U]>>,
+        out: &mut MaybeUninit<Self>,
+    ) {
         let (fp, fo) = out_field!(out.0);
+        // metadata_resolver is guaranteed to be (), but it's better to be explicit about it
+        #[allow(clippy::unit_arg)]
         slice.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 
+    /// Serializes an archived `Vec` from a given slice.
     #[inline]
-    pub fn serialize_from_slice<U: Serialize<S, Archived = T>, S: Serializer + ?Sized>(slice: &[U], serializer: &mut S) -> Result<VecResolver<MetadataResolver<[U]>>, S::Error>
+    pub fn serialize_from_slice<U: Serialize<S, Archived = T>, S: Serializer + ?Sized>(
+        slice: &[U],
+        serializer: &mut S,
+    ) -> Result<VecResolver<MetadataResolver<[U]>>, S::Error>
     where
         // This bound is necessary only in no-alloc, no-std situations
         // SerializeUnsized is only implemented for U: Serialize<Resolver = ()> in that case
@@ -172,9 +182,7 @@ const _: () = {
     use crate::{
         validation::{
             owned::{CheckOwnedPointerError, OwnedPointerError},
-            ArchiveBoundsContext,
-            ArchiveMemoryContext,
-            LayoutMetadata,
+            ArchiveBoundsContext, ArchiveMemoryContext, LayoutMetadata,
         },
         ArchivePointee,
     };

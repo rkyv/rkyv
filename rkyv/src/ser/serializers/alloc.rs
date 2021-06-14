@@ -1,7 +1,5 @@
 use crate::{
-    ser::Serializer,
-    util::AlignedVec,
-    Archive, ArchiveUnsized, Fallible, RelPtr, Unreachable,
+    ser::Serializer, util::AlignedVec, Archive, ArchiveUnsized, Fallible, RelPtr, Unreachable,
 };
 use core::{
     borrow::{Borrow, BorrowMut},

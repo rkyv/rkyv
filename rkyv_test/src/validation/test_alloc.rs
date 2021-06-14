@@ -1,6 +1,14 @@
 #[cfg(test)]
 mod tests {
     use crate::validation::util::serialize_and_check;
+    #[cfg(all(feature = "alloc", not(feature = "std")))]
+    use alloc::{
+        boxed::Box,
+        rc::Rc,
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
     use bytecheck::{CheckBytes, Error};
     use core::fmt;
     use rkyv::{
@@ -12,8 +20,6 @@ mod tests {
         },
         Aligned, AlignedVec, Archive, Serialize,
     };
-    #[cfg(all(feature = "alloc", not(feature = "std")))]
-    use alloc::{boxed::Box, rc::Rc, string::{String, ToString}, vec, vec::Vec};
     #[cfg(feature = "std")]
     use std::rc::Rc;
 

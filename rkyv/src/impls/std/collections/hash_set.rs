@@ -1,16 +1,11 @@
+//! [`Archive`] implementation for `HashSet`.
+
 use crate::{
     collections::hash_set::{ArchivedHashSet, HashSetResolver},
     ser::Serializer,
-    Archive,
-    Deserialize,
-    Fallible,
-    Serialize,
+    Archive, Deserialize, Fallible, Serialize,
 };
-use core::{
-    borrow::Borrow,
-    hash::Hash,
-    mem::MaybeUninit,
-};
+use core::{borrow::Borrow, hash::Hash, mem::MaybeUninit};
 use std::collections::HashSet;
 
 impl<K: Archive + Hash + Eq> Archive for HashSet<K>
@@ -21,7 +16,12 @@ where
     type Resolver = HashSetResolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         ArchivedHashSet::<K::Archived>::resolve_from_len(self.len(), pos, resolver, out);
     }
 }
@@ -32,9 +32,7 @@ where
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        unsafe {
-            ArchivedHashSet::serialize_from_iter(self.iter(), self.len(), serializer)
-        }
+        unsafe { ArchivedHashSet::serialize_from_iter(self.iter(), self.len(), serializer) }
     }
 }
 

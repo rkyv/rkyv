@@ -4,19 +4,10 @@
 pub mod validation;
 
 use crate::{
-    ser::SharedSerializer,
-    ArchivePointee,
-    ArchiveUnsized,
-    MetadataResolver,
-    RelPtr,
+    ser::SharedSerializer, ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr,
     SerializeUnsized,
 };
-use core::{
-    mem::MaybeUninit,
-    ops::Deref,
-    pin::Pin,
-    ptr,
-};
+use core::{mem::MaybeUninit, ops::Deref, pin::Pin, ptr};
 
 /// An archived `Rc`.
 ///
@@ -42,14 +33,29 @@ impl<T: ArchivePointee + ?Sized> ArchivedRc<T> {
         self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr())
     }
 
+    /// Resolves an archived `Rc` from a given reference.
+    ///
+    /// # Safety
+    ///
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must be the result of serializing `value`
     #[inline]
-    pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(value: &U, pos: usize, resolver: RcResolver<MetadataResolver<U>>, out: &mut MaybeUninit<Self>) {
+    pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
+        value: &U,
+        pos: usize,
+        resolver: RcResolver<MetadataResolver<U>>,
+        out: &mut MaybeUninit<Self>,
+    ) {
         let (fp, fo) = out_field!(out.0);
         value.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 
+    /// Serializes an archived `Rc` from a given reference.
     #[inline]
-    pub fn serialize_from_ref<U: SerializeUnsized<S> + ?Sized, S: SharedSerializer + ?Sized>(value: &U, serializer: &mut S) -> Result<RcResolver<MetadataResolver<U>>, S::Error> {
+    pub fn serialize_from_ref<U: SerializeUnsized<S> + ?Sized, S: SharedSerializer + ?Sized>(
+        value: &U,
+        serializer: &mut S,
+    ) -> Result<RcResolver<MetadataResolver<U>>, S::Error> {
         Ok(RcResolver {
             pos: serializer.serialize_shared(value)?,
             metadata_resolver: value.serialize_metadata(serializer)?,
@@ -104,15 +110,26 @@ impl<T: ArchivePointee + ?Sized> ArchivedRcWeak<T> {
         }
     }
 
+    /// Resolves an archived `Weak` from a given optional reference.
+    ///
+    /// # Safety
+    ///
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must be the result of serializing `value`
     #[inline]
-    pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(value: Option<&U>, pos: usize, resolver: RcWeakResolver<MetadataResolver<U>>, out: &mut MaybeUninit<Self>) {
+    pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
+        value: Option<&U>,
+        pos: usize,
+        resolver: RcWeakResolver<MetadataResolver<U>>,
+        out: &mut MaybeUninit<Self>,
+    ) {
         match resolver {
             RcWeakResolver::None => {
                 let out = &mut *out
                     .as_mut_ptr()
                     .cast::<MaybeUninit<ArchivedRcWeakVariantNone>>();
                 ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedRcWeakTag::None);
-            },
+            }
             RcWeakResolver::Some(resolver) => {
                 let out = &mut *out
                     .as_mut_ptr()
@@ -120,13 +137,20 @@ impl<T: ArchivePointee + ?Sized> ArchivedRcWeak<T> {
                 ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedRcWeakTag::Some);
 
                 let (fp, fo) = out_field!(out.1);
-                ArchivedRc::resolve_from_ref(value.unwrap(),pos + fp, resolver, fo);
-            },
+                ArchivedRc::resolve_from_ref(value.unwrap(), pos + fp, resolver, fo);
+            }
         }
     }
 
+    /// Serializes an archived `Weak` from a given optional reference.
     #[inline]
-    pub fn serialize_from_ref<U: SerializeUnsized<S, Archived = T> + ?Sized, S: SharedSerializer + ?Sized>(value: Option<&U>, serializer: &mut S) -> Result<RcWeakResolver<MetadataResolver<U>>, S::Error> {
+    pub fn serialize_from_ref<
+        U: SerializeUnsized<S, Archived = T> + ?Sized,
+        S: SharedSerializer + ?Sized,
+    >(
+        value: Option<&U>,
+        serializer: &mut S,
+    ) -> Result<RcWeakResolver<MetadataResolver<U>>, S::Error> {
         Ok(match value {
             None => RcWeakResolver::None,
             Some(r) => RcWeakResolver::Some(ArchivedRc::<T>::serialize_from_ref(r, serializer)?),

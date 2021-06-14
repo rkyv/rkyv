@@ -11,7 +11,7 @@ use crate::{Archive, Deserialize, Fallible, Serialize};
 use ::core::{
     fmt,
     marker::PhantomData,
-    mem::{MaybeUninit, transmute},
+    mem::{transmute, MaybeUninit},
     ops::Deref,
 };
 
@@ -21,7 +21,7 @@ use ::core::{
 #[repr(transparent)]
 pub struct With<F: ?Sized, W> {
     _phantom: PhantomData<W>,
-    pub field: F,
+    field: F,
 }
 
 impl<F: ?Sized, W> With<F, W> {
@@ -29,10 +29,13 @@ impl<F: ?Sized, W> With<F, W> {
     ///
     /// This is always safe to do because `With` is a transparent wrapper.
     #[inline]
-    pub fn cast<'a>(field: &'a F) -> &'a With<F, W> {
+    pub fn cast(field: &F) -> &'_ With<F, W> {
         // Safety: transmuting from an unsized type reference to a reference to a transparent
         // wrapper is safe because they both have the same data address and metadata
-        unsafe { transmute(field) }
+        #[allow(clippy::transmute_ptr_to_ptr)]
+        unsafe {
+            transmute(field)
+        }
     }
 }
 
@@ -41,6 +44,12 @@ impl<F, W> With<F, W> {
     #[inline]
     pub fn into_inner(self) -> F {
         self.field
+    }
+}
+
+impl<F: ?Sized, W> AsRef<F> for With<F, W> {
+    fn as_ref(&self) -> &F {
+        &self.field
     }
 }
 
@@ -70,7 +79,12 @@ impl<F: ?Sized, W: ArchiveWith<F>> Archive for With<F, W> {
     type Resolver = W::Resolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         let as_with = &mut *out.as_mut_ptr().cast();
         W::resolve_with(&self.field, pos, resolver, as_with);
     }
@@ -95,7 +109,9 @@ pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
     fn deserialize_with(field: &F, deserializer: &mut D) -> Result<T, D::Error>;
 }
 
-impl<F: ?Sized, W: DeserializeWith<F, T, D>, T, D: Fallible + ?Sized> Deserialize<With<T, W>, D> for F {
+impl<F: ?Sized, W: DeserializeWith<F, T, D>, T, D: Fallible + ?Sized> Deserialize<With<T, W>, D>
+    for F
+{
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<With<T, W>, D::Error> {
         Ok(With {
@@ -122,7 +138,7 @@ impl<T> Immutable<T> {
     ///
     /// This is always safe because `Immutable` is a transparent wrapper.
     #[inline]
-    pub fn as_inner(out: &mut MaybeUninit<Self>) -> &mut MaybeUninit<T> {
+    pub fn map_inner(out: &mut MaybeUninit<Self>) -> &mut MaybeUninit<T> {
         unsafe { &mut *out.as_mut_ptr().cast() }
     }
 }
@@ -135,8 +151,6 @@ impl<T: ?Sized> Deref for Immutable<T> {
         &self.0
     }
 }
-
-
 
 /// A wrapper that serializes a reference inline.
 pub struct Inline;

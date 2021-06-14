@@ -121,8 +121,7 @@ pub use rkyv_derive::{Archive, Deserialize, Serialize};
 pub use util::*;
 #[cfg(feature = "validation")]
 pub use validation::{
-    check_archived_root_with_context,
-    check_archived_value_with_context,
+    check_archived_root_with_context, check_archived_value_with_context,
     validators::{check_archived_root, check_archived_value},
 };
 
@@ -327,7 +326,12 @@ pub trait Archive {
     ///
     /// - `pos` must be the position of `out` within the archive
     /// - `resolver` must be the result of serializing this object
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>);
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    );
 }
 
 /// Converts a type to its archived form.
@@ -622,8 +626,10 @@ pub type FixedIsize = i32;
 #[cfg(feature = "size_64")]
 pub type FixedIsize = i64;
 
+/// The archived version of `usize`.
 pub type ArchivedUsize = Archived<FixedUsize>;
 
+/// The archived version of `isize`.
 pub type ArchivedIsize = Archived<FixedIsize>;
 
 /// An untyped pointer which resolves relative to its position in memory.

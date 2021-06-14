@@ -14,7 +14,13 @@ mod tests {
     };
 
     #[cfg(all(feature = "alloc", not(feature = "std")))]
-    use alloc::{boxed::Box, rc::{Rc, Weak}, string::{String, ToString}, vec, vec::Vec};
+    use alloc::{
+        boxed::Box,
+        rc::{Rc, Weak},
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
     #[cfg(feature = "std")]
     use std::rc::{Rc, Weak};
 
@@ -54,7 +60,11 @@ mod tests {
         #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
         fn archive_example() {
             #[cfg(all(feature = "alloc", not(feature = "std")))]
-            use alloc::{string::{String, ToString}, vec, vec::Vec};
+            use alloc::{
+                string::{String, ToString},
+                vec,
+                vec::Vec,
+            };
 
             use rkyv::{
                 archived_root,
@@ -414,13 +424,13 @@ mod tests {
             .as_mut()
             .b()
             .index_pin(0)
-            .as_pin_mut_str()
+            .pin_mut_str()
             .make_ascii_uppercase();
         value
             .as_mut()
             .b()
             .index_pin(1)
-            .as_pin_mut_str()
+            .pin_mut_str()
             .make_ascii_uppercase();
         assert_eq!(value.b[0], "HELLO");
         assert_eq!(value.b[1], "WORLD");
@@ -1275,9 +1285,7 @@ mod tests {
         }
 
         let a = 42;
-        let value = Test {
-            value: &a,
-        };
+        let value = Test { value: &a };
         let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&value).unwrap();
         let result = serializer.into_inner();
@@ -1298,9 +1306,7 @@ mod tests {
         }
 
         let a = "hello world";
-        let value = Test {
-            value: &a,
-        };
+        let value = Test { value: &a };
         let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&value).unwrap();
         let result = serializer.into_inner();

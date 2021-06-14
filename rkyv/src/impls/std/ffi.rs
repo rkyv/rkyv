@@ -1,23 +1,12 @@
+//! [`Archive`] implementation for `std` FFI types.
+
 use crate::{
     ffi::{ArchivedCString, CStringResolver},
     ser::Serializer,
-    Archive,
-    Archived,
-    ArchivedMetadata,
-    ArchivePointee,
-    ArchiveUnsized,
-    Deserialize,
-    DeserializeUnsized,
-    Fallible,
-    FixedUsize,
-    Serialize,
-    SerializeUnsized,
+    Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata, Deserialize,
+    DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
 };
-use core::{
-    alloc::Layout,
-    mem::MaybeUninit,
-    ptr,
-};
+use core::{alloc::Layout, mem::MaybeUninit, ptr};
 use ptr_meta::Pointee;
 use std::ffi::{CStr, CString};
 
@@ -103,7 +92,12 @@ impl Archive for CString {
     type Resolver = CStringResolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: &mut MaybeUninit<Self::Archived>,
+    ) {
         ArchivedCString::resolve_from_c_str(self.as_c_str(), pos, resolver, out);
     }
 }

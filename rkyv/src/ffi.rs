@@ -1,14 +1,9 @@
-use crate::{
-    ser::Serializer,
-    ArchiveUnsized,
-    MetadataResolver,
-    RelPtr,
-    SerializeUnsized,
-};
+//! Archived versions of FFI types.
+
+use crate::{ser::Serializer, ArchiveUnsized, MetadataResolver, RelPtr, SerializeUnsized};
 use core::{
     borrow::Borrow,
-    cmp,
-    hash,
+    cmp, hash,
     mem::MaybeUninit,
     ops::{Deref, Index, RangeFull},
     pin::Pin,
@@ -46,20 +41,37 @@ impl ArchivedCString {
         unsafe { &*self.0.as_ptr() }
     }
 
-    /// Extracts a pinned mutable `Cstr` slice containing the entire string.
+    /// Extracts a pinned mutable `CStr` slice containing the entire string.
     #[inline]
-    pub fn as_pin_mut_c_str(self: Pin<&mut Self>) -> Pin<&mut CStr> {
+    pub fn pin_mut_c_str(self: Pin<&mut Self>) -> Pin<&mut CStr> {
         unsafe { self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr()) }
     }
 
+    /// Resolves an archived C string from the given C string and parameters.
+    ///
+    /// # Safety
+    ///
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must be the result of serializing a C string
     #[inline]
-    pub unsafe fn resolve_from_c_str(c_str: &CStr, pos: usize, resolver: CStringResolver, out: &mut MaybeUninit<Self>) {
+    pub unsafe fn resolve_from_c_str(
+        c_str: &CStr,
+        pos: usize,
+        resolver: CStringResolver,
+        out: &mut MaybeUninit<Self>,
+    ) {
         let (fp, fo) = out_field!(out.0);
+        // metadata_resolver is guaranteed to be (), but it's better to be explicit about it
+        #[allow(clippy::unit_arg)]
         c_str.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 
+    /// Serializes a C string.
     #[inline]
-    pub fn serialize_from_c_str<S: Serializer + ?Sized>(c_str: &CStr, serializer: &mut S) -> Result<CStringResolver, S::Error> {
+    pub fn serialize_from_c_str<S: Serializer + ?Sized>(
+        c_str: &CStr,
+        serializer: &mut S,
+    ) -> Result<CStringResolver, S::Error> {
         Ok(CStringResolver {
             pos: c_str.serialize_unsized(serializer)?,
             metadata_resolver: c_str.serialize_metadata(serializer)?,

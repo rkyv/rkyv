@@ -5,15 +5,8 @@
 
 use crate::collections::hash_map::{ArchivedHashMap, HashMapResolver, Keys};
 #[cfg(feature = "alloc")]
-use crate::{
-    ser::Serializer,
-    Serialize,
-};
-use core::{
-    borrow::Borrow,
-    hash::Hash,
-    mem::MaybeUninit,
-};
+use crate::{ser::Serializer, Serialize};
+use core::{borrow::Borrow, hash::Hash, mem::MaybeUninit};
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key and a value of
 /// `()`.
@@ -67,12 +60,30 @@ impl<K> ArchivedHashSet<K> {
         self.0.keys()
     }
 
+    /// Resolves an archived hash set from the given length and parameters.
+    ///
+    /// # Safety
+    ///
+    /// - `len` must be the number of elements that were serialized
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must be the result of serializing a hash map
     #[inline]
-    pub unsafe fn resolve_from_len(len: usize, pos: usize, resolver: HashSetResolver, out: &mut MaybeUninit<Self>) {
+    pub unsafe fn resolve_from_len(
+        len: usize,
+        pos: usize,
+        resolver: HashSetResolver,
+        out: &mut MaybeUninit<Self>,
+    ) {
         let (fp, fo) = out_field!(out.0);
         ArchivedHashMap::resolve_from_len(len, pos + fp, resolver.0, fo);
     }
 
+    /// Serializes an iterator of keys as a hash set.
+    ///
+    /// # Safety
+    ///
+    /// - Keys returned by the iterator must be unique
+    /// - `len` must be the number of elements yielded by `iter`
     #[cfg(feature = "alloc")]
     #[inline]
     pub unsafe fn serialize_from_iter<
@@ -84,13 +95,11 @@ impl<K> ArchivedHashSet<K> {
         len: usize,
         serializer: &mut S,
     ) -> Result<HashSetResolver, S::Error> {
-        Ok(HashSetResolver(
-            ArchivedHashMap::serialize_from_iter(
-                iter.map(|x| (x, &())),
-                len,
-                serializer,
-            )?,
-        ))
+        Ok(HashSetResolver(ArchivedHashMap::serialize_from_iter(
+            iter.map(|x| (x, &())),
+            len,
+            serializer,
+        )?))
     }
 }
 

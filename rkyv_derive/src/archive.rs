@@ -15,7 +15,7 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     derive_archive_impl(input, &attributes)
 }
 
-fn field_archive_attrs<'a>(field: &'a Field) -> impl 'a + Iterator<Item = NestedMeta> {
+fn field_archive_attrs(field: &Field) -> impl '_ + Iterator<Item = NestedMeta> {
     field
         .attrs
         .iter()
@@ -58,7 +58,7 @@ fn derive_archive_impl(
                 "archived = \"...\" may not be used with as = \"...\" because no type is generated",
             ));
         }
-        if attributes.attrs.len() > 0 {
+        if !attributes.attrs.is_empty() {
             return Err(Error::new_spanned(
                 name,
                 format!("archive_attr(...) may not be used with as = \"...\"\nplace any attributes on the archived type ({}) instead", archive_as.value()),
@@ -288,6 +288,7 @@ fn derive_archive_impl(
                                 type Archived = #archived_type;
                                 type Resolver = #resolver #ty_generics;
 
+                                // Some resolvers will be (), this allow is to prevent clippy from complaining
                                 #[allow(clippy::unit_arg)]
                                 #[inline]
                                 unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
@@ -467,6 +468,7 @@ fn derive_archive_impl(
                                 type Archived = #archived_type;
                                 type Resolver = #resolver #ty_generics;
 
+                                // Some resolvers will be (), this allow is to prevent clippy from complaining
                                 #[allow(clippy::unit_arg)]
                                 #[inline]
                                 unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
@@ -1169,6 +1171,7 @@ fn derive_archive_impl(
                         type Archived = #archived_type;
                         type Resolver = #resolver #ty_generics;
 
+                        // Some resolvers will be (), this allow is to prevent clippy from complaining
                         #[allow(clippy::unit_arg)]
                         #[inline]
                         unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {

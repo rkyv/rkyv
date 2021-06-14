@@ -1,11 +1,7 @@
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     with::{ArchiveWith, Boxed, Inline, SerializeWith},
-    Archive,
-    ArchiveUnsized,
-    Fallible,
-    Serialize,
-    SerializeUnsized,
+    Archive, ArchiveUnsized, Fallible, Serialize, SerializeUnsized,
 };
 use core::mem::MaybeUninit;
 
