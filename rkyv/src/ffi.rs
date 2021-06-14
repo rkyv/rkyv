@@ -10,7 +10,7 @@ use core::{
 };
 use std::ffi::CStr;
 
-/// An archived [`CString`].
+/// An archived [`CString`](std::ffi::CString).
 ///
 /// Uses a [`RelPtr`] to a `CStr` under the hood.
 #[derive(Debug)]

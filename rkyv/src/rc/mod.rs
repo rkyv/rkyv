@@ -1,4 +1,4 @@
-//! [`Archive`] implementation for shared pointers.
+//! Archived versions of shared pointers.
 
 #[cfg(feature = "validation")]
 pub mod validation;

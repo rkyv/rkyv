@@ -1,4 +1,4 @@
-//! [`Archive`] implementations for `alloc` types.
+//! [`Archive`](crate::Archive) implementations for `alloc` types.
 
 pub mod boxed;
 pub mod rc;

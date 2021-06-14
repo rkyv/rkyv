@@ -1,4 +1,4 @@
-//! [`Archive`] implementation for hashsets.
+//! [`Archive`](crate::Archive) implementation for hashsets.
 //!
 //! During archiving, hashsets are built into minimal perfect hashsets using
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).

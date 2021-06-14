@@ -1,4 +1,4 @@
-//! [`Archive`] implementations for `std` types.
+//! [`Archive`](crate::Archive) implementations for `std` types.
 
 pub mod collections;
 pub mod ffi;
