@@ -8,6 +8,8 @@ use crate::{
     SerializeUnsized,
 };
 use core::mem::MaybeUninit;
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::{boxed::Box, string::String};
 
 impl Archive for String {
     type Archived = ArchivedString;

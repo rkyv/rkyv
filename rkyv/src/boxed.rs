@@ -151,7 +151,6 @@ const _: () = {
     > CheckBytes<C> for ArchivedBox<T>
     where
         T::ArchivedMetadata: CheckBytes<C>,
-        C::Error: Error,
         <T as Pointee>::Metadata: LayoutMetadata<T>,
     {
         type Error = CheckOwnedPointerError<T, C>;

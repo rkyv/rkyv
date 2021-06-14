@@ -5,9 +5,12 @@ use crate::{
     Deserialize,
     DeserializeUnsized,
     Fallible,
+    MetadataResolver,
     Serialize,
 };
 use core::{cmp, mem::MaybeUninit};
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::{boxed::Box, vec::Vec};
 
 // Vec
 
@@ -41,7 +44,7 @@ impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for Vec<T> {
 
 impl<T: Archive> Archive for Vec<T> {
     type Archived = ArchivedVec<T::Archived>;
-    type Resolver = VecResolver<T>;
+    type Resolver = VecResolver<MetadataResolver<[T]>>;
 
     #[inline]
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {

@@ -181,10 +181,7 @@ const _: () = {
     #[cfg(feature = "std")]
     use std::error::Error;
 
-    impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedString
-    where
-        C::Error: Error,
-    {
+    impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedString {
         type Error = CheckOwnedPointerError<str, C>;
 
         unsafe fn check_bytes<'a>(

@@ -52,14 +52,16 @@ impl<T> ArchivedVec<T> {
     }
 
     #[inline]
-    pub unsafe fn resolve_from_slice<U: Archive<Archived = T>>(slice: &[U], pos: usize, resolver: VecResolver<U>, out: &mut MaybeUninit<Self>) {
+    pub unsafe fn resolve_from_slice<U: Archive<Archived = T>>(slice: &[U], pos: usize, resolver: VecResolver<MetadataResolver<[U]>>, out: &mut MaybeUninit<Self>) {
         let (fp, fo) = out_field!(out.0);
         slice.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
     }
 
     #[inline]
-    pub fn serialize_from_slice<U: Serialize<S, Archived = T>, S: Serializer + ?Sized>(slice: &[U], serializer: &mut S) -> Result<VecResolver<U>, S::Error>
+    pub fn serialize_from_slice<U: Serialize<S, Archived = T>, S: Serializer + ?Sized>(slice: &[U], serializer: &mut S) -> Result<VecResolver<MetadataResolver<[U]>>, S::Error>
     where
+        // This bound is necessary only in no-alloc, no-std situations
+        // SerializeUnsized is only implemented for U: Serialize<Resolver = ()> in that case
         [U]: SerializeUnsized<S>,
     {
         Ok(VecResolver {
@@ -160,9 +162,9 @@ impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for [T] {
 }
 
 /// The resolver for [`ArchivedVec`].
-pub struct VecResolver<T: Archive> {
+pub struct VecResolver<T> {
     pos: usize,
-    metadata_resolver: MetadataResolver<[T]>,
+    metadata_resolver: T,
 }
 
 #[cfg(feature = "validation")]
@@ -184,7 +186,6 @@ const _: () = {
     where
         [T]: ArchivePointee,
         <[T] as ArchivePointee>::ArchivedMetadata: CheckBytes<C>,
-        C::Error: std::error::Error,
         <[T] as Pointee>::Metadata: LayoutMetadata<[T]>,
     {
         type Error = CheckOwnedPointerError<[T], C>;

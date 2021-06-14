@@ -4,8 +4,11 @@ use crate::{
     de::{SharedDeserializer, SharedPointer},
     ArchiveUnsized, DeserializeUnsized, Fallible,
 };
-// TODO: REPLACE WITH HASHBROWN
-// use hashbrown::HashMap;
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::boxed::Box;
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use hashbrown::HashMap;
+#[cfg(feature = "std")]
 use std::collections::HashMap;
 
 /// An adapter that adds shared deserialization support to a deserializer.

@@ -13,6 +13,8 @@ use core::{
     cmp,
     mem::MaybeUninit,
 };
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::boxed::Box;
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     type Archived = ArchivedBox<T::Archived>;

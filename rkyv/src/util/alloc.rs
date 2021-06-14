@@ -4,12 +4,15 @@ use core::{
     ptr::NonNull,
     slice,
 };
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use ::alloc::{alloc, boxed::Box, vec::Vec};
+#[cfg(feature = "std")]
 use std::{
     alloc,
-    borrow::{Borrow, BorrowMut},
     io,
     panic::{RefUnwindSafe, UnwindSafe},
 };
+use core::borrow::{Borrow, BorrowMut};
 
 /// A vector of bytes that aligns its memory to 16 bytes.
 pub struct AlignedVec {
@@ -650,6 +653,7 @@ impl<I: slice::SliceIndex<[u8]>> IndexMut<I> for AlignedVec {
     }
 }
 
+#[cfg(feature = "std")]
 impl io::Write for AlignedVec {
     #[inline]
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
@@ -678,6 +682,7 @@ impl io::Write for AlignedVec {
     }
 }
 
+#[cfg(feature = "std")]
 impl RefUnwindSafe for AlignedVec {}
 
 unsafe impl Send for AlignedVec {}
@@ -686,4 +691,5 @@ unsafe impl Sync for AlignedVec {}
 
 impl Unpin for AlignedVec {}
 
+#[cfg(feature = "std")]
 impl UnwindSafe for AlignedVec {}

@@ -12,7 +12,7 @@ use crate::{
 };
 use core::mem::{forget, MaybeUninit};
 #[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::{rc, sync};
+use alloc::{boxed::Box, rc, sync};
 #[cfg(feature = "std")]
 use std::{rc, sync};
 

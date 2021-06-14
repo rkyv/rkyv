@@ -8,6 +8,7 @@ use crate::{
 use bytecheck::{CheckBytes, Unreachable};
 use core::{any::TypeId, fmt, ptr};
 use ptr_meta::Pointee;
+#[cfg(feature = "std")]
 use std::error::Error;
 
 /// Errors that can occur while checking archived shared pointers.
@@ -33,6 +34,7 @@ impl<T: fmt::Display, R: fmt::Display, C: fmt::Display> fmt::Display
     }
 }
 
+#[cfg(feature = "std")]
 impl<T: Error + 'static, R: Error + 'static, C: Error + 'static> Error
     for SharedPointerError<T, R, C>
 {
@@ -65,6 +67,7 @@ impl<T: fmt::Display, R: fmt::Display, C: fmt::Display> fmt::Display for WeakPoi
     }
 }
 
+#[cfg(feature = "std")]
 impl<T: Error + 'static, R: Error + 'static, C: Error + 'static> Error
     for WeakPointerError<T, R, C>
 {
@@ -88,11 +91,9 @@ impl<
 > CheckBytes<C> for ArchivedRc<T>
 where
     T::ArchivedMetadata: CheckBytes<C>,
-    C::Error: Error,
     <T as Pointee>::Metadata: LayoutMetadata<T>,
 {
-    type Error =
-        SharedPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
+    type Error = SharedPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
 
     unsafe fn check_bytes<'a>(
         value: *const Self,
@@ -121,7 +122,6 @@ impl<
 > CheckBytes<C> for ArchivedRcWeak<T>
 where
     T::ArchivedMetadata: CheckBytes<C>,
-    C::Error: Error,
     <T as Pointee>::Metadata: LayoutMetadata<T>,
 {
     type Error =

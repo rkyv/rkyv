@@ -9,8 +9,8 @@
 //! Alignment helpers ensure that byte buffers are properly aligned when accessing and deserializing
 //! data.
 
-#[cfg(feature = "std")]
-mod std;
+#[cfg(feature = "alloc")]
+mod alloc;
 
 use crate::{Archive, ArchiveUnsized, RelPtr};
 use core::{
@@ -20,8 +20,8 @@ use core::{
 };
 
 #[doc(inline)]
-#[cfg(feature = "std")]
-pub use self::std::*;
+#[cfg(feature = "alloc")]
+pub use self::alloc::*;
 
 #[cfg(debug_assertions)]
 #[inline]

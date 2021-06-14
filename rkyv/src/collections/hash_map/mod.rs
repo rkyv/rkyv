@@ -273,6 +273,9 @@ impl<K, V> ArchivedHashMap<K, V> {
         len: usize,
         serializer: &mut S,
     ) -> Result<HashMapResolver, S::Error> {
+        #[cfg(all(feature = "alloc", not(feature = "std")))]
+        use alloc::{vec, vec::Vec};
+
         let mut bucket_size = vec![0u32; len];
         let mut displaces = Vec::with_capacity(len);
 

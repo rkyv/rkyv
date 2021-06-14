@@ -12,7 +12,9 @@ use core::{
     hash::{Hash, Hasher},
     ptr,
 };
-use std::{alloc::LayoutError, error::Error};
+use core::alloc::LayoutError;
+#[cfg(feature = "std")]
+use std::error::Error;
 
 /// Errors that can occur while checking an archived hash map entry.
 #[derive(Debug)]
@@ -32,6 +34,7 @@ impl<K: fmt::Display, V: fmt::Display> fmt::Display for ArchivedHashMapEntryErro
     }
 }
 
+#[cfg(feature = "std")]
 impl<K: fmt::Debug + fmt::Display, V: fmt::Debug + fmt::Display> Error
     for ArchivedHashMapEntryError<K, V>
 {
@@ -93,6 +96,7 @@ impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display for HashMap
     }
 }
 
+#[cfg(feature = "std")]
 impl<K: Error + 'static, V: Error + 'static, C: Error + 'static> Error for HashMapError<K, V, C> {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
@@ -134,12 +138,10 @@ impl<K, V, C> From<SliceCheckError<ArchivedHashMapEntryError<K, V>>> for HashMap
 }
 
 impl<
-        K: CheckBytes<C> + Eq + Hash,
-        V: CheckBytes<C>,
-        C: ArchiveBoundsContext + ArchiveMemoryContext + Fallible + ?Sized,
-    > CheckBytes<C> for ArchivedHashMap<K, V>
-where
-    C::Error: Error,
+    K: CheckBytes<C> + Eq + Hash,
+    V: CheckBytes<C>,
+    C: ArchiveBoundsContext + ArchiveMemoryContext + Fallible + ?Sized,
+> CheckBytes<C> for ArchivedHashMap<K, V>
 {
     type Error = HashMapError<K::Error, V::Error, C::Error>;
 

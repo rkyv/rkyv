@@ -199,7 +199,7 @@ impl<T> ArchivePointee for [T] {
     }
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "alloc"))]
 impl<T: Archive<Resolver = ()> + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S>
     for [T]
 {
@@ -231,7 +231,7 @@ impl<T: Archive<Resolver = ()> + Serialize<S>, S: Serializer + ?Sized> Serialize
     }
 }
 
-#[cfg(all(not(feature = "std"), feature = "copy"))]
+#[cfg(all(not(feature = "alloc"), feature = "copy"))]
 impl<
         T: Archive<Resolver = ()> + Serialize<S> + crate::copy::ArchiveCopyOptimize,
         S: Serializer + ?Sized,
@@ -260,11 +260,14 @@ impl<
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
     default! {
         fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
+            #[cfg(all(feature = "alloc", not(feature = "std")))]
+            use alloc::vec::Vec;
+
             if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
                 Ok(0)
             } else {
@@ -291,7 +294,7 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
     }
 }
 
-#[cfg(all(feature = "std", feature = "copy"))]
+#[cfg(all(feature = "alloc", feature = "copy"))]
 impl<T: Serialize<S> + crate::copy::ArchiveCopyOptimize, S: Serializer + ?Sized> SerializeUnsized<S>
     for [T]
 {

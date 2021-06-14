@@ -27,6 +27,7 @@ impl<T: fmt::Display, R: fmt::Display, C: fmt::Display> fmt::Display
     }
 }
 
+#[cfg(feature = "std")]
 impl<T: Error + 'static, R: Error + 'static, C: Error + 'static> Error
     for OwnedPointerError<T, R, C>
 {

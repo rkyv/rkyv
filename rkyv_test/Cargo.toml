@@ -10,7 +10,7 @@ repository = "https://github.com/djkoloski/rkyv"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytecheck = { version = "~0.5.2", optional = true }
+bytecheck = { version = "~0.5.2", optional = true, default-features = false }
 ptr_meta = { version = "~0.1.3", default-features = false }
 rkyv = { path = "../rkyv", default-features = false }
 wasm-bindgen-test = { version = "0.3", optional = true }
@@ -25,7 +25,7 @@ archive_le = ["rkyv/archive_le"]
 copy = ["rkyv/copy"]
 copy_unsafe = ["rkyv/copy_unsafe"]
 size_64 = ["rkyv/size_64"]
-std = ["alloc", "rkyv/std"]
+std = ["alloc", "bytecheck/std", "rkyv/std"]
 strict = ["rkyv/strict"]
 validation = ["bytecheck", "rkyv/validation"]
 wasm = ["wasm-bindgen-test"]
