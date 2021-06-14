@@ -4,9 +4,11 @@
     feature(arbitrary_enum_discriminant)
 )]
 
+#[cfg(feature = "alloc")]
+mod alloc;
+pub mod util;
 #[cfg(feature = "std")]
 mod std;
-pub mod util;
 #[cfg(feature = "validation")]
 mod validation;
 

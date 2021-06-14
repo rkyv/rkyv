@@ -58,7 +58,10 @@ impl<T> ArchivedVec<T> {
     }
 
     #[inline]
-    pub fn serialize_from_slice<U: Serialize<S, Archived = T>, S: Serializer + ?Sized>(slice: &[U], serializer: &mut S) -> Result<VecResolver<U>, S::Error> {
+    pub fn serialize_from_slice<U: Serialize<S, Archived = T>, S: Serializer + ?Sized>(slice: &[U], serializer: &mut S) -> Result<VecResolver<U>, S::Error>
+    where
+        [U]: SerializeUnsized<S>,
+    {
         Ok(VecResolver {
             pos: slice.serialize_unsized(serializer)?,
             metadata_resolver: slice.serialize_metadata(serializer)?,

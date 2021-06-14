@@ -3,8 +3,9 @@
 //! During archiving, hashsets are built into minimal perfect hashsets using
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
+use crate::collections::hash_map::{ArchivedHashMap, HashMapResolver, Keys};
+#[cfg(feature = "alloc")]
 use crate::{
-    collections::hash_map::{ArchivedHashMap, HashMapResolver, Keys},
     ser::Serializer,
     Serialize,
 };
@@ -48,6 +49,7 @@ impl<K> ArchivedHashSet<K> {
     }
 
     /// Gets the hasher for the underlying hash map.
+    #[cfg(feature = "alloc")]
     #[inline]
     pub fn hasher(&self) -> seahash::SeaHasher {
         self.0.hasher()
@@ -71,6 +73,7 @@ impl<K> ArchivedHashSet<K> {
         ArchivedHashMap::resolve_from_len(len, pos + fp, resolver.0, fo);
     }
 
+    #[cfg(feature = "alloc")]
     #[inline]
     pub unsafe fn serialize_from_iter<
         'a,

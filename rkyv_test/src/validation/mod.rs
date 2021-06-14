@@ -1,2 +1,2 @@
-#[cfg(feature = "std")]
-mod std;
+#[cfg(feature = "alloc")]
+mod alloc;

@@ -164,20 +164,6 @@ impl PartialEq<ArchivedString> for &str {
     }
 }
 
-impl PartialEq<String> for ArchivedString {
-    #[inline]
-    fn eq(&self, other: &String) -> bool {
-        PartialEq::eq(self.as_str(), other.as_str())
-    }
-}
-
-impl PartialEq<ArchivedString> for String {
-    #[inline]
-    fn eq(&self, other: &ArchivedString) -> bool {
-        PartialEq::eq(other.as_str(), self.as_str())
-    }
-}
-
 /// The resolver for `String`.
 pub struct StringResolver {
     pos: usize,

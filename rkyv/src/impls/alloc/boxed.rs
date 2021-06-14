@@ -1,6 +1,7 @@
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     Archive,
+    ArchivePointee,
     ArchiveUnsized,
     Deserialize,
     DeserializeUnsized,
@@ -8,7 +9,10 @@ use crate::{
     Serialize,
     SerializeUnsized,
 };
-use core::mem::MaybeUninit;
+use core::{
+    cmp,
+    mem::MaybeUninit,
+};
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     type Archived = ArchivedBox<T::Archived>;
@@ -41,5 +45,19 @@ where
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::from_raw(ptr))
         }
+    }
+}
+
+impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Box<U>> for ArchivedBox<T> {
+    #[inline]
+    fn eq(&self, other: &Box<U>) -> bool {
+        self.get().eq(other.as_ref())
+    }
+}
+
+impl<T: ArchivePointee + PartialOrd<U> + ?Sized, U: ?Sized> PartialOrd<Box<U>> for ArchivedBox<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &Box<U>) -> Option<cmp::Ordering> {
+        self.get().partial_cmp(other.as_ref())
     }
 }

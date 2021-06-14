@@ -1,9 +1,6 @@
 //! Validation implementations for shared pointers.
 
-use super::{
-    ArchivedArc, ArchivedArcWeak, ArchivedArcWeakTag, ArchivedArcWeakVariantSome, ArchivedRc,
-    ArchivedRcWeak, ArchivedRcWeakTag, ArchivedRcWeakVariantSome,
-};
+use super::{ArchivedRc, ArchivedRcWeak, ArchivedRcWeakTag, ArchivedRcWeakVariantSome};
 use crate::{
     validation::{ArchiveBoundsContext, LayoutMetadata, SharedArchiveContext},
     ArchivePointee, RelPtr,
@@ -86,9 +83,9 @@ impl<T, R, C> From<Unreachable> for WeakPointerError<T, R, C> {
 }
 
 impl<
-        T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static,
-        C: ArchiveBoundsContext + SharedArchiveContext + ?Sized,
-    > CheckBytes<C> for ArchivedRc<T>
+    T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static,
+    C: ArchiveBoundsContext + SharedArchiveContext + ?Sized,
+> CheckBytes<C> for ArchivedRc<T>
 where
     T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,
@@ -119,9 +116,9 @@ impl ArchivedRcWeakTag {
 }
 
 impl<
-        T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static,
-        C: ArchiveBoundsContext + SharedArchiveContext + ?Sized,
-    > CheckBytes<C> for ArchivedRcWeak<T>
+    T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static,
+    C: ArchiveBoundsContext + SharedArchiveContext + ?Sized,
+> CheckBytes<C> for ArchivedRcWeak<T>
 where
     T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,
@@ -140,69 +137,6 @@ where
             ArchivedRcWeakTag::TAG_SOME => {
                 let value = value.cast::<ArchivedRcWeakVariantSome<T>>();
                 ArchivedRc::<T>::check_bytes(ptr::addr_of!((*value).1), context)
-                    .map_err(WeakPointerError::CheckBytes)?;
-            }
-            _ => return Err(WeakPointerError::InvalidTag(tag)),
-        }
-        Ok(&*value)
-    }
-}
-
-impl<
-        T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static,
-        C: ArchiveBoundsContext + SharedArchiveContext + ?Sized,
-    > CheckBytes<C> for ArchivedArc<T>
-where
-    T::ArchivedMetadata: CheckBytes<C>,
-    C::Error: Error,
-    <T as Pointee>::Metadata: LayoutMetadata<T>,
-{
-    type Error =
-        SharedPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
-
-    unsafe fn check_bytes<'a>(
-        value: *const Self,
-        context: &mut C,
-    ) -> Result<&'a Self, Self::Error> {
-        let rel_ptr = RelPtr::<T>::manual_check_bytes(value.cast(), context)
-            .map_err(SharedPointerError::PointerCheckBytesError)?;
-        if let Some(ptr) = context
-            .claim_shared_ptr(rel_ptr, TypeId::of::<ArchivedArc<T>>())
-            .map_err(SharedPointerError::ContextError)?
-        {
-            T::check_bytes(ptr, context).map_err(SharedPointerError::ValueCheckBytesError)?;
-        }
-        Ok(&*value)
-    }
-}
-
-impl ArchivedArcWeakTag {
-    const TAG_NONE: u8 = ArchivedArcWeakTag::None as u8;
-    const TAG_SOME: u8 = ArchivedArcWeakTag::Some as u8;
-}
-
-impl<
-        T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static,
-        C: ArchiveBoundsContext + SharedArchiveContext + ?Sized,
-    > CheckBytes<C> for ArchivedArcWeak<T>
-where
-    T::ArchivedMetadata: CheckBytes<C>,
-    C::Error: Error,
-    <T as Pointee>::Metadata: LayoutMetadata<T>,
-{
-    type Error =
-        WeakPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
-
-    unsafe fn check_bytes<'a>(
-        value: *const Self,
-        context: &mut C,
-    ) -> Result<&'a Self, Self::Error> {
-        let tag = *u8::check_bytes(value.cast::<u8>(), context)?;
-        match tag {
-            ArchivedArcWeakTag::TAG_NONE => (),
-            ArchivedArcWeakTag::TAG_SOME => {
-                let value = value.cast::<ArchivedArcWeakVariantSome<T>>();
-                ArchivedArc::<T>::check_bytes(ptr::addr_of!((*value).1), context)
                     .map_err(WeakPointerError::CheckBytes)?;
             }
             _ => return Err(WeakPointerError::InvalidTag(tag)),

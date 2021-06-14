@@ -111,24 +111,10 @@ impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ArchivePointee + ?Sized> Part
     }
 }
 
-impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Box<U>> for ArchivedBox<T> {
-    #[inline]
-    fn eq(&self, other: &Box<U>) -> bool {
-        self.get().eq(other.as_ref())
-    }
-}
-
 impl<T: ArchivePointee + PartialOrd + ?Sized> PartialOrd for ArchivedBox<T> {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.get().partial_cmp(other.get())
-    }
-}
-
-impl<T: ArchivePointee + PartialOrd<U> + ?Sized, U: ?Sized> PartialOrd<Box<U>> for ArchivedBox<T> {
-    #[inline]
-    fn partial_cmp(&self, other: &Box<U>) -> Option<cmp::Ordering> {
-        self.get().partial_cmp(other.as_ref())
     }
 }
 

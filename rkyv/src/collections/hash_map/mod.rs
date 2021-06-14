@@ -7,24 +7,32 @@
 pub mod validation;
 
 use crate::{
-    ser::Serializer,
     Archive,
     Archived,
     ArchivedUsize,
     FixedUsize,
     RawRelPtr,
+};
+#[cfg(feature = "alloc")]
+use crate::{
+    ser::Serializer,
     Serialize,
 };
 use core::{
     borrow::Borrow,
-    cmp::Reverse,
     hash::{Hash, Hasher},
     iter::FusedIterator,
     marker::PhantomData,
-    mem::{size_of, MaybeUninit},
+    mem::MaybeUninit,
     ops::Index,
     pin::Pin,
-    ptr, slice,
+    ptr,
+};
+#[cfg(feature = "alloc")]
+use core::{
+    cmp::Reverse,
+    mem::size_of,
+    slice,
 };
 
 #[cfg_attr(feature = "strict", repr(C))]
@@ -254,6 +262,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     ///
     /// - Keys returned by the iterator must be unique
     /// - `len` must be the number of elements yielded by `iter`
+    #[cfg(feature = "alloc")]
     pub unsafe fn serialize_from_iter<
         'a,
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
