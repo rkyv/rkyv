@@ -13,6 +13,11 @@ mod tests {
         Aligned, AlignedVec, Archive, Archived, Deserialize, Fallible, Infallible, Serialize,
     };
 
+    #[cfg(all(feature = "alloc", not(feature = "std")))]
+    use alloc::{boxed::Box, rc::{Rc, Weak}, string::{String, ToString}, vec, vec::Vec};
+    #[cfg(feature = "std")]
+    use std::rc::{Rc, Weak};
+
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
 
@@ -48,6 +53,9 @@ mod tests {
         #[test]
         #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
         fn archive_example() {
+            #[cfg(all(feature = "alloc", not(feature = "std")))]
+            use alloc::{string::{String, ToString}, vec, vec::Vec};
+
             use rkyv::{
                 archived_root,
                 ser::{serializers::AlignedSerializer, Serializer},
@@ -81,90 +89,6 @@ mod tests {
             let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible)
                 .expect("failed to deserialize value");
             assert_eq!(deserialized, value);
-        }
-    }
-
-    #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn archive_hash_map() {
-        use std::collections::HashMap;
-
-        #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
-        {
-            test_archive(&HashMap::<i32, i32>::new());
-
-            let mut hash_map = HashMap::new();
-            hash_map.insert(1, 2);
-            hash_map.insert(3, 4);
-            hash_map.insert(5, 6);
-            hash_map.insert(7, 8);
-
-            test_archive(&hash_map);
-        }
-
-        let mut hash_map = HashMap::new();
-        hash_map.insert("hello".to_string(), "world".to_string());
-        hash_map.insert("foo".to_string(), "bar".to_string());
-        hash_map.insert("baz".to_string(), "bat".to_string());
-
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
-        serializer
-            .serialize_value(&hash_map)
-            .expect("failed to archive value");
-        let buf = serializer.into_inner();
-        let archived_value = unsafe { archived_root::<HashMap<String, String>>(buf.as_ref()) };
-
-        assert!(archived_value.len() == hash_map.len());
-
-        for (key, value) in hash_map.iter() {
-            assert!(archived_value.contains_key(key.as_str()));
-            assert!(archived_value[key.as_str()].eq(value));
-        }
-
-        for (key, value) in archived_value.iter() {
-            assert!(hash_map.contains_key(key.as_str()));
-            assert!(hash_map[key.as_str()].eq(value));
-        }
-    }
-
-    #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    #[allow(deprecated)]
-    fn archive_hash_map_hasher() {
-        use std::collections::HashMap;
-
-        test_archive(&HashMap::<i32, i32, ahash::RandomState>::default());
-
-        let mut hash_map: HashMap<_, _, ahash::RandomState> = HashMap::default();
-        hash_map.insert(1, 2);
-        hash_map.insert(3, 4);
-        hash_map.insert(5, 6);
-        hash_map.insert(7, 8);
-
-        test_archive(&hash_map);
-
-        let mut hash_map: HashMap<_, _, ahash::RandomState> = HashMap::default();
-        hash_map.insert("hello".to_string(), "world".to_string());
-        hash_map.insert("foo".to_string(), "bar".to_string());
-        hash_map.insert("baz".to_string(), "bat".to_string());
-
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
-        serializer
-            .serialize_value(&hash_map)
-            .expect("failed to archive value");
-        let buf = serializer.into_inner();
-        let archived_value = unsafe { archived_root::<HashMap<String, String, ahash::RandomState>>(buf.as_ref()) };
-
-        assert!(archived_value.len() == hash_map.len());
-
-        for (key, value) in hash_map.iter() {
-            assert!(archived_value.contains_key(key.as_str()));
-            assert!(archived_value[key.as_str()].eq(value));
-        }
-
-        for (key, value) in archived_value.iter() {
-            assert!(hash_map.contains_key(key.as_str()));
-            assert!(hash_map[key.as_str()].eq(value));
         }
     }
 
@@ -452,13 +376,10 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn struct_mutable_refs() {
-        use std::collections::HashMap;
-
         #[derive(Archive, Serialize)]
         struct Test {
             a: Box<i32>,
             b: Vec<String>,
-            c: HashMap<i32, [i32; 2]>,
         }
 
         impl ArchivedTest {
@@ -469,20 +390,12 @@ mod tests {
             fn b(self: Pin<&mut Self>) -> Pin<&mut Archived<Vec<String>>> {
                 unsafe { self.map_unchecked_mut(|s| &mut s.b) }
             }
-
-            fn c(self: Pin<&mut Self>) -> Pin<&mut Archived<HashMap<i32, [i32; 2]>>> {
-                unsafe { self.map_unchecked_mut(|s| &mut s.c) }
-            }
         }
 
-        let mut value = Test {
+        let value = Test {
             a: Box::new(10),
             b: vec!["hello".to_string(), "world".to_string()],
-            c: HashMap::new(),
         };
-
-        value.c.insert(1, [4, 2]);
-        value.c.insert(5, [17, 24]);
 
         let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&value).unwrap();
@@ -493,9 +406,6 @@ mod tests {
         assert_eq!(value.b.len(), 2);
         assert_eq!(value.b[0], "hello");
         assert_eq!(value.b[1], "world");
-        assert_eq!(value.c.len(), 2);
-        assert_eq!(value.c.get(&1.into()).unwrap(), &[4, 2]);
-        assert_eq!(value.c.get(&5.into()).unwrap(), &[17, 24]);
 
         *value.as_mut().a().get_pin_mut() = 50.into();
         assert_eq!(*value.a, 50);
@@ -514,15 +424,6 @@ mod tests {
             .make_ascii_uppercase();
         assert_eq!(value.b[0], "HELLO");
         assert_eq!(value.b[1], "WORLD");
-
-        let mut c1 = value.as_mut().c().get_pin(&1.into()).unwrap();
-        c1[0] = 7.into();
-        c1[1] = 18.into();
-        assert_eq!(value.c.get(&1.into()).unwrap(), &[7, 18]);
-        let mut c5 = value.as_mut().c().get_pin(&5.into()).unwrap();
-        c5[0] = 6.into();
-        c5[1] = 99.into();
-        assert_eq!(value.c.get(&5.into()).unwrap(), &[6, 99]);
     }
 
     #[test]
@@ -673,42 +574,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn archive_net() {
-        use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
-
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
-        #[archive(compare(PartialEq))]
-        struct TestNet {
-            ipv4: Ipv4Addr,
-            ipv6: Ipv6Addr,
-            ip: IpAddr,
-            sockv4: SocketAddrV4,
-            sockv6: SocketAddrV6,
-            sock: SocketAddr,
-        }
-
-        let value = TestNet {
-            ipv4: Ipv4Addr::new(31, 41, 59, 26),
-            ipv6: Ipv6Addr::new(31, 41, 59, 26, 53, 58, 97, 93),
-            ip: IpAddr::V4(Ipv4Addr::new(31, 41, 59, 26)),
-            sockv4: SocketAddrV4::new(Ipv4Addr::new(31, 41, 59, 26), 5358),
-            sockv6: SocketAddrV6::new(Ipv6Addr::new(31, 31, 59, 26, 53, 58, 97, 93), 2384, 0, 0),
-            sock: SocketAddr::V6(SocketAddrV6::new(
-                Ipv6Addr::new(31, 31, 59, 26, 53, 58, 97, 93),
-                2384,
-                0,
-                0,
-            )),
-        };
-
-        test_archive(&value);
-    }
-
-    #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_shared_ptr() {
-        use std::rc::Rc;
-
         #[derive(Archive, Deserialize, Serialize, Eq, PartialEq)]
         #[archive(compare(PartialEq))]
         struct Test {
@@ -794,8 +660,6 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_unsized_shared_ptr() {
-        use std::rc::Rc;
-
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
         #[archive(compare(PartialEq))]
         struct Test {
@@ -816,8 +680,6 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_weak_ptr() {
-        use std::rc::{Rc, Weak};
-
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
             a: Rc<u32>,
@@ -1244,16 +1106,9 @@ mod tests {
         test_archive(&value);
     }
 
-    #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn c_string() {
-        use std::ffi::CString;
-
-        let value = unsafe { CString::from_vec_unchecked("hello world".to_string().into_bytes()) };
-        test_archive(&value);
-    }
-
     mod with {
+        #[cfg(all(feature = "alloc", not(feature = "std")))]
+        use alloc::string::{String, ToString};
         use core::str::FromStr;
         use rkyv::{
             archived_root,
@@ -1453,116 +1308,4 @@ mod tests {
 
         assert_eq!(archived.value.as_ref(), "hello world");
     }
-
-    // TODO: figure out errors
-
-    // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    // fn mutex() {
-    //     use rkyv::with::Lock;
-    //     use std::sync::Mutex;
-
-    //     #[derive(Archive, Serialize, Deserialize)]
-    //     struct Test {
-    //         #[with(Lock)]
-    //         value: Mutex<i32>,
-    //     }
-
-    //     let value = Test {
-    //         value: Mutex::new(10),
-    //     };
-    //     let mut serializer = AlignedSerializer::new(AlignedVec::new());
-    //     serializer.serialize_value(&value).unwrap();
-    //     let result = serializer.into_inner();
-    //     let archived = unsafe { archived_root::<Test>(result.as_slice()) };
-
-    //     assert_eq!(*archived.value, 10);
-
-    //     let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
-
-    //     assert_eq!(*deserialized.value.lock().unwrap(), 10);
-    // }
-
-    // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    // fn rwlock() {
-    //     use rkyv::with::Lock;
-    //     use std::sync::RwLock;
-
-    //     #[derive(Archive, Serialize, Deserialize)]
-    //     struct Test {
-    //         #[with(Lock)]
-    //         value: RwLock<i32>,
-    //     }
-
-    //     let value = Test {
-    //         value: RwLock::new(10),
-    //     };
-    //     let mut serializer = AlignedSerializer::new(AlignedVec::new());
-    //     serializer.serialize_value(&value).unwrap();
-    //     let result = serializer.into_inner();
-    //     let archived = unsafe { archived_root::<Test>(result.as_slice()) };
-
-    //     assert_eq!(*archived.value, 10);
-
-    //     let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
-
-    //     assert_eq!(*deserialized.value.read().unwrap(), 10);
-    // }
-
-    // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    // fn os_string() {
-    //     use rkyv::with::ToString;
-    //     use core::str::FromStr;
-    //     use std::ffi::OsString;
-
-    //     #[derive(Archive, Serialize, Deserialize)]
-    //     struct Test {
-    //         #[with(ToString)]
-    //         value: OsString,
-    //     }
-
-    //     let value = Test {
-    //         value: OsString::from_str("hello world").unwrap(),
-    //     };
-    //     let mut serializer = AlignedSerializer::new(AlignedVec::new());
-    //     serializer.serialize_value(&value).unwrap();
-    //     let result = serializer.into_inner();
-    //     let archived = unsafe { archived_root::<Test>(result.as_slice()) };
-
-    //     assert_eq!(archived.value, "hello world");
-
-    //     let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
-
-    //     assert_eq!(deserialized.value, "hello world");
-    // }
-
-    // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    // fn path_buf() {
-    //     use rkyv::with::ToString;
-    //     use core::str::FromStr;
-    //     use std::path::PathBuf;
-
-    //     #[derive(Archive, Serialize, Deserialize)]
-    //     struct Test {
-    //         #[with(ToString)]
-    //         value: PathBuf,
-    //     }
-
-    //     let value = Test {
-    //         value: PathBuf::from_str("hello world").unwrap(),
-    //     };
-    //     let mut serializer = AlignedSerializer::new(AlignedVec::new());
-    //     serializer.serialize_value(&value).unwrap();
-    //     let result = serializer.into_inner();
-    //     let archived = unsafe { archived_root::<Test>(result.as_slice()) };
-
-    //     assert_eq!(archived.value, "hello world");
-
-    //     let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
-
-    //     assert_eq!(deserialized.value.to_str().unwrap(), "hello world");
-    // }
 }

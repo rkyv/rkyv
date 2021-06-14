@@ -4,13 +4,16 @@
     feature(arbitrary_enum_discriminant)
 )]
 
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+extern crate alloc;
+
 #[cfg(feature = "alloc")]
-mod alloc;
+mod test_alloc;
 pub mod util;
 #[cfg(feature = "std")]
-mod std;
+mod test_std;
 #[cfg(feature = "validation")]
-mod validation;
+pub mod validation;
 
 #[cfg(test)]
 mod tests {

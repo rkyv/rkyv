@@ -145,23 +145,23 @@ pub struct Inline;
 pub struct Boxed;
 
 /// A wrapper that attempts to convert a path to and from UTF-8.
-pub struct ToString;
+pub struct AsString;
 
-/// Errors that can occur when serializing a [`ToString`] wrapper.
+/// Errors that can occur when serializing a [`AsString`] wrapper.
 #[derive(Debug)]
-pub enum ToStringError {
+pub enum AsStringError {
     /// The `OsString` or `PathBuf` was not valid UTF-8.
     InvalidUTF8,
 }
 
-impl fmt::Display for ToStringError {
+impl fmt::Display for AsStringError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "invalid UTF-8")
     }
 }
 
 #[cfg(feature = "std")]
-impl ::std::error::Error for ToStringError {}
+impl ::std::error::Error for AsStringError {}
 
 /// A wrapper that locks a lock and serializes the value immutably.
 ///

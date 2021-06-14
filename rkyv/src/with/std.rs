@@ -2,13 +2,13 @@ use crate::{
     string::{ArchivedString, StringResolver},
     with::{
         ArchiveWith,
+        AsString,
+        AsStringError,
         DeserializeWith,
         Immutable,
         Lock,
         LockError,
         SerializeWith,
-        ToString,
-        ToStringError,
     },
     Archive,
     Deserialize,
@@ -19,7 +19,7 @@ use crate::{
 use core::{mem::MaybeUninit, str::FromStr};
 use std::{ffi::OsString, path::PathBuf, sync::{Mutex, RwLock}};
 
-impl ArchiveWith<OsString> for ToString {
+impl ArchiveWith<OsString> for AsString {
     type Archived = ArchivedString;
     type Resolver = StringResolver;
 
@@ -31,28 +31,28 @@ impl ArchiveWith<OsString> for ToString {
     }
 }
 
-impl<S: Fallible + ?Sized> SerializeWith<OsString, S> for ToString
+impl<S: Fallible + ?Sized> SerializeWith<OsString, S> for AsString
 where
-    S::Error: From<ToStringError>,
+    S::Error: From<AsStringError>,
     str: SerializeUnsized<S>,
 {
     #[inline]
     fn serialize_with(field: &OsString, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         ArchivedString::serialize_from_str(
-            field.to_str().ok_or(ToStringError::InvalidUTF8)?,
+            field.to_str().ok_or(AsStringError::InvalidUTF8)?,
             serializer,
         )
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, OsString, D> for ToString {
+impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, OsString, D> for AsString {
     #[inline]
     fn deserialize_with(field: &ArchivedString, _: &mut D) -> Result<OsString, D::Error> {
         Ok(OsString::from_str(field.as_str()).unwrap())
     }
 }
 
-impl ArchiveWith<PathBuf> for ToString {
+impl ArchiveWith<PathBuf> for AsString {
     type Archived = ArchivedString;
     type Resolver = StringResolver;
 
@@ -64,21 +64,21 @@ impl ArchiveWith<PathBuf> for ToString {
     }
 }
 
-impl<S: Fallible + ?Sized> SerializeWith<PathBuf, S> for ToString
+impl<S: Fallible + ?Sized> SerializeWith<PathBuf, S> for AsString
 where
-    S::Error: From<ToStringError>,
+    S::Error: From<AsStringError>,
     str: SerializeUnsized<S>,
 {
     #[inline]
     fn serialize_with(field: &PathBuf, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         ArchivedString::serialize_from_str(
-            field.to_str().ok_or(ToStringError::InvalidUTF8)?,
+            field.to_str().ok_or(AsStringError::InvalidUTF8)?,
             serializer,
         )
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, PathBuf, D> for ToString {
+impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, PathBuf, D> for AsString {
     #[inline]
     fn deserialize_with(field: &ArchivedString, _: &mut D) -> Result<PathBuf, D::Error> {
         Ok(PathBuf::from_str(field.as_str()).unwrap())

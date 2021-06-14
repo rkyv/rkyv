@@ -177,11 +177,12 @@ const _: () = {
         ArchiveBoundsContext,
         ArchiveMemoryContext,
     };
-    use bytecheck::CheckBytes;
-    #[cfg(feature = "std")]
-    use std::error::Error;
+    use bytecheck::{CheckBytes, Error};
 
-    impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedString {
+    impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedString
+    where
+        C::Error: Error,
+    {
         type Error = CheckOwnedPointerError<str, C>;
 
         unsafe fn check_bytes<'a>(

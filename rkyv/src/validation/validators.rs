@@ -1,7 +1,6 @@
 //! Validators add validation capabilities by wrapping and extending basic validators.
 
 use crate::{validation::ArchiveBoundsContext, Fallible};
-#[cfg(feature = "std")]
 use crate::{
     validation::{
         check_archived_root_with_context, check_archived_value_with_context, ArchiveMemoryContext,
@@ -9,11 +8,14 @@ use crate::{
     },
     Archive,
 };
-#[cfg(feature = "std")]
 use bytecheck::CheckBytes;
 use core::{alloc::Layout, any::TypeId, fmt};
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::vec::Vec;
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use hashbrown::HashMap;
 #[cfg(feature = "std")]
-use std::{collections::HashMap, error::Error};
+use std::collections::HashMap;
 
 /// Errors that can occur when checking a relative pointer
 #[derive(Debug)]
@@ -91,7 +93,7 @@ impl fmt::Display for ArchiveBoundsError {
 }
 
 #[cfg(feature = "std")]
-impl Error for ArchiveBoundsError {}
+impl std::error::Error for ArchiveBoundsError {}
 
 /// A validator that can bounds check pointers in an archive.
 pub struct ArchiveBoundsValidator<'a> {
@@ -232,23 +234,21 @@ impl<E: fmt::Display> fmt::Display for ArchiveMemoryError<E> {
 }
 
 #[cfg(feature = "std")]
-impl<E: Error + 'static> Error for ArchiveMemoryError<E> {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl<E: std::error::Error + 'static> std::error::Error for ArchiveMemoryError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            ArchiveMemoryError::Inner(e) => Some(e as &dyn Error),
+            ArchiveMemoryError::Inner(e) => Some(e as &dyn std::error::Error),
             ArchiveMemoryError::ClaimOverlap { .. } => None,
         }
     }
 }
 
-#[cfg(feature = "std")]
 /// An adapter that adds memory validation to a context.
 pub struct ArchiveValidator<C> {
     inner: C,
     intervals: Vec<Interval>,
 }
 
-#[cfg(feature = "std")]
 impl<C> ArchiveValidator<C> {
     /// Wraps the given validator context and adds memory validation.
     #[inline]
@@ -266,19 +266,16 @@ impl<C> ArchiveValidator<C> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<'a, C: From<&'a [u8]>> From<&'a [u8]> for ArchiveValidator<C> {
     fn from(bytes: &'a [u8]) -> Self {
         Self::new(C::from(bytes))
     }
 }
 
-#[cfg(feature = "std")]
 impl<C: Fallible> Fallible for ArchiveValidator<C> {
     type Error = ArchiveMemoryError<C::Error>;
 }
 
-#[cfg(feature = "std")]
 impl<C: ArchiveBoundsContext> ArchiveBoundsContext for ArchiveValidator<C> {
     #[inline]
     unsafe fn check_rel_ptr(
@@ -303,7 +300,6 @@ impl<C: ArchiveBoundsContext> ArchiveBoundsContext for ArchiveValidator<C> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<C: ArchiveBoundsContext> ArchiveMemoryContext for ArchiveValidator<C> {
     unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<(), Self::Error> {
         let interval = Interval {
@@ -375,23 +371,21 @@ impl<E: fmt::Display> fmt::Display for SharedArchiveError<E> {
 }
 
 #[cfg(feature = "std")]
-impl<E: Error + 'static> Error for SharedArchiveError<E> {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl<E: std::error::Error + 'static> std::error::Error for SharedArchiveError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            SharedArchiveError::Inner(e) => Some(e as &dyn Error),
+            SharedArchiveError::Inner(e) => Some(e as &dyn std::error::Error),
             SharedArchiveError::TypeMismatch { .. } => None,
         }
     }
 }
 
 /// An adapter that adds shared memory validation.
-#[cfg(feature = "std")]
 pub struct SharedArchiveValidator<C> {
     inner: C,
     shared_blocks: HashMap<*const u8, TypeId>,
 }
 
-#[cfg(feature = "std")]
 impl<C> SharedArchiveValidator<C> {
     /// Wraps the given context and adds shared memory validation.
     #[inline]
@@ -409,19 +403,16 @@ impl<C> SharedArchiveValidator<C> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<'a, C: From<&'a [u8]>> From<&'a [u8]> for SharedArchiveValidator<C> {
     fn from(bytes: &'a [u8]) -> Self {
         Self::new(C::from(bytes))
     }
 }
 
-#[cfg(feature = "std")]
 impl<C: Fallible> Fallible for SharedArchiveValidator<C> {
     type Error = SharedArchiveError<C::Error>;
 }
 
-#[cfg(feature = "std")]
 impl<C: ArchiveBoundsContext> ArchiveBoundsContext for SharedArchiveValidator<C> {
     #[inline]
     unsafe fn check_rel_ptr(
@@ -446,7 +437,6 @@ impl<C: ArchiveBoundsContext> ArchiveBoundsContext for SharedArchiveValidator<C>
     }
 }
 
-#[cfg(feature = "std")]
 impl<C: ArchiveMemoryContext> ArchiveMemoryContext for SharedArchiveValidator<C> {
     #[inline]
     unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<(), Self::Error> {
@@ -456,7 +446,6 @@ impl<C: ArchiveMemoryContext> ArchiveMemoryContext for SharedArchiveValidator<C>
     }
 }
 
-#[cfg(feature = "std")]
 impl<C: ArchiveMemoryContext> SharedArchiveContext for SharedArchiveValidator<C> {
     unsafe fn claim_shared_bytes(
         &mut self,
@@ -484,7 +473,6 @@ impl<C: ArchiveMemoryContext> SharedArchiveContext for SharedArchiveValidator<C>
 }
 
 /// A validator that supports all builtin types.
-#[cfg(feature = "std")]
 pub type DefaultArchiveValidator<'a> =
     SharedArchiveValidator<ArchiveValidator<ArchiveBoundsValidator<'a>>>;
 
@@ -522,7 +510,6 @@ pub type DefaultArchiveValidator<'a> =
 /// let buf = serializer.into_inner();
 /// let archived = check_archived_value::<Example>(buf.as_ref(), pos).unwrap();
 /// ```
-#[cfg(feature = "std")]
 #[inline]
 pub fn check_archived_value<'a, T: Archive>(
     bytes: &'a [u8],
@@ -541,7 +528,6 @@ where
 /// `CheckBytes`.
 ///
 /// See [`check_archived_value`] for more details.
-#[cfg(feature = "std")]
 #[inline]
 pub fn check_archived_root<'a, T: Archive>(
     bytes: &'a [u8],

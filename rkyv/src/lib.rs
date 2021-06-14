@@ -116,10 +116,12 @@ use ::core::{
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 pub use util::*;
-#[cfg(all(feature = "std", feature = "validation"))]
-pub use validation::validators::{check_archived_root, check_archived_value};
 #[cfg(feature = "validation")]
-pub use validation::{check_archived_root_with_context, check_archived_value_with_context};
+pub use validation::{
+    check_archived_root_with_context,
+    check_archived_value_with_context,
+    validators::{check_archived_root, check_archived_value},
+};
 
 /// Contains the error type for traits with methods that can fail
 pub trait Fallible {

@@ -5,11 +5,9 @@ use crate::{
     validation::{ArchiveBoundsContext, LayoutMetadata, SharedArchiveContext},
     ArchivePointee, RelPtr,
 };
-use bytecheck::{CheckBytes, Unreachable};
+use bytecheck::{CheckBytes, Error, Unreachable};
 use core::{any::TypeId, fmt, ptr};
 use ptr_meta::Pointee;
-#[cfg(feature = "std")]
-use std::error::Error;
 
 /// Errors that can occur while checking archived shared pointers.
 #[derive(Debug)]
@@ -35,14 +33,14 @@ impl<T: fmt::Display, R: fmt::Display, C: fmt::Display> fmt::Display
 }
 
 #[cfg(feature = "std")]
-impl<T: Error + 'static, R: Error + 'static, C: Error + 'static> Error
+impl<T: std::error::Error + 'static, R: std::error::Error + 'static, C: std::error::Error + 'static> std::error::Error
     for SharedPointerError<T, R, C>
 {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            SharedPointerError::PointerCheckBytesError(e) => Some(e as &dyn Error),
-            SharedPointerError::ValueCheckBytesError(e) => Some(e as &dyn Error),
-            SharedPointerError::ContextError(e) => Some(e as &dyn Error),
+            SharedPointerError::PointerCheckBytesError(e) => Some(e as &dyn std::error::Error),
+            SharedPointerError::ValueCheckBytesError(e) => Some(e as &dyn std::error::Error),
+            SharedPointerError::ContextError(e) => Some(e as &dyn std::error::Error),
         }
     }
 }
@@ -68,13 +66,13 @@ impl<T: fmt::Display, R: fmt::Display, C: fmt::Display> fmt::Display for WeakPoi
 }
 
 #[cfg(feature = "std")]
-impl<T: Error + 'static, R: Error + 'static, C: Error + 'static> Error
+impl<T: std::error::Error + 'static, R: std::error::Error + 'static, C: std::error::Error + 'static> std::error::Error
     for WeakPointerError<T, R, C>
 {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             WeakPointerError::InvalidTag(_) => None,
-            WeakPointerError::CheckBytes(e) => Some(e as &dyn Error),
+            WeakPointerError::CheckBytes(e) => Some(e as &dyn std::error::Error),
         }
     }
 }
@@ -91,6 +89,7 @@ impl<
 > CheckBytes<C> for ArchivedRc<T>
 where
     T::ArchivedMetadata: CheckBytes<C>,
+    C::Error: Error,
     <T as Pointee>::Metadata: LayoutMetadata<T>,
 {
     type Error = SharedPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
@@ -122,6 +121,7 @@ impl<
 > CheckBytes<C> for ArchivedRcWeak<T>
 where
     T::ArchivedMetadata: CheckBytes<C>,
+    C::Error: Error,
     <T as Pointee>::Metadata: LayoutMetadata<T>,
 {
     type Error =

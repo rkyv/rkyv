@@ -140,10 +140,8 @@ const _: () = {
         ArchiveMemoryContext,
         LayoutMetadata,
     };
-    use bytecheck::CheckBytes;
+    use bytecheck::{CheckBytes, Error};
     use ptr_meta::Pointee;
-    #[cfg(feature = "std")]
-    use std::error::Error;
 
     impl<
         T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized,
@@ -151,6 +149,7 @@ const _: () = {
     > CheckBytes<C> for ArchivedBox<T>
     where
         T::ArchivedMetadata: CheckBytes<C>,
+        C::Error: Error,
         <T as Pointee>::Metadata: LayoutMetadata<T>,
     {
         type Error = CheckOwnedPointerError<T, C>;

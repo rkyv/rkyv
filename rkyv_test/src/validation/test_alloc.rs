@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use bytecheck::CheckBytes;
+    use crate::validation::util::serialize_and_check;
+    use bytecheck::{CheckBytes, Error};
     use core::fmt;
     use rkyv::{
         check_archived_root, check_archived_value,
@@ -9,30 +10,17 @@ mod tests {
             serializers::{AlignedSerializer, BufferSerializer},
             Serializer,
         },
-        validation::validators::DefaultArchiveValidator,
         Aligned, AlignedVec, Archive, Serialize,
     };
-    use std::{
-        collections::{HashMap, HashSet},
-        error::Error,
-    };
+    #[cfg(all(feature = "alloc", not(feature = "std")))]
+    use alloc::{boxed::Box, rc::Rc, string::{String, ToString}, vec, vec::Vec};
+    #[cfg(feature = "std")]
+    use std::rc::Rc;
 
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
 
     const BUFFER_SIZE: usize = 512;
-
-    fn serialize_and_check<T: Serialize<AlignedSerializer<AlignedVec>>>(value: &T)
-    where
-        T::Archived: for<'a> CheckBytes<DefaultArchiveValidator<'a>>,
-    {
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
-        serializer
-            .serialize_value(value)
-            .expect("failed to archive value");
-        let buf = serializer.into_inner();
-        check_archived_root::<T>(buf.as_ref()).unwrap();
-    }
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
@@ -217,9 +205,10 @@ mod tests {
             }
         }
 
-        impl Error for NodeError {
-            fn source(&self) -> Option<&(dyn Error + 'static)> {
-                Some(&*self.0)
+        #[cfg(feature = "std")]
+        impl std::error::Error for NodeError {
+            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+                Some(self.0.as_error())
             }
         }
 
@@ -242,7 +231,7 @@ mod tests {
                             bytes.add(4).cast(),
                             context,
                         )
-                        .map_err(|e| NodeError(e.into()))?;
+                        .map_err(|e| NodeError(Box::new(e)))?;
                     }
                     _ => panic!(),
                 }
@@ -333,7 +322,7 @@ mod tests {
         #[archive(bound(serialize = "__S: Serializer", deserialize = "__D: Deserializer"))]
         #[archive_attr(derive(CheckBytes))]
         #[archive_attr(check_bytes(
-            bound = "__C: ::rkyv::validation::ArchiveBoundsContext + ::rkyv::validation::ArchiveMemoryContext, <__C as ::rkyv::Fallible>::Error: ::std::error::Error"
+            bound = "__C: ::rkyv::validation::ArchiveBoundsContext + ::rkyv::validation::ArchiveMemoryContext, <__C as ::rkyv::Fallible>::Error: ::bytecheck::Error"
         ))]
         enum Node {
             Nil,
@@ -348,29 +337,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn hashmap() {
-        let mut map = HashMap::new();
-        map.insert("Hello".to_string(), 12);
-        map.insert("world".to_string(), 34);
-        map.insert("foo".to_string(), 56);
-        map.insert("bar".to_string(), 78);
-        map.insert("baz".to_string(), 90);
-        serialize_and_check(&map);
-
-        let mut set = HashSet::new();
-        set.insert("Hello".to_string());
-        set.insert("world".to_string());
-        set.insert("foo".to_string());
-        set.insert("bar".to_string());
-        set.insert("baz".to_string());
-        serialize_and_check(&set);
-    }
-
-    #[test]
     fn check_shared_ptr() {
-        use std::rc::Rc;
-
         #[derive(Archive, Serialize, Eq, PartialEq)]
         #[archive_attr(derive(CheckBytes))]
         struct Test {

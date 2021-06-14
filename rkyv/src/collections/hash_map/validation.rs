@@ -5,7 +5,7 @@ use crate::{
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
     Archived, ArchivedUsize, Fallible, RawRelPtr,
 };
-use bytecheck::{CheckBytes, SliceCheckError, Unreachable};
+use bytecheck::{CheckBytes, Error, SliceCheckError, Unreachable};
 use core::{
     alloc::Layout,
     fmt,
@@ -13,8 +13,6 @@ use core::{
     ptr,
 };
 use core::alloc::LayoutError;
-#[cfg(feature = "std")]
-use std::error::Error;
 
 /// Errors that can occur while checking an archived hash map entry.
 #[derive(Debug)]
@@ -35,7 +33,7 @@ impl<K: fmt::Display, V: fmt::Display> fmt::Display for ArchivedHashMapEntryErro
 }
 
 #[cfg(feature = "std")]
-impl<K: fmt::Debug + fmt::Display, V: fmt::Debug + fmt::Display> Error
+impl<K: fmt::Debug + fmt::Display, V: fmt::Debug + fmt::Display> std::error::Error
     for ArchivedHashMapEntryError<K, V>
 {
 }
@@ -97,15 +95,15 @@ impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display for HashMap
 }
 
 #[cfg(feature = "std")]
-impl<K: Error + 'static, V: Error + 'static, C: Error + 'static> Error for HashMapError<K, V, C> {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
+impl<K: Error + 'static, V: Error + 'static, C: Error + 'static> std::error::Error for HashMapError<K, V, C> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            HashMapError::LayoutError(e) => Some(e as &dyn Error),
-            HashMapError::CheckDisplaceError(e) => Some(e as &dyn Error),
-            HashMapError::CheckEntryError(e) => Some(e as &dyn Error),
+            HashMapError::LayoutError(e) => Some(e as &dyn std::error::Error),
+            HashMapError::CheckDisplaceError(e) => Some(e as &dyn std::error::Error),
+            HashMapError::CheckEntryError(e) => Some(e as &dyn std::error::Error),
             HashMapError::InvalidDisplacement { .. } => None,
             HashMapError::InvalidKeyPosition { .. } => None,
-            HashMapError::ContextError(e) => Some(e as &dyn Error),
+            HashMapError::ContextError(e) => Some(e as &dyn std::error::Error),
         }
     }
 }
@@ -142,6 +140,8 @@ impl<
     V: CheckBytes<C>,
     C: ArchiveBoundsContext + ArchiveMemoryContext + Fallible + ?Sized,
 > CheckBytes<C> for ArchivedHashMap<K, V>
+where
+    C::Error: Error,
 {
     type Error = HashMapError<K::Error, V::Error, C::Error>;
 

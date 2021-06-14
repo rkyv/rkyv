@@ -7,7 +7,7 @@ use rkyv::{
 
 const BUFFER_SIZE: usize = 256;
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 mod types {
     use super::BUFFER_SIZE;
     use rkyv::{
@@ -34,7 +34,7 @@ mod types {
     }
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "alloc"))]
 mod types {
     use super::BUFFER_SIZE;
     use rkyv::{ser::serializers::BufferSerializer, Aligned};
@@ -95,7 +95,6 @@ where
     assert!(archived_ref == value);
 }
 
-#[cfg(feature = "std")]
 pub fn test_archive_container<
     T: Serialize<DefaultSerializer, Archived = U> + core::ops::Deref<Target = TV>,
     TV: ?Sized,

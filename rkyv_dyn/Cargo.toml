@@ -14,7 +14,7 @@ readme = "crates-io.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytecheck = { version = "~0.5.2", optional = true }
+bytecheck = { git = "https://github.com/djkoloski/bytecheck.git", optional = true }
 inventory = "0.1"
 lazy_static = "1.4"
 ptr_meta = "~0.1.3"

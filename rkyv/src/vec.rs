@@ -178,7 +178,7 @@ const _: () = {
         },
         ArchivePointee,
     };
-    use bytecheck::CheckBytes;
+    use bytecheck::{CheckBytes, Error};
     use ptr_meta::Pointee;
 
     impl<T: CheckBytes<C>, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C>
@@ -187,6 +187,7 @@ const _: () = {
         [T]: ArchivePointee,
         <[T] as ArchivePointee>::ArchivedMetadata: CheckBytes<C>,
         <[T] as Pointee>::Metadata: LayoutMetadata<[T]>,
+        C::Error: Error,
     {
         type Error = CheckOwnedPointerError<[T], C>;
 
