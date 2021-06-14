@@ -1,4 +1,14 @@
-use crate::{Archive, ArchiveUnsized, Deserialize, Fallible, Serialize, SerializeUnsized, std_impl::{ArchivedBox, ArchivedString, BoxResolver, StringResolver}, with::{ArchiveWith, DeserializeWith, Immutable, SerializeWith}};
+use crate::{
+    boxed::{ArchivedBox, BoxResolver},
+    string::{ArchivedString, StringResolver},
+    with::{ArchiveWith, DeserializeWith, Immutable, SerializeWith},
+    Archive,
+    ArchiveUnsized,
+    Deserialize,
+    Fallible,
+    Serialize,
+    SerializeUnsized,
+};
 use core::{fmt, mem::MaybeUninit, str::FromStr};
 use std::{ffi::OsString, path::PathBuf, sync::{Mutex, RwLock}};
 

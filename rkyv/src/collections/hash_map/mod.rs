@@ -7,8 +7,13 @@
 pub mod validation;
 
 use crate::{
-    ser::Serializer, Archive, Archived, ArchivedUsize, Deserialize, Fallible, FixedUsize,
-    RawRelPtr, Serialize,
+    ser::Serializer,
+    Archive,
+    Archived,
+    ArchivedUsize,
+    FixedUsize,
+    RawRelPtr,
+    Serialize,
 };
 use core::{
     borrow::Borrow,
@@ -20,10 +25,6 @@ use core::{
     ops::Index,
     pin::Pin,
     ptr, slice,
-};
-use std::{
-    collections::{HashMap, HashSet},
-    hash::BuildHasher,
 };
 
 #[cfg_attr(feature = "strict", repr(C))]
@@ -262,7 +263,7 @@ impl<K, V> ArchivedHashMap<K, V> {
         iter: impl Iterator<Item = (&'a KU, &'a VU)>,
         len: usize,
         serializer: &mut S,
-    ) -> Result<ArchivedHashMapResolver, S::Error> {
+    ) -> Result<HashMapResolver, S::Error> {
         let mut bucket_size = vec![0u32; len];
         let mut displaces = Vec::with_capacity(len);
 
@@ -352,7 +353,7 @@ impl<K, V> ArchivedHashMap<K, V> {
                 .resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
         }
 
-        Ok(ArchivedHashMapResolver {
+        Ok(HashMapResolver {
             displace_pos,
             entries_pos,
         })
@@ -369,7 +370,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     pub unsafe fn resolve_from_len(
         len: usize,
         pos: usize,
-        resolver: ArchivedHashMapResolver,
+        resolver: HashMapResolver,
         out: &mut MaybeUninit<Self>,
     ) {
         ptr::addr_of_mut!((*out.as_mut_ptr()).len).write(to_archived!(len as FixedUsize));
@@ -599,51 +600,9 @@ impl<K, V> ExactSizeIterator for ValuesPin<'_, K, V> {}
 impl<K, V> FusedIterator for ValuesPin<'_, K, V> {}
 
 /// The resolver for archived hash maps.
-pub struct ArchivedHashMapResolver {
+pub struct HashMapResolver {
     displace_pos: usize,
     entries_pos: usize,
-}
-
-impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>
-where
-    K::Archived: Hash + Eq,
-{
-    type Archived = ArchivedHashMap<K::Archived, V::Archived>;
-    type Resolver = ArchivedHashMapResolver;
-
-    #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        ArchivedHashMap::resolve_from_len(self.len(), pos, resolver, out);
-    }
-}
-
-impl<K: Serialize<S> + Hash + Eq, V: Serialize<S>, S: Serializer + ?Sized, RandomState> Serialize<S>
-    for HashMap<K, V, RandomState>
-where
-    K::Archived: Hash + Eq,
-{
-    #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        unsafe {
-            ArchivedHashMap::serialize_from_iter(self.iter(), self.len(), serializer)
-        }
-    }
-}
-
-impl<K: Archive + Hash + Eq, V: Archive, D: Fallible + ?Sized, S: Default + BuildHasher>
-    Deserialize<HashMap<K, V, S>, D> for Archived<HashMap<K, V>>
-where
-    K::Archived: Deserialize<K, D> + Hash + Eq,
-    V::Archived: Deserialize<V, D>,
-{
-    #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<HashMap<K, V, S>, D::Error> {
-        let mut result = HashMap::with_capacity_and_hasher(self.len(), S::default());
-        for (k, v) in self.iter() {
-            result.insert(k.deserialize(deserializer)?, v.deserialize(deserializer)?);
-        }
-        Ok(result)
-    }
 }
 
 impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
@@ -660,163 +619,11 @@ impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
 
 impl<K: Hash + Eq, V: Eq> Eq for ArchivedHashMap<K, V> {}
 
-impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>, S: BuildHasher>
-    PartialEq<HashMap<K, V, S>> for ArchivedHashMap<AK, AV>
-{
-    #[inline]
-    fn eq(&self, other: &HashMap<K, V, S>) -> bool {
-        if self.len() != other.len() {
-            false
-        } else {
-            self.iter()
-                .all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
-        }
-    }
-}
-
-impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>>
-    PartialEq<ArchivedHashMap<AK, AV>> for HashMap<K, V>
-{
-    #[inline]
-    fn eq(&self, other: &ArchivedHashMap<AK, AV>) -> bool {
-        other.eq(self)
-    }
-}
-
 impl<K: Eq + Hash + Borrow<Q>, Q: Eq + Hash + ?Sized, V> Index<&'_ Q> for ArchivedHashMap<K, V> {
     type Output = V;
 
     #[inline]
     fn index(&self, key: &Q) -> &V {
         self.get(key).unwrap()
-    }
-}
-
-/// An archived `HashSet`. This is a wrapper around a hash map with the same key and a value of
-/// `()`.
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
-#[repr(transparent)]
-pub struct ArchivedHashSet<K>(ArchivedHashMap<K, ()>);
-
-impl<K> ArchivedHashSet<K> {
-    /// Gets the number of items in the hash set.
-    #[inline]
-    pub const fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    /// Gets the key corresponding to the given key in the hash set.
-    #[inline]
-    pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&K>
-    where
-        K: Borrow<Q>,
-        Q: Hash + Eq,
-    {
-        self.0.get_key_value(k).map(|(k, _)| k)
-    }
-
-    /// Returns whether the given key is in the hash set.
-    #[inline]
-    pub fn contains<Q: ?Sized>(&self, k: &Q) -> bool
-    where
-        K: Borrow<Q>,
-        Q: Hash + Eq,
-    {
-        self.0.contains_key(k)
-    }
-
-    /// Gets the hasher for the underlying hash map.
-    #[inline]
-    pub fn hasher(&self) -> seahash::SeaHasher {
-        self.0.hasher()
-    }
-
-    /// Returns whether there are no items in the hash set.
-    #[inline]
-    pub const fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    /// Gets an iterator over the keys of the underlying hash map.
-    #[inline]
-    pub fn iter(&self) -> Keys<K, ()> {
-        self.0.keys()
-    }
-}
-
-/// The resolver for archived hash sets.
-pub struct ArchivedHashSetResolver(ArchivedHashMapResolver);
-
-impl<K: Archive + Hash + Eq> Archive for HashSet<K>
-where
-    K::Archived: Hash + Eq,
-{
-    type Archived = ArchivedHashSet<K::Archived>;
-    type Resolver = ArchivedHashSetResolver;
-
-    #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        let (fp, fo) = out_field!(out.0);
-        ArchivedHashMap::resolve_from_len(self.len(), pos + fp, resolver.0, fo);
-    }
-}
-
-impl<K: Serialize<S> + Hash + Eq, S: Serializer + ?Sized> Serialize<S> for HashSet<K>
-where
-    K::Archived: Hash + Eq,
-{
-    #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        unsafe {
-            Ok(ArchivedHashSetResolver(
-                ArchivedHashMap::serialize_from_iter(
-                    self.iter().map(|x| (x, &())),
-                    self.len(),
-                    serializer,
-                )?,
-            ))
-        }
-    }
-}
-
-impl<K: Archive + Hash + Eq, D: Fallible + ?Sized> Deserialize<HashSet<K>, D>
-    for Archived<HashSet<K>>
-where
-    K::Archived: Deserialize<K, D> + Hash + Eq,
-{
-    #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<HashSet<K>, D::Error> {
-        let mut result = HashSet::new();
-        for k in self.iter() {
-            result.insert(k.deserialize(deserializer)?);
-        }
-        Ok(result)
-    }
-}
-
-impl<K: Hash + Eq> PartialEq for ArchivedHashSet<K> {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl<K: Hash + Eq> Eq for ArchivedHashSet<K> {}
-
-impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq> PartialEq<HashSet<K>> for ArchivedHashSet<AK> {
-    #[inline]
-    fn eq(&self, other: &HashSet<K>) -> bool {
-        if self.len() != other.len() {
-            false
-        } else {
-            self.iter().all(|key| other.get(key).is_some())
-        }
-    }
-}
-
-impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq> PartialEq<ArchivedHashSet<AK>> for HashSet<K> {
-    #[inline]
-    fn eq(&self, other: &ArchivedHashSet<AK>) -> bool {
-        other.eq(self)
     }
 }

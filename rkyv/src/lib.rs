@@ -76,26 +76,37 @@
     2.702-2.702 2.702 13.512-13.512-2.702 2.703-2.702-8.107-8.107z"/%3E%3C/svg%3E
 "#)]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
+
 #[doc(hidden)]
 #[macro_use]
 pub mod macros;
+
+pub mod boxed;
+pub mod collections;
 #[cfg(feature = "copy")]
 pub mod copy;
-pub mod core_impl;
 pub mod de;
-pub mod ser;
+// This is pretty unfortunate. CStr doesn't rely on the rest of std, but it's not in core.
+// If CStr ever gets moved into `core` then this module will no longer need cfg(feature = "std")
 #[cfg(feature = "std")]
-pub mod std_impl;
+pub mod ffi;
+pub mod impls;
+pub mod net;
+pub mod option;
+pub mod rc;
+pub mod ser;
+pub mod string;
 pub mod util;
 #[cfg(feature = "validation")]
 pub mod validation;
+pub mod vec;
 pub mod with;
 
-#[cfg(all(feature = "alloc", not(feature = "std")))]
-extern crate alloc;
-#[cfg(feature = "std")]
-extern crate std as alloc;
-use core::{
+use ::core::{
     alloc::Layout,
     fmt,
     marker::{PhantomData, PhantomPinned},
@@ -122,7 +133,7 @@ pub enum Unreachable {}
 
 impl fmt::Display for Unreachable {
     fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
-        unsafe { core::hint::unreachable_unchecked() }
+        unsafe { ::core::hint::unreachable_unchecked() }
     }
 }
 

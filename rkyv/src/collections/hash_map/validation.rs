@@ -1,7 +1,7 @@
 //! Validation implementations for HashMap and HashSet.
 
 use crate::{
-    std_impl::chd::{ArchivedHashMap, Entry},
+    collections::hash_map::{ArchivedHashMap, Entry},
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
     Archived, ArchivedUsize, Fallible, RawRelPtr,
 };

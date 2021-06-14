@@ -1,5 +1,6 @@
 //! Validation implementations and helper types.
 
+pub mod owned;
 pub mod validators;
 
 use crate::{Archive, ArchivePointee, Archived, Fallible, FixedIsize, RawRelPtr, RelPtr};

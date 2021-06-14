@@ -1,6 +1,6 @@
 //! Serialization traits, serializers, and adapters.
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 pub mod adapters;
 pub mod serializers;
 

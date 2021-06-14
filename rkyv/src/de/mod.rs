@@ -1,6 +1,6 @@
 //! Deserialization traits, deserializers, and adapters.
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 pub mod adapters;
 
 use crate::{ArchiveUnsized, DeserializeUnsized, Fallible};

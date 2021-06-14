@@ -1,5 +1,7 @@
 //! Serializers that can be used standalone and provide basic capabilities.
 
+#[cfg(feature = "alloc")]
+mod alloc;
 #[cfg(feature = "std")]
 mod std;
 
@@ -9,6 +11,9 @@ use crate::{
 };
 use core::ptr;
 
+#[doc(inline)]
+#[cfg(feature = "alloc")]
+pub use self::alloc::*;
 #[doc(inline)]
 #[cfg(feature = "std")]
 pub use self::std::*;

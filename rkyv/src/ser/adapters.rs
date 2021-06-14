@@ -4,6 +4,9 @@ use crate::{
     ser::{Serializer, SharedSerializer},
     Archive, Fallible, SerializeUnsized,
 };
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use hashbrown::HashMap;
+#[cfg(feature = "std")]
 use std::collections::HashMap;
 
 /// An adapter that adds shared serialization support to a serializer.
