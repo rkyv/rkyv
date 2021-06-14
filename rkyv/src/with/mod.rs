@@ -1,13 +1,19 @@
 //! Wrapper type support and commonly used wrappers.
 
+mod core;
 #[cfg(feature = "std")]
-mod std_impl;
+mod std;
 
 #[cfg(feature = "std")]
-pub use std_impl::*;
+pub use self::std::*;
 
 use crate::{Archive, Deserialize, Fallible, Serialize};
-use core::{marker::PhantomData, mem::{MaybeUninit, transmute}, ops::Deref};
+use ::core::{
+    fmt,
+    marker::PhantomData,
+    mem::{MaybeUninit, transmute},
+    ops::Deref,
+};
 
 /// A transparent wrapper for archived fields.
 ///
@@ -129,3 +135,59 @@ impl<T: ?Sized> Deref for Immutable<T> {
         &self.0
     }
 }
+
+
+
+/// A wrapper that serializes a reference inline.
+pub struct Inline;
+
+/// A wrapper that serializes a reference as if it were boxed.
+pub struct Boxed;
+
+/// A wrapper that attempts to convert a path to and from UTF-8.
+pub struct ToString;
+
+/// Errors that can occur when serializing a [`ToString`] wrapper.
+#[derive(Debug)]
+pub enum ToStringError {
+    /// The `OsString` or `PathBuf` was not valid UTF-8.
+    InvalidUTF8,
+}
+
+impl fmt::Display for ToStringError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "invalid UTF-8")
+    }
+}
+
+#[cfg(feature = "std")]
+impl ::std::error::Error for ToStringError {}
+
+/// A wrapper that locks a lock and serializes the value immutably.
+///
+/// This wrapper can panic under very specific circumstances when:
+///
+/// 1. `serialize_with` is called and succeeds in locking the value to serialize it.
+/// 2. Another thread locks the value and panics, poisoning the lock
+/// 3. `resolve_with` is called and gets a poisoned value.
+///
+/// Unfortunately, it's not possible to work around this issue. If your code absolutely must not
+/// panic under any circumstances, it's recommended that you lock your values and then serialize
+/// them while locked.
+pub struct Lock;
+
+/// Errors that can occur while serializing a [`Lock`] wrapper
+#[derive(Debug)]
+pub enum LockError {
+    /// The mutex was poisoned
+    Poisoned,
+}
+
+impl fmt::Display for LockError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "lock poisoned")
+    }
+}
+
+#[cfg(feature = "std")]
+impl ::std::error::Error for LockError {}
