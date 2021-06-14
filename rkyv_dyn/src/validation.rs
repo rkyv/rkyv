@@ -178,6 +178,7 @@ impl<T: ?Sized> NotCheckBytesDyn for T {}
 pub struct IsCheckBytesDyn<T: ?Sized>(PhantomData<T>);
 
 impl<T: for<'a> CheckBytes<dyn DynContext + 'a>> IsCheckBytesDyn<T> {
+    #[doc(hidden)]
     pub const CHECK_BYTES_DYN: CheckBytesDyn = Self::check_bytes_dyn;
 
     unsafe fn check_bytes_dyn(
@@ -324,6 +325,7 @@ pub struct CheckBytesEntry {
 }
 
 impl CheckBytesEntry {
+    #[doc(hidden)]
     pub fn new<TY: RegisteredImpl<TR>, TR: ?Sized>(check_bytes_dyn: CheckBytesDyn) -> Self {
         Self {
             vtable: <TY as RegisteredImpl<TR>>::vtable(),
@@ -357,6 +359,7 @@ impl CheckBytesRegistry {
         debug_assert!(old_value.is_none(), "vtable conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
     }
 
+    #[doc(hidden)]
     pub fn get(&self, vtable: usize) -> Option<&ImplValidation> {
         self.vtable_to_check_bytes.get(&vtable)
     }

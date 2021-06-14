@@ -1,5 +1,9 @@
 //! Procedural macros for `rkyv`.
 
+#![deny(broken_intra_doc_links)]
+#![deny(missing_docs)]
+#![deny(missing_crate_level_docs)]
+
 mod archive;
 mod attributes;
 mod deserialize;

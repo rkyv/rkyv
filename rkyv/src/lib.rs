@@ -60,6 +60,9 @@
 //!
 //! See [`Archive`] for examples of how to use rkyv.
 
+#![deny(broken_intra_doc_links)]
+#![deny(missing_docs)]
+#![deny(missing_crate_level_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "copy", feature(auto_traits))]
 #![cfg_attr(feature = "copy", feature(min_specialization))]
