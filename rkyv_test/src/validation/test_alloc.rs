@@ -43,7 +43,35 @@ mod tests {
         let result = check_archived_root::<Option<String>>(buf.as_ref());
         result.unwrap();
 
-        #[cfg(not(feature = "size_64"))]
+        #[cfg(feature = "size_16")]
+        #[cfg(any(
+            all(target_endian = "little", not(feature = "archive_be")),
+            feature = "archive_le"
+        ))]
+        // Synthetic archive (correct)
+        let synthetic_buf = Aligned([
+            1u8, 0u8, // Some + padding
+            4u8, 0u8, // points 4 bytes forward
+            11u8, 0u8, // string is 11 characters long
+            // "Hello world"
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+        ]);
+
+        #[cfg(feature = "size_16")]
+        #[cfg(any(
+            all(target_endian = "big", not(feature = "archive_le")),
+            feature = "archive_be"
+        ))]
+        // Synthetic archive (correct)
+        let synthetic_buf = Aligned([
+            1u8, 0u8, // Some + padding
+            0u8, 4u8, // points 4 bytes forward
+            0u8, 11u8, // string is 11 characters long
+            // "Hello world"
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+        ]);
+
+        #[cfg(feature = "size_32")]
         #[cfg(any(
             all(target_endian = "little", not(feature = "archive_be")),
             feature = "archive_le"
@@ -57,7 +85,7 @@ mod tests {
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
         ]);
 
-        #[cfg(not(feature = "size_64"))]
+        #[cfg(feature = "size_32")]
         #[cfg(any(
             all(target_endian = "big", not(feature = "archive_le")),
             feature = "archive_be"
@@ -139,6 +167,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "size_32")]
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn invalid_tags() {
@@ -155,6 +184,7 @@ mod tests {
         result.unwrap_err();
     }
 
+    #[cfg(feature = "size_32")]
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn overlapping_claims() {
@@ -173,6 +203,7 @@ mod tests {
         check_archived_value::<[String; 2]>(synthetic_buf.as_ref(), 0).unwrap_err();
     }
 
+    #[cfg(feature = "size_32")]
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn cycle_detection() {

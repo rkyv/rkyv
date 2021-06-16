@@ -47,7 +47,9 @@
 //!
 //! ## Features
 //!
-//! - `size_64`: Archives `*size` as `*64` instead of `*32`. This is for large archive support
+//! - `size_16`: Archives `*size` as `*16`. This is for small archive support.
+//! - `size_32`: Archives `*size` as `*32` (enabled by default)
+//! - `size_64`: Archives `*size` as `*64`. This is for large archive support.
 //! - `specialization`: Enables support for the unstable specialization feature for increased
 //!   performance for a few specific cases
 //! - `std`: Enables standard library support (enabled by default)
@@ -593,13 +595,19 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: Archive
 }
 
 /// The native type that `usize` is converted to for archiving.
-#[cfg(not(feature = "size_64"))]
+#[cfg(feature = "size_16")]
+pub type FixedUsize = u16;
+/// The native type that `usize` is converted to for archiving.
+#[cfg(feature = "size_32")]
 pub type FixedUsize = u32;
 /// The native type that `usize` is converted to for archiving.
 #[cfg(feature = "size_64")]
 pub type FixedUsize = u64;
 /// The native type that `isize` is converted to for archiving.
-#[cfg(not(feature = "size_64"))]
+#[cfg(feature = "size_16")]
+pub type FixedIsize = i16;
+/// The native type that `isize` is converted to for archiving.
+#[cfg(feature = "size_32")]
 pub type FixedIsize = i32;
 /// The native type that `isize` is converted to for archiving.
 #[cfg(feature = "size_64")]

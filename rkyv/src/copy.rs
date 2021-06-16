@@ -52,8 +52,8 @@ const _: () = {
 // Pointer-sized integers are not ArchiveCopy if the target pointer width does not match the archive
 // pointer width
 #[cfg(any(
-    target_pointer_width = "16",
-    all(target_pointer_width = "32", feature = "size_64"),
+    all(target_pointer_width = "16", not(feature = "size_16")),
+    all(target_pointer_width = "32", not(feature = "size_32")),
     all(target_pointer_width = "64", not(feature = "size_64"))
 ))]
 const _: () = {
@@ -134,8 +134,8 @@ const _: () = {
 // Pointer-sized integers are ArchiveCopySafe if the target pointer width matches the archive
 // pointer width
 #[cfg(not(any(
-    target_pointer_width = "16",
-    all(target_pointer_width = "32", feature = "size_64"),
+    all(target_pointer_width = "16", not(feature = "size_16")),
+    all(target_pointer_width = "32", not(feature = "size_32")),
     all(target_pointer_width = "64", not(feature = "size_64"))
 )))]
 const _: () = {
