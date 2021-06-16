@@ -1,7 +1,7 @@
 use crate::{
     attributes::{parse_attributes, Attributes},
     repr::{IntRepr, Repr, ReprAttr},
-    with::{with_cast, with_ty},
+    with::{make_with_cast, make_with_ty},
 };
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
@@ -45,6 +45,11 @@ fn derive_archive_impl(
 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
+
+    let default_rkyv_path = parse_quote! { ::rkyv };
+    let rkyv_path = attributes.rkyv_path.as_ref().unwrap_or(&default_rkyv_path);
+    let with_ty = make_with_ty(&rkyv_path);
+    let with_cast = make_with_cast(&rkyv_path);
 
     let archive_attrs = attributes
         .attrs
@@ -129,13 +134,13 @@ fn derive_archive_impl(
                         let ty = with_ty(field);
                         archive_where
                             .predicates
-                            .push(parse_quote! { #ty: ::rkyv::Archive });
+                            .push(parse_quote! { #ty: #rkyv_path::Archive });
                     }
 
                     let resolver_fields = fields.named.iter().map(|f| {
                         let name = &f.ident;
                         let ty = with_ty(f);
-                        quote_spanned! { f.span() => #name: ::rkyv::Resolver<#ty> }
+                        quote_spanned! { f.span() => #name: #rkyv_path::Resolver<#ty> }
                     });
 
                     let archived_def = if attributes.archive_as.is_none() {
@@ -152,7 +157,7 @@ fn derive_archive_impl(
                             quote_spanned! { f.span() =>
                                 #[doc = #field_doc]
                                 #(#[#archive_attrs])*
-                                #vis #field_name: ::rkyv::Archived<#ty>
+                                #vis #field_name: #rkyv_path::Archived<#ty>
                             }
                         });
 
@@ -263,11 +268,11 @@ fn derive_archive_impl(
                             let ty = with_ty(field);
                             copy_safe_where
                                 .predicates
-                                .push(parse_quote! { #ty: ::rkyv::copy::ArchiveCopySafe });
+                                .push(parse_quote! { #ty: #rkyv_path::copy::ArchiveCopySafe });
                         }
 
                         Some(quote! {
-                            unsafe impl #impl_generics ::rkyv::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
+                            unsafe impl #impl_generics #rkyv_path::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
                         })
                     } else {
                         None
@@ -312,12 +317,12 @@ fn derive_archive_impl(
                         let ty = with_ty(field);
                         archive_where
                             .predicates
-                            .push(parse_quote! { #ty: ::rkyv::Archive });
+                            .push(parse_quote! { #ty: #rkyv_path::Archive });
                     }
 
                     let resolver_fields = fields.unnamed.iter().map(|f| {
                         let ty = with_ty(f);
-                        quote_spanned! { f.span() => ::rkyv::Resolver<#ty> }
+                        quote_spanned! { f.span() => #rkyv_path::Resolver<#ty> }
                     });
 
                     let archived_def = if attributes.archive_as.is_none() {
@@ -330,7 +335,7 @@ fn derive_archive_impl(
                             quote_spanned! { f.span() =>
                                 #[doc = #field_doc]
                                 #(#[#archive_attrs])*
-                                #vis ::rkyv::Archived<#ty>
+                                #vis #rkyv_path::Archived<#ty>
                             }
                         });
 
@@ -445,11 +450,11 @@ fn derive_archive_impl(
                             let ty = with_ty(field);
                             copy_safe_where
                                 .predicates
-                                .push(parse_quote! { #ty: ::rkyv::copy::ArchiveCopySafe });
+                                .push(parse_quote! { #ty: #rkyv_path::copy::ArchiveCopySafe });
                         }
 
                         Some(quote! {
-                            unsafe impl #impl_generics ::rkyv::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
+                            unsafe impl #impl_generics #rkyv_path::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
                         })
                     } else {
                         None
@@ -541,7 +546,7 @@ fn derive_archive_impl(
                     let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some()
                     {
                         Some(quote! {
-                            unsafe impl #impl_generics ::rkyv::copy::ArchiveCopySafe for #name #ty_generics #where_clause {}
+                            unsafe impl #impl_generics #rkyv_path::copy::ArchiveCopySafe for #name #ty_generics #where_clause {}
                         })
                     } else {
                         None
@@ -586,7 +591,7 @@ fn derive_archive_impl(
                             let ty = with_ty(field);
                             archive_where
                                 .predicates
-                                .push(parse_quote! { #ty: ::rkyv::Archive });
+                                .push(parse_quote! { #ty: #rkyv_path::Archive });
                         }
                     }
                     Fields::Unnamed(ref fields) => {
@@ -598,7 +603,7 @@ fn derive_archive_impl(
                             let ty = with_ty(field);
                             archive_where
                                 .predicates
-                                .push(parse_quote! { #ty: ::rkyv::Archive });
+                                .push(parse_quote! { #ty: #rkyv_path::Archive });
                         }
                     }
                     Fields::Unit => (),
@@ -612,7 +617,7 @@ fn derive_archive_impl(
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             let ty = with_ty(f);
-                            quote_spanned! { f.span() => #name: ::rkyv::Resolver<#ty> }
+                            quote_spanned! { f.span() => #name: #rkyv_path::Resolver<#ty> }
                         });
                         quote_spanned! { variant.span() =>
                             #[allow(dead_code)]
@@ -624,7 +629,7 @@ fn derive_archive_impl(
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().map(|f| {
                             let ty = with_ty(f);
-                            quote_spanned! { f.span() => ::rkyv::Resolver<#ty> }
+                            quote_spanned! { f.span() => #rkyv_path::Resolver<#ty> }
                         });
                         quote_spanned! { variant.span() =>
                             #[allow(dead_code)]
@@ -771,7 +776,7 @@ fn derive_archive_impl(
                                 let archive_attrs = field_archive_attrs(f);
                                 quote_spanned! { f.span() =>
                                     #(#[#archive_attrs])*
-                                    #vis #name: ::rkyv::Archived<#ty>
+                                    #vis #name: #rkyv_path::Archived<#ty>
                                 }
                             });
                             quote_spanned! { variant.span() =>
@@ -788,7 +793,7 @@ fn derive_archive_impl(
                                 let archive_attrs = field_archive_attrs(f);
                                 quote_spanned! { f.span() =>
                                     #(#[#archive_attrs])*
-                                    #vis ::rkyv::Archived<#ty>
+                                    #vis #rkyv_path::Archived<#ty>
                                 }
                             });
                             quote_spanned! { variant.span() =>
@@ -1123,7 +1128,7 @@ fn derive_archive_impl(
                                 let ty = with_ty(field);
                                 copy_safe_where
                                     .predicates
-                                    .push(parse_quote! { #ty: ::rkyv::copy::ArchiveCopySafe });
+                                    .push(parse_quote! { #ty: #rkyv_path::copy::ArchiveCopySafe });
                             }
                         }
                         Fields::Unnamed(ref fields) => {
@@ -1135,7 +1140,7 @@ fn derive_archive_impl(
                                 let ty = with_ty(field);
                                 copy_safe_where
                                     .predicates
-                                    .push(parse_quote! { #ty: ::rkyv::copy::ArchiveCopySafe });
+                                    .push(parse_quote! { #ty: #rkyv_path::copy::ArchiveCopySafe });
                             }
                         }
                         Fields::Unit => (),
@@ -1143,7 +1148,7 @@ fn derive_archive_impl(
                 }
 
                 Some(quote! {
-                    unsafe impl #impl_generics ::rkyv::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
+                    unsafe impl #impl_generics #rkyv_path::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
                 })
             } else {
                 None
@@ -1201,7 +1206,7 @@ fn derive_archive_impl(
         #[automatically_derived]
         const _: () = {
             use ::core::{marker::PhantomData, mem::MaybeUninit};
-            use ::rkyv::{out_field, Archive, Archived};
+            use #rkyv_path::{out_field, Archive, Archived};
 
             #archive_impls
         };

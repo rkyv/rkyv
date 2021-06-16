@@ -1,6 +1,6 @@
 use crate::{
     attributes::{parse_attributes, Attributes},
-    with::{with_cast, with_ty},
+    with::{make_with_cast, make_with_ty},
 };
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
@@ -38,6 +38,11 @@ fn derive_serialize_impl(
         gt_token: Some(Default::default()),
         where_clause: input.generics.where_clause.clone(),
     };
+
+    let default_rkyv_path = parse_quote! { ::rkyv };
+    let rkyv_path = attributes.rkyv_path.as_ref().unwrap_or(&default_rkyv_path);
+    let with_ty = make_with_ty(&rkyv_path);
+    let with_cast = make_with_cast(&rkyv_path);
 
     let name = &input.ident;
     let (impl_generics, _, _) = impl_input_generics.split_for_impl();
@@ -219,7 +224,7 @@ fn derive_serialize_impl(
     Ok(quote! {
         #[automatically_derived]
         const _: () = {
-            use ::rkyv::{Archive, Fallible, Serialize};
+            use #rkyv_path::{Archive, Fallible, Serialize};
             #serialize_impl
         };
     })

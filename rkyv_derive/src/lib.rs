@@ -9,6 +9,7 @@ mod attributes;
 mod deserialize;
 mod repr;
 mod serialize;
+mod util;
 mod with;
 
 extern crate proc_macro;

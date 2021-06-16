@@ -1314,4 +1314,18 @@ mod tests {
 
         assert_eq!(archived.value.as_ref(), "hello world");
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_crate_path() {
+        use ::rkyv as alt_path;
+
+        #[derive(Archive, Deserialize, Serialize)]
+        #[archive(crate = "alt_path")]
+        struct Test<'a> {
+            #[with(alt_path::with::Boxed)]
+            value: &'a str,
+            other: i32,
+        }
+    }
 }

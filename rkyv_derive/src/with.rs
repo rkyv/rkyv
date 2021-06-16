@@ -1,4 +1,4 @@
-use syn::{parse_quote, Expr, Field, Meta, NestedMeta, Type};
+use syn::{parse_quote, Expr, Field, Meta, NestedMeta, Path, Type};
 
 #[inline]
 pub fn with<B, F: FnMut(B, NestedMeta) -> B>(field: &Field, init: B, f: F) -> B {
@@ -22,20 +22,20 @@ pub fn with<B, F: FnMut(B, NestedMeta) -> B>(field: &Field, init: B, f: F) -> B 
 }
 
 #[inline]
-pub fn with_ty(field: &Field) -> Type {
-    with(
+pub fn make_with_ty(rkyv_path: &Path) -> impl '_ + Fn(&Field) -> Type {
+    move |field| with(
         field,
         field.ty.clone(),
-        |ty, wrapper| parse_quote! { ::rkyv::with::With<#ty, #wrapper> },
+        |ty, wrapper| parse_quote! { #rkyv_path::with::With<#ty, #wrapper> },
     )
 }
 
 #[inline]
-pub fn with_cast(field: &Field, expr: Expr) -> Expr {
-    with(
+pub fn make_with_cast(rkyv_path: &Path) -> impl '_ + Fn(&Field, Expr) -> Expr {
+    move |field, expr| with(
         field,
         expr,
-        |expr, wrapper| parse_quote! { ::rkyv::with::With::<_, #wrapper>::cast(#expr) },
+        |expr, wrapper| parse_quote! { #rkyv_path::with::With::<_, #wrapper>::cast(#expr) },
     )
 }
 
