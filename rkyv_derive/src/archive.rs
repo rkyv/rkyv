@@ -673,7 +673,7 @@ fn derive_archive_impl(
                                         #(#resolves)*
                                     },
                                     #[allow(unreachable_patterns)]
-                                    _ => panic!("enum resolver variant does not match value variant"),
+                                    _ => ::core::hint::unreachable_unchecked(),
                                 }
                             }
                         }
@@ -706,7 +706,7 @@ fn derive_archive_impl(
                                         #(#resolves)*
                                     },
                                     #[allow(unreachable_patterns)]
-                                    _ => panic!("enum resolver variant does not match value variant"),
+                                    _ => ::core::hint::unreachable_unchecked(),
                                 }
                             }
                         }

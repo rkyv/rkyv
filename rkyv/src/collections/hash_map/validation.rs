@@ -5,10 +5,10 @@ use crate::{
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
     Archived, ArchivedUsize, Fallible, RawRelPtr,
 };
-use bytecheck::{CheckBytes, Error, SliceCheckError, Unreachable};
-use core::alloc::LayoutError;
+use bytecheck::{CheckBytes, Error, SliceCheckError};
 use core::{
-    alloc::Layout,
+    alloc::{Layout, LayoutError},
+    convert::Infallible,
     fmt,
     hash::{Hash, Hasher},
     ptr,
@@ -61,7 +61,7 @@ pub enum HashMapError<K, V, C> {
     /// An error occured while checking the layouts of displacements or entries
     LayoutError(LayoutError),
     /// An error occured while checking the displacements
-    CheckDisplaceError(SliceCheckError<Unreachable>),
+    CheckDisplaceError(SliceCheckError<Infallible>),
     /// An error occured while checking the entries
     CheckEntryError(SliceCheckError<ArchivedHashMapEntryError<K, V>>),
     /// A displacement value was invalid
@@ -115,8 +115,8 @@ impl<K: Error + 'static, V: Error + 'static, C: Error + 'static> std::error::Err
     }
 }
 
-impl<K, V, C> From<Unreachable> for HashMapError<K, V, C> {
-    fn from(_: Unreachable) -> Self {
+impl<K, V, C> From<Infallible> for HashMapError<K, V, C> {
+    fn from(_: Infallible) -> Self {
         unsafe { core::hint::unreachable_unchecked() }
     }
 }
@@ -128,9 +128,9 @@ impl<K, V, C> From<LayoutError> for HashMapError<K, V, C> {
     }
 }
 
-impl<K, V, C> From<SliceCheckError<Unreachable>> for HashMapError<K, V, C> {
+impl<K, V, C> From<SliceCheckError<Infallible>> for HashMapError<K, V, C> {
     #[inline]
-    fn from(e: SliceCheckError<Unreachable>) -> Self {
+    fn from(e: SliceCheckError<Infallible>) -> Self {
         Self::CheckDisplaceError(e)
     }
 }

@@ -3,65 +3,12 @@
 pub mod owned;
 pub mod validators;
 
-use crate::{Archive, ArchivePointee, Archived, Fallible, FixedIsize, RawRelPtr, RelPtr};
-use bytecheck::{CheckBytes, Unreachable};
-use core::{
-    alloc::Layout,
-    any::TypeId,
-    fmt,
-    marker::{PhantomData, PhantomPinned},
-    ptr,
-};
+use crate::{Archive, ArchivePointee, Archived, Fallible, RelPtr};
+use bytecheck::CheckBytes;
+use core::{alloc::Layout, any::TypeId, fmt};
 use ptr_meta::{DynMetadata, Pointee};
 #[cfg(feature = "std")]
 use std::error::Error;
-
-impl RawRelPtr {
-    /// Checks the bytes of the given raw relative pointer.
-    ///
-    /// This is done rather than implementing `CheckBytes` to force users to manually write their
-    /// `CheckBytes` implementation since they need to also provide the ownership model of their
-    /// memory.
-    ///
-    /// # Safety
-    ///
-    /// The given pointer must be aligned and point to enough bytes to represent a `RawRelPtr`.
-    #[inline]
-    pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(
-        value: *const RawRelPtr,
-        context: &mut C,
-    ) -> Result<&'a Self, Unreachable> {
-        Archived::<FixedIsize>::check_bytes(ptr::addr_of!((*value).offset), context).unwrap();
-        PhantomPinned::check_bytes(ptr::addr_of!((*value)._phantom), context).unwrap();
-        Ok(&*value)
-    }
-}
-
-impl<T: ArchivePointee + ?Sized> RelPtr<T> {
-    /// Checks the bytes of the given relative pointer.
-    ///
-    /// This is done rather than implementing `CheckBytes` to force users to manually write their
-    /// `CheckBytes` implementation since they need to also provide the ownership model of their
-    /// memory.
-    ///
-    /// # Safety
-    ///
-    /// The given pointer must be aligned and point to enough bytes to represent a `RelPtr<T>`.
-    #[inline]
-    pub unsafe fn manual_check_bytes<'a, C: Fallible + ?Sized>(
-        value: *const RelPtr<T>,
-        context: &mut C,
-    ) -> Result<&'a Self, <T::ArchivedMetadata as CheckBytes<C>>::Error>
-    where
-        T: CheckBytes<C>,
-        T::ArchivedMetadata: CheckBytes<C>,
-    {
-        RawRelPtr::manual_check_bytes(ptr::addr_of!((*value).raw_ptr), context).unwrap();
-        T::ArchivedMetadata::check_bytes(ptr::addr_of!((*value).metadata), context)?;
-        PhantomData::<T>::check_bytes(ptr::addr_of!((*value)._phantom), context).unwrap();
-        Ok(&*value)
-    }
-}
 
 /// Gets the layout of a type from its metadata.
 pub trait LayoutMetadata<T: ?Sized> {

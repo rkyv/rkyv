@@ -101,6 +101,7 @@ pub mod impls;
 pub mod net;
 pub mod option;
 pub mod rc;
+pub mod rel_ptr;
 pub mod ser;
 pub mod string;
 pub mod util;
@@ -109,13 +110,7 @@ pub mod validation;
 pub mod vec;
 pub mod with;
 
-use ::core::{
-    alloc::Layout,
-    fmt,
-    marker::{PhantomData, PhantomPinned},
-    mem::MaybeUninit,
-    ptr,
-};
+use ::core::{alloc::Layout, mem::MaybeUninit};
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 pub use util::*;
@@ -131,25 +126,12 @@ pub trait Fallible {
     type Error: 'static;
 }
 
-/// An error that can never be produced
-#[derive(Debug)]
-pub enum Unreachable {}
-
-impl fmt::Display for Unreachable {
-    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
-        unsafe { ::core::hint::unreachable_unchecked() }
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for Unreachable {}
-
 /// A fallible type that cannot produce errors
 #[derive(Debug)]
 pub struct Infallible;
 
 impl Fallible for Infallible {
-    type Error = Unreachable;
+    type Error = core::convert::Infallible;
 }
 
 /// A type that can be used without deserializing.
@@ -613,177 +595,25 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: Archive
 /// The native type that `usize` is converted to for archiving.
 #[cfg(not(feature = "size_64"))]
 pub type FixedUsize = u32;
-
 /// The native type that `usize` is converted to for archiving.
 #[cfg(feature = "size_64")]
 pub type FixedUsize = u64;
-
 /// The native type that `isize` is converted to for archiving.
 #[cfg(not(feature = "size_64"))]
 pub type FixedIsize = i32;
-
 /// The native type that `isize` is converted to for archiving.
 #[cfg(feature = "size_64")]
 pub type FixedIsize = i64;
 
 /// The archived version of `usize`.
 pub type ArchivedUsize = Archived<FixedUsize>;
-
 /// The archived version of `isize`.
 pub type ArchivedIsize = Archived<FixedIsize>;
 
-/// An untyped pointer which resolves relative to its position in memory.
-#[derive(Debug)]
-#[repr(transparent)]
-pub struct RawRelPtr {
-    offset: Archived<isize>,
-    _phantom: PhantomPinned,
-}
-
-impl RawRelPtr {
-    /// Emplaces a new relative pointer between the given positions and stores it in the given
-    /// output.
-    ///
-    /// # Safety
-    ///
-    /// - `out` must be located at position `from`
-    /// - `to` must be a position within the archive
-    #[inline]
-    pub unsafe fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
-        ptr::addr_of_mut!((*out.as_mut_ptr()).offset)
-            .write(to_archived!((to as isize - from as isize) as FixedIsize));
-    }
-
-    /// Creates a new relative pointer that has an offset of 0.
-    #[inline]
-    pub fn emplace_null(out: &mut MaybeUninit<Self>) {
-        unsafe {
-            Self::emplace(0, 0, out);
-        }
-    }
-
-    /// Checks whether the relative pointer is null.
-    #[inline]
-    pub const fn is_null(&self) -> bool {
-        self.offset() == 0
-    }
-
-    /// Gets the base pointer for the relative pointer.
-    #[inline]
-    pub const fn base(&self) -> *const u8 {
-        (self as *const Self).cast::<u8>()
-    }
-
-    /// Gets the offset of the relative pointer.
-    #[inline]
-    pub const fn offset(&self) -> isize {
-        from_archived!(self.offset) as isize
-    }
-
-    /// Calculates the memory address being pointed to by this relative pointer.
-    #[inline]
-    pub fn as_ptr(&self) -> *const () {
-        unsafe {
-            (self as *const Self)
-                .cast::<u8>()
-                .offset(self.offset())
-                .cast()
-        }
-    }
-
-    /// Returns an unsafe mutable pointer to the memory address being pointed to
-    /// by this relative pointer.
-    #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut () {
-        unsafe {
-            (self as *mut Self)
-                .cast::<u8>()
-                .offset(self.offset())
-                .cast()
-        }
-    }
-}
-
-/// A pointer which resolves to relative to its position in memory.
-///
-/// See [`Archive`] for an example of creating one.
-#[cfg_attr(feature = "strict", repr(C))]
-pub struct RelPtr<T: ArchivePointee + ?Sized> {
-    raw_ptr: RawRelPtr,
-    metadata: T::ArchivedMetadata,
-    _phantom: PhantomData<T>,
-}
-
-impl<T: ArchivePointee + ?Sized> RelPtr<T> {
-    /// Creates a relative pointer from one position to another.
-    ///
-    /// # Safety
-    ///
-    /// - `from` must be the position of `out` within the archive
-    /// - `to` must be the position of some valid `T`
-    /// - `value` must be the value being serialized
-    /// - `metadata_resolver` must be the result of serializing the metadata of `value`
-    #[inline]
-    pub unsafe fn resolve_emplace<U: ArchiveUnsized<Archived = T> + ?Sized>(
-        from: usize,
-        to: usize,
-        value: &U,
-        metadata_resolver: U::MetadataResolver,
-        out: &mut MaybeUninit<Self>,
-    ) {
-        let (fp, fo) = out_field!(out.raw_ptr);
-        RawRelPtr::emplace(from + fp, to, fo);
-        let (fp, fo) = out_field!(out.metadata);
-        value.resolve_metadata(from + fp, metadata_resolver, fo);
-    }
-
-    /// Gets the base pointer for the relative pointer.
-    #[inline]
-    pub fn base(&self) -> *const u8 {
-        self.raw_ptr.base()
-    }
-
-    /// Gets the offset of the relative pointer.
-    #[inline]
-    pub fn offset(&self) -> isize {
-        self.raw_ptr.offset()
-    }
-
-    /// Gets the metadata of the relative pointer.
-    #[inline]
-    pub fn metadata(&self) -> &T::ArchivedMetadata {
-        &self.metadata
-    }
-
-    /// Calculates the memory address being pointed to by this relative pointer.
-    #[inline]
-    pub fn as_ptr(&self) -> *const T {
-        ptr_meta::from_raw_parts(self.raw_ptr.as_ptr(), T::pointer_metadata(&self.metadata))
-    }
-
-    /// Returns an unsafe mutable pointer to the memory address being pointed to by this relative
-    /// pointer.
-    #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut T {
-        ptr_meta::from_raw_parts_mut(
-            self.raw_ptr.as_mut_ptr(),
-            T::pointer_metadata(&self.metadata),
-        )
-    }
-}
-
-impl<T: ArchivePointee + ?Sized> fmt::Debug for RelPtr<T>
-where
-    T::ArchivedMetadata: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RelPtr")
-            .field("raw_ptr", &self.raw_ptr)
-            .field("metadata", &self.metadata)
-            .field("_phantom", &self._phantom)
-            .finish()
-    }
-}
+/// The default raw relative pointer.
+pub type RawRelPtr = rel_ptr::RawRelPtr<FixedIsize>;
+/// The default relative pointer.
+pub type RelPtr<T> = rel_ptr::RelPtr<T, FixedIsize>;
 
 /// Alias for the archived version of some [`Archive`] type.
 pub type Archived<T> = <T as Archive>::Archived;

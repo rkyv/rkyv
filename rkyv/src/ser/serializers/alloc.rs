@@ -1,8 +1,9 @@
 use crate::{
-    ser::Serializer, util::AlignedVec, Archive, ArchiveUnsized, Fallible, RelPtr, Unreachable,
+    ser::Serializer, util::AlignedVec, Archive, ArchiveUnsized, Fallible, RelPtr,
 };
 use core::{
     borrow::{Borrow, BorrowMut},
+    convert::Infallible,
     mem,
 };
 
@@ -29,7 +30,7 @@ impl<A: Borrow<AlignedVec>> AlignedSerializer<A> {
 }
 
 impl<A> Fallible for AlignedSerializer<A> {
-    type Error = Unreachable;
+    type Error = Infallible;
 }
 
 impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerializer<A> {

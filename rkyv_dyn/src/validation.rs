@@ -1,10 +1,10 @@
 //! Validation implementations and helper types.
 
 use crate::{ArchivedDynMetadata, RegisteredImpl, IMPL_REGISTRY};
-use bytecheck::{CheckBytes, Unreachable};
+use bytecheck::CheckBytes;
 #[cfg(feature = "vtable_cache")]
 use core::sync::atomic::{AtomicU64, Ordering};
-use core::{alloc::Layout, any::TypeId, fmt, marker::PhantomData, ptr};
+use core::{alloc::Layout, any::TypeId, convert::Infallible, fmt, marker::PhantomData, ptr};
 use rkyv::{
     from_archived,
     validation::{ArchiveBoundsContext, ArchiveMemoryContext, SharedArchiveContext},
@@ -244,8 +244,8 @@ impl fmt::Display for DynMetadataError {
 
 impl Error for DynMetadataError {}
 
-impl From<Unreachable> for DynMetadataError {
-    fn from(_: Unreachable) -> Self {
+impl From<Infallible> for DynMetadataError {
+    fn from(_: Infallible) -> Self {
         unsafe { core::hint::unreachable_unchecked() }
     }
 }

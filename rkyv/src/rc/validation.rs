@@ -5,8 +5,8 @@ use crate::{
     validation::{ArchiveBoundsContext, LayoutMetadata, SharedArchiveContext},
     ArchivePointee, RelPtr,
 };
-use bytecheck::{CheckBytes, Error, Unreachable};
-use core::{any::TypeId, fmt, ptr};
+use bytecheck::{CheckBytes, Error};
+use core::{any::TypeId, convert::Infallible, fmt, ptr};
 use ptr_meta::Pointee;
 
 /// Errors that can occur while checking archived shared pointers.
@@ -83,8 +83,8 @@ impl<
     }
 }
 
-impl<T, R, C> From<Unreachable> for WeakPointerError<T, R, C> {
-    fn from(_: Unreachable) -> Self {
+impl<T, R, C> From<Infallible> for WeakPointerError<T, R, C> {
+    fn from(_: Infallible) -> Self {
         unsafe { core::hint::unreachable_unchecked() }
     }
 }
