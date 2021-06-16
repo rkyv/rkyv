@@ -110,7 +110,7 @@ pub mod validation;
 pub mod vec;
 pub mod with;
 
-use ::core::{alloc::Layout, mem::MaybeUninit};
+use core::{alloc::Layout, mem::MaybeUninit};
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 pub use util::*;

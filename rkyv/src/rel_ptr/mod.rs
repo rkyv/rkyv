@@ -68,11 +68,8 @@ pub fn signed_offset(from: usize, to: usize) -> Result<isize, OffsetError> {
 
 /// A offset that can be used with [`RawRelPtr`].
 pub trait Offset: Copy {
-    /// Any error that can be produced while creating an offset.
-    type Error;
-
     /// Creates a new offset between a `from` position and a `to` position.
-    fn between(from: usize, to: usize) -> Result<Self, Self::Error>;
+    fn between(from: usize, to: usize) -> Result<Self, OffsetError>;
 
     /// Gets the offset as an `isize`.
     fn to_isize(self) -> isize;
@@ -81,10 +78,8 @@ pub trait Offset: Copy {
 macro_rules! impl_offset {
     ($ty:ty) => {
         impl Offset for Archived<$ty> {
-            type Error = OffsetError;
-
             #[inline]
-            fn between(from: usize, to: usize) -> Result<Self, Self::Error> {
+            fn between(from: usize, to: usize) -> Result<Self, OffsetError> {
                 // pointer::add and pointer::offset require that the computed offsets cannot
                 // overflow an isize, which is why we're using signed_offset instead of checked_sub
                 // for unsized types
@@ -132,18 +127,31 @@ pub struct RawRelPtr<O> {
 }
 
 impl<O: Offset> RawRelPtr<O> {
-    /// Creates a new `RawRelPtr` in-place between the given `from` and `to` positions.
+    /// Attempts to create a new `RawRelPtr` in-place between the given `from` and `to` positions.
     ///
     /// # Safety
     ///
     /// - `out` must be located at position `from`
     /// - `to` must be a position within the archive
     #[inline]
-    pub unsafe fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) -> Result<(), O::Error> {
+    pub unsafe fn try_emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) -> Result<(), OffsetError> {
         let offset = O::between(from, to)?;
         ptr::addr_of_mut!((*out.as_mut_ptr()).offset)
             .write(to_archived!(offset));
         Ok(())
+    }
+    
+    /// Creates a new `RawRelPtr` in-place between the given `from` and `to` positions.
+    ///
+    /// # Safety
+    ///
+    /// - `out` must be located at position `from`
+    /// - `to` must be a position within the archive
+    /// - The offset between `from` and `to` must fit in an `isize` and not exceed the offset
+    ///   storage
+    #[inline]
+    pub unsafe fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
+        Self::try_emplace(from, to, out).unwrap();
     }
 
     /// Gets the base pointer for the relative pointer.
@@ -216,7 +224,7 @@ pub struct RelPtr<T: ArchivePointee + ?Sized, O> {
 }
 
 impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
-    /// Creates a relative pointer from one position to another.
+    /// Attempts to create a relative pointer from one position to another.
     ///
     /// # Safety
     ///
@@ -225,18 +233,39 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// - `value` must be the value being serialized
     /// - `metadata_resolver` must be the result of serializing the metadata of `value`
     #[inline]
+    pub unsafe fn try_resolve_emplace<U: ArchiveUnsized<Archived = T> + ?Sized>(
+        from: usize,
+        to: usize,
+        value: &U,
+        metadata_resolver: U::MetadataResolver,
+        out: &mut MaybeUninit<Self>,
+    ) -> Result<(), OffsetError> {
+        let (fp, fo) = out_field!(out.raw_ptr);
+        RawRelPtr::try_emplace(from + fp, to, fo)?;
+        let (fp, fo) = out_field!(out.metadata);
+        value.resolve_metadata(from + fp, metadata_resolver, fo);
+        Ok(())
+    }
+
+    /// Creates a relative pointer from one position to another.
+    ///
+    /// # Safety
+    ///
+    /// - `from` must be the position of `out` within the archive
+    /// - `to` must be the position of some valid `T`
+    /// - `value` must be the value being serialized
+    /// - `metadata_resolver` must be the result of serializing the metadata of `value`
+    /// - The offset between `from` and `to` must fit in an `isize` and not exceed the offset
+    ///   storage
+    #[inline]
     pub unsafe fn resolve_emplace<U: ArchiveUnsized<Archived = T> + ?Sized>(
         from: usize,
         to: usize,
         value: &U,
         metadata_resolver: U::MetadataResolver,
         out: &mut MaybeUninit<Self>,
-    ) -> Result<(), O::Error> {
-        let (fp, fo) = out_field!(out.raw_ptr);
-        RawRelPtr::emplace(from + fp, to, fo)?;
-        let (fp, fo) = out_field!(out.metadata);
-        value.resolve_metadata(from + fp, metadata_resolver, fo);
-        Ok(())
+    ) {
+        Self::try_resolve_emplace(from, to, value, metadata_resolver, out).unwrap();
     }
 
     /// Gets the base pointer for the relative pointer.
