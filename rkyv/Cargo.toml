@@ -21,9 +21,18 @@ rend = { version = "~0.2.3", optional = true, default-features = false }
 rkyv_derive = { version = "=0.6.7", path = "../rkyv_derive" }
 seahash = "4.0"
 
+# Support for various common crates. These are primarily to get users off the ground and build some
+# momentum.
+
+# These are NOT PLANNED to remain in rkyv for the final release. Much like serde, these
+# implementations should be moved into their respective crates over time. Before adding support for
+# another crate, please consider getting rkyv support in the crate instead.
+
+tinyvec = { version = "1.2", optional = true }
+
 [features]
 default = ["size_32", "std"]
-alloc = ["hashbrown"]
+alloc = ["hashbrown", "tinyvec/alloc"]
 arbitrary_enum_discriminant = ["rkyv_derive/arbitrary_enum_discriminant"]
 archive_be = ["rend", "rkyv_derive/archive_be"]
 archive_le = ["rend", "rkyv_derive/archive_le"]

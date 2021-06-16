@@ -58,6 +58,17 @@
 //!   additionally provides C type compatibility.
 //! - `validation`: Enables validation support through `bytecheck`
 //!
+//! ## Crate support
+//!
+//! Some common crates need to be supported by rkyv before an official integration has been made.
+//! Support is provided by rkyv for these crates, but in the future crates should depend on rkyv and
+//! provide their own implementations. The crates that already have support provided by rkyv should
+//! work toward integrating the implementations into themselves.
+//!
+//! Crates supported by rkyv:
+//!
+//! - [`tinyvec`](https://docs.rs/tinyvec)
+//!
 //! ## Examples
 //!
 //! See [`Archive`] for examples of how to use rkyv.
