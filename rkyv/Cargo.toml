@@ -29,6 +29,7 @@ seahash = "4.0"
 # another crate, please consider getting rkyv support in the crate instead.
 
 tinyvec = { version = "1.2", optional = true }
+uuid = { version = "0.8", optional = true }
 
 [features]
 default = ["size_32", "std"]

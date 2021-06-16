@@ -12,5 +12,8 @@ pub mod std;
 // These are NOT PLANNED to remain in rkyv for the final release. Much like serde, these
 // implementations should be moved into their respective crates over time. Before adding support for
 // another crate, please consider getting rkyv support in the crate instead.
+
 #[cfg(feature = "tinyvec")]
 pub mod tinyvec;
+#[cfg(feature = "uuid")]
+pub mod uuid;

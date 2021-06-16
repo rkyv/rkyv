@@ -68,6 +68,7 @@
 //! Crates supported by rkyv:
 //!
 //! - [`tinyvec`](https://docs.rs/tinyvec)
+//! - [`uuid`](https://docs.rs/uuid)
 //!
 //! ## Examples
 //!

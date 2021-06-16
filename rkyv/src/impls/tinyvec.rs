@@ -129,7 +129,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        archived_root, 
+        archived_root,
         ser::{Serializer, serializers::AlignedSerializer},
         util::AlignedVec,
         Deserialize,
