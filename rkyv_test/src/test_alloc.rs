@@ -1356,7 +1356,7 @@ mod tests {
         }
         assert!(archived.get_key_value("wrong!").is_none());
 
-        let deserialized = archived.deserialize(&mut Infallible)
+        let deserialized = Deserialize::<BTreeMap<_, _>, _>::deserialize(archived, &mut Infallible)
             .expect("failed to deserialize B-tree map");
         assert_eq!(value, deserialized);
     }

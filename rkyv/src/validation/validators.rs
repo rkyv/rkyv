@@ -234,14 +234,18 @@ impl<E: fmt::Display> fmt::Display for ArchiveMemoryError<E> {
 }
 
 #[cfg(feature = "std")]
-impl<E: std::error::Error + 'static> std::error::Error for ArchiveMemoryError<E> {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            ArchiveMemoryError::Inner(e) => Some(e as &dyn std::error::Error),
-            ArchiveMemoryError::ClaimOverlap { .. } => None,
+const _: () = {
+    use std::error::Error;
+
+    impl<E: Error + 'static> Error for ArchiveMemoryError<E> {
+        fn source(&self) -> Option<&(dyn Error + 'static)> {
+            match self {
+                ArchiveMemoryError::Inner(e) => Some(e as &dyn Error),
+                ArchiveMemoryError::ClaimOverlap { .. } => None,
+            }
         }
     }
-}
+};
 
 /// An adapter that adds memory validation to a context.
 pub struct ArchiveValidator<C> {
@@ -371,14 +375,18 @@ impl<E: fmt::Display> fmt::Display for SharedArchiveError<E> {
 }
 
 #[cfg(feature = "std")]
-impl<E: std::error::Error + 'static> std::error::Error for SharedArchiveError<E> {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            SharedArchiveError::Inner(e) => Some(e as &dyn std::error::Error),
-            SharedArchiveError::TypeMismatch { .. } => None,
+const _: () = {
+    use std::error::Error;
+
+    impl<E: Error + 'static> Error for SharedArchiveError<E> {
+        fn source(&self) -> Option<&(dyn Error + 'static)> {
+            match self {
+                SharedArchiveError::Inner(e) => Some(e as &dyn Error),
+                SharedArchiveError::TypeMismatch { .. } => None,
+            }
         }
     }
-}
+};
 
 /// An adapter that adds shared memory validation.
 pub struct SharedArchiveValidator<C> {

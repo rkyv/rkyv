@@ -233,10 +233,10 @@ impl<T: Archive<Resolver = ()> + Serialize<S>, S: Serializer + ?Sized> Serialize
 }
 
 #[cfg(all(not(feature = "alloc"), feature = "copy"))]
-impl<
-        T: Archive<Resolver = ()> + Serialize<S> + crate::copy::ArchiveCopyOptimize,
-        S: Serializer + ?Sized,
-    > SerializeUnsized<S> for [T]
+impl<T, S> SerializeUnsized<S> for [T]
+where
+    T: Archive<Resolver = ()> + Serialize<S> + crate::copy::ArchiveCopyOptimize,
+    S: Serializer + ?Sized,
 {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {

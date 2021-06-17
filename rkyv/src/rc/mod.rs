@@ -144,13 +144,14 @@ impl<T: ArchivePointee + ?Sized> ArchivedRcWeak<T> {
 
     /// Serializes an archived `Weak` from a given optional reference.
     #[inline]
-    pub fn serialize_from_ref<
-        U: SerializeUnsized<S, Archived = T> + ?Sized,
-        S: SharedSerializer + ?Sized,
-    >(
+    pub fn serialize_from_ref<U, S>(
         value: Option<&U>,
         serializer: &mut S,
-    ) -> Result<RcWeakResolver<MetadataResolver<U>>, S::Error> {
+    ) -> Result<RcWeakResolver<MetadataResolver<U>>, S::Error>
+    where
+        U: SerializeUnsized<S, Archived = T> + ?Sized,
+        S: SharedSerializer + ?Sized,
+    {
         Ok(match value {
             None => RcWeakResolver::None,
             Some(r) => RcWeakResolver::Some(ArchivedRc::<T>::serialize_from_ref(r, serializer)?),

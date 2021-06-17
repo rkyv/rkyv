@@ -41,13 +41,14 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
 
     /// Serializes an archived box from the given value and serializer.
     #[inline]
-    pub fn serialize_from_ref<
-        U: SerializeUnsized<S, Archived = T> + ?Sized,
-        S: Fallible + ?Sized,
-    >(
+    pub fn serialize_from_ref<U, S>(
         value: &U,
         serializer: &mut S,
-    ) -> Result<BoxResolver<U::MetadataResolver>, S::Error> {
+    ) -> Result<BoxResolver<U::MetadataResolver>, S::Error>
+    where
+        U: SerializeUnsized<S, Archived = T> + ?Sized,
+        S: Fallible + ?Sized,
+    {
         Ok(BoxResolver {
             pos: value.serialize_unsized(serializer)?,
             metadata_resolver: value.serialize_metadata(serializer)?,
@@ -143,11 +144,10 @@ const _: () = {
     use bytecheck::{CheckBytes, Error};
     use ptr_meta::Pointee;
 
-    impl<
-            T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized,
-            C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
-        > CheckBytes<C> for ArchivedBox<T>
+    impl<T, C> CheckBytes<C> for ArchivedBox<T>
     where
+        T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized,
+        C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
         T::ArchivedMetadata: CheckBytes<C>,
         C::Error: Error,
         <T as Pointee>::Metadata: LayoutMetadata<T>,

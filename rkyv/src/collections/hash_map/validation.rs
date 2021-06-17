@@ -33,10 +33,19 @@ impl<K: fmt::Display, V: fmt::Display> fmt::Display for ArchivedHashMapEntryErro
 }
 
 #[cfg(feature = "std")]
-impl<K: fmt::Debug + fmt::Display, V: fmt::Debug + fmt::Display> std::error::Error
-    for ArchivedHashMapEntryError<K, V>
-{
-}
+const _: () = {
+    use std::error::Error;
+
+    impl<K: Error + 'static, V: Error + 'static> Error for ArchivedHashMapEntryError<K, V>
+    {
+        fn source(&self) -> Option<&(dyn Error + 'static)> {
+            match self {
+                ArchivedHashMapEntryError::KeyCheckError(e) => Some(e as &dyn Error),
+                ArchivedHashMapEntryError::ValueCheckError(e) => Some(e as &dyn Error),
+            }
+        }
+    }
+};
 
 impl<K: CheckBytes<C>, V: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> CheckBytes<C>
     for Entry<K, V>
@@ -100,20 +109,27 @@ impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display for HashMap
 }
 
 #[cfg(feature = "std")]
-impl<K: Error + 'static, V: Error + 'static, C: Error + 'static> std::error::Error
-    for HashMapError<K, V, C>
-{
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            HashMapError::LayoutError(e) => Some(e as &dyn std::error::Error),
-            HashMapError::CheckDisplaceError(e) => Some(e as &dyn std::error::Error),
-            HashMapError::CheckEntryError(e) => Some(e as &dyn std::error::Error),
-            HashMapError::InvalidDisplacement { .. } => None,
-            HashMapError::InvalidKeyPosition { .. } => None,
-            HashMapError::ContextError(e) => Some(e as &dyn std::error::Error),
+const _: () = {
+    use std::error::Error;
+
+    impl<K, V, C> Error for HashMapError<K, V, C>
+    where
+        K: Error + 'static,
+        V: Error + 'static,
+        C: Error + 'static,
+    {
+        fn source(&self) -> Option<&(dyn Error + 'static)> {
+            match self {
+                HashMapError::LayoutError(e) => Some(e as &dyn Error),
+                HashMapError::CheckDisplaceError(e) => Some(e as &dyn Error),
+                HashMapError::CheckEntryError(e) => Some(e as &dyn Error),
+                HashMapError::InvalidDisplacement { .. } => None,
+                HashMapError::InvalidKeyPosition { .. } => None,
+                HashMapError::ContextError(e) => Some(e as &dyn Error),
+            }
         }
     }
-}
+};
 
 impl<K, V, C> From<Infallible> for HashMapError<K, V, C> {
     fn from(_: Infallible) -> Self {
@@ -142,12 +158,11 @@ impl<K, V, C> From<SliceCheckError<ArchivedHashMapEntryError<K, V>>> for HashMap
     }
 }
 
-impl<
-        K: CheckBytes<C> + Eq + Hash,
-        V: CheckBytes<C>,
-        C: ArchiveBoundsContext + ArchiveMemoryContext + Fallible + ?Sized,
-    > CheckBytes<C> for ArchivedHashMap<K, V>
+impl<K, V, C> CheckBytes<C> for ArchivedHashMap<K, V>
 where
+    K: CheckBytes<C> + Eq + Hash,
+    V: CheckBytes<C>,
+    C: ArchiveBoundsContext + ArchiveMemoryContext + Fallible + ?Sized,
     C::Error: Error,
 {
     type Error = HashMapError<K::Error, V::Error, C::Error>;

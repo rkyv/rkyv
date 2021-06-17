@@ -243,11 +243,15 @@ mod tests {
         }
 
         #[cfg(feature = "std")]
-        impl std::error::Error for NodeError {
-            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-                Some(self.0.as_error())
+        const _: () = {
+            use std::error::Error;
+
+            impl Error for NodeError {
+                fn source(&self) -> Option<&(dyn Error + 'static)> {
+                    Some(self.0.as_error())
+                }
             }
-        }
+        };
 
         impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedNode
         where

@@ -17,15 +17,14 @@ pub trait SharedPointer {
 pub trait SharedDeserializer: Fallible {
     /// Checks whether the given reference has been deserialized and either uses the existing shared
     /// pointer to it, or deserializes it and converts it to a shared pointer with `to_shared`.
-    fn deserialize_shared<
-        T: ArchiveUnsized + ?Sized,
-        P: SharedPointer + 'static,
-        F: FnOnce(*mut T) -> P,
-    >(
+    fn deserialize_shared<T, P, F>(
         &mut self,
         value: &T::Archived,
         to_shared: F,
     ) -> Result<*const T, Self::Error>
     where
+        T: ArchiveUnsized + ?Sized,
+        P: SharedPointer + 'static,
+        F: FnOnce(*mut T) -> P,
         T::Archived: DeserializeUnsized<T, Self>;
 }

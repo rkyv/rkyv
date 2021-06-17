@@ -276,14 +276,10 @@ mod tests {
             }
         }
 
-        impl<
-                T: Archive
-                    + for<'a> Serialize<dyn DynSerializer + 'a>
-                    + core::fmt::Display
-                    + TypeName
-                    + 'static,
-            > rkyv_dyn::DeserializeDyn<dyn STestTrait<String>> for ArchivedTest<T>
+        impl<T> rkyv_dyn::DeserializeDyn<dyn STestTrait<String>> for ArchivedTest<T>
         where
+            T: Archive + for<'a> Serialize<dyn DynSerializer + 'a> + core::fmt::Display + TypeName
+                + 'static,
             ArchivedTest<T>: for<'a> Deserialize<Test<T>, (dyn DynDeserializer + 'a)>
                 + rkyv_dyn::RegisteredImpl<dyn DTestTrait<String>>,
         {

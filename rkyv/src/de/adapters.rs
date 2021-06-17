@@ -39,16 +39,15 @@ impl<D: Fallible> Fallible for SharedDeserializerAdapter<D> {
 }
 
 impl<D: Fallible> SharedDeserializer for SharedDeserializerAdapter<D> {
-    fn deserialize_shared<
-        T: ArchiveUnsized + ?Sized,
-        P: SharedPointer + 'static,
-        F: FnOnce(*mut T) -> P,
-    >(
+    fn deserialize_shared<T, P, F>(
         &mut self,
         value: &T::Archived,
         to_shared: F,
     ) -> Result<*const T, Self::Error>
     where
+        T: ArchiveUnsized + ?Sized,
+        P: SharedPointer + 'static,
+        F: FnOnce(*mut T) -> P,
         T::Archived: DeserializeUnsized<T, Self>,
     {
         let key = value as *const T::Archived as *const ();
