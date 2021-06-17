@@ -82,22 +82,17 @@ impl<K> ArchivedHashSet<K> {
     ///
     /// # Safety
     ///
-    /// - Keys returned by the iterator must be unique
-    /// - `len` must be the number of elements yielded by `iter`
+    /// The keys returned by the iterator must be unique.
     #[cfg(feature = "alloc")]
     #[inline]
-    pub unsafe fn serialize_from_iter<
-        'a,
+    pub unsafe fn serialize_from_iter<'a, KU, S, I>(iter: I, serializer: &mut S) -> Result<HashSetResolver, S::Error>
+    where
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
         S: Serializer + ?Sized,
-    >(
-        iter: impl Iterator<Item = &'a KU>,
-        len: usize,
-        serializer: &mut S,
-    ) -> Result<HashSetResolver, S::Error> {
+        I: ExactSizeIterator<Item = &'a KU>,
+    {
         Ok(HashSetResolver(ArchivedHashMap::serialize_from_iter(
             iter.map(|x| (x, &())),
-            len,
             serializer,
         )?))
     }

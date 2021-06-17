@@ -8,7 +8,7 @@ pub mod validation;
 
 #[cfg(feature = "alloc")]
 use crate::{ser::Serializer, Serialize};
-use crate::{Archive, Archived, ArchivedUsize, FixedUsize, RawRelPtr};
+use crate::{Archive, Archived, RelPtr};
 use core::{
     borrow::Borrow,
     hash::{Hash, Hasher},
@@ -17,7 +17,6 @@ use core::{
     mem::MaybeUninit,
     ops::Index,
     pin::Pin,
-    ptr,
 };
 #[cfg(feature = "alloc")]
 use core::{cmp::Reverse, mem::size_of, slice};
@@ -50,9 +49,9 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
 /// An archived `HashMap`.
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedHashMap<K, V> {
-    len: ArchivedUsize,
-    displace: RawRelPtr,
-    entries: RawRelPtr,
+    len: Archived<usize>,
+    displace: RelPtr<Archived<u32>>,
+    entries: RelPtr<Entry<K, V>>,
     _phantom: PhantomData<(K, V)>,
 }
 
@@ -81,17 +80,17 @@ impl<K, V> ArchivedHashMap<K, V> {
 
     #[inline]
     unsafe fn displace(&self, index: usize) -> u32 {
-        from_archived!(*self.displace.as_ptr().cast::<Archived<u32>>().add(index))
+        from_archived!(*self.displace.as_ptr().add(index))
     }
 
     #[inline]
     unsafe fn entry(&self, index: usize) -> &Entry<K, V> {
-        &*self.entries.as_ptr().cast::<Entry<K, V>>().add(index)
+        &*self.entries.as_ptr().add(index)
     }
 
     #[inline]
     unsafe fn entry_mut(&mut self, index: usize) -> &mut Entry<K, V> {
-        &mut *self.entries.as_mut_ptr().cast::<Entry<K, V>>().add(index)
+        &mut *self.entries.as_mut_ptr().add(index)
     }
 
     #[inline]
@@ -252,21 +251,19 @@ impl<K, V> ArchivedHashMap<K, V> {
     ///
     /// # Safety
     ///
-    /// - Keys returned by the iterator must be unique
-    /// - `len` must be the number of elements yielded by `iter`
+    /// The keys returned by the iterator must be unique.
     #[cfg(feature = "alloc")]
-    pub unsafe fn serialize_from_iter<
-        'a,
+    pub unsafe fn serialize_from_iter<'a, KU, VU, S, I>(iter: I, serializer: &mut S) -> Result<HashMapResolver, S::Error>
+    where
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
         VU: 'a + Serialize<S, Archived = V>,
         S: Serializer + ?Sized,
-    >(
-        iter: impl Iterator<Item = (&'a KU, &'a VU)>,
-        len: usize,
-        serializer: &mut S,
-    ) -> Result<HashMapResolver, S::Error> {
+        I: ExactSizeIterator<Item = (&'a KU, &'a VU)>,
+    {
         #[cfg(all(feature = "alloc", not(feature = "std")))]
         use alloc::{vec, vec::Vec};
+
+        let len = iter.len();
 
         let mut bucket_size = vec![0u32; len];
         let mut displaces = Vec::with_capacity(len);
@@ -376,13 +373,14 @@ impl<K, V> ArchivedHashMap<K, V> {
         resolver: HashMapResolver,
         out: &mut MaybeUninit<Self>,
     ) {
-        ptr::addr_of_mut!((*out.as_mut_ptr()).len).write(to_archived!(len as FixedUsize));
+        let (fp, fo) = out_field!(out.len);
+        len.resolve(pos + fp, (), fo);
 
         let (fp, fo) = out_field!(out.displace);
-        RawRelPtr::emplace(pos + fp, resolver.displace_pos, fo);
+        RelPtr::emplace(pos + fp, resolver.displace_pos, fo);
 
         let (fp, fo) = out_field!(out.entries);
-        RawRelPtr::emplace(pos + fp, resolver.entries_pos, fo);
+        RelPtr::emplace(pos + fp, resolver.entries_pos, fo);
     }
 }
 

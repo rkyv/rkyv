@@ -223,6 +223,37 @@ pub struct RelPtr<T: ArchivePointee + ?Sized, O> {
     _phantom: PhantomData<T>,
 }
 
+impl<T, O: Offset> RelPtr<T, O> {
+    /// Attempts to create a relative pointer from one position to another.
+    ///
+    /// # Safety
+    ///
+    /// - `from` must be the position of `out` within the archive
+    /// - `to` must be the position of some valid `T`
+    #[inline]
+    pub unsafe fn try_emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) -> Result<(), OffsetError> {
+        let (fp, fo) = out_field!(out.raw_ptr);
+        // Skip metadata since sized T is guaranteed to be ()
+        RawRelPtr::try_emplace(from + fp, to, fo)
+    }
+
+    /// Creates a relative pointer from one position to another.
+    ///
+    /// # Panics
+    ///
+    /// - The offset between `from` and `to` does not fit in an `isize`
+    /// - The offset between `from` and `to` exceeds the offset storage
+    ///
+    /// # Safety
+    ///
+    /// - `from` must be the position of `out` within the archive
+    /// - `to` must be the position of some valid `T`
+    #[inline]
+    pub unsafe fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
+        Self::try_emplace(from, to, out).unwrap();
+    }
+}
+
 impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// Attempts to create a relative pointer from one position to another.
     ///
@@ -249,14 +280,17 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
 
     /// Creates a relative pointer from one position to another.
     ///
+    /// # Panics
+    ///
+    /// - The offset between `from` and `to` does not fit in an `isize`
+    /// - The offset between `from` and `to` exceeds the offset storage
+    ///
     /// # Safety
     ///
     /// - `from` must be the position of `out` within the archive
     /// - `to` must be the position of some valid `T`
     /// - `value` must be the value being serialized
     /// - `metadata_resolver` must be the result of serializing the metadata of `value`
-    /// - The offset between `from` and `to` must fit in an `isize` and not exceed the offset
-    ///   storage
     #[inline]
     pub unsafe fn resolve_emplace<U: ArchiveUnsized<Archived = T> + ?Sized>(
         from: usize,

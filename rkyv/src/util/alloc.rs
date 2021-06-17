@@ -8,10 +8,7 @@ use core::{
     slice,
 };
 #[cfg(feature = "std")]
-use std::{
-    alloc, io,
-    panic::{RefUnwindSafe, UnwindSafe},
-};
+use std::{alloc, io};
 
 /// A vector of bytes that aligns its memory to 16 bytes.
 pub struct AlignedVec {
@@ -681,14 +678,8 @@ impl io::Write for AlignedVec {
     }
 }
 
-#[cfg(feature = "std")]
-impl RefUnwindSafe for AlignedVec {}
-
 unsafe impl Send for AlignedVec {}
 
 unsafe impl Sync for AlignedVec {}
 
 impl Unpin for AlignedVec {}
-
-#[cfg(feature = "std")]
-impl UnwindSafe for AlignedVec {}

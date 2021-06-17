@@ -374,7 +374,6 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     Archive,
 ///     Archived,
 ///     ArchivedMetadata,
-///     ArchivedUsize,
 ///     ArchivePointee,
 ///     ArchiveUnsized,
 ///     FixedUsize,
@@ -396,7 +395,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// // For blocks with trailing slices, we need to store the length of the slice
 /// // in the metadata.
 /// pub struct BlockSliceMetadata {
-///     len: ArchivedUsize,
+///     len: Archived<usize>,
 /// }
 ///
 /// // ArchivePointee is automatically derived for sized types because pointers
@@ -624,11 +623,6 @@ pub type FixedIsize = i32;
 /// The native type that `isize` is converted to for archiving.
 #[cfg(feature = "size_64")]
 pub type FixedIsize = i64;
-
-/// The archived version of `usize`.
-pub type ArchivedUsize = Archived<FixedUsize>;
-/// The archived version of `isize`.
-pub type ArchivedIsize = Archived<FixedIsize>;
 
 /// The default raw relative pointer.
 pub type RawRelPtr = rel_ptr::RawRelPtr<FixedIsize>;

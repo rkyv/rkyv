@@ -1,9 +1,9 @@
-//! Validation implementations for HashMap and HashSet.
+//! Validation implementation for HashMap.
 
 use crate::{
     collections::hash_map::{ArchivedHashMap, Entry},
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
-    Archived, ArchivedUsize, Fallible, RawRelPtr,
+    Archived, Fallible, RelPtr,
 };
 use bytecheck::{CheckBytes, Error, SliceCheckError};
 use core::{
@@ -156,13 +156,13 @@ where
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let len = from_archived!(*ArchivedUsize::check_bytes(
+        let len = from_archived!(*Archived::<usize>::check_bytes(
             ptr::addr_of!((*value).len),
             context,
         )?) as usize;
 
         let displace_rel_ptr =
-            RawRelPtr::manual_check_bytes(ptr::addr_of!((*value).displace), context)?;
+            RelPtr::manual_check_bytes(ptr::addr_of!((*value).displace), context)?;
         let displace_data_ptr = context
             .check_rel_ptr(displace_rel_ptr.base(), displace_rel_ptr.offset())
             .map_err(HashMapError::ContextError)?;
@@ -181,7 +181,7 @@ where
         }
 
         let entries_rel_ptr =
-            RawRelPtr::manual_check_bytes(ptr::addr_of!((*value).entries), context)?;
+            RelPtr::manual_check_bytes(ptr::addr_of!((*value).entries), context)?;
         let entries_data_ptr = context
             .check_rel_ptr(entries_rel_ptr.base(), entries_rel_ptr.offset())
             .map_err(HashMapError::ContextError)?;

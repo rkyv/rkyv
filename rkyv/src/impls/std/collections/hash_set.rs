@@ -32,7 +32,7 @@ where
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        unsafe { ArchivedHashSet::serialize_from_iter(self.iter(), self.len(), serializer) }
+        unsafe { ArchivedHashSet::serialize_from_iter(self.iter(), serializer) }
     }
 }
 

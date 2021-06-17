@@ -1,9 +1,6 @@
 //! [`Archive`] implementations for primitives.
 
-use crate::{
-    Archive, Archived, ArchivedIsize, ArchivedUsize, Deserialize, Fallible, FixedIsize, FixedUsize,
-    Serialize,
-};
+use crate::{Archive, Archived, Deserialize, Fallible, FixedIsize, FixedUsize, Serialize};
 #[cfg(has_atomics)]
 use core::sync::atomic::{
     AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicU16, AtomicU32, AtomicU8, Ordering,
@@ -237,7 +234,7 @@ impl<D: Fallible + ?Sized> Deserialize<PhantomPinned, D> for PhantomPinned {
 // usize
 
 impl Archive for usize {
-    type Archived = ArchivedUsize;
+    type Archived = Archived<FixedUsize>;
     type Resolver = ();
 
     #[inline]
@@ -263,7 +260,7 @@ impl<D: Fallible + ?Sized> Deserialize<usize, D> for Archived<usize> {
 // isize
 
 impl Archive for isize {
-    type Archived = ArchivedIsize;
+    type Archived = Archived<FixedIsize>;
     type Resolver = ();
 
     #[inline]
