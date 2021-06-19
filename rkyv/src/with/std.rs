@@ -127,8 +127,10 @@ where
     }
 }
 
-impl<F: Deserialize<T, D>, T, D: Fallible + ?Sized> DeserializeWith<Immutable<F>, Mutex<T>, D>
-    for Lock
+impl<F, T, D> DeserializeWith<Immutable<F>, Mutex<T>, D> for Lock
+where
+    F: Deserialize<T, D>,
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize_with(field: &Immutable<F>, deserializer: &mut D) -> Result<Mutex<T>, D::Error> {
@@ -174,8 +176,10 @@ where
     }
 }
 
-impl<F: Deserialize<T, D>, T, D: Fallible + ?Sized> DeserializeWith<Immutable<F>, RwLock<T>, D>
-    for Lock
+impl<F, T, D> DeserializeWith<Immutable<F>, RwLock<T>, D> for Lock
+where
+    F: Deserialize<T, D>,
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize_with(field: &Immutable<F>, deserializer: &mut D) -> Result<RwLock<T>, D::Error> {

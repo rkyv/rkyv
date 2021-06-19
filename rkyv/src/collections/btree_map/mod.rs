@@ -292,7 +292,7 @@ impl<K, V> ArchivedBTreeMap<K, V> {
         }
     }
 
-    /// Returns the number of items in the archive B-tree.
+    /// Returns the number of items in the archived B-tree map.
     #[inline]
     pub fn len(&self) -> usize {
         from_archived!(self.len) as usize
@@ -504,24 +504,6 @@ impl<'a, K, V> IntoIterator for &'a ArchivedBTreeMap<K, V> {
     }
 }
 
-impl<K: PartialEq, V: PartialEq> PartialEq for ArchivedBTreeMap<K, V> {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        if self.len() != other.len() {
-            false
-        } else {
-            self.iter().zip(other.iter()).all(|(a, b)| a.eq(&b))
-        }
-    }
-}
-
-impl<K: PartialOrd, V: PartialOrd> PartialOrd for ArchivedBTreeMap<K, V> {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.iter().partial_cmp(other.iter())
-    }
-}
-
 impl<K: Eq, V: Eq> Eq for ArchivedBTreeMap<K, V> {}
 
 impl<K: Hash, V: Hash> Hash for ArchivedBTreeMap<K, V> {
@@ -537,6 +519,24 @@ impl<K: Ord, V: Ord> Ord for ArchivedBTreeMap<K, V> {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         self.iter().cmp(other.iter())
+    }
+}
+
+impl<K: PartialEq, V: PartialEq> PartialEq for ArchivedBTreeMap<K, V> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            false
+        } else {
+            self.iter().zip(other.iter()).all(|(a, b)| a.eq(&b))
+        }
+    }
+}
+
+impl<K: PartialOrd, V: PartialOrd> PartialOrd for ArchivedBTreeMap<K, V> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.iter().partial_cmp(other.iter())
     }
 }
 

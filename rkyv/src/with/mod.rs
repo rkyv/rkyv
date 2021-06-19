@@ -109,8 +109,11 @@ pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
     fn deserialize_with(field: &F, deserializer: &mut D) -> Result<T, D::Error>;
 }
 
-impl<F: ?Sized, W: DeserializeWith<F, T, D>, T, D: Fallible + ?Sized> Deserialize<With<T, W>, D>
-    for F
+impl<F, W, T, D> Deserialize<With<T, W>, D> for F
+where
+    F: ?Sized,
+    W: DeserializeWith<F, T, D>,
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<With<T, W>, D::Error> {

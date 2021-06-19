@@ -20,8 +20,11 @@ pub enum SharedPointerError<T, R, C> {
     ContextError(C),
 }
 
-impl<T: fmt::Display, R: fmt::Display, C: fmt::Display> fmt::Display
-    for SharedPointerError<T, R, C>
+impl<T, R, C> fmt::Display for SharedPointerError<T, R, C>
+where
+    T: fmt::Display,
+    R: fmt::Display,
+    C: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

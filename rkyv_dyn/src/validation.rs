@@ -63,9 +63,9 @@ pub trait DynContext {
     ) -> Result<bool, Box<dyn Error>>;
 }
 
-impl<C: ArchiveBoundsContext + ArchiveMemoryContext + SharedArchiveContext + ?Sized> DynContext
-    for C
+impl<C> DynContext for C
 where
+    C: ArchiveBoundsContext + ArchiveMemoryContext + SharedArchiveContext + ?Sized,
     C::Error: Error,
 {
     unsafe fn check_rel_ptr_dyn(

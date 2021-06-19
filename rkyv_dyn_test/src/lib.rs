@@ -98,8 +98,9 @@ mod tests {
                 }
             }
 
-            impl<D: Fallible + ?Sized> DeserializeUnsized<dyn SerializeTestTrait, D>
-                for dyn DeserializeTestTrait
+            impl<D> DeserializeUnsized<dyn SerializeTestTrait, D> for dyn DeserializeTestTrait
+            where
+                D: Fallible + ?Sized,
             {
                 unsafe fn deserialize_unsized(
                     &self,

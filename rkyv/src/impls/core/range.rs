@@ -221,10 +221,11 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeInclusive<T> {
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<RangeInclusive<T>, D>
-    for Archived<RangeInclusive<T>>
+impl<T, D> Deserialize<RangeInclusive<T>, D> for Archived<RangeInclusive<T>>
 where
+    T: Archive,
     T::Archived: Deserialize<T, D>,
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<RangeInclusive<T>, D::Error> {
@@ -478,10 +479,11 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeToInclusive<T>
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<RangeToInclusive<T>, D>
-    for Archived<RangeToInclusive<T>>
+impl<T, D> Deserialize<RangeToInclusive<T>, D> for Archived<RangeToInclusive<T>>
 where
+    T: Archive,
     T::Archived: Deserialize<T, D>,
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<RangeToInclusive<T>, D::Error> {

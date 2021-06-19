@@ -36,10 +36,11 @@ where
     }
 }
 
-impl<K: Archive + Hash + Eq, D: Fallible + ?Sized> Deserialize<HashSet<K>, D>
-    for ArchivedHashSet<K::Archived>
+impl<K, D> Deserialize<HashSet<K>, D> for ArchivedHashSet<K::Archived>
 where
+    K: Archive + Hash + Eq,
     K::Archived: Deserialize<K, D> + Hash + Eq,
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<HashSet<K>, D::Error> {

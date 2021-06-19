@@ -17,8 +17,11 @@ pub enum OwnedPointerError<T, R, C> {
     ContextError(C),
 }
 
-impl<T: fmt::Display, R: fmt::Display, C: fmt::Display> fmt::Display
-    for OwnedPointerError<T, R, C>
+impl<T, R, C> fmt::Display for OwnedPointerError<T, R, C>
+where
+    T: fmt::Display,
+    R: fmt::Display,
+    C: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -30,8 +33,11 @@ impl<T: fmt::Display, R: fmt::Display, C: fmt::Display> fmt::Display
 }
 
 #[cfg(feature = "std")]
-impl<T: Error + 'static, R: Error + 'static, C: Error + 'static> Error
-    for OwnedPointerError<T, R, C>
+impl<T, R, C> Error for OwnedPointerError<T, R, C>
+where
+    T: Error + 'static,
+    R: Error + 'static,
+    C: Error + 'static,
 {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {

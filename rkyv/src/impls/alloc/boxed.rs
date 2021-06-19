@@ -31,10 +31,11 @@ impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> Serialize<S> for Box
     }
 }
 
-impl<T: ArchiveUnsized + ?Sized, D: Fallible + ?Sized> Deserialize<Box<T>, D>
-    for ArchivedBox<T::Archived>
+impl<T, D> Deserialize<Box<T>, D> for ArchivedBox<T::Archived>
 where
+    T: ArchiveUnsized + ?Sized,
     T::Archived: DeserializeUnsized<T, D>,
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {

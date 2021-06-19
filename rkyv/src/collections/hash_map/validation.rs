@@ -47,8 +47,11 @@ const _: () = {
     }
 };
 
-impl<K: CheckBytes<C>, V: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> CheckBytes<C>
-    for Entry<K, V>
+impl<K, V, C> CheckBytes<C> for Entry<K, V>
+where
+    K: CheckBytes<C>,
+    V: CheckBytes<C>,
+    C: ArchiveMemoryContext + ?Sized,
 {
     type Error = ArchivedHashMapEntryError<K::Error, V::Error>;
 

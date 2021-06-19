@@ -195,12 +195,12 @@ impl<K, V> ArchivedHashMap<K, V> {
     }
 
     #[inline]
-    fn raw_iter(&self) -> RawIter<'_, K, V> {
+    fn raw_iter(&self) -> RawIter<K, V> {
         RawIter::new(self.entries.as_ptr().cast(), self.len())
     }
 
     #[inline]
-    fn raw_iter_pin(self: Pin<&mut Self>) -> RawIterPin<'_, K, V> {
+    fn raw_iter_pin(self: Pin<&mut Self>) -> RawIterPin<K, V> {
         unsafe {
             let hash_map = self.get_unchecked_mut();
             RawIterPin::new(hash_map.entries.as_mut_ptr().cast(), hash_map.len())
@@ -209,7 +209,7 @@ impl<K, V> ArchivedHashMap<K, V> {
 
     /// Gets an iterator over the key-value entries in the hash map.
     #[inline]
-    pub fn iter(&self) -> Iter<'_, K, V> {
+    pub fn iter(&self) -> Iter<K, V> {
         Iter {
             inner: self.raw_iter(),
         }
@@ -217,7 +217,7 @@ impl<K, V> ArchivedHashMap<K, V> {
 
     /// Gets an iterator over the mutable key-value entries in the hash map.
     #[inline]
-    pub fn iter_pin(self: Pin<&mut Self>) -> IterPin<'_, K, V> {
+    pub fn iter_pin(self: Pin<&mut Self>) -> IterPin<K, V> {
         IterPin {
             inner: self.raw_iter_pin(),
         }
@@ -225,7 +225,7 @@ impl<K, V> ArchivedHashMap<K, V> {
 
     /// Gets an iterator over the keys in the hash map.
     #[inline]
-    pub fn keys(&self) -> Keys<'_, K, V> {
+    pub fn keys(&self) -> Keys<K, V> {
         Keys {
             inner: self.raw_iter(),
         }
@@ -241,7 +241,7 @@ impl<K, V> ArchivedHashMap<K, V> {
 
     /// Gets an iterator over the mutable values in the hash map.
     #[inline]
-    pub fn values_pin(self: Pin<&mut Self>) -> ValuesPin<'_, K, V> {
+    pub fn values_pin(self: Pin<&mut Self>) -> ValuesPin<K, V> {
         ValuesPin {
             inner: self.raw_iter_pin(),
         }

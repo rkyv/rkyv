@@ -201,8 +201,10 @@ impl<T> ArchivePointee for [T] {
 }
 
 #[cfg(not(feature = "alloc"))]
-impl<T: Archive<Resolver = ()> + Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S>
-    for [T]
+impl<T, S> SerializeUnsized<S> for [T]
+where
+    T: Archive<Resolver = ()> + Serialize<S>,
+    S: Serializer + ?Sized,
 {
     #[inline]
     default! {
@@ -296,8 +298,10 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
 }
 
 #[cfg(all(feature = "alloc", feature = "copy"))]
-impl<T: Serialize<S> + crate::copy::ArchiveCopyOptimize, S: Serializer + ?Sized> SerializeUnsized<S>
-    for [T]
+impl<T, S> SerializeUnsized<S> for [T]
+where
+    T: Serialize<S> + crate::copy::ArchiveCopyOptimize,
+    S: Serializer + ?Sized,
 {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {

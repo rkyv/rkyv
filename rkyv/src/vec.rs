@@ -189,12 +189,13 @@ const _: () = {
     use bytecheck::{CheckBytes, Error};
     use ptr_meta::Pointee;
 
-    impl<T: CheckBytes<C>, C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C>
-        for ArchivedVec<T>
+    impl<T, C> CheckBytes<C> for ArchivedVec<T>
     where
+        T: CheckBytes<C>,
         [T]: ArchivePointee,
         <[T] as ArchivePointee>::ArchivedMetadata: CheckBytes<C>,
         <[T] as Pointee>::Metadata: LayoutMetadata<[T]>,
+        C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
         C::Error: Error,
     {
         type Error = CheckOwnedPointerError<[T], C>;

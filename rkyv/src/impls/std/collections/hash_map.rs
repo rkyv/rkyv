@@ -30,10 +30,12 @@ where
     }
 }
 
-impl<K: Serialize<S> + Hash + Eq, V: Serialize<S>, S: Serializer + ?Sized, RandomState> Serialize<S>
-    for HashMap<K, V, RandomState>
+impl<K, V, S, RandomState> Serialize<S> for HashMap<K, V, RandomState>
 where
+    K: Serialize<S> + Hash + Eq,
     K::Archived: Hash + Eq,
+    V: Serialize<S>,
+    S: Serializer + ?Sized,
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {

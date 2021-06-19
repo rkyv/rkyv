@@ -16,7 +16,7 @@ mod tests {
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::{
         boxed::Box,
-        collections::BTreeMap,
+        collections::{BTreeMap, BTreeSet},
         rc::{Rc, Weak},
         string::{String, ToString},
         vec,
@@ -24,7 +24,7 @@ mod tests {
     };
     #[cfg(feature = "std")]
     use std::{
-        collections::BTreeMap,
+        collections::{BTreeMap, BTreeSet},
         rc::{Rc, Weak},
     };
 
@@ -1357,6 +1357,33 @@ mod tests {
         assert!(archived.get_key_value("wrong!").is_none());
 
         let deserialized = Deserialize::<BTreeMap<_, _>, _>::deserialize(archived, &mut Infallible)
+            .expect("failed to deserialize B-tree map");
+        assert_eq!(value, deserialized);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_btree_set() {
+        let mut value = BTreeSet::new();
+        value.insert("foo".to_string());
+        value.insert("bar".to_string());
+        value.insert("baz".to_string());
+        value.insert("bat".to_string());
+
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_inner();
+        let archived = unsafe { archived_root::<BTreeSet<String>>(result.as_slice()) };
+
+        assert_eq!(archived.len(), 4);
+        for k in value.iter() {
+            let ak = archived.get(k.as_str())
+                .expect("failed to find key in archived B-tree map");
+            assert_eq!(k, ak);
+        }
+        assert!(archived.get("wrong!").is_none());
+
+        let deserialized = Deserialize::<BTreeSet<_>, _>::deserialize(archived, &mut Infallible)
             .expect("failed to deserialize B-tree map");
         assert_eq!(value, deserialized);
     }
