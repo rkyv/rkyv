@@ -28,6 +28,7 @@ seahash = "4.0"
 # implementations should be moved into their respective crates over time. Before adding support for
 # another crate, please consider getting rkyv support in the crate instead.
 
+indexmap = { version = "1.6.2", optional = true }
 tinyvec = { version = "1.2", optional = true }
 uuid = { version = "0.8", optional = true }
 

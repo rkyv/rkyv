@@ -8,18 +8,20 @@ pub mod validation;
 
 #[cfg(feature = "alloc")]
 use crate::{ser::Serializer, Serialize};
-use crate::{Archive, Archived, RelPtr};
+use crate::{
+    collections::hash_index::{ArchivedHashIndex, HashIndexResolver},
+    Archive,
+    RelPtr,
+};
 use core::{
     borrow::Borrow,
-    hash::{Hash, Hasher},
+    hash::Hash,
     iter::FusedIterator,
     marker::PhantomData,
     mem::MaybeUninit,
     ops::Index,
     pin::Pin,
 };
-#[cfg(feature = "alloc")]
-use core::{cmp::Reverse, mem::size_of, slice};
 
 #[cfg_attr(feature = "strict", repr(C))]
 struct Entry<K, V> {
@@ -49,8 +51,7 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
 /// An archived `HashMap`.
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedHashMap<K, V> {
-    len: Archived<usize>,
-    displace: RelPtr<Archived<u32>>,
+    index: ArchivedHashIndex,
     entries: RelPtr<Entry<K, V>>,
     _phantom: PhantomData<(K, V)>,
 }
@@ -59,28 +60,14 @@ impl<K, V> ArchivedHashMap<K, V> {
     /// Gets the number of items in the hash map.
     #[inline]
     pub const fn len(&self) -> usize {
-        from_archived!(self.len) as usize
-    }
-
-    fn make_hasher() -> seahash::SeaHasher {
-        seahash::SeaHasher::with_seeds(
-            0x08576fb6170b5f5f,
-            0x587775eeb84a7e46,
-            0xac701115428ee569,
-            0x910feb91b92bb1cd,
-        )
+        self.index.len()
     }
 
     /// Gets the hasher for this hashmap. The hasher for all archived hashmaps is the same for
     /// reproducibility.
     #[inline]
     pub fn hasher(&self) -> seahash::SeaHasher {
-        Self::make_hasher()
-    }
-
-    #[inline]
-    unsafe fn displace(&self, index: usize) -> u32 {
-        from_archived!(*self.displace.as_ptr().add(index))
+        self.index.hasher()
     }
 
     #[inline]
@@ -99,28 +86,15 @@ impl<K, V> ArchivedHashMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        let mut hasher = self.hasher();
-        k.hash(&mut hasher);
-        let displace_index = hasher.finish() % self.len() as u64;
-        let displace = unsafe { self.displace(displace_index as usize) };
-
-        let index = if displace == u32::MAX {
-            return None;
-        } else if displace & 0x80_00_00_00 == 0 {
-            displace as u64
-        } else {
-            let mut hasher = self.hasher();
-            displace.hash(&mut hasher);
-            k.hash(&mut hasher);
-            hasher.finish() % self.len() as u64
-        };
-
-        let entry = unsafe { self.entry(index as usize) };
-        if entry.key.borrow() == k {
-            Some(index as usize)
-        } else {
-            None
-        }
+        self.index.index(k)
+            .and_then(|i| {
+                let entry = unsafe { self.entry(i) };
+                if entry.key.borrow() == k {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
     }
 
     /// Finds the key-value entry for a key.
@@ -260,101 +234,23 @@ impl<K, V> ArchivedHashMap<K, V> {
         S: Serializer + ?Sized,
         I: ExactSizeIterator<Item = (&'a KU, &'a VU)>,
     {
-        #[cfg(all(feature = "alloc", not(feature = "std")))]
-        use alloc::{vec, vec::Vec};
+        let (index_resolver, mut entries) = ArchivedHashIndex::build_and_serialize(iter, serializer)?;
 
-        let len = iter.len();
-
-        let mut bucket_size = vec![0u32; len];
-        let mut displaces = Vec::with_capacity(len);
-
-        for (key, value) in iter {
-            let mut hasher = Self::make_hasher();
-            key.hash(&mut hasher);
-            let displace = (hasher.finish() % len as u64) as u32;
-            displaces.push((displace, (key, value)));
-            bucket_size[displace as usize] += 1;
-        }
-
-        displaces.sort_by_key(|&(displace, _)| (Reverse(bucket_size[displace as usize]), displace));
-
-        let mut entries = Vec::with_capacity(len);
-        entries.resize_with(len, || None);
-        let mut displacements = vec![to_archived!(u32::MAX); len];
-
-        let mut first_empty = 0;
-        let mut assignments = Vec::with_capacity(8);
-
-        let mut start = 0;
-        while start < displaces.len() {
-            let displace = displaces[start].0;
-            let bucket_size = bucket_size[displace as usize] as usize;
-            let end = start + bucket_size;
-            let bucket = &displaces[start..end];
-            start = end;
-
-            if bucket_size > 1 {
-                'find_seed: for seed in 0x80_00_00_00u32..=0xFF_FF_FF_FFu32 {
-                    let mut base_hasher = Self::make_hasher();
-                    seed.hash(&mut base_hasher);
-
-                    assignments.clear();
-
-                    for &(_, (key, _)) in bucket.iter() {
-                        let mut hasher = base_hasher;
-                        key.hash(&mut hasher);
-                        let index = (hasher.finish() % len as u64) as u32;
-                        if entries[index as usize].is_some() || assignments.contains(&index) {
-                            continue 'find_seed;
-                        } else {
-                            assignments.push(index);
-                        }
-                    }
-
-                    for i in 0..bucket_size {
-                        entries[assignments[i] as usize] = Some(bucket[i].1);
-                    }
-                    displacements[displace as usize] = to_archived!(seed);
-                    break;
-                }
-            } else {
-                let offset = entries[first_empty..]
-                    .iter()
-                    .position(|value| value.is_none())
-                    .unwrap();
-                first_empty += offset;
-                entries[first_empty] = Some(bucket[0].1);
-                displacements[displace as usize] = to_archived!(first_empty as u32);
-                first_empty += 1;
-            }
-        }
-
-        // Archive entries
+        // Serialize entries
         let mut resolvers = entries
             .iter()
-            .map(|e| {
-                let (key, value) = e.unwrap();
-                Ok((key.serialize(serializer)?, value.serialize(serializer)?))
-            })
+            .map(|(key, value)| Ok((key.serialize(serializer)?, value.serialize(serializer)?)))
             .collect::<Result<Vec<_>, _>>()?;
-
-        // Write blocks
-        let displace_pos = serializer.align_for::<u32>()?;
-        let displacements_slice = slice::from_raw_parts(
-            displacements.as_ptr().cast::<u8>(),
-            displacements.len() * size_of::<u32>(),
-        );
-        serializer.write(displacements_slice)?;
 
         let entries_pos = serializer.align_for::<Entry<K, V>>()?;
         for ((key, value), (key_resolver, value_resolver)) in
-            entries.iter().map(|r| r.unwrap()).zip(resolvers.drain(..))
+            entries.drain(..).zip(resolvers.drain(..))
         {
             serializer.resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
         }
 
         Ok(HashMapResolver {
-            displace_pos,
+            index_resolver,
             entries_pos,
         })
     }
@@ -373,11 +269,8 @@ impl<K, V> ArchivedHashMap<K, V> {
         resolver: HashMapResolver,
         out: &mut MaybeUninit<Self>,
     ) {
-        let (fp, fo) = out_field!(out.len);
-        len.resolve(pos + fp, (), fo);
-
-        let (fp, fo) = out_field!(out.displace);
-        RelPtr::emplace(pos + fp, resolver.displace_pos, fo);
+        let (fp, fo) = out_field!(out.index);
+        ArchivedHashIndex::resolve_from_len(len, pos + fp, resolver.index_resolver, fo);
 
         let (fp, fo) = out_field!(out.entries);
         RelPtr::emplace(pos + fp, resolver.entries_pos, fo);
@@ -602,7 +495,7 @@ impl<K, V> FusedIterator for ValuesPin<'_, K, V> {}
 
 /// The resolver for archived hash maps.
 pub struct HashMapResolver {
-    displace_pos: usize,
+    index_resolver: HashIndexResolver,
     entries_pos: usize,
 }
 

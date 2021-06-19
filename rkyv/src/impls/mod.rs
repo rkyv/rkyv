@@ -13,6 +13,8 @@ pub mod std;
 // implementations should be moved into their respective crates over time. Before adding support for
 // another crate, please consider getting rkyv support in the crate instead.
 
+#[cfg(feature = "indexmap")]
+pub mod indexmap;
 #[cfg(feature = "tinyvec")]
 pub mod tinyvec;
 #[cfg(feature = "uuid")]

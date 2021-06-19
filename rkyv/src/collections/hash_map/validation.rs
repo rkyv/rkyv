@@ -1,16 +1,12 @@
 //! Validation implementation for HashMap.
 
-use crate::{
-    collections::hash_map::{ArchivedHashMap, Entry},
-    validation::{ArchiveBoundsContext, ArchiveMemoryContext},
-    Archived, RelPtr,
-};
+use crate::{RelPtr, collections::{ArchivedHashIndex, hash_index::validation::HashIndexError, hash_map::{ArchivedHashMap, Entry}}, validation::{ArchiveBoundsContext, ArchiveMemoryContext}};
 use bytecheck::{CheckBytes, Error, SliceCheckError};
 use core::{
     alloc::{Layout, LayoutError},
     convert::Infallible,
     fmt,
-    hash::{Hash, Hasher},
+    hash::Hash,
     ptr,
 };
 
@@ -36,8 +32,7 @@ impl<K: fmt::Display, V: fmt::Display> fmt::Display for ArchivedHashMapEntryErro
 const _: () = {
     use std::error::Error;
 
-    impl<K: Error + 'static, V: Error + 'static> Error for ArchivedHashMapEntryError<K, V>
-    {
+    impl<K: Error + 'static, V: Error + 'static> Error for ArchivedHashMapEntryError<K, V> {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
                 ArchivedHashMapEntryError::KeyCheckError(e) => Some(e as &dyn Error),
@@ -70,17 +65,12 @@ where
 /// Errors that can occur while checking an archived hash map.
 #[derive(Debug)]
 pub enum HashMapError<K, V, C> {
+    /// An error occured while checking the hash index
+    HashIndexError(HashIndexError<C>),
     /// An error occured while checking the layouts of displacements or entries
     LayoutError(LayoutError),
     /// An error occured while checking the entries
     CheckEntryError(SliceCheckError<ArchivedHashMapEntryError<K, V>>),
-    /// A displacement value was invalid
-    InvalidDisplacement {
-        /// The index of the entry with an invalid displacement
-        index: usize,
-        /// The value of the entry at the invalid location
-        value: u32,
-    },
     /// A key is not located at the correct position
     InvalidKeyPosition {
         /// The index of the key when iterating
@@ -93,13 +83,9 @@ pub enum HashMapError<K, V, C> {
 impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display for HashMapError<K, V, E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            HashMapError::HashIndexError(e) => write!(f, "hash index check error: {}", e),
             HashMapError::LayoutError(e) => write!(f, "layout error: {}", e),
             HashMapError::CheckEntryError(e) => write!(f, "entry check error: {}", e),
-            HashMapError::InvalidDisplacement { index, value } => write!(
-                f,
-                "invalid displacement: value {} at index {}",
-                value, index
-            ),
             HashMapError::InvalidKeyPosition { index } => {
                 write!(f, "invalid key position: at index {}", index)
             }
@@ -120,9 +106,9 @@ const _: () = {
     {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
+                HashMapError::HashIndexError(e) => Some(e as &dyn Error),
                 HashMapError::LayoutError(e) => Some(e as &dyn Error),
                 HashMapError::CheckEntryError(e) => Some(e as &dyn Error),
-                HashMapError::InvalidDisplacement { .. } => None,
                 HashMapError::InvalidKeyPosition { .. } => None,
                 HashMapError::ContextError(e) => Some(e as &dyn Error),
             }
@@ -140,6 +126,13 @@ impl<K, V, C> From<SliceCheckError<Infallible>> for HashMapError<K, V, C> {
     #[inline]
     fn from(_: SliceCheckError<Infallible>) -> Self {
         unsafe { core::hint::unreachable_unchecked() }
+    }
+}
+
+impl<K, V, C> From<HashIndexError<C>> for HashMapError<K, V, C> {
+    #[inline]
+    fn from(e: HashIndexError<C>) -> Self {
+        Self::HashIndexError(e)
     }
 }
 
@@ -170,60 +163,22 @@ where
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let len = from_archived!(*Archived::<usize>::check_bytes(
-            ptr::addr_of!((*value).len),
-            context,
-        )?) as usize;
-
-        let displace_rel_ptr =
-            RelPtr::manual_check_bytes(ptr::addr_of!((*value).displace), context)?;
-        let displace_data_ptr = context
-            .check_rel_ptr(displace_rel_ptr.base(), displace_rel_ptr.offset())
-            .map_err(HashMapError::ContextError)?;
-        Layout::array::<Archived<u32>>(len)?;
-        let displace_ptr = ptr_meta::from_raw_parts(displace_data_ptr.cast(), len);
-        context
-            .claim_owned_ptr(displace_ptr)
-            .map_err(HashMapError::ContextError)?;
-        let displace = <[Archived<u32>]>::check_bytes(displace_ptr, context)?;
-
-        for (i, &d) in displace.iter().enumerate() {
-            let d = from_archived!(d);
-            if d as usize >= len && d < 0x80_00_00_00 {
-                return Err(HashMapError::InvalidDisplacement { index: i, value: d });
-            }
-        }
+        let index = ArchivedHashIndex::check_bytes(ptr::addr_of!((*value).index), context)?;
 
         let entries_rel_ptr =
             RelPtr::manual_check_bytes(ptr::addr_of!((*value).entries), context)?;
         let entries_data_ptr = context
             .check_rel_ptr(entries_rel_ptr.base(), entries_rel_ptr.offset())
             .map_err(HashMapError::ContextError)?;
-        Layout::array::<Entry<K, V>>(len as usize)?;
-        let entries_ptr = ptr_meta::from_raw_parts(entries_data_ptr.cast(), len as usize);
+        Layout::array::<Entry<K, V>>(index.len())?;
+        let entries_ptr = ptr_meta::from_raw_parts(entries_data_ptr.cast(), index.len());
         context
             .claim_owned_ptr(entries_ptr)
             .map_err(HashMapError::ContextError)?;
         let entries = <[Entry<K, V>]>::check_bytes(entries_ptr, context)?;
 
         for (i, entry) in entries.iter().enumerate() {
-            let mut hasher = ArchivedHashMap::<K, V>::make_hasher();
-            entry.key.hash(&mut hasher);
-            let displace_index = hasher.finish() % len as u64;
-            let displace = displace[displace_index as usize];
-
-            let index = if displace == u32::MAX {
-                return Err(HashMapError::InvalidKeyPosition { index: i });
-            } else if displace & 0x80_00_00_00 == 0 {
-                from_archived!(displace) as usize
-            } else {
-                let mut hasher = ArchivedHashMap::<K, V>::make_hasher();
-                displace.hash(&mut hasher);
-                entry.key.hash(&mut hasher);
-                (hasher.finish() % len as u64) as usize
-            };
-
-            if index != i {
+            if index.index(&entry.key) != Some(i) {
                 return Err(HashMapError::InvalidKeyPosition { index: i });
             }
         }
