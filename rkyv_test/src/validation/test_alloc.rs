@@ -405,4 +405,23 @@ mod tests {
 
         check_archived_value::<Test>(buffer.as_ref(), pos).unwrap();
     }
+
+    #[test]
+    fn check_b_tree() {
+        #[cfg(all(feature = "alloc", not(feature = "std")))]
+        use alloc::collections::BTreeMap;
+        #[cfg(feature = "std")]
+        use std::collections::BTreeMap;
+
+        let mut value = BTreeMap::new();
+        value.insert("foo".to_string(), 10);
+        value.insert("bar".to_string(), 20);
+        value.insert("baz".to_string(), 40);
+        value.insert("bat".to_string(), 80);
+
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
+        let buffer = serializer.into_inner();
+        check_archived_root::<BTreeMap<String, i32>>(buffer.as_ref()).unwrap();
+    }
 }

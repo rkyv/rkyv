@@ -49,7 +49,6 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     ) -> Result<&'a Self, <T::ArchivedMetadata as CheckBytes<C>>::Error>
     where
         O: CheckBytes<C>,
-        T: CheckBytes<C>,
         T::ArchivedMetadata: CheckBytes<C>,
     {
         RawRelPtr::manual_check_bytes(ptr::addr_of!((*value).raw_ptr), context).unwrap();

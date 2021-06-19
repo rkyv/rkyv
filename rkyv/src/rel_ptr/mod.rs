@@ -172,6 +172,12 @@ impl<O: Offset> RawRelPtr<O> {
         self.offset.to_isize()
     }
 
+    /// Gets whether the offset of the relative pointer is 0.
+    #[inline]
+    pub fn is_null(&self) -> bool {
+        self.offset() == 0
+    }
+
     /// Calculates the memory address being pointed to by this relative pointer.
     #[inline]
     pub fn as_ptr(&self) -> *const () {
@@ -318,6 +324,12 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     #[inline]
     pub fn offset(&self) -> isize {
         self.raw_ptr.offset()
+    }
+
+    /// Gets whether the offset of the relative pointer is 0.
+    #[inline]
+    pub fn is_null(&self) -> bool {
+        self.raw_ptr.is_null()
     }
 
     /// Gets the metadata of the relative pointer.

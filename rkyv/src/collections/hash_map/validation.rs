@@ -3,7 +3,7 @@
 use crate::{
     collections::hash_map::{ArchivedHashMap, Entry},
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
-    Archived, Fallible, RelPtr,
+    Archived, RelPtr,
 };
 use bytecheck::{CheckBytes, Error, SliceCheckError};
 use core::{
@@ -69,8 +69,6 @@ impl<K: CheckBytes<C>, V: CheckBytes<C>, C: ArchiveMemoryContext + ?Sized> Check
 pub enum HashMapError<K, V, C> {
     /// An error occured while checking the layouts of displacements or entries
     LayoutError(LayoutError),
-    /// An error occured while checking the displacements
-    CheckDisplaceError(SliceCheckError<Infallible>),
     /// An error occured while checking the entries
     CheckEntryError(SliceCheckError<ArchivedHashMapEntryError<K, V>>),
     /// A displacement value was invalid
@@ -93,7 +91,6 @@ impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display for HashMap
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             HashMapError::LayoutError(e) => write!(f, "layout error: {}", e),
-            HashMapError::CheckDisplaceError(e) => write!(f, "displacements check error: {}", e),
             HashMapError::CheckEntryError(e) => write!(f, "entry check error: {}", e),
             HashMapError::InvalidDisplacement { index, value } => write!(
                 f,
@@ -121,7 +118,6 @@ const _: () = {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
                 HashMapError::LayoutError(e) => Some(e as &dyn Error),
-                HashMapError::CheckDisplaceError(e) => Some(e as &dyn Error),
                 HashMapError::CheckEntryError(e) => Some(e as &dyn Error),
                 HashMapError::InvalidDisplacement { .. } => None,
                 HashMapError::InvalidKeyPosition { .. } => None,
@@ -137,17 +133,17 @@ impl<K, V, C> From<Infallible> for HashMapError<K, V, C> {
     }
 }
 
+impl<K, V, C> From<SliceCheckError<Infallible>> for HashMapError<K, V, C> {
+    #[inline]
+    fn from(_: SliceCheckError<Infallible>) -> Self {
+        unsafe { core::hint::unreachable_unchecked() }
+    }
+}
+
 impl<K, V, C> From<LayoutError> for HashMapError<K, V, C> {
     #[inline]
     fn from(e: LayoutError) -> Self {
         Self::LayoutError(e)
-    }
-}
-
-impl<K, V, C> From<SliceCheckError<Infallible>> for HashMapError<K, V, C> {
-    #[inline]
-    fn from(e: SliceCheckError<Infallible>) -> Self {
-        Self::CheckDisplaceError(e)
     }
 }
 
@@ -162,7 +158,7 @@ impl<K, V, C> CheckBytes<C> for ArchivedHashMap<K, V>
 where
     K: CheckBytes<C> + Eq + Hash,
     V: CheckBytes<C>,
-    C: ArchiveBoundsContext + ArchiveMemoryContext + Fallible + ?Sized,
+    C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
     C::Error: Error,
 {
     type Error = HashMapError<K::Error, V::Error, C::Error>;

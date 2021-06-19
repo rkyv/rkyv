@@ -3,13 +3,7 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{
-    ser::Serializer,
-    Archive,
-    Archived,
-    RelPtr,
-    Serialize,
-};
+use crate::{Archive, ArchivePointee, Archived, RelPtr, Serialize, ser::Serializer};
 use core::{
     borrow::Borrow,
     cmp::Ordering,
@@ -20,6 +14,7 @@ use core::{
     mem::{self, MaybeUninit},
     ops::Index,
 };
+use ptr_meta::Pointee;
 
 #[cfg_attr(feature = "strict", repr(C))]
 struct InnerNodeEntry<K, V> {
@@ -87,8 +82,17 @@ fn split_meta(meta: u16) -> (bool, usize) {
     (meta & 0x80_00 == 0x80_00, (meta & 0x7F_FF) as usize)
 }
 
-impl<K, V, T> ptr_meta::Pointee for Node<K, V, [T]> {
+impl<K, V, T> Pointee for Node<K, V, [T]> {
     type Metadata = usize;
+}
+
+impl<K, V, T> ArchivePointee for Node<K, V, [T]> {
+    type ArchivedMetadata = Archived<usize>;
+
+    #[inline]
+    fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
+        from_archived!(*archived) as usize
+    }
 }
 
 type RawNode<K, V> = Node<K, V, ()>;
@@ -178,6 +182,16 @@ pub struct ArchivedBTreeMap<K, V> {
 pub struct BTreeMapResolver {
     root_pos: usize,
 }
+
+/// The minimum number of entries to place in a leaf node.
+///
+/// This value must be greater than 0
+pub const MIN_ENTRIES_PER_LEAF_NODE: usize = 1;
+
+/// The minimum number of entries to place in an inner node.
+///
+/// This value must be greater than 2
+pub const MIN_ENTRIES_PER_INNER_NODE: usize = 3;
 
 impl<K, V> ArchivedBTreeMap<K, V> {
     #[inline]
@@ -329,10 +343,6 @@ impl<K, V> ArchivedBTreeMap<K, V> {
         // The memory span of a single node should not exceed 4kb to keep everything within the
         // distance of a single IO page
         const MAX_NODE_SIZE: usize = 4096;
-        // The minimum number of entries to place in a leaf node must be greater than 0
-        const MIN_ENTRIES_PER_LEAF_NODE: usize = 1;
-        // The minimum number of entries to place in an inner node must be greater than 2
-        const MIN_ENTRIES_PER_INNER_NODE: usize = 3;
 
         // The nodes that must go in the next level in reverse order (key, node_pos)
         let mut next_level = Vec::new();
@@ -371,7 +381,10 @@ impl<K, V> ArchivedBTreeMap<K, V> {
             }
 
             // Finish the current node
-            serializer.align_for::<RawNode<K, V>>()?;
+            serializer.align(usize::max(
+                mem::align_of::<RawNode<K, V>>(),
+                mem::align_of::<LeafNodeEntry<K, V>>(),
+            ))?;
             let raw_node = RawNodeData::<K, V> {
                 meta: combine_meta(false, resolvers.len()),
                 // The last element of next_level is the next block we're linked to
@@ -429,7 +442,10 @@ impl<K, V> ArchivedBTreeMap<K, V> {
                 }
 
                 // Finish the current node
-                serializer.align_for::<RawNode<K, V>>()?;
+                serializer.align(usize::max(
+                    mem::align_of::<RawNode<K, V>>(),
+                    mem::align_of::<InnerNodeEntry<K, V>>(),
+                ))?;
                 let raw_node = RawNodeData::<K, V> {
                     meta: combine_meta(true, resolvers.len()),
                     // The pos of the first key is used to make the pointer for inner nodes
