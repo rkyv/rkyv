@@ -1,6 +1,6 @@
 use crate::{
     attributes::{parse_attributes, Attributes},
-    with::{with_inner, make_with_ty},
+    with::{make_with_ty, with_inner},
 };
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};

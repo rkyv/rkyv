@@ -3,11 +3,14 @@
 use crate::{
     collections::ArchivedHashIndex,
     validation::{ArchiveBoundsContext, ArchiveMemoryContext},
-    Archived,
-    RelPtr,
+    Archived, RelPtr,
 };
-use core::{alloc::{Layout, LayoutError}, convert::Infallible, fmt, ptr};
 use bytecheck::{CheckBytes, Error, SliceCheckError};
+use core::{
+    alloc::{Layout, LayoutError},
+    convert::Infallible,
+    fmt, ptr,
+};
 
 /// Errors that can occur while checking an archived hash index.
 #[derive(Debug)]
@@ -53,8 +56,7 @@ impl<C: fmt::Display> fmt::Display for HashIndexError<C> {
             HashIndexError::InvalidDisplacement { index, value } => write!(
                 f,
                 "invalid displacement: value {} at index {}",
-                value,
-                index,
+                value, index,
             ),
             HashIndexError::ContextError(e) => e.fmt(f),
         }
@@ -82,7 +84,10 @@ where
 {
     type Error = HashIndexError<C::Error>;
 
-    unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+    unsafe fn check_bytes<'a>(
+        value: *const Self,
+        context: &mut C,
+    ) -> Result<&'a Self, Self::Error> {
         let len = from_archived!(*Archived::<usize>::check_bytes(
             ptr::addr_of!((*value).len),
             context,

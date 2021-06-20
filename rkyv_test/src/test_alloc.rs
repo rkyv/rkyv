@@ -196,7 +196,7 @@ mod tests {
                     .field("b", &self.b)
                     .field("c", &self.c)
                     .field("d", &self.d)
-                .finish()
+                    .finish()
             }
         }
 
@@ -211,7 +211,7 @@ mod tests {
                     .field("b", &self.b)
                     .field("c", &self.c)
                     .field("d", &self.d)
-                .finish()
+                    .finish()
             }
         }
 
@@ -297,10 +297,11 @@ mod tests {
                 match self {
                     Test::A => f.debug_tuple("Test::A").finish(),
                     Test::B(value) => f.debug_tuple("Test::B").field(value).finish(),
-                    Test::C { a, b } => f.debug_struct("Test::C")
+                    Test::C { a, b } => f
+                        .debug_struct("Test::C")
                         .field("a", a)
                         .field("b", b)
-                    .finish(),
+                        .finish(),
                 }
             }
         }
@@ -313,11 +314,14 @@ mod tests {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
                     ArchivedTest::A => f.debug_tuple("ArchivedTest::A").finish(),
-                    ArchivedTest::B(value) => f.debug_tuple("ArchivedTest::B").field(value).finish(),
-                    ArchivedTest::C { a, b } => f.debug_struct("ArchivedTest::C")
+                    ArchivedTest::B(value) => {
+                        f.debug_tuple("ArchivedTest::B").field(value).finish()
+                    }
+                    ArchivedTest::C { a, b } => f
+                        .debug_struct("ArchivedTest::C")
                         .field("a", a)
                         .field("b", b)
-                    .finish(),
+                        .finish(),
                 }
             }
         }
@@ -662,8 +666,7 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_shared_ptr() {
-        #[derive(Debug, Eq, PartialEq)]
-        #[derive(Archive, Deserialize, Serialize)]
+        #[derive(Debug, Eq, PartialEq, Archive, Deserialize, Serialize)]
         #[archive(compare(PartialEq))]
         #[archive_attr(derive(Debug))]
         struct Test {
@@ -1427,7 +1430,8 @@ mod tests {
 
         assert_eq!(archived.len(), 4);
         for (k, v) in value.iter() {
-            let (ak, av) = archived.get_key_value(k.as_str())
+            let (ak, av) = archived
+                .get_key_value(k.as_str())
                 .expect("failed to find key in archived B-tree map");
             assert_eq!(k, ak);
             assert_eq!(v, av);
@@ -1455,7 +1459,8 @@ mod tests {
 
         assert_eq!(archived.len(), 4);
         for k in value.iter() {
-            let ak = archived.get(k.as_str())
+            let ak = archived
+                .get(k.as_str())
                 .expect("failed to find key in archived B-tree map");
             assert_eq!(k, ak);
         }

@@ -1,6 +1,14 @@
 //! Validation implementation for HashMap.
 
-use crate::{RelPtr, collections::{ArchivedHashIndex, hash_index::validation::HashIndexError, hash_map::{ArchivedHashMap, Entry}}, validation::{ArchiveBoundsContext, ArchiveMemoryContext}};
+use crate::{
+    collections::{
+        hash_index::validation::HashIndexError,
+        hash_map::{ArchivedHashMap, Entry},
+        ArchivedHashIndex,
+    },
+    validation::{ArchiveBoundsContext, ArchiveMemoryContext},
+    RelPtr,
+};
 use bytecheck::{CheckBytes, Error, SliceCheckError};
 use core::{
     alloc::{Layout, LayoutError},
@@ -165,8 +173,7 @@ where
     ) -> Result<&'a Self, Self::Error> {
         let index = ArchivedHashIndex::check_bytes(ptr::addr_of!((*value).index), context)?;
 
-        let entries_rel_ptr =
-            RelPtr::manual_check_bytes(ptr::addr_of!((*value).entries), context)?;
+        let entries_rel_ptr = RelPtr::manual_check_bytes(ptr::addr_of!((*value).entries), context)?;
         let entries_data_ptr = context
             .check_rel_ptr(entries_rel_ptr.base(), entries_rel_ptr.offset())
             .map_err(HashMapError::ContextError)?;

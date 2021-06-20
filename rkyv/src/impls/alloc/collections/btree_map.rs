@@ -5,9 +5,9 @@ use crate::{
     ser::Serializer,
     Archive, Deserialize, Fallible, Serialize,
 };
-use core::mem::MaybeUninit;
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::collections::BTreeMap;
+use core::mem::MaybeUninit;
 #[cfg(feature = "std")]
 use std::collections::BTreeMap;
 
@@ -39,7 +39,8 @@ where
     }
 }
 
-impl<K: Archive + Ord, V: Archive, D: Fallible + ?Sized> Deserialize<BTreeMap<K, V>, D> for ArchivedBTreeMap<K::Archived, V::Archived>
+impl<K: Archive + Ord, V: Archive, D: Fallible + ?Sized> Deserialize<BTreeMap<K, V>, D>
+    for ArchivedBTreeMap<K::Archived, V::Archived>
 where
     K::Archived: Deserialize<K, D> + Ord,
     V::Archived: Deserialize<V, D>,
@@ -48,24 +49,33 @@ where
     fn deserialize(&self, deserializer: &mut D) -> Result<BTreeMap<K, V>, D::Error> {
         let mut result = BTreeMap::new();
         for (key, value) in self.iter() {
-            result.insert(key.deserialize(deserializer)?, value.deserialize(deserializer)?);
+            result.insert(
+                key.deserialize(deserializer)?,
+                value.deserialize(deserializer)?,
+            );
         }
         Ok(result)
     }
 }
 
-impl<K, V, AK: PartialEq<K>, AV: PartialEq<V>> PartialEq<BTreeMap<K, V>> for ArchivedBTreeMap<AK, AV> {
+impl<K, V, AK: PartialEq<K>, AV: PartialEq<V>> PartialEq<BTreeMap<K, V>>
+    for ArchivedBTreeMap<AK, AV>
+{
     #[inline]
     fn eq(&self, other: &BTreeMap<K, V>) -> bool {
         if self.len() != other.len() {
             false
         } else {
-            self.iter().zip(other.iter()).all(|(a, b)| a.0.eq(b.0) && a.1.eq(b.1))
+            self.iter()
+                .zip(other.iter())
+                .all(|(a, b)| a.0.eq(b.0) && a.1.eq(b.1))
         }
     }
 }
 
-impl<K, V, AK: PartialEq<K>, AV: PartialEq<V>> PartialEq<ArchivedBTreeMap<AK, AV>> for BTreeMap<K, V> {
+impl<K, V, AK: PartialEq<K>, AV: PartialEq<V>> PartialEq<ArchivedBTreeMap<AK, AV>>
+    for BTreeMap<K, V>
+{
     #[inline]
     fn eq(&self, other: &ArchivedBTreeMap<AK, AV>) -> bool {
         other.eq(self)

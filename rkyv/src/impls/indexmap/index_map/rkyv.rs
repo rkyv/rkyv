@@ -3,10 +3,7 @@
 use crate::{
     impls::indexmap::index_map::{ArchivedIndexMap, IndexMapResolver},
     ser::Serializer,
-    Archive,
-    Deserialize,
-    Fallible,
-    Serialize,
+    Archive, Deserialize, Fallible, Serialize,
 };
 use core::{hash::Hash, mem::MaybeUninit};
 use indexmap::IndexMap;
@@ -25,7 +22,9 @@ impl<K: Archive, V: Archive> Archive for IndexMap<K, V> {
     }
 }
 
-impl<K: Hash + Eq + Serialize<S>, V: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for IndexMap<K, V> {
+impl<K: Hash + Eq + Serialize<S>, V: Serialize<S>, S: Serializer + ?Sized> Serialize<S>
+    for IndexMap<K, V>
+{
     fn serialize(&self, serializer: &mut S) -> Result<IndexMapResolver, S::Error> {
         unsafe {
             ArchivedIndexMap::serialize_from_iter_index(
@@ -60,8 +59,7 @@ mod tests {
         archived_root,
         ser::{serializers::AlignedSerializer, Serializer},
         util::AlignedVec,
-        Deserialize,
-        Infallible,
+        Deserialize, Infallible,
     };
     use indexmap::{indexmap, IndexMap};
 
@@ -86,10 +84,9 @@ mod tests {
             assert_eq!(v, av);
         }
 
-        let deserialized = Deserialize::<IndexMap<String, i32>, _>::deserialize(
-            archived,
-            &mut Infallible,
-        ).unwrap();
+        let deserialized =
+            Deserialize::<IndexMap<String, i32>, _>::deserialize(archived, &mut Infallible)
+                .unwrap();
         assert_eq!(value, deserialized);
     }
 }

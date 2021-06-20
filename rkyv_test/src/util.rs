@@ -78,7 +78,10 @@ where
     let archived_value = unsafe { archived_root::<T>(&buffer.as_ref()[0..len]) };
     assert_eq!(archived_value, value);
     let mut deserializer = make_default_deserializer();
-    assert_eq!(&archived_value.deserialize(&mut deserializer).unwrap(), value);
+    assert_eq!(
+        &archived_value.deserialize(&mut deserializer).unwrap(),
+        value
+    );
 }
 
 pub fn test_archive_ref<T: Debug + SerializeUnsized<DefaultSerializer> + ?Sized>(value: &T)

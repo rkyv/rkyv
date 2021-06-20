@@ -5,17 +5,10 @@ mod rkyv;
 use crate::{
     collections::hash_index::{ArchivedHashIndex, HashIndexResolver},
     ser::Serializer,
-    Archive,
-    Archived,
-    RelPtr,
-    Serialize,
+    Archive, Archived, RelPtr, Serialize,
 };
 use core::{
-    borrow::Borrow,
-    hash::Hash,
-    iter::FusedIterator,
-    marker::PhantomData,
-    mem::MaybeUninit,
+    borrow::Borrow, hash::Hash, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit,
 };
 use indexmap::IndexMap;
 
@@ -69,16 +62,15 @@ impl<K, V> ArchivedIndexMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.index.index(k)
-            .and_then(|pivot_index| {
-                let index = unsafe { self.pivot(pivot_index) };
-                let entry = unsafe { self.entry(index) };
-                if entry.key.borrow() == k {
-                    Some(index)
-                } else {
-                    None
-                }
-            })
+        self.index.index(k).and_then(|pivot_index| {
+            let index = unsafe { self.pivot(pivot_index) };
+            let entry = unsafe { self.entry(index) };
+            if entry.key.borrow() == k {
+                Some(index)
+            } else {
+                None
+            }
+        })
     }
 
     /// Returns whether a key is present in the hash map.
@@ -109,7 +101,8 @@ impl<K, V> ArchivedIndexMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.find(k).map(|index| unsafe { &self.entry(index).value })
+        self.find(k)
+            .map(|index| unsafe { &self.entry(index).value })
     }
 
     /// Gets the index, key, and value associated with the given key.
@@ -246,7 +239,11 @@ impl<K, V> ArchivedIndexMap<K, V> {
     ///
     /// - The keys returned by the iterator must be unique
     /// - The index function must return the index of the given key within the iterator
-    pub unsafe fn serialize_from_iter_index<'a, UK, UV, I, F, S>(iter: I, index: F, serializer: &mut S) -> Result<IndexMapResolver, S::Error>
+    pub unsafe fn serialize_from_iter_index<'a, UK, UV, I, F, S>(
+        iter: I,
+        index: F,
+        serializer: &mut S,
+    ) -> Result<IndexMapResolver, S::Error>
     where
         UK: 'a + Serialize<S, Archived = K> + Hash + Eq,
         UV: 'a + Serialize<S, Archived = V>,
@@ -254,20 +251,17 @@ impl<K, V> ArchivedIndexMap<K, V> {
         F: Fn(&UK) -> usize,
         S: Serializer + ?Sized,
     {
-        let (index_resolver, entries) = ArchivedHashIndex::build_and_serialize(
-            iter.clone(),
-            serializer,
-        )?;
+        let (index_resolver, entries) =
+            ArchivedHashIndex::build_and_serialize(iter.clone(), serializer)?;
 
         // Serialize entries
-        let mut resolvers = iter.clone()
+        let mut resolvers = iter
+            .clone()
             .map(|(key, value)| Ok((key.serialize(serializer)?, value.serialize(serializer)?)))
             .collect::<Result<Vec<_>, _>>()?;
 
         let entries_pos = serializer.align_for::<Entry<K, V>>()?;
-        for ((key, value), (key_resolver, value_resolver)) in
-            iter.zip(resolvers.drain(..))
-        {
+        for ((key, value), (key_resolver, value_resolver)) in iter.zip(resolvers.drain(..)) {
             serializer.resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
         }
 
@@ -291,9 +285,13 @@ impl<K: PartialEq, V: PartialEq> PartialEq for ArchivedIndexMap<K, V> {
     }
 }
 
-impl<UK, K: PartialEq<UK>, UV, V: PartialEq<UV>> PartialEq<IndexMap<UK, UV>> for ArchivedIndexMap<K, V> {
+impl<UK, K: PartialEq<UK>, UV, V: PartialEq<UV>> PartialEq<IndexMap<UK, UV>>
+    for ArchivedIndexMap<K, V>
+{
     fn eq(&self, other: &IndexMap<UK, UV>) -> bool {
-        self.iter().zip(other.iter()).all(|((ak, av), (bk, bv))| ak == bk && av == bv)
+        self.iter()
+            .zip(other.iter())
+            .all(|((ak, av), (bk, bv))| ak == bk && av == bv)
     }
 }
 

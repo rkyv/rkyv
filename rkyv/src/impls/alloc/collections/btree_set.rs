@@ -3,14 +3,11 @@
 use crate::{
     collections::btree_set::{ArchivedBTreeSet, BTreeSetResolver},
     ser::Serializer,
-    Archive,
-    Fallible,
-    Deserialize,
-    Serialize,
+    Archive, Deserialize, Fallible, Serialize,
 };
-use core::mem::MaybeUninit;
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::collections::BTreeSet;
+use core::mem::MaybeUninit;
 #[cfg(feature = "std")]
 use std::collections::BTreeSet;
 

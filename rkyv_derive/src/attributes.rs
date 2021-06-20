@@ -153,11 +153,7 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                     let stream = syn::parse_str(&lit_str.value())?;
                     let tokens = crate::util::respan(stream, lit_str.span());
                     let path = syn::parse2(tokens)?;
-                    try_set_attribute(
-                        &mut attributes.rkyv_path,
-                        path,
-                        "crate"
-                    )
+                    try_set_attribute(&mut attributes.rkyv_path, path, "crate")
                 } else {
                     Err(Error::new_spanned(meta, "crate must be a string"))
                 }

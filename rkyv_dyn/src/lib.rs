@@ -280,7 +280,7 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
             ptr::addr_of_mut!((*out.as_mut_ptr()).cached_vtable)
                 .write(Archived::<AtomicU64>::from(0u64));
             #[cfg(not(feature = "vtable_cache"))]
-            ptr::addr_of_mut!((*out.as_mut_ptr()).cached_vtable).write(Archived::<u64>::from(0u64));
+            ptr::addr_of_mut!((*out.as_mut_ptr()).cached_vtable).write(from_archived!(0u64));
         }
     }
 

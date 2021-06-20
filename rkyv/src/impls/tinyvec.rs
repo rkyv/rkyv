@@ -3,17 +3,12 @@
 use crate::{
     ser::Serializer,
     vec::{ArchivedVec, VecResolver},
-    Archive,
-    Archived,
-    Deserialize,
-    Fallible,
-    MetadataResolver,
-    Serialize,
+    Archive, Archived, Deserialize, Fallible, MetadataResolver, Serialize,
 };
 use core::mem::MaybeUninit;
-use tinyvec::{ArrayVec, SliceVec};
 #[cfg(feature = "alloc")]
 use tinyvec::{Array, TinyVec};
+use tinyvec::{ArrayVec, SliceVec};
 
 // ArrayVec
 
@@ -130,10 +125,9 @@ where
 mod tests {
     use crate::{
         archived_root,
-        ser::{Serializer, serializers::AlignedSerializer},
+        ser::{serializers::AlignedSerializer, Serializer},
         util::AlignedVec,
-        Deserialize,
-        Infallible,
+        Deserialize, Infallible,
     };
     use tinyvec::{array_vec, ArrayVec, SliceVec};
     #[cfg(feature = "alloc")]
@@ -149,10 +143,8 @@ mod tests {
         let archived = unsafe { archived_root::<ArrayVec<[i32; 10]>>(result.as_ref()) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
 
-        let deserialized = Deserialize::<ArrayVec<[i32; 10]>, _>::deserialize(
-            archived,
-            &mut Infallible,
-        ).unwrap();
+        let deserialized =
+            Deserialize::<ArrayVec<[i32; 10]>, _>::deserialize(archived, &mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 
@@ -183,10 +175,8 @@ mod tests {
         let archived = unsafe { archived_root::<TinyVec<[i32; 10]>>(result.as_ref()) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
 
-        let deserialized = Deserialize::<TinyVec<[i32; 10]>, _>::deserialize(
-            archived,
-            &mut Infallible,
-        ).unwrap();
+        let deserialized =
+            Deserialize::<TinyVec<[i32; 10]>, _>::deserialize(archived, &mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 }

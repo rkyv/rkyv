@@ -1,26 +1,16 @@
 //! Validation implementation for BTreeMap.
 
+use super::{
+    split_meta, ArchivedBTreeMap, ClassifiedNode, InnerNode, InnerNodeEntry, LeafNode,
+    LeafNodeEntry, Node, RawNode, MIN_ENTRIES_PER_INNER_NODE, MIN_ENTRIES_PER_LEAF_NODE,
+};
 use crate::{
     rel_ptr::RelPtr,
     validation::{ArchiveBoundsContext, ArchiveMemoryContext, LayoutMetadata},
-    Archived,
-    Fallible,
+    Archived, Fallible,
 };
-use super::{
-    split_meta,
-    ArchivedBTreeMap,
-    ClassifiedNode,
-    InnerNode,
-    InnerNodeEntry,
-    LeafNode,
-    LeafNodeEntry,
-    Node,
-    RawNode,
-    MIN_ENTRIES_PER_INNER_NODE,
-    MIN_ENTRIES_PER_LEAF_NODE,
-};
-use core::{alloc::Layout, convert::Infallible, fmt, ptr};
 use bytecheck::{CheckBytes, Error, SliceCheckError};
+use core::{alloc::Layout, convert::Infallible, fmt, ptr};
 
 /// An error that can occur while checking an inner node entry.
 #[derive(Debug)]
@@ -105,7 +95,7 @@ const _: () = {
 };
 
 impl<K, V, C> CheckBytes<C> for LeafNodeEntry<K, V>
-where 
+where
     K: CheckBytes<C>,
     V: CheckBytes<C>,
     C: Fallible + ?Sized,
@@ -183,15 +173,13 @@ where
             Self::TooFewInnerNodeEntries(n) => write!(
                 f,
                 "too few inner node entries (expected at least {}): {}",
-                MIN_ENTRIES_PER_INNER_NODE,
-                n
+                MIN_ENTRIES_PER_INNER_NODE, n
             ),
             Self::InnerNodeEntryError(e) => write!(f, "key check error: {}", e),
             Self::TooFewLeafNodeEntries(n) => write!(
                 f,
                 "too few leaf node entries (expected at least {}): {}",
-                MIN_ENTRIES_PER_LEAF_NODE,
-                n,
+                MIN_ENTRIES_PER_LEAF_NODE, n,
             ),
             Self::LeafNodeEntryError(e) => write!(f, "value check error: {}", e),
             Self::MismatchedInnerChildKey => write!(f, "mismatched inner child key"),
@@ -199,24 +187,18 @@ where
             Self::InvalidLeafNodeDepth { expected, actual } => write!(
                 f,
                 "expected leaf node depth {} but found leaf node depth {}",
-                expected,
-                actual,
+                expected, actual,
             ),
             Self::UnsortedLeafNodeEntries => write!(f, "leaf node contains keys in unsorted order"),
             Self::UnlinkedLeafNode => write!(f, "leaf nodes are not linked in the sorted order"),
-            Self::UnsortedLeafNode => write!(
-                f,
-                "leaf nodes are not linked in sorted order"
-            ),
-            Self::LastLeafForwardPointerNotNull => write!(
-                f,
-                "the forward pointer of the last leaf was not null"
-            ),
+            Self::UnsortedLeafNode => write!(f, "leaf nodes are not linked in sorted order"),
+            Self::LastLeafForwardPointerNotNull => {
+                write!(f, "the forward pointer of the last leaf was not null")
+            }
             Self::LengthMismatch { expected, actual } => write!(
                 f,
                 "expected {} entries but there were actually {} entries",
-                expected,
-                actual,
+                expected, actual,
             ),
             Self::ContextError(e) => write!(f, "context error: {}", e),
         }
@@ -257,15 +239,21 @@ impl<K, V, T> LayoutMetadata<Node<K, V, [T]>> for usize {
     fn layout(self) -> Layout {
         let result = Layout::new::<RawNode<K, V>>()
             .extend(Layout::array::<T>(self).unwrap())
-            .unwrap().0;
+            .unwrap()
+            .0;
         #[cfg(not(feature = "strict"))]
-        { result }
+        {
+            result
+        }
         #[cfg(feature = "strict")]
-        { result.pad_to_align() }
+        {
+            result.pad_to_align()
+        }
     }
 }
 
 impl<K, V> RawNode<K, V> {
+    #[allow(clippy::type_complexity)]
     unsafe fn check_and_classify<'a, C>(
         value: *const Self,
         context: &mut C,
@@ -280,10 +268,7 @@ impl<K, V> RawNode<K, V> {
             ptr::addr_of!((*value).meta),
             context,
         )?);
-        RelPtr::manual_check_bytes(
-            ptr::addr_of!((*value).ptr),
-            context,
-        )?;
+        RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context)?;
 
         let (is_inner, len) = split_meta(meta);
         if is_inner {
@@ -291,16 +276,14 @@ impl<K, V> RawNode<K, V> {
                 return Err(ArchivedBTreeMapError::TooFewInnerNodeEntries(len));
             }
 
-            let node = ptr_meta::from_raw_parts::<InnerNode<K, V>>(
-                value as *const (),
-                len as usize,
-            );
-            context.claim_owned_ptr(node).map_err(ArchivedBTreeMapError::ContextError)?;
+            let node =
+                ptr_meta::from_raw_parts::<InnerNode<K, V>>(value as *const (), len as usize);
+            context
+                .claim_owned_ptr(node)
+                .map_err(ArchivedBTreeMapError::ContextError)?;
 
-            CheckBytes::check_bytes(
-                ptr::addr_of!((*node).tail),
-                context,
-            ).map_err(ArchivedBTreeMapError::InnerNodeEntryError)?;
+            CheckBytes::check_bytes(ptr::addr_of!((*node).tail), context)
+                .map_err(ArchivedBTreeMapError::InnerNodeEntryError)?;
 
             Ok(ClassifiedNode::Inner(&*node))
         } else {
@@ -308,16 +291,13 @@ impl<K, V> RawNode<K, V> {
                 return Err(ArchivedBTreeMapError::TooFewLeafNodeEntries(len));
             }
 
-            let node = ptr_meta::from_raw_parts::<LeafNode<K, V>>(
-                value as *const (),
-                len as usize,
-            );
-            context.claim_owned_ptr(node).map_err(ArchivedBTreeMapError::ContextError)?;
+            let node = ptr_meta::from_raw_parts::<LeafNode<K, V>>(value as *const (), len as usize);
+            context
+                .claim_owned_ptr(node)
+                .map_err(ArchivedBTreeMapError::ContextError)?;
 
-            CheckBytes::check_bytes(
-                ptr::addr_of!((*node).tail),
-                context,
-            ).map_err(ArchivedBTreeMapError::LeafNodeEntryError)?;
+            CheckBytes::check_bytes(ptr::addr_of!((*node).tail), context)
+                .map_err(ArchivedBTreeMapError::LeafNodeEntryError)?;
 
             Ok(ClassifiedNode::Leaf(&*node))
         }
@@ -333,7 +313,10 @@ where
 {
     type Error = ArchivedBTreeMapError<K::Error, V::Error, C::Error>;
 
-    unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+    unsafe fn check_bytes<'a>(
+        value: *const Self,
+        context: &mut C,
+    ) -> Result<&'a Self, Self::Error> {
         #[cfg(all(feature = "alloc", not(feature = "std")))]
         use alloc::collections::VecDeque;
         #[cfg(feature = "std")]
@@ -343,10 +326,7 @@ where
             ptr::addr_of!((*value).len),
             context,
         )?) as usize;
-        let root_rel_ptr = RelPtr::manual_check_bytes(
-            ptr::addr_of!((*value).root),
-            context,
-        )?;
+        let root_rel_ptr = RelPtr::manual_check_bytes(ptr::addr_of!((*value).root), context)?;
 
         // Strategy:
         // 1. Walk all the nodes, claim their memory, and check their contents
@@ -362,14 +342,16 @@ where
 
         // Walk all the inner nodes, claim their memory, and check their contents
         let mut nodes = VecDeque::new();
-        let root_ptr = context.claim_owned_rel_ptr(root_rel_ptr)
+        let root_ptr = context
+            .claim_owned_rel_ptr(root_rel_ptr)
             .map_err(ArchivedBTreeMapError::ContextError)?;
         nodes.push_back((Node::check_and_classify(root_ptr, context)?, 0));
 
         while let Some(&(ClassifiedNode::Inner(node), depth)) = nodes.front() {
             nodes.pop_front();
 
-            let prev_child_ptr = context.claim_owned_rel_ptr(&node.ptr)
+            let prev_child_ptr = context
+                .claim_owned_rel_ptr(&node.ptr)
                 .map_err(ArchivedBTreeMapError::ContextError)?;
             let prev_child_node = Node::check_and_classify(prev_child_ptr, context)?;
             // The invariant that this node contains keys less than the first key of this node will
@@ -377,7 +359,8 @@ where
             nodes.push_back((prev_child_node, depth + 1));
 
             for entry in node.tail.iter() {
-                let child_ptr = context.claim_owned_rel_ptr(&entry.ptr)
+                let child_ptr = context
+                    .claim_owned_rel_ptr(&entry.ptr)
                     .map_err(ArchivedBTreeMapError::ContextError)?;
                 let child_node = Node::check_and_classify(child_ptr, context)?;
                 let child_key = match child_node {
@@ -395,7 +378,9 @@ where
         let mut entry_count = 0;
         for (i, (node, depth)) in nodes.iter().enumerate() {
             match node {
-                ClassifiedNode::Inner(_) => return Err(ArchivedBTreeMapError::InnerNodeInLeafLevel),
+                ClassifiedNode::Inner(_) => {
+                    return Err(ArchivedBTreeMapError::InnerNodeInLeafLevel)
+                }
                 ClassifiedNode::Leaf(leaf) => {
                     // Leaf nodes must all be the same depth
                     let expected_depth = nodes.front().unwrap().1;
@@ -415,10 +400,13 @@ where
 
                     // And they must link together in sorted order
                     if i < nodes.len() - 1 {
-                        let next_ptr = context.check_rel_ptr(leaf.ptr.base(), leaf.ptr.offset())
+                        let next_ptr = context
+                            .check_rel_ptr(leaf.ptr.base(), leaf.ptr.offset())
                             .map_err(ArchivedBTreeMapError::ContextError)?;
                         let next_node = match nodes[i + 1].0 {
-                            ClassifiedNode::Inner(_) => return Err(ArchivedBTreeMapError::InnerNodeInLeafLevel),
+                            ClassifiedNode::Inner(_) => {
+                                return Err(ArchivedBTreeMapError::InnerNodeInLeafLevel)
+                            }
                             ClassifiedNode::Leaf(leaf) => leaf,
                         };
                         if next_ptr != (next_node as *const LeafNode<K, V>).cast() {
@@ -440,7 +428,7 @@ where
             }
         }
 
-        // Make sure that the number of entries matches the 
+        // Make sure that the number of entries matches the length
         if entry_count != len {
             return Err(ArchivedBTreeMapError::LengthMismatch {
                 expected: len,

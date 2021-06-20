@@ -85,7 +85,10 @@ impl<K> ArchivedHashSet<K> {
     /// The keys returned by the iterator must be unique.
     #[cfg(feature = "alloc")]
     #[inline]
-    pub unsafe fn serialize_from_iter<'a, KU, S, I>(iter: I, serializer: &mut S) -> Result<HashSetResolver, S::Error>
+    pub unsafe fn serialize_from_iter<'a, KU, S, I>(
+        iter: I,
+        serializer: &mut S,
+    ) -> Result<HashSetResolver, S::Error>
     where
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
         S: Serializer + ?Sized,

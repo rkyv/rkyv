@@ -67,7 +67,8 @@ impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>, S: BuildHash
         if self.len() != other.len() {
             false
         } else {
-            self.iter().all(|(key, value)| other.get(key).map_or(false, |v| value.eq(v)))
+            self.iter()
+                .all(|(key, value)| other.get(key).map_or(false, |v| value.eq(v)))
         }
     }
 }

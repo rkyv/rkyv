@@ -6,10 +6,7 @@ use crate::{
         index_set::{ArchivedIndexSet, IndexSetResolver},
     },
     ser::Serializer,
-    Archive,
-    Deserialize,
-    Fallible,
-    Serialize,
+    Archive, Deserialize, Fallible, Serialize,
 };
 use core::{hash::Hash, mem::MaybeUninit};
 use indexmap::IndexSet;
@@ -62,8 +59,7 @@ mod tests {
         archived_root,
         ser::{serializers::AlignedSerializer, Serializer},
         util::AlignedVec,
-        Deserialize,
-        Infallible,
+        Deserialize, Infallible,
     };
     use indexmap::{indexset, IndexSet};
 
@@ -87,10 +83,8 @@ mod tests {
             assert_eq!(k, ak);
         }
 
-        let deserialized = Deserialize::<IndexSet<String>, _>::deserialize(
-            archived,
-            &mut Infallible,
-        ).unwrap();
+        let deserialized =
+            Deserialize::<IndexSet<String>, _>::deserialize(archived, &mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 }

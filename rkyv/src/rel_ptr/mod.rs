@@ -3,17 +3,13 @@
 #[cfg(feature = "validation")]
 mod validation;
 
+use crate::{ArchivePointee, ArchiveUnsized, Archived};
 use core::{
     convert::TryFrom,
     fmt,
     marker::{PhantomData, PhantomPinned},
     mem::MaybeUninit,
     ptr,
-};
-use crate::{
-    Archived,
-    ArchivePointee,
-    ArchiveUnsized,
 };
 
 /// The offset between the two positions cannot be represented by the offset type.
@@ -29,7 +25,10 @@ impl fmt::Display for OffsetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             OffsetError::IsizeOverflow => write!(f, "the offset overflowed the range of `isize`"),
-            OffsetError::ExceedsStorageRange => write!(f, "the offset is too far for the offset type of the relative pointer"),
+            OffsetError::ExceedsStorageRange => write!(
+                f,
+                "the offset is too far for the offset type of the relative pointer"
+            ),
         }
     }
 }
@@ -59,7 +58,9 @@ impl std::error::Error for OffsetError {}
 #[inline]
 pub fn signed_offset(from: usize, to: usize) -> Result<isize, OffsetError> {
     let (result, overflow) = to.overflowing_sub(from);
-    if (!overflow && result <= (isize::MAX as usize)) || (overflow && result >= (isize::MIN as usize)) {
+    if (!overflow && result <= (isize::MAX as usize))
+        || (overflow && result >= (isize::MIN as usize))
+    {
         Ok(result as isize)
     } else {
         Err(OffsetError::IsizeOverflow)
@@ -83,7 +84,8 @@ macro_rules! impl_offset {
                 // pointer::add and pointer::offset require that the computed offsets cannot
                 // overflow an isize, which is why we're using signed_offset instead of checked_sub
                 // for unsized types
-                <$ty>::try_from(signed_offset(from, to)?).map_err(|_| OffsetError::ExceedsStorageRange)
+                <$ty>::try_from(signed_offset(from, to)?)
+                    .map_err(|_| OffsetError::ExceedsStorageRange)
             }
 
             #[inline]
@@ -134,13 +136,16 @@ impl<O: Offset> RawRelPtr<O> {
     /// - `out` must be located at position `from`
     /// - `to` must be a position within the archive
     #[inline]
-    pub unsafe fn try_emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) -> Result<(), OffsetError> {
+    pub unsafe fn try_emplace(
+        from: usize,
+        to: usize,
+        out: &mut MaybeUninit<Self>,
+    ) -> Result<(), OffsetError> {
         let offset = O::between(from, to)?;
-        ptr::addr_of_mut!((*out.as_mut_ptr()).offset)
-            .write(to_archived!(offset));
+        ptr::addr_of_mut!((*out.as_mut_ptr()).offset).write(to_archived!(offset));
         Ok(())
     }
-    
+
     /// Creates a new `RawRelPtr` in-place between the given `from` and `to` positions.
     ///
     /// # Safety
@@ -181,18 +186,14 @@ impl<O: Offset> RawRelPtr<O> {
     /// Calculates the memory address being pointed to by this relative pointer.
     #[inline]
     pub fn as_ptr(&self) -> *const () {
-        unsafe {
-            self.base().offset(self.offset()).cast()
-        }
+        unsafe { self.base().offset(self.offset()).cast() }
     }
 
     /// Returns an unsafe mutable pointer to the memory address being pointed to
     /// by this relative pointer.
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut () {
-        unsafe {
-            self.base_mut().offset(self.offset()).cast()
-        }
+        unsafe { self.base_mut().offset(self.offset()).cast() }
     }
 }
 
@@ -237,7 +238,11 @@ impl<T, O: Offset> RelPtr<T, O> {
     /// - `from` must be the position of `out` within the archive
     /// - `to` must be the position of some valid `T`
     #[inline]
-    pub unsafe fn try_emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) -> Result<(), OffsetError> {
+    pub unsafe fn try_emplace(
+        from: usize,
+        to: usize,
+        out: &mut MaybeUninit<Self>,
+    ) -> Result<(), OffsetError> {
         let (fp, fo) = out_field!(out.raw_ptr);
         // Skip metadata since sized T is guaranteed to be ()
         RawRelPtr::try_emplace(from + fp, to, fo)

@@ -123,7 +123,11 @@ impl<K> ArchivedIndexSet<K> {
     /// - The keys returned by the iterator must be unique
     /// - The index function must return the index of the given key within the iterator
     #[inline]
-    pub unsafe fn serialize_from_iter_index<'a, UK, I, F, S>(iter: I, index: F, serializer: &mut S) -> Result<IndexSetResolver, S::Error>
+    pub unsafe fn serialize_from_iter_index<'a, UK, I, F, S>(
+        iter: I,
+        index: F,
+        serializer: &mut S,
+    ) -> Result<IndexSetResolver, S::Error>
     where
         UK: 'a + Hash + Eq + Serialize<S, Archived = K>,
         I: Clone + ExactSizeIterator<Item = &'a UK>,
@@ -131,11 +135,7 @@ impl<K> ArchivedIndexSet<K> {
         S: Serializer + ?Sized,
     {
         Ok(IndexSetResolver(
-            ArchivedIndexMap::serialize_from_iter_index(
-                iter.map(|k| (k, &())),
-                index,
-                serializer,
-            )?
+            ArchivedIndexMap::serialize_from_iter_index(iter.map(|k| (k, &())), index, serializer)?,
         ))
     }
 }

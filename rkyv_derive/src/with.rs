@@ -23,20 +23,24 @@ pub fn with<B, F: FnMut(B, NestedMeta) -> B>(field: &Field, init: B, f: F) -> B 
 
 #[inline]
 pub fn make_with_ty(rkyv_path: &Path) -> impl '_ + Fn(&Field) -> Type {
-    move |field| with(
-        field,
-        field.ty.clone(),
-        |ty, wrapper| parse_quote! { #rkyv_path::with::With<#ty, #wrapper> },
-    )
+    move |field| {
+        with(
+            field,
+            field.ty.clone(),
+            |ty, wrapper| parse_quote! { #rkyv_path::with::With<#ty, #wrapper> },
+        )
+    }
 }
 
 #[inline]
 pub fn make_with_cast(rkyv_path: &Path) -> impl '_ + Fn(&Field, Expr) -> Expr {
-    move |field, expr| with(
-        field,
-        expr,
-        |expr, wrapper| parse_quote! { #rkyv_path::with::With::<_, #wrapper>::cast(#expr) },
-    )
+    move |field, expr| {
+        with(
+            field,
+            expr,
+            |expr, wrapper| parse_quote! { #rkyv_path::with::With::<_, #wrapper>::cast(#expr) },
+        )
+    }
 }
 
 #[inline]

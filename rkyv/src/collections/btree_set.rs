@@ -90,10 +90,9 @@ impl<K> ArchivedBTreeSet<K> {
         S: Serializer + ?Sized,
         I: ExactSizeIterator<Item = &'a UK>,
     {
-        Ok(BTreeSetResolver(ArchivedBTreeMap::serialize_from_reverse_iter(
-            iter.map(|x| (x, &())),
-            serializer,
-        )?))
+        Ok(BTreeSetResolver(
+            ArchivedBTreeMap::serialize_from_reverse_iter(iter.map(|x| (x, &())), serializer)?,
+        ))
     }
 }
 

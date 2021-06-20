@@ -6,22 +6,15 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-#[cfg(feature = "alloc")]
-use crate::{ser::Serializer, Serialize};
 use crate::{
     collections::hash_index::{ArchivedHashIndex, HashIndexResolver},
-    Archive,
-    RelPtr,
+    Archive, RelPtr,
 };
+#[cfg(feature = "alloc")]
+use crate::{ser::Serializer, Serialize};
 use core::{
-    borrow::Borrow,
-    fmt,
-    hash::Hash,
-    iter::FusedIterator,
-    marker::PhantomData,
-    mem::MaybeUninit,
-    ops::Index,
-    pin::Pin,
+    borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit,
+    ops::Index, pin::Pin,
 };
 
 #[cfg_attr(feature = "strict", repr(C))]
@@ -86,15 +79,14 @@ impl<K, V> ArchivedHashMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.index.index(k)
-            .and_then(|i| {
-                let entry = unsafe { self.entry(i) };
-                if entry.key.borrow() == k {
-                    Some(i)
-                } else {
-                    None
-                }
-            })
+        self.index.index(k).and_then(|i| {
+            let entry = unsafe { self.entry(i) };
+            if entry.key.borrow() == k {
+                Some(i)
+            } else {
+                None
+            }
+        })
     }
 
     /// Finds the key-value entry for a key.
@@ -143,7 +135,8 @@ impl<K, V> ArchivedHashMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.find(k).map(|index| unsafe { &self.entry(index).value })
+        self.find(k)
+            .map(|index| unsafe { &self.entry(index).value })
     }
 
     /// Gets the mutable value associated with the given key.
@@ -226,14 +219,18 @@ impl<K, V> ArchivedHashMap<K, V> {
     ///
     /// The keys returned by the iterator must be unique.
     #[cfg(feature = "alloc")]
-    pub unsafe fn serialize_from_iter<'a, KU, VU, S, I>(iter: I, serializer: &mut S) -> Result<HashMapResolver, S::Error>
+    pub unsafe fn serialize_from_iter<'a, KU, VU, S, I>(
+        iter: I,
+        serializer: &mut S,
+    ) -> Result<HashMapResolver, S::Error>
     where
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
         VU: 'a + Serialize<S, Archived = V>,
         S: Serializer + ?Sized,
         I: ExactSizeIterator<Item = (&'a KU, &'a VU)>,
     {
-        let (index_resolver, mut entries) = ArchivedHashIndex::build_and_serialize(iter, serializer)?;
+        let (index_resolver, mut entries) =
+            ArchivedHashIndex::build_and_serialize(iter, serializer)?;
 
         // Serialize entries
         let mut resolvers = entries

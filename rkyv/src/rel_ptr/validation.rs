@@ -2,11 +2,14 @@
 
 use crate::{
     rel_ptr::{Offset, RawRelPtr, RelPtr},
-    ArchivePointee,
-    Fallible,
+    ArchivePointee, Fallible,
 };
-use core::{convert::Infallible, marker::{PhantomData, PhantomPinned}, ptr};
 use bytecheck::CheckBytes;
+use core::{
+    convert::Infallible,
+    marker::{PhantomData, PhantomPinned},
+    ptr,
+};
 
 impl<O: Offset> RawRelPtr<O> {
     /// Checks the bytes of the given raw relative pointer.

@@ -2,8 +2,12 @@
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
 use crate::{ser::Serializer, Archive, Archived, RelPtr};
-use core::{cmp::Reverse, hash::{Hash, Hasher}, mem::{size_of, transmute, MaybeUninit}, slice};
-
+use core::{
+    cmp::Reverse,
+    hash::{Hash, Hasher},
+    mem::{size_of, transmute, MaybeUninit},
+    slice,
+};
 
 #[cfg(feature = "validation")]
 pub mod validation;
@@ -80,7 +84,10 @@ impl ArchivedHashIndex {
     ///
     /// The keys returned by the iterator must be unique.
     #[allow(clippy::type_complexity)]
-    pub unsafe fn build_and_serialize<'a, K, V, S, I>(iter: I, serializer: &mut S) -> Result<(HashIndexResolver, Vec<(&'a K, &'a V)>), S::Error>
+    pub unsafe fn build_and_serialize<'a, K, V, S, I>(
+        iter: I,
+        serializer: &mut S,
+    ) -> Result<(HashIndexResolver, Vec<(&'a K, &'a V)>), S::Error>
     where
         K: Hash,
         S: Serializer + ?Sized,
@@ -139,7 +146,9 @@ impl ArchivedHashIndex {
 
                     for i in 0..bucket_size {
                         occupied[assignments[i] as usize] = true;
-                        entries[assignments[i] as usize].as_mut_ptr().write(bucket[i].1);
+                        entries[assignments[i] as usize]
+                            .as_mut_ptr()
+                            .write(bucket[i].1);
                     }
                     displacements[displace as usize] = to_archived!(seed);
                     break;

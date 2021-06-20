@@ -1,6 +1,4 @@
-use crate::{
-    ser::Serializer, util::AlignedVec, Archive, ArchiveUnsized, Fallible, RelPtr,
-};
+use crate::{ser::Serializer, util::AlignedVec, Archive, ArchiveUnsized, Fallible, RelPtr};
 use core::{
     borrow::{Borrow, BorrowMut},
     convert::Infallible,

@@ -7,7 +7,7 @@ use crate::{
     ser::SharedSerializer, ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr,
     SerializeUnsized,
 };
-use core::{borrow::Borrow, cmp, hash, fmt, mem::MaybeUninit, ops::Deref, pin::Pin, ptr};
+use core::{borrow::Borrow, cmp, fmt, hash, mem::MaybeUninit, ops::Deref, pin::Pin, ptr};
 
 /// An archived `Rc`.
 ///
