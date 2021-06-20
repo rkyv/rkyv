@@ -109,8 +109,9 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_unit_struct() {
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         struct Test;
 
         test_archive(&Test);
@@ -120,8 +121,9 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_tuple_struct() {
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         struct Test((), i32, String, Option<i32>);
 
         test_archive(&Test((), 42, "hello world".to_string(), Some(42)));
@@ -130,8 +132,9 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_simple_struct() {
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         struct Test {
             a: (),
             b: i32,
@@ -164,6 +167,8 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_generic_struct() {
+        use core::fmt;
+
         pub trait TestTrait {
             type Associated: PartialEq;
         }
@@ -179,6 +184,35 @@ mod tests {
             b: <T as TestTrait>::Associated,
             c: String,
             d: Option<i32>,
+        }
+
+        impl<T: TestTrait> fmt::Debug for Test<T>
+        where
+            T::Associated: fmt::Debug,
+        {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.debug_struct("Test")
+                    .field("a", &self.a)
+                    .field("b", &self.b)
+                    .field("c", &self.c)
+                    .field("d", &self.d)
+                .finish()
+            }
+        }
+
+        impl<T: TestTrait> fmt::Debug for ArchivedTest<T>
+        where
+            T::Associated: Archive,
+            <T::Associated as Archive>::Archived: fmt::Debug,
+        {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.debug_struct("Test")
+                    .field("a", &self.a)
+                    .field("b", &self.b)
+                    .field("c", &self.c)
+                    .field("d", &self.d)
+                .finish()
+            }
         }
 
         test_archive(&Test::<()> {
@@ -206,8 +240,9 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_enum() {
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         enum Test {
             A,
             B(String),
@@ -233,6 +268,8 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_generic_enum() {
+        use core::fmt;
+
         pub trait TestTrait {
             type Associated: PartialEq;
         }
@@ -250,6 +287,39 @@ mod tests {
                 a: <T as TestTrait>::Associated,
                 b: String,
             },
+        }
+
+        impl<T: TestTrait> fmt::Debug for Test<T>
+        where
+            T::Associated: fmt::Debug,
+        {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                match self {
+                    Test::A => f.debug_tuple("Test::A").finish(),
+                    Test::B(value) => f.debug_tuple("Test::B").field(value).finish(),
+                    Test::C { a, b } => f.debug_struct("Test::C")
+                        .field("a", a)
+                        .field("b", b)
+                    .finish(),
+                }
+            }
+        }
+
+        impl<T: TestTrait> fmt::Debug for ArchivedTest<T>
+        where
+            T::Associated: Archive,
+            <T::Associated as Archive>::Archived: fmt::Debug,
+        {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                match self {
+                    ArchivedTest::A => f.debug_tuple("ArchivedTest::A").finish(),
+                    ArchivedTest::B(value) => f.debug_tuple("ArchivedTest::B").field(value).finish(),
+                    ArchivedTest::C { a, b } => f.debug_struct("ArchivedTest::C")
+                        .field("a", a)
+                        .field("b", b)
+                    .finish(),
+                }
+            }
         }
 
         test_archive(&Test::<()>::A);
@@ -476,8 +546,9 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn recursive_structures() {
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         // The derive macros don't apply the right bounds from Box so we have to manually specify
         // what bounds to apply
         #[archive(bound(serialize = "__S: Serializer"))]
@@ -492,8 +563,9 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_root() {
-        #[derive(Archive, Serialize)]
+        #[derive(Debug, Archive, Serialize)]
         #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         struct Test {
             a: (),
             b: i32,
@@ -521,7 +593,7 @@ mod tests {
         let buffer = serializer.into_inner();
         assert_eq!(pos, 0);
         let archived_value = unsafe { archived_value::<Test>(buffer.as_ref(), 0) };
-        assert!(*archived_value == value);
+        assert_eq!(*archived_value, value);
     }
 
     #[test]
@@ -533,7 +605,8 @@ mod tests {
             sync::atomic::{AtomicU32, Ordering},
         };
 
-        #[derive(Archive, Serialize, Deserialize)]
+        #[derive(Archive, Serialize, Deserialize, Debug)]
+        #[archive_attr(derive(Debug))]
         struct Test {
             a: AtomicU32,
             b: NonZeroU8,
@@ -589,8 +662,10 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_shared_ptr() {
-        #[derive(Archive, Deserialize, Serialize, Eq, PartialEq)]
+        #[derive(Debug, Eq, PartialEq)]
+        #[derive(Archive, Deserialize, Serialize)]
         #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         struct Test {
             a: Rc<u32>,
             b: Rc<u32>,
@@ -620,7 +695,7 @@ mod tests {
         let mut buf = serializer.into_inner().into_inner();
 
         let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
-        assert!(archived == &value);
+        assert_eq!(archived, &value);
 
         let mut mutable_archived =
             unsafe { archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut())) };
@@ -674,8 +749,9 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_unsized_shared_ptr() {
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         struct Test {
             a: Rc<[String]>,
             b: Rc<[String]>,
@@ -789,8 +865,9 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn derive_attributes() {
-        #[derive(Archive, PartialEq)]
+        #[derive(Archive, Debug, PartialEq)]
         #[archive(archived = "ATest", resolver = "RTest", compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         struct Test {
             a: i32,
             b: Option<u32>,
@@ -902,8 +979,9 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn const_generics() {
-        #[derive(Archive, Deserialize, Serialize, PartialEq)]
+        #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         pub struct Const<const N: usize>;
 
         test_archive(&Const::<1>);
@@ -1040,7 +1118,7 @@ mod tests {
     fn archive_as() {
         // Struct
 
-        #[derive(Archive, Serialize, Deserialize)]
+        #[derive(Archive, Serialize, Deserialize, Debug)]
         #[archive(as = "ExampleStruct<T::Archived>")]
         #[repr(transparent)]
         struct ExampleStruct<T> {
@@ -1061,7 +1139,7 @@ mod tests {
 
         // Tuple struct
 
-        #[derive(Archive, Serialize, Deserialize)]
+        #[derive(Archive, Serialize, Deserialize, Debug)]
         #[archive(as = "ExampleTupleStruct<T::Archived>")]
         #[repr(transparent)]
         struct ExampleTupleStruct<T>(T);
@@ -1078,7 +1156,7 @@ mod tests {
 
         // Unit struct
 
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(as = "ExampleUnitStruct")]
         struct ExampleUnitStruct;
 
@@ -1086,7 +1164,7 @@ mod tests {
 
         // Enum
 
-        #[derive(Archive, Serialize, Deserialize)]
+        #[derive(Archive, Serialize, Deserialize, Debug)]
         #[archive(as = "ExampleEnum<T::Archived>")]
         #[repr(u8)]
         enum ExampleEnum<T> {

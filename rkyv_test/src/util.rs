@@ -1,6 +1,7 @@
 #[cfg(feature = "wasm")]
 wasm_bindgen_test::wasm_bindgen_test_configure!();
 
+use core::fmt::Debug;
 use rkyv::{
     archived_root, archived_unsized_root, ser::Serializer, Deserialize, Serialize, SerializeUnsized,
 };
@@ -62,10 +63,10 @@ mod types {
 
 pub use types::*;
 
-pub fn test_archive<T: Serialize<DefaultSerializer>>(value: &T)
+pub fn test_archive<T: Debug + Serialize<DefaultSerializer>>(value: &T)
 where
     T: PartialEq,
-    T::Archived: PartialEq<T> + Deserialize<T, DefaultDeserializer>,
+    T::Archived: Debug + PartialEq<T> + Deserialize<T, DefaultDeserializer>,
 {
     let mut serializer = make_default_serializer();
     serializer
@@ -75,14 +76,14 @@ where
     let buffer = unwrap_default_serializer(serializer);
 
     let archived_value = unsafe { archived_root::<T>(&buffer.as_ref()[0..len]) };
-    assert!(archived_value == value);
+    assert_eq!(archived_value, value);
     let mut deserializer = make_default_deserializer();
-    assert!(&archived_value.deserialize(&mut deserializer).unwrap() == value);
+    assert_eq!(&archived_value.deserialize(&mut deserializer).unwrap(), value);
 }
 
-pub fn test_archive_ref<T: SerializeUnsized<DefaultSerializer> + ?Sized>(value: &T)
+pub fn test_archive_ref<T: Debug + SerializeUnsized<DefaultSerializer> + ?Sized>(value: &T)
 where
-    T::Archived: PartialEq<T>,
+    T::Archived: Debug + PartialEq<T>,
 {
     let mut serializer = make_default_serializer();
     serializer
@@ -92,14 +93,14 @@ where
     let buffer = unwrap_default_serializer(serializer);
 
     let archived_ref = unsafe { archived_unsized_root::<T>(&buffer.as_ref()[0..len]) };
-    assert!(archived_ref == value);
+    assert_eq!(archived_ref, value);
 }
 
 pub fn test_archive_container<
     T: Serialize<DefaultSerializer, Archived = U> + core::ops::Deref<Target = TV>,
-    TV: ?Sized,
+    TV: Debug + ?Sized,
     U: core::ops::Deref<Target = TU>,
-    TU: PartialEq<TV> + ?Sized,
+    TU: Debug + PartialEq<TV> + ?Sized,
 >(
     value: &T,
 ) {
@@ -111,5 +112,5 @@ pub fn test_archive_container<
     let buffer = unwrap_default_serializer(serializer);
 
     let archived_ref = unsafe { archived_root::<T>(&buffer.as_ref()[0..len]) };
-    assert!(archived_ref.deref() == value.deref());
+    assert_eq!(archived_ref.deref(), value.deref());
 }

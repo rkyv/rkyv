@@ -90,6 +90,6 @@ mod tests {
             archived,
             &mut Infallible,
         ).unwrap();
-        assert!(value == deserialized);
+        assert_eq!(value, deserialized);
     }
 }

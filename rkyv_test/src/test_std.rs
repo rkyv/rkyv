@@ -38,16 +38,16 @@ mod tests {
         let buf = serializer.into_inner();
         let archived_value = unsafe { archived_root::<HashMap<String, String>>(buf.as_ref()) };
 
-        assert!(archived_value.len() == hash_map.len());
+        assert_eq!(archived_value.len(), hash_map.len());
 
         for (key, value) in hash_map.iter() {
             assert!(archived_value.contains_key(key.as_str()));
-            assert!(archived_value[key.as_str()].eq(value));
+            assert_eq!(&archived_value[key.as_str()], value);
         }
 
         for (key, value) in archived_value.iter() {
             assert!(hash_map.contains_key(key.as_str()));
-            assert!(hash_map[key.as_str()].eq(value));
+            assert_eq!(&hash_map[key.as_str()], value);
         }
     }
 
@@ -80,16 +80,16 @@ mod tests {
         let archived_value =
             unsafe { archived_root::<HashMap<String, String, ahash::RandomState>>(buf.as_ref()) };
 
-        assert!(archived_value.len() == hash_map.len());
+        assert_eq!(archived_value.len(), hash_map.len());
 
         for (key, value) in hash_map.iter() {
             assert!(archived_value.contains_key(key.as_str()));
-            assert!(archived_value[key.as_str()].eq(value));
+            assert_eq!(&archived_value[key.as_str()], value);
         }
 
         for (key, value) in archived_value.iter() {
             assert!(hash_map.contains_key(key.as_str()));
-            assert!(hash_map[key.as_str()].eq(value));
+            assert_eq!(&hash_map[key.as_str()], value);
         }
     }
 
@@ -98,8 +98,9 @@ mod tests {
     fn archive_net() {
         use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         struct TestNet {
             ipv4: Ipv4Addr,
             ipv6: Ipv6Addr,

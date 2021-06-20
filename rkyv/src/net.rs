@@ -4,7 +4,7 @@ use crate::Archived;
 
 /// An archived [`Ipv4Addr`](std::net::Ipv4Addr).
 #[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
-#[derive(Clone, Copy, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedIpv4Addr {
     octets: [Archived<u8>; 4],
@@ -20,7 +20,7 @@ impl ArchivedIpv4Addr {
 
 /// An archived [`Ipv6Addr`](std::net::Ipv6Addr).
 #[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
-#[derive(Clone, Copy, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedIpv6Addr {
     octets: [Archived<u8>; 16],
@@ -45,7 +45,7 @@ impl ArchivedIpv6Addr {
 
 /// An archived [`IpAddr`](std::net::IpAddr).
 #[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
-#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
 pub enum ArchivedIpAddr {
     /// An IPv4 address.
@@ -72,7 +72,7 @@ impl ArchivedIpAddr {
 
 /// An archived [`SocketAddrV4`](std::net::SocketAddrV4).
 #[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
-#[derive(Clone, Copy, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedSocketAddrV4 {
     pub(crate) ip: ArchivedIpv4Addr,
@@ -95,7 +95,7 @@ impl ArchivedSocketAddrV4 {
 
 /// An archived [`SocketAddrV6`](std::net::SocketAddrV6).
 #[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
-#[derive(Clone, Copy, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedSocketAddrV6 {
     pub(crate) ip: ArchivedIpv6Addr,
@@ -136,7 +136,7 @@ impl ArchivedSocketAddrV6 {
 
 /// An archived [`SocketAddr`](std::net::SocketAddr).
 #[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
-#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
 pub enum ArchivedSocketAddr {
     /// An IPv4 socket address.

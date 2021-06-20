@@ -7,7 +7,7 @@ use crate::{
     ser::SharedSerializer, ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr,
     SerializeUnsized,
 };
-use core::{mem::MaybeUninit, ops::Deref, pin::Pin, ptr};
+use core::{borrow::Borrow, cmp, hash, fmt, mem::MaybeUninit, ops::Deref, pin::Pin, ptr};
 
 /// An archived `Rc`.
 ///
@@ -63,12 +63,80 @@ impl<T: ArchivePointee + ?Sized> ArchivedRc<T> {
     }
 }
 
+impl<T: ArchivePointee + ?Sized> AsRef<T> for ArchivedRc<T> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        self.get()
+    }
+}
+
+impl<T: ArchivePointee + ?Sized> Borrow<T> for ArchivedRc<T> {
+    #[inline]
+    fn borrow(&self) -> &T {
+        self.get()
+    }
+}
+
+impl<T: ArchivePointee + fmt::Debug + ?Sized> fmt::Debug for ArchivedRc<T> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.get().fmt(f)
+    }
+}
+
 impl<T: ArchivePointee + ?Sized> Deref for ArchivedRc<T> {
     type Target = T;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
         self.get()
+    }
+}
+
+impl<T: ArchivePointee + fmt::Display + ?Sized> fmt::Display for ArchivedRc<T> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.get().fmt(f)
+    }
+}
+
+impl<T: ArchivePointee + Eq + ?Sized> Eq for ArchivedRc<T> {}
+
+impl<T: ArchivePointee + hash::Hash + ?Sized> hash::Hash for ArchivedRc<T> {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.get().hash(state)
+    }
+}
+
+impl<T: ArchivePointee + Ord + ?Sized> Ord for ArchivedRc<T> {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.get().cmp(other.get())
+    }
+}
+
+impl<T, U> PartialEq<ArchivedRc<U>> for ArchivedRc<T>
+where
+    T: ArchivePointee + PartialEq<U> + ?Sized,
+    U: ArchivePointee + ?Sized,
+{
+    fn eq(&self, other: &ArchivedRc<U>) -> bool {
+        self.get().eq(other.get())
+    }
+}
+
+impl<T, U> PartialOrd<ArchivedRc<U>> for ArchivedRc<T>
+where
+    T: ArchivePointee + PartialOrd<U> + ?Sized,
+    U: ArchivePointee + ?Sized,
+{
+    fn partial_cmp(&self, other: &ArchivedRc<U>) -> Option<cmp::Ordering> {
+        self.get().partial_cmp(other.get())
+    }
+}
+
+impl<T> fmt::Pointer for ArchivedRc<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Pointer::fmt(&self.0.base(), f)
     }
 }
 

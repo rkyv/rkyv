@@ -52,7 +52,7 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerial
         resolver: T::Resolver,
     ) -> Result<usize, Self::Error> {
         let pos = self.pos();
-        debug_assert!(pos & (mem::align_of::<T::Archived>() - 1) == 0);
+        debug_assert_eq!(pos & (mem::align_of::<T::Archived>() - 1), 0);
         let vec = self.inner.borrow_mut();
         let additional = mem::size_of::<T::Archived>();
         vec.reserve(additional);
@@ -76,7 +76,7 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerial
         metadata_resolver: T::MetadataResolver,
     ) -> Result<usize, Self::Error> {
         let from = self.pos();
-        debug_assert!(from & (mem::align_of::<RelPtr<T::Archived>>() - 1) == 0);
+        debug_assert_eq!(from & (mem::align_of::<RelPtr<T::Archived>>() - 1), 0);
         let vec = self.inner.borrow_mut();
         let additional = mem::size_of::<RelPtr<T::Archived>>();
         vec.reserve(additional);

@@ -38,7 +38,7 @@ pub trait Serializer: Fallible {
     #[inline]
     fn align(&mut self, align: usize) -> Result<usize, Self::Error> {
         let mask = align - 1;
-        debug_assert!(align & mask == 0);
+        debug_assert_eq!(align & mask, 0);
 
         self.pad((align - (self.pos() & mask)) & mask)?;
         Ok(self.pos())
@@ -64,7 +64,7 @@ pub trait Serializer: Fallible {
         resolver: T::Resolver,
     ) -> Result<usize, Self::Error> {
         let pos = self.pos();
-        debug_assert!(pos & (mem::align_of::<T::Archived>() - 1) == 0);
+        debug_assert_eq!(pos & (mem::align_of::<T::Archived>() - 1), 0);
 
         let mut resolved = mem::MaybeUninit::<T::Archived>::uninit();
         resolved.as_mut_ptr().write_bytes(0, 1);
@@ -100,7 +100,7 @@ pub trait Serializer: Fallible {
         metadata_resolver: T::MetadataResolver,
     ) -> Result<usize, Self::Error> {
         let from = self.pos();
-        debug_assert!(from & (mem::align_of::<RelPtr<T::Archived>>() - 1) == 0);
+        debug_assert_eq!(from & (mem::align_of::<RelPtr<T::Archived>>() - 1), 0);
 
         let mut resolved = mem::MaybeUninit::<RelPtr<T::Archived>>::uninit();
         resolved.as_mut_ptr().write_bytes(0, 1);

@@ -15,6 +15,7 @@ use crate::{
 };
 use core::{
     borrow::Borrow,
+    fmt,
     hash::Hash,
     iter::FusedIterator,
     marker::PhantomData,
@@ -275,6 +276,36 @@ impl<K, V> ArchivedHashMap<K, V> {
     }
 }
 
+impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for ArchivedHashMap<K, V> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_map().entries(self.iter()).finish()
+    }
+}
+
+impl<K: Hash + Eq, V: Eq> Eq for ArchivedHashMap<K, V> {}
+
+impl<K: Eq + Hash + Borrow<Q>, Q: Eq + Hash + ?Sized, V> Index<&'_ Q> for ArchivedHashMap<K, V> {
+    type Output = V;
+
+    #[inline]
+    fn index(&self, key: &Q) -> &V {
+        self.get(key).unwrap()
+    }
+}
+
+impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            false
+        } else {
+            self.iter()
+                .all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
+        }
+    }
+}
+
 struct RawIter<'a, K, V> {
     current: *const Entry<K, V>,
     remaining: usize,
@@ -495,27 +526,4 @@ impl<K, V> FusedIterator for ValuesPin<'_, K, V> {}
 pub struct HashMapResolver {
     index_resolver: HashIndexResolver,
     entries_pos: usize,
-}
-
-impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        if self.len() != other.len() {
-            false
-        } else {
-            self.iter()
-                .all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
-        }
-    }
-}
-
-impl<K: Hash + Eq, V: Eq> Eq for ArchivedHashMap<K, V> {}
-
-impl<K: Eq + Hash + Borrow<Q>, Q: Eq + Hash + ?Sized, V> Index<&'_ Q> for ArchivedHashMap<K, V> {
-    type Output = V;
-
-    #[inline]
-    fn index(&self, key: &Q) -> &V {
-        self.get(key).unwrap()
-    }
 }
