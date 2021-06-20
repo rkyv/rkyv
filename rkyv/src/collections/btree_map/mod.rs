@@ -171,7 +171,7 @@ impl<K, V> RawNode<K, V> {
     }
 }
 
-/// An archived [`BTreeMap`].
+/// An archived [`BTreeMap`](std::collections::BTreeMap).
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedBTreeMap<K, V> {
     len: Archived<usize>,
@@ -359,7 +359,7 @@ impl<K, V> ArchivedBTreeMap<K, V> {
                 key.serialize(serializer)?, value.serialize(serializer)?,
             ));
 
-            while let Some((key, value)) = iter.next() {
+            for (key, value) in &mut iter {
                 // Serialize the next entry
                 resolvers.push((
                     key, value,

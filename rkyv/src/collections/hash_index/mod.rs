@@ -79,6 +79,7 @@ impl ArchivedHashIndex {
     /// # Safety
     ///
     /// The keys returned by the iterator must be unique.
+    #[allow(clippy::type_complexity)]
     pub unsafe fn build_and_serialize<'a, K, V, S, I>(iter: I, serializer: &mut S) -> Result<(HashIndexResolver, Vec<(&'a K, &'a V)>), S::Error>
     where
         K: Hash,

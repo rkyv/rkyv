@@ -1,12 +1,12 @@
-//! [`Archive`](crate::Archive) implementations for `indexmap` types.
+//! Archived index map implementation.
+
+mod rkyv;
 
 use crate::{
     collections::hash_index::{ArchivedHashIndex, HashIndexResolver},
     ser::Serializer,
     Archive,
     Archived,
-    Deserialize,
-    Fallible,
     RelPtr,
     Serialize,
 };
@@ -94,7 +94,7 @@ impl<K, V> ArchivedIndexMap<K, V> {
     /// Returns the first key-value pair.
     #[inline]
     pub fn first(&self) -> Option<(&K, &V)> {
-        if self.len() > 0 {
+        if !self.is_empty() {
             let entry = unsafe { self.entry(0) };
             Some((&entry.key, &entry.value))
         } else {
@@ -143,7 +143,7 @@ impl<K, V> ArchivedIndexMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.find(key).map(|index| index)
+        self.find(key)
     }
 
     /// Gets the key-value pair associated with the given key.
@@ -192,18 +192,96 @@ impl<K, V> ArchivedIndexMap<K, V> {
         }
     }
 
+    /// Returns the last key-value pair.
+    #[inline]
+    pub fn last(&self) -> Option<(&K, &V)> {
+        if !self.is_empty() {
+            let entry = unsafe { self.entry(self.len() - 1) };
+            Some((&entry.key, &entry.value))
+        } else {
+            None
+        }
+    }
+
     /// Gets the number of items in the index map.
     #[inline]
     pub const fn len(&self) -> usize {
         self.index.len()
     }
 
-    /// Returns an iterator over the values of the map in order
+    /// Returns an iterator over the values of the map in order.
     #[inline]
     pub fn values(&self) -> Values<K, V> {
         Values {
             inner: self.raw_iter(),
         }
+    }
+
+    /// Resolves an archived index map from a given length and parameters.
+    ///
+    /// # Safety
+    ///
+    /// - `len` must be the number of elements that were serialized
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must be the result of serializing a hash map
+    pub unsafe fn resolve_from_len(
+        len: usize,
+        pos: usize,
+        resolver: IndexMapResolver,
+        out: &mut MaybeUninit<Self>,
+    ) {
+        let (fp, fo) = out_field!(out.index);
+        ArchivedHashIndex::resolve_from_len(len, pos + fp, resolver.index_resolver, fo);
+
+        let (fp, fo) = out_field!(out.pivots);
+        RelPtr::emplace(pos + fp, resolver.pivots_pos, fo);
+
+        let (fp, fo) = out_field!(out.entries);
+        RelPtr::emplace(pos + fp, resolver.entries_pos, fo);
+    }
+
+    /// Serializes an iterator of key-value pairs as an index map.
+    ///
+    /// # Safety
+    ///
+    /// - The keys returned by the iterator must be unique
+    /// - The index function must return the index of the given key within the iterator
+    pub unsafe fn serialize_from_iter_index<'a, UK, UV, I, F, S>(iter: I, index: F, serializer: &mut S) -> Result<IndexMapResolver, S::Error>
+    where
+        UK: 'a + Serialize<S, Archived = K> + Hash + Eq,
+        UV: 'a + Serialize<S, Archived = V>,
+        I: Clone + ExactSizeIterator<Item = (&'a UK, &'a UV)>,
+        F: Fn(&UK) -> usize,
+        S: Serializer + ?Sized,
+    {
+        let (index_resolver, entries) = ArchivedHashIndex::build_and_serialize(
+            iter.clone(),
+            serializer,
+        )?;
+
+        // Serialize entries
+        let mut resolvers = iter.clone()
+            .map(|(key, value)| Ok((key.serialize(serializer)?, value.serialize(serializer)?)))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let entries_pos = serializer.align_for::<Entry<K, V>>()?;
+        for ((key, value), (key_resolver, value_resolver)) in
+            iter.zip(resolvers.drain(..))
+        {
+            serializer.resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
+        }
+
+        // Serialize pivots
+        let pivots_pos = serializer.align_for::<Archived<usize>>()?;
+        for &(key, _) in entries.iter() {
+            serializer.resolve_aligned(&index(key), ())?;
+        }
+
+        Ok(IndexMapResolver {
+            index_resolver,
+            pivots_pos,
+            entries_pos,
+        })
     }
 }
 
@@ -339,118 +417,4 @@ pub struct IndexMapResolver {
     index_resolver: HashIndexResolver,
     pivots_pos: usize,
     entries_pos: usize,
-}
-
-impl<K: Archive, V: Archive> Archive for IndexMap<K, V> {
-    type Archived = ArchivedIndexMap<K::Archived, V::Archived>;
-    type Resolver = IndexMapResolver;
-
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
-        let (fp, fo) = out_field!(out.index);
-        ArchivedHashIndex::resolve_from_len(self.len(), pos + fp, resolver.index_resolver, fo);
-
-        let (fp, fo) = out_field!(out.pivots);
-        RelPtr::emplace(pos + fp, resolver.pivots_pos, fo);
-
-        let (fp, fo) = out_field!(out.entries);
-        RelPtr::emplace(pos + fp, resolver.entries_pos, fo);
-    }
-}
-
-impl<K: Hash + Eq + Serialize<S>, V: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for IndexMap<K, V> {
-    fn serialize(&self, serializer: &mut S) -> Result<IndexMapResolver, S::Error> {
-        unsafe {
-            let (index_resolver, entries) = ArchivedHashIndex::build_and_serialize(
-                self.iter(),
-                serializer,
-            )?;
-
-            // Serialize entries
-            let mut resolvers = self
-                .iter()
-                .map(|(key, value)| Ok((key.serialize(serializer)?, value.serialize(serializer)?)))
-                .collect::<Result<Vec<_>, _>>()?;
-
-            let entries_pos = serializer.align_for::<Entry<K::Archived, V::Archived>>()?;
-            for ((key, value), (key_resolver, value_resolver)) in
-                self.iter().zip(resolvers.drain(..))
-            {
-                serializer.resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
-            }
-
-            // Serialize pivots
-            let pivots_pos = serializer.align_for::<Archived<usize>>()?;
-            for &(key, _) in entries.iter() {
-                serializer.resolve_aligned(&self.get_index_of(key).unwrap(), ())?;
-            }
-
-            Ok(IndexMapResolver {
-                index_resolver,
-                pivots_pos,
-                entries_pos,
-            })
-        }
-    }
-}
-
-impl<K, V, D> Deserialize<IndexMap<K, V>, D> for ArchivedIndexMap<K::Archived, V::Archived>
-where
-    K: Archive + Hash + Eq,
-    K::Archived: Deserialize<K, D>,
-    V: Archive,
-    V::Archived: Deserialize<V, D>,
-    D: Fallible + ?Sized,
-{
-    fn deserialize(&self, deserializer: &mut D) -> Result<IndexMap<K, V>, D::Error> {
-        let mut result = IndexMap::with_capacity(self.len());
-        for (k, v) in self.iter() {
-            result.insert(k.deserialize(deserializer)?, v.deserialize(deserializer)?);
-        }
-        Ok(result)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        archived_root,
-        ser::{serializers::AlignedSerializer, Serializer},
-        util::AlignedVec,
-        Deserialize,
-        Infallible,
-    };
-    use indexmap::{indexmap, IndexMap};
-
-    #[test]
-    fn index_map() {
-        let value = indexmap! {
-            String::from("foo") => 10,
-            String::from("bar") => 20,
-            String::from("baz") => 40,
-            String::from("bat") => 80,
-        };
-
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
-        serializer.serialize_value(&value).unwrap();
-        let result = serializer.into_inner();
-        let archived = unsafe { archived_root::<IndexMap<String, i32>>(result.as_ref()) };
-
-        assert_eq!(value.len(), archived.len());
-        for (k, v) in value.iter() {
-            let (ak, av) = archived.get_key_value(k.as_str()).unwrap();
-            assert_eq!(k, ak);
-            assert_eq!(v, av);
-        }
-
-        let deserialized = Deserialize::<IndexMap<String, i32>, _>::deserialize(
-            archived,
-            &mut Infallible,
-        ).unwrap();
-        assert!(value == deserialized);
-    }
 }
