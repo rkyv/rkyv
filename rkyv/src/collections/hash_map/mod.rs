@@ -53,7 +53,6 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
 pub struct ArchivedHashMap<K, V> {
     index: ArchivedHashIndex,
     entries: RelPtr<Entry<K, V>>,
-    _phantom: PhantomData<(K, V)>,
 }
 
 impl<K, V> ArchivedHashMap<K, V> {
@@ -81,7 +80,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     }
 
     #[inline]
-    fn index<Q: ?Sized>(&self, k: &Q) -> Option<usize>
+    fn find<Q: ?Sized>(&self, k: &Q) -> Option<usize>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
@@ -104,7 +103,7 @@ impl<K, V> ArchivedHashMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.index(k).map(move |index| {
+        self.find(k).map(move |index| {
             let entry = unsafe { self.entry(index) };
             (&entry.key, &entry.value)
         })
@@ -119,7 +118,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     {
         unsafe {
             let hash_map = self.get_unchecked_mut();
-            hash_map.index(k).map(move |index| {
+            hash_map.find(k).map(move |index| {
                 let entry = hash_map.entry_mut(index);
                 (&entry.key, Pin::new_unchecked(&mut entry.value))
             })
@@ -133,7 +132,7 @@ impl<K, V> ArchivedHashMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.index(k).is_some()
+        self.find(k).is_some()
     }
 
     /// Gets the value associated with the given key.
@@ -143,8 +142,7 @@ impl<K, V> ArchivedHashMap<K, V> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.index(k)
-            .map(|index| unsafe { &self.entry(index).value })
+        self.find(k).map(|index| unsafe { &self.entry(index).value })
     }
 
     /// Gets the mutable value associated with the given key.
@@ -157,12 +155,12 @@ impl<K, V> ArchivedHashMap<K, V> {
         unsafe {
             let hash_map = self.get_unchecked_mut();
             hash_map
-                .index(k)
+                .find(k)
                 .map(move |index| Pin::new_unchecked(&mut hash_map.entry_mut(index).value))
         }
     }
 
-    /// Returns whether there are no items in the hashmap.
+    /// Returns `true` if the map contains no elements.
     #[inline]
     pub const fn is_empty(&self) -> bool {
         self.len() == 0

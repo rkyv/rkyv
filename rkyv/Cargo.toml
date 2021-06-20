@@ -34,7 +34,7 @@ uuid = { version = "0.8", optional = true }
 
 [features]
 default = ["size_32", "std"]
-alloc = ["hashbrown", "tinyvec/alloc"]
+alloc = ["hashbrown"]
 arbitrary_enum_discriminant = ["rkyv_derive/arbitrary_enum_discriminant"]
 archive_be = ["rend", "rkyv_derive/archive_be"]
 archive_le = ["rend", "rkyv_derive/archive_le"]
@@ -46,6 +46,8 @@ size_64 = []
 std = ["alloc", "bytecheck/std", "rend/std", "ptr_meta/std"]
 strict = ["rkyv_derive/strict"]
 validation = ["alloc", "bytecheck", "rend/validation"]
+
+tinyvec_alloc = ["tinyvec/alloc"]
 
 [package.metadata.docs.rs]
 features = ["validation"]
