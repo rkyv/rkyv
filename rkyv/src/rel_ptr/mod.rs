@@ -84,9 +84,10 @@ macro_rules! impl_offset {
                 // pointer::add and pointer::offset require that the computed offsets cannot
                 // overflow an isize, which is why we're using signed_offset instead of checked_sub
                 // for unsized types
-                Self::try_from(signed_offset(from, to)?).map_err(|_| OffsetError::ExceedsStorageRange)
+                Self::try_from(signed_offset(from, to)?)
+                    .map_err(|_| OffsetError::ExceedsStorageRange)
             }
-        
+
             #[inline]
             fn to_isize(self) -> isize {
                 // We're guaranteed that our offset will not exceed the the capacity of an `isize`

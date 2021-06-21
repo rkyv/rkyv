@@ -269,7 +269,8 @@ const _: () = {
             for ((key, value), (key_resolver, value_resolver)) in
                 entries.drain(..).zip(resolvers.drain(..))
             {
-                serializer.resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
+                serializer
+                    .resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
             }
 
             Ok(HashMapResolver {

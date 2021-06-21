@@ -344,9 +344,9 @@ impl<K, V> ArchivedBTreeMap<K, V> {
 #[cfg(feature = "alloc")]
 const _: () = {
     use crate::{ser::Serializer, Serialize};
-    use core::mem;
     #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
+    use core::mem;
 
     impl<K, V> ArchivedBTreeMap<K, V> {
         /// Serializes an ordered iterator of key-value pairs as a B-tree map.

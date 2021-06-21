@@ -2,7 +2,10 @@
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
 use crate::{Archive, Archived, RelPtr};
-use core::{hash::{Hash, Hasher}, mem::MaybeUninit};
+use core::{
+    hash::{Hash, Hasher},
+    mem::MaybeUninit,
+};
 
 #[cfg(feature = "validation")]
 pub mod validation;
@@ -98,13 +101,13 @@ impl ArchivedHashIndex {
 #[cfg(feature = "alloc")]
 const _: () = {
     use crate::ser::Serializer;
+    #[cfg(not(feature = "std"))]
+    use alloc::{vec, vec::Vec};
     use core::{
         cmp::Reverse,
         mem::{size_of, transmute},
         slice,
     };
-    #[cfg(not(feature = "std"))]
-    use alloc::{vec, vec::Vec};
 
     impl ArchivedHashIndex {
         /// Builds and serializes a hash index from an iterator of key-value pairs.
@@ -136,7 +139,8 @@ const _: () = {
                 bucket_size[displace as usize] += 1;
             }
 
-            displaces.sort_by_key(|&(displace, _)| (Reverse(bucket_size[displace as usize]), displace));
+            displaces
+                .sort_by_key(|&(displace, _)| (Reverse(bucket_size[displace as usize]), displace));
 
             let mut occupied = vec![false; len];
             let mut entries = vec![MaybeUninit::<(&'a K, &'a V)>::uninit(); len];
