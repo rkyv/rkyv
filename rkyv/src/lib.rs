@@ -605,6 +605,9 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: Archive
     fn deserialize_metadata(&self, deserializer: &mut D) -> Result<T::Metadata, D::Error>;
 }
 
+#[cfg(not(any(feature = "size_16", feature = "size_32", feature = "size_64")))]
+core::compile_error!("\"size_16\", \"size_32\", or \"size_64\" feature must be eanbled for rkyv.");
+
 /// The native type that `usize` is converted to for archiving.
 #[cfg(feature = "size_16")]
 pub type FixedUsize = u16;
@@ -625,9 +628,9 @@ pub type FixedIsize = i32;
 pub type FixedIsize = i64;
 
 /// The default raw relative pointer.
-pub type RawRelPtr = rel_ptr::RawRelPtr<FixedIsize>;
+pub type RawRelPtr = rel_ptr::RawRelPtr<Archived<isize>>;
 /// The default relative pointer.
-pub type RelPtr<T> = rel_ptr::RelPtr<T, FixedIsize>;
+pub type RelPtr<T> = rel_ptr::RelPtr<T, Archived<isize>>;
 
 /// Alias for the archived version of some [`Archive`] type.
 pub type Archived<T> = <T as Archive>::Archived;

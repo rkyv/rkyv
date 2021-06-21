@@ -94,11 +94,11 @@ macro_rules! to_archived {
         }
         #[cfg(feature = "archive_le")]
         {
-            $crate::core_impl::primitive::NativeEndian { value: $expr }.to_le()
+            $crate::impls::core::primitive::NativeEndian { value: $expr }.to_le()
         }
         #[cfg(feature = "archive_be")]
         {
-            $crate::core_impl::primitive::NativeEndian { value: $expr }.to_be()
+            $crate::impls::core::primitive::NativeEndian { value: $expr }.to_be()
         }
     }};
 }

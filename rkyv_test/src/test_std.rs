@@ -8,6 +8,9 @@ mod tests {
         Archive, Deserialize, Serialize,
     };
 
+    #[cfg(feature = "wasm")]
+    use wasm_bindgen_test::*;
+
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_hash_map() {
@@ -57,9 +60,9 @@ mod tests {
     fn archive_hash_map_hasher() {
         use std::collections::HashMap;
 
-        test_archive(&HashMap::<i32, i32, ahash::RandomState>::default());
+        test_archive(&HashMap::<i8, i32, ahash::RandomState>::default());
 
-        let mut hash_map: HashMap<_, _, ahash::RandomState> = HashMap::default();
+        let mut hash_map: HashMap<i8, _, ahash::RandomState> = HashMap::default();
         hash_map.insert(1, 2);
         hash_map.insert(3, 4);
         hash_map.insert(5, 6);

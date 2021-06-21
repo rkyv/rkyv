@@ -16,6 +16,8 @@ use core::{
     },
 };
 
+pub use rend::NativeEndian;
+
 macro_rules! impl_primitive {
     (@serialize $type:ty) => {
         impl<S: Fallible + ?Sized> Serialize<S> for $type {

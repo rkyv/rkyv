@@ -1,13 +1,8 @@
 //! A helper type that archives index data for hashed collections using
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
-use crate::{ser::Serializer, Archive, Archived, RelPtr};
-use core::{
-    cmp::Reverse,
-    hash::{Hash, Hasher},
-    mem::{size_of, transmute, MaybeUninit},
-    slice,
-};
+use crate::{Archive, Archived, RelPtr};
+use core::{hash::{Hash, Hasher}, mem::MaybeUninit};
 
 #[cfg(feature = "validation")]
 pub mod validation;
@@ -78,108 +73,6 @@ impl ArchivedHashIndex {
         self.len() == 0
     }
 
-    /// Builds and serializes a hash index from an iterator of key-value pairs.
-    ///
-    /// # Safety
-    ///
-    /// The keys returned by the iterator must be unique.
-    #[allow(clippy::type_complexity)]
-    pub unsafe fn build_and_serialize<'a, K, V, S, I>(
-        iter: I,
-        serializer: &mut S,
-    ) -> Result<(HashIndexResolver, Vec<(&'a K, &'a V)>), S::Error>
-    where
-        K: Hash,
-        S: Serializer + ?Sized,
-        I: ExactSizeIterator<Item = (&'a K, &'a V)>,
-    {
-        #[cfg(all(feature = "alloc", not(feature = "std")))]
-        use alloc::{vec, vec::Vec};
-
-        let len = iter.len();
-
-        let mut bucket_size = vec![0u32; len];
-        let mut displaces = Vec::with_capacity(len);
-
-        for (key, value) in iter {
-            let mut hasher = Self::make_hasher();
-            key.hash(&mut hasher);
-            let displace = (hasher.finish() % len as u64) as u32;
-            displaces.push((displace, (key, value)));
-            bucket_size[displace as usize] += 1;
-        }
-
-        displaces.sort_by_key(|&(displace, _)| (Reverse(bucket_size[displace as usize]), displace));
-
-        let mut occupied = vec![false; len];
-        let mut entries = vec![MaybeUninit::<(&'a K, &'a V)>::uninit(); len];
-        let mut displacements = vec![to_archived!(u32::MAX); len];
-
-        let mut first_empty = 0;
-        let mut assignments = Vec::with_capacity(8);
-
-        let mut start = 0;
-        while start < displaces.len() {
-            let displace = displaces[start].0;
-            let bucket_size = bucket_size[displace as usize] as usize;
-            let end = start + bucket_size;
-            let bucket = &displaces[start..end];
-            start = end;
-
-            if bucket_size > 1 {
-                'find_seed: for seed in 0x80_00_00_00u32..=0xFF_FF_FF_FFu32 {
-                    let mut base_hasher = Self::make_hasher();
-                    seed.hash(&mut base_hasher);
-
-                    assignments.clear();
-
-                    for &(_, (key, _)) in bucket.iter() {
-                        let mut hasher = base_hasher;
-                        key.hash(&mut hasher);
-                        let index = (hasher.finish() % len as u64) as u32;
-                        if occupied[index as usize] || assignments.contains(&index) {
-                            continue 'find_seed;
-                        } else {
-                            assignments.push(index);
-                        }
-                    }
-
-                    for i in 0..bucket_size {
-                        occupied[assignments[i] as usize] = true;
-                        entries[assignments[i] as usize]
-                            .as_mut_ptr()
-                            .write(bucket[i].1);
-                    }
-                    displacements[displace as usize] = to_archived!(seed);
-                    break;
-                }
-            } else {
-                let offset = occupied[first_empty..]
-                    .iter()
-                    .position(|value| !value)
-                    .unwrap();
-                first_empty += offset;
-                occupied[first_empty] = true;
-                entries[first_empty].as_mut_ptr().write(bucket[0].1);
-                displacements[displace as usize] = to_archived!(first_empty as u32);
-                first_empty += 1;
-            }
-        }
-
-        // Write displacements
-        let displace_pos = serializer.align_for::<Archived<u32>>()?;
-        let displacements_slice = slice::from_raw_parts(
-            displacements.as_ptr().cast::<u8>(),
-            displacements.len() * size_of::<Archived<u32>>(),
-        );
-        serializer.write(displacements_slice)?;
-
-        // Entries is completely initialized so it's safe to transmute from a
-        // Vec<MaybeUninit<(&K, &V)>> to a Vec<(&K, &V)>
-
-        Ok((HashIndexResolver { displace_pos }, transmute(entries)))
-    }
-
     /// Resolves an archived hash index from a given length and parameters.
     ///
     /// # Safety
@@ -201,6 +94,120 @@ impl ArchivedHashIndex {
         RelPtr::emplace(pos + fp, resolver.displace_pos, fo);
     }
 }
+
+#[cfg(feature = "alloc")]
+const _: () = {
+    use crate::ser::Serializer;
+    use core::{
+        cmp::Reverse,
+        mem::{size_of, transmute},
+        slice,
+    };
+    #[cfg(not(feature = "std"))]
+    use alloc::{vec, vec::Vec};
+
+    impl ArchivedHashIndex {
+        /// Builds and serializes a hash index from an iterator of key-value pairs.
+        ///
+        /// # Safety
+        ///
+        /// The keys returned by the iterator must be unique.
+        #[allow(clippy::type_complexity)]
+        pub unsafe fn build_and_serialize<'a, K, V, S, I>(
+            iter: I,
+            serializer: &mut S,
+        ) -> Result<(HashIndexResolver, Vec<(&'a K, &'a V)>), S::Error>
+        where
+            K: 'a + Hash,
+            V: 'a,
+            S: Serializer + ?Sized,
+            I: ExactSizeIterator<Item = (&'a K, &'a V)>,
+        {
+            let len = iter.len();
+
+            let mut bucket_size = vec![0u32; len];
+            let mut displaces = Vec::with_capacity(len);
+
+            for (key, value) in iter {
+                let mut hasher = Self::make_hasher();
+                key.hash(&mut hasher);
+                let displace = (hasher.finish() % len as u64) as u32;
+                displaces.push((displace, (key, value)));
+                bucket_size[displace as usize] += 1;
+            }
+
+            displaces.sort_by_key(|&(displace, _)| (Reverse(bucket_size[displace as usize]), displace));
+
+            let mut occupied = vec![false; len];
+            let mut entries = vec![MaybeUninit::<(&'a K, &'a V)>::uninit(); len];
+            let mut displacements = vec![to_archived!(u32::MAX); len];
+
+            let mut first_empty = 0;
+            let mut assignments = Vec::with_capacity(8);
+
+            let mut start = 0;
+            while start < displaces.len() {
+                let displace = displaces[start].0;
+                let bucket_size = bucket_size[displace as usize] as usize;
+                let end = start + bucket_size;
+                let bucket = &displaces[start..end];
+                start = end;
+
+                if bucket_size > 1 {
+                    'find_seed: for seed in 0x80_00_00_00u32..=0xFF_FF_FF_FFu32 {
+                        let mut base_hasher = Self::make_hasher();
+                        seed.hash(&mut base_hasher);
+
+                        assignments.clear();
+
+                        for &(_, (key, _)) in bucket.iter() {
+                            let mut hasher = base_hasher;
+                            key.hash(&mut hasher);
+                            let index = (hasher.finish() % len as u64) as u32;
+                            if occupied[index as usize] || assignments.contains(&index) {
+                                continue 'find_seed;
+                            } else {
+                                assignments.push(index);
+                            }
+                        }
+
+                        for i in 0..bucket_size {
+                            occupied[assignments[i] as usize] = true;
+                            entries[assignments[i] as usize]
+                                .as_mut_ptr()
+                                .write(bucket[i].1);
+                        }
+                        displacements[displace as usize] = to_archived!(seed);
+                        break;
+                    }
+                } else {
+                    let offset = occupied[first_empty..]
+                        .iter()
+                        .position(|value| !value)
+                        .unwrap();
+                    first_empty += offset;
+                    occupied[first_empty] = true;
+                    entries[first_empty].as_mut_ptr().write(bucket[0].1);
+                    displacements[displace as usize] = to_archived!(first_empty as u32);
+                    first_empty += 1;
+                }
+            }
+
+            // Write displacements
+            let displace_pos = serializer.align_for::<Archived<u32>>()?;
+            let displacements_slice = slice::from_raw_parts(
+                displacements.as_ptr().cast::<u8>(),
+                displacements.len() * size_of::<Archived<u32>>(),
+            );
+            serializer.write(displacements_slice)?;
+
+            // Entries is completely initialized so it's safe to transmute from a
+            // Vec<MaybeUninit<(&K, &V)>> to a Vec<(&K, &V)>
+
+            Ok((HashIndexResolver { displace_pos }, transmute(entries)))
+        }
+    }
+};
 
 /// The resolver for an archived hash index.
 pub struct HashIndexResolver {

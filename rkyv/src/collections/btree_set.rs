@@ -1,10 +1,6 @@
 //! [`Archive`](crate::Archive) implementation for B-tree sets.
 
-use crate::{
-    collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver, Keys},
-    ser::Serializer,
-    Serialize,
-};
+use crate::collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver, Keys};
 use core::{borrow::Borrow, mem::MaybeUninit};
 
 /// An archived `BTreeSet`. This is a wrapper around a B-tree map with the same key and a value of
@@ -74,27 +70,34 @@ impl<K> ArchivedBTreeSet<K> {
         let (fp, fo) = out_field!(out.0);
         ArchivedBTreeMap::resolve_from_len(len, pos + fp, resolver.0, fo);
     }
-
-    /// Serializes an ordered iterator of key-value pairs as a B-tree map.
-    ///
-    /// # Safety
-    ///
-    /// - Keys returned by the iterator must be unique
-    /// - Keys must be in reverse sorted order from last to first
-    pub unsafe fn serialize_from_reverse_iter<'a, UK, S, I>(
-        iter: I,
-        serializer: &mut S,
-    ) -> Result<BTreeSetResolver, S::Error>
-    where
-        UK: 'a + Serialize<S, Archived = K>,
-        S: Serializer + ?Sized,
-        I: ExactSizeIterator<Item = &'a UK>,
-    {
-        Ok(BTreeSetResolver(
-            ArchivedBTreeMap::serialize_from_reverse_iter(iter.map(|x| (x, &())), serializer)?,
-        ))
-    }
 }
+
+#[cfg(feature = "alloc")]
+const _: () = {
+    use crate::{ser::Serializer, Serialize};
+
+    impl<K> ArchivedBTreeSet<K> {
+        /// Serializes an ordered iterator of key-value pairs as a B-tree map.
+        ///
+        /// # Safety
+        ///
+        /// - Keys returned by the iterator must be unique
+        /// - Keys must be in reverse sorted order from last to first
+        pub unsafe fn serialize_from_reverse_iter<'a, UK, S, I>(
+            iter: I,
+            serializer: &mut S,
+        ) -> Result<BTreeSetResolver, S::Error>
+        where
+            UK: 'a + Serialize<S, Archived = K>,
+            S: Serializer + ?Sized,
+            I: ExactSizeIterator<Item = &'a UK>,
+        {
+            Ok(BTreeSetResolver(
+                ArchivedBTreeMap::serialize_from_reverse_iter(iter.map(|x| (x, &())), serializer)?,
+            ))
+        }
+    }
+};
 
 impl<'a, K> IntoIterator for &'a ArchivedBTreeSet<K> {
     type Item = &'a K;

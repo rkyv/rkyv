@@ -213,44 +213,6 @@ impl<K, V> ArchivedHashMap<K, V> {
         }
     }
 
-    /// Serializes an iterator of key-value pairs as a hash map.
-    ///
-    /// # Safety
-    ///
-    /// The keys returned by the iterator must be unique.
-    #[cfg(feature = "alloc")]
-    pub unsafe fn serialize_from_iter<'a, KU, VU, S, I>(
-        iter: I,
-        serializer: &mut S,
-    ) -> Result<HashMapResolver, S::Error>
-    where
-        KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
-        VU: 'a + Serialize<S, Archived = V>,
-        S: Serializer + ?Sized,
-        I: ExactSizeIterator<Item = (&'a KU, &'a VU)>,
-    {
-        let (index_resolver, mut entries) =
-            ArchivedHashIndex::build_and_serialize(iter, serializer)?;
-
-        // Serialize entries
-        let mut resolvers = entries
-            .iter()
-            .map(|(key, value)| Ok((key.serialize(serializer)?, value.serialize(serializer)?)))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let entries_pos = serializer.align_for::<Entry<K, V>>()?;
-        for ((key, value), (key_resolver, value_resolver)) in
-            entries.drain(..).zip(resolvers.drain(..))
-        {
-            serializer.resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
-        }
-
-        Ok(HashMapResolver {
-            index_resolver,
-            entries_pos,
-        })
-    }
-
     /// Resolves an archived hash map from a given length and parameters.
     ///
     /// # Safety
@@ -272,6 +234,51 @@ impl<K, V> ArchivedHashMap<K, V> {
         RelPtr::emplace(pos + fp, resolver.entries_pos, fo);
     }
 }
+
+#[cfg(feature = "alloc")]
+const _: () = {
+    #[cfg(not(feature = "std"))]
+    use alloc::vec::Vec;
+
+    impl<K, V> ArchivedHashMap<K, V> {
+        /// Serializes an iterator of key-value pairs as a hash map.
+        ///
+        /// # Safety
+        ///
+        /// The keys returned by the iterator must be unique.
+        pub unsafe fn serialize_from_iter<'a, KU, VU, S, I>(
+            iter: I,
+            serializer: &mut S,
+        ) -> Result<HashMapResolver, S::Error>
+        where
+            KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
+            VU: 'a + Serialize<S, Archived = V>,
+            S: Serializer + ?Sized,
+            I: ExactSizeIterator<Item = (&'a KU, &'a VU)>,
+        {
+            let (index_resolver, mut entries) =
+                ArchivedHashIndex::build_and_serialize(iter, serializer)?;
+
+            // Serialize entries
+            let mut resolvers = entries
+                .iter()
+                .map(|(key, value)| Ok((key.serialize(serializer)?, value.serialize(serializer)?)))
+                .collect::<Result<Vec<_>, _>>()?;
+
+            let entries_pos = serializer.align_for::<Entry<K, V>>()?;
+            for ((key, value), (key_resolver, value_resolver)) in
+                entries.drain(..).zip(resolvers.drain(..))
+            {
+                serializer.resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
+            }
+
+            Ok(HashMapResolver {
+                index_resolver,
+                entries_pos,
+            })
+        }
+    }
+};
 
 impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for ArchivedHashMap<K, V> {
     #[inline]

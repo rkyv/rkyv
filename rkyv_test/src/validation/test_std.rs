@@ -3,6 +3,9 @@ mod tests {
     use crate::validation::util::serialize_and_check;
     use std::collections::{HashMap, HashSet};
 
+    #[cfg(feature = "wasm")]
+    use wasm_bindgen_test::*;
+
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn hashmap() {

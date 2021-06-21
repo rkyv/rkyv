@@ -78,16 +78,15 @@ pub trait Offset: Copy {
 
 macro_rules! impl_offset {
     ($ty:ty) => {
-        impl Offset for Archived<$ty> {
+        impl Offset for $ty {
             #[inline]
             fn between(from: usize, to: usize) -> Result<Self, OffsetError> {
                 // pointer::add and pointer::offset require that the computed offsets cannot
                 // overflow an isize, which is why we're using signed_offset instead of checked_sub
                 // for unsized types
-                <$ty>::try_from(signed_offset(from, to)?)
-                    .map_err(|_| OffsetError::ExceedsStorageRange)
+                Self::try_from(signed_offset(from, to)?).map_err(|_| OffsetError::ExceedsStorageRange)
             }
-
+        
             #[inline]
             fn to_isize(self) -> isize {
                 // We're guaranteed that our offset will not exceed the the capacity of an `isize`
@@ -95,20 +94,39 @@ macro_rules! impl_offset {
             }
         }
     };
+    (@endian $ty:ty) => {
+        impl Offset for Archived<$ty> {
+            #[inline]
+            fn between(from: usize, to: usize) -> Result<Self, OffsetError> {
+                // pointer::add and pointer::offset require that the computed offsets cannot
+                // overflow an isize, which is why we're using signed_offset instead of checked_sub
+                // for unsized types
+                <$ty>::try_from(signed_offset(from, to)?)
+                    .map(|x| to_archived!(x))
+                    .map_err(|_| OffsetError::ExceedsStorageRange)
+            }
+
+            #[inline]
+            fn to_isize(self) -> isize {
+                // We're guaranteed that our offset will not exceed the the capacity of an `isize`
+                from_archived!(self) as isize
+            }
+        }
+    };
 }
 
 impl_offset!(i8);
-impl_offset!(i16);
+impl_offset!(@endian i16);
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-impl_offset!(i32);
+impl_offset!(@endian i32);
 #[cfg(target_pointer_width = "64")]
-impl_offset!(i64);
+impl_offset!(@endian i64);
 impl_offset!(u8);
-impl_offset!(u16);
+impl_offset!(@endian u16);
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-impl_offset!(u32);
+impl_offset!(@endian u32);
 #[cfg(target_pointer_width = "64")]
-impl_offset!(u64);
+impl_offset!(@endian u64);
 
 /// Errors that can occur while creating raw relative pointers.
 #[derive(Debug)]
@@ -142,7 +160,7 @@ impl<O: Offset> RawRelPtr<O> {
         out: &mut MaybeUninit<Self>,
     ) -> Result<(), OffsetError> {
         let offset = O::between(from, to)?;
-        ptr::addr_of_mut!((*out.as_mut_ptr()).offset).write(to_archived!(offset));
+        ptr::addr_of_mut!((*out.as_mut_ptr()).offset).write(offset);
         Ok(())
     }
 

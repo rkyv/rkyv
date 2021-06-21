@@ -3,7 +3,7 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{ser::Serializer, Archive, ArchivePointee, Archived, RelPtr, Serialize};
+use crate::{Archive, ArchivePointee, Archived, RelPtr};
 use core::{
     borrow::Borrow,
     cmp::Ordering,
@@ -11,7 +11,7 @@ use core::{
     hash::{Hash, Hasher},
     iter::FusedIterator,
     marker::PhantomData,
-    mem::{self, MaybeUninit},
+    mem::MaybeUninit,
     ops::Index,
 };
 use ptr_meta::Pointee;
@@ -59,21 +59,22 @@ struct Node<K, V, T: ?Sized> {
 impl<K, V, T> Node<K, V, T> {
     #[inline]
     fn is_inner(&self) -> bool {
-        split_meta(self.meta).0
+        split_meta(from_archived!(self.meta)).0
     }
 
     #[inline]
     fn is_leaf(&self) -> bool {
-        !split_meta(self.meta).0
+        !split_meta(from_archived!(self.meta)).0
     }
 
     #[inline]
     fn len(&self) -> usize {
-        split_meta(self.meta).1
+        split_meta(from_archived!(self.meta)).1
     }
 }
 
 #[inline]
+#[cfg(feature = "alloc")]
 fn combine_meta(is_inner: bool, len: usize) -> u16 {
     if is_inner {
         0x80_00 | len as u16
@@ -338,46 +339,46 @@ impl<K, V> ArchivedBTreeMap<K, V> {
         let (fp, fo) = out_field!(out.root);
         RelPtr::emplace(pos + fp, resolver.root_pos, fo);
     }
+}
 
-    /// Serializes an ordered iterator of key-value pairs as a B-tree map.
-    ///
-    /// # Safety
-    ///
-    /// - Keys returned by the iterator must be unique
-    /// - Keys must be in reverse sorted order from last to first
-    pub unsafe fn serialize_from_reverse_iter<'a, UK, UV, S, I>(
-        mut iter: I,
-        serializer: &mut S,
-    ) -> Result<BTreeMapResolver, S::Error>
-    where
-        UK: 'a + Serialize<S, Archived = K>,
-        UV: 'a + Serialize<S, Archived = V>,
-        S: Serializer + ?Sized,
-        I: ExactSizeIterator<Item = (&'a UK, &'a UV)>,
-    {
-        // The memory span of a single node should not exceed 4kb to keep everything within the
-        // distance of a single IO page
-        const MAX_NODE_SIZE: usize = 4096;
+#[cfg(feature = "alloc")]
+const _: () = {
+    use crate::{ser::Serializer, Serialize};
+    use core::mem;
+    #[cfg(not(feature = "std"))]
+    use alloc::vec::Vec;
 
-        // The nodes that must go in the next level in reverse order (key, node_pos)
-        let mut next_level = Vec::new();
-        let mut resolvers = Vec::new();
+    impl<K, V> ArchivedBTreeMap<K, V> {
+        /// Serializes an ordered iterator of key-value pairs as a B-tree map.
+        ///
+        /// # Safety
+        ///
+        /// - Keys returned by the iterator must be unique
+        /// - Keys must be in reverse sorted order from last to first
+        pub unsafe fn serialize_from_reverse_iter<'a, UK, UV, S, I>(
+            mut iter: I,
+            serializer: &mut S,
+        ) -> Result<BTreeMapResolver, S::Error>
+        where
+            UK: 'a + Serialize<S, Archived = K>,
+            UV: 'a + Serialize<S, Archived = V>,
+            S: Serializer + ?Sized,
+            I: ExactSizeIterator<Item = (&'a UK, &'a UV)>,
+        {
+            // The memory span of a single node should not exceed 4kb to keep everything within the
+            // distance of a single IO page
+            const MAX_NODE_SIZE: usize = 4096;
 
-        while let Some((key, value)) = iter.next() {
-            // Start a new block
-            let block_start_pos = serializer.pos();
-            resolvers.clear();
+            // The nodes that must go in the next level in reverse order (key, node_pos)
+            let mut next_level = Vec::new();
+            let mut resolvers = Vec::new();
 
-            // Serialize the first entry
-            resolvers.push((
-                key,
-                value,
-                key.serialize(serializer)?,
-                value.serialize(serializer)?,
-            ));
+            while let Some((key, value)) = iter.next() {
+                // Start a new block
+                let block_start_pos = serializer.pos();
+                resolvers.clear();
 
-            for (key, value) in &mut iter {
-                // Serialize the next entry
+                // Serialize the first entry
                 resolvers.push((
                     key,
                     value,
@@ -385,81 +386,25 @@ impl<K, V> ArchivedBTreeMap<K, V> {
                     value.serialize(serializer)?,
                 ));
 
-                // This is an estimate of the block size
-                // It's not exact because there may be padding to align the node and entries slice
-                let estimated_block_size = serializer.pos() - block_start_pos
-                    + mem::size_of::<RawNode<K, V>>()
-                    + resolvers.len() * mem::size_of::<LeafNodeEntry<K, V>>();
-
-                // If we've reached or exceeded the maximum node size and have put enough entries in
-                // this node, then break
-                if estimated_block_size >= MAX_NODE_SIZE
-                    && resolvers.len() >= MIN_ENTRIES_PER_LEAF_NODE
-                {
-                    break;
-                }
-            }
-
-            // Finish the current node
-            serializer.align(usize::max(
-                mem::align_of::<RawNode<K, V>>(),
-                mem::align_of::<LeafNodeEntry<K, V>>(),
-            ))?;
-            let raw_node = RawNodeData::<K, V> {
-                meta: combine_meta(false, resolvers.len()),
-                // The last element of next_level is the next block we're linked to
-                pos: next_level.last().map(|&(_, pos)| pos),
-                _phantom: PhantomData,
-            };
-
-            // Add the first key and node position to the next level
-            next_level.push((
-                resolvers.last().unwrap().0,
-                serializer.resolve_aligned(&raw_node, ())?,
-            ));
-
-            serializer.align_for::<LeafNodeEntry<K, V>>()?;
-            for (key, value, key_resolver, value_resolver) in resolvers.drain(..).rev() {
-                serializer.resolve_aligned(
-                    &LeafNodeEntry { key, value },
-                    (key_resolver, value_resolver),
-                )?;
-            }
-        }
-
-        // Subsequent levels are populated by serializing node keys from the previous level
-        // When there's only one node left, that's our root
-        let mut current_level = Vec::new();
-        let mut resolvers = Vec::new();
-        while next_level.len() > 1 {
-            // Our previous next level becomes our current level, and current_level is guaranteed to
-            // be empty at this point
-            mem::swap(&mut current_level, &mut next_level);
-
-            while let Some((_, pos)) = current_level.pop() {
-                // Start a new inner block
-                let block_start_pos = serializer.pos();
-                resolvers.clear();
-
-                // We don't serialize the first key we popped at the start of the loop because we
-                // can determine whether we need to branch to if if the value we're looking for is
-                // less than the second key.
-                // We still have to keep the pos of the first key because that's used to make the
-                // ptr field for the current node
-
-                while let Some((key, pos)) = current_level.pop() {
+                for (key, value) in &mut iter {
                     // Serialize the next entry
-                    resolvers.push((key, pos, key.serialize(serializer)?));
+                    resolvers.push((
+                        key,
+                        value,
+                        key.serialize(serializer)?,
+                        value.serialize(serializer)?,
+                    ));
 
-                    // Estimate the block size
+                    // This is an estimate of the block size
+                    // It's not exact because there may be padding to align the node and entries slice
                     let estimated_block_size = serializer.pos() - block_start_pos
                         + mem::size_of::<RawNode<K, V>>()
-                        + resolvers.len() * mem::size_of::<InnerNodeEntry<K, V>>();
+                        + resolvers.len() * mem::size_of::<LeafNodeEntry<K, V>>();
 
-                    // If we've reached or exceeded the maximum node size and have put enough keys
-                    // in this node, then break
+                    // If we've reached or exceeded the maximum node size and have put enough entries in
+                    // this node, then break
                     if estimated_block_size >= MAX_NODE_SIZE
-                        && resolvers.len() >= MIN_ENTRIES_PER_INNER_NODE
+                        && resolvers.len() >= MIN_ENTRIES_PER_LEAF_NODE
                     {
                         break;
                     }
@@ -468,38 +413,104 @@ impl<K, V> ArchivedBTreeMap<K, V> {
                 // Finish the current node
                 serializer.align(usize::max(
                     mem::align_of::<RawNode<K, V>>(),
-                    mem::align_of::<InnerNodeEntry<K, V>>(),
+                    mem::align_of::<LeafNodeEntry<K, V>>(),
                 ))?;
                 let raw_node = RawNodeData::<K, V> {
-                    meta: combine_meta(true, resolvers.len()),
-                    // The pos of the first key is used to make the pointer for inner nodes
-                    pos: Some(pos),
+                    meta: combine_meta(false, resolvers.len()),
+                    // The last element of next_level is the next block we're linked to
+                    pos: next_level.last().map(|&(_, pos)| pos),
                     _phantom: PhantomData,
                 };
 
-                // Add the second key and node position to the next level
+                // Add the first key and node position to the next level
                 next_level.push((
                     resolvers.last().unwrap().0,
                     serializer.resolve_aligned(&raw_node, ())?,
                 ));
 
-                serializer.align_for::<InnerNodeEntry<K, V>>()?;
-                for (key, pos, resolver) in resolvers.drain(..).rev() {
-                    let inner_node_data = InnerNodeEntryData::<UK, UV> {
-                        key,
-                        _phantom: PhantomData,
-                    };
-                    serializer.resolve_aligned(&inner_node_data, (pos, resolver))?;
+                serializer.align_for::<LeafNodeEntry<K, V>>()?;
+                for (key, value, key_resolver, value_resolver) in resolvers.drain(..).rev() {
+                    serializer.resolve_aligned(
+                        &LeafNodeEntry { key, value },
+                        (key_resolver, value_resolver),
+                    )?;
                 }
             }
-        }
 
-        // The root is only node in the final level
-        Ok(BTreeMapResolver {
-            root_pos: next_level[0].1,
-        })
+            // Subsequent levels are populated by serializing node keys from the previous level
+            // When there's only one node left, that's our root
+            let mut current_level = Vec::new();
+            let mut resolvers = Vec::new();
+            while next_level.len() > 1 {
+                // Our previous next level becomes our current level, and current_level is guaranteed to
+                // be empty at this point
+                mem::swap(&mut current_level, &mut next_level);
+
+                while let Some((_, pos)) = current_level.pop() {
+                    // Start a new inner block
+                    let block_start_pos = serializer.pos();
+                    resolvers.clear();
+
+                    // We don't serialize the first key we popped at the start of the loop because we
+                    // can determine whether we need to branch to if if the value we're looking for is
+                    // less than the second key.
+                    // We still have to keep the pos of the first key because that's used to make the
+                    // ptr field for the current node
+
+                    while let Some((key, pos)) = current_level.pop() {
+                        // Serialize the next entry
+                        resolvers.push((key, pos, key.serialize(serializer)?));
+
+                        // Estimate the block size
+                        let estimated_block_size = serializer.pos() - block_start_pos
+                            + mem::size_of::<RawNode<K, V>>()
+                            + resolvers.len() * mem::size_of::<InnerNodeEntry<K, V>>();
+
+                        // If we've reached or exceeded the maximum node size and have put enough keys
+                        // in this node, then break
+                        if estimated_block_size >= MAX_NODE_SIZE
+                            && resolvers.len() >= MIN_ENTRIES_PER_INNER_NODE
+                        {
+                            break;
+                        }
+                    }
+
+                    // Finish the current node
+                    serializer.align(usize::max(
+                        mem::align_of::<RawNode<K, V>>(),
+                        mem::align_of::<InnerNodeEntry<K, V>>(),
+                    ))?;
+                    let raw_node = RawNodeData::<K, V> {
+                        meta: combine_meta(true, resolvers.len()),
+                        // The pos of the first key is used to make the pointer for inner nodes
+                        pos: Some(pos),
+                        _phantom: PhantomData,
+                    };
+
+                    // Add the second key and node position to the next level
+                    next_level.push((
+                        resolvers.last().unwrap().0,
+                        serializer.resolve_aligned(&raw_node, ())?,
+                    ));
+
+                    serializer.align_for::<InnerNodeEntry<K, V>>()?;
+                    for (key, pos, resolver) in resolvers.drain(..).rev() {
+                        let inner_node_data = InnerNodeEntryData::<UK, UV> {
+                            key,
+                            _phantom: PhantomData,
+                        };
+                        serializer.resolve_aligned(&inner_node_data, (pos, resolver))?;
+                    }
+                }
+            }
+
+            // The root is only node in the final level
+            Ok(BTreeMapResolver {
+                root_pos: next_level[0].1,
+            })
+        }
     }
-}
+};
 
 impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for ArchivedBTreeMap<K, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
