@@ -1,3 +1,5 @@
+//! Specializations for `Copy`-able types.
+
 #[cfg(has_atomics)]
 use core::sync::atomic::{
     AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicU16, AtomicU32, AtomicU8,

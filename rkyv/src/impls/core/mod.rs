@@ -351,17 +351,23 @@ impl<T: Deserialize<U, D>, U, D: Fallible + ?Sized> DeserializeUnsized<[U], D> f
 }
 
 #[cfg(feature = "copy")]
-impl<T: Deserialize<U, D>, U: ArchiveCopyOptimize, D: Deserializer + ?Sized>
+impl<T, U, D>
     DeserializeUnsized<[U], D> for [T]
+where
+    T: Deserialize<U, D>,
+    U: ArchiveCopyOptimize,
+    D: Fallible + ?Sized,
 {
     #[inline]
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D) -> Result<*mut (), D::Error> {
+    unsafe fn deserialize_unsized(
+        &self,
+        _: &mut D,
+        mut alloc: impl FnMut(Layout) -> *mut u8,
+    ) -> Result<*mut (), D::Error> {
         if self.is_empty() || core::mem::size_of::<T>() == 0 {
             Ok(ptr::NonNull::dangling().as_ptr())
         } else {
-            let result = deserializer
-                .alloc(alloc::Layout::array::<T>(self.len()).unwrap())?
-                .cast::<T>();
+            let result = alloc(Layout::array::<T>(self.len()).unwrap()).cast::<T>();
             ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
             Ok(result.cast())
         }
