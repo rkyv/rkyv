@@ -167,11 +167,11 @@ pub struct StringResolver {
 const _: () = {
     use crate::validation::{
         owned::{CheckOwnedPointerError, OwnedPointerError},
-        ArchiveBoundsContext, ArchiveMemoryContext,
+        ArchiveContext,
     };
     use bytecheck::{CheckBytes, Error};
 
-    impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedString
+    impl<C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedString
     where
         C::Error: Error,
     {
@@ -183,11 +183,16 @@ const _: () = {
         ) -> Result<&'a Self, Self::Error> {
             let rel_ptr = RelPtr::<str>::manual_check_bytes(value.cast(), context)
                 .map_err(OwnedPointerError::PointerCheckBytesError)?;
-            let ptr = context
-                .claim_owned_rel_ptr(rel_ptr)
+            let ptr = context.check_subtree_rel_ptr(rel_ptr)
                 .map_err(OwnedPointerError::ContextError)?;
-            <str as CheckBytes<C>>::check_bytes(ptr, context)
+
+            let range = context.push_prefix_subtree(ptr)
+                .map_err(OwnedPointerError::ContextError)?;
+            str::check_bytes(ptr, context)
                 .map_err(OwnedPointerError::ValueCheckBytesError)?;
+            context.pop_prefix_range(range)
+                .map_err(OwnedPointerError::ContextError)?;
+
             Ok(&*value)
         }
     }

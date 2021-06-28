@@ -6,7 +6,7 @@ use crate::{
         hash_map::{ArchivedHashMap, Entry},
         ArchivedHashIndex,
     },
-    validation::{ArchiveBoundsContext, ArchiveMemoryContext},
+    validation::ArchiveContext,
     RelPtr,
 };
 use bytecheck::{CheckBytes, Error, SliceCheckError};
@@ -54,7 +54,7 @@ impl<K, V, C> CheckBytes<C> for Entry<K, V>
 where
     K: CheckBytes<C>,
     V: CheckBytes<C>,
-    C: ArchiveMemoryContext + ?Sized,
+    C: ArchiveContext + ?Sized,
 {
     type Error = ArchivedHashMapEntryError<K::Error, V::Error>;
 
@@ -162,7 +162,7 @@ impl<K, V, C> CheckBytes<C> for ArchivedHashMap<K, V>
 where
     K: CheckBytes<C> + Eq + Hash,
     V: CheckBytes<C>,
-    C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
+    C: ArchiveContext + ?Sized,
     C::Error: Error,
 {
     type Error = HashMapError<K::Error, V::Error, C::Error>;
@@ -172,17 +172,18 @@ where
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
         let index = ArchivedHashIndex::check_bytes(ptr::addr_of!((*value).index), context)?;
+        Layout::array::<Entry<K, V>>(index.len())?;
 
         let entries_rel_ptr = RelPtr::manual_check_bytes(ptr::addr_of!((*value).entries), context)?;
-        let entries_data_ptr = context
-            .check_rel_ptr(entries_rel_ptr.base(), entries_rel_ptr.offset())
+        let entries_ptr = context
+            .check_subtree_ptr::<[Entry<K, V>]>(entries_rel_ptr.base(), entries_rel_ptr.offset(), index.len())
             .map_err(HashMapError::ContextError)?;
-        Layout::array::<Entry<K, V>>(index.len())?;
-        let entries_ptr = ptr_meta::from_raw_parts(entries_data_ptr.cast(), index.len());
-        context
-            .claim_owned_ptr(entries_ptr)
+
+        let range = context.push_prefix_subtree(entries_ptr)
             .map_err(HashMapError::ContextError)?;
         let entries = <[Entry<K, V>]>::check_bytes(entries_ptr, context)?;
+        context.pop_prefix_range(range)
+            .map_err(HashMapError::ContextError)?;
 
         for (i, entry) in entries.iter().enumerate() {
             if index.index(&entry.key) != Some(i) {

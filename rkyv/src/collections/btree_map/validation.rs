@@ -4,60 +4,46 @@ use super::{
     split_meta, ArchivedBTreeMap, ClassifiedNode, InnerNode, InnerNodeEntry, LeafNode,
     LeafNodeEntry, Node, RawNode, MIN_ENTRIES_PER_INNER_NODE, MIN_ENTRIES_PER_LEAF_NODE,
 };
-use crate::{
-    rel_ptr::RelPtr,
-    validation::{ArchiveBoundsContext, ArchiveMemoryContext, LayoutMetadata},
-    Archived, Fallible,
-};
-use bytecheck::{CheckBytes, Error, SliceCheckError};
+use crate::{Archived, Fallible, rel_ptr::RelPtr, validation::{ArchiveContext, LayoutRaw}};
+use bytecheck::{CheckBytes, Error, ErrorBox, StructCheckError};
+use ptr_meta::PtrExt;
 use core::{alloc::Layout, convert::Infallible, fmt, ptr};
-
-/// An error that can occur while checking an inner node entry.
-#[derive(Debug)]
-pub struct InnerNodeEntryError<K> {
-    /// An error occurred while checking the key of an inner node entry.
-    pub key_error: K,
-}
-
-impl<K> From<Infallible> for InnerNodeEntryError<K> {
-    fn from(_: Infallible) -> Self {
-        unsafe { core::hint::unreachable_unchecked() }
-    }
-}
-
-impl<K: fmt::Display> fmt::Display for InnerNodeEntryError<K> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "key check error: {}", self.key_error)
-    }
-}
-
-#[cfg(feature = "std")]
-const _: () = {
-    use std::error::Error;
-
-    impl<K: Error + 'static> Error for InnerNodeEntryError<K> {
-        fn source(&self) -> Option<&(dyn Error + 'static)> {
-            Some(self.key_error.as_error())
-        }
-    }
-};
 
 impl<K, V, C> CheckBytes<C> for InnerNodeEntry<K, V>
 where
     K: CheckBytes<C>,
     V: CheckBytes<C>,
-    C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
+    C: ArchiveContext + ?Sized,
     C::Error: Error,
 {
-    type Error = InnerNodeEntryError<K::Error>;
+    type Error = StructCheckError;
 
     unsafe fn check_bytes<'a>(
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context)?;
+        let child_rel_ptr =
+            RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context)
+                .map_err(ErrorBox::new)
+            .and_then(|child_rel_ptr|
+                context.bounds_check_ptr(child_rel_ptr)
+                    .map_err(ErrorBox::new)
+            )
+            .and_then(|child_ptr|
+                CheckBytes::check_bytes(child_ptr, context)
+                    .map_err(ErrorBox::new)
+            )
+            .map_err(|e| StructCheckError {
+                field_name: "ptr",
+                inner: e,
+            })?;
+
         K::check_bytes(ptr::addr_of!((*value).key), context)
-            .map_err(|key_error| InnerNodeEntryError { key_error })?;
+            .map_err(|e| StructCheckError {
+                field_name: "key",
+                inner: ErrorBox::new(e),
+            })?;
+
         Ok(&*value)
     }
 }
@@ -118,14 +104,14 @@ where
 /// Errors that can occur while checking an archived B-tree.
 #[derive(Debug)]
 pub enum ArchivedBTreeMapError<K, V, C> {
+    /// An error occurred while checking the bytes of a key
+    KeyCheckError(K),
+    /// An error occurred while checking the bytes of a value
+    ValueCheckError(V),
     /// The number of entries in the inner node is less than the minimum number of entries required
     TooFewInnerNodeEntries(usize),
-    /// An error occurred while checking the bytes of an inner node
-    InnerNodeEntryError(SliceCheckError<InnerNodeEntryError<K>>),
     /// The number of entries in the leaf node is less than the minimum number of entries
     TooFewLeafNodeEntries(usize),
-    /// An error occurred while checking the bytes of a leaf node
-    LeafNodeEntryError(SliceCheckError<LeafNodeEntryError<K, V>>),
     /// The child of an inner node had a first key that did not match the inner node's key
     MismatchedInnerChildKey,
     /// The leaf level of the B-tree contained an inner node
@@ -170,18 +156,18 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::KeyCheckError(e) => write!(f, "key check error: {}", e),
+            Self::ValueCheckError(e) => write!(f, "value check error: {}", e),
             Self::TooFewInnerNodeEntries(n) => write!(
                 f,
                 "too few inner node entries (expected at least {}): {}",
                 MIN_ENTRIES_PER_INNER_NODE, n
             ),
-            Self::InnerNodeEntryError(e) => write!(f, "key check error: {}", e),
             Self::TooFewLeafNodeEntries(n) => write!(
                 f,
                 "too few leaf node entries (expected at least {}): {}",
                 MIN_ENTRIES_PER_LEAF_NODE, n,
             ),
-            Self::LeafNodeEntryError(e) => write!(f, "value check error: {}", e),
             Self::MismatchedInnerChildKey => write!(f, "mismatched inner child key"),
             Self::InnerNodeInLeafLevel => write!(f, "inner node in leaf level"),
             Self::InvalidLeafNodeDepth { expected, actual } => write!(
@@ -217,10 +203,10 @@ const _: () = {
     {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
+                Self::KeyCheckError(e) => Some(e as &dyn Error),
+                Self::ValueCheckError(e) => Some(e as &dyn Error),
                 Self::TooFewInnerNodeEntries(_) => None,
-                Self::InnerNodeEntryError(e) => Some(e as &dyn Error),
                 Self::TooFewLeafNodeEntries(_) => None,
-                Self::LeafNodeEntryError(e) => Some(e as &dyn Error),
                 Self::MismatchedInnerChildKey => None,
                 Self::InnerNodeInLeafLevel => None,
                 Self::InvalidLeafNodeDepth { .. } => None,
@@ -235,10 +221,38 @@ const _: () = {
     }
 };
 
-impl<K, V, T> LayoutMetadata<Node<K, V, [T]>> for usize {
-    fn layout(self) -> Layout {
+impl<K, V, C> CheckBytes<C> for RawNode<K, V>
+where
+    K: CheckBytes<C>,
+    V: CheckBytes<C>,
+    C: ArchiveContext + ?Sized,
+    C::Error: Error,
+{
+    type Error = StructCheckError;
+
+    unsafe fn check_bytes<'a>(
+        value: *const Self,
+        context: &mut C,
+    ) -> Result<&'a Self, Self::Error> {
+        CheckBytes::check_bytes(ptr::addr_of!((*value).meta), context)
+            .map_err(|e| StructCheckError {
+                field_name: "meta",
+                inner: ErrorBox::new(e),
+            })?;
+        RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context)
+            .map_err(|e| StructCheckError {
+                field_name: "ptr",
+                inner: ErrorBox::new(e),
+            })?;
+        Ok(&*value)
+    }
+}
+
+impl<K, V, T> LayoutRaw for Node<K, V, [T]> {
+    fn layout_raw(value: *const Self) -> Layout {
+        let (_, len) = value.to_raw_parts();
         let result = Layout::new::<RawNode<K, V>>()
-            .extend(Layout::array::<T>(self).unwrap())
+            .extend(Layout::array::<T>(len).unwrap())
             .unwrap()
             .0;
         #[cfg(not(feature = "strict"))]
@@ -252,55 +266,55 @@ impl<K, V, T> LayoutMetadata<Node<K, V, [T]>> for usize {
     }
 }
 
-impl<K, V> RawNode<K, V> {
-    #[allow(clippy::type_complexity)]
-    unsafe fn check_and_classify<'a, C>(
-        value: *const Self,
-        context: &mut C,
-    ) -> Result<ClassifiedNode<'a, K, V>, ArchivedBTreeMapError<K::Error, V::Error, C::Error>>
-    where
-        K: CheckBytes<C>,
-        V: CheckBytes<C>,
-        C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
-        C::Error: Error,
-    {
-        let meta = from_archived!(*Archived::<u16>::check_bytes(
-            ptr::addr_of!((*value).meta),
-            context,
-        )?);
+impl<K, V, C> CheckBytes<C> for InnerNode<K, V>
+where
+    K: CheckBytes<C>,
+    V: CheckBytes<C>,
+    C: ArchiveContext + ?Sized,
+    C::Error: Error,
+{
+    type Error = ArchivedBTreeMapError<K::Error, V::Error, C::Error>;
+
+    unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+        // meta and ptr have already been checked by the check_bytes for RawNode
+        let meta = from_archived!(*ptr::addr_of!((*value).meta));
+        let (is_inner, len) = split_meta(meta);
+        debug_assert!(is_inner);
+
+        if len < MIN_ENTRIES_PER_INNER_NODE {
+            return Err(ArchivedBTreeMapError::TooFewInnerNodeEntries(len));
+        }
+
+        CheckBytes::check_bytes(ptr::addr_of!((*value).tail), context)?;
+
+        Ok(&*value)
+    }
+}
+
+impl<K, V, C> CheckBytes<C> for LeafNode<K, V>
+where
+    K: CheckBytes<C>,
+    V: CheckBytes<C>,
+    C: ArchiveContext + ?Sized,
+    C::Error: Error,
+{
+    type Error = ArchivedBTreeMapError<K::Error, V::Error, C::Error>;
+
+    unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+        // We already checked meta and verified that this is a leaf node
+        let meta = from_archived!(*ptr::addr_of!((*value).meta));
+        let (is_inner, len) = split_meta(meta);
+        debug_assert!(!is_inner);
+
         RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context)?;
 
-        let (is_inner, len) = split_meta(meta);
-        if is_inner {
-            if len < MIN_ENTRIES_PER_INNER_NODE {
-                return Err(ArchivedBTreeMapError::TooFewInnerNodeEntries(len));
-            }
-
-            let node =
-                ptr_meta::from_raw_parts::<InnerNode<K, V>>(value as *const (), len as usize);
-            context
-                .claim_owned_ptr(node)
-                .map_err(ArchivedBTreeMapError::ContextError)?;
-
-            CheckBytes::check_bytes(ptr::addr_of!((*node).tail), context)
-                .map_err(ArchivedBTreeMapError::InnerNodeEntryError)?;
-
-            Ok(ClassifiedNode::Inner(&*node))
-        } else {
-            if len < MIN_ENTRIES_PER_LEAF_NODE {
-                return Err(ArchivedBTreeMapError::TooFewLeafNodeEntries(len));
-            }
-
-            let node = ptr_meta::from_raw_parts::<LeafNode<K, V>>(value as *const (), len as usize);
-            context
-                .claim_owned_ptr(node)
-                .map_err(ArchivedBTreeMapError::ContextError)?;
-
-            CheckBytes::check_bytes(ptr::addr_of!((*node).tail), context)
-                .map_err(ArchivedBTreeMapError::LeafNodeEntryError)?;
-
-            Ok(ClassifiedNode::Leaf(&*node))
+        if len < MIN_ENTRIES_PER_LEAF_NODE {
+            return Err(ArchivedBTreeMapError::TooFewLeafNodeEntries(len));
         }
+
+        CheckBytes::check_bytes(ptr::addr_of!((*value).tail), context)?;
+
+        Ok(&*value)
     }
 }
 
@@ -308,7 +322,7 @@ impl<K, V, C> CheckBytes<C> for ArchivedBTreeMap<K, V>
 where
     K: CheckBytes<C> + Ord,
     V: CheckBytes<C>,
-    C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
+    C: ArchiveContext + ?Sized,
     C::Error: Error,
 {
     type Error = ArchivedBTreeMapError<K::Error, V::Error, C::Error>;

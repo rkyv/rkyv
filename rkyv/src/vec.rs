@@ -179,23 +179,16 @@ pub struct VecResolver<T> {
 
 #[cfg(feature = "validation")]
 const _: () = {
-    use crate::{
-        validation::{
-            owned::{CheckOwnedPointerError, OwnedPointerError},
-            ArchiveBoundsContext, ArchiveMemoryContext, LayoutMetadata,
-        },
-        ArchivePointee,
+    use crate::validation::{
+        owned::{CheckOwnedPointerError, OwnedPointerError},
+        ArchiveContext,
     };
     use bytecheck::{CheckBytes, Error};
-    use ptr_meta::Pointee;
 
     impl<T, C> CheckBytes<C> for ArchivedVec<T>
     where
         T: CheckBytes<C>,
-        [T]: ArchivePointee,
-        <[T] as ArchivePointee>::ArchivedMetadata: CheckBytes<C>,
-        <[T] as Pointee>::Metadata: LayoutMetadata<[T]>,
-        C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
+        C: ArchiveContext + ?Sized,
         C::Error: Error,
     {
         type Error = CheckOwnedPointerError<[T], C>;
@@ -206,10 +199,16 @@ const _: () = {
         ) -> Result<&'a Self, Self::Error> {
             let rel_ptr = RelPtr::<[T]>::manual_check_bytes(value.cast(), context)
                 .map_err(OwnedPointerError::PointerCheckBytesError)?;
-            let ptr = context
-                .claim_owned_rel_ptr(rel_ptr)
+            let ptr = context.check_subtree_rel_ptr(rel_ptr)
                 .map_err(OwnedPointerError::ContextError)?;
-            <[T]>::check_bytes(ptr, context).map_err(OwnedPointerError::ValueCheckBytesError)?;
+
+            let range = context.push_prefix_subtree(ptr)
+                .map_err(OwnedPointerError::ContextError)?;
+            <[T]>::check_bytes(ptr, context)
+                .map_err(OwnedPointerError::ValueCheckBytesError)?;
+            context.pop_prefix_range(range)
+                .map_err(OwnedPointerError::ContextError)?;
+
             Ok(&*value)
         }
     }

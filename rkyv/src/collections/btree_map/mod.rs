@@ -1,7 +1,8 @@
 //! [`Archive`](crate::Archive) implementation for B-tree maps.
 
-#[cfg(feature = "validation")]
-pub mod validation;
+// TODO: FIXME
+// #[cfg(feature = "validation")]
+// pub mod validation;
 
 use crate::{Archive, ArchivePointee, Archived, RelPtr};
 use core::{

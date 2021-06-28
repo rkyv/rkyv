@@ -7,7 +7,7 @@ use core::sync::atomic::{AtomicU64, Ordering};
 use core::{alloc::Layout, any::TypeId, convert::Infallible, fmt, marker::PhantomData, ptr};
 use rkyv::{
     from_archived,
-    validation::{ArchiveBoundsContext, ArchiveMemoryContext, SharedArchiveContext},
+    validation::{ArchiveContext, SharedArchiveContext},
     Archived, Fallible,
 };
 use rkyv_typename::TypeName;
@@ -65,7 +65,7 @@ pub trait DynContext {
 
 impl<C> DynContext for C
 where
-    C: ArchiveBoundsContext + ArchiveMemoryContext + SharedArchiveContext + ?Sized,
+    C: ArchiveContext + SharedArchiveContext + ?Sized,
     C::Error: Error,
 {
     unsafe fn check_rel_ptr_dyn(
@@ -110,7 +110,7 @@ impl Fallible for (dyn DynContext + '_) {
     type Error = Box<dyn Error>;
 }
 
-impl ArchiveBoundsContext for (dyn DynContext + '_) {
+impl ArchiveContext for (dyn DynContext + '_) {
     unsafe fn check_rel_ptr(
         &mut self,
         base: *const u8,

@@ -2,7 +2,7 @@
 
 use super::{ArchivedRc, ArchivedRcWeak, ArchivedRcWeakTag, ArchivedRcWeakVariantSome};
 use crate::{
-    validation::{ArchiveBoundsContext, LayoutMetadata, SharedArchiveContext},
+    validation::{LayoutRaw, SharedArchiveContext},
     ArchivePointee, RelPtr,
 };
 use bytecheck::{CheckBytes, Error};
@@ -102,11 +102,10 @@ impl<T, R, C> From<Infallible> for WeakPointerError<T, R, C> {
 
 impl<T, C> CheckBytes<C> for ArchivedRc<T>
 where
-    T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static,
-    C: ArchiveBoundsContext + SharedArchiveContext + ?Sized,
+    T: ArchivePointee + CheckBytes<C> + LayoutRaw + Pointee + ?Sized + 'static,
+    C: SharedArchiveContext + ?Sized,
     T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,
-    <T as Pointee>::Metadata: LayoutMetadata<T>,
 {
     type Error =
         SharedPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
@@ -117,11 +116,20 @@ where
     ) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::<T>::manual_check_bytes(value.cast(), context)
             .map_err(SharedPointerError::PointerCheckBytesError)?;
-        if let Some(ptr) = context
-            .claim_shared_ptr(rel_ptr, TypeId::of::<ArchivedRc<T>>())
-            .map_err(SharedPointerError::ContextError)?
-        {
-            T::check_bytes(ptr, context).map_err(SharedPointerError::ValueCheckBytesError)?;
+        let ptr = context.check_rel_ptr(rel_ptr)
+            .map_err(SharedPointerError::ContextError)?;
+
+        let type_id = TypeId::of::<Self>();
+        if let Some(ptr) = context.check_shared_ptr(ptr, type_id).map_err(SharedPointerError::ContextError)? {
+            context.check_subtree_ptr_bounds(ptr)
+                .map_err(SharedPointerError::ContextError)?;
+
+            let range = context.push_prefix_subtree(ptr)
+                .map_err(SharedPointerError::ContextError)?;
+            T::check_bytes(ptr, context)
+                .map_err(SharedPointerError::ValueCheckBytesError)?;
+            context.pop_prefix_range(range)
+                .map_err(SharedPointerError::ContextError)?;
         }
         Ok(&*value)
     }
@@ -134,11 +142,10 @@ impl ArchivedRcWeakTag {
 
 impl<T, C> CheckBytes<C> for ArchivedRcWeak<T>
 where
-    T: ArchivePointee + CheckBytes<C> + Pointee + ?Sized + 'static,
-    C: ArchiveBoundsContext + SharedArchiveContext + ?Sized,
+    T: ArchivePointee + CheckBytes<C> + LayoutRaw + Pointee + ?Sized + 'static,
+    C: SharedArchiveContext + ?Sized,
     T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,
-    <T as Pointee>::Metadata: LayoutMetadata<T>,
 {
     type Error =
         WeakPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;

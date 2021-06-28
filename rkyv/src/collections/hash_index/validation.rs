@@ -2,7 +2,7 @@
 
 use crate::{
     collections::ArchivedHashIndex,
-    validation::{ArchiveBoundsContext, ArchiveMemoryContext},
+    validation::ArchiveContext,
     Archived, RelPtr,
 };
 use bytecheck::{CheckBytes, Error, SliceCheckError};
@@ -78,7 +78,7 @@ const _: () = {
     }
 };
 
-impl<C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized> CheckBytes<C> for ArchivedHashIndex
+impl<C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedHashIndex
 where
     C::Error: Error,
 {
@@ -92,18 +92,19 @@ where
             ptr::addr_of!((*value).len),
             context,
         )?) as usize;
+        Layout::array::<Archived<u32>>(len)?;
 
         let displace_rel_ptr =
             RelPtr::manual_check_bytes(ptr::addr_of!((*value).displace), context)?;
-        let displace_data_ptr = context
-            .check_rel_ptr(displace_rel_ptr.base(), displace_rel_ptr.offset())
+        let displace_ptr = context
+            .check_subtree_ptr::<[Archived<u32>]>(displace_rel_ptr.base(), displace_rel_ptr.offset(), len)
             .map_err(HashIndexError::ContextError)?;
-        Layout::array::<Archived<u32>>(len)?;
-        let displace_ptr = ptr_meta::from_raw_parts(displace_data_ptr.cast(), len);
-        context
-            .claim_owned_ptr(displace_ptr)
+
+        let range = context.push_prefix_subtree(displace_ptr)
             .map_err(HashIndexError::ContextError)?;
         let displace = <[Archived<u32>]>::check_bytes(displace_ptr, context)?;
+        context.pop_prefix_range(range)
+            .map_err(HashIndexError::ContextError)?;
 
         for (i, &d) in displace.iter().enumerate() {
             let d = from_archived!(d);

@@ -1,17 +1,20 @@
 //! Validators add validation capabilities by wrapping and extending basic validators.
 
-use crate::{validation::ArchiveBoundsContext, Fallible};
 use crate::{
     validation::{
-        check_archived_root_with_context, check_archived_value_with_context, ArchiveMemoryContext,
-        CheckTypeError, SharedArchiveContext,
+        check_archived_root_with_context, check_archived_value_with_context,
+        ArchiveContext, ArchivePrefixRange, ArchiveSuffixRange, CheckTypeError, LayoutRaw,
+        SharedArchiveContext,
     },
     Archive,
+    Fallible,
 };
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::vec::Vec;
 use bytecheck::CheckBytes;
-use core::{alloc::Layout, any::TypeId, fmt};
+use core::{any::TypeId, fmt, ops::Range};
+use ptr_meta::Pointee;
+
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use hashbrown::HashMap;
 #[cfg(feature = "std")]
@@ -19,7 +22,14 @@ use std::collections::HashMap;
 
 /// Errors that can occur when checking a relative pointer
 #[derive(Debug)]
-pub enum ArchiveBoundsError {
+pub enum ArchiveError {
+    /// Computing the target of a relative pointer overflowed
+    Overflow {
+        /// The base pointer
+        base: *const u8,
+        /// The offset
+        offset: isize,
+    },
     /// The archive is under-aligned for one of the types inside
     Underaligned {
         /// The expected alignment of the archive
@@ -29,35 +39,73 @@ pub enum ArchiveBoundsError {
     },
     /// A pointer pointed outside the bounds of the archive
     OutOfBounds {
-        /// The position of the relative pointer
-        base: usize,
+        /// The base of the relative pointer
+        base: *const u8,
         /// The offset of the relative pointer
         offset: isize,
-        /// The length of the archive
-        archive_len: usize,
+        /// The pointer range of the archive
+        range: Range<*const u8>,
     },
     /// There wasn't enough space for the desired type at the pointed location
     Overrun {
-        /// The position of the type
-        pos: usize,
+        /// The pointer to the type
+        ptr: *const u8,
         /// The desired size of the type
         size: usize,
-        /// The length of the archive
-        archive_len: usize,
+        /// The pointer range of the archive
+        range: Range<*const u8>,
     },
     /// The pointer wasn't aligned properly for the desired type
     Unaligned {
-        /// The position of the type
-        pos: usize,
+        /// The pointer to the type
+        ptr: *const u8,
         /// The required alignment of the type
         align: usize,
     },
+    /// The pointer wasn't within the subtree range
+    SubtreePointerOutOfBounds {
+        /// The pointer to the subtree
+        ptr: *const u8,
+        /// The subtree range
+        subtree_range: Range<*const u8>,
+    },
+    /// There wasn't enough space in the subtree range for the desired type at the pointed location
+    SubtreePointerOverrun {
+        /// The pointer to the subtree type,
+        ptr: *const u8,
+        /// The desired size of the type
+        size: usize,
+        /// The subtree range
+        subtree_range: Range<*const u8>,
+    },
+    /// A subtree range was popped out of order.
+    ///
+    /// Subtree ranges must be popped in the reverse of the order they are pushed.
+    RangePoppedOutOfOrder {
+        /// The expected depth of the range
+        expected_depth: usize,
+        /// The actual depth of the range
+        actual_depth: usize,
+    },
+    /// A subtree range was not popped before validation concluded
+    UnpoppedSubtreeRanges {
+        /// The depth of the last subtree that was pushed
+        last_range: usize,
+    }
 }
 
-impl fmt::Display for ArchiveBoundsError {
+impl fmt::Display for ArchiveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArchiveBoundsError::Underaligned {
+            ArchiveError::Overflow {
+                base,
+                offset,
+            } => write!(
+                f,
+                "relative pointer overflowed: base {:p} offset {}",
+                base, offset
+            ),
+            ArchiveError::Underaligned {
                 expected_align,
                 actual_align,
             } => write!(
@@ -65,284 +113,232 @@ impl fmt::Display for ArchiveBoundsError {
                 "archive underaligned: need alignment {} but have alignment {}",
                 expected_align, actual_align
             ),
-            ArchiveBoundsError::OutOfBounds {
+            ArchiveError::OutOfBounds {
                 base,
                 offset,
-                archive_len,
+                range,
             } => write!(
                 f,
-                "out of bounds pointer: base {} offset {} in archive len {}",
-                base, offset, archive_len
+                "pointer out of bounds: base {:p} offset {} not in range {:p}..{:p}",
+                base, offset, range.start, range.end
             ),
-            ArchiveBoundsError::Overrun {
-                pos,
+            ArchiveError::Overrun {
+                ptr,
                 size,
-                archive_len,
+                range,
             } => write!(
                 f,
-                "archive overrun: pos {} size {} in archive len {}",
-                pos, size, archive_len
+                "pointer overran buffer: ptr {:p} size {} in range {:p}..{:p}",
+                ptr, size, range.start, range.end
             ),
-            ArchiveBoundsError::Unaligned { pos, align } => write!(
+            ArchiveError::Unaligned { ptr, align } => write!(
                 f,
-                "unaligned pointer: pos {} unaligned for alignment {}",
-                pos, align
+                "unaligned pointer: ptr {:p} unaligned for alignment {}",
+                ptr, align
+            ),
+            ArchiveError::SubtreePointerOutOfBounds { ptr, subtree_range } => write!(
+                f,
+                "subtree pointer out of bounds: ptr {:p} not in range {:p}..{:p}",
+                ptr, subtree_range.start, subtree_range.end
+            ),
+            ArchiveError::SubtreePointerOverrun { ptr, size, subtree_range } => write!(
+                f,
+                "subtree pointer overran range: ptr {:p} size {} in range {:p}..{:p}",
+                ptr, size, subtree_range.start, subtree_range.end
+            ),
+            ArchiveError::RangePoppedOutOfOrder { expected_depth, actual_depth } => write!(
+                f,
+                "subtree range popped out of order: expected depth {}, actual depth {}",
+                expected_depth, actual_depth
+            ),
+            ArchiveError::UnpoppedSubtreeRanges { last_range } => write!(
+                f,
+                "unpopped subtree ranges: last range {}",
+                last_range
             ),
         }
     }
 }
 
 #[cfg(feature = "std")]
-impl std::error::Error for ArchiveBoundsError {}
+impl std::error::Error for ArchiveError {}
 
-/// A validator that can bounds check pointers in an archive.
-pub struct ArchiveBoundsValidator<'a> {
+/// A validator that can validate archives with nonlocal memory.
+pub struct ArchiveValidator<'a> {
     bytes: &'a [u8],
+    subtree_range: Range<*const u8>,
+    subtree_depth: usize,
 }
 
-impl<'a> ArchiveBoundsValidator<'a> {
+impl<'a> ArchiveValidator<'a> {
     /// Creates a new bounds validator for the given bytes.
     #[inline]
     pub fn new(bytes: &'a [u8]) -> Self {
-        Self { bytes }
+        Self {
+            bytes,
+            subtree_range: bytes.as_ptr_range(),
+            subtree_depth: 0,
+        }
     }
 
-    /// Gets a reference to the bytes being validated.
+    /// Returns the log base 2 of the alignment of the archive.
+    ///
+    /// An archive that is 2-aligned will return 1, 4-aligned will return 2, 8-aligned will return 3
+    /// and so on.
     #[inline]
-    pub fn bytes(&self) -> &'a [u8] {
-        self.bytes
+    pub fn log_alignment(&self) -> usize {
+        (self.bytes.as_ptr() as usize).trailing_zeros() as usize
     }
 
-    /// Gets a pointer to the beginning of the validator's byte range.
+    /// Returns the alignment of the archive.
     #[inline]
-    pub fn begin(&self) -> *const u8 {
-        self.bytes.as_ptr()
-    }
-
-    /// Gets the length of the validator's byte range.
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.bytes.len()
-    }
-
-    /// Returns whether the byte range is empty.
-    pub fn is_empty(&self) -> bool {
-        self.bytes.len() == 0
+    pub fn alignment(&self) -> usize {
+        1 << self.log_alignment()
     }
 }
 
-impl<'a> From<&'a [u8]> for ArchiveBoundsValidator<'a> {
+impl<'a> From<&'a [u8]> for ArchiveValidator<'a> {
     fn from(bytes: &'a [u8]) -> Self {
         Self::new(bytes)
     }
 }
 
-impl<'a> Fallible for ArchiveBoundsValidator<'a> {
-    type Error = ArchiveBoundsError;
+impl<'a> Fallible for ArchiveValidator<'a> {
+    type Error = ArchiveError;
 }
 
-impl<'a> ArchiveBoundsContext for ArchiveBoundsValidator<'a> {
-    unsafe fn check_rel_ptr(
+impl<'a> ArchiveContext for ArchiveValidator<'a> {
+    unsafe fn check_ptr<T: LayoutRaw + Pointee + ?Sized>(
         &mut self,
         base: *const u8,
         offset: isize,
-    ) -> Result<*const u8, Self::Error> {
-        let base_pos = base.offset_from(self.begin());
-        if offset < -base_pos || offset > self.len() as isize - base_pos {
-            Err(ArchiveBoundsError::OutOfBounds {
-                base: base_pos as usize,
+        metadata: T::Metadata,
+    ) -> Result<*const T, Self::Error> {
+        let base_pos = base.offset_from(self.bytes.as_ptr());
+        let target_pos = base_pos.checked_add(offset)
+            .ok_or(ArchiveError::Overflow {
+                base,
                 offset,
-                archive_len: self.len(),
+            })?;
+        if target_pos < 0 || target_pos as usize > self.bytes.len() {
+            Err(ArchiveError::OutOfBounds {
+                base,
+                offset,
+                range: self.bytes.as_ptr_range(),
             })
         } else {
-            Ok(base.offset(offset))
+            let data_address = base.offset(offset);
+            let ptr = ptr_meta::from_raw_parts(data_address as *const (), metadata);
+            let layout = T::layout_raw(ptr);
+            if self.alignment() < layout.align() {
+                Err(ArchiveError::Underaligned {
+                    expected_align: layout.align(),
+                    actual_align: self.alignment(),
+                })
+            } else {
+                if (data_address as usize) & (layout.align() - 1) != 0 {
+                    Err(ArchiveError::Unaligned {
+                        ptr: data_address,
+                        align: layout.align(),
+                    })
+                } else if self.bytes.len() - (target_pos as usize) < layout.size() {
+                    Err(ArchiveError::Overrun {
+                        ptr: data_address,
+                        size: layout.size(),
+                        range: self.bytes.as_ptr_range(),
+                    })
+                } else {
+                    Ok(ptr)
+                }
+            }
         }
     }
 
-    unsafe fn bounds_check_ptr(
-        &mut self,
-        ptr: *const u8,
-        layout: &Layout,
-    ) -> Result<(), Self::Error> {
-        if (self.begin() as usize) & (layout.align() - 1) != 0 {
-            Err(ArchiveBoundsError::Underaligned {
-                expected_align: layout.align(),
-                actual_align: 1 << (self.begin() as usize).trailing_zeros(),
+    unsafe fn check_subtree_ptr_bounds<T: LayoutRaw + ?Sized>(&mut self, ptr: *const T) -> Result<(), Self::Error> {
+        let subtree_ptr = ptr as *const u8;
+        if !self.subtree_range.contains(&subtree_ptr) {
+            Err(ArchiveError::SubtreePointerOutOfBounds {
+                ptr: subtree_ptr,
+                subtree_range: self.subtree_range.clone(),
             })
         } else {
-            let target_pos = ptr.offset_from(self.begin()) as usize;
-            if target_pos & (layout.align() - 1) != 0 {
-                Err(ArchiveBoundsError::Unaligned {
-                    pos: target_pos,
-                    align: layout.align(),
-                })
-            } else if self.len() - target_pos < layout.size() {
-                Err(ArchiveBoundsError::Overrun {
-                    pos: target_pos,
+            let available_space = self.subtree_range.end.offset_from(subtree_ptr) as usize;
+            let layout = T::layout_raw(ptr);
+            if available_space < layout.size() {
+                Err(ArchiveError::SubtreePointerOverrun {
+                    ptr: subtree_ptr,
                     size: layout.size(),
-                    archive_len: self.len(),
+                    subtree_range: self.subtree_range.clone(),
                 })
             } else {
                 Ok(())
             }
         }
     }
-}
-
-/// A range of bytes in an archive.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Interval {
-    /// The start of the byte range
-    pub start: *const u8,
-    /// The end of the byte range
-    pub end: *const u8,
-}
-
-impl Interval {
-    /// Returns whether the interval overlaps with another.
-    #[inline]
-    pub fn overlaps(&self, other: &Self) -> bool {
-        self.start < other.end && other.start < self.end
-    }
-}
-
-/// Errors that can occur related to archive memory.
-#[derive(Debug)]
-pub enum ArchiveMemoryError<E> {
-    /// An error from the wrapped validator
-    Inner(E),
-    /// Multiple objects claim to own the same memory region
-    ClaimOverlap {
-        /// A previous interval of bytes claimed by some object
-        previous: Interval,
-        /// The current interval of bytes being claimed by some object
-        current: Interval,
-    },
-}
-
-impl<E: fmt::Display> fmt::Display for ArchiveMemoryError<E> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ArchiveMemoryError::Inner(e) => e.fmt(f),
-            ArchiveMemoryError::ClaimOverlap { previous, current } => write!(
-                f,
-                "memory claim overlap: current [{:#?}..{:#?}] overlaps previous [{:#?}..{:#?}]",
-                current.start, current.end, previous.start, previous.end
-            ),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-const _: () = {
-    use std::error::Error;
-
-    impl<E: Error + 'static> Error for ArchiveMemoryError<E> {
-        fn source(&self) -> Option<&(dyn Error + 'static)> {
-            match self {
-                ArchiveMemoryError::Inner(e) => Some(e as &dyn Error),
-                ArchiveMemoryError::ClaimOverlap { .. } => None,
-            }
-        }
-    }
-};
-
-/// An adapter that adds memory validation to a context.
-pub struct ArchiveValidator<C> {
-    inner: C,
-    intervals: Vec<Interval>,
-}
-
-impl<C> ArchiveValidator<C> {
-    /// Wraps the given validator context and adds memory validation.
-    #[inline]
-    pub fn new(inner: C) -> Self {
-        Self {
-            inner,
-            intervals: Vec::new(),
-        }
-    }
-
-    /// Consumes the adapter and returns the underlying validator.
-    #[inline]
-    pub fn into_inner(self) -> C {
-        self.inner
-    }
-}
-
-impl<'a, C: From<&'a [u8]>> From<&'a [u8]> for ArchiveValidator<C> {
-    fn from(bytes: &'a [u8]) -> Self {
-        Self::new(C::from(bytes))
-    }
-}
-
-impl<C: Fallible> Fallible for ArchiveValidator<C> {
-    type Error = ArchiveMemoryError<C::Error>;
-}
-
-impl<C: ArchiveBoundsContext> ArchiveBoundsContext for ArchiveValidator<C> {
-    #[inline]
-    unsafe fn check_rel_ptr(
-        &mut self,
-        base: *const u8,
-        offset: isize,
-    ) -> Result<*const u8, Self::Error> {
-        self.inner
-            .check_rel_ptr(base, offset)
-            .map_err(ArchiveMemoryError::Inner)
-    }
 
     #[inline]
-    unsafe fn bounds_check_ptr(
-        &mut self,
-        ptr: *const u8,
-        layout: &Layout,
-    ) -> Result<(), Self::Error> {
-        self.inner
-            .bounds_check_ptr(ptr, layout)
-            .map_err(ArchiveMemoryError::Inner)
-    }
-}
-
-impl<C: ArchiveBoundsContext> ArchiveMemoryContext for ArchiveValidator<C> {
-    unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<(), Self::Error> {
-        let interval = Interval {
-            start,
-            end: start.add(len),
+    unsafe fn push_prefix_subtree_range(&mut self, root: *const u8, end: *const u8) -> Result<ArchivePrefixRange, Self::Error> {
+        let result = ArchivePrefixRange {
+            range: Range {
+                start: end,
+                end: self.subtree_range.end,
+            },
+            depth: self.subtree_depth,
         };
-        match self.intervals.binary_search(&interval) {
-            Ok(index) => Err(ArchiveMemoryError::ClaimOverlap {
-                previous: self.intervals[index],
-                current: interval,
-            }),
-            Err(index) => {
-                if index < self.intervals.len() {
-                    if self.intervals[index].overlaps(&interval) {
-                        return Err(ArchiveMemoryError::ClaimOverlap {
-                            previous: self.intervals[index],
-                            current: interval,
-                        });
-                    } else if self.intervals[index].start == interval.end {
-                        self.intervals[index].start = interval.start;
-                        return Ok(());
-                    }
-                }
+        self.subtree_depth += 1;
+        self.subtree_range.end = root;
+        Ok(result)
+    }
 
-                if index > 0 {
-                    if self.intervals[index - 1].overlaps(&interval) {
-                        return Err(ArchiveMemoryError::ClaimOverlap {
-                            previous: self.intervals[index - 1],
-                            current: interval,
-                        });
-                    } else if self.intervals[index - 1].end == interval.start {
-                        self.intervals[index - 1].end = interval.end;
-                        return Ok(());
-                    }
-                }
+    #[inline]
+    fn pop_prefix_range(&mut self, range: ArchivePrefixRange) -> Result<(), Self::Error> {
+        if self.subtree_depth - 1 != range.depth {
+            Err(ArchiveError::RangePoppedOutOfOrder {
+                expected_depth: self.subtree_depth - 1,
+                actual_depth: range.depth,
+            })
+        } else {
+            self.subtree_range = range.range;
+            self.subtree_depth = range.depth;
+            Ok(())
+        }
+    }
 
-                self.intervals.insert(index, interval);
-                Ok(())
-            }
+    #[inline]
+    unsafe fn push_suffix_subtree_range(&mut self, start: *const u8, root: *const u8) -> Result<ArchiveSuffixRange, Self::Error> {
+        let result = ArchiveSuffixRange {
+            start: self.subtree_range.start,
+            depth: self.subtree_depth,
+        };
+        self.subtree_depth += 1;
+        self.subtree_range.start = start;
+        self.subtree_range.end = root;
+        Ok(result)
+    }
+
+    #[inline]
+    fn pop_suffix_range(&mut self, range: ArchiveSuffixRange) -> Result<(), Self::Error> {
+        if self.subtree_depth - 1 != range.depth {
+            Err(ArchiveError::RangePoppedOutOfOrder {
+                expected_depth: self.subtree_depth - 1,
+                actual_depth: range.depth,
+            })
+        } else {
+            self.subtree_range.end = self.subtree_range.start;
+            self.subtree_range.start = range.start;
+            self.subtree_depth = range.depth;
+            Ok(())
+        }
+    }
+
+    #[inline]
+    fn finish(&mut self) -> Result<(), Self::Error> {
+        if self.subtree_depth != 0 {
+            Err(ArchiveError::UnpoppedSubtreeRanges {
+                last_range: self.subtree_depth - 1,
+            })
+        } else {
+            Ok(())
         }
     }
 }
@@ -362,6 +358,7 @@ pub enum SharedArchiveError<E> {
 }
 
 impl<E: fmt::Display> fmt::Display for SharedArchiveError<E> {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SharedArchiveError::Inner(e) => e.fmt(f),
@@ -391,7 +388,7 @@ const _: () = {
 /// An adapter that adds shared memory validation.
 pub struct SharedArchiveValidator<C> {
     inner: C,
-    shared_blocks: HashMap<*const u8, TypeId>,
+    shared: HashMap<*const (), TypeId>,
 }
 
 impl<C> SharedArchiveValidator<C> {
@@ -400,7 +397,7 @@ impl<C> SharedArchiveValidator<C> {
     pub fn new(inner: C) -> Self {
         Self {
             inner,
-            shared_blocks: HashMap::new(),
+            shared: HashMap::new(),
         }
     }
 
@@ -421,68 +418,91 @@ impl<C: Fallible> Fallible for SharedArchiveValidator<C> {
     type Error = SharedArchiveError<C::Error>;
 }
 
-impl<C: ArchiveBoundsContext> ArchiveBoundsContext for SharedArchiveValidator<C> {
+impl<C: ArchiveContext> ArchiveContext for SharedArchiveValidator<C> {
     #[inline]
-    unsafe fn check_rel_ptr(
+    unsafe fn check_ptr<T: LayoutRaw + Pointee + ?Sized>(
         &mut self,
         base: *const u8,
         offset: isize,
-    ) -> Result<*const u8, Self::Error> {
-        self.inner
-            .check_rel_ptr(base, offset)
+        metadata: T::Metadata,
+    ) -> Result<*const T, Self::Error> {
+        self.inner.check_ptr(base, offset, metadata)
             .map_err(SharedArchiveError::Inner)
     }
 
     #[inline]
-    unsafe fn bounds_check_ptr(
+    unsafe fn check_subtree_ptr_bounds<T: LayoutRaw + ?Sized>(
         &mut self,
-        ptr: *const u8,
-        layout: &Layout,
+        ptr: *const T,
     ) -> Result<(), Self::Error> {
-        self.inner
-            .bounds_check_ptr(ptr, layout)
+        self.inner.check_subtree_ptr_bounds(ptr)
             .map_err(SharedArchiveError::Inner)
     }
-}
 
-impl<C: ArchiveMemoryContext> ArchiveMemoryContext for SharedArchiveValidator<C> {
     #[inline]
-    unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<(), Self::Error> {
-        self.inner
-            .claim_bytes(start, len)
+    unsafe fn push_prefix_subtree_range(
+        &mut self,
+        root: *const u8,
+        end: *const u8,
+    ) -> Result<ArchivePrefixRange, Self::Error> {
+        self.inner.push_prefix_subtree_range(root, end)
             .map_err(SharedArchiveError::Inner)
     }
-}
 
-impl<C: ArchiveMemoryContext> SharedArchiveContext for SharedArchiveValidator<C> {
-    unsafe fn claim_shared_bytes(
+    #[inline]
+    fn pop_prefix_range(&mut self, range: ArchivePrefixRange) -> Result<(), Self::Error> {
+        self.inner.pop_prefix_range(range)
+            .map_err(SharedArchiveError::Inner)
+    }
+
+    #[inline]
+    unsafe fn push_suffix_subtree_range(
         &mut self,
         start: *const u8,
-        len: usize,
+        root: *const u8,
+    ) -> Result<ArchiveSuffixRange, Self::Error> {
+        self.inner.push_suffix_subtree_range(start, root)
+            .map_err(SharedArchiveError::Inner)
+    }
+
+    #[inline]
+    fn pop_suffix_range(&mut self, range: ArchiveSuffixRange) -> Result<(), Self::Error> {
+        self.inner.pop_suffix_range(range)
+            .map_err(SharedArchiveError::Inner)
+    }
+
+    #[inline]
+    fn finish(&mut self) -> Result<(), Self::Error> {
+        self.inner.finish()
+            .map_err(SharedArchiveError::Inner)
+    }
+}
+
+impl<C: ArchiveContext> SharedArchiveContext for SharedArchiveValidator<C> {
+    unsafe fn check_shared_ptr<T: LayoutRaw + ?Sized>(
+        &mut self,
+        ptr: *const T,
         type_id: TypeId,
-    ) -> Result<bool, Self::Error> {
-        if let Some(previous_type_id) = self.shared_blocks.get(&start) {
+    ) -> Result<Option<*const T>, Self::Error> {
+        let key = ptr as *const ();
+        if let Some(previous_type_id) = self.shared.get(&key) {
             if previous_type_id != &type_id {
                 Err(SharedArchiveError::TypeMismatch {
                     previous: *previous_type_id,
                     current: type_id,
                 })
             } else {
-                Ok(false)
+                Ok(None)
             }
         } else {
-            self.shared_blocks.insert(start, type_id);
-            self.inner
-                .claim_bytes(start, len)
-                .map_err(SharedArchiveError::Inner)?;
-            Ok(true)
+            self.shared.insert(key, type_id);
+            Ok(Some(ptr))
         }
     }
 }
 
 /// A validator that supports all builtin types.
-pub type DefaultArchiveValidator<'a> =
-    SharedArchiveValidator<ArchiveValidator<ArchiveBoundsValidator<'a>>>;
+pub type DefaultArchiveValidator<'a> = SharedArchiveValidator<ArchiveValidator<'a>>;
 
 /// Checks the given archive at the given position for an archived version of the given type.
 ///

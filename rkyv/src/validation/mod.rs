@@ -1,131 +1,209 @@
 //! Validation implementations and helper types.
 
-pub mod owned;
 pub mod validators;
+pub mod owned;
 
-use crate::{Archive, ArchivePointee, Archived, Fallible, RelPtr};
+use crate::{Archive, ArchivePointee, Fallible, RelPtr};
 use bytecheck::CheckBytes;
-use core::{alloc::Layout, any::TypeId, fmt};
-use ptr_meta::{DynMetadata, Pointee};
+use core::{
+    alloc::Layout,
+    any::TypeId,
+    fmt,
+    ops::Range,
+};
+use ptr_meta::{Pointee, PtrExt};
 #[cfg(feature = "std")]
 use std::error::Error;
 
-/// Gets the layout of a type from its metadata.
-pub trait LayoutMetadata<T: ?Sized> {
+// Replace this trait with core::mem::{align_of_val_raw, size_of_val_raw} when they get stabilized.
+
+/// Gets the layout of a type from its pointer.
+pub trait LayoutRaw {
     /// Gets the layout of the type.
-    fn layout(self) -> Layout;
+    fn layout_raw(value: *const Self) -> Layout;
 }
 
-impl<T> LayoutMetadata<T> for () {
+impl<T> LayoutRaw for T {
     #[inline]
-    fn layout(self) -> Layout {
+    fn layout_raw(_: *const Self) -> Layout {
         Layout::new::<T>()
     }
 }
 
-impl<T> LayoutMetadata<[T]> for usize {
+impl<T> LayoutRaw for [T] {
     #[inline]
-    fn layout(self) -> Layout {
-        Layout::array::<T>(self).unwrap()
+    fn layout_raw(value: *const Self) -> Layout {
+        let (_, metadata) = PtrExt::to_raw_parts(value);
+        Layout::array::<T>(metadata).unwrap()
     }
 }
 
-impl LayoutMetadata<str> for usize {
+impl LayoutRaw for str {
     #[inline]
-    fn layout(self) -> Layout {
-        Layout::array::<u8>(self).unwrap()
+    fn layout_raw(value: *const Self) -> Layout {
+        let (_, metadata) = PtrExt::to_raw_parts(value);
+        Layout::array::<u8>(metadata).unwrap()
     }
 }
 
-impl<T: ?Sized> LayoutMetadata<T> for DynMetadata<T> {
-    #[inline]
-    fn layout(self) -> Layout {
-        self.layout()
-    }
+/// A prefix range for [`ArchiveContext`].
+///
+/// Ranges must be popped in the reverse order they are pushed.
+pub struct ArchivePrefixRange {
+    range: Range<*const u8>,
+    depth: usize,
 }
 
-/// A context that can check relative pointers.
-pub trait ArchiveBoundsContext: Fallible {
-    /// Checks the given parts of a relative pointer for bounds issues
+/// A suffix range for [`ArchiveContext`].
+///
+/// Ranges must be popped in the reverse order they are pushed.
+pub struct ArchiveSuffixRange {
+    start: *const u8,
+    depth: usize,
+}
+
+/// A context that can validate nonlocal archive memory.
+pub trait ArchiveContext: Fallible {
+    /// Checks that the given relative pointer can be dereferenced.
+    ///
+    /// The returned pointer is guaranteed to be located within the archive. This means that the
+    /// returned pointer is safe to check, but may be vulnerable to memory overlap attacks unless
+    /// the subtree range is properly restricted. Use `check_subtree_ptr` to perform the subtree
+    /// range check as well.
     ///
     /// # Safety
     ///
-    /// The base pointer must be inside the archive for this context.
-    unsafe fn check_rel_ptr(
+    /// - `base` must be inside the archive this context was created for.
+    /// - `metadata` must be the metadata for the pointer defined by `base` and `offset`.
+    unsafe fn check_ptr<T: LayoutRaw + Pointee + ?Sized>(
         &mut self,
         base: *const u8,
         offset: isize,
-    ) -> Result<*const u8, Self::Error>;
+        metadata: T::Metadata,
+    ) -> Result<*const T, Self::Error>;
 
-    /// Checks the given memory block for bounds issues.
+    /// Checks that the given `RelPtr` can be dereferenced.
+    ///
+    /// The returned pointer is guaranteed to be located within the archive. This means that the
+    /// returned pointer is safe to check, but may be vulnerable to memory overlap attacks unless
+    /// the subtree range is properly restricted. Use `check_subtree_ptr` to perform the subtree
+    /// range check as well.
     ///
     /// # Safety
     ///
-    /// The base pointer must be inside the archive for this context.
-    unsafe fn bounds_check_ptr(
-        &mut self,
-        ptr: *const u8,
-        layout: &Layout,
-    ) -> Result<(), Self::Error>;
-}
-
-/// A context that can validate archive memory.
-///
-/// When implementing archivable containers, an archived type may point to some bytes elsewhere in
-/// the archive using a [`RelPtr`]. Before checking those bytes, they must be claimed in the
-/// context. This prevents infinite-loop attacks by malicious actors by ensuring that each block of
-/// memory has one and only one owner.
-pub trait ArchiveMemoryContext: Fallible {
-    /// Claims `count` bytes located `offset` bytes away from `base`.
-    ///
-    /// # Safety
-    ///
-    /// The base pointer must be inside the archive for this context.
-    unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<(), Self::Error>;
-
-    /// Claims the memory at the given location as the given type.
-    ///
-    /// # Safety
-    ///
-    /// `ptr` must be inside the archive this context was created for.
-    unsafe fn claim_owned_ptr<T: ArchivePointee + ?Sized>(
-        &mut self,
-        ptr: *const T,
-    ) -> Result<(), Self::Error>
-    where
-        Self: ArchiveBoundsContext,
-        <T as Pointee>::Metadata: LayoutMetadata<T>,
-    {
-        let metadata = ptr_meta::metadata(ptr);
-        let layout = LayoutMetadata::<T>::layout(metadata);
-        self.bounds_check_ptr(ptr.cast(), &layout)?;
-        self.claim_bytes(ptr.cast(), layout.size())?;
-        Ok(())
-    }
-
-    /// Claims the memory referenced by the given relative pointer.
-    fn claim_owned_rel_ptr<T: ArchivePointee + ?Sized>(
+    /// - `rel_ptr` must be inside the archive this context was created for.
+    #[inline]
+    unsafe fn check_rel_ptr<T: ArchivePointee + LayoutRaw + ?Sized>(
         &mut self,
         rel_ptr: &RelPtr<T>,
-    ) -> Result<*const T, Self::Error>
-    where
-        Self: ArchiveBoundsContext,
-        <T as Pointee>::Metadata: LayoutMetadata<T>,
-    {
-        unsafe {
-            let data = self.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())?;
-            let ptr =
-                ptr_meta::from_raw_parts::<T>(data.cast(), T::pointer_metadata(rel_ptr.metadata()));
-            self.claim_owned_ptr(ptr)?;
-            Ok(ptr)
-        }
+    ) -> Result<*const T, Self::Error> {
+        let metadata = T::pointer_metadata(rel_ptr.metadata());
+        self.check_ptr(rel_ptr.base(), rel_ptr.offset(), metadata)
     }
+
+    /// Checks that the given pointer is located completely within the subtree range.
+    unsafe fn check_subtree_ptr_bounds<T: LayoutRaw + ?Sized>(
+        &mut self,
+        ptr: *const T,
+    ) -> Result<(), Self::Error>;
+
+    /// Checks that the given relative pointer to a subtree can be dereferenced.
+    ///
+    /// # Safety
+    ///
+    /// - `base` must be inside the archive this context was created for.
+    /// - `metadata` must be the metadata for the pointer defined by `base` and `offset`.
+    #[inline]
+    unsafe fn check_subtree_ptr<T: LayoutRaw + Pointee + ?Sized>(
+        &mut self,
+        base: *const u8,
+        offset: isize,
+        metadata: T::Metadata,
+    ) -> Result<*const T, Self::Error> {
+        let ptr = self.check_ptr(base, offset, metadata)?;
+        self.check_subtree_ptr_bounds(ptr)?;
+        Ok(ptr)
+    }
+
+    /// Checks that the given `RelPtr` to a subtree can be dereferenced.
+    ///
+    /// # Safety
+    ///
+    /// - `rel_ptr` must be inside the archive this context was created for.
+    #[inline]
+    unsafe fn check_subtree_rel_ptr<T: ArchivePointee + LayoutRaw + ?Sized>(
+        &mut self,
+        rel_ptr: &RelPtr<T>,
+    ) -> Result<*const T, Self::Error> {
+        let ptr = self.check_rel_ptr(rel_ptr)?;
+        self.check_subtree_ptr_bounds(ptr)?;
+        Ok(ptr)
+    }
+
+    /// Pushes a new subtree range onto the context and starts validating it.
+    ///
+    /// After calling `push_subtree_claim_to`, the context will have a subtree range starting at
+    /// the original start and ending at `root`. After popping the returned range, the context will
+    /// have a subtree range starting at `end` and ending at the original end.
+    ///
+    /// # Safety
+    ///
+    /// `root` and `end` must be located inside the archive.
+    unsafe fn push_prefix_subtree_range(
+        &mut self,
+        root: *const u8,
+        end: *const u8,
+    ) -> Result<ArchivePrefixRange, Self::Error>;
+
+    /// Pushes a new subtree range onto the context and starts validating it.
+    ///
+    /// The claimed range spans from the end of `start` to the end of the current subobject range.
+    ///
+    /// # Safety
+    ///
+    /// `` must be located inside the archive.
+    #[inline]
+    unsafe fn push_prefix_subtree<T: LayoutRaw + ?Sized>(
+        &mut self,
+        root: *const T,
+    ) -> Result<ArchivePrefixRange, Self::Error> {
+        let layout = T::layout_raw(root);
+        self.push_prefix_subtree_range(root as *const u8, (root as *const u8).add(layout.size()))
+    }
+
+    /// Pops the given range, restoring the original state with the pushed range removed.
+    ///
+    /// If the range was not popped in reverse order, an error is returned.
+    fn pop_prefix_range(&mut self, range: ArchivePrefixRange) -> Result<(), Self::Error>;
+
+    /// Pushes a new subtree range onto the context and starts validating it.
+    ///
+    /// After calling `push_prefix_subtree_range`, the context will have a subtree range starting at
+    /// `start` and ending at `root`. After popping the returned range, the context will have a
+    /// subtree range starting at the original start and ending at `start`.
+    ///
+    /// # Safety
+    ///
+    /// `start` and `root` must be located inside the archive.
+    unsafe fn push_suffix_subtree_range(
+        &mut self,
+        start: *const u8,
+        root: *const u8,
+    ) -> Result<ArchiveSuffixRange, Self::Error>;
+
+    /// Finishes the given range, restoring the original state with the pushed range removed.
+    ///
+    /// If the range was not popped in reverse order, an error is returned.
+    fn pop_suffix_range(&mut self, range: ArchiveSuffixRange) -> Result<(), Self::Error>;
+
+    /// Verifies that all outstanding claims have been returned.
+    fn finish(&mut self) -> Result<(), Self::Error>;
 }
 
 /// A context that can validate shared archive memory.
 ///
 /// Shared pointers require this kind of context to validate.
-pub trait SharedArchiveContext: Fallible {
+pub trait SharedArchiveContext: ArchiveContext {
     /// Claims `count` shared bytes located `offset` bytes away from `base`.
     ///
     /// Returns whether the bytes need to be checked.
@@ -133,38 +211,11 @@ pub trait SharedArchiveContext: Fallible {
     /// # Safety
     ///
     /// `base` must be inside the archive this context was created for.
-    unsafe fn claim_shared_bytes(
+    unsafe fn check_shared_ptr<T: LayoutRaw + ?Sized>(
         &mut self,
-        start: *const u8,
-        len: usize,
+        ptr: *const T,
         type_id: TypeId,
-    ) -> Result<bool, Self::Error>;
-
-    /// Claims the memory referenced by the given relative pointer.
-    ///
-    /// If the pointer needs to be checked, returns `Some` with the pointer to check.
-    fn claim_shared_ptr<T: ArchivePointee + CheckBytes<Self> + ?Sized>(
-        &mut self,
-        rel_ptr: &RelPtr<T>,
-        type_id: TypeId,
-    ) -> Result<Option<*const T>, Self::Error>
-    where
-        Self: ArchiveBoundsContext,
-        <T as Pointee>::Metadata: LayoutMetadata<T>,
-    {
-        unsafe {
-            let data = self.check_rel_ptr(rel_ptr.base(), rel_ptr.offset())?;
-            let metadata = T::pointer_metadata(rel_ptr.metadata());
-            let ptr = ptr_meta::from_raw_parts::<T>(data.cast(), metadata);
-            let layout = LayoutMetadata::<T>::layout(metadata);
-            self.bounds_check_ptr(ptr.cast(), &layout)?;
-            if self.claim_shared_bytes(ptr.cast(), layout.size(), type_id)? {
-                Ok(Some(ptr))
-            } else {
-                Ok(None)
-            }
-        }
-    }
+    ) -> Result<Option<*const T>, Self::Error>;
 }
 
 /// Errors that can occur when checking an archive.
@@ -206,7 +257,7 @@ pub type CheckTypeError<T, C> =
 pub fn check_archived_value_with_context<
     'a,
     T: Archive,
-    C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
+    C: ArchiveContext + ?Sized,
 >(
     buf: &'a [u8],
     pos: usize,
@@ -216,18 +267,21 @@ where
     T::Archived: CheckBytes<C> + Pointee<Metadata = ()>,
 {
     unsafe {
-        let data = context
-            .check_rel_ptr(buf.as_ptr(), pos as isize)
+        let ptr = context
+            .check_ptr(buf.as_ptr(), pos as isize, ())
             .map_err(CheckArchiveError::ContextError)?;
-        let ptr = ptr_meta::from_raw_parts::<<T as Archive>::Archived>(data.cast(), ());
-        let layout = LayoutMetadata::<T::Archived>::layout(());
-        context
-            .bounds_check_ptr(ptr.cast(), &layout)
+
+        let range = context
+            .push_prefix_subtree(ptr)
             .map_err(CheckArchiveError::ContextError)?;
-        context
-            .claim_bytes(ptr.cast(), layout.size())
+        let result = CheckBytes::check_bytes(ptr, context)
+            .map_err(CheckArchiveError::CheckBytesError)?;
+        context.pop_prefix_range(range)
             .map_err(CheckArchiveError::ContextError)?;
-        Ok(Archived::<T>::check_bytes(ptr, context).map_err(CheckArchiveError::CheckBytesError)?)
+
+        context.finish()
+            .map_err(CheckArchiveError::ContextError)?;
+        Ok(result)
     }
 }
 
@@ -238,7 +292,7 @@ where
 pub fn check_archived_root_with_context<
     'a,
     T: Archive,
-    C: ArchiveBoundsContext + ArchiveMemoryContext + ?Sized,
+    C: ArchiveContext + ?Sized,
 >(
     buf: &'a [u8],
     context: &mut C,
