@@ -358,7 +358,11 @@ where
     D: Fallible + ?Sized,
 {
     #[inline]
-    unsafe fn deserialize_unsized(&self, _: &mut D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error> {
+    unsafe fn deserialize_unsized(
+        &self,
+        _: &mut D,
+        mut alloc: impl FnMut(Layout) -> *mut u8,
+    ) -> Result<*mut (), D::Error> {
         if self.is_empty() || core::mem::size_of::<T>() == 0 {
             Ok(ptr::NonNull::dangling().as_ptr())
         } else {
