@@ -91,7 +91,12 @@ pub enum ArchiveError {
     UnpoppedSubtreeRanges {
         /// The depth of the last subtree that was pushed
         last_range: usize,
-    }
+    },
+    /// The maximum subtree depth was reached or exceeded
+    ExceededMaximumSubtreeDepth {
+        /// The maximum depth that subtrees may be validated down to
+        max_subtree_depth: usize,
+    },
 }
 
 impl fmt::Display for ArchiveError {
@@ -156,6 +161,11 @@ impl fmt::Display for ArchiveError {
                 "unpopped subtree ranges: last range {}",
                 last_range
             ),
+            ArchiveError::ExceededMaximumSubtreeDepth { max_subtree_depth } => write!(
+                f,
+                "pushed a subtree range that exceeded the maximum subtree depth of {}",
+                max_subtree_depth
+            ),
         }
     }
 }
@@ -168,16 +178,24 @@ pub struct ArchiveValidator<'a> {
     bytes: &'a [u8],
     subtree_range: Range<*const u8>,
     subtree_depth: usize,
+    max_subtree_depth: usize,
 }
 
 impl<'a> ArchiveValidator<'a> {
     /// Creates a new bounds validator for the given bytes.
     #[inline]
     pub fn new(bytes: &'a [u8]) -> Self {
+        Self::with_max_depth(bytes, usize::MAX)
+    }
+
+    /// Crates a new bounds validator for the given bytes with a maximum validation depth.
+    #[inline]
+    pub fn with_max_depth(bytes: &'a [u8], max_subtree_depth: usize) -> Self {
         Self {
             bytes,
             subtree_range: bytes.as_ptr_range(),
             subtree_depth: 0,
+            max_subtree_depth,
         }
     }
 
@@ -286,16 +304,22 @@ impl<'a> ArchiveContext for ArchiveValidator<'a> {
 
     #[inline]
     unsafe fn push_prefix_subtree_range(&mut self, root: *const u8, end: *const u8) -> Result<ArchivePrefixRange, Self::Error> {
-        let result = ArchivePrefixRange {
-            range: Range {
-                start: end,
-                end: self.subtree_range.end,
-            },
-            depth: self.subtree_depth,
-        };
-        self.subtree_depth += 1;
-        self.subtree_range.end = root;
-        Ok(result)
+        if self.subtree_depth >= self.max_subtree_depth {
+            Err(ArchiveError::ExceededMaximumSubtreeDepth {
+                max_subtree_depth: self.max_subtree_depth,
+            })
+        } else {
+            let result = ArchivePrefixRange {
+                range: Range {
+                    start: end,
+                    end: self.subtree_range.end,
+                },
+                depth: self.subtree_depth,
+            };
+            self.subtree_depth += 1;
+            self.subtree_range.end = root;
+            Ok(result)
+        }
     }
 
     #[inline]
