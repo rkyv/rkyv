@@ -233,6 +233,7 @@ impl<'a> ArchiveContext for ArchiveValidator<'a> {
     type PrefixRange = PrefixRange;
     type SuffixRange = SuffixRange;
 
+    #[inline]
     unsafe fn bounds_check_ptr(
         &mut self,
         base: *const u8,
@@ -255,6 +256,7 @@ impl<'a> ArchiveContext for ArchiveValidator<'a> {
         }
     }
 
+    #[inline]
     unsafe fn bounds_check_layout(
         &mut self,
         data_address: *const u8,
@@ -284,6 +286,7 @@ impl<'a> ArchiveContext for ArchiveValidator<'a> {
         }
     }
 
+    #[inline]
     unsafe fn bounds_check_subtree_ptr_layout(
         &mut self,
         data_address: *const u8,
@@ -321,6 +324,7 @@ impl<'a> ArchiveContext for ArchiveValidator<'a> {
         }
     }
 
+    #[inline]
     unsafe fn push_prefix_subtree_range(
         &mut self,
         root: *const u8,
@@ -374,6 +378,7 @@ impl<'a> ArchiveContext for ArchiveValidator<'a> {
         Ok(result)
     }
 
+    #[inline]
     fn pop_suffix_range(&mut self, range: SuffixRange) -> Result<(), Self::Error> {
         if self.subtree_depth - 1 != range.depth {
             Err(ArchiveError::RangePoppedOutOfOrder {

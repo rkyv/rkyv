@@ -68,6 +68,7 @@ impl Fallible for SharedValidator {
 }
 
 impl SharedContext for SharedValidator {
+    #[inline]
     fn register_shared_ptr(
         &mut self,
         ptr: *const u8,

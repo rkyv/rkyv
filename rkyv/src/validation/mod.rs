@@ -96,6 +96,7 @@ pub trait ArchiveContext: Fallible {
     ///
     /// - `base` must be inside the archive this validator was created for.
     /// - `metadata` must be the metadata for the pointer defined by `base` and `offset`.
+    #[inline]
     unsafe fn check_ptr<T: LayoutRaw + Pointee + ?Sized>(
         &mut self,
         base: *const u8,
@@ -119,6 +120,7 @@ pub trait ArchiveContext: Fallible {
     /// # Safety
     ///
     /// - `rel_ptr` must be inside the archive this validator was created for.
+    #[inline]
     unsafe fn check_rel_ptr<T: ArchivePointee + LayoutRaw + ?Sized>(
         &mut self,
         rel_ptr: &RelPtr<T>,
