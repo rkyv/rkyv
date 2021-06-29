@@ -8,13 +8,13 @@ pub mod util {
         check_archived_root,
         ser::{serializers::AlignedSerializer, Serializer},
         util::AlignedVec,
-        validation::validators::DefaultArchiveValidator,
+        validation::validators::DefaultValidator,
         Serialize,
     };
 
     pub fn serialize_and_check<T: Serialize<AlignedSerializer<AlignedVec>>>(value: &T)
     where
-        T::Archived: for<'a> CheckBytes<DefaultArchiveValidator<'a>>,
+        T::Archived: for<'a> CheckBytes<DefaultValidator<'a>>,
     {
         let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer

@@ -306,7 +306,15 @@ pub fn archive_dyn(
             #[cfg(feature = "validation")]
             let validation_impl = quote! {
                 use bytecheck::CheckBytes;
+                use rkyv::validation::LayoutRaw;
                 use rkyv_dyn::validation::{CHECK_BYTES_REGISTRY, CheckDynError, DynContext};
+
+                impl<#generic_params> LayoutRaw for (dyn #deserialize_trait<#generic_args> + '_) {
+                    fn layout_raw(value: *const Self) -> Layout {
+                        let metadata = ptr_meta::metadata(value);
+                        metadata.layout()
+                    }
+                }
 
                 impl<#generic_params> CheckBytes<dyn DynContext + '_> for (dyn #deserialize_trait<#generic_args> + '_) {
                     type Error = CheckDynError;

@@ -2,7 +2,7 @@
 
 use super::{ArchivedRc, ArchivedRcWeak, ArchivedRcWeakTag, ArchivedRcWeakVariantSome};
 use crate::{
-    validation::{LayoutRaw, SharedArchiveContext},
+    validation::{ArchiveContext, LayoutRaw, SharedContext},
     ArchivePointee, RelPtr,
 };
 use bytecheck::{CheckBytes, Error};
@@ -103,7 +103,7 @@ impl<T, R, C> From<Infallible> for WeakPointerError<T, R, C> {
 impl<T, C> CheckBytes<C> for ArchivedRc<T>
 where
     T: ArchivePointee + CheckBytes<C> + LayoutRaw + Pointee + ?Sized + 'static,
-    C: SharedArchiveContext + ?Sized,
+    C: ArchiveContext + SharedContext + ?Sized,
     T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,
 {
@@ -120,8 +120,10 @@ where
             .map_err(SharedPointerError::ContextError)?;
 
         let type_id = TypeId::of::<Self>();
-        if let Some(ptr) = context.check_shared_ptr(ptr, type_id).map_err(SharedPointerError::ContextError)? {
-            context.check_subtree_ptr_bounds(ptr)
+        if context.register_shared_ptr(ptr.cast(), type_id)
+            .map_err(SharedPointerError::ContextError)?
+        {
+            context.bounds_check_subtree_ptr(ptr)
                 .map_err(SharedPointerError::ContextError)?;
 
             let range = context.push_prefix_subtree(ptr)
@@ -143,7 +145,7 @@ impl ArchivedRcWeakTag {
 impl<T, C> CheckBytes<C> for ArchivedRcWeak<T>
 where
     T: ArchivePointee + CheckBytes<C> + LayoutRaw + Pointee + ?Sized + 'static,
-    C: SharedArchiveContext + ?Sized,
+    C: ArchiveContext + SharedContext + ?Sized,
     T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,
 {

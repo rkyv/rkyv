@@ -7,7 +7,7 @@ use core::sync::atomic::{AtomicU64, Ordering};
 use core::{alloc::Layout, any::TypeId, convert::Infallible, fmt, marker::PhantomData, ptr};
 use rkyv::{
     from_archived,
-    validation::{ArchiveContext, SharedArchiveContext},
+    validation::{ArchiveContext, PrefixRange, SharedContext, SuffixRange},
     Archived, Fallible,
 };
 use rkyv_typename::TypeName;
@@ -15,93 +15,187 @@ use std::{collections::HashMap, error::Error};
 
 /// A context that's object safe and suitable for checking most types.
 pub trait DynContext {
-    /// Checks the given parts of a relative pointer for bounds issues.
+    /// Checks that a relative pointer points to an address within the archive.
+    ///
+    /// See [`bounds_check_ptr`] for more information.
     ///
     /// # Safety
     ///
-    /// The base pointer must be inside the archive for this context.
-    unsafe fn check_rel_ptr_dyn(
+    /// - `base` must be inside the archive this valiator was created for.
+    ///
+    /// [`bounds_check_ptr`]: rkyv::validation::ArchiveContext::bounds_check_ptr
+    unsafe fn bounds_check_ptr_dyn(
         &mut self,
         base: *const u8,
         offset: isize,
     ) -> Result<*const u8, Box<dyn Error>>;
 
-    /// Checks the given memory block for bounds issues.
+    /// Checks that a given pointer can be dereferenced.
+    ///
+    /// See [`bounds_check_layout`] for more information.
     ///
     /// # Safety
     ///
-    /// The base pointer must be inside the archive for this context.
-    unsafe fn bounds_check_ptr_dyn(
+    /// - `data_address` must be inside the archive this validator was created for.
+    /// - `layout` must be the layout for the given pointer.
+    ///
+    /// [`bounds_check_layout`]: rkyv::validation::ArchiveContext::bounds_check_layout
+    unsafe fn bounds_check_layout_dyn(
         &mut self,
-        ptr: *const u8,
+        data_address: *const u8,
         layout: &Layout,
     ) -> Result<(), Box<dyn Error>>;
 
-    /// Claims `count` bytes located `offset` bytes away from `base`.
+    /// Checks that the given data address and layout is located completely within the subtree
+    /// range.
+    ///
+    /// See [`bounds_check_subtree_ptr_layout`] for more information.
     ///
     /// # Safety
     ///
-    /// The base pointer must be inside the archive for this context.
-    unsafe fn claim_bytes_dyn(
+    /// - `data_address` must be inside the archive this validator was created for.
+    ///
+    /// [`bounds_check_subtree_ptr_layout`]: rkyv::validation::ArchiveContext::bounds_check_subtree_ptr_layout
+    unsafe fn bounds_check_subtree_ptr_layout_dyn(
         &mut self,
-        start: *const u8,
-        len: usize,
+        data_address: *const u8,
+        layout: &Layout,
     ) -> Result<(), Box<dyn Error>>;
 
-    /// Claims `count` shared bytes located `offset` bytes away from `base`.
+    /// Pushes a new subtree range onto the validator and starts validating it.
     ///
-    /// Returns whether the bytes need to be checked.
+    /// See [`push_prefix_subtree_range`] for more information.
     ///
     /// # Safety
     ///
-    /// The base pointer must be inside the archive for this context.
-    unsafe fn claim_shared_bytes_dyn(
+    /// `root` and `end` must be located inside the archive.
+    ///
+    /// [`push_prefix_subtree_range`]: rkyv::validation::ArchiveContext::push_prefix_subtree_range
+    unsafe fn push_prefix_subtree_range_dyn(
+        &mut self,
+        root: *const u8,
+        end: *const u8,
+    ) -> Result<PrefixRange, Box<dyn Error>>;
+
+    /// Pops the given range, restoring the original state with the pushed range removed.
+    ///
+    /// See [`pop_prefix_range`] for more information.
+    ///
+    /// [`pop_prefix_range`]: rkyv::validation::ArchiveContext::pop_prefix_range
+    fn pop_prefix_range_dyn(&mut self, range: PrefixRange) -> Result<(), Box<dyn Error>>;
+    
+    /// Pushes a new subtree range onto the validator and starts validating it.
+    ///
+    /// See [`push_suffix_subtree_range`] for more information.
+    ///
+    /// # Safety
+    ///
+    /// `start` and `root` must be located inside the archive.
+    ///
+    /// [`push_suffix_subtree_range`]: rkyv::validation::ArchiveContext::push_suffix_subtree_range
+    unsafe fn push_suffix_subtree_range_dyn(
         &mut self,
         start: *const u8,
-        len: usize,
+        root: *const u8,
+    ) -> Result<SuffixRange, Box<dyn Error>>;
+
+    /// Finishes the given range, restoring the original state with the pushed range removed.
+    ///
+    /// See [`pop_suffix_range`] for more information.
+    ///
+    /// [`pop_suffix_range`]: rkyv::validation::ArchiveContext::pop_suffix_range
+    fn pop_suffix_range_dyn(&mut self, range: SuffixRange) -> Result<(), Box<dyn Error>>;
+
+    /// Verifies that all outstanding claims have been returned.
+    ///
+    /// See [`finish`] for more information.
+    ///
+    /// [`finish`]: rkyv::validation::ArchiveContext::finish
+    fn finish_dyn(&mut self) -> Result<(), Box<dyn Error>>;
+
+    /// Registers the given `ptr` as a shared pointer with the given type.
+    ///
+    /// See [`register_shared_ptr`] for more information.
+    ///
+    /// [`register_shared_ptr`]: rkyv::validation::SharedContext::register_shared_ptr
+    fn register_shared_ptr_dyn(
+        &mut self,
+        ptr: *const u8,
         type_id: TypeId,
     ) -> Result<bool, Box<dyn Error>>;
 }
 
 impl<C> DynContext for C
 where
-    C: ArchiveContext + SharedArchiveContext + ?Sized,
+    C: ArchiveContext + SharedContext + ?Sized,
     C::Error: Error,
 {
-    unsafe fn check_rel_ptr_dyn(
+    unsafe fn bounds_check_ptr_dyn(
         &mut self,
         base: *const u8,
         offset: isize,
     ) -> Result<*const u8, Box<dyn Error>> {
-        self.check_rel_ptr(base, offset)
+        self.bounds_check_ptr(base, offset)
             .map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 
-    unsafe fn bounds_check_ptr_dyn(
+    unsafe fn bounds_check_layout_dyn(
         &mut self,
         ptr: *const u8,
         layout: &Layout,
     ) -> Result<(), Box<dyn Error>> {
-        self.bounds_check_ptr(ptr, layout)
+        self.bounds_check_layout(ptr, layout)
             .map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 
-    unsafe fn claim_bytes_dyn(
+    unsafe fn bounds_check_subtree_ptr_layout_dyn(
         &mut self,
-        start: *const u8,
-        len: usize,
+        data_address: *const u8,
+        layout: &Layout,
     ) -> Result<(), Box<dyn Error>> {
-        self.claim_bytes(start, len)
+        self.bounds_check_subtree_ptr_layout(data_address, layout)
             .map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 
-    unsafe fn claim_shared_bytes_dyn(
+    unsafe fn push_prefix_subtree_range_dyn(
+        &mut self,
+        root: *const u8,
+        end: *const u8,
+    ) -> Result<PrefixRange, Box<dyn Error>> {
+        self.push_prefix_subtree_range(root, end)
+            .map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
+
+    fn pop_prefix_range_dyn(&mut self, range: PrefixRange) -> Result<(), Box<dyn Error>> {
+        self.pop_prefix_range(range)
+            .map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
+
+    unsafe fn push_suffix_subtree_range_dyn(
         &mut self,
         start: *const u8,
-        len: usize,
+        root: *const u8,
+    ) -> Result<SuffixRange, Box<dyn Error>> {
+        self.push_suffix_subtree_range(start, root)
+            .map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
+
+    fn pop_suffix_range_dyn(&mut self, range: SuffixRange) -> Result<(), Box<dyn Error>> {
+        self.pop_suffix_range(range)
+            .map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
+
+    fn finish_dyn(&mut self) -> Result<(), Box<dyn Error>> {
+        self.finish()
+            .map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
+
+    fn register_shared_ptr_dyn(
+        &mut self,
+        ptr: *const u8,
         type_id: TypeId,
     ) -> Result<bool, Box<dyn Error>> {
-        self.claim_shared_bytes(start, len, type_id)
+        self.register_shared_ptr(ptr, type_id)
             .map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 }
@@ -111,37 +205,66 @@ impl Fallible for (dyn DynContext + '_) {
 }
 
 impl ArchiveContext for (dyn DynContext + '_) {
-    unsafe fn check_rel_ptr(
+    unsafe fn bounds_check_ptr(
         &mut self,
         base: *const u8,
         offset: isize,
     ) -> Result<*const u8, Self::Error> {
-        self.check_rel_ptr_dyn(base, offset)
+        self.bounds_check_ptr_dyn(base, offset)
     }
 
-    unsafe fn bounds_check_ptr(
+    unsafe fn bounds_check_layout(
         &mut self,
-        ptr: *const u8,
+        data_address: *const u8,
         layout: &Layout,
     ) -> Result<(), Self::Error> {
-        self.bounds_check_ptr_dyn(ptr, layout)
+        self.bounds_check_layout_dyn(data_address, layout)
     }
-}
 
-impl ArchiveMemoryContext for (dyn DynContext + '_) {
-    unsafe fn claim_bytes(&mut self, start: *const u8, len: usize) -> Result<(), Self::Error> {
-        self.claim_bytes_dyn(start, len)
+    unsafe fn bounds_check_subtree_ptr_layout(
+        &mut self,
+        data_address: *const u8,
+        layout: &Layout,
+    ) -> Result<(), Self::Error> {
+        self.bounds_check_subtree_ptr_layout_dyn(data_address, layout)
     }
-}
 
-impl SharedArchiveContext for (dyn DynContext + '_) {
-    unsafe fn claim_shared_bytes(
+    unsafe fn push_prefix_subtree_range(
+        &mut self,
+        root: *const u8,
+        end: *const u8,
+    ) -> Result<PrefixRange, Self::Error> {
+        self.push_prefix_subtree_range_dyn(root, end)
+    }
+
+    fn pop_prefix_range(&mut self, range: PrefixRange) -> Result<(), Self::Error> {
+        self.pop_prefix_range_dyn(range)
+    }
+
+    unsafe fn push_suffix_subtree_range(
         &mut self,
         start: *const u8,
-        len: usize,
+        root: *const u8,
+    ) -> Result<SuffixRange, Self::Error> {
+        self.push_suffix_subtree_range_dyn(start, root)
+    }
+
+    fn pop_suffix_range(&mut self, range: SuffixRange) -> Result<(), Self::Error> {
+        self.pop_suffix_range_dyn(range)
+    }
+
+    fn finish(&mut self) -> Result<(), Self::Error> {
+        self.finish_dyn()
+    }
+}
+
+impl SharedContext for (dyn DynContext + '_) {
+    fn register_shared_ptr(
+        &mut self,
+        ptr: *const u8,
         type_id: TypeId,
     ) -> Result<bool, Box<dyn Error>> {
-        self.claim_shared_bytes_dyn(start, len, type_id)
+        self.register_shared_ptr_dyn(ptr, type_id)
     }
 }
 

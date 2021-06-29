@@ -140,33 +140,33 @@ mod tests {
 
         // Various buffer errors:
         use rkyv::validation::{
-            validators::{ArchiveError, SharedArchiveError},
+            validators::{ArchiveError, DefaultValidatorError},
             CheckArchiveError,
         };
         // Out of bounds
         match check_archived_value::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 8) {
-            Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(
+            Err(CheckArchiveError::ContextError(DefaultValidatorError::ArchiveError(
                 ArchiveError::OutOfBounds { .. },
             ))) => (),
             other => panic!("expected out of bounds error, got {:?}", other),
         }
         // Overrun
         match check_archived_value::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 4) {
-            Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(
+            Err(CheckArchiveError::ContextError(DefaultValidatorError::ArchiveError(
                 ArchiveError::Overrun { .. },
             ))) => (),
             other => panic!("expected overrun error, got {:?}", other),
         }
         // Unaligned
         match check_archived_value::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 1) {
-            Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(
+            Err(CheckArchiveError::ContextError(DefaultValidatorError::ArchiveError(
                 ArchiveError::Unaligned { .. },
             ))) => (),
             other => panic!("expected unaligned error, got {:?}", other),
         }
         // Underaligned
         match check_archived_value::<u32>(&Aligned([0, 1, 2, 3, 4]).as_ref()[1..], 0) {
-            Err(CheckArchiveError::ContextError(SharedArchiveError::Inner(
+            Err(CheckArchiveError::ContextError(DefaultValidatorError::ArchiveError(
                 ArchiveError::Underaligned { .. },
             ))) => (),
             other => panic!("expected underaligned error, got {:?}", other),

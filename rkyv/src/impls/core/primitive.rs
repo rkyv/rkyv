@@ -15,7 +15,6 @@ use core::{
         NonZeroU32, NonZeroU64, NonZeroU8,
     },
 };
-
 pub use rend::NativeEndian;
 
 macro_rules! impl_primitive {

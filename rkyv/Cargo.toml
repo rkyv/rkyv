@@ -45,7 +45,7 @@ size_32 = []
 size_64 = []
 std = ["alloc", "bytecheck/std", "rend/std", "ptr_meta/std"]
 strict = ["rkyv_derive/strict"]
-validation = ["alloc", "bytecheck", "rend/validation"]
+validation = ["bytecheck", "rend/validation"]
 
 tinyvec_alloc = ["tinyvec/alloc"]
 
