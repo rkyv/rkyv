@@ -198,6 +198,7 @@ impl<'a> ArchiveValidator<'a> {
 }
 
 impl<'a> From<&'a [u8]> for ArchiveValidator<'a> {
+    #[inline]
     fn from(bytes: &'a [u8]) -> Self {
         Self::new(bytes)
     }
@@ -255,23 +256,30 @@ impl<'a> ArchiveContext for ArchiveValidator<'a> {
     }
 
     unsafe fn check_subtree_ptr_bounds<T: LayoutRaw + ?Sized>(&mut self, ptr: *const T) -> Result<(), Self::Error> {
-        let subtree_ptr = ptr as *const u8;
-        if !self.subtree_range.contains(&subtree_ptr) {
-            Err(ArchiveError::SubtreePointerOutOfBounds {
-                ptr: subtree_ptr,
-                subtree_range: self.subtree_range.clone(),
-            })
+        // Zero-sized types are OK to archive outside of the subtree range because no memory can
+        // actually be accessed through a ZST. If a ZST somehow asks to access subtree memory, that
+        // memory will be subject to the regular restrictions.
+        let layout = T::layout_raw(ptr);
+        if layout.size() == 0 {
+            Ok(())
         } else {
-            let available_space = self.subtree_range.end.offset_from(subtree_ptr) as usize;
-            let layout = T::layout_raw(ptr);
-            if available_space < layout.size() {
-                Err(ArchiveError::SubtreePointerOverrun {
+            let subtree_ptr = ptr as *const u8;
+            if !self.subtree_range.contains(&subtree_ptr) {
+                Err(ArchiveError::SubtreePointerOutOfBounds {
                     ptr: subtree_ptr,
-                    size: layout.size(),
                     subtree_range: self.subtree_range.clone(),
                 })
             } else {
-                Ok(())
+                let available_space = self.subtree_range.end.offset_from(subtree_ptr) as usize;
+                if available_space < layout.size() {
+                    Err(ArchiveError::SubtreePointerOverrun {
+                        ptr: subtree_ptr,
+                        size: layout.size(),
+                        subtree_range: self.subtree_range.clone(),
+                    })
+                } else {
+                    Ok(())
+                }
             }
         }
     }

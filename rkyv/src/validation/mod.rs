@@ -1,16 +1,11 @@
 //! Validation implementations and helper types.
 
-pub mod validators;
 pub mod owned;
+pub mod validators;
 
 use crate::{Archive, ArchivePointee, Fallible, RelPtr};
 use bytecheck::CheckBytes;
-use core::{
-    alloc::Layout,
-    any::TypeId,
-    fmt,
-    ops::Range,
-};
+use core::{alloc::Layout, any::TypeId, fmt, ops::Range};
 use ptr_meta::{Pointee, PtrExt};
 #[cfg(feature = "std")]
 use std::error::Error;
@@ -254,33 +249,31 @@ pub type CheckTypeError<T, C> =
 ///
 /// See [`check_archived_value`](crate::validation::validators::check_archived_value) for more details.
 #[inline]
-pub fn check_archived_value_with_context<
-    'a,
-    T: Archive,
-    C: ArchiveContext + ?Sized,
->(
+pub fn check_archived_value_with_context<'a, T, C>(
     buf: &'a [u8],
     pos: usize,
     context: &mut C,
 ) -> Result<&'a T::Archived, CheckTypeError<T::Archived, C>>
 where
+    T: Archive,
     T::Archived: CheckBytes<C> + Pointee<Metadata = ()>,
+    C: ArchiveContext + ?Sized,
 {
     unsafe {
         let ptr = context
-            .check_ptr(buf.as_ptr(), pos as isize, ())
+            .check_subtree_ptr(buf.as_ptr(), pos as isize, ())
             .map_err(CheckArchiveError::ContextError)?;
 
         let range = context
             .push_prefix_subtree(ptr)
             .map_err(CheckArchiveError::ContextError)?;
-        let result = CheckBytes::check_bytes(ptr, context)
-            .map_err(CheckArchiveError::CheckBytesError)?;
-        context.pop_prefix_range(range)
+        let result =
+            CheckBytes::check_bytes(ptr, context).map_err(CheckArchiveError::CheckBytesError)?;
+        context
+            .pop_prefix_range(range)
             .map_err(CheckArchiveError::ContextError)?;
 
-        context.finish()
-            .map_err(CheckArchiveError::ContextError)?;
+        context.finish().map_err(CheckArchiveError::ContextError)?;
         Ok(result)
     }
 }
@@ -289,16 +282,14 @@ where
 ///
 /// See [`check_archived_value`](crate::validation::validators::check_archived_value) for more details.
 #[inline]
-pub fn check_archived_root_with_context<
-    'a,
-    T: Archive,
-    C: ArchiveContext + ?Sized,
->(
+pub fn check_archived_root_with_context<'a, T, C>(
     buf: &'a [u8],
     context: &mut C,
 ) -> Result<&'a T::Archived, CheckTypeError<T::Archived, C>>
 where
+    T: Archive,
     T::Archived: CheckBytes<C> + Pointee<Metadata = ()>,
+    C: ArchiveContext + ?Sized,
 {
     check_archived_value_with_context::<T, C>(
         buf,
