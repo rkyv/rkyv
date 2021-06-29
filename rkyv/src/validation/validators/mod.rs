@@ -10,9 +10,7 @@ use crate::{
         check_archived_root_with_context,
         ArchiveContext,
         CheckTypeError,
-        PrefixRange,
         SharedContext,
-        SuffixRange,
     },
     Archive,
     Fallible,
@@ -81,6 +79,9 @@ impl<'a> Fallible for DefaultValidator<'a> {
 }
 
 impl<'a> ArchiveContext for DefaultValidator<'a> {
+    type PrefixRange = <ArchiveValidator<'a> as ArchiveContext>::PrefixRange;
+    type SuffixRange = <ArchiveValidator<'a> as ArchiveContext>::SuffixRange;
+
     unsafe fn bounds_check_ptr(
         &mut self,
         base: *const u8,

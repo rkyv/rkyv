@@ -1,7 +1,7 @@
 //! The provided implementation for `ArchiveContext`.
 
 use crate::{
-    validation::{ArchiveContext, PrefixRange, SuffixRange},
+    validation::ArchiveContext,
     Fallible,
 };
 use core::{alloc::Layout, fmt, ops::Range};
@@ -171,6 +171,18 @@ impl fmt::Display for ArchiveError {
 #[cfg(feature = "std")]
 impl std::error::Error for ArchiveError {}
 
+/// A prefix range from an [`ArchiveValidator`].
+pub struct PrefixRange {
+    range: Range<*const u8>,
+    depth: usize,
+}
+
+/// A suffix range from an [`ArchiveValidator`].
+pub struct SuffixRange {
+    start: *const u8,
+    depth: usize,
+}
+
 /// A validator that can verify archives with nonlocal memory.
 pub struct ArchiveValidator<'a> {
     bytes: &'a [u8],
@@ -218,6 +230,9 @@ impl<'a> Fallible for ArchiveValidator<'a> {
 }
 
 impl<'a> ArchiveContext for ArchiveValidator<'a> {
+    type PrefixRange = PrefixRange;
+    type SuffixRange = SuffixRange;
+
     unsafe fn bounds_check_ptr(
         &mut self,
         base: *const u8,

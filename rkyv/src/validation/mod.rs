@@ -5,7 +5,7 @@ pub mod validators;
 
 use crate::{Archive, ArchivePointee, Fallible, RelPtr};
 use bytecheck::CheckBytes;
-use core::{alloc::Layout, any::TypeId, fmt, ops::Range};
+use core::{alloc::Layout, any::TypeId, fmt};
 use ptr_meta::Pointee;
 #[cfg(feature = "std")]
 use std::error::Error;
@@ -41,24 +41,18 @@ impl LayoutRaw for str {
     }
 }
 
-/// A prefix range from an [`ArchiveValidator`].
-///
-/// Ranges must be popped in the reverse order they are pushed.
-pub struct PrefixRange {
-    range: Range<*const u8>,
-    depth: usize,
-}
-
-/// A suffix range from an [`ArchiveValidator`].
-///
-/// Ranges must be popped in the reverse order they are pushed.
-pub struct SuffixRange {
-    start: *const u8,
-    depth: usize,
-}
-
 /// A context that can validate nonlocal archive memory.
 pub trait ArchiveContext: Fallible {
+    /// A prefix range from an archive context.
+    ///
+    /// Ranges must be popped in the reverse order they are pushed.
+    type PrefixRange: 'static;
+
+    /// A suffix range from an archive context.
+    ///
+    /// Ranges must be popped in the reverse order they are pushed.
+    type SuffixRange: 'static;
+
     /// Checks that a relative pointer points to an address within the archive.
     ///
     /// The returned pointer is not guaranteed to point to an object that is contained completely
@@ -205,7 +199,7 @@ pub trait ArchiveContext: Fallible {
         &mut self,
         root: *const u8,
         end: *const u8,
-    ) -> Result<PrefixRange, Self::Error>;
+    ) -> Result<Self::PrefixRange, Self::Error>;
 
     /// Pushes a new subtree range onto the validator and starts validating it.
     ///
@@ -218,7 +212,7 @@ pub trait ArchiveContext: Fallible {
     unsafe fn push_prefix_subtree<T: LayoutRaw + ?Sized>(
         &mut self,
         root: *const T,
-    ) -> Result<PrefixRange, Self::Error> {
+    ) -> Result<Self::PrefixRange, Self::Error> {
         let layout = T::layout_raw(root);
         self.push_prefix_subtree_range(root as *const u8, (root as *const u8).add(layout.size()))
     }
@@ -226,7 +220,7 @@ pub trait ArchiveContext: Fallible {
     /// Pops the given range, restoring the original state with the pushed range removed.
     ///
     /// If the range was not popped in reverse order, an error is returned.
-    fn pop_prefix_range(&mut self, range: PrefixRange) -> Result<(), Self::Error>;
+    fn pop_prefix_range(&mut self, range: Self::PrefixRange) -> Result<(), Self::Error>;
 
     /// Pushes a new subtree range onto the validator and starts validating it.
     ///
@@ -241,12 +235,12 @@ pub trait ArchiveContext: Fallible {
         &mut self,
         start: *const u8,
         root: *const u8,
-    ) -> Result<SuffixRange, Self::Error>;
+    ) -> Result<Self::SuffixRange, Self::Error>;
 
     /// Finishes the given range, restoring the original state with the pushed range removed.
     ///
     /// If the range was not popped in reverse order, an error is returned.
-    fn pop_suffix_range(&mut self, range: SuffixRange) -> Result<(), Self::Error>;
+    fn pop_suffix_range(&mut self, range: Self::SuffixRange) -> Result<(), Self::Error>;
 
     /// Verifies that all outstanding claims have been returned.
     fn finish(&mut self) -> Result<(), Self::Error>;

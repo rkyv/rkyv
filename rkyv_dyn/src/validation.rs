@@ -4,10 +4,10 @@ use crate::{ArchivedDynMetadata, RegisteredImpl, IMPL_REGISTRY};
 use bytecheck::CheckBytes;
 #[cfg(feature = "vtable_cache")]
 use core::sync::atomic::{AtomicU64, Ordering};
-use core::{alloc::Layout, any::TypeId, convert::Infallible, fmt, marker::PhantomData, ptr};
+use core::{alloc::Layout, any::{Any, TypeId}, convert::Infallible, fmt, marker::PhantomData, ptr};
 use rkyv::{
     from_archived,
-    validation::{ArchiveContext, PrefixRange, SharedContext, SuffixRange},
+    validation::{ArchiveContext, SharedContext},
     Archived, Fallible,
 };
 use rkyv_typename::TypeName;
@@ -75,14 +75,14 @@ pub trait DynContext {
         &mut self,
         root: *const u8,
         end: *const u8,
-    ) -> Result<PrefixRange, Box<dyn Error>>;
+    ) -> Result<Box<dyn Any>, Box<dyn Error>>;
 
     /// Pops the given range, restoring the original state with the pushed range removed.
     ///
     /// See [`pop_prefix_range`] for more information.
     ///
     /// [`pop_prefix_range`]: rkyv::validation::ArchiveContext::pop_prefix_range
-    fn pop_prefix_range_dyn(&mut self, range: PrefixRange) -> Result<(), Box<dyn Error>>;
+    fn pop_prefix_range_dyn(&mut self, range: Box<dyn Any>) -> Result<(), Box<dyn Error>>;
     
     /// Pushes a new subtree range onto the validator and starts validating it.
     ///
@@ -97,14 +97,14 @@ pub trait DynContext {
         &mut self,
         start: *const u8,
         root: *const u8,
-    ) -> Result<SuffixRange, Box<dyn Error>>;
+    ) -> Result<Box<dyn Any>, Box<dyn Error>>;
 
     /// Finishes the given range, restoring the original state with the pushed range removed.
     ///
     /// See [`pop_suffix_range`] for more information.
     ///
     /// [`pop_suffix_range`]: rkyv::validation::ArchiveContext::pop_suffix_range
-    fn pop_suffix_range_dyn(&mut self, range: SuffixRange) -> Result<(), Box<dyn Error>>;
+    fn pop_suffix_range_dyn(&mut self, range: Box<dyn Any>) -> Result<(), Box<dyn Error>>;
 
     /// Verifies that all outstanding claims have been returned.
     ///
@@ -161,13 +161,14 @@ where
         &mut self,
         root: *const u8,
         end: *const u8,
-    ) -> Result<PrefixRange, Box<dyn Error>> {
+    ) -> Result<Box<dyn Any>, Box<dyn Error>> {
         self.push_prefix_subtree_range(root, end)
+            .map(|r| Box::new(r) as Box<dyn Any>)
             .map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 
-    fn pop_prefix_range_dyn(&mut self, range: PrefixRange) -> Result<(), Box<dyn Error>> {
-        self.pop_prefix_range(range)
+    fn pop_prefix_range_dyn(&mut self, range: Box<dyn Any>) -> Result<(), Box<dyn Error>> {
+        self.pop_prefix_range(*range.downcast().unwrap())
             .map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 
@@ -175,13 +176,14 @@ where
         &mut self,
         start: *const u8,
         root: *const u8,
-    ) -> Result<SuffixRange, Box<dyn Error>> {
+    ) -> Result<Box<dyn Any>, Box<dyn Error>> {
         self.push_suffix_subtree_range(start, root)
+            .map(|r| Box::new(r) as Box<dyn Any>)
             .map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 
-    fn pop_suffix_range_dyn(&mut self, range: SuffixRange) -> Result<(), Box<dyn Error>> {
-        self.pop_suffix_range(range)
+    fn pop_suffix_range_dyn(&mut self, range: Box<dyn Any>) -> Result<(), Box<dyn Error>> {
+        self.pop_suffix_range(*range.downcast().unwrap())
             .map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 
@@ -205,6 +207,9 @@ impl Fallible for (dyn DynContext + '_) {
 }
 
 impl ArchiveContext for (dyn DynContext + '_) {
+    type PrefixRange = Box<dyn Any>;
+    type SuffixRange = Box<dyn Any>;
+
     unsafe fn bounds_check_ptr(
         &mut self,
         base: *const u8,
@@ -233,11 +238,11 @@ impl ArchiveContext for (dyn DynContext + '_) {
         &mut self,
         root: *const u8,
         end: *const u8,
-    ) -> Result<PrefixRange, Self::Error> {
+    ) -> Result<Self::PrefixRange, Self::Error> {
         self.push_prefix_subtree_range_dyn(root, end)
     }
 
-    fn pop_prefix_range(&mut self, range: PrefixRange) -> Result<(), Self::Error> {
+    fn pop_prefix_range(&mut self, range: Self::PrefixRange) -> Result<(), Self::Error> {
         self.pop_prefix_range_dyn(range)
     }
 
@@ -245,11 +250,11 @@ impl ArchiveContext for (dyn DynContext + '_) {
         &mut self,
         start: *const u8,
         root: *const u8,
-    ) -> Result<SuffixRange, Self::Error> {
+    ) -> Result<Self::SuffixRange, Self::Error> {
         self.push_suffix_subtree_range_dyn(start, root)
     }
 
-    fn pop_suffix_range(&mut self, range: SuffixRange) -> Result<(), Self::Error> {
+    fn pop_suffix_range(&mut self, range: Self::SuffixRange) -> Result<(), Self::Error> {
         self.pop_suffix_range_dyn(range)
     }
 
