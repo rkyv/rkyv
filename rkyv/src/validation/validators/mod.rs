@@ -65,6 +65,7 @@ pub struct DefaultValidator<'a> {
 
 impl<'a> DefaultValidator<'a> {
     /// Creates a new validator from a byte range.
+    #[inline]
     pub fn new(bytes: &'a [u8]) -> Self {
         Self {
             archive: ArchiveValidator::new(bytes),
@@ -82,6 +83,7 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
     type PrefixRange = <ArchiveValidator<'a> as ArchiveContext>::PrefixRange;
     type SuffixRange = <ArchiveValidator<'a> as ArchiveContext>::SuffixRange;
 
+    #[inline]
     unsafe fn bounds_check_ptr(
         &mut self,
         base: *const u8,
@@ -91,6 +93,7 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
+    #[inline]
     unsafe fn bounds_check_layout(
         &mut self,
         data_address: *const u8,
@@ -100,6 +103,7 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
+    #[inline]
     unsafe fn bounds_check_subtree_ptr_layout(
         &mut self,
         data_address: *const u8,
@@ -109,6 +113,7 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
+    #[inline]
     unsafe fn push_prefix_subtree_range(
         &mut self,
         root: *const u8,
@@ -118,11 +123,13 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
+    #[inline]
     fn pop_prefix_range(&mut self, range: PrefixRange) -> Result<(), Self::Error> {
         self.archive.pop_prefix_range(range)
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
+    #[inline]
     unsafe fn push_suffix_subtree_range(
         &mut self,
         start: *const u8,
@@ -132,11 +139,13 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
+    #[inline]
     fn pop_suffix_range(&mut self, range: SuffixRange) -> Result<(), Self::Error> {
         self.archive.pop_suffix_range(range)
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
+    #[inline]
     fn finish(&mut self) -> Result<(), Self::Error> {
         self.archive.finish()
             .map_err(DefaultValidatorError::ArchiveError)
@@ -144,6 +153,7 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
 }
 
 impl<'a> SharedContext for DefaultValidator<'a> {
+    #[inline]
     fn register_shared_ptr(
         &mut self,
         ptr: *const u8,
