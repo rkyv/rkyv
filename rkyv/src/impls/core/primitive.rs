@@ -3,7 +3,7 @@
 use crate::{Archive, Archived, Deserialize, Fallible, FixedIsize, FixedUsize, Serialize};
 #[cfg(has_atomics)]
 use core::sync::atomic::{
-    AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicU16, AtomicU32, AtomicU8, Ordering,
+    AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicIsize, AtomicU16, AtomicU32, AtomicU8, AtomicUsize, Ordering,
 };
 #[cfg(has_atomics_64)]
 use core::sync::atomic::{AtomicI64, AtomicU64};
@@ -11,8 +11,8 @@ use core::{
     marker::{PhantomData, PhantomPinned},
     mem::MaybeUninit,
     num::{
-        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
-        NonZeroU32, NonZeroU64, NonZeroU8,
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
+        NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
     },
 };
 pub use rend::NativeEndian;
@@ -281,5 +281,125 @@ impl<D: Fallible + ?Sized> Deserialize<isize, D> for Archived<isize> {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<isize, D::Error> {
         Ok(from_archived!(*self) as isize)
+    }
+}
+
+// NonZeroUsize
+
+type FixedNonZeroUsize = pick_size_type!(NonZeroU16, NonZeroU32, NonZeroU64);
+
+impl Archive for NonZeroUsize {
+    type Archived = Archived<FixedNonZeroUsize>;
+    type Resolver = ();
+
+    #[inline]
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        out.as_mut_ptr().write(
+            to_archived!(FixedNonZeroUsize::new_unchecked(self.get() as FixedUsize))
+        );
+    }
+}
+
+impl<S: Fallible + ?Sized> Serialize<S> for NonZeroUsize {
+    #[inline]
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
+    }
+}
+
+impl<D: Fallible + ?Sized> Deserialize<NonZeroUsize, D> for Archived<NonZeroUsize> {
+    #[inline]
+    fn deserialize(&self, _: &mut D) -> Result<NonZeroUsize, D::Error> {
+        Ok(unsafe {
+            NonZeroUsize::new_unchecked(from_archived!(*self).get() as usize)
+        })
+    }
+}
+
+// NonZeroIsize
+
+type FixedNonZeroIsize = pick_size_type!(NonZeroI16, NonZeroI32, NonZeroI64);
+
+impl Archive for NonZeroIsize {
+    type Archived = Archived<FixedNonZeroIsize>;
+    type Resolver = ();
+
+    #[inline]
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        out.as_mut_ptr().write(
+            to_archived!(FixedNonZeroIsize::new_unchecked(self.get() as FixedIsize))
+        );
+    }
+}
+
+impl<S: Fallible + ?Sized> Serialize<S> for NonZeroIsize {
+    #[inline]
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
+    }
+}
+
+impl<D: Fallible + ?Sized> Deserialize<NonZeroIsize, D> for Archived<NonZeroIsize> {
+    #[inline]
+    fn deserialize(&self, _: &mut D) -> Result<NonZeroIsize, D::Error> {
+        Ok(unsafe {
+            NonZeroIsize::new_unchecked(from_archived!(*self).get() as isize)
+        })
+    }
+}
+
+// AtomicUsize
+
+type FixedAtomicUsize = pick_size_type!(AtomicU16, AtomicU32, AtomicU64);
+
+impl Archive for AtomicUsize {
+    type Archived = Archived<FixedAtomicUsize>;
+    type Resolver = ();
+
+    #[inline]
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        (&mut *out.as_mut_ptr()).store(self.load(Ordering::Relaxed) as FixedUsize, Ordering::Relaxed);
+    }
+}
+
+impl<S: Fallible + ?Sized> Serialize<S> for AtomicUsize {
+    #[inline]
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
+    }
+}
+
+impl<D: Fallible + ?Sized> Deserialize<AtomicUsize, D> for Archived<AtomicUsize> {
+    #[inline]
+    fn deserialize(&self, _: &mut D) -> Result<AtomicUsize, D::Error> {
+        Ok((self.load(Ordering::Relaxed) as usize).into())
+    }
+}
+
+// AtomicIsize
+
+type FixedAtomicIsize = pick_size_type!(AtomicI16, AtomicI32, AtomicI64);
+
+impl Archive for AtomicIsize {
+    type Archived = Archived<FixedAtomicIsize>;
+    type Resolver = ();
+
+    #[inline]
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        (&mut *out.as_mut_ptr()).store(self.load(Ordering::Relaxed) as FixedIsize, Ordering::Relaxed);
+    }
+}
+
+impl<S: Fallible + ?Sized> Serialize<S> for AtomicIsize {
+    #[inline]
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
+    }
+}
+
+impl<D: Fallible + ?Sized> Deserialize<AtomicIsize, D> for Archived<AtomicIsize> {
+    #[inline]
+    fn deserialize(&self, _: &mut D) -> Result<AtomicIsize, D::Error> {
+        Ok((self.load(Ordering::Relaxed) as isize).into())
     }
 }

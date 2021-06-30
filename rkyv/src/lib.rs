@@ -609,23 +609,9 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: Archive
 core::compile_error!("\"size_16\", \"size_32\", or \"size_64\" feature must be eanbled for rkyv.");
 
 /// The native type that `usize` is converted to for archiving.
-#[cfg(feature = "size_16")]
-pub type FixedUsize = u16;
-/// The native type that `usize` is converted to for archiving.
-#[cfg(feature = "size_32")]
-pub type FixedUsize = u32;
-/// The native type that `usize` is converted to for archiving.
-#[cfg(feature = "size_64")]
-pub type FixedUsize = u64;
+pub type FixedUsize = pick_size_type!(u16, u32, u64);
 /// The native type that `isize` is converted to for archiving.
-#[cfg(feature = "size_16")]
-pub type FixedIsize = i16;
-/// The native type that `isize` is converted to for archiving.
-#[cfg(feature = "size_32")]
-pub type FixedIsize = i32;
-/// The native type that `isize` is converted to for archiving.
-#[cfg(feature = "size_64")]
-pub type FixedIsize = i64;
+pub type FixedIsize = pick_size_type!(i16, i32, i64);
 
 /// The default raw relative pointer.
 pub type RawRelPtr = rel_ptr::RawRelPtr<Archived<isize>>;

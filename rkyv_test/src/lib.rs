@@ -31,11 +31,15 @@ mod tests {
         test_archive(&1234567f32);
         test_archive(&12345678901234f64);
         test_archive(&123i8);
-        test_archive(&123456i32);
-        test_archive(&1234567890i128);
+        test_archive(&12345i16);
+        test_archive(&1234567890i32);
+        test_archive(&1234567890123456789i64);
+        test_archive(&123456789012345678901234567890123456789i128);
         test_archive(&123u8);
-        test_archive(&123456u32);
-        test_archive(&1234567890u128);
+        test_archive(&12345u16);
+        test_archive(&1234567890u32);
+        test_archive(&12345678901234567890u64);
+        test_archive(&123456789012345678901234567890123456789u128);
         #[cfg(not(any(feature = "strict", feature = "archive_le", feature = "archive_be")))]
         test_archive(&(24, true, 16f32));
         test_archive(&[1, 2, 3, 4, 5, 6]);
@@ -66,5 +70,27 @@ mod tests {
         test_archive_ref::<[i32; 0]>(&[]);
         test_archive_ref::<[i32]>([].as_ref());
         test_archive_ref::<str>("");
+    }
+
+    #[test]
+    #[cfg_attr(feautre = "wasm", wasm_bindgen_test)]
+    fn archive_nonzero() {
+        use std::num::{
+            NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128,
+            NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128,
+        };
+
+        unsafe {
+            test_archive(&NonZeroI8::new_unchecked(123));
+            test_archive(&NonZeroI16::new_unchecked(12345));
+            test_archive(&NonZeroI32::new_unchecked(1234567890));
+            test_archive(&NonZeroI64::new_unchecked(1234567890123456789));
+            test_archive(&NonZeroI128::new_unchecked(123456789012345678901234567890123456789));
+            test_archive(&NonZeroU8::new_unchecked(123));
+            test_archive(&NonZeroU16::new_unchecked(12345));
+            test_archive(&NonZeroU32::new_unchecked(1234567890));
+            test_archive(&NonZeroU64::new_unchecked(12345678901234567890));
+            test_archive(&NonZeroU128::new_unchecked(123456789012345678901234567890123456789));
+        }
     }
 }

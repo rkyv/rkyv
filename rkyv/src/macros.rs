@@ -102,3 +102,18 @@ macro_rules! to_archived {
         }
     }};
 }
+
+#[cfg(feature = "size_16")]
+macro_rules! pick_size_type {
+    ($s16:ty, $s32:ty, $s64:ty) => { $s16 }
+}
+
+#[cfg(feature = "size_32")]
+macro_rules! pick_size_type {
+    ($s16:ty, $s32:ty, $s64:ty) => { $s32 }
+}
+
+#[cfg(feature = "size_64")]
+macro_rules! pick_size_type {
+    ($s16:ty, $s32:ty, $s64:ty) => { $s64 }
+}
