@@ -1,8 +1,7 @@
 //! [`Archive`](crate::Archive) implementation for B-tree maps.
 
-// TODO: FIXME
-// #[cfg(feature = "validation")]
-// pub mod validation;
+#[cfg(feature = "validation")]
+pub mod validation;
 
 use crate::{Archive, ArchivePointee, Archived, RelPtr};
 use core::{
@@ -50,6 +49,7 @@ impl<'a, UK: Archive, UV: Archive> Archive for LeafNodeEntry<&'a UK, &'a UV> {
 #[cfg_attr(feature = "strict", repr(C))]
 struct Node<K, V, T: ?Sized> {
     meta: Archived<u16>,
+    size: Archived<usize>,
     // For leaf nodes, this points to the next leaf node in order
     // For inner nodes, this points to the node in the next layer that's less than the first key in
     // this node
@@ -108,6 +108,7 @@ type LeafNode<K, V> = Node<K, V, [LeafNodeEntry<K, V>]>;
 
 struct RawNodeData<K, V> {
     meta: u16,
+    size: usize,
     pos: Option<usize>,
     _phantom: PhantomData<(K, V)>,
 }
@@ -120,6 +121,9 @@ impl<K, V> Archive for RawNodeData<K, V> {
     unsafe fn resolve(&self, pos: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
         let (fp, fo) = out_field!(out.meta);
         self.meta.resolve(pos + fp, (), fo);
+
+        let (fp, fo) = out_field!(out.size);
+        self.size.resolve(pos + fp, (), fo);
 
         let (fp, fo) = out_field!(out.ptr);
         RelPtr::emplace(pos + fp, self.pos.unwrap_or(pos + fp), fo);
@@ -165,17 +169,25 @@ impl<K, V> RawNode<K, V> {
     }
 
     #[inline]
+    fn classify_inner_ptr(&self) -> *const InnerNode<K, V> {
+        ptr_meta::from_raw_parts(self as *const Self as *const (), self.len() as usize)
+    }
+
+    #[inline]
     fn classify_inner(&self) -> &'_ InnerNode<K, V> {
         debug_assert!(self.is_inner());
+        unsafe { &*self.classify_inner_ptr() }
+    }
 
-        unsafe { &*ptr_meta::from_raw_parts(self as *const Self as *const (), self.len() as usize) }
+    #[inline]
+    fn classify_leaf_ptr(&self) -> *const LeafNode<K, V> {
+        ptr_meta::from_raw_parts(self as *const Self as *const (), self.len() as usize)
     }
 
     #[inline]
     fn classify_leaf(&self) -> &'_ LeafNode<K, V> {
         debug_assert!(self.is_leaf());
-
-        unsafe { &*ptr_meta::from_raw_parts(self as *const Self as *const (), self.len() as usize) }
+        unsafe { &*self.classify_leaf_ptr() }
     }
 }
 
@@ -425,6 +437,7 @@ const _: () = {
                 ))?;
                 let raw_node = RawNodeData::<K, V> {
                     meta: combine_meta(false, resolvers.len()),
+                    size: serializer.pos() - block_start_pos,
                     // The last element of next_level is the next block we're linked to
                     pos: next_level.last().map(|&(_, pos)| pos),
                     _phantom: PhantomData,
@@ -489,6 +502,7 @@ const _: () = {
                     ))?;
                     let raw_node = RawNodeData::<K, V> {
                         meta: combine_meta(true, resolvers.len()),
+                        size: serializer.pos() - block_start_pos,
                         // The pos of the first key is used to make the pointer for inner nodes
                         pos: Some(first_pos),
                         _phantom: PhantomData,

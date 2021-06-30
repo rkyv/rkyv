@@ -407,23 +407,22 @@ mod tests {
         check_archived_root::<Test>(buffer.as_ref()).unwrap();
     }
 
-    // TODO: FIXME
-    // #[test]
-    // fn check_b_tree() {
-    //     #[cfg(all(feature = "alloc", not(feature = "std")))]
-    //     use alloc::collections::BTreeMap;
-    //     #[cfg(feature = "std")]
-    //     use std::collections::BTreeMap;
+    #[test]
+    fn check_b_tree() {
+        #[cfg(all(feature = "alloc", not(feature = "std")))]
+        use alloc::collections::BTreeMap;
+        #[cfg(feature = "std")]
+        use std::collections::BTreeMap;
 
-    //     let mut value = BTreeMap::new();
-    //     value.insert("foo".to_string(), 10);
-    //     value.insert("bar".to_string(), 20);
-    //     value.insert("baz".to_string(), 40);
-    //     value.insert("bat".to_string(), 80);
+        let mut value = BTreeMap::new();
+        value.insert("foo".to_string(), 10);
+        value.insert("bar".to_string(), 20);
+        value.insert("baz".to_string(), 40);
+        value.insert("bat".to_string(), 80);
 
-    //     let mut serializer = AlignedSerializer::new(AlignedVec::new());
-    //     serializer.serialize_value(&value).unwrap();
-    //     let buffer = serializer.into_inner();
-    //     check_archived_root::<BTreeMap<String, i32>>(buffer.as_ref()).unwrap();
-    // }
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
+        let buffer = serializer.into_inner();
+        check_archived_root::<BTreeMap<String, i32>>(buffer.as_ref()).unwrap();
+    }
 }
