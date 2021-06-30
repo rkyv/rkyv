@@ -22,13 +22,10 @@ where
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let child_rel_ptr =
-            RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context)
-                .map_err(ErrorBox::new)
-            .and_then(|child_rel_ptr|
-                context.bounds_check_ptr(child_rel_ptr)
-                    .map_err(ErrorBox::new)
-            )
+        let child_rel_ptr = RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context)
+            .map_err(ErrorBox::new)?;
+        let ptr = context.check_subtree_rel_ptr(child_rel_ptr)
+            .map_err(ErrorBox::new)?;
             .and_then(|child_ptr|
                 CheckBytes::check_bytes(child_ptr, context)
                     .map_err(ErrorBox::new)

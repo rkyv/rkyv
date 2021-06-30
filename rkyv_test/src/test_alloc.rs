@@ -1470,4 +1470,37 @@ mod tests {
             .expect("failed to deserialize B-tree map");
         assert_eq!(value, deserialized);
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_btree_map_large() {
+        let mut value = BTreeMap::new();
+        for i in 0..100_000 {
+            value.insert(i.to_string(), i);
+        }
+
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_inner();
+        let archived = unsafe { archived_root::<BTreeMap<String, i32>>(result.as_slice()) };
+
+        assert_eq!(archived.len(), 100_000);
+
+        for ((k, v), (ak, av)) in value.iter().zip(archived.iter()) {
+            assert_eq!(k, ak);
+            assert_eq!(v, av);
+        }
+
+        for (k, v) in value.iter() {
+            let av = archived
+                .get(k.as_str())
+                .expect(&format!("failed to find key {} in archived B-tree map", k));
+            assert_eq!(v, av);
+        }
+        assert!(archived.get("wrong!").is_none());
+
+        let deserialized = Deserialize::<BTreeMap<_, _>, _>::deserialize(archived, &mut Infallible)
+            .expect("failed to deserialize B-tree map");
+        assert_eq!(value, deserialized);
+    }
 }

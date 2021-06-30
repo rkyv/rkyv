@@ -254,19 +254,23 @@ impl<K, V> ArchivedBTreeMap<K, V> {
         K: Borrow<Q> + Ord,
     {
         let mut current = self.root();
-        'outer: loop {
+        loop {
             match current {
                 ClassifiedNode::Inner(node) => {
                     // Binary search for the next node layer
-                    if let Ok(i) = node
-                        .tail
-                        .binary_search_by(|probe| probe.key.borrow().cmp(k))
-                    {
-                        let next = unsafe { &*node.tail[i].ptr.as_ptr() };
-                        current = next.classify();
-                    } else {
-                        break None;
-                    }
+                    let next = match node.tail.binary_search_by(|probe| probe.key.borrow().cmp(k)) {
+                        Ok(i) => {
+                            unsafe { &*node.tail[i].ptr.as_ptr() }
+                        }
+                        Err(i) => {
+                            if i == 0 {
+                                unsafe { &*node.ptr.as_ptr() }
+                            } else {
+                                unsafe { &*node.tail[i - 1].ptr.as_ptr() }
+                            }
+                        }
+                    };
+                    current = next.classify();
                 }
                 ClassifiedNode::Leaf(node) => {
                     // Binary search for the value
@@ -275,7 +279,7 @@ impl<K, V> ArchivedBTreeMap<K, V> {
                         .binary_search_by(|probe| probe.key.borrow().cmp(k))
                     {
                         let entry = &node.tail[i];
-                        break 'outer Some((&entry.key, &entry.value));
+                        break Some((&entry.key, &entry.value));
                     } else {
                         break None;
                     }
@@ -377,7 +381,6 @@ const _: () = {
             while let Some((key, value)) = iter.next() {
                 // Start a new block
                 let block_start_pos = serializer.pos();
-                resolvers.clear();
 
                 // Serialize the first entry
                 resolvers.push((
@@ -387,15 +390,7 @@ const _: () = {
                     value.serialize(serializer)?,
                 ));
 
-                for (key, value) in &mut iter {
-                    // Serialize the next entry
-                    resolvers.push((
-                        key,
-                        value,
-                        key.serialize(serializer)?,
-                        value.serialize(serializer)?,
-                    ));
-
+                loop {
                     // This is an estimate of the block size
                     // It's not exact because there may be padding to align the node and entries slice
                     let estimated_block_size = serializer.pos() - block_start_pos
@@ -407,6 +402,18 @@ const _: () = {
                     if estimated_block_size >= MAX_NODE_SIZE
                         && resolvers.len() >= MIN_ENTRIES_PER_LEAF_NODE
                     {
+                        break;
+                    }
+
+                    if let Some((key, value)) = iter.next() {
+                        // Serialize the next entry
+                        resolvers.push((
+                            key,
+                            value,
+                            key.serialize(serializer)?,
+                            value.serialize(serializer)?,
+                        ));
+                    } else {
                         break;
                     }
                 }
@@ -447,10 +454,9 @@ const _: () = {
                 // be empty at this point
                 mem::swap(&mut current_level, &mut next_level);
 
-                while let Some((_, pos)) = current_level.pop() {
+                while let Some((first_key, first_pos)) = current_level.pop() {
                     // Start a new inner block
                     let block_start_pos = serializer.pos();
-                    resolvers.clear();
 
                     // We don't serialize the first key we popped at the start of the loop because we
                     // can determine whether we need to branch to if if the value we're looking for is
@@ -484,18 +490,18 @@ const _: () = {
                     let raw_node = RawNodeData::<K, V> {
                         meta: combine_meta(true, resolvers.len()),
                         // The pos of the first key is used to make the pointer for inner nodes
-                        pos: Some(pos),
+                        pos: Some(first_pos),
                         _phantom: PhantomData,
                     };
 
                     // Add the second key and node position to the next level
                     next_level.push((
-                        resolvers.last().unwrap().0,
+                        first_key,
                         serializer.resolve_aligned(&raw_node, ())?,
                     ));
 
                     serializer.align_for::<InnerNodeEntry<K, V>>()?;
-                    for (key, pos, resolver) in resolvers.drain(..).rev() {
+                    for (key, pos, resolver) in resolvers.drain(..) {
                         let inner_node_data = InnerNodeEntryData::<UK, UV> {
                             key,
                             _phantom: PhantomData,
@@ -503,6 +509,8 @@ const _: () = {
                         serializer.resolve_aligned(&inner_node_data, (pos, resolver))?;
                     }
                 }
+
+                next_level.reverse();
             }
 
             // The root is only node in the final level

@@ -12,7 +12,6 @@ use core::{
 /// An archived [`String`].
 ///
 /// Uses a [`RelPtr`] to a `str` under the hood.
-#[derive(Debug)]
 #[repr(transparent)]
 pub struct ArchivedString(RelPtr<str>);
 
@@ -74,6 +73,13 @@ impl Borrow<str> for ArchivedString {
     #[inline]
     fn borrow(&self) -> &str {
         self.as_str()
+    }
+}
+
+impl fmt::Debug for ArchivedString {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(self.as_str(), f)
     }
 }
 
