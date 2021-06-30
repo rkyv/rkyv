@@ -15,6 +15,9 @@ use std::{rc, sync};
 
 // Rc
 
+/// The flavor type for `Rc`.
+pub struct RcFlavor;
+
 impl<T: ?Sized> SharedPointer for rc::Rc<T> {
     #[inline]
     fn data_address(&self) -> *const () {
@@ -23,7 +26,7 @@ impl<T: ?Sized> SharedPointer for rc::Rc<T> {
 }
 
 impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
-    type Archived = ArchivedRc<T::Archived>;
+    type Archived = ArchivedRc<T::Archived, RcFlavor>;
     type Resolver = RcResolver<T::MetadataResolver>;
 
     #[inline]
@@ -44,11 +47,11 @@ where
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        ArchivedRc::<T::Archived>::serialize_from_ref(self.as_ref(), serializer)
+        ArchivedRc::<T::Archived, RcFlavor>::serialize_from_ref(self.as_ref(), serializer)
     }
 }
 
-impl<T, D> Deserialize<rc::Rc<T>, D> for ArchivedRc<T::Archived>
+impl<T, D> Deserialize<rc::Rc<T>, D> for ArchivedRc<T::Archived, RcFlavor>
 where
     T: ArchiveUnsized + ?Sized + 'static,
     T::Archived: DeserializeUnsized<T, D>,
@@ -66,7 +69,7 @@ where
     }
 }
 
-impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<rc::Rc<U>> for ArchivedRc<T> {
+impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<rc::Rc<U>> for ArchivedRc<T, RcFlavor> {
     #[inline]
     fn eq(&self, other: &rc::Rc<U>) -> bool {
         self.get().eq(other.as_ref())
@@ -76,7 +79,7 @@ impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<rc::Rc<U>> 
 // rc::Weak
 
 impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
-    type Archived = ArchivedRcWeak<T::Archived>;
+    type Archived = ArchivedRcWeak<T::Archived, RcFlavor>;
     type Resolver = RcWeakResolver<T::MetadataResolver>;
 
     #[inline]
@@ -102,13 +105,13 @@ where
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        ArchivedRcWeak::serialize_from_ref(self.upgrade().as_ref().map(|v| v.as_ref()), serializer)
+        ArchivedRcWeak::<T::Archived, RcFlavor>::serialize_from_ref(self.upgrade().as_ref().map(|v| v.as_ref()), serializer)
     }
 }
 
 // Deserialize can only be implemented for sized types because weak pointers don't have from/into
 // raw functions.
-impl<T, D> Deserialize<rc::Weak<T>, D> for ArchivedRcWeak<T::Archived>
+impl<T, D> Deserialize<rc::Weak<T>, D> for ArchivedRcWeak<T::Archived, RcFlavor>
 where
     T: Archive + 'static,
     T::Archived: DeserializeUnsized<T, D>,
@@ -125,6 +128,9 @@ where
 
 // Arc
 
+/// The flavor type for `Arc`.
+pub struct ArcFlavor;
+
 impl<T: ?Sized> SharedPointer for sync::Arc<T> {
     #[inline]
     fn data_address(&self) -> *const () {
@@ -133,7 +139,7 @@ impl<T: ?Sized> SharedPointer for sync::Arc<T> {
 }
 
 impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
-    type Archived = ArchivedRc<T::Archived>;
+    type Archived = ArchivedRc<T::Archived, ArcFlavor>;
     type Resolver = RcResolver<T::MetadataResolver>;
 
     #[inline]
@@ -154,12 +160,12 @@ where
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        ArchivedRc::<T::Archived>::serialize_from_ref(self.as_ref(), serializer)
+        ArchivedRc::<T::Archived, ArcFlavor>::serialize_from_ref(self.as_ref(), serializer)
     }
 }
 
 impl<T: ArchiveUnsized + ?Sized + 'static, D: SharedDeserializer + ?Sized>
-    Deserialize<sync::Arc<T>, D> for ArchivedRc<T::Archived>
+    Deserialize<sync::Arc<T>, D> for ArchivedRc<T::Archived, ArcFlavor>
 where
     T::Archived: DeserializeUnsized<T, D>,
 {
@@ -174,7 +180,7 @@ where
     }
 }
 
-impl<T, U> PartialEq<sync::Arc<U>> for ArchivedRc<T>
+impl<T, U> PartialEq<sync::Arc<U>> for ArchivedRc<T, ArcFlavor>
 where
     T: ArchivePointee + PartialEq<U> + ?Sized,
     U: ?Sized,
@@ -188,7 +194,7 @@ where
 // sync::Weak
 
 impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
-    type Archived = ArchivedRcWeak<T::Archived>;
+    type Archived = ArchivedRcWeak<T::Archived, ArcFlavor>;
     type Resolver = RcWeakResolver<T::MetadataResolver>;
 
     #[inline]
@@ -214,13 +220,13 @@ where
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        ArchivedRcWeak::serialize_from_ref(self.upgrade().as_ref().map(|v| v.as_ref()), serializer)
+        ArchivedRcWeak::<T::Archived, ArcFlavor>::serialize_from_ref(self.upgrade().as_ref().map(|v| v.as_ref()), serializer)
     }
 }
 
 // Deserialize can only be implemented for sized types because weak pointers don't have from/into
 // raw functions.
-impl<T, D> Deserialize<sync::Weak<T>, D> for ArchivedRcWeak<T::Archived>
+impl<T, D> Deserialize<sync::Weak<T>, D> for ArchivedRcWeak<T::Archived, ArcFlavor>
 where
     T: Archive + 'static,
     T::Archived: DeserializeUnsized<T, D>,

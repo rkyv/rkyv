@@ -100,12 +100,13 @@ impl<T, R, C> From<Infallible> for WeakPointerError<T, R, C> {
     }
 }
 
-impl<T, C> CheckBytes<C> for ArchivedRc<T>
+impl<T, F, C> CheckBytes<C> for ArchivedRc<T, F>
 where
     T: ArchivePointee + CheckBytes<C> + LayoutRaw + Pointee + ?Sized + 'static,
     C: ArchiveContext + SharedContext + ?Sized,
     T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,
+    F: 'static,
 {
     type Error =
         SharedPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
@@ -142,12 +143,13 @@ impl ArchivedRcWeakTag {
     const TAG_SOME: u8 = ArchivedRcWeakTag::Some as u8;
 }
 
-impl<T, C> CheckBytes<C> for ArchivedRcWeak<T>
+impl<T, F, C> CheckBytes<C> for ArchivedRcWeak<T, F>
 where
     T: ArchivePointee + CheckBytes<C> + LayoutRaw + Pointee + ?Sized + 'static,
     C: ArchiveContext + SharedContext + ?Sized,
     T::ArchivedMetadata: CheckBytes<C>,
     C::Error: Error,
+    F: 'static,
 {
     type Error =
         WeakPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
@@ -160,8 +162,8 @@ where
         match tag {
             ArchivedRcWeakTag::TAG_NONE => (),
             ArchivedRcWeakTag::TAG_SOME => {
-                let value = value.cast::<ArchivedRcWeakVariantSome<T>>();
-                ArchivedRc::<T>::check_bytes(ptr::addr_of!((*value).1), context)
+                let value = value.cast::<ArchivedRcWeakVariantSome<T, F>>();
+                ArchivedRc::<T, F>::check_bytes(ptr::addr_of!((*value).1), context)
                     .map_err(WeakPointerError::CheckBytes)?;
             }
             _ => return Err(WeakPointerError::InvalidTag(tag)),

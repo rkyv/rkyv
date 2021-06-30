@@ -7,15 +7,25 @@ use crate::{
     ser::SharedSerializer, ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr,
     SerializeUnsized,
 };
-use core::{borrow::Borrow, cmp, fmt, hash, mem::MaybeUninit, ops::Deref, pin::Pin, ptr};
+use core::{
+    borrow::Borrow,
+    cmp,
+    fmt,
+    hash,
+    marker::PhantomData,
+    mem::MaybeUninit,
+    ops::Deref,
+    pin::Pin,
+    ptr,
+};
 
 /// An archived `Rc`.
 ///
 /// This is a thin wrapper around a [`RelPtr`] to the archived type.
 #[repr(transparent)]
-pub struct ArchivedRc<T: ArchivePointee + ?Sized>(RelPtr<T>);
+pub struct ArchivedRc<T: ArchivePointee + ?Sized, F>(RelPtr<T>, PhantomData<F>);
 
-impl<T: ArchivePointee + ?Sized> ArchivedRc<T> {
+impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     /// Gets the value of the `ArchivedRc`.
     #[inline]
     pub fn get(&self) -> &T {
@@ -63,28 +73,28 @@ impl<T: ArchivePointee + ?Sized> ArchivedRc<T> {
     }
 }
 
-impl<T: ArchivePointee + ?Sized> AsRef<T> for ArchivedRc<T> {
+impl<T: ArchivePointee + ?Sized, F> AsRef<T> for ArchivedRc<T, F> {
     #[inline]
     fn as_ref(&self) -> &T {
         self.get()
     }
 }
 
-impl<T: ArchivePointee + ?Sized> Borrow<T> for ArchivedRc<T> {
+impl<T: ArchivePointee + ?Sized, F> Borrow<T> for ArchivedRc<T, F> {
     #[inline]
     fn borrow(&self) -> &T {
         self.get()
     }
 }
 
-impl<T: ArchivePointee + fmt::Debug + ?Sized> fmt::Debug for ArchivedRc<T> {
+impl<T: ArchivePointee + fmt::Debug + ?Sized, F> fmt::Debug for ArchivedRc<T, F> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.get().fmt(f)
     }
 }
 
-impl<T: ArchivePointee + ?Sized> Deref for ArchivedRc<T> {
+impl<T: ArchivePointee + ?Sized, F> Deref for ArchivedRc<T, F> {
     type Target = T;
 
     #[inline]
@@ -93,48 +103,48 @@ impl<T: ArchivePointee + ?Sized> Deref for ArchivedRc<T> {
     }
 }
 
-impl<T: ArchivePointee + fmt::Display + ?Sized> fmt::Display for ArchivedRc<T> {
+impl<T: ArchivePointee + fmt::Display + ?Sized, F> fmt::Display for ArchivedRc<T, F> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.get().fmt(f)
     }
 }
 
-impl<T: ArchivePointee + Eq + ?Sized> Eq for ArchivedRc<T> {}
+impl<T: ArchivePointee + Eq + ?Sized, F> Eq for ArchivedRc<T, F> {}
 
-impl<T: ArchivePointee + hash::Hash + ?Sized> hash::Hash for ArchivedRc<T> {
+impl<T: ArchivePointee + hash::Hash + ?Sized, F> hash::Hash for ArchivedRc<T, F> {
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.get().hash(state)
     }
 }
 
-impl<T: ArchivePointee + Ord + ?Sized> Ord for ArchivedRc<T> {
+impl<T: ArchivePointee + Ord + ?Sized, F> Ord for ArchivedRc<T, F> {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.get().cmp(other.get())
     }
 }
 
-impl<T, U> PartialEq<ArchivedRc<U>> for ArchivedRc<T>
+impl<T, TF, U, UF> PartialEq<ArchivedRc<U, UF>> for ArchivedRc<T, TF>
 where
     T: ArchivePointee + PartialEq<U> + ?Sized,
     U: ArchivePointee + ?Sized,
 {
-    fn eq(&self, other: &ArchivedRc<U>) -> bool {
+    fn eq(&self, other: &ArchivedRc<U, UF>) -> bool {
         self.get().eq(other.get())
     }
 }
 
-impl<T, U> PartialOrd<ArchivedRc<U>> for ArchivedRc<T>
+impl<T, TF, U, UF> PartialOrd<ArchivedRc<U, UF>> for ArchivedRc<T, TF>
 where
     T: ArchivePointee + PartialOrd<U> + ?Sized,
     U: ArchivePointee + ?Sized,
 {
-    fn partial_cmp(&self, other: &ArchivedRc<U>) -> Option<cmp::Ordering> {
+    fn partial_cmp(&self, other: &ArchivedRc<U, UF>) -> Option<cmp::Ordering> {
         self.get().partial_cmp(other.get())
     }
 }
 
-impl<T> fmt::Pointer for ArchivedRc<T> {
+impl<T, F> fmt::Pointer for ArchivedRc<T, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Pointer::fmt(&self.0.base(), f)
     }
@@ -148,19 +158,19 @@ pub struct RcResolver<T> {
 
 /// An archived `rc::Weak`.
 #[repr(u8)]
-pub enum ArchivedRcWeak<T: ArchivePointee + ?Sized> {
+pub enum ArchivedRcWeak<T: ArchivePointee + ?Sized, F> {
     /// A null weak pointer
     None,
     /// A weak pointer to some shared pointer
-    Some(ArchivedRc<T>),
+    Some(ArchivedRc<T, F>),
 }
 
-impl<T: ArchivePointee + ?Sized> ArchivedRcWeak<T> {
+impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     /// Attempts to upgrade the weak pointer to an `ArchivedArc`.
     ///
     /// Returns `None` if a null weak pointer was serialized.
     #[inline]
-    pub fn upgrade(&self) -> Option<&ArchivedRc<T>> {
+    pub fn upgrade(&self) -> Option<&ArchivedRc<T, F>> {
         match self {
             ArchivedRcWeak::None => None,
             ArchivedRcWeak::Some(r) => Some(r),
@@ -169,7 +179,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedRcWeak<T> {
 
     /// Attempts to upgrade a pinned mutable weak pointer.
     #[inline]
-    pub fn upgrade_pin_mut(self: Pin<&mut Self>) -> Option<Pin<&mut ArchivedRc<T>>> {
+    pub fn upgrade_pin_mut(self: Pin<&mut Self>) -> Option<Pin<&mut ArchivedRc<T, F>>> {
         unsafe {
             match self.get_unchecked_mut() {
                 ArchivedRcWeak::None => None,
@@ -201,7 +211,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedRcWeak<T> {
             RcWeakResolver::Some(resolver) => {
                 let out = &mut *out
                     .as_mut_ptr()
-                    .cast::<MaybeUninit<ArchivedRcWeakVariantSome<T>>>();
+                    .cast::<MaybeUninit<ArchivedRcWeakVariantSome<T, F>>>();
                 ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedRcWeakTag::Some);
 
                 let (fp, fo) = out_field!(out.1);
@@ -222,7 +232,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedRcWeak<T> {
     {
         Ok(match value {
             None => RcWeakResolver::None,
-            Some(r) => RcWeakResolver::Some(ArchivedRc::<T>::serialize_from_ref(r, serializer)?),
+            Some(r) => RcWeakResolver::Some(ArchivedRc::<T, F>::serialize_from_ref(r, serializer)?),
         })
     }
 }
@@ -246,4 +256,4 @@ enum ArchivedRcWeakTag {
 struct ArchivedRcWeakVariantNone(ArchivedRcWeakTag);
 
 #[repr(C)]
-struct ArchivedRcWeakVariantSome<T: ArchivePointee + ?Sized>(ArchivedRcWeakTag, ArchivedRc<T>);
+struct ArchivedRcWeakVariantSome<T: ArchivePointee + ?Sized, F>(ArchivedRcWeakTag, ArchivedRc<T, F>);
