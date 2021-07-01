@@ -93,8 +93,7 @@ macro_rules! impl_atomic {
 
             #[inline]
             unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-                #[allow(clippy::unnecessary_mut_passed)]
-                (&mut *out.as_mut_ptr()).store(self.load(Ordering::Relaxed), Ordering::Relaxed);
+                (&*out.as_ptr()).store(self.load(Ordering::Relaxed), Ordering::Relaxed);
             }
         }
 
@@ -119,9 +118,8 @@ macro_rules! impl_atomic {
             type Resolver = ();
 
             #[inline]
-            #[allow(clippy::unnecessary_mut_passed)]
             unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-                (&mut *out.as_mut_ptr()).store(self.load(Ordering::Relaxed), Ordering::Relaxed);
+                (&*out.as_ptr()).store(self.load(Ordering::Relaxed), Ordering::Relaxed);
             }
         }
 
@@ -358,7 +356,7 @@ impl Archive for AtomicUsize {
 
     #[inline]
     unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        (&mut *out.as_mut_ptr()).store(self.load(Ordering::Relaxed) as FixedUsize, Ordering::Relaxed);
+        (&*out.as_ptr()).store(self.load(Ordering::Relaxed) as FixedUsize, Ordering::Relaxed);
     }
 }
 
@@ -386,7 +384,7 @@ impl Archive for AtomicIsize {
 
     #[inline]
     unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        (&mut *out.as_mut_ptr()).store(self.load(Ordering::Relaxed) as FixedIsize, Ordering::Relaxed);
+        (&*out.as_ptr()).store(self.load(Ordering::Relaxed) as FixedIsize, Ordering::Relaxed);
     }
 }
 

@@ -73,7 +73,7 @@ pub trait Offset: Copy {
     fn between(from: usize, to: usize) -> Result<Self, OffsetError>;
 
     /// Gets the offset as an `isize`.
-    fn to_isize(self) -> isize;
+    fn to_isize(&self) -> isize;
 }
 
 macro_rules! impl_offset {
@@ -89,9 +89,9 @@ macro_rules! impl_offset {
             }
 
             #[inline]
-            fn to_isize(self) -> isize {
+            fn to_isize(&self) -> isize {
                 // We're guaranteed that our offset will not exceed the the capacity of an `isize`
-                self as isize
+                *self as isize
             }
         }
     };
@@ -108,9 +108,9 @@ macro_rules! impl_offset {
             }
 
             #[inline]
-            fn to_isize(self) -> isize {
+            fn to_isize(&self) -> isize {
                 // We're guaranteed that our offset will not exceed the the capacity of an `isize`
-                from_archived!(self) as isize
+                from_archived!(*self) as isize
             }
         }
     };

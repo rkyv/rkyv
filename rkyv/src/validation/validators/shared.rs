@@ -63,6 +63,12 @@ impl SharedValidator {
     }
 }
 
+impl Default for SharedValidator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Fallible for SharedValidator {
     type Error = SharedError;
 }

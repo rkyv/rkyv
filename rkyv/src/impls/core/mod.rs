@@ -87,7 +87,6 @@ macro_rules! impl_tuple {
             unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
                 $(
                     let (fp, fo) = out_field!(out.$index);
-                    #[allow(clippy::unneeded_wildcard_pattern)]
                     self.$index.resolve(pos + fp, resolver.$index, fo);
                 )+
             }

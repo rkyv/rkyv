@@ -303,23 +303,21 @@ impl<'a> ArchiveContext for ArchiveValidator<'a> {
             } else {
                 Ok(())
             }
+        } else if !self.subtree_range.contains(&data_address) {
+            Err(ArchiveError::SubtreePointerOutOfBounds {
+                ptr: data_address,
+                subtree_range: self.subtree_range.clone(),
+            })
         } else {
-            if !self.subtree_range.contains(&data_address) {
-                Err(ArchiveError::SubtreePointerOutOfBounds {
+            let available_space = self.subtree_range.end.offset_from(data_address) as usize;
+            if available_space < layout.size() {
+                Err(ArchiveError::SubtreePointerOverrun {
                     ptr: data_address,
+                    size: layout.size(),
                     subtree_range: self.subtree_range.clone(),
                 })
             } else {
-                let available_space = self.subtree_range.end.offset_from(data_address) as usize;
-                if available_space < layout.size() {
-                    Err(ArchiveError::SubtreePointerOverrun {
-                        ptr: data_address,
-                        size: layout.size(),
-                        subtree_range: self.subtree_range.clone(),
-                    })
-                } else {
-                    Ok(())
-                }
+                Ok(())
             }
         }
     }

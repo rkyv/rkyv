@@ -1,8 +1,8 @@
 //! Validation implementation for BTreeMap.
 
 use super::{
-    split_meta, ArchivedBTreeMap, ClassifiedNode, InnerNode, InnerNodeEntry, LeafNode,
-    LeafNodeEntry, Node, RawNode, MIN_ENTRIES_PER_INNER_NODE, MIN_ENTRIES_PER_LEAF_NODE,
+    ArchivedBTreeMap, ClassifiedNode, InnerNode, InnerNodeEntry, LeafNode, LeafNodeEntry, Node,
+    RawNode, MIN_ENTRIES_PER_INNER_NODE, MIN_ENTRIES_PER_LEAF_NODE,
 };
 use crate::{Archived, Fallible, rel_ptr::RelPtr, validation::{ArchiveContext, LayoutRaw}};
 use bytecheck::{CheckBytes, Error};
@@ -288,6 +288,7 @@ where
 }
 
 impl<K, V> InnerNode<K, V> {
+    #[allow(clippy::type_complexity)]
     fn verify_integrity<C>(&self) -> Result<&K, ArchivedBTreeMapError<K::Error, V::Error, C::Error>>
     where
         K: CheckBytes<C> + PartialEq,
@@ -326,9 +327,7 @@ where
 
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         // meta, size, and ptr have already been checked by the check_bytes for RawNode
-        let meta = from_archived!(*ptr::addr_of!((*value).meta));
-        let (is_inner, len) = split_meta(meta);
-        debug_assert!(is_inner);
+        let len = ptr_meta::metadata(value);
 
         // Each inner node actually contains one more entry that the length indicates (the least
         // child pointer)
@@ -361,9 +360,7 @@ where
 
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         // meta, size, and ptr have already been checked by the check_bytes for RawNode
-        let meta = from_archived!(*ptr::addr_of!((*value).meta));
-        let (is_inner, len) = split_meta(meta);
-        debug_assert!(!is_inner);
+        let len = ptr_meta::metadata(value);
 
         if len < MIN_ENTRIES_PER_LEAF_NODE {
             return Err(ArchivedBTreeMapError::TooFewLeafNodeEntries(len));
