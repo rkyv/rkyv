@@ -176,7 +176,7 @@ fn derive_archive_impl(
 
                     let resolve_fields = fields.named.iter().map(|f| {
                         let name = &f.ident;
-                        let field = with_cast(f, parse_quote! { &self.#name });
+                        let field = with_cast(f, parse_quote! { (&self.#name) });
                         quote_spanned! { f.span() =>
                             let (fp, fo) = out_field!(out.#name);
                             #field.resolve(pos + fp, resolver.#name, fo);
@@ -352,7 +352,7 @@ fn derive_archive_impl(
 
                     let resolve_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                         let index = Index::from(i);
-                        let field = with_cast(f, parse_quote! { &self.#index });
+                        let field = with_cast(f, parse_quote! { (&self.#index) });
                         quote_spanned! { f.span() =>
                             let (fp, fo) = out_field!(out.#index);
                             #field.resolve(pos + fp, resolver.#index, fo);
