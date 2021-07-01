@@ -425,4 +425,22 @@ mod tests {
         let buffer = serializer.into_inner();
         check_archived_root::<BTreeMap<String, i32>>(buffer.as_ref()).unwrap();
     }
+
+    #[test]
+    fn check_b_tree_large() {
+        #[cfg(all(feature = "alloc", not(feature = "std")))]
+        use alloc::collections::BTreeMap;
+        #[cfg(feature = "std")]
+        use std::collections::BTreeMap;
+
+        let mut value = BTreeMap::new();
+        for i in 0..100_000 {
+            value.insert(i.to_string(), i);
+        }
+
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
+        let buffer = serializer.into_inner();
+        check_archived_root::<BTreeMap<String, i32>>(buffer.as_ref()).unwrap();
+    }
 }

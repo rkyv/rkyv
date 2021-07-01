@@ -210,8 +210,8 @@ pub const MIN_ENTRIES_PER_LEAF_NODE: usize = 1;
 
 /// The minimum number of entries to place in an inner node.
 ///
-/// This value must be greater than 2
-pub const MIN_ENTRIES_PER_INNER_NODE: usize = 3;
+/// This value must be greater than 1
+pub const MIN_ENTRIES_PER_INNER_NODE: usize = 2;
 
 impl<K, V> ArchivedBTreeMap<K, V> {
     #[inline]
@@ -394,7 +394,7 @@ const _: () = {
                 // Start a new block
                 let block_start_pos = serializer.pos();
 
-                // Serialize the first entry
+                // Serialize the last entry
                 resolvers.push((
                     key,
                     value,
@@ -463,23 +463,25 @@ const _: () = {
             let mut current_level = Vec::new();
             let mut resolvers = Vec::new();
             while next_level.len() > 1 {
-                // Our previous next level becomes our current level, and current_level is guaranteed to
+                // Our previous next_level becomes our current level, and current_level is guaranteed to
                 // be empty at this point
                 mem::swap(&mut current_level, &mut next_level);
 
-                while let Some((first_key, first_pos)) = current_level.pop() {
+                let mut iter = current_level.drain(..);
+                while iter.len() > 1 {
                     // Start a new inner block
                     let block_start_pos = serializer.pos();
 
-                    // We don't serialize the first key we popped at the start of the loop because we
-                    // can determine whether we need to branch to if if the value we're looking for is
-                    // less than the second key.
-                    // We still have to keep the pos of the first key because that's used to make the
-                    // ptr field for the current node
+                    // When we break, we're guaranteed to have at least one node left
+                    while iter.len() > 1 {
+                        let (key, pos) = iter.next().unwrap();
 
-                    while let Some((key, pos)) = current_level.pop() {
                         // Serialize the next entry
-                        resolvers.push((key, pos, key.serialize(serializer)?));
+                        resolvers.push((
+                            key,
+                            pos,
+                            key.serialize(serializer)?,
+                        ));
 
                         // Estimate the block size
                         let estimated_block_size = serializer.pos() - block_start_pos
@@ -494,6 +496,27 @@ const _: () = {
                             break;
                         }
                     }
+
+                    // Three cases here:
+                    // 1 entry left: use it as the last key
+                    // 2 entries left: serialize the next one and use the last as last to avoid
+                    //   putting only one entry in the final block
+                    // 3+ entries left: use next as last, next block will contain at least two
+                    //   entries
+
+                    if iter.len() == 2 {
+                        let (key, pos) = iter.next().unwrap();
+
+                        // Serialize the next entry
+                        resolvers.push((
+                            key,
+                            pos,
+                            key.serialize(serializer)?,
+                        ));
+                    }
+
+                    // The next item is the first node
+                    let (first_key, first_pos) = iter.next().unwrap();
 
                     // Finish the current node
                     serializer.align(usize::max(
@@ -515,7 +538,7 @@ const _: () = {
                     ));
 
                     serializer.align_for::<InnerNodeEntry<K, V>>()?;
-                    for (key, pos, resolver) in resolvers.drain(..) {
+                    for (key, pos, resolver) in resolvers.drain(..).rev() {
                         let inner_node_data = InnerNodeEntryData::<UK, UV> {
                             key,
                             _phantom: PhantomData,
@@ -524,7 +547,7 @@ const _: () = {
                     }
                 }
 
-                next_level.reverse();
+                debug_assert!(iter.len() == 0);
             }
 
             // The root is only node in the final level

@@ -5,7 +5,7 @@ use super::{
     LeafNodeEntry, Node, RawNode, MIN_ENTRIES_PER_INNER_NODE, MIN_ENTRIES_PER_LEAF_NODE,
 };
 use crate::{Archived, Fallible, rel_ptr::RelPtr, validation::{ArchiveContext, LayoutRaw}};
-use bytecheck::{CheckBytes, Error, SliceCheckError};
+use bytecheck::{CheckBytes, Error};
 use core::{alloc::Layout, convert::Infallible, fmt, ptr};
 use std::convert::TryFrom;
 
@@ -95,7 +95,12 @@ pub enum ArchivedBTreeMapError<K, V, C> {
     /// The number of entries in the leaf node is less than the minimum number of entries
     TooFewLeafNodeEntries(usize),
     /// An error occurred while checking the entries of an inner node
-    CheckInnerNodeEntryError(SliceCheckError<K>),
+    CheckInnerNodeEntryError {
+        /// The index of the inner node entry
+        index: usize,
+        /// The inner error that occurred
+        inner: K,
+    },
     /// An error occurred while checking the entries of a leaf node
     CheckLeafNodeEntryError {
         /// The index of the leaf node entry
@@ -163,7 +168,7 @@ where
                 "too few leaf node entries (expected at least {}): {}",
                 MIN_ENTRIES_PER_LEAF_NODE, n,
             ),
-            Self::CheckInnerNodeEntryError(e) => write!(f, "inner node entry check error: {}", e),
+            Self::CheckInnerNodeEntryError { index, inner } => write!(f, "inner node entry check error: index {}, error {}", index, inner),
             Self::CheckLeafNodeEntryError { index, inner } => write!(f, "leaf node entry check error: index {}, error {}", index, inner),
             Self::InvalidNodeSize(n) => write!(f, "invalid node size: {}", n),
             Self::MismatchedInnerChildKey => write!(f, "mismatched inner child key"),
@@ -206,7 +211,7 @@ const _: () = {
                 Self::ValueCheckError(e) => Some(e as &dyn Error),
                 Self::TooFewInnerNodeEntries(_) => None,
                 Self::TooFewLeafNodeEntries(_) => None,
-                Self::CheckInnerNodeEntryError(e) => Some(e as &dyn Error),
+                Self::CheckInnerNodeEntryError { inner, .. } => Some(inner as &dyn Error),
                 Self::CheckLeafNodeEntryError { inner, .. } => Some(inner as &dyn Error),
                 Self::InvalidNodeSize(_) => None,
                 Self::MismatchedInnerChildKey => None,
@@ -325,13 +330,21 @@ where
         let (is_inner, len) = split_meta(meta);
         debug_assert!(is_inner);
 
-        if len < MIN_ENTRIES_PER_INNER_NODE {
-            return Err(ArchivedBTreeMapError::TooFewInnerNodeEntries(len));
+        // Each inner node actually contains one more entry that the length indicates (the least
+        // child pointer)
+        if len + 1 < MIN_ENTRIES_PER_INNER_NODE {
+            return Err(ArchivedBTreeMapError::TooFewInnerNodeEntries(len + 1));
         }
 
         // The subtree range has already been set up for us so we can just check our tail
-        CheckBytes::check_bytes(ptr::addr_of!((*value).tail), context)
-            .map_err(ArchivedBTreeMapError::CheckInnerNodeEntryError)?;
+        let tail_ptr = ptr::addr_of!((*value).tail) as *const InnerNodeEntry<K, V>;
+        for index in (0..len).rev() {
+            CheckBytes::check_bytes(tail_ptr.add(index), context)
+                .map_err(|inner| ArchivedBTreeMapError::CheckInnerNodeEntryError {
+                    index,
+                    inner,
+                })?;
+        }
 
         Ok(&*value)
     }
@@ -394,18 +407,6 @@ where
         )?) as usize;
         let root_rel_ptr = RelPtr::manual_check_bytes(ptr::addr_of!((*value).root), context)?;
 
-        // Strategy:
-        // 1. Walk all the nodes, claim their memory, and check their contents
-        // 2. Check that inner nodes meet their invariant
-        // - The keys are the first elements of the node in the next layer down
-        // 3. Check that leaf nodes meet their invariant
-        // - They are all linked together
-        //   To do this, make a vector and pass it down the tree to collect the nodes in order from
-        //   first to last. Then, go to the first node and walk forward while verifying that you're
-        //   at the correct node at each step.
-        // - The elements are all in sorted order
-        // - There are no items that compare equal to each other
-
         // Walk all the inner nodes, claim their memory, and check their contents
         let mut nodes = VecDeque::new();
         let root_ptr = context
@@ -422,21 +423,21 @@ where
             nodes.pop_front();
             let inner = node.classify_inner();
 
+            let child_ptr = context
+                .check_subtree_rel_ptr(&inner.ptr)
+                .map_err(ArchivedBTreeMapError::ContextError)?;
+            let child = Node::check_bytes(child_ptr, context)?;
+            nodes.push_back((child, depth + 1));
+
             // The invariant that this node contains keys less than the first key of this node will
             // be checked when we iterate through the leaf nodes in order and check ordering
-            for entry in inner.tail.iter().rev() {
+            for entry in inner.tail.iter() {
                 let child_ptr = context
                     .check_subtree_rel_ptr(&entry.ptr)
                     .map_err(ArchivedBTreeMapError::ContextError)?;
                 let child = Node::check_bytes(child_ptr, context)?;
                 nodes.push_back((child, depth + 1));
             }
-
-            let child_ptr = context
-                .check_subtree_rel_ptr(&inner.ptr)
-                .map_err(ArchivedBTreeMapError::ContextError)?;
-            let child = Node::check_bytes(child_ptr, context)?;
-            nodes.push_back((child, depth + 1));
         }
 
         // The remaining nodes must all be leaf nodes
