@@ -606,60 +606,60 @@ mod tests {
         use core::{
             num::NonZeroU8,
             ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
-            sync::atomic::{AtomicU32, Ordering},
         };
 
-        #[derive(Archive, Serialize, Deserialize, Debug)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        struct Test {
+            a: NonZeroU8,
+            b: RangeFull,
+            c: Range<i32>,
+            d: RangeInclusive<i32>,
+            e: RangeFrom<i32>,
+            f: RangeTo<i32>,
+            g: RangeToInclusive<i32>,
+        }
+
+        let value = Test {
+            a: NonZeroU8::new(8).unwrap(),
+            b: RangeFull,
+            c: Range { start: 14, end: 46 },
+            d: RangeInclusive::new(12, 22),
+            e: RangeFrom { start: 60 },
+            f: RangeTo { end: 35 },
+            g: RangeToInclusive { end: 87 },
+        };
+
+        test_archive(&value);
+    }
+
+    #[test]
+    #[cfg_attr(miri, ignore)]
+    fn archive_atomic() {
+        use core::sync::atomic::{AtomicU32, Ordering};
+
+        #[derive(Archive, Debug, Deserialize, Serialize)]
         #[archive_attr(derive(Debug))]
         struct Test {
             a: AtomicU32,
-            b: NonZeroU8,
-            c: RangeFull,
-            d: Range<i32>,
-            e: RangeInclusive<i32>,
-            f: RangeFrom<i32>,
-            g: RangeTo<i32>,
-            h: RangeToInclusive<i32>,
         }
 
         impl PartialEq for Test {
             fn eq(&self, other: &Self) -> bool {
                 self.a.load(Ordering::Relaxed) == other.a.load(Ordering::Relaxed)
-                    && self.b == other.b
-                    && self.c == other.c
-                    && self.d == other.d
-                    && self.e == other.e
-                    && self.f == other.f
-                    && self.g == other.g
-                    && self.h == other.h
             }
         }
 
-        // Can't derive PartialEq automatically because AtomicU32 doesn't implement PartialEq
-        impl PartialEq<Test> for Archived<Test> {
+        impl PartialEq<Test> for ArchivedTest {
             fn eq(&self, other: &Test) -> bool {
                 self.a.load(Ordering::Relaxed) == other.a.load(Ordering::Relaxed)
-                    && self.b == other.b
-                    && self.c == other.c
-                    && self.d == other.d
-                    && self.e == other.e
-                    && self.f == other.f
-                    && self.g == other.g
-                    && self.h == other.h
             }
         }
 
         let value = Test {
             a: AtomicU32::new(42),
-            b: NonZeroU8::new(8).unwrap(),
-            c: RangeFull,
-            d: Range { start: 14, end: 46 },
-            e: RangeInclusive::new(12, 22),
-            f: RangeFrom { start: 60 },
-            g: RangeTo { end: 35 },
-            h: RangeToInclusive { end: 87 },
         };
-
         test_archive(&value);
     }
 

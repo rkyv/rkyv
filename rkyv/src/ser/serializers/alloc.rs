@@ -3,6 +3,7 @@ use core::{
     borrow::{Borrow, BorrowMut},
     convert::Infallible,
     mem,
+    ptr,
 };
 
 /// A serializer made specifically to work with [`AlignedVec`](crate::util::AlignedVec).
@@ -56,13 +57,17 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerial
         vec.reserve(additional);
         vec.set_len(vec.len() + additional);
 
-        let ptr = vec
-            .as_mut_ptr()
-            .add(pos)
-            .cast::<T::Archived>();
-        ptr.write_bytes(0, 1);
+        if additional > 0 {
+            let ptr = vec
+                .as_mut_ptr()
+                .add(pos)
+                .cast::<T::Archived>();
+            ptr.write_bytes(0, 1);
+            value.resolve(pos, resolver, ptr);
+        } else {
+            value.resolve(pos, resolver, ptr::NonNull::dangling().as_mut());
+        }
 
-        value.resolve(pos, resolver, ptr);
         Ok(pos)
     }
 
