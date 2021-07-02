@@ -86,14 +86,14 @@ macro_rules! impl_atomic {
             }
         }
     };
-    ($type:ty) => {
+    ($type:ty, $prim:ty) => {
         impl Archive for $type {
-            type Archived = Self;
+            type Archived = $prim;
             type Resolver = ();
 
             #[inline]
             unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
-                (&*out).store(self.load(Ordering::Relaxed), Ordering::Relaxed);
+                out.write(self.load(Ordering::Relaxed));
             }
         }
 
@@ -102,24 +102,24 @@ macro_rules! impl_atomic {
         impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived<$type> {
             #[inline]
             fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
-                Ok(self.load(Ordering::Relaxed).into())
+                Ok((*self).into())
             }
         }
     };
-    (@multibyte $type:ty) => {
+    (@multibyte $type:ty, $prim:ty) => {
         impl Archive for $type {
             #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
-            type Archived = Self;
+            type Archived = $prim;
             #[cfg(feature = "archive_le")]
-            type Archived = rend::LittleEndian<$type>;
+            type Archived = rend::LittleEndian<$prim>;
             #[cfg(feature = "archive_be")]
-            type Archived = rend::BigEndian<$type>;
+            type Archived = rend::BigEndian<$prim>;
 
             type Resolver = ();
 
             #[inline]
             unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
-                (&*out).store(self.load(Ordering::Relaxed), Ordering::Relaxed);
+                out.write(to_archived!(self.load(Ordering::Relaxed)));
             }
         }
 
@@ -128,7 +128,7 @@ macro_rules! impl_atomic {
         impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived<$type> {
             #[inline]
             fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
-                Ok(self.load(Ordering::Relaxed).into())
+                Ok(from_archived!(*self).into())
             }
         }
     };
@@ -141,11 +141,11 @@ impl_primitive!(u8);
 impl_primitive!(NonZeroI8);
 impl_primitive!(NonZeroU8);
 #[cfg(has_atomics)]
-impl_atomic!(AtomicBool);
+impl_atomic!(AtomicBool, bool);
 #[cfg(has_atomics)]
-impl_atomic!(AtomicI8);
+impl_atomic!(AtomicI8, i8);
 #[cfg(has_atomics)]
-impl_atomic!(AtomicU8);
+impl_atomic!(AtomicU8, u8);
 
 impl_primitive!(@multibyte i16);
 impl_primitive!(@multibyte i32);
@@ -171,17 +171,17 @@ impl_primitive!(@multibyte NonZeroU64);
 impl_primitive!(@multibyte NonZeroU128);
 
 #[cfg(has_atomics)]
-impl_atomic!(@multibyte AtomicI16);
+impl_atomic!(@multibyte AtomicI16, i16);
 #[cfg(has_atomics)]
-impl_atomic!(@multibyte AtomicI32);
+impl_atomic!(@multibyte AtomicI32, i32);
 #[cfg(has_atomics_64)]
-impl_atomic!(@multibyte AtomicI64);
+impl_atomic!(@multibyte AtomicI64, i64);
 #[cfg(has_atomics)]
-impl_atomic!(@multibyte AtomicU16);
+impl_atomic!(@multibyte AtomicU16, u16);
 #[cfg(has_atomics)]
-impl_atomic!(@multibyte AtomicU32);
+impl_atomic!(@multibyte AtomicU32, u32);
 #[cfg(has_atomics_64)]
-impl_atomic!(@multibyte AtomicU64);
+impl_atomic!(@multibyte AtomicU64, u64);
 
 // PhantomData
 
@@ -344,18 +344,18 @@ impl<D: Fallible + ?Sized> Deserialize<NonZeroIsize, D> for Archived<NonZeroIsiz
 
 // AtomicUsize
 
-type FixedAtomicUsize = pick_size_type!(AtomicU16, AtomicU32, AtomicU64);
-
+#[cfg(has_atomics)]
 impl Archive for AtomicUsize {
-    type Archived = Archived<FixedAtomicUsize>;
+    type Archived = Archived<FixedUsize>;
     type Resolver = ();
 
     #[inline]
     unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
-        (&*out).store(self.load(Ordering::Relaxed) as FixedUsize, Ordering::Relaxed);
+        out.write(to_archived!(self.load(Ordering::Relaxed) as FixedUsize));
     }
 }
 
+#[cfg(has_atomics)]
 impl<S: Fallible + ?Sized> Serialize<S> for AtomicUsize {
     #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
@@ -363,27 +363,28 @@ impl<S: Fallible + ?Sized> Serialize<S> for AtomicUsize {
     }
 }
 
+#[cfg(has_atomics)]
 impl<D: Fallible + ?Sized> Deserialize<AtomicUsize, D> for Archived<AtomicUsize> {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<AtomicUsize, D::Error> {
-        Ok((self.load(Ordering::Relaxed) as usize).into())
+        Ok((from_archived!(*self) as usize).into())
     }
 }
 
 // AtomicIsize
 
-type FixedAtomicIsize = pick_size_type!(AtomicI16, AtomicI32, AtomicI64);
-
+#[cfg(has_atomics)]
 impl Archive for AtomicIsize {
-    type Archived = Archived<FixedAtomicIsize>;
+    type Archived = Archived<FixedIsize>;
     type Resolver = ();
 
     #[inline]
     unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
-        (&*out).store(self.load(Ordering::Relaxed) as FixedIsize, Ordering::Relaxed);
+        out.write(to_archived!(self.load(Ordering::Relaxed) as FixedIsize));
     }
 }
 
+#[cfg(has_atomics)]
 impl<S: Fallible + ?Sized> Serialize<S> for AtomicIsize {
     #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
@@ -391,9 +392,10 @@ impl<S: Fallible + ?Sized> Serialize<S> for AtomicIsize {
     }
 }
 
+#[cfg(has_atomics)]
 impl<D: Fallible + ?Sized> Deserialize<AtomicIsize, D> for Archived<AtomicIsize> {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<AtomicIsize, D::Error> {
-        Ok((self.load(Ordering::Relaxed) as isize).into())
+        Ok((from_archived!(*self) as isize).into())
     }
 }

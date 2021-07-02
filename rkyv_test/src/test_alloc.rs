@@ -652,7 +652,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(miri, ignore)]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_atomic() {
         use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -670,7 +670,7 @@ mod tests {
 
         impl PartialEq<Test> for ArchivedTest {
             fn eq(&self, other: &Test) -> bool {
-                self.a.load(Ordering::Relaxed) == other.a.load(Ordering::Relaxed)
+                self.a == other.a.load(Ordering::Relaxed)
             }
         }
 
@@ -1373,6 +1373,30 @@ mod tests {
                 panic!("expected variant B");
             };
         }
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn with_atomic() {
+        use core::sync::atomic::{AtomicU32, Ordering};
+        use rkyv::with::Atomic;
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct Test {
+            #[with(Atomic)]
+            value: AtomicU32,
+        }
+
+        let value = Test {
+            value: AtomicU32::new(42),
+        };
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
+        let mut result = serializer.into_inner();
+        // NOTE: with(Atomic) is only sound if the backing memory is mutable, use with caution!
+        let archived = unsafe { archived_root_mut::<Test>(Pin::new(result.as_mut_slice())) };
+
+        assert_eq!(archived.value.load(Ordering::Relaxed), 42);
     }
 
     #[test]

@@ -1,5 +1,6 @@
 //! Wrapper type support and commonly used wrappers.
 
+mod atomic;
 mod core;
 #[cfg(feature = "std")]
 mod std;
@@ -138,6 +139,13 @@ impl<T: ?Sized> Deref for Immutable<T> {
         &self.0
     }
 }
+
+/// A wrapper that serializes an atomic as an underlying atomic.
+///
+/// # Safety
+///
+/// This wrapper is only safe to use when the backing memory for wrapped types is mutable.
+pub struct Atomic;
 
 /// A wrapper that serializes a reference inline.
 pub struct Inline;

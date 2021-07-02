@@ -384,6 +384,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_shared_ptr() {
         #[derive(Archive, Serialize, Eq, PartialEq)]
         #[archive_attr(derive(CheckBytes))]
@@ -408,6 +409,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_b_tree() {
         #[cfg(all(feature = "alloc", not(feature = "std")))]
         use alloc::collections::BTreeMap;
@@ -426,6 +428,7 @@ mod tests {
         check_archived_root::<BTreeMap<String, i32>>(buffer.as_ref()).unwrap();
     }
 
+    // This test is unfortunately too slow to run through miri
     #[test]
     #[cfg_attr(miri, ignore)]
     fn check_b_tree_large() {
