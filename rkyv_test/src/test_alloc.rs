@@ -346,15 +346,19 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     #[cfg(feature = "copy")]
     fn archive_copy() {
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        use core::fmt;
+
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(copy_safe, compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         struct TestUnit;
 
         test_archive(&TestUnit);
 
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         // This is not technically copy safe but we're here to test
         #[archive(copy_safe, compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         struct TestStruct {
             a: (),
             b: i32,
@@ -371,16 +375,18 @@ mod tests {
             e: TestUnit,
         });
 
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         // This is not technically copy safe but we're here to test
         #[archive(copy_safe, compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         struct TestTuple((), i32, bool, f32, TestUnit);
 
         test_archive(&TestTuple((), 42, true, 3.14f32, TestUnit));
 
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         // This is not technically copy safe but we're here to test
         #[archive(copy_safe, compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
         #[repr(u8)]
         enum TestEnum {
             A((), i32, bool, f32, TestUnit),
@@ -388,10 +394,21 @@ mod tests {
 
         test_archive(&TestEnum::A((), 42, true, 3.14f32, TestUnit));
 
-        #[derive(Archive, Serialize, Deserialize, PartialEq)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         // This is not technically copy safe but we're here to test
         #[archive(copy_safe, compare(PartialEq))]
         struct TestGeneric<T>(T);
+
+        impl<T: Archive> fmt::Debug for ArchivedTestGeneric<T>
+        where
+            T::Archived: fmt::Debug,
+        {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.debug_tuple("TestGeneric")
+                    .field(&self.0)
+                    .finish()
+            }
+        }
 
         test_archive(&TestGeneric(42));
     }
@@ -1495,7 +1512,7 @@ mod tests {
         for (k, v) in value.iter() {
             let av = archived
                 .get(k.as_str())
-                .expect(&format!("failed to find key {} in archived B-tree map", k));
+                .expect("failed to find key in archived B-tree map");
             assert_eq!(v, av);
         }
         assert!(archived.get("wrong!").is_none());

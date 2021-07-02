@@ -75,7 +75,7 @@ mod tests {
     #[test]
     #[cfg_attr(feautre = "wasm", wasm_bindgen_test)]
     fn archive_nonzero() {
-        use std::num::{
+        use core::num::{
             NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128,
             NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128,
         };

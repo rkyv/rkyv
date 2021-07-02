@@ -2,10 +2,7 @@
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
 use crate::{Archive, Archived, RelPtr};
-use core::{
-    hash::{Hash, Hasher},
-    mem::MaybeUninit,
-};
+use core::hash::{Hash, Hasher};
 
 #[cfg(feature = "validation")]
 pub mod validation;
@@ -105,7 +102,7 @@ const _: () = {
     use alloc::{vec, vec::Vec};
     use core::{
         cmp::Reverse,
-        mem::{size_of, transmute},
+        mem::{MaybeUninit, size_of, transmute},
         slice,
     };
 
