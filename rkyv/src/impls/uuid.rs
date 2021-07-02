@@ -1,16 +1,15 @@
 //! [`Archive`](crate::Archive) implementations for `uuid` types.
 
 use crate::{Archive, Deserialize, Fallible, Serialize};
-use core::mem::MaybeUninit;
 use uuid::Uuid;
 
 impl Archive for Uuid {
     type Archived = Uuid;
     type Resolver = ();
 
-    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
         // Safety: Uuid is portable and has no padding
-        out.as_mut_ptr().write(*self);
+        out.write(*self);
     }
 }
 

@@ -2,12 +2,15 @@
 
 mod rkyv;
 
+use core::{borrow::Borrow, hash::Hash};
 use crate::{
+    collections::hash_index::HashBuilder,
     impls::indexmap::index_map::{ArchivedIndexMap, IndexMapResolver, Keys},
+    out_field,
     ser::Serializer,
     Serialize,
 };
-use core::{borrow::Borrow, hash::Hash, mem::MaybeUninit};
+use indexmap::IndexSet;
 
 /// An archived `IndexSet`.
 #[repr(transparent)]
@@ -70,7 +73,7 @@ impl<K> ArchivedIndexSet<K> {
 
     /// Gets the hasher for this index set.
     #[inline]
-    pub fn hasher(&self) -> seahash::SeaHasher {
+    pub fn hasher(&self) -> HashBuilder {
         self.inner.hasher()
     }
 
@@ -110,7 +113,7 @@ impl<K> ArchivedIndexSet<K> {
         len: usize,
         pos: usize,
         resolver: IndexSetResolver,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.inner);
         ArchivedIndexMap::resolve_from_len(len, pos + fp, resolver.0, fo);
@@ -137,6 +140,19 @@ impl<K> ArchivedIndexSet<K> {
         Ok(IndexSetResolver(
             ArchivedIndexMap::serialize_from_iter_index(iter.map(|k| (k, &())), index, serializer)?,
         ))
+    }
+}
+
+impl<K: PartialEq> PartialEq for ArchivedIndexSet<K> {
+    fn eq(&self, other: &Self) -> bool {
+        self.iter().eq(other.iter())
+    }
+}
+
+#[cfg(feature = "indexmap")]
+impl<UK, K: PartialEq<UK>> PartialEq<IndexSet<UK>> for ArchivedIndexSet<K> {
+    fn eq(&self, other: &IndexSet<UK>) -> bool {
+        self.iter().eq(other.iter())
     }
 }
 

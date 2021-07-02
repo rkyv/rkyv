@@ -4,6 +4,9 @@
 use crate::{Archive, Archived, RelPtr};
 use core::hash::{Hash, Hasher};
 
+/// The hash builder for archived hash indexes.
+pub use seahash::SeaHasher as HashBuilder;
+
 #[cfg(feature = "validation")]
 pub mod validation;
 
@@ -22,8 +25,8 @@ impl ArchivedHashIndex {
     }
 
     #[inline]
-    fn make_hasher() -> seahash::SeaHasher {
-        seahash::SeaHasher::with_seeds(
+    fn make_hasher() -> HashBuilder {
+        HashBuilder::with_seeds(
             0x08576fb6170b5f5f,
             0x587775eeb84a7e46,
             0xac701115428ee569,
@@ -34,7 +37,7 @@ impl ArchivedHashIndex {
     /// Gets the hasher for this hash index. The hasher for all archived hash indexes is the same
     /// for reproducibility.
     #[inline]
-    pub fn hasher(&self) -> seahash::SeaHasher {
+    pub fn hasher(&self) -> HashBuilder {
         Self::make_hasher()
     }
 

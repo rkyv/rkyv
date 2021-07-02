@@ -8,8 +8,8 @@ macro_rules! default {
     ($($fn:tt)*) => { $($fn)* };
 }
 
-/// Returns a tuple of the field offset and a mutable `MaybeUninit` to the given field of the given
-/// `MaybeUninit` struct.
+/// Returns a tuple of the field offset and a mutable pointer to the field of the given struct
+/// pointer.
 ///
 /// # Examples
 /// ```
@@ -22,12 +22,12 @@ macro_rules! default {
 /// }
 ///
 /// let mut result = MaybeUninit::<Example>::zeroed();
-/// let out = &mut result;
+/// let out = result.as_mut_ptr();
 ///
 /// let (a_off, a) = out_field!(out.a);
-/// unsafe { a.as_mut_ptr().write(42); }
+/// unsafe { a.write(42); }
 /// let (b_off, b) = out_field!(out.b);
-/// unsafe { b.as_mut_ptr().write(true); }
+/// unsafe { b.write(true); }
 ///
 /// let result = unsafe { result.assume_init() };
 /// assert_eq!(result.a, 42);

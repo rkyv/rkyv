@@ -5,19 +5,14 @@ use crate::{
     ser::Serializer,
     Archive, Deserialize, Fallible, Serialize,
 };
-use core::{hash::Hash, mem::MaybeUninit};
+use core::hash::Hash;
 use indexmap::IndexMap;
 
 impl<K: Archive, V: Archive> Archive for IndexMap<K, V> {
     type Archived = ArchivedIndexMap<K::Archived, V::Archived>;
     type Resolver = IndexMapResolver;
 
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedIndexMap::resolve_from_len(self.len(), pos, resolver, out);
     }
 }

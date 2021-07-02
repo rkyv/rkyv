@@ -2,13 +2,14 @@
 
 mod rkyv;
 
+use core::{borrow::Borrow, hash::Hash, iter::FusedIterator, marker::PhantomData};
+// TODO: remove this when scratch space serializers get added
+use alloc::vec::Vec;
 use crate::{
-    collections::hash_index::{ArchivedHashIndex, HashIndexResolver},
+    collections::hash_index::{ArchivedHashIndex, HashBuilder, HashIndexResolver},
+    out_field,
     ser::Serializer,
     Archive, Archived, RelPtr, Serialize,
-};
-use core::{
-    borrow::Borrow, hash::Hash, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit,
 };
 use indexmap::IndexMap;
 
@@ -23,12 +24,7 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
     type Resolver = (K::Resolver, V::Resolver);
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         let (fp, fo) = out_field!(out.key);
         self.key.resolve(pos + fp, resolver.0, fo);
 
@@ -154,7 +150,7 @@ impl<K, V> ArchivedIndexMap<K, V> {
 
     /// Gets the hasher for this index map.
     #[inline]
-    pub fn hasher(&self) -> seahash::SeaHasher {
+    pub fn hasher(&self) -> HashBuilder {
         self.index.hasher()
     }
 
@@ -221,7 +217,7 @@ impl<K, V> ArchivedIndexMap<K, V> {
         len: usize,
         pos: usize,
         resolver: IndexMapResolver,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.index);
         ArchivedHashIndex::resolve_from_len(len, pos + fp, resolver.index_resolver, fo);
@@ -285,8 +281,10 @@ impl<K: PartialEq, V: PartialEq> PartialEq for ArchivedIndexMap<K, V> {
     }
 }
 
-impl<UK, K: PartialEq<UK>, UV, V: PartialEq<UV>> PartialEq<IndexMap<UK, UV>>
-    for ArchivedIndexMap<K, V>
+impl<UK, K, UV, V> PartialEq<IndexMap<UK, UV>> for ArchivedIndexMap<K, V>
+where
+    K: PartialEq<UK>,
+    V: PartialEq<UV>,
 {
     fn eq(&self, other: &IndexMap<UK, UV>) -> bool {
         self.iter()

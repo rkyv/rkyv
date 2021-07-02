@@ -202,7 +202,7 @@ impl Fallible for Infallible {
 /// example does everything to demonstrate how to implement `Archive` for your own types.
 ///
 /// ```
-/// use core::{mem::MaybeUninit, slice, str};
+/// use core::{slice, str};
 /// use rkyv::{
 ///     archived_root,
 ///     ser::{Serializer, serializers::AlignedSerializer},
@@ -259,7 +259,7 @@ impl Fallible for Infallible {
 ///         &self,
 ///         pos: usize,
 ///         resolver: Self::Resolver,
-///         out: &mut MaybeUninit<Self::Archived>
+///         out: *mut Self::Archived,
 ///     ) {
 ///         // We have to be careful to add the offset of the ptr field,
 ///         // otherwise we'll be using the position of the ArchivedOwnedStr
@@ -355,10 +355,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///
 /// # Examples
 /// ```
-/// use core::{
-///     mem::{transmute, MaybeUninit},
-///     ops::{Deref, DerefMut},
-/// };
+/// use core::{mem::transmute, ops::{Deref, DerefMut}};
 /// use ptr_meta::Pointee;
 /// use rkyv::{
 ///     from_archived,
@@ -429,10 +426,10 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///         &self,
 ///         _: usize,
 ///         _: Self::MetadataResolver,
-///         out: &mut MaybeUninit<ArchivedMetadata<Self>>,
+///         out: *mut ArchivedMetadata<Self>,
 ///     ) {
 ///         unsafe {
-///             out.as_mut_ptr().write(BlockSliceMetadata {
+///             out.write(BlockSliceMetadata {
 ///                 len: to_archived!(self.tail.len() as FixedUsize),
 ///             });
 ///         }

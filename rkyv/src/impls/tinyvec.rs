@@ -5,10 +5,9 @@ use crate::{
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Fallible, MetadataResolver, Serialize,
 };
-use core::mem::MaybeUninit;
-#[cfg(feature = "alloc")]
-use tinyvec::{Array, TinyVec};
-use tinyvec::{ArrayVec, SliceVec};
+#[cfg(feature = "tinyvec_alloc")]
+use tinyvec::TinyVec;
+use tinyvec::{Array, ArrayVec, SliceVec};
 
 // ArrayVec
 
@@ -19,12 +18,7 @@ where
     type Archived = ArchivedVec<Archived<A::Item>>;
     type Resolver = VecResolver<MetadataResolver<[A::Item]>>;
 
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
     }
 }
@@ -58,12 +52,7 @@ impl<'s, T: Archive> Archive for SliceVec<'s, T> {
     type Archived = ArchivedVec<T::Archived>;
     type Resolver = VecResolver<MetadataResolver<[T]>>;
 
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
     }
 }
@@ -78,7 +67,7 @@ impl<'s, T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for SliceVec<'s, 
 
 // TinyVec
 
-#[cfg(feature = "alloc")]
+#[cfg(feature = "tinyvec_alloc")]
 impl<A: Array> Archive for TinyVec<A>
 where
     A::Item: Archive,
@@ -86,17 +75,12 @@ where
     type Archived = ArchivedVec<Archived<A::Item>>;
     type Resolver = VecResolver<MetadataResolver<[A::Item]>>;
 
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
     }
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(feature = "tinyvec_alloc")]
 impl<A: Array, S: Serializer + ?Sized> Serialize<S> for TinyVec<A>
 where
     A::Item: Serialize<S>,
@@ -106,7 +90,7 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
+#[cfg(feature = "tinyvec_alloc")]
 impl<A: Array, D: Fallible + ?Sized> Deserialize<TinyVec<A>, D> for ArchivedVec<Archived<A::Item>>
 where
     A::Item: Archive,
@@ -129,9 +113,9 @@ mod tests {
         util::AlignedVec,
         Deserialize, Infallible,
     };
-    use tinyvec::{array_vec, ArrayVec, SliceVec};
-    #[cfg(feature = "alloc")]
-    use tinyvec::{tiny_vec, Array, TinyVec};
+    use tinyvec::{array_vec, Array, ArrayVec, SliceVec};
+    #[cfg(feature = "tinyvec_alloc")]
+    use tinyvec::{tiny_vec, TinyVec};
 
     #[test]
     fn array_vec() {
@@ -164,7 +148,7 @@ mod tests {
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
     }
 
-    #[cfg(feature = "alloc")]
+    #[cfg(feature = "tinyvec_alloc")]
     #[test]
     fn tiny_vec() {
         let value = tiny_vec!([i32; 10] => 10, 20, 40, 80);

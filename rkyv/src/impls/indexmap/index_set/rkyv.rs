@@ -8,19 +8,14 @@ use crate::{
     ser::Serializer,
     Archive, Deserialize, Fallible, Serialize,
 };
-use core::{hash::Hash, mem::MaybeUninit};
+use core::hash::Hash;
 use indexmap::IndexSet;
 
 impl<K: Archive + Hash + Eq> Archive for IndexSet<K> {
     type Archived = ArchivedIndexSet<K::Archived>;
     type Resolver = IndexSetResolver;
 
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         let (fp, fo) = out_field!(out.inner);
         ArchivedIndexMap::resolve_from_len(self.len(), pos + fp, resolver.0, fo);
     }
