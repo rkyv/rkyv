@@ -5,7 +5,7 @@ use crate::{
     ser::Serializer,
     Archive, Deserialize, Fallible, Serialize,
 };
-use core::{borrow::Borrow, hash::Hash, mem::MaybeUninit};
+use core::{borrow::Borrow, hash::Hash};
 use std::collections::HashSet;
 
 impl<K: Archive + Hash + Eq> Archive for HashSet<K>
@@ -16,12 +16,7 @@ where
     type Resolver = HashSetResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedHashSet::<K::Archived>::resolve_from_len(self.len(), pos, resolver, out);
     }
 }

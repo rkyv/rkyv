@@ -1,7 +1,7 @@
 //! An archived version of `Box`.
 
 use crate::{ArchivePointee, ArchiveUnsized, Fallible, RelPtr, SerializeUnsized};
-use core::{borrow::Borrow, cmp, fmt, hash, mem::MaybeUninit, ops::Deref, pin::Pin};
+use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};
 
 /// An archived [`Box`].
 ///
@@ -33,7 +33,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
         value: &U,
         pos: usize,
         resolver: BoxResolver<U::MetadataResolver>,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.0);
         value.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);

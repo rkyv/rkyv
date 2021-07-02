@@ -11,7 +11,7 @@ use crate::{Archive, Deserialize, Fallible, Serialize};
 use ::core::{
     fmt,
     marker::PhantomData,
-    mem::{transmute, MaybeUninit},
+    mem::transmute,
     ops::Deref,
 };
 
@@ -70,7 +70,7 @@ pub trait ArchiveWith<F: ?Sized> {
         field: &F,
         pos: usize,
         resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
+        out: *mut Self::Archived,
     );
 }
 
@@ -79,14 +79,8 @@ impl<F: ?Sized, W: ArchiveWith<F>> Archive for With<F, W> {
     type Resolver = W::Resolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
-        let as_with = &mut *out.as_mut_ptr().cast();
-        W::resolve_with(&self.field, pos, resolver, as_with);
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+        W::resolve_with(&self.field, pos, resolver, out.cast());
     }
 }
 
@@ -133,16 +127,6 @@ impl<T: ?Sized> Immutable<T> {
     #[inline]
     pub fn value(&self) -> &T {
         &self.0
-    }
-}
-
-impl<T> Immutable<T> {
-    /// Casts a `MaybeUninit<Immutable<T>>` to a `MaybeUninit<T>`.
-    ///
-    /// This is always safe because `Immutable` is a transparent wrapper.
-    #[inline]
-    pub fn map_inner(out: &mut MaybeUninit<Self>) -> &mut MaybeUninit<T> {
-        unsafe { &mut *out.as_mut_ptr().cast() }
     }
 }
 

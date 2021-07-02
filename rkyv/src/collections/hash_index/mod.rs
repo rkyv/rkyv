@@ -88,7 +88,7 @@ impl ArchivedHashIndex {
         len: usize,
         pos: usize,
         resolver: HashIndexResolver,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.len);
         len.resolve(pos + fp, (), fo);

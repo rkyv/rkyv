@@ -6,7 +6,6 @@ use crate::{
 use core::{
     borrow::Borrow,
     cmp, hash,
-    mem::MaybeUninit,
     ops::{Deref, Index, IndexMut},
     pin::Pin,
     slice::SliceIndex,
@@ -55,7 +54,7 @@ impl<T> ArchivedVec<T> {
         slice: &[U],
         pos: usize,
         resolver: VecResolver<MetadataResolver<[U]>>,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.0);
         // metadata_resolver is guaranteed to be (), but it's better to be explicit about it

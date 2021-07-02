@@ -6,19 +6,13 @@ use crate::{
 };
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::{boxed::Box, string::String};
-use core::mem::MaybeUninit;
 
 impl Archive for String {
     type Archived = ArchivedString;
     type Resolver = StringResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: StringResolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedString::resolve_from_str(self.as_str(), pos, resolver, out);
     }
 }

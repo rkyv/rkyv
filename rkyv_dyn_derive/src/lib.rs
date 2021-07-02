@@ -352,10 +352,7 @@ pub fn archive_dyn(
                 #deserialize_trait_def
 
                 const _: ()  = {
-                    use core::{
-                        alloc::Layout,
-                        mem::MaybeUninit,
-                    };
+                    use core::alloc::Layout;
                     use rkyv::{
                         ser::Serializer,
                         Archive,
@@ -397,7 +394,7 @@ pub fn archive_dyn(
                         type Archived = dyn #deserialize_trait<#generic_args>;
                         type MetadataResolver = ();
 
-                        unsafe fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver, out: &mut MaybeUninit<ArchivedMetadata<Self>>) {
+                        unsafe fn resolve_metadata(&self, _: usize, _: Self::MetadataResolver, out: *mut ArchivedMetadata<Self>) {
                             ArchivedDynMetadata::emplace(self.archived_type_id(), out);
                         }
                     }

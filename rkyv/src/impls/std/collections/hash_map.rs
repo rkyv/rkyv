@@ -5,11 +5,7 @@ use crate::{
     ser::Serializer,
     Archive, Deserialize, Fallible, Serialize,
 };
-use core::{
-    borrow::Borrow,
-    hash::{BuildHasher, Hash},
-    mem::MaybeUninit,
-};
+use core::{borrow::Borrow, hash::{BuildHasher, Hash}};
 use std::collections::HashMap;
 
 impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>
@@ -20,12 +16,7 @@ where
     type Resolver = HashMapResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedHashMap::resolve_from_len(self.len(), pos, resolver, out);
     }
 }

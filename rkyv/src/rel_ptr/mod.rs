@@ -8,7 +8,6 @@ use core::{
     convert::TryFrom,
     fmt,
     marker::{PhantomData, PhantomPinned},
-    mem::MaybeUninit,
     ptr,
 };
 
@@ -158,10 +157,10 @@ impl<O: Offset> RawRelPtr<O> {
     pub unsafe fn try_emplace(
         from: usize,
         to: usize,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) -> Result<(), OffsetError> {
         let offset = O::between(from, to)?;
-        ptr::addr_of_mut!((*out.as_mut_ptr()).offset).write(offset);
+        ptr::addr_of_mut!((*out).offset).write(offset);
         Ok(())
     }
 
@@ -174,7 +173,7 @@ impl<O: Offset> RawRelPtr<O> {
     /// - The offset between `from` and `to` must fit in an `isize` and not exceed the offset
     ///   storage
     #[inline]
-    pub unsafe fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
+    pub unsafe fn emplace(from: usize, to: usize, out: *mut Self) {
         Self::try_emplace(from, to, out).unwrap();
     }
 
@@ -260,7 +259,7 @@ impl<T, O: Offset> RelPtr<T, O> {
     pub unsafe fn try_emplace(
         from: usize,
         to: usize,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) -> Result<(), OffsetError> {
         let (fp, fo) = out_field!(out.raw_ptr);
         // Skip metadata since sized T is guaranteed to be ()
@@ -279,7 +278,7 @@ impl<T, O: Offset> RelPtr<T, O> {
     /// - `from` must be the position of `out` within the archive
     /// - `to` must be the position of some valid `T`
     #[inline]
-    pub unsafe fn emplace(from: usize, to: usize, out: &mut MaybeUninit<Self>) {
+    pub unsafe fn emplace(from: usize, to: usize, out: *mut Self) {
         Self::try_emplace(from, to, out).unwrap();
     }
 }
@@ -299,7 +298,7 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
         to: usize,
         value: &U,
         metadata_resolver: U::MetadataResolver,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) -> Result<(), OffsetError> {
         let (fp, fo) = out_field!(out.raw_ptr);
         RawRelPtr::try_emplace(from + fp, to, fo)?;
@@ -327,7 +326,7 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
         to: usize,
         value: &U,
         metadata_resolver: U::MetadataResolver,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) {
         Self::try_resolve_emplace(from, to, value, metadata_resolver, out).unwrap();
     }

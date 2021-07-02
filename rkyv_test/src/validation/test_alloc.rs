@@ -427,6 +427,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     fn check_b_tree_large() {
         #[cfg(all(feature = "alloc", not(feature = "std")))]
         use alloc::collections::BTreeMap;

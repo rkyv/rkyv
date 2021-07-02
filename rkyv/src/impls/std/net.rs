@@ -7,7 +7,7 @@ use crate::{
     },
     Archive, Deserialize, Fallible, Serialize,
 };
-use core::{cmp, mem::MaybeUninit, ptr};
+use core::{cmp, ptr};
 use std::{
     io,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6, ToSocketAddrs},
@@ -132,8 +132,8 @@ impl Archive for Ipv4Addr {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        out.as_mut_ptr().cast::<[u8; 4]>().write(self.octets());
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
+        out.cast::<[u8; 4]>().write(self.octets());
     }
 }
 
@@ -243,8 +243,8 @@ impl Archive for Ipv6Addr {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        out.as_mut_ptr().cast::<[u8; 16]>().write(self.octets());
+    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
+        out.cast::<[u8; 16]>().write(self.octets());
     }
 }
 
@@ -369,18 +369,11 @@ impl Archive for IpAddr {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         match self {
             IpAddr::V4(ipv4_addr) => {
-                let out = &mut *out
-                    .as_mut_ptr()
-                    .cast::<MaybeUninit<ArchivedIpAddrVariantV4>>();
-                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedIpAddrTag::V4);
+                let out = out.cast::<ArchivedIpAddrVariantV4>();
+                ptr::addr_of_mut!((*out).0).write(ArchivedIpAddrTag::V4);
 
                 let (fp, fo) = out_field!(out.1);
                 // resolver is guaranteed to be (), but it's better to be explicit about it
@@ -388,10 +381,8 @@ impl Archive for IpAddr {
                 ipv4_addr.resolve(pos + fp, resolver, fo);
             }
             IpAddr::V6(ipv6_addr) => {
-                let out = &mut *out
-                    .as_mut_ptr()
-                    .cast::<MaybeUninit<ArchivedIpAddrVariantV6>>();
-                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedIpAddrTag::V6);
+                let out = out.cast::<ArchivedIpAddrVariantV6>();
+                ptr::addr_of_mut!((*out).0).write(ArchivedIpAddrTag::V6);
 
                 let (fp, fo) = out_field!(out.1);
                 // resolver is guaranteed to be (), but it's better to be explicit about it
@@ -473,7 +464,7 @@ impl Archive for SocketAddrV4 {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, _: Self::Resolver, out: *mut Self::Archived) {
         let (fp, fo) = out_field!(out.ip);
         self.ip().resolve(pos + fp, (), fo);
         let (fp, fo) = out_field!(out.port);
@@ -552,7 +543,7 @@ impl Archive for SocketAddrV6 {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, _: Self::Resolver, out: *mut Self::Archived) {
         let (fp, fo) = out_field!(out.ip);
         self.ip().resolve(pos + fp, (), fo);
         let (fp, fo) = out_field!(out.port);
@@ -660,18 +651,11 @@ impl Archive for SocketAddr {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         match self {
             SocketAddr::V4(socket_addr) => {
-                let out = &mut *out
-                    .as_mut_ptr()
-                    .cast::<MaybeUninit<ArchivedSocketAddrVariantV4>>();
-                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedSocketAddrTag::V4);
+                let out = out.cast::<ArchivedSocketAddrVariantV4>();
+                ptr::addr_of_mut!((*out).0).write(ArchivedSocketAddrTag::V4);
 
                 let (fp, fo) = out_field!(out.1);
                 // resolver is guaranteed to be (), but it's better to be explicit about it
@@ -679,10 +663,8 @@ impl Archive for SocketAddr {
                 socket_addr.resolve(pos + fp, resolver, fo);
             }
             SocketAddr::V6(socket_addr) => {
-                let out = &mut *out
-                    .as_mut_ptr()
-                    .cast::<MaybeUninit<ArchivedSocketAddrVariantV6>>();
-                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedSocketAddrTag::V6);
+                let out = out.cast::<ArchivedSocketAddrVariantV6>();
+                ptr::addr_of_mut!((*out).0).write(ArchivedSocketAddrTag::V6);
 
                 let (fp, fo) = out_field!(out.1);
                 // resolver is guaranteed to be (), but it's better to be explicit about it

@@ -6,7 +6,7 @@
 use crate::collections::hash_map::{ArchivedHashMap, HashMapResolver, Keys};
 #[cfg(feature = "alloc")]
 use crate::{ser::Serializer, Serialize};
-use core::{borrow::Borrow, hash::Hash, mem::MaybeUninit};
+use core::{borrow::Borrow, hash::Hash};
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key and a value of
 /// `()`.
@@ -72,7 +72,7 @@ impl<K> ArchivedHashSet<K> {
         len: usize,
         pos: usize,
         resolver: HashSetResolver,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.0);
         ArchivedHashMap::resolve_from_len(len, pos + fp, resolver.0, fo);

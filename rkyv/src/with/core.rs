@@ -3,7 +3,6 @@ use crate::{
     with::{ArchiveWith, Boxed, Inline, SerializeWith},
     Archive, ArchiveUnsized, Fallible, Serialize, SerializeUnsized,
 };
-use core::mem::MaybeUninit;
 
 impl<F: Archive> ArchiveWith<&F> for Inline {
     type Archived = F::Archived;
@@ -14,7 +13,7 @@ impl<F: Archive> ArchiveWith<&F> for Inline {
         field: &&F,
         pos: usize,
         resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
+        out: *mut Self::Archived,
     ) {
         field.resolve(pos, resolver, out);
     }
@@ -36,7 +35,7 @@ impl<F: ArchiveUnsized + ?Sized> ArchiveWith<&F> for Boxed {
         field: &&F,
         pos: usize,
         resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
+        out: *mut Self::Archived,
     ) {
         ArchivedBox::resolve_from_ref(*field, pos, resolver, out);
     }

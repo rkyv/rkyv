@@ -4,7 +4,6 @@ use crate::{ArchiveUnsized, Fallible, MetadataResolver, RelPtr, SerializeUnsized
 use core::{
     borrow::Borrow,
     cmp, fmt, hash,
-    mem::MaybeUninit,
     ops::{Deref, Index, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
     pin::Pin,
 };
@@ -39,7 +38,7 @@ impl ArchivedString {
         value: &str,
         pos: usize,
         resolver: StringResolver,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.0);
         // metadata_resolver is guaranteed to be (), but it's better to be explicit about it

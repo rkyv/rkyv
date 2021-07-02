@@ -7,7 +7,7 @@ use crate::{
 };
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::{boxed::Box, vec::Vec};
-use core::{cmp, mem::MaybeUninit};
+use core::cmp;
 
 // Vec
 
@@ -44,12 +44,7 @@ impl<T: Archive> Archive for Vec<T> {
     type Resolver = VecResolver<MetadataResolver<[T]>>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
     }
 }

@@ -6,7 +6,7 @@ use crate::{
     },
     Archive, Deserialize, Fallible, Serialize, SerializeUnsized,
 };
-use core::{mem::MaybeUninit, str::FromStr};
+use core::str::FromStr;
 use std::{
     ffi::OsString,
     path::PathBuf,
@@ -22,7 +22,7 @@ impl ArchiveWith<OsString> for AsString {
         field: &OsString,
         pos: usize,
         resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
+        out: *mut Self::Archived,
     ) {
         // It's safe to unwrap here because if the OsString wasn't valid UTF-8 it would have failed
         // to serialize
@@ -60,7 +60,7 @@ impl ArchiveWith<PathBuf> for AsString {
         field: &PathBuf,
         pos: usize,
         resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
+        out: *mut Self::Archived,
     ) {
         // It's safe to unwrap here because if the OsString wasn't valid UTF-8 it would have failed
         // to serialize
@@ -98,7 +98,7 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
         field: &Mutex<F>,
         pos: usize,
         resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
+        out: *mut Self::Archived,
     ) {
         // Unfortunately, we have to unwrap here because resolve must be infallible
         //
@@ -110,7 +110,7 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
         field
             .lock()
             .unwrap()
-            .resolve(pos, resolver, Immutable::map_inner(out));
+            .resolve(pos, resolver, out.cast());
     }
 }
 
@@ -147,7 +147,7 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
         field: &RwLock<F>,
         pos: usize,
         resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
+        out: *mut Self::Archived,
     ) {
         // Unfortunately, we have to unwrap here because resolve must be infallible
         //
@@ -159,7 +159,7 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
         field
             .read()
             .unwrap()
-            .resolve(pos, resolver, Immutable::map_inner(out));
+            .resolve(pos, resolver, out.cast());
     }
 }
 

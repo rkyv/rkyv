@@ -1,7 +1,7 @@
 //! [`Archive`] implementation for `Option`.
 
 use crate::{option::ArchivedOption, Archive, Deserialize, Fallible, Serialize};
-use core::{mem::MaybeUninit, ptr};
+use core::ptr;
 
 #[allow(dead_code)]
 #[repr(u8)]
@@ -21,24 +21,15 @@ impl<T: Archive> Archive for Option<T> {
     type Resolver = Option<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         match resolver {
             None => {
-                let out = &mut *out
-                    .as_mut_ptr()
-                    .cast::<MaybeUninit<ArchivedOptionVariantNone>>();
-                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedOptionTag::None);
+                let out = out.cast::<ArchivedOptionVariantNone>();
+                ptr::addr_of_mut!((*out).0).write(ArchivedOptionTag::None);
             }
             Some(resolver) => {
-                let out = &mut *out
-                    .as_mut_ptr()
-                    .cast::<MaybeUninit<ArchivedOptionVariantSome<T::Archived>>>();
-                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedOptionTag::Some);
+                let out = out.cast::<ArchivedOptionVariantSome<T::Archived>>();
+                ptr::addr_of_mut!((*out).0).write(ArchivedOptionTag::Some);
 
                 let (fp, fo) = out_field!(out.1);
                 self.as_ref().unwrap().resolve(pos + fp, resolver, fo);

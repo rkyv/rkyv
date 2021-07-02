@@ -29,7 +29,6 @@ use core::{
     any::Any,
     hash::{Hash, Hasher},
     marker::PhantomData,
-    mem::MaybeUninit,
     ptr,
 };
 use ptr_meta::{DynMetadata, Pointee};
@@ -273,14 +272,13 @@ pub struct ArchivedDynMetadata<T: ?Sized> {
 
 impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     /// Creates a new `ArchivedDynMetadata` for the given type.
-    pub fn emplace(type_id: u64, out: &mut MaybeUninit<Self>) {
+    pub fn emplace(type_id: u64, out: *mut Self) {
         unsafe {
-            ptr::addr_of_mut!((*out.as_mut_ptr()).type_id).write(to_archived!(type_id));
+            ptr::addr_of_mut!((*out).type_id).write(to_archived!(type_id));
             #[cfg(feature = "vtable_cache")]
-            ptr::addr_of_mut!((*out.as_mut_ptr()).cached_vtable)
-                .write(Archived::<AtomicU64>::from(0u64));
+            ptr::addr_of_mut!((*out).cached_vtable).write(Archived::<AtomicU64>::from(0u64));
             #[cfg(not(feature = "vtable_cache"))]
-            ptr::addr_of_mut!((*out.as_mut_ptr()).cached_vtable).write(from_archived!(0u64));
+            ptr::addr_of_mut!((*out).cached_vtable).write(from_archived!(0u64));
         }
     }
 
@@ -476,7 +474,6 @@ macro_rules! register_validation {
 macro_rules! register_impl {
     ($type:ty as $trait:ty) => {
         const _: () = {
-            use core::mem::MaybeUninit;
             use rkyv_dyn::{
                 debug_info, inventory, register_validation, ImplData, ImplDebugInfo, ImplEntry,
                 RegisteredImpl,

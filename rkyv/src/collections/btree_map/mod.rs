@@ -11,7 +11,6 @@ use core::{
     hash::{Hash, Hasher},
     iter::FusedIterator,
     marker::PhantomData,
-    mem::MaybeUninit,
     ops::Index,
 };
 use ptr_meta::Pointee;
@@ -33,12 +32,7 @@ impl<'a, UK: Archive, UV: Archive> Archive for LeafNodeEntry<&'a UK, &'a UV> {
     type Resolver = (UK::Resolver, UV::Resolver);
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         let (fp, fo) = out_field!(out.key);
         self.key.resolve(pos + fp, resolver.0, fo);
         let (fp, fo) = out_field!(out.value);
@@ -118,7 +112,7 @@ impl<K, V> Archive for RawNodeData<K, V> {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, _: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+    unsafe fn resolve(&self, pos: usize, _: Self::Resolver, out: *mut Self::Archived) {
         let (fp, fo) = out_field!(out.meta);
         self.meta.resolve(pos + fp, (), fo);
 
@@ -140,12 +134,7 @@ impl<'a, UK: Archive, UV: Archive> Archive for InnerNodeEntryData<'a, UK, UV> {
     type Resolver = (usize, UK::Resolver);
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         let (fp, fo) = out_field!(out.ptr);
         RelPtr::emplace(pos + fp, resolver.0, fo);
         let (fp, fo) = out_field!(out.key);
@@ -348,7 +337,7 @@ impl<K, V> ArchivedBTreeMap<K, V> {
         len: usize,
         pos: usize,
         resolver: BTreeMapResolver,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.len);
         len.resolve(pos + fp, (), fo);

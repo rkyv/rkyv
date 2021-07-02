@@ -6,7 +6,7 @@ use crate::{
     Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata, Deserialize,
     DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
 };
-use core::{alloc::Layout, mem::MaybeUninit, ptr};
+use core::{alloc::Layout, ptr};
 use ptr_meta::Pointee;
 use std::ffi::{CStr, CString};
 
@@ -22,10 +22,9 @@ impl ArchiveUnsized for CStr {
         &self,
         _: usize,
         _: Self::MetadataResolver,
-        out: &mut MaybeUninit<ArchivedMetadata<Self>>,
+        out: *mut ArchivedMetadata<Self>,
     ) {
-        out.as_mut_ptr()
-            .write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
+        out.write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
     }
 }
 
@@ -92,12 +91,7 @@ impl Archive for CString {
     type Resolver = CStringResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedCString::resolve_from_c_str(self.as_c_str(), pos, resolver, out);
     }
 }

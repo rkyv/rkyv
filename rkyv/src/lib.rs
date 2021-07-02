@@ -124,7 +124,7 @@ pub mod validation;
 pub mod vec;
 pub mod with;
 
-use core::{alloc::Layout, mem::MaybeUninit};
+use core::alloc::Layout;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 pub use util::*;
@@ -322,12 +322,7 @@ pub trait Archive {
     ///
     /// - `pos` must be the position of `out` within the archive
     /// - `resolver` must be the result of serializing this object
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    );
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived);
 }
 
 /// Converts a type to its archived form.
@@ -537,7 +532,7 @@ pub trait ArchiveUnsized: Pointee {
         &self,
         pos: usize,
         resolver: Self::MetadataResolver,
-        out: &mut MaybeUninit<ArchivedMetadata<Self>>,
+        out: *mut ArchivedMetadata<Self>,
     );
 
     /// Resolves a relative pointer to this value with the given `from` and `to` and writes it to
@@ -559,7 +554,7 @@ pub trait ArchiveUnsized: Pointee {
         from: usize,
         to: usize,
         resolver: Self::MetadataResolver,
-        out: &mut MaybeUninit<RelPtr<Self::Archived>>,
+        out: *mut RelPtr<Self::Archived>,
     ) {
         RelPtr::resolve_emplace(from, to, self, resolver, out);
     }

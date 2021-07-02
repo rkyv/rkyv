@@ -13,8 +13,7 @@ use crate::{
 #[cfg(feature = "alloc")]
 use crate::{ser::Serializer, Serialize};
 use core::{
-    borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit,
-    ops::Index, pin::Pin,
+    borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData, ops::Index, pin::Pin,
 };
 
 #[cfg_attr(feature = "strict", repr(C))]
@@ -28,12 +27,7 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
     type Resolver = (K::Resolver, V::Resolver);
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         let (fp, fo) = out_field!(out.key);
         self.key.resolve(pos + fp, resolver.0, fo);
 
@@ -225,7 +219,7 @@ impl<K, V> ArchivedHashMap<K, V> {
         len: usize,
         pos: usize,
         resolver: HashMapResolver,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.index);
         ArchivedHashIndex::resolve_from_len(len, pos + fp, resolver.index_resolver, fo);

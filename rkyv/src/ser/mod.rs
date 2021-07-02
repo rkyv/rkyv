@@ -68,7 +68,7 @@ pub trait Serializer: Fallible {
 
         let mut resolved = mem::MaybeUninit::<T::Archived>::uninit();
         resolved.as_mut_ptr().write_bytes(0, 1);
-        value.resolve(pos, resolver, &mut resolved);
+        value.resolve(pos, resolver, resolved.as_mut_ptr());
 
         let data = resolved.as_ptr().cast::<u8>();
         let len = mem::size_of::<T::Archived>();
@@ -104,7 +104,7 @@ pub trait Serializer: Fallible {
 
         let mut resolved = mem::MaybeUninit::<RelPtr<T::Archived>>::uninit();
         resolved.as_mut_ptr().write_bytes(0, 1);
-        value.resolve_unsized(from, to, metadata_resolver, &mut resolved);
+        value.resolve_unsized(from, to, metadata_resolver, resolved.as_mut_ptr());
 
         let data = resolved.as_ptr().cast::<u8>();
         let len = mem::size_of::<RelPtr<T::Archived>>();

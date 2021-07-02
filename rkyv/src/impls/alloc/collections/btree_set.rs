@@ -7,7 +7,6 @@ use crate::{
 };
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::collections::BTreeSet;
-use core::mem::MaybeUninit;
 #[cfg(feature = "std")]
 use std::collections::BTreeSet;
 
@@ -19,12 +18,7 @@ where
     type Resolver = BTreeSetResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedBTreeSet::<K::Archived>::resolve_from_len(self.len(), pos, resolver, out);
     }
 }

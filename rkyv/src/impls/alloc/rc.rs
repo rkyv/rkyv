@@ -9,7 +9,7 @@ use crate::{
 };
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::{boxed::Box, rc, sync};
-use core::mem::{forget, MaybeUninit};
+use core::mem::forget;
 #[cfg(feature = "std")]
 use std::{rc, sync};
 
@@ -30,12 +30,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
     type Resolver = RcResolver<T::MetadataResolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedRc::resolve_from_ref(self.as_ref(), pos, resolver, out);
     }
 }
@@ -83,12 +78,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
     type Resolver = RcWeakResolver<T::MetadataResolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedRcWeak::resolve_from_ref(
             self.upgrade().as_ref().map(|v| v.as_ref()),
             pos,
@@ -143,12 +133,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     type Resolver = RcResolver<T::MetadataResolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedRc::resolve_from_ref(self.as_ref(), pos, resolver, out);
     }
 }
@@ -198,12 +183,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
     type Resolver = RcWeakResolver<T::MetadataResolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedRcWeak::resolve_from_ref(
             self.upgrade().as_ref().map(|v| v.as_ref()),
             pos,

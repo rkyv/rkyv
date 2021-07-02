@@ -1,7 +1,7 @@
 //! [`Archive`](crate::Archive) implementation for B-tree sets.
 
 use crate::collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver, Keys};
-use core::{borrow::Borrow, mem::MaybeUninit};
+use core::borrow::Borrow;
 
 /// An archived `BTreeSet`. This is a wrapper around a B-tree map with the same key and a value of
 /// `()`.
@@ -65,7 +65,7 @@ impl<K> ArchivedBTreeSet<K> {
         len: usize,
         pos: usize,
         resolver: BTreeSetResolver,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.0);
         ArchivedBTreeMap::resolve_from_len(len, pos + fp, resolver.0, fo);

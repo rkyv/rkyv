@@ -296,7 +296,7 @@ fn derive_archive_impl(
                                 // Some resolvers will be (), this allow is to prevent clippy from complaining
                                 #[allow(clippy::unit_arg)]
                                 #[inline]
-                                unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                                unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
                                     #(#resolve_fields)*
                                 }
                             }
@@ -476,7 +476,7 @@ fn derive_archive_impl(
                                 // Some resolvers will be (), this allow is to prevent clippy from complaining
                                 #[allow(clippy::unit_arg)]
                                 #[inline]
-                                unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                                unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
                                     #(#resolve_fields)*
                                 }
                             }
@@ -567,7 +567,7 @@ fn derive_archive_impl(
                                 type Resolver = #resolver #ty_generics;
 
                                 #[inline]
-                                unsafe fn resolve(&self, _: usize, _: Self::Resolver, _: &mut MaybeUninit<Self::Archived>) {}
+                                unsafe fn resolve(&self, _: usize, _: Self::Resolver, _: *mut Self::Archived) {}
                             }
 
                             #partial_eq_impl
@@ -672,8 +672,8 @@ fn derive_archive_impl(
                             #resolver::#variant { #(#resolver_bindings,)* } => {
                                 match self {
                                     #name::#variant { #(#self_bindings,)* } => {
-                                        let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
-                                        ::core::ptr::addr_of_mut!((*out.as_mut_ptr()).__tag)
+                                        let out = out.cast::<#archived_variant_name #ty_generics>();
+                                        ::core::ptr::addr_of_mut!((*out).__tag)
                                             .write(ArchivedTag::#variant);
                                         #(#resolves)*
                                     },
@@ -706,8 +706,8 @@ fn derive_archive_impl(
                             #resolver::#variant( #(#resolver_bindings,)* ) => {
                                 match self {
                                     #name::#variant(#(#self_bindings,)*) => {
-                                        let out = &mut *out.as_mut_ptr().cast::<MaybeUninit<#archived_variant_name #ty_generics>>();
-                                        ::core::ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedTag::#variant);
+                                        let out = out.cast::<#archived_variant_name #ty_generics>();
+                                        ::core::ptr::addr_of_mut!((*out).0).write(ArchivedTag::#variant);
                                         #(#resolves)*
                                     },
                                     #[allow(unreachable_patterns)]
@@ -718,7 +718,7 @@ fn derive_archive_impl(
                     }
                     Fields::Unit => quote_spanned! { name.span() =>
                         #resolver::#variant => {
-                            out.as_mut_ptr().cast::<ArchivedTag>().write(ArchivedTag::#variant);
+                            out.cast::<ArchivedTag>().write(ArchivedTag::#variant);
                         }
                     }
                 }
@@ -1179,7 +1179,7 @@ fn derive_archive_impl(
                         // Some resolvers will be (), this allow is to prevent clippy from complaining
                         #[allow(clippy::unit_arg)]
                         #[inline]
-                        unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+                        unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
                             match resolver {
                                 #(#resolve_arms,)*
                             }
@@ -1205,7 +1205,7 @@ fn derive_archive_impl(
 
         #[automatically_derived]
         const _: () = {
-            use ::core::{marker::PhantomData, mem::MaybeUninit};
+            use ::core::marker::PhantomData;
             use #rkyv_path::{out_field, Archive, Archived};
 
             #archive_impls

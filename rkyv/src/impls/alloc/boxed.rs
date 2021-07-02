@@ -7,19 +7,14 @@ use crate::{
 };
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::boxed::Box;
-use core::{cmp, mem::MaybeUninit};
+use core::cmp;
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     type Archived = ArchivedBox<T::Archived>;
     type Resolver = BoxResolver<T::MetadataResolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedBox::resolve_from_ref(self.as_ref(), pos, resolver, out);
     }
 }

@@ -68,7 +68,7 @@ mod tests {
                     &self,
                     _: usize,
                     _: Self::MetadataResolver,
-                    out: &mut core::mem::MaybeUninit<ArchivedMetadata<Self>>,
+                    out: *mut ArchivedMetadata<Self>,
                 ) {
                     ArchivedDynMetadata::emplace(self.archived_type_id(), out);
                 }

@@ -1226,7 +1226,7 @@ mod tests {
                 value: &T,
                 pos: usize,
                 resolver: Self::Resolver,
-                out: &mut ::core::mem::MaybeUninit<Self::Archived>,
+                out: *mut Self::Archived,
             ) {
                 value.to_string().resolve(pos, resolver, out);
             }
@@ -1472,6 +1472,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(miri, ignore)]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_btree_map_large() {
         let mut value = BTreeMap::new();

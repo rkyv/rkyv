@@ -13,7 +13,6 @@ use core::{
     fmt,
     hash,
     marker::PhantomData,
-    mem::MaybeUninit,
     ops::Deref,
     pin::Pin,
     ptr,
@@ -54,7 +53,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
         value: &U,
         pos: usize,
         resolver: RcResolver<MetadataResolver<U>>,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.0);
         value.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
@@ -199,20 +198,16 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
         value: Option<&U>,
         pos: usize,
         resolver: RcWeakResolver<MetadataResolver<U>>,
-        out: &mut MaybeUninit<Self>,
+        out: *mut Self,
     ) {
         match resolver {
             RcWeakResolver::None => {
-                let out = &mut *out
-                    .as_mut_ptr()
-                    .cast::<MaybeUninit<ArchivedRcWeakVariantNone>>();
-                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedRcWeakTag::None);
+                let out = out.cast::<ArchivedRcWeakVariantNone>();
+                ptr::addr_of_mut!((*out).0).write(ArchivedRcWeakTag::None);
             }
             RcWeakResolver::Some(resolver) => {
-                let out = &mut *out
-                    .as_mut_ptr()
-                    .cast::<MaybeUninit<ArchivedRcWeakVariantSome<T, F>>>();
-                ptr::addr_of_mut!((*out.as_mut_ptr()).0).write(ArchivedRcWeakTag::Some);
+                let out = out.cast::<ArchivedRcWeakVariantSome<T, F>>();
+                ptr::addr_of_mut!((*out).0).write(ArchivedRcWeakTag::Some);
 
                 let (fp, fo) = out_field!(out.1);
                 ArchivedRc::resolve_from_ref(value.unwrap(), pos + fp, resolver, fo);

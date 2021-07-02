@@ -6,7 +6,7 @@ use crate::{
     ser::Serializer, Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
     Deserialize, DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
 };
-use core::{alloc::Layout, mem::MaybeUninit, ptr, str};
+use core::{alloc::Layout, ptr, str};
 use ptr_meta::Pointee;
 
 pub mod option;
@@ -31,7 +31,7 @@ impl<T: Archive> ArchiveUnsized for T {
         &self,
         _: usize,
         _: Self::MetadataResolver,
-        _: &mut MaybeUninit<ArchivedMetadata<Self>>,
+        _: *mut ArchivedMetadata<Self>,
     ) {
     }
 }
@@ -84,7 +84,7 @@ macro_rules! impl_tuple {
             type Resolver = ($($type::Resolver,)+);
 
             #[inline]
-            unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+            unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
                 $(
                     let (fp, fo) = out_field!(out.$index);
                     self.$index.resolve(pos + fp, resolver.$index, fo);
@@ -123,20 +123,15 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     type Resolver = [T::Resolver; N];
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: &mut MaybeUninit<Self::Archived>,
-    ) {
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         let mut resolvers = core::mem::MaybeUninit::new(resolver);
         let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
-        let out_ptr = out.as_mut_ptr().cast::<MaybeUninit<T::Archived>>();
+        let out_ptr = out.cast::<T::Archived>();
         for (i, value) in self.iter().enumerate() {
             value.resolve(
                 pos + i * core::mem::size_of::<T::Archived>(),
                 resolvers_ptr.add(i).read(),
-                &mut *out_ptr.add(i),
+                out_ptr.add(i),
             );
         }
     }
@@ -183,10 +178,9 @@ impl<T: Archive> ArchiveUnsized for [T] {
         &self,
         _: usize,
         _: Self::MetadataResolver,
-        out: &mut MaybeUninit<ArchivedMetadata<Self>>,
+        out: *mut ArchivedMetadata<Self>,
     ) {
-        out.as_mut_ptr()
-            .write(to_archived!(ptr_meta::metadata(self) as FixedUsize));
+        out.write(to_archived!(ptr_meta::metadata(self) as FixedUsize));
     }
 }
 
@@ -389,10 +383,9 @@ impl ArchiveUnsized for str {
         &self,
         _: usize,
         _: Self::MetadataResolver,
-        out: &mut MaybeUninit<ArchivedMetadata<Self>>,
+        out: *mut ArchivedMetadata<Self>,
     ) {
-        out.as_mut_ptr()
-            .write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
+        out.write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
     }
 }
 
