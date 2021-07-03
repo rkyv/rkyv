@@ -18,6 +18,7 @@ where
 {
     type Error = K::Error;
 
+    #[inline]
     unsafe fn check_bytes<'a>(
         value: *const Self,
         context: &mut C,
@@ -71,6 +72,7 @@ where
 {
     type Error = LeafNodeEntryError<K::Error, V::Error>;
 
+    #[inline]
     unsafe fn check_bytes<'a>(
         value: *const Self,
         context: &mut C,
@@ -256,6 +258,7 @@ where
 {
     type Error = ArchivedBTreeMapError<K::Error, V::Error, C::Error>;
 
+    #[inline]
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         CheckBytes::check_bytes(ptr::addr_of!((*value).meta), context)?;
         CheckBytes::check_bytes(ptr::addr_of!((*value).size), context)?;
@@ -325,6 +328,7 @@ where
 {
     type Error = ArchivedBTreeMapError<K::Error, V::Error, C::Error>;
 
+    #[inline]
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         // meta, size, and ptr have already been checked by the check_bytes for RawNode
         let len = ptr_meta::metadata(value);
@@ -358,6 +362,7 @@ where
 {
     type Error = ArchivedBTreeMapError<K::Error, V::Error, C::Error>;
 
+    #[inline]
     unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
         // meta, size, and ptr have already been checked by the check_bytes for RawNode
         let len = ptr_meta::metadata(value);

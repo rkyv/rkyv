@@ -58,6 +58,7 @@ where
 {
     type Error = ArchivedHashMapEntryError<K::Error, V::Error>;
 
+    #[inline]
     unsafe fn check_bytes<'a>(
         value: *const Self,
         context: &mut C,

@@ -319,6 +319,7 @@ pub fn archive_dyn(
                 impl<#generic_params> CheckBytes<dyn DynContext + '_> for (dyn #deserialize_trait<#generic_args> + '_) {
                     type Error = CheckDynError;
 
+                    #[inline]
                     unsafe fn check_bytes<'a>(value: *const Self, context: &mut (dyn DynContext + '_)) -> Result<&'a Self, Self::Error> {
                         let vtable = core::mem::transmute(ptr_meta::metadata(value));
                         if let Some(validation) = CHECK_BYTES_REGISTRY.get(vtable) {
@@ -333,6 +334,7 @@ pub fn archive_dyn(
                 impl<__C: DynContext, #generic_params> CheckBytes<__C> for (dyn #deserialize_trait<#generic_args> + '_) {
                     type Error = CheckDynError;
 
+                    #[inline]
                     unsafe fn check_bytes<'a>(value: *const Self, context: &mut __C) -> Result<&'a Self, Self::Error> {
                         Self::check_bytes(value, context as &mut dyn DynContext)
                     }

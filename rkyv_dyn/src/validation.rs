@@ -288,6 +288,7 @@ impl Error for CheckBytesUnimplemented {}
 type CheckBytesDyn = unsafe fn(*const u8, &mut dyn DynContext) -> Result<(), Box<dyn Error>>;
 
 // This is the fallback function that gets called if the archived type doesn't implement CheckBytes.
+#[inline]
 unsafe fn check_bytes_dyn_unimplemented(
     _bytes: *const u8,
     _context: &mut dyn DynContext,
@@ -309,6 +310,7 @@ impl<T: for<'a> CheckBytes<dyn DynContext + 'a>> IsCheckBytesDyn<T> {
     #[doc(hidden)]
     pub const CHECK_BYTES_DYN: CheckBytesDyn = Self::check_bytes_dyn;
 
+    #[inline]
     unsafe fn check_bytes_dyn(
         bytes: *const u8,
         context: &mut dyn DynContext,

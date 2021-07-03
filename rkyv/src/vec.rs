@@ -192,6 +192,7 @@ const _: () = {
     {
         type Error = CheckOwnedPointerError<[T], C>;
 
+        #[inline]
         unsafe fn check_bytes<'a>(
             value: *const Self,
             context: &mut C,
