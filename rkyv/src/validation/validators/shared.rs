@@ -58,6 +58,7 @@ impl SharedValidator {
     #[inline]
     pub fn new() -> Self {
         Self {
+            // TODO: consider deferring this to avoid the overhead of constructing
             shared: HashMap::new(),
         }
     }

@@ -18,6 +18,7 @@ where
     type Archived = ArchivedVec<Archived<A::Item>>;
     type Resolver = VecResolver<MetadataResolver<[A::Item]>>;
 
+    #[inline]
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
     }
@@ -27,6 +28,7 @@ impl<A: Array, S: Serializer + ?Sized> Serialize<S> for ArrayVec<A>
 where
     A::Item: Serialize<S>,
 {
+    #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         ArchivedVec::serialize_from_slice(self.as_slice(), serializer)
     }
@@ -37,6 +39,7 @@ where
     A::Item: Archive,
     Archived<A::Item>: Deserialize<A::Item, D>,
 {
+    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<ArrayVec<A>, D::Error> {
         let mut result = ArrayVec::new();
         for item in self.as_slice() {
@@ -52,12 +55,14 @@ impl<'s, T: Archive> Archive for SliceVec<'s, T> {
     type Archived = ArchivedVec<T::Archived>;
     type Resolver = VecResolver<MetadataResolver<[T]>>;
 
+    #[inline]
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
     }
 }
 
 impl<'s, T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for SliceVec<'s, T> {
+    #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         ArchivedVec::serialize_from_slice(self.as_slice(), serializer)
     }
@@ -75,6 +80,7 @@ where
     type Archived = ArchivedVec<Archived<A::Item>>;
     type Resolver = VecResolver<MetadataResolver<[A::Item]>>;
 
+    #[inline]
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
         ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
     }
@@ -85,6 +91,7 @@ impl<A: Array, S: Serializer + ?Sized> Serialize<S> for TinyVec<A>
 where
     A::Item: Serialize<S>,
 {
+    #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         ArchivedVec::serialize_from_slice(self.as_slice(), serializer)
     }
@@ -96,6 +103,7 @@ where
     A::Item: Archive,
     Archived<A::Item>: Deserialize<A::Item, D>,
 {
+    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<TinyVec<A>, D::Error> {
         let mut result = TinyVec::new();
         for item in self.as_slice() {

@@ -474,6 +474,7 @@ impl AlignedVec {
     ///     vec.set_len(0);
     /// }
     /// ```
+    #[inline]
     pub fn set_len(&mut self, new_len: usize) {
         debug_assert!(new_len <= self.capacity());
 
