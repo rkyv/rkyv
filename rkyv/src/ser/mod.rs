@@ -5,7 +5,7 @@ pub mod adapters;
 pub mod serializers;
 
 use crate::{
-    Archive, ArchivePointee, ArchiveUnsized, Archived, Fallible, RelPtr, Serialize,
+    Archive, ArchiveUnsized, Fallible, RelPtr, Serialize,
     SerializeUnsized,
 };
 use core::{mem, slice};
@@ -121,45 +121,6 @@ pub trait Serializer: Fallible {
         let to = value.serialize_unsized(self)?;
         let metadata_resolver = value.serialize_metadata(self)?;
         self.align_for::<RelPtr<T::Archived>>()?;
-        unsafe { self.resolve_unsized_aligned(value, to, metadata_resolver) }
-    }
-}
-
-/// A serializer that can seek to an absolute position.
-pub trait SeekSerializer: Serializer {
-    /// Seeks the serializer to the given absolute position.
-    fn seek(&mut self, pos: usize) -> Result<(), Self::Error>;
-
-    /// Archives the given value at the nearest available position. If the serializer is already
-    /// aligned, it will archive it at the current position.
-    fn serialize_front<T: Serialize<Self>>(&mut self, value: &T) -> Result<usize, Self::Error> {
-        self.align_for::<T::Archived>()?;
-        let pos = self.pos();
-        self.seek(pos + mem::size_of::<T::Archived>())?;
-        let resolver = value.serialize(self)?;
-        self.seek(pos)?;
-        unsafe {
-            self.resolve_aligned(value, resolver)?;
-        }
-        Ok(pos)
-    }
-
-    /// Archives a reference to the given value at the nearest available position. If the serializer
-    /// is already aligned, it will archive it at the current position.
-    fn serialize_unsized_front<T: SerializeUnsized<Self> + ?Sized>(
-        &mut self,
-        value: &T,
-    ) -> Result<usize, Self::Error>
-    where
-        T::Metadata: Serialize<Self>,
-        T::Archived: ArchivePointee<ArchivedMetadata = Archived<T::Metadata>>,
-    {
-        self.align_for::<RelPtr<T::Archived>>()?;
-        let pos = self.pos();
-        self.seek(pos + mem::size_of::<RelPtr<T::Archived>>())?;
-        let to = value.serialize_unsized(self)?;
-        let metadata_resolver = value.serialize_metadata(self)?;
-        self.seek(pos)?;
         unsafe { self.resolve_unsized_aligned(value, to, metadata_resolver) }
     }
 }

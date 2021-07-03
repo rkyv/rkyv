@@ -3,12 +3,12 @@ mod tests {
     use crate::util::*;
     use core::pin::Pin;
     use rkyv::{
-        archived_root, archived_root_mut, archived_value,
+        archived_root, archived_root_mut,
         de::adapters::SharedDeserializerAdapter,
         ser::{
             adapters::SharedSerializerAdapter,
             serializers::{AlignedSerializer, BufferSerializer},
-            SeekSerializer, Serializer,
+            Serializer,
         },
         Aligned, AlignedVec, Archive, Archived, Deserialize, Fallible, Infallible, Serialize,
     };
@@ -579,42 +579,6 @@ mod tests {
         }
 
         test_archive(&Node::Cons(Box::new(Node::Cons(Box::new(Node::Nil)))));
-    }
-
-    #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn archive_root() {
-        #[derive(Debug, Archive, Serialize)]
-        #[archive(compare(PartialEq))]
-        #[archive_attr(derive(Debug))]
-        struct Test {
-            a: (),
-            b: i32,
-            c: String,
-            d: Option<i32>,
-        }
-
-        let value = Test {
-            a: (),
-            b: 42,
-            c: "hello world".to_string(),
-            d: Some(42),
-        };
-
-        const BUFFER_SIZE: usize = 256;
-
-        // FIXME: A `BufferSerializer` is used here because `Seek` is required. For most purposes,
-        // we should use a `Vec` and wrap it in a `Cursor` to get `Seek`. In this case,
-        // `Cursor<AlignedVec>` can't implement `Write` because it's not implemented in this crate
-        // so we use a buffer serializer instead.
-        let mut serializer = BufferSerializer::new(Aligned([0u8; BUFFER_SIZE]));
-        let pos = serializer
-            .serialize_front(&value)
-            .expect("failed to archive value");
-        let buffer = serializer.into_inner();
-        assert_eq!(pos, 0);
-        let archived_value = unsafe { archived_value::<Test>(buffer.as_ref(), 0) };
-        assert_eq!(*archived_value, value);
     }
 
     #[test]

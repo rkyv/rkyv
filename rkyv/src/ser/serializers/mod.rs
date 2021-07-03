@@ -6,7 +6,7 @@ mod alloc;
 mod std;
 
 use crate::{
-    ser::{SeekSerializer, Serializer},
+    ser::Serializer,
     Fallible,
 };
 use core::ptr;
@@ -144,21 +144,6 @@ impl<T: AsRef<[u8]> + AsMut<[u8]>> Serializer for BufferSerializer<T> {
             })
         } else {
             self.pos = end_pos;
-            Ok(())
-        }
-    }
-}
-
-impl<T: AsRef<[u8]> + AsMut<[u8]>> SeekSerializer for BufferSerializer<T> {
-    fn seek(&mut self, pos: usize) -> Result<(), Self::Error> {
-        let len = self.inner.as_ref().len();
-        if pos > len {
-            Err(BufferSerializerError::SoughtPastEnd {
-                seek_position: pos,
-                archive_len: len,
-            })
-        } else {
-            self.pos = pos;
             Ok(())
         }
     }

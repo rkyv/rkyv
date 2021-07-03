@@ -1,5 +1,5 @@
 use crate::{
-    ser::{SeekSerializer, Serializer},
+    ser::Serializer,
     Fallible,
 };
 use std::io;
@@ -57,15 +57,6 @@ impl<W: io::Write> Serializer for WriteSerializer<W> {
     #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
         self.pos += self.inner.write(bytes)?;
-        Ok(())
-    }
-}
-
-impl<W: io::Write + io::Seek> SeekSerializer for WriteSerializer<W> {
-    #[inline]
-    fn seek(&mut self, offset: usize) -> Result<(), Self::Error> {
-        self.inner.seek(io::SeekFrom::Start(offset as u64))?;
-        self.pos = offset;
         Ok(())
     }
 }
