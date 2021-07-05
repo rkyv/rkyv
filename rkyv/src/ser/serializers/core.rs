@@ -227,8 +227,9 @@ impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace for BufferScratch<T> 
         };
         let alloc = pad + layout.size();
         if pad + layout.size() <= bytes.len() - self.pos {
+            let result = bytes.as_mut_ptr().add(self.pos);
             self.pos += alloc;
-            Ok(bytes.as_mut_ptr().add(self.pos))
+            Ok(result)
         } else {
             Err(FixedSizeScratchError::OutOfScratch(layout))
         }

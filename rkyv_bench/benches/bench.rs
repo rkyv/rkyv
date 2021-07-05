@@ -371,7 +371,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }
 
     const BUFFER_LEN: usize = 10_000_000;
-    const SCRATCH_LEN: usize = 4_096;
+    const SCRATCH_LEN: usize = 512_000;
 
     let mut group = c.benchmark_group("bincode");
     {
@@ -401,11 +401,11 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     {
         let mut serialize_buffer = AlignedVec::with_capacity(BUFFER_LEN);
         let mut serialize_scratch = AlignedVec::with_capacity(SCRATCH_LEN);
+        unsafe { serialize_scratch.set_len(SCRATCH_LEN); }
 
         group.bench_function("serialize", |b| {
             b.iter(|| {
                 serialize_buffer.clear();
-                serialize_scratch.clear();
 
                 let mut serializer = CompositeSerializer::new(
                     AlignedSerializer::new(black_box(&mut serialize_buffer)),

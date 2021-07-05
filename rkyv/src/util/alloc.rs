@@ -22,7 +22,7 @@ impl Drop for AlignedVec {
     fn drop(&mut self) {
         if self.cap != 0 {
             unsafe {
-                alloc::dealloc(self.ptr.as_mut(), self.layout());
+                alloc::dealloc(self.ptr.as_ptr(), self.layout());
             }
         }
     }
@@ -126,7 +126,7 @@ impl AlignedVec {
     fn change_capacity(&mut self, new_cap: usize) {
         unsafe {
             if new_cap != self.cap {
-                let new_ptr = alloc::realloc(self.ptr.as_mut(), self.layout(), new_cap);
+                let new_ptr = alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap);
                 self.ptr = NonNull::new_unchecked(new_ptr);
                 self.cap = new_cap;
             }
@@ -183,7 +183,7 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut u8 {
-        unsafe { self.ptr.as_mut() }
+        self.ptr.as_ptr()
     }
 
     /// Extracts a mutable slice of the entire vector.
@@ -205,7 +205,7 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.ptr.as_mut(), self.len) }
+        unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
     }
 
     /// Returns a raw pointer to the vector's buffer.
@@ -306,7 +306,7 @@ impl AlignedVec {
                 }
             } else {
                 unsafe {
-                    let new_ptr = alloc::realloc(self.ptr.as_mut(), self.layout(), new_cap);
+                    let new_ptr = alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap);
                     self.ptr = NonNull::new_unchecked(new_ptr);
                     self.cap = new_cap;
                 }
@@ -475,7 +475,7 @@ impl AlignedVec {
     /// }
     /// ```
     #[inline]
-    pub fn set_len(&mut self, new_len: usize) {
+    pub unsafe fn set_len(&mut self, new_len: usize) {
         debug_assert!(new_len <= self.capacity());
 
         self.len = new_len;
