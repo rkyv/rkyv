@@ -3,12 +3,14 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
 use rkyv::{
-    archived_root, check_archived_root,
-    ser::{
-        serializers::{AlignedSerializer, WriteSerializer},
-        Serializer,
-    },
-    AlignedVec, Archive, Deserialize, Infallible, Serialize,
+    AlignedVec,
+    Archive,
+    Deserialize,
+    Infallible,
+    Serialize, 
+    archived_root,
+    check_archived_root,
+    ser::{Serializer, serializers::{AlignedSerializer, CompositeSerializer, BufferScratch}},
 };
 use std::collections::HashMap;
 
@@ -369,6 +371,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     }
 
     const BUFFER_LEN: usize = 10_000_000;
+    const SCRATCH_LEN: usize = 4_096;
 
     let mut group = c.benchmark_group("bincode");
     {
@@ -396,25 +399,29 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("rkyv");
     {
-        let mut serialize_buffer = vec![0u8; BUFFER_LEN];
-        group.bench_function("serialize (Vec)", |b| {
-            b.iter(|| {
-                let mut serializer = WriteSerializer::new(black_box(&mut serialize_buffer));
-                black_box(serializer.serialize_value(black_box(&players)).unwrap());
-            });
-        });
-
         let mut serialize_buffer = AlignedVec::with_capacity(BUFFER_LEN);
-        group.bench_function("serialize (AlignedSerializer)", |b| {
+        let mut serialize_scratch = AlignedVec::with_capacity(SCRATCH_LEN);
+
+        group.bench_function("serialize", |b| {
             b.iter(|| {
                 serialize_buffer.clear();
-                let mut serializer = AlignedSerializer::new(&mut serialize_buffer);
+                serialize_scratch.clear();
+
+                let mut serializer = CompositeSerializer::new(
+                    AlignedSerializer::new(black_box(&mut serialize_buffer)),
+                    BufferScratch::new(black_box(&mut serialize_scratch)),
+                    Infallible,
+                );
                 black_box(serializer.serialize_value(black_box(&players)).unwrap());
             });
         });
 
-        let mut buffer = AlignedVec::with_capacity(BUFFER_LEN);
-        let mut serializer = AlignedSerializer::new(&mut buffer);
+        let mut buffer = AlignedVec::new();
+        let mut serializer = CompositeSerializer::new(
+            AlignedSerializer::new(black_box(&mut buffer)),
+            BufferScratch::new(black_box(&mut serialize_scratch)),
+            Infallible,
+        );
         serializer.serialize_value(&players).unwrap();
 
         group.bench_function("access", |b| {

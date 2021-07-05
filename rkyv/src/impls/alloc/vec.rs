@@ -1,7 +1,7 @@
 //! [`Archive`] implementation for `Vec`.
 
 use crate::{
-    ser::Serializer,
+    ser::{ScratchSpace, Serializer},
     vec::{ArchivedVec, VecResolver},
     Archive, Deserialize, DeserializeUnsized, Fallible, MetadataResolver, Serialize,
 };
@@ -49,7 +49,7 @@ impl<T: Archive> Archive for Vec<T> {
     }
 }
 
-impl<T: Serialize<S>, S: Serializer + ?Sized> Serialize<S> for Vec<T> {
+impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> Serialize<S> for Vec<T> {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         ArchivedVec::<T::Archived>::serialize_from_slice(self.as_slice(), serializer)

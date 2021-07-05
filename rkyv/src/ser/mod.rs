@@ -1,14 +1,12 @@
 //! Serialization traits, serializers, and adapters.
 
-#[cfg(feature = "alloc")]
-pub mod adapters;
 pub mod serializers;
 
 use crate::{
     Archive, ArchiveUnsized, Fallible, RelPtr, Serialize,
     SerializeUnsized,
 };
-use core::{mem, slice};
+use core::{alloc::Layout, mem, slice};
 
 /// A byte sink that knows where it is.
 ///
@@ -125,14 +123,66 @@ pub trait Serializer: Fallible {
     }
 }
 
-/// A serializer that supports serializing shared memory.
+/// A serializer that can allocate scratch space.
+pub trait ScratchSpace: Fallible {
+    /// Allocates scratch space of the requested size.
+    ///
+    /// # Safety
+    ///
+    /// `layout` must have non-zero size.
+    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<*mut u8, Self::Error>;
+
+    /// Deallocates previously allocated scratch space.
+    ///
+    /// # Safety
+    ///
+    /// - `ptr` must be the scratch memory last allocated with `push_scratch`.
+    /// - `layout` must be the same layout that was used to allocate that block of memory.
+    unsafe fn pop_scratch(&mut self, ptr: *mut u8, layout: Layout) -> Result<(), Self::Error>;
+}
+
+/// A registry that tracks serialized shared memory.
 ///
-/// This serializer is required by shared pointers to serialize.
-pub trait SharedSerializer: Serializer {
+/// This trait is required to serialize shared pointers.
+pub trait SharedSerializeRegistry: Fallible {
+    /// Gets the position of a previously-added shared pointer.
+    ///
+    /// Returns `None` if the pointer has not yet been added.
+    fn get_shared_ptr(&mut self, value: *const u8) -> Option<usize>;
+
+    /// Gets the position of a previously-added shared value.
+    ///
+    /// Returns `None` if the value has not yet been added.
+    #[inline]
+    fn get_shared<T: ?Sized>(&mut self, value: &T) -> Option<usize> {
+        self.get_shared_ptr(value as *const T as *const u8)
+    }
+
+    /// Adds the position of a shared pointer to the registry.
+    fn add_shared_ptr(&mut self, value: *const u8, pos: usize) -> Result<(), Self::Error>;
+
+    /// Adds the position of a shared value to the registry.
+    #[inline]
+    fn add_shared<T: ?Sized>(&mut self, value: &T, pos: usize) -> Result<(), Self::Error> {
+        self.add_shared_ptr(value as *const T as *const u8, pos)
+    }
+
     /// Archives the given shared value and returns its position. If the value has already been
-    /// serialized then it returns the position of the previously serialized value.
+    /// added then it returns the position of the previously added value.
+    #[inline]
     fn serialize_shared<T: SerializeUnsized<Self> + ?Sized>(
         &mut self,
         value: &T,
-    ) -> Result<usize, Self::Error>;
+    ) -> Result<usize, Self::Error>
+    where
+        Self: Serializer,
+    {
+        if let Some(pos) = self.get_shared(value) {
+            Ok(pos)
+        } else {
+            let pos = value.serialize_unsized(self)?;
+            self.add_shared(value, pos)?;
+            Ok(pos)
+        }
+    }
 }

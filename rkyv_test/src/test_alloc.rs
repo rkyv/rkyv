@@ -1,16 +1,14 @@
 #[cfg(test)]
 mod tests {
-    use crate::util::*;
+    use crate::util::alloc::*;
     use core::pin::Pin;
     use rkyv::{
         archived_root, archived_root_mut,
-        de::adapters::SharedDeserializerAdapter,
         ser::{
-            adapters::SharedSerializerAdapter,
             serializers::{AlignedSerializer, BufferSerializer},
             Serializer,
         },
-        Aligned, AlignedVec, Archive, Archived, Deserialize, Fallible, Infallible, Serialize,
+        AlignedBytes, AlignedVec, Archive, Archived, Deserialize, Fallible, Infallible, Serialize,
     };
 
     #[cfg(all(feature = "alloc", not(feature = "std")))]
@@ -72,8 +70,8 @@ mod tests {
 
             use rkyv::{
                 archived_root,
-                ser::{serializers::AlignedSerializer, Serializer},
-                AlignedVec, Archive, Deserialize, Infallible, Serialize,
+                ser::{serializers::AllocSerializer, Serializer},
+                Archive, Deserialize, Infallible, Serialize,
             };
 
             #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
@@ -89,11 +87,11 @@ mod tests {
                 option: Some(vec![1, 2, 3, 4]),
             };
 
-            let mut serializer = AlignedSerializer::new(AlignedVec::new());
+            let mut serializer = AllocSerializer::<256>::default();
             serializer
                 .serialize_value(&value)
                 .expect("failed to serialize value");
-            let bytes = serializer.into_inner();
+            let bytes = serializer.into_serializer().into_inner();
 
             let archived = unsafe { archived_root::<Test>(&bytes[..]) };
             assert_eq!(archived.int, value.int);
@@ -502,9 +500,9 @@ mod tests {
             b: vec!["hello".to_string(), "world".to_string()],
         };
 
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&value).unwrap();
-        let mut buf = serializer.into_inner();
+        let mut buf = serializer.into_serializer().into_inner();
         let mut value = unsafe { archived_root_mut::<Test>(Pin::new(buf.as_mut())) };
 
         assert_eq!(*value.a, 10);
@@ -671,12 +669,9 @@ mod tests {
             b: shared.clone(),
         };
 
-        let mut serializer =
-            SharedSerializerAdapter::new(AlignedSerializer::new(AlignedVec::new()));
-        serializer
-            .serialize_value(&value)
-            .expect("failed to archive value");
-        let mut buf = serializer.into_inner().into_inner();
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let mut buf = serializer.into_serializer().into_inner();
 
         let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
         assert_eq!(archived, &value);
@@ -701,7 +696,7 @@ mod tests {
         assert_eq!(*archived.a, 17);
         assert_eq!(*archived.b, 17);
 
-        let mut deserializer = SharedDeserializerAdapter::new(Infallible);
+        let mut deserializer = DefaultDeserializer::default();
         let deserialized =
             Deserialize::<Test, _>::deserialize(archived, &mut deserializer).unwrap();
 
@@ -776,12 +771,9 @@ mod tests {
             b: Rc::downgrade(&shared),
         };
 
-        let mut serializer =
-            SharedSerializerAdapter::new(AlignedSerializer::new(AlignedVec::new()));
-        serializer
-            .serialize_value(&value)
-            .expect("failed to archive value");
-        let mut buf = serializer.into_inner().into_inner();
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let mut buf = serializer.into_serializer().into_inner();
 
         let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
         assert_eq!(*archived.a, 10);
@@ -815,7 +807,7 @@ mod tests {
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 17);
 
-        let mut deserializer = SharedDeserializerAdapter::new(Infallible);
+        let mut deserializer = DefaultDeserializer::default();
         let deserialized =
             Deserialize::<Test, _>::deserialize(archived, &mut deserializer).unwrap();
 
@@ -954,8 +946,8 @@ mod tests {
         check::<BufferSerializer<[u8; 256]>>();
         check::<BufferSerializer<&mut [u8; 256]>>();
         check::<BufferSerializer<&mut [u8]>>();
-        check::<BufferSerializer<Aligned<[u8; 256]>>>();
-        check::<BufferSerializer<&mut Aligned<[u8; 256]>>>();
+        check::<BufferSerializer<AlignedBytes<256>>>();
+        check::<BufferSerializer<&mut AlignedBytes<256>>>();
         check::<AlignedSerializer<AlignedVec>>();
         check::<AlignedSerializer<&mut AlignedVec>>();
     }
@@ -1021,12 +1013,11 @@ mod tests {
         ))]
         assert_eq!(ArchivedReallyBigEnum::V100 as u16, 0x1u16);
 
-        let mut serializer = make_default_serializer();
+        let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&ReallyBigEnum::V100).unwrap();
-        let len = serializer.pos();
-        let buf = unwrap_default_serializer(serializer);
+        let buf = serializer.into_serializer().into_inner();
 
-        let archived = unsafe { archived_root::<ReallyBigEnum>(&buf.as_ref()[..len]) };
+        let archived = unsafe { archived_root::<ReallyBigEnum>(buf.as_ref()) };
         assert_eq!(archived, &ArchivedReallyBigEnum::V100);
 
         let deserialized =

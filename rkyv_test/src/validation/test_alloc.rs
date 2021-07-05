@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::validation::util::serialize_and_check;
+    use crate::{
+        util::alloc::*,
+        validation::util::alloc::serialize_and_check,
+    };
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::{
         boxed::Box,
@@ -13,12 +16,8 @@ mod tests {
     use core::fmt;
     use rkyv::{
         check_archived_root, check_archived_value,
-        ser::{
-            adapters::SharedSerializerAdapter,
-            serializers::AlignedSerializer,
-            Serializer,
-        },
-        Aligned, AlignedVec, Archive, Serialize,
+        ser::Serializer,
+        AlignedBytes, Archive, Serialize,
     };
     #[cfg(feature = "std")]
     use std::rc::Rc;
@@ -32,11 +31,9 @@ mod tests {
         // Regular archiving
         let value = Some("Hello world".to_string());
 
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
-        serializer
-            .serialize_value(&value)
-            .expect("failed to archive value");
-        let buf = serializer.into_inner();
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let buf = serializer.into_serializer().into_inner();
 
         let result = check_archived_root::<Option<String>>(buf.as_ref());
         result.unwrap();
@@ -77,7 +74,7 @@ mod tests {
             feature = "archive_le"
         ))]
         // Synthetic archive (correct)
-        let synthetic_buf = Aligned([
+        let synthetic_buf = AlignedBytes([
             // "Hello world"
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
             0u8, // padding to 4-alignment
@@ -144,28 +141,28 @@ mod tests {
             CheckArchiveError,
         };
         // Out of bounds
-        match check_archived_value::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 8) {
+        match check_archived_value::<u32>(AlignedBytes([0, 1, 2, 3, 4]).as_ref(), 8) {
             Err(CheckArchiveError::ContextError(DefaultValidatorError::ArchiveError(
                 ArchiveError::OutOfBounds { .. },
             ))) => (),
             other => panic!("expected out of bounds error, got {:?}", other),
         }
         // Overrun
-        match check_archived_value::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 4) {
+        match check_archived_value::<u32>(AlignedBytes([0, 1, 2, 3, 4]).as_ref(), 4) {
             Err(CheckArchiveError::ContextError(DefaultValidatorError::ArchiveError(
                 ArchiveError::Overrun { .. },
             ))) => (),
             other => panic!("expected overrun error, got {:?}", other),
         }
         // Unaligned
-        match check_archived_value::<u32>(Aligned([0, 1, 2, 3, 4]).as_ref(), 1) {
+        match check_archived_value::<u32>(AlignedBytes([0, 1, 2, 3, 4]).as_ref(), 1) {
             Err(CheckArchiveError::ContextError(DefaultValidatorError::ArchiveError(
                 ArchiveError::Unaligned { .. },
             ))) => (),
             other => panic!("expected unaligned error, got {:?}", other),
         }
         // Underaligned
-        match check_archived_value::<u32>(&Aligned([0, 1, 2, 3, 4]).as_ref()[1..], 0) {
+        match check_archived_value::<u32>(&AlignedBytes([0, 1, 2, 3, 4])[1..], 0) {
             Err(CheckArchiveError::ContextError(DefaultValidatorError::ArchiveError(
                 ArchiveError::Underaligned { .. },
             ))) => (),
@@ -178,7 +175,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn invalid_tags() {
         // Invalid archive (invalid tag)
-        let synthetic_buf = Aligned([
+        let synthetic_buf = AlignedBytes([
             2u8, 0u8, 0u8, 0u8, // invalid tag + padding
             8u8, 0u8, 0u8, 0u8, // points 8 bytes forward
             11u8, 0u8, 0u8, 0u8, // string is 11 characters long
@@ -195,7 +192,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn overlapping_claims() {
         // Invalid archive (overlapping claims)
-        let synthetic_buf = Aligned([
+        let synthetic_buf = AlignedBytes([
             // First string
             16u8, 0u8, 0u8, 0u8, // points 16 bytes forward
             11u8, 0u8, 0u8, 0u8, // string is 11 characters long
@@ -287,7 +284,7 @@ mod tests {
         }
 
         // Invalid archive (cyclic claims)
-        let synthetic_buf = Aligned([
+        let synthetic_buf = AlignedBytes([
             // First node
             1u8, 0u8, 0u8, 0u8, // Cons
             4u8, 0u8, 0u8, 0u8, // Node is 4 bytes forward
@@ -399,13 +396,11 @@ mod tests {
             b: shared.clone(),
         };
 
-        let mut serializer =
-            SharedSerializerAdapter::new(AlignedSerializer::new(AlignedVec::new()));
-        serializer.serialize_value(&value)
-            .expect("failed to archive value");
-        let buffer = serializer.into_inner().into_inner();
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let buf = serializer.into_serializer().into_inner();
 
-        check_archived_root::<Test>(buffer.as_ref()).unwrap();
+        check_archived_root::<Test>(buf.as_ref()).unwrap();
     }
 
     #[test]
@@ -422,10 +417,11 @@ mod tests {
         value.insert("baz".to_string(), 40);
         value.insert("bat".to_string(), 80);
 
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&value).unwrap();
-        let buffer = serializer.into_inner();
-        check_archived_root::<BTreeMap<String, i32>>(buffer.as_ref()).unwrap();
+        let buf = serializer.into_serializer().into_inner();
+
+        check_archived_root::<BTreeMap<String, i32>>(buf.as_ref()).unwrap();
     }
 
     // This test is unfortunately too slow to run through miri
@@ -442,9 +438,10 @@ mod tests {
             value.insert(i.to_string(), i);
         }
 
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&value).unwrap();
-        let buffer = serializer.into_inner();
-        check_archived_root::<BTreeMap<String, i32>>(buffer.as_ref()).unwrap();
+        let buf = serializer.into_serializer().into_inner();
+
+        check_archived_root::<BTreeMap<String, i32>>(buf.as_ref()).unwrap();
     }
 }

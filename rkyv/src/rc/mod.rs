@@ -4,7 +4,7 @@
 pub mod validation;
 
 use crate::{
-    ser::SharedSerializer, ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr,
+    ser::{Serializer, SharedSerializeRegistry}, ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr,
     SerializeUnsized,
 };
 use core::{
@@ -61,7 +61,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
 
     /// Serializes an archived `Rc` from a given reference.
     #[inline]
-    pub fn serialize_from_ref<U: SerializeUnsized<S> + ?Sized, S: SharedSerializer + ?Sized>(
+    pub fn serialize_from_ref<U: SerializeUnsized<S> + ?Sized, S: Serializer + SharedSerializeRegistry + ?Sized>(
         value: &U,
         serializer: &mut S,
     ) -> Result<RcResolver<MetadataResolver<U>>, S::Error> {
@@ -223,7 +223,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     ) -> Result<RcWeakResolver<MetadataResolver<U>>, S::Error>
     where
         U: SerializeUnsized<S, Archived = T> + ?Sized,
-        S: SharedSerializer + ?Sized,
+        S: Serializer + SharedSerializeRegistry + ?Sized,
     {
         Ok(match value {
             None => RcWeakResolver::None,

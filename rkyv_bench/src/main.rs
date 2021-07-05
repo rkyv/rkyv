@@ -4,10 +4,10 @@ use rand_pcg::Lcg64Xsh32;
 use rkyv::{
     archived_root, check_archived_root,
     ser::{
-        serializers::{AlignedSerializer, WriteSerializer},
+        serializers::AllocSerializer,
         Serializer,
     },
-    AlignedVec, Archive, Deserialize, Infallible, Serialize,
+    Archive, Deserialize, Infallible, Serialize,
 };
 use std::collections::HashMap;
 trait Generate {
@@ -367,30 +367,20 @@ fn main() {
         players.insert(name, Player::generate(&mut rng));
     }
 
-    const BUFFER_LEN: usize = 10_000_000;
-
-    let mut serialize_buffer = vec![0u8; BUFFER_LEN];
-    let mut serializer = WriteSerializer::new(&mut serialize_buffer);
+    let mut serializer = AllocSerializer::<256>::default();
     serializer.serialize_value(&players).unwrap();
 
-    let mut serialize_buffer = AlignedVec::with_capacity(BUFFER_LEN);
-    serialize_buffer.clear();
-    let mut serializer = AlignedSerializer::new(&mut serialize_buffer);
-    serializer.serialize_value(&players).unwrap();
+    let buf = serializer.into_serializer().into_inner();
 
-    let mut buffer = AlignedVec::with_capacity(BUFFER_LEN);
-    let mut serializer = AlignedSerializer::new(&mut buffer);
-    serializer.serialize_value(&players).unwrap();
+    unsafe { archived_root::<Players>(buf.as_ref()) };
+    check_archived_root::<Players>(buf.as_ref()).unwrap();
 
-    unsafe { archived_root::<Players>(buffer.as_ref()) };
-    check_archived_root::<Players>(buffer.as_ref()).unwrap();
-
-    let value = unsafe { archived_root::<Players>(buffer.as_ref()) };
+    let value = unsafe { archived_root::<Players>(buf.as_ref()) };
     let deserialized: Players = value.deserialize(&mut Infallible).unwrap();
 
     println!("{:?}", deserialized);
 
-    let value = check_archived_root::<Players>(buffer.as_ref()).unwrap();
+    let value = check_archived_root::<Players>(buf.as_ref()).unwrap();
     let deserialized: Players = value.deserialize(&mut Infallible).unwrap();
 
     println!("{:?}", deserialized);

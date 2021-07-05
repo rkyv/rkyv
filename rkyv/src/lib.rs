@@ -148,6 +148,12 @@ impl Fallible for Infallible {
     type Error = core::convert::Infallible;
 }
 
+impl Default for Infallible {
+    fn default() -> Self {
+        Infallible
+    }
+}
+
 /// A type that can be used without deserializing.
 ///
 /// Archiving is done depth-first, writing any data owned by a type before writing the data for the

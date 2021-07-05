@@ -191,46 +191,53 @@ pub unsafe fn archived_unsized_root_mut<T: ArchiveUnsized + ?Sized>(
     archived_unsized_value_mut::<T>(bytes, pos)
 }
 
-/// Wraps a type and aligns it to 16 bytes.
+/// A buffer of bytes aligned to 16 bytes.
 ///
 /// # Examples
+///
 /// ```
 /// use core::mem;
-/// use rkyv::Aligned;
+/// use rkyv::AlignedBytes;
 ///
 /// assert_eq!(mem::align_of::<u8>(), 1);
-/// assert_eq!(mem::align_of::<Aligned<u8>>(), 16);
+/// assert_eq!(mem::align_of::<AlignedBytes<256>>(), 16);
 /// ```
 #[derive(Clone, Copy)]
-#[repr(align(16))]
-pub struct Aligned<T>(pub T);
+#[repr(C, align(16))]
+pub struct AlignedBytes<const N: usize>(pub [u8; N]);
 
-impl<T: Deref> Deref for Aligned<T> {
-    type Target = T::Target;
+impl<const N: usize> Default for AlignedBytes<N> {
+    fn default() -> Self {
+        Self([0; N])
+    }
+}
+
+impl<const N: usize> Deref for AlignedBytes<N> {
+    type Target = [u8; N];
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &*self.0
+        &self.0
     }
 }
 
-impl<T: DerefMut> DerefMut for Aligned<T> {
+impl<const N: usize> DerefMut for AlignedBytes<N> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut *self.0
+        &mut self.0
     }
 }
 
-impl<T: AsRef<[U]>, U> AsRef<[U]> for Aligned<T> {
+impl<const N: usize> AsRef<[u8]> for AlignedBytes<N> {
     #[inline]
-    fn as_ref(&self) -> &[U] {
+    fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
     }
 }
 
-impl<T: AsMut<[U]>, U> AsMut<[U]> for Aligned<T> {
+impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
     #[inline]
-    fn as_mut(&mut self) -> &mut [U] {
+    fn as_mut(&mut self) -> &mut [u8] {
         self.0.as_mut()
     }
 }

@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::validation::util::serialize_and_check;
+    use crate::validation::util::alloc::serialize_and_check;
     use std::collections::{HashMap, HashSet};
 
     #[cfg(feature = "wasm")]

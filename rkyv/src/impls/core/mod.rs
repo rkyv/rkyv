@@ -3,8 +3,18 @@
 #[cfg(feature = "copy")]
 use crate::copy::ArchiveCopyOptimize;
 use crate::{
-    ser::Serializer, Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
-    Deserialize, DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
+    ser::{ScratchSpace, Serializer},
+    Archive,
+    ArchivePointee,
+    ArchiveUnsized,
+    Archived,
+    ArchivedMetadata,
+    Deserialize,
+    DeserializeUnsized,
+    Fallible,
+    FixedUsize,
+    Serialize,
+    SerializeUnsized,
 };
 use core::{alloc::Layout, ptr, str};
 use ptr_meta::Pointee;
@@ -256,8 +266,7 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
-impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
+impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
     default! {
         fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
@@ -267,17 +276,22 @@ impl<T: Serialize<S>, S: Serializer + ?Sized> SerializeUnsized<S> for [T] {
             if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
                 Ok(0)
             } else {
-                let mut resolvers = Vec::with_capacity(self.len());
-                for value in self {
-                    resolvers.push(value.serialize(serializer)?);
-                }
-                let result = serializer.align_for::<T::Archived>()?;
                 unsafe {
-                    for (i, resolver) in resolvers.drain(..).enumerate() {
-                        serializer.resolve_aligned(&self[i], resolver)?;
+                    let resolvers_layout = Layout::array::<T::Resolver>(self.len()).unwrap();
+                    let resolvers = serializer.push_scratch(resolvers_layout)?
+                        .cast::<T::Resolver>();
+
+                    for (i, value) in self.iter().enumerate() {
+                        resolvers.add(i).write(value.serialize(serializer)?);
                     }
+                    let result = serializer.align_for::<T::Archived>()?;
+                    for (i, value) in self.iter().enumerate() {
+                        serializer.resolve_aligned(value, resolvers.add(i).read())?;
+                    }
+
+                    serializer.pop_scratch(resolvers.cast(), resolvers_layout)?;
+                    Ok(result)
                 }
-                Ok(result)
             }
         }
     }

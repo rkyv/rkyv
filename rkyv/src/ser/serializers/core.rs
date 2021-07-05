@@ -1,0 +1,291 @@
+use crate::{ser::{ScratchSpace, Serializer}, Fallible};
+use core::{alloc::Layout, fmt, ops::DerefMut, ptr};
+
+/// The error type returned by an [`BufferSerializer`].
+#[derive(Debug)]
+pub enum BufferSerializerError {
+    /// Writing has overflowed the internal buffer.
+    Overflow {
+        /// The position of the serializer
+        pos: usize,
+        /// The number of bytes needed
+        bytes_needed: usize,
+        /// The total length of the archive
+        archive_len: usize,
+    },
+}
+
+impl fmt::Display for BufferSerializerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Overflow { pos, bytes_needed, archive_len } => write!(
+                f,
+                "writing has overflowed the serializer buffer: pos {}, needed {}, total length {}",
+                pos, bytes_needed, archive_len
+            )
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+const _: () = {
+    use std::error::Error;
+
+    impl Error for BufferSerializerError {}
+};
+
+/// Wraps a byte buffer and equips it with [`Serializer`].
+///
+/// Common uses include archiving in `#![no_std]` environments and archiving small objects without
+/// allocating.
+///
+/// # Examples
+/// ```
+/// use rkyv::{
+///     archived_value,
+///     ser::{Serializer, serializers::BufferSerializer},
+///     Aligned,
+///     AlignedVec,
+///     Archive,
+///     Archived,
+///     Serialize,
+/// };
+///
+/// #[derive(Archive, Serialize)]
+/// enum Event {
+///     Spawn,
+///     Speak(String),
+///     Die,
+/// }
+///
+/// let mut serializer = BufferSerializer::new(Aligned([0u8; 256]));
+/// let pos = serializer.serialize_value(&Event::Speak("Help me!".to_string()))
+///     .expect("failed to archive event");
+/// let buf = serializer.into_inner();
+/// let archived = unsafe { archived_value::<Event>(buf.as_ref(), pos) };
+/// if let Archived::<Event>::Speak(message) = archived {
+///     assert_eq!(message.as_str(), "Help me!");
+/// } else {
+///     panic!("archived event was of the wrong type");
+/// }
+/// ```
+pub struct BufferSerializer<T> {
+    inner: T,
+    pos: usize,
+}
+
+impl<T> BufferSerializer<T> {
+    /// Creates a new archive buffer from a byte buffer.
+    #[inline]
+    pub fn new(inner: T) -> Self {
+        Self::with_pos(inner, 0)
+    }
+
+    /// Creates a new archive buffer from a byte buffer. The buffer will start writing at the given
+    /// position, but the buffer must contain all bytes (otherwise the alignments of types may not
+    /// be correct).
+    #[inline]
+    pub fn with_pos(inner: T, pos: usize) -> Self {
+        Self { inner, pos }
+    }
+
+    /// Consumes the serializer and returns the underlying type.
+    #[inline]
+    pub fn into_inner(self) -> T {
+        self.inner
+    }
+}
+
+impl<T: Default> Default for BufferSerializer<T> {
+    #[inline]
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
+impl<T> Fallible for BufferSerializer<T> {
+    type Error = BufferSerializerError;
+}
+
+impl<T: AsMut<[u8]>> Serializer for BufferSerializer<T> {
+    #[inline]
+    fn pos(&self) -> usize {
+        self.pos
+    }
+
+    fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
+        let end_pos = self.pos + bytes.len();
+        let archive_len = self.inner.as_mut().len();
+        if end_pos > archive_len {
+            Err(BufferSerializerError::Overflow {
+                pos: self.pos,
+                bytes_needed: bytes.len(),
+                archive_len,
+            })
+        } else {
+            unsafe {
+                ptr::copy_nonoverlapping(
+                    bytes.as_ptr(),
+                    self.inner.as_mut().as_mut_ptr().add(self.pos),
+                    bytes.len(),
+                );
+            }
+            self.pos = end_pos;
+            Ok(())
+        }
+    }
+
+    fn pad(&mut self, padding: usize) -> Result<(), Self::Error> {
+        let end_pos = self.pos + padding;
+        let archive_len = self.inner.as_mut().len();
+        if end_pos > archive_len {
+            Err(BufferSerializerError::Overflow {
+                pos: self.pos,
+                bytes_needed: padding,
+                archive_len,
+            })
+        } else {
+            self.pos = end_pos;
+            Ok(())
+        }
+    }
+}
+
+/// Errors that can occur when using a fixed-size allocator.
+///
+/// Pairing a fixed-size allocator with a fallback allocator can help prevent running out of scratch
+/// space unexpectedly.
+#[derive(Debug)]
+pub enum FixedSizeScratchError {
+    /// The allocator ran out of scratch space.
+    OutOfScratch(Layout),
+    /// The given allocation did not belong to the scratch allocator.
+    UnownedAllocation,
+}
+
+impl fmt::Display for FixedSizeScratchError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::OutOfScratch(layout) => write!(
+                f,
+                "out of scratch: requested scratch space with size {} and align {}",
+                layout.size(), layout.align()
+            ),
+            Self::UnownedAllocation => write!(f, "unowned allocation"),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for FixedSizeScratchError {}
+
+/// Scratch space that allocates within a buffer.
+pub struct BufferScratch<T> {
+    buffer: T,
+    pos: usize,
+}
+
+impl<T> BufferScratch<T> {
+    /// Creates a new buffer scratch allocator.
+    pub fn new(buffer: T) -> Self {
+        Self {
+            buffer,
+            pos: 0,
+        }
+    }
+
+    /// Resets the scratch space to its initial state.
+    pub fn clear(&mut self) {
+        self.pos = 0;
+    }
+
+    /// Consumes the buffer scratch allocator, returning the underlying buffer.
+    pub fn into_inner(self) -> T {
+        self.buffer
+    }
+}
+
+impl<T: Default> Default for BufferScratch<T> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
+impl<T> Fallible for BufferScratch<T> {
+    type Error = FixedSizeScratchError;
+}
+
+impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace for BufferScratch<T> {
+    #[inline]
+    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<*mut u8, Self::Error> {
+        let bytes = self.buffer.as_mut();
+
+        let start = bytes.as_ptr().add(self.pos);
+        let pad = match (start as usize) & (layout.align() - 1) {
+            0 => 0,
+            x => layout.align() - x,
+        };
+        let alloc = pad + layout.size();
+        if pad + layout.size() <= bytes.len() - self.pos {
+            self.pos += alloc;
+            Ok(bytes.as_mut_ptr().add(self.pos))
+        } else {
+            Err(FixedSizeScratchError::OutOfScratch(layout))
+        }
+    }
+
+    #[inline]
+    unsafe fn pop_scratch(&mut self, ptr: *mut u8, _: Layout) -> Result<(), Self::Error> {
+        let bytes = self.buffer.as_mut();
+
+        if ptr >= bytes.as_mut_ptr() && ptr < bytes.as_mut_ptr().add(bytes.len()) {
+            self.pos = ptr.offset_from(bytes.as_ptr()) as usize;
+            Ok(())
+        } else {
+            Err(FixedSizeScratchError::UnownedAllocation)
+        }
+    }
+}
+
+/// Allocates scratch space with a main and backup scratch.
+pub struct FallbackScratch<M, F> {
+    main: M,
+    fallback: F,
+}
+
+impl<M, F> FallbackScratch<M, F> {
+    /// Creates fallback scratch from a main and backup scratch.
+    pub fn new(main: M, fallback: F) -> Self {
+        Self {
+            main,
+            fallback,
+        }
+    }
+}
+
+impl<M: Default, F: Default> Default for FallbackScratch<M, F> {
+    fn default() -> Self {
+        Self {
+            main: M::default(),
+            fallback: F::default(),
+        }
+    }
+}
+
+impl<M, F: Fallible> Fallible for FallbackScratch<M, F> {
+    type Error = F::Error;
+}
+
+impl<M: ScratchSpace, F: ScratchSpace> ScratchSpace for FallbackScratch<M, F> {
+    #[inline]
+    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<*mut u8, Self::Error> {
+        self.main.push_scratch(layout)
+            .or_else(|_| self.fallback.push_scratch(layout))
+    }
+
+    #[inline]
+    unsafe fn pop_scratch(&mut self, ptr: *mut u8, layout: Layout) -> Result<(), Self::Error> {
+        self.main.pop_scratch(ptr, layout)
+            .or_else(|_| self.fallback.pop_scratch(ptr, layout))
+    }
+}

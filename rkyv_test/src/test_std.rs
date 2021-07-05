@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::util::*;
+    use crate::util::alloc::*;
     use rkyv::{
         archived_root,
         ser::{serializers::AlignedSerializer, Serializer},

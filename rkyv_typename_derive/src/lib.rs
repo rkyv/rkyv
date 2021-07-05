@@ -15,6 +15,7 @@ struct Attributes {
 }
 
 impl Default for Attributes {
+    #[inline]
     fn default() -> Self {
         Self { typename: None }
     }

@@ -65,6 +65,7 @@ impl SharedValidator {
 }
 
 impl Default for SharedValidator {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
