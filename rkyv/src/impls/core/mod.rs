@@ -302,7 +302,7 @@ impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> SerializeUnsized<S>
 impl<T, S> SerializeUnsized<S> for [T]
 where
     T: Serialize<S> + crate::copy::ArchiveCopyOptimize,
-    S: Serializer + ?Sized,
+    S: ScratchSpace + Serializer + ?Sized,
 {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
