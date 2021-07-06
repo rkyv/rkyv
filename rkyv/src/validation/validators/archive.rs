@@ -83,13 +83,6 @@ pub enum ArchiveError {
         /// The maximum depth that subtrees may be validated down to
         max_subtree_depth: usize,
     },
-    /// A zero-sized type was encountered, but it was not located at the root of the archive.
-    ZSTNotLocatedAtRoot {
-        /// The expected ZST location is at the root of the archive
-        expected_location: *const u8,
-        /// The actual location of the ZST
-        actual_location: *const u8,
-    }
 }
 
 impl fmt::Display for ArchiveError {
@@ -158,11 +151,6 @@ impl fmt::Display for ArchiveError {
                 f,
                 "pushed a subtree range that exceeded the maximum subtree depth of {}",
                 max_subtree_depth
-            ),
-            ArchiveError::ZSTNotLocatedAtRoot { expected_location, actual_location } => write!(
-                f,
-                "encountered a zero-sized type that was not located at the rooto: expected location {:p}, actual location {:p}",
-                expected_location, actual_location
             ),
         }
     }
@@ -292,13 +280,11 @@ impl<'a> ArchiveContext for ArchiveValidator<'a> {
         data_address: *const u8,
         layout: &Layout,
     ) -> Result<(), Self::Error> {
-        // Zero-sized types must be located at the root of the archive. If a ZST somehow asks to
-        // access subtree memory, that memory will be subject to the regular subtree restrictions.
         if layout.size() == 0 {
-            if data_address != self.bytes.as_ptr() {
-                Err(ArchiveError::ZSTNotLocatedAtRoot {
-                    expected_location: self.bytes.as_ptr(),
-                    actual_location: data_address,
+            if data_address < self.subtree_range.start || data_address > self.subtree_range.end {
+                Err(ArchiveError::SubtreePointerOutOfBounds {
+                    ptr: data_address,
+                    subtree_range: self.subtree_range.clone(),
                 })
             } else {
                 Ok(())

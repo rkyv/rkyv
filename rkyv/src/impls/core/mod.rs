@@ -243,18 +243,16 @@ where
 {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
-            Ok(0)
-        } else {
-            unsafe {
+        unsafe {
+            let result = serializer.align_for::<T>()?;
+            if !self.is_empty() {
                 let bytes = core::slice::from_raw_parts(
                     (self.as_ptr() as *const T).cast::<u8>(),
                     self.len() * core::mem::size_of::<T>(),
                 );
-                let result = serializer.align_for::<T>()?;
                 serializer.write(bytes)?;
-                Ok(result)
             }
+            Ok(result)
         }
     }
 
