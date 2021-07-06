@@ -85,6 +85,7 @@ impl ArchivedStringRepr {
         }
     }
 
+    #[cfg(feature = "validation")]
     #[inline]
     fn as_str_ptr(&self) -> *const str {
         ptr_meta::from_raw_parts(self.as_ptr().cast(), self.len())

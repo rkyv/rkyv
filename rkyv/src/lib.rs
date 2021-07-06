@@ -169,7 +169,7 @@ impl Default for Infallible {
 /// ```
 /// use rkyv::{
 ///     archived_root,
-///     ser::{Serializer, serializers::AlignedSerializer},
+///     ser::{Serializer, serializers::AllocSerializer},
 ///     AlignedVec, Archive, Deserialize, Infallible, Serialize,
 /// };
 ///
@@ -186,9 +186,9 @@ impl Default for Infallible {
 ///     option: Some(vec![1, 2, 3, 4]),
 /// };
 ///
-/// let mut serializer = AlignedSerializer::new(AlignedVec::new());
+/// let mut serializer = AllocSerializer::<4096>::default();
 /// serializer.serialize_value(&value).unwrap();
-/// let buf = serializer.into_inner();
+/// let buf = serializer.into_serializer().into_inner();
 ///
 /// let archived = unsafe { archived_root::<Test>(buf.as_slice()) };
 /// assert_eq!(archived.int, value.int);
