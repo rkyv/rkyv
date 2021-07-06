@@ -6,7 +6,7 @@ use crate::{
     Archive, ArchiveUnsized, Fallible, RelPtr, Serialize,
     SerializeUnsized,
 };
-use core::{alloc::Layout, mem, slice};
+use core::{alloc::Layout, mem, ptr::NonNull, slice};
 
 /// A byte sink that knows where it is.
 ///
@@ -123,6 +123,8 @@ pub trait Serializer: Fallible {
     }
 }
 
+// Someday this can probably be replaced with alloc::Allocator
+
 /// A serializer that can allocate scratch space.
 pub trait ScratchSpace: Fallible {
     /// Allocates scratch space of the requested size.
@@ -130,7 +132,7 @@ pub trait ScratchSpace: Fallible {
     /// # Safety
     ///
     /// `layout` must have non-zero size.
-    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<*mut u8, Self::Error>;
+    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error>;
 
     /// Deallocates previously allocated scratch space.
     ///
@@ -138,7 +140,7 @@ pub trait ScratchSpace: Fallible {
     ///
     /// - `ptr` must be the scratch memory last allocated with `push_scratch`.
     /// - `layout` must be the same layout that was used to allocate that block of memory.
-    unsafe fn pop_scratch(&mut self, ptr: *mut u8, layout: Layout) -> Result<(), Self::Error>;
+    unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error>;
 }
 
 /// A registry that tracks serialized shared memory.

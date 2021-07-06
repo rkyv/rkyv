@@ -10,7 +10,8 @@
 //! data.
 
 #[cfg(feature = "alloc")]
-mod alloc;
+mod aligned_vec;
+mod scratch_vec;
 
 use crate::{Archive, ArchiveUnsized, RelPtr};
 use core::{
@@ -21,7 +22,9 @@ use core::{
 
 #[doc(inline)]
 #[cfg(feature = "alloc")]
-pub use self::alloc::*;
+pub use self::aligned_vec::*;
+#[doc(inline)]
+pub use self::scratch_vec::*;
 
 #[cfg(debug_assertions)]
 #[inline]

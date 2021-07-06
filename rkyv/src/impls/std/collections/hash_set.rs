@@ -2,7 +2,7 @@
 
 use crate::{
     collections::hash_set::{ArchivedHashSet, HashSetResolver},
-    ser::Serializer,
+    ser::{ScratchSpace, Serializer},
     Archive, Deserialize, Fallible, Serialize,
 };
 use core::{borrow::Borrow, hash::Hash};
@@ -21,7 +21,7 @@ where
     }
 }
 
-impl<K: Serialize<S> + Hash + Eq, S: Serializer + ?Sized> Serialize<S> for HashSet<K>
+impl<K: Serialize<S> + Hash + Eq, S: ScratchSpace + Serializer + ?Sized> Serialize<S> for HashSet<K>
 where
     K::Archived: Hash + Eq,
 {

@@ -270,28 +270,22 @@ impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> SerializeUnsized<S>
     #[inline]
     default! {
         fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-            #[cfg(all(feature = "alloc", not(feature = "std")))]
-            use alloc::vec::Vec;
+            use crate::ScratchVec;
 
-            if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
-                Ok(0)
-            } else {
-                unsafe {
-                    let resolvers_layout = Layout::array::<T::Resolver>(self.len()).unwrap();
-                    let resolvers = serializer.push_scratch(resolvers_layout)?
-                        .cast::<T::Resolver>();
+            unsafe {
+                let mut resolvers = ScratchVec::new(serializer, self.len())?;
 
-                    for (i, value) in self.iter().enumerate() {
-                        resolvers.add(i).write(value.serialize(serializer)?);
-                    }
-                    let result = serializer.align_for::<T::Archived>()?;
-                    for (i, value) in self.iter().enumerate() {
-                        serializer.resolve_aligned(value, resolvers.add(i).read())?;
-                    }
-
-                    serializer.pop_scratch(resolvers.cast(), resolvers_layout)?;
-                    Ok(result)
+                for value in self.iter() {
+                    resolvers.push(value.serialize(serializer)?);
                 }
+                let result = serializer.align_for::<T::Archived>()?;
+                for (value, resolver) in self.iter().zip(resolvers.drain(..)) {
+                    serializer.resolve_aligned(value, resolver)?;
+                }
+
+                resolvers.free(serializer)?;
+
+                Ok(result)
             }
         }
     }
@@ -338,7 +332,7 @@ impl<T: Deserialize<U, D>, U, D: Fallible + ?Sized> DeserializeUnsized<[U], D> f
     default! {
         unsafe fn deserialize_unsized(&self, deserializer: &mut D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error> {
             if self.is_empty() || core::mem::size_of::<U>() == 0 {
-                Ok(ptr::NonNull::dangling().as_ptr())
+                Ok(ptr::NonNull::<U>::dangling().as_ptr().cast())
             } else {
                 let result = alloc(Layout::array::<U>(self.len()).unwrap()).cast::<U>();
                 for (i, item) in self.iter().enumerate() {
@@ -371,7 +365,7 @@ where
         mut alloc: impl FnMut(Layout) -> *mut u8,
     ) -> Result<*mut (), D::Error> {
         if self.is_empty() || core::mem::size_of::<T>() == 0 {
-            Ok(ptr::NonNull::dangling().as_ptr())
+            Ok(ptr::NonNull::<U>::dangling().as_ptr().cast())
         } else {
             let result = alloc(Layout::array::<T>(self.len()).unwrap()).cast::<T>();
             ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());

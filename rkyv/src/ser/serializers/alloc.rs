@@ -18,9 +18,10 @@ use core::{
     convert::Infallible,
     fmt,
     mem,
+    ptr::NonNull,
 };
 #[cfg(not(feature = "std"))]
-use ::alloc::alloc;
+use ::alloc::{alloc, vec::Vec};
 #[cfg(feature = "std")]
 use ::std::alloc;
 #[cfg(all(feature = "alloc", not(feature = "std")))]
@@ -159,12 +160,12 @@ impl<const N: usize> Fallible for HeapScratch<N> {
 
 impl<const N: usize> ScratchSpace for HeapScratch<N> {
     #[inline]
-    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<*mut u8, Self::Error> {
+    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error> {
         self.inner.push_scratch(layout)
     }
 
     #[inline]
-    unsafe fn pop_scratch(&mut self, ptr: *mut u8, layout: Layout) -> Result<(), Self::Error> {
+    unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error> {
         self.inner.pop_scratch(ptr, layout)
     }
 }
@@ -176,19 +177,45 @@ pub enum AllocScratchError {
     ExceededLimit {
         /// The amount of scratch space requested
         requested: usize,
-        /// The maximum amount of scratch space available
-        maximum: usize,
-    }
+        /// The amount of scratch space remaining
+        remaining: usize,
+    },
+    /// Scratch space was not popped in reverse order.
+    NotPoppedInReverseOrder {
+        /// The pointer of the allocation that was expected to be next
+        expected: *mut u8,
+        /// The layout of the allocation that was expected to be next
+        expected_layout: Layout,
+        /// The pointer that was popped instead
+        actual: *mut u8,
+        /// The layout of the pointer that was popped instead
+        actual_layout: Layout,
+    },
+    /// There are no allocations to pop
+    NoAllocationsToPop,
 }
 
 impl fmt::Display for AllocScratchError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ExceededLimit { requested, maximum } => write!(
+            Self::ExceededLimit { requested, remaining } => write!(
                 f,
-                "exceeded the maxmium limit of scratch space: requested {}, maximum {}",
-                requested, maximum
-            )
+                "exceeded the maxmium limit of scratch space: requested {}, remaining {}",
+                requested, remaining
+            ),
+            Self::NotPoppedInReverseOrder { 
+                expected,
+                expected_layout,
+                actual,
+                actual_layout,
+            } => write!(
+                f,
+                "scratch space was not popped in reverse order: expected {:p} with size {} and align {}, found {:p} with size {} and align {}",
+                expected, expected_layout.size(), expected_layout.align(), actual, actual_layout.size(), actual_layout.align()
+            ),
+            Self::NoAllocationsToPop => write!(
+                f, "attempted to pop scratch space but there were no allocations to pop"
+            ),
         }
     }
 }
@@ -205,24 +232,34 @@ const _: () = {
 /// This allocator will panic if scratch is popped that it did not allocate. For this reason, it
 /// should only ever be used as a fallback allocator.
 pub struct AllocScratch {
-    allocated: usize,
-    limit: Option<usize>,
+    remaining: Option<usize>,
+    allocations: Vec<(*mut u8, Layout)>,
 }
 
 impl AllocScratch {
     /// Creates a new scratch allocator with no allocation limit.
     pub fn new() -> Self {
         Self {
-            allocated: 0,
-            limit: None,
+            remaining: None,
+            allocations: Vec::new(),
         }
     }
 
     /// Creates a new scratch allocator with the given allocation limit.
     pub fn with_limit(limit: usize) -> Self {
         Self {
-            allocated: 0,
-            limit: Some(limit),
+            remaining: Some(limit),
+            allocations: Vec::new(),
+        }
+    }
+}
+
+impl Drop for AllocScratch {
+    fn drop(&mut self) {
+        for (ptr, layout) in self.allocations.drain(..).rev() {
+            unsafe {
+                alloc::dealloc(ptr, layout);
+            }
         }
     }
 }
@@ -239,22 +276,40 @@ impl Fallible for AllocScratch {
 
 impl ScratchSpace for AllocScratch {
     #[inline]
-    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<*mut u8, Self::Error> {
-        if let Some(limit) = self.limit {
-            if limit - self.allocated < layout.size() {
+    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error> {
+        if let Some(remaining) = self.remaining {
+            if remaining < layout.size() {
                 return Err(AllocScratchError::ExceededLimit {
                     requested: layout.size(),
-                    maximum: limit,
+                    remaining,
                 })
             }
         }
-        Ok(alloc::alloc(layout))
+        let result_ptr = alloc::alloc(layout);
+        self.allocations.push((result_ptr, layout));
+        let result_slice = ptr_meta::from_raw_parts_mut(result_ptr.cast(), layout.size());
+        let result = NonNull::new_unchecked(result_slice);
+        Ok(result)
     }
 
     #[inline]
-    unsafe fn pop_scratch(&mut self, ptr: *mut u8, layout: Layout) -> Result<(), Self::Error> {
-        alloc::dealloc(ptr, layout);
-        Ok(())
+    unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error> {
+        if let Some(&(last_ptr, last_layout)) = self.allocations.last() {
+            if ptr.as_ptr() == last_ptr && layout == last_layout {
+                alloc::dealloc(ptr.as_ptr(), layout);
+                self.allocations.pop();
+                Ok(())
+            } else {
+                Err(AllocScratchError::NotPoppedInReverseOrder {
+                    expected: last_ptr,
+                    expected_layout: last_layout,
+                    actual: ptr.as_ptr(),
+                    actual_layout: layout,
+                })
+            }
+        } else {
+            Err(AllocScratchError::NoAllocationsToPop)
+        }
     }
 }
 

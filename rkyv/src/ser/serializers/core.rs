@@ -1,5 +1,10 @@
 use crate::{ser::{ScratchSpace, Serializer}, Fallible};
-use core::{alloc::Layout, fmt, ops::DerefMut, ptr};
+use core::{
+    alloc::Layout,
+    fmt,
+    ops::DerefMut,
+    ptr::{copy_nonoverlapping, NonNull},
+};
 
 /// The error type returned by an [`BufferSerializer`].
 #[derive(Debug)]
@@ -124,7 +129,7 @@ impl<T: AsMut<[u8]>> Serializer for BufferSerializer<T> {
             })
         } else {
             unsafe {
-                ptr::copy_nonoverlapping(
+                copy_nonoverlapping(
                     bytes.as_ptr(),
                     self.inner.as_mut().as_mut_ptr().add(self.pos),
                     bytes.len(),
@@ -159,6 +164,15 @@ impl<T: AsMut<[u8]>> Serializer for BufferSerializer<T> {
 pub enum FixedSizeScratchError {
     /// The allocator ran out of scratch space.
     OutOfScratch(Layout),
+    /// Scratch space was not popped in reverse order.
+    NotPoppedInReverseOrder {
+        /// The current position of the start of free memory
+        pos: usize,
+        /// The next position according to the erroneous pop
+        next_pos: usize,
+        /// The size of the memory according to the erroneous pop
+        next_size: usize,
+    },
     /// The given allocation did not belong to the scratch allocator.
     UnownedAllocation,
 }
@@ -170,6 +184,11 @@ impl fmt::Display for FixedSizeScratchError {
                 f,
                 "out of scratch: requested scratch space with size {} and align {}",
                 layout.size(), layout.align()
+            ),
+            Self::NotPoppedInReverseOrder { pos, next_pos, next_size } => write!(
+                f,
+                "scratch space was not popped in reverse order: pos {}, next pos {}, next size {}",
+                pos, next_pos, next_size
             ),
             Self::UnownedAllocation => write!(f, "unowned allocation"),
         }
@@ -189,7 +208,7 @@ impl<T> BufferScratch<T> {
     /// Creates a new buffer scratch allocator.
     pub fn new(buffer: T) -> Self {
         Self {
-            buffer,
+            buffer: buffer,
             pos: 0,
         }
     }
@@ -217,7 +236,7 @@ impl<T> Fallible for BufferScratch<T> {
 
 impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace for BufferScratch<T> {
     #[inline]
-    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<*mut u8, Self::Error> {
+    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error> {
         let bytes = self.buffer.as_mut();
 
         let start = bytes.as_ptr().add(self.pos);
@@ -225,10 +244,11 @@ impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace for BufferScratch<T> 
             0 => 0,
             x => layout.align() - x,
         };
-        let alloc = pad + layout.size();
         if pad + layout.size() <= bytes.len() - self.pos {
-            let result = bytes.as_mut_ptr().add(self.pos);
-            self.pos += alloc;
+            self.pos += pad;
+            let result_slice = ptr_meta::from_raw_parts_mut(bytes.as_mut_ptr().add(self.pos).cast(), layout.size());
+            let result = NonNull::new_unchecked(result_slice);
+            self.pos += layout.size();
             Ok(result)
         } else {
             Err(FixedSizeScratchError::OutOfScratch(layout))
@@ -236,12 +256,22 @@ impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace for BufferScratch<T> 
     }
 
     #[inline]
-    unsafe fn pop_scratch(&mut self, ptr: *mut u8, _: Layout) -> Result<(), Self::Error> {
+    unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error> {
         let bytes = self.buffer.as_mut();
 
+        let ptr = ptr.as_ptr();
         if ptr >= bytes.as_mut_ptr() && ptr < bytes.as_mut_ptr().add(bytes.len()) {
-            self.pos = ptr.offset_from(bytes.as_ptr()) as usize;
-            Ok(())
+            let next_pos = ptr.offset_from(bytes.as_ptr()) as usize;
+            if next_pos + layout.size() <= self.pos {
+                self.pos = next_pos;
+                Ok(())
+            } else {
+                Err(FixedSizeScratchError::NotPoppedInReverseOrder {
+                    pos: self.pos,
+                    next_pos: next_pos,
+                    next_size: layout.size(),
+                })
+            }
         } else {
             Err(FixedSizeScratchError::UnownedAllocation)
         }
@@ -279,13 +309,13 @@ impl<M, F: Fallible> Fallible for FallbackScratch<M, F> {
 
 impl<M: ScratchSpace, F: ScratchSpace> ScratchSpace for FallbackScratch<M, F> {
     #[inline]
-    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<*mut u8, Self::Error> {
+    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error> {
         self.main.push_scratch(layout)
             .or_else(|_| self.fallback.push_scratch(layout))
     }
 
     #[inline]
-    unsafe fn pop_scratch(&mut self, ptr: *mut u8, layout: Layout) -> Result<(), Self::Error> {
+    unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error> {
         self.main.pop_scratch(ptr, layout)
             .or_else(|_| self.fallback.pop_scratch(ptr, layout))
     }

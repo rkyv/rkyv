@@ -2,7 +2,7 @@
 
 use crate::{
     collections::hash_map::{ArchivedHashMap, HashMapResolver},
-    ser::Serializer,
+    ser::{ScratchSpace, Serializer},
     Archive, Deserialize, Fallible, Serialize,
 };
 use core::{borrow::Borrow, hash::{BuildHasher, Hash}};
@@ -26,7 +26,7 @@ where
     K: Serialize<S> + Hash + Eq,
     K::Archived: Hash + Eq,
     V: Serialize<S>,
-    S: Serializer + ?Sized,
+    S: Serializer + ScratchSpace + ?Sized,
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {

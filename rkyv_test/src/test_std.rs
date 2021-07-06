@@ -3,8 +3,7 @@ mod tests {
     use crate::util::alloc::*;
     use rkyv::{
         archived_root,
-        ser::{serializers::AlignedSerializer, Serializer},
-        util::AlignedVec,
+        ser::Serializer,
         Archive, Deserialize, Serialize,
     };
 
@@ -34,11 +33,9 @@ mod tests {
         hash_map.insert("foo".to_string(), "bar".to_string());
         hash_map.insert("baz".to_string(), "bat".to_string());
 
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
-        serializer
-            .serialize_value(&hash_map)
-            .expect("failed to archive value");
-        let buf = serializer.into_inner();
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&hash_map).unwrap();
+        let buf = serializer.into_serializer().into_inner();
         let archived_value = unsafe { archived_root::<HashMap<String, String>>(buf.as_ref()) };
 
         assert_eq!(archived_value.len(), hash_map.len());
@@ -75,11 +72,9 @@ mod tests {
         hash_map.insert("foo".to_string(), "bar".to_string());
         hash_map.insert("baz".to_string(), "bat".to_string());
 
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
-        serializer
-            .serialize_value(&hash_map)
-            .expect("failed to archive value");
-        let buf = serializer.into_inner();
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&hash_map).unwrap();
+        let buf = serializer.into_serializer().into_inner();
         let archived_value =
             unsafe { archived_root::<HashMap<String, String, ahash::RandomState>>(buf.as_ref()) };
 

@@ -15,7 +15,7 @@ use crate::{
     Fallible,
     Infallible,
 };
-use ::core::{alloc::Layout, fmt};
+use ::core::{alloc::Layout, fmt, ptr::NonNull};
 
 #[doc(inline)]
 #[cfg(feature = "alloc")]
@@ -174,13 +174,13 @@ impl<S: Serializer, C: Fallible, H: Fallible> Serializer for CompositeSerializer
 
 impl<S: Fallible, C: ScratchSpace, H: Fallible> ScratchSpace for CompositeSerializer<S, C, H> {
     #[inline]
-    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<*mut u8, Self::Error> {
+    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error> {
         self.scratch.push_scratch(layout)
             .map_err(CompositeSerializerError::ScratchSpaceError)
     }
 
     #[inline]
-    unsafe fn pop_scratch(&mut self, ptr: *mut u8, layout: Layout) -> Result<(), Self::Error> {
+    unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error> {
         self.scratch.pop_scratch(ptr, layout)
             .map_err(CompositeSerializerError::ScratchSpaceError)
     }

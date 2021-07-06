@@ -11,7 +11,7 @@ use crate::{
     Archive, RelPtr,
 };
 #[cfg(feature = "alloc")]
-use crate::{ser::Serializer, Serialize};
+use crate::{ser::{ScratchSpace, Serializer}, Serialize};
 use core::{
     borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData, ops::Index, pin::Pin,
 };
@@ -231,9 +231,6 @@ impl<K, V> ArchivedHashMap<K, V> {
 
 #[cfg(feature = "alloc")]
 const _: () = {
-    #[cfg(not(feature = "std"))]
-    use alloc::vec::Vec;
-
     impl<K, V> ArchivedHashMap<K, V> {
         /// Serializes an iterator of key-value pairs as a hash map.
         ///
@@ -247,25 +244,35 @@ const _: () = {
         where
             KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
             VU: 'a + Serialize<S, Archived = V>,
-            S: Serializer + ?Sized,
+            S: Serializer + ScratchSpace + ?Sized,
             I: ExactSizeIterator<Item = (&'a KU, &'a VU)>,
         {
-            let (index_resolver, mut entries) =
-                ArchivedHashIndex::build_and_serialize(iter, serializer)?;
+            use crate::ScratchVec;
+
+            let len = iter.len();
+
+            let mut entries = ScratchVec::new(serializer, len)?;
+            entries.set_len(len);
+            let index_resolver = ArchivedHashIndex::build_and_serialize(iter, serializer, &mut entries)?;
+            let mut entries = entries.assume_init();
 
             // Serialize entries
-            let mut resolvers = entries
-                .iter()
-                .map(|(key, value)| Ok((key.serialize(serializer)?, value.serialize(serializer)?)))
-                .collect::<Result<Vec<_>, _>>()?;
+            let mut resolvers = ScratchVec::new(serializer, len)?;
+            for (key, value) in entries.iter() {
+                resolvers.push((
+                    key.serialize(serializer)?,
+                    value.serialize(serializer)?,
+                ));
+            }
 
             let entries_pos = serializer.align_for::<Entry<K, V>>()?;
-            for ((key, value), (key_resolver, value_resolver)) in
-                entries.drain(..).zip(resolvers.drain(..))
-            {
-                serializer
-                    .resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
+            for ((key, value), (key_resolver, value_resolver)) in entries.drain(..).zip(resolvers.drain(..)) {
+                serializer.resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
             }
+
+            // Free scratch vecs
+            resolvers.free(serializer)?;
+            entries.free(serializer)?;
 
             Ok(HashMapResolver {
                 index_resolver,

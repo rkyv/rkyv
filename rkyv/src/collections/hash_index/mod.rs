@@ -100,12 +100,12 @@ impl ArchivedHashIndex {
 
 #[cfg(feature = "alloc")]
 const _: () = {
-    use crate::ser::Serializer;
+    use crate::{ser::{ScratchSpace, Serializer}, ScratchVec};
     #[cfg(not(feature = "std"))]
     use alloc::{vec, vec::Vec};
     use core::{
         cmp::Reverse,
-        mem::{MaybeUninit, size_of, transmute},
+        mem::{size_of, MaybeUninit},
         slice,
     };
 
@@ -114,22 +114,28 @@ const _: () = {
         ///
         /// # Safety
         ///
-        /// The keys returned by the iterator must be unique.
+        /// - The keys returned by the iterator must be unique.
+        /// - `entries` must have a capacity of `iter.len()` entries.
         #[allow(clippy::type_complexity)]
         pub unsafe fn build_and_serialize<'a, K, V, S, I>(
             iter: I,
             serializer: &mut S,
-        ) -> Result<(HashIndexResolver, Vec<(&'a K, &'a V)>), S::Error>
+            entries: &mut ScratchVec<MaybeUninit<(&'a K, &'a V)>>,
+        ) -> Result<HashIndexResolver, S::Error>
         where
             K: 'a + Hash,
             V: 'a,
-            S: Serializer + ?Sized,
+            S: Serializer + ScratchSpace + ?Sized,
             I: ExactSizeIterator<Item = (&'a K, &'a V)>,
         {
             let len = iter.len();
 
-            let mut bucket_size = vec![0u32; len];
-            let mut displaces = Vec::with_capacity(len);
+            let mut bucket_size = ScratchVec::new(serializer, len)?;
+            for _ in 0..len {
+                bucket_size.push(0u32);
+            }
+
+            let mut displaces = ScratchVec::new(serializer, len)?;
 
             for (key, value) in iter {
                 let mut hasher = Self::make_hasher();
@@ -142,9 +148,15 @@ const _: () = {
             displaces
                 .sort_by_key(|&(displace, _)| (Reverse(bucket_size[displace as usize]), displace));
 
-            let mut occupied = vec![false; len];
-            let mut entries = vec![MaybeUninit::<(&'a K, &'a V)>::uninit(); len];
-            let mut displacements = vec![to_archived!(u32::MAX); len];
+            let mut occupied = ScratchVec::new(serializer, len)?;
+            for _ in 0..len {
+                occupied.push(false);
+            }
+
+            let mut displacements = ScratchVec::new(serializer, len)?;
+            for _ in 0..len {
+                displacements.push(to_archived!(u32::MAX));
+            }
 
             let mut first_empty = 0;
             let mut assignments = Vec::with_capacity(8);
@@ -201,14 +213,17 @@ const _: () = {
             let displace_pos = serializer.align_for::<Archived<u32>>()?;
             let displacements_slice = slice::from_raw_parts(
                 displacements.as_ptr().cast::<u8>(),
-                displacements.len() * size_of::<Archived<u32>>(),
+                len * size_of::<Archived<u32>>(),
             );
             serializer.write(displacements_slice)?;
 
-            // Entries is completely initialized so it's safe to transmute from a
-            // Vec<MaybeUninit<(&K, &V)>> to a Vec<(&K, &V)>
+            // Free scratch vecs
+            displacements.free(serializer)?;
+            occupied.free(serializer)?;
+            displaces.free(serializer)?;
+            bucket_size.free(serializer)?;
 
-            Ok((HashIndexResolver { displace_pos }, transmute(entries)))
+            Ok(HashIndexResolver { displace_pos })
         }
     }
 };
