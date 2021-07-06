@@ -6,8 +6,7 @@ use super::{
 };
 use crate::{Archived, Fallible, rel_ptr::RelPtr, validation::{ArchiveContext, LayoutRaw}};
 use bytecheck::{CheckBytes, Error};
-use core::{alloc::Layout, convert::Infallible, fmt, ptr};
-use std::convert::TryFrom;
+use core::{alloc::Layout, convert::{Infallible, TryFrom}, fmt, ptr};
 
 impl<K, V, C> CheckBytes<C> for InnerNodeEntry<K, V>
 where

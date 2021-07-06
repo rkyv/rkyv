@@ -17,7 +17,7 @@ readme = "crates-io.md"
 bytecheck = { version = "0.6.0", optional = true, default-features = false }
 hashbrown = { version = "0.11", optional = true }
 ptr_meta = { version = "~0.1.3", default-features = false }
-rend = { version = "0.3.0", optional = true, default-features = false }
+rend = { version = "0.3.1", optional = true, default-features = false }
 rkyv_derive = { version = "=0.7.0-pre.1", path = "../rkyv_derive" }
 seahash = "4.0"
 
@@ -28,9 +28,9 @@ seahash = "4.0"
 # implementations should be moved into their respective crates over time. Before adding support for
 # another crate, please consider getting rkyv support in the crate instead.
 
-indexmap = { version = "1.6.2", optional = true }
-tinyvec = { version = "1.2", optional = true }
-uuid = { version = "0.8", optional = true }
+indexmap = { version = "1.6.2", optional = true, default-features = false }
+tinyvec = { version = "1.2", optional = true, default-features = false }
+uuid = { version = "0.8", optional = true, default-features = false }
 
 [features]
 default = ["size_32", "std"]
@@ -43,11 +43,12 @@ copy_unsafe = []
 size_16 = []
 size_32 = []
 size_64 = []
-std = ["alloc", "bytecheck/std", "rend/std", "ptr_meta/std"]
+std = ["alloc", "bytecheck/std", "ptr_meta/std", "rend/std"]
 strict = ["rkyv_derive/strict"]
-validation = ["bytecheck", "rend/validation"]
+validation = ["alloc", "bytecheck", "rend/validation"]
 
 tinyvec_alloc = ["tinyvec/alloc"]
+uuid_std = ["uuid/std"]
 
 [package.metadata.docs.rs]
 features = ["validation"]

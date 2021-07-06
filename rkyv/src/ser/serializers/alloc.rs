@@ -21,7 +21,7 @@ use core::{
     ptr::NonNull,
 };
 #[cfg(not(feature = "std"))]
-use ::alloc::{alloc, vec::Vec};
+use ::alloc::{alloc, boxed::Box, vec::Vec};
 #[cfg(feature = "std")]
 use ::std::alloc;
 #[cfg(all(feature = "alloc", not(feature = "std")))]

@@ -9,12 +9,13 @@ mod std;
 use crate::{
     ser::{ScratchSpace, Serializer, SharedSerializeRegistry},
     AlignedBytes,
-    AlignedVec,
     Archive,
     ArchiveUnsized,
     Fallible,
     Infallible,
 };
+#[cfg(feature = "alloc")]
+use crate::AlignedVec;
 use ::core::{alloc::Layout, fmt, ptr::NonNull};
 
 #[doc(inline)]

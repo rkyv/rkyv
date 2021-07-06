@@ -203,69 +203,6 @@ impl<T> ArchivePointee for [T] {
     }
 }
 
-#[cfg(not(feature = "alloc"))]
-impl<T, S> SerializeUnsized<S> for [T]
-where
-    T: Archive<Resolver = ()> + Serialize<S>,
-    S: Serializer + ?Sized,
-{
-    #[inline]
-    default! {
-        fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-            if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
-                Ok(0)
-            } else {
-                for value in self {
-                    value.serialize(serializer)?;
-                }
-                let result = serializer.align_for::<T::Archived>()?;
-                unsafe {
-                    for value in self {
-                        serializer.resolve_aligned(value, ())?;
-                    }
-                }
-                Ok(result)
-            }
-        }
-    }
-
-    #[inline]
-    default! {
-        fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
-            Ok(())
-        }
-    }
-}
-
-#[cfg(all(not(feature = "alloc"), feature = "copy"))]
-impl<T, S> SerializeUnsized<S> for [T]
-where
-    T: Archive<Resolver = ()> + Serialize<S> + crate::copy::ArchiveCopyOptimize,
-    S: Serializer + ?Sized,
-{
-    #[inline]
-    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        if self.is_empty() || core::mem::size_of::<T::Archived>() == 0 {
-            Ok(0)
-        } else {
-            unsafe {
-                let bytes = core::slice::from_raw_parts(
-                    (self.as_ptr() as *const T).cast::<u8>(),
-                    self.len() * core::mem::size_of::<T>(),
-                );
-                let result = serializer.align_for::<T>()?;
-                serializer.write(bytes)?;
-                Ok(result)
-            }
-        }
-    }
-
-    #[inline]
-    fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
-        Ok(())
-    }
-}
-
 impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> SerializeUnsized<S> for [T] {
     #[inline]
     default! {
@@ -298,7 +235,7 @@ impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> SerializeUnsized<S>
     }
 }
 
-#[cfg(all(feature = "alloc", feature = "copy"))]
+#[cfg(feature = "copy")]
 impl<T, S> SerializeUnsized<S> for [T]
 where
     T: Serialize<S> + crate::copy::ArchiveCopyOptimize,

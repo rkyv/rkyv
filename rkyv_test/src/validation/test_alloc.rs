@@ -44,7 +44,7 @@ mod tests {
             feature = "archive_le"
         ))]
         // Synthetic archive (correct)
-        let synthetic_buf = Aligned([
+        let synthetic_buf = AlignedBytes([
             // "Hello world"
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
             0u8, // padding to 2-alignment
@@ -59,7 +59,7 @@ mod tests {
             feature = "archive_be"
         ))]
         // Synthetic archive (correct)
-        let synthetic_buf = Aligned([
+        let synthetic_buf = AlignedBytes([
             // "Hello world"
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
             0u8, // padding to 2-alignment
@@ -89,7 +89,7 @@ mod tests {
             feature = "archive_be"
         ))]
         // Synthetic archive (correct)
-        let synthetic_buf = Aligned([
+        let synthetic_buf = AlignedBytes([
             // "Hello world"
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
             0u8, // padding to 4-alignment
@@ -104,7 +104,7 @@ mod tests {
             feature = "archive_le"
         ))]
         // Synthetic archive (correct)
-        let synthetic_buf = Aligned([
+        let synthetic_buf = AlignedBytes([
             // "Hello world"
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
             0u8, 0u8, 0u8, 0u8, 0u8, // padding to 8-alignment
@@ -121,7 +121,7 @@ mod tests {
             feature = "archive_be"
         ))]
         // Synthetic archive (correct)
-        let synthetic_buf = Aligned([
+        let synthetic_buf = AlignedBytes([
             // "Hello world"
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
             0u8, 0u8, 0u8, 0u8, 0u8, // padding to 8-alignment

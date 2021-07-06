@@ -102,7 +102,7 @@ impl ArchivedHashIndex {
 const _: () = {
     use crate::{ser::{ScratchSpace, Serializer}, ScratchVec};
     #[cfg(not(feature = "std"))]
-    use alloc::{vec, vec::Vec};
+    use alloc::vec::Vec;
     use core::{
         cmp::Reverse,
         mem::{size_of, MaybeUninit},

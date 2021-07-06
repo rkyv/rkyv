@@ -1,8 +1,6 @@
 //! Validators add validation capabilities by wrapping and extending basic validators.
 
 use crate::{validation::SharedContext, Fallible};
-#[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::vec::Vec;
 use core::{any::TypeId, fmt};
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
