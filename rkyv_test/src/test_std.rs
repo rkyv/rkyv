@@ -1,6 +1,10 @@
 #[cfg(test)]
 mod tests {
     use crate::util::alloc::*;
+    use std::collections::{
+        HashMap,
+        HashSet,
+    };
     use rkyv::{
         archived_root,
         ser::Serializer,
@@ -13,8 +17,6 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_hash_map() {
-        use std::collections::HashMap;
-
         #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
         {
             test_archive(&HashMap::<i32, i32>::new());
@@ -245,4 +247,30 @@ mod tests {
 
     //     assert_eq!(deserialized.value.to_str().unwrap(), "hello world");
     // }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_zst_containers() {
+        #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        struct MyZST;
+
+        let mut value = HashMap::new();
+        value.insert(0, ());
+        value.insert(1, ());
+        test_archive(&value);
+
+        let mut value = HashMap::new();
+        value.insert((), 10);
+        test_archive(&value);
+
+        let mut value = HashMap::new();
+        value.insert((), ());
+        test_archive(&value);
+
+        let mut value = HashSet::new();
+        value.insert(());
+        test_archive(&value);
+    }
 }

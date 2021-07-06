@@ -73,7 +73,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feautre = "wasm", wasm_bindgen_test)]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_nonzero() {
         use core::num::{
             NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128,
@@ -92,5 +92,21 @@ mod tests {
             test_archive(&NonZeroU64::new_unchecked(12345678901234567890));
             test_archive(&NonZeroU128::new_unchecked(123456789012345678901234567890123456789));
         }
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_zst() {
+        use rkyv::{Archive, Deserialize, Serialize};
+
+        #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        struct MyZST;
+
+        test_archive::<[MyZST; 0]>(&[]);
+        test_archive_ref::<[MyZST]>(&[]);
+        test_archive::<[MyZST; 4]>(&[MyZST, MyZST, MyZST, MyZST]);
+        test_archive_ref::<[MyZST]>(&[MyZST, MyZST, MyZST, MyZST]);
     }
 }

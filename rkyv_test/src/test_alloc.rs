@@ -58,16 +58,16 @@ mod tests {
         #[cfg(feature = "wasm")]
         use wasm_bindgen_test::*;
 
+        #[cfg(all(feature = "alloc", not(feature = "std")))]
+        use alloc::{
+            string::{String, ToString},
+            vec,
+            vec::Vec,
+        };
+
         #[test]
         #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
         fn archive_example() {
-            #[cfg(all(feature = "alloc", not(feature = "std")))]
-            use alloc::{
-                string::{String, ToString},
-                vec,
-                vec::Vec,
-            };
-
             use rkyv::{
                 archived_root,
                 ser::{serializers::AllocSerializer, Serializer},
@@ -1499,5 +1499,53 @@ mod tests {
         let deserialized = Deserialize::<BTreeMap<_, _>, _>::deserialize(archived, &mut Infallible)
             .expect("failed to deserialize B-tree map");
         assert_eq!(value, deserialized);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_zst_containers() {
+        #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        struct MyZST;
+
+        test_archive(&Box::new(MyZST));
+
+        test_archive(&Vec::<MyZST>::new().into_boxed_slice());
+        test_archive(&vec![MyZST, MyZST, MyZST, MyZST].into_boxed_slice());
+
+        test_archive(&Vec::<MyZST>::new());
+        test_archive(&vec![MyZST, MyZST, MyZST, MyZST]);
+
+        let mut value = BTreeMap::new();
+        value.insert(0, ());
+        value.insert(1, ());
+        test_archive(&value);
+
+        let mut value = BTreeMap::new();
+        value.insert((), 10);
+        test_archive(&value);
+
+        let mut value = BTreeMap::new();
+        value.insert((), ());
+        test_archive(&value);
+
+        let mut value = BTreeSet::new();
+        value.insert(());
+        test_archive(&value);
+
+        #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        struct TestRcZST {
+            a: Rc<()>,
+            b: Rc<()>,
+        }
+
+        let rc_zst = Rc::new(());
+        test_archive(&TestRcZST {
+            a: rc_zst.clone(),
+            b: rc_zst.clone(),
+        });
     }
 }

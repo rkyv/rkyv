@@ -68,10 +68,16 @@ where
         deserializer: &mut D,
         mut alloc: impl FnMut(Layout) -> *mut u8,
     ) -> Result<*mut (), D::Error> {
-        let ptr = alloc(Layout::new::<T>()).cast::<T>();
         let deserialized = self.deserialize(deserializer)?;
-        ptr.write(deserialized);
-        Ok(ptr.cast())
+
+        let layout = Layout::new::<T>();
+        if layout.size() == 0 {
+            Ok(ptr::NonNull::<T>::dangling().as_ptr().cast())
+        } else {
+            let ptr = alloc(layout).cast::<T>();
+            ptr.write(deserialized);
+            Ok(ptr.cast())
+        }
     }
 
     #[inline]
