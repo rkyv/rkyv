@@ -132,7 +132,7 @@ mod tests {
             0u8, 0u8, 0u8, 0u8, // padding
         ]);
 
-        let result = check_archived_root::<Option<String>>(synthetic_buf.as_ref());
+        let result = check_archived_root::<Option<Box<[u8]>>>(synthetic_buf.as_ref());
         result.unwrap();
 
         // Various buffer errors:
@@ -183,7 +183,7 @@ mod tests {
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
         ]);
 
-        let result = check_archived_value::<Option<String>>(synthetic_buf.as_ref(), 0);
+        let result = check_archived_value::<Option<Box<[u8]>>>(synthetic_buf.as_ref(), 0);
         result.unwrap_err();
     }
 
@@ -203,7 +203,7 @@ mod tests {
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
         ]);
 
-        check_archived_value::<[String; 2]>(synthetic_buf.as_ref(), 0).unwrap_err();
+        check_archived_value::<[Box<[u8]>; 2]>(synthetic_buf.as_ref(), 0).unwrap_err();
     }
 
     #[cfg(feature = "size_32")]
