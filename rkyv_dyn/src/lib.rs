@@ -272,14 +272,16 @@ pub struct ArchivedDynMetadata<T: ?Sized> {
 
 impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     /// Creates a new `ArchivedDynMetadata` for the given type.
-    pub fn emplace(type_id: u64, out: *mut Self) {
-        unsafe {
-            ptr::addr_of_mut!((*out).type_id).write(to_archived!(type_id));
-            #[cfg(feature = "vtable_cache")]
-            ptr::addr_of_mut!((*out).cached_vtable).write(Archived::<AtomicU64>::from(0u64));
-            #[cfg(not(feature = "vtable_cache"))]
-            ptr::addr_of_mut!((*out).cached_vtable).write(from_archived!(0u64));
-        }
+    ///
+    /// # Safety
+    ///
+    /// `out` must point to a valid location for an `ArchivedDynMetadata<T>`.
+    pub unsafe fn emplace(type_id: u64, out: *mut Self) {
+        ptr::addr_of_mut!((*out).type_id).write(to_archived!(type_id));
+        #[cfg(feature = "vtable_cache")]
+        ptr::addr_of_mut!((*out).cached_vtable).write(Archived::<AtomicU64>::from(0u64));
+        #[cfg(not(feature = "vtable_cache"))]
+        ptr::addr_of_mut!((*out).cached_vtable).write(from_archived!(0u64));
     }
 
     fn lookup_vtable(&self) -> usize {

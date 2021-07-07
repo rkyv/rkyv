@@ -208,7 +208,7 @@ impl<T> BufferScratch<T> {
     /// Creates a new buffer scratch allocator.
     pub fn new(buffer: T) -> Self {
         Self {
-            buffer: buffer,
+            buffer,
             pos: 0,
         }
     }
@@ -268,7 +268,7 @@ impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace for BufferScratch<T> 
             } else {
                 Err(FixedSizeScratchError::NotPoppedInReverseOrder {
                     pos: self.pos,
-                    next_pos: next_pos,
+                    next_pos,
                     next_size: layout.size(),
                 })
             }

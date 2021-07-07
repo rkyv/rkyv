@@ -247,12 +247,18 @@ impl<T> LayoutRaw for Node<[T]> {
     }
 }
 
+type ABTMError<K, V, C> = ArchivedBTreeMapError<
+    <K as CheckBytes<C>>::Error,
+    <V as CheckBytes<C>>::Error,
+    <C as Fallible>::Error,
+>;
+
 impl NodeHeader {
     #[inline]
     unsafe fn manual_check_bytes<'a, K, V, C>(
         value: *const Self,
         context: &mut C,
-    ) -> Result<&'a Self, ArchivedBTreeMapError<K::Error, V::Error, C::Error>>
+    ) -> Result<&'a Self, ABTMError<K, V, C>>
     where
         K: CheckBytes<C>,
         V: CheckBytes<C>,
@@ -321,7 +327,7 @@ impl<K> InnerNode<K> {
     unsafe fn manual_check_bytes<'a, V, C>(
         value: *const Self,
         context: &mut C,
-    ) -> Result<&'a Self, ArchivedBTreeMapError<K::Error, V::Error, C::Error>>
+    ) -> Result<&'a Self, ABTMError<K, V, C>>
     where
         K: CheckBytes<C>,
         V: CheckBytes<C>,

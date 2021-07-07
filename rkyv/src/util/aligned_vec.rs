@@ -361,7 +361,7 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn extend_from_slice(&mut self, other: &[u8]) {
-        if other.len() > 0 {
+        if !other.is_empty() {
             self.reserve(other.len());
             unsafe {
                 core::ptr::copy_nonoverlapping(

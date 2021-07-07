@@ -164,7 +164,7 @@ impl<T> ScratchVec<T> {
     /// The elements of the slice are appended in-order.
     #[inline]
     pub fn extend_from_slice(&mut self, other: &[T]) {
-        if other.len() > 0 {
+        if !other.is_empty() {
             self.reserve(other.len());
             unsafe {
                 core::ptr::copy_nonoverlapping(
@@ -305,12 +305,11 @@ impl<T> ScratchVec<MaybeUninit<T>> {
     /// undefined behavior.
     #[inline]
     pub fn assume_init(self) -> ScratchVec<T> {
-        let result = ScratchVec {
+        ScratchVec {
             ptr: self.ptr.cast(),
             cap: self.cap,
             len: self.len,
-        };
-        result
+        }
     }
 }
 
