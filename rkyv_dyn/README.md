@@ -42,10 +42,9 @@ Trait object serialization for rkyv.
 use rkyv::{
     archived_value,
     ser::{
-        serializers::AlignedSerializer,
+        serializers::AllocSerializer,
         Serializer,
     },
-    AlignedVec,
     Archive,
     Archived,
     Deserialize,
@@ -97,12 +96,10 @@ impl ExampleTrait for Archived<IntStruct> {
 fn main() {
     let boxed_int = Box::new(IntStruct(42)) as Box<dyn SerializeExampleTrait>;
     let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn SerializeExampleTrait>;
-    let mut serializer = AlignedSerializer::new(AlignedVec::new());
+    let mut serializer = AllocSerializer::<256>::default();
 
-    let int_pos = serializer.serialize_value(&boxed_int)
-        .expect("failed to archive boxed int");
-    let string_pos = serializer.serialize_value(&boxed_string)
-        .expect("failed to archive boxed string");
+    let int_pos = serializer.serialize_value(&boxed_int).unwrap()
+    let string_pos = serializer.serialize_value(&boxed_string).unwrap();
     let buf = serializer.into_inner();
 
     let archived_int = unsafe { archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), int_pos) };

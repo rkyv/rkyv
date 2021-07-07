@@ -1,6 +1,9 @@
 //! Archived versions of `ops` types.
 
-use core::{cmp, fmt, ops::{Bound, RangeBounds}};
+use core::{
+    cmp, fmt,
+    ops::{Bound, RangeBounds},
+};
 
 /// An archived [`Range`](::core::ops::Range).
 #[derive(Clone, Default, PartialEq, Eq, Hash)]

@@ -1,16 +1,9 @@
 use crate::{
     ops::{
-        ArchivedRange,
-        ArchivedRangeFrom,
-        ArchivedRangeInclusive,
-        ArchivedRangeTo,
+        ArchivedRange, ArchivedRangeFrom, ArchivedRangeInclusive, ArchivedRangeTo,
         ArchivedRangeToInclusive,
     },
-    Archive,
-    Archived,
-    Deserialize,
-    Fallible,
-    Serialize,
+    Archive, Archived, Deserialize, Fallible, Serialize,
 };
 use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 

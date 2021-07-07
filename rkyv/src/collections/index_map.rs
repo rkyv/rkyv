@@ -1,12 +1,12 @@
 //! Archived index map implementation.
 
-use core::{borrow::Borrow, hash::Hash, iter::FusedIterator, marker::PhantomData};
 use crate::{
     collections::hash_index::{ArchivedHashIndex, HashBuilder, HashIndexResolver},
     out_field,
     ser::{ScratchSpace, Serializer},
     Archive, Archived, RelPtr, Serialize,
 };
+use core::{borrow::Borrow, hash::Hash, iter::FusedIterator, marker::PhantomData};
 
 #[cfg_attr(feature = "strict", repr(C))]
 struct Entry<K, V> {
@@ -248,11 +248,8 @@ impl<K, V> ArchivedIndexMap<K, V> {
 
         let mut entries = ScratchVec::new(serializer, iter.len())?;
         entries.set_len(len);
-        let index_resolver = ArchivedHashIndex::build_and_serialize(
-            iter.clone(),
-            serializer,
-            &mut entries,
-        )?;
+        let index_resolver =
+            ArchivedHashIndex::build_and_serialize(iter.clone(), serializer, &mut entries)?;
         let mut entries = entries.assume_init();
 
         // Serialize entries

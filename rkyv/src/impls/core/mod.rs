@@ -8,9 +8,9 @@ use crate::{
 use core::{alloc::Layout, ptr, str};
 use ptr_meta::Pointee;
 
+pub mod ops;
 pub mod option;
 pub mod primitive;
-pub mod ops;
 pub mod time;
 
 impl<T> ArchivePointee for T {

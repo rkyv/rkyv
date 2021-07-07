@@ -256,11 +256,8 @@ const _: () = {
 
             let mut entries = ScratchVec::new(serializer, len)?;
             entries.set_len(len);
-            let index_resolver = ArchivedHashIndex::build_and_serialize(
-                iter,
-                serializer,
-                &mut entries,
-            )?;
+            let index_resolver =
+                ArchivedHashIndex::build_and_serialize(iter, serializer, &mut entries)?;
             let mut entries = entries.assume_init();
 
             // Serialize entries

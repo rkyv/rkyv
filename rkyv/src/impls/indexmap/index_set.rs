@@ -15,7 +15,11 @@ impl<K: Archive> Archive for IndexSet<K> {
     }
 }
 
-impl<K: Hash + Eq + Serialize<S>, S: ScratchSpace + Serializer + ?Sized> Serialize<S> for IndexSet<K> {
+impl<K, S> Serialize<S> for IndexSet<K>
+where
+    K: Hash + Eq + Serialize<S>,
+    S: ScratchSpace + Serializer + ?Sized,
+{
     fn serialize(&self, serializer: &mut S) -> Result<IndexSetResolver, S::Error> {
         unsafe {
             ArchivedIndexSet::serialize_from_iter_index(
