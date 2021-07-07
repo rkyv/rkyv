@@ -39,10 +39,7 @@ macro_rules! out_field {
         #[allow(unused_unsafe)]
         unsafe {
             let fo = ::core::ptr::addr_of_mut!((*$out).$field);
-            (
-                fo.cast::<u8>().offset_from($out.cast::<u8>()) as usize,
-                fo,
-            )
+            (fo.cast::<u8>().offset_from($out.cast::<u8>()) as usize, fo)
         }
     }};
 }
@@ -97,15 +94,21 @@ macro_rules! to_archived {
 
 #[cfg(feature = "size_16")]
 macro_rules! pick_size_type {
-    ($s16:ty, $s32:ty, $s64:ty) => { $s16 }
+    ($s16:ty, $s32:ty, $s64:ty) => {
+        $s16
+    };
 }
 
 #[cfg(feature = "size_32")]
 macro_rules! pick_size_type {
-    ($s16:ty, $s32:ty, $s64:ty) => { $s32 }
+    ($s16:ty, $s32:ty, $s64:ty) => {
+        $s32
+    };
 }
 
 #[cfg(feature = "size_64")]
 macro_rules! pick_size_type {
-    ($s16:ty, $s32:ty, $s64:ty) => { $s64 }
+    ($s16:ty, $s32:ty, $s64:ty) => {
+        $s64
+    };
 }

@@ -1,17 +1,12 @@
 //! Archived versions of string types.
 
-use crate::{
-    Archive,
-    Archived,
-    Fallible,
-    FixedIsize,
-    SerializeUnsized,
-};
+use crate::{Archive, Archived, Fallible, FixedIsize, SerializeUnsized};
 use core::{
     borrow::Borrow,
     cmp, fmt, hash, mem,
     ops::{Deref, Index, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
-    pin::Pin, ptr, slice, str,
+    pin::Pin,
+    ptr, slice, str,
 };
 
 const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
@@ -42,9 +37,7 @@ union ArchivedStringRepr {
 impl ArchivedStringRepr {
     #[inline]
     fn is_inline(&self) -> bool {
-        unsafe {
-            self.inline.len & 0x80 == 0
-        }
+        unsafe { self.inline.len & 0x80 == 0 }
     }
 
     #[inline]
@@ -58,7 +51,9 @@ impl ArchivedStringRepr {
             if self.is_inline() {
                 self.inline.bytes.as_ptr()
             } else {
-                (self as *const Self).cast::<u8>().offset(self.out_of_line_offset())
+                (self as *const Self)
+                    .cast::<u8>()
+                    .offset(self.out_of_line_offset())
             }
         }
     }
@@ -69,7 +64,9 @@ impl ArchivedStringRepr {
             if self.is_inline() {
                 self.inline.bytes.as_mut_ptr()
             } else {
-                (self as *mut Self).cast::<u8>().offset(self.out_of_line_offset())
+                (self as *mut Self)
+                    .cast::<u8>()
+                    .offset(self.out_of_line_offset())
             }
         }
     }
@@ -98,7 +95,7 @@ impl ArchivedStringRepr {
 
     #[inline]
     fn bytes_mut(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), self.len())}
+        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), self.len()) }
     }
 
     #[inline]
@@ -114,11 +111,7 @@ impl ArchivedStringRepr {
     #[inline]
     unsafe fn emplace_inline(value: &str, out: *mut Self) {
         let out_bytes = ptr::addr_of_mut!((*out).inline.bytes);
-        ptr::copy_nonoverlapping(
-            value.as_bytes().as_ptr(),
-            out_bytes.cast(),
-            value.len(),
-        );
+        ptr::copy_nonoverlapping(value.as_bytes().as_ptr(), out_bytes.cast(), value.len());
 
         let out_len = ptr::addr_of_mut!((*out).inline.len);
         *out_len = value.len() as u8;
@@ -184,9 +177,7 @@ impl ArchivedString {
         str: SerializeUnsized<S>,
     {
         if value.len() <= INLINE_CAPACITY {
-            Ok(StringResolver {
-                pos: 0,
-            })
+            Ok(StringResolver { pos: 0 })
         } else {
             Ok(StringResolver {
                 pos: value.serialize_unsized(serializer)?,
@@ -330,14 +321,17 @@ const _: () = {
                 let offset = repr.out_of_line_offset();
                 let metadata = repr.len();
 
-                let ptr = context.check_subtree_ptr::<str>(base, offset, metadata)
+                let ptr = context
+                    .check_subtree_ptr::<str>(base, offset, metadata)
                     .map_err(OwnedPointerError::ContextError)?;
 
-                let range = context.push_prefix_subtree(ptr)
+                let range = context
+                    .push_prefix_subtree(ptr)
                     .map_err(OwnedPointerError::ContextError)?;
                 str::check_bytes(repr.as_str_ptr(), context)
                     .map_err(OwnedPointerError::ValueCheckBytesError)?;
-                context.pop_prefix_range(range)
+                context
+                    .pop_prefix_range(range)
                     .map_err(OwnedPointerError::ContextError)?;
             }
 

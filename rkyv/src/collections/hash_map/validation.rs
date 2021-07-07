@@ -177,13 +177,19 @@ where
 
         let entries_rel_ptr = RelPtr::manual_check_bytes(ptr::addr_of!((*value).entries), context)?;
         let entries_ptr = context
-            .check_subtree_ptr::<[Entry<K, V>]>(entries_rel_ptr.base(), entries_rel_ptr.offset(), index.len())
+            .check_subtree_ptr::<[Entry<K, V>]>(
+                entries_rel_ptr.base(),
+                entries_rel_ptr.offset(),
+                index.len(),
+            )
             .map_err(HashMapError::ContextError)?;
 
-        let range = context.push_prefix_subtree(entries_ptr)
+        let range = context
+            .push_prefix_subtree(entries_ptr)
             .map_err(HashMapError::ContextError)?;
         let entries = <[Entry<K, V>]>::check_bytes(entries_ptr, context)?;
-        context.pop_prefix_range(range)
+        context
+            .pop_prefix_range(range)
             .map_err(HashMapError::ContextError)?;
 
         for (i, entry) in entries.iter().enumerate() {

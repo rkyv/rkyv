@@ -1,9 +1,6 @@
 //! The provided implementation for `ArchiveContext`.
 
-use crate::{
-    validation::ArchiveContext,
-    Fallible,
-};
+use crate::{validation::ArchiveContext, Fallible};
 use core::{alloc::Layout, fmt, ops::Range};
 
 /// Errors that can occur when checking archive memory.
@@ -88,10 +85,7 @@ pub enum ArchiveError {
 impl fmt::Display for ArchiveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArchiveError::Overflow {
-                base,
-                offset,
-            } => write!(
+            ArchiveError::Overflow { base, offset } => write!(
                 f,
                 "relative pointer overflowed: base {:p} offset {}",
                 base, offset
@@ -113,11 +107,7 @@ impl fmt::Display for ArchiveError {
                 "pointer out of bounds: base {:p} offset {} not in range {:p}..{:p}",
                 base, offset, range.start, range.end
             ),
-            ArchiveError::Overrun {
-                ptr,
-                size,
-                range,
-            } => write!(
+            ArchiveError::Overrun { ptr, size, range } => write!(
                 f,
                 "pointer overran buffer: ptr {:p} size {} in range {:p}..{:p}",
                 ptr, size, range.start, range.end
@@ -132,21 +122,26 @@ impl fmt::Display for ArchiveError {
                 "subtree pointer out of bounds: ptr {:p} not in range {:p}..{:p}",
                 ptr, subtree_range.start, subtree_range.end
             ),
-            ArchiveError::SubtreePointerOverrun { ptr, size, subtree_range } => write!(
+            ArchiveError::SubtreePointerOverrun {
+                ptr,
+                size,
+                subtree_range,
+            } => write!(
                 f,
                 "subtree pointer overran range: ptr {:p} size {} in range {:p}..{:p}",
                 ptr, size, subtree_range.start, subtree_range.end
             ),
-            ArchiveError::RangePoppedOutOfOrder { expected_depth, actual_depth } => write!(
+            ArchiveError::RangePoppedOutOfOrder {
+                expected_depth,
+                actual_depth,
+            } => write!(
                 f,
                 "subtree range popped out of order: expected depth {}, actual depth {}",
                 expected_depth, actual_depth
             ),
-            ArchiveError::UnpoppedSubtreeRanges { last_range } => write!(
-                f,
-                "unpopped subtree ranges: last range {}",
-                last_range
-            ),
+            ArchiveError::UnpoppedSubtreeRanges { last_range } => {
+                write!(f, "unpopped subtree ranges: last range {}", last_range)
+            }
             ArchiveError::ExceededMaximumSubtreeDepth { max_subtree_depth } => write!(
                 f,
                 "pushed a subtree range that exceeded the maximum subtree depth of {}",
@@ -228,11 +223,9 @@ impl<'a> ArchiveContext for ArchiveValidator<'a> {
         offset: isize,
     ) -> Result<*const u8, Self::Error> {
         let base_pos = base.offset_from(self.bytes.as_ptr());
-        let target_pos = base_pos.checked_add(offset)
-            .ok_or(ArchiveError::Overflow {
-                base,
-                offset,
-            })?;
+        let target_pos = base_pos
+            .checked_add(offset)
+            .ok_or(ArchiveError::Overflow { base, offset })?;
         if target_pos < 0 || target_pos as usize > self.bytes.len() {
             Err(ArchiveError::OutOfBounds {
                 base,

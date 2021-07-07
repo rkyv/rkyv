@@ -1,7 +1,4 @@
-use crate::{
-    ser::Serializer,
-    Fallible,
-};
+use crate::{ser::Serializer, Fallible};
 use std::io;
 
 /// Wraps a type that implements [`io::Write`](std::io::Write) and equips it with [`Serializer`].

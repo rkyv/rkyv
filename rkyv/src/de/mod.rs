@@ -4,10 +4,10 @@ pub mod deserializers;
 
 #[cfg(feature = "alloc")]
 use crate::{ArchiveUnsized, DeserializeUnsized, Fallible};
-#[cfg(feature = "alloc")]
-use ::core::alloc::Layout;
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use ::alloc::boxed::Box;
+#[cfg(feature = "alloc")]
+use ::core::alloc::Layout;
 
 /// A deserializable shared pointer type.
 #[cfg(feature = "alloc")]
@@ -25,7 +25,11 @@ pub trait SharedDeserializeRegistry: Fallible {
     fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer>;
 
     /// Adds the data address of a deserialized shared pointer to the registry.
-    fn add_shared_ptr(&mut self, ptr: *const u8, shared: Box<dyn SharedPointer>) -> Result<(), Self::Error>;
+    fn add_shared_ptr(
+        &mut self,
+        ptr: *const u8,
+        shared: Box<dyn SharedPointer>,
+    ) -> Result<(), Self::Error>;
 
     /// Checks whether the given reference has been deserialized and either uses the existing shared
     /// pointer to it, or deserializes it and converts it to a shared pointer with `to_shared`.

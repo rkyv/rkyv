@@ -4,9 +4,17 @@ use super::{
     ArchivedBTreeMap, ClassifiedNode, InnerNode, InnerNodeEntry, LeafNode, LeafNodeEntry, Node,
     NodeHeader, MIN_ENTRIES_PER_INNER_NODE, MIN_ENTRIES_PER_LEAF_NODE,
 };
-use crate::{Archived, Fallible, rel_ptr::RelPtr, validation::{ArchiveContext, LayoutRaw}};
+use crate::{
+    rel_ptr::RelPtr,
+    validation::{ArchiveContext, LayoutRaw},
+    Archived, Fallible,
+};
 use bytecheck::{CheckBytes, Error};
-use core::{alloc::Layout, convert::{Infallible, TryFrom}, fmt, ptr};
+use core::{
+    alloc::Layout,
+    convert::{Infallible, TryFrom},
+    fmt, ptr,
+};
 
 impl<K, C> CheckBytes<C> for InnerNodeEntry<K>
 where
@@ -168,8 +176,16 @@ where
                 "too few leaf node entries (expected at least {}): {}",
                 MIN_ENTRIES_PER_LEAF_NODE, n,
             ),
-            Self::CheckInnerNodeEntryError { index, inner } => write!(f, "inner node entry check error: index {}, error {}", index, inner),
-            Self::CheckLeafNodeEntryError { index, inner } => write!(f, "leaf node entry check error: index {}, error {}", index, inner),
+            Self::CheckInnerNodeEntryError { index, inner } => write!(
+                f,
+                "inner node entry check error: index {}, error {}",
+                index, inner
+            ),
+            Self::CheckLeafNodeEntryError { index, inner } => write!(
+                f,
+                "leaf node entry check error: index {}, error {}",
+                index, inner
+            ),
             Self::InvalidNodeSize(n) => write!(f, "invalid node size: {}", n),
             Self::MismatchedInnerChildKey => write!(f, "mismatched inner child key"),
             Self::InnerNodeInLeafLevel => write!(f, "inner node in leaf level"),
@@ -275,20 +291,23 @@ impl NodeHeader {
         // Now that the fields have been checked, we can start checking the specific subtype
         let root = value.cast();
         let size = from_archived!(raw_node.size) as usize;
-        let offset = -isize::try_from(size)
-            .map_err(|_| ArchivedBTreeMapError::InvalidNodeSize(size))?;
-        let start = context.check_ptr(root, offset, ())
+        let offset =
+            -isize::try_from(size).map_err(|_| ArchivedBTreeMapError::InvalidNodeSize(size))?;
+        let start = context
+            .check_ptr(root, offset, ())
             .map_err(ArchivedBTreeMapError::ContextError)?;
 
         // Push a new suffix range and check the inner or leaf part
-        let range = context.push_suffix_subtree_range(start, root)
+        let range = context
+            .push_suffix_subtree_range(start, root)
             .map_err(ArchivedBTreeMapError::ContextError)?;
         if raw_node.is_inner() {
             InnerNode::manual_check_bytes::<V, C>(raw_node.classify_inner_ptr::<K>(), context)?;
         } else {
             CheckBytes::check_bytes(raw_node.classify_leaf_ptr::<K, V>(), context)?;
         }
-        context.pop_suffix_range(range)
+        context
+            .pop_suffix_range(range)
             .map_err(ArchivedBTreeMapError::ContextError)?;
 
         Ok(&*value)
@@ -297,7 +316,9 @@ impl NodeHeader {
 
 impl<K> InnerNode<K> {
     #[allow(clippy::type_complexity)]
-    fn verify_integrity<'a, V, C>(&'a self) -> Result<&K, ArchivedBTreeMapError<K::Error, V::Error, C::Error>>
+    fn verify_integrity<'a, V, C>(
+        &'a self,
+    ) -> Result<&K, ArchivedBTreeMapError<K::Error, V::Error, C::Error>>
     where
         K: CheckBytes<C> + PartialEq,
         V: CheckBytes<C> + 'a,
@@ -346,11 +367,9 @@ impl<K> InnerNode<K> {
         // The subtree range has already been set up for us so we can just check our tail
         let tail_ptr = ptr::addr_of!((*value).tail) as *const InnerNodeEntry<K>;
         for index in (0..len).rev() {
-            CheckBytes::check_bytes(tail_ptr.add(index), context)
-                .map_err(|inner| ArchivedBTreeMapError::CheckInnerNodeEntryError {
-                    index,
-                    inner,
-                })?;
+            CheckBytes::check_bytes(tail_ptr.add(index), context).map_err(|inner| {
+                ArchivedBTreeMapError::CheckInnerNodeEntryError { index, inner }
+            })?;
         }
 
         Ok(&*value)
@@ -367,7 +386,10 @@ where
     type Error = ArchivedBTreeMapError<K::Error, V::Error, C::Error>;
 
     #[inline]
-    unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+    unsafe fn check_bytes<'a>(
+        value: *const Self,
+        context: &mut C,
+    ) -> Result<&'a Self, Self::Error> {
         // meta, size, and ptr have already been checked by the check_bytes for RawNode
         let len = ptr_meta::metadata(value);
 
@@ -379,10 +401,7 @@ where
         let tail_ptr = ptr::addr_of!((*value).tail) as *const LeafNodeEntry<K, V>;
         for index in (0..len).rev() {
             CheckBytes::check_bytes(tail_ptr.add(index), context)
-                .map_err(|inner| ArchivedBTreeMapError::CheckLeafNodeEntryError {
-                    index,
-                    inner,
-                })?;
+                .map_err(|inner| ArchivedBTreeMapError::CheckLeafNodeEntryError { index, inner })?;
         }
 
         Ok(&*value)

@@ -1,12 +1,8 @@
 #[cfg(test)]
 mod tests {
     use crate::util::alloc::*;
+    use rkyv::{archived_root, ser::Serializer, Archive, Deserialize, Serialize};
     use std::collections::HashMap;
-    use rkyv::{
-        archived_root,
-        ser::Serializer,
-        Archive, Deserialize, Serialize,
-    };
 
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;

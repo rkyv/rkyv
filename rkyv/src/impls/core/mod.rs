@@ -4,17 +4,8 @@
 use crate::copy::ArchiveCopyOptimize;
 use crate::{
     ser::{ScratchSpace, Serializer},
-    Archive,
-    ArchivePointee,
-    ArchiveUnsized,
-    Archived,
-    ArchivedMetadata,
-    Deserialize,
-    DeserializeUnsized,
-    Fallible,
-    FixedUsize,
-    Serialize,
-    SerializeUnsized,
+    Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata, Deserialize,
+    DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
 };
 use core::{alloc::Layout, ptr, str};
 use ptr_meta::Pointee;

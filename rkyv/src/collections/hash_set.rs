@@ -5,7 +5,10 @@
 
 use crate::collections::hash_map::{ArchivedHashMap, HashMapResolver, Keys};
 #[cfg(feature = "alloc")]
-use crate::{ser::{ScratchSpace, Serializer}, Serialize};
+use crate::{
+    ser::{ScratchSpace, Serializer},
+    Serialize,
+};
 use core::{borrow::Borrow, hash::Hash};
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key and a value of

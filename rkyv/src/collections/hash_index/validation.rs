@@ -1,10 +1,6 @@
 //! Validation implementation for ArchivedHashIndex.
 
-use crate::{
-    collections::ArchivedHashIndex,
-    validation::ArchiveContext,
-    Archived, RelPtr,
-};
+use crate::{collections::ArchivedHashIndex, validation::ArchiveContext, Archived, RelPtr};
 use bytecheck::{CheckBytes, Error, SliceCheckError};
 use core::{
     alloc::{Layout, LayoutError},
@@ -97,13 +93,19 @@ where
         let displace_rel_ptr =
             RelPtr::manual_check_bytes(ptr::addr_of!((*value).displace), context)?;
         let displace_ptr = context
-            .check_subtree_ptr::<[Archived<u32>]>(displace_rel_ptr.base(), displace_rel_ptr.offset(), len)
+            .check_subtree_ptr::<[Archived<u32>]>(
+                displace_rel_ptr.base(),
+                displace_rel_ptr.offset(),
+                len,
+            )
             .map_err(HashIndexError::ContextError)?;
 
-        let range = context.push_prefix_subtree(displace_ptr)
+        let range = context
+            .push_prefix_subtree(displace_ptr)
             .map_err(HashIndexError::ContextError)?;
         let displace = <[Archived<u32>]>::check_bytes(displace_ptr, context)?;
-        context.pop_prefix_range(range)
+        context
+            .pop_prefix_range(range)
             .map_err(HashIndexError::ContextError)?;
 
         for (i, &d) in displace.iter().enumerate() {

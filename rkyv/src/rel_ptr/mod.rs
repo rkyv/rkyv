@@ -154,11 +154,7 @@ impl<O: Offset> RawRelPtr<O> {
     /// - `out` must be located at position `from`
     /// - `to` must be a position within the archive
     #[inline]
-    pub unsafe fn try_emplace(
-        from: usize,
-        to: usize,
-        out: *mut Self,
-    ) -> Result<(), OffsetError> {
+    pub unsafe fn try_emplace(from: usize, to: usize, out: *mut Self) -> Result<(), OffsetError> {
         let offset = O::between(from, to)?;
         ptr::addr_of_mut!((*out).offset).write(offset);
         Ok(())
@@ -256,11 +252,7 @@ impl<T, O: Offset> RelPtr<T, O> {
     /// - `from` must be the position of `out` within the archive
     /// - `to` must be the position of some valid `T`
     #[inline]
-    pub unsafe fn try_emplace(
-        from: usize,
-        to: usize,
-        out: *mut Self,
-    ) -> Result<(), OffsetError> {
+    pub unsafe fn try_emplace(from: usize, to: usize, out: *mut Self) -> Result<(), OffsetError> {
         let (fp, fo) = out_field!(out.raw_ptr);
         // Skip metadata since sized T is guaranteed to be ()
         RawRelPtr::try_emplace(from + fp, to, fo)

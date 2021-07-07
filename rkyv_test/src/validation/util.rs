@@ -3,10 +3,7 @@ pub mod alloc {
     use crate::util::alloc::*;
     use bytecheck::CheckBytes;
     use rkyv::{
-        check_archived_root,
-        ser::Serializer,
-        validation::validators::DefaultValidator,
-        Serialize,
+        check_archived_root, ser::Serializer, validation::validators::DefaultValidator, Serialize,
     };
 
     pub fn serialize_and_check<T: Serialize<DefaultSerializer>>(value: &T)

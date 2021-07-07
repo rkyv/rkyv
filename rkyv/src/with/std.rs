@@ -107,10 +107,7 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
         // This unfortunately will cause a deadlock if two Arcs to the same Mutex are serialized
         // before the first is resolved. The compromise is, unfortunately, to just unwrap poison
         // errors here and document it.
-        field
-            .lock()
-            .unwrap()
-            .resolve(pos, resolver, out.cast());
+        field.lock().unwrap().resolve(pos, resolver, out.cast());
     }
 }
 
@@ -156,10 +153,7 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
         // mutex). This unfortunately will cause a deadlock if two Arcs to the same Mutex are
         // serialized before the first is resolved. The compromise is, unfortunately, to just
         // unwrap poison errors here and document it.
-        field
-            .read()
-            .unwrap()
-            .resolve(pos, resolver, out.cast());
+        field.read().unwrap().resolve(pos, resolver, out.cast());
     }
 }
 

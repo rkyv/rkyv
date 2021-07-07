@@ -2,7 +2,6 @@
 
 mod rkyv;
 
-use core::{borrow::Borrow, hash::Hash};
 use crate::{
     collections::hash_index::HashBuilder,
     impls::indexmap::index_map::{ArchivedIndexMap, IndexMapResolver, Keys},
@@ -10,6 +9,7 @@ use crate::{
     ser::Serializer,
     Serialize,
 };
+use core::{borrow::Borrow, hash::Hash};
 use indexmap::IndexSet;
 
 /// An archived `IndexSet`.

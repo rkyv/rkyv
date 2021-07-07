@@ -3,7 +3,8 @@
 use crate::{Archive, Archived, Deserialize, Fallible, FixedIsize, FixedUsize, Serialize};
 #[cfg(has_atomics)]
 use core::sync::atomic::{
-    AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicIsize, AtomicU16, AtomicU32, AtomicU8, AtomicUsize, Ordering,
+    AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicIsize, AtomicU16, AtomicU32, AtomicU8,
+    AtomicUsize, Ordering,
 };
 #[cfg(has_atomics_64)]
 use core::sync::atomic::{AtomicI64, AtomicU64};
@@ -292,7 +293,9 @@ impl Archive for NonZeroUsize {
 
     #[inline]
     unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
-        out.write(to_archived!(FixedNonZeroUsize::new_unchecked(self.get() as FixedUsize)));
+        out.write(to_archived!(FixedNonZeroUsize::new_unchecked(
+            self.get() as FixedUsize
+        )));
     }
 }
 
@@ -306,9 +309,7 @@ impl<S: Fallible + ?Sized> Serialize<S> for NonZeroUsize {
 impl<D: Fallible + ?Sized> Deserialize<NonZeroUsize, D> for Archived<NonZeroUsize> {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<NonZeroUsize, D::Error> {
-        Ok(unsafe {
-            NonZeroUsize::new_unchecked(from_archived!(*self).get() as usize)
-        })
+        Ok(unsafe { NonZeroUsize::new_unchecked(from_archived!(*self).get() as usize) })
     }
 }
 
@@ -322,7 +323,9 @@ impl Archive for NonZeroIsize {
 
     #[inline]
     unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
-        out.write(to_archived!(FixedNonZeroIsize::new_unchecked(self.get() as FixedIsize)));
+        out.write(to_archived!(FixedNonZeroIsize::new_unchecked(
+            self.get() as FixedIsize
+        )));
     }
 }
 
@@ -336,9 +339,7 @@ impl<S: Fallible + ?Sized> Serialize<S> for NonZeroIsize {
 impl<D: Fallible + ?Sized> Deserialize<NonZeroIsize, D> for Archived<NonZeroIsize> {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<NonZeroIsize, D::Error> {
-        Ok(unsafe {
-            NonZeroIsize::new_unchecked(from_archived!(*self).get() as isize)
-        })
+        Ok(unsafe { NonZeroIsize::new_unchecked(from_archived!(*self).get() as isize) })
     }
 }
 

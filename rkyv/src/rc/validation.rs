@@ -118,21 +118,25 @@ where
     ) -> Result<&'a Self, Self::Error> {
         let rel_ptr = RelPtr::<T>::manual_check_bytes(value.cast(), context)
             .map_err(SharedPointerError::PointerCheckBytesError)?;
-        let ptr = context.check_rel_ptr(rel_ptr)
+        let ptr = context
+            .check_rel_ptr(rel_ptr)
             .map_err(SharedPointerError::ContextError)?;
 
         let type_id = TypeId::of::<Self>();
-        if context.register_shared_ptr(ptr.cast(), type_id)
+        if context
+            .register_shared_ptr(ptr.cast(), type_id)
             .map_err(SharedPointerError::ContextError)?
         {
-            context.bounds_check_subtree_ptr(ptr)
+            context
+                .bounds_check_subtree_ptr(ptr)
                 .map_err(SharedPointerError::ContextError)?;
 
-            let range = context.push_prefix_subtree(ptr)
+            let range = context
+                .push_prefix_subtree(ptr)
                 .map_err(SharedPointerError::ContextError)?;
-            T::check_bytes(ptr, context)
-                .map_err(SharedPointerError::ValueCheckBytesError)?;
-            context.pop_prefix_range(range)
+            T::check_bytes(ptr, context).map_err(SharedPointerError::ValueCheckBytesError)?;
+            context
+                .pop_prefix_range(range)
                 .map_err(SharedPointerError::ContextError)?;
         }
         Ok(&*value)

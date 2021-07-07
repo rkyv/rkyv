@@ -65,7 +65,9 @@ where
     }
 }
 
-impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<rc::Rc<U>> for ArchivedRc<T, RcFlavor> {
+impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<rc::Rc<U>>
+    for ArchivedRc<T, RcFlavor>
+{
     #[inline]
     fn eq(&self, other: &rc::Rc<U>) -> bool {
         self.get().eq(other.as_ref())
@@ -96,7 +98,10 @@ where
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        ArchivedRcWeak::<T::Archived, RcFlavor>::serialize_from_ref(self.upgrade().as_ref().map(|v| v.as_ref()), serializer)
+        ArchivedRcWeak::<T::Archived, RcFlavor>::serialize_from_ref(
+            self.upgrade().as_ref().map(|v| v.as_ref()),
+            serializer,
+        )
     }
 }
 
@@ -203,7 +208,10 @@ where
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        ArchivedRcWeak::<T::Archived, ArcFlavor>::serialize_from_ref(self.upgrade().as_ref().map(|v| v.as_ref()), serializer)
+        ArchivedRcWeak::<T::Archived, ArcFlavor>::serialize_from_ref(
+            self.upgrade().as_ref().map(|v| v.as_ref()),
+            serializer,
+        )
     }
 }
 

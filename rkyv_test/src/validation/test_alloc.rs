@@ -1,9 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{
-        util::alloc::*,
-        validation::util::alloc::serialize_and_check,
-    };
+    use crate::{util::alloc::*, validation::util::alloc::serialize_and_check};
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::{
         boxed::Box,
@@ -14,9 +11,8 @@ mod tests {
     };
     use bytecheck::CheckBytes;
     use rkyv::{
-        check_archived_root, check_archived_value,
-        ser::Serializer,
-        AlignedBytes, Archive, Serialize,
+        check_archived_root, check_archived_value, ser::Serializer, AlignedBytes, Archive,
+        Serialize,
     };
     #[cfg(feature = "std")]
     use std::rc::Rc;
@@ -105,12 +101,12 @@ mod tests {
         // Synthetic archive (correct)
         let synthetic_buf = AlignedBytes([
             // "Hello world"
-            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
-            0u8, 0u8, 0u8, 0u8, 0u8, // padding to 8-alignment
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0u8, 0u8, 0u8, 0u8,
+            0u8, // padding to 8-alignment
             1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // Some + padding
             // points 24 bytes backward
-            0xe8u8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8,
-            11u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // string is 11 characters long
+            0xe8u8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 11u8, 0u8, 0u8, 0u8,
+            0u8, 0u8, 0u8, 0u8, // string is 11 characters long
         ]);
 
         #[cfg(feature = "size_64")]
@@ -121,12 +117,11 @@ mod tests {
         // Synthetic archive (correct)
         let synthetic_buf = AlignedBytes([
             // "Hello world!!!!!" because otherwise the string will get inlined
-            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f,
-            0x72, 0x6c, 0x64, 0x21, 0x21, 0x21, 0x21, 0x21,
-            1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // Some + padding
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64, 0x21, 0x21, 0x21,
+            0x21, 0x21, 1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // Some + padding
             // points 24 bytes backward
-            0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xe8u8,
-            0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 11u8, // string is 11 characters long
+            0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xe8u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+            0u8, 0u8, 11u8, // string is 11 characters long
         ]);
 
         let result = check_archived_root::<Option<Box<[u8]>>>(synthetic_buf.as_ref());
@@ -207,13 +202,10 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn cycle_detection() {
-        use core::fmt;
         use bytecheck::Error;
+        use core::fmt;
 
-        use rkyv::{
-            validation::ArchiveContext,
-            Archived,
-        };
+        use rkyv::{validation::ArchiveContext, Archived};
 
         #[derive(Archive)]
         #[archive_attr(derive(Debug))]

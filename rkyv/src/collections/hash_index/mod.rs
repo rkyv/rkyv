@@ -100,7 +100,10 @@ impl ArchivedHashIndex {
 
 #[cfg(feature = "alloc")]
 const _: () = {
-    use crate::{ser::{ScratchSpace, Serializer}, ScratchVec};
+    use crate::{
+        ser::{ScratchSpace, Serializer},
+        ScratchVec,
+    };
     #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
     use core::{

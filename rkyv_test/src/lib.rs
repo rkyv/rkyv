@@ -76,8 +76,8 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_nonzero() {
         use core::num::{
-            NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128,
-            NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128,
+            NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
+            NonZeroU32, NonZeroU64, NonZeroU8,
         };
 
         unsafe {
@@ -85,12 +85,16 @@ mod tests {
             test_archive(&NonZeroI16::new_unchecked(12345));
             test_archive(&NonZeroI32::new_unchecked(1234567890));
             test_archive(&NonZeroI64::new_unchecked(1234567890123456789));
-            test_archive(&NonZeroI128::new_unchecked(123456789012345678901234567890123456789));
+            test_archive(&NonZeroI128::new_unchecked(
+                123456789012345678901234567890123456789,
+            ));
             test_archive(&NonZeroU8::new_unchecked(123));
             test_archive(&NonZeroU16::new_unchecked(12345));
             test_archive(&NonZeroU32::new_unchecked(1234567890));
             test_archive(&NonZeroU64::new_unchecked(12345678901234567890));
-            test_archive(&NonZeroU128::new_unchecked(123456789012345678901234567890123456789));
+            test_archive(&NonZeroU128::new_unchecked(
+                123456789012345678901234567890123456789,
+            ));
         }
     }
 

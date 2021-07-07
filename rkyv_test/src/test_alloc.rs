@@ -402,9 +402,7 @@ mod tests {
             T::Archived: fmt::Debug,
         {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.debug_tuple("TestGeneric")
-                    .field(&self.0)
-                    .finish()
+                f.debug_tuple("TestGeneric").field(&self.0).finish()
             }
         }
 

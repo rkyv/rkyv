@@ -6,18 +6,14 @@ mod shared;
 
 use crate::{
     validation::{
-        check_archived_value_with_context,
-        check_archived_root_with_context,
-        ArchiveContext,
-        CheckTypeError,
-        SharedContext,
+        check_archived_root_with_context, check_archived_value_with_context, ArchiveContext,
+        CheckTypeError, SharedContext,
     },
-    Archive,
-    Fallible,
+    Archive, Fallible,
 };
-use core::{alloc::Layout, any::TypeId, fmt};
-use bytecheck::CheckBytes;
 pub use archive::*;
+use bytecheck::CheckBytes;
+use core::{alloc::Layout, any::TypeId, fmt};
 #[cfg(feature = "alloc")]
 pub use shared::*;
 
@@ -89,7 +85,8 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
         base: *const u8,
         offset: isize,
     ) -> Result<*const u8, Self::Error> {
-        self.archive.bounds_check_ptr(base, offset)
+        self.archive
+            .bounds_check_ptr(base, offset)
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
@@ -99,7 +96,8 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
         data_address: *const u8,
         layout: &Layout,
     ) -> Result<(), Self::Error> {
-        self.archive.bounds_check_layout(data_address, layout)
+        self.archive
+            .bounds_check_layout(data_address, layout)
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
@@ -109,7 +107,8 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
         data_address: *const u8,
         layout: &Layout,
     ) -> Result<(), Self::Error> {
-        self.archive.bounds_check_subtree_ptr_layout(data_address, layout)
+        self.archive
+            .bounds_check_subtree_ptr_layout(data_address, layout)
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
@@ -119,13 +118,15 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
         root: *const u8,
         end: *const u8,
     ) -> Result<PrefixRange, Self::Error> {
-        self.archive.push_prefix_subtree_range(root, end)
+        self.archive
+            .push_prefix_subtree_range(root, end)
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
     #[inline]
     fn pop_prefix_range(&mut self, range: PrefixRange) -> Result<(), Self::Error> {
-        self.archive.pop_prefix_range(range)
+        self.archive
+            .pop_prefix_range(range)
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
@@ -135,19 +136,22 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
         start: *const u8,
         root: *const u8,
     ) -> Result<SuffixRange, Self::Error> {
-        self.archive.push_suffix_subtree_range(start, root)
+        self.archive
+            .push_suffix_subtree_range(start, root)
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
     #[inline]
     fn pop_suffix_range(&mut self, range: SuffixRange) -> Result<(), Self::Error> {
-        self.archive.pop_suffix_range(range)
+        self.archive
+            .pop_suffix_range(range)
             .map_err(DefaultValidatorError::ArchiveError)
     }
 
     #[inline]
     fn finish(&mut self) -> Result<(), Self::Error> {
-        self.archive.finish()
+        self.archive
+            .finish()
             .map_err(DefaultValidatorError::ArchiveError)
     }
 }
@@ -159,7 +163,8 @@ impl<'a> SharedContext for DefaultValidator<'a> {
         ptr: *const u8,
         type_id: TypeId,
     ) -> Result<bool, Self::Error> {
-        self.shared.register_shared_ptr(ptr, type_id)
+        self.shared
+            .register_shared_ptr(ptr, type_id)
             .map_err(DefaultValidatorError::SharedError)
     }
 }

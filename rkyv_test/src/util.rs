@@ -5,11 +5,7 @@ macro_rules! impl_test_archive {
     ($ser:ty, $de:ty) => {
         use core::fmt::Debug;
         use rkyv::{
-            archived_root,
-            archived_unsized_root,
-            ser::Serializer,
-            Deserialize,
-            Serialize,
+            archived_root, archived_unsized_root, ser::Serializer, Deserialize, Serialize,
             SerializeUnsized,
         };
 
@@ -67,7 +63,7 @@ macro_rules! impl_test_archive {
             let archived_ref = unsafe { archived_root::<T>(&buffer[0..len]) };
             assert_eq!(archived_ref.deref(), value.deref());
         }
-    }
+    };
 }
 
 pub mod core {

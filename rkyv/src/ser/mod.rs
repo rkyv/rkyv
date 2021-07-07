@@ -2,10 +2,7 @@
 
 pub mod serializers;
 
-use crate::{
-    Archive, ArchiveUnsized, Fallible, RelPtr, Serialize,
-    SerializeUnsized,
-};
+use crate::{Archive, ArchiveUnsized, Fallible, RelPtr, Serialize, SerializeUnsized};
 use core::{alloc::Layout, mem, ptr::NonNull, slice};
 
 /// A byte sink that knows where it is.

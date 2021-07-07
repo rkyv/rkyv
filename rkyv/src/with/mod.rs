@@ -9,12 +9,7 @@ mod std;
 pub use self::std::*;
 
 use crate::{Archive, Deserialize, Fallible, Serialize};
-use ::core::{
-    fmt,
-    marker::PhantomData,
-    mem::transmute,
-    ops::Deref,
-};
+use ::core::{fmt, marker::PhantomData, mem::transmute, ops::Deref};
 
 /// A transparent wrapper for archived fields.
 ///

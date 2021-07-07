@@ -199,14 +199,16 @@ const _: () = {
         ) -> Result<&'a Self, Self::Error> {
             let rel_ptr = RelPtr::<[T]>::manual_check_bytes(value.cast(), context)
                 .map_err(OwnedPointerError::PointerCheckBytesError)?;
-            let ptr = context.check_subtree_rel_ptr(rel_ptr)
+            let ptr = context
+                .check_subtree_rel_ptr(rel_ptr)
                 .map_err(OwnedPointerError::ContextError)?;
 
-            let range = context.push_prefix_subtree(ptr)
+            let range = context
+                .push_prefix_subtree(ptr)
                 .map_err(OwnedPointerError::ContextError)?;
-            <[T]>::check_bytes(ptr, context)
-                .map_err(OwnedPointerError::ValueCheckBytesError)?;
-            context.pop_prefix_range(range)
+            <[T]>::check_bytes(ptr, context).map_err(OwnedPointerError::ValueCheckBytesError)?;
+            context
+                .pop_prefix_range(range)
                 .map_err(OwnedPointerError::ContextError)?;
 
             Ok(&*value)

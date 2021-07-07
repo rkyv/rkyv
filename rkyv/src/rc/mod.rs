@@ -4,19 +4,10 @@
 pub mod validation;
 
 use crate::{
-    ser::{Serializer, SharedSerializeRegistry}, ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr,
-    SerializeUnsized,
+    ser::{Serializer, SharedSerializeRegistry},
+    ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr, SerializeUnsized,
 };
-use core::{
-    borrow::Borrow,
-    cmp,
-    fmt,
-    hash,
-    marker::PhantomData,
-    ops::Deref,
-    pin::Pin,
-    ptr,
-};
+use core::{borrow::Borrow, cmp, fmt, hash, marker::PhantomData, ops::Deref, pin::Pin, ptr};
 
 /// An archived `Rc`.
 ///
@@ -61,7 +52,10 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
 
     /// Serializes an archived `Rc` from a given reference.
     #[inline]
-    pub fn serialize_from_ref<U: SerializeUnsized<S> + ?Sized, S: Serializer + SharedSerializeRegistry + ?Sized>(
+    pub fn serialize_from_ref<
+        U: SerializeUnsized<S> + ?Sized,
+        S: Serializer + SharedSerializeRegistry + ?Sized,
+    >(
         value: &U,
         serializer: &mut S,
     ) -> Result<RcResolver<MetadataResolver<U>>, S::Error> {
@@ -251,4 +245,7 @@ enum ArchivedRcWeakTag {
 struct ArchivedRcWeakVariantNone(ArchivedRcWeakTag);
 
 #[repr(C)]
-struct ArchivedRcWeakVariantSome<T: ArchivePointee + ?Sized, F>(ArchivedRcWeakTag, ArchivedRc<T, F>);
+struct ArchivedRcWeakVariantSome<T: ArchivePointee + ?Sized, F>(
+    ArchivedRcWeakTag,
+    ArchivedRc<T, F>,
+);

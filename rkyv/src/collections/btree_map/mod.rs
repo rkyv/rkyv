@@ -262,10 +262,11 @@ impl<K, V> ArchivedBTreeMap<K, V> {
             match current {
                 ClassifiedNode::Inner(node) => {
                     // Binary search for the next node layer
-                    let next = match node.tail.binary_search_by(|probe| probe.key.borrow().cmp(k)) {
-                        Ok(i) => {
-                            unsafe { &*node.tail[i].ptr.as_ptr() }
-                        }
+                    let next = match node
+                        .tail
+                        .binary_search_by(|probe| probe.key.borrow().cmp(k))
+                    {
+                        Ok(i) => unsafe { &*node.tail[i].ptr.as_ptr() },
                         Err(i) => {
                             if i == 0 {
                                 unsafe { &*node.header.ptr.as_ptr() }
@@ -468,11 +469,7 @@ const _: () = {
                         let (key, pos) = iter.next().unwrap();
 
                         // Serialize the next entry
-                        resolvers.push((
-                            key,
-                            pos,
-                            key.serialize(serializer)?,
-                        ));
+                        resolvers.push((key, pos, key.serialize(serializer)?));
 
                         // Estimate the block size
                         let estimated_block_size = serializer.pos() - block_start_pos
@@ -499,11 +496,7 @@ const _: () = {
                         let (key, pos) = iter.next().unwrap();
 
                         // Serialize the next entry
-                        resolvers.push((
-                            key,
-                            pos,
-                            key.serialize(serializer)?,
-                        ));
+                        resolvers.push((key, pos, key.serialize(serializer)?));
                     }
 
                     // The next item is the first node
@@ -522,16 +515,11 @@ const _: () = {
                     };
 
                     // Add the second key and node position to the next level
-                    next_level.push((
-                        first_key,
-                        serializer.resolve_aligned(&node_header, ())?,
-                    ));
+                    next_level.push((first_key, serializer.resolve_aligned(&node_header, ())?));
 
                     serializer.align_for::<InnerNodeEntry<K>>()?;
                     for (key, pos, resolver) in resolvers.drain(..).rev() {
-                        let inner_node_data = InnerNodeEntryData::<UK> {
-                            key,
-                        };
+                        let inner_node_data = InnerNodeEntryData::<UK> { key };
                         serializer.resolve_aligned(&inner_node_data, (pos, resolver))?;
                     }
                 }

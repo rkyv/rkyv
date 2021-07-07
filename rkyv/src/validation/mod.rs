@@ -255,11 +255,8 @@ pub trait SharedContext: Fallible {
     /// Registers the given `ptr` as a shared pointer with the given type.
     ///
     /// Returns `true` if the pointer was newly-registered and `check_bytes` should be called.
-    fn register_shared_ptr(
-        &mut self,
-        ptr: *const u8,
-        type_id: TypeId,
-    ) -> Result<bool, Self::Error>;
+    fn register_shared_ptr(&mut self, ptr: *const u8, type_id: TypeId)
+        -> Result<bool, Self::Error>;
 }
 
 /// Errors that can occur when checking an archive.

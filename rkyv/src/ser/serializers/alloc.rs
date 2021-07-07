@@ -1,29 +1,18 @@
 use crate::{
-    ser::{
-        serializers::BufferScratch,
-        ScratchSpace,
-        Serializer,
-        SharedSerializeRegistry,
-    },
-    AlignedBytes,
-    AlignedVec,
-    Archive,
-    ArchiveUnsized,
-    Fallible,
-    RelPtr,
-};
-use core::{
-    alloc::Layout,
-    borrow::{Borrow, BorrowMut},
-    convert::Infallible,
-    fmt,
-    mem,
-    ptr::NonNull,
+    ser::{serializers::BufferScratch, ScratchSpace, Serializer, SharedSerializeRegistry},
+    AlignedBytes, AlignedVec, Archive, ArchiveUnsized, Fallible, RelPtr,
 };
 #[cfg(not(feature = "std"))]
 use ::alloc::{alloc, boxed::Box, vec::Vec};
 #[cfg(feature = "std")]
 use ::std::alloc;
+use core::{
+    alloc::Layout,
+    borrow::{Borrow, BorrowMut},
+    convert::Infallible,
+    fmt, mem,
+    ptr::NonNull,
+};
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use hashbrown::hash_map;
 #[cfg(feature = "std")]
@@ -89,10 +78,7 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerial
         vec.reserve(additional);
         vec.set_len(vec.len() + additional);
 
-        let ptr = vec
-            .as_mut_ptr()
-            .add(pos)
-            .cast::<T::Archived>();
+        let ptr = vec.as_mut_ptr().add(pos).cast::<T::Archived>();
         ptr.write_bytes(0, 1);
         value.resolve(pos, resolver, ptr);
 
@@ -113,10 +99,7 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerial
         vec.reserve(additional);
         vec.set_len(vec.len() + additional);
 
-        let ptr = vec
-            .as_mut_ptr()
-            .add(from)
-            .cast::<RelPtr<T::Archived>>();
+        let ptr = vec.as_mut_ptr().add(from).cast::<RelPtr<T::Archived>>();
         ptr.write_bytes(0, 1);
 
         value.resolve_unsized(from, to, metadata_resolver, ptr);
@@ -203,7 +186,7 @@ impl fmt::Display for AllocScratchError {
                 "exceeded the maxmium limit of scratch space: requested {}, remaining {}",
                 requested, remaining
             ),
-            Self::NotPoppedInReverseOrder { 
+            Self::NotPoppedInReverseOrder {
                 expected,
                 expected_layout,
                 actual,
@@ -282,7 +265,7 @@ impl ScratchSpace for AllocScratch {
                 return Err(AllocScratchError::ExceededLimit {
                     requested: layout.size(),
                     remaining,
-                })
+                });
             }
         }
         let result_ptr = alloc::alloc(layout);
@@ -368,7 +351,9 @@ impl SharedSerializeRegistry for SharedSerializeMap {
 
     fn add_shared_ptr(&mut self, value: *const u8, pos: usize) -> Result<(), Self::Error> {
         match self.shared_resolvers.entry(value) {
-            hash_map::Entry::Occupied(_) => Err(SharedSerializeMapError::DuplicateSharedPointer(value)),
+            hash_map::Entry::Occupied(_) => {
+                Err(SharedSerializeMapError::DuplicateSharedPointer(value))
+            }
             hash_map::Entry::Vacant(e) => {
                 e.insert(pos);
                 Ok(())

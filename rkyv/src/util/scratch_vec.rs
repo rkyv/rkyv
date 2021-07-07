@@ -37,7 +37,10 @@ impl<T> ScratchVec<T> {
     /// - The vector must not outlive the given scratch space.
     /// - Vectors must be dropped in the reverse order they are allocated.
     #[inline]
-    pub unsafe fn new<S: ScratchSpace + ?Sized>(scratch_space: &mut S, capacity: usize) -> Result<Self, S::Error> {
+    pub unsafe fn new<S: ScratchSpace + ?Sized>(
+        scratch_space: &mut S,
+        capacity: usize,
+    ) -> Result<Self, S::Error> {
         let layout = Layout::array::<T>(capacity).unwrap();
         if layout.size() == 0 {
             Ok(Self {
@@ -66,7 +69,10 @@ impl<T> ScratchVec<T> {
     ///
     /// The given scratch space must be the same one used to allocate the scratch vec.
     #[inline]
-    pub unsafe fn free<S: ScratchSpace + ?Sized>(self, scratch_space: &mut S) -> Result<(), S::Error> {
+    pub unsafe fn free<S: ScratchSpace + ?Sized>(
+        self,
+        scratch_space: &mut S,
+    ) -> Result<(), S::Error> {
         let layout = self.layout();
         if layout.size() != 0 {
             let ptr = self.ptr.cast();
@@ -238,19 +244,17 @@ impl<T> ScratchVec<T> {
         let start: ops::Bound<&usize> = range.start_bound();
         let start = match start {
             ops::Bound::Included(&start) => start,
-            ops::Bound::Excluded(start) => {
-                start.checked_add(1)
-                    .unwrap_or_else(|| panic!("attempted to index slice from after maximum usize"))
-            }
+            ops::Bound::Excluded(start) => start
+                .checked_add(1)
+                .unwrap_or_else(|| panic!("attempted to index slice from after maximum usize")),
             ops::Bound::Unbounded => 0,
         };
 
         let end: ops::Bound<&usize> = range.end_bound();
         let end = match end {
-            ops::Bound::Included(end) => {
-                end.checked_add(1)
-                    .unwrap_or_else(|| panic!("attempted to index slice up to maximum usize"))
-            }
+            ops::Bound::Included(end) => end
+                .checked_add(1)
+                .unwrap_or_else(|| panic!("attempted to index slice up to maximum usize")),
             ops::Bound::Excluded(&end) => end,
             ops::Bound::Unbounded => len,
         };
@@ -259,7 +263,10 @@ impl<T> ScratchVec<T> {
             panic!("slice index starts at {} but ends at {}", start, end);
         }
         if end > len {
-            panic!("range start index {} out of range for slice of length {}", end, len);
+            panic!(
+                "range start index {} out of range for slice of length {}",
+                end, len
+            );
         }
 
         ops::Range { start, end }
@@ -416,7 +423,9 @@ impl<T> Iterator for Drain<'_, T> {
 
     #[inline]
     fn next(&mut self) -> Option<T> {
-        self.iter.next().map(|elt| unsafe { core::ptr::read(elt as *const _) })
+        self.iter
+            .next()
+            .map(|elt| unsafe { core::ptr::read(elt as *const _) })
     }
 
     #[inline]
@@ -428,7 +437,9 @@ impl<T> Iterator for Drain<'_, T> {
 impl<T> DoubleEndedIterator for Drain<'_, T> {
     #[inline]
     fn next_back(&mut self) -> Option<T> {
-        self.iter.next_back().map(|elt| unsafe { core::ptr::read(elt as *const _) })
+        self.iter
+            .next_back()
+            .map(|elt| unsafe { core::ptr::read(elt as *const _) })
     }
 }
 

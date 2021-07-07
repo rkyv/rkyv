@@ -5,7 +5,10 @@ use crate::{
     ser::{ScratchSpace, Serializer},
     Archive, Deserialize, Fallible, Serialize,
 };
-use core::{borrow::Borrow, hash::{BuildHasher, Hash}};
+use core::{
+    borrow::Borrow,
+    hash::{BuildHasher, Hash},
+};
 use std::collections::HashMap;
 
 impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>

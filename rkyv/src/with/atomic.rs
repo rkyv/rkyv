@@ -1,7 +1,6 @@
 use crate::{
-    Archived,
-    Fallible,
     with::{ArchiveWith, Atomic, DeserializeWith, SerializeWith, With},
+    Archived, Fallible,
 };
 #[cfg(has_atomics)]
 use core::sync::atomic::{
@@ -106,8 +105,16 @@ const _: () = {
         type Resolver = ();
 
         #[inline]
-        unsafe fn resolve_with(field: &AtomicUsize, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
-            (&*out).store(field.load(Ordering::Relaxed) as FixedUsize, Ordering::Relaxed);
+        unsafe fn resolve_with(
+            field: &AtomicUsize,
+            _: usize,
+            _: Self::Resolver,
+            out: *mut Self::Archived,
+        ) {
+            (&*out).store(
+                field.load(Ordering::Relaxed) as FixedUsize,
+                Ordering::Relaxed,
+            );
         }
     }
 
@@ -118,9 +125,15 @@ const _: () = {
         }
     }
 
-    impl<D: Fallible + ?Sized> DeserializeWith<<Self as ArchiveWith<FixedAtomicUsize>>::Archived, AtomicUsize, D> for Atomic {
+    impl<D: Fallible + ?Sized>
+        DeserializeWith<<Self as ArchiveWith<FixedAtomicUsize>>::Archived, AtomicUsize, D>
+        for Atomic
+    {
         #[inline]
-        fn deserialize_with(field: &<Self as ArchiveWith<FixedAtomicUsize>>::Archived, _: &mut D) -> Result<AtomicUsize, D::Error> {
+        fn deserialize_with(
+            field: &<Self as ArchiveWith<FixedAtomicUsize>>::Archived,
+            _: &mut D,
+        ) -> Result<AtomicUsize, D::Error> {
             Ok((field.load(Ordering::Relaxed) as usize).into())
         }
     }
@@ -145,8 +158,16 @@ const _: () = {
         type Resolver = ();
 
         #[inline]
-        unsafe fn resolve_with(field: &AtomicIsize, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
-            (&*out).store(field.load(Ordering::Relaxed) as FixedIsize, Ordering::Relaxed);
+        unsafe fn resolve_with(
+            field: &AtomicIsize,
+            _: usize,
+            _: Self::Resolver,
+            out: *mut Self::Archived,
+        ) {
+            (&*out).store(
+                field.load(Ordering::Relaxed) as FixedIsize,
+                Ordering::Relaxed,
+            );
         }
     }
 
@@ -157,9 +178,14 @@ const _: () = {
         }
     }
 
-    impl<D: Fallible + ?Sized> DeserializeWith<Archived<With<AtomicIsize, Self>>, AtomicIsize, D> for Atomic {
+    impl<D: Fallible + ?Sized> DeserializeWith<Archived<With<AtomicIsize, Self>>, AtomicIsize, D>
+        for Atomic
+    {
         #[inline]
-        fn deserialize_with(field: &Archived<With<AtomicIsize, Self>>, _: &mut D) -> Result<AtomicIsize, D::Error> {
+        fn deserialize_with(
+            field: &Archived<With<AtomicIsize, Self>>,
+            _: &mut D,
+        ) -> Result<AtomicIsize, D::Error> {
             Ok((field.load(Ordering::Relaxed) as isize).into())
         }
     }

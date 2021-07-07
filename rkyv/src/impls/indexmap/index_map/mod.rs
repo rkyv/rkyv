@@ -4,13 +4,13 @@ mod rkyv;
 
 use core::{borrow::Borrow, hash::Hash, iter::FusedIterator, marker::PhantomData};
 // TODO: remove this when scratch space serializers get added
-use alloc::vec::Vec;
 use crate::{
     collections::hash_index::{ArchivedHashIndex, HashBuilder, HashIndexResolver},
     out_field,
     ser::Serializer,
     Archive, Archived, RelPtr, Serialize,
 };
+use alloc::vec::Vec;
 use indexmap::IndexMap;
 
 #[cfg_attr(feature = "strict", repr(C))]

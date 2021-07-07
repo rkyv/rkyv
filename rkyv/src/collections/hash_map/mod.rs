@@ -11,7 +11,10 @@ use crate::{
     Archive, RelPtr,
 };
 #[cfg(feature = "alloc")]
-use crate::{ser::{ScratchSpace, Serializer}, Serialize};
+use crate::{
+    ser::{ScratchSpace, Serializer},
+    Serialize,
+};
 use core::{
     borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData, ops::Index, pin::Pin,
 };
@@ -253,21 +256,22 @@ const _: () = {
 
             let mut entries = ScratchVec::new(serializer, len)?;
             entries.set_len(len);
-            let index_resolver = ArchivedHashIndex::build_and_serialize(iter, serializer, &mut entries)?;
+            let index_resolver =
+                ArchivedHashIndex::build_and_serialize(iter, serializer, &mut entries)?;
             let mut entries = entries.assume_init();
 
             // Serialize entries
             let mut resolvers = ScratchVec::new(serializer, len)?;
             for (key, value) in entries.iter() {
-                resolvers.push((
-                    key.serialize(serializer)?,
-                    value.serialize(serializer)?,
-                ));
+                resolvers.push((key.serialize(serializer)?, value.serialize(serializer)?));
             }
 
             let entries_pos = serializer.align_for::<Entry<K, V>>()?;
-            for ((key, value), (key_resolver, value_resolver)) in entries.drain(..).zip(resolvers.drain(..)) {
-                serializer.resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
+            for ((key, value), (key_resolver, value_resolver)) in
+                entries.drain(..).zip(resolvers.drain(..))
+            {
+                serializer
+                    .resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
             }
 
             // Free scratch vecs

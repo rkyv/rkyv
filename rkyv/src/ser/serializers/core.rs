@@ -1,4 +1,7 @@
-use crate::{ser::{ScratchSpace, Serializer}, Fallible};
+use crate::{
+    ser::{ScratchSpace, Serializer},
+    Fallible,
+};
 use core::{
     alloc::Layout,
     fmt,
@@ -23,11 +26,15 @@ pub enum BufferSerializerError {
 impl fmt::Display for BufferSerializerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Overflow { pos, bytes_needed, archive_len } => write!(
+            Self::Overflow {
+                pos,
+                bytes_needed,
+                archive_len,
+            } => write!(
                 f,
                 "writing has overflowed the serializer buffer: pos {}, needed {}, total length {}",
                 pos, bytes_needed, archive_len
-            )
+            ),
         }
     }
 }
@@ -183,9 +190,14 @@ impl fmt::Display for FixedSizeScratchError {
             Self::OutOfScratch(layout) => write!(
                 f,
                 "out of scratch: requested scratch space with size {} and align {}",
-                layout.size(), layout.align()
+                layout.size(),
+                layout.align()
             ),
-            Self::NotPoppedInReverseOrder { pos, next_pos, next_size } => write!(
+            Self::NotPoppedInReverseOrder {
+                pos,
+                next_pos,
+                next_size,
+            } => write!(
                 f,
                 "scratch space was not popped in reverse order: pos {}, next pos {}, next size {}",
                 pos, next_pos, next_size
@@ -207,10 +219,7 @@ pub struct BufferScratch<T> {
 impl<T> BufferScratch<T> {
     /// Creates a new buffer scratch allocator.
     pub fn new(buffer: T) -> Self {
-        Self {
-            buffer,
-            pos: 0,
-        }
+        Self { buffer, pos: 0 }
     }
 
     /// Resets the scratch space to its initial state.
@@ -246,7 +255,10 @@ impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace for BufferScratch<T> 
         };
         if pad + layout.size() <= bytes.len() - self.pos {
             self.pos += pad;
-            let result_slice = ptr_meta::from_raw_parts_mut(bytes.as_mut_ptr().add(self.pos).cast(), layout.size());
+            let result_slice = ptr_meta::from_raw_parts_mut(
+                bytes.as_mut_ptr().add(self.pos).cast(),
+                layout.size(),
+            );
             let result = NonNull::new_unchecked(result_slice);
             self.pos += layout.size();
             Ok(result)
@@ -287,10 +299,7 @@ pub struct FallbackScratch<M, F> {
 impl<M, F> FallbackScratch<M, F> {
     /// Creates fallback scratch from a main and backup scratch.
     pub fn new(main: M, fallback: F) -> Self {
-        Self {
-            main,
-            fallback,
-        }
+        Self { main, fallback }
     }
 }
 
@@ -310,13 +319,15 @@ impl<M, F: Fallible> Fallible for FallbackScratch<M, F> {
 impl<M: ScratchSpace, F: ScratchSpace> ScratchSpace for FallbackScratch<M, F> {
     #[inline]
     unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error> {
-        self.main.push_scratch(layout)
+        self.main
+            .push_scratch(layout)
             .or_else(|_| self.fallback.push_scratch(layout))
     }
 
     #[inline]
     unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error> {
-        self.main.pop_scratch(ptr, layout)
+        self.main
+            .pop_scratch(ptr, layout)
             .or_else(|_| self.fallback.pop_scratch(ptr, layout))
     }
 }

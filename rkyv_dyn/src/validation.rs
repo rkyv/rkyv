@@ -4,7 +4,14 @@ use crate::{ArchivedDynMetadata, RegisteredImpl, IMPL_REGISTRY};
 use bytecheck::CheckBytes;
 #[cfg(feature = "vtable_cache")]
 use core::sync::atomic::{AtomicU64, Ordering};
-use core::{alloc::Layout, any::{Any, TypeId}, convert::Infallible, fmt, marker::PhantomData, ptr};
+use core::{
+    alloc::Layout,
+    any::{Any, TypeId},
+    convert::Infallible,
+    fmt,
+    marker::PhantomData,
+    ptr,
+};
 use rkyv::{
     from_archived,
     validation::{ArchiveContext, SharedContext},
@@ -83,7 +90,7 @@ pub trait DynContext {
     ///
     /// [`pop_prefix_range`]: rkyv::validation::ArchiveContext::pop_prefix_range
     fn pop_prefix_range_dyn(&mut self, range: Box<dyn Any>) -> Result<(), Box<dyn Error>>;
-    
+
     /// Pushes a new subtree range onto the validator and starts validating it.
     ///
     /// See [`push_suffix_subtree_range`] for more information.
@@ -188,8 +195,7 @@ where
     }
 
     fn finish_dyn(&mut self) -> Result<(), Box<dyn Error>> {
-        self.finish()
-            .map_err(|e| Box::new(e) as Box<dyn Error>)
+        self.finish().map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 
     fn register_shared_ptr_dyn(
