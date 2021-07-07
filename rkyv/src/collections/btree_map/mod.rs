@@ -16,8 +16,8 @@ use core::{
 use ptr_meta::Pointee;
 
 #[cfg_attr(feature = "strict", repr(C))]
-struct InnerNodeEntry<K, V> {
-    ptr: RelPtr<RawNode<K, V>>,
+struct InnerNodeEntry<K> {
+    ptr: RelPtr<NodeHeader>,
     key: K,
 }
 
@@ -41,17 +41,16 @@ impl<'a, UK: Archive, UV: Archive> Archive for LeafNodeEntry<&'a UK, &'a UV> {
 }
 
 #[cfg_attr(feature = "strict", repr(C))]
-struct Node<K, V, T: ?Sized> {
+struct NodeHeader {
     meta: Archived<u16>,
     size: Archived<usize>,
     // For leaf nodes, this points to the next leaf node in order
     // For inner nodes, this points to the node in the next layer that's less than the first key in
     // this node
-    ptr: RelPtr<RawNode<K, V>>,
-    tail: T,
+    ptr: RelPtr<NodeHeader>,
 }
 
-impl<K, V, T> Node<K, V, T> {
+impl NodeHeader {
     #[inline]
     fn is_inner(&self) -> bool {
         split_meta(from_archived!(self.meta)).0
@@ -83,11 +82,17 @@ fn split_meta(meta: u16) -> (bool, usize) {
     (meta & 0x80_00 == 0x80_00, (meta & 0x7F_FF) as usize)
 }
 
-impl<K, V, T> Pointee for Node<K, V, [T]> {
+#[cfg_attr(feature = "strict", repr(C))]
+struct Node<T: ?Sized> {
+    header: NodeHeader,
+    tail: T,
+}
+
+impl<T> Pointee for Node<[T]> {
     type Metadata = usize;
 }
 
-impl<K, V, T> ArchivePointee for Node<K, V, [T]> {
+impl<T> ArchivePointee for Node<[T]> {
     type ArchivedMetadata = Archived<usize>;
 
     #[inline]
@@ -96,19 +101,17 @@ impl<K, V, T> ArchivePointee for Node<K, V, [T]> {
     }
 }
 
-type RawNode<K, V> = Node<K, V, ()>;
-type InnerNode<K, V> = Node<K, V, [InnerNodeEntry<K, V>]>;
-type LeafNode<K, V> = Node<K, V, [LeafNodeEntry<K, V>]>;
+type InnerNode<K> = Node<[InnerNodeEntry<K>]>;
+type LeafNode<K, V> = Node<[LeafNodeEntry<K, V>]>;
 
-struct RawNodeData<K, V> {
+struct NodeHeaderData {
     meta: u16,
     size: usize,
     pos: Option<usize>,
-    _phantom: PhantomData<(K, V)>,
 }
 
-impl<K, V> Archive for RawNodeData<K, V> {
-    type Archived = RawNode<K, V>;
+impl Archive for NodeHeaderData {
+    type Archived = NodeHeader;
     type Resolver = ();
 
     #[inline]
@@ -124,13 +127,12 @@ impl<K, V> Archive for RawNodeData<K, V> {
     }
 }
 
-struct InnerNodeEntryData<'a, UK, UV> {
+struct InnerNodeEntryData<'a, UK> {
     key: &'a UK,
-    _phantom: PhantomData<UV>,
 }
 
-impl<'a, UK: Archive, UV: Archive> Archive for InnerNodeEntryData<'a, UK, UV> {
-    type Archived = InnerNodeEntry<UK::Archived, UV::Archived>;
+impl<'a, UK: Archive> Archive for InnerNodeEntryData<'a, UK> {
+    type Archived = InnerNodeEntry<UK::Archived>;
     type Resolver = (usize, UK::Resolver);
 
     #[inline]
@@ -143,13 +145,13 @@ impl<'a, UK: Archive, UV: Archive> Archive for InnerNodeEntryData<'a, UK, UV> {
 }
 
 enum ClassifiedNode<'a, K, V> {
-    Inner(&'a InnerNode<K, V>),
+    Inner(&'a InnerNode<K>),
     Leaf(&'a LeafNode<K, V>),
 }
 
-impl<K, V> RawNode<K, V> {
+impl NodeHeader {
     #[inline]
-    fn classify(&self) -> ClassifiedNode<'_, K, V> {
+    fn classify<K, V>(&self) -> ClassifiedNode<'_, K, V> {
         if self.is_inner() {
             ClassifiedNode::Inner(self.classify_inner())
         } else {
@@ -158,23 +160,23 @@ impl<K, V> RawNode<K, V> {
     }
 
     #[inline]
-    fn classify_inner_ptr(&self) -> *const InnerNode<K, V> {
+    fn classify_inner_ptr<K>(&self) -> *const InnerNode<K> {
         ptr_meta::from_raw_parts(self as *const Self as *const (), self.len() as usize)
     }
 
     #[inline]
-    fn classify_inner(&self) -> &'_ InnerNode<K, V> {
+    fn classify_inner<K>(&self) -> &'_ InnerNode<K> {
         debug_assert!(self.is_inner());
         unsafe { &*self.classify_inner_ptr() }
     }
 
     #[inline]
-    fn classify_leaf_ptr(&self) -> *const LeafNode<K, V> {
+    fn classify_leaf_ptr<K, V>(&self) -> *const LeafNode<K, V> {
         ptr_meta::from_raw_parts(self as *const Self as *const (), self.len() as usize)
     }
 
     #[inline]
-    fn classify_leaf(&self) -> &'_ LeafNode<K, V> {
+    fn classify_leaf<K, V>(&self) -> &'_ LeafNode<K, V> {
         debug_assert!(self.is_leaf());
         unsafe { &*self.classify_leaf_ptr() }
     }
@@ -184,7 +186,8 @@ impl<K, V> RawNode<K, V> {
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedBTreeMap<K, V> {
     len: Archived<usize>,
-    root: RelPtr<RawNode<K, V>>,
+    root: RelPtr<NodeHeader>,
+    _phantom: PhantomData<(K, V)>,
 }
 
 /// The resolver for an [`ArchivedBTreeMap`].
@@ -213,7 +216,7 @@ impl<K, V> ArchivedBTreeMap<K, V> {
     fn first(&self) -> &LeafNode<K, V> {
         let mut node = self.root();
         while let ClassifiedNode::Inner(inner) = node {
-            let next = unsafe { &*inner.ptr.as_ptr() };
+            let next = unsafe { &*inner.header.ptr.as_ptr() };
             node = next.classify();
         }
         match node {
@@ -265,7 +268,7 @@ impl<K, V> ArchivedBTreeMap<K, V> {
                         }
                         Err(i) => {
                             if i == 0 {
-                                unsafe { &*node.ptr.as_ptr() }
+                                unsafe { &*node.header.ptr.as_ptr() }
                             } else {
                                 unsafe { &*node.tail[i - 1].ptr.as_ptr() }
                             }
@@ -395,7 +398,7 @@ const _: () = {
                     // This is an estimate of the block size
                     // It's not exact because there may be padding to align the node and entries slice
                     let estimated_block_size = serializer.pos() - block_start_pos
-                        + mem::size_of::<RawNode<K, V>>()
+                        + mem::size_of::<NodeHeader>()
                         + resolvers.len() * mem::size_of::<LeafNodeEntry<K, V>>();
 
                     // If we've reached or exceeded the maximum node size and have put enough entries in
@@ -421,15 +424,14 @@ const _: () = {
 
                 // Finish the current node
                 serializer.align(usize::max(
-                    mem::align_of::<RawNode<K, V>>(),
+                    mem::align_of::<NodeHeader>(),
                     mem::align_of::<LeafNodeEntry<K, V>>(),
                 ))?;
-                let raw_node = RawNodeData::<K, V> {
+                let raw_node = NodeHeaderData {
                     meta: combine_meta(false, resolvers.len()),
                     size: serializer.pos() - block_start_pos,
                     // The last element of next_level is the next block we're linked to
                     pos: next_level.last().map(|&(_, pos)| pos),
-                    _phantom: PhantomData,
                 };
 
                 // Add the first key and node position to the next level
@@ -474,8 +476,8 @@ const _: () = {
 
                         // Estimate the block size
                         let estimated_block_size = serializer.pos() - block_start_pos
-                            + mem::size_of::<RawNode<K, V>>()
-                            + resolvers.len() * mem::size_of::<InnerNodeEntry<K, V>>();
+                            + mem::size_of::<NodeHeader>()
+                            + resolvers.len() * mem::size_of::<InnerNodeEntry<K>>();
 
                         // If we've reached or exceeded the maximum node size and have put enough keys
                         // in this node, then break
@@ -509,28 +511,26 @@ const _: () = {
 
                     // Finish the current node
                     serializer.align(usize::max(
-                        mem::align_of::<RawNode<K, V>>(),
-                        mem::align_of::<InnerNodeEntry<K, V>>(),
+                        mem::align_of::<NodeHeaderData>(),
+                        mem::align_of::<InnerNodeEntry<K>>(),
                     ))?;
-                    let raw_node = RawNodeData::<K, V> {
+                    let node_header = NodeHeaderData {
                         meta: combine_meta(true, resolvers.len()),
                         size: serializer.pos() - block_start_pos,
                         // The pos of the first key is used to make the pointer for inner nodes
                         pos: Some(first_pos),
-                        _phantom: PhantomData,
                     };
 
                     // Add the second key and node position to the next level
                     next_level.push((
                         first_key,
-                        serializer.resolve_aligned(&raw_node, ())?,
+                        serializer.resolve_aligned(&node_header, ())?,
                     ));
 
-                    serializer.align_for::<InnerNodeEntry<K, V>>()?;
+                    serializer.align_for::<InnerNodeEntry<K>>()?;
                     for (key, pos, resolver) in resolvers.drain(..).rev() {
-                        let inner_node_data = InnerNodeEntryData::<UK, UV> {
+                        let inner_node_data = InnerNodeEntryData::<UK> {
                             key,
-                            _phantom: PhantomData,
                         };
                         serializer.resolve_aligned(&inner_node_data, (pos, resolver))?;
                     }
@@ -638,7 +638,7 @@ impl<'a, K, V> Iterator for RawIter<'a, K, V> {
         } else {
             if self.index == self.leaf.tail.len() {
                 self.index = 0;
-                let next = unsafe { &*self.leaf.ptr.as_ptr() };
+                let next = unsafe { &*self.leaf.header.ptr.as_ptr() };
                 self.leaf = next.classify_leaf();
             }
             let result = &self.leaf.tail[self.index];

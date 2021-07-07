@@ -1,13 +1,11 @@
 use crate::{
     Archived,
     Fallible,
-    FixedIsize,
-    FixedUsize,
     with::{ArchiveWith, Atomic, DeserializeWith, SerializeWith, With},
 };
 #[cfg(has_atomics)]
 use core::sync::atomic::{
-    AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicIsize, AtomicU16, AtomicU32, AtomicU8, AtomicUsize, Ordering,
+    AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicU16, AtomicU32, AtomicU8, Ordering,
 };
 #[cfg(has_atomics_64)]
 use core::sync::atomic::{AtomicI64, AtomicU64};
@@ -90,57 +88,79 @@ impl_atomic!(@multibyte AtomicU32);
 impl_atomic!(@multibyte AtomicU64);
 
 // AtomicUsize
+#[cfg(has_atomics)]
+// We can't implement Archive for AtomicUsize if the platform does not have 64-bit atomics but the
+// size type is 64-bit
+#[cfg(any(has_atomics_64, not(feature = "size_64")))]
+const _: () = {
+    use crate::FixedUsize;
+    use core::sync::atomic::AtomicUsize;
 
-type FixedAtomicUsize = pick_size_type!(AtomicU16, AtomicU32, AtomicU64);
+    #[cfg(not(has_atomics_64))]
+    type FixedAtomicUsize = pick_size_type!(AtomicU16, AtomicU32, ());
+    #[cfg(has_atomics_64)]
+    type FixedAtomicUsize = pick_size_type!(AtomicU16, AtomicU32, AtomicU64);
 
-impl ArchiveWith<AtomicUsize> for Atomic {
-    type Archived = Archived<With<FixedAtomicUsize, Self>>;
-    type Resolver = ();
+    impl ArchiveWith<AtomicUsize> for Atomic {
+        type Archived = Archived<With<FixedAtomicUsize, Self>>;
+        type Resolver = ();
 
-    #[inline]
-    unsafe fn resolve_with(field: &AtomicUsize, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
-        (&*out).store(field.load(Ordering::Relaxed) as FixedUsize, Ordering::Relaxed);
+        #[inline]
+        unsafe fn resolve_with(field: &AtomicUsize, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
+            (&*out).store(field.load(Ordering::Relaxed) as FixedUsize, Ordering::Relaxed);
+        }
     }
-}
 
-impl<S: Fallible + ?Sized> SerializeWith<AtomicUsize, S> for Atomic {
-    #[inline]
-    fn serialize_with(_: &AtomicUsize, _: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(())
+    impl<S: Fallible + ?Sized> SerializeWith<AtomicUsize, S> for Atomic {
+        #[inline]
+        fn serialize_with(_: &AtomicUsize, _: &mut S) -> Result<Self::Resolver, S::Error> {
+            Ok(())
+        }
     }
-}
 
-impl<D: Fallible + ?Sized> DeserializeWith<<Self as ArchiveWith<FixedAtomicUsize>>::Archived, AtomicUsize, D> for Atomic {
-    #[inline]
-    fn deserialize_with(field: &<Self as ArchiveWith<FixedAtomicUsize>>::Archived, _: &mut D) -> Result<AtomicUsize, D::Error> {
-        Ok((field.load(Ordering::Relaxed) as usize).into())
+    impl<D: Fallible + ?Sized> DeserializeWith<<Self as ArchiveWith<FixedAtomicUsize>>::Archived, AtomicUsize, D> for Atomic {
+        #[inline]
+        fn deserialize_with(field: &<Self as ArchiveWith<FixedAtomicUsize>>::Archived, _: &mut D) -> Result<AtomicUsize, D::Error> {
+            Ok((field.load(Ordering::Relaxed) as usize).into())
+        }
     }
-}
+};
 
 // AtomicIsize
+#[cfg(has_atomics)]
+// We can't implement Archive for AtomicIsize if the platform does not have 64-bit atomics but the
+// size type is 64-bit
+#[cfg(any(has_atomics_64, not(feature = "size_64")))]
+const _: () = {
+    use crate::FixedIsize;
+    use core::sync::atomic::AtomicIsize;
 
-type FixedAtomicIsize = pick_size_type!(AtomicI16, AtomicI32, AtomicI64);
+    #[cfg(not(has_atomics_64))]
+    type FixedAtomicIsize = pick_size_type!(AtomicI16, AtomicI32, ());
+    #[cfg(has_atomics_64)]
+    type FixedAtomicIsize = pick_size_type!(AtomicI16, AtomicI32, AtomicI64);
 
-impl ArchiveWith<AtomicIsize> for Atomic {
-    type Archived = Archived<With<FixedAtomicIsize, Self>>;
-    type Resolver = ();
+    impl ArchiveWith<AtomicIsize> for Atomic {
+        type Archived = Archived<With<FixedAtomicIsize, Self>>;
+        type Resolver = ();
 
-    #[inline]
-    unsafe fn resolve_with(field: &AtomicIsize, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
-        (&*out).store(field.load(Ordering::Relaxed) as FixedIsize, Ordering::Relaxed);
+        #[inline]
+        unsafe fn resolve_with(field: &AtomicIsize, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
+            (&*out).store(field.load(Ordering::Relaxed) as FixedIsize, Ordering::Relaxed);
+        }
     }
-}
 
-impl<S: Fallible + ?Sized> SerializeWith<AtomicIsize, S> for Atomic {
-    #[inline]
-    fn serialize_with(_: &AtomicIsize, _: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(())
+    impl<S: Fallible + ?Sized> SerializeWith<AtomicIsize, S> for Atomic {
+        #[inline]
+        fn serialize_with(_: &AtomicIsize, _: &mut S) -> Result<Self::Resolver, S::Error> {
+            Ok(())
+        }
     }
-}
 
-impl<D: Fallible + ?Sized> DeserializeWith<Archived<With<AtomicIsize, Self>>, AtomicIsize, D> for Atomic {
-    #[inline]
-    fn deserialize_with(field: &Archived<With<AtomicIsize, Self>>, _: &mut D) -> Result<AtomicIsize, D::Error> {
-        Ok((field.load(Ordering::Relaxed) as isize).into())
+    impl<D: Fallible + ?Sized> DeserializeWith<Archived<With<AtomicIsize, Self>>, AtomicIsize, D> for Atomic {
+        #[inline]
+        fn deserialize_with(field: &Archived<With<AtomicIsize, Self>>, _: &mut D) -> Result<AtomicIsize, D::Error> {
+            Ok((field.load(Ordering::Relaxed) as isize).into())
+        }
     }
-}
+};

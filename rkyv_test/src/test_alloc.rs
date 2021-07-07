@@ -1468,8 +1468,11 @@ mod tests {
     }
 
     #[test]
+    // This test is unfortunately too slow to run through miri
     #[cfg_attr(miri, ignore)]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    // This test creates structures too big to fit in 16-bit offsets
+    #[cfg(not(feature = "size_16"))]
     fn archive_btree_map_large() {
         let mut value = BTreeMap::new();
         for i in 0..100_000 {

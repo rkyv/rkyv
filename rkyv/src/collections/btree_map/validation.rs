@@ -2,16 +2,15 @@
 
 use super::{
     ArchivedBTreeMap, ClassifiedNode, InnerNode, InnerNodeEntry, LeafNode, LeafNodeEntry, Node,
-    RawNode, MIN_ENTRIES_PER_INNER_NODE, MIN_ENTRIES_PER_LEAF_NODE,
+    NodeHeader, MIN_ENTRIES_PER_INNER_NODE, MIN_ENTRIES_PER_LEAF_NODE,
 };
 use crate::{Archived, Fallible, rel_ptr::RelPtr, validation::{ArchiveContext, LayoutRaw}};
 use bytecheck::{CheckBytes, Error};
 use core::{alloc::Layout, convert::{Infallible, TryFrom}, fmt, ptr};
 
-impl<K, V, C> CheckBytes<C> for InnerNodeEntry<K, V>
+impl<K, C> CheckBytes<C> for InnerNodeEntry<K>
 where
     K: CheckBytes<C>,
-    V: CheckBytes<C>,
     C: ArchiveContext + ?Sized,
     C::Error: Error,
 {
@@ -230,10 +229,10 @@ const _: () = {
     }
 };
 
-impl<K, V, T> LayoutRaw for Node<K, V, [T]> {
+impl<T> LayoutRaw for Node<[T]> {
     fn layout_raw(value: *const Self) -> Layout {
         let len = ptr_meta::metadata(value);
-        let result = Layout::new::<RawNode<K, V>>()
+        let result = Layout::new::<NodeHeader>()
             .extend(Layout::array::<T>(len).unwrap())
             .unwrap()
             .0;
@@ -248,17 +247,18 @@ impl<K, V, T> LayoutRaw for Node<K, V, [T]> {
     }
 }
 
-impl<K, V, C> CheckBytes<C> for RawNode<K, V>
-where
-    K: CheckBytes<C>,
-    V: CheckBytes<C>,
-    C: ArchiveContext + ?Sized,
-    C::Error: Error,
-{
-    type Error = ArchivedBTreeMapError<K::Error, V::Error, C::Error>;
-
+impl NodeHeader {
     #[inline]
-    unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+    unsafe fn manual_check_bytes<'a, K, V, C>(
+        value: *const Self,
+        context: &mut C,
+    ) -> Result<&'a Self, ArchivedBTreeMapError<K::Error, V::Error, C::Error>>
+    where
+        K: CheckBytes<C>,
+        V: CheckBytes<C>,
+        C: ArchiveContext + ?Sized,
+        C::Error: Error,
+    {
         CheckBytes::check_bytes(ptr::addr_of!((*value).meta), context)?;
         CheckBytes::check_bytes(ptr::addr_of!((*value).size), context)?;
         RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context)?;
@@ -278,9 +278,9 @@ where
         let range = context.push_suffix_subtree_range(start, root)
             .map_err(ArchivedBTreeMapError::ContextError)?;
         if raw_node.is_inner() {
-            CheckBytes::check_bytes(raw_node.classify_inner_ptr(), context)?;
+            InnerNode::manual_check_bytes::<V, C>(raw_node.classify_inner_ptr::<K>(), context)?;
         } else {
-            CheckBytes::check_bytes(raw_node.classify_leaf_ptr(), context)?;
+            CheckBytes::check_bytes(raw_node.classify_leaf_ptr::<K, V>(), context)?;
         }
         context.pop_suffix_range(range)
             .map_err(ArchivedBTreeMapError::ContextError)?;
@@ -289,18 +289,18 @@ where
     }
 }
 
-impl<K, V> InnerNode<K, V> {
+impl<K> InnerNode<K> {
     #[allow(clippy::type_complexity)]
-    fn verify_integrity<C>(&self) -> Result<&K, ArchivedBTreeMapError<K::Error, V::Error, C::Error>>
+    fn verify_integrity<'a, V, C>(&'a self) -> Result<&K, ArchivedBTreeMapError<K::Error, V::Error, C::Error>>
     where
         K: CheckBytes<C> + PartialEq,
-        V: CheckBytes<C>,
+        V: CheckBytes<C> + 'a,
         C: Fallible + ?Sized,
     {
         for entry in self.tail.iter() {
-            let child = unsafe { &*entry.ptr.as_ptr() }.classify();
+            let child = unsafe { &*entry.ptr.as_ptr() }.classify::<K, V>();
             let first_key = match child {
-                ClassifiedNode::Inner(c) => c.verify_integrity()?,
+                ClassifiedNode::Inner(c) => c.verify_integrity::<V, C>()?,
                 ClassifiedNode::Leaf(c) => &c.tail[0].key,
             };
             if !entry.key.eq(first_key) {
@@ -308,27 +308,26 @@ impl<K, V> InnerNode<K, V> {
             }
         }
 
-        let least_child = unsafe { &*self.ptr.as_ptr() }.classify();
+        let least_child = unsafe { &*self.header.ptr.as_ptr() }.classify::<K, V>();
         let first_key = match least_child {
-            ClassifiedNode::Inner(c) => c.verify_integrity()?,
+            ClassifiedNode::Inner(c) => c.verify_integrity::<V, C>()?,
             ClassifiedNode::Leaf(c) => &c.tail[0].key,
         };
 
         Ok(first_key)
     }
-}
-
-impl<K, V, C> CheckBytes<C> for InnerNode<K, V>
-where
-    K: CheckBytes<C>,
-    V: CheckBytes<C>,
-    C: ArchiveContext + ?Sized,
-    C::Error: Error,
-{
-    type Error = ArchivedBTreeMapError<K::Error, V::Error, C::Error>;
 
     #[inline]
-    unsafe fn check_bytes<'a>(value: *const Self, context: &mut C) -> Result<&'a Self, Self::Error> {
+    unsafe fn manual_check_bytes<'a, V, C>(
+        value: *const Self,
+        context: &mut C,
+    ) -> Result<&'a Self, ArchivedBTreeMapError<K::Error, V::Error, C::Error>>
+    where
+        K: CheckBytes<C>,
+        V: CheckBytes<C>,
+        C: ArchiveContext + ?Sized,
+        C::Error: Error,
+    {
         // meta, size, and ptr have already been checked by the check_bytes for RawNode
         let len = ptr_meta::metadata(value);
 
@@ -339,7 +338,7 @@ where
         }
 
         // The subtree range has already been set up for us so we can just check our tail
-        let tail_ptr = ptr::addr_of!((*value).tail) as *const InnerNodeEntry<K, V>;
+        let tail_ptr = ptr::addr_of!((*value).tail) as *const InnerNodeEntry<K>;
         for index in (0..len).rev() {
             CheckBytes::check_bytes(tail_ptr.add(index), context)
                 .map_err(|inner| ArchivedBTreeMapError::CheckInnerNodeEntryError {
@@ -413,7 +412,7 @@ where
         let root_ptr = context
             .check_subtree_rel_ptr(root_rel_ptr)
             .map_err(ArchivedBTreeMapError::ContextError)?;
-        let root = Node::check_bytes(root_ptr, context)?;
+        let root = NodeHeader::manual_check_bytes::<K, V, C>(root_ptr, context)?;
         nodes.push_back((root, 0));
 
         while let Some(&(node, depth)) = nodes.front() {
@@ -422,12 +421,12 @@ where
                 break;
             }
             nodes.pop_front();
-            let inner = node.classify_inner();
+            let inner = node.classify_inner::<K>();
 
             let child_ptr = context
-                .check_subtree_rel_ptr(&inner.ptr)
+                .check_subtree_rel_ptr(&inner.header.ptr)
                 .map_err(ArchivedBTreeMapError::ContextError)?;
-            let child = Node::check_bytes(child_ptr, context)?;
+            let child = NodeHeader::manual_check_bytes::<K, V, C>(child_ptr, context)?;
             nodes.push_back((child, depth + 1));
 
             // The invariant that this node contains keys less than the first key of this node will
@@ -436,7 +435,7 @@ where
                 let child_ptr = context
                     .check_subtree_rel_ptr(&entry.ptr)
                     .map_err(ArchivedBTreeMapError::ContextError)?;
-                let child = Node::check_bytes(child_ptr, context)?;
+                let child = NodeHeader::manual_check_bytes::<K, V, C>(child_ptr, context)?;
                 nodes.push_back((child, depth + 1));
             }
         }
@@ -447,7 +446,7 @@ where
             if !node.is_leaf() {
                 return Err(ArchivedBTreeMapError::InnerNodeInLeafLevel);
             }
-            let leaf = node.classify_leaf();
+            let leaf = node.classify_leaf::<K, V>();
 
             // Leaf nodes must all be the same depth
             let expected_depth = nodes.front().unwrap().1;
@@ -468,7 +467,7 @@ where
             // And they must link together in sorted order
             if i < nodes.len() - 1 {
                 let next_ptr = context
-                    .check_rel_ptr(&leaf.ptr)
+                    .check_rel_ptr(&leaf.header.ptr)
                     .map_err(ArchivedBTreeMapError::ContextError)?;
                 let next_node = nodes[i + 1].0.classify_leaf();
 
@@ -480,7 +479,7 @@ where
                 }
             } else {
                 // The last node must have a null pointer forward
-                if !leaf.ptr.is_null() {
+                if !leaf.header.ptr.is_null() {
                     return Err(ArchivedBTreeMapError::LastLeafForwardPointerNotNull);
                 }
             }
@@ -499,7 +498,7 @@ where
 
         // Make sure that inner nodes are constructed appropriately
         if root.is_inner() {
-            root.classify_inner().verify_integrity()?;
+            root.classify_inner::<K>().verify_integrity::<V, C>()?;
         }
 
         Ok(&*value)

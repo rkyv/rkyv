@@ -12,8 +12,7 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bytecheck::{CheckBytes, Error};
-    use core::fmt;
+    use bytecheck::CheckBytes;
     use rkyv::{
         check_archived_root, check_archived_value,
         ser::Serializer,
@@ -111,8 +110,7 @@ mod tests {
             1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // Some + padding
             // points 24 bytes backward
             0xe8u8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8,
-            11u8, 0u8, 0u8, 0u8, // string is 11 characters long
-            0u8, 0u8, 0u8, 0u8, // padding
+            11u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // string is 11 characters long
         ]);
 
         #[cfg(feature = "size_64")]
@@ -122,14 +120,13 @@ mod tests {
         ))]
         // Synthetic archive (correct)
         let synthetic_buf = AlignedBytes([
-            // "Hello world"
-            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
-            0u8, 0u8, 0u8, 0u8, 0u8, // padding to 8-alignment
+            // "Hello world!!!!!" because otherwise the string will get inlined
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f,
+            0x72, 0x6c, 0x64, 0x21, 0x21, 0x21, 0x21, 0x21,
             1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // Some + padding
             // points 24 bytes backward
             0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xe8u8,
-            0u8, 0u8, 0u8, 11u8, // string is 11 characters long
-            0u8, 0u8, 0u8, 0u8, // padding
+            0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 11u8, // string is 11 characters long
         ]);
 
         let result = check_archived_root::<Option<Box<[u8]>>>(synthetic_buf.as_ref());
@@ -210,6 +207,9 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn cycle_detection() {
+        use core::fmt;
+        use bytecheck::Error;
+
         use rkyv::{
             validation::ArchiveContext,
             Archived,
@@ -424,9 +424,11 @@ mod tests {
         check_archived_root::<BTreeMap<String, i32>>(buf.as_ref()).unwrap();
     }
 
-    // This test is unfortunately too slow to run through miri
     #[test]
+    // This test is unfortunately too slow to run through miri
     #[cfg_attr(miri, ignore)]
+    // This test creates structures too big to fit in 16-bit offsets
+    #[cfg(not(feature = "size_16"))]
     fn check_b_tree_large() {
         #[cfg(all(feature = "alloc", not(feature = "std")))]
         use alloc::collections::BTreeMap;

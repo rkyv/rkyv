@@ -1,10 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::util::alloc::*;
-    use std::collections::{
-        HashMap,
-        HashSet,
-    };
+    use std::collections::HashMap;
     use rkyv::{
         archived_root,
         ser::Serializer,
@@ -250,7 +247,12 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    // Don't run these tests with non-native endianness because ArchivedHashMap won't have
+    // PartialEq<HashMap>
+    #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
     fn archive_zst_containers() {
+        use std::collections::HashSet;
+
         #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
         #[archive_attr(derive(Debug))]
