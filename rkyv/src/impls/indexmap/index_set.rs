@@ -77,8 +77,7 @@ mod tests {
             assert_eq!(k, ak);
         }
 
-        let deserialized =
-            Deserialize::<IndexSet<String>, _>::deserialize(archived, &mut Infallible).unwrap();
+        let deserialized: IndexSet<String> = archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 }

@@ -91,9 +91,7 @@ mod tests {
             assert_eq!(v, av);
         }
 
-        let deserialized =
-            Deserialize::<IndexMap<String, i32>, _>::deserialize(archived, &mut Infallible)
-                .unwrap();
+        let deserialized: IndexMap<String, i32> = archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 }

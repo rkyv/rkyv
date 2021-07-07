@@ -159,10 +159,7 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 /// // ... and the unwrapped field has not
 /// assert_eq!(archived.b, 9);
 ///
-/// let deserialized = Deserialize::<Example, _>::deserialize(
-///     archived,
-///     &mut Infallible,
-/// ).unwrap();
+/// let deserialized: Example = archived.deserialize(&mut Infallible).unwrap();
 /// // The wrapped field is back to normal
 /// assert_eq!(deserialized.a, 4);
 /// // ... and the unwrapped field is unchanged

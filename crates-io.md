@@ -72,9 +72,7 @@ let value = Test {
 };
 
 let mut serializer = AllocSerializer::<256>::default();
-serializer
-    .serialize_value(&value)
-    .expect("failed to serialize value");
+serializer.serialize_value(&value).unwrap().
 let bytes = serializer.into_serializer().into_inner();
 
 let archived = unsafe { archived_root::<Test>(&bytes[..]) };
@@ -82,7 +80,6 @@ assert_eq!(archived.int, value.int);
 assert_eq!(archived.string, value.string);
 assert_eq!(archived.option, value.option);
 
-let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible)
-    .expect("failed to deserialize value");
+let deserialized: Test = archived.deserialize(&mut Infallible).unwrap()
 assert_eq!(deserialized, value);
 ```

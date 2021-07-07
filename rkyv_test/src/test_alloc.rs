@@ -88,9 +88,7 @@ mod tests {
             };
 
             let mut serializer = AllocSerializer::<256>::default();
-            serializer
-                .serialize_value(&value)
-                .expect("failed to serialize value");
+            serializer.serialize_value(&value).unwrap();
             let bytes = serializer.into_serializer().into_inner();
 
             let archived = unsafe { archived_root::<Test>(&bytes[..]) };
@@ -98,8 +96,7 @@ mod tests {
             assert_eq!(archived.string, value.string);
             assert_eq!(archived.option, value.option);
 
-            let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible)
-                .expect("failed to deserialize value");
+            let deserialized: Test = archived.deserialize(&mut Infallible).unwrap();
             assert_eq!(deserialized, value);
         }
     }
@@ -695,8 +692,7 @@ mod tests {
         assert_eq!(*archived.b, 17);
 
         let mut deserializer = DefaultDeserializer::default();
-        let deserialized =
-            Deserialize::<Test, _>::deserialize(archived, &mut deserializer).unwrap();
+        let deserialized: Test = archived.deserialize(&mut deserializer).unwrap();
 
         assert_eq!(*deserialized.a, 17);
         assert_eq!(*deserialized.b, 17);
@@ -806,8 +802,7 @@ mod tests {
         assert_eq!(**archived.b.upgrade().unwrap(), 17);
 
         let mut deserializer = DefaultDeserializer::default();
-        let deserialized =
-            Deserialize::<Test, _>::deserialize(archived, &mut deserializer).unwrap();
+        let deserialized: Test = archived.deserialize(&mut deserializer).unwrap();
 
         assert_eq!(*deserialized.a, 17);
         assert!(deserialized.b.upgrade().is_some());
@@ -1018,8 +1013,7 @@ mod tests {
         let archived = unsafe { archived_root::<ReallyBigEnum>(buf.as_ref()) };
         assert_eq!(archived, &ArchivedReallyBigEnum::V100);
 
-        let deserialized =
-            Deserialize::<ReallyBigEnum, _>::deserialize(archived, &mut Infallible).unwrap();
+        let deserialized: ReallyBigEnum = archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(deserialized, ReallyBigEnum::V100);
     }
 
@@ -1239,8 +1233,7 @@ mod tests {
             assert_eq!(archived.value, "10");
             assert_eq!(archived.other, 10);
 
-            let deserialized =
-                Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
+            let deserialized: Test = archived.deserialize(&mut Infallible).unwrap();
             assert_eq!(deserialized.value, 10);
             assert_eq!(deserialized.other, 10);
         }
@@ -1260,8 +1253,7 @@ mod tests {
             assert_eq!(archived.0, "10");
             assert_eq!(archived.1, 10);
 
-            let deserialized =
-                Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
+            let deserialized: Test = archived.deserialize(&mut Infallible).unwrap();
             assert_eq!(deserialized.0, 10);
             assert_eq!(deserialized.1, 10);
         }
@@ -1295,8 +1287,7 @@ mod tests {
                 panic!("expected variant A");
             };
 
-            let deserialized =
-                Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
+            let deserialized: Test = archived.deserialize(&mut Infallible).unwrap();
             if let Test::A { value, other } = &deserialized {
                 assert_eq!(*value, 10);
                 assert_eq!(*other, 10);
@@ -1317,8 +1308,7 @@ mod tests {
                 panic!("expected variant B");
             };
 
-            let deserialized =
-                Deserialize::<Test, _>::deserialize(archived, &mut Infallible).unwrap();
+            let deserialized: Test = archived.deserialize(&mut Infallible).unwrap();
             if let Test::B(value, other) = &deserialized {
                 assert_eq!(*value, 10);
                 assert_eq!(*other, 10);
@@ -1432,8 +1422,7 @@ mod tests {
         }
         assert!(archived.get_key_value("wrong!").is_none());
 
-        let deserialized = Deserialize::<BTreeMap<_, _>, _>::deserialize(archived, &mut Infallible)
-            .expect("failed to deserialize B-tree map");
+        let deserialized: BTreeMap<_, _> = archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 
@@ -1460,8 +1449,7 @@ mod tests {
         }
         assert!(archived.get("wrong!").is_none());
 
-        let deserialized = Deserialize::<BTreeSet<_>, _>::deserialize(archived, &mut Infallible)
-            .expect("failed to deserialize B-tree map");
+        let deserialized: BTreeSet<_> = archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 
@@ -1497,8 +1485,7 @@ mod tests {
         }
         assert!(archived.get("wrong!").is_none());
 
-        let deserialized = Deserialize::<BTreeMap<_, _>, _>::deserialize(archived, &mut Infallible)
-            .expect("failed to deserialize B-tree map");
+        let deserialized: BTreeMap<_, _> = archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 

@@ -133,8 +133,7 @@ mod tests {
         let archived = unsafe { archived_root::<ArrayVec<[i32; 10]>>(result.as_ref()) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
 
-        let deserialized =
-            Deserialize::<ArrayVec<[i32; 10]>, _>::deserialize(archived, &mut Infallible).unwrap();
+        let deserialized: ArrayVec<[i32; 10]> = archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 
@@ -165,8 +164,7 @@ mod tests {
         let archived = unsafe { archived_root::<TinyVec<[i32; 10]>>(result.as_ref()) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
 
-        let deserialized =
-            Deserialize::<TinyVec<[i32; 10]>, _>::deserialize(archived, &mut Infallible).unwrap();
+        let deserialized: TinyVec<[i32; 10]> = archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 }
