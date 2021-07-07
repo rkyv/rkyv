@@ -17,8 +17,8 @@
     <a href="https://github.com/djkoloski/rkyv/blob/master/LICENSE">
         <img src="https://img.shields.io/badge/license-MIT-blue.svg">
     </a>
-    <a href="https://blog.rust-lang.org/2020/10/08/Rust-1.47.html">
-        <img src="https://img.shields.io/badge/rustc-1.47+-lightgray.svg">
+    <a href="https://blog.rust-lang.org/2021/05/06/Rust-1.52.0.html">
+        <img src="https://img.shields.io/badge/rustc-1.52+-lightgray.svg">
     </a>
 </p>
 
@@ -54,8 +54,8 @@
 ```rust
 use rkyv::{
     archived_root,
-    ser::{serializers::AlignedSerializer, Serializer},
-    AlignedVec, Archive, Deserialize, Infallible, Serialize,
+    ser::{serializers::AllocSerializer, Serializer},
+    Archive, Deserialize, Infallible, Serialize,
 };
 
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
@@ -71,19 +71,18 @@ let value = Test {
     option: Some(vec![1, 2, 3, 4]),
 };
 
-let mut serializer = AlignedSerializer::new(AlignedVec::new());
+let mut serializer = AllocSerializer::<256>::default();
 serializer
     .serialize_value(&value)
     .expect("failed to serialize value");
-let bytes = serializer.into_inner();
+let bytes = serializer.into_serializer().into_inner();
 
 let archived = unsafe { archived_root::<Test>(&bytes[..]) };
 assert_eq!(archived.int, value.int);
 assert_eq!(archived.string, value.string);
 assert_eq!(archived.option, value.option);
 
-let deserialized = archived
-    .deserialize(&mut Infallible)
+let deserialized = Deserialize::<Test, _>::deserialize(archived, &mut Infallible)
     .expect("failed to deserialize value");
 assert_eq!(deserialized, value);
 ```

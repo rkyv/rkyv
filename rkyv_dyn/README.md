@@ -1,34 +1,42 @@
-# rkyv_dyn &emsp; [![Latest Version]][crates.io] [![License]][license path] [![requires: rustc 1.50+]][Rust 1.50]
+# rkyv_dyn &emsp; [![Latest Version]][crates.io] [![License]][license path] [![requires: rustc 1.52+]][Rust 1.52]
 
 [Latest Version]: https://img.shields.io/crates/v/rkyv_dyn.svg
 [crates.io]: https://crates.io/crates/rkyv_dyn
 [License]: https://img.shields.io/badge/license-MIT-blue.svg
 [license path]: https://github.com/djkoloski/rkyv/blob/master/LICENSE
-[requires: rustc 1.50+]: https://img.shields.io/badge/rustc-1.50+-lightgray.svg
-[Rust 1.50]: https://blog.rust-lang.org/2020/10/08/Rust-1.50.html
+[requires: rustc 1.52+]: https://img.shields.io/badge/rustc-1.52+-lightgray.svg
+[Rust 1.52]: https://blog.rust-lang.org/2021/05/06/Rust-1.52.0.html
 
 Trait object serialization for rkyv.
 
----
+# Resources
 
-## API Documentation
+## Learning Materials
+
+- The [rkyv book](https://djkoloski.github.io/rkyv) covers the motivation, architecture, and major
+  features of rkyv
+- The [rkyv discord](https://discord.gg/65F6MdnbQh) is a great place to get help with specific issues and meet
+  other people using rkyv
+
+## Documentation
 
 - [rkyv](https://docs.rs/rkyv), the core library
 - [rkyv_dyn](https://docs.rs/rkyv_dyn), which adds trait object support to rkyv
 - [rkyv_typename](https://docs.rs/rkyv_typename), a type naming library
 
-## Book
+## Benchmarks
 
-- The [rkyv book](https://djkoloski.github.io/rkyv) covers the motivation and architecture of rkyv
+- The [rust serialization benchmark](https://github.com/djkoloski/rust_serialization_benchmark) is a
+  shootout style benchmark comparing many rust serialization solutions. It includes special
+  benchmarks for zero-copy serialization solutions like rkyv.
 
-## Sister Crates:
+## Sister Crates
 
 - [bytecheck](https://github.com/djkoloski/bytecheck), which rkyv uses for validation
 - [ptr_meta](https://github.com/djkoloski/ptr_meta), which rkyv uses for pointer manipulation
+- [rend](https://github.com/djkoloski/rend), which rkyv uses for endian-agnostic features
 
----
-
-## rkyv_dyn in action
+# Example
 
 ```rust
 use rkyv::{
