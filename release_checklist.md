@@ -9,6 +9,7 @@
 - [ ] Bump version numbers and check that all crates have their dependencies updated to match
 - [ ] Commit with the name `"Release X.X.X"` and push
 - [ ] Merge development branch into `master`
+- [ ] Wait for CI tests to pass
 - [ ] Publish crates
 - [ ] Create release and tag version `"vX.X.X"` with a description that directly links to the issues related to the release
 - [ ] Close milestone

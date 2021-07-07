@@ -1,6 +1,6 @@
 [package]
 name = "rkyv_dyn_test"
-version = "0.7.0-pre.1"
+version = "0.7.0-pre.2"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Test suit for rkyv_dyn"
