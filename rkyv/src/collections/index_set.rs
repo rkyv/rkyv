@@ -6,8 +6,6 @@ use crate::{
         index_map::{ArchivedIndexMap, IndexMapResolver, Keys},
     },
     out_field,
-    ser::{ScratchSpace, Serializer},
-    Serialize,
 };
 use core::{borrow::Borrow, hash::Hash};
 
@@ -117,30 +115,44 @@ impl<K> ArchivedIndexSet<K> {
         let (fp, fo) = out_field!(out.inner);
         ArchivedIndexMap::resolve_from_len(len, pos + fp, resolver.0, fo);
     }
-
-    /// Serializes an iterator of keys as an index set.
-    ///
-    /// # Safety
-    ///
-    /// - The keys returned by the iterator must be unique
-    /// - The index function must return the index of the given key within the iterator
-    #[inline]
-    pub unsafe fn serialize_from_iter_index<'a, UK, I, F, S>(
-        iter: I,
-        index: F,
-        serializer: &mut S,
-    ) -> Result<IndexSetResolver, S::Error>
-    where
-        UK: 'a + Hash + Eq + Serialize<S, Archived = K>,
-        I: Clone + ExactSizeIterator<Item = &'a UK>,
-        F: Fn(&UK) -> usize,
-        S: ScratchSpace + Serializer + ?Sized,
-    {
-        Ok(IndexSetResolver(
-            ArchivedIndexMap::serialize_from_iter_index(iter.map(|k| (k, &())), index, serializer)?,
-        ))
-    }
 }
+
+#[cfg(feature = "alloc")]
+const _: () = {
+    use crate::{
+        ser::{ScratchSpace, Serializer},
+        Serialize,
+    };
+
+    impl<K> ArchivedIndexSet<K> {
+        /// Serializes an iterator of keys as an index set.
+        ///
+        /// # Safety
+        ///
+        /// - The keys returned by the iterator must be unique
+        /// - The index function must return the index of the given key within the iterator
+        #[inline]
+        pub unsafe fn serialize_from_iter_index<'a, UK, I, F, S>(
+            iter: I,
+            index: F,
+            serializer: &mut S,
+        ) -> Result<IndexSetResolver, S::Error>
+        where
+            UK: 'a + Hash + Eq + Serialize<S, Archived = K>,
+            I: Clone + ExactSizeIterator<Item = &'a UK>,
+            F: Fn(&UK) -> usize,
+            S: ScratchSpace + Serializer + ?Sized,
+        {
+            Ok(IndexSetResolver(
+                ArchivedIndexMap::serialize_from_iter_index(
+                    iter.map(|k| (k, &())),
+                    index,
+                    serializer,
+                )?,
+            ))
+        }
+    }
+};
 
 impl<K: PartialEq> PartialEq for ArchivedIndexSet<K> {
     fn eq(&self, other: &Self) -> bool {

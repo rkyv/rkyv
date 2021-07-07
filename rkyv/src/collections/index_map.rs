@@ -2,9 +2,7 @@
 
 use crate::{
     collections::hash_index::{ArchivedHashIndex, HashBuilder, HashIndexResolver},
-    out_field,
-    ser::{ScratchSpace, Serializer},
-    Archive, Archived, RelPtr, Serialize,
+    out_field, Archive, Archived, RelPtr,
 };
 use core::{borrow::Borrow, hash::Hash, iter::FusedIterator, marker::PhantomData};
 
@@ -223,63 +221,74 @@ impl<K, V> ArchivedIndexMap<K, V> {
         let (fp, fo) = out_field!(out.entries);
         RelPtr::emplace(pos + fp, resolver.entries_pos, fo);
     }
-
-    /// Serializes an iterator of key-value pairs as an index map.
-    ///
-    /// # Safety
-    ///
-    /// - The keys returned by the iterator must be unique
-    /// - The index function must return the index of the given key within the iterator
-    pub unsafe fn serialize_from_iter_index<'a, UK, UV, I, F, S>(
-        iter: I,
-        index: F,
-        serializer: &mut S,
-    ) -> Result<IndexMapResolver, S::Error>
-    where
-        UK: 'a + Serialize<S, Archived = K> + Hash + Eq,
-        UV: 'a + Serialize<S, Archived = V>,
-        I: Clone + ExactSizeIterator<Item = (&'a UK, &'a UV)>,
-        F: Fn(&UK) -> usize,
-        S: Serializer + ScratchSpace + ?Sized,
-    {
-        use crate::ScratchVec;
-
-        let len = iter.len();
-
-        let mut entries = ScratchVec::new(serializer, iter.len())?;
-        entries.set_len(len);
-        let index_resolver =
-            ArchivedHashIndex::build_and_serialize(iter.clone(), serializer, &mut entries)?;
-        let mut entries = entries.assume_init();
-
-        // Serialize entries
-        let mut resolvers = ScratchVec::new(serializer, iter.len())?;
-        for (key, value) in iter.clone() {
-            resolvers.push((key.serialize(serializer)?, value.serialize(serializer)?));
-        }
-
-        let entries_pos = serializer.align_for::<Entry<K, V>>()?;
-        for ((key, value), (key_resolver, value_resolver)) in iter.zip(resolvers.drain(..)) {
-            serializer.resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
-        }
-
-        // Serialize pivots
-        let pivots_pos = serializer.align_for::<Archived<usize>>()?;
-        for (key, _) in entries.drain(..) {
-            serializer.resolve_aligned(&index(key), ())?;
-        }
-
-        // Free scratch vecs
-        resolvers.free(serializer)?;
-        entries.free(serializer)?;
-
-        Ok(IndexMapResolver {
-            index_resolver,
-            pivots_pos,
-            entries_pos,
-        })
-    }
 }
+
+#[cfg(feature = "alloc")]
+const _: () = {
+    use crate::{
+        ser::{ScratchSpace, Serializer},
+        Serialize,
+    };
+
+    impl<K, V> ArchivedIndexMap<K, V> {
+        /// Serializes an iterator of key-value pairs as an index map.
+        ///
+        /// # Safety
+        ///
+        /// - The keys returned by the iterator must be unique
+        /// - The index function must return the index of the given key within the iterator
+        pub unsafe fn serialize_from_iter_index<'a, UK, UV, I, F, S>(
+            iter: I,
+            index: F,
+            serializer: &mut S,
+        ) -> Result<IndexMapResolver, S::Error>
+        where
+            UK: 'a + Serialize<S, Archived = K> + Hash + Eq,
+            UV: 'a + Serialize<S, Archived = V>,
+            I: Clone + ExactSizeIterator<Item = (&'a UK, &'a UV)>,
+            F: Fn(&UK) -> usize,
+            S: Serializer + ScratchSpace + ?Sized,
+        {
+            use crate::ScratchVec;
+
+            let len = iter.len();
+
+            let mut entries = ScratchVec::new(serializer, iter.len())?;
+            entries.set_len(len);
+            let index_resolver =
+                ArchivedHashIndex::build_and_serialize(iter.clone(), serializer, &mut entries)?;
+            let mut entries = entries.assume_init();
+
+            // Serialize entries
+            let mut resolvers = ScratchVec::new(serializer, iter.len())?;
+            for (key, value) in iter.clone() {
+                resolvers.push((key.serialize(serializer)?, value.serialize(serializer)?));
+            }
+
+            let entries_pos = serializer.align_for::<Entry<K, V>>()?;
+            for ((key, value), (key_resolver, value_resolver)) in iter.zip(resolvers.drain(..)) {
+                serializer
+                    .resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
+            }
+
+            // Serialize pivots
+            let pivots_pos = serializer.align_for::<Archived<usize>>()?;
+            for (key, _) in entries.drain(..) {
+                serializer.resolve_aligned(&index(key), ())?;
+            }
+
+            // Free scratch vecs
+            resolvers.free(serializer)?;
+            entries.free(serializer)?;
+
+            Ok(IndexMapResolver {
+                index_resolver,
+                pivots_pos,
+                entries_pos,
+            })
+        }
+    }
+};
 
 impl<K: PartialEq, V: PartialEq> PartialEq for ArchivedIndexMap<K, V> {
     fn eq(&self, other: &Self) -> bool {
