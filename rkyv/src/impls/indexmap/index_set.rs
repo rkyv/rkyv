@@ -1,27 +1,21 @@
-//! rkyv implementation for `IndexSet`.
-
 use crate::{
-    impls::indexmap::{
-        index_map::ArchivedIndexMap,
-        index_set::{ArchivedIndexSet, IndexSetResolver},
-    },
-    ser::Serializer,
+    collections::index_set::{ArchivedIndexSet, IndexSetResolver},
+    ser::{ScratchSpace, Serializer},
     Archive, Deserialize, Fallible, Serialize,
 };
 use core::hash::Hash;
 use indexmap::IndexSet;
 
-impl<K: Archive + Hash + Eq> Archive for IndexSet<K> {
+impl<K: Archive> Archive for IndexSet<K> {
     type Archived = ArchivedIndexSet<K::Archived>;
     type Resolver = IndexSetResolver;
 
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        let (fp, fo) = out_field!(out.inner);
-        ArchivedIndexMap::resolve_from_len(self.len(), pos + fp, resolver.0, fo);
+        ArchivedIndexSet::resolve_from_len(self.len(), pos, resolver, out);
     }
 }
 
-impl<K: Hash + Eq + Serialize<S>, S: Serializer + ?Sized> Serialize<S> for IndexSet<K> {
+impl<K: Hash + Eq + Serialize<S>, S: ScratchSpace + Serializer + ?Sized> Serialize<S> for IndexSet<K> {
     fn serialize(&self, serializer: &mut S) -> Result<IndexSetResolver, S::Error> {
         unsafe {
             ArchivedIndexSet::serialize_from_iter_index(
@@ -48,12 +42,17 @@ where
     }
 }
 
+impl<UK, K: PartialEq<UK>> PartialEq<IndexSet<UK>> for ArchivedIndexSet<K> {
+    fn eq(&self, other: &IndexSet<UK>) -> bool {
+        self.iter().eq(other.iter())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
         archived_root,
-        ser::{serializers::AlignedSerializer, Serializer},
-        util::AlignedVec,
+        ser::{serializers::AllocSerializer, Serializer},
         Deserialize, Infallible,
     };
     use indexmap::{indexset, IndexSet};
@@ -67,9 +66,9 @@ mod tests {
             String::from("bat"),
         };
 
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        let mut serializer = AllocSerializer::<4096>::default();
         serializer.serialize_value(&value).unwrap();
-        let result = serializer.into_inner();
+        let result = serializer.into_serializer().into_inner();
         let archived = unsafe { archived_root::<IndexSet<String>>(result.as_ref()) };
 
         assert_eq!(value.len(), archived.len());

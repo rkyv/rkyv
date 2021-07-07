@@ -1,5 +1,3 @@
-//! [`Archive`] implementation for `std` networking types.
-
 use crate::{
     net::{
         ArchivedIpAddr, ArchivedIpv4Addr, ArchivedIpv6Addr, ArchivedSocketAddr,

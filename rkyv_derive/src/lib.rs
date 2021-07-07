@@ -48,6 +48,14 @@ use syn::{parse_macro_input, DeriveInput};
 /// as well. Adding the attribute `#[omit_bounds]` to a field will suppress this trait bound and
 /// allow recursive structures. This may be too coarse for some types, in which case additional type
 /// bounds may be required with `bound(...)`.
+///
+/// # Wrappers
+///
+/// Wrappers transparently customize archived types by providing different implementations of core
+/// traits. For example, references cannot be archived, but the `Inline` wrapper serializes a
+/// reference as if it were a field of the struct. Wrappers can be applied to fields using the
+/// `#[with(...)]` attribute. Mutliple wrappers can be used, and they are applied in reverse order
+/// (i.e. `#[with(A, B, C)]` will archive `MyType` as `With<With<With<MyType, C>, B, A>`).
 #[proc_macro_derive(Archive, attributes(archive, archive_attr, omit_bounds, with))]
 pub fn derive_archive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match archive::derive(parse_macro_input!(input as DeriveInput)) {
@@ -58,8 +66,8 @@ pub fn derive_archive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 
 /// Derives `Serialize` for the labeled type.
 ///
-/// This macro also supports the `#[archive]` and `#[omit_bounds]` attributes. See [`Archive`] for
-/// more information.
+/// This macro also supports the `#[archive]`, `#[omit_bounds]`, and `#[with]` attributes. See
+/// [`Archive`] for more information.
 #[proc_macro_derive(Serialize, attributes(archive, omit_bounds, with))]
 pub fn derive_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match serialize::derive(parse_macro_input!(input as DeriveInput)) {
@@ -70,8 +78,8 @@ pub fn derive_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
 /// Derives `Deserialize` for the labeled type.
 ///
-/// This macro also supports the `#[archive]` and `#[omit_bounds]` attributes. See [`Archive`] for
-/// more information.
+/// This macro also supports the `#[archive]`, `#[omit_bounds]`, and `#[with]` attributes. See
+/// [`Archive`] for more information.
 #[proc_macro_derive(Deserialize, attributes(archive, omit_bounds, with))]
 pub fn derive_deserialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     match deserialize::derive(parse_macro_input!(input as DeriveInput)) {

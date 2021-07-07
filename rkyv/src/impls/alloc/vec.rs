@@ -1,5 +1,3 @@
-//! [`Archive`] implementation for `Vec`.
-
 use crate::{
     ser::{ScratchSpace, Serializer},
     vec::{ArchivedVec, VecResolver},
@@ -8,8 +6,6 @@ use crate::{
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::{boxed::Box, vec::Vec};
 use core::cmp;
-
-// Vec
 
 impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
     #[inline]

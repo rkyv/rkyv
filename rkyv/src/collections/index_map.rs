@@ -1,17 +1,12 @@
 //! Archived index map implementation.
 
-mod rkyv;
-
 use core::{borrow::Borrow, hash::Hash, iter::FusedIterator, marker::PhantomData};
-// TODO: remove this when scratch space serializers get added
 use crate::{
     collections::hash_index::{ArchivedHashIndex, HashBuilder, HashIndexResolver},
     out_field,
-    ser::Serializer,
+    ser::{ScratchSpace, Serializer},
     Archive, Archived, RelPtr, Serialize,
 };
-use alloc::vec::Vec;
-use indexmap::IndexMap;
 
 #[cfg_attr(feature = "strict", repr(C))]
 struct Entry<K, V> {
@@ -245,16 +240,26 @@ impl<K, V> ArchivedIndexMap<K, V> {
         UV: 'a + Serialize<S, Archived = V>,
         I: Clone + ExactSizeIterator<Item = (&'a UK, &'a UV)>,
         F: Fn(&UK) -> usize,
-        S: Serializer + ?Sized,
+        S: Serializer + ScratchSpace + ?Sized,
     {
-        let (index_resolver, entries) =
-            ArchivedHashIndex::build_and_serialize(iter.clone(), serializer)?;
+        use crate::ScratchVec;
+
+        let len = iter.len();
+
+        let mut entries = ScratchVec::new(serializer, iter.len())?;
+        entries.set_len(len);
+        let index_resolver = ArchivedHashIndex::build_and_serialize(
+            iter.clone(),
+            serializer,
+            &mut entries,
+        )?;
+        let mut entries = entries.assume_init();
 
         // Serialize entries
-        let mut resolvers = iter
-            .clone()
-            .map(|(key, value)| Ok((key.serialize(serializer)?, value.serialize(serializer)?)))
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut resolvers = ScratchVec::new(serializer, iter.len())?;
+        for (key, value) in iter.clone() {
+            resolvers.push((key.serialize(serializer)?, value.serialize(serializer)?));
+        }
 
         let entries_pos = serializer.align_for::<Entry<K, V>>()?;
         for ((key, value), (key_resolver, value_resolver)) in iter.zip(resolvers.drain(..)) {
@@ -263,9 +268,13 @@ impl<K, V> ArchivedIndexMap<K, V> {
 
         // Serialize pivots
         let pivots_pos = serializer.align_for::<Archived<usize>>()?;
-        for &(key, _) in entries.iter() {
+        for (key, _) in entries.drain(..) {
             serializer.resolve_aligned(&index(key), ())?;
         }
+
+        // Free scratch vecs
+        resolvers.free(serializer)?;
+        entries.free(serializer)?;
 
         Ok(IndexMapResolver {
             index_resolver,
@@ -278,18 +287,6 @@ impl<K, V> ArchivedIndexMap<K, V> {
 impl<K: PartialEq, V: PartialEq> PartialEq for ArchivedIndexMap<K, V> {
     fn eq(&self, other: &Self) -> bool {
         self.iter().eq(other.iter())
-    }
-}
-
-impl<UK, K, UV, V> PartialEq<IndexMap<UK, UV>> for ArchivedIndexMap<K, V>
-where
-    K: PartialEq<UK>,
-    V: PartialEq<UV>,
-{
-    fn eq(&self, other: &IndexMap<UK, UV>) -> bool {
-        self.iter()
-            .zip(other.iter())
-            .all(|((ak, av), (bk, bv))| ak == bk && av == bv)
     }
 }
 

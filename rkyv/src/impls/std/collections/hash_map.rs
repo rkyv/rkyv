@@ -1,5 +1,3 @@
-//! [`Archive`] implementation for `HashMap`.
-
 use crate::{
     collections::hash_map::{ArchivedHashMap, HashMapResolver},
     ser::{ScratchSpace, Serializer},

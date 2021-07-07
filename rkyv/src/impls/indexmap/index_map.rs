@@ -1,8 +1,6 @@
-//! rkyv implementation for `IndexMap`.
-
 use crate::{
-    impls::indexmap::index_map::{ArchivedIndexMap, IndexMapResolver},
-    ser::Serializer,
+    collections::index_map::{ArchivedIndexMap, IndexMapResolver},
+    ser::{ScratchSpace, Serializer},
     Archive, Deserialize, Fallible, Serialize,
 };
 use core::hash::Hash;
@@ -17,8 +15,11 @@ impl<K: Archive, V: Archive> Archive for IndexMap<K, V> {
     }
 }
 
-impl<K: Hash + Eq + Serialize<S>, V: Serialize<S>, S: Serializer + ?Sized> Serialize<S>
-    for IndexMap<K, V>
+impl<K, V, S> Serialize<S> for IndexMap<K, V>
+where
+    K: Hash + Eq + Serialize<S>,
+    V: Serialize<S>,
+    S: ScratchSpace + Serializer + ?Sized,
 {
     fn serialize(&self, serializer: &mut S) -> Result<IndexMapResolver, S::Error> {
         unsafe {
@@ -48,12 +49,23 @@ where
     }
 }
 
+impl<UK, K, UV, V> PartialEq<IndexMap<UK, UV>> for ArchivedIndexMap<K, V>
+where
+    K: PartialEq<UK>,
+    V: PartialEq<UV>,
+{
+    fn eq(&self, other: &IndexMap<UK, UV>) -> bool {
+        self.iter()
+            .zip(other.iter())
+            .all(|((ak, av), (bk, bv))| ak == bk && av == bv)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
         archived_root,
-        ser::{serializers::AlignedSerializer, Serializer},
-        util::AlignedVec,
+        ser::{serializers::AllocSerializer, Serializer},
         Deserialize, Infallible,
     };
     use indexmap::{indexmap, IndexMap};
@@ -67,9 +79,9 @@ mod tests {
             String::from("bat") => 80,
         };
 
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        let mut serializer = AllocSerializer::<4096>::default();
         serializer.serialize_value(&value).unwrap();
-        let result = serializer.into_inner();
+        let result = serializer.into_serializer().into_inner();
         let archived = unsafe { archived_root::<IndexMap<String, i32>>(result.as_ref()) };
 
         assert_eq!(value.len(), archived.len());

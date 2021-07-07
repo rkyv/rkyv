@@ -1,10 +1,8 @@
-//! Trait implementations for `core`, `alloc`, and `std` types.
-
 #[cfg(feature = "alloc")]
-pub mod alloc;
-pub mod core;
+mod alloc;
+mod core;
 #[cfg(feature = "std")]
-pub mod std;
+mod std;
 
 // Support for various common crates. These are primarily to get users off the ground and build some
 // momentum.
@@ -14,8 +12,8 @@ pub mod std;
 // another crate, please consider getting rkyv support in the crate instead.
 
 #[cfg(feature = "indexmap")]
-pub mod indexmap;
+mod indexmap;
 #[cfg(feature = "tinyvec")]
-pub mod tinyvec;
+mod tinyvec;
 #[cfg(feature = "uuid")]
-pub mod uuid;
+mod uuid;

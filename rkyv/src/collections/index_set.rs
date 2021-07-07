@@ -1,16 +1,15 @@
 //! Archived index set implementation.
 
-mod rkyv;
-
 use crate::{
-    collections::hash_index::HashBuilder,
-    impls::indexmap::index_map::{ArchivedIndexMap, IndexMapResolver, Keys},
+    collections::{
+        hash_index::HashBuilder,
+        index_map::{ArchivedIndexMap, IndexMapResolver, Keys},
+    },
     out_field,
-    ser::Serializer,
+    ser::{ScratchSpace, Serializer},
     Serialize,
 };
 use core::{borrow::Borrow, hash::Hash};
-use indexmap::IndexSet;
 
 /// An archived `IndexSet`.
 #[repr(transparent)]
@@ -135,7 +134,7 @@ impl<K> ArchivedIndexSet<K> {
         UK: 'a + Hash + Eq + Serialize<S, Archived = K>,
         I: Clone + ExactSizeIterator<Item = &'a UK>,
         F: Fn(&UK) -> usize,
-        S: Serializer + ?Sized,
+        S: ScratchSpace + Serializer + ?Sized,
     {
         Ok(IndexSetResolver(
             ArchivedIndexMap::serialize_from_iter_index(iter.map(|k| (k, &())), index, serializer)?,
@@ -145,13 +144,6 @@ impl<K> ArchivedIndexSet<K> {
 
 impl<K: PartialEq> PartialEq for ArchivedIndexSet<K> {
     fn eq(&self, other: &Self) -> bool {
-        self.iter().eq(other.iter())
-    }
-}
-
-#[cfg(feature = "indexmap")]
-impl<UK, K: PartialEq<UK>> PartialEq<IndexSet<UK>> for ArchivedIndexSet<K> {
-    fn eq(&self, other: &IndexSet<UK>) -> bool {
         self.iter().eq(other.iter())
     }
 }

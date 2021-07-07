@@ -125,8 +125,8 @@ pub unsafe fn archived_unsized_value_mut<T: ArchiveUnsized + ?Sized>(
 ///
 /// This is a wrapper for [`archived_value`](crate::archived_value) that calculates the correct
 /// position of the root using the length of the byte slice. If your byte slice is not guaranteed to
-/// end immediately after the root object, you may need to store the position of the root object or
-/// use [`serialize_front`](crate::ser::SeekSerializer::serialize_front) instead.
+/// end immediately after the root object, you may need to store the position of the root object
+/// returned from [`serialize_value`](crate::ser::Serializer::serialize_value).
 ///
 /// # Safety
 ///
@@ -142,7 +142,7 @@ pub unsafe fn archived_root<T: Archive + ?Sized>(bytes: &[u8]) -> &T::Archived {
 /// This is a wrapper for [`archived_value_mut`](crate::archived_value_mut) that calculates the
 /// correct position of the root using the length of the byte slice. If your byte slice is not
 /// guaranteed to end immediately after the root object, you may need to store the position of the
-/// root object or use [`serialize_front`](crate::ser::SeekSerializer::serialize_front) instead.
+/// root object returned from [`serialize_value`](crate::ser::Serializer::serialize_value).
 ///
 /// # Safety
 ///
@@ -162,7 +162,8 @@ pub unsafe fn archived_root_mut<T: Archive + ?Sized>(
 /// This is a wrapper for [`archived_unsized_value`](crate::archived_unsized_value) that calculates
 /// the correct position of the root using the length of the byte slice. If your byte slice is not
 /// guaranteed to end immediately after the root object, you may need to store the position of the
-/// root object or use [`serialize_front`](crate::ser::SeekSerializer::serialize_front) instead.
+/// root object returned from
+/// [`serialize_unsized_value`](crate::ser::Serializer::serialize_unsized_value).
 ///
 /// # Safety
 ///
@@ -179,8 +180,8 @@ pub unsafe fn archived_unsized_root<T: ArchiveUnsized + ?Sized>(bytes: &[u8]) ->
 /// This is a wrapper for [`archived_unsized_value_mut`](crate::archived_unsized_value_mut) that
 /// calculates the correct position of the root using the length of the byte slice. If your byte
 /// slice is not guaranteed to end immediately after the root object, you may need to store the
-/// position of the root object or use
-/// [`serialize_front`](crate::ser::SeekSerializer::serialize_front) instead.
+/// position of the root object returned from
+/// [`serialize_unsized_value`](crate::ser::Serializer::serialize_unsized_value).
 ///
 /// # Safety
 ///

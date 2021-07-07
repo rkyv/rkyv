@@ -1,5 +1,3 @@
-//! [`Archive`] implementation for `String`.
-
 use crate::{
     string::{ArchivedString, StringResolver},
     Archive, Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,

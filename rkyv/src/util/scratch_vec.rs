@@ -224,7 +224,7 @@ impl<T> ScratchVec<T> {
     ///
     /// # Safety
     ///
-    /// - `new_len` must be less than or equal to [`capacity()`](AlignedVec::capacity)
+    /// - `new_len` must be less than or equal to [`capacity()`](ScratchVec::capacity)
     /// - The elements at `old_len..new_len` must be initialized
     #[inline]
     pub unsafe fn set_len(&mut self, new_len: usize) {

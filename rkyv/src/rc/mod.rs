@@ -11,7 +11,9 @@ use core::{borrow::Borrow, cmp, fmt, hash, marker::PhantomData, ops::Deref, pin:
 
 /// An archived `Rc`.
 ///
-/// This is a thin wrapper around a [`RelPtr`] to the archived type.
+/// This is a thin wrapper around a [`RelPtr`] to the archived type paired with a "flavor" type.
+/// Because there may be many varieties of shared pointers and they may not be used together, the
+/// flavor helps check that memory is not being shared incorrectly during validation.
 #[repr(transparent)]
 pub struct ArchivedRc<T: ArchivePointee + ?Sized, F>(RelPtr<T>, PhantomData<F>);
 
@@ -150,6 +152,8 @@ pub struct RcResolver<T> {
 }
 
 /// An archived `rc::Weak`.
+///
+/// This is essentially just an optional [`ArchivedRc`].
 #[repr(u8)]
 pub enum ArchivedRcWeak<T: ArchivePointee + ?Sized, F> {
     /// A null weak pointer

@@ -1,5 +1,3 @@
-//! [`Archive`](crate::Archive) implementations for `uuid` types.
-
 use crate::{Archive, Deserialize, Fallible, Serialize};
 use uuid::Uuid;
 

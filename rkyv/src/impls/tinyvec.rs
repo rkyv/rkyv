@@ -1,5 +1,3 @@
-//! [`Archive`](crate::Archive) implementations for `tinyvec` types.
-
 use crate::{
     ser::Serializer,
     vec::{ArchivedVec, VecResolver},

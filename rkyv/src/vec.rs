@@ -13,7 +13,8 @@ use core::{
 
 /// An archived [`Vec`].
 ///
-/// Uses a [`RelPtr`] to a `T` slice under the hood.
+/// This uses a [`RelPtr`] to a `[T]` under the hood. Unlike
+/// [`ArchivedString`](crate::string::ArchivedString), it does not have an inline representation.
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct ArchivedVec<T>(RelPtr<[T]>);

@@ -1,5 +1,3 @@
-//! [`Archive`] implementation for `Box`.
-
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized, Fallible, Serialize,

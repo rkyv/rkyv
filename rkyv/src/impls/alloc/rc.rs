@@ -1,5 +1,3 @@
-//! [`Archive`] implementation for `rc::Rc`, `rc::Weak`, `sync::Rc`, and `sync::Weak`.
-
 use crate::{
     de::{SharedDeserializeRegistry, SharedPointer},
     rc::{ArchivedRc, ArchivedRcWeak, RcResolver, RcWeakResolver},

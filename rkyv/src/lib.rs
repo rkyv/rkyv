@@ -30,33 +30,47 @@
 //! compress, hash and displace algorithm to use as little memory as possible while still performing
 //! fast lookups.
 //!
+//! It also comes with a B+ tree implementation that is built for maximum performance by splitting
+//! data into easily-pageable 4KB segments. This makes it perfect for building immutable databases
+//! and structures for bulk data.
+//!
 //! rkyv also has support for contextual serialization, deserialization, and validation. It can
 //! properly serialize and deserialize shared pointers like `Rc` and `Arc`, and can be extended to
 //! support custom contextual types.
 //!
-//! One of the most impactful features made possible by rkyv is the ability to serialize trait
-//! objects and use them *as trait objects* without deserialization. See the `archive_dyn` crate for
-//! more details.
+//! Finally, rkyv makes it possible to serialize trait objects and use them *as trait objects*
+//! without deserialization. See the `archive_dyn` crate for more details.
 //!
 //! ## Tradeoffs
 //!
-//! rkyv is designed primarily for loading bulk game data as efficiently as possible. While rkyv is
-//! a great format for final data, it lacks a full schema system and isn't well equipped for data
-//! migration. Using a serialization library like serde can help fill these gaps, and you can use
-//! serde with the same types as rkyv conflict-free.
+//! While rkyv is a great format for final data, it lacks a full schema system and isn't well
+//! equipped for data migration and schema upgrades. If your use case requires these capabilities,
+//! you may need additional libraries the build these features on top of rkyv. You can use other
+//! serialization frameworks like serde with the same types as rkyv conflict-free.
 //!
 //! ## Features
 //!
-//! - `size_16`: Archives `*size` as `*16`. This is for small archive support.
-//! - `size_32`: Archives `*size` as `*32` (enabled by default)
-//! - `size_64`: Archives `*size` as `*64`. This is for large archive support.
-//! - `specialization`: Enables support for the unstable specialization feature for increased
-//!   performance for a few specific cases
-//! - `std`: Enables standard library support (enabled by default)
+//! - `alloc`: Enables types that require the `alloc` crate. Enabled by default.
+//! - `arbitrary_enum_discriminant`: Enables the `arbitrary_enum_discriminant` feature for stable
+//!   stable multibyte enum discriminants using `archive_le` and `archive_be`. Requires nightly.
+//! - `archive_be`: Forces archives into a big-endian format. This guarantees cross-endian
+//!   compatibility optimized for big-endian architectures.
+//! - `archive_le`: Forces archives into a little-endian format. This guarantees cross-endian
+//!   compatibility optimized for little-endian architectures.
+//! - `copy`: Enables copy optimizations for packed copyable data types. Requires nightly.
+//! - `copy_unsafe`: Automatically opts all potentially copyable types into copy optimization. This
+//!   broadly improves performance but may cause uninitialized bytes to be copied to the output.
+//!   Requires nightly.
+//! - `size_16`: Archives integral `*size` types as 16-bit integers. This is intended to be used
+//!   only for small archives and may not handle large, more general data.
+//! - `size_32`: Archives integral `*size` types as 32-bit integers. Enabled by default.
+//! - `size_64`: Archives integral `*size` types as 64-bit integers. This is intended to be used
+//!   only for very large archives and may cause unnecessary data bloat.
+//! - `std`: Enables standard library support. Enabled by default.
 //! - `strict`: Guarantees that types will have the same representations across platforms and
-//!   compilations. This is already the case in practice, but this feature provides a guarantee. It
-//!   additionally provides C type compatibility.
-//! - `validation`: Enables validation support through `bytecheck`
+//!   compilations. This is already the case in practice, but this feature provides a guarantee
+//!   along with C type compatibility.
+//! - `validation`: Enables validation support through `bytecheck`.
 //!
 //! ## Crate support
 //!
@@ -67,8 +81,14 @@
 //!
 //! Crates supported by rkyv:
 //!
+//! - [`indexmap`](https://docs.rs/indexmap)
 //! - [`tinyvec`](https://docs.rs/tinyvec)
 //! - [`uuid`](https://docs.rs/uuid)
+//!
+//! Features:
+//!
+//! - `tinyvec_alloc`: Supports types behind the `alloc` feature in `tinyvec`.
+//! - `uuid_std`: Enables the `std` feature in `uuid`.
 //!
 //! ## Examples
 //!
@@ -111,13 +131,15 @@ pub mod de;
 // If CStr ever gets moved into `core` then this module will no longer need cfg(feature = "std")
 #[cfg(feature = "std")]
 pub mod ffi;
-pub mod impls;
+mod impls;
 pub mod net;
+pub mod ops;
 pub mod option;
 pub mod rc;
 pub mod rel_ptr;
 pub mod ser;
 pub mod string;
+pub mod time;
 pub mod util;
 #[cfg(feature = "validation")]
 pub mod validation;
@@ -129,18 +151,29 @@ use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 pub use util::*;
 #[cfg(feature = "validation")]
+#[cfg_attr(doc_cfg, doc(cfg(feature = "validation")))]
 pub use validation::{
     check_archived_root_with_context, check_archived_value_with_context,
     validators::{check_archived_root, check_archived_value},
 };
 
-/// Contains the error type for traits with methods that can fail
+/// A type that can produce an error.
+///
+/// This trait is always implemented by serializers and deserializers. Its purpose is to provide an
+/// error type without restricting what other capabilities the type must provide.
+///
+/// When writing implementations for [`Serialize`] and [`Deserialize`], it's best practice to bound
+/// the serializer or deserializer by `Fallible` and then require that the serialized types support
+/// it (i.e. `S: Fallible, MyType: Serialize<S>`).
 pub trait Fallible {
-    /// The error produced by any failing methods
+    /// The error produced by any failing methods.
     type Error: 'static;
 }
 
-/// A fallible type that cannot produce errors
+/// A fallible type that cannot produce errors.
+///
+/// This type can be used to serialize and deserialize types that cannot fail to serialize or
+/// deserialize.
 #[derive(Debug)]
 pub struct Infallible;
 
@@ -156,15 +189,29 @@ impl Default for Infallible {
 
 /// A type that can be used without deserializing.
 ///
+/// `Archive` is one of three basic traits used to work with zero-copy data and controls the layout
+/// of the data in its archived zero-copy representation. The [`Serialize`] trait helps transform
+/// types into that representation, and the [`Deserialize`] trait helps transform types back out.
+///
+/// Types that implement `Archive` must have a well-defined archived size. Unsized types can be
+/// supported using the [`ArchiveUnsized`] trait, along with [`SerializeUnsized`] and
+/// [`DeserializeUnsized`].
+///
 /// Archiving is done depth-first, writing any data owned by a type before writing the data for the
 /// type itself. The type must be able to create the archived type from only its own data and its
 /// resolver.
 ///
+/// Archived data is always treated as if it is tree-shaped, with the root owning its direct
+/// descendents and so on. Data that is not tree-shaped can be supported using special serializer
+/// and deserializer bounds (see [`ArchivedRc`](crate::rc::ArchivedRc) for example). In a buffer of
+/// serialized data, objects are laid out in *reverse order*. This means that the root object is
+/// located near the end of the buffer and leaf objects are located near the beginning.
+///
 /// # Examples
 ///
 /// Most of the time, `#[derive(Archive)]` will create an acceptable implementation. You can use the
-/// `#[archive(...)]` attribute to control how the implementation is generated. See the
-/// [`Archive`](macro@Archive) derive macro for more details.
+/// `#[archive(...)]` and `#[archive_attr(...)]` attributes to control how the implementation is
+/// generated. See the [`Archive`](macro@Archive) derive macro for more details.
 ///
 /// ```
 /// use rkyv::{
@@ -204,8 +251,9 @@ impl Default for Infallible {
 /// handle.
 ///
 /// In this example, we add our own wrapper that serializes a `&'static str` as if it's owned.
-/// Normally you can lean on the archived version of `String` to do most of the work, but this
-/// example does everything to demonstrate how to implement `Archive` for your own types.
+/// Normally you can lean on the archived version of `String` to do most of the work, or use the
+/// [`Inline`](crate::with::Inline) to do exactly this. This example does everything to demonstrate
+/// how to implement `Archive` for your own types.
 ///
 /// ```
 /// use core::{slice, str};
@@ -309,20 +357,22 @@ impl Default for Infallible {
 /// assert_eq!(archived.as_str(), STR_VAL);
 /// ```
 pub trait Archive {
-    /// The archived version of this type.
+    /// The archived representation of this type.
+    ///
+    /// In this form, the data can be used with zero-copy deserialization.
     type Archived;
 
-    /// The resolver for this type. It must contain all the information needed to make the archived
-    /// type from the normal type.
+    /// The resolver for this type. It must contain all the additional information from serializing
+    /// needed to make the archived type from the normal type.
     type Resolver;
 
     /// Creates the archived version of this value at the given position and writes it to the given
     /// output.
     ///
-    /// The output should be initialized field-by-field rather than by writing a whole struct. This
-    /// is because performing a typed copy will set all of the padding bytes to uninitialized, but
-    /// they must remain whatever value they currently have. This is so that uninitialized memory
-    /// doesn't get leaked to the final archive.
+    /// The output should be initialized field-by-field rather than by writing a whole struct.
+    /// Performing a typed copy will mark all of the padding bytes as uninitialized, but they must
+    /// remain set to the value they currently have. This prevents leaking uninitialized memory to
+    /// the final archive.
     ///
     /// # Safety
     ///
@@ -333,6 +383,12 @@ pub trait Archive {
 
 /// Converts a type to its archived form.
 ///
+/// Objects perform any supportive serialization during [`serialize`](Serialize::serialize). For
+/// types that reference nonlocal (pointed-to) data, this is when that data must be serialized to
+/// the output. These types will need to bound `S` to implement [`Serializer`](ser::Serializer) and
+/// any other required traits (e.g. [`SharedSerializeRegistry`](ser::SharedSerializeRegistry)). They
+/// should then serialize their dependencies during `serialize`.
+///
 /// See [`Archive`] for examples of implementing `Serialize`.
 pub trait Serialize<S: Fallible + ?Sized>: Archive {
     /// Writes the dependencies for the object and returns a resolver that can create the archived
@@ -342,6 +398,10 @@ pub trait Serialize<S: Fallible + ?Sized>: Archive {
 
 /// Converts a type back from its archived form.
 ///
+/// Some types may require specific deserializer capabilities, such as `Rc` and `Arc`. In these
+/// cases, the deserializer type `D` should be bound so that it implements traits that provide those
+/// capabilities (e.g. [`SharedDeserializeRegistry`](de::SharedDeserializeRegistry)).
+///
 /// This can be derived with [`Deserialize`](macro@Deserialize).
 pub trait Deserialize<T, D: Fallible + ?Sized> {
     /// Deserializes using the given deserializer
@@ -350,16 +410,22 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 
 /// A counterpart of [`Archive`] that's suitable for unsized types.
 ///
-/// Instead of archiving its value directly, `ArchiveUnsized` archives a [`RelPtr`] to its archived
-/// type. As a consequence, its resolver must be `usize`.
+/// Unlike `Archive`, types that implement `ArchiveUnsized` must be serialized separately from their
+/// owning object. For example, whereas an `i32` might be laid out as part of a larger struct, a
+/// `Box<i32>` would serialize the `i32` somewhere in the archive and the `Box` would point to it as
+/// part of the larger struct. Because of this, the equivalent [`Resolver`](Archive::Resolver) type
+/// for `ArchiveUnsized` is always a `usize` representing the position of the serialized value.
 ///
-/// `ArchiveUnsized` is automatically implemented for all types that implement [`Archive`].
-///
-/// `ArchiveUnsized` is already implemented for slices and string slices, and the `rkyv_dyn` crate
-/// can be used to archive trait objects. Other unsized types must manually implement
-/// `ArchiveUnsized`.
+/// `ArchiveUnsized` is automatically implemented for all types that implement [`Archive`]. Nothing
+/// special needs to be done to use them with types like `Box`, `Rc`, and `Arc`. It is also already
+/// implemented for slices and string slices, and the `rkyv_dyn` crate can be used to archive trait
+/// objects. Other unsized types must manually implement `ArchiveUnsized`.
 ///
 /// # Examples
+///
+/// This example shows how to manually implement `ArchiveUnsized` for an unsized type. Special care
+/// must be taken to ensure that the types are laid out correctly.
+///
 /// ```
 /// use core::{mem::transmute, ops::{Deref, DerefMut}};
 /// use ptr_meta::Pointee;
@@ -514,18 +580,24 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// ```
 pub trait ArchiveUnsized: Pointee {
     /// The archived counterpart of this type. Unlike `Archive`, it may be unsized.
+    ///
+    /// This type must implement [`ArchivePointee`], a trait that helps make valid pointers using
+    /// archived pointer metadata.
     type Archived: ArchivePointee + ?Sized;
 
     /// The resolver for the metadata of this type.
+    ///
+    /// Because the pointer metadata must be archived with the relative pointer and not with the
+    /// structure itself, its resolver must be passed back to the structure holding the pointer.
     type MetadataResolver;
 
     /// Creates the archived version of the metadata for this value at the given position and writes
     /// it to the given output.
     ///
-    /// The output should be initialized field-by-field rather than by writing a whole struct. This
-    /// is because performing a typed copy will set all of the padding bytes to uninitialized, but
-    /// they must remain whatever value they currently have. This is so that uninitialized memory
-    /// doesn't get leaked to the final archive.
+    /// The output should be initialized field-by-field rather than by writing a whole struct.
+    /// Performing a typed copy will mark all of the padding bytes as uninitialized, but they must
+    /// remain set to the value they currently have. This prevents leaking uninitialized memory to
+    /// the final archive.
     ///
     /// # Safety
     ///
@@ -541,10 +613,10 @@ pub trait ArchiveUnsized: Pointee {
     /// Resolves a relative pointer to this value with the given `from` and `to` and writes it to
     /// the given output.
     ///
-    /// The output should be initialized field-by-field rather than by writing a whole struct. This
-    /// is because performing a typed copy will set all of the padding bytes to uninitialized, but
-    /// they must remain whatever value they currently have. This is so that uninitialized memory
-    /// doesn't get leaked to the final archive.
+    /// The output should be initialized field-by-field rather than by writing a whole struct.
+    /// Performing a typed copy will mark all of the padding bytes as uninitialized, but they must
+    /// remain set to the value they currently have. This prevents leaking uninitialized memory to
+    /// the final archive.
     ///
     /// # Safety
     ///
@@ -592,7 +664,7 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: Archive
     ///
     /// # Safety
     ///
-    /// The memory returned must be properly deallocated.
+    /// `out` must point to memory with the layout returned by `deserialized_layout`.
     unsafe fn deserialize_unsized(
         &self,
         deserializer: &mut D,
@@ -607,21 +679,39 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: Archive
 core::compile_error!("\"size_16\", \"size_32\", or \"size_64\" feature must be eanbled for rkyv.");
 
 /// The native type that `usize` is converted to for archiving.
+///
+/// This will be `u16`, `u32`, or `u64` when the `size_16`, `size_32`, or `size_64` features are
+/// enabled, respectively.
 pub type FixedUsize = pick_size_type!(u16, u32, u64);
 /// The native type that `isize` is converted to for archiving.
+///
+/// This will be `i16`, `i32`, or `i64` when the `size_16`, `size_32`, or `size_64` features are
+/// enabled, respectively.
 pub type FixedIsize = pick_size_type!(i16, i32, i64);
 
 /// The default raw relative pointer.
+///
+/// This will use an archived [`FixedIsize`] to hold the offset.
 pub type RawRelPtr = rel_ptr::RawRelPtr<Archived<isize>>;
 /// The default relative pointer.
+///
+/// This will use an archived [`FixedIsize`] to hold the offset.
 pub type RelPtr<T> = rel_ptr::RelPtr<T, Archived<isize>>;
 
 /// Alias for the archived version of some [`Archive`] type.
+///
+/// This can be useful for reducing the lengths of type definitions.
 pub type Archived<T> = <T as Archive>::Archived;
 /// Alias for the resolver for some [`Archive`] type.
+///
+/// This can be useful for reducing the lengths of type definitions.
 pub type Resolver<T> = <T as Archive>::Resolver;
 /// Alias for the archived metadata for some [`ArchiveUnsized`] type.
+///
+/// This can be useful for reducing the lengths of type definitions.
 pub type ArchivedMetadata<T> =
     <<T as ArchiveUnsized>::Archived as ArchivePointee>::ArchivedMetadata;
 /// Alias for the metadata resolver for some [`ArchiveUnsized`] type.
+///
+/// This can be useful for reducing the lengths of type definitions.
 pub type MetadataResolver<T> = <T as ArchiveUnsized>::MetadataResolver;

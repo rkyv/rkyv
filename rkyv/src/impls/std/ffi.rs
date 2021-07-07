@@ -1,5 +1,3 @@
-//! [`Archive`] implementation for `std` FFI types.
-
 use crate::{
     ffi::{ArchivedCString, CStringResolver},
     ser::Serializer,

@@ -56,8 +56,8 @@ pub trait ArchiveContext: Fallible {
     /// Checks that a relative pointer points to an address within the archive.
     ///
     /// The returned pointer is not guaranteed to point to an object that is contained completely
-    /// within the archive. Use [`bounds_check_layout`] to verify that an object with some layout is
-    /// located at the target address.
+    /// within the archive. Use [`bounds_check_layout`](ArchiveContext::bounds_check_layout) to
+    /// verify that an object with some layout is located at the target address.
     ///
     /// # Safety
     ///

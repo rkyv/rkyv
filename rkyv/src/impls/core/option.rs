@@ -1,5 +1,3 @@
-//! [`Archive`] implementation for `Option`.
-
 use crate::{option::ArchivedOption, Archive, Deserialize, Fallible, Serialize};
 use core::ptr;
 

@@ -1,5 +1,3 @@
-//! [`Archive`] implementation for `HashSet`.
-
 use crate::{
     collections::hash_set::{ArchivedHashSet, HashSetResolver},
     ser::{ScratchSpace, Serializer},

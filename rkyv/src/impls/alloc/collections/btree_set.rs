@@ -1,5 +1,3 @@
-//! [`Archive`] implementation for `BTreeSet`.
-
 use crate::{
     collections::btree_set::{ArchivedBTreeSet, BTreeSetResolver},
     ser::Serializer,

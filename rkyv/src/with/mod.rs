@@ -1,4 +1,7 @@
 //! Wrapper type support and commonly used wrappers.
+//!
+//! Wrappers can be applied with the `#[with(...)]` attribute in the
+//! [`Archive`](macro@crate::Archive) macro. See [`With`] for examples.
 
 mod atomic;
 mod core;
@@ -13,7 +16,27 @@ use ::core::{fmt, marker::PhantomData, mem::transmute, ops::Deref};
 
 /// A transparent wrapper for archived fields.
 ///
-/// This is used by the `#[with(...)]` attribute to create transparent serialization wrappers.
+/// This is used by the `#[with(...)]` attribute in the [`Archive`](macro@crate::Archive) macro to
+/// create transparent serialization wrappers. Those wrappers leverage [`ArchiveWith`] to change
+/// how the type is archived, serialized, and deserialized.
+///
+/// When a field is serialized, a reference to the field (i.e. `&T`) can be cast to a reference to a
+/// `With` wrapper and serialized instead (i.e. `&With<T, Wrapper>`). This is safe to do because
+/// `With` is a transparent wrapper and is shaped exactly the same as the underlying field.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{Archive, with::Inline};
+///
+/// #[derive(Archive)]
+/// struct Example<'a> {
+///     // This will archive as if it were With<&'a i32, Inline>. That will delegate the archival
+///     // to the ArchiveWith implementation of Inline for &T.
+///     #[with(Inline)]
+///     a: &'a i32,
+/// }
+/// ```
 #[repr(transparent)]
 pub struct With<F: ?Sized, W> {
     _phantom: PhantomData<W>,
@@ -49,7 +72,102 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
     }
 }
 
-/// A variant of `Archive` that works with `With` wrappers.
+/// A variant of [`Archive`] that works with [`With`] wrappers.
+///
+/// Creating a wrapper allows users to customize how fields are archived easily without changing the
+/// unarchived type.
+///
+/// This trait allows wrapper types to transparently change the archive behaviors for struct fields.
+/// When a field is serialized, its reference may be converted to a [`With`] reference, and that
+/// reference may be serialized instead. `With` references look for implementations of `ArchiveWith`
+/// to determine how a wrapped field should be treated.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{
+///     archived_root,
+///     ser::{
+///         serializers::AllocSerializer,
+///         Serializer,
+///     },
+///     with::{
+///         ArchiveWith,
+///         DeserializeWith,
+///         SerializeWith,
+///     },
+///     Archive,
+///     Archived,
+///     Deserialize,
+///     Fallible,
+///     Infallible,
+///     Resolver,
+///     Serialize,
+/// };
+///
+/// struct Incremented;
+///
+/// impl ArchiveWith<i32> for Incremented {
+///     type Archived = Archived<i32>;
+///     type Resolver = Resolver<i32>;
+///
+///     unsafe fn resolve_with(field: &i32, pos: usize, _: (), out: *mut Self::Archived) {
+///         let incremented = field + 1;
+///         incremented.resolve(pos, (), out);
+///     }
+/// }
+///
+/// impl<S: Fallible + ?Sized> SerializeWith<i32, S> for Incremented
+/// where
+///     i32: Serialize<S>,
+/// {
+///     fn serialize_with(field: &i32, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+///         let incremented = field + 1;
+///         incremented.serialize(serializer)
+///     }
+/// }
+///
+/// impl<D: Fallible + ?Sized> DeserializeWith<Archived<i32>, i32, D> for Incremented
+/// where
+///     Archived<i32>: Deserialize<i32, D>,
+/// {
+///     fn deserialize_with(field: &Archived<i32>, deserializer: &mut D) -> Result<i32, D::Error> {
+///         Ok(field.deserialize(deserializer)? - 1)
+///     }
+/// }
+///
+/// #[derive(Archive, Deserialize, Serialize)]
+/// struct Example {
+///     #[with(Incremented)]
+///     a: i32,
+///     // Another i32 field, but not incremented this time
+///     b: i32,
+/// }
+///
+/// let value = Example {
+///     a: 4,
+///     b: 9,
+/// };
+///
+/// let mut serializer = AllocSerializer::<4096>::default();
+/// serializer.serialize_value(&value).unwrap();
+/// let buf = serializer.into_serializer().into_inner();
+///
+/// let archived = unsafe { archived_root::<Example>(buf.as_ref()) };
+/// // The wrapped field has been incremented
+/// assert_eq!(archived.a, 5);
+/// // ... and the unwrapped field has not
+/// assert_eq!(archived.b, 9);
+///
+/// let deserialized = Deserialize::<Example, _>::deserialize(
+///     archived,
+///     &mut Infallible,
+/// ).unwrap();
+/// // The wrapped field is back to normal
+/// assert_eq!(deserialized.a, 4);
+/// // ... and the unwrapped field is unchanged
+/// assert_eq!(deserialized.b, 9);
+/// ```
 pub trait ArchiveWith<F: ?Sized> {
     /// The archived type of a `With<F, Self>`.
     type Archived;
@@ -135,20 +253,85 @@ impl<T: ?Sized> Deref for Immutable<T> {
     }
 }
 
-/// A wrapper that serializes an atomic as an underlying atomic.
+/// A wrapper that archives an atomic with an underlying atomic.
+///
+/// By default, atomics are archived with an underlying integer.
 ///
 /// # Safety
 ///
 /// This wrapper is only safe to use when the backing memory for wrapped types is mutable.
+///
+/// # Example
+///
+/// ```
+/// use std::sync::atomic::AtomicU32;
+/// use rkyv::{Archive, with::Atomic};
+///
+/// #[derive(Archive)]
+/// struct Example {
+///     #[with(Atomic)]
+///     a: AtomicU32,
+/// }
+/// ```
 pub struct Atomic;
 
 /// A wrapper that serializes a reference inline.
+///
+/// References serialized with `Inline` cannot be deserialized because the struct cannot own the
+/// deserialized value.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{Archive, with::Inline};
+///
+/// #[derive(Archive)]
+/// struct Example<'a> {
+///     #[with(Inline)]
+///     a: &'a i32,
+/// }
+/// ```
 pub struct Inline;
 
 /// A wrapper that serializes a reference as if it were boxed.
+///
+/// Unlike [`Inline`], unsized references can be serialized with `Boxed`.
+///
+/// References serialized with `Boxed` cannot be deserialized because the struct cannot own the
+/// deserialized value.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{Archive, with::Boxed};
+///
+/// #[derive(Archive)]
+/// struct Example<'a> {
+///     #[with(Boxed)]
+///     a: &'a str,
+/// }
+/// ```
 pub struct Boxed;
 
-/// A wrapper that attempts to convert a path to and from UTF-8.
+/// A wrapper that attempts to convert a type to and from UTF-8.
+///
+/// Types like `OsString` and `PathBuf` aren't guaranteed to be encoded as UTF-8, but they usually
+/// are anyway. Using this wrapper will archive them as if they were regular `String`s.
+///
+/// # Example
+///
+/// ```
+/// use std::{ffi::OsString, path::PathBuf};
+/// use rkyv::{Archive, with::AsString};
+///
+/// #[derive(Archive)]
+/// struct Example {
+///     #[with(AsString)]
+///     os_string: OsString,
+///     #[with(AsString)]
+///     path: PathBuf,
+/// }
+/// ```
 pub struct AsString;
 
 /// Errors that can occur when serializing a [`AsString`] wrapper.
@@ -178,6 +361,19 @@ impl ::std::error::Error for AsStringError {}
 /// Unfortunately, it's not possible to work around this issue. If your code absolutely must not
 /// panic under any circumstances, it's recommended that you lock your values and then serialize
 /// them while locked.
+///
+/// # Example
+///
+/// ```
+/// use std::sync::Mutex;
+/// use rkyv::{Archive, with::Lock};
+///
+/// #[derive(Archive)]
+/// struct Example {
+///     #[with(Lock)]
+///     a: Mutex<i32>,
+/// }
+/// ```
 pub struct Lock;
 
 /// Errors that can occur while serializing a [`Lock`] wrapper

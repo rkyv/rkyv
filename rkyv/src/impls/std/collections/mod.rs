@@ -1,4 +1,2 @@
-//! [`Archive`](crate::Archive) implementations for `std` collections.
-
-pub mod hash_map;
-pub mod hash_set;
+mod hash_map;
+mod hash_set;

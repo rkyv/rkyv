@@ -1,5 +1,3 @@
-//! [`Archive`] implementations for primitives.
-
 use crate::{Archive, Archived, Deserialize, Fallible, FixedIsize, FixedUsize, Serialize};
 #[cfg(has_atomics)]
 use core::sync::atomic::{

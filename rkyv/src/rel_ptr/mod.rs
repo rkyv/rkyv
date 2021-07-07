@@ -11,7 +11,7 @@ use core::{
     ptr,
 };
 
-/// The offset between the two positions cannot be represented by the offset type.
+/// An error where the distance between two positions cannot be represented by the offset type.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OffsetError {
     /// The offset overflowed the range of `isize`
@@ -139,6 +139,17 @@ pub enum RelPtrError {
 }
 
 /// An untyped pointer which resolves relative to its position in memory.
+///
+/// This is the most fundamental building block in rkyv. It allows the construction and use of
+/// pointers that can be safely reloacted as long as the source and target are moved together. This
+/// is what allows memory to be moved from disk into memory and accessed without decoding.
+///
+/// Regular pointers are *absolute*, meaning that the pointee can be moved without invalidating the
+/// pointer. However, the target cannot be moved or the pointer is invalidated.
+///
+/// Relative pointers are *relative*, meaning that the pointee can be moved with the target without
+/// invalidating the pointer. However, if either the pointee or the target move independently, the
+/// pointer will be invalidated.
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct RawRelPtr<O> {
@@ -236,6 +247,8 @@ pub type RawRelPtrU64 = RawRelPtr<Archived<u64>>;
 // TOOD: implement for NonZero types
 
 /// A pointer which resolves to relative to its position in memory.
+///
+/// This is a strongly-typed version of [`RawRelPtr`].
 ///
 /// See [`Archive`](crate::Archive) for an example of creating one.
 pub struct RelPtr<T: ArchivePointee + ?Sized, O> {

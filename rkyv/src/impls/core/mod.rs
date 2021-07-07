@@ -1,5 +1,3 @@
-//! [`Archive`] implementations for `core` types.
-
 #[cfg(feature = "copy")]
 use crate::copy::ArchiveCopyOptimize;
 use crate::{
@@ -12,7 +10,7 @@ use ptr_meta::Pointee;
 
 pub mod option;
 pub mod primitive;
-pub mod range;
+pub mod ops;
 pub mod time;
 
 impl<T> ArchivePointee for T {

@@ -11,7 +11,8 @@ use core::{alloc::Layout, mem, ptr::NonNull, slice};
 /// [`WriteSerializer`](serializers::WriteSerializer) to equip it with `Serializer`.
 ///
 /// It's important that the memory for archived objects is properly aligned before attempting to
-/// read objects out of it; use the [`Aligned`](crate::Aligned) wrapper if it's appropriate.
+/// read objects out of it; use an [`AlignedVec`](crate::AlignedVec) or the
+/// [`AlignedBytes`](crate::AlignedBytes) wrappers if they are appropriate.
 pub trait Serializer: Fallible {
     /// Returns the current position of the serializer.
     fn pos(&self) -> usize;

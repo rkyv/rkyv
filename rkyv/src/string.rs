@@ -130,7 +130,9 @@ impl ArchivedStringRepr {
 
 /// An archived [`String`].
 ///
-/// Uses a [`RelPtr`] to a `str` under the hood.
+/// This has inline and out-of-line representations. Short strings will use the available space
+/// inside the structure to store the string, and long strings will store a
+/// [`RelPtr`](crate::RelPtr) to a `str` instead.
 #[repr(transparent)]
 pub struct ArchivedString(ArchivedStringRepr);
 

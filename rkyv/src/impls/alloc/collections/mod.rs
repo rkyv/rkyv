@@ -1,4 +1,2 @@
-//! [`Archive`](crate::Archive) implementations for `alloc` collections.
-
-pub mod btree_map;
-pub mod btree_set;
+mod btree_map;
+mod btree_set;

@@ -68,8 +68,13 @@ fn derive_deserialize_impl(
 
                 let deserialize_fields = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    let value =
-                        with_inner(f, parse_quote! { self.#name.deserialize(deserializer)? });
+                    let ty = with_ty(f);
+                    let value = with_inner(f, parse_quote! {
+                        Deserialize::<#ty, __D>::deserialize(
+                            &self.#name,
+                            deserializer,
+                        )?
+                    });
                     quote! { #name: #value }
                 });
 
@@ -102,8 +107,13 @@ fn derive_deserialize_impl(
 
                 let deserialize_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = Index::from(i);
-                    let value =
-                        with_inner(f, parse_quote! { self.#index.deserialize(deserializer)? });
+                    let ty = with_ty(f);
+                    let value = with_inner(f, parse_quote! {
+                        Deserialize::<#ty, __D>::deserialize(
+                            &self.#index,
+                            deserializer,
+                        )?
+                    });
                     quote! { #value }
                 });
 
@@ -175,8 +185,13 @@ fn derive_deserialize_impl(
                         });
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
-                            let value =
-                                with_inner(f, parse_quote! { #name.deserialize(deserializer)? });
+                            let ty = with_ty(f);
+                            let value = with_inner(f, parse_quote! {
+                                Deserialize::<#ty, __D>::deserialize(
+                                    #name,
+                                    deserializer,
+                                )?
+                            });
                             quote! { #name: #value }
                         });
                         quote_spanned! { variant.span() =>
@@ -190,8 +205,13 @@ fn derive_deserialize_impl(
                         });
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let binding = Ident::new(&format!("_{}", i), f.span());
-                            let value =
-                                with_inner(f, parse_quote! { #binding.deserialize(deserializer)? });
+                            let ty = with_ty(f);
+                            let value = with_inner(f, parse_quote! {
+                                Deserialize::<#ty, __D>::deserialize(
+                                    #binding,
+                                    deserializer,
+                                )?
+                            });
                             quote! { #value }
                         });
                         quote_spanned! { variant.span() =>
