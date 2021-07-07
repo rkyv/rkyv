@@ -18,66 +18,46 @@ memory mapping.
 
 ## How does rkyv handle endianness?
 
-rkyv does not natively support reconciling endianness. That means that little-endian systems will
-write little-endian archives and big-endian systems will write big-endian archives.
+rkyv supports three endiannesses: native, little, and big. Native endianness will be either little
+or big, but removes the abstraction layer to more easily work with the underlying types.
 
-You can still write your own custom type wrappers and use those to achieve cross-endian archives.
-For example, a wrapper type could always serialize integers as little-endian and then provide a
-getter that converts the on-disk representation to native endianness. Deserialization would also
-simply convert to native endianness.
+You can enable specific endiannesses with the `archive_le` and `archive_be` features.
 
 ## Is rkyv cross-platform?
 
-Yes, but with caveats:
-
-- You can use it on either little- or big-endian systems, but it will always use native endianness.
-  See "How does rkyv handle endianness?" for more information.
-- rkyv has not been widely tested and there may be bugs that need to get fixed.
-
-That said, it is explicitly a goal of rkyv to be cross-platform within reason (and that reason is
-very wide).
+Yes, but rkyv has been tested mostly on x86 machines and wasm. There may be bugs that need to get
+fixed for other architectures.
 
 ## Can I use this in embedded and `#[no_std]` environments?
 
-Yes, but be on the lookout for bugs because these environments have not been thoroughly tested.
+Yes, disable the `std` feature for `no_std`. You can additionally disable the `alloc` feature to
+disable all memory allocation capabilities.
 
 # Safety
 
 ## Isn't this very unsafe if you access untrusted data?
 
 Yes, *but* you can still access untrusted data if you validate the archive first with
-[bytecheck](https://github.com/djkoloski/bytecheck). It's an extra step and requires a decent amount
-of processing, but it's typically still less than the cost of deserializing using a traditional
-format.
+[bytecheck](https://github.com/djkoloski/bytecheck). It's an extra step, but it's usually still less
+than the cost of deserializing using a traditional format. rkyv has proven to round-trip faster than
+bincode for all tested use cases.
 
-## Doesn't that mean I basically can't use it anywhere?
+## Doesn't that mean I always have to validate?
 
 **No**. There are many other ways you can verify your data, for example with checksums and signed
-buffers. If your security model prevents you from using those techniques, then it definitely
-prevents you from using most or all zero-copy deserialization solutions and you're stuck with slower
-traditional serialization.
+buffers.
 
 ## Isn't it kind of deceptive to say rkyv is fast and then require validation?
 
-The regular (fast) path to access archived data is marked as `unsafe`. This doesn't mean that it's
+The fastest path to access archived data is marked as `unsafe`. This doesn't mean that it's
 unusable, it means that it's only safe to call if you can verify its preconditions:
 
-> This is only safe to call if the value is archived at the given position in the byte array.
+> The value must be archived at the given position in the byte array.
 
 As long as you can (reasonably) guarantee that, then accessing the archive is safe. Not every
 archive needs to be validated, and you can use a variety of different techniques to guarantee data
 integrity and security.
 
-Validation is provided for archives because it's still typically faster to validate and access an
-archive than it is to deserialize traditional formats. Additionally, it has more uses than just
-checking potentially malicious archives.
-
-## Isn't it unfair if competitors like Cap'n Proto validate their archives but you don't?
-
-Cap'n Proto does validate their archives before use, but it comes with the
-[same security guarantees](https://capnproto.org/faq.html#security) as rkyv. The primary difference
-is that Cap'n Proto always validates their data and rkyv gives the user the decision. Rust's
-safe/unsafe system makes this choice explicit and different users will choose differently.
-
-FlatBuffers [also has verification](https://github.com/dvidelabs/flatcc/blob/master/doc/security.md)
-(for rust?) but they have the same set of warnings and caveats as rkyv and Cap'n Proto.
+Even if you do need to always validate your data before accessing it, validation is always faster
+than deserializing with other high-performance formats. A round-trip is still faster, even though
+it's not by the same margins.

@@ -4,6 +4,10 @@ Trait object serialization is supported through the `rkyv_dyn` crate. This crate
 part of rkyv, but is separate from the main crate to allow other implementations to be used instead.
 This section will focus primarily on the architecture of `rkyv_dyn` and how to use it effectively.
 
+> `rkyv_dyn` may not work in some exotic environments due to the ✨magic✨ it uses to register
+> trait objects. If you want these capabilities but `rkyv_dyn` doesn't work in your environment,
+> feel free to file an issue or drop by in the discord to talk it through.
+
 ## Core traits
 
 The new traits introduced by `rkyv_dyn` are
@@ -15,6 +19,10 @@ are object-safe. Likewise, it introduces type-erased versions of serializers and
 [`DynDeserializer`](https://docs.rs/rkyv_dyn/latest/rkyv_dyn/trait.DynDeserializer.html). These
 attempt to provide the basic functionality required to serialize most types, but may be more or less
 capable than custom types require.
+
+> `DynSerializer` implements the `Serializer` and `ScratchSpace` traits, but that may not be
+> suitable for all use cases. If you need more capabilities, file an issue or drop by in the discord
+> to talk it through.
 
 ## Architecture
 

@@ -8,8 +8,8 @@ mod tests {
     #[cfg_attr(feature = "wasm", allow(unused_imports))]
     use rkyv::{
         archived_root, archived_root_mut,
-        ser::{serializers::AlignedSerializer, Serializer},
-        AlignedVec, Archive, Archived, Deserialize, Infallible, Serialize,
+        ser::{serializers::AllocSerializer, Serializer},
+        Archive, Archived, Deserialize, Infallible, Serialize,
     };
     #[cfg_attr(feature = "wasm", allow(unused_imports))]
     use rkyv_dyn::archive_dyn;
@@ -23,8 +23,7 @@ mod tests {
             use core::alloc::Layout;
             use rkyv::{
                 archived_root,
-                ser::{serializers::AlignedSerializer, Serializer},
-                util::AlignedVec,
+                ser::{serializers::AllocSerializer, ScratchSpace, Serializer},
                 Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata, Deserialize,
                 DeserializeUnsized, Fallible, Infallible, Serialize, SerializeUnsized,
             };
@@ -84,7 +83,7 @@ mod tests {
                 }
             }
 
-            impl<S: Serializer + ?Sized> SerializeUnsized<S> for dyn SerializeTestTrait {
+            impl<S: ScratchSpace + Serializer + ?Sized> SerializeUnsized<S> for dyn SerializeTestTrait {
                 fn serialize_unsized(&self, mut serializer: &mut S) -> Result<usize, S::Error> {
                     self.serialize_dyn(&mut serializer)
                         .map_err(|e| *e.downcast::<S::Error>().unwrap())
@@ -170,11 +169,9 @@ mod tests {
 
             let value: Box<dyn SerializeTestTrait> = Box::new(Test { id: 42 });
 
-            let mut serializer = AlignedSerializer::new(AlignedVec::new());
-            serializer
-                .serialize_value(&value)
-                .expect("failed to archive value");
-            let buf = serializer.into_inner();
+            let mut serializer = AllocSerializer::<256>::default();
+            serializer.serialize_value(&value).unwrap();
+            let buf = serializer.into_serializer().into_inner();
             let archived_value =
                 unsafe { archived_root::<Box<dyn SerializeTestTrait>>(buf.as_ref()) };
             assert_eq!(value.get_id(), archived_value.get_id());
@@ -218,11 +215,9 @@ mod tests {
 
         let value: Box<dyn STestTrait> = Box::new(Test { id: 42 });
 
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
-        serializer
-            .serialize_value(&value)
-            .expect("failed to archive value");
-        let buf = serializer.into_inner();
+        let mut serializer = AllocSerializer::<256>::default();
+        serializer.serialize_value(&value).unwrap();
+        let buf = serializer.into_serializer().into_inner();
         let archived_value = unsafe { archived_root::<Box<dyn STestTrait>>(buf.as_ref()) };
         assert_eq!(value.get_id(), archived_value.get_id());
 
@@ -326,14 +321,10 @@ mod tests {
             value: "hello world".to_string(),
         });
 
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
-        let i32_pos = serializer
-            .serialize_value(&i32_value)
-            .expect("failed to archive value");
-        let string_pos = serializer
-            .serialize_value(&string_value)
-            .expect("failed to archive value");
-        let buf = serializer.into_inner();
+        let mut serializer = AllocSerializer::<256>::default();
+        let i32_pos = serializer.serialize_value(&i32_value).unwrap();
+        let string_pos = serializer.serialize_value(&string_value).unwrap();
+        let buf = serializer.into_serializer().into_inner();
         let i32_archived_value =
             unsafe { archived_value::<Box<dyn STestTrait<i32>>>(buf.as_ref(), i32_pos) };
         let string_archived_value =
@@ -408,9 +399,9 @@ mod tests {
 
         let value = Box::new(Test(10)) as Box<dyn SerializeTestTrait>;
 
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        let mut serializer = AllocSerializer::<256>::default();
         serializer.serialize_value(&value).unwrap();
-        let mut buf = serializer.into_inner();
+        let mut buf = serializer.into_serializer().into_inner();
         let mut value =
             unsafe { archived_root_mut::<Box<dyn SerializeTestTrait>>(Pin::new(buf.as_mut())) };
 

@@ -1,36 +1,37 @@
-# rkyv
+<p align="center">
+    <img src="https://raw.githubusercontent.com/djkoloski/rkyv/master/media/logo_text_color.svg">
+</p>
 
 [rkyv](http://github.com/djkoloski/rkyv) (*archive*) is a zero-copy deserialization framework for
 rust.
 
-## Crates
+This book covers the motivation, architecture, and major features of rkyv. It is the best way to
+learn and understand rkyv, but won't go as in-depth on specifics as the documentation will. Don't be
+afraid to consult these other resources as you need while you read through.
 
-rkyv is composed of three core crates:
+# Resources
 
-- `rkyv`: The base crate, which defines the fundamental traits and provides implementations for core
-types.
-- `rkyv_dyn`: Builds on the base crate to add support for serializing and deserializing trait
-objects.
-- `rkyv_typename`: Provides naming for types (used with rkyv_dyn).
+## Learning Materials
 
-The project has three derive crates that are exposed through the core crates:
+- The [rkyv discord](https://discord.gg/65F6MdnbQh) is a great place to get help with specific
+  issues and meet other people using rkyv
+- The [rkyv github](https://github.com/djkoloski/rkyv) hosts the source and tracks project issues
+  and milestones.
 
-- `rkyv_derive`
-- `rkyv_dyn_derive`
-- `rkyv_typename_derive`
+## Documentation
 
-There is a test crate: `rkyv_test`, and a benchmarking crate: `rkyv_bench`.
+- [rkyv](https://docs.rs/rkyv), the core library
+- [rkyv_dyn](https://docs.rs/rkyv_dyn), which adds trait object support to rkyv
+- [rkyv_typename](https://docs.rs/rkyv_typename), a type naming library
 
-## Links
+## Benchmarks
 
-- [Github repo](https://github.com/djkoloski/rkyv)
-- [Docs](https://docs.rs/rkyv)
-- [crates.io](https://crates.io/crates/rkyv)
+- The [rust serialization benchmark](https://github.com/djkoloski/rust_serialization_benchmark) is a
+  shootout style benchmark comparing many rust serialization solutions. It includes special
+  benchmarks for zero-copy serialization solutions like rkyv.
 
-## Sister crates
+## Sister Crates
 
-rkyv has sister crates that are standalone but were designed for use with rkyv:
-
-- [bytecheck](https://github.com/djkoloski/bytecheck): A type validation framework for Rust.
-- [ptr_meta](https://github.com/djkoloski/ptr_meta): A radioactive stabilization of the `ptr_meta`
-  RFC.
+- [bytecheck](https://github.com/djkoloski/bytecheck), which rkyv uses for validation
+- [ptr_meta](https://github.com/djkoloski/ptr_meta), which rkyv uses for pointer manipulation
+- [rend](https://github.com/djkoloski/rend), which rkyv uses for endian-agnostic features

@@ -3,26 +3,33 @@
 Types implement [`Serialize`](https://docs.rs/rkyv/latest/rkyv/trait.Serialize.html) separately from
 `Archive`. `Serialize` creates a resolver for some object, then `Archive` turns the value and that
 resolver into an archived type. Having a separate `Serialize` trait is necessary because although a
-type may have only one archived representation, different requirements may need to be met in order
-to create one.
+type may have only one archived representation, you may have options of what requirements to meet in
+order to create one.
 
-`Archive` doesn't parameterize over the serializer used to make it, since it shouldn't matter what
-serializer an archived type was made with. But `Serialize` does, because it needs to specify the
-requirements on its `Serializer` that need to be met for it to create a resolver.
+> The `Serialize` trait is parameterized over the *serializer*. The serializer is just a mutable
+> object that helps the type serialize itself. The most basic types like `u32` or `char` don't
+> *bound* their serializer type because they can serialize themselves with any kind of serializer.
+> More complex types like `Box` and `String` require a serializer that implements
+> [`Serializer`](https://docs.rs/rkyv/latest/rkyv/ser/traitlSerializer.html), and even more complex
+> types like `Rc` and `Vec` require a serializer that additionally implement
+> [`SharedSerializeRegistry`](https://docs.rs/rkyv/latest/rkyv/ser/trait.SharedSerializeRegistry.html)
+> or [`ScratchSpace`](https://docs.rs/rkyv/latest/rkyv/ser/trait.ScratchSpace.html).
+
+Unlike `Serialize`, `Archive` doesn't parameterize over the serializer used to make it. It shouldn't
+matter what serializer a resolver was made with, only that it's made correctly.
 
 ## Serializer
 
-Serializers are types that provide capabilities to objects during serialization. For primitive
-types, any serializer can be used because no additional capabilities are required. More complex
-types may require the ability to write bytes to the archive, seek throughout the archive, pool
-shared resources, and more. rkyv provides serializers with some basic functionality as well as
-adapters that add new capabilities to existing serializers.
+rkyv provides serializers that provide all the functionality needed to serialize standard library
+types, as well as serializers that combine other serializers into a single object with all of the
+components' capabilities.
 
-The most basic serializers used are
-[`BufferSerializer`](https://docs.rs/rkyv/latest/rkyv/ser/serializers/struct.BufferSerializer.html)
-for serializing into fixed-size byte buffers and
-[`WriteSerializer`](https://docs.rs/rkyv/latest/rkyv/ser/serializers/struct.WriteSerializer.html)
-for serializing into any [`Writer`](https://doc.rust-lang.org/std/io/trait.Write.html). In many
-cases,
-[`AlignedSerializer`](https://docs.rs/rkyv/latest/rkyv/ser/serializers/struct.AlignedSerializer.html)
-may have better performance.
+The [provided serializers](https://docs.rs/rkyv/latest/rkyv/ser/serializers/index.html) offer a wide
+range of strategies and capabilities, but most use cases will be best suited by
+[`AllocSerializer`](https://docs.rs/rkyv/latest/rkyv/ser/serializers/type.AllocSerializer.html).
+
+> Many types require *scratch space* to serialize. This is some extra allocated space that they can
+> use temporarily and return when they're done. For example, `Vec` might request scratch space to
+> store the resolvers for its elements until it can serialize all of them. Requesting scratch space
+> from the serializer allows scratch space to be reused many times, which reduces the number of slow
+> memory allocations performed while serializing.

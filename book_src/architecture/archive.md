@@ -4,14 +4,14 @@ Types that implement `Archive` have an alternate representation that supports ze
 deserialization. The construction of archived types happens in two steps:
 
 1. Any dependencies of the type are serialized. For strings this would be the characters of the
-string, for boxes it would be the boxed value, and for vectors it would be any contained values. Any
-bookkeeping from this step is bundled into a `Resolver` type and held onto for later. This is the
-*serialize* step.
-2. The resolver and original value are used to construct the archived value, then the value itself
-is written to the writer. For strings the resolver would be the position of the characters, for boxes
-it would be the position of the boxed value, and for vectors it would be the position of the
-archived values. Along with the original values, the archived types of each of these can be
-constructed. This is the *resolve* step.
+string, for boxes it would be the boxed value, and for vectors it would be any contained elements.
+Any bookkeeping from this step is bundled into a `Resolver` type and held onto for later. This is
+the *serialize* step.
+2. The resolver and original value are used to construct the archived value in the output buffer.
+For strings the resolver would be the position of the characters, for boxes it would be the position
+of the boxed value, and for vectors it would be the position of the archived elements. With the
+original values and resolvers combined, the archived version can be constructed. This is the
+*resolve* step.
 
 ## Resolvers
 

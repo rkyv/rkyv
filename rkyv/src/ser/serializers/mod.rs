@@ -208,6 +208,10 @@ impl<S: Fallible, C: Fallible, H: SharedSerializeRegistry> SharedSerializeRegist
 }
 
 /// A serializer suitable for environments where allocations cannot be made.
+///
+/// `CoreSerializer` takes two arguments: the amount of serialization memory to allocate and the
+/// amount of scratch space to allocate. If you run out of either while serializing, the serializer
+/// will return an error.
 pub type CoreSerializer<const S: usize, const C: usize> = CompositeSerializer<
     BufferSerializer<AlignedBytes<S>>,
     BufferScratch<AlignedBytes<C>>,
@@ -215,6 +219,12 @@ pub type CoreSerializer<const S: usize, const C: usize> = CompositeSerializer<
 >;
 
 /// A general-purpose serializer suitable for environments where allocations can be made.
+///
+/// `AllocSerializer` takes one argument: the amount of scratch space to allocate before spilling
+/// allocations over into heap memory. A large amount of scratch space may result in some of it not
+/// being used, but too little scratch space will result in many allocations and decreased
+/// performance. You should consider your use case carefully when determining how much scratch space
+/// to pre-allocate.
 #[cfg(feature = "alloc")]
 pub type AllocSerializer<const N: usize> = CompositeSerializer<
     AlignedSerializer<AlignedVec>,

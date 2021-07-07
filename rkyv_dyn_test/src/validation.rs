@@ -5,8 +5,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", allow(unused_imports))]
     use rkyv::{
         check_archived_root,
-        ser::{serializers::AlignedSerializer, Serializer},
-        util::AlignedVec,
+        ser::{serializers::AllocSerializer, Serializer},
         validation::validators::DefaultValidator,
         Archive, Archived, Serialize,
     };
@@ -16,15 +15,13 @@ mod tests {
     use rkyv_typename::TypeName;
 
     #[cfg_attr(feature = "wasm", allow(dead_code))]
-    fn serialize_and_check<T: Serialize<AlignedSerializer<AlignedVec>>>(value: &T)
+    fn serialize_and_check<T: Serialize<AllocSerializer<256>>>(value: &T)
     where
         T::Archived: for<'a> CheckBytes<DefaultValidator<'a>>,
     {
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
-        serializer
-            .serialize_value(value)
-            .expect("failed to archive value");
-        let buf = serializer.into_inner();
+        let mut serializer = AllocSerializer::<256>::default();
+        serializer.serialize_value(value).unwrap();
+        let buf = serializer.into_serializer().into_inner();
         check_archived_root::<T>(buf.as_ref()).unwrap();
     }
 
@@ -80,11 +77,9 @@ mod tests {
 
         let value: Box<dyn SerializeTestTrait> = Box::new(TestUnchecked { id: 42 });
 
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
-        serializer
-            .serialize_value(&value)
-            .expect("failed to archive value");
-        let buf = serializer.into_inner();
+        let mut serializer = AllocSerializer::<256>::default();
+        serializer.serialize_value(&value).unwrap();
+        let buf = serializer.into_serializer().into_inner();
         if let Ok(_) = check_archived_root::<Box<dyn SerializeTestTrait>>(buf.as_ref()) {
             panic!("check passed for type that does not implement CheckBytes");
         }

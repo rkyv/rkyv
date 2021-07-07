@@ -14,9 +14,13 @@ important for the concept of sizing, which you may have encountered through rust
 Pointers are composed of two pieces: a data address and some metadata. The data address is what most
 people think of when they think about pointers; it's the location of the pointed data. The metadata
 for a pointer is some extra data that is needed to work safely with the data at the pointed
-location. It can be almost anything, or nothing at all (for Sized types). Pointers with no extra
+location. It can be almost anything, or nothing at all for `Sized` types. Pointers with no extra
 metadata are sometimes called "thin" pointers, and pointers _with_ metadata are sometimes called
-"fat" pointers.
+"wide" or "fat" pointers.
+
+> rkyv uses the [`ptr_meta`](https://docs.rs/ptr_meta) crate to perform these conversions safely. In
+> the future, these may be incorporated as
+> [part of the standard library](https://rust-lang.github.io/rfcs/2580-ptr-meta.html).
 
 Fundamentally, the metadata of a pointer exists to provide the program enough information to safely
 access, drop, and deallocate structures that are pointed to. For slices, the metadata carries the
@@ -29,3 +33,8 @@ For unsized types, the metadata for a type is archived separately from the relat
 data. This mirrors how rust works internally to support archiving shared pointers and other exotic
 use cases. This does complicate things somewhat, but for most people the metadata archiving process
 will end up as just filling out a few functions and returning `()`.
+
+> This is definitely one of the more complicated parts of the library, and can be difficult to wrap
+> your head around. Reading the documentation for
+> [`ArchiveUnsized`](https://docs.rs/rkyv/latest/rkyv/trait.ArchiveUnsized.html) may help you
+> understand how the system works by working through an example.

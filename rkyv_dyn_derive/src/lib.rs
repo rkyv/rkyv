@@ -356,7 +356,7 @@ pub fn archive_dyn(
                 const _: ()  = {
                     use core::alloc::Layout;
                     use rkyv::{
-                        ser::Serializer,
+                        ser::{ScratchSpace, Serializer},
                         Archive,
                         Archived,
                         ArchivedMetadata,
@@ -409,7 +409,7 @@ pub fn archive_dyn(
                         }
                     }
 
-                    impl<__S: Serializer + ?Sized, #generic_params> SerializeUnsized<__S> for dyn #serialize_trait<#generic_args> {
+                    impl<__S: ScratchSpace + Serializer + ?Sized, #generic_params> SerializeUnsized<__S> for dyn #serialize_trait<#generic_args> {
                         fn serialize_unsized(&self, mut serializer: &mut __S) -> Result<usize, __S::Error> {
                             self.serialize_dyn(&mut serializer).map_err(|e| *e.downcast::<__S::Error>().unwrap())
                         }

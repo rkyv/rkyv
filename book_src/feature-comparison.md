@@ -13,19 +13,21 @@ means completely comprehensive, and pull requests that improve this are welcomed
 | Schema evolution                  | no*           | yes           | yes           |
 | Zero-copy                         | yes           | yes           | yes           |
 | Random-access reads               | yes           | yes           | yes           |
-| Validation                        | upfront*      | on-demand     | upfront       |
+| Validation                        | upfront*      | on-demand     | maybe†        |
 | Reflection                        | no*           | yes           | yes           |
-| Object order                      | bottom-up†    | either        | bottom-up     |
+| Object order                      | bottom-up     | either        | bottom-up     |
 | Schema language                   | derive        | custom        | custom        |
 | Usable as mutable state           | yes           | no            | no            |
 | Padding takes space on wire?      | yes*          | optional      | no            |
 | Unset fields take space on wire?  | yes           | yes           | no            |
 | Pointers take space on wire?      | yes           | yes           | yes           |
 | Cross-language                    | no            | yes           | yes           |
+| Hash maps and B-trees             | yes           | no            | no            |
+| Shared pointers                   | yes           | no            | no            |
 
 \* *rkyv's open type system allows extension types that provide these capabilities*
 
-† *rkyv supports rooted archives, which have bottom-up order for everything except the root object*
+† *flatbuffers support validation, but not for rust*
 
 ## Open type system
 

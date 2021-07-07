@@ -32,7 +32,14 @@ use core::{
     ptr,
 };
 use ptr_meta::{DynMetadata, Pointee};
-use rkyv::{from_archived, ser::Serializer, to_archived, Archived, Fallible, Serialize};
+use rkyv::{
+    from_archived,
+    ser::{ScratchSpace, Serializer},
+    to_archived,
+    Archived,
+    Fallible,
+    Serialize,
+};
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
@@ -64,6 +71,21 @@ pub trait DynSerializer {
 
     /// Attempts to write the given bytes to the serializer.
     fn write_dyn(&mut self, bytes: &[u8]) -> Result<(), DynError>;
+
+    /// Allocates scratch space of the requested size.
+    ///
+    /// # Safety
+    ///
+    /// `layout` must have non-zero size.
+    unsafe fn push_scratch_dyn(&mut self, layout: Layout) -> Result<ptr::NonNull<[u8]>, DynError>;
+
+    /// Deallocates previously allocated scratch space.
+    ///
+    /// # Safety
+    ///
+    /// - `ptr` must be the scratch memory last allocated with `push_scratch`.
+    /// - `layout` must be the same layout that was used to allocate that block of memory.
+    unsafe fn pop_scratch_dyn(&mut self, ptr: ptr::NonNull<u8>, layout: Layout) -> Result<(), DynError>;
 }
 
 impl<'a> Fallible for dyn DynSerializer + 'a {
@@ -80,16 +102,34 @@ impl<'a> Serializer for dyn DynSerializer + 'a {
     }
 }
 
-impl<S: Serializer + ?Sized> DynSerializer for &mut S {
+impl<'a> ScratchSpace for dyn DynSerializer + 'a {
+    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<ptr::NonNull<[u8]>, Self::Error> {
+        self.push_scratch_dyn(layout)
+    }
+
+    unsafe fn pop_scratch(&mut self, ptr: ptr::NonNull<u8>, layout: Layout) -> Result<(), Self::Error> {
+        self.pop_scratch_dyn(ptr, layout)
+    }
+}
+
+impl<S: ScratchSpace + Serializer + ?Sized> DynSerializer for &mut S {
     fn pos_dyn(&self) -> usize {
         self.pos()
     }
 
     fn write_dyn(&mut self, bytes: &[u8]) -> Result<(), DynError> {
-        match self.write(bytes) {
-            Ok(()) => Ok(()),
-            Err(e) => Err(Box::new(e)),
-        }
+        self.write(bytes)
+            .map_err(|e| Box::new(e) as DynError)
+    }
+
+    unsafe fn push_scratch_dyn(&mut self, layout: Layout) -> Result<ptr::NonNull<[u8]>, DynError> {
+        self.push_scratch(layout)
+            .map_err(|e| Box::new(e) as DynError)
+    }
+
+    unsafe fn pop_scratch_dyn(&mut self, ptr: ptr::NonNull<u8>, layout: Layout) -> Result<(), DynError> {
+        self.pop_scratch(ptr, layout)
+            .map_err(|e| Box::new(e) as DynError)
     }
 }
 
@@ -129,7 +169,7 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// use rkyv::{
 ///     archived_value,
 ///     ser::{
-///         serializers::AlignedSerializer,
+///         serializers::AllocSerializer,
 ///         Serializer,
 ///     },
 ///     AlignedVec,
@@ -184,12 +224,12 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// let boxed_int = Box::new(IntStruct(42)) as Box<dyn SerializeExampleTrait>;
 /// let boxed_string = Box::new(StringStruct("hello world".to_string()))
 ///     as Box<dyn SerializeExampleTrait>;
-/// let mut serializer = AlignedSerializer::new(AlignedVec::new());
+/// let mut serializer = AllocSerializer::<256>::default();
 /// let int_pos = serializer.serialize_value(&boxed_int)
 ///     .expect("failed to archive boxed int");
 /// let str_pos = serializer.serialize_value(&boxed_string)
 ///     .expect("failed to archive boxed string");
-/// let buf = serializer.into_inner();
+/// let buf = serializer.into_serializer().into_inner();
 /// let archived_int = unsafe {
 ///     archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), int_pos)
 /// };
