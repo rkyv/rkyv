@@ -13,7 +13,7 @@ means completely comprehensive, and pull requests that improve this are welcomed
 | Schema evolution                  | no*           | yes           | yes           |
 | Zero-copy                         | yes           | yes           | yes           |
 | Random-access reads               | yes           | yes           | yes           |
-| Validation                        | upfront*      | on-demand     | maybe†        |
+| Validation                        | upfront*      | on-demand     | yes           |
 | Reflection                        | no*           | yes           | yes           |
 | Object order                      | bottom-up     | either        | bottom-up     |
 | Schema language                   | derive        | custom        | custom        |
@@ -26,8 +26,6 @@ means completely comprehensive, and pull requests that improve this are welcomed
 | Shared pointers                   | yes           | no            | no            |
 
 \* *rkyv's open type system allows extension types that provide these capabilities*
-
-† *flatbuffers support validation, but not for rust*
 
 ## Open type system
 
