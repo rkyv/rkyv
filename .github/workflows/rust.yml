@@ -26,4 +26,4 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: Run wasm tests
-      run: cd rkyv_test && wasm-pack test --node
+      run: cd rkyv_test && wasm-pack test --node -- --features "wasm"
