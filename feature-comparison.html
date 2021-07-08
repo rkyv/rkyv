@@ -174,7 +174,7 @@ means completely comprehensive, and pull requests that improve this are welcomed
 <tr><td>Schema evolution</td><td>no*</td><td>yes</td><td>yes</td></tr>
 <tr><td>Zero-copy</td><td>yes</td><td>yes</td><td>yes</td></tr>
 <tr><td>Random-access reads</td><td>yes</td><td>yes</td><td>yes</td></tr>
-<tr><td>Validation</td><td>upfront*</td><td>on-demand</td><td>maybe†</td></tr>
+<tr><td>Validation</td><td>upfront*</td><td>on-demand</td><td>yes</td></tr>
 <tr><td>Reflection</td><td>no*</td><td>yes</td><td>yes</td></tr>
 <tr><td>Object order</td><td>bottom-up</td><td>either</td><td>bottom-up</td></tr>
 <tr><td>Schema language</td><td>derive</td><td>custom</td><td>custom</td></tr>
@@ -187,7 +187,6 @@ means completely comprehensive, and pull requests that improve this are welcomed
 <tr><td>Shared pointers</td><td>yes</td><td>no</td><td>no</td></tr>
 </tbody></table>
 <p>* <em>rkyv's open type system allows extension types that provide these capabilities</em></p>
-<p>† <em>flatbuffers support validation, but not for rust</em></p>
 <h2><a class="header" href="#open-type-system" id="open-type-system">Open type system</a></h2>
 <p>One of rkyv's primary features is that its type system is <em>open</em>. This means that users can write
 custom types and control their properties very finely. You can think of rkyv as a solid foundation
