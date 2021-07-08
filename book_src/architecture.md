@@ -1,7 +1,7 @@
 # Architecture
 
 The core of rkyv is built around
-[relative pointers](https://docs.rs/rkyv/latest/rkyv/struct.RelPtr.html) and three core traits:
+[relative pointers](https://docs.rs/rkyv/latest/rkyv/rel_ptr/struct.RelPtr.html) and three core traits:
 [`Archive`](https://docs.rs/rkyv/latest/rkyv/trait.Archive.html),
 [`Serialize`](https://docs.rs/rkyv/latest/rkyv/trait.Serialize.html), and
 [`Deserialize`](https://docs.rs/rkyv/latest/rkyv/trait.Deserialize.html). Each of these traits has a
