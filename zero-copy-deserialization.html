@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html" class="active"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html" class="active"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="wrapper-types.html"><strong aria-hidden="true">6.</strong> Wrapper types</a></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">7.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">8.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">9.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">10.</strong> Validation</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -164,20 +164,83 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#zero-copy-deserialization" id="zero-copy-deserialization">Zero-copy deserialization</a></h1>
-<p>Zero-copy deserialization is a technique that reduces the time and memory required to deserialize
-data by directly referencing bytes in the serialized form.</p>
+<p>Zero-copy deserialization is a technique that reduces the time and memory required to access and use
+data by <em>directly referencing bytes in the serialized form</em>.</p>
+<blockquote>
+<p>This takes advantage of how we have to have some data loaded in memory in order to deserialize it.
+If we had some JSON:</p>
+<pre><code>{ &quot;quote&quot;: &quot;I don't know, I didn't listen.&quot; }
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+</code></pre>
+<p>Instead of copying those characters into a <code>String</code>, we could just <em>borrow</em> it from the JSON
+buffer as a <code>&amp;str</code>. The lifetime of that <code>&amp;str</code> would depend on our buffer and we wouldn't be
+allowed to drop it until we had dropped the string we were using.</p>
+</blockquote>
 <h2><a class="header" href="#partial-zero-copy" id="partial-zero-copy">Partial zero-copy</a></h2>
 <p>Serde and others have support for partial zero-copy deserialization, where bits and pieces of the
 deserialized data are borrowed from the serialized form. Strings, for example, can borrow their
 bytes directly from the serialized form in encodings like bincode that don't perform any character
 escaping. However, a string object must still be created to hold the deserialized length and point
 to the borrowed characters.</p>
+<blockquote>
+<p>A good way to think about this is that even though we're borrowing lots of data from the buffer,
+we still have to parse the <em>structure</em> out:</p>
+<pre><code class="language-rs">struct Example&lt;'a&gt; {
+  quote: &amp;'a str,
+  a: &amp;'a [u8; 12],
+  b: u64,
+  c: char,
+}
+</code></pre>
+<p>So a buffer might break down like this:</p>
+<pre><code>I don't know, I didn't listen.AAAAAAAAAAAABBBBBBBBCCCC
+^-----------------------------^-----------^-------^---
+ quote: str                    a: [u8; 12] b: u64  c: char
+</code></pre>
+<p>We do a lot less work, but we still have to parse, create, and return an <code>Example&lt;'a&gt;</code>:</p>
+<pre><code class="language-rs">Example {
+  quote: str::from_utf8(&amp;buffer[0..30]).unwrap(),
+  a: &amp;buffer[30..42],
+  b: u64::from_le_bytes(&amp;buffer[42..50]),
+  c: char::from_u32(u32::from_le_bytes(&amp;buffer[50..54]))).unwrap(),
+}
+</code></pre>
+<p>And we can't borrow types like <code>u64</code> or <code>char</code> that have alignment requirements since our buffer
+might not be properly aligned. We have to immediately parse and store those! Even though we
+borrowed 42 of the buffer's bytes, we missed out on the last 12 and still had to parse through the
+buffer to find out where everything is.</p>
+</blockquote>
 <p>Partial zero-copy deserialization can considerably improve memory usage and often speed up
 some deserialiation, but with some work we can go further.</p>
 <h2><a class="header" href="#total-zero-copy" id="total-zero-copy">Total zero-copy</a></h2>
 <p>rkyv implements total zero-copy deserialization, which guarantees that no data is copied during
 deserialization and no work is done to deserialize data. It achieves this by structuring its encoded
 representation so that it is the same as the in-memory representation of the source type.</p>
+<blockquote>
+<p>This is more like if our buffer <em>was</em> an Example:</p>
+<pre><code class="language-rs">struct Example {
+  quote: String,
+  a: [u8; 12],
+  b: u64,
+  c: char,
+}
+</code></pre>
+<p>And our buffer looked like this:</p>
+<pre><code>I don't know, I didn't listen.__QOFFQLENAAAAAAAAAAAABBBBBBBBCCCC
+^-----------------------------  ^---^---^-----------^-------^---
+ quote bytes                    pointer  a           b       c
+                                and len
+                                ^-------------------------------
+                                 Example
+</code></pre>
+<p>In this case, the bytes are padded to the correct alignment and the fields of <code>Example</code> are laid
+out exactly the same as they would be in memory. Our deserialization code can be much simpler:</p>
+<pre><code class="language-rs">unsafe { &amp;*buffer.as_ptr().add(32).cast() }
+</code></pre>
+<p>This operation is almost zero work, and more importantly it doesn't <em>scale</em> with our data. No
+matter how much or how little data we have, it's always just a pointer offset and a cast to access
+our data.</p>
+</blockquote>
 <p>This opens up blazingly-fast data loading and enables data access orders of magnitude more quickly
 than traditional serialization.</p>
 

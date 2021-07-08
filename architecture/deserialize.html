@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="../motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="../zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="../architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="../architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="../architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="../architecture/deserialize.html" class="active"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="../format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="../unsized-types.html"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="../trait-objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="../shared-pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="../validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="../extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="../feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="../faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="../motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="../zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="../architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="../architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="../architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="../architecture/deserialize.html" class="active"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="../format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="../wrapper-types.html"><strong aria-hidden="true">6.</strong> Wrapper types</a></li><li class="chapter-item expanded "><a href="../shared-pointers.html"><strong aria-hidden="true">7.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="../unsized-types.html"><strong aria-hidden="true">8.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="../trait-objects.html"><strong aria-hidden="true">9.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="../validation.html"><strong aria-hidden="true">10.</strong> Validation</a></li><li class="chapter-item expanded "><a href="../feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="../faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -168,19 +168,29 @@
 parameterizes over and takes a deserializer, and converts a type from its archived form back to its
 original one. Unlike serialization, deserialization occurs in a single step and doesn't have an
 equivalent of a resolver.</p>
+<blockquote>
+<p><code>Deserialize</code> also parameterizes over the type that is being deserialized into. This allows the
+same archived type to deserialize into multiple different unarchived types depending on what's
+being asked for. This helps enable lots of very powerful abstractions, but might require you to
+annoate types when deserializing.</p>
+</blockquote>
 <p>This provides a more or less a traditional deserialization with the added benefit of being sped up
 somewhat by having very compatible representations. It also incurs both the memory and performance
 penalties of traditional deserialization, so make sure that it's what you need before you use it.
 Deserialization is not required to access archived data as long as you can do so through the
 archived versions.</p>
+<blockquote>
+<p>Even the highest-performance serialization frameworks will hit a deserialization speed limit
+because of the amount of memory allocation that needs to be performed.</p>
+</blockquote>
 <p>A good use for <code>Deserialize</code> is deserializing portions of archives. You can easily traverse the
 archived data to locate some subobject, then deserialize just that piece instead of the archive as a
 whole. This granular approach provides the benefits of both zero-copy deserialization as well as
 traditional deserialization.</p>
 <h2><a class="header" href="#deserializer" id="deserializer">Deserializer</a></h2>
-<p>Deserializers, like serializers, provide capabilities to objects during deserialization. The most
-basic capability provides the ability to allocate memory, which is required for deserializing
-unsized types.</p>
+<p>Deserializers, like serializers, provide capabilities to objects during deserialization. Most types
+don't bound their deserializers, but some like <code>Rc</code> require special deserializers in order to
+deserialize memory properly.</p>
 
                     </main>
 

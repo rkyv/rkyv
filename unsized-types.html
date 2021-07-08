@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unsized-types.html" class="active"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="wrapper-types.html"><strong aria-hidden="true">6.</strong> Wrapper types</a></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">7.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html" class="active"><strong aria-hidden="true">8.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">9.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">10.</strong> Validation</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -175,9 +175,14 @@ important for the concept of sizing, which you may have encountered through rust
 <p>Pointers are composed of two pieces: a data address and some metadata. The data address is what most
 people think of when they think about pointers; it's the location of the pointed data. The metadata
 for a pointer is some extra data that is needed to work safely with the data at the pointed
-location. It can be almost anything, or nothing at all (for Sized types). Pointers with no extra
+location. It can be almost anything, or nothing at all for <code>Sized</code> types. Pointers with no extra
 metadata are sometimes called &quot;thin&quot; pointers, and pointers <em>with</em> metadata are sometimes called
-&quot;fat&quot; pointers.</p>
+&quot;wide&quot; or &quot;fat&quot; pointers.</p>
+<blockquote>
+<p>rkyv uses the <a href="https://docs.rs/ptr_meta"><code>ptr_meta</code></a> crate to perform these conversions safely. In
+the future, these may be incorporated as
+<a href="https://rust-lang.github.io/rfcs/2580-ptr-meta.html">part of the standard library</a>.</p>
+</blockquote>
 <p>Fundamentally, the metadata of a pointer exists to provide the program enough information to safely
 access, drop, and deallocate structures that are pointed to. For slices, the metadata carries the
 length of the slice, for trait objects it carries the virtual function table (vtable) pointer, and
@@ -187,13 +192,19 @@ for custom unsized structs it carries the metadata of the single trailing unsize
 data. This mirrors how rust works internally to support archiving shared pointers and other exotic
 use cases. This does complicate things somewhat, but for most people the metadata archiving process
 will end up as just filling out a few functions and returning <code>()</code>.</p>
+<blockquote>
+<p>This is definitely one of the more complicated parts of the library, and can be difficult to wrap
+your head around. Reading the documentation for
+<a href="https://docs.rs/rkyv/latest/rkyv/trait.ArchiveUnsized.html"><code>ArchiveUnsized</code></a> may help you
+understand how the system works by working through an example.</p>
+</blockquote>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="format.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="shared-pointers.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
@@ -211,7 +222,7 @@ will end up as just filling out a few functions and returning <code>()</code>.</
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="format.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="shared-pointers.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 

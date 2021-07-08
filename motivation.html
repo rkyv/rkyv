@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html" class="active"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html" class="active"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="wrapper-types.html"><strong aria-hidden="true">6.</strong> Wrapper types</a></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">7.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">8.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">9.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">10.</strong> Validation</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -164,20 +164,46 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#motivation" id="motivation">Motivation</a></h1>
+<p>First and foremost, the motivation behind rkyv is improved performance. The way that it achieves
+that goal can also lead to gains in memory use, correctness, and security along the way.</p>
+<blockquote>
+<p>Familiarity with other serialization frameworks and how traditional serialization works will help,
+but is't necessary to understand how rkyv works.</p>
+</blockquote>
 <p>Most serialization frameworks like <a href="https://serde.rs">serde</a> define an internal data model that
 consists of basic types such as primitives, strings, and byte arrays. This splits the work of
 serializing a type into two stages: the frontend and the backend. The frontend takes some type and
 breaks it down into the serializable types of the data model. The backend then takes the data model
 types and writes them using some data format such as JSON, Bincode, TOML, etc. This allows a clean
 separation between the serialization of a type and the data format it is written to.</p>
+<blockquote>
+<p>Serde describes <a href="https://serde.rs/data-model.html">its data model</a> in the serde book. Everything
+serialized with serde eventually boils down to some combination of those types!</p>
+</blockquote>
 <p>A major downside of traditional serialization is that it takes a considerable amount of time to
-read, parse, and reconstruct types from their serialized values. In JSON, for example, strings are
-encoded by surrounding the contents with double quotes and escaping invalid characters inside of
-them. Deserializing these strings entails parsing character-by-character for double quotes and
-escape characters, and pushing the parsed characters into a result string. This deserialization time
-adds up quickly, and in data-heavy applications such as games and media editing it can come to
-dominate load times. rkyv provides a solution through a serialization technique called zero-copy
-deserialization.</p>
+read, parse, and reconstruct types from their serialized values.</p>
+<blockquote>
+<p>In JSON for example, strings are encoded by surrounding the contents with double quotes and
+escaping invalid characters inside of them:</p>
+<pre><code>{ &quot;line&quot;: &quot;\&quot;All's well that ends well\&quot;&quot; }
+          ^^                          ^ ^
+</code></pre>
+<p>numbers are turned into characters:</p>
+<pre><code>{ &quot;pi&quot;: 3.1415926 }
+        ^^^^^^^^^
+</code></pre>
+<p>and even field names, which could be <em>implicit</em> in most cases, are turned into strings:</p>
+<pre><code>{ &quot;message_size&quot;: 334 }
+  ^^^^^^^^^^^^^^^
+</code></pre>
+<p>All those characters are not only taking up space, they're also taking up time. Every time we read
+and parse JSON, we're picking through those characters in order to figure out what the values are
+and reproduce them in memory. An <code>f32</code> is only four bytes of memory, but it's encoded using nine
+bytes and we still have to turn those nine characters into the right <code>f32</code>!</p>
+</blockquote>
+<p>This deserialization time adds up quickly, and in data-heavy applications such as games and media
+editing it can come to dominate load times. rkyv provides a solution through a serialization
+technique called <em>zero-copy deserialization</em>.</p>
 
                     </main>
 

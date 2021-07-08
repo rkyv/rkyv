@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="../motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="../zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="../architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../architecture/relative-pointers.html" class="active"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="../architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="../architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="../architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="../format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="../unsized-types.html"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="../trait-objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="../shared-pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="../validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="../extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="../feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="../faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="../motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="../zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="../architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../architecture/relative-pointers.html" class="active"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="../architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="../architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="../architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="../format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="../wrapper-types.html"><strong aria-hidden="true">6.</strong> Wrapper types</a></li><li class="chapter-item expanded "><a href="../shared-pointers.html"><strong aria-hidden="true">7.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="../unsized-types.html"><strong aria-hidden="true">8.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="../trait-objects.html"><strong aria-hidden="true">9.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="../validation.html"><strong aria-hidden="true">10.</strong> Validation</a></li><li class="chapter-item expanded "><a href="../feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="../faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -168,10 +168,26 @@
 the use of normal pointers. But why can't we use normal pointers?</p>
 <p>Consider some zero-copy data on disc. Before we can use it, we need to load it into memory. But we
 can't control <em>where</em> in memory it gets loaded. Every time we load it, it could be located at a
-different address, and therefore the objects inside of it will be located at a different address.
-This means that we can't store any pointers to that data, inside of it or outside of it. Some
-libraries like <a href="https://github.com/TimelyDataflow/abomonation">abomonation</a> store some extra data
-and perform a fast fixup step that takes the place of deserialization, but we can do better.</p>
+different address, and therefore the objects inside of it will be located at a different address.</p>
+<blockquote>
+<p>One of the major reasons for this is actually <em>security</em>. Every time you run your program, it may
+run in a completely different random location in memory. This is called
+<a href="https://en.wikipedia.org/wiki/Address_space_layout_randomization">address space layout randomization</a>
+and it helps prevent exploitation of memory corruption vulnerabilities.</p>
+<p>At most, we can only control the <em>alignment</em> of our zero-copy data, so we need to work within
+those constraints.</p>
+</blockquote>
+<p>This means that we can't store any pointers to that data, inside of it or outside of it. As soon as
+we reload the data, it might not be at the same address. That would leave our pointers dangling, and
+would almost definitely result in memory access violations. Some other libraries like
+<a href="https://github.com/TimelyDataflow/abomonation">abomonation</a> store some extra data and perform a
+fast fixup step that takes the place of deserialization, but we can do better.</p>
+<blockquote>
+<p>In order to perform that fixup step, abomonation requires that the buffer has a <em>mutable backing</em>.
+This is okay for many use cases, but there are also cases where we won't be able to mutate our
+buffer. One example is if we used
+<a href="https://en.wikipedia.org/wiki/Memory-mapped_file">memory-mapped files</a>.</p>
+</blockquote>
 <p>While normal pointers hold an absolute address in memory, relative pointers hold an offset to an address. This changes how
 the pointer behaves under moves:</p>
 <table><thead><tr><th>Pointer</th><th>Self is moved</th><th>Self and target are moved</th></tr></thead><tbody>

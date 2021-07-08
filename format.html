@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html" class="active"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html" class="active"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="wrapper-types.html"><strong aria-hidden="true">6.</strong> Wrapper types</a></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">7.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">8.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">9.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">10.</strong> Validation</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -164,11 +164,6 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#format" id="format">Format</a></h1>
-<p>The rkyv crate provides <code>Archive</code> implementations for common core and std types. In general they
-follow the same format as derived implementations, but may differ in some cases. For more details
-on the layouts of these types, see the
-<a href="https://docs.rs/rkyv/latest/rkyv/core_impl/index.html"><code>core_impl</code></a> and
-<a href="https://docs.rs/rkyv/latest/rkyv/std_impl/index.html"><code>std_impl</code></a> modules.</p>
 <p>Types which derive <code>Archive</code> generate an archived version of the type where:</p>
 <ul>
 <li>Member types are replaced with their archived counterparts</li>
@@ -197,8 +192,38 @@ possible type that can represent all of the variants.</li>
 }
 <span class="boring">}
 </span></code></pre></pre>
-<p>With the strict feature, these structs are additionally annotated with <code>#[repr(C)]</code> for guaranteed
+<p>With the <code>strict</code> feature, these structs are additionally annotated with <code>#[repr(C)]</code> for guaranteed
 portability and stability.</p>
+<blockquote>
+<p>In most cases, the <code>strict</code> feature will not be necessary and can reduce the space efficiency of
+archived types. Make sure you understand your use case carefully and read the crate documentation
+for details on the <code>strict</code> feature.</p>
+</blockquote>
+<p>rkyv provides <code>Archive</code> implementations for common core and std types by default. In general they
+follow the same format as derived implementations, but may differ in some cases. For example,
+<code>ArchivedString</code> performs a small string optimization which helps reduce memory use.</p>
+<h2><a class="header" href="#object-order" id="object-order">Object order</a></h2>
+<p>rkyv lays out subobjects in depth-first order from the leaves to the root. This means that the root
+object is stored at the end of the buffer, not the beginning. For example, this tree:</p>
+<pre><code>  a
+ / \
+b   c
+   / \
+  d   e
+</code></pre>
+<p>would be laid out like this in the buffer:</p>
+<pre><code>b d e c a
+</code></pre>
+<p>from this serialization order:</p>
+<pre><code>a -&gt; b
+a -&gt; c -&gt; d
+a -&gt; c -&gt; e
+a -&gt; c
+a
+</code></pre>
+<p>This deterministic layout means that you don't need to store the position of the root object in most
+cases. As long as your buffer ends right at the end of your root object, you can use
+<a href="https://docs.rs/rkyv/latest/rkyv/util/fn.archived_root.html"><code>archived_root</code></a> with your buffer.</p>
 
                     </main>
 
@@ -211,7 +236,7 @@ portability and stability.</p>
                         
 
                         
-                            <a rel="next" href="unsized-types.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="wrapper-types.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -229,7 +254,7 @@ portability and stability.</p>
                 
 
                 
-                    <a rel="next" href="unsized-types.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="wrapper-types.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

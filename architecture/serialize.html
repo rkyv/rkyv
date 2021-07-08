@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="../motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="../zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="../architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="../architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="../architecture/serialize.html" class="active"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="../architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="../format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="../unsized-types.html"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="../trait-objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="../shared-pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="../validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="../extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="../feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="../faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../rkyv.html"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="../motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="../zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="../architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="../architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="../architecture/serialize.html" class="active"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="../architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="../format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="../wrapper-types.html"><strong aria-hidden="true">6.</strong> Wrapper types</a></li><li class="chapter-item expanded "><a href="../shared-pointers.html"><strong aria-hidden="true">7.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="../unsized-types.html"><strong aria-hidden="true">8.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="../trait-objects.html"><strong aria-hidden="true">9.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="../validation.html"><strong aria-hidden="true">10.</strong> Validation</a></li><li class="chapter-item expanded "><a href="../feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="../faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -167,25 +167,34 @@
 <p>Types implement <a href="https://docs.rs/rkyv/latest/rkyv/trait.Serialize.html"><code>Serialize</code></a> separately from
 <code>Archive</code>. <code>Serialize</code> creates a resolver for some object, then <code>Archive</code> turns the value and that
 resolver into an archived type. Having a separate <code>Serialize</code> trait is necessary because although a
-type may have only one archived representation, different requirements may need to be met in order
-to create one.</p>
-<p><code>Archive</code> doesn't parameterize over the serializer used to make it, since it shouldn't matter what
-serializer an archived type was made with. But <code>Serialize</code> does, because it needs to specify the
-requirements on its <code>Serializer</code> that need to be met for it to create a resolver.</p>
+type may have only one archived representation, you may have options of what requirements to meet in
+order to create one.</p>
+<blockquote>
+<p>The <code>Serialize</code> trait is parameterized over the <em>serializer</em>. The serializer is just a mutable
+object that helps the type serialize itself. The most basic types like <code>u32</code> or <code>char</code> don't
+<em>bound</em> their serializer type because they can serialize themselves with any kind of serializer.
+More complex types like <code>Box</code> and <code>String</code> require a serializer that implements
+<a href="https://docs.rs/rkyv/latest/rkyv/ser/traitlSerializer.html"><code>Serializer</code></a>, and even more complex
+types like <code>Rc</code> and <code>Vec</code> require a serializer that additionally implement
+<a href="https://docs.rs/rkyv/latest/rkyv/ser/trait.SharedSerializeRegistry.html"><code>SharedSerializeRegistry</code></a>
+or <a href="https://docs.rs/rkyv/latest/rkyv/ser/trait.ScratchSpace.html"><code>ScratchSpace</code></a>.</p>
+</blockquote>
+<p>Unlike <code>Serialize</code>, <code>Archive</code> doesn't parameterize over the serializer used to make it. It shouldn't
+matter what serializer a resolver was made with, only that it's made correctly.</p>
 <h2><a class="header" href="#serializer" id="serializer">Serializer</a></h2>
-<p>Serializers are types that provide capabilities to objects during serialization. For primitive
-types, any serializer can be used because no additional capabilities are required. More complex
-types may require the ability to write bytes to the archive, seek throughout the archive, pool
-shared resources, and more. rkyv provides serializers with some basic functionality as well as
-adapters that add new capabilities to existing serializers.</p>
-<p>The most basic serializers used are
-<a href="https://docs.rs/rkyv/latest/rkyv/ser/serializers/struct.BufferSerializer.html"><code>BufferSerializer</code></a>
-for serializing into fixed-size byte buffers and
-<a href="https://docs.rs/rkyv/latest/rkyv/ser/serializers/struct.WriteSerializer.html"><code>WriteSerializer</code></a>
-for serializing into any <a href="https://doc.rust-lang.org/std/io/trait.Write.html"><code>Writer</code></a>. In many
-cases,
-<a href="https://docs.rs/rkyv/latest/rkyv/ser/serializers/struct.AlignedSerializer.html"><code>AlignedSerializer</code></a>
-may have better performance.</p>
+<p>rkyv provides serializers that provide all the functionality needed to serialize standard library
+types, as well as serializers that combine other serializers into a single object with all of the
+components' capabilities.</p>
+<p>The <a href="https://docs.rs/rkyv/latest/rkyv/ser/serializers/index.html">provided serializers</a> offer a wide
+range of strategies and capabilities, but most use cases will be best suited by
+<a href="https://docs.rs/rkyv/latest/rkyv/ser/serializers/type.AllocSerializer.html"><code>AllocSerializer</code></a>.</p>
+<blockquote>
+<p>Many types require <em>scratch space</em> to serialize. This is some extra allocated space that they can
+use temporarily and return when they're done. For example, <code>Vec</code> might request scratch space to
+store the resolvers for its elements until it can serialize all of them. Requesting scratch space
+from the serializer allows scratch space to be reused many times, which reduces the number of slow
+memory allocations performed while serializing.</p>
+</blockquote>
 
                     </main>
 

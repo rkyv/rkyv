@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html" class="active"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">6.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">7.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">8.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="extensions.html"><strong aria-hidden="true">10.</strong> Extensions</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="rkyv.html" class="active"><strong aria-hidden="true">1.</strong> rkyv</a></li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">2.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">3.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">4.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">4.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">4.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">4.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">4.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">5.</strong> Format</a></li><li class="chapter-item expanded "><a href="wrapper-types.html"><strong aria-hidden="true">6.</strong> Wrapper types</a></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">7.</strong> Shared Pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">8.</strong> Unsized Types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">9.</strong> Trait Objects</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">10.</strong> Validation</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature Comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -163,37 +163,39 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#rkyv" id="rkyv">rkyv</a></h1>
+                        <p align="center">
+    <img src="https://raw.githubusercontent.com/djkoloski/rkyv/master/media/logo_text_color.svg">
+</p>
 <p><a href="http://github.com/djkoloski/rkyv">rkyv</a> (<em>archive</em>) is a zero-copy deserialization framework for
 rust.</p>
-<h2><a class="header" href="#crates" id="crates">Crates</a></h2>
-<p>rkyv is composed of three core crates:</p>
+<p>This book covers the motivation, architecture, and major features of rkyv. It is the best way to
+learn and understand rkyv, but won't go as in-depth on specifics as the documentation will. Don't be
+afraid to consult these other resources as you need while you read through.</p>
+<h1><a class="header" href="#resources" id="resources">Resources</a></h1>
+<h2><a class="header" href="#learning-materials" id="learning-materials">Learning Materials</a></h2>
 <ul>
-<li><code>rkyv</code>: The base crate, which defines the fundamental traits and provides implementations for core
-types.</li>
-<li><code>rkyv_dyn</code>: Builds on the base crate to add support for serializing and deserializing trait
-objects.</li>
-<li><code>rkyv_typename</code>: Provides naming for types (used with rkyv_dyn).</li>
+<li>The <a href="https://discord.gg/65F6MdnbQh">rkyv discord</a> is a great place to get help with specific
+issues and meet other people using rkyv</li>
+<li>The <a href="https://github.com/djkoloski/rkyv">rkyv github</a> hosts the source and tracks project issues
+and milestones.</li>
 </ul>
-<p>The project has three derive crates that are exposed through the core crates:</p>
+<h2><a class="header" href="#documentation" id="documentation">Documentation</a></h2>
 <ul>
-<li><code>rkyv_derive</code></li>
-<li><code>rkyv_dyn_derive</code></li>
-<li><code>rkyv_typename_derive</code></li>
+<li><a href="https://docs.rs/rkyv">rkyv</a>, the core library</li>
+<li><a href="https://docs.rs/rkyv_dyn">rkyv_dyn</a>, which adds trait object support to rkyv</li>
+<li><a href="https://docs.rs/rkyv_typename">rkyv_typename</a>, a type naming library</li>
 </ul>
-<p>There is a test crate: <code>rkyv_test</code>, and a benchmarking crate: <code>rkyv_bench</code>.</p>
-<h2><a class="header" href="#links" id="links">Links</a></h2>
+<h2><a class="header" href="#benchmarks" id="benchmarks">Benchmarks</a></h2>
 <ul>
-<li><a href="https://github.com/djkoloski/rkyv">Github repo</a></li>
-<li><a href="https://docs.rs/rkyv">Docs</a></li>
-<li><a href="https://crates.io/crates/rkyv">crates.io</a></li>
+<li>The <a href="https://github.com/djkoloski/rust_serialization_benchmark">rust serialization benchmark</a> is a
+shootout style benchmark comparing many rust serialization solutions. It includes special
+benchmarks for zero-copy serialization solutions like rkyv.</li>
 </ul>
-<h2><a class="header" href="#sister-crates" id="sister-crates">Sister crates</a></h2>
-<p>rkyv has sister crates that are standalone but were designed for use with rkyv:</p>
+<h2><a class="header" href="#sister-crates" id="sister-crates">Sister Crates</a></h2>
 <ul>
-<li><a href="https://github.com/djkoloski/bytecheck">bytecheck</a>: A type validation framework for Rust.</li>
-<li><a href="https://github.com/djkoloski/ptr_meta">ptr_meta</a>: A radioactive stabilization of the <code>ptr_meta</code>
-RFC.</li>
+<li><a href="https://github.com/djkoloski/bytecheck">bytecheck</a>, which rkyv uses for validation</li>
+<li><a href="https://github.com/djkoloski/ptr_meta">ptr_meta</a>, which rkyv uses for pointer manipulation</li>
+<li><a href="https://github.com/djkoloski/rend">rend</a>, which rkyv uses for endian-agnostic features</li>
 </ul>
 
                     </main>
