@@ -66,6 +66,9 @@ macro_rules! from_archived {
     }};
 }
 
+#[cfg(any(feature = "archive_le", feature = "archive_be"))]
+pub use rend::NativeEndian;
+
 /// Returns the archived value of the given archived primitive.
 ///
 /// This macro is not needed for most use cases. Its primary purpose is to simultaneously:
@@ -83,11 +86,11 @@ macro_rules! to_archived {
         }
         #[cfg(feature = "archive_le")]
         {
-            $crate::impls::core::primitive::NativeEndian { value: $expr }.to_le()
+            $crate::macros::NativeEndian { value: $expr }.to_le()
         }
         #[cfg(feature = "archive_be")]
         {
-            $crate::impls::core::primitive::NativeEndian { value: $expr }.to_be()
+            $crate::macros::NativeEndian { value: $expr }.to_be()
         }
     }};
 }

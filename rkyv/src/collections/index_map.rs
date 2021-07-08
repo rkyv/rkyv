@@ -37,7 +37,7 @@ pub struct ArchivedIndexMap<K, V> {
 impl<K, V> ArchivedIndexMap<K, V> {
     #[inline]
     unsafe fn pivot(&self, index: usize) -> usize {
-        *self.pivots.as_ptr().add(index) as usize
+        from_archived!(*self.pivots.as_ptr().add(index)) as usize
     }
 
     #[inline]

@@ -13,8 +13,6 @@ use core::{
         NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
     },
 };
-#[cfg(any(feature = "archive_le", feature = "archive_be"))]
-pub use rend::NativeEndian;
 
 macro_rules! impl_primitive {
     (@serialize $type:ty) => {
