@@ -167,14 +167,35 @@
 <p>Validation can be enabled with the <code>validation</code> feature. Validation leverages the
 <a href="https://docs.rs/bytecheck"><code>bytecheck</code></a> crate to perform archive validation, and allows the
 consumption of untrusted and malicious data.</p>
-<p>To validate an archive, use
-<a href="https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archived_root.html"><code>check_archived_root</code></a>.
-Examples of how to enable and perform validation can be found in the <code>rkyv_test</code> crate's
+<p>To validate an archive, you first have to derive
+<a href="https://docs.rs/bytecheck/latest/bytecheck/trait.CheckBytes.html"><code>CheckBytes</code></a> for your archived
+type:</p>
+<pre><code class="language-rs">use bytecheck::CheckBytes;
+use rkyv::{Archive, Deserialize, Serialize};
+
+#[derive(Archive, Deserialize, Serialize)]
+#[archive_attr(derive(CheckBytes))]
+pub struct Example {
+    a: i32,
+    b: String,
+    c: Vec&lt;bool&gt;,
+}
+</code></pre>
+<p>The <code>#[archive_attr(...)]</code> attribute applies the provided attributes to the archived type. Finally,
+you can use
+<a href="https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archived_root.html"><code>check_archived_root</code></a> to
+check an archive and get a reference to the archived value if it was successful:</p>
+<pre><code class="language-rs">use rkyv::check_archived_root;
+
+let archived_example = check_archived_root::&lt;Example&gt;(buffer).unwrap();
+</code></pre>
+<p>More examples of how to enable and perform validation can be found in the <code>rkyv_test</code> crate's
 <code>validation</code> module.</p>
 <h2><a class="header" href="#the-validation-context" id="the-validation-context">The validation context</a></h2>
 <p>When checking an archive, a validation context is created automatically using some good defaults
 that will work for most archived types. If your type requires special validation logic, you may need
-to augment the capabilities of the validation context in order to check your type.</p>
+to augment the capabilities of the validation context in order to check your type and use
+<a href="https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archived_root_with_context.html"><code>check_archived_root_with_context</code></a>.</p>
 <blockquote>
 <p>The
 <a href="https://doc.rs/rkyv/latest/rkyv/validation/validators/struct.DefaultValidator.html"><code>DefaultValidator</code></a>
