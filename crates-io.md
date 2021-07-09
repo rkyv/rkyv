@@ -83,3 +83,4 @@ assert_eq!(archived.option, value.option);
 let deserialized: Test = archived.deserialize(&mut Infallible).unwrap()
 assert_eq!(deserialized, value);
 ```
+
