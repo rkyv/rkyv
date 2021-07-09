@@ -183,7 +183,7 @@ pub struct Example {
 </code></pre>
 <p>The <code>#[archive_attr(...)]</code> attribute applies the provided attributes to the archived type. Finally,
 you can use
-<a href="https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archived_root.html"><code>check_archived_root</code></a> to
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/validation/validators/fn.check_archived_root.html"><code>check_archived_root</code></a> to
 check an archive and get a reference to the archived value if it was successful:</p>
 <pre><code class="language-rs">use rkyv::check_archived_root;
 
@@ -195,10 +195,10 @@ let archived_example = check_archived_root::&lt;Example&gt;(buffer).unwrap();
 <p>When checking an archive, a validation context is created automatically using some good defaults
 that will work for most archived types. If your type requires special validation logic, you may need
 to augment the capabilities of the validation context in order to check your type and use
-<a href="https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archived_root_with_context.html"><code>check_archived_root_with_context</code></a>.</p>
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/validation/fn.check_archived_root_with_context.html"><code>check_archived_root_with_context</code></a>.</p>
 <blockquote>
 <p>The
-<a href="https://doc.rs/rkyv/latest/rkyv/validation/validators/struct.DefaultValidator.html"><code>DefaultValidator</code></a>
+<a href="https://docs.rs/rkyv/latest/rkyv/validation/validators/struct.DefaultValidator.html"><code>DefaultValidator</code></a>
 supports all builtin rkyv types, but changes depending on whether you have the <code>alloc</code> feature
 enabled or not.</p>
 </blockquote>

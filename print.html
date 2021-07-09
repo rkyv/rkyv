@@ -322,14 +322,15 @@ our data.</p>
 than traditional serialization.</p>
 <h1><a class="header" href="#architecture" id="architecture">Architecture</a></h1>
 <p>The core of rkyv is built around
-<a href="https://docs.rs/rkyv/latest/rkyv/rel_ptr/struct.RelPtr.html">relative pointers</a> and three core traits:
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.Archive.html"><code>Archive</code></a>,
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.Serialize.html"><code>Serialize</code></a>, and
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.Deserialize.html"><code>Deserialize</code></a>. Each of these traits has a
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/rel_ptr/struct.RelPtr.html">relative pointers</a> and three core
+traits:
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.Archive.html"><code>Archive</code></a>,
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.Serialize.html"><code>Serialize</code></a>, and
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.Deserialize.html"><code>Deserialize</code></a>. Each of these traits has a
 corresponding variant that supports unsized types:
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.ArchiveUnsized.html"><code>ArchiveUnsized</code></a>,
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.SerializeUnsized.html"><code>SerializeUnsized</code></a>, and
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.DeserializeUnsized.html"><code>DeserializeUnsized</code></a>.</p>
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.ArchiveUnsized.html"><code>ArchiveUnsized</code></a>,
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.SerializeUnsized.html"><code>SerializeUnsized</code></a>, and
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.DeserializeUnsized.html"><code>DeserializeUnsized</code></a>.</p>
 <blockquote>
 <p>A good way to think about it is that sized types are the <em>foundation</em> that unsized types are built
 on. That's not a fluke either, rkyv is built precisely so that you can build more complex
@@ -375,7 +376,7 @@ By using relative pointers, we can load data at any position in memory and still
 inside of it. Relative pointers don't require write access to memory either, so we can memory map
 entire files and instantly have access to their data in a structured manner.</p>
 <p>rkyv's implementation of relative pointers is the
-<a href="https://docs.rs/rkyv/latest/rkyv/struct.RelPtr.html"><code>RelPtr</code></a> type.</p>
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/rel_ptr/struct.RelPtr.html"><code>RelPtr</code></a> type.</p>
 <h1><a class="header" href="#archive" id="archive">Archive</a></h1>
 <p>Types that implement <code>Archive</code> have an alternate representation that supports zero-copy
 deserialization. The construction of archived types happens in two steps:</p>
@@ -418,7 +419,7 @@ have to provide it to the tuple through their Resolver.</p>
 </ol>
 <p>And we're guaranteed that the two strings are placed right next to each other like we need.</p>
 <h1><a class="header" href="#serialize" id="serialize">Serialize</a></h1>
-<p>Types implement <a href="https://docs.rs/rkyv/latest/rkyv/trait.Serialize.html"><code>Serialize</code></a> separately from
+<p>Types implement <a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.Serialize.html"><code>Serialize</code></a> separately from
 <code>Archive</code>. <code>Serialize</code> creates a resolver for some object, then <code>Archive</code> turns the value and that
 resolver into an archived type. Having a separate <code>Serialize</code> trait is necessary because although a
 type may have only one archived representation, you may have options of what requirements to meet in
@@ -428,10 +429,10 @@ order to create one.</p>
 object that helps the type serialize itself. The most basic types like <code>u32</code> or <code>char</code> don't
 <em>bound</em> their serializer type because they can serialize themselves with any kind of serializer.
 More complex types like <code>Box</code> and <code>String</code> require a serializer that implements
-<a href="https://docs.rs/rkyv/latest/rkyv/ser/traitlSerializer.html"><code>Serializer</code></a>, and even more complex
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/ser/trait.Serializer.html"><code>Serializer</code></a>, and even more complex
 types like <code>Rc</code> and <code>Vec</code> require a serializer that additionally implement
-<a href="https://docs.rs/rkyv/latest/rkyv/ser/trait.SharedSerializeRegistry.html"><code>SharedSerializeRegistry</code></a>
-or <a href="https://docs.rs/rkyv/latest/rkyv/ser/trait.ScratchSpace.html"><code>ScratchSpace</code></a>.</p>
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/ser/trait.SharedSerializeRegistry.html"><code>SharedSerializeRegistry</code></a>
+or <a href="https://docs.rs/rkyv/0.7.1/rkyv/ser/trait.ScratchSpace.html"><code>ScratchSpace</code></a>.</p>
 </blockquote>
 <p>Unlike <code>Serialize</code>, <code>Archive</code> doesn't parameterize over the serializer used to make it. It shouldn't
 matter what serializer a resolver was made with, only that it's made correctly.</p>
@@ -439,9 +440,9 @@ matter what serializer a resolver was made with, only that it's made correctly.<
 <p>rkyv provides serializers that provide all the functionality needed to serialize standard library
 types, as well as serializers that combine other serializers into a single object with all of the
 components' capabilities.</p>
-<p>The <a href="https://docs.rs/rkyv/latest/rkyv/ser/serializers/index.html">provided serializers</a> offer a wide
+<p>The <a href="https://docs.rs/rkyv/0.7.1/rkyv/ser/serializers/index.html">provided serializers</a> offer a wide
 range of strategies and capabilities, but most use cases will be best suited by
-<a href="https://docs.rs/rkyv/latest/rkyv/ser/serializers/type.AllocSerializer.html"><code>AllocSerializer</code></a>.</p>
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/ser/serializers/type.AllocSerializer.html"><code>AllocSerializer</code></a>.</p>
 <blockquote>
 <p>Many types require <em>scratch space</em> to serialize. This is some extra allocated space that they can
 use temporarily and return when they're done. For example, <code>Vec</code> might request scratch space to
@@ -450,7 +451,7 @@ from the serializer allows scratch space to be reused many times, which reduces 
 memory allocations performed while serializing.</p>
 </blockquote>
 <h1><a class="header" href="#deserialize" id="deserialize">Deserialize</a></h1>
-<p>Similarly to <code>Serialize</code>, <a href="https://docs.rs/rkyv/latest/rkyv/trait.Deserialize.html"><code>Deserialize</code></a>
+<p>Similarly to <code>Serialize</code>, <a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.Deserialize.html"><code>Deserialize</code></a>
 parameterizes over and takes a deserializer, and converts a type from its archived form back to its
 original one. Unlike serialization, deserialization occurs in a single step and doesn't have an
 equivalent of a resolver.</p>
@@ -537,7 +538,7 @@ a
 </code></pre>
 <p>This deterministic layout means that you don't need to store the position of the root object in most
 cases. As long as your buffer ends right at the end of your root object, you can use
-<a href="https://docs.rs/rkyv/latest/rkyv/util/fn.archived_root.html"><code>archived_root</code></a> with your buffer.</p>
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/util/fn.archived_root.html"><code>archived_root</code></a> with your buffer.</p>
 <h1><a class="header" href="#wrapper-types" id="wrapper-types">Wrapper types</a></h1>
 <p>Wrapper types make it easy to customize the way that fields of types are archived. They make it
 easier to adapt rkyv to existing data models, and make serializing and deserializing idiomatic for
@@ -545,7 +546,7 @@ even complicated types.</p>
 <p>Annotating a field with <code>#[with(...)]</code> will <em>wrap</em> that field with the given types when the struct
 is serialized or deserialized. There's no performance penalty to actually wrap types, but doing more
 or less work during serialization and deserialization can affect performance. This excerpt is from
-the documentation for <a href="https://docs.rs/rkyv/latest/rkyv/with/trait.ArchiveWith.html"><code>ArchiveWith</code></a>:</p>
+the documentation for <a href="https://docs.rs/rkyv/0.7.1/rkyv/with/trait.ArchiveWith.html"><code>ArchiveWith</code></a>:</p>
 <pre><code class="language-rs">#[derive(Archive, Deserialize, Serialize)]
 struct Example {
     #[with(Incremented)]
@@ -557,11 +558,11 @@ struct Example {
 <p>The <code>Incremented</code> wrapper is wrapping <code>a</code>, and the definition causes that field to be incremented
 in its archived form. </p>
 <h2><a class="header" href="#with" id="with"><code>With</code></a></h2>
-<p>The core type behind wrappers is <a href="https://docs.rs/rkyv/latest/rkyv/with/struct.With.html"><code>With</code></a>.
+<p>The core type behind wrappers is <a href="https://docs.rs/rkyv/0.7.1/rkyv/with/struct.With.html"><code>With</code></a>.
 This struct is <em>transparent</em>, meaning that it's like another name for the type inside of it. rkyv
 uses <code>With</code> to wrap your fields when serializing and deserializing, and when you write your own
 wrappers they will be used with <code>With</code> as well.</p>
-<p>See <a href="https://docs.rs/latest/rkyv/with/trait.ArchiveWith.html"><code>ArchiveWith</code></a> for an example of how
+<p>See <a href="https://docs.rs/rkyv/0.7.1/rkyv/with/trait.ArchiveWith.html"><code>ArchiveWith</code></a> for an example of how
 to write your own wrapper types.</p>
 <h1><a class="header" href="#shared-pointers" id="shared-pointers">Shared Pointers</a></h1>
 <p>The implementation details of shared pointers may be of interest to those using them. Specifically,
@@ -590,7 +591,7 @@ to nothing as soon as the deserializer is dropped.</p>
 <h1><a class="header" href="#unsized-types" id="unsized-types">Unsized Types</a></h1>
 <p>rkyv supports unsized types out of the box and ships with implementations for the most common
 unsized types (<code>str</code>s and slices). Trait objects can also be supported with <code>rkyv_dyn</code>, see
-<a href="trait_objects.html">&quot;Trait Objects&quot;</a> for more details.</p>
+<a href="trait-objects.html">&quot;Trait Objects&quot;</a> for more details.</p>
 <h2><a class="header" href="#metadata" id="metadata">Metadata</a></h2>
 <p>The core concept that enables unsized types is metadata. In rust, pointers to types can be different
 sizes, in contrast with languages like C and C++ where all pointers are the same size. This is
@@ -619,7 +620,7 @@ will end up as just filling out a few functions and returning <code>()</code>.</
 <blockquote>
 <p>This is definitely one of the more complicated parts of the library, and can be difficult to wrap
 your head around. Reading the documentation for
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.ArchiveUnsized.html"><code>ArchiveUnsized</code></a> may help you
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.ArchiveUnsized.html"><code>ArchiveUnsized</code></a> may help you
 understand how the system works by working through an example.</p>
 </blockquote>
 <h1><a class="header" href="#trait-objects" id="trait-objects">Trait Objects</a></h1>
@@ -686,7 +687,7 @@ pub struct Example {
 </code></pre>
 <p>The <code>#[archive_attr(...)]</code> attribute applies the provided attributes to the archived type. Finally,
 you can use
-<a href="https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archived_root.html"><code>check_archived_root</code></a> to
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/validation/validators/fn.check_archived_root.html"><code>check_archived_root</code></a> to
 check an archive and get a reference to the archived value if it was successful:</p>
 <pre><code class="language-rs">use rkyv::check_archived_root;
 
@@ -698,10 +699,10 @@ let archived_example = check_archived_root::&lt;Example&gt;(buffer).unwrap();
 <p>When checking an archive, a validation context is created automatically using some good defaults
 that will work for most archived types. If your type requires special validation logic, you may need
 to augment the capabilities of the validation context in order to check your type and use
-<a href="https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archived_root_with_context.html"><code>check_archived_root_with_context</code></a>.</p>
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/validation/fn.check_archived_root_with_context.html"><code>check_archived_root_with_context</code></a>.</p>
 <blockquote>
 <p>The
-<a href="https://doc.rs/rkyv/latest/rkyv/validation/validators/struct.DefaultValidator.html"><code>DefaultValidator</code></a>
+<a href="https://docs.rs/rkyv/latest/rkyv/validation/validators/struct.DefaultValidator.html"><code>DefaultValidator</code></a>
 supports all builtin rkyv types, but changes depending on whether you have the <code>alloc</code> feature
 enabled or not.</p>
 </blockquote>

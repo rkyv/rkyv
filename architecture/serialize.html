@@ -164,7 +164,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#serialize" id="serialize">Serialize</a></h1>
-<p>Types implement <a href="https://docs.rs/rkyv/latest/rkyv/trait.Serialize.html"><code>Serialize</code></a> separately from
+<p>Types implement <a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.Serialize.html"><code>Serialize</code></a> separately from
 <code>Archive</code>. <code>Serialize</code> creates a resolver for some object, then <code>Archive</code> turns the value and that
 resolver into an archived type. Having a separate <code>Serialize</code> trait is necessary because although a
 type may have only one archived representation, you may have options of what requirements to meet in
@@ -174,10 +174,10 @@ order to create one.</p>
 object that helps the type serialize itself. The most basic types like <code>u32</code> or <code>char</code> don't
 <em>bound</em> their serializer type because they can serialize themselves with any kind of serializer.
 More complex types like <code>Box</code> and <code>String</code> require a serializer that implements
-<a href="https://docs.rs/rkyv/latest/rkyv/ser/traitlSerializer.html"><code>Serializer</code></a>, and even more complex
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/ser/trait.Serializer.html"><code>Serializer</code></a>, and even more complex
 types like <code>Rc</code> and <code>Vec</code> require a serializer that additionally implement
-<a href="https://docs.rs/rkyv/latest/rkyv/ser/trait.SharedSerializeRegistry.html"><code>SharedSerializeRegistry</code></a>
-or <a href="https://docs.rs/rkyv/latest/rkyv/ser/trait.ScratchSpace.html"><code>ScratchSpace</code></a>.</p>
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/ser/trait.SharedSerializeRegistry.html"><code>SharedSerializeRegistry</code></a>
+or <a href="https://docs.rs/rkyv/0.7.1/rkyv/ser/trait.ScratchSpace.html"><code>ScratchSpace</code></a>.</p>
 </blockquote>
 <p>Unlike <code>Serialize</code>, <code>Archive</code> doesn't parameterize over the serializer used to make it. It shouldn't
 matter what serializer a resolver was made with, only that it's made correctly.</p>
@@ -185,9 +185,9 @@ matter what serializer a resolver was made with, only that it's made correctly.<
 <p>rkyv provides serializers that provide all the functionality needed to serialize standard library
 types, as well as serializers that combine other serializers into a single object with all of the
 components' capabilities.</p>
-<p>The <a href="https://docs.rs/rkyv/latest/rkyv/ser/serializers/index.html">provided serializers</a> offer a wide
+<p>The <a href="https://docs.rs/rkyv/0.7.1/rkyv/ser/serializers/index.html">provided serializers</a> offer a wide
 range of strategies and capabilities, but most use cases will be best suited by
-<a href="https://docs.rs/rkyv/latest/rkyv/ser/serializers/type.AllocSerializer.html"><code>AllocSerializer</code></a>.</p>
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/ser/serializers/type.AllocSerializer.html"><code>AllocSerializer</code></a>.</p>
 <blockquote>
 <p>Many types require <em>scratch space</em> to serialize. This is some extra allocated space that they can
 use temporarily and return when they're done. For example, <code>Vec</code> might request scratch space to

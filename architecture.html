@@ -165,14 +165,15 @@
                     <main>
                         <h1><a class="header" href="#architecture" id="architecture">Architecture</a></h1>
 <p>The core of rkyv is built around
-<a href="https://docs.rs/rkyv/latest/rkyv/rel_ptr/struct.RelPtr.html">relative pointers</a> and three core traits:
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.Archive.html"><code>Archive</code></a>,
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.Serialize.html"><code>Serialize</code></a>, and
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.Deserialize.html"><code>Deserialize</code></a>. Each of these traits has a
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/rel_ptr/struct.RelPtr.html">relative pointers</a> and three core
+traits:
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.Archive.html"><code>Archive</code></a>,
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.Serialize.html"><code>Serialize</code></a>, and
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.Deserialize.html"><code>Deserialize</code></a>. Each of these traits has a
 corresponding variant that supports unsized types:
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.ArchiveUnsized.html"><code>ArchiveUnsized</code></a>,
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.SerializeUnsized.html"><code>SerializeUnsized</code></a>, and
-<a href="https://docs.rs/rkyv/latest/rkyv/trait.DeserializeUnsized.html"><code>DeserializeUnsized</code></a>.</p>
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.ArchiveUnsized.html"><code>ArchiveUnsized</code></a>,
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.SerializeUnsized.html"><code>SerializeUnsized</code></a>, and
+<a href="https://docs.rs/rkyv/0.7.1/rkyv/trait.DeserializeUnsized.html"><code>DeserializeUnsized</code></a>.</p>
 <blockquote>
 <p>A good way to think about it is that sized types are the <em>foundation</em> that unsized types are built
 on. That's not a fluke either, rkyv is built precisely so that you can build more complex

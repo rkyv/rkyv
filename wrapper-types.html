@@ -170,7 +170,7 @@ even complicated types.</p>
 <p>Annotating a field with <code>#[with(...)]</code> will <em>wrap</em> that field with the given types when the struct
 is serialized or deserialized. There's no performance penalty to actually wrap types, but doing more
 or less work during serialization and deserialization can affect performance. This excerpt is from
-the documentation for <a href="https://docs.rs/rkyv/latest/rkyv/with/trait.ArchiveWith.html"><code>ArchiveWith</code></a>:</p>
+the documentation for <a href="https://docs.rs/rkyv/0.7.1/rkyv/with/trait.ArchiveWith.html"><code>ArchiveWith</code></a>:</p>
 <pre><code class="language-rs">#[derive(Archive, Deserialize, Serialize)]
 struct Example {
     #[with(Incremented)]
@@ -182,11 +182,11 @@ struct Example {
 <p>The <code>Incremented</code> wrapper is wrapping <code>a</code>, and the definition causes that field to be incremented
 in its archived form. </p>
 <h2><a class="header" href="#with" id="with"><code>With</code></a></h2>
-<p>The core type behind wrappers is <a href="https://docs.rs/rkyv/latest/rkyv/with/struct.With.html"><code>With</code></a>.
+<p>The core type behind wrappers is <a href="https://docs.rs/rkyv/0.7.1/rkyv/with/struct.With.html"><code>With</code></a>.
 This struct is <em>transparent</em>, meaning that it's like another name for the type inside of it. rkyv
 uses <code>With</code> to wrap your fields when serializing and deserializing, and when you write your own
 wrappers they will be used with <code>With</code> as well.</p>
-<p>See <a href="https://docs.rs/latest/rkyv/with/trait.ArchiveWith.html"><code>ArchiveWith</code></a> for an example of how
+<p>See <a href="https://docs.rs/rkyv/0.7.1/rkyv/with/trait.ArchiveWith.html"><code>ArchiveWith</code></a> for an example of how
 to write your own wrapper types.</p>
 
                     </main>
