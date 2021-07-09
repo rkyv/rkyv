@@ -4,16 +4,43 @@ Validation can be enabled with the `validation` feature. Validation leverages th
 [`bytecheck`](https://docs.rs/bytecheck) crate to perform archive validation, and allows the
 consumption of untrusted and malicious data.
 
-To validate an archive, use
-[`check_archived_root`](https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archived_root.html).
-Examples of how to enable and perform validation can be found in the `rkyv_test` crate's
+To validate an archive, you first have to derive
+[`CheckBytes`](https://docs.rs/bytecheck/latest/bytecheck/trait.CheckBytes.html) for your archived
+type:
+
+```rs
+use bytecheck::CheckBytes;
+use rkyv::{Archive, Deserialize, Serialize};
+
+#[derive(Archive, Deserialize, Serialize)]
+#[archive_attr(derive(CheckBytes))]
+pub struct Example {
+    a: i32,
+    b: String,
+    c: Vec<bool>,
+}
+```
+
+The `#[archive_attr(...)]` attribute applies the provided attributes to the archived type. Finally,
+you can use
+[`check_archived_root`](https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archived_root.html) to
+check an archive and get a reference to the archived value if it was successful:
+
+```rs
+use rkyv::check_archived_root;
+
+let archived_example = check_archived_root::<Example>(buffer).unwrap();
+```
+
+More examples of how to enable and perform validation can be found in the `rkyv_test` crate's
 `validation` module.
 
 ## The validation context
 
 When checking an archive, a validation context is created automatically using some good defaults
 that will work for most archived types. If your type requires special validation logic, you may need
-to augment the capabilities of the validation context in order to check your type.
+to augment the capabilities of the validation context in order to check your type and use
+[`check_archived_root_with_context`](https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archived_root_with_context.html).
 
 > The
 > [`DefaultValidator`](https://doc.rs/rkyv/latest/rkyv/validation/validators/struct.DefaultValidator.html)
