@@ -1,6 +1,6 @@
 [package]
 name = "rkyv_dyn"
-version = "0.7.0"
+version = "0.7.1"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Trait object support for rkyv"
@@ -14,13 +14,13 @@ readme = "crates-io.md"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytecheck = { version = "0.6.0", optional = true }
+bytecheck = { version = "0.6", optional = true }
 inventory = "0.1"
 lazy_static = "1.4"
 ptr_meta = "~0.1.3"
-rkyv = { version = "0.7.0", path = "../rkyv" }
-rkyv_dyn_derive = { version = "=0.7.0", path = "../rkyv_dyn_derive" }
-rkyv_typename = { version = "0.7.0", path = "../rkyv_typename" }
+rkyv = { version = "0.7", path = "../rkyv" }
+rkyv_dyn_derive = { version = "=0.7.1", path = "../rkyv_dyn_derive" }
+rkyv_typename = { version = "0.7", path = "../rkyv_typename" }
 
 [features]
 default = []
