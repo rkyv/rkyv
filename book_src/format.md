@@ -68,4 +68,4 @@ a
 
 This deterministic layout means that you don't need to store the position of the root object in most
 cases. As long as your buffer ends right at the end of your root object, you can use
-[`archived_root`](https://docs.rs/rkyv/latest/rkyv/util/fn.archived_root.html) with your buffer.
+[`archived_root`](https://docs.rs/rkyv/0.7.1/rkyv/util/fn.archived_root.html) with your buffer.

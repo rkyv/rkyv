@@ -2,7 +2,7 @@
 
 rkyv supports unsized types out of the box and ships with implementations for the most common
 unsized types (`str`s and slices). Trait objects can also be supported with `rkyv_dyn`, see
-["Trait Objects"](trait_objects.html) for more details.
+["Trait Objects"](trait-objects.html) for more details.
 
 ## Metadata
 
@@ -36,5 +36,5 @@ will end up as just filling out a few functions and returning `()`.
 
 > This is definitely one of the more complicated parts of the library, and can be difficult to wrap
 > your head around. Reading the documentation for
-> [`ArchiveUnsized`](https://docs.rs/rkyv/latest/rkyv/trait.ArchiveUnsized.html) may help you
+> [`ArchiveUnsized`](https://docs.rs/rkyv/0.7.1/rkyv/trait.ArchiveUnsized.html) may help you
 > understand how the system works by working through an example.

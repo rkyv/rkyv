@@ -40,4 +40,4 @@ inside of it. Relative pointers don't require write access to memory either, so 
 entire files and instantly have access to their data in a structured manner.
 
 rkyv's implementation of relative pointers is the
-[`RelPtr`](https://docs.rs/rkyv/latest/rkyv/struct.RelPtr.html) type.
+[`RelPtr`](https://docs.rs/rkyv/0.7.1/rkyv/rel_ptr/struct.RelPtr.html) type.

@@ -1,6 +1,6 @@
 # Deserialize
 
-Similarly to `Serialize`, [`Deserialize`](https://docs.rs/rkyv/latest/rkyv/trait.Deserialize.html)
+Similarly to `Serialize`, [`Deserialize`](https://docs.rs/rkyv/0.7.1/rkyv/trait.Deserialize.html)
 parameterizes over and takes a deserializer, and converts a type from its archived form back to its
 original one. Unlike serialization, deserialization occurs in a single step and doesn't have an
 equivalent of a resolver.

@@ -23,7 +23,7 @@ pub struct Example {
 
 The `#[archive_attr(...)]` attribute applies the provided attributes to the archived type. Finally,
 you can use
-[`check_archived_root`](https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archived_root.html) to
+[`check_archived_root`](https://docs.rs/rkyv/0.7.1/rkyv/validation/validators/fn.check_archived_root.html) to
 check an archive and get a reference to the archived value if it was successful:
 
 ```rs
@@ -40,10 +40,10 @@ More examples of how to enable and perform validation can be found in the `rkyv_
 When checking an archive, a validation context is created automatically using some good defaults
 that will work for most archived types. If your type requires special validation logic, you may need
 to augment the capabilities of the validation context in order to check your type and use
-[`check_archived_root_with_context`](https://docs.rs/rkyv/latest/rkyv/validation/fn.check_archived_root_with_context.html).
+[`check_archived_root_with_context`](https://docs.rs/rkyv/0.7.1/rkyv/validation/fn.check_archived_root_with_context.html).
 
 > The
-> [`DefaultValidator`](https://doc.rs/rkyv/latest/rkyv/validation/validators/struct.DefaultValidator.html)
+> [`DefaultValidator`](https://docs.rs/rkyv/latest/rkyv/validation/validators/struct.DefaultValidator.html)
 > supports all builtin rkyv types, but changes depending on whether you have the `alloc` feature
 > enabled or not.
 
