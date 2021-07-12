@@ -72,7 +72,7 @@ let value = Test {
 };
 
 let mut serializer = AllocSerializer::<256>::default();
-serializer.serialize_value(&value).unwrap().
+serializer.serialize_value(&value).unwrap();
 let bytes = serializer.into_serializer().into_inner();
 
 let archived = unsafe { archived_root::<Test>(&bytes[..]) };
