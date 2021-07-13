@@ -52,7 +52,7 @@
 //!
 //! - `alloc`: Enables types that require the `alloc` crate. Enabled by default.
 //! - `arbitrary_enum_discriminant`: Enables the `arbitrary_enum_discriminant` feature for stable
-//!   stable multibyte enum discriminants using `archive_le` and `archive_be`. Requires nightly.
+//!   multibyte enum discriminants using `archive_le` and `archive_be`. Requires nightly.
 //! - `archive_be`: Forces archives into a big-endian format. This guarantees cross-endian
 //!   compatibility optimized for big-endian architectures.
 //! - `archive_le`: Forces archives into a little-endian format. This guarantees cross-endian
