@@ -141,10 +141,10 @@ const _: () = {
     all(target_pointer_width = "64", not(feature = "size_64"))
 )))]
 const _: () = {
-    impl ArchiveCopySafe for isize {}
-    impl ArchiveCopySafe for usize {}
-    impl ArchiveCopySafe for NonZeroIsize {}
-    impl ArchiveCopySafe for NonZeroUsize {}
+    unsafe impl ArchiveCopySafe for isize {}
+    unsafe impl ArchiveCopySafe for usize {}
+    unsafe impl ArchiveCopySafe for NonZeroIsize {}
+    unsafe impl ArchiveCopySafe for NonZeroUsize {}
 };
 
 macro_rules! impl_tuple {
