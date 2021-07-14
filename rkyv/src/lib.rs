@@ -70,6 +70,10 @@
 //! - `strict`: Guarantees that types will have the same representations across platforms and
 //!   compilations. This is already the case in practice, but this feature provides a guarantee
 //!   along with C type compatibility.
+//!
+//!   *Note*: Enabling `strict` will disable [`Archive`] implementations for tuples, as tuples
+//!   do not have a C type layout. Making a generic `Tuple<T1, T2>` and deriving [`Archive`] for it
+//!   should provide similar functionality.
 //! - `validation`: Enables validation support through `bytecheck`.
 //!
 //! ## Crate support
