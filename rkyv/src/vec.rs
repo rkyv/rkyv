@@ -136,6 +136,20 @@ impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for ArchivedVec<T> {
     }
 }
 
+impl<T: PartialEq<U>, U, const N: usize> PartialEq<[U; N]> for ArchivedVec<T> {
+    #[inline]
+    fn eq(&self, other: &[U; N]) -> bool {
+        self.as_slice().eq(&other[..])
+    }
+}
+
+impl<T: PartialEq<U>, U, const N: usize> PartialEq<ArchivedVec<T>> for [U; N] {
+    #[inline]
+    fn eq(&self, other: &ArchivedVec<T>) -> bool {
+        other.eq(self)
+    }
+}
+
 impl<T: PartialEq<U>, U> PartialEq<[U]> for ArchivedVec<T> {
     #[inline]
     fn eq(&self, other: &[U]) -> bool {

@@ -113,11 +113,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        archived_root,
-        ser::Serializer,
-        Deserialize, Infallible,
-    };
+    use crate::{archived_root, ser::Serializer, Deserialize, Infallible};
     use tinyvec::{array_vec, Array, ArrayVec, SliceVec};
 
     #[test]

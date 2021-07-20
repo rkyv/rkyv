@@ -4,6 +4,8 @@ use crate::{
     Archive, ArchiveUnsized, Fallible, Serialize, SerializeUnsized,
 };
 
+// Inline
+
 impl<F: Archive> ArchiveWith<&F> for Inline {
     type Archived = F::Archived;
     type Resolver = F::Resolver;

@@ -3,11 +3,15 @@
 //! Wrappers can be applied with the `#[with(...)]` attribute in the
 //! [`Archive`](macro@crate::Archive) macro. See [`With`] for examples.
 
+#[cfg(feature = "alloc")]
+mod alloc;
 mod atomic;
 mod core;
 #[cfg(feature = "std")]
 mod std;
 
+#[cfg(feature = "alloc")]
+pub use self::alloc::*;
 #[cfg(feature = "std")]
 pub use self::std::*;
 
@@ -388,3 +392,19 @@ impl fmt::Display for LockError {
 
 #[cfg(feature = "std")]
 impl ::std::error::Error for LockError {}
+
+/// A wrapper that serializes a `Cow` as if it were owned.
+///
+/// # Example
+///
+/// ```
+/// use std::borrow::Cow;
+/// use rkyv::{Archive, with::AsOwned};
+///
+/// #[derive(Archive)]
+/// struct Example<'a> {
+///     #[with(AsOwned)]
+///     a: Cow<'a, str>,
+/// }
+/// ```
+pub struct AsOwned;

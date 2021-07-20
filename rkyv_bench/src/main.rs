@@ -4,14 +4,10 @@ use rand_pcg::Lcg64Xsh32;
 use rkyv::{
     archived_root, check_archived_root,
     ser::{
-        serializers::{CompositeSerializer, AlignedSerializer, BufferScratch},
+        serializers::{AlignedSerializer, BufferScratch, CompositeSerializer},
         Serializer,
     },
-    AlignedVec,
-    Archive,
-    Deserialize,
-    Infallible,
-    Serialize,
+    AlignedVec, Archive, Deserialize, Infallible, Serialize,
 };
 use std::collections::HashMap;
 trait Generate {
@@ -376,7 +372,9 @@ fn main() {
 
     let mut serialize_buffer = AlignedVec::with_capacity(BUFFER_LEN);
     let mut serialize_scratch = AlignedVec::with_capacity(SCRATCH_LEN);
-    unsafe { serialize_scratch.set_len(SCRATCH_LEN); }
+    unsafe {
+        serialize_scratch.set_len(SCRATCH_LEN);
+    }
     serialize_buffer.clear();
     let mut serializer = CompositeSerializer::new(
         AlignedSerializer::new(&mut serialize_buffer),

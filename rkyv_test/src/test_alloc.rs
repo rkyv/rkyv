@@ -13,6 +13,7 @@ mod tests {
 
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::{
+        borrow::Cow,
         boxed::Box,
         collections::{BTreeMap, BTreeSet},
         rc::{Rc, Weak},
@@ -22,6 +23,7 @@ mod tests {
     };
     #[cfg(feature = "std")]
     use std::{
+        borrow::Cow,
         collections::{BTreeMap, BTreeSet},
         rc::{Rc, Weak},
     };
@@ -1382,6 +1384,36 @@ mod tests {
         let archived = unsafe { archived_root::<Test>(result.as_slice()) };
 
         assert_eq!(archived.value.as_ref(), "hello world");
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn with_as_owned() {
+        use rkyv::with::AsOwned;
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct Test<'a> {
+            #[with(AsOwned)]
+            a: Cow<'a, u32>,
+            #[with(AsOwned)]
+            b: Cow<'a, [u32]>,
+            #[with(AsOwned)]
+            c: Cow<'a, str>,
+        }
+
+        let value = Test {
+            a: Cow::Borrowed(&100),
+            b: Cow::Borrowed(&[1, 2, 3, 4, 5, 6]),
+            c: Cow::Borrowed("hello world"),
+        };
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+        assert_eq!(archived.a, 100);
+        assert_eq!(archived.b, [1, 2, 3, 4, 5, 6]);
+        assert_eq!(archived.c, "hello world");
     }
 
     #[test]
