@@ -5,7 +5,7 @@ authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Test suit for rkyv_dyn"
 license = "MIT"
-repository = "https://github.com/djkoloski/rkyv"
+repository = "https://github.com/rkyv/rkyv"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

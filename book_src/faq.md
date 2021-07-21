@@ -38,7 +38,7 @@ disable all memory allocation capabilities.
 ## Isn't this very unsafe if you access untrusted data?
 
 Yes, *but* you can still access untrusted data if you validate the archive first with
-[bytecheck](https://github.com/djkoloski/bytecheck). It's an extra step, but it's usually still less
+[bytecheck](https://github.com/rkyv/bytecheck). It's an extra step, but it's usually still less
 than the cost of deserializing using a traditional format. rkyv has proven to round-trip faster than
 bincode for all tested use cases.
 

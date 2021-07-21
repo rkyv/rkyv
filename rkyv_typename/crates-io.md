@@ -4,7 +4,7 @@ rkyv_typename adds type names for rkyv_dyn.
 
 ## Learning Materials
 
-- The [rkyv book](https://djkoloski.github.io/rkyv) covers the motivation, architecture, and major
+- The [rkyv book](https://rkyv.github.io/rkyv) covers the motivation, architecture, and major
   features of rkyv
 - The [rkyv discord](https://discord.gg/65F6MdnbQh) is a great place to get help with specific issues and meet
   other people using rkyv
@@ -17,15 +17,15 @@ rkyv_typename adds type names for rkyv_dyn.
 
 ## Benchmarks
 
-- The [rust serialization benchmark](https://github.com/djkoloski/rust_serialization_benchmark) is a
+- The [rust serialization benchmark](https://github.com/rkyv/rust_serialization_benchmark) is a
   shootout style benchmark comparing many rust serialization solutions. It includes special
   benchmarks for zero-copy serialization solutions like rkyv.
 
 ## Sister Crates
 
-- [bytecheck](https://github.com/djkoloski/bytecheck), which rkyv uses for validation
-- [ptr_meta](https://github.com/djkoloski/ptr_meta), which rkyv uses for pointer manipulation
-- [rend](https://github.com/djkoloski/rend), which rkyv uses for endian-agnostic features
+- [bytecheck](https://github.com/rkyv/bytecheck), which rkyv uses for validation
+- [ptr_meta](https://github.com/rkyv/ptr_meta), which rkyv uses for pointer manipulation
+- [rend](https://github.com/rkyv/rend), which rkyv uses for endian-agnostic features
 
 # Example
 

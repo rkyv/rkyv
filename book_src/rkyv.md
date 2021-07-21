@@ -1,8 +1,8 @@
 <p align="center">
-    <img src="https://raw.githubusercontent.com/djkoloski/rkyv/master/media/logo_text_color.svg">
+    <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/logo_text_color.svg">
 </p>
 
-[rkyv](http://github.com/djkoloski/rkyv) (*archive*) is a zero-copy deserialization framework for
+[rkyv](http://github.com/rkyv/rkyv) (*archive*) is a zero-copy deserialization framework for
 rust.
 
 This book covers the motivation, architecture, and major features of rkyv. It is the best way to
@@ -15,7 +15,7 @@ afraid to consult these other resources as you need while you read through.
 
 - The [rkyv discord](https://discord.gg/65F6MdnbQh) is a great place to get help with specific
   issues and meet other people using rkyv
-- The [rkyv github](https://github.com/djkoloski/rkyv) hosts the source and tracks project issues
+- The [rkyv github](https://github.com/rkyv/rkyv) hosts the source and tracks project issues
   and milestones.
 
 ## Documentation
@@ -26,12 +26,12 @@ afraid to consult these other resources as you need while you read through.
 
 ## Benchmarks
 
-- The [rust serialization benchmark](https://github.com/djkoloski/rust_serialization_benchmark) is a
+- The [rust serialization benchmark](https://github.com/rkyv/rust_serialization_benchmark) is a
   shootout style benchmark comparing many rust serialization solutions. It includes special
   benchmarks for zero-copy serialization solutions like rkyv.
 
 ## Sister Crates
 
-- [bytecheck](https://github.com/djkoloski/bytecheck), which rkyv uses for validation
-- [ptr_meta](https://github.com/djkoloski/ptr_meta), which rkyv uses for pointer manipulation
-- [rend](https://github.com/djkoloski/rend), which rkyv uses for endian-agnostic features
+- [bytecheck](https://github.com/rkyv/bytecheck), which rkyv uses for validation
+- [ptr_meta](https://github.com/rkyv/ptr_meta), which rkyv uses for pointer manipulation
+- [rend](https://github.com/rkyv/rend), which rkyv uses for endian-agnostic features
