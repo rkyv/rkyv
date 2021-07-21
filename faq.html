@@ -189,7 +189,7 @@ disable all memory allocation capabilities.</p>
 <h1><a class="header" href="#safety" id="safety">Safety</a></h1>
 <h2><a class="header" href="#isnt-this-very-unsafe-if-you-access-untrusted-data" id="isnt-this-very-unsafe-if-you-access-untrusted-data">Isn't this very unsafe if you access untrusted data?</a></h2>
 <p>Yes, <em>but</em> you can still access untrusted data if you validate the archive first with
-<a href="https://github.com/djkoloski/bytecheck">bytecheck</a>. It's an extra step, but it's usually still less
+<a href="https://github.com/rkyv/bytecheck">bytecheck</a>. It's an extra step, but it's usually still less
 than the cost of deserializing using a traditional format. rkyv has proven to round-trip faster than
 bincode for all tested use cases.</p>
 <h2><a class="header" href="#doesnt-that-mean-i-always-have-to-validate" id="doesnt-that-mean-i-always-have-to-validate">Doesn't that mean I always have to validate?</a></h2>

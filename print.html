@@ -166,9 +166,9 @@
                 <div id="content" class="content">
                     <main>
                         <p align="center">
-    <img src="https://raw.githubusercontent.com/djkoloski/rkyv/master/media/logo_text_color.svg">
+    <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/logo_text_color.svg">
 </p>
-<p><a href="http://github.com/djkoloski/rkyv">rkyv</a> (<em>archive</em>) is a zero-copy deserialization framework for
+<p><a href="http://github.com/rkyv/rkyv">rkyv</a> (<em>archive</em>) is a zero-copy deserialization framework for
 rust.</p>
 <p>This book covers the motivation, architecture, and major features of rkyv. It is the best way to
 learn and understand rkyv, but won't go as in-depth on specifics as the documentation will. Don't be
@@ -178,7 +178,7 @@ afraid to consult these other resources as you need while you read through.</p>
 <ul>
 <li>The <a href="https://discord.gg/65F6MdnbQh">rkyv discord</a> is a great place to get help with specific
 issues and meet other people using rkyv</li>
-<li>The <a href="https://github.com/djkoloski/rkyv">rkyv github</a> hosts the source and tracks project issues
+<li>The <a href="https://github.com/rkyv/rkyv">rkyv github</a> hosts the source and tracks project issues
 and milestones.</li>
 </ul>
 <h2><a class="header" href="#documentation" id="documentation">Documentation</a></h2>
@@ -189,15 +189,15 @@ and milestones.</li>
 </ul>
 <h2><a class="header" href="#benchmarks" id="benchmarks">Benchmarks</a></h2>
 <ul>
-<li>The <a href="https://github.com/djkoloski/rust_serialization_benchmark">rust serialization benchmark</a> is a
+<li>The <a href="https://github.com/rkyv/rust_serialization_benchmark">rust serialization benchmark</a> is a
 shootout style benchmark comparing many rust serialization solutions. It includes special
 benchmarks for zero-copy serialization solutions like rkyv.</li>
 </ul>
 <h2><a class="header" href="#sister-crates" id="sister-crates">Sister Crates</a></h2>
 <ul>
-<li><a href="https://github.com/djkoloski/bytecheck">bytecheck</a>, which rkyv uses for validation</li>
-<li><a href="https://github.com/djkoloski/ptr_meta">ptr_meta</a>, which rkyv uses for pointer manipulation</li>
-<li><a href="https://github.com/djkoloski/rend">rend</a>, which rkyv uses for endian-agnostic features</li>
+<li><a href="https://github.com/rkyv/bytecheck">bytecheck</a>, which rkyv uses for validation</li>
+<li><a href="https://github.com/rkyv/ptr_meta">ptr_meta</a>, which rkyv uses for pointer manipulation</li>
+<li><a href="https://github.com/rkyv/rend">rend</a>, which rkyv uses for endian-agnostic features</li>
 </ul>
 <h1><a class="header" href="#motivation" id="motivation">Motivation</a></h1>
 <p>First and foremost, the motivation behind rkyv is improved performance. The way that it achieves
@@ -794,7 +794,7 @@ disable all memory allocation capabilities.</p>
 <h1><a class="header" href="#safety" id="safety">Safety</a></h1>
 <h2><a class="header" href="#isnt-this-very-unsafe-if-you-access-untrusted-data" id="isnt-this-very-unsafe-if-you-access-untrusted-data">Isn't this very unsafe if you access untrusted data?</a></h2>
 <p>Yes, <em>but</em> you can still access untrusted data if you validate the archive first with
-<a href="https://github.com/djkoloski/bytecheck">bytecheck</a>. It's an extra step, but it's usually still less
+<a href="https://github.com/rkyv/bytecheck">bytecheck</a>. It's an extra step, but it's usually still less
 than the cost of deserializing using a traditional format. rkyv has proven to round-trip faster than
 bincode for all tested use cases.</p>
 <h2><a class="header" href="#doesnt-that-mean-i-always-have-to-validate" id="doesnt-that-mean-i-always-have-to-validate">Doesn't that mean I always have to validate?</a></h2>
