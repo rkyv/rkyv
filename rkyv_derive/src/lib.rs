@@ -25,8 +25,10 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// `#[archive(...)]` takes the following arguments:
 ///
-/// - `name`, `name = "..."`: Exposes the archived type with the given name. If used without a name
-///   assignment, uses the name `"Archived" + name`.
+/// - `archived = "..."`: Changes the name of the generated archived type to the given value. By
+///   default, archived types are named "Archived" + `the name of the type`.
+/// - `resolver = "..."`: Changes the name of the generated resolver type to the given value. By
+///   default, resolver types are named `the name of the type` + "Resolver".
 /// - `repr(...)`: Sets the representation for the archived type to the given representation.
 ///   Available representation options may vary depending on features and type layout.
 /// - `compare(...)`: Implements common comparison operators between the original and archived
@@ -35,6 +37,11 @@ use syn::{parse_macro_input, DeriveInput};
 /// - `bound(...)`: Adds additional bounds to the `Serialize` and `Deserialize` implementations.
 ///   This can be especially useful when dealing with recursive structures, where bounds may need to
 ///   be omitted to prevent recursive type definitions.
+/// - `copy_safe`: States that the archived type is tightly packed with no padding bytes. This
+///   qualifies it for copy optimizations. (requires nightly)
+/// - `as = "..."`: Instead of generating a separate archived type, this type will archive as the
+///   named type. This is useful for types which are generic over their parameters.
+/// - `crate = "..."`: Chooses an alternative crate path to import rkyv from.
 ///
 /// `#[archive_attr(...)]` adds the attributes passed as arguments as attributes to the generated
 /// type. This is commonly used with attributes like `derive(...)` to derive trait implementations
