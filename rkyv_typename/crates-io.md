@@ -17,7 +17,7 @@ rkyv_typename adds type names for rkyv_dyn.
 
 ## Benchmarks
 
-- The [rust serialization benchmark](https://github.com/rkyv/rust_serialization_benchmark) is a
+- The [rust serialization benchmark](https://github.com/djkoloski/rust_serialization_benchmark) is a
   shootout style benchmark comparing many rust serialization solutions. It includes special
   benchmarks for zero-copy serialization solutions like rkyv.
 
