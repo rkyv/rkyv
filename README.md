@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/logo_text_color.svg">
+    <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/logo_text_color.svg" alt="rkyv">
 </p>
 <p align="center">
     rkyv (<em>archive</em>) is a zero-copy deserialization framework for Rust
@@ -9,16 +9,16 @@
         <img src="https://img.shields.io/discord/822925794249539645" alt="Discord">
     </a>
     <a href="https://docs.rs/rkyv">
-        <img src="https://img.shields.io/docsrs/rkyv.svg">
+        <img src="https://img.shields.io/docsrs/rkyv.svg" alt="docs.rs">
     </a>
     <a href="https://crates.io/crates/rkyv">
-        <img src="https://img.shields.io/crates/v/rkyv.svg">
+        <img src="https://img.shields.io/crates/v/rkyv.svg" alt="crates.io">
     </a>
     <a href="https://github.com/rkyv/rkyv/blob/master/LICENSE">
-        <img src="https://img.shields.io/badge/license-MIT-blue.svg">
+        <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license">
     </a>
     <a href="https://blog.rust-lang.org/2021/05/06/Rust-1.52.0.html">
-        <img src="https://img.shields.io/badge/rustc-1.52+-lightgray.svg">
+        <img src="https://img.shields.io/badge/rustc-1.52+-lightgray.svg" alt="rustc 1.52+">
     </a>
 </p>
 
@@ -84,3 +84,14 @@ let deserialized: Test = archived.deserialize(&mut Infallible).unwrap()
 assert_eq!(deserialized, value);
 ```
 
+# Thanks
+
+Thanks to all the sponsors that keep development sustainable. Special thanks to the following sponsors for going above and beyond supporting rkyv:
+
+## Bronze Sponsors
+
+<p align="center">
+    <a href="https://traverseresearch.nl/">
+        <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/sponsors/traverse_research.png" alt="Traverse Research">
+    </a>
+</p>
