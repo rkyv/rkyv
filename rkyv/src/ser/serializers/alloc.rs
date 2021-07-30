@@ -22,6 +22,7 @@ use std::collections::hash_map;
 ///
 /// This serializer makes it easier for the compiler to perform emplacement optimizations and may
 /// give better performance than a basic `WriteSerializer`.
+#[derive(Debug)]
 pub struct AlignedSerializer<A> {
     inner: A,
 }
@@ -108,6 +109,7 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerial
 }
 
 /// Fixed-size scratch space allocated on the heap.
+#[derive(Debug)]
 pub struct HeapScratch<const N: usize> {
     inner: BufferScratch<Box<AlignedBytes<N>>>,
 }
@@ -214,6 +216,7 @@ const _: () = {
 ///
 /// This allocator will panic if scratch is popped that it did not allocate. For this reason, it
 /// should only ever be used as a fallback allocator.
+#[derive(Debug)]
 pub struct AllocScratch {
     remaining: Option<usize>,
     allocations: Vec<(*mut u8, Layout)>,
@@ -319,6 +322,7 @@ const _: () = {
 };
 
 /// An adapter that adds shared serialization support to a serializer.
+#[derive(Debug)]
 pub struct SharedSerializeMap {
     shared_resolvers: hash_map::HashMap<*const u8, usize>,
 }

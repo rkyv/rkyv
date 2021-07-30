@@ -150,7 +150,6 @@ pub enum RelPtrError {
 /// Relative pointers are *relative*, meaning that the pointee can be moved with the target without
 /// invalidating the pointer. However, if either the pointee or the target move independently, the
 /// pointer will be invalidated.
-#[derive(Debug)]
 #[repr(transparent)]
 pub struct RawRelPtr<O> {
     offset: O,
@@ -219,6 +218,20 @@ impl<O: Offset> RawRelPtr<O> {
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut () {
         unsafe { self.base_mut().offset(self.offset()).cast() }
+    }
+}
+
+impl<O: fmt::Debug> fmt::Debug for RawRelPtr<O> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RawRelPtr")
+            .field("offset", &self.offset)
+            .finish()
+    }
+}
+
+impl<O: Offset> fmt::Pointer for RawRelPtr<O> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Pointer::fmt(&self.as_ptr(), f)
     }
 }
 
@@ -391,7 +404,12 @@ where
         f.debug_struct("RelPtr")
             .field("raw_ptr", &self.raw_ptr)
             .field("metadata", &self.metadata)
-            .field("_phantom", &self._phantom)
             .finish()
+    }
+}
+
+impl<T: ArchivePointee + ?Sized, O: Offset> fmt::Pointer for RelPtr<T, O> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Pointer::fmt(&self.as_ptr(), f)
     }
 }

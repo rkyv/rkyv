@@ -230,6 +230,12 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     }
 }
 
+impl<T: ArchivePointee + fmt::Debug + ?Sized, F> fmt::Debug for ArchivedRcWeak<T, F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "(Weak)")
+    }
+}
+
 /// The resolver for `rc::Weak`.
 pub enum RcWeakResolver<T> {
     /// The weak pointer was null

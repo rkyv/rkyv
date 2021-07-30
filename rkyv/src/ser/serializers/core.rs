@@ -81,6 +81,7 @@ const _: () = {
 ///     panic!("archived event was of the wrong type");
 /// }
 /// ```
+#[derive(Debug)]
 pub struct BufferSerializer<T> {
     inner: T,
     pos: usize,
@@ -211,6 +212,7 @@ impl fmt::Display for FixedSizeScratchError {
 impl std::error::Error for FixedSizeScratchError {}
 
 /// Scratch space that allocates within a buffer.
+#[derive(Debug)]
 pub struct BufferScratch<T> {
     buffer: T,
     pos: usize,
@@ -291,6 +293,7 @@ impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace for BufferScratch<T> 
 }
 
 /// Allocates scratch space with a main and backup scratch.
+#[derive(Debug)]
 pub struct FallbackScratch<M, F> {
     main: M,
     fallback: F,

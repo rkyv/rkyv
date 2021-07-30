@@ -2,7 +2,7 @@
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
 use crate::{Archive, Archived, RelPtr};
-use core::hash::{Hash, Hasher};
+use core::{fmt, hash::{Hash, Hasher}, slice};
 
 /// The hash builder for archived hash indexes.
 pub use seahash::SeaHasher as HashBuilder;
@@ -42,8 +42,15 @@ impl ArchivedHashIndex {
     }
 
     #[inline]
-    unsafe fn displace(&self, index: usize) -> u32 {
-        from_archived!(*self.displace.as_ptr().add(index))
+    fn displace_slice(&self) -> &[Archived<u32>] {
+        unsafe {
+            slice::from_raw_parts(self.displace.as_ptr(), self.len())
+        }
+    }
+
+    #[inline]
+    fn displace(&self, index: usize) -> u32 {
+        from_archived!(self.displace_slice()[index])
     }
 
     /// Returns the index where a key may be located in the hash index.
@@ -55,7 +62,7 @@ impl ArchivedHashIndex {
         let mut hasher = self.hasher();
         k.hash(&mut hasher);
         let displace_index = hasher.finish() % self.len() as u64;
-        let displace = unsafe { self.displace(displace_index as usize) };
+        let displace = self.displace(displace_index as usize);
 
         if displace == u32::MAX {
             None
@@ -109,7 +116,6 @@ const _: () = {
     use core::{
         cmp::Reverse,
         mem::{size_of, MaybeUninit},
-        slice,
     };
 
     impl ArchivedHashIndex {
@@ -230,6 +236,12 @@ const _: () = {
         }
     }
 };
+
+impl fmt::Debug for ArchivedHashIndex {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.displace_slice()).finish()
+    }
+}
 
 /// The resolver for an archived hash index.
 pub struct HashIndexResolver {

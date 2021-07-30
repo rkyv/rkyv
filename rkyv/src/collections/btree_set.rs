@@ -1,12 +1,12 @@
 //! [`Archive`](crate::Archive) implementation for B-tree sets.
 
 use crate::collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver, Keys};
-use core::borrow::Borrow;
+use core::{borrow::Borrow, fmt};
 
 /// An archived `BTreeSet`. This is a wrapper around a B-tree map with the same key and a value of
 /// `()`.
 #[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
-#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedBTreeSet<K>(ArchivedBTreeMap<K, ()>);
 
@@ -98,6 +98,12 @@ const _: () = {
         }
     }
 };
+
+impl<K: fmt::Debug> fmt::Debug for ArchivedBTreeSet<K> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
+    }
+}
 
 impl<'a, K> IntoIterator for &'a ArchivedBTreeSet<K> {
     type Item = &'a K;

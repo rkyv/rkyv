@@ -47,6 +47,7 @@ const _: () = {
 };
 
 /// A validator that can verify shared memory.
+#[derive(Debug)]
 pub struct SharedValidator {
     shared: HashMap<*const u8, TypeId>,
 }
