@@ -5,7 +5,7 @@ use crate::{
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized, Serialize,
     SerializeUnsized,
 };
-#[cfg(all(feature = "alloc", not(feature = "std")))]
+#[cfg(not(feature = "std"))]
 use ::alloc::{alloc, boxed::Box, rc, sync};
 use ::core::mem::forget;
 #[cfg(feature = "std")]

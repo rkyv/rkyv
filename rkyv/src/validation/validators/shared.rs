@@ -3,7 +3,7 @@
 use crate::{validation::SharedContext, Fallible};
 use core::{any::TypeId, fmt};
 
-#[cfg(all(feature = "alloc", not(feature = "std")))]
+#[cfg(not(feature = "std"))]
 use hashbrown::HashMap;
 #[cfg(feature = "std")]
 use std::collections::HashMap;

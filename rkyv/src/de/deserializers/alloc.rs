@@ -4,10 +4,10 @@ use crate::{
     de::{SharedDeserializeRegistry, SharedPointer},
     Fallible,
 };
-#[cfg(all(feature = "alloc", not(feature = "std")))]
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use core::fmt;
-#[cfg(all(feature = "alloc", not(feature = "std")))]
+#[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
 #[cfg(feature = "std")]
 use std::collections::hash_map;

@@ -1,30 +1,13 @@
 //! Archived index map implementation.
 
 use crate::{
-    collections::hash_index::{ArchivedHashIndex, HashBuilder, HashIndexResolver},
-    out_field, Archive, Archived, RelPtr,
+    collections::{
+        hash_index::{ArchivedHashIndex, HashBuilder, HashIndexResolver},
+        util::Entry,
+    },
+    out_field, Archived, RelPtr,
 };
 use core::{borrow::Borrow, hash::Hash, iter::FusedIterator, marker::PhantomData};
-
-#[cfg_attr(feature = "strict", repr(C))]
-struct Entry<K, V> {
-    key: K,
-    value: V,
-}
-
-impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
-    type Archived = Entry<K::Archived, V::Archived>;
-    type Resolver = (K::Resolver, V::Resolver);
-
-    #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        let (fp, fo) = out_field!(out.key);
-        self.key.resolve(pos + fp, resolver.0, fo);
-
-        let (fp, fo) = out_field!(out.value);
-        self.value.resolve(pos + fp, resolver.1, fo);
-    }
-}
 
 /// An archived `IndexMap`.
 #[cfg_attr(feature = "strict", repr(C))]

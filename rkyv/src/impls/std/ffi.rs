@@ -5,6 +5,7 @@ use crate::{
     DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
 };
 use core::{alloc::Layout, ptr};
+use std::alloc;
 use ptr_meta::Pointee;
 use std::ffi::{CStr, CString};
 
@@ -110,7 +111,7 @@ where
         unsafe {
             let data_address = self
                 .as_c_str()
-                .deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
+                .deserialize_unsized(deserializer, |layout| alloc::alloc(layout))?;
             let metadata = self.as_c_str().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<CStr>::from_raw(ptr).into())

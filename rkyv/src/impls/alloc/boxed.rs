@@ -3,8 +3,10 @@ use crate::{
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized, Fallible, Serialize,
     SerializeUnsized,
 };
-#[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::boxed::Box;
+#[cfg(not(feature = "std"))]
+use alloc::{alloc, boxed::Box};
+#[cfg(feature = "std")]
+use std::alloc;
 use core::cmp;
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
@@ -35,7 +37,7 @@ where
         unsafe {
             let data_address = self
                 .get()
-                .deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
+                .deserialize_unsized(deserializer, |layout| alloc::alloc(layout))?;
             let metadata = self.get().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::from_raw(ptr))

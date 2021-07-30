@@ -11,7 +11,7 @@ mod tests {
         AlignedBytes, AlignedVec, Archive, Archived, Deserialize, Fallible, Infallible, Serialize,
     };
 
-    #[cfg(all(feature = "alloc", not(feature = "std")))]
+    #[cfg(not(feature = "std"))]
     use alloc::{
         borrow::Cow,
         boxed::Box,
@@ -60,7 +60,7 @@ mod tests {
         #[cfg(feature = "wasm")]
         use wasm_bindgen_test::*;
 
-        #[cfg(all(feature = "alloc", not(feature = "std")))]
+        #[cfg(not(feature = "std"))]
         use alloc::{
             string::{String, ToString},
             vec,
@@ -1168,7 +1168,7 @@ mod tests {
     }
 
     mod with {
-        #[cfg(all(feature = "alloc", not(feature = "std")))]
+        #[cfg(not(feature = "std"))]
         use alloc::string::{String, ToString};
         use core::str::FromStr;
         use rkyv::{
@@ -1414,6 +1414,58 @@ mod tests {
         assert_eq!(archived.a, 100);
         assert_eq!(archived.b, [1, 2, 3, 4, 5, 6]);
         assert_eq!(archived.c, "hello world");
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn with_as_vec() {
+        #[cfg(not(feature = "std"))]
+        use alloc::collections::{BTreeMap, BTreeSet};
+        #[cfg(feature = "std")]
+        use std::collections::{BTreeMap, BTreeSet};
+        use rkyv::{collections::util::Entry, with::AsVec};
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct Test {
+            #[with(AsVec)]
+            a: BTreeMap<String, String>,
+            #[with(AsVec)]
+            b: BTreeSet<String>,
+        }
+
+        let mut a = BTreeMap::new();
+        a.insert("foo".to_string(), "hello".to_string());
+        a.insert("bar".to_string(), "world".to_string());
+        a.insert("baz".to_string(), "bat".to_string());
+
+        let mut b = BTreeSet::new();
+        b.insert("foo".to_string());
+        b.insert("hello world!".to_string());
+        b.insert("bar".to_string());
+        b.insert("fizzbuzz".to_string());
+
+        let value = Test {
+            a,
+            b,
+        };
+
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+        eprintln!("{:?}", archived.a);
+
+        assert_eq!(archived.a.len(), 3);
+        assert!(archived.a.iter().find(|&e| e == &Entry { key: "foo", value: "hello" }).is_some());
+        assert!(archived.a.iter().find(|&e| e == &Entry { key: "bar", value: "world" }).is_some());
+        assert!(archived.a.iter().find(|&e| e == &Entry { key: "baz", value: "bat" }).is_some());
+
+        assert_eq!(archived.b.len(), 4);
+        assert!(archived.b.iter().find(|&e| e == "foo").is_some());
+        assert!(archived.b.iter().find(|&e| e == "hello world!").is_some());
+        assert!(archived.b.iter().find(|&e| e == "bar").is_some());
+        assert!(archived.b.iter().find(|&e| e == "fizzbuzz").is_some());
     }
 
     #[test]

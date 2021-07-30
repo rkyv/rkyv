@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::{util::alloc::*, validation::util::alloc::serialize_and_check};
-    #[cfg(all(feature = "alloc", not(feature = "std")))]
+    #[cfg(not(feature = "std"))]
     use alloc::{
         boxed::Box,
         rc::Rc,
@@ -398,7 +398,7 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_b_tree() {
-        #[cfg(all(feature = "alloc", not(feature = "std")))]
+        #[cfg(not(feature = "std"))]
         use alloc::collections::BTreeMap;
         #[cfg(feature = "std")]
         use std::collections::BTreeMap;
@@ -422,7 +422,7 @@ mod tests {
     // This test creates structures too big to fit in 16-bit offsets
     #[cfg(not(feature = "size_16"))]
     fn check_b_tree_large() {
-        #[cfg(all(feature = "alloc", not(feature = "std")))]
+        #[cfg(not(feature = "std"))]
         use alloc::collections::BTreeMap;
         #[cfg(feature = "std")]
         use std::collections::BTreeMap;

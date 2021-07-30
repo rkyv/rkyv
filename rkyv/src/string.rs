@@ -281,6 +281,13 @@ impl PartialEq<&str> for ArchivedString {
     }
 }
 
+impl PartialEq<str> for ArchivedString {
+    #[inline]
+    fn eq(&self, other: &str) -> bool {
+        PartialEq::eq(self.as_str(), other)
+    }
+}
+
 impl PartialEq<ArchivedString> for &str {
     #[inline]
     fn eq(&self, other: &ArchivedString) -> bool {

@@ -1,11 +1,15 @@
 use crate::{
+    collections::util::Entry,
     ser::{ScratchSpace, Serializer},
     string::{ArchivedString, StringResolver},
     vec::{ArchivedVec, VecResolver},
-    with::{ArchiveWith, AsOwned, DeserializeWith, SerializeWith},
-    Archive, Deserialize, Fallible, MetadataResolver, Serialize,
+    with::{ArchiveWith, AsOwned, AsVec, DeserializeWith, SerializeWith},
+    Archive, Deserialize, Fallible, Serialize,
 };
-use alloc::borrow::Cow;
+#[cfg(feature = "std")]
+use std::{borrow::Cow, collections::{BTreeMap, BTreeSet}};
+#[cfg(not(feature = "std"))]
+use alloc::{borrow::Cow, collections::{BTreeMap, BTreeSet}};
 
 // AsOwned
 
@@ -43,7 +47,7 @@ where
 
 impl<'a, T: Archive + Clone> ArchiveWith<Cow<'a, [T]>> for AsOwned {
     type Archived = ArchivedVec<T::Archived>;
-    type Resolver = VecResolver<MetadataResolver<[T]>>;
+    type Resolver = VecResolver;
 
     #[inline]
     unsafe fn resolve_with(
@@ -158,3 +162,109 @@ const _: () = {
         }
     }
 };
+
+// AsVec
+
+impl<K: Archive, V: Archive> ArchiveWith<BTreeMap<K, V>> for AsVec {
+    type Archived = ArchivedVec<Entry<K::Archived, V::Archived>>;
+    type Resolver = VecResolver;
+
+    unsafe fn resolve_with(
+        field: &BTreeMap<K, V>,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        ArchivedVec::resolve_from_len(field.len(), pos, resolver, out);
+    }
+}
+
+impl<K, V, S> SerializeWith<BTreeMap<K, V>, S> for AsVec
+where
+    K: Serialize<S>,
+    V: Serialize<S>,
+    S: ScratchSpace + Serializer + ?Sized,
+{
+    fn serialize_with(
+        field: &BTreeMap<K, V>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedVec::serialize_from_iter(
+            field.iter().map(|(key, value)| Entry { key, value }),
+            serializer,
+        )
+    }
+}
+
+impl<K, V, D> DeserializeWith<ArchivedVec<Entry<K::Archived, V::Archived>>, BTreeMap<K, V>, D> for AsVec
+where
+    K: Archive + Ord,
+    V: Archive,
+    K::Archived: Deserialize<K, D>,
+    V::Archived: Deserialize<V, D>,
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(
+        field: &ArchivedVec<Entry<K::Archived, V::Archived>>,
+        deserializer: &mut D,
+    ) -> Result<BTreeMap<K, V>, D::Error> {
+        let mut result = BTreeMap::new();
+        for entry in field.iter() {
+            result.insert(
+                entry.key.deserialize(deserializer)?,
+                entry.value.deserialize(deserializer)?,
+            );
+        }
+        Ok(result)
+    }
+}
+
+impl<T: Archive> ArchiveWith<BTreeSet<T>> for AsVec {
+    type Archived = ArchivedVec<T::Archived>;
+    type Resolver = VecResolver;
+
+    unsafe fn resolve_with(
+        field: &BTreeSet<T>,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        ArchivedVec::resolve_from_len(field.len(), pos, resolver, out);
+    }
+}
+
+impl<T, S> SerializeWith<BTreeSet<T>, S> for AsVec
+where
+    T: Serialize<S>,
+    S: ScratchSpace + Serializer + ?Sized,
+{
+    fn serialize_with(
+        field: &BTreeSet<T>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _, _>(
+            field.iter(),
+            serializer,
+        )
+    }
+}
+
+impl<T, D> DeserializeWith<ArchivedVec<T::Archived>, BTreeSet<T>, D> for AsVec
+where
+    T: Archive + Ord,
+    T::Archived: Deserialize<T, D>,
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(
+        field: &ArchivedVec<T::Archived>,
+        deserializer: &mut D,
+    ) -> Result<BTreeSet<T>, D::Error> {
+        let mut result = BTreeSet::new();
+        for key in field.iter() {
+            result.insert(
+                key.deserialize(deserializer)?,
+            );
+        }
+        Ok(result)
+    }
+}

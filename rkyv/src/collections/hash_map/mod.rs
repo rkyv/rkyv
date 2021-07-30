@@ -7,8 +7,11 @@
 pub mod validation;
 
 use crate::{
-    collections::hash_index::{ArchivedHashIndex, HashIndexResolver},
-    Archive, RelPtr,
+    collections::{
+        hash_index::{ArchivedHashIndex, HashIndexResolver},
+        util::Entry,
+    },
+    RelPtr,
 };
 #[cfg(feature = "alloc")]
 use crate::{
@@ -18,26 +21,6 @@ use crate::{
 use core::{
     borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData, ops::Index, pin::Pin,
 };
-
-#[cfg_attr(feature = "strict", repr(C))]
-struct Entry<K, V> {
-    key: K,
-    value: V,
-}
-
-impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
-    type Archived = Entry<K::Archived, V::Archived>;
-    type Resolver = (K::Resolver, V::Resolver);
-
-    #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        let (fp, fo) = out_field!(out.key);
-        self.key.resolve(pos + fp, resolver.0, fo);
-
-        let (fp, fo) = out_field!(out.value);
-        self.value.resolve(pos + fp, resolver.1, fo);
-    }
-}
 
 /// An archived `HashMap`.
 #[cfg_attr(feature = "strict", repr(C))]

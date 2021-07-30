@@ -1,11 +1,12 @@
 //! An archived version of `Vec`.
 
 use crate::{
-    ser::Serializer, Archive, ArchiveUnsized, MetadataResolver, RelPtr, Serialize, SerializeUnsized,
+    ser::{ScratchSpace, Serializer}, Archive, Archived, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{
     borrow::Borrow,
     cmp, hash,
+    fmt,
     ops::{Deref, Index, IndexMut},
     pin::Pin,
     slice::SliceIndex,
@@ -15,21 +16,39 @@ use core::{
 ///
 /// This uses a [`RelPtr`] to a `[T]` under the hood. Unlike
 /// [`ArchivedString`](crate::string::ArchivedString), it does not have an inline representation.
-#[derive(Debug)]
-#[repr(transparent)]
-pub struct ArchivedVec<T>(RelPtr<[T]>);
+#[cfg_attr(feature = "strict", repr(C))]
+pub struct ArchivedVec<T> {
+    ptr: RelPtr<T>,
+    len: Archived<usize>,
+}
 
 impl<T> ArchivedVec<T> {
+    /// Returns a pointer to the first element of the archived vec.
+    #[inline]
+    pub fn as_ptr(&self) -> *const T {
+        self.ptr.as_ptr()
+    }
+
+    /// Returns the number of elements in the archived vec.
+    #[inline]
+    pub fn len(&self) -> usize {
+        from_archived!(self.len) as usize
+    }
+
     /// Gets the elements of the archived vec as a slice.
     #[inline]
     pub fn as_slice(&self) -> &[T] {
-        unsafe { &*self.0.as_ptr() }
+        unsafe { core::slice::from_raw_parts(self.as_ptr(), self.len()) }
     }
 
     /// Gets the elements of the archived vec as a pinned mutable slice.
     #[inline]
     pub fn pin_mut_slice(self: Pin<&mut Self>) -> Pin<&mut [T]> {
-        unsafe { self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr()) }
+        unsafe {
+            self.map_unchecked_mut(|s| {
+                core::slice::from_raw_parts_mut(s.ptr.as_mut_ptr(), s.len())
+            })
+        }
     }
 
     // This method can go away once pinned slices have indexing support
@@ -41,7 +60,7 @@ impl<T> ArchivedVec<T> {
     where
         [T]: IndexMut<I>,
     {
-        unsafe { self.map_unchecked_mut(|s| &mut (*s.0.as_mut_ptr())[index]) }
+        unsafe { self.pin_mut_slice().map_unchecked_mut(|s| &mut s[index]) }
     }
 
     /// Resolves an archived `Vec` from a given slice.
@@ -54,13 +73,24 @@ impl<T> ArchivedVec<T> {
     pub unsafe fn resolve_from_slice<U: Archive<Archived = T>>(
         slice: &[U],
         pos: usize,
-        resolver: VecResolver<MetadataResolver<[U]>>,
+        resolver: VecResolver,
         out: *mut Self,
     ) {
-        let (fp, fo) = out_field!(out.0);
-        // metadata_resolver is guaranteed to be (), but it's better to be explicit about it
-        #[allow(clippy::unit_arg)]
-        slice.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        Self::resolve_from_len(slice.len(), pos, resolver, out);
+    }
+
+    /// Resolves an archived `Vec` from a given length.
+    ///
+    /// # Safety
+    ///
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must bet he result of serializing `value`
+    #[inline]
+    pub unsafe fn resolve_from_len(len: usize, pos: usize, resolver: VecResolver, out: *mut Self) {
+        let (fp, fo) = out_field!(out.ptr);
+        RelPtr::emplace(pos + fp, resolver.pos, fo);
+        let (fp, fo) = out_field!(out.len);
+        usize::resolve(&len, pos + fp, (), fo);
     }
 
     /// Serializes an archived `Vec` from a given slice.
@@ -68,7 +98,7 @@ impl<T> ArchivedVec<T> {
     pub fn serialize_from_slice<U: Serialize<S, Archived = T>, S: Serializer + ?Sized>(
         slice: &[U],
         serializer: &mut S,
-    ) -> Result<VecResolver<MetadataResolver<[U]>>, S::Error>
+    ) -> Result<VecResolver, S::Error>
     where
         // This bound is necessary only in no-alloc, no-std situations
         // SerializeUnsized is only implemented for U: Serialize<Resolver = ()> in that case
@@ -76,8 +106,44 @@ impl<T> ArchivedVec<T> {
     {
         Ok(VecResolver {
             pos: slice.serialize_unsized(serializer)?,
-            metadata_resolver: slice.serialize_metadata(serializer)?,
         })
+    }
+
+    /// Serializes an archived `Vec` from a given iterator.
+    ///
+    /// This method is unable to perform copy optimizations; prefer [`serialize_from_slice`] when
+    /// possible.
+    #[inline]
+    pub fn serialize_from_iter<U, B, I, S>(
+        iter: I,
+        serializer: &mut S,
+    ) -> Result<VecResolver, S::Error>
+    where
+        U: Serialize<S, Archived = T>,
+        B: Borrow<U>,
+        I: ExactSizeIterator<Item = B>,
+        S: ScratchSpace + Serializer + ?Sized,
+    {
+        use crate::ScratchVec;
+
+        unsafe {
+            let mut resolvers = ScratchVec::new(serializer, iter.len())?;
+
+            for value in iter {
+                let resolver = value.borrow().serialize(serializer)?;
+                resolvers.push((value, resolver));
+            }
+            let pos = serializer.align_for::<T>()?;
+            for (value, resolver) in resolvers.drain(..) {
+                serializer.resolve_aligned(value.borrow(), resolver)?;
+            }
+
+            resolvers.free(serializer)?;
+
+            Ok(VecResolver {
+                pos,
+            })
+        }
     }
 }
 
@@ -92,6 +158,21 @@ impl<T> Borrow<[T]> for ArchivedVec<T> {
     #[inline]
     fn borrow(&self) -> &[T] {
         self.as_slice()
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for ArchivedVec<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.as_slice()).finish()
+    }
+}
+
+impl<T> fmt::Pointer for ArchivedVec<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ArchivedVec")
+            .field("ptr", &self.ptr)
+            .field("len", &self.len)
+            .finish()
     }
 }
 
@@ -186,9 +267,8 @@ impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for [T] {
 }
 
 /// The resolver for [`ArchivedVec`].
-pub struct VecResolver<T> {
+pub struct VecResolver {
     pos: usize,
-    metadata_resolver: T,
 }
 
 #[cfg(feature = "validation")]

@@ -13,7 +13,7 @@ use core::{
     fmt, mem,
     ptr::NonNull,
 };
-#[cfg(all(feature = "alloc", not(feature = "std")))]
+#[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
 #[cfg(feature = "std")]
 use std::collections::hash_map;

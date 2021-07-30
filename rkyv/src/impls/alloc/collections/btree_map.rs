@@ -3,7 +3,7 @@ use crate::{
     ser::Serializer,
     Archive, Deserialize, Fallible, Serialize,
 };
-#[cfg(all(feature = "alloc", not(feature = "std")))]
+#[cfg(not(feature = "std"))]
 use alloc::collections::BTreeMap;
 #[cfg(feature = "std")]
 use std::collections::BTreeMap;

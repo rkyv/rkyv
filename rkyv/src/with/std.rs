@@ -1,17 +1,23 @@
 use crate::{
+    collections::util::Entry,
+    ser::{ScratchSpace, Serializer},
     string::{ArchivedString, StringResolver},
+    vec::{ArchivedVec, VecResolver},
     with::{
-        ArchiveWith, AsString, AsStringError, DeserializeWith, Immutable, Lock, LockError,
+        ArchiveWith, AsString, AsStringError, AsVec, DeserializeWith, Immutable, Lock, LockError,
         SerializeWith,
     },
     Archive, Deserialize, Fallible, Serialize, SerializeUnsized,
 };
-use core::str::FromStr;
+use core::{hash::Hash, str::FromStr};
 use std::{
+    collections::{HashMap, HashSet},
     ffi::OsString,
     path::PathBuf,
     sync::{Mutex, RwLock},
 };
+
+// AsString
 
 impl ArchiveWith<OsString> for AsString {
     type Archived = ArchivedString;
@@ -88,6 +94,8 @@ impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, PathBuf, D> for AsStr
         Ok(PathBuf::from_str(field.as_str()).unwrap())
     }
 }
+
+// Lock
 
 impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
     type Archived = Immutable<F::Archived>;
@@ -178,5 +186,111 @@ where
     #[inline]
     fn deserialize_with(field: &Immutable<F>, deserializer: &mut D) -> Result<RwLock<T>, D::Error> {
         Ok(RwLock::new(field.value().deserialize(deserializer)?))
+    }
+}
+
+// AsVec
+
+impl<K: Archive, V: Archive> ArchiveWith<HashMap<K, V>> for AsVec {
+    type Archived = ArchivedVec<Entry<K::Archived, V::Archived>>;
+    type Resolver = VecResolver;
+
+    unsafe fn resolve_with(
+        field: &HashMap<K, V>,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        ArchivedVec::resolve_from_len(field.len(), pos, resolver, out);
+    }
+}
+
+impl<K, V, S> SerializeWith<HashMap<K, V>, S> for AsVec
+where
+    K: Serialize<S>,
+    V: Serialize<S>,
+    S: ScratchSpace + Serializer + ?Sized,
+{
+    fn serialize_with(
+        field: &HashMap<K, V>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedVec::serialize_from_iter(
+            field.iter().map(|(key, value)| Entry { key, value }),
+            serializer,
+        )
+    }
+}
+
+impl<K, V, D> DeserializeWith<ArchivedVec<Entry<K::Archived, V::Archived>>, HashMap<K, V>, D> for AsVec
+where
+    K: Archive + Hash + Eq,
+    V: Archive,
+    K::Archived: Deserialize<K, D>,
+    V::Archived: Deserialize<V, D>,
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(
+        field: &ArchivedVec<Entry<K::Archived, V::Archived>>,
+        deserializer: &mut D,
+    ) -> Result<HashMap<K, V>, D::Error> {
+        let mut result = HashMap::new();
+        for entry in field.iter() {
+            result.insert(
+                entry.key.deserialize(deserializer)?,
+                entry.value.deserialize(deserializer)?,
+            );
+        }
+        Ok(result)
+    }
+}
+
+impl<T: Archive> ArchiveWith<HashSet<T>> for AsVec {
+    type Archived = ArchivedVec<T::Archived>;
+    type Resolver = VecResolver;
+
+    unsafe fn resolve_with(
+        field: &HashSet<T>,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        ArchivedVec::resolve_from_len(field.len(), pos, resolver, out);
+    }
+}
+
+impl<T, S> SerializeWith<HashSet<T>, S> for AsVec
+where
+    T: Serialize<S>,
+    S: ScratchSpace + Serializer + ?Sized,
+{
+    fn serialize_with(
+        field: &HashSet<T>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _, _>(
+            field.iter(),
+            serializer,
+        )
+    }
+}
+
+impl<T, D> DeserializeWith<ArchivedVec<T::Archived>, HashSet<T>, D> for AsVec
+where
+    T: Archive + Hash + Eq,
+    T::Archived: Deserialize<T, D>,
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(
+        field: &ArchivedVec<T::Archived>,
+        deserializer: &mut D,
+    ) -> Result<HashSet<T>, D::Error> {
+        let mut result = HashSet::new();
+        for key in field.iter() {
+            result.insert(
+                key.deserialize(deserializer)?,
+            );
+        }
+        Ok(result)
     }
 }

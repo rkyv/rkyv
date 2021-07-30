@@ -1,10 +1,12 @@
 use crate::{
     ser::{ScratchSpace, Serializer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Deserialize, DeserializeUnsized, Fallible, MetadataResolver, Serialize,
+    Archive, Deserialize, DeserializeUnsized, Fallible, Serialize,
 };
-#[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::{boxed::Box, vec::Vec};
+#[cfg(not(feature = "std"))]
+use alloc::{alloc, boxed::Box, vec::Vec};
+#[cfg(feature = "std")]
+use std::alloc;
 use core::cmp;
 
 impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
@@ -37,7 +39,7 @@ impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for Vec<T> {
 
 impl<T: Archive> Archive for Vec<T> {
     type Archived = ArchivedVec<T::Archived>;
-    type Resolver = VecResolver<MetadataResolver<[T]>>;
+    type Resolver = VecResolver;
 
     #[inline]
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
@@ -61,7 +63,7 @@ where
         unsafe {
             let data_address = self
                 .as_slice()
-                .deserialize_unsized(deserializer, |layout| alloc::alloc::alloc(layout))?;
+                .deserialize_unsized(deserializer, |layout| alloc::alloc(layout))?;
             let metadata = self.as_slice().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<[T]>::from_raw(ptr).into())

@@ -199,8 +199,8 @@ impl<T> ArchivePointee for [T] {
 }
 
 impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> SerializeUnsized<S> for [T] {
-    #[inline]
     default! {
+        #[inline]
         fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
             use crate::ScratchVec;
 
@@ -222,8 +222,8 @@ impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> SerializeUnsized<S>
         }
     }
 
-    #[inline]
     default! {
+        #[inline]
         fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
             Ok(())
         }
@@ -258,8 +258,8 @@ where
 }
 
 impl<T: Deserialize<U, D>, U, D: Fallible + ?Sized> DeserializeUnsized<[U], D> for [T] {
-    #[inline]
     default! {
+        #[inline]
         unsafe fn deserialize_unsized(&self, deserializer: &mut D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error> {
             if self.is_empty() || core::mem::size_of::<U>() == 0 {
                 Ok(ptr::NonNull::<U>::dangling().as_ptr().cast())
@@ -273,8 +273,8 @@ impl<T: Deserialize<U, D>, U, D: Fallible + ?Sized> DeserializeUnsized<[U], D> f
         }
     }
 
-    #[inline]
     default! {
+        #[inline]
         fn deserialize_metadata(&self, _: &mut D) -> Result<<[U] as Pointee>::Metadata, D::Error> {
             Ok(ptr_meta::metadata(self))
         }

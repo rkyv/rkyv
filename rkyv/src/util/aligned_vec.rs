@@ -1,4 +1,4 @@
-#[cfg(all(feature = "alloc", not(feature = "std")))]
+#[cfg(not(feature = "std"))]
 use ::alloc::{alloc, boxed::Box, vec::Vec};
 use core::borrow::{Borrow, BorrowMut};
 use core::{

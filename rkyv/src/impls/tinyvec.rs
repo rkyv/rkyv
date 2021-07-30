@@ -156,7 +156,7 @@ mod tests {
     #[test]
     fn tiny_vec() {
         use crate::ser::serializers::AllocSerializer;
-        #[cfg(all(feature = "alloc", not(feature = "std")))]
+        #[cfg(not(feature = "std"))]
         use alloc::vec;
         use tinyvec::{tiny_vec, TinyVec};
 

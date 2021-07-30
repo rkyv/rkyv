@@ -408,3 +408,22 @@ impl ::std::error::Error for LockError {}
 /// }
 /// ```
 pub struct AsOwned;
+
+/// A wrapper that serializes associative containers as a `Vec` of key-value pairs.
+///
+/// This provides faster serialization for containers like `HashMap` and `BTreeMap` by serializing
+/// the key-value pairs directly instead of building a data structure in the buffer.
+///
+/// # Example
+///
+/// ```
+/// use std::collections::HashMap;
+/// use rkyv::{Archive, with::AsVec};
+///
+/// #[derive(Archive)]
+/// struct Example {
+///     #[with(AsVec)]
+///     values: HashMap<String, u32>,
+/// }
+/// ```
+pub struct AsVec;

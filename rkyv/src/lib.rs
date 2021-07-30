@@ -117,7 +117,7 @@
     2.702-2.702 2.702 13.512-13.512-2.702 2.703-2.702-8.107-8.107z"/%3E%3C/svg%3E
 "#)]
 
-#[cfg(feature = "alloc")]
+#[cfg(all(feature = "alloc", not(feature = "std")))]
 extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;

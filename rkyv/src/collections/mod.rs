@@ -8,6 +8,7 @@ pub mod hash_set;
 // TODO: move these into a separate crate when indexmap adds rkyv support
 pub mod index_map;
 pub mod index_set;
+pub mod util;
 
 pub use self::btree_map::ArchivedBTreeMap;
 pub use self::hash_index::ArchivedHashIndex;
