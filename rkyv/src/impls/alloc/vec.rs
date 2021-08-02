@@ -5,9 +5,9 @@ use crate::{
 };
 #[cfg(not(feature = "std"))]
 use alloc::{alloc, boxed::Box, vec::Vec};
+use core::cmp;
 #[cfg(feature = "std")]
 use std::alloc;
-use core::cmp;
 
 impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
     #[inline]

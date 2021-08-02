@@ -254,6 +254,23 @@ impl<T: ?Sized> Deref for Immutable<T> {
     }
 }
 
+#[cfg(feature = "validation")]
+const _: () = {
+    use bytecheck::CheckBytes;
+
+    impl<T: CheckBytes<C> + ?Sized, C: ?Sized> CheckBytes<C> for Immutable<T> {
+        type Error = T::Error;
+
+        unsafe fn check_bytes<'a>(
+            value: *const Self,
+            context: &mut C,
+        ) -> Result<&'a Self, Self::Error> {
+            CheckBytes::check_bytes(::core::ptr::addr_of!((*value).0), context)?;
+            Ok(&*value)
+        }
+    }
+};
+
 /// A wrapper that archives an atomic with an underlying atomic.
 ///
 /// By default, atomics are archived with an underlying integer.

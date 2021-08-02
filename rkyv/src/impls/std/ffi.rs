@@ -5,8 +5,8 @@ use crate::{
     DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
 };
 use core::{alloc::Layout, ptr};
-use std::alloc;
 use ptr_meta::Pointee;
+use std::alloc;
 use std::ffi::{CStr, CString};
 
 // CStr

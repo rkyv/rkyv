@@ -6,10 +6,16 @@ use crate::{
     with::{ArchiveWith, AsOwned, AsVec, DeserializeWith, SerializeWith},
     Archive, Deserialize, Fallible, Serialize,
 };
-#[cfg(feature = "std")]
-use std::{borrow::Cow, collections::{BTreeMap, BTreeSet}};
 #[cfg(not(feature = "std"))]
-use alloc::{borrow::Cow, collections::{BTreeMap, BTreeSet}};
+use alloc::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+};
+#[cfg(feature = "std")]
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+};
 
 // AsOwned
 
@@ -196,7 +202,8 @@ where
     }
 }
 
-impl<K, V, D> DeserializeWith<ArchivedVec<Entry<K::Archived, V::Archived>>, BTreeMap<K, V>, D> for AsVec
+impl<K, V, D> DeserializeWith<ArchivedVec<Entry<K::Archived, V::Archived>>, BTreeMap<K, V>, D>
+    for AsVec
 where
     K: Archive + Ord,
     V: Archive,
@@ -238,14 +245,8 @@ where
     T: Serialize<S>,
     S: ScratchSpace + Serializer + ?Sized,
 {
-    fn serialize_with(
-        field: &BTreeSet<T>,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
-        ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _, _>(
-            field.iter(),
-            serializer,
-        )
+    fn serialize_with(field: &BTreeSet<T>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _, _>(field.iter(), serializer)
     }
 }
 
@@ -261,9 +262,7 @@ where
     ) -> Result<BTreeSet<T>, D::Error> {
         let mut result = BTreeSet::new();
         for key in field.iter() {
-            result.insert(
-                key.deserialize(deserializer)?,
-            );
+            result.insert(key.deserialize(deserializer)?);
         }
         Ok(result)
     }

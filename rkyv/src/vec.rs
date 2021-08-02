@@ -1,12 +1,12 @@
 //! An archived version of `Vec`.
 
 use crate::{
-    ser::{ScratchSpace, Serializer}, Archive, Archived, RelPtr, Serialize, SerializeUnsized,
+    ser::{ScratchSpace, Serializer},
+    Archive, Archived, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{
     borrow::Borrow,
-    cmp, hash,
-    fmt,
+    cmp, fmt, hash,
     ops::{Deref, Index, IndexMut},
     pin::Pin,
     slice::SliceIndex,
@@ -45,9 +45,7 @@ impl<T> ArchivedVec<T> {
     #[inline]
     pub fn pin_mut_slice(self: Pin<&mut Self>) -> Pin<&mut [T]> {
         unsafe {
-            self.map_unchecked_mut(|s| {
-                core::slice::from_raw_parts_mut(s.ptr.as_mut_ptr(), s.len())
-            })
+            self.map_unchecked_mut(|s| core::slice::from_raw_parts_mut(s.ptr.as_mut_ptr(), s.len()))
         }
     }
 
@@ -140,9 +138,7 @@ impl<T> ArchivedVec<T> {
 
             resolvers.free(serializer)?;
 
-            Ok(VecResolver {
-                pos,
-            })
+            Ok(VecResolver { pos })
         }
     }
 }

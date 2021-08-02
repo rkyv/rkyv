@@ -222,7 +222,8 @@ where
     }
 }
 
-impl<K, V, D> DeserializeWith<ArchivedVec<Entry<K::Archived, V::Archived>>, HashMap<K, V>, D> for AsVec
+impl<K, V, D> DeserializeWith<ArchivedVec<Entry<K::Archived, V::Archived>>, HashMap<K, V>, D>
+    for AsVec
 where
     K: Archive + Hash + Eq,
     V: Archive,
@@ -264,14 +265,8 @@ where
     T: Serialize<S>,
     S: ScratchSpace + Serializer + ?Sized,
 {
-    fn serialize_with(
-        field: &HashSet<T>,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
-        ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _, _>(
-            field.iter(),
-            serializer,
-        )
+    fn serialize_with(field: &HashSet<T>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _, _>(field.iter(), serializer)
     }
 }
 
@@ -287,9 +282,7 @@ where
     ) -> Result<HashSet<T>, D::Error> {
         let mut result = HashSet::new();
         for key in field.iter() {
-            result.insert(
-                key.deserialize(deserializer)?,
-            );
+            result.insert(key.deserialize(deserializer)?);
         }
         Ok(result)
     }

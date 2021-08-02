@@ -5,9 +5,9 @@ use crate::{
 };
 #[cfg(not(feature = "std"))]
 use alloc::{alloc, boxed::Box};
+use core::cmp;
 #[cfg(feature = "std")]
 use std::alloc;
-use core::cmp;
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     type Archived = ArchivedBox<T::Archived>;
