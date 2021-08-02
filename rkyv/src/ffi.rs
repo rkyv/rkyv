@@ -4,6 +4,7 @@ use crate::{ser::Serializer, ArchiveUnsized, MetadataResolver, RelPtr, Serialize
 use core::{
     borrow::Borrow,
     cmp, hash,
+    fmt,
     ops::{Deref, Index, RangeFull},
     pin::Pin,
 };
@@ -12,7 +13,6 @@ use std::ffi::CStr;
 /// An archived [`CString`](std::ffi::CString).
 ///
 /// Uses a [`RelPtr`] to a `CStr` under the hood.
-#[derive(Debug)]
 #[repr(transparent)]
 pub struct ArchivedCString(RelPtr<CStr>);
 
@@ -88,6 +88,13 @@ impl Borrow<CStr> for ArchivedCString {
     #[inline]
     fn borrow(&self) -> &CStr {
         self.as_c_str()
+    }
+}
+
+impl fmt::Debug for ArchivedCString {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.as_c_str().fmt(f)
     }
 }
 

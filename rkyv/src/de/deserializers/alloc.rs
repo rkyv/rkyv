@@ -49,6 +49,14 @@ impl SharedDeserializeMap {
     }
 }
 
+impl fmt::Debug for SharedDeserializeMap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_map()
+            .entries(self.shared_pointers.iter().map(|(s, p)| (s, &**p as *const _)))
+            .finish()
+    }
+}
+
 impl Default for SharedDeserializeMap {
     #[inline]
     fn default() -> Self {

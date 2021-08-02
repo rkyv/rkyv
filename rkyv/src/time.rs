@@ -3,7 +3,7 @@
 use crate::Archived;
 
 /// An archived [`Duration`](core::time::Duration).
-#[derive(Clone, Copy, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedDuration {

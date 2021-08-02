@@ -15,6 +15,7 @@ use std::io;
 /// assert_eq!(buf.len(), 4);
 /// assert_eq!(buf, vec![0u8, 1u8, 2u8, 3u8]);
 /// ```
+#[derive(Debug)]
 pub struct WriteSerializer<W: io::Write> {
     inner: W,
     pos: usize,

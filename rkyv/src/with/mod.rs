@@ -42,6 +42,7 @@ use ::core::{fmt, marker::PhantomData, mem::transmute, ops::Deref};
 /// }
 /// ```
 #[repr(transparent)]
+#[derive(Debug)]
 pub struct With<F: ?Sized, W> {
     _phantom: PhantomData<W>,
     field: F,
@@ -235,6 +236,7 @@ where
 
 /// A wrapper to make a type immutable.
 #[repr(transparent)]
+#[derive(Debug)]
 pub struct Immutable<T: ?Sized>(T);
 
 impl<T: ?Sized> Immutable<T> {
@@ -291,6 +293,7 @@ const _: () = {
 ///     a: AtomicU32,
 /// }
 /// ```
+#[derive(Debug)]
 pub struct Atomic;
 
 /// A wrapper that serializes a reference inline.
@@ -309,6 +312,7 @@ pub struct Atomic;
 ///     a: &'a i32,
 /// }
 /// ```
+#[derive(Debug)]
 pub struct Inline;
 
 /// A wrapper that serializes a reference as if it were boxed.
@@ -329,6 +333,7 @@ pub struct Inline;
 ///     a: &'a str,
 /// }
 /// ```
+#[derive(Debug)]
 pub struct Boxed;
 
 /// A wrapper that attempts to convert a type to and from UTF-8.
@@ -350,6 +355,7 @@ pub struct Boxed;
 ///     path: PathBuf,
 /// }
 /// ```
+#[derive(Debug)]
 pub struct AsString;
 
 /// Errors that can occur when serializing a [`AsString`] wrapper.
@@ -392,6 +398,7 @@ impl ::std::error::Error for AsStringError {}
 ///     a: Mutex<i32>,
 /// }
 /// ```
+#[derive(Debug)]
 pub struct Lock;
 
 /// Errors that can occur while serializing a [`Lock`] wrapper
@@ -424,6 +431,7 @@ impl ::std::error::Error for LockError {}
 ///     a: Cow<'a, str>,
 /// }
 /// ```
+#[derive(Debug)]
 pub struct AsOwned;
 
 /// A wrapper that serializes associative containers as a `Vec` of key-value pairs.
@@ -443,4 +451,5 @@ pub struct AsOwned;
 ///     values: HashMap<String, u32>,
 /// }
 /// ```
+#[derive(Debug)]
 pub struct AsVec;

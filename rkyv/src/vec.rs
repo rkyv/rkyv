@@ -163,15 +163,6 @@ impl<T: fmt::Debug> fmt::Debug for ArchivedVec<T> {
     }
 }
 
-impl<T> fmt::Pointer for ArchivedVec<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ArchivedVec")
-            .field("ptr", &self.ptr)
-            .field("len", &self.len)
-            .finish()
-    }
-}
-
 impl<T> Deref for ArchivedVec<T> {
     type Target = [T];
 

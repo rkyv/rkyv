@@ -7,7 +7,7 @@ use crate::{
     },
     out_field,
 };
-use core::{borrow::Borrow, hash::Hash};
+use core::{borrow::Borrow, fmt, hash::Hash};
 
 /// An archived `IndexSet`.
 #[repr(transparent)]
@@ -153,6 +153,12 @@ const _: () = {
         }
     }
 };
+
+impl<K: fmt::Debug> fmt::Debug for ArchivedIndexSet<K> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
+    }
+}
 
 impl<K: PartialEq> PartialEq for ArchivedIndexSet<K> {
     fn eq(&self, other: &Self) -> bool {

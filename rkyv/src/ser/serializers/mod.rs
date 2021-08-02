@@ -70,6 +70,7 @@ const _: () = {
 };
 
 /// A serializer built from composeable pieces.
+#[derive(Debug)]
 pub struct CompositeSerializer<S = Infallible, C = Infallible, H = Infallible> {
     serializer: S,
     scratch: C,

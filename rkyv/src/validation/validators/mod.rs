@@ -53,6 +53,7 @@ const _: () = {
 };
 
 /// The default validator.
+#[derive(Debug)]
 pub struct DefaultValidator<'a> {
     archive: ArchiveValidator<'a>,
     #[cfg(feature = "alloc")]

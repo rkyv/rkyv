@@ -155,18 +155,21 @@ impl fmt::Display for ArchiveError {
 impl std::error::Error for ArchiveError {}
 
 /// A prefix range from an [`ArchiveValidator`].
+#[derive(Debug)]
 pub struct PrefixRange {
     range: Range<*const u8>,
     depth: usize,
 }
 
 /// A suffix range from an [`ArchiveValidator`].
+#[derive(Debug)]
 pub struct SuffixRange {
     start: *const u8,
     depth: usize,
 }
 
 /// A validator that can verify archives with nonlocal memory.
+#[derive(Debug)]
 pub struct ArchiveValidator<'a> {
     bytes: &'a [u8],
     subtree_range: Range<*const u8>,

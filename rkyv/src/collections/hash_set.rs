@@ -9,12 +9,11 @@ use crate::{
     ser::{ScratchSpace, Serializer},
     Serialize,
 };
-use core::{borrow::Borrow, hash::Hash};
+use core::{borrow::Borrow, fmt, hash::Hash};
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key and a value of
 /// `()`.
 #[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
-#[derive(Debug)]
 #[repr(transparent)]
 pub struct ArchivedHashSet<K>(ArchivedHashMap<K, ()>);
 
@@ -102,6 +101,12 @@ impl<K> ArchivedHashSet<K> {
             iter.map(|x| (x, &())),
             serializer,
         )?))
+    }
+}
+
+impl<K: fmt::Debug> fmt::Debug for ArchivedHashSet<K> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
     }
 }
 

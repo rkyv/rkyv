@@ -7,7 +7,7 @@ use crate::{
     },
     out_field, Archived, RelPtr,
 };
-use core::{borrow::Borrow, hash::Hash, iter::FusedIterator, marker::PhantomData};
+use core::{borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData};
 
 /// An archived `IndexMap`.
 #[cfg_attr(feature = "strict", repr(C))]
@@ -272,6 +272,12 @@ const _: () = {
         }
     }
 };
+
+impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for ArchivedIndexMap<K, V> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_map().entries(self.iter()).finish()
+    }
+}
 
 impl<K: PartialEq, V: PartialEq> PartialEq for ArchivedIndexMap<K, V> {
     fn eq(&self, other: &Self) -> bool {
