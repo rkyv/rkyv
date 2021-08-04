@@ -1451,8 +1451,6 @@ mod tests {
         let result = serializer.into_serializer().into_inner();
         let archived = unsafe { archived_root::<Test>(result.as_slice()) };
 
-        eprintln!("{:?}", archived.a);
-
         assert_eq!(archived.a.len(), 3);
         assert!(archived
             .a

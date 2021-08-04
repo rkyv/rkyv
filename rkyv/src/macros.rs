@@ -1,10 +1,12 @@
 #[cfg(feature = "copy")]
 macro_rules! default {
+    (#[inline] $($fn:tt)*) => { #[inline] default $($fn)* };
     ($($fn:tt)*) => { default $($fn)* };
 }
 
 #[cfg(not(feature = "copy"))]
 macro_rules! default {
+    (#[inline] $($fn:tt)*) => { #[inline] $($fn)* };
     ($($fn:tt)*) => { $($fn)* };
 }
 
