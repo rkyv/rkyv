@@ -115,8 +115,8 @@ impl<T> ArchivedVec<T> {
 
     /// Serializes an archived `Vec` from a given iterator.
     ///
-    /// This method is unable to perform copy optimizations; prefer [`serialize_from_slice`] when
-    /// possible.
+    /// This method is unable to perform copy optimizations; prefer
+    /// [`serialize_from_slice`](ArchivedVec::serialize_from_slice) when possible.
     #[inline]
     pub fn serialize_from_iter<U, B, I, S>(
         iter: I,

@@ -23,6 +23,8 @@
 //! Limited data mutation is supported through `Pin` APIs, and archived values can be truly
 //! deserialized with [`Deserialize`] if full mutation capabilities are needed.
 //!
+//! [The book](https://rkyv.org) has more details on the design and capabilities of rkyv.
+//!
 //! ## Type support
 //!
 //! rkyv has a hashmap implementation that is built for zero-copy deserialization, so you can
@@ -89,14 +91,20 @@
 //! - [`tinyvec`](https://docs.rs/tinyvec)
 //! - [`uuid`](https://docs.rs/uuid)
 //!
-//! Features:
+//! Support for each of these crates can be enabled with a feature of the same name. Additionally,
+//! the following external crate features are available:
 //!
 //! - `tinyvec_alloc`: Supports types behind the `alloc` feature in `tinyvec`.
 //! - `uuid_std`: Enables the `std` feature in `uuid`.
 //!
 //! ## Examples
 //!
-//! See [`Archive`] for examples of how to use rkyv.
+//! - See [`Archive`] for examples of how to use rkyv through the derive macro and manual
+//!   implementation.
+//! - For more details on the derive macro and its capabilities, see
+//!   [`Archive`](macro@Archive).
+//! - Fully worked examples using rkyv are available in the
+//!   [`examples` directory](https://github.com/rkyv/rkyv/tree/master/examples) of the source repo.
 
 #![deny(broken_intra_doc_links)]
 #![deny(missing_docs)]
