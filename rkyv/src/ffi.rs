@@ -3,8 +3,7 @@
 use crate::{ser::Serializer, ArchiveUnsized, MetadataResolver, RelPtr, SerializeUnsized};
 use core::{
     borrow::Borrow,
-    cmp, hash,
-    fmt,
+    cmp, fmt, hash,
     ops::{Deref, Index, RangeFull},
     pin::Pin,
 };

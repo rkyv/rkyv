@@ -35,6 +35,12 @@ impl<T> ArchivedVec<T> {
         from_archived!(self.len) as usize
     }
 
+    /// Returns whether the archived vec is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Gets the elements of the archived vec as a slice.
     #[inline]
     pub fn as_slice(&self) -> &[T] {

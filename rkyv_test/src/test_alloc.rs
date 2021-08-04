@@ -1421,9 +1421,9 @@ mod tests {
     fn with_as_vec() {
         #[cfg(not(feature = "std"))]
         use alloc::collections::{BTreeMap, BTreeSet};
+        use rkyv::{collections::util::Entry, with::AsVec};
         #[cfg(feature = "std")]
         use std::collections::{BTreeMap, BTreeSet};
-        use rkyv::{collections::util::Entry, with::AsVec};
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
@@ -1444,10 +1444,7 @@ mod tests {
         b.insert("bar".to_string());
         b.insert("fizzbuzz".to_string());
 
-        let value = Test {
-            a,
-            b,
-        };
+        let value = Test { a, b };
 
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&value).unwrap();
@@ -1457,9 +1454,33 @@ mod tests {
         eprintln!("{:?}", archived.a);
 
         assert_eq!(archived.a.len(), 3);
-        assert!(archived.a.iter().find(|&e| e == &Entry { key: "foo", value: "hello" }).is_some());
-        assert!(archived.a.iter().find(|&e| e == &Entry { key: "bar", value: "world" }).is_some());
-        assert!(archived.a.iter().find(|&e| e == &Entry { key: "baz", value: "bat" }).is_some());
+        assert!(archived
+            .a
+            .iter()
+            .find(|&e| e
+                == &Entry {
+                    key: "foo",
+                    value: "hello"
+                })
+            .is_some());
+        assert!(archived
+            .a
+            .iter()
+            .find(|&e| e
+                == &Entry {
+                    key: "bar",
+                    value: "world"
+                })
+            .is_some());
+        assert!(archived
+            .a
+            .iter()
+            .find(|&e| e
+                == &Entry {
+                    key: "baz",
+                    value: "bat"
+                })
+            .is_some());
 
         assert_eq!(archived.b.len(), 4);
         assert!(archived.b.iter().find(|&e| e == "foo").is_some());

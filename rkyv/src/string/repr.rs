@@ -87,6 +87,12 @@ impl ArchivedStringRepr {
         }
     }
 
+    /// Returns whether the string is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Returns a pointer to the string as a `str`.
     #[cfg(feature = "validation")]
     #[inline]

@@ -2,7 +2,11 @@
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
 use crate::{Archive, Archived, RelPtr};
-use core::{fmt, hash::{Hash, Hasher}, slice};
+use core::{
+    fmt,
+    hash::{Hash, Hasher},
+    slice,
+};
 
 /// The hash builder for archived hash indexes.
 pub use seahash::SeaHasher as HashBuilder;
@@ -43,9 +47,7 @@ impl ArchivedHashIndex {
 
     #[inline]
     fn displace_slice(&self) -> &[Archived<u32>] {
-        unsafe {
-            slice::from_raw_parts(self.displace.as_ptr(), self.len())
-        }
+        unsafe { slice::from_raw_parts(self.displace.as_ptr(), self.len()) }
     }
 
     #[inline]

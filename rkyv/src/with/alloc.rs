@@ -114,7 +114,7 @@ impl<'a, S: Serializer + ?Sized> SerializeWith<Cow<'a, str>, S> for AsOwned {
         field: &Cow<'a, str>,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        ArchivedString::serialize_from_str(&field, serializer)
+        ArchivedString::serialize_from_str(field, serializer)
     }
 }
 
@@ -154,7 +154,7 @@ const _: () = {
             field: &Cow<'a, CStr>,
             serializer: &mut S,
         ) -> Result<Self::Resolver, S::Error> {
-            ArchivedCString::serialize_from_c_str(&field, serializer)
+            ArchivedCString::serialize_from_c_str(field, serializer)
         }
     }
 

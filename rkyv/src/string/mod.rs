@@ -221,8 +221,7 @@ const _: () = {
                 let range = context
                     .push_prefix_subtree(ptr)
                     .map_err(OwnedPointerError::ContextError)?;
-                str::check_bytes(ptr, context)
-                    .map_err(OwnedPointerError::ValueCheckBytesError)?;
+                str::check_bytes(ptr, context).map_err(OwnedPointerError::ValueCheckBytesError)?;
                 context
                     .pop_prefix_range(range)
                     .map_err(OwnedPointerError::ContextError)?;
