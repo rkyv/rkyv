@@ -3,9 +3,7 @@ use crate::{
     Archive, Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
 };
 #[cfg(not(feature = "std"))]
-use ::alloc::{alloc, boxed::Box, string::String};
-#[cfg(feature = "std")]
-use ::std::alloc;
+use ::alloc::{boxed::Box, string::String};
 
 impl Archive for String {
     type Archived = ArchivedString;
@@ -32,15 +30,8 @@ where
     str: DeserializeUnsized<str, D>,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<String, D::Error> {
-        unsafe {
-            let data_address = self
-                .as_str()
-                .deserialize_unsized(deserializer, |layout| alloc::alloc(layout))?;
-            let metadata = self.as_str().deserialize_metadata(deserializer)?;
-            let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
-            Ok(Box::<str>::from_raw(ptr).into())
-        }
+    fn deserialize(&self, _: &mut D) -> Result<String, D::Error> {
+        Ok(self.as_str().to_string())
     }
 }
 
