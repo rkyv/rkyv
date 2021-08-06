@@ -284,9 +284,11 @@ const _: () = {
 /// # Example
 ///
 /// ```
-/// use std::sync::atomic::AtomicU32;
+/// # #[cfg(has_atomics)]
+/// use core::sync::atomic::AtomicU32;
 /// use rkyv::{Archive, with::Atomic};
 ///
+/// # #[cfg(has_atomics)]
 /// #[derive(Archive)]
 /// struct Example {
 ///     #[with(Atomic)]
