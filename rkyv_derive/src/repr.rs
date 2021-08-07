@@ -1,6 +1,6 @@
 use proc_macro2::{Literal, Punct, Spacing, Span, TokenStream};
-use quote::{quote, quote_spanned, ToTokens, TokenStreamExt};
-use syn::{spanned::Spanned, Error, Path};
+use quote::{quote, ToTokens, TokenStreamExt};
+use syn::{spanned::Spanned, Error, Lit, LitInt, Meta, NestedMeta};
 
 #[derive(Clone, Copy)]
 pub enum IntRepr {
@@ -19,16 +19,16 @@ pub enum IntRepr {
 impl ToTokens for IntRepr {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            Self::I8 => tokens.append_all(quote! { #[repr(i8)] }),
-            Self::I16 => tokens.append_all(quote! { #[repr(i16)] }),
-            Self::I32 => tokens.append_all(quote! { #[repr(i32)] }),
-            Self::I64 => tokens.append_all(quote! { #[repr(i64)] }),
-            Self::I128 => tokens.append_all(quote! { #[repr(i128)] }),
-            Self::U8 => tokens.append_all(quote! { #[repr(u8)] }),
-            Self::U16 => tokens.append_all(quote! { #[repr(u16)] }),
-            Self::U32 => tokens.append_all(quote! { #[repr(u32)] }),
-            Self::U64 => tokens.append_all(quote! { #[repr(u64)] }),
-            Self::U128 => tokens.append_all(quote! { #[repr(u128)] }),
+            Self::I8 => tokens.append_all(quote! { i8 }),
+            Self::I16 => tokens.append_all(quote! { i16 }),
+            Self::I32 => tokens.append_all(quote! { i32 }),
+            Self::I64 => tokens.append_all(quote! { i64 }),
+            Self::I128 => tokens.append_all(quote! { i128 }),
+            Self::U8 => tokens.append_all(quote! { u8 }),
+            Self::U16 => tokens.append_all(quote! { u16 }),
+            Self::U32 => tokens.append_all(quote! { u32 }),
+            Self::U64 => tokens.append_all(quote! { u64 }),
+            Self::U128 => tokens.append_all(quote! { u128 }),
         }
     }
 }
@@ -96,75 +96,151 @@ impl ToTokens for EnumDiscriminant {
 }
 
 #[derive(Clone, Copy)]
-pub enum Repr {
-    Rust,
-    Transparent,
-    Packed,
+pub enum BaseRepr {
     C,
+    // structs only
+    Transparent,
+    // enums only
     Int(IntRepr),
 }
 
-impl ToTokens for Repr {
+impl ToTokens for BaseRepr {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            Self::Rust => tokens.append_all(quote! { #[repr(rust)] }),
-            Self::Transparent => tokens.append_all(quote! { #[repr(transparent)] }),
-            Self::Packed => tokens.append_all(quote! { #[repr(packed)] }),
-            Self::C => tokens.append_all(quote! { #[repr(C)] }),
-            Self::Int(repr) => tokens.append_all(quote! { #repr }),
+            BaseRepr::C => tokens.append_all(quote! { C }),
+            BaseRepr::Transparent => tokens.append_all(quote! { transparent }),
+            BaseRepr::Int(int_repr) => tokens.append_all(quote! { #int_repr }),
         }
     }
 }
 
-pub struct ReprAttr {
-    pub repr: Repr,
-    pub span: Span,
+#[derive(Clone)]
+pub enum Modifier {
+    // structs only
+    Packed,
+    Align(LitInt),
 }
 
-impl ReprAttr {
-    pub fn try_from_path(path: &Path) -> Result<Self, Error> {
-        let repr = if path.is_ident("Rust") {
-            Repr::Rust
-        } else if path.is_ident("transparent") {
-            Repr::Transparent
-        } else if path.is_ident("packed") {
-            Repr::Packed
-        } else if path.is_ident("C") {
-            Repr::C
-        } else if path.is_ident("i8") {
-            Repr::Int(IntRepr::I8)
-        } else if path.is_ident("i16") {
-            Repr::Int(IntRepr::I16)
-        } else if path.is_ident("i32") {
-            Repr::Int(IntRepr::I32)
-        } else if path.is_ident("i64") {
-            Repr::Int(IntRepr::I64)
-        } else if path.is_ident("i128") {
-            Repr::Int(IntRepr::I128)
-        } else if path.is_ident("u8") {
-            Repr::Int(IntRepr::U8)
-        } else if path.is_ident("u16") {
-            Repr::Int(IntRepr::U16)
-        } else if path.is_ident("u32") {
-            Repr::Int(IntRepr::U32)
-        } else if path.is_ident("u64") {
-            Repr::Int(IntRepr::U64)
-        } else if path.is_ident("u128") {
-            Repr::Int(IntRepr::U128)
-        } else {
-            return Err(Error::new_spanned(path, "invalid repr"));
-        };
-
-        Ok(ReprAttr {
-            repr,
-            span: path.span(),
-        })
+impl ToTokens for Modifier {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            Modifier::Packed => tokens.append_all(quote! { packed }),
+            Modifier::Align(n) => tokens.append_all(quote! { align(#n) }),
+        }
     }
 }
 
-impl ToTokens for ReprAttr {
+#[derive(Clone, Default)]
+pub struct Repr {
+    pub base_repr: Option<(BaseRepr, Span)>,
+    pub modifier: Option<(Modifier, Span)>,
+}
+
+impl Repr {
+    fn try_set_modifier<S: ToTokens>(
+        &mut self,
+        modifier: Modifier,
+        spanned: S,
+    ) -> Result<(), Error> {
+        if self.modifier.is_some() {
+            Err(Error::new_spanned(
+                spanned,
+                "only one repr modifier may be specified",
+            ))
+        } else {
+            self.modifier = Some((modifier, spanned.span()));
+            Ok(())
+        }
+    }
+
+    fn try_set_base_repr<S: ToTokens>(&mut self, repr: BaseRepr, spanned: S) -> Result<(), Error> {
+        if self.base_repr.is_some() {
+            Err(Error::new_spanned(
+                spanned,
+                "only one repr may be specified",
+            ))
+        } else {
+            self.base_repr = Some((repr, spanned.span()));
+            Ok(())
+        }
+    }
+
+    pub fn parse_args<'a>(
+        &mut self,
+        args: impl Iterator<Item = &'a NestedMeta>,
+    ) -> Result<(), Error> {
+        for arg in args {
+            if let NestedMeta::Meta(meta) = arg {
+                match meta {
+                    Meta::Path(path) => {
+                        if path.is_ident("packed") {
+                            self.try_set_modifier(Modifier::Packed, path)?;
+                        } else {
+                            let parsed_repr = if path.is_ident("transparent") {
+                                BaseRepr::Transparent
+                            } else if path.is_ident("C") {
+                                BaseRepr::C
+                            } else if path.is_ident("i8") {
+                                BaseRepr::Int(IntRepr::I8)
+                            } else if path.is_ident("i16") {
+                                BaseRepr::Int(IntRepr::I16)
+                            } else if path.is_ident("i32") {
+                                BaseRepr::Int(IntRepr::I32)
+                            } else if path.is_ident("i64") {
+                                BaseRepr::Int(IntRepr::I64)
+                            } else if path.is_ident("i128") {
+                                BaseRepr::Int(IntRepr::I128)
+                            } else if path.is_ident("u8") {
+                                BaseRepr::Int(IntRepr::U8)
+                            } else if path.is_ident("u16") {
+                                BaseRepr::Int(IntRepr::U16)
+                            } else if path.is_ident("u32") {
+                                BaseRepr::Int(IntRepr::U32)
+                            } else if path.is_ident("u64") {
+                                BaseRepr::Int(IntRepr::U64)
+                            } else if path.is_ident("u128") {
+                                BaseRepr::Int(IntRepr::U128)
+                            } else {
+                                return Err(Error::new_spanned(
+                                    path,
+                                    "invalid repr, available reprs are transparent, C, i* and u*",
+                                ));
+                            };
+
+                            self.try_set_base_repr(parsed_repr, path)?;
+                        }
+                    }
+                    Meta::List(list) => {
+                        if list.path.is_ident("align") {
+                            if list.nested.len() != 1 {
+                                return Err(Error::new_spanned(list, "missing arguments to align"));
+                            } else if let Some(NestedMeta::Lit(Lit::Int(alignment))) =
+                                list.nested.first()
+                            {
+                                self.try_set_modifier(
+                                    Modifier::Align(alignment.clone()),
+                                    alignment,
+                                )?;
+                            }
+                        }
+                    }
+                    _ => return Err(Error::new_spanned(meta, "invalid repr argument")),
+                }
+            } else {
+                return Err(Error::new_spanned(arg, "invalid repr argument"));
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl ToTokens for Repr {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let repr = &self.repr;
-        tokens.append_all(quote_spanned! { self.span => #repr });
+        let base_repr = self.base_repr.as_ref().map(|(b, _)| b);
+        let base_repr_iter = base_repr.iter();
+        let modifier = self.modifier.as_ref().map(|(m, _)| m);
+        let modifier_iter = modifier.iter();
+        tokens.append_all(quote! { #[repr(#(#base_repr_iter,)* #(#modifier_iter,)*)] });
     }
 }

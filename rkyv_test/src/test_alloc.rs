@@ -1084,6 +1084,52 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn repr_c_packed() {
+        #[derive(Archive)]
+        #[archive_attr(repr(C, packed))]
+        struct CPackedRepr {
+            a: u8,
+            b: u32,
+            c: u8,
+        }
+
+        assert_eq!(core::mem::size_of::<ArchivedCPackedRepr>(), 6);
+
+        #[derive(Archive)]
+        #[archive_attr(repr(C))]
+        #[archive_attr(repr(packed))]
+        struct CPackedRepr2 {
+            a: u8,
+            b: u32,
+            c: u8,
+        }
+
+        assert_eq!(core::mem::size_of::<ArchivedCPackedRepr2>(), 6);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn repr_c_align() {
+        #[derive(Archive)]
+        #[archive_attr(repr(C, align(8)))]
+        struct CAlignRepr {
+            a: u8,
+        }
+
+        assert_eq!(core::mem::align_of::<ArchivedCAlignRepr>(), 8);
+
+        #[derive(Archive)]
+        #[archive_attr(repr(C))]
+        #[archive_attr(repr(align(8)))]
+        struct CAlignRepr2 {
+            a: u8,
+        }
+
+        assert_eq!(core::mem::align_of::<ArchivedCAlignRepr>(), 8);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_as() {
         // Struct
 

@@ -1,4 +1,4 @@
-use crate::repr::ReprAttr;
+use crate::repr::Repr;
 use quote::ToTokens;
 use syn::{AttrStyle, DeriveInput, Error, Ident, Lit, LitStr, Meta, NestedMeta, Path};
 
@@ -8,7 +8,7 @@ pub struct Attributes {
     pub archived: Option<Ident>,
     pub resolver: Option<Ident>,
     pub attrs: Vec<Meta>,
-    pub archived_repr: Option<ReprAttr>,
+    pub archived_repr: Repr,
     pub compares: Option<(Path, Vec<Path>)>,
     pub serialize_bound: Option<LitStr>,
     pub deserialize_bound: Option<LitStr>,
@@ -97,23 +97,8 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                 }
                 Ok(())
             } else if list.path.is_ident("repr") {
-                if list.nested.len() != 1 {
-                    Err(Error::new_spanned(
-                        list,
-                        "repr must have exactly one argument",
-                    ))
-                } else if let Some(NestedMeta::Meta(Meta::Path(path))) = list.nested.first() {
-                    try_set_attribute(
-                        &mut attributes.archived_repr,
-                        ReprAttr::try_from_path(path)?,
-                        "repr",
-                    )
-                } else {
-                    Err(Error::new_spanned(
-                        list.nested.first(),
-                        "invalid repr argument",
-                    ))
-                }
+                // TODO: deprecate and remove `archive(repr(...))` syntax
+                attributes.archived_repr.parse_args(list.nested.iter())
             } else {
                 Err(Error::new_spanned(
                     &list.path,
@@ -185,25 +170,7 @@ pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
                         if let NestedMeta::Meta(meta) = nested {
                             if let Meta::List(list) = meta {
                                 if list.path.is_ident("repr") {
-                                    if list.nested.len() != 1 {
-                                        return Err(Error::new_spanned(
-                                            list,
-                                            "repr must have exactly one argument",
-                                        ));
-                                    } else if let Some(NestedMeta::Meta(Meta::Path(path))) =
-                                        list.nested.first()
-                                    {
-                                        try_set_attribute(
-                                            &mut result.archived_repr,
-                                            ReprAttr::try_from_path(path)?,
-                                            "repr",
-                                        )?;
-                                    } else {
-                                        return Err(Error::new_spanned(
-                                            list.nested.first(),
-                                            "invalid repr argument",
-                                        ));
-                                    }
+                                    result.archived_repr.parse_args(list.nested.iter())?;
                                 } else {
                                     result.attrs.push(meta.clone());
                                 }
