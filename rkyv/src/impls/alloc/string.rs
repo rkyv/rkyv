@@ -3,7 +3,7 @@ use crate::{
     Archive, Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
 };
 #[cfg(not(feature = "std"))]
-use ::alloc::{boxed::Box, string::String};
+use ::alloc::string::{String, ToString};
 
 impl Archive for String {
     type Archived = ArchivedString;
