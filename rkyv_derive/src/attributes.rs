@@ -97,7 +97,7 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                 }
                 Ok(())
             } else if list.path.is_ident("repr") {
-                // TODO: deprecate and remove `archive(repr(...))` syntax
+                // TODO: remove `archive(repr(...))` syntax
                 attributes.archived_repr.parse_args(list.nested.iter())
             } else {
                 Err(Error::new_spanned(
