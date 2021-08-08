@@ -63,12 +63,12 @@ fn derive_archive_impl(
                 "archived = \"...\" may not be used with as = \"...\" because no type is generated",
             ));
         }
-        if !attributes.attrs.is_empty() {
+        if let Some(first) = attributes.attrs.first() {
             return Err(Error::new_spanned(
-                name,
+                first,
                 format!(
                     "\
-                        archive_attr(...) may not be used with as = \"...\"
+                        archive_attr(...) may not be used with as = \"...\"\n\
                         place any attributes on the archived type ({}) instead\
                     ",
                     archive_as.value(),
@@ -85,7 +85,7 @@ fn derive_archive_impl(
                 span,
                 format!(
                     "\
-                        repr(...) may not be used with as = \"...\"
+                        repr(...) may not be used with as = \"...\"\n\
                         place the repr attribute on the archived type ({}) instead\
                     ",
                     archive_as.value()
@@ -777,7 +777,7 @@ fn derive_archive_impl(
                 return Err(Error::new_spanned(
                     name,
                     "\
-                        enums with variant data cannot have multibyte discriminants when using endian-aware features
+                        enums with variant data cannot have multibyte discriminants when using endian-aware features\n\
                         enabling the `arbitrary_enum_discriminant` feature will allow this behavior\
                     ",
                 ));

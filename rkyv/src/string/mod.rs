@@ -73,6 +73,7 @@ impl ArchivedString {
 }
 
 impl AsRef<str> for ArchivedString {
+    #[inline]
     fn as_ref(&self) -> &str {
         self.as_str()
     }
