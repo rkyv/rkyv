@@ -54,7 +54,8 @@ impl<W: io::Write> Serializer for WriteSerializer<W> {
 
     #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
-        self.pos += self.inner.write(bytes)?;
+        self.inner.write_all(bytes)?;
+        self.pos += bytes.len();
         Ok(())
     }
 }
