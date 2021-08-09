@@ -14,7 +14,7 @@ where
     A::Item: Archive,
 {
     type Archived = ArchivedVec<Archived<A::Item>>;
-    type Resolver = VecResolver<MetadataResolver<[A::Item]>>;
+    type Resolver = VecResolver;
 
     #[inline]
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
@@ -51,7 +51,7 @@ where
 
 impl<'s, T: Archive> Archive for SliceVec<'s, T> {
     type Archived = ArchivedVec<T::Archived>;
-    type Resolver = VecResolver<MetadataResolver<[T]>>;
+    type Resolver = VecResolver;
 
     #[inline]
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
@@ -76,7 +76,7 @@ where
     A::Item: Archive,
 {
     type Archived = ArchivedVec<Archived<A::Item>>;
-    type Resolver = VecResolver<MetadataResolver<[A::Item]>>;
+    type Resolver = VecResolver;
 
     #[inline]
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
