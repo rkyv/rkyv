@@ -1477,6 +1477,8 @@ mod tests {
             a: BTreeMap<String, String>,
             #[with(AsVec)]
             b: BTreeSet<String>,
+            #[with(AsVec)]
+            c: BTreeMap<String, String>,
         }
 
         let mut a = BTreeMap::new();
@@ -1490,7 +1492,9 @@ mod tests {
         b.insert("bar".to_string());
         b.insert("fizzbuzz".to_string());
 
-        let value = Test { a, b };
+        let c = BTreeMap::new();
+
+        let value = Test { a, b, c };
 
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&value).unwrap();
@@ -1569,6 +1573,23 @@ mod tests {
             assert_eq!(k, ak);
             assert_eq!(v, av);
         }
+        assert!(archived.get_key_value("wrong!").is_none());
+
+        let deserialized: BTreeMap<_, _> = archived.deserialize(&mut Infallible).unwrap();
+        assert_eq!(value, deserialized);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_empty_btree_map() {
+        let value: BTreeMap<String, i32> = BTreeMap::new();
+
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_inner();
+        let archived = unsafe { archived_root::<BTreeMap<String, i32>>(result.as_slice()) };
+
+        assert_eq!(archived.len(), 0);
         assert!(archived.get_key_value("wrong!").is_none());
 
         let deserialized: BTreeMap<_, _> = archived.deserialize(&mut Infallible).unwrap();
