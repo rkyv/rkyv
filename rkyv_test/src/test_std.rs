@@ -1,11 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::util::alloc::*;
-    use rkyv::{
-        archived_root,
-        ser::{serializers::WriteSerializer, Serializer},
-        Archive, Deserialize, Serialize,
-    };
+    use rkyv::{AlignedBytes, Archive, Deserialize, Serialize, archived_root, ser::{serializers::WriteSerializer, Serializer}};
     use std::collections::HashMap;
 
     #[cfg(feature = "wasm")]
@@ -15,12 +11,12 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn write_serializer() {
         #[derive(Archive, Serialize)]
-        #[archive_attr(repr(C, packed))]
+        #[archive_attr(repr(C))]
         struct Example {
             x: i32,
         }
 
-        let mut buf = [0u8; 3];
+        let mut buf = AlignedBytes([0u8; 3]);
         let mut ser = WriteSerializer::new(&mut buf[..]);
         let foo = Example { x: 100 };
         ser.serialize_value(&foo)

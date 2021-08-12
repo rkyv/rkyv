@@ -1590,6 +1590,9 @@ mod tests {
         let archived = unsafe { archived_root::<BTreeMap<String, i32>>(result.as_slice()) };
 
         assert_eq!(archived.len(), 0);
+        for _ in archived.iter() {
+            panic!("there should be no values in the archived empty btree");
+        }
         assert!(archived.get_key_value("wrong!").is_none());
 
         let deserialized: BTreeMap<_, _> = archived.deserialize(&mut Infallible).unwrap();
