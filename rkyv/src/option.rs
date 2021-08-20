@@ -1,6 +1,10 @@
 //! An archived version of `Option`.
 
-use core::{cmp, hash, mem, ops::{Deref, DerefMut}, pin::Pin};
+use core::{
+    cmp, hash, mem,
+    ops::{Deref, DerefMut},
+    pin::Pin,
+};
 
 /// An archived [`Option`].
 ///
@@ -62,19 +66,27 @@ impl<T> ArchivedOption<T> {
     /// Converts from `Pin<&mut ArchivedOption<T>>` to `Option<Pin<&mut T>>`.
     #[inline]
     pub fn as_pin_mut(self: Pin<&mut Self>) -> Option<Pin<&mut T>> {
-        unsafe { Pin::get_unchecked_mut(self).as_mut().map(|x| Pin::new_unchecked(x)) }
+        unsafe {
+            Pin::get_unchecked_mut(self)
+                .as_mut()
+                .map(|x| Pin::new_unchecked(x))
+        }
     }
 
     /// Returns an iterator over the possibly contained value.
     #[inline]
     pub const fn iter(&self) -> Iter<'_, T> {
-        Iter { inner: self.as_ref() }
+        Iter {
+            inner: self.as_ref(),
+        }
     }
 
     /// Returns a mutable iterator over the possibly contained value.
     #[inline]
     pub fn iter_mut(&mut self) -> IterMut<'_, T> {
-        IterMut { inner: self.as_mut() }
+        IterMut {
+            inner: self.as_mut(),
+        }
     }
 
     /// Inserts `v` into the option if it is `None`, then returns a mutable

@@ -55,8 +55,11 @@ impl<T: Serialize<S>, E: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Re
     }
 }
 
-impl<T: Archive, E: Archive, D: Fallible + ?Sized> Deserialize<Result<T, E>, D> for ArchivedResult<T::Archived, E::Archived>
+impl<T, E, D> Deserialize<Result<T, E>, D> for ArchivedResult<T::Archived, E::Archived>
 where
+    T: Archive,
+    E: Archive,
+    D: Fallible + ?Sized,
     T::Archived: Deserialize<T, D>,
     E::Archived: Deserialize<E, D>,
 {

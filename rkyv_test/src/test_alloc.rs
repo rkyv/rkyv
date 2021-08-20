@@ -611,7 +611,7 @@ mod tests {
                 val: T,
                 #[omit_bounds]
                 next: Box<Self>,
-            }
+            },
         }
 
         test_archive(&LinkedList::Node {

@@ -1,6 +1,10 @@
 //! An archived version of `Result`.
 
-use core::{cmp::{Ord, PartialOrd}, hash, mem, ops::{Deref, DerefMut}};
+use core::{
+    cmp::{Ord, PartialOrd},
+    hash, mem,
+    ops::{Deref, DerefMut},
+};
 
 /// An archived [`Result`] that represents either success ([`Ok`](ArchivedResult::Ok)) or failure
 /// ([`Err`](ArchivedResult::Err)).
@@ -50,7 +54,9 @@ impl<T, E> ArchivedResult<T, E> {
     /// The iterator yields one value if the result is `ArchivedResult::Ok`, otherwise none.
     #[inline]
     pub fn iter(&self) -> Iter<'_, T> {
-        Iter { inner: self.as_ref().ok() }
+        Iter {
+            inner: self.as_ref().ok(),
+        }
     }
 
     /// Returns a mutable iterator over the possibly contained value.
@@ -58,7 +64,9 @@ impl<T, E> ArchivedResult<T, E> {
     /// The iterator yields one value if the result is `ArchivedResult::Ok`, otherwise none.
     #[inline]
     pub fn iter_mut(&mut self) -> IterMut<'_, T> {
-        IterMut { inner: self.as_mut().ok() }
+        IterMut {
+            inner: self.as_mut().ok(),
+        }
     }
 }
 
@@ -162,16 +170,20 @@ impl<T, U: PartialEq<T>, E, F: PartialEq<E>> PartialEq<Result<T, E>> for Archive
     #[inline]
     fn eq(&self, other: &Result<T, E>) -> bool {
         match self {
-            ArchivedResult::Ok(self_value) => if let Ok(other_value) = other {
-                self_value.eq(other_value)
-            } else {
-                false
-            },
-            ArchivedResult::Err(self_err) => if let Err(other_err) = other {
-                self_err.eq(other_err)
-            } else {
-                false
-            },
+            ArchivedResult::Ok(self_value) => {
+                if let Ok(other_value) = other {
+                    self_value.eq(other_value)
+                } else {
+                    false
+                }
+            }
+            ArchivedResult::Err(self_err) => {
+                if let Err(other_err) = other {
+                    self_err.eq(other_err)
+                } else {
+                    false
+                }
+            }
         }
     }
 }

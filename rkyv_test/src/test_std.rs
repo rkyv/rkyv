@@ -1,7 +1,11 @@
 #[cfg(test)]
 mod tests {
     use crate::util::alloc::*;
-    use rkyv::{AlignedBytes, Archive, Deserialize, Serialize, archived_root, ser::{serializers::WriteSerializer, Serializer}};
+    use rkyv::{
+        archived_root,
+        ser::{serializers::WriteSerializer, Serializer},
+        AlignedBytes, Archive, Deserialize, Serialize,
+    };
     use std::collections::HashMap;
 
     #[cfg(feature = "wasm")]

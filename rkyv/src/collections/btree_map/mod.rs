@@ -390,9 +390,7 @@ const _: () = {
             I: ExactSizeIterator<Item = (&'a UK, &'a UV)>,
         {
             if iter.len() == 0 {
-                Ok(BTreeMapResolver {
-                    root_pos: 0,
-                })
+                Ok(BTreeMapResolver { root_pos: 0 })
             } else {
                 // The memory span of a single node should not exceed 4kb to keep everything within
                 // the distance of a single IO page
