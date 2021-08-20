@@ -147,6 +147,7 @@ mod impls;
 pub mod net;
 pub mod ops;
 pub mod option;
+pub mod result;
 pub mod rc;
 pub mod rel_ptr;
 pub mod ser;

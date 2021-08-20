@@ -45,6 +45,8 @@ mod tests {
         test_archive(&[1, 2, 3, 4, 5, 6]);
 
         test_archive(&Option::<()>::None);
+        test_archive(&Result::<i32, u32>::Ok(12345i32));
+        test_archive(&Result::<i32, u32>::Err(12345u32));
         test_archive(&Some(42));
     }
 

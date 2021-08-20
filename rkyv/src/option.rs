@@ -1,6 +1,6 @@
 //! An archived version of `Option`.
 
-use core::{cmp, hash};
+use core::{cmp, hash, mem, ops::{Deref, DerefMut}, pin::Pin};
 
 /// An archived [`Option`].
 ///
@@ -37,7 +37,7 @@ impl<T> ArchivedOption<T> {
 
     /// Converts to an `Option<&T>`.
     #[inline]
-    pub fn as_ref(&self) -> Option<&T> {
+    pub const fn as_ref(&self) -> Option<&T> {
         match self {
             ArchivedOption::None => None,
             ArchivedOption::Some(value) => Some(value),
@@ -51,6 +51,30 @@ impl<T> ArchivedOption<T> {
             ArchivedOption::None => None,
             ArchivedOption::Some(value) => Some(value),
         }
+    }
+
+    /// Converts from `Pin<&ArchivedOption<T>>` to `Option<Pin<&T>>`.
+    #[inline]
+    pub fn as_pin_ref(self: Pin<&Self>) -> Option<Pin<&T>> {
+        unsafe { Pin::get_ref(self).as_ref().map(|x| Pin::new_unchecked(x)) }
+    }
+
+    /// Converts from `Pin<&mut ArchivedOption<T>>` to `Option<Pin<&mut T>>`.
+    #[inline]
+    pub fn as_pin_mut(self: Pin<&mut Self>) -> Option<Pin<&mut T>> {
+        unsafe { Pin::get_unchecked_mut(self).as_mut().map(|x| Pin::new_unchecked(x)) }
+    }
+
+    /// Returns an iterator over the possibly contained value.
+    #[inline]
+    pub const fn iter(&self) -> Iter<'_, T> {
+        Iter { inner: self.as_ref() }
+    }
+
+    /// Returns a mutable iterator over the possibly contained value.
+    #[inline]
+    pub fn iter_mut(&mut self) -> IterMut<'_, T> {
+        IterMut { inner: self.as_mut() }
     }
 
     /// Inserts `v` into the option if it is `None`, then returns a mutable
@@ -70,6 +94,28 @@ impl<T> ArchivedOption<T> {
             *self = ArchivedOption::Some(f());
             self.as_mut().unwrap()
         }
+    }
+}
+
+impl<T: Deref> ArchivedOption<T> {
+    /// Converts from `&ArchivedOption<T>` to `Option<&T::Target>`.
+    ///
+    /// Leaves the original `ArchivedOption` in-place, creating a new one with a reference to the
+    /// original one, additionally coercing the contents via `Deref`.
+    #[inline]
+    pub fn as_deref(&self) -> Option<&<T as Deref>::Target> {
+        self.as_ref().map(|x| x.deref())
+    }
+}
+
+impl<T: DerefMut> ArchivedOption<T> {
+    /// Converts from `&ArchivedOption<T>` to `Option<&T::Target>`.
+    ///
+    /// Leaves the original `ArchivedOption` in-place, creating a new one with a reference to the
+    /// original one, additionally coercing the contents via `Deref`.
+    #[inline]
+    pub fn as_deref_mut(&mut self) -> Option<&mut <T as Deref>::Target> {
+        self.as_mut().map(|x| x.deref_mut())
     }
 }
 
@@ -122,5 +168,43 @@ impl<T: PartialEq<U>, U> PartialEq<ArchivedOption<T>> for Option<U> {
     #[inline]
     fn eq(&self, other: &ArchivedOption<T>) -> bool {
         other.eq(self)
+    }
+}
+
+/// An iterator over a reference to the `Some` variant of an `ArchivedOption`.
+///
+/// This iterator yields one value if the `ArchivedOption` is a `Some`, otherwise none.
+///
+/// This `struct` is created by the [`ArchivedOption::iter`] function.
+pub struct Iter<'a, T> {
+    inner: Option<&'a T>,
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut result = None;
+        mem::swap(&mut self.inner, &mut result);
+        result
+    }
+}
+
+/// An iterator over a mutable reference to the `Some` variant of an `ArchivedOption`.
+///
+/// This iterator yields one value if the `ArchivedOption` is a `Some`, otherwise none.
+///
+/// This `struct` is created by the [`ArchivedOption::iter_mut`] function.
+pub struct IterMut<'a, T> {
+    inner: Option<&'a mut T>,
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut result = None;
+        mem::swap(&mut self.inner, &mut result);
+        result
     }
 }

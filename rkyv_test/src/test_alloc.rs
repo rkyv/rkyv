@@ -47,13 +47,30 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn archive_composition() {
+    fn archive_option() {
         test_archive(&Some(Box::new(42)));
         test_archive(&Some("hello world".to_string().into_boxed_str()));
         test_archive(&Some(vec![1, 2, 3, 4].into_boxed_slice()));
         test_archive(&Some("hello world".to_string()));
         test_archive(&Some(vec![1, 2, 3, 4]));
         test_archive(&Some(Box::new(vec![1, 2, 3, 4])));
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_result() {
+        test_archive::<Result<_, ()>>(&Ok(Box::new(42)));
+        test_archive::<Result<_, ()>>(&Ok("hello world".to_string().into_boxed_str()));
+        test_archive::<Result<_, ()>>(&Ok(vec![1, 2, 3, 4].into_boxed_slice()));
+        test_archive::<Result<_, ()>>(&Ok("hello world".to_string()));
+        test_archive::<Result<_, ()>>(&Ok(vec![1, 2, 3, 4]));
+        test_archive::<Result<_, ()>>(&Ok(Box::new(vec![1, 2, 3, 4])));
+        test_archive::<Result<(), _>>(&Err(Box::new(42)));
+        test_archive::<Result<(), _>>(&Err("hello world".to_string().into_boxed_str()));
+        test_archive::<Result<(), _>>(&Err(vec![1, 2, 3, 4].into_boxed_slice()));
+        test_archive::<Result<(), _>>(&Err("hello world".to_string()));
+        test_archive::<Result<(), _>>(&Err(vec![1, 2, 3, 4]));
+        test_archive::<Result<(), _>>(&Err(Box::new(vec![1, 2, 3, 4])));
     }
 
     mod isolate {
