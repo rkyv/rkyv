@@ -595,6 +595,36 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn recursive_self_types() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        // The derive macros don't apply the right bounds from Box so we have to manually specify
+        // what bounds to apply
+        #[archive(bound(serialize = "__S: Serializer"))]
+        pub enum LinkedList<T: Archive>
+        where
+            T::Archived: core::fmt::Debug,
+        {
+            Empty,
+            Node {
+                val: T,
+                #[omit_bounds]
+                next: Box<Self>,
+            }
+        }
+
+        test_archive(&LinkedList::Node {
+            val: 42i32,
+            next: Box::new(LinkedList::Node {
+                val: 100i32,
+                next: Box::new(LinkedList::Empty),
+            }),
+        });
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_more_std() {
         use core::{
             num::NonZeroU8,

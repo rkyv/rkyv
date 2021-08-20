@@ -8,6 +8,7 @@ mod archive;
 mod attributes;
 mod deserialize;
 mod repr;
+mod serde;
 mod serialize;
 mod util;
 mod with;
@@ -66,7 +67,10 @@ use syn::{parse_macro_input, DeriveInput};
 /// (i.e. `#[with(A, B, C)]` will archive `MyType` as `With<With<With<MyType, C>, B, A>`).
 #[proc_macro_derive(Archive, attributes(archive, archive_attr, omit_bounds, with))]
 pub fn derive_archive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    match archive::derive(parse_macro_input!(input as DeriveInput)) {
+    let mut derive_input = parse_macro_input!(input as DeriveInput);
+    serde::receiver::replace_receiver(&mut derive_input);
+
+    match archive::derive(derive_input) {
         Ok(result) => result.into(),
         Err(e) => e.to_compile_error().into(),
     }
@@ -78,7 +82,10 @@ pub fn derive_archive(input: proc_macro::TokenStream) -> proc_macro::TokenStream
 /// [`Archive`] for more information.
 #[proc_macro_derive(Serialize, attributes(archive, omit_bounds, with))]
 pub fn derive_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    match serialize::derive(parse_macro_input!(input as DeriveInput)) {
+    let mut derive_input = parse_macro_input!(input as DeriveInput);
+    serde::receiver::replace_receiver(&mut derive_input);
+
+    match serialize::derive(derive_input) {
         Ok(result) => result.into(),
         Err(e) => e.to_compile_error().into(),
     }
@@ -90,7 +97,10 @@ pub fn derive_serialize(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// [`Archive`] for more information.
 #[proc_macro_derive(Deserialize, attributes(archive, omit_bounds, with))]
 pub fn derive_deserialize(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    match deserialize::derive(parse_macro_input!(input as DeriveInput)) {
+    let mut derive_input = parse_macro_input!(input as DeriveInput);
+    serde::receiver::replace_receiver(&mut derive_input);
+
+    match deserialize::derive(derive_input) {
         Ok(result) => result.into(),
         Err(e) => e.to_compile_error().into(),
     }
