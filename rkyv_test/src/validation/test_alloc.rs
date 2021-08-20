@@ -160,6 +160,13 @@ mod tests {
             ))) => (),
             other => panic!("expected underaligned error, got {:?}", other),
         }
+        // Undersized
+        match check_archived_root::<u32>(&AlignedBytes([]).as_ref()) {
+            Err(CheckArchiveError::ContextError(DefaultValidatorError::ArchiveError(
+                ArchiveError::OutOfBounds { .. },
+            ))) => (),
+            other => panic!("expected out of bounds error, got {:?}", other),
+        }
     }
 
     #[cfg(feature = "size_32")]

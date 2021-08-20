@@ -291,13 +291,11 @@ impl<T: Error + 'static, C: Error + 'static> Error for CheckArchiveError<T, C> {
 pub type CheckTypeError<T, C> =
     CheckArchiveError<<T as CheckBytes<C>>::Error, <C as Fallible>::Error>;
 
-/// Checks the given archive with an additional context.
-///
-/// See [`check_archived_value`](crate::validation::validators::check_archived_value) for more details.
+// TODO: change this to be the public-facing API (uses pos: isize instead of pos: usize)
 #[inline]
-pub fn check_archived_value_with_context<'a, T, C>(
+fn internal_check_archived_value_with_context<'a, T, C>(
     buf: &'a [u8],
-    pos: usize,
+    pos: isize,
     context: &mut C,
 ) -> Result<&'a T::Archived, CheckTypeError<T::Archived, C>>
 where
@@ -307,7 +305,7 @@ where
 {
     unsafe {
         let ptr = context
-            .check_subtree_ptr(buf.as_ptr(), pos as isize, ())
+            .check_subtree_ptr(buf.as_ptr(), pos, ())
             .map_err(CheckArchiveError::ContextError)?;
 
         let range = context
@@ -328,6 +326,23 @@ where
 ///
 /// See [`check_archived_value`](crate::validation::validators::check_archived_value) for more details.
 #[inline]
+pub fn check_archived_value_with_context<'a, T, C>(
+    buf: &'a [u8],
+    pos: usize,
+    context: &mut C,
+) -> Result<&'a T::Archived, CheckTypeError<T::Archived, C>>
+where
+    T: Archive,
+    T::Archived: CheckBytes<C> + Pointee<Metadata = ()>,
+    C: ArchiveContext + ?Sized,
+{
+    internal_check_archived_value_with_context::<T, C>(buf, pos as isize, context)
+}
+
+/// Checks the given archive with an additional context.
+///
+/// See [`check_archived_value`](crate::validation::validators::check_archived_value) for more details.
+#[inline]
 pub fn check_archived_root_with_context<'a, T, C>(
     buf: &'a [u8],
     context: &mut C,
@@ -337,9 +352,9 @@ where
     T::Archived: CheckBytes<C> + Pointee<Metadata = ()>,
     C: ArchiveContext + ?Sized,
 {
-    check_archived_value_with_context::<T, C>(
+    internal_check_archived_value_with_context::<T, C>(
         buf,
-        buf.len() - core::mem::size_of::<T::Archived>(),
+        buf.len() as isize - core::mem::size_of::<T::Archived>() as isize,
         context,
     )
 }
