@@ -1,7 +1,7 @@
 //! An archived version of `Result`.
 
 use core::{
-    cmp::{Ord, PartialOrd},
+    cmp::{Ord, Ordering, PartialOrd},
     hash, mem,
     ops::{Deref, DerefMut},
 };
@@ -147,7 +147,7 @@ impl<T: hash::Hash, E: hash::Hash> hash::Hash for ArchivedResult<T, E> {
 
 impl<T: Ord, E: Ord> Ord for ArchivedResult<T, E> {
     #[inline]
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         self.as_ref().cmp(&other.as_ref())
     }
 }
@@ -161,7 +161,7 @@ impl<T: PartialEq, E: PartialEq> PartialEq for ArchivedResult<T, E> {
 
 impl<T: PartialOrd, E: PartialOrd> PartialOrd for ArchivedResult<T, E> {
     #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.as_ref().partial_cmp(&other.as_ref())
     }
 }
