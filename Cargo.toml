@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    "examples/json",
+    "examples/opcode",
     "rkyv",
     "rkyv_bench",
     "rkyv_derive",
