@@ -1,14 +1,9 @@
-use std::{
-    collections::HashMap,
-    fmt,
-};
 use rkyv::{
     archived_root,
     ser::{serializers::AllocSerializer, Serializer},
-    Archive,
-    Deserialize,
-    Serialize,
+    Archive, Deserialize, Serialize,
 };
+use std::{collections::HashMap, fmt};
 
 #[derive(Archive, Debug, Deserialize, Serialize)]
 // We have a recursive type, which requires some special handling
@@ -57,7 +52,7 @@ impl fmt::Display for ArchivedJsonValue {
                     }
                 }
                 write!(f, "]")?;
-            },
+            }
             Self::Object(h) => {
                 write!(f, "{{")?;
                 for (i, (key, value)) in h.iter().enumerate() {

@@ -1,8 +1,14 @@
-use rkyv::{Archive, Archived, Deserialize, Fallible, Infallible, Serialize, archived_root, ser::{serializers::AllocSerializer, ScratchSpace, Serializer}, vec::{ArchivedVec, VecResolver}, with::{ArchiveWith, SerializeWith, DeserializeWith}};
+use rkyv::{
+    archived_root,
+    ser::{serializers::AllocSerializer, ScratchSpace, Serializer},
+    vec::{ArchivedVec, VecResolver},
+    with::{ArchiveWith, DeserializeWith, SerializeWith},
+    Archive, Archived, Deserialize, Fallible, Infallible, Serialize,
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Opcode {
-    // A 1-byte opcode 
+    // A 1-byte opcode
     OneByte,
     // A 2-byte opcode
     TwoBytes(u8),
@@ -27,7 +33,12 @@ impl ArchiveWith<Vec<Opcode>> for EncodeOpcodes {
     type Archived = ArchivedVec<u8>;
     type Resolver = OpcodesResolver;
 
-    unsafe fn resolve_with(_: &Vec<Opcode>, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve_with(
+        _: &Vec<Opcode>,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         ArchivedVec::resolve_from_len(resolver.len, pos, resolver.inner, out);
     }
 }
@@ -95,22 +106,18 @@ impl<D: Fallible + ?Sized> DeserializeWith<Archived<Vec<u8>>, Vec<Opcode>, D> fo
                     result.push(Opcode::TwoBytes(arg));
                 }
                 2 => {
-                    let arg =
-                        bytes.next().unwrap() as u16
-                        | (bytes.next().unwrap() as u16) << 8;
+                    let arg = bytes.next().unwrap() as u16 | (bytes.next().unwrap() as u16) << 8;
                     result.push(Opcode::ThreeBytes(arg));
                 }
                 3 => {
-                    let arg =
-                        bytes.next().unwrap() as u32
+                    let arg = bytes.next().unwrap() as u32
                         | (bytes.next().unwrap() as u32) << 8
                         | (bytes.next().unwrap() as u32) << 16
                         | (bytes.next().unwrap() as u32) << 24;
                     result.push(Opcode::FiveBytes(arg));
                 }
                 4 => {
-                    let arg =
-                        bytes.next().unwrap() as u64
+                    let arg = bytes.next().unwrap() as u64
                         | (bytes.next().unwrap() as u64) << 8
                         | (bytes.next().unwrap() as u64) << 16
                         | (bytes.next().unwrap() as u64) << 24
