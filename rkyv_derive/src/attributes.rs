@@ -136,7 +136,7 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
             } else if meta.path.is_ident("crate") {
                 if let Lit::Str(ref lit_str) = meta.lit {
                     let stream = syn::parse_str(&lit_str.value())?;
-                    let tokens = crate::util::respan(stream, lit_str.span());
+                    let tokens = crate::serde::respan::respan(stream, lit_str.span());
                     let path = syn::parse2(tokens)?;
                     try_set_attribute(&mut attributes.rkyv_path, path, "crate")
                 } else {

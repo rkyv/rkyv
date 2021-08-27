@@ -1,14 +1,6 @@
-use proc_macro2::{Group, Span, TokenStream, TokenTree};
+use proc_macro2::Ident;
 
-pub fn respan(stream: TokenStream, span: Span) -> TokenStream {
-    stream
-        .into_iter()
-        .map(|mut token| {
-            if let TokenTree::Group(g) = &mut token {
-                *g = Group::new(g.delimiter(), respan(g.stream(), span));
-            }
-            token.set_span(span);
-            token
-        })
-        .collect()
+pub fn strip_raw(ident: &Ident) -> String {
+    let as_string = ident.to_string();
+    as_string.strip_prefix("r#").map(ToString::to_string).unwrap_or(as_string)
 }

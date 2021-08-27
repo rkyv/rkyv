@@ -1,6 +1,7 @@
 use crate::{
     attributes::{parse_attributes, Attributes},
     repr::{BaseRepr, IntRepr, Repr},
+    util::strip_raw,
     with::{make_with_cast, make_with_ty},
 };
 use proc_macro2::{Span, TokenStream};
@@ -95,7 +96,7 @@ fn derive_archive_impl(
     }
 
     let archived_name = attributes.archived.as_ref().map_or_else(
-        || Ident::new(&format!("Archived{}", name), name.span()),
+        || Ident::new(&format!("Archived{}", strip_raw(name)), name.span()),
         |value| value.clone(),
     );
     let archived_doc = format!("An archived `{}`", name);
@@ -106,7 +107,7 @@ fn derive_archive_impl(
     )?;
 
     let resolver = attributes.resolver.as_ref().map_or_else(
-        || Ident::new(&format!("{}Resolver", name), name.span()),
+        || Ident::new(&format!("{}Resolver", strip_raw(name)), name.span()),
         |value| value.clone(),
     );
     let resolver_doc = format!("The resolver for archived `{}`", name);
@@ -661,23 +662,23 @@ fn derive_archive_impl(
 
             let resolve_arms = data.variants.iter().map(|v| {
                 let variant = &v.ident;
-                let archived_variant_name = Ident::new(&format!("ArchivedVariant{}", variant.to_string()), v.span());
+                let archived_variant_name = Ident::new(&format!("ArchivedVariant{}", strip_raw(variant)), v.span());
                 match v.fields {
                     Fields::Named(ref fields) => {
                         let self_bindings = fields.named.iter().map(|f| {
                             let name = &f.ident;
-                            let binding = Ident::new(&format!("self_{}", name.as_ref().unwrap().to_string()), name.span());
+                            let binding = Ident::new(&format!("self_{}", strip_raw(name.as_ref().unwrap())), name.span());
                             quote_spanned! { name.span() => #name: #binding }
                         });
                         let resolver_bindings = fields.named.iter().map(|f| {
                             let name = &f.ident;
-                            let binding = Ident::new(&format!("resolver_{}", name.as_ref().unwrap().to_string()), name.span());
+                            let binding = Ident::new(&format!("resolver_{}", strip_raw(name.as_ref().unwrap())), name.span());
                             quote_spanned! { binding.span() => #name: #binding }
                         });
                         let resolves = fields.named.iter().map(|f| {
                             let name = &f.ident;
-                            let self_binding = Ident::new(&format!("self_{}", name.as_ref().unwrap().to_string()), name.span());
-                            let resolver_binding = Ident::new(&format!("resolver_{}", name.as_ref().unwrap().to_string()), name.span());
+                            let self_binding = Ident::new(&format!("self_{}", strip_raw(name.as_ref().unwrap())), name.span());
+                            let resolver_binding = Ident::new(&format!("resolver_{}", strip_raw(name.as_ref().unwrap())), name.span());
                             let value = with_cast(f, parse_quote! { #self_binding });
                             quote! {
                                 let (fp, fo) = out_field!(out.#name);
@@ -854,7 +855,7 @@ fn derive_archive_impl(
 
             let archived_variant_structs = data.variants.iter().map(|v| {
                 let variant = &v.ident;
-                let archived_variant_name = Ident::new(&format!("ArchivedVariant{}", variant.to_string()), v.span());
+                let archived_variant_name = Ident::new(&format!("ArchivedVariant{}", strip_raw(variant)), v.span());
                 match v.fields {
                     Fields::Named(ref fields) => {
                         let fields = fields.named.iter().map(|f| {
@@ -926,12 +927,12 @@ fn derive_archive_impl(
                                         .collect::<Vec<_>>();
                                     let self_bindings = fields.named.iter().map(|f| {
                                         f.ident.as_ref().map(|ident| {
-                                            Ident::new(&format!("self_{}", ident.to_string()), ident.span())
+                                            Ident::new(&format!("self_{}", strip_raw(ident)), ident.span())
                                         })
                                     }).collect::<Vec<_>>();
                                     let other_bindings = fields.named.iter().map(|f| {
                                         f.ident.as_ref().map(|ident| {
-                                            Ident::new(&format!("other_{}", ident.to_string()), ident.span())
+                                            Ident::new(&format!("other_{}", strip_raw(ident)), ident.span())
                                         })
                                     }).collect::<Vec<_>>();
                                     quote! {
@@ -1050,12 +1051,12 @@ fn derive_archive_impl(
                                         .collect::<Vec<_>>();
                                     let self_bindings = fields.named.iter().map(|f| {
                                         f.ident.as_ref().map(|ident| {
-                                            Ident::new(&format!("self_{}", ident.to_string()), ident.span())
+                                            Ident::new(&format!("self_{}", strip_raw(ident)), ident.span())
                                         })
                                     }).collect::<Vec<_>>();
                                     let other_bindings = fields.named.iter().map(|f| {
                                         f.ident.as_ref().map(|ident| {
-                                            Ident::new(&format!("other_{}", ident.to_string()), ident.span())
+                                            Ident::new(&format!("other_{}", strip_raw(ident)), ident.span())
                                         })
                                     }).collect::<Vec<_>>();
                                     quote! {

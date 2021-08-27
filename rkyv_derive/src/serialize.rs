@@ -1,5 +1,6 @@
 use crate::{
     attributes::{parse_attributes, Attributes},
+    util::strip_raw,
     with::{make_with_cast, make_with_ty},
 };
 use proc_macro2::TokenStream;
@@ -50,7 +51,7 @@ fn derive_serialize_impl(
     let where_clause = where_clause.unwrap();
 
     let resolver = attributes.resolver.as_ref().map_or_else(
-        || Ident::new(&format!("{}Resolver", name), name.span()),
+        || Ident::new(&format!("{}Resolver", strip_raw(name)), name.span()),
         |value| value.clone(),
     );
 
