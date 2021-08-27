@@ -1,7 +1,9 @@
 //! An archived version of `Option`.
 
 use core::{
-    cmp, hash, mem,
+    cmp, hash,
+    iter::DoubleEndedIterator,
+    mem,
     ops::{Deref, DerefMut},
     pin::Pin,
 };
@@ -202,6 +204,12 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 
+impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.next()
+    }
+}
+
 /// An iterator over a mutable reference to the `Some` variant of an `ArchivedOption`.
 ///
 /// This iterator yields one value if the `ArchivedOption` is a `Some`, otherwise none.
@@ -218,5 +226,11 @@ impl<'a, T> Iterator for IterMut<'a, T> {
         let mut result = None;
         mem::swap(&mut self.inner, &mut result);
         result
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.next()
     }
 }
