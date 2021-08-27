@@ -133,9 +133,7 @@ mod tests {
         #[archive(compare(PartialEq))]
         #[archive_attr(derive(Debug))]
         enum r#try {
-            r#try {
-                r#try: i32,
-            }
+            r#try { r#try: i32 },
         }
 
         test_archive::<r#virtual>(&r#virtual { r#virtual: 42 });
