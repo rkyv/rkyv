@@ -3,10 +3,13 @@ use crate::{
     ser::{ScratchSpace, Serializer},
     Archive, Deserialize, Fallible, Serialize,
 };
-use core::{borrow::Borrow, hash::Hash};
+use core::{
+    borrow::Borrow,
+    hash::{BuildHasher, Hash},
+};
 use std::collections::HashSet;
 
-impl<K: Archive + Hash + Eq> Archive for HashSet<K>
+impl<K: Archive + Hash + Eq, S> Archive for HashSet<K, S>
 where
     K::Archived: Hash + Eq,
 {
@@ -19,9 +22,11 @@ where
     }
 }
 
-impl<K: Serialize<S> + Hash + Eq, S: ScratchSpace + Serializer + ?Sized> Serialize<S> for HashSet<K>
+impl<K, S, RS> Serialize<S> for HashSet<K, RS>
 where
     K::Archived: Hash + Eq,
+    K: Serialize<S> + Hash + Eq,
+    S: ScratchSpace + Serializer + ?Sized,
 {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
@@ -29,15 +34,16 @@ where
     }
 }
 
-impl<K, D> Deserialize<HashSet<K>, D> for ArchivedHashSet<K::Archived>
+impl<K, D, S> Deserialize<HashSet<K, S>, D> for ArchivedHashSet<K::Archived>
 where
     K: Archive + Hash + Eq,
     K::Archived: Deserialize<K, D> + Hash + Eq,
     D: Fallible + ?Sized,
+    S: Default + BuildHasher,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<HashSet<K>, D::Error> {
-        let mut result = HashSet::new();
+    fn deserialize(&self, deserializer: &mut D) -> Result<HashSet<K, S>, D::Error> {
+        let mut result = HashSet::with_hasher(S::default());
         for k in self.iter() {
             result.insert(k.deserialize(deserializer)?);
         }
@@ -45,9 +51,11 @@ where
     }
 }
 
-impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq> PartialEq<HashSet<K>> for ArchivedHashSet<AK> {
+impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher> PartialEq<HashSet<K, S>>
+    for ArchivedHashSet<AK>
+{
     #[inline]
-    fn eq(&self, other: &HashSet<K>) -> bool {
+    fn eq(&self, other: &HashSet<K, S>) -> bool {
         if self.len() != other.len() {
             false
         } else {
@@ -56,7 +64,9 @@ impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq> PartialEq<HashSet<K>> for Archive
     }
 }
 
-impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq> PartialEq<ArchivedHashSet<AK>> for HashSet<K> {
+impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher> PartialEq<ArchivedHashSet<AK>>
+    for HashSet<K, S>
+{
     #[inline]
     fn eq(&self, other: &ArchivedHashSet<AK>) -> bool {
         other.eq(self)
