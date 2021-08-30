@@ -6,7 +6,7 @@ mod tests {
         ser::{serializers::WriteSerializer, Serializer},
         AlignedBytes, Archive, Deserialize, Serialize,
     };
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
 
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
@@ -103,6 +103,79 @@ mod tests {
         for (key, value) in archived_value.iter() {
             assert!(hash_map.contains_key(key.as_str()));
             assert_eq!(&hash_map[key.as_str()], value);
+        }
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_hash_set() {
+        #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
+        {
+            test_archive(&HashSet::<i32>::new());
+
+            let mut hash_set = HashSet::new();
+            hash_set.insert(1);
+            hash_set.insert(3);
+            hash_set.insert(5);
+            hash_set.insert(7);
+
+            test_archive(&hash_set);
+        }
+
+        let mut hash_set = HashSet::new();
+        hash_set.insert("hello".to_string());
+        hash_set.insert("foo".to_string());
+        hash_set.insert("baz".to_string());
+
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&hash_set).unwrap();
+        let buf = serializer.into_serializer().into_inner();
+        let archived_value = unsafe { archived_root::<HashSet<String>>(buf.as_ref()) };
+
+        assert_eq!(archived_value.len(), hash_set.len());
+
+        for key in hash_set.iter() {
+            assert!(archived_value.contains(key.as_str()));
+        }
+
+        for key in archived_value.iter() {
+            assert!(hash_set.contains(key.as_str()));
+        }
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    #[allow(deprecated)]
+    fn archive_hash_set_hasher() {
+        test_archive(&HashSet::<i8, ahash::RandomState>::default());
+
+        let mut hash_set: HashSet<i8, ahash::RandomState> = HashSet::default();
+        hash_set.insert(1);
+        hash_set.insert(3);
+        hash_set.insert(5);
+        hash_set.insert(7);
+
+        test_archive(&hash_set);
+
+        let mut hash_set: HashSet<_, ahash::RandomState> = HashSet::default();
+        hash_set.insert("hello".to_string());
+        hash_set.insert("foo".to_string());
+        hash_set.insert("baz".to_string());
+
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&hash_set).unwrap();
+        let buf = serializer.into_serializer().into_inner();
+        let archived_value =
+            unsafe { archived_root::<HashSet<String, ahash::RandomState>>(buf.as_ref()) };
+
+        assert_eq!(archived_value.len(), hash_set.len());
+
+        for key in hash_set.iter() {
+            assert!(archived_value.contains(key.as_str()));
+        }
+
+        for key in archived_value.iter() {
+            assert!(hash_set.contains(key.as_str()));
         }
     }
 
