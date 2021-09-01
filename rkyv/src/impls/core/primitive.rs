@@ -48,9 +48,9 @@ macro_rules! impl_primitive {
             #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
             type Archived = $type;
             #[cfg(feature = "archive_le")]
-            type Archived = rend::LittleEndian<$type>;
+            type Archived = ::rend::LittleEndian<$type>;
             #[cfg(feature = "archive_be")]
-            type Archived = rend::BigEndian<$type>;
+            type Archived = ::rend::BigEndian<$type>;
 
             impl Archive for $type {
                 type Archived = Archived;
@@ -108,9 +108,9 @@ macro_rules! impl_atomic {
             #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
             type Archived = $prim;
             #[cfg(feature = "archive_le")]
-            type Archived = rend::LittleEndian<$prim>;
+            type Archived = ::rend::LittleEndian<$prim>;
             #[cfg(feature = "archive_be")]
-            type Archived = rend::BigEndian<$prim>;
+            type Archived = ::rend::BigEndian<$prim>;
 
             type Resolver = ();
 
@@ -179,6 +179,84 @@ impl_atomic!(@multibyte AtomicU16, u16);
 impl_atomic!(@multibyte AtomicU32, u32);
 #[cfg(has_atomics_64)]
 impl_atomic!(@multibyte AtomicU64, u64);
+
+#[cfg(feature = "rend")]
+pub mod rend {
+    use super::*;
+    use ::rend::*;
+
+    impl_primitive!(i16_be);
+    impl_primitive!(i32_be);
+    impl_primitive!(i64_be);
+    impl_primitive!(i128_be);
+    impl_primitive!(u16_be);
+    impl_primitive!(u32_be);
+    impl_primitive!(u64_be);
+    impl_primitive!(u128_be);
+
+    impl_primitive!(f32_be);
+    impl_primitive!(f64_be);
+
+    impl_primitive!(char_be);
+
+    impl_primitive!(NonZeroI16_be);
+    impl_primitive!(NonZeroI32_be);
+    impl_primitive!(NonZeroI64_be);
+    impl_primitive!(NonZeroI128_be);
+    impl_primitive!(NonZeroU16_be);
+    impl_primitive!(NonZeroU32_be);
+    impl_primitive!(NonZeroU64_be);
+    impl_primitive!(NonZeroU128_be);
+
+    #[cfg(has_atomics)]
+    impl_atomic!(AtomicI16_be, i16);
+    #[cfg(has_atomics)]
+    impl_atomic!(AtomicI32_be, i32);
+    #[cfg(has_atomics_64)]
+    impl_atomic!(AtomicI64_be, i64);
+    #[cfg(has_atomics)]
+    impl_atomic!(AtomicU16_be, u16);
+    #[cfg(has_atomics)]
+    impl_atomic!(AtomicU32_be, u32);
+    #[cfg(has_atomics_64)]
+    impl_atomic!(AtomicU64_be, u64);
+
+    impl_primitive!(i16_le);
+    impl_primitive!(i32_le);
+    impl_primitive!(i64_le);
+    impl_primitive!(i128_le);
+    impl_primitive!(u16_le);
+    impl_primitive!(u32_le);
+    impl_primitive!(u64_le);
+    impl_primitive!(u128_le);
+
+    impl_primitive!(f32_le);
+    impl_primitive!(f64_le);
+
+    impl_primitive!(char_le);
+
+    impl_primitive!(NonZeroI16_le);
+    impl_primitive!(NonZeroI32_le);
+    impl_primitive!(NonZeroI64_le);
+    impl_primitive!(NonZeroI128_le);
+    impl_primitive!(NonZeroU16_le);
+    impl_primitive!(NonZeroU32_le);
+    impl_primitive!(NonZeroU64_le);
+    impl_primitive!(NonZeroU128_le);
+
+    #[cfg(has_atomics)]
+    impl_atomic!(AtomicI16_le, i16);
+    #[cfg(has_atomics)]
+    impl_atomic!(AtomicI32_le, i32);
+    #[cfg(has_atomics_64)]
+    impl_atomic!(AtomicI64_le, i64);
+    #[cfg(has_atomics)]
+    impl_atomic!(AtomicU16_le, u16);
+    #[cfg(has_atomics)]
+    impl_atomic!(AtomicU32_le, u32);
+    #[cfg(has_atomics_64)]
+    impl_atomic!(AtomicU64_le, u64);
+}
 
 // PhantomData
 
