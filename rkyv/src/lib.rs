@@ -159,6 +159,9 @@ pub mod validation;
 pub mod vec;
 pub mod with;
 
+#[cfg(feature = "rend")]
+pub use rend;
+
 use core::alloc::Layout;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
