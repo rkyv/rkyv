@@ -688,9 +688,6 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: Archive
     fn deserialize_metadata(&self, deserializer: &mut D) -> Result<T::Metadata, D::Error>;
 }
 
-#[cfg(not(any(feature = "size_16", feature = "size_32", feature = "size_64")))]
-core::compile_error!("\"size_16\", \"size_32\", or \"size_64\" feature must be eanbled for rkyv.");
-
 /// The native type that `usize` is converted to for archiving.
 ///
 /// This will be `u16`, `u32`, or `u64` when the `size_16`, `size_32`, or `size_64` features are

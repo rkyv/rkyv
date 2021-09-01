@@ -97,6 +97,25 @@ macro_rules! to_archived {
     }};
 }
 
+#[cfg(not(any(feature = "size_16", feature = "size_32", feature = "size_64")))]
+core::compile_error!(r#"one of ["size_16", "size_32", or "size_64"] features must be enabled"#);
+
+#[cfg(all(feature = "size_16", feature = "size_32"))]
+core::compile_error!("\
+    \"size_16\" and \"size_32\" are mutually-exclusive features. You may need to set \
+    `default-features = false` or compile with `--no-default-features`.\
+");
+#[cfg(all(feature = "size_16", feature = "size_64"))]
+core::compile_error!("\
+    \"size_16\" and \"size_64\" are mutually-exclusive features. You may need to set \
+    `default-features = false` or compile with `--no-default-features`.\
+");
+#[cfg(all(feature = "size_32", feature = "size_64"))]
+core::compile_error!("\
+    \"size_32\" and \"size_64\" are mutually-exclusive features. You may need to set \
+    `default-features = false` or compile with `--no-default-features`.\
+");
+
 #[cfg(feature = "size_16")]
 macro_rules! pick_size_type {
     ($s16:ty, $s32:ty, $s64:ty) => {
