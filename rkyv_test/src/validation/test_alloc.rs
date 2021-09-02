@@ -445,4 +445,30 @@ mod tests {
 
         check_archived_root::<BTreeMap<String, i32>>(buf.as_ref()).unwrap();
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_atomics_endianness() {
+        use core::sync::atomic::AtomicU32;
+
+        let value = AtomicU32::new(0x12345678);
+
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let buf = serializer.into_serializer().into_inner();
+
+        #[cfg(any(
+            all(target_endian = "little", not(feature = "archive_be")),
+            feature = "archive_le"
+        ))]
+        const ARCHIVED_BYTES: [u8; 4] = [0x78, 0x56, 0x34, 0x12];
+
+        #[cfg(any(
+            all(target_endian = "big", not(feature = "archive_le")),
+            feature = "archive_be"
+        ))]
+        const ARCHIVED_BYTES: [u8; 4] = [0x12, 0x34, 0x56, 0x78];
+
+        assert_eq!(buf.as_ref(), &ARCHIVED_BYTES);
+    }
 }

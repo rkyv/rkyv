@@ -69,7 +69,7 @@ macro_rules! from_archived {
 }
 
 #[cfg(any(feature = "archive_le", feature = "archive_be"))]
-pub use rend::NativeEndian;
+pub use crate::rend::NativeEndian;
 
 /// Returns the archived value of the given archived primitive.
 ///
@@ -101,20 +101,20 @@ macro_rules! to_archived {
 core::compile_error!(r#"one of ["size_16", "size_32", or "size_64"] features must be enabled"#);
 
 #[cfg(all(feature = "size_16", feature = "size_32"))]
-core::compile_error!("\
-    \"size_16\" and \"size_32\" are mutually-exclusive features. You may need to set \
-    `default-features = false` or compile with `--no-default-features`.\
-");
+core::compile_error!(
+    "\"size_16\" and \"size_32\" are mutually-exclusive features. You may need to set \
+    `default-features = false` or compile with `--no-default-features`."
+);
 #[cfg(all(feature = "size_16", feature = "size_64"))]
-core::compile_error!("\
-    \"size_16\" and \"size_64\" are mutually-exclusive features. You may need to set \
-    `default-features = false` or compile with `--no-default-features`.\
-");
+core::compile_error!(
+    "\"size_16\" and \"size_64\" are mutually-exclusive features. You may need to set \
+    `default-features = false` or compile with `--no-default-features`."
+);
 #[cfg(all(feature = "size_32", feature = "size_64"))]
-core::compile_error!("\
-    \"size_32\" and \"size_64\" are mutually-exclusive features. You may need to set \
-    `default-features = false` or compile with `--no-default-features`.\
-");
+core::compile_error!(
+    "\"size_32\" and \"size_64\" are mutually-exclusive features. You may need to set \
+    `default-features = false` or compile with `--no-default-features`."
+);
 
 #[cfg(feature = "size_16")]
 macro_rules! pick_size_type {

@@ -106,14 +106,15 @@
 //! - Fully worked examples using rkyv are available in the
 //!   [`examples` directory](https://github.com/rkyv/rkyv/tree/master/examples) of the source repo.
 
-#![deny(broken_intra_doc_links)]
-#![deny(missing_docs)]
-#![deny(missing_crate_level_docs)]
+#![deny(broken_intra_doc_links, missing_docs, missing_crate_level_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "copy", feature(auto_traits))]
-#![cfg_attr(feature = "copy", feature(min_specialization))]
-#![cfg_attr(feature = "copy", feature(negative_impls))]
-#![cfg_attr(feature = "copy", feature(rustc_attrs))]
+#![cfg_attr(
+    feature = "copy",
+    feature(auto_traits),
+    feature(min_specialization),
+    feature(negative_impls),
+    feature(rustc_attrs)
+)]
 #![doc(html_favicon_url = r#"
     data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'
     viewBox='0 0 26.458 26.458'%3E%3Cpath d='M0 0v26.458h26.458V0zm9.175 3.772l8.107 8.106
