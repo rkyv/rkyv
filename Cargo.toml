@@ -1,14 +1,9 @@
 [workspace]
-members = [
-    "examples/json",
-    "examples/opcode",
+members = ["examples/json", "examples/opcode", "rkyv*"]
+default-members = [
     "rkyv",
-    "rkyv_bench",
-    "rkyv_derive",
     "rkyv_dyn",
-    "rkyv_dyn_derive",
     "rkyv_dyn_test",
     "rkyv_test",
     "rkyv_typename",
-    "rkyv_typename_derive",
 ]
