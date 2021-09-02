@@ -51,64 +51,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "rend")]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn archive_rend() {
-        use rkyv::rend::*;
-
-        test_archive(&f32_be::new(1234567f32));
-        test_archive(&f64_be::new(12345678901234f64));
-        test_archive(&i16_be::new(12345i16));
-        test_archive(&i32_be::new(1234567890i32));
-        test_archive(&i64_be::new(1234567890123456789i64));
-        test_archive(&i128_be::new(123456789012345678901234567890123456789i128));
-        test_archive(&u16_be::new(12345u16));
-        test_archive(&u32_be::new(1234567890u32));
-        test_archive(&u64_be::new(12345678901234567890u64));
-        test_archive(&u128_be::new(123456789012345678901234567890123456789u128));
-
-        test_archive(&f32_le::new(1234567f32));
-        test_archive(&f64_le::new(12345678901234f64));
-        test_archive(&i16_le::new(12345i16));
-        test_archive(&i32_le::new(1234567890i32));
-        test_archive(&i64_le::new(1234567890123456789i64));
-        test_archive(&i128_le::new(123456789012345678901234567890123456789i128));
-        test_archive(&u16_le::new(12345u16));
-        test_archive(&u32_le::new(1234567890u32));
-        test_archive(&u64_le::new(12345678901234567890u64));
-        test_archive(&u128_le::new(123456789012345678901234567890123456789u128));
-    }
-
-    #[test]
-    #[cfg(feature = "rend")]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn archive_rend_endianness() {
-        // Check representations to make sure endianness is preserved
-        use rkyv::{
-            rend::{BigEndian, LittleEndian},
-            ser::Serializer,
-        };
-
-        // Big endian
-        let value = BigEndian::<i32>::new(0x12345678);
-
-        let mut serializer = DefaultSerializer::default();
-        serializer.serialize_value(&value).unwrap();
-        let buf = serializer.into_serializer().into_inner();
-
-        assert_eq!(&buf[0..4], &[0x12, 0x34, 0x56, 0x78]);
-
-        // Little endian
-        let value = LittleEndian::<i32>::new(0x12345678i32);
-
-        let mut serializer = DefaultSerializer::default();
-        serializer.serialize_value(&value).unwrap();
-        let buf = serializer.into_serializer().into_inner();
-
-        assert_eq!(&buf[0..4], &[0x78, 0x56, 0x34, 0x12]);
-    }
-
-    #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_refs() {
         #[cfg(not(feature = "strict"))]
@@ -155,53 +97,6 @@ mod tests {
             test_archive(&NonZeroU128::new_unchecked(
                 123456789012345678901234567890123456789,
             ));
-        }
-    }
-
-    #[test]
-    #[cfg(feature = "rend")]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn archive_rend_nonzero() {
-        use core::num::{
-            NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroU128, NonZeroU16, NonZeroU32,
-            NonZeroU64,
-        };
-        use rkyv::rend::*;
-
-        unsafe {
-            test_archive(&NonZeroI16_be::new(NonZeroI16::new_unchecked(12345)));
-            test_archive(&NonZeroI32_be::new(NonZeroI32::new_unchecked(1234567890)));
-            test_archive(&NonZeroI64_be::new(NonZeroI64::new_unchecked(
-                1234567890123456789,
-            )));
-            test_archive(&NonZeroI128_be::new(NonZeroI128::new_unchecked(
-                123456789012345678901234567890123456789,
-            )));
-            test_archive(&NonZeroU16_be::new(NonZeroU16::new_unchecked(12345)));
-            test_archive(&NonZeroU32_be::new(NonZeroU32::new_unchecked(1234567890)));
-            test_archive(&NonZeroU64_be::new(NonZeroU64::new_unchecked(
-                1234567890123456789,
-            )));
-            test_archive(&NonZeroU128_be::new(NonZeroU128::new_unchecked(
-                123456789012345678901234567890123456789,
-            )));
-
-            test_archive(&NonZeroI16_le::new(NonZeroI16::new_unchecked(12345)));
-            test_archive(&NonZeroI32_le::new(NonZeroI32::new_unchecked(1234567890)));
-            test_archive(&NonZeroI64_le::new(NonZeroI64::new_unchecked(
-                1234567890123456789,
-            )));
-            test_archive(&NonZeroI128_le::new(NonZeroI128::new_unchecked(
-                123456789012345678901234567890123456789,
-            )));
-            test_archive(&NonZeroU16_le::new(NonZeroU16::new_unchecked(12345)));
-            test_archive(&NonZeroU32_le::new(NonZeroU32::new_unchecked(1234567890)));
-            test_archive(&NonZeroU64_le::new(NonZeroU64::new_unchecked(
-                1234567890123456789,
-            )));
-            test_archive(&NonZeroU128_le::new(NonZeroU128::new_unchecked(
-                123456789012345678901234567890123456789,
-            )));
         }
     }
 
