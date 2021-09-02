@@ -12,12 +12,12 @@ bytecheck = "0.6.0"
 criterion = "0.3"
 rand = "0.8"
 rand_pcg = "0.3"
-rkyv = { version = "0.7.0", path = "../rkyv", features = ["validation"] }
+rkyv = { version = "0.7.0", path = "../rkyv", default-features = false, features = ["validation"] }
 rkyv_derive = { version = "0.7.0", path = "../rkyv_derive" }
 serde = { version = "1.0", features = ["derive"] }
 
 [features]
-default = []
+default = ["rkyv/size_32", "rkyv/std"]
 archive_le = ["rkyv/archive_le"]
 archive_be = ["rkyv/archive_be"]
 

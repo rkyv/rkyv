@@ -18,12 +18,12 @@ bytecheck = { version = "0.6", optional = true }
 inventory = "0.1"
 lazy_static = "1.4"
 ptr_meta = "~0.1.3"
-rkyv = { version = "0.7", path = "../rkyv" }
+rkyv = { version = "0.7", path = "../rkyv", default-features = false }
 rkyv_dyn_derive = { version = "=0.7.5", path = "../rkyv_dyn_derive" }
 rkyv_typename = { version = "0.7", path = "../rkyv_typename" }
 
 [features]
-default = []
+default = ["rkyv/size_32", "rkyv/std"]
 archive_le = ["rkyv/archive_le"]
 archive_be = ["rkyv/archive_be"]
 nightly = []
