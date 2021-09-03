@@ -88,3 +88,72 @@
   - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_le std validation"`
   - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_be std validation"`
   - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_be std validation"`
+
+# Copy-paste version
+
+```sh
+cargo test --no-default-features --features "size_32" >> results.txt
+cargo test --no-default-features --features "size_32 alloc" >> results.txt
+cargo test --no-default-features --features "size_32 validation" >> results.txt
+cargo test --no-default-features --features "size_32 std" >> results.txt
+cargo test --no-default-features --features "size_32 std validation" >> results.txt
+cargo test --no-default-features --features "size_32 std validation strict" >> results.txt
+cargo test --no-default-features --features "size_16 archive_le std validation" >> results.txt
+cargo test --no-default-features --features "size_32 archive_le std validation" >> results.txt
+cargo test --no-default-features --features "size_64 archive_le std validation" >> results.txt
+cargo test --no-default-features --features "size_16 archive_be std validation" >> results.txt
+cargo test --no-default-features --features "size_32 archive_be std validation" >> results.txt
+cargo test --no-default-features --features "size_64 archive_be std validation" >> results.txt
+cargo +nightly test --no-default-features --features "size_32 copy" >> results.txt
+cargo +nightly test --no-default-features --features "size_32 copy alloc" >> results.txt
+cargo +nightly test --no-default-features --features "size_32 copy alloc validation" >> results.txt
+cargo +nightly test --no-default-features --features "size_32 copy std" >> results.txt
+cargo +nightly test --no-default-features --features "size_32 copy std validation" >> results.txt
+cargo +nightly test --no-default-features --features "size_32 copy std validation strict" >> results.txt
+cargo test --release --no-default-features --features "size_32" >> results.txt
+cargo test --release --no-default-features --features "size_32 alloc" >> results.txt
+cargo test --release --no-default-features --features "size_32 validation" >> results.txt
+cargo test --release --no-default-features --features "size_32 std" >> results.txt
+cargo test --release --no-default-features --features "size_32 std validation" >> results.txt
+cargo test --release --no-default-features --features "size_32 std validation strict" >> results.txt
+cargo test --release --no-default-features --features "size_16 archive_le std validation" >> results.txt
+cargo test --release --no-default-features --features "size_32 archive_le std validation" >> results.txt
+cargo test --release --no-default-features --features "size_64 archive_le std validation" >> results.txt
+cargo test --release --no-default-features --features "size_16 archive_be std validation" >> results.txt
+cargo test --release --no-default-features --features "size_32 archive_be std validation" >> results.txt
+cargo test --release --no-default-features --features "size_64 archive_be std validation" >> results.txt
+cargo +nightly test --release --no-default-features --features "size_32 copy" >> results.txt
+cargo +nightly test --release --no-default-features --features "size_32 copy alloc" >> results.txt
+cargo +nightly test --release --no-default-features --features "size_32 copy alloc validation" >> results.txt
+cargo +nightly test --release --no-default-features --features "size_32 copy std" >> results.txt
+cargo +nightly test --release --no-default-features --features "size_32 copy std validation" >> results.txt
+cargo +nightly test --release --no-default-features --features "size_32 copy std validation strict" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 alloc" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 validation" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 std" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 std validation" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 std validation strict" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_16 archive_le std validation" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 archive_le std validation" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_64 archive_le std validation" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_16 archive_be std validation" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 archive_be std validation" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_64 archive_be std validation" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 copy" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 copy alloc" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 copy alloc validation" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 copy std" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 copy std validation" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 copy std validation strict" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_32" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_32 alloc" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_32 validation" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_32 std" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_32 std validation" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_32 std validation strict" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_le std validation" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_le std validation" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_be std validation" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_be std validation" >> results.txt
+```
