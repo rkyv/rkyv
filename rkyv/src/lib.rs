@@ -88,6 +88,8 @@
 //! Crates supported by rkyv:
 //!
 //! - [`indexmap`](https://docs.rs/indexmap)
+//! - [`rend`](https://docs.rs/rend) *Enabled automatically when using endian-specific archive
+//!   features.*
 //! - [`tinyvec`](https://docs.rs/tinyvec)
 //! - [`uuid`](https://docs.rs/uuid)
 //!
