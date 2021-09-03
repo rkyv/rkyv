@@ -14,6 +14,11 @@ macro_rules! impl_rend_primitive {
             }
         }
 
+        // Safety: rend primitives always have the same representation archived and unarchived and
+        // contain no padding
+        #[cfg(feature = "copy")]
+        unsafe impl crate::copy::ArchiveCopySafe for $type {}
+
         impl<S: Fallible + ?Sized> Serialize<S> for $type {
             #[inline]
             fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {

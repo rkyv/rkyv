@@ -106,7 +106,7 @@ unsafe impl ArchiveCopySafe for u8 {}
 unsafe impl ArchiveCopySafe for NonZeroI8 {}
 unsafe impl ArchiveCopySafe for NonZeroU8 {}
 
-// Multibytes integers are ArchiveCopySafe if the target matches the archived endianness
+// Multibyte integers are ArchiveCopySafe if the target matches the archived endianness
 #[cfg(not(any(
     all(target_endian = "little", feature = "archive_be"),
     all(target_endian = "big", feature = "archive_le"),
