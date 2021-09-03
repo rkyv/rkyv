@@ -3,7 +3,7 @@
 use crate::{ArchivedDynMetadata, RegisteredImpl, IMPL_REGISTRY};
 use bytecheck::CheckBytes;
 #[cfg(feature = "vtable_cache")]
-use core::sync::atomic::{AtomicU64, Ordering};
+use core::sync::atomic::Ordering;
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -401,8 +401,8 @@ impl<T: TypeName + ?Sized, C: ?Sized> CheckBytes<C> for ArchivedDynMetadata<T> {
         if let Some(impl_data) = IMPL_REGISTRY.get::<T>(type_id) {
             let cached_vtable_ptr = ptr::addr_of!((*value).cached_vtable);
             #[cfg(feature = "vtable_cache")]
-            let cached_vtable = Archived::<AtomicU64>::check_bytes(cached_vtable_ptr, context)?
-                .load(Ordering::Relaxed);
+            let cached_vtable =
+                CheckBytes::check_bytes(cached_vtable_ptr, context)?.load(Ordering::Relaxed);
             #[cfg(not(feature = "vtable_cache"))]
             let cached_vtable =
                 from_archived!(*Archived::<u64>::check_bytes(cached_vtable_ptr, context)?);

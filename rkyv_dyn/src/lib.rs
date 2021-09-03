@@ -23,7 +23,7 @@
 pub mod validation;
 
 #[cfg(feature = "vtable_cache")]
-use core::sync::atomic::AtomicU64;
+use core::sync::atomic::{AtomicU64, Ordering};
 use core::{
     alloc::Layout,
     any::Any,
@@ -32,6 +32,8 @@ use core::{
     ptr,
 };
 use ptr_meta::{DynMetadata, Pointee};
+#[cfg(feature = "vtable_cache")]
+use rkyv::with::{Atomic, With};
 use rkyv::{
     from_archived,
     ser::{ScratchSpace, Serializer},
@@ -311,7 +313,7 @@ pub trait DeserializeDyn<T: Pointee + ?Sized> {
 pub struct ArchivedDynMetadata<T: ?Sized> {
     type_id: Archived<u64>,
     #[cfg(feature = "vtable_cache")]
-    cached_vtable: Archived<AtomicU64>,
+    cached_vtable: Archived<With<AtomicU64, Atomic>>,
     #[cfg(not(feature = "vtable_cache"))]
     #[allow(dead_code)]
     cached_vtable: Archived<u64>,
@@ -327,9 +329,12 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     pub unsafe fn emplace(type_id: u64, out: *mut Self) {
         ptr::addr_of_mut!((*out).type_id).write(to_archived!(type_id));
         #[cfg(feature = "vtable_cache")]
-        ptr::addr_of_mut!((*out).cached_vtable).write(Archived::<AtomicU64>::from(0u64));
+        {
+            let cached_vtable = ptr::addr_of_mut!((*out).cached_vtable);
+            (*cached_vtable).store(0u64, Ordering::Relaxed);
+        }
         #[cfg(not(feature = "vtable_cache"))]
-        ptr::addr_of_mut!((*out).cached_vtable).write(Archived::<u64>::from(0u64));
+        ptr::addr_of_mut!((*out).cached_vtable).write(to_archived!(0u64));
     }
 
     fn lookup_vtable(&self) -> usize {

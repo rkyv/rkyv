@@ -1,6 +1,6 @@
+use crate::{rend::*, Archive, Archived, Deserialize, Fallible, Serialize};
 #[cfg(has_atomics)]
 use core::sync::atomic::Ordering;
-use crate::{Archive, Archived, Deserialize, Fallible, Serialize, rend::*};
 
 macro_rules! impl_rend_primitive {
     ($type:ty) => {
@@ -137,8 +137,11 @@ impl_rend_atomic!(AtomicU64_le, u64_le);
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        archived_root, ser::serializers::CoreSerializer, ser::Serializer, Deserialize, Infallible,
+        Serialize,
+    };
     use core::fmt;
-    use crate::{Deserialize, Infallible, Serialize, ser::Serializer, archived_root, ser::serializers::CoreSerializer};
 
     type DefaultSerializer = CoreSerializer<256, 256>;
 
@@ -219,11 +222,11 @@ mod tests {
 
     #[test]
     fn archive_rend_nonzero() {
+        use crate::rend::*;
         use core::num::{
             NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroU128, NonZeroU16, NonZeroU32,
             NonZeroU64,
         };
-        use crate::rend::*;
 
         unsafe {
             test_archive(&NonZeroI16_be::new(NonZeroI16::new_unchecked(12345)));
