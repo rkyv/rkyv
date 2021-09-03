@@ -1,6 +1,6 @@
 [package]
 name = "rkyv_dyn_derive"
-version = "0.7.5"
+version = "0.7.6"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Macros for rkyv_dyn"
