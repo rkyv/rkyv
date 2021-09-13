@@ -7,6 +7,8 @@
 mod alloc;
 mod atomic;
 mod core;
+#[cfg(feature = "alloc")]
+mod option_box;
 #[cfg(feature = "std")]
 mod std;
 
@@ -455,3 +457,10 @@ pub struct AsOwned;
 /// ```
 #[derive(Debug)]
 pub struct AsVec;
+
+/// A wrapper that niches some type combinations.
+///
+/// A common type combination is `Option<Box<T>>`. By using a null pointer, the archived version can
+/// save some space on-disk.
+#[derive(Debug)]
+pub struct Niche;

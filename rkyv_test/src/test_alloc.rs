@@ -1586,6 +1586,49 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn with_niche() {
+        use rkyv::with::Niche;
+        use ::core::mem::size_of;
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct Test {
+            #[with(Niche)]
+            inner: Option<Box<String>>,
+        }
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct TestNoNiching {
+            inner: Option<Box<String>>,
+        }
+
+        let value = Test {
+            inner: Some(Box::new("hello world".to_string())),
+        };
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+        assert!(archived.inner.is_some());
+        assert_eq!(&**archived.inner.as_ref().unwrap(), "hello world");
+        assert_eq!(archived.inner, value.inner);
+
+        let value = Test {
+            inner: None,
+        };
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+        assert!(archived.inner.is_none());
+        assert_eq!(archived.inner, value.inner);
+
+        assert!(size_of::<Archived<Test>>() < size_of::<Archived<TestNoNiching>>());
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_crate_path() {
         use ::rkyv as alt_path;
 

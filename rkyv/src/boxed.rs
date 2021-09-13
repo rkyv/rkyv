@@ -54,6 +54,22 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
             metadata_resolver: value.serialize_metadata(serializer)?,
         })
     }
+
+    #[inline]
+    pub(crate) fn is_null(&self) -> bool {
+        self.0.is_null()
+    }
+}
+
+impl<T: ArchivePointee + ?Sized> ArchivedBox<T>
+where
+    T::ArchivedMetadata: Default,
+{
+    #[inline]
+    pub(crate) unsafe fn emplace_null(pos: usize, out: *mut Self) {
+        let (fp, fo) = out_field!(out.0);
+        RelPtr::emplace_null(pos + fp, fo);
+    }
 }
 
 impl<T: ArchivePointee + ?Sized> AsRef<T> for ArchivedBox<T> {
@@ -102,6 +118,13 @@ impl<T: ArchivePointee + hash::Hash + ?Sized> hash::Hash for ArchivedBox<T> {
     #[inline]
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.get().hash(state);
+    }
+}
+
+impl<T: ArchivePointee + Ord + ?Sized> Ord for ArchivedBox<T> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.as_ref().cmp(other.as_ref())
     }
 }
 

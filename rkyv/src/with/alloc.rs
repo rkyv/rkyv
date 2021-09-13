@@ -3,8 +3,17 @@ use crate::{
     ser::{ScratchSpace, Serializer},
     string::{ArchivedString, StringResolver},
     vec::{ArchivedVec, VecResolver},
-    with::{ArchiveWith, AsOwned, AsVec, DeserializeWith, SerializeWith},
-    Archive, Deserialize, Fallible, Serialize,
+    with::{
+        ArchiveWith,
+        AsOwned,
+        AsVec,
+        DeserializeWith,
+        Niche,
+        SerializeWith,
+        option_box::{ArchivedOptionBox, OptionBoxResolver},
+    },
+    Archive, ArchivedMetadata, ArchiveUnsized, Deserialize, DeserializeUnsized, Fallible, Serialize,
+    SerializeUnsized,
 };
 #[cfg(not(feature = "std"))]
 use alloc::{
@@ -265,5 +274,51 @@ where
             result.insert(key.deserialize(deserializer)?);
         }
         Ok(result)
+    }
+}
+
+// Niche
+
+impl<T: ArchiveUnsized + ?Sized> ArchiveWith<Option<Box<T>>> for Niche
+where
+    ArchivedMetadata<T>: Default,
+{
+    type Archived = ArchivedOptionBox<T::Archived>;
+    type Resolver = OptionBoxResolver<T::MetadataResolver>;
+
+    unsafe fn resolve_with(
+        field: &Option<Box<T>>,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        ArchivedOptionBox::resolve_from_option(field.as_deref(), pos, resolver, out);
+    }
+}
+
+impl<T: SerializeUnsized<S> + ?Sized, S: Serializer + ?Sized> SerializeWith<Option<Box<T>>, S> for Niche
+where
+    ArchivedMetadata<T>: Default,
+{
+    fn serialize_with(field: &Option<Box<T>>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        ArchivedOptionBox::serialize_from_option(field.as_deref(), serializer)
+    }
+}
+
+impl<T, D> DeserializeWith<ArchivedOptionBox<T::Archived>, Option<Box<T>>, D> for Niche
+where
+    T: ArchiveUnsized + ?Sized,
+    T::Archived: DeserializeUnsized<T, D>,
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(
+        field: &ArchivedOptionBox<T::Archived>,
+        deserializer: &mut D,
+    ) -> Result<Option<Box<T>>, D::Error> {
+        if let Some(value) = field.as_ref() {
+            Ok(Some(value.deserialize(deserializer)?))
+        } else {
+            Ok(None)
+        }
     }
 }

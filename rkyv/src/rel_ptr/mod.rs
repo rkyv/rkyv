@@ -301,6 +301,35 @@ impl<T, O: Offset> RelPtr<T, O> {
     }
 }
 
+impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O>
+where
+    T::ArchivedMetadata: Default,
+{
+    /// Attempts to create a null relative pointer with default metadata.
+    ///
+    /// # Safety
+    ///
+    /// `pos` must be the position of `out` within the archive.
+    #[inline]
+    pub unsafe fn try_emplace_null(pos: usize, out: *mut Self) -> Result<(), OffsetError> {
+        let (fp, fo) = out_field!(out.raw_ptr);
+        RawRelPtr::try_emplace(pos + fp, pos, fo)?;
+        let (_, fo) = out_field!(out.metadata);
+        fo.write(Default::default());
+        Ok(())
+    }
+
+    /// Creates a null relative pointer with default metadata.
+    ///
+    /// # Panics
+    ///
+    /// `pos` must be the position of `out` within the archive.
+    #[inline]
+    pub unsafe fn emplace_null(pos: usize, out: *mut Self) {
+        Self::try_emplace_null(pos, out).unwrap()
+    }
+}
+
 impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// Attempts to create a relative pointer from one position to another.
     ///

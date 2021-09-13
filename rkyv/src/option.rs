@@ -123,7 +123,7 @@ impl<T: Deref> ArchivedOption<T> {
 }
 
 impl<T: DerefMut> ArchivedOption<T> {
-    /// Converts from `&ArchivedOption<T>` to `Option<&T::Target>`.
+    /// Converts from `&mut ArchivedOption<T>` to `Option<&mut T::Target>`.
     ///
     /// Leaves the original `ArchivedOption` in-place, creating a new one with a reference to the
     /// original one, additionally coercing the contents via `Deref`.
@@ -191,7 +191,7 @@ impl<T: PartialEq<U>, U> PartialEq<ArchivedOption<T>> for Option<U> {
 ///
 /// This `struct` is created by the [`ArchivedOption::iter`] function.
 pub struct Iter<'a, T> {
-    inner: Option<&'a T>,
+    pub(crate) inner: Option<&'a T>,
 }
 
 impl<'a, T> Iterator for Iter<'a, T> {
@@ -216,7 +216,7 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
 ///
 /// This `struct` is created by the [`ArchivedOption::iter_mut`] function.
 pub struct IterMut<'a, T> {
-    inner: Option<&'a mut T>,
+    pub(crate) inner: Option<&'a mut T>,
 }
 
 impl<'a, T> Iterator for IterMut<'a, T> {

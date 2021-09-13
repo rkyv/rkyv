@@ -1,5 +1,5 @@
 use crate::{option::ArchivedOption, Archive, Deserialize, Fallible, Serialize};
-use core::ptr;
+use core::{hint::unreachable_unchecked, ptr};
 
 #[allow(dead_code)]
 #[repr(u8)]
@@ -29,8 +29,14 @@ impl<T: Archive> Archive for Option<T> {
                 let out = out.cast::<ArchivedOptionVariantSome<T::Archived>>();
                 ptr::addr_of_mut!((*out).0).write(ArchivedOptionTag::Some);
 
+                let value = if let Some(value) = self.as_ref() {
+                    value
+                } else {
+                    unreachable_unchecked();
+                };
+
                 let (fp, fo) = out_field!(out.1);
-                self.as_ref().unwrap().resolve(pos + fp, resolver, fo);
+                value.resolve(pos + fp, resolver, fo);
             }
         }
     }
