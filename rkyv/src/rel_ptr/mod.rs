@@ -323,6 +323,11 @@ where
     ///
     /// # Panics
     ///
+    /// - An offset of `0` does not fit in an `isize`
+    /// - An offset of `0` exceeds the offset storage
+    ///
+    /// # Safety
+    ///
     /// `pos` must be the position of `out` within the archive.
     #[inline]
     pub unsafe fn emplace_null(pos: usize, out: *mut Self) {

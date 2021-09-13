@@ -4,16 +4,11 @@ use crate::{
     string::{ArchivedString, StringResolver},
     vec::{ArchivedVec, VecResolver},
     with::{
-        ArchiveWith,
-        AsOwned,
-        AsVec,
-        DeserializeWith,
-        Niche,
-        SerializeWith,
         option_box::{ArchivedOptionBox, OptionBoxResolver},
+        ArchiveWith, AsOwned, AsVec, DeserializeWith, Niche, SerializeWith,
     },
-    Archive, ArchivedMetadata, ArchiveUnsized, Deserialize, DeserializeUnsized, Fallible, Serialize,
-    SerializeUnsized,
+    Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized, Fallible,
+    Serialize, SerializeUnsized,
 };
 #[cfg(not(feature = "std"))]
 use alloc::{
@@ -296,11 +291,16 @@ where
     }
 }
 
-impl<T: SerializeUnsized<S> + ?Sized, S: Serializer + ?Sized> SerializeWith<Option<Box<T>>, S> for Niche
+impl<T, S> SerializeWith<Option<Box<T>>, S> for Niche
 where
+    T: SerializeUnsized<S> + ?Sized,
+    S: Serializer + ?Sized,
     ArchivedMetadata<T>: Default,
 {
-    fn serialize_with(field: &Option<Box<T>>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize_with(
+        field: &Option<Box<T>>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedOptionBox::serialize_from_option(field.as_deref(), serializer)
     }
 }

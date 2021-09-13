@@ -1587,8 +1587,8 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_niche() {
-        use rkyv::with::Niche;
         use ::core::mem::size_of;
+        use rkyv::with::Niche;
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
@@ -1613,9 +1613,7 @@ mod tests {
         assert_eq!(&**archived.inner.as_ref().unwrap(), "hello world");
         assert_eq!(archived.inner, value.inner);
 
-        let value = Test {
-            inner: None,
-        };
+        let value = Test { inner: None };
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&value).unwrap();
         let result = serializer.into_serializer().into_inner();

@@ -4,11 +4,14 @@ use crate::{
     boxed::{ArchivedBox, BoxResolver},
     option::{Iter, IterMut},
     ser::Serializer,
-    ArchivePointee,
-    ArchiveUnsized,
-    SerializeUnsized,
+    ArchivePointee, ArchiveUnsized, SerializeUnsized,
 };
-use core::{cmp::{self, Eq, Ord, PartialEq, PartialOrd}, fmt, hash, ops::Deref, pin::Pin};
+use core::{
+    cmp::{self, Eq, Ord, PartialEq, PartialOrd},
+    fmt, hash,
+    ops::Deref,
+    pin::Pin,
+};
 use std::hint::unreachable_unchecked;
 
 /// A niched archived `Option<Box<T>>`.
@@ -122,12 +125,18 @@ where
 
     /// Serializes an `ArchivedOptionBox<T::Archived>` from an `Option<&T>`.
     #[inline]
-    pub fn serialize_from_option<U: SerializeUnsized<S, Archived = T> + ?Sized, S: Serializer + ?Sized>(
+    pub fn serialize_from_option<U, S>(
         field: Option<&U>,
         serializer: &mut S,
-    ) -> Result<OptionBoxResolver<U::MetadataResolver>, S::Error> {
+    ) -> Result<OptionBoxResolver<U::MetadataResolver>, S::Error>
+    where
+        U: SerializeUnsized<S, Archived = T> + ?Sized,
+        S: Serializer + ?Sized,
+    {
         if let Some(value) = field {
-            Ok(OptionBoxResolver::Some(ArchivedBox::serialize_from_ref(value, serializer)?))
+            Ok(OptionBoxResolver::Some(ArchivedBox::serialize_from_ref(
+                value, serializer,
+            )?))
         } else {
             Ok(OptionBoxResolver::None)
         }
@@ -177,7 +186,11 @@ impl<T: ArchivePointee + PartialOrd + ?Sized> PartialOrd for ArchivedOptionBox<T
     }
 }
 
-impl<T: ?Sized, U: ArchivePointee + PartialEq<T> + ?Sized> PartialEq<Option<Box<T>>> for ArchivedOptionBox<U> {
+impl<T, U> PartialEq<Option<Box<T>>> for ArchivedOptionBox<U>
+where
+    T: ?Sized,
+    U: ArchivePointee + PartialEq<T> + ?Sized,
+{
     #[inline]
     fn eq(&self, other: &Option<Box<T>>) -> bool {
         if self.is_some() {
@@ -192,7 +205,11 @@ impl<T: ?Sized, U: ArchivePointee + PartialEq<T> + ?Sized> PartialEq<Option<Box<
     }
 }
 
-impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<ArchivedOptionBox<T>> for Option<Box<U>> {
+impl<T, U> PartialEq<ArchivedOptionBox<T>> for Option<Box<U>>
+where
+    T: ArchivePointee + PartialEq<U> + ?Sized,
+    U: ?Sized,
+{
     #[inline]
     fn eq(&self, other: &ArchivedOptionBox<T>) -> bool {
         other.eq(self)
