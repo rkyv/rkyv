@@ -147,6 +147,7 @@ pub mod de;
 #[cfg(feature = "std")]
 pub mod ffi;
 mod impls;
+pub mod niche;
 pub mod net;
 pub mod ops;
 pub mod option;

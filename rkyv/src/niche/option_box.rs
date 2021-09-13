@@ -2,17 +2,16 @@
 
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
-    option::{Iter, IterMut},
     ser::Serializer,
     ArchivePointee, ArchiveUnsized, SerializeUnsized,
 };
 use core::{
     cmp::{self, Eq, Ord, PartialEq, PartialOrd},
-    fmt, hash,
+    fmt, hash, hint::unreachable_unchecked,
+    mem,
     ops::Deref,
     pin::Pin,
 };
-use std::hint::unreachable_unchecked;
 
 /// A niched archived `Option<Box<T>>`.
 ///
@@ -186,37 +185,61 @@ impl<T: ArchivePointee + PartialOrd + ?Sized> PartialOrd for ArchivedOptionBox<T
     }
 }
 
-impl<T, U> PartialEq<Option<Box<T>>> for ArchivedOptionBox<U>
-where
-    T: ?Sized,
-    U: ArchivePointee + PartialEq<T> + ?Sized,
-{
-    #[inline]
-    fn eq(&self, other: &Option<Box<T>>) -> bool {
-        if self.is_some() {
-            if let Some(other_value) = other.as_ref() {
-                self.inner.deref().eq(other_value)
-            } else {
-                false
-            }
-        } else {
-            other.is_none()
-        }
+/// An iterator over a reference to the `Some` variant of an `ArchivedOption`.
+///
+/// This iterator yields one value if the `ArchivedOption` is a `Some`, otherwise none.
+///
+/// This `struct` is created by the [`ArchivedOption::iter`] function.
+pub struct Iter<'a, T: ?Sized> {
+    inner: Option<&'a T>,
+}
+
+impl<'a, T: ?Sized> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut result = None;
+        mem::swap(&mut self.inner, &mut result);
+        result
     }
 }
 
-impl<T, U> PartialEq<ArchivedOptionBox<T>> for Option<Box<U>>
-where
-    T: ArchivePointee + PartialEq<U> + ?Sized,
-    U: ?Sized,
-{
-    #[inline]
-    fn eq(&self, other: &ArchivedOptionBox<T>) -> bool {
-        other.eq(self)
+impl<'a, T: ?Sized> DoubleEndedIterator for Iter<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.next()
     }
 }
 
+/// An iterator over a mutable reference to the `Some` variant of an `ArchivedOption`.
+///
+/// This iterator yields one value if the `ArchivedOption` is a `Some`, otherwise none.
+///
+/// This `struct` is created by the [`ArchivedOption::iter_mut`] function.
+pub struct IterMut<'a, T: ?Sized> {
+    inner: Option<&'a mut T>,
+}
+
+impl<'a, T> Iterator for IterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut result = None;
+        mem::swap(&mut self.inner, &mut result);
+        result
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.next()
+    }
+}
+
+
+/// The resolver for [`ArchivedOptionBox`].
 pub enum OptionBoxResolver<T> {
+    /// The `ArchivedOptionBox` was `None`
     None,
+    /// The resolver for the `ArchivedBox`
     Some(BoxResolver<T>),
 }

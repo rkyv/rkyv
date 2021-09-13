@@ -7,8 +7,6 @@
 mod alloc;
 mod atomic;
 mod core;
-#[cfg(feature = "alloc")]
-mod option_box;
 #[cfg(feature = "std")]
 mod std;
 

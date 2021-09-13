@@ -55,8 +55,9 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
         })
     }
 
+    #[doc(hidden)]
     #[inline]
-    pub(crate) fn is_null(&self) -> bool {
+    pub fn is_null(&self) -> bool {
         self.0.is_null()
     }
 }
@@ -65,8 +66,9 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T>
 where
     T::ArchivedMetadata: Default,
 {
+    #[doc(hidden)]
     #[inline]
-    pub(crate) unsafe fn emplace_null(pos: usize, out: *mut Self) {
+    pub unsafe fn emplace_null(pos: usize, out: *mut Self) {
         let (fp, fo) = out_field!(out.0);
         RelPtr::emplace_null(pos + fp, fo);
     }

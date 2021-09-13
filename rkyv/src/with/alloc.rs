@@ -1,23 +1,23 @@
 use crate::{
     collections::util::Entry,
+    niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
     ser::{ScratchSpace, Serializer},
     string::{ArchivedString, StringResolver},
     vec::{ArchivedVec, VecResolver},
-    with::{
-        option_box::{ArchivedOptionBox, OptionBoxResolver},
-        ArchiveWith, AsOwned, AsVec, DeserializeWith, Niche, SerializeWith,
-    },
+    with::{ArchiveWith, AsOwned, AsVec, DeserializeWith, Niche, SerializeWith},
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized, Fallible,
     Serialize, SerializeUnsized,
 };
 #[cfg(not(feature = "std"))]
 use alloc::{
     borrow::Cow,
+    boxed::Box,
     collections::{BTreeMap, BTreeSet},
 };
 #[cfg(feature = "std")]
 use std::{
     borrow::Cow,
+    boxed::Box,
     collections::{BTreeMap, BTreeSet},
 };
 
