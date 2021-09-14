@@ -88,6 +88,16 @@ assert_eq!(deserialized, value);
 
 Thanks to all the sponsors that keep development sustainable. Special thanks to the following sponsors for going above and beyond supporting rkyv:
 
+## Platinum Sponsors
+
+<p align="center">
+    <a href="https://dusk.network">
+        <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/sponsors/dusk_network.png" alt="Dusk Network">
+    </a>
+</p>
+
+> Dusk Network is the first privacy blockchain for financial applications. Our mission is to enable any size enterprise to collaborate at scale, meet compliance requirements, and ensure that transaction data remains confidential.
+
 ## Bronze Sponsors
 
 <p align="center">
