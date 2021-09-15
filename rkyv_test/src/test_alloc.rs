@@ -649,7 +649,11 @@ mod tests {
             }
         }
 
-        impl<T: Archive + MyTrait, D: Fallible + MyTrait + ?Sized> Deserialize<MyStruct<T>, D> for Archived<MyStruct<T>> {
+        impl<T, D> Deserialize<MyStruct<T>, D> for Archived<MyStruct<T>>
+        where
+            T: Archive + MyTrait,
+            D: Fallible + MyTrait + ?Sized,
+        {
             fn deserialize(&self, _: &mut D) -> Result<MyStruct<T>, D::Error> {
                 Ok(MyStruct {
                     _phantom: PhantomData,
@@ -667,7 +671,7 @@ mod tests {
                 value: T,
                 #[omit_bounds]
                 next: MyStruct<Self>,
-            }
+            },
         }
 
         impl<T: MyTrait> MyTrait for Node<T> {}

@@ -7,7 +7,8 @@ use crate::{
 };
 use core::{
     cmp::{self, Eq, Ord, PartialEq, PartialOrd},
-    fmt, hash, hint::unreachable_unchecked,
+    fmt, hash,
+    hint::unreachable_unchecked,
     mem,
     ops::Deref,
     pin::Pin,
@@ -101,6 +102,11 @@ where
     T::ArchivedMetadata: Default,
 {
     /// Resolves an `ArchivedOptionBox<T::Archived>` from an `Option<&T>`.
+    ///
+    /// # Safety
+    ///
+    /// - `pos` must be the position of `out` within the archive
+    /// - `resolver` must be the result of serializing `field`
     #[inline]
     pub unsafe fn resolve_from_option<U: ArchiveUnsized<Archived = T> + ?Sized>(
         field: Option<&U>,
@@ -234,7 +240,6 @@ impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
         self.next()
     }
 }
-
 
 /// The resolver for [`ArchivedOptionBox`].
 pub enum OptionBoxResolver<T> {
