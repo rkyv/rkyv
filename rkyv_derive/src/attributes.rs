@@ -10,6 +10,7 @@ pub struct Attributes {
     pub attrs: Vec<Meta>,
     pub archived_repr: Repr,
     pub compares: Option<(Path, Vec<Path>)>,
+    pub archive_bound: Option<LitStr>,
     pub serialize_bound: Option<LitStr>,
     pub deserialize_bound: Option<LitStr>,
     pub copy_safe: Option<Path>,
@@ -64,7 +65,13 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                 for bound in list.nested.iter() {
                     if let NestedMeta::Meta(Meta::NameValue(name_value)) = bound {
                         if let Lit::Str(ref lit_str) = name_value.lit {
-                            if name_value.path.is_ident("serialize") {
+                            if name_value.path.is_ident("archive") {
+                                try_set_attribute(
+                                    &mut attributes.archive_bound,
+                                    lit_str.clone(),
+                                    "archive bound",
+                                )?;
+                            } else if name_value.path.is_ident("serialize") {
                                 try_set_attribute(
                                     &mut attributes.serialize_bound,
                                     lit_str.clone(),

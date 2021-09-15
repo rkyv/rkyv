@@ -36,9 +36,11 @@ use syn::{parse_macro_input, DeriveInput};
 /// - `compare(...)`: Implements common comparison operators between the original and archived
 ///   types. Supported comparisons are `PartialEq` and `PartialOrd` (i.e.
 ///   `#[archive(compare(PartialEq, PartialOrd))]`).
-/// - `bound(...)`: Adds additional bounds to the `Serialize` and `Deserialize` implementations.
-///   This can be especially useful when dealing with recursive structures, where bounds may need to
-///   be omitted to prevent recursive type definitions.
+/// - `bound(...)`: Adds additional bounds to trait implementations. This can be especially useful
+///   when dealing with recursive structures, where bounds may need to be omitted to prevent
+///   recursive type definitions. Use `archive = "..."` to specify `Archive` bounds,
+///   `serialize = "..."` to specify `Serialize` bounds, and `deserialize = "..."` to specify
+///   `Deserialize` bounds.
 /// - `copy_safe`: States that the archived type is tightly packed with no padding bytes. This
 ///   qualifies it for copy optimizations. (requires nightly)
 /// - `as = "..."`: Instead of generating a separate archived type, this type will archive as the

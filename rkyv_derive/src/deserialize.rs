@@ -1,12 +1,13 @@
 use crate::{
     attributes::{parse_attributes, Attributes},
+    util::add_bounds,
     with::{make_with_ty, with_inner},
 };
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{
     parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Error, Fields,
-    Generics, Ident, Index, Token, WherePredicate,
+    Generics, Ident, Index,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -19,12 +20,11 @@ fn derive_deserialize_impl(
     attributes: &Attributes,
 ) -> Result<TokenStream, Error> {
     let where_clause = input.generics.make_where_clause();
+    if let Some(ref bounds) = attributes.archive_bound {
+        add_bounds(bounds, where_clause)?;
+    }
     if let Some(ref bounds) = attributes.deserialize_bound {
-        let clauses =
-            bounds.parse_with(Punctuated::<WherePredicate, Token![,]>::parse_terminated)?;
-        for clause in clauses {
-            where_clause.predicates.push(clause);
-        }
+        add_bounds(bounds, where_clause)?;
     }
 
     let mut impl_input_params = Punctuated::default();
