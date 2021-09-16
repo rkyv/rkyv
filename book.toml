@@ -7,3 +7,4 @@ title = "rkyv"
 
 [output.html]
 cname = "rkyv.org"
+edit-url-template = "https://github.com/rkyv/rkyv/edit/master/{path}"

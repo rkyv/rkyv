@@ -1,4 +1,4 @@
-use crate::{ArchivePointee, niche::option_box::ArchivedOptionBox};
+use crate::{niche::option_box::ArchivedOptionBox, ArchivePointee};
 #[cfg(not(feature = "std"))]
 use ::alloc::boxed::Box;
 

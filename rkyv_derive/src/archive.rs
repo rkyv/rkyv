@@ -1,7 +1,7 @@
 use crate::{
     attributes::{parse_attributes, Attributes},
     repr::{BaseRepr, IntRepr, Repr},
-    util::strip_raw,
+    util::{add_bounds, strip_raw},
     with::{make_with_cast, make_with_ty},
 };
 use proc_macro2::{Span, TokenStream};
@@ -38,7 +38,10 @@ fn derive_archive_impl(
     mut input: DeriveInput,
     attributes: &Attributes,
 ) -> Result<TokenStream, Error> {
-    input.generics.make_where_clause();
+    let where_clause = input.generics.make_where_clause();
+    if let Some(ref bounds) = attributes.archive_bound {
+        add_bounds(bounds, where_clause)?;
+    }
 
     let name = &input.ident;
     let vis = &input.vis;

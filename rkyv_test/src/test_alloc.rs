@@ -625,6 +625,60 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn complex_bounds() {
+        use ::core::marker::PhantomData;
+
+        trait MyTrait {}
+
+        impl MyTrait for i32 {}
+
+        struct MyStruct<T> {
+            _phantom: PhantomData<T>,
+        }
+
+        impl<T: Archive + MyTrait> Archive for MyStruct<T> {
+            type Archived = MyStruct<T::Archived>;
+            type Resolver = ();
+
+            unsafe fn resolve(&self, _: usize, _: Self::Resolver, _: *mut Self::Archived) {}
+        }
+
+        impl<T: Archive + MyTrait, S: Fallible + MyTrait + ?Sized> Serialize<S> for MyStruct<T> {
+            fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+                Ok(())
+            }
+        }
+
+        impl<T, D> Deserialize<MyStruct<T>, D> for Archived<MyStruct<T>>
+        where
+            T: Archive + MyTrait,
+            D: Fallible + MyTrait + ?Sized,
+        {
+            fn deserialize(&self, _: &mut D) -> Result<MyStruct<T>, D::Error> {
+                Ok(MyStruct {
+                    _phantom: PhantomData,
+                })
+            }
+        }
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(bound(archive = "T: MyTrait"))]
+        #[archive(bound(serialize = "__S: MyTrait"))]
+        #[archive(bound(deserialize = "__D: MyTrait"))]
+        enum Node<T> {
+            Nil,
+            Cons {
+                value: T,
+                #[omit_bounds]
+                next: MyStruct<Self>,
+            },
+        }
+
+        impl<T: MyTrait> MyTrait for Node<T> {}
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_more_std() {
         use core::{
             num::NonZeroU8,
