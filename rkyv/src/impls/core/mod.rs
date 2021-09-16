@@ -201,7 +201,6 @@ impl<T> ArchivePointee for [T] {
 
 impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> SerializeUnsized<S> for [T] {
     default! {
-        #[inline]
         fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
             use crate::ScratchVec;
 
@@ -237,7 +236,6 @@ where
     T: Serialize<S> + crate::copy::ArchiveCopyOptimize,
     S: ScratchSpace + Serializer + ?Sized,
 {
-    #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         unsafe {
             let result = serializer.align_for::<T>()?;
@@ -260,7 +258,6 @@ where
 
 impl<T: Deserialize<U, D>, U, D: Fallible + ?Sized> DeserializeUnsized<[U], D> for [T] {
     default! {
-        #[inline]
         unsafe fn deserialize_unsized(&self, deserializer: &mut D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error> {
             if self.is_empty() || core::mem::size_of::<U>() == 0 {
                 Ok(ptr::NonNull::<U>::dangling().as_ptr().cast())
@@ -289,7 +286,6 @@ where
     U: ArchiveCopyOptimize,
     D: Fallible + ?Sized,
 {
-    #[inline]
     unsafe fn deserialize_unsized(
         &self,
         _: &mut D,
