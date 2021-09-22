@@ -125,8 +125,8 @@ impl<T: Deref> ArchivedOption<T> {
 impl<T: DerefMut> ArchivedOption<T> {
     /// Converts from `&mut ArchivedOption<T>` to `Option<&mut T::Target>`.
     ///
-    /// Leaves the original `ArchivedOption` in-place, creating a new one with a reference to the
-    /// original one, additionally coercing the contents via `Deref`.
+    /// Leaves the original `ArchivedOption` in-place, creating a new `Option` with a mutable
+    /// reference to the inner type's `Deref::Target` type.
     #[inline]
     pub fn as_deref_mut(&mut self) -> Option<&mut <T as Deref>::Target> {
         self.as_mut().map(|x| x.deref_mut())
