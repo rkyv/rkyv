@@ -15,6 +15,8 @@ mod std;
 
 #[cfg(feature = "indexmap")]
 mod indexmap;
+#[cfg(feature = "smallvec")]
+mod smallvec;
 #[cfg(feature = "tinyvec")]
 mod tinyvec;
 #[cfg(feature = "uuid")]
