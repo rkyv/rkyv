@@ -138,7 +138,7 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                 if let Lit::Str(ref lit_str) = meta.lit {
                     try_set_attribute(&mut attributes.archive_as, lit_str.clone(), "archive as")
                 } else {
-                    Err(Error::new_spanned(meta, "archive as mut be a string"))
+                    Err(Error::new_spanned(meta, "archive as must be a string"))
                 }
             } else if meta.path.is_ident("crate") {
                 if let Lit::Str(ref lit_str) = meta.lit {
