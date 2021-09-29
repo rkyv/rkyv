@@ -424,6 +424,23 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_empty_b_tree() {
+        #[cfg(not(feature = "std"))]
+        use alloc::collections::BTreeMap;
+        #[cfg(feature = "std")]
+        use std::collections::BTreeMap;
+
+        let value = BTreeMap::<u8, ()>::new();
+
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let buf = serializer.into_serializer().into_inner();
+
+        check_archived_root::<BTreeMap<u8, ()>>(buf.as_ref()).unwrap();
+    }
+
+    #[test]
     // This test is unfortunately too slow to run through miri
     #[cfg_attr(miri, ignore)]
     // This test creates structures too big to fit in 16-bit offsets

@@ -432,100 +432,103 @@ const _: () = {
                 ptr::addr_of!((*value).len),
                 context,
             )?) as usize;
-            let root_rel_ptr = RelPtr::manual_check_bytes(ptr::addr_of!((*value).root), context)?;
 
-            // Walk all the inner nodes, claim their memory, and check their contents
-            let mut nodes = VecDeque::new();
-            let root_ptr = context
-                .check_subtree_rel_ptr(root_rel_ptr)
-                .map_err(ArchivedBTreeMapError::ContextError)?;
-            let root = NodeHeader::manual_check_bytes::<K, V, C>(root_ptr, context)?;
-            nodes.push_back((root, 0));
+            if len > 0 {
+                let root_rel_ptr = RelPtr::manual_check_bytes(ptr::addr_of!((*value).root), context)?;
 
-            while let Some(&(node, depth)) = nodes.front() {
-                // Break when a leaf is found
-                if !node.is_inner() {
-                    break;
-                }
-                nodes.pop_front();
-                let inner = node.classify_inner::<K>();
-
-                let child_ptr = context
-                    .check_subtree_rel_ptr(&inner.header.ptr)
+                // Walk all the inner nodes, claim their memory, and check their contents
+                let mut nodes = VecDeque::new();
+                let root_ptr = context
+                    .check_subtree_rel_ptr(root_rel_ptr)
                     .map_err(ArchivedBTreeMapError::ContextError)?;
-                let child = NodeHeader::manual_check_bytes::<K, V, C>(child_ptr, context)?;
-                nodes.push_back((child, depth + 1));
+                let root = NodeHeader::manual_check_bytes::<K, V, C>(root_ptr, context)?;
+                nodes.push_back((root, 0));
 
-                // The invariant that this node contains keys less than the first key of this node will
-                // be checked when we iterate through the leaf nodes in order and check ordering
-                for entry in inner.tail.iter() {
+                while let Some(&(node, depth)) = nodes.front() {
+                    // Break when a leaf is found
+                    if !node.is_inner() {
+                        break;
+                    }
+                    nodes.pop_front();
+                    let inner = node.classify_inner::<K>();
+
                     let child_ptr = context
-                        .check_subtree_rel_ptr(&entry.ptr)
+                        .check_subtree_rel_ptr(&inner.header.ptr)
                         .map_err(ArchivedBTreeMapError::ContextError)?;
                     let child = NodeHeader::manual_check_bytes::<K, V, C>(child_ptr, context)?;
                     nodes.push_back((child, depth + 1));
-                }
-            }
 
-            // The remaining nodes must all be leaf nodes
-            let mut entry_count = 0;
-            for (i, (node, depth)) in nodes.iter().enumerate() {
-                if !node.is_leaf() {
-                    return Err(ArchivedBTreeMapError::InnerNodeInLeafLevel);
+                    // The invariant that this node contains keys less than the first key of this node will
+                    // be checked when we iterate through the leaf nodes in order and check ordering
+                    for entry in inner.tail.iter() {
+                        let child_ptr = context
+                            .check_subtree_rel_ptr(&entry.ptr)
+                            .map_err(ArchivedBTreeMapError::ContextError)?;
+                        let child = NodeHeader::manual_check_bytes::<K, V, C>(child_ptr, context)?;
+                        nodes.push_back((child, depth + 1));
+                    }
                 }
-                let leaf = node.classify_leaf::<K, V>();
 
-                // Leaf nodes must all be the same depth
-                let expected_depth = nodes.front().unwrap().1;
-                if *depth != expected_depth {
-                    return Err(ArchivedBTreeMapError::InvalidLeafNodeDepth {
-                        expected: expected_depth,
-                        actual: *depth,
+                // The remaining nodes must all be leaf nodes
+                let mut entry_count = 0;
+                for (i, (node, depth)) in nodes.iter().enumerate() {
+                    if !node.is_leaf() {
+                        return Err(ArchivedBTreeMapError::InnerNodeInLeafLevel);
+                    }
+                    let leaf = node.classify_leaf::<K, V>();
+
+                    // Leaf nodes must all be the same depth
+                    let expected_depth = nodes.front().unwrap().1;
+                    if *depth != expected_depth {
+                        return Err(ArchivedBTreeMapError::InvalidLeafNodeDepth {
+                            expected: expected_depth,
+                            actual: *depth,
+                        });
+                    }
+
+                    // They must contain entries in sorted order
+                    for (prev, next) in leaf.tail.iter().zip(leaf.tail.iter().skip(1)) {
+                        if next.key < prev.key {
+                            return Err(ArchivedBTreeMapError::UnsortedLeafNodeEntries);
+                        }
+                    }
+
+                    // And they must link together in sorted order
+                    if i < nodes.len() - 1 {
+                        let next_ptr = context
+                            .check_rel_ptr(&leaf.header.ptr)
+                            .map_err(ArchivedBTreeMapError::ContextError)?;
+                        let next_node = nodes[i + 1].0.classify_leaf();
+
+                        if next_ptr != (next_node as *const LeafNode<K, V>).cast() {
+                            return Err(ArchivedBTreeMapError::UnlinkedLeafNode);
+                        }
+                        if next_node.tail[0].key < leaf.tail[leaf.tail.len() - 1].key {
+                            return Err(ArchivedBTreeMapError::UnsortedLeafNode);
+                        }
+                    } else {
+                        // The last node must have a null pointer forward
+                        if !leaf.header.ptr.is_null() {
+                            return Err(ArchivedBTreeMapError::LastLeafForwardPointerNotNull);
+                        }
+                    }
+
+                    // Keep track of the number of entries found
+                    entry_count += leaf.tail.len();
+                }
+
+                // Make sure that the number of entries matches the length
+                if entry_count != len {
+                    return Err(ArchivedBTreeMapError::LengthMismatch {
+                        expected: len,
+                        actual: entry_count,
                     });
                 }
 
-                // They must contain entries in sorted order
-                for (prev, next) in leaf.tail.iter().zip(leaf.tail.iter().skip(1)) {
-                    if next.key < prev.key {
-                        return Err(ArchivedBTreeMapError::UnsortedLeafNodeEntries);
-                    }
+                // Make sure that inner nodes are constructed appropriately
+                if root.is_inner() {
+                    root.classify_inner::<K>().verify_integrity::<V, C>()?;
                 }
-
-                // And they must link together in sorted order
-                if i < nodes.len() - 1 {
-                    let next_ptr = context
-                        .check_rel_ptr(&leaf.header.ptr)
-                        .map_err(ArchivedBTreeMapError::ContextError)?;
-                    let next_node = nodes[i + 1].0.classify_leaf();
-
-                    if next_ptr != (next_node as *const LeafNode<K, V>).cast() {
-                        return Err(ArchivedBTreeMapError::UnlinkedLeafNode);
-                    }
-                    if next_node.tail[0].key < leaf.tail[leaf.tail.len() - 1].key {
-                        return Err(ArchivedBTreeMapError::UnsortedLeafNode);
-                    }
-                } else {
-                    // The last node must have a null pointer forward
-                    if !leaf.header.ptr.is_null() {
-                        return Err(ArchivedBTreeMapError::LastLeafForwardPointerNotNull);
-                    }
-                }
-
-                // Keep track of the number of entries found
-                entry_count += leaf.tail.len();
-            }
-
-            // Make sure that the number of entries matches the length
-            if entry_count != len {
-                return Err(ArchivedBTreeMapError::LengthMismatch {
-                    expected: len,
-                    actual: entry_count,
-                });
-            }
-
-            // Make sure that inner nodes are constructed appropriately
-            if root.is_inner() {
-                root.classify_inner::<K>().verify_integrity::<V, C>()?;
             }
 
             Ok(&*value)
