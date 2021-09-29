@@ -1,7 +1,7 @@
 use crate::{
     ser::{ScratchSpace, Serializer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Deserialize, Fallible, MetadataResolver, Serialize,
+    Archive, Archived, Deserialize, Fallible, Serialize,
 };
 #[cfg(feature = "tinyvec_alloc")]
 use tinyvec::TinyVec;

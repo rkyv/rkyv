@@ -191,11 +191,11 @@ impl<T: ArchivePointee + PartialOrd + ?Sized> PartialOrd for ArchivedOptionBox<T
     }
 }
 
-/// An iterator over a reference to the `Some` variant of an `ArchivedOption`.
+/// An iterator over a reference to the `Some` variant of an `ArchivedOptionBox`.
 ///
-/// This iterator yields one value if the `ArchivedOption` is a `Some`, otherwise none.
+/// This iterator yields one value if the `ArchivedOptionBox` is a `Some`, otherwise none.
 ///
-/// This `struct` is created by the [`ArchivedOption::iter`] function.
+/// This `struct` is created by the [`ArchivedOptionBox::iter`] function.
 pub struct Iter<'a, T: ?Sized> {
     inner: Option<&'a T>,
 }
@@ -216,11 +216,11 @@ impl<'a, T: ?Sized> DoubleEndedIterator for Iter<'a, T> {
     }
 }
 
-/// An iterator over a mutable reference to the `Some` variant of an `ArchivedOption`.
+/// An iterator over a mutable reference to the `Some` variant of an `ArchivedOptionBox`.
 ///
-/// This iterator yields one value if the `ArchivedOption` is a `Some`, otherwise none.
+/// This iterator yields one value if the `ArchivedOptionBox` is a `Some`, otherwise none.
 ///
-/// This `struct` is created by the [`ArchivedOption::iter_mut`] function.
+/// This `struct` is created by the [`ArchivedOptionBox::iter_mut`] function.
 pub struct IterMut<'a, T: ?Sized> {
     inner: Option<&'a mut T>,
 }

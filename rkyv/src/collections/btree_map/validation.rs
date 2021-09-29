@@ -434,7 +434,8 @@ const _: () = {
             )?) as usize;
 
             if len > 0 {
-                let root_rel_ptr = RelPtr::manual_check_bytes(ptr::addr_of!((*value).root), context)?;
+                let root_rel_ptr =
+                    RelPtr::manual_check_bytes(ptr::addr_of!((*value).root), context)?;
 
                 // Walk all the inner nodes, claim their memory, and check their contents
                 let mut nodes = VecDeque::new();
