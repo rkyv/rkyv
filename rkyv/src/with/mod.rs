@@ -460,5 +460,53 @@ pub struct AsVec;
 ///
 /// A common type combination is `Option<Box<T>>`. By using a null pointer, the archived version can
 /// save some space on-disk.
+///
+/// # Example
+///
+/// ```
+/// use core::mem::size_of;
+/// use rkyv::{Archive, Archived, with::Niche};
+///
+/// #[derive(Archive)]
+/// struct BasicExample {
+///     value: Option<Box<str>>,
+/// }
+///
+/// #[derive(Archive)]
+/// struct NichedExample {
+///     #[with(Niche)]
+///     value: Option<Box<str>>,
+/// }
+///
+/// assert!(size_of::<Archived<BasicExample>>() > size_of::<Archived<NichedExample>>());
+/// ```
 #[derive(Debug)]
 pub struct Niche;
+
+/// A wrapper that provides specialized, performant implementations of serialization and
+/// deserialization. 
+///
+/// This wrapper can be used with containers like `Vec`, but care must be taken to ensure that they
+/// contain copy-safe types. Copy-safe types must be trivially copyable (have the same archived and
+/// unarchived representations) and contain no padding bytes. In situations where copying
+/// uninitialized bytes the output is acceptable, this wrapper may be used with containers of types
+/// that contain padding bytes.
+///
+/// # Safety
+///
+/// Using this wrapper with containers containing non-copy-safe types may result in undefined
+/// behavior.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{Archive, with::CopyOptimize};
+///
+/// #[derive(Archive)]
+/// struct Example {
+///     #[with(CopyOptimize)]
+///     bytes: Vec<u8>,
+/// }
+/// ```
+#[derive(Debug)]
+pub struct CopyOptimize;

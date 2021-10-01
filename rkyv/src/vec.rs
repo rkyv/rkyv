@@ -113,6 +113,31 @@ impl<T> ArchivedVec<T> {
         })
     }
 
+    /// Serializes an archived `Vec` from a given slice by directly copying bytes.
+    ///
+    /// # Safety
+    ///
+    /// The type being serialized must be copy-safe. Copy-safe types must be trivially copyable
+    /// (have the same archived and unarchived representations) and contain no padding bytes. In
+    /// situations where copying uninitialized bytes the output is acceptable, this function may be
+    /// used with types that contain padding bytes.
+    #[inline]
+    pub unsafe fn serialize_copy_from_slice<U: Serialize<S, Archived = T>, S: Serializer + ?Sized>(
+        slice: &[U],
+        serializer: &mut S,
+    ) -> Result<VecResolver, S::Error> {
+        use ::core::{mem::size_of, slice::from_raw_parts};
+
+        let pos = serializer.align_for::<T>()?;
+
+        let bytes = from_raw_parts(slice.as_ptr().cast::<u8>(), size_of::<T>() * slice.len());
+        serializer.write(bytes)?;
+
+        Ok(VecResolver {
+            pos,
+        })
+    }
+
     /// Serializes an archived `Vec` from a given iterator.
     ///
     /// This method is unable to perform copy optimizations; prefer
