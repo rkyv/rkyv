@@ -484,7 +484,7 @@ pub struct AsVec;
 pub struct Niche;
 
 /// A wrapper that provides specialized, performant implementations of serialization and
-/// deserialization. 
+/// deserialization.
 ///
 /// This wrapper can be used with containers like `Vec`, but care must be taken to ensure that they
 /// contain copy-safe types. Copy-safe types must be trivially copyable (have the same archived and

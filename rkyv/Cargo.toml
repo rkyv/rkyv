@@ -32,6 +32,7 @@ indexmap = { version = "1.7", optional = true, default-features = false }
 smallvec = { version = "1.7", optional = true, default-features = false }
 tinyvec = { version = "1.5", optional = true, default-features = false }
 uuid = { version = "0.8", optional = true, default-features = false }
+url = { version = "2.2", optional = true, default-features = false }
 
 [features]
 default = ["size_32", "std"]

@@ -19,5 +19,7 @@ mod indexmap;
 mod smallvec;
 #[cfg(feature = "tinyvec")]
 mod tinyvec;
+#[cfg(feature = "url")]
+mod url;
 #[cfg(feature = "uuid")]
 mod uuid;
