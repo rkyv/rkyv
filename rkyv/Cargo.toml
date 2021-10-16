@@ -52,7 +52,7 @@ validation = ["alloc", "bytecheck", "rend/validation"]
 
 tinyvec_alloc = ["tinyvec/alloc"]
 uuid_std = ["uuid/std"]
-decimal = ["rust_decimal/std", "strict"]
+decimal = ["rust_decimal/std"]
 
 [package.metadata.docs.rs]
 features = ["validation"]
