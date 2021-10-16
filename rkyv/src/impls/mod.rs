@@ -21,3 +21,5 @@ mod smallvec;
 mod tinyvec;
 #[cfg(feature = "uuid")]
 mod uuid;
+#[cfg(feature = "decimal")]
+mod decimal;
