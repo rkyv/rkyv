@@ -45,7 +45,7 @@ mod rkyv_tests {
         let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer
             .serialize_value(&amount)
-            .expect("failed to archive uuid");
+            .expect("failed to archive decimal");
         let buf = serializer.into_inner();
         let archived = unsafe { archived_root::<Decimal>(buf.as_ref()) };
 
@@ -53,7 +53,7 @@ mod rkyv_tests {
 
         let deserialized = archived
             .deserialize(&mut Infallible)
-            .expect("failed to deserialize uuid");
+            .expect("failed to deserialize decimal");
 
         assert_eq!(amount, deserialized);
     }

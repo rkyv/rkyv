@@ -1,6 +1,6 @@
 [package]
 name = "rkyv"
-version = "0.7.20"
+version = "0.7.19"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Zero-copy deserialization framework for Rust"
@@ -43,16 +43,18 @@ archive_be = ["rend", "rkyv_derive/archive_be"]
 archive_le = ["rend", "rkyv_derive/archive_le"]
 copy = ["rkyv_derive/copy"]
 copy_unsafe = []
+rust_decimal_std = ["rust_decimal/std", "rust_decimal/c-repr"]
 size_16 = []
 size_32 = []
 size_64 = []
 std = ["alloc", "bytecheck/std", "ptr_meta/std", "rend/std"]
 strict = ["rkyv_derive/strict"]
-validation = ["alloc", "bytecheck", "rend/validation"]
-
 tinyvec_alloc = ["tinyvec/alloc"]
 uuid_std = ["uuid/std"]
-decimal = ["rust_decimal/std"]
+validation = ["alloc", "bytecheck", "rend/validation"]
+
+
+
 
 [package.metadata.docs.rs]
 features = ["validation"]
