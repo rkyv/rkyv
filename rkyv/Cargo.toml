@@ -29,11 +29,10 @@ seahash = "4.0"
 # another crate, please consider getting rkyv support in the crate instead.
 
 indexmap = { version = "1.7", optional = true, default-features = false }
+rust_decimal = { version = "1.16", optional = true, default-features = false }
 smallvec = { version = "1.7", optional = true, default-features = false }
 tinyvec = { version = "1.5", optional = true, default-features = false }
 uuid = { version = "0.8", optional = true, default-features = false }
-
-rust_decimal = { version = "1.16", optional = true, default-features = false }
 
 [features]
 default = ["size_32", "std"]
@@ -52,9 +51,6 @@ strict = ["rkyv_derive/strict"]
 tinyvec_alloc = ["tinyvec/alloc"]
 uuid_std = ["uuid/std"]
 validation = ["alloc", "bytecheck", "rend/validation"]
-
-
-
 
 [package.metadata.docs.rs]
 features = ["validation"]

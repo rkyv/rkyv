@@ -11,8 +11,12 @@ impl Archive for Decimal {
     }
 }
 
-// Safety: 
-#[cfg(feature = "copy")]
+// Decimal is ArchiveCopySafe if the target matches the archived endianness
+#[cfg(
+    not(any(
+    all(target_endian = "little", feature = "archive_be"),
+    all(target_endian = "big", feature = "archive_le"),
+)))]
 unsafe impl crate::copy::ArchiveCopySafe for Decimal {}
 
 impl<S: Fallible + ?Sized> Serialize<S> for Decimal {
