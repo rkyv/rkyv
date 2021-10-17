@@ -6,12 +6,12 @@ impl Archive for Decimal {
     type Resolver = ();
 
     unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
-        // Safety: Uuid is portable and has no padding
+        // Safety: 
         out.write(*self);
     }
 }
 
-// Safety: Uuid is portable and has no padding
+// Safety: 
 #[cfg(feature = "copy")]
 unsafe impl crate::copy::ArchiveCopySafe for Decimal {}
 
