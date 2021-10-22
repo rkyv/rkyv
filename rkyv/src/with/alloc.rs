@@ -344,18 +344,13 @@ where
     T: Serialize<S>,
     S: Serializer,
 {
-    fn serialize_with(
-        field: &Vec<T>,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    fn serialize_with(field: &Vec<T>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         use ::core::mem::size_of;
 
         // Basic debug assert that T and T::Archived are at least the same size
         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
 
-        unsafe {
-            ArchivedVec::serialize_copy_from_slice(field.as_slice(), serializer)
-        }
+        unsafe { ArchivedVec::serialize_copy_from_slice(field.as_slice(), serializer) }
     }
 }
 
@@ -365,11 +360,8 @@ where
     T::Archived: Deserialize<T, D>,
     D: Fallible + ?Sized,
 {
-    fn deserialize_with(
-        field: &ArchivedVec<T::Archived>,
-        _: &mut D,
-    ) -> Result<Vec<T>, D::Error> {
-        use ::core::{ptr::copy_nonoverlapping, mem::size_of};
+    fn deserialize_with(field: &ArchivedVec<T::Archived>, _: &mut D) -> Result<Vec<T>, D::Error> {
+        use ::core::{mem::size_of, ptr::copy_nonoverlapping};
 
         // Basic debug assert that T and T::Archived are at least the same size
         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());

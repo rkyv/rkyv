@@ -122,10 +122,14 @@ impl<T> ArchivedVec<T> {
     /// situations where copying uninitialized bytes the output is acceptable, this function may be
     /// used with types that contain padding bytes.
     #[inline]
-    pub unsafe fn serialize_copy_from_slice<U: Serialize<S, Archived = T>, S: Serializer + ?Sized>(
+    pub unsafe fn serialize_copy_from_slice<U, S>(
         slice: &[U],
         serializer: &mut S,
-    ) -> Result<VecResolver, S::Error> {
+    ) -> Result<VecResolver, S::Error>
+    where
+        U: Serialize<S, Archived = T>,
+        S: Serializer + ?Sized,
+    {
         use ::core::{mem::size_of, slice::from_raw_parts};
 
         let pos = serializer.align_for::<T>()?;
@@ -133,9 +137,7 @@ impl<T> ArchivedVec<T> {
         let bytes = from_raw_parts(slice.as_ptr().cast::<u8>(), size_of::<T>() * slice.len());
         serializer.write(bytes)?;
 
-        Ok(VecResolver {
-            pos,
-        })
+        Ok(VecResolver { pos })
     }
 
     /// Serializes an archived `Vec` from a given iterator.

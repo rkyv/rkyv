@@ -137,32 +137,24 @@ pub fn archive_dyn(
             } else if let Some((_, ref trait_, _)) = input.trait_ {
                 let ty = &input.self_ty;
 
-                let serialize_trait = if let Some(ar_name) = args.serialize {
-                    let mut path = trait_.clone();
-                    let last = path.segments.last_mut().unwrap();
+                let mut serialize_trait = trait_.clone();
+                let last = serialize_trait.segments.last_mut().unwrap();
+                if let Some(ar_name) = args.serialize {
                     last.ident = Ident::new(&ar_name.value(), ar_name.span());
-                    path
                 } else {
-                    let mut path = trait_.clone();
-                    let last = path.segments.last_mut().unwrap();
                     last.ident = Ident::new(&format!("Serialize{}", last.ident), trait_.span());
-                    path
                 };
 
                 let (deserialize_trait, deserialize_impl) = if let Some(deserialize) =
                     args.deserialize
                 {
-                    let deserialize_trait = if let Some(ua_name) = deserialize {
-                        let mut path = trait_.clone();
-                        let last = path.segments.last_mut().unwrap();
+                    let mut deserialize_trait = trait_.clone();
+                    let last = deserialize_trait.segments.last_mut().unwrap();
+                    if let Some(ua_name) = deserialize {
                         last.ident = Ident::new(&ua_name.value(), ua_name.span());
-                        path
                     } else {
-                        let mut path = trait_.clone();
-                        let last = path.segments.last_mut().unwrap();
                         last.ident =
                             Ident::new(&format!("Deserialize{}", last.ident), trait_.span());
-                        path
                     };
 
                     (
