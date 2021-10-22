@@ -108,7 +108,11 @@
 //! - Fully worked examples using rkyv are available in the
 //!   [`examples` directory](https://github.com/rkyv/rkyv/tree/master/examples) of the source repo.
 
-#![deny(broken_intra_doc_links, missing_docs, missing_crate_level_docs)]
+#![deny(
+    rustdoc::broken_intra_doc_links,
+    missing_docs,
+    rustdoc::missing_crate_level_docs
+)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(
     feature = "copy",

@@ -14,9 +14,9 @@
 //! - `vtable_cache`: Enables local vtable caching to speed up lookups after the first. This
 //!   requires mutating the archive, which is not possible for all use cases.
 
-#![deny(broken_intra_doc_links)]
+#![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_docs)]
-#![deny(missing_crate_level_docs)]
+#![deny(rustdoc::missing_crate_level_docs)]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
 #[cfg(feature = "validation")]

@@ -1514,12 +1514,32 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn with_boxed() {
-        use rkyv::with::Boxed;
+    fn with_as_box() {
+        use rkyv::with::AsBox;
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct Test {
+            #[with(AsBox)]
+            value: i32,
+        }
+
+        let value = Test { value: 42 };
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_inner();
+        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+        assert_eq!(archived.value.get(), &42);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn with_ref_as_box() {
+        use rkyv::with::RefAsBox;
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test<'a> {
-            #[with(Boxed)]
+            #[with(RefAsBox)]
             value: &'a str,
         }
 
@@ -1712,7 +1732,7 @@ mod tests {
         #[derive(Archive, Deserialize, Serialize)]
         #[archive(crate = "alt_path")]
         struct Test<'a> {
-            #[with(alt_path::with::Boxed)]
+            #[with(alt_path::with::AsBox)]
             value: &'a str,
             other: i32,
         }

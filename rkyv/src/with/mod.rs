@@ -335,8 +335,51 @@ pub struct Inline;
 ///     a: &'a str,
 /// }
 /// ```
+#[deprecated = "Use `RefAsBox` for references, or `AsBox` for direct fields"]
+pub type Boxed = RefAsBox;
+
+/// A wrapper that serializes a field into a box.
+/// 
+/// This functions similarly to [`RefAsBox`], but is for regular fields instead of references.
+/// 
+/// # Example
+/// 
+/// ```
+/// use rkyv::{Archive, with::AsBox};
+/// 
+/// #[derive(Archive)]
+/// struct Example {
+///     #[with(AsBox)]
+///     a: i32,
+///     #[with(AsBox)]
+///     b: str,
+/// }
+/// ```
 #[derive(Debug)]
-pub struct Boxed;
+pub struct AsBox;
+
+/// A wrapper that serializes a reference as if it were boxed.
+///
+/// Unlike [`Inline`], unsized references can be serialized with `RefAsBox`.
+///
+/// References serialized with `RefAsBox` cannot be deserialized because the struct cannot own the
+/// deserialized value.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{Archive, with::RefAsBox};
+///
+/// #[derive(Archive)]
+/// struct Example<'a> {
+///     #[with(RefAsBox)]
+///     a: &'a i32,
+///     #[with(RefAsBox)]
+///     b: &'a str,
+/// }
+/// ```
+#[derive(Debug)]
+pub struct RefAsBox;
 
 /// A wrapper that attempts to convert a type to and from UTF-8.
 ///
