@@ -1,8 +1,10 @@
 //! Procedural macros for `rkyv`.
 
-#![deny(broken_intra_doc_links)]
-#![deny(missing_docs)]
-#![deny(missing_crate_level_docs)]
+#![deny(
+    rustdoc::broken_intra_doc_links,
+    missing_docs,
+    rustdoc::missing_crate_level_docs
+)]
 
 mod archive;
 mod attributes;
