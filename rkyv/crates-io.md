@@ -83,15 +83,3 @@ assert_eq!(archived.option, value.option);
 let deserialized: Test = archived.deserialize(&mut Infallible).unwrap()
 assert_eq!(deserialized, value);
 ```
-
-# Thanks
-
-Thanks to all the sponsors that keep development sustainable. Special thanks to the following sponsors for going above and beyond supporting rkyv:
-
-## Bronze Sponsors
-
-<p align="center">
-    <a href="https://traverseresearch.nl/">
-        <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/sponsors/traverse_research.png" alt="Traverse Research">
-    </a>
-</p>
