@@ -13,6 +13,7 @@ use alloc::{
     borrow::Cow,
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
+    vec::Vec,
 };
 #[cfg(feature = "std")]
 use std::{

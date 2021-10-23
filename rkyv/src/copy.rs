@@ -19,6 +19,7 @@ use core::{
 /// This trait is similar to `Copy` in that it's automatically implemented for all types composed
 /// entirely of other `ArchiveCopy` types. `Copy` is necessary, but not sufficient for `ArchiveCopy`
 /// as some `Copy` type representations may vary from platform to platform.
+#[rustc_unsafe_specialization_marker]
 pub auto trait ArchiveCopy {}
 
 // (), PhantomData, PhantomPinned, bool, i8, u8, NonZeroI8, and NonZeroU8 are always ArchiveCopy
@@ -94,6 +95,7 @@ impl !ArchiveCopy for crate::RawRelPtr {}
 ///
 /// These types are always safe to `memcpy` around because they will never contain uninitialized
 /// padding.
+#[rustc_unsafe_specialization_marker]
 pub unsafe trait ArchiveCopySafe: ArchiveCopy + Sized {}
 
 // (), PhantomData, PhantomPinned, bool, i8, u8, NonZeroI8, and NonZeroU8 are always ArchiveCopySafe
