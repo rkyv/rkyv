@@ -194,6 +194,10 @@ pub trait Fallible {
     type Error: 'static;
 }
 
+impl<T: ?Sized + Fallible> Fallible for &mut T {
+    type Error = T::Error;
+}
+
 /// A fallible type that cannot produce errors.
 ///
 /// This type can be used to serialize and deserialize types that cannot fail to serialize or

@@ -141,6 +141,16 @@ pub trait ScratchSpace: Fallible {
     unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error>;
 }
 
+impl<T: ?Sized + ScratchSpace> ScratchSpace for &mut T {
+    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error> {
+        (&mut **self).push_scratch(layout)
+    }
+
+    unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error> {
+        (&mut **self).pop_scratch(ptr, layout)
+    }
+}
+
 /// A registry that tracks serialized shared memory.
 ///
 /// This trait is required to serialize shared pointers.
