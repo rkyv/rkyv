@@ -1,6 +1,9 @@
 //! An archived version of `Box`.
 
-use crate::{ArchivePointee, ArchiveUnsized, Fallible, RelPtr, SerializeUnsized};
+use crate::{
+    ser::Serializer, ArchivePointee, ArchiveUnsized, Fallible, MetadataResolver, RelPtr, Serialize,
+    SerializeUnsized,
+};
 use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};
 
 /// An archived [`Box`].
@@ -59,6 +62,38 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     #[inline]
     pub fn is_null(&self) -> bool {
         self.0.is_null()
+    }
+}
+
+impl<T> ArchivedBox<[T]> {
+    /// Serializes an archived `Box` from a given slice by directly copying bytes.
+    ///
+    /// # Safety
+    ///
+    /// The type being serialized must be copy-safe. Copy-safe types must be trivially copyable
+    /// (have the same archived and unarchived representations) and contain no padding bytes. In
+    /// situations where copying uninitialized bytes the output is acceptable, this function may be
+    /// used with types that contain padding bytes.
+    #[inline]
+    pub unsafe fn serialize_copy_from_slice<U, S>(
+        slice: &[U],
+        serializer: &mut S,
+    ) -> Result<BoxResolver<MetadataResolver<[U]>>, S::Error>
+    where
+        U: Serialize<S, Archived = T>,
+        S: Serializer + ?Sized,
+    {
+        use ::core::{mem::size_of, slice::from_raw_parts};
+
+        let pos = serializer.align_for::<T>()?;
+
+        let bytes = from_raw_parts(slice.as_ptr().cast::<u8>(), size_of::<T>() * slice.len());
+        serializer.write(bytes)?;
+
+        Ok(BoxResolver {
+            pos,
+            metadata_resolver: (),
+        })
     }
 }
 

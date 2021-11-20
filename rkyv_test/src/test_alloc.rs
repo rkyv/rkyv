@@ -1708,10 +1708,13 @@ mod tests {
         struct Test {
             #[with(CopyOptimize)]
             bytes: Vec<u8>,
+            #[with(CopyOptimize)]
+            words: Box<[u32]>,
         }
 
         let value = Test {
             bytes: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            words: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9].into_boxed_slice(),
         };
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&value).unwrap();
