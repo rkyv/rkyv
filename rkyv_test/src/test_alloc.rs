@@ -1729,6 +1729,29 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn with_ref_as_box_copy_optimize() {
+        use rkyv::with::{CopyOptimize, RefAsBox};
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct Test<'a> {
+            #[with(CopyOptimize, RefAsBox)]
+            bytes: &'a [u8],
+        }
+
+        let bytes = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        let value = Test {
+            bytes: bytes.as_ref(),
+        };
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+        assert_eq!(&*archived.bytes, value.bytes);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_crate_path() {
         use ::rkyv as alt_path;
 

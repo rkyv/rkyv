@@ -5,7 +5,10 @@ use crate::{
     ser::{ScratchSpace, Serializer},
     string::{ArchivedString, StringResolver},
     vec::{ArchivedVec, VecResolver},
-    with::{ArchiveWith, AsOwned, AsVec, CopyOptimize, DeserializeWith, Niche, SerializeWith},
+    with::{
+        ArchiveWith, AsOwned, AsVec, CopyOptimize, DeserializeWith, Niche, RefAsBox, SerializeWith,
+        With,
+    },
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized, Fallible,
     MetadataResolver, Serialize, SerializeUnsized,
 };
@@ -429,5 +432,39 @@ where
         }
 
         Ok(result.into_boxed_slice())
+    }
+}
+
+impl<'a, T: Archive> ArchiveWith<With<&'a [T], RefAsBox>> for CopyOptimize {
+    type Archived = ArchivedBox<[T::Archived]>;
+    type Resolver = BoxResolver<MetadataResolver<[T]>>;
+
+    unsafe fn resolve_with(
+        field: &With<&'a [T], RefAsBox>,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        ArchivedBox::resolve_from_ref(*field.as_ref(), pos, resolver, out);
+    }
+}
+
+impl<'a, T, S> SerializeWith<With<&'a [T], RefAsBox>, S> for CopyOptimize
+where
+    T: Serialize<S>,
+    S: Serializer,
+{
+    fn serialize_with(
+        field: &With<&'a [T], RefAsBox>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        use ::core::mem::size_of;
+
+        // Basic debug assert that T and T::Archived are at least the same size
+        debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
+
+        unsafe {
+            ArchivedBox::<[T::Archived]>::serialize_copy_from_slice(*field.as_ref(), serializer)
+        }
     }
 }
