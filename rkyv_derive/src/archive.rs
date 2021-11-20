@@ -660,12 +660,8 @@ fn derive_archive_impl(
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let ty = with_ty(f);
-                            let field_doc = format!(
-                                "The resolver for [`{}::{}::{}`]",
-                                name,
-                                variant,
-                                i,
-                            );
+                            let field_doc =
+                                format!("The resolver for [`{}::{}::{}`]", name, variant, i);
                             quote_spanned! { f.span() =>
                                 #[doc = #field_doc]
                                 #rkyv_path::Resolver<#ty>
@@ -685,7 +681,7 @@ fn derive_archive_impl(
                             #[allow(dead_code)]
                             #variant
                         }
-                    },
+                    }
                 }
             });
 
@@ -841,11 +837,8 @@ fn derive_archive_impl(
                                     #vis #field_name: #rkyv_path::Archived<#ty>
                                 }
                             });
-                            let variant_doc = format!(
-                                "The archived counterpart of [`{}::{}`]",
-                                name,
-                                variant,
-                            );
+                            let variant_doc =
+                                format!("The archived counterpart of [`{}::{}`]", name, variant);
                             quote_spanned! { variant.span() =>
                                 #[doc = #variant_doc]
                                 #[allow(dead_code)]
@@ -860,9 +853,7 @@ fn derive_archive_impl(
                                 let vis = &f.vis;
                                 let field_doc = format!(
                                     "The archived counterpart of [`{}::{}::{}`]",
-                                    name,
-                                    variant,
-                                    i,
+                                    name, variant, i,
                                 );
                                 let archive_attrs = field_archive_attrs(f);
                                 quote_spanned! { f.span() =>
@@ -871,11 +862,8 @@ fn derive_archive_impl(
                                     #vis #rkyv_path::Archived<#ty>
                                 }
                             });
-                            let variant_doc = format!(
-                                "The archived counterpart of [`{}::{}`]",
-                                name,
-                                variant,
-                            );
+                            let variant_doc =
+                                format!("The archived counterpart of [`{}::{}`]", name, variant);
                             quote_spanned! { variant.span() =>
                                 #[doc = #variant_doc]
                                 #[allow(dead_code)]
@@ -883,11 +871,8 @@ fn derive_archive_impl(
                             }
                         }
                         Fields::Unit => {
-                            let variant_doc = format!(
-                                "The archived counterpart of [`{}::{}`]",
-                                name,
-                                variant,
-                            );
+                            let variant_doc =
+                                format!("The archived counterpart of [`{}::{}`]", name, variant);
                             quote_spanned! { variant.span() =>
                                 #[doc = #variant_doc]
                                 #[allow(dead_code)]
