@@ -35,6 +35,7 @@ macro_rules! impl_rend_primitive {
     };
 }
 
+#[cfg(has_atomics)]
 macro_rules! impl_rend_atomic {
     ($type:ty, $prim:ty) => {
         impl Archive for $type {

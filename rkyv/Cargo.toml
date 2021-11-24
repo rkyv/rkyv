@@ -1,6 +1,6 @@
 [package]
 name = "rkyv"
-version = "0.7.22"
+version = "0.7.23"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Zero-copy deserialization framework for Rust"

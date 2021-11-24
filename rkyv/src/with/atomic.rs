@@ -2,7 +2,6 @@ use crate::{
     with::{ArchiveWith, Atomic, DeserializeWith, SerializeWith, With},
     Archived, Fallible,
 };
-#[cfg(has_atomics)]
 use core::sync::atomic::{
     AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicU16, AtomicU32, AtomicU8, Ordering,
 };
@@ -66,28 +65,21 @@ macro_rules! impl_atomic {
     };
 }
 
-#[cfg(has_atomics)]
 impl_atomic!(AtomicBool);
-#[cfg(has_atomics)]
 impl_atomic!(AtomicI8);
-#[cfg(has_atomics)]
 impl_atomic!(AtomicU8);
 
-#[cfg(has_atomics)]
 impl_atomic!(@multibyte AtomicI16);
-#[cfg(has_atomics)]
 impl_atomic!(@multibyte AtomicI32);
 #[cfg(has_atomics_64)]
 impl_atomic!(@multibyte AtomicI64);
-#[cfg(has_atomics)]
 impl_atomic!(@multibyte AtomicU16);
-#[cfg(has_atomics)]
 impl_atomic!(@multibyte AtomicU32);
 #[cfg(has_atomics_64)]
 impl_atomic!(@multibyte AtomicU64);
 
 // AtomicUsize
-#[cfg(has_atomics)]
+
 // We can't implement Archive for AtomicUsize if the platform does not have 64-bit atomics but the
 // size type is 64-bit
 #[cfg(any(has_atomics_64, not(feature = "size_64")))]
@@ -140,7 +132,7 @@ const _: () = {
 };
 
 // AtomicIsize
-#[cfg(has_atomics)]
+
 // We can't implement Archive for AtomicIsize if the platform does not have 64-bit atomics but the
 // size type is 64-bit
 #[cfg(any(has_atomics_64, not(feature = "size_64")))]

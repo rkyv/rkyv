@@ -5,6 +5,7 @@
 
 #[cfg(feature = "alloc")]
 mod alloc;
+#[cfg(has_atomics)]
 mod atomic;
 mod core;
 #[cfg(feature = "std")]

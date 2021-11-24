@@ -74,6 +74,7 @@ macro_rules! impl_primitive {
     };
 }
 
+#[cfg(has_atomics)]
 macro_rules! impl_atomic {
     (@serialize_deserialize $type:ty) => {
         impl<S: Fallible + ?Sized> Serialize<S> for $type {
