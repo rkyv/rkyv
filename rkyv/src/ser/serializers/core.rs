@@ -147,21 +147,6 @@ impl<T: AsMut<[u8]>> Serializer for BufferSerializer<T> {
             Ok(())
         }
     }
-
-    fn pad(&mut self, padding: usize) -> Result<(), Self::Error> {
-        let end_pos = self.pos + padding;
-        let archive_len = self.inner.as_mut().len();
-        if end_pos > archive_len {
-            Err(BufferSerializerError::Overflow {
-                pos: self.pos,
-                bytes_needed: padding,
-                archive_len,
-            })
-        } else {
-            self.pos = end_pos;
-            Ok(())
-        }
-    }
 }
 
 /// Errors that can occur when using a fixed-size allocator.

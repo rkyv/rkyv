@@ -1050,6 +1050,22 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn buffer_serializer_zeroes_padding() {
+        use ::core::mem::size_of;
+
+        #[derive(Archive, Serialize)]
+        pub struct PaddedExample {
+            a: u8,
+            b: u64,
+        }
+        let mut serializer = BufferSerializer::<[u8; 256]>::new([0xccu8; 256]);
+        serializer.serialize_value(&PaddedExample { a: 0u8, b: 0u64 }).unwrap();
+        let bytes = serializer.into_inner();
+        assert!(bytes[0..size_of::<Archived<PaddedExample>>()].iter().all(|&b| b == 0));
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn const_generics() {
         #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
