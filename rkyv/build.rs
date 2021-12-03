@@ -16,7 +16,7 @@ fn main() {
     }
 
     // Architecture-specific limitations:
-    let arch = target.split("-").next().unwrap_or(&target);
+    let arch = target.split('-').next().unwrap_or(&target);
     match arch {
         // NOTE: Not all ARMv7 variants are listed here, as certain variants do actually provide
         // 64-bit atomics. (`armv7`, `armv7a`, and `armv7s`, specifically)
