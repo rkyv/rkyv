@@ -4,12 +4,11 @@ use crate::{
     collections::{
         hash_index::validation::HashIndexError,
         index_map::ArchivedIndexMap,
-        util::{Entry, validation::ArchivedEntryError},
+        util::{validation::ArchivedEntryError, Entry},
         ArchivedHashIndex,
     },
     validation::ArchiveContext,
-    Archived,
-    RelPtr,
+    Archived, RelPtr,
 };
 use bytecheck::{CheckBytes, Error, SliceCheckError};
 use core::{
@@ -53,7 +52,9 @@ impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display for IndexMa
         match self {
             IndexMapError::HashIndexError(e) => write!(f, "hash index check error: {}", e),
             IndexMapError::LayoutError(e) => write!(f, "layout error: {}", e),
-            IndexMapError::PivotOutOfBounds { index, pivot } => write!(f, "pivot out of bounds: {} at index {}", pivot, index),
+            IndexMapError::PivotOutOfBounds { index, pivot } => {
+                write!(f, "pivot out of bounds: {} at index {}", pivot, index)
+            }
             IndexMapError::CheckEntryError(e) => write!(f, "entry check error: {}", e),
             IndexMapError::InvalidKeyPosition { index } => {
                 write!(f, "invalid key position: at index {}", index)
@@ -176,7 +177,7 @@ where
         for (i, pivot) in pivots.iter().enumerate() {
             let pivot = from_archived!(*pivot) as usize;
             if pivot >= index.len() {
-                return Err(IndexMapError::PivotOutOfBounds { index: i, pivot })
+                return Err(IndexMapError::PivotOutOfBounds { index: i, pivot });
             }
         }
 

@@ -4,7 +4,7 @@ use crate::{
     collections::{
         hash_index::validation::HashIndexError,
         hash_map::ArchivedHashMap,
-        util::{Entry, validation::ArchivedEntryError},
+        util::{validation::ArchivedEntryError, Entry},
         ArchivedHashIndex,
     },
     validation::ArchiveContext,

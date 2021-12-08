@@ -1,8 +1,8 @@
 //! Validation implementation for utility types.
 
-use ::core::{fmt, ptr};
-use ::bytecheck::CheckBytes;
 use crate::{collections::util::Entry, validation::ArchiveContext};
+use ::bytecheck::CheckBytes;
+use ::core::{fmt, ptr};
 
 /// Errors that can occur while checking an archived hash map entry.
 #[derive(Debug)]

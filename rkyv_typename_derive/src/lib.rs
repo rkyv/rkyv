@@ -12,15 +12,9 @@ use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use syn::{parse_macro_input, spanned::Spanned, AttrStyle, DeriveInput, Error, Lit, Meta};
 
+#[derive(Default)]
 struct Attributes {
     typename: Option<String>,
-}
-
-impl Default for Attributes {
-    #[inline]
-    fn default() -> Self {
-        Self { typename: None }
-    }
 }
 
 fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
