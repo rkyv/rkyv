@@ -1,4 +1,7 @@
 //! Archived index set implementation.
+//!
+//! During archiving, index sets are built into minimal perfect index sets using
+//! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
 use crate::{
     collections::{
@@ -10,6 +13,7 @@ use crate::{
 use core::{borrow::Borrow, fmt, hash::Hash};
 
 /// An archived `IndexSet`.
+#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct ArchivedIndexSet<K> {
     inner: ArchivedIndexMap<K, ()>,

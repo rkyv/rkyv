@@ -1,5 +1,8 @@
 //! Utilities for archived collections.
 
+#[cfg(feature = "validation")]
+pub mod validation;
+
 use crate::{Archive, Fallible, Serialize};
 
 /// A simple key-value pair.

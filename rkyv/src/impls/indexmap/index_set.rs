@@ -84,4 +84,23 @@ mod tests {
         let deserialized: IndexSet<String> = archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
+
+    #[cfg(feature = "validation")]
+    #[test]
+    fn validate_index_set() {
+        use crate::check_archived_root;
+
+        let value = indexset! {
+            String::from("foo"),
+            String::from("bar"),
+            String::from("baz"),
+            String::from("bat"),
+        };
+
+        let mut serializer = AllocSerializer::<4096>::default();
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        check_archived_root::<IndexSet<String>>(result.as_ref())
+            .expect("failed to validate archived index set");
+    }
 }

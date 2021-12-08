@@ -1,4 +1,10 @@
 //! Archived index map implementation.
+//!
+//! During archiving, hashmaps are built into minimal perfect hashmaps using
+//! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
+
+#[cfg(feature = "validation")]
+pub mod validation;
 
 use crate::{
     collections::{

@@ -1,4 +1,4 @@
-//! [`Archive`](crate::Archive) implementation for hashmaps.
+//! Archived hash map implementation.
 //!
 //! During archiving, hashmaps are built into minimal perfect hashmaps using
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).

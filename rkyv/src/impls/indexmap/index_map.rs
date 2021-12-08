@@ -94,4 +94,23 @@ mod tests {
         let deserialized: IndexMap<String, i32> = archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
+
+    #[cfg(feature = "validation")]
+    #[test]
+    fn validate_index_map() {
+        use crate::check_archived_root;
+
+        let value = indexmap! {
+            String::from("foo") => 10,
+            String::from("bar") => 20,
+            String::from("baz") => 40,
+            String::from("bat") => 80,
+        };
+
+        let mut serializer = AllocSerializer::<4096>::default();
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        check_archived_root::<IndexMap<String, i32>>(result.as_ref())
+            .expect("failed to validate archived index map");
+    }
 }

@@ -1,9 +1,10 @@
-//! Validation implementation for HashMap.
+//! Validation implementation for ArchiveHashMap.
 
 use crate::{
     collections::{
         hash_index::validation::HashIndexError,
-        hash_map::{ArchivedHashMap, Entry},
+        hash_map::ArchivedHashMap,
+        util::{Entry, validation::ArchivedEntryError},
         ArchivedHashIndex,
     },
     validation::ArchiveContext,
@@ -18,59 +19,6 @@ use core::{
     ptr,
 };
 
-/// Errors that can occur while checking an archived hash map entry.
-#[derive(Debug)]
-pub enum ArchivedHashMapEntryError<K, V> {
-    /// An error occurred while checking the bytes of a key
-    KeyCheckError(K),
-    /// An error occurred while checking the bytes of a value
-    ValueCheckError(V),
-}
-
-impl<K: fmt::Display, V: fmt::Display> fmt::Display for ArchivedHashMapEntryError<K, V> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ArchivedHashMapEntryError::KeyCheckError(e) => write!(f, "key check error: {}", e),
-            ArchivedHashMapEntryError::ValueCheckError(e) => write!(f, "value check error: {}", e),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-const _: () = {
-    use std::error::Error;
-
-    impl<K: Error + 'static, V: Error + 'static> Error for ArchivedHashMapEntryError<K, V> {
-        fn source(&self) -> Option<&(dyn Error + 'static)> {
-            match self {
-                ArchivedHashMapEntryError::KeyCheckError(e) => Some(e as &dyn Error),
-                ArchivedHashMapEntryError::ValueCheckError(e) => Some(e as &dyn Error),
-            }
-        }
-    }
-};
-
-impl<K, V, C> CheckBytes<C> for Entry<K, V>
-where
-    K: CheckBytes<C>,
-    V: CheckBytes<C>,
-    C: ArchiveContext + ?Sized,
-{
-    type Error = ArchivedHashMapEntryError<K::Error, V::Error>;
-
-    #[inline]
-    unsafe fn check_bytes<'a>(
-        value: *const Self,
-        context: &mut C,
-    ) -> Result<&'a Self, Self::Error> {
-        K::check_bytes(ptr::addr_of!((*value).key), context)
-            .map_err(ArchivedHashMapEntryError::KeyCheckError)?;
-        V::check_bytes(ptr::addr_of!((*value).value), context)
-            .map_err(ArchivedHashMapEntryError::ValueCheckError)?;
-        Ok(&*value)
-    }
-}
-
 /// Errors that can occur while checking an archived hash map.
 #[derive(Debug)]
 pub enum HashMapError<K, V, C> {
@@ -79,7 +27,7 @@ pub enum HashMapError<K, V, C> {
     /// An error occured while checking the layouts of displacements or entries
     LayoutError(LayoutError),
     /// An error occured while checking the entries
-    CheckEntryError(SliceCheckError<ArchivedHashMapEntryError<K, V>>),
+    CheckEntryError(SliceCheckError<ArchivedEntryError<K, V>>),
     /// A key is not located at the correct position
     InvalidKeyPosition {
         /// The index of the key when iterating
@@ -152,9 +100,9 @@ impl<K, V, C> From<LayoutError> for HashMapError<K, V, C> {
     }
 }
 
-impl<K, V, C> From<SliceCheckError<ArchivedHashMapEntryError<K, V>>> for HashMapError<K, V, C> {
+impl<K, V, C> From<SliceCheckError<ArchivedEntryError<K, V>>> for HashMapError<K, V, C> {
     #[inline]
-    fn from(e: SliceCheckError<ArchivedHashMapEntryError<K, V>>) -> Self {
+    fn from(e: SliceCheckError<ArchivedEntryError<K, V>>) -> Self {
         Self::CheckEntryError(e)
     }
 }
