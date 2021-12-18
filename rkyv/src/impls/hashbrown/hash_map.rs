@@ -73,3 +73,55 @@ impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>>
         other.eq(self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        archived_root,
+        ser::{serializers::AllocSerializer, Serializer},
+        Deserialize, Infallible,
+    };
+    use hashbrown::HashMap;
+
+    #[test]
+    fn index_map() {
+        let mut value = HashMap::new();
+        value.insert(String::from("foo"), 10);
+        value.insert(String::from("bar"), 20);
+        value.insert(String::from("baz"), 40);
+        value.insert(String::from("bat"), 80);
+
+        let mut serializer = AllocSerializer::<4096>::default();
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        let archived = unsafe { archived_root::<HashMap<String, i32>>(result.as_ref()) };
+
+        assert_eq!(value.len(), archived.len());
+        for (k, v) in value.iter() {
+            let (ak, av) = archived.get_key_value(k.as_str()).unwrap();
+            assert_eq!(k, ak);
+            assert_eq!(v, av);
+        }
+
+        let deserialized: HashMap<String, i32> = archived.deserialize(&mut Infallible).unwrap();
+        assert_eq!(value, deserialized);
+    }
+
+    #[cfg(feature = "validation")]
+    #[test]
+    fn validate_index_map() {
+        use crate::check_archived_root;
+
+        let mut value = HashMap::new();
+        value.insert(String::from("foo"), 10);
+        value.insert(String::from("bar"), 20);
+        value.insert(String::from("baz"), 40);
+        value.insert(String::from("bat"), 80);
+
+        let mut serializer = AllocSerializer::<4096>::default();
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        check_archived_root::<HashMap<String, i32>>(result.as_ref())
+            .expect("failed to validate archived index map");
+    }
+}
