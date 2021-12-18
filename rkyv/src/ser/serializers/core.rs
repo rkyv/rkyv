@@ -319,3 +319,92 @@ impl<M: ScratchSpace, F: ScratchSpace> ScratchSpace for FallbackScratch<M, F> {
             .or_else(|_| self.fallback.pop_scratch(ptr, layout))
     }
 }
+
+/// A passthrough scratch space allocator that tracks scratch space usage.
+#[derive(Debug)]
+pub struct ScratchTracker<T> {
+    inner: T,
+    bytes_allocated: usize,
+    allocations: usize,
+    max_bytes_allocated: usize,
+    max_allocations: usize,
+    max_alignment: usize,
+}
+
+impl<T> ScratchTracker<T> {
+    /// Creates a new scratch tracker from the given inner scratch space.
+    pub fn new(inner: T) -> Self {
+        Self {
+            inner,
+            bytes_allocated: 0,
+            allocations: 0,
+            max_bytes_allocated: 0,
+            max_allocations: 0,
+            max_alignment: 1,
+        }
+    }
+
+    /// Returns the maximum number of bytes that were concurrently allocated during serialization.
+    pub fn max_bytes_allocated(&self) -> usize {
+        self.max_bytes_allocated
+    }
+
+    /// Returns the maximum number of concurrent allocations during serialization.
+    pub fn max_allocations(&self) -> usize {
+        self.max_allocations
+    }
+
+    /// Returns the maximum alignment of scratch space requested during serialization.
+    pub fn max_alignment(&self) -> usize {
+        self.max_alignment
+    }
+
+    /// Returns the minimum buffer size required to serialize the same data.
+    ///
+    /// This calculation takes into account packing efficiency for slab allocated scratch space. It
+    /// is not exact, and has an error bound of `max_allocations * (max_alignment - 1)` bytes. This
+    /// should be suitably small for most use cases.
+    pub fn min_buffer_size(&self) -> usize {
+        self.max_bytes_allocated + self.min_buffer_size_max_error()
+    }
+
+    /// Returns the maximum error term for the minimum buffer size calculation.
+    pub fn min_buffer_size_max_error(&self) -> usize {
+        self.max_allocations * (self.max_alignment - 1)
+    }
+}
+
+impl<T: Fallible> Fallible for ScratchTracker<T> {
+    type Error = T::Error;
+}
+
+impl<T: ScratchSpace> ScratchSpace for ScratchTracker<T> {
+    #[inline]
+    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error> {
+        let result = self.inner.push_scratch(layout)?;
+
+        self.bytes_allocated += layout.size();
+        self.allocations += 1;
+        self.max_bytes_allocated = usize::max(self.bytes_allocated, self.max_bytes_allocated);
+        self.max_allocations = usize::max(self.allocations, self.max_allocations);
+        self.max_alignment = usize::max(self.max_alignment, layout.align());
+
+        Ok(result)
+    }
+
+    #[inline]
+    unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error> {
+        self.inner.pop_scratch(ptr, layout)?;
+
+        self.bytes_allocated -= layout.size();
+        self.allocations -= 1;
+
+        Ok(())
+    }
+}
+
+impl<T> From<T> for ScratchTracker<T> {
+    fn from(inner: T) -> Self {
+        Self::new(inner)
+    }
+}

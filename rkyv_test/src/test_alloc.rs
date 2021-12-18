@@ -1942,4 +1942,52 @@ mod tests {
             b: rc_zst.clone(),
         });
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn scratch_tracker() {
+        use rkyv::ser::serializers::{
+            AlignedSerializer,
+            CompositeSerializer,
+            ScratchTracker,
+            AllocScratch,
+        };
+
+        type TrackerSerializer = CompositeSerializer<
+            AlignedSerializer<AlignedVec>,
+            ScratchTracker<AllocScratch>,
+            Infallible,
+        >;
+        fn track_serialize<T>(value: &T) -> ScratchTracker<AllocScratch>
+        where
+            T: Serialize<TrackerSerializer>,
+        {
+            let mut serializer = CompositeSerializer::new(
+                AlignedSerializer::<AlignedVec>::default(),
+                ScratchTracker::new(AllocScratch::default()),
+                Infallible,
+            );
+            serializer.serialize_value(value).expect("failed to serialize value");
+            serializer.into_components().1
+        }
+
+        let tracker = track_serialize(&42);
+        assert_eq!(tracker.max_bytes_allocated(), 0);
+        assert_eq!(tracker.max_allocations(), 0);
+        assert_eq!(tracker.max_alignment(), 1);
+        assert_eq!(tracker.min_buffer_size(), 0);
+        assert_eq!(tracker.min_buffer_size_max_error(), 0);
+
+        let tracker = track_serialize(&vec![1, 2, 3, 4]);
+        assert_eq!(tracker.max_bytes_allocated(), 0);
+        assert_eq!(tracker.max_allocations(), 0);
+        assert_eq!(tracker.max_alignment(), 1);
+        assert_eq!(tracker.min_buffer_size(), 0);
+        assert_eq!(tracker.min_buffer_size_max_error(), 0);
+
+        let tracker = track_serialize(&vec![vec![1, 2], vec![3, 4]]);
+        assert_ne!(tracker.max_bytes_allocated(), 0);
+        assert_eq!(tracker.max_allocations(), 1);
+        assert_ne!(tracker.min_buffer_size(), 0);
+    }
 }
