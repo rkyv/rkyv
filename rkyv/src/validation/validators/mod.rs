@@ -1,8 +1,8 @@
 //! Validators that can check archived types.
 
 mod archive;
-#[cfg(feature = "alloc")]
 mod shared;
+mod util;
 
 use crate::{
     validation::{
@@ -14,8 +14,8 @@ use crate::{
 pub use archive::*;
 use bytecheck::CheckBytes;
 use core::{alloc::Layout, any::TypeId, fmt};
-#[cfg(feature = "alloc")]
 pub use shared::*;
+pub use util::*;
 
 /// The default validator error.
 #[derive(Debug)]
@@ -23,7 +23,6 @@ pub enum DefaultValidatorError {
     /// An archive validator error occurred.
     ArchiveError(ArchiveError),
     /// A shared validator error occurred.
-    #[cfg(feature = "alloc")]
     SharedError(SharedError),
 }
 
@@ -31,7 +30,6 @@ impl fmt::Display for DefaultValidatorError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ArchiveError(e) => write!(f, "{}", e),
-            #[cfg(feature = "alloc")]
             Self::SharedError(e) => write!(f, "{}", e),
         }
     }
@@ -45,7 +43,6 @@ const _: () = {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
                 Self::ArchiveError(e) => Some(e as &dyn Error),
-                #[cfg(feature = "alloc")]
                 Self::SharedError(e) => Some(e as &dyn Error),
             }
         }
@@ -56,7 +53,6 @@ const _: () = {
 #[derive(Debug)]
 pub struct DefaultValidator<'a> {
     archive: ArchiveValidator<'a>,
-    #[cfg(feature = "alloc")]
     shared: SharedValidator,
 }
 
@@ -66,7 +62,6 @@ impl<'a> DefaultValidator<'a> {
     pub fn new(bytes: &'a [u8]) -> Self {
         Self {
             archive: ArchiveValidator::new(bytes),
-            #[cfg(feature = "alloc")]
             shared: SharedValidator::new(),
         }
     }
@@ -225,7 +220,7 @@ where
 #[inline]
 pub fn check_archived_root<'a, T: Archive>(
     bytes: &'a [u8],
-) -> Result<&T::Archived, CheckTypeError<T::Archived, DefaultValidator<'a>>>
+) -> Result<&'a T::Archived, CheckTypeError<T::Archived, DefaultValidator<'a>>>
 where
     T::Archived: CheckBytes<DefaultValidator<'a>>,
 {

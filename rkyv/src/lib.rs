@@ -178,7 +178,7 @@ pub use util::*;
 #[cfg_attr(doc_cfg, doc(cfg(feature = "validation")))]
 pub use validation::{
     check_archived_root_with_context, check_archived_value_with_context,
-    validators::{check_archived_root, check_archived_value},
+    validators::{check_archived_root, check_archived_value, from_bytes},
 };
 
 /// A type that can produce an error.

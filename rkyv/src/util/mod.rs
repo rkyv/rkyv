@@ -13,7 +13,9 @@
 mod aligned_vec;
 mod scratch_vec;
 
-use crate::{Archive, ArchiveUnsized, RelPtr};
+use crate::{ser::Serializer, Archive, ArchiveUnsized, Deserialize, Fallible, RelPtr, Serialize};
+#[cfg(feature = "alloc")]
+use crate::{de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer};
 use core::{
     mem,
     ops::{Deref, DerefMut},
@@ -244,4 +246,76 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
     fn as_mut(&mut self) -> &mut [u8] {
         self.0.as_mut()
     }
+}
+
+/// Serializes the given value and returns the resulting bytes.
+///
+/// The const generic parameter `N` specifies the number of bytes to pre-allocate as scratch space.
+/// Choosing a good default value for your data 
+///
+/// This function is only available with the `alloc` feature because it uses a general-purpose
+/// serializer. In no-alloc and high-performance environments, the serializer should be customized
+/// for the specific situation.
+///
+/// # Examples
+/// ```
+/// let value = vec![1, 2, 3, 4];
+///
+/// let bytes = rkyv::to_bytes::<_, 1024>(&value).expect("failed to serialize vec");
+/// // SAFETY:
+/// // - The byte slice represents an archived object
+/// // - The root of the object is stored at the end of the slice
+/// let deserialized = unsafe {
+///     rkyv::from_bytes_unchecked::<Vec<i32>>(&bytes)
+///         .expect("failed to deserialize vec")
+/// };
+///
+/// assert_eq!(deserialized, value);
+/// ```
+#[cfg(feature = "alloc")]
+#[inline]
+pub fn to_bytes<T, const N: usize>(value: &T) -> Result<AlignedVec, <AllocSerializer<N> as Fallible>::Error>
+where
+    T: Serialize<AllocSerializer<N>>,
+{
+    let mut serializer = AllocSerializer::<N>::default();
+    serializer.serialize_value(value)?;
+    Ok(serializer.into_serializer().into_inner())
+}
+
+/// Deserializes a value from the given bytes.
+///
+/// This function is only available with the `alloc` feature because it uses a general-purpose
+/// deserializer. In no-alloc and high-performance environments, the deserializer should be
+/// customized for the specific situation.
+/// 
+/// # Safety
+///
+/// - The byte slice must represent an archived object
+/// - The root of the object must be stored at the end of the slice (this is the default behavior)
+///
+/// # Examples
+/// ```
+/// let value = vec![1, 2, 3, 4];
+///
+/// let bytes = rkyv::to_bytes::<_, 1024>(&value).expect("failed to serialize vec");
+/// // SAFETY:
+/// // - The byte slice represents an archived object
+/// // - The root of the object is stored at the end of the slice
+/// let deserialized = unsafe {
+///     rkyv::from_bytes_unchecked::<Vec<i32>>(&bytes)
+///         .expect("failed to deserialize vec")
+/// };
+///
+/// assert_eq!(deserialized, value);
+/// ```
+#[cfg(feature = "alloc")]
+#[inline]
+pub unsafe fn from_bytes_unchecked<T>(bytes: &[u8]) -> Result<T, <SharedDeserializeMap as Fallible>::Error>
+where
+    T: Archive,
+    T::Archived: Deserialize<T, SharedDeserializeMap>
+{
+    archived_root::<T>(bytes)
+        .deserialize(&mut SharedDeserializeMap::default())
 }
