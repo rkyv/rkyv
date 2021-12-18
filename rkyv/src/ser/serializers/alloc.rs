@@ -117,12 +117,18 @@ pub struct HeapScratch<const N: usize> {
 impl<const N: usize> HeapScratch<N> {
     /// Creates a new heap scratch space.
     pub fn new() -> Self {
-        unsafe {
-            let layout = Layout::new::<AlignedBytes<N>>();
-            let ptr = alloc::alloc(layout).cast();
-            let buf = Box::from_raw(ptr);
+        if N != 0 {
+            unsafe {
+                let layout = Layout::new::<AlignedBytes<N>>();
+                let ptr = alloc::alloc(layout).cast();
+                let buf = Box::from_raw(ptr);
+                Self {
+                    inner: BufferScratch::new(buf),
+                }
+            }
+        } else {
             Self {
-                inner: BufferScratch::new(buf),
+                inner: BufferScratch::new(Box::new(AlignedBytes::default())),
             }
         }
     }
