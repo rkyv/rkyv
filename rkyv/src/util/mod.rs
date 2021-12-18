@@ -14,8 +14,12 @@ mod aligned_vec;
 mod scratch_vec;
 
 #[cfg(feature = "alloc")]
-use crate::{de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer};
-use crate::{ser::Serializer, Archive, ArchiveUnsized, Deserialize, Fallible, RelPtr, Serialize};
+use crate::{
+    de::deserializers::SharedDeserializeMap,
+    ser::{serializers::AllocSerializer, Serializer},
+    Deserialize, Fallible, Serialize,
+};
+use crate::{Archive, ArchiveUnsized, RelPtr};
 use core::{
     mem,
     ops::{Deref, DerefMut},

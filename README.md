@@ -75,16 +75,14 @@ let value = Test {
 
 // Serializing is as easy as a single function call
 let bytes = rkyv::to_bytes::<_, 256>(&value).unwrap();
-println!("{}", bytes.len());
 
 // Or you can customize your serialization for better performance
+// and compatibility with #![no_std] environments
 use rkyv::ser::{Serializer, serializers::AllocSerializer};
 
 let mut serializer = AllocSerializer::<0>::default();
 serializer.serialize_value(&value).unwrap();
 let bytes = serializer.into_serializer().into_inner();
-
-println!("{}", bytes.len());
 
 // You can use the safe API for fast zero-copy deserialization
 let archived = rkyv::check_archived_root::<Test>(&bytes[..]).unwrap();

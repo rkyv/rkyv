@@ -73,18 +73,13 @@ mod tests {
         test_archive::<Result<(), _>>(&Err(Box::new(vec![1, 2, 3, 4])));
     }
 
+    #[cfg(all(feature = "std", feature = "validation"))]
     mod isolate {
         #[cfg(feature = "wasm")]
         use wasm_bindgen_test::*;
 
-        #[cfg(not(feature = "std"))]
-        use alloc::{
-            string::{String, ToString},
-            vec,
-            vec::Vec,
-        };
-
         #[test]
+        #[allow(unused_variables)]
         #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
         fn archive_example() {
             use rkyv::{Archive, Deserialize, Serialize};
@@ -110,16 +105,14 @@ mod tests {
 
             // Serializing is as easy as a single function call
             let bytes = rkyv::to_bytes::<_, 256>(&value).unwrap();
-            println!("{}", bytes.len());
 
             // Or you can customize your serialization for better performance
-            use rkyv::ser::{Serializer, serializers::AllocSerializer};
+            // and compatibility with #![no_std] environments
+            use rkyv::ser::{serializers::AllocSerializer, Serializer};
 
             let mut serializer = AllocSerializer::<0>::default();
             serializer.serialize_value(&value).unwrap();
             let bytes = serializer.into_serializer().into_inner();
-
-            println!("{}", bytes.len());
 
             // You can use the safe API for fast zero-copy deserialization
             let archived = rkyv::check_archived_root::<Test>(&bytes[..]).unwrap();

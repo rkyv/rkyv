@@ -17,7 +17,7 @@ means completely comprehensive, and pull requests that improve this are welcomed
 | Reflection                        | no*           | yes           | yes           |
 | Object order                      | bottom-up     | either        | bottom-up     |
 | Schema language                   | derive        | custom        | custom        |
-| Usable as mutable state           | yes           | no            | no            |
+| Usable as mutable state           | yes           | limited       | limited       |
 | Padding takes space on wire?      | yes*          | optional      | no            |
 | Unset fields take space on wire?  | yes           | yes           | no            |
 | Pointers take space on wire?      | yes           | yes           | yes           |
