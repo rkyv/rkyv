@@ -52,13 +52,15 @@
 # Example
 
 ```rust
-use rkyv::{
-    archived_root,
-    ser::{serializers::AllocSerializer, Serializer},
-    Archive, Deserialize, Infallible, Serialize,
-};
+use rkyv::{Archive, Deserialize, Serialize};
+// bytecheck can be used to validate your data if you want
+use bytecheck::CheckBytes;
 
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
+// This will generate a PartialEq impl between our unarchived and archived types
+#[archive(compare(PartialEq))]
+// To use the safe API, you have to derive CheckBytes for the archived type
+#[archive_attr(derive(CheckBytes, Debug))]
 struct Test {
     int: u8,
     string: String,
@@ -71,16 +73,29 @@ let value = Test {
     option: Some(vec![1, 2, 3, 4]),
 };
 
-let mut serializer = AllocSerializer::<256>::default();
+// Serializing is as easy as a single function call
+let bytes = rkyv::to_bytes::<_, 256>(&value).unwrap();
+println!("{}", bytes.len());
+
+// Or you can customize your serialization for better performance
+use rkyv::ser::{Serializer, serializers::AllocSerializer};
+
+let mut serializer = AllocSerializer::<0>::default();
 serializer.serialize_value(&value).unwrap();
 let bytes = serializer.into_serializer().into_inner();
 
-let archived = unsafe { archived_root::<Test>(&bytes[..]) };
-assert_eq!(archived.int, value.int);
-assert_eq!(archived.string, value.string);
-assert_eq!(archived.option, value.option);
+println!("{}", bytes.len());
 
-let deserialized: Test = archived.deserialize(&mut Infallible).unwrap()
+// You can use the safe API for fast zero-copy deserialization
+let archived = rkyv::check_archived_root::<Test>(&bytes[..]).unwrap();
+assert_eq!(archived, &value);
+
+// Or you can use the unsafe API for maximum performance
+let archived = unsafe { rkyv::archived_root::<Test>(&bytes[..]) };
+assert_eq!(archived, &value);
+
+// And you can always deserialize back to the original type
+let deserialized: Test = archived.deserialize(&mut rkyv::Infallible).unwrap();
 assert_eq!(deserialized, value);
 ```
 
