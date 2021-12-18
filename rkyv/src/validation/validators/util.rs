@@ -1,24 +1,22 @@
-use ::core::fmt;
 use crate::{
+    check_archived_root,
     de::deserializers::SharedDeserializeMap,
     validation::validators::{CheckTypeError, DefaultValidator},
-    check_archived_root,
-    Archive,
-    Deserialize,
-    Fallible,
+    Archive, Deserialize, Fallible,
 };
 use ::bytecheck::CheckBytes;
+use ::core::fmt;
 
 /// Errors that can occur while deserializing from bytes.
 #[derive(Debug)]
-pub enum FromBytesError<C, D> {
+pub enum CheckDeserializeError<C, D> {
     /// A validation error occurred.
     CheckBytesError(C),
     /// A deserialization error occurred.
     DeserializeError(D),
 }
 
-impl<C: fmt::Display, D: fmt::Display> fmt::Display for FromBytesError<C, D> {
+impl<C: fmt::Display, D: fmt::Display> fmt::Display for CheckDeserializeError<C, D> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::CheckBytesError(e) => write!(f, "{}", e),
@@ -31,7 +29,7 @@ impl<C: fmt::Display, D: fmt::Display> fmt::Display for FromBytesError<C, D> {
 const _: () = {
     use ::std::error::Error;
 
-    impl<C: Error + 'static, D: Error + 'static> Error for FromBytesError<C, D> {
+    impl<C: Error + 'static, D: Error + 'static> Error for CheckDeserializeError<C, D> {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
                 Self::CheckBytesError(e) => Some(e as &dyn Error),
@@ -40,6 +38,12 @@ const _: () = {
         }
     }
 };
+
+/// The error type for [`from_bytes`].
+pub type FromBytesError<'a, T> = CheckDeserializeError<
+    CheckTypeError<<T as Archive>::Archived, DefaultValidator<'a>>,
+    <SharedDeserializeMap as Fallible>::Error,
+>;
 
 /// Checks and deserializes a value from the given bytes.
 ///
@@ -57,13 +61,13 @@ const _: () = {
 /// assert_eq!(deserialized, value);
 /// ```
 #[inline]
-pub fn from_bytes<'a, T>(bytes: &'a [u8]) -> Result<T, FromBytesError<CheckTypeError<T::Archived, DefaultValidator<'a>>, <SharedDeserializeMap as Fallible>::Error>>
+pub fn from_bytes<'a, T>(bytes: &'a [u8]) -> Result<T, FromBytesError<'a, T>>
 where
     T: Archive,
-    T::Archived: 'a + CheckBytes<DefaultValidator<'a>> + Deserialize<T, SharedDeserializeMap>
+    T::Archived: 'a + CheckBytes<DefaultValidator<'a>> + Deserialize<T, SharedDeserializeMap>,
 {
     check_archived_root::<'a, T>(bytes)
-        .map_err(FromBytesError::CheckBytesError)?
+        .map_err(CheckDeserializeError::CheckBytesError)?
         .deserialize(&mut SharedDeserializeMap::default())
-        .map_err(FromBytesError::DeserializeError)
+        .map_err(CheckDeserializeError::DeserializeError)
 }

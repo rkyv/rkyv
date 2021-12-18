@@ -13,9 +13,9 @@
 mod aligned_vec;
 mod scratch_vec;
 
-use crate::{ser::Serializer, Archive, ArchiveUnsized, Deserialize, Fallible, RelPtr, Serialize};
 #[cfg(feature = "alloc")]
 use crate::{de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer};
+use crate::{ser::Serializer, Archive, ArchiveUnsized, Deserialize, Fallible, RelPtr, Serialize};
 use core::{
     mem,
     ops::{Deref, DerefMut},
@@ -251,7 +251,9 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 /// Serializes the given value and returns the resulting bytes.
 ///
 /// The const generic parameter `N` specifies the number of bytes to pre-allocate as scratch space.
-/// Choosing a good default value for your data 
+/// Choosing a good default value for your data can be difficult without any data, so consider using
+/// [`ScratchTracker`](crate::ser::serializers::ScratchTracker) to determine how much scratch space
+/// is typically used.
 ///
 /// This function is only available with the `alloc` feature because it uses a general-purpose
 /// serializer. In no-alloc and high-performance environments, the serializer should be customized
@@ -274,7 +276,9 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 /// ```
 #[cfg(feature = "alloc")]
 #[inline]
-pub fn to_bytes<T, const N: usize>(value: &T) -> Result<AlignedVec, <AllocSerializer<N> as Fallible>::Error>
+pub fn to_bytes<T, const N: usize>(
+    value: &T,
+) -> Result<AlignedVec, <AllocSerializer<N> as Fallible>::Error>
 where
     T: Serialize<AllocSerializer<N>>,
 {
@@ -288,7 +292,7 @@ where
 /// This function is only available with the `alloc` feature because it uses a general-purpose
 /// deserializer. In no-alloc and high-performance environments, the deserializer should be
 /// customized for the specific situation.
-/// 
+///
 /// # Safety
 ///
 /// - The byte slice must represent an archived object
@@ -311,11 +315,12 @@ where
 /// ```
 #[cfg(feature = "alloc")]
 #[inline]
-pub unsafe fn from_bytes_unchecked<T>(bytes: &[u8]) -> Result<T, <SharedDeserializeMap as Fallible>::Error>
+pub unsafe fn from_bytes_unchecked<T>(
+    bytes: &[u8],
+) -> Result<T, <SharedDeserializeMap as Fallible>::Error>
 where
     T: Archive,
-    T::Archived: Deserialize<T, SharedDeserializeMap>
+    T::Archived: Deserialize<T, SharedDeserializeMap>,
 {
-    archived_root::<T>(bytes)
-        .deserialize(&mut SharedDeserializeMap::default())
+    archived_root::<T>(bytes).deserialize(&mut SharedDeserializeMap::default())
 }

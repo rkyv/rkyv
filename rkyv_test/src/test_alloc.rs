@@ -1947,10 +1947,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn scratch_tracker() {
         use rkyv::ser::serializers::{
-            AlignedSerializer,
-            CompositeSerializer,
-            ScratchTracker,
-            AllocScratch,
+            AlignedSerializer, AllocScratch, CompositeSerializer, ScratchTracker,
         };
 
         type TrackerSerializer = CompositeSerializer<
@@ -1967,7 +1964,9 @@ mod tests {
                 ScratchTracker::new(AllocScratch::default()),
                 Infallible,
             );
-            serializer.serialize_value(value).expect("failed to serialize value");
+            serializer
+                .serialize_value(value)
+                .expect("failed to serialize value");
             serializer.into_components().1
         }
 
