@@ -36,7 +36,7 @@ fn check_alignment<T>(ptr: *const u8) {
         0,
         "unaligned buffer, expected alignment {} but found alignment {}",
         expect_align,
-        1 << actual_align
+        1 << actual_align.trailing_zeros()
     );
 }
 
