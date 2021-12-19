@@ -239,14 +239,12 @@ impl Default for Infallible {
 ///
 /// ```
 /// use rkyv::{Archive, Deserialize, Serialize};
-/// // bytecheck can be used to validate your data if you want
-/// use bytecheck::CheckBytes;
 ///
 /// #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 /// // This will generate a PartialEq impl between our unarchived and archived types
 /// #[archive(compare(PartialEq))]
-/// // To use the safe API, you have to derive CheckBytes for the archived type
-/// #[archive_attr(derive(CheckBytes, Debug))]
+/// // We can pass attributes through to generated types with archive_attr
+/// #[archive_attr(derive(Debug))]
 /// struct Test {
 ///     int: u8,
 ///     string: String,
@@ -270,11 +268,8 @@ impl Default for Infallible {
 /// serializer.serialize_value(&value).unwrap();
 /// let bytes = serializer.into_serializer().into_inner();
 ///
-/// // You can use the safe API for fast zero-copy deserialization
-/// let archived = rkyv::check_archived_root::<Test>(&bytes[..]).unwrap();
-/// assert_eq!(archived, &value);
-///
-/// // Or you can use the unsafe API for maximum performance
+/// // You can use the safe API with the validation feature turned on,
+/// // or you can use the unsafe API (shown here) for maximum performance
 /// let archived = unsafe { rkyv::archived_root::<Test>(&bytes[..]) };
 /// assert_eq!(archived, &value);
 ///
