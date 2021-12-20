@@ -26,7 +26,7 @@ use ::core::{fmt, marker::PhantomData, mem::transmute, ops::Deref};
 /// how the type is archived, serialized, and deserialized.
 ///
 /// When a field is serialized, a reference to the field (i.e. `&T`) can be cast to a reference to a
-/// `With` wrapper and serialized instead (i.e. `&With<T, Wrapper>`). This is safe to do because
+/// wrapping `With` (i.e. `With<T, Wrapper>`) and serialized instead. This is safe to do because
 /// `With` is a transparent wrapper and is shaped exactly the same as the underlying field.
 ///
 /// # Example
