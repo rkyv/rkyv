@@ -470,9 +470,8 @@ mod tests {
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&value).unwrap();
         let buf = serializer.into_serializer().into_inner();
-        let data = buf.into_vec();
 
-        let value = check_archived_root::<MyType>(&data).unwrap();
+        let value = check_archived_root::<MyType>(&buf).unwrap();
         let _: MyType = value.deserialize(&mut Infallible).unwrap();
     }
 
