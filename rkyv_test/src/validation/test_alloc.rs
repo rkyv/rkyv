@@ -4,6 +4,7 @@ mod tests {
     #[cfg(not(feature = "std"))]
     use alloc::{
         boxed::Box,
+        collections::BTreeMap,
         rc::Rc,
         string::{String, ToString},
         vec,
@@ -12,10 +13,10 @@ mod tests {
     use bytecheck::CheckBytes;
     use rkyv::{
         check_archived_root, check_archived_value, ser::Serializer, AlignedBytes, Archive,
-        Serialize,
+        Deserialize, Infallible, Serialize,
     };
     #[cfg(feature = "std")]
-    use std::rc::Rc;
+    use std::{collections::BTreeMap, rc::Rc};
 
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
@@ -405,11 +406,6 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_b_tree() {
-        #[cfg(not(feature = "std"))]
-        use alloc::collections::BTreeMap;
-        #[cfg(feature = "std")]
-        use std::collections::BTreeMap;
-
         let mut value = BTreeMap::new();
         value.insert("foo".to_string(), 10);
         value.insert("bar".to_string(), 20);
@@ -426,11 +422,6 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_empty_b_tree() {
-        #[cfg(not(feature = "std"))]
-        use alloc::collections::BTreeMap;
-        #[cfg(feature = "std")]
-        use std::collections::BTreeMap;
-
         let value = BTreeMap::<u8, ()>::new();
 
         let mut serializer = DefaultSerializer::default();
@@ -446,11 +437,6 @@ mod tests {
     // This test creates structures too big to fit in 16-bit offsets
     #[cfg(not(feature = "size_16"))]
     fn check_b_tree_large() {
-        #[cfg(not(feature = "std"))]
-        use alloc::collections::BTreeMap;
-        #[cfg(feature = "std")]
-        use std::collections::BTreeMap;
-
         let mut value = BTreeMap::new();
         for i in 0..100_000 {
             value.insert(i.to_string(), i);
@@ -461,6 +447,32 @@ mod tests {
         let buf = serializer.into_serializer().into_inner();
 
         check_archived_root::<BTreeMap<String, i32>>(buf.as_ref()).unwrap();
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn b_tree_struct_member() {
+        #[derive(Archive, Serialize, Deserialize, Debug, Default)]
+        #[archive_attr(derive(CheckBytes))]
+        pub struct MyType {
+            pub some_list: BTreeMap<String, Vec<f32>>,
+            pub values: Vec<f32>,
+        }
+
+        let mut value = MyType::default();
+        
+        value.some_list
+            .entry("Asdf".to_string())
+            .and_modify(|e| e.push(1.0))
+            .or_insert_with(|| vec![2.0]);
+
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let buf = serializer.into_serializer().into_inner();
+        let data = buf.into_vec();
+
+        let value = check_archived_root::<MyType>(&data).unwrap();
+        let _: MyType = value.deserialize(&mut Infallible).unwrap();
     }
 
     #[test]
