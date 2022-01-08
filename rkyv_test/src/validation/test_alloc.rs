@@ -460,8 +460,9 @@ mod tests {
         }
 
         let mut value = MyType::default();
-        
-        value.some_list
+
+        value
+            .some_list
             .entry("Asdf".to_string())
             .and_modify(|e| e.push(1.0))
             .or_insert_with(|| vec![2.0]);

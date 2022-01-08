@@ -13,8 +13,9 @@ use bytecheck::{CheckBytes, Error};
 use core::{
     alloc::Layout,
     convert::{Infallible, TryFrom},
+    fmt,
     hint::unreachable_unchecked,
-    fmt, ptr,
+    ptr,
 };
 
 impl<K, C> CheckBytes<C> for InnerNodeEntry<K>
@@ -298,21 +299,24 @@ impl NodeHeader {
         C: ArchiveContext + ?Sized,
         C::Error: Error,
     {
-        CheckBytes::check_bytes(ptr::addr_of!((*value).meta), context)
-            .map_err(|_: Infallible| unsafe {
+        CheckBytes::check_bytes(ptr::addr_of!((*value).meta), context).map_err(
+            |_: Infallible| unsafe {
                 // SAFETY: Infallible cannot exist
                 unreachable_unchecked()
-            })?;
-        CheckBytes::check_bytes(ptr::addr_of!((*value).size), context)
-            .map_err(|_: Infallible| unsafe {
+            },
+        )?;
+        CheckBytes::check_bytes(ptr::addr_of!((*value).size), context).map_err(
+            |_: Infallible| unsafe {
                 // SAFETY: Infallible cannot exist
                 unreachable_unchecked()
-            })?;
-        RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context)
-            .map_err(|_: Infallible| unsafe {
+            },
+        )?;
+        RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context).map_err(
+            |_: Infallible| unsafe {
                 // SAFETY: Infallible cannot exist
                 unreachable_unchecked()
-            })?;
+            },
+        )?;
 
         // All the fields have been checked and this is a valid RawNode
         Ok(&*value)
@@ -497,10 +501,12 @@ const _: () = {
                 } else {
                     Node::layout_raw(root.classify_leaf_ptr::<K, V>())
                 };
-                let nodes_range = context.push_prefix_subtree_range(
-                    root_ptr.cast(),
-                    root_ptr.cast::<u8>().add(root_layout.size())
-                ).map_err(ArchivedBTreeMapError::ContextError)?;
+                let nodes_range = context
+                    .push_prefix_subtree_range(
+                        root_ptr.cast(),
+                        root_ptr.cast::<u8>().add(root_layout.size()),
+                    )
+                    .map_err(ArchivedBTreeMapError::ContextError)?;
 
                 // Now we're finally ready to check node subtrees
                 NodeHeader::manual_check_contents::<K, V, C>(root, context)?;
@@ -533,7 +539,8 @@ const _: () = {
                 }
 
                 // We're done checking node subtrees now
-                context.pop_prefix_range(nodes_range)
+                context
+                    .pop_prefix_range(nodes_range)
                     .map_err(ArchivedBTreeMapError::ContextError)?;
 
                 // The remaining nodes must all be leaf nodes
