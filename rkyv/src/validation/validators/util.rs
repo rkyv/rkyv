@@ -47,9 +47,10 @@ pub type FromBytesError<'a, T> = CheckDeserializeError<
 
 /// Checks and deserializes a value from the given bytes.
 ///
-/// This function is only available with the `alloc` feature because it uses a general-purpose
-/// deserializer. In no-alloc and high-performance environments, the deserializer should be
-/// customized for the specific situation.
+/// This function is only available with the `alloc` and `validation` features because it uses a
+/// general-purpose deserializer and performs validation on the data before deserializing. In
+/// no-alloc and high-performance environments, the deserializer should be customized for the
+/// specific situation.
 ///
 /// # Examples
 /// ```
