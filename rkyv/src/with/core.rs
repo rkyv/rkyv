@@ -1,7 +1,20 @@
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
-    with::{ArchiveWith, AsBox, DeserializeWith, Inline, RefAsBox, SerializeWith},
+    niche::option_nonzero::{
+        ArchivedOptionNonZeroI128, ArchivedOptionNonZeroI16, ArchivedOptionNonZeroI32,
+        ArchivedOptionNonZeroI64, ArchivedOptionNonZeroI8, ArchivedOptionNonZeroU128,
+        ArchivedOptionNonZeroU16, ArchivedOptionNonZeroU32, ArchivedOptionNonZeroU64,
+        ArchivedOptionNonZeroU8,
+    },
+    with::{ArchiveWith, AsBox, DeserializeWith, Inline, Niche, RefAsBox, SerializeWith},
     Archive, ArchiveUnsized, Deserialize, Fallible, Serialize, SerializeUnsized,
+};
+use ::core::{
+    convert::TryInto,
+    num::{
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
+        NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
+    },
 };
 
 // Inline
@@ -28,6 +41,8 @@ impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<&F, S> for Inline {
     }
 }
 
+// RefAsBox
+
 impl<F: ArchiveUnsized + ?Sized> ArchiveWith<&F> for RefAsBox {
     type Archived = ArchivedBox<F::Archived>;
     type Resolver = BoxResolver<F::MetadataResolver>;
@@ -49,6 +64,8 @@ impl<F: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> SerializeWith<&F, S>
         ArchivedBox::serialize_from_ref(*field, serializer)
     }
 }
+
+// AsBox
 
 impl<F: ArchiveUnsized + ?Sized> ArchiveWith<F> for AsBox {
     type Archived = ArchivedBox<F::Archived>;
@@ -79,5 +96,134 @@ where
     #[inline]
     fn deserialize_with(field: &F::Archived, deserializer: &mut D) -> Result<F, D::Error> {
         field.deserialize(deserializer)
+    }
+}
+
+// Niche
+
+macro_rules! impl_nonzero_niche {
+    ($ar:ty, $nz:ty, $ne:ty) => {
+        impl ArchiveWith<Option<$nz>> for Niche {
+            type Archived = $ar;
+            type Resolver = ();
+
+            #[inline]
+            unsafe fn resolve_with(
+                field: &Option<$nz>,
+                _: usize,
+                _: Self::Resolver,
+                out: *mut Self::Archived,
+            ) {
+                <$ar>::resolve_from_option(*field, out);
+            }
+        }
+
+        impl<S: Fallible + ?Sized> SerializeWith<Option<$nz>, S> for Niche {
+            #[inline]
+            fn serialize_with(_: &Option<$nz>, _: &mut S) -> Result<Self::Resolver, S::Error> {
+                Ok(())
+            }
+        }
+
+        impl<D: Fallible + ?Sized> DeserializeWith<$ar, Option<$nz>, D> for Niche {
+            #[inline]
+            fn deserialize_with(field: &$ar, _: &mut D) -> Result<Option<$nz>, D::Error> {
+                Ok(field.as_ref().map(|x| (*x).into()))
+            }
+        }
+    };
+}
+
+impl_nonzero_niche!(ArchivedOptionNonZeroI8, NonZeroI8, i8);
+impl_nonzero_niche!(ArchivedOptionNonZeroI16, NonZeroI16, i16);
+impl_nonzero_niche!(ArchivedOptionNonZeroI32, NonZeroI32, i32);
+impl_nonzero_niche!(ArchivedOptionNonZeroI64, NonZeroI64, i64);
+impl_nonzero_niche!(ArchivedOptionNonZeroI128, NonZeroI128, i128);
+
+type ArchivedOptionNonZeroIsize = pick_size_type!(
+    ArchivedOptionNonZeroI16,
+    ArchivedOptionNonZeroI32,
+    ArchivedOptionNonZeroI64,
+);
+
+impl ArchiveWith<Option<NonZeroIsize>> for Niche {
+    type Archived = ArchivedOptionNonZeroIsize;
+    type Resolver = ();
+
+    #[inline]
+    unsafe fn resolve_with(
+        field: &Option<NonZeroIsize>,
+        _: usize,
+        _: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        let f = field.as_ref().map(|&x| x.try_into().unwrap());
+        ArchivedOptionNonZeroIsize::resolve_from_option(f, out);
+    }
+}
+
+impl<S: Fallible + ?Sized> SerializeWith<Option<NonZeroIsize>, S> for Niche {
+    #[inline]
+    fn serialize_with(_: &Option<NonZeroIsize>, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
+    }
+}
+
+impl<D: Fallible + ?Sized> DeserializeWith<ArchivedOptionNonZeroIsize, Option<NonZeroIsize>, D>
+    for Niche
+{
+    #[inline]
+    fn deserialize_with(
+        field: &ArchivedOptionNonZeroIsize,
+        _: &mut D,
+    ) -> Result<Option<NonZeroIsize>, D::Error> {
+        Ok(field.as_ref().map(|x| (*x).try_into().unwrap()))
+    }
+}
+
+impl_nonzero_niche!(ArchivedOptionNonZeroU8, NonZeroU8, u8);
+impl_nonzero_niche!(ArchivedOptionNonZeroU16, NonZeroU16, u16);
+impl_nonzero_niche!(ArchivedOptionNonZeroU32, NonZeroU32, u32);
+impl_nonzero_niche!(ArchivedOptionNonZeroU64, NonZeroU64, u64);
+impl_nonzero_niche!(ArchivedOptionNonZeroU128, NonZeroU128, u128);
+
+type ArchivedOptionNonZeroUsize = pick_size_type!(
+    ArchivedOptionNonZeroI16,
+    ArchivedOptionNonZeroI32,
+    ArchivedOptionNonZeroI64,
+);
+
+impl ArchiveWith<Option<NonZeroUsize>> for Niche {
+    type Archived = ArchivedOptionNonZeroUsize;
+    type Resolver = ();
+
+    #[inline]
+    unsafe fn resolve_with(
+        field: &Option<NonZeroUsize>,
+        _: usize,
+        _: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        let f = field.as_ref().map(|&x| x.try_into().unwrap());
+        ArchivedOptionNonZeroUsize::resolve_from_option(f, out);
+    }
+}
+
+impl<S: Fallible + ?Sized> SerializeWith<Option<NonZeroUsize>, S> for Niche {
+    #[inline]
+    fn serialize_with(_: &Option<NonZeroUsize>, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
+    }
+}
+
+impl<D: Fallible + ?Sized> DeserializeWith<ArchivedOptionNonZeroUsize, Option<NonZeroUsize>, D>
+    for Niche
+{
+    #[inline]
+    fn deserialize_with(
+        field: &ArchivedOptionNonZeroUsize,
+        _: &mut D,
+    ) -> Result<Option<NonZeroUsize>, D::Error> {
+        Ok(field.as_ref().map(|x| (*x).try_into().unwrap()))
     }
 }

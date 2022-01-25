@@ -9,7 +9,6 @@ use core::{
     cmp::{self, Eq, Ord, PartialEq, PartialOrd},
     fmt, hash,
     hint::unreachable_unchecked,
-    mem,
     ops::Deref,
     pin::Pin,
 };
@@ -196,50 +195,14 @@ impl<T: ArchivePointee + PartialOrd + ?Sized> PartialOrd for ArchivedOptionBox<T
 /// This iterator yields one value if the `ArchivedOptionBox` is a `Some`, otherwise none.
 ///
 /// This `struct` is created by the [`ArchivedOptionBox::iter`] function.
-pub struct Iter<'a, T: ?Sized> {
-    inner: Option<&'a T>,
-}
-
-impl<'a, T: ?Sized> Iterator for Iter<'a, T> {
-    type Item = &'a T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut result = None;
-        mem::swap(&mut self.inner, &mut result);
-        result
-    }
-}
-
-impl<'a, T: ?Sized> DoubleEndedIterator for Iter<'a, T> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.next()
-    }
-}
+pub type Iter<'a, T> = crate::option::Iter<'a, T>;
 
 /// An iterator over a mutable reference to the `Some` variant of an `ArchivedOptionBox`.
 ///
 /// This iterator yields one value if the `ArchivedOptionBox` is a `Some`, otherwise none.
 ///
 /// This `struct` is created by the [`ArchivedOptionBox::iter_mut`] function.
-pub struct IterMut<'a, T: ?Sized> {
-    inner: Option<&'a mut T>,
-}
-
-impl<'a, T> Iterator for IterMut<'a, T> {
-    type Item = &'a mut T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut result = None;
-        mem::swap(&mut self.inner, &mut result);
-        result
-    }
-}
-
-impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.next()
-    }
-}
+pub type IterMut<'a, T> = crate::option::IterMut<'a, T>;
 
 /// The resolver for [`ArchivedOptionBox`].
 pub enum OptionBoxResolver<T> {

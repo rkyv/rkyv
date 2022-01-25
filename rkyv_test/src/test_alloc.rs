@@ -1729,6 +1729,84 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn with_niche_nonzero() {
+        use ::core::{
+            mem::size_of,
+            num::{NonZeroI32, NonZeroI8, NonZeroIsize, NonZeroU32, NonZeroU8, NonZeroUsize},
+        };
+        use rkyv::with::Niche;
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct Test {
+            #[with(Niche)]
+            a: Option<NonZeroI8>,
+            #[with(Niche)]
+            b: Option<NonZeroI32>,
+            #[with(Niche)]
+            c: Option<NonZeroIsize>,
+            #[with(Niche)]
+            d: Option<NonZeroU8>,
+            #[with(Niche)]
+            e: Option<NonZeroU32>,
+            #[with(Niche)]
+            f: Option<NonZeroUsize>,
+        }
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct TestNoNiching {
+            a: Option<NonZeroI8>,
+            b: Option<NonZeroI32>,
+            c: Option<NonZeroIsize>,
+            d: Option<NonZeroU8>,
+            e: Option<NonZeroU32>,
+            f: Option<NonZeroUsize>,
+        }
+
+        let value = Test {
+            a: Some(NonZeroI8::new(10).unwrap()),
+            b: Some(NonZeroI32::new(10).unwrap()),
+            c: Some(NonZeroIsize::new(10).unwrap()),
+            d: Some(NonZeroU8::new(10).unwrap()),
+            e: Some(NonZeroU32::new(10).unwrap()),
+            f: Some(NonZeroUsize::new(10).unwrap()),
+        };
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+        assert!(archived.a.is_some());
+        assert_eq!(archived.a.as_ref().unwrap().get(), 10);
+        assert!(archived.b.is_some());
+        assert_eq!(archived.b.as_ref().unwrap().get(), 10);
+        assert!(archived.c.is_some());
+        assert_eq!(archived.c.as_ref().unwrap().get(), 10);
+        assert!(archived.d.is_some());
+        assert_eq!(archived.d.as_ref().unwrap().get(), 10);
+
+        let value = Test {
+            a: None,
+            b: None,
+            c: None,
+            d: None,
+            e: None,
+            f: None,
+        };
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+        assert!(archived.a.is_none());
+        assert!(archived.b.is_none());
+        assert!(archived.c.is_none());
+        assert!(archived.d.is_none());
+
+        assert!(size_of::<Archived<Test>>() < size_of::<Archived<TestNoNiching>>());
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_copy_optimize() {
         use rkyv::with::CopyOptimize;
 
