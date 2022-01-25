@@ -312,6 +312,14 @@ pub enum SharedSerializeMapError {
     DuplicateSharedPointer(*const u8),
 }
 
+// SAFETY: SharedSerializeMapError is safe to send to another thread
+// This trait is not automatically implemented because the enum contains a pointer
+unsafe impl Send for SharedSerializeMapError {}
+
+// SAFETY: SharedSerializeMapError is safe to share between threads
+// This trait is not automatically implemented because the enum contains a pointer
+unsafe impl Sync for SharedSerializeMapError {}
+
 impl fmt::Display for SharedSerializeMapError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
