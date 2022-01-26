@@ -555,8 +555,8 @@ pub struct Niche;
 #[derive(Debug)]
 pub struct CopyOptimize;
 
-/// A wrapper that converts a [`SystemTime`](std::time::SystemTime) to a
-/// [`Duration`](std::time::Duration) since [`UNIX_EPOCH`](std::time::UNIX_EPOCH).
+/// A wrapper that converts a [`SystemTime`](::std::time::SystemTime) to a
+/// [`Duration`](::std::time::Duration) since [`UNIX_EPOCH`](::std::time::UNIX_EPOCH).
 ///
 /// If the serialized time occurs before the UNIX epoch, serialization will panic during `resolve`.
 /// The resulting archived time will be an [`ArchivedDuration`](crate::time::ArchivedDuration)
@@ -566,6 +566,7 @@ pub struct CopyOptimize;
 ///
 /// ```
 /// use rkyv::{Archive, with::UnixTimestamp};
+/// use std::time::SystemTime;
 ///
 /// #[derive(Archive)]
 /// struct Example {
