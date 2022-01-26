@@ -314,9 +314,10 @@ where
     S::Error: From<UnixTimestampError>,
 {
     fn serialize_with(field: &SystemTime, _: &mut S) -> Result<Self::Resolver, S::Error> {
-        field.duration_since(UNIX_EPOCH)
-            .map(|_| ())
-            .map_err(|_| UnixTimestampError::TimeBeforeUnixEpoch.into())
+        field
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| UnixTimestampError::TimeBeforeUnixEpoch)?;
+        Ok(())
     }
 }
 

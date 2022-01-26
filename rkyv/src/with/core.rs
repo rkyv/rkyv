@@ -178,7 +178,11 @@ impl<D: Fallible + ?Sized> DeserializeWith<ArchivedOptionNonZeroIsize, Option<No
         field: &ArchivedOptionNonZeroIsize,
         _: &mut D,
     ) -> Result<Option<NonZeroIsize>, D::Error> {
-        Ok(field.as_ref().map(|x| FixedNonZeroIsize::from(*x).try_into().unwrap()))
+        // This conversion is necessary with archive_be and archive_le
+        #[allow(clippy::useless_conversion)]
+        Ok(field
+            .as_ref()
+            .map(|x| FixedNonZeroIsize::from(*x).try_into().unwrap()))
     }
 }
 
@@ -226,6 +230,10 @@ impl<D: Fallible + ?Sized> DeserializeWith<ArchivedOptionNonZeroUsize, Option<No
         field: &ArchivedOptionNonZeroUsize,
         _: &mut D,
     ) -> Result<Option<NonZeroUsize>, D::Error> {
-        Ok(field.as_ref().map(|x| FixedNonZeroUsize::from(*x).try_into().unwrap()))
+        // This conversion is necessary with archive_be and archive_le
+        #[allow(clippy::useless_conversion)]
+        Ok(field
+            .as_ref()
+            .map(|x| FixedNonZeroUsize::from(*x).try_into().unwrap()))
     }
 }

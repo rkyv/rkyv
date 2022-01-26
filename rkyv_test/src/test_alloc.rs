@@ -1734,7 +1734,7 @@ mod tests {
             mem::size_of,
             num::{NonZeroI32, NonZeroI8, NonZeroIsize, NonZeroU32, NonZeroU8, NonZeroUsize},
         };
-        use rkyv::{with::Niche, from_archived};
+        use rkyv::{from_archived, with::Niche};
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
