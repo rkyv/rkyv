@@ -52,6 +52,14 @@ pub struct SharedValidator {
     shared: HashMap<*const u8, TypeId>,
 }
 
+// SAFETY: SharedValidator is safe to send to another thread
+// This trait is not automatically implemented because the struct contains a pointer
+unsafe impl Send for SharedValidator {}
+
+// SAFETY: SharedValidator is safe to share between threads
+// This trait is not automatically implemented because the struct contains a pointer
+unsafe impl Sync for SharedValidator {}
+
 impl SharedValidator {
     /// Wraps the given context and adds shared memory validation.
     #[inline]

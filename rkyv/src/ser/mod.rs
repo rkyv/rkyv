@@ -148,13 +148,13 @@ pub trait SharedSerializeRegistry: Fallible {
     /// Gets the position of a previously-added shared pointer.
     ///
     /// Returns `None` if the pointer has not yet been added.
-    fn get_shared_ptr(&mut self, value: *const u8) -> Option<usize>;
+    fn get_shared_ptr(&self, value: *const u8) -> Option<usize>;
 
     /// Gets the position of a previously-added shared value.
     ///
     /// Returns `None` if the value has not yet been added.
     #[inline]
-    fn get_shared<T: ?Sized>(&mut self, value: &T) -> Option<usize> {
+    fn get_shared<T: ?Sized>(&self, value: &T) -> Option<usize> {
         self.get_shared_ptr(value as *const T as *const u8)
     }
 

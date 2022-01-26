@@ -196,7 +196,7 @@ impl<S: Fallible, C: Fallible, H: SharedSerializeRegistry> SharedSerializeRegist
     for CompositeSerializer<S, C, H>
 {
     #[inline]
-    fn get_shared_ptr(&mut self, value: *const u8) -> Option<usize> {
+    fn get_shared_ptr(&self, value: *const u8) -> Option<usize> {
         self.shared.get_shared_ptr(value)
     }
 

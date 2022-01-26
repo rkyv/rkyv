@@ -82,6 +82,14 @@ pub enum ArchiveError {
     },
 }
 
+// SAFETY: ArchiveError is safe to send to another thread
+// This trait is not automatically implemented because the enum contains a pointer
+unsafe impl Send for ArchiveError {}
+
+// SAFETY: ArchiveError is safe to share between threads
+// This trait is not automatically implemented because the enum contains a pointer
+unsafe impl Sync for ArchiveError {}
+
 impl fmt::Display for ArchiveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -161,12 +169,28 @@ pub struct PrefixRange {
     depth: usize,
 }
 
+// SAFETY: PrefixRange is safe to send to another thread
+// This trait is not automatically implemented because the struct contains a pointer
+unsafe impl<'a> Send for PrefixRange {}
+
+// SAFETY: PrefixRange is safe to share between threads
+// This trait is not automatically implemented because the struct contains a pointer
+unsafe impl Sync for PrefixRange {}
+
 /// A suffix range from an [`ArchiveValidator`].
 #[derive(Debug)]
 pub struct SuffixRange {
     start: *const u8,
     depth: usize,
 }
+
+// SAFETY: SuffixRange is safe to send to another thread
+// This trait is not automatically implemented because the struct contains a pointer
+unsafe impl<'a> Send for SuffixRange {}
+
+// SAFETY: SuffixRange is safe to share between threads
+// This trait is not automatically implemented because the struct contains a pointer
+unsafe impl Sync for SuffixRange {}
 
 /// A validator that can verify archives with nonlocal memory.
 #[derive(Debug)]
@@ -176,6 +200,14 @@ pub struct ArchiveValidator<'a> {
     subtree_depth: usize,
     max_subtree_depth: usize,
 }
+
+// SAFETY: ArchiveValidator is safe to send to another thread
+// This trait is not automatically implemented because the struct contains a pointer
+unsafe impl<'a> Send for ArchiveValidator<'a> {}
+
+// SAFETY: ArchiveValidator is safe to share between threads
+// This trait is not automatically implemented because the struct contains a pointer
+unsafe impl<'a> Sync for ArchiveValidator<'a> {}
 
 impl<'a> ArchiveValidator<'a> {
     /// Creates a new bounds validator for the given bytes.

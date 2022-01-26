@@ -186,6 +186,14 @@ pub enum AllocScratchError {
     NoAllocationsToPop,
 }
 
+// SAFETY: AllocScratchError is safe to send to another thread
+// This trait is not automatically implemented because the enum contains a pointer
+unsafe impl Send for AllocScratchError {}
+
+// SAFETY: AllocScratchError is safe to share between threads
+// This trait is not automatically implemented because the enum contains a pointer
+unsafe impl Sync for AllocScratchError {}
+
 impl fmt::Display for AllocScratchError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -227,6 +235,14 @@ pub struct AllocScratch {
     remaining: Option<usize>,
     allocations: Vec<(*mut u8, Layout)>,
 }
+
+// SAFETY: AllocScratch is safe to send to another thread
+// This trait is not automatically implemented because the struct contains a pointer
+unsafe impl Send for AllocScratch {}
+
+// SAFETY: AllocScratch is safe to share between threads
+// This trait is not automatically implemented because the struct contains a pointer
+unsafe impl Sync for AllocScratch {}
 
 impl AllocScratch {
     /// Creates a new scratch allocator with no allocation limit.
@@ -341,6 +357,14 @@ pub struct SharedSerializeMap {
     shared_resolvers: hash_map::HashMap<*const u8, usize>,
 }
 
+// SAFETY: SharedSerializeMap is safe to send to another thread
+// This trait is not automatically implemented because the struct contains a pointer
+unsafe impl Send for SharedSerializeMap {}
+
+// SAFETY: SharedSerializeMap is safe to share between threads
+// This trait is not automatically implemented because the struct contains a pointer
+unsafe impl Sync for SharedSerializeMap {}
+
 impl SharedSerializeMap {
     /// Creates a new shared registry map.
     #[inline]
@@ -363,7 +387,7 @@ impl Fallible for SharedSerializeMap {
 }
 
 impl SharedSerializeRegistry for SharedSerializeMap {
-    fn get_shared_ptr(&mut self, value: *const u8) -> Option<usize> {
+    fn get_shared_ptr(&self, value: *const u8) -> Option<usize> {
         self.shared_resolvers.get(&value).copied()
     }
 

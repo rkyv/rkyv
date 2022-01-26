@@ -661,8 +661,10 @@ impl io::Write for AlignedVec {
     }
 }
 
+// SAFETY: AlignedVec is safe to send to another thread
 unsafe impl Send for AlignedVec {}
 
+// SAFETY: AlignedVec is safe to share between threads
 unsafe impl Sync for AlignedVec {}
 
 impl Unpin for AlignedVec {}

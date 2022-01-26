@@ -26,6 +26,12 @@ impl<T> Drop for ScratchVec<T> {
     }
 }
 
+// SAFETY: ScratchVec is safe to send to another thread is T is safe to send to another thread
+unsafe impl<T: Send> Send for ScratchVec<T> {}
+
+// SAFETY: ScratchVec is safe to share between threads if T is safe to share between threads
+unsafe impl<T: Sync> Sync for ScratchVec<T> {}
+
 impl<T> ScratchVec<T> {
     /// Constructs a new, empty `ScratchVec` with the specified capacity.
     ///
