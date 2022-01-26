@@ -140,6 +140,7 @@ impl_nonzero_niche!(ArchivedOptionNonZeroI32, NonZeroI32, i32);
 impl_nonzero_niche!(ArchivedOptionNonZeroI64, NonZeroI64, i64);
 impl_nonzero_niche!(ArchivedOptionNonZeroI128, NonZeroI128, i128);
 
+type FixedNonZeroIsize = pick_size_type!(NonZeroI16, NonZeroI32, NonZeroI64);
 type ArchivedOptionNonZeroIsize = pick_size_type!(
     ArchivedOptionNonZeroI16,
     ArchivedOptionNonZeroI32,
@@ -177,7 +178,7 @@ impl<D: Fallible + ?Sized> DeserializeWith<ArchivedOptionNonZeroIsize, Option<No
         field: &ArchivedOptionNonZeroIsize,
         _: &mut D,
     ) -> Result<Option<NonZeroIsize>, D::Error> {
-        Ok(field.as_ref().map(|x| (*x).try_into().unwrap()))
+        Ok(field.as_ref().map(|x| FixedNonZeroIsize::from(*x).try_into().unwrap()))
     }
 }
 
@@ -187,10 +188,11 @@ impl_nonzero_niche!(ArchivedOptionNonZeroU32, NonZeroU32, u32);
 impl_nonzero_niche!(ArchivedOptionNonZeroU64, NonZeroU64, u64);
 impl_nonzero_niche!(ArchivedOptionNonZeroU128, NonZeroU128, u128);
 
+type FixedNonZeroUsize = pick_size_type!(NonZeroU16, NonZeroU32, NonZeroU64);
 type ArchivedOptionNonZeroUsize = pick_size_type!(
-    ArchivedOptionNonZeroI16,
-    ArchivedOptionNonZeroI32,
-    ArchivedOptionNonZeroI64,
+    ArchivedOptionNonZeroU16,
+    ArchivedOptionNonZeroU32,
+    ArchivedOptionNonZeroU64,
 );
 
 impl ArchiveWith<Option<NonZeroUsize>> for Niche {
@@ -224,6 +226,6 @@ impl<D: Fallible + ?Sized> DeserializeWith<ArchivedOptionNonZeroUsize, Option<No
         field: &ArchivedOptionNonZeroUsize,
         _: &mut D,
     ) -> Result<Option<NonZeroUsize>, D::Error> {
-        Ok(field.as_ref().map(|x| (*x).try_into().unwrap()))
+        Ok(field.as_ref().map(|x| FixedNonZeroUsize::from(*x).try_into().unwrap()))
     }
 }

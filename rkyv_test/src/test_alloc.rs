@@ -1734,7 +1734,7 @@ mod tests {
             mem::size_of,
             num::{NonZeroI32, NonZeroI8, NonZeroIsize, NonZeroU32, NonZeroU8, NonZeroUsize},
         };
-        use rkyv::with::Niche;
+        use rkyv::{with::Niche, from_archived};
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
@@ -1778,11 +1778,15 @@ mod tests {
         assert!(archived.a.is_some());
         assert_eq!(archived.a.as_ref().unwrap().get(), 10);
         assert!(archived.b.is_some());
-        assert_eq!(archived.b.as_ref().unwrap().get(), 10);
+        assert_eq!(from_archived!(*archived.b.as_ref().unwrap()).get(), 10);
         assert!(archived.c.is_some());
-        assert_eq!(archived.c.as_ref().unwrap().get(), 10);
+        assert_eq!(from_archived!(*archived.c.as_ref().unwrap()).get(), 10);
         assert!(archived.d.is_some());
         assert_eq!(archived.d.as_ref().unwrap().get(), 10);
+        assert!(archived.e.is_some());
+        assert_eq!(from_archived!(*archived.e.as_ref().unwrap()).get(), 10);
+        assert!(archived.f.is_some());
+        assert_eq!(from_archived!(*archived.f.as_ref().unwrap()).get(), 10);
 
         let value = Test {
             a: None,
@@ -1801,6 +1805,8 @@ mod tests {
         assert!(archived.b.is_none());
         assert!(archived.c.is_none());
         assert!(archived.d.is_none());
+        assert!(archived.e.is_none());
+        assert!(archived.f.is_none());
 
         assert!(size_of::<Archived<Test>>() < size_of::<Archived<TestNoNiching>>());
     }
