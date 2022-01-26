@@ -24,3 +24,10 @@ impl<D: Fallible + ?Sized> Deserialize<Duration, D> for ArchivedDuration {
         Ok(Duration::new(self.as_secs(), self.subsec_nanos()))
     }
 }
+
+impl From<ArchivedDuration> for Duration {
+    #[inline]
+    fn from(duration: ArchivedDuration) -> Self {
+        Self::new(duration.as_secs(), duration.subsec_nanos())
+    }
+}

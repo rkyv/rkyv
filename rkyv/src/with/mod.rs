@@ -554,3 +554,39 @@ pub struct Niche;
 /// ```
 #[derive(Debug)]
 pub struct CopyOptimize;
+
+/// A wrapper that converts a [`SystemTime`](std::time::SystemTime) to a
+/// [`Duration`](std::time::Duration) since [`UNIX_EPOCH`](std::time::UNIX_EPOCH).
+///
+/// If the serialized time occurs before the UNIX epoch, serialization will panic during `resolve`.
+/// The resulting archived time will be an [`ArchivedDuration`](crate::time::ArchivedDuration)
+/// relative to the UNIX epoch.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{Archive, with::UnixTimestamp};
+///
+/// #[derive(Archive)]
+/// struct Example {
+///     #[with(UnixTimestamp)]
+///     time: SystemTime,
+/// }
+#[derive(Debug)]
+pub struct UnixTimestamp;
+
+/// Errors that can occur when serializing a [`UnixTimestamp`] wrapper.
+#[derive(Debug)]
+pub enum UnixTimestampError {
+    /// The `SystemTime` occurred prior to the UNIX epoch.
+    TimeBeforeUnixEpoch,
+}
+
+impl fmt::Display for UnixTimestampError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "time occurred before the UNIX epoch")
+    }
+}
+
+#[cfg(feature = "std")]
+impl ::std::error::Error for UnixTimestampError {}
