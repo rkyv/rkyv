@@ -160,37 +160,44 @@ pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
     let mut result = Attributes::default();
     for attr in input.attrs.iter() {
         if let AttrStyle::Outer = attr.style {
-            if let Ok(Meta::List(list)) = attr.parse_meta() {
-                if list.path.is_ident("archive") {
-                    for nested in list.nested.iter() {
-                        if let NestedMeta::Meta(meta) = nested {
-                            parse_archive_attributes(&mut result, meta)?;
-                        } else {
-                            return Err(Error::new_spanned(
-                                nested,
-                                "archive arguments must be metas",
-                            ));
+            if attr.path.is_ident("archive") || attr.path.is_ident("archive_attr") {
+                if let Meta::List(list) = attr.parse_meta()? {
+                    if list.path.is_ident("archive") {
+                        for nested in list.nested.iter() {
+                            if let NestedMeta::Meta(meta) = nested {
+                                parse_archive_attributes(&mut result, meta)?;
+                            } else {
+                                return Err(Error::new_spanned(
+                                    nested,
+                                    "archive arguments must be metas",
+                                ));
+                            }
                         }
-                    }
-                } else if list.path.is_ident("archive_attr") {
-                    for nested in list.nested.iter() {
-                        if let NestedMeta::Meta(meta) = nested {
-                            if let Meta::List(list) = meta {
-                                if list.path.is_ident("repr") {
-                                    result.archived_repr.parse_args(list.nested.iter())?;
+                    } else if list.path.is_ident("archive_attr") {
+                        for nested in list.nested.iter() {
+                            if let NestedMeta::Meta(meta) = nested {
+                                if let Meta::List(list) = meta {
+                                    if list.path.is_ident("repr") {
+                                        result.archived_repr.parse_args(list.nested.iter())?;
+                                    } else {
+                                        result.attrs.push(meta.clone());
+                                    }
                                 } else {
                                     result.attrs.push(meta.clone());
                                 }
                             } else {
-                                result.attrs.push(meta.clone());
+                                return Err(Error::new_spanned(
+                                    nested,
+                                    "archive_attr arguments must be metas",
+                                ));
                             }
-                        } else {
-                            return Err(Error::new_spanned(
-                                nested,
-                                "archive_attr arguments must be metas",
-                            ));
                         }
                     }
+                } else {
+                    return Err(Error::new_spanned(
+                        attr,
+                        "archive and archive_attr may only be structured list attributes",
+                    ));
                 }
             }
         }
