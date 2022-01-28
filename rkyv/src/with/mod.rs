@@ -387,6 +387,10 @@ pub struct RefAsBox;
 /// Types like `OsString` and `PathBuf` aren't guaranteed to be encoded as UTF-8, but they usually
 /// are anyway. Using this wrapper will archive them as if they were regular `String`s.
 ///
+/// Regular serializers don't support the custom error handling needed for this type by default. To
+/// use this wrapper, a custom serializer with an error type satisfying
+/// `<S as Fallible>::Error: From<AsStringError>` must be provided.
+///
 /// # Example
 ///
 /// ```
@@ -431,6 +435,10 @@ impl ::std::error::Error for AsStringError {}
 /// Unfortunately, it's not possible to work around this issue. If your code absolutely must not
 /// panic under any circumstances, it's recommended that you lock your values and then serialize
 /// them while locked.
+///
+/// Regular serializers don't support the custom error handling needed for this type by default. To
+/// use this wrapper, a custom serializer with an error type satisfying
+/// `<S as Fallible>::Error: From<LockError>` must be provided.
 ///
 /// # Example
 ///
@@ -561,6 +569,10 @@ pub struct CopyOptimize;
 /// If the serialized time occurs before the UNIX epoch, serialization will panic during `resolve`.
 /// The resulting archived time will be an [`ArchivedDuration`](crate::time::ArchivedDuration)
 /// relative to the UNIX epoch.
+///
+/// Regular serializers don't support the custom error handling needed for this type by default. To
+/// use this wrapper, a custom serializer with an error type satisfying
+/// `<S as Fallible>::Error: From<UnixTimestampError>` must be provided.
 ///
 /// # Example
 ///
