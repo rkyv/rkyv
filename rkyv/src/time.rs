@@ -1,6 +1,5 @@
 //! Archived versions of `time` types.
 
-use std::time::Duration;
 use crate::Archived;
 
 /// An archived [`Duration`](core::time::Duration).
@@ -108,16 +107,5 @@ impl ArchivedDuration {
 
         addr_of_mut!((*out).secs).write(to_archived!(secs));
         addr_of_mut!((*out).nanos).write(to_archived!(nanos));
-    }
-}
-
-impl PartialEq<Duration> for ArchivedDuration {
-    #[inline]
-    fn eq(&self, other: &Duration) -> bool {
-        return (self.as_nanos() == other.as_nanos()) && (self.as_secs() == other.as_secs())
-    }
-
-    fn ne(&self, other: &Duration) -> bool {
-        return (self.as_nanos() != other.as_nanos()) || (self.as_secs() != other.as_secs())
     }
 }
