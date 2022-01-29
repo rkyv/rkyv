@@ -11,6 +11,6 @@ impl PartialEq<Duration> for ArchivedDuration {
 impl PartialEq<ArchivedDuration> for Duration {
     #[inline]
     fn eq(&self, other: &ArchivedDuration) -> bool {
-        return (self.as_nanos() == other.as_nanos()) && (self.as_secs() == other.as_secs());
+        return other.eq(self)
     }
 }
