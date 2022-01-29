@@ -4,10 +4,10 @@ use crate::{
     niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
     ser::{ScratchSpace, Serializer},
     string::{ArchivedString, StringResolver},
-    vec::{ArchivedVec, VecResolver},
+    vec::{ArchivedVec, VecResolver, RawArchivedVec},
     with::{
-        ArchiveWith, AsOwned, AsVec, CopyOptimize, DeserializeWith, Niche, RefAsBox, SerializeWith,
-        With,
+        ArchiveWith, AsOwned, AsVec, CopyOptimize, DeserializeWith, Niche, Raw, RefAsBox,
+        SerializeWith, With,
     },
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized, Fallible,
     MetadataResolver, Serialize, SerializeUnsized,
@@ -466,5 +466,58 @@ where
         unsafe {
             ArchivedBox::<[T::Archived]>::serialize_copy_from_slice(*field.as_ref(), serializer)
         }
+    }
+}
+
+// Raw
+
+impl<T: Archive> ArchiveWith<Vec<T>> for Raw {
+    type Archived = RawArchivedVec<T::Archived>;
+    type Resolver = VecResolver;
+
+    unsafe fn resolve_with(
+        field: &Vec<T>,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        RawArchivedVec::resolve_from_slice(field.as_slice(), pos, resolver, out);
+    }
+}
+
+impl<T, S> SerializeWith<Vec<T>, S> for Raw
+where
+    T: Serialize<S>,
+    S: Serializer,
+{
+    fn serialize_with(field: &Vec<T>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        use ::core::mem::size_of;
+
+        // Basic debug assert that T and T::Archived are at least the same size
+        debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
+
+        unsafe { ArchivedVec::serialize_copy_from_slice(field.as_slice(), serializer) }
+    }
+}
+
+impl<T, D> DeserializeWith<ArchivedVec<T::Archived>, Vec<T>, D> for Raw
+where
+    T: Archive,
+    T::Archived: Deserialize<T, D>,
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(field: &ArchivedVec<T::Archived>, _: &mut D) -> Result<Vec<T>, D::Error> {
+        use ::core::{mem::size_of, ptr::copy_nonoverlapping};
+
+        // Basic debug assert that T and T::Archived are at least the same size
+        debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
+
+        let mut result = Vec::with_capacity(field.len());
+        unsafe {
+            copy_nonoverlapping(field.as_ptr().cast(), result.as_mut_ptr(), field.len());
+            result.set_len(field.len());
+        }
+
+        Ok(result)
     }
 }

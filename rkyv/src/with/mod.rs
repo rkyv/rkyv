@@ -603,3 +603,38 @@ impl fmt::Display for UnixTimestampError {
 
 #[cfg(feature = "std")]
 impl ::std::error::Error for UnixTimestampError {}
+
+/// A wrapper that provides an optimized bulk data array. This is primarily intended for large
+/// amounts of raw data, like bytes, floats, or integers.
+///
+/// This wrapper can be used with containers like `Vec`, but care must be taken to ensure that they
+/// contain copy-safe types. Copy-safe types must be trivially copyable (have the same archived and
+/// unarchived representations) and contain no padding bytes. In situations where copying
+/// uninitialized bytes the output is acceptable, this wrapper may be used with containers of types
+/// that contain padding bytes.
+///
+/// Unlike [`CopyOptimize`], this wrapper will also skip validation for its elements. If the
+/// elements of the container can have any invalid bit patterns (e.g. `char`, `bool`, complex
+/// containers, etc.), then using `Raw` in an insecure setting can lead to undefined behavior. Take
+/// great caution!
+///
+/// # Safety
+///
+/// Using this wrapper with containers containing non-copy-safe types or types that require
+/// validation may result in undefined behavior.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{Archive, with::Raw};
+///
+/// #[derive(Archive)]
+/// struct Example {
+///     #[with(Raw)]
+///     bytes: Vec<u8>,
+///     #[with(Raw)]
+///     vertices: Vec<[f32; 3]>,
+/// }
+/// ```
+#[derive(Debug)]
+pub struct Raw;
