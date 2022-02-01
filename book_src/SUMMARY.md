@@ -1,6 +1,9 @@
 # Summary
 
-- [rkyv](./rkyv.md)
+[rkyv](./rkyv.md)
+
+# Foundations
+
 - [Motivation](./motivation.md)
 - [Zero-copy deserialization](./zero-copy-deserialization.md)
 - [Architecture](./architecture.md)
@@ -10,9 +13,27 @@
   - [Deserialize](./architecture/deserialize.md)
 - [Format](./format.md)
 - [Wrapper types](./wrapper-types.md)
-- [Shared Pointers](./shared-pointers.md)
-- [Unsized Types](./unsized-types.md)
-- [Trait Objects](./trait-objects.md)
+- [Shared pointers](./shared-pointers.md)
+- [Unsized types](./unsized-types.md)
+- [Trait objects](./trait-objects.md)
 - [Validation](./validation.md)
-- [Feature Comparison](./feature-comparison.md)
+- [Feature comparison](./feature-comparison.md)
 - [FAQ](./faq.md)
+
+# Practical rkyv
+
+- [Validation]()
+- [Serializer composition]()
+- [Alternative writers]()
+- [Extending serialization]()
+- [Hybrid deserialization]()
+- [Effective wrapper types]()
+- [Archived vs unarchived types]()
+  - [Impl duplication]()
+- [Streaming serialization]()
+- [Schema evolution]()
+- [Nightly features]()
+  - [Copy optimization]()
+- [Derive macro features]()
+
+[Contributors](./contributors.md)
