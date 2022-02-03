@@ -11,6 +11,7 @@
   - [Archive](./architecture/archive.md)
   - [Serialize](./architecture/serialize.md)
   - [Deserialize](./architecture/deserialize.md)
+  - [Alignment](./architecture/alignment.md)
 - [Format](./format.md)
 - [Wrapper types](./wrapper-types.md)
 - [Shared pointers](./shared-pointers.md)
@@ -20,7 +21,7 @@
 - [Feature comparison](./feature-comparison.md)
 - [FAQ](./faq.md)
 
-# Practical rkyv
+# Advanced rkyv
 
 - [Validation]()
 - [Serializer composition]()
