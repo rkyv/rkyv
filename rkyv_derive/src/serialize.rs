@@ -63,7 +63,7 @@ fn derive_serialize_impl(
                     .iter()
                     .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                 {
-                    let ty = with_ty(field);
+                    let ty = with_ty(field)?;
                     serialize_where
                         .predicates
                         .push(parse_quote! { #ty: Serialize<__S> });
@@ -71,7 +71,7 @@ fn derive_serialize_impl(
 
                 let resolver_values = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    let field = with_cast(f, parse_quote! { &self.#name });
+                    let field = with_cast(f, parse_quote! { &self.#name }).unwrap();
                     quote_spanned! { f.span() => #name: Serialize::<__S>::serialize(#field, serializer)? }
                 });
 
@@ -93,7 +93,7 @@ fn derive_serialize_impl(
                     .iter()
                     .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                 {
-                    let ty = with_ty(field);
+                    let ty = with_ty(field)?;
                     serialize_where
                         .predicates
                         .push(parse_quote! { #ty: Serialize<__S> });
@@ -101,7 +101,7 @@ fn derive_serialize_impl(
 
                 let resolver_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = Index::from(i);
-                    let field = with_cast(f, parse_quote! { &self.#index });
+                    let field = with_cast(f, parse_quote! { &self.#index }).unwrap();
                     quote_spanned! { f.span() => Serialize::<__S>::serialize(#field, serializer)? }
                 });
 
@@ -137,7 +137,7 @@ fn derive_serialize_impl(
                             .iter()
                             .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                         {
-                            let ty = with_ty(field);
+                            let ty = with_ty(field)?;
                             serialize_where
                                 .predicates
                                 .push(parse_quote! { #ty: Serialize<__S> });
@@ -149,7 +149,7 @@ fn derive_serialize_impl(
                             .iter()
                             .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                         {
-                            let ty = with_ty(field);
+                            let ty = with_ty(field)?;
                             serialize_where
                                 .predicates
                                 .push(parse_quote! { #ty: Serialize<__S> });
@@ -169,7 +169,7 @@ fn derive_serialize_impl(
                         });
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
-                            let field = with_cast(f, parse_quote! { #name });
+                            let field = with_cast(f, parse_quote! { #name }).unwrap();
                             quote! {
                                 #name: Serialize::<__S>::serialize(#field, serializer)?
                             }
@@ -187,7 +187,7 @@ fn derive_serialize_impl(
                         });
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let binding = Ident::new(&format!("_{}", i), f.span());
-                            let field = with_cast(f, parse_quote! { #binding });
+                            let field = with_cast(f, parse_quote! { #binding }).unwrap();
                             quote! {
                                 Serialize::<__S>::serialize(#field, serializer)?
                             }

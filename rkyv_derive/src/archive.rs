@@ -145,7 +145,7 @@ fn derive_archive_impl(
                         .iter()
                         .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                     {
-                        let ty = with_ty(field);
+                        let ty = with_ty(field)?;
                         archive_where
                             .predicates
                             .push(parse_quote! { #ty: #rkyv_path::Archive });
@@ -153,14 +153,14 @@ fn derive_archive_impl(
 
                     let resolver_fields = fields.named.iter().map(|f| {
                         let name = &f.ident;
-                        let ty = with_ty(f);
+                        let ty = with_ty(f).unwrap();
                         quote_spanned! { f.span() => #name: #rkyv_path::Resolver<#ty> }
                     });
 
                     let archived_def = if attributes.archive_as.is_none() {
                         let archived_fields = fields.named.iter().map(|f| {
                             let field_name = f.ident.as_ref();
-                            let ty = with_ty(f);
+                            let ty = with_ty(f).unwrap();
                             let vis = &f.vis;
                             let field_doc = format!(
                                 "The archived counterpart of [`{}::{}`]",
@@ -190,7 +190,7 @@ fn derive_archive_impl(
 
                     let resolve_fields = fields.named.iter().map(|f| {
                         let name = &f.ident;
-                        let field = with_cast(f, parse_quote! { (&self.#name) });
+                        let field = with_cast(f, parse_quote! { (&self.#name) }).unwrap();
                         quote_spanned! { f.span() =>
                             let (fp, fo) = out_field!(out.#name);
                             #field.resolve(pos + fp, resolver.#name, fo);
@@ -207,7 +207,7 @@ fn derive_archive_impl(
                                     !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                 }) {
                                     let ty = &field.ty;
-                                    let wrapped_ty = with_ty(field);
+                                    let wrapped_ty = with_ty(field).unwrap();
                                     partial_eq_where.predicates.push(
                                         parse_quote! { Archived<#wrapped_ty>: PartialEq<#ty> },
                                     );
@@ -236,7 +236,7 @@ fn derive_archive_impl(
                                     !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                 }) {
                                     let ty = &field.ty;
-                                    let archived_ty = with_ty(field);
+                                    let archived_ty = with_ty(field).unwrap();
                                     partial_ord_where.predicates.push(
                                         parse_quote! { Archived<#archived_ty>: PartialOrd<#ty> },
                                     );
@@ -282,7 +282,7 @@ fn derive_archive_impl(
                             .iter()
                             .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                         {
-                            let ty = with_ty(field);
+                            let ty = with_ty(field).unwrap();
                             copy_safe_where
                                 .predicates
                                 .push(parse_quote! { #ty: #rkyv_path::copy::ArchiveCopySafe });
@@ -331,20 +331,20 @@ fn derive_archive_impl(
                         .iter()
                         .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                     {
-                        let ty = with_ty(field);
+                        let ty = with_ty(field)?;
                         archive_where
                             .predicates
                             .push(parse_quote! { #ty: #rkyv_path::Archive });
                     }
 
                     let resolver_fields = fields.unnamed.iter().map(|f| {
-                        let ty = with_ty(f);
+                        let ty = with_ty(f).unwrap();
                         quote_spanned! { f.span() => #rkyv_path::Resolver<#ty> }
                     });
 
                     let archived_def = if attributes.archive_as.is_none() {
                         let archived_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                            let ty = with_ty(f);
+                            let ty = with_ty(f).unwrap();
                             let vis = &f.vis;
                             let field_doc =
                                 format!("The archived counterpart of [`{}::{}`]", name, i);
@@ -369,7 +369,7 @@ fn derive_archive_impl(
 
                     let resolve_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                         let index = Index::from(i);
-                        let field = with_cast(f, parse_quote! { (&self.#index) });
+                        let field = with_cast(f, parse_quote! { (&self.#index) }).unwrap();
                         quote_spanned! { f.span() =>
                             let (fp, fo) = out_field!(out.#index);
                             #field.resolve(pos + fp, resolver.#index, fo);
@@ -385,7 +385,7 @@ fn derive_archive_impl(
                                 for field in fields.unnamed.iter().filter(|f| {
                                     !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                 }) {
-                                    let ty = with_ty(field);
+                                    let ty = with_ty(field).unwrap();
                                     partial_eq_where
                                         .predicates
                                         .push(parse_quote! { Archived<#ty>: PartialEq<#ty> });
@@ -417,7 +417,7 @@ fn derive_archive_impl(
                                 for field in fields.unnamed.iter().filter(|f| {
                                     !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                 }) {
-                                    let ty = with_ty(field);
+                                    let ty = with_ty(field).unwrap();
                                     partial_ord_where
                                         .predicates
                                         .push(parse_quote! { Archived<#ty>: PartialOrd<#ty> });
@@ -464,7 +464,7 @@ fn derive_archive_impl(
                             .iter()
                             .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                         {
-                            let ty = with_ty(field);
+                            let ty = with_ty(field).unwrap();
                             copy_safe_where
                                 .predicates
                                 .push(parse_quote! { #ty: #rkyv_path::copy::ArchiveCopySafe });
@@ -608,7 +608,7 @@ fn derive_archive_impl(
                             .iter()
                             .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                         {
-                            let ty = with_ty(field);
+                            let ty = with_ty(field)?;
                             archive_where
                                 .predicates
                                 .push(parse_quote! { #ty: #rkyv_path::Archive });
@@ -620,7 +620,7 @@ fn derive_archive_impl(
                             .iter()
                             .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                         {
-                            let ty = with_ty(field);
+                            let ty = with_ty(field)?;
                             archive_where
                                 .predicates
                                 .push(parse_quote! { #ty: #rkyv_path::Archive });
@@ -636,7 +636,7 @@ fn derive_archive_impl(
                     Fields::Named(ref fields) => {
                         let fields = fields.named.iter().map(|f| {
                             let field_name = f.ident.as_ref();
-                            let ty = with_ty(f);
+                            let ty = with_ty(f).unwrap();
                             let field_doc = format!(
                                 "The resolver for [`{}::{}::{}`]",
                                 name,
@@ -659,7 +659,7 @@ fn derive_archive_impl(
                     }
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                            let ty = with_ty(f);
+                            let ty = with_ty(f).unwrap();
                             let field_doc =
                                 format!("The resolver for [`{}::{}::{}`]", name, variant, i);
                             quote_spanned! { f.span() =>
@@ -704,7 +704,7 @@ fn derive_archive_impl(
                             let name = &f.ident;
                             let self_binding = Ident::new(&format!("self_{}", strip_raw(name.as_ref().unwrap())), name.span());
                             let resolver_binding = Ident::new(&format!("resolver_{}", strip_raw(name.as_ref().unwrap())), name.span());
-                            let value = with_cast(f, parse_quote! { #self_binding });
+                            let value = with_cast(f, parse_quote! { #self_binding }).unwrap();
                             quote! {
                                 let (fp, fo) = out_field!(out.#name);
                                 #value.resolve(pos + fp, #resolver_binding, fo);
@@ -738,7 +738,7 @@ fn derive_archive_impl(
                             let index = Index::from(i + 1);
                             let self_binding = Ident::new(&format!("self_{}", i), f.span());
                             let resolver_binding = Ident::new(&format!("resolver_{}", i), f.span());
-                            let value = with_cast(f, parse_quote! { #self_binding });
+                            let value = with_cast(f, parse_quote! { #self_binding }).unwrap();
                             quote! {
                                 let (fp, fo) = out_field!(out.#index);
                                 #value.resolve(pos + fp, #resolver_binding, fo);
@@ -822,7 +822,7 @@ fn derive_archive_impl(
                         Fields::Named(ref fields) => {
                             let fields = fields.named.iter().map(|f| {
                                 let field_name = f.ident.as_ref();
-                                let ty = with_ty(f);
+                                let ty = with_ty(f).unwrap();
                                 let vis = &f.vis;
                                 let field_doc = format!(
                                     "The archived counterpart of [`{}::{}::{}`]",
@@ -849,7 +849,7 @@ fn derive_archive_impl(
                         }
                         Fields::Unnamed(ref fields) => {
                             let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                                let ty = with_ty(f);
+                                let ty = with_ty(f).unwrap();
                                 let vis = &f.vis;
                                 let field_doc = format!(
                                     "The archived counterpart of [`{}::{}::{}`]",
@@ -908,7 +908,7 @@ fn derive_archive_impl(
                     Fields::Named(ref fields) => {
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
-                            let ty = with_ty(f);
+                            let ty = with_ty(f).unwrap();
                             quote_spanned! { f.span() => #name: Archived<#ty> }
                         });
                         quote_spanned! { name.span() =>
@@ -922,7 +922,7 @@ fn derive_archive_impl(
                     }
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().map(|f| {
-                            let ty = with_ty(f);
+                            let ty = with_ty(f).unwrap();
                             quote_spanned! { f.span() => Archived<#ty> }
                         });
                         quote_spanned! { name.span() =>
@@ -946,7 +946,7 @@ fn derive_archive_impl(
                                     for field in fields.named.iter().filter(|f| {
                                         !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                     }) {
-                                        let ty = with_ty(field);
+                                        let ty = with_ty(field).unwrap();
                                         partial_eq_where
                                             .predicates
                                             .push(parse_quote! { Archived<#ty>: PartialEq<#ty> });
@@ -956,7 +956,7 @@ fn derive_archive_impl(
                                     for field in fields.unnamed.iter().filter(|f| {
                                         !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                     }) {
-                                        let ty = with_ty(field);
+                                        let ty = with_ty(field).unwrap();
                                         partial_eq_where
                                             .predicates
                                             .push(parse_quote! { Archived<#ty>: PartialEq<#ty> });
@@ -1041,7 +1041,7 @@ fn derive_archive_impl(
                                     for field in fields.named.iter().filter(|f| {
                                         !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                     }) {
-                                        let ty = with_ty(field);
+                                        let ty = with_ty(field).unwrap();
                                         partial_ord_where
                                             .predicates
                                             .push(parse_quote! { Archived<#ty>: PartialOrd<#ty> });
@@ -1051,7 +1051,7 @@ fn derive_archive_impl(
                                     for field in fields.unnamed.iter().filter(|f| {
                                         !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                     }) {
-                                        let ty = with_ty(field);
+                                        let ty = with_ty(field).unwrap();
                                         partial_ord_where
                                             .predicates
                                             .push(parse_quote! { Archived<#ty>: PartialOrd<#ty> });
@@ -1199,7 +1199,7 @@ fn derive_archive_impl(
                                 .iter()
                                 .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                             {
-                                let ty = with_ty(field);
+                                let ty = with_ty(field).unwrap();
                                 copy_safe_where
                                     .predicates
                                     .push(parse_quote! { #ty: #rkyv_path::copy::ArchiveCopySafe });
@@ -1211,7 +1211,7 @@ fn derive_archive_impl(
                                 .iter()
                                 .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
                             {
-                                let ty = with_ty(field);
+                                let ty = with_ty(field).unwrap();
                                 copy_safe_where
                                     .predicates
                                     .push(parse_quote! { #ty: #rkyv_path::copy::ArchiveCopySafe });

@@ -1,28 +1,29 @@
-use syn::{parse_quote, Expr, Field, Meta, NestedMeta, Path, Type};
+use syn::{parse_quote, Error, Expr, Field, Path, punctuated::Punctuated, token::Comma, Type};
 
 #[inline]
-pub fn with<B, F: FnMut(B, NestedMeta) -> B>(field: &Field, init: B, f: F) -> B {
-    field
+pub fn with<B, F: FnMut(B, &Type) -> B>(field: &Field, init: B, f: F) -> Result<B, Error> {
+    let fields = field
         .attrs
         .iter()
         .filter_map(|attr| {
-            if let Ok(Meta::List(list)) = attr.parse_meta() {
-                if list.path.is_ident("with") {
-                    Some(list.nested)
-                } else {
-                    None
-                }
+            if attr.path.is_ident("with") {
+                Some(attr.parse_args_with(Punctuated::<Type, Comma>::parse_separated_nonempty))
             } else {
                 None
             }
         })
-        .flatten()
-        .rev()
-        .fold(init, f)
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(
+        fields
+            .iter()
+            .flatten()
+            .rev()
+            .fold(init, f)
+    )
 }
 
 #[inline]
-pub fn make_with_ty(rkyv_path: &Path) -> impl '_ + Fn(&Field) -> Type {
+pub fn make_with_ty(rkyv_path: &Path) -> impl '_ + Fn(&Field) -> Result<Type, Error> {
     move |field| {
         with(
             field,
@@ -33,7 +34,7 @@ pub fn make_with_ty(rkyv_path: &Path) -> impl '_ + Fn(&Field) -> Type {
 }
 
 #[inline]
-pub fn make_with_cast(rkyv_path: &Path) -> impl '_ + Fn(&Field, Expr) -> Expr {
+pub fn make_with_cast(rkyv_path: &Path) -> impl '_ + Fn(&Field, Expr) -> Result<Expr, Error> {
     move |field, expr| {
         with(
             field,
@@ -44,6 +45,6 @@ pub fn make_with_cast(rkyv_path: &Path) -> impl '_ + Fn(&Field, Expr) -> Expr {
 }
 
 #[inline]
-pub fn with_inner(field: &Field, expr: Expr) -> Expr {
+pub fn with_inner(field: &Field, expr: Expr) -> Result<Expr, Error> {
     with(field, expr, |expr, _| parse_quote! { #expr.into_inner() })
 }
