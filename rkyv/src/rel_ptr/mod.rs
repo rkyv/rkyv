@@ -141,7 +141,7 @@ pub enum RelPtrError {
 /// An untyped pointer which resolves relative to its position in memory.
 ///
 /// This is the most fundamental building block in rkyv. It allows the construction and use of
-/// pointers that can be safely reloacted as long as the source and target are moved together. This
+/// pointers that can be safely relocated as long as the source and target are moved together. This
 /// is what allows memory to be moved from disk into memory and accessed without decoding.
 ///
 /// Regular pointers are *absolute*, meaning that the pointee can be moved without invalidating the
