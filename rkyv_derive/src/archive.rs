@@ -193,7 +193,7 @@ fn derive_archive_impl(
                         let field = with_cast(f, parse_quote! { (&self.#name) }).unwrap();
                         quote_spanned! { f.span() =>
                             let (fp, fo) = out_field!(out.#name);
-                            #field.resolve(pos + fp, resolver.#name, fo);
+                            ::rkyv::Archive::resolve(#field, pos + fp, resolver.#name, fo);
                         }
                     });
 
@@ -372,7 +372,7 @@ fn derive_archive_impl(
                         let field = with_cast(f, parse_quote! { (&self.#index) }).unwrap();
                         quote_spanned! { f.span() =>
                             let (fp, fo) = out_field!(out.#index);
-                            #field.resolve(pos + fp, resolver.#index, fo);
+                            ::rkyv::Archive::resolve(#field, pos + fp, resolver.#index, fo);
                         }
                     });
 
@@ -707,7 +707,7 @@ fn derive_archive_impl(
                             let value = with_cast(f, parse_quote! { #self_binding }).unwrap();
                             quote! {
                                 let (fp, fo) = out_field!(out.#name);
-                                #value.resolve(pos + fp, #resolver_binding, fo);
+                                ::rkyv::Archive::resolve(#value, pos + fp, #resolver_binding, fo);
                             }
                         });
                         quote_spanned! { name.span() =>
@@ -741,7 +741,7 @@ fn derive_archive_impl(
                             let value = with_cast(f, parse_quote! { #self_binding }).unwrap();
                             quote! {
                                 let (fp, fo) = out_field!(out.#index);
-                                #value.resolve(pos + fp, #resolver_binding, fo);
+                                ::rkyv::Archive::resolve(#value, pos + fp, #resolver_binding, fo);
                             }
                         });
                         quote_spanned! { name.span() =>
