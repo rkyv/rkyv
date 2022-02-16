@@ -350,11 +350,9 @@ const _: () = {
             value: *const Self,
             context: &mut C,
         ) -> Result<&'a Self, Self::Error> {
-            Self::check_bytes_with::<C, _>(
-                value,
-                context,
-                |v, c| <[T]>::check_bytes(v, c).map(|_| ()),
-            )
+            Self::check_bytes_with::<C, _>(value, context, |v, c| {
+                <[T]>::check_bytes(v, c).map(|_| ())
+            })
         }
     }
 };

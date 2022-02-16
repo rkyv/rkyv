@@ -4,7 +4,7 @@ use crate::{
     niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
     ser::{ScratchSpace, Serializer},
     string::{ArchivedString, StringResolver},
-    vec::{ArchivedVec, VecResolver, RawArchivedVec},
+    vec::{ArchivedVec, RawArchivedVec, VecResolver},
     with::{
         ArchiveWith, AsOwned, AsVec, CopyOptimize, DeserializeWith, Niche, Raw, RefAsBox,
         SerializeWith, With,

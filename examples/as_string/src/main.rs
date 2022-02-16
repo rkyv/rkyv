@@ -1,5 +1,10 @@
+use rkyv::{
+    archived_root,
+    ser::{serializers::AllocSerializer, Serializer},
+    with::{AsString, AsStringError},
+    Archive, Fallible, Serialize,
+};
 use std::path::{Path, PathBuf};
-use rkyv::{Archive, Fallible, Serialize, with::{AsString, AsStringError}, archived_root, ser::{Serializer, serializers::AllocSerializer}};
 
 // This is the struct we'll be serializing. It uses the AsString wrapper, which requires a
 // serializer that satisfies <S as Fallible>::Error: From<AsStringError>. In order to satisfy that,

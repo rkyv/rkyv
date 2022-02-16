@@ -1,7 +1,7 @@
 use crate::{
     ser::Serializer,
-    Archive, Serialize,
     vec::{ArchivedVec, VecResolver},
+    Archive, Serialize,
 };
 use core::{
     borrow::Borrow,
@@ -15,7 +15,7 @@ use core::{
 ///
 /// This uses a [`RelPtr`](crate::rel_ptr::RelPtr) to a `[T]` under the hood. Unlike
 /// [`ArchivedString`](crate::string::ArchivedString), it does not have an inline representation.
-#[derive(Hash, Eq, Debug, Ord)]
+#[derive(Hash, Eq, Debug)]
 #[repr(transparent)]
 pub struct RawArchivedVec<T> {
     inner: ArchivedVec<T>,
@@ -49,9 +49,7 @@ impl<T> RawArchivedVec<T> {
     /// Gets the elements of the archived vec as a pinned mutable slice.
     #[inline]
     pub fn pin_mut_slice(self: Pin<&mut Self>) -> Pin<&mut [T]> {
-        unsafe {
-            self.map_unchecked_mut(|s| &mut s.inner).pin_mut_slice()
-        }
+        unsafe { self.map_unchecked_mut(|s| &mut s.inner).pin_mut_slice() }
     }
 
     // This method can go away once pinned slices have indexing support
@@ -181,6 +179,13 @@ impl<T: PartialOrd> PartialOrd<RawArchivedVec<T>> for RawArchivedVec<T> {
     }
 }
 
+impl<T: Ord> Ord for RawArchivedVec<T> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.inner.cmp(&other.inner)
+    }
+}
+
 impl<T: PartialOrd> PartialOrd<[T]> for RawArchivedVec<T> {
     #[inline]
     fn partial_cmp(&self, other: &[T]) -> Option<cmp::Ordering> {
@@ -197,10 +202,7 @@ impl<T: PartialOrd> PartialOrd<RawArchivedVec<T>> for [T] {
 
 #[cfg(feature = "validation")]
 const _: () = {
-    use crate::validation::{
-        owned::CheckOwnedPointerError,
-        ArchiveContext,
-    };
+    use crate::validation::{owned::CheckOwnedPointerError, ArchiveContext};
     use bytecheck::{CheckBytes, Error};
 
     impl<T, C> CheckBytes<C> for RawArchivedVec<T>
@@ -216,11 +218,7 @@ const _: () = {
             value: *const Self,
             context: &mut C,
         ) -> Result<&'a Self, Self::Error> {
-            ArchivedVec::<T>::check_bytes_with::<C, _>(
-                value.cast(),
-                context,
-                |_, _| Ok(()),
-            )?;
+            ArchivedVec::<T>::check_bytes_with::<C, _>(value.cast(), context, |_, _| Ok(()))?;
             Ok(&*value)
         }
     }

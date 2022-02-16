@@ -77,7 +77,8 @@ fn derive_deserialize_impl(
                                 deserializer,
                             )?
                         },
-                    ).unwrap();
+                    )
+                    .unwrap();
                     quote! { #name: #value }
                 });
 
@@ -119,7 +120,8 @@ fn derive_deserialize_impl(
                                 deserializer,
                             )?
                         },
-                    ).unwrap();
+                    )
+                    .unwrap();
                     quote! { #value }
                 });
 
@@ -200,7 +202,8 @@ fn derive_deserialize_impl(
                                         deserializer,
                                     )?
                                 },
-                            ).unwrap();
+                            )
+                            .unwrap();
                             quote! { #name: #value }
                         });
                         quote_spanned! { variant.span() =>
@@ -223,7 +226,8 @@ fn derive_deserialize_impl(
                                         deserializer,
                                     )?
                                 },
-                            ).unwrap();
+                            )
+                            .unwrap();
                             quote! { #value }
                         });
                         quote_spanned! { variant.span() =>

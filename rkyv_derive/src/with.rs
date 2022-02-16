@@ -1,4 +1,4 @@
-use syn::{parse_quote, Error, Expr, Field, Path, punctuated::Punctuated, token::Comma, Type};
+use syn::{parse_quote, punctuated::Punctuated, token::Comma, Error, Expr, Field, Path, Type};
 
 #[inline]
 pub fn with<B, F: FnMut(B, &Type) -> B>(field: &Field, init: B, f: F) -> Result<B, Error> {
@@ -13,13 +13,7 @@ pub fn with<B, F: FnMut(B, &Type) -> B>(field: &Field, init: B, f: F) -> Result<
             }
         })
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(
-        fields
-            .iter()
-            .flatten()
-            .rev()
-            .fold(init, f)
-    )
+    Ok(fields.iter().flatten().rev().fold(init, f))
 }
 
 #[inline]
