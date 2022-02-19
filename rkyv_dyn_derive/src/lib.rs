@@ -217,11 +217,7 @@ pub fn archive_dyn(
         Input::Trait(input) => {
             let vis = &input.vis;
 
-            let generic_params = input
-                .generics
-                .params
-                .iter()
-                .map(|p| quote! { #p });
+            let generic_params = input.generics.params.iter().map(|p| quote! { #p });
             let generic_params = quote! { #(#generic_params),* };
 
             let generic_args = input.generics.type_params().map(|p| {

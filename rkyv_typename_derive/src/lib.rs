@@ -65,21 +65,14 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
         Err(error) => return error,
     };
 
-    let generic_params = input
-        .generics
-        .params
-        .iter()
-        .map(|p| quote! { #p });
+    let generic_params = input.generics.params.iter().map(|p| quote! { #p });
     let generic_args = input.generics.type_params().map(|p| {
         let name = &p.ident;
         quote! { #name }
     });
     let generic_predicates = match input.generics.where_clause {
         Some(ref clause) => {
-            let predicates = clause
-                .predicates
-                .iter()
-                .map(|p| quote! { #p });
+            let predicates = clause.predicates.iter().map(|p| quote! { #p });
             quote! { #(#predicates,)* }
         }
         None => quote! {},
