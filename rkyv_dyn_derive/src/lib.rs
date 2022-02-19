@@ -8,7 +8,7 @@
 
 extern crate proc_macro;
 
-use quote::{quote, quote_spanned};
+use quote::quote;
 use syn::{
     parse::{Parse, ParseStream, Result},
     parse_macro_input,
@@ -221,12 +221,12 @@ pub fn archive_dyn(
                 .generics
                 .params
                 .iter()
-                .map(|p| quote_spanned! { p.span() => #p });
+                .map(|p| quote! { #p });
             let generic_params = quote! { #(#generic_params),* };
 
             let generic_args = input.generics.type_params().map(|p| {
                 let name = &p.ident;
-                quote_spanned! { name.span() => #name }
+                quote! { #name }
             });
             let generic_args = quote! { #(#generic_args),* };
 
@@ -238,7 +238,7 @@ pub fn archive_dyn(
 
             let type_name_wheres = input.generics.type_params().map(|p| {
                 let name = &p.ident;
-                quote_spanned! { name.span() => #name: TypeName }
+                quote! { #name: TypeName }
             });
             let type_name_wheres = quote! { #(#type_name_wheres,)* };
 
@@ -284,7 +284,7 @@ pub fn archive_dyn(
                 let dyn_name = format!("dyn {}<", deserialize_trait);
                 let mut results = input.generics.type_params().map(|p| {
                     let name = &p.ident;
-                    quote_spanned! { name.span() => #name::build_type_name(&mut f) }
+                    quote! { #name::build_type_name(&mut f) }
                 });
                 let first = results.next().unwrap();
                 quote! {

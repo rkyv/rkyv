@@ -5,7 +5,7 @@ use crate::{
     with::{make_with_cast, make_with_ty},
 };
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned};
+use quote::quote;
 use syn::{
     parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Field, Fields, Ident,
     Index, Meta, NestedMeta, Type,
@@ -154,7 +154,7 @@ fn derive_archive_impl(
                     let resolver_fields = fields.named.iter().map(|f| {
                         let name = &f.ident;
                         let ty = with_ty(f).unwrap();
-                        quote_spanned! { f.span() => #name: #rkyv_path::Resolver<#ty> }
+                        quote! { #name: #rkyv_path::Resolver<#ty> }
                     });
 
                     let archived_def = if attributes.archive_as.is_none() {
@@ -168,7 +168,7 @@ fn derive_archive_impl(
                                 field_name.unwrap()
                             );
                             let archive_attrs = field_archive_attrs(f);
-                            quote_spanned! { f.span() =>
+                            quote! {
                                 #[doc = #field_doc]
                                 #(#[#archive_attrs])*
                                 #vis #field_name: #rkyv_path::Archived<#ty>
@@ -191,7 +191,7 @@ fn derive_archive_impl(
                     let resolve_fields = fields.named.iter().map(|f| {
                         let name = &f.ident;
                         let field = with_cast(f, parse_quote! { (&self.#name) }).unwrap();
-                        quote_spanned! { f.span() =>
+                        quote! {
                             let (fp, fo) = out_field!(out.#name);
                             ::rkyv::Archive::resolve(#field, pos + fp, resolver.#name, fo);
                         }
@@ -339,7 +339,7 @@ fn derive_archive_impl(
 
                     let resolver_fields = fields.unnamed.iter().map(|f| {
                         let ty = with_ty(f).unwrap();
-                        quote_spanned! { f.span() => #rkyv_path::Resolver<#ty> }
+                        quote! { #rkyv_path::Resolver<#ty> }
                     });
 
                     let archived_def = if attributes.archive_as.is_none() {
@@ -349,7 +349,7 @@ fn derive_archive_impl(
                             let field_doc =
                                 format!("The archived counterpart of [`{}::{}`]", name, i);
                             let archive_attrs = field_archive_attrs(f);
-                            quote_spanned! { f.span() =>
+                            quote! {
                                 #[doc = #field_doc]
                                 #(#[#archive_attrs])*
                                 #vis #rkyv_path::Archived<#ty>
@@ -370,7 +370,7 @@ fn derive_archive_impl(
                     let resolve_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                         let index = Index::from(i);
                         let field = with_cast(f, parse_quote! { (&self.#index) }).unwrap();
-                        quote_spanned! { f.span() =>
+                        quote! {
                             let (fp, fo) = out_field!(out.#index);
                             ::rkyv::Archive::resolve(#field, pos + fp, resolver.#index, fo);
                         }
@@ -643,13 +643,13 @@ fn derive_archive_impl(
                                 variant,
                                 field_name.unwrap(),
                             );
-                            quote_spanned! { f.span() =>
+                            quote! {
                                 #[doc = #field_doc]
                                 #field_name: #rkyv_path::Resolver<#ty>
                             }
                         });
                         let variant_doc = format!("The resolver for [`{}::{}`]", name, variant);
-                        quote_spanned! { variant.span() =>
+                        quote! {
                             #[doc = #variant_doc]
                             #[allow(dead_code)]
                             #variant {
@@ -662,13 +662,13 @@ fn derive_archive_impl(
                             let ty = with_ty(f).unwrap();
                             let field_doc =
                                 format!("The resolver for [`{}::{}::{}`]", name, variant, i);
-                            quote_spanned! { f.span() =>
+                            quote! {
                                 #[doc = #field_doc]
                                 #rkyv_path::Resolver<#ty>
                             }
                         });
                         let variant_doc = format!("The resolver for [`{}::{}`]", name, variant);
-                        quote_spanned! { variant.span() =>
+                        quote! {
                             #[doc = #variant_doc]
                             #[allow(dead_code)]
                             #variant(#(#fields,)*)
@@ -676,7 +676,7 @@ fn derive_archive_impl(
                     }
                     Fields::Unit => {
                         let variant_doc = format!("The resolver for [`{}::{}`]", name, variant);
-                        quote_spanned! { variant.span() =>
+                        quote! {
                             #[doc = #variant_doc]
                             #[allow(dead_code)]
                             #variant
@@ -693,12 +693,12 @@ fn derive_archive_impl(
                         let self_bindings = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             let binding = Ident::new(&format!("self_{}", strip_raw(name.as_ref().unwrap())), name.span());
-                            quote_spanned! { name.span() => #name: #binding }
+                            quote! { #name: #binding }
                         });
                         let resolver_bindings = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             let binding = Ident::new(&format!("resolver_{}", strip_raw(name.as_ref().unwrap())), name.span());
-                            quote_spanned! { binding.span() => #name: #binding }
+                            quote! { #name: #binding }
                         });
                         let resolves = fields.named.iter().map(|f| {
                             let name = &f.ident;
@@ -710,7 +710,7 @@ fn derive_archive_impl(
                                 ::rkyv::Archive::resolve(#value, pos + fp, #resolver_binding, fo);
                             }
                         });
-                        quote_spanned! { name.span() =>
+                        quote! {
                             #resolver::#variant { #(#resolver_bindings,)* } => {
                                 match self {
                                     #name::#variant { #(#self_bindings,)* } => {
@@ -728,11 +728,11 @@ fn derive_archive_impl(
                     Fields::Unnamed(ref fields) => {
                         let self_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let name = Ident::new(&format!("self_{}", i), f.span());
-                            quote_spanned! { f.span() => #name }
+                            quote! { #name }
                         });
                         let resolver_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let name = Ident::new(&format!("resolver_{}", i), f.span());
-                            quote_spanned! { f.span() => #name }
+                            quote! { #name }
                         });
                         let resolves = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let index = Index::from(i + 1);
@@ -744,7 +744,7 @@ fn derive_archive_impl(
                                 ::rkyv::Archive::resolve(#value, pos + fp, #resolver_binding, fo);
                             }
                         });
-                        quote_spanned! { name.span() =>
+                        quote! {
                             #resolver::#variant( #(#resolver_bindings,)* ) => {
                                 match self {
                                     #name::#variant(#(#self_bindings,)*) => {
@@ -758,7 +758,7 @@ fn derive_archive_impl(
                             }
                         }
                     }
-                    Fields::Unit => quote_spanned! { name.span() =>
+                    Fields::Unit => quote! {
                         #resolver::#variant => {
                             out.cast::<ArchivedTag>().write(ArchivedTag::#variant);
                         }
@@ -831,7 +831,7 @@ fn derive_archive_impl(
                                     field_name.unwrap(),
                                 );
                                 let archive_attrs = field_archive_attrs(f);
-                                quote_spanned! { f.span() =>
+                                quote! {
                                     #[doc = #field_doc]
                                     #(#[#archive_attrs])*
                                     #vis #field_name: #rkyv_path::Archived<#ty>
@@ -839,7 +839,7 @@ fn derive_archive_impl(
                             });
                             let variant_doc =
                                 format!("The archived counterpart of [`{}::{}`]", name, variant);
-                            quote_spanned! { variant.span() =>
+                            quote! {
                                 #[doc = #variant_doc]
                                 #[allow(dead_code)]
                                 #variant {
@@ -856,7 +856,7 @@ fn derive_archive_impl(
                                     name, variant, i,
                                 );
                                 let archive_attrs = field_archive_attrs(f);
-                                quote_spanned! { f.span() =>
+                                quote! {
                                     #[doc = #field_doc]
                                     #(#[#archive_attrs])*
                                     #vis #rkyv_path::Archived<#ty>
@@ -864,7 +864,7 @@ fn derive_archive_impl(
                             });
                             let variant_doc =
                                 format!("The archived counterpart of [`{}::{}`]", name, variant);
-                            quote_spanned! { variant.span() =>
+                            quote! {
                                 #[doc = #variant_doc]
                                 #[allow(dead_code)]
                                 #variant(#(#fields,)*) #discriminant
@@ -873,7 +873,7 @@ fn derive_archive_impl(
                         Fields::Unit => {
                             let variant_doc =
                                 format!("The archived counterpart of [`{}::{}`]", name, variant);
-                            quote_spanned! { variant.span() =>
+                            quote! {
                                 #[doc = #variant_doc]
                                 #[allow(dead_code)]
                                 #variant #discriminant
@@ -898,7 +898,7 @@ fn derive_archive_impl(
             let archived_variant_tags = data.variants.iter().enumerate().map(|(i, v)| {
                 let variant = &v.ident;
                 let discriminant = int_repr.enum_discriminant(i);
-                quote_spanned! { variant.span() => #variant #discriminant }
+                quote! { #variant #discriminant }
             });
 
             let archived_variant_structs = data.variants.iter().map(|v| {
@@ -909,9 +909,9 @@ fn derive_archive_impl(
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
                             let ty = with_ty(f).unwrap();
-                            quote_spanned! { f.span() => #name: Archived<#ty> }
+                            quote! { #name: Archived<#ty> }
                         });
-                        quote_spanned! { name.span() =>
+                        quote! {
                             #[repr(C)]
                             struct #archived_variant_name #generics #archive_where {
                                 __tag: ArchivedTag,
@@ -923,9 +923,9 @@ fn derive_archive_impl(
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().map(|f| {
                             let ty = with_ty(f).unwrap();
-                            quote_spanned! { f.span() => Archived<#ty> }
+                            quote! { Archived<#ty> }
                         });
-                        quote_spanned! { name.span() =>
+                        quote! {
                             #[repr(C)]
                             struct #archived_variant_name #generics (ArchivedTag, #(#fields,)* PhantomData<#name #ty_generics>) #archive_where;
                         }

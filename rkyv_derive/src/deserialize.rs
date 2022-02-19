@@ -4,7 +4,7 @@ use crate::{
     with::{make_with_ty, with_inner},
 };
 use proc_macro2::TokenStream;
-use quote::{quote, quote_spanned};
+use quote::quote;
 use syn::{
     parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Error, Fields,
     Generics, Ident, Index,
@@ -189,7 +189,7 @@ fn derive_deserialize_impl(
                     Fields::Named(ref fields) => {
                         let bindings = fields.named.iter().map(|f| {
                             let name = &f.ident;
-                            quote_spanned! { name.span() => #name }
+                            quote! { #name }
                         });
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
@@ -206,14 +206,14 @@ fn derive_deserialize_impl(
                             .unwrap();
                             quote! { #name: #value }
                         });
-                        quote_spanned! { variant.span() =>
+                        quote! {
                             Self::#variant { #(#bindings,)* } => #name::#variant { #(#fields,)* }
                         }
                     }
                     Fields::Unnamed(ref fields) => {
                         let bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let name = Ident::new(&format!("_{}", i), f.span());
-                            quote_spanned! { name.span() => #name }
+                            quote! { #name }
                         });
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let binding = Ident::new(&format!("_{}", i), f.span());
@@ -230,12 +230,12 @@ fn derive_deserialize_impl(
                             .unwrap();
                             quote! { #value }
                         });
-                        quote_spanned! { variant.span() =>
+                        quote! {
                             Self::#variant( #(#bindings,)* ) => #name::#variant(#(#fields,)*)
                         }
                     }
                     Fields::Unit => {
-                        quote_spanned! { name.span() => Self::#variant => #name::#variant }
+                        quote! { Self::#variant => #name::#variant }
                     }
                 }
             });

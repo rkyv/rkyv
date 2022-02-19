@@ -9,7 +9,7 @@
 extern crate proc_macro;
 
 use proc_macro2::TokenStream;
-use quote::{quote, quote_spanned};
+use quote::quote;
 use syn::{parse_macro_input, spanned::Spanned, AttrStyle, DeriveInput, Error, Lit, Meta};
 
 #[derive(Default)]
@@ -69,17 +69,17 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
         .generics
         .params
         .iter()
-        .map(|p| quote_spanned! { p.span() => #p });
+        .map(|p| quote! { #p });
     let generic_args = input.generics.type_params().map(|p| {
         let name = &p.ident;
-        quote_spanned! { name.span() => #name }
+        quote! { #name }
     });
     let generic_predicates = match input.generics.where_clause {
         Some(ref clause) => {
             let predicates = clause
                 .predicates
                 .iter()
-                .map(|p| quote_spanned! { p.span() => #p });
+                .map(|p| quote! { #p });
             quote! { #(#predicates,)* }
         }
         None => quote! {},
@@ -87,7 +87,7 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
 
     let type_wheres = input.generics.type_params().map(|p| {
         let name = &p.ident;
-        quote_spanned! { name.span() => #name: rkyv_typename::TypeName }
+        quote! { #name: rkyv_typename::TypeName }
     });
 
     let name = &input.ident;
@@ -105,7 +105,7 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
     let build_args = if !input.generics.params.is_empty() {
         let mut results = input.generics.type_params().map(|p| {
             let name = &p.ident;
-            quote_spanned! { name.span() => #name::build_type_name(&mut f) }
+            quote! { #name::build_type_name(&mut f) }
         });
         let first = results.next().unwrap();
         let name_str = format!("{}<", name_str);

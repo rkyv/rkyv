@@ -4,7 +4,7 @@ use crate::{
     with::{make_with_cast, make_with_ty},
 };
 use proc_macro2::TokenStream;
-use quote::{quote, quote_spanned};
+use quote::quote;
 use syn::{
     parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Error, Fields,
     Generics, Ident, Index,
@@ -72,7 +72,7 @@ fn derive_serialize_impl(
                 let resolver_values = fields.named.iter().map(|f| {
                     let name = &f.ident;
                     let field = with_cast(f, parse_quote! { &self.#name }).unwrap();
-                    quote_spanned! { f.span() => #name: Serialize::<__S>::serialize(#field, serializer)? }
+                    quote! { #name: Serialize::<__S>::serialize(#field, serializer)? }
                 });
 
                 quote! {
@@ -102,7 +102,7 @@ fn derive_serialize_impl(
                 let resolver_values = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = Index::from(i);
                     let field = with_cast(f, parse_quote! { &self.#index }).unwrap();
-                    quote_spanned! { f.span() => Serialize::<__S>::serialize(#field, serializer)? }
+                    quote! { Serialize::<__S>::serialize(#field, serializer)? }
                 });
 
                 quote! {
@@ -165,7 +165,7 @@ fn derive_serialize_impl(
                     Fields::Named(ref fields) => {
                         let bindings = fields.named.iter().map(|f| {
                             let name = &f.ident;
-                            quote_spanned! { name.span() => #name }
+                            quote! { #name }
                         });
                         let fields = fields.named.iter().map(|f| {
                             let name = &f.ident;
@@ -174,7 +174,7 @@ fn derive_serialize_impl(
                                 #name: Serialize::<__S>::serialize(#field, serializer)?
                             }
                         });
-                        quote_spanned! { variant.span() =>
+                        quote! {
                             Self::#variant { #(#bindings,)* } => #resolver::#variant {
                                 #(#fields,)*
                             }
@@ -183,7 +183,7 @@ fn derive_serialize_impl(
                     Fields::Unnamed(ref fields) => {
                         let bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let name = Ident::new(&format!("_{}", i), f.span());
-                            quote_spanned! { f.span() => #name }
+                            quote! { #name }
                         });
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let binding = Ident::new(&format!("_{}", i), f.span());
@@ -192,12 +192,12 @@ fn derive_serialize_impl(
                                 Serialize::<__S>::serialize(#field, serializer)?
                             }
                         });
-                        quote_spanned! { variant.span() =>
+                        quote! {
                             Self::#variant( #(#bindings,)* ) => #resolver::#variant(#(#fields,)*)
                         }
                     }
                     Fields::Unit => {
-                        quote_spanned! { name.span() => Self::#variant => #resolver::#variant }
+                        quote! { Self::#variant => #resolver::#variant }
                     }
                 }
             });
