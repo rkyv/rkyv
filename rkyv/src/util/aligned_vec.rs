@@ -509,13 +509,8 @@ impl AlignedVec {
     /// assert_eq!(slice.len(), 3);
     /// ```
     #[inline]
-    pub fn into_boxed_slice(mut self) -> Box<[u8]> {
-        unsafe {
-            self.shrink_to_fit();
-            let slice_ptr = ptr_meta::from_raw_parts_mut(self.as_mut_ptr().cast(), self.len);
-            core::mem::forget(self);
-            Box::from_raw(slice_ptr)
-        }
+    pub fn into_boxed_slice(self) -> Box<[u8]> {
+        self.into_vec().into_boxed_slice()
     }
 
     /// Converts the vector into `Vec<u8>`.
