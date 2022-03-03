@@ -483,8 +483,7 @@ impl AlignedVec {
 
     /// Converts the vector into `Box<[u8]>`.
     ///
-    /// This will preserve the alignment guarantees provided by `AlignedVec`. Note that this will
-    /// drop any excess capacity.
+    /// This method reallocates and copies the underlying bytes. Any excess capacity is dropped.
     ///
     /// # Examples
     /// ```
