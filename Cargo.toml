@@ -1,5 +1,11 @@
 [workspace]
-members = ["examples/as_string", "examples/json", "examples/opcode", "rkyv*"]
+members = [
+    "examples/as_string",
+    "examples/backwards_compat",
+    "examples/json",
+    "examples/opcode",
+    "rkyv*",
+]
 default-members = [
     "rkyv",
     "rkyv_dyn",
