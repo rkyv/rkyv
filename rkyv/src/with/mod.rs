@@ -658,6 +658,7 @@ pub struct Raw;
 ///
 /// ```
 /// use rkyv::{Archive, with::Unsafe};
+/// use core::cell::{Cell, UnsafeCell};
 ///
 /// #[derive(Archive)]
 /// struct Example {
