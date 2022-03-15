@@ -6,10 +6,11 @@ use crate::{
         ArchivedOptionNonZeroU16, ArchivedOptionNonZeroU32, ArchivedOptionNonZeroU64,
         ArchivedOptionNonZeroU8,
     },
-    with::{ArchiveWith, AsBox, DeserializeWith, Inline, Niche, RefAsBox, SerializeWith},
+    with::{ArchiveWith, AsBox, DeserializeWith, Inline, Niche, RefAsBox, SerializeWith, Unsafe},
     Archive, ArchiveUnsized, Deserialize, Fallible, Serialize, SerializeUnsized,
 };
 use ::core::{
+    cell::{Cell, UnsafeCell},
     convert::TryInto,
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
@@ -235,5 +236,79 @@ impl<D: Fallible + ?Sized> DeserializeWith<ArchivedOptionNonZeroUsize, Option<No
         Ok(field
             .as_ref()
             .map(|x| FixedNonZeroUsize::from(*x).try_into().unwrap()))
+    }
+}
+
+// Unsafe
+
+impl<F: Archive> ArchiveWith<UnsafeCell<F>> for Unsafe {
+    type Archived = UnsafeCell<F::Archived>;
+    type Resolver = F::Resolver;
+
+    #[inline]
+    unsafe fn resolve_with(
+        field: &UnsafeCell<F>,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        F::resolve(&*field.get(), pos, resolver, out.cast());
+    }
+}
+
+impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<UnsafeCell<F>, S> for Unsafe {
+    #[inline]
+    fn serialize_with(field: &UnsafeCell<F>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        unsafe {
+            (&*field.get()).serialize(serializer)
+        }
+    }
+}
+
+impl<F: Archive, D: Fallible + ?Sized> DeserializeWith<UnsafeCell<F::Archived>, UnsafeCell<F>, D> for Unsafe
+where
+    F::Archived: Deserialize<F, D>,
+{
+    #[inline]
+    fn deserialize_with(field: &UnsafeCell<F::Archived>, deserializer: &mut D) -> Result<UnsafeCell<F>, D::Error> {
+        unsafe {
+            (&*field.get()).deserialize(deserializer).map(|x| UnsafeCell::new(x))
+        }
+    }
+}
+
+impl<F: Archive> ArchiveWith<Cell<F>> for Unsafe {
+    type Archived = Cell<F::Archived>;
+    type Resolver = F::Resolver;
+
+    #[inline]
+    unsafe fn resolve_with(
+        field: &Cell<F>,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        F::resolve(&*field.as_ptr(), pos, resolver, out.cast());
+    }
+}
+
+impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Cell<F>, S> for Unsafe {
+    #[inline]
+    fn serialize_with(field: &Cell<F>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        unsafe {
+            (&*field.as_ptr()).serialize(serializer)
+        }
+    }
+}
+
+impl<F: Archive, D: Fallible + ?Sized> DeserializeWith<Cell<F::Archived>, Cell<F>, D> for Unsafe
+where
+    F::Archived: Deserialize<F, D>,
+{
+    #[inline]
+    fn deserialize_with(field: &Cell<F::Archived>, deserializer: &mut D) -> Result<Cell<F>, D::Error> {
+        unsafe {
+            (&*field.as_ptr()).deserialize(deserializer).map(|x| Cell::new(x))
+        }
     }
 }

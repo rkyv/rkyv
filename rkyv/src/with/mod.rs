@@ -638,3 +638,34 @@ impl ::std::error::Error for UnixTimestampError {}
 /// ```
 #[derive(Debug)]
 pub struct Raw;
+
+/// A wrapper that allows serialize-unsafe types to be serialized.
+///
+/// Types like `Cell` and `UnsafeCell` may contain serializable types, but have unsafe access
+/// semantics due to interior mutability. They may be safe to serialize, but only under conditions
+/// that rkyv is unable to guarantee.
+///
+/// This wrapper enables serializing these types, and places the burden of verifying that their
+/// access semantics are used safely on the user.
+///
+/// # Safety
+///
+/// Using this wrapper on types with interior mutability can create races conditions or allow access
+/// to data in an invalid state if access semantics are not followed properly. During serialization,
+/// the data must not be modified.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{Archive, with::Unsafe};
+///
+/// #[derive(Archive)]
+/// struct Example {
+///     #[with(Unsafe)]
+///     cell: Cell<String>,
+///     #[with(Unsafe)]
+///     unsafe_cell: UnsafeCell<String>,
+/// }
+/// ```
+#[derive(Debug)]
+pub struct Unsafe;

@@ -1886,6 +1886,40 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn with_unsafe() {
+        use rkyv::with::Unsafe;
+        use core::cell::UnsafeCell;
+
+        #[derive(Archive, Serialize, Deserialize)]
+        struct Test {
+            #[with(Unsafe)]
+            inner: UnsafeCell<u32>,
+        }
+
+        let value = Test {
+            inner: UnsafeCell::new(100),
+        };
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+
+        unsafe {
+            assert_eq!(*archived.inner.get(), 100);
+            *archived.inner.get() = 42;
+            assert_eq!(*archived.inner.get(), 42);
+        }
+
+        let deserialized: Test = archived.deserialize(&mut DefaultDeserializer::default()).unwrap();
+        unsafe {
+            assert_eq!(*deserialized.inner.get(), 42);
+            *deserialized.inner.get() = 88;
+            assert_eq!(*deserialized.inner.get(), 88);
+        }
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_crate_path() {
         use ::rkyv as alt_path;
 
