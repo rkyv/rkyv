@@ -32,7 +32,7 @@ where
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
         RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context)
-            .unwrap_or_else(|_| unsafe { core::hint::unreachable_unchecked() });
+            .unwrap_or_else(|_| core::hint::unreachable_unchecked());
         K::check_bytes(ptr::addr_of!((*value).key), context)?;
 
         Ok(&*value)
@@ -300,22 +300,16 @@ impl NodeHeader {
         C::Error: Error,
     {
         CheckBytes::check_bytes(ptr::addr_of!((*value).meta), context).map_err(
-            |_: Infallible| unsafe {
-                // SAFETY: Infallible cannot exist
-                unreachable_unchecked()
-            },
+            // SAFETY: Infallible cannot exist
+            |_: Infallible| unreachable_unchecked(),
         )?;
         CheckBytes::check_bytes(ptr::addr_of!((*value).size), context).map_err(
-            |_: Infallible| unsafe {
-                // SAFETY: Infallible cannot exist
-                unreachable_unchecked()
-            },
+            // SAFETY: Infallible cannot exist
+            |_: Infallible| unreachable_unchecked(),
         )?;
         RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context).map_err(
-            |_: Infallible| unsafe {
-                // SAFETY: Infallible cannot exist
-                unreachable_unchecked()
-            },
+            // SAFETY: Infallible cannot exist
+            |_: Infallible| unreachable_unchecked(),
         )?;
 
         // All the fields have been checked and this is a valid RawNode

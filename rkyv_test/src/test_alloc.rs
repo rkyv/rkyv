@@ -1887,7 +1887,7 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_unsafe() {
-        use rkyv::with::Unsafe;
+        use rkyv::{with::Unsafe, to_archived};
         use core::cell::UnsafeCell;
 
         #[derive(Archive, Serialize, Deserialize)]
@@ -1906,7 +1906,7 @@ mod tests {
 
         unsafe {
             assert_eq!(*archived.inner.get(), 100);
-            *archived.inner.get() = 42;
+            *archived.inner.get() = to_archived!(42u32);
             assert_eq!(*archived.inner.get(), 42);
         }
 
