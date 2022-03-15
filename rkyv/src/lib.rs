@@ -278,6 +278,8 @@ impl Default for Infallible {
 /// assert_eq!(deserialized, value);
 /// ```
 ///
+/// _Note: the safe API requires the `validation` feature._
+///
 /// Many of the core and standard library types already have `Archive` implementations available,
 /// but you may need to implement `Archive` for your own types in some cases the derive macro cannot
 /// handle.

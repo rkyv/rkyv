@@ -258,21 +258,28 @@ impl<F: Archive> ArchiveWith<UnsafeCell<F>> for Unsafe {
 
 impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<UnsafeCell<F>, S> for Unsafe {
     #[inline]
-    fn serialize_with(field: &UnsafeCell<F>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        unsafe {
-            (&*field.get()).serialize(serializer)
-        }
+    fn serialize_with(
+        field: &UnsafeCell<F>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        unsafe { (&*field.get()).serialize(serializer) }
     }
 }
 
-impl<F: Archive, D: Fallible + ?Sized> DeserializeWith<UnsafeCell<F::Archived>, UnsafeCell<F>, D> for Unsafe
+impl<F: Archive, D: Fallible + ?Sized> DeserializeWith<UnsafeCell<F::Archived>, UnsafeCell<F>, D>
+    for Unsafe
 where
     F::Archived: Deserialize<F, D>,
 {
     #[inline]
-    fn deserialize_with(field: &UnsafeCell<F::Archived>, deserializer: &mut D) -> Result<UnsafeCell<F>, D::Error> {
+    fn deserialize_with(
+        field: &UnsafeCell<F::Archived>,
+        deserializer: &mut D,
+    ) -> Result<UnsafeCell<F>, D::Error> {
         unsafe {
-            (&*field.get()).deserialize(deserializer).map(|x| UnsafeCell::new(x))
+            (&*field.get())
+                .deserialize(deserializer)
+                .map(|x| UnsafeCell::new(x))
         }
     }
 }
@@ -295,9 +302,7 @@ impl<F: Archive> ArchiveWith<Cell<F>> for Unsafe {
 impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Cell<F>, S> for Unsafe {
     #[inline]
     fn serialize_with(field: &Cell<F>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        unsafe {
-            (&*field.as_ptr()).serialize(serializer)
-        }
+        unsafe { (&*field.as_ptr()).serialize(serializer) }
     }
 }
 
@@ -306,9 +311,14 @@ where
     F::Archived: Deserialize<F, D>,
 {
     #[inline]
-    fn deserialize_with(field: &Cell<F::Archived>, deserializer: &mut D) -> Result<Cell<F>, D::Error> {
+    fn deserialize_with(
+        field: &Cell<F::Archived>,
+        deserializer: &mut D,
+    ) -> Result<Cell<F>, D::Error> {
         unsafe {
-            (&*field.as_ptr()).deserialize(deserializer).map(|x| Cell::new(x))
+            (&*field.as_ptr())
+                .deserialize(deserializer)
+                .map(|x| Cell::new(x))
         }
     }
 }

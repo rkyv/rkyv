@@ -96,3 +96,11 @@ assert_eq!(archived, &value);
 let deserialized: Test = archived.deserialize(&mut rkyv::Infallible).unwrap();
 assert_eq!(deserialized, value);
 ```
+
+_Note: the safe API requires the `validation` feature:_
+
+```toml
+rkyv = { version = "0.7", features = ["validation"] }
+```
+
+_Read more about [available features](https://docs.rs/rkyv/latest/rkyv/#features)._
