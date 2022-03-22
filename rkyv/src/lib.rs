@@ -338,7 +338,7 @@ impl Default for Infallible {
 /// // implementations determine how to make a resolver from the original value.
 /// impl Archive for OwnedStr {
 ///     type Archived = ArchivedOwnedStr;
-///     // This is the resolver we can create our Archived verison from.
+///     // This is the resolver we can create our Archived version from.
 ///     type Resolver = OwnedStrResolver;
 ///
 ///     // The resolve function consumes the resolver and produces the archived
