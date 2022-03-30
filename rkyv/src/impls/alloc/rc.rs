@@ -6,10 +6,14 @@ use crate::{
     SerializeUnsized,
 };
 #[cfg(not(feature = "std"))]
-use ::alloc::{alloc, boxed::Box, rc, sync};
+use ::alloc::{alloc, boxed::Box, rc};
+#[cfg(all(not(feature = "std"), has_atomics))]
+use ::alloc::sync;
 use ::core::mem::forget;
 #[cfg(feature = "std")]
-use ::std::{alloc, rc, sync};
+use ::std::{alloc, rc};
+#[cfg(all(feature = "std", has_atomics))]
+use ::std::sync;
 
 // Rc
 
@@ -123,8 +127,10 @@ where
 // Arc
 
 /// The flavor type for `Arc`.
+#[cfg(has_atomics)]
 pub struct ArcFlavor;
 
+#[cfg(has_atomics)]
 impl<T: ?Sized> SharedPointer for sync::Arc<T> {
     #[inline]
     fn data_address(&self) -> *const () {
@@ -132,6 +138,7 @@ impl<T: ?Sized> SharedPointer for sync::Arc<T> {
     }
 }
 
+#[cfg(has_atomics)]
 impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     type Archived = ArchivedRc<T::Archived, ArcFlavor>;
     type Resolver = RcResolver<T::MetadataResolver>;
@@ -142,6 +149,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     }
 }
 
+#[cfg(has_atomics)]
 impl<T, S> Serialize<S> for sync::Arc<T>
 where
     T: SerializeUnsized<S> + ?Sized + 'static,
@@ -153,6 +161,7 @@ where
     }
 }
 
+#[cfg(has_atomics)]
 impl<T: ArchiveUnsized + ?Sized + 'static, D: SharedDeserializeRegistry + ?Sized>
     Deserialize<sync::Arc<T>, D> for ArchivedRc<T::Archived, ArcFlavor>
 where
@@ -171,6 +180,7 @@ where
     }
 }
 
+#[cfg(has_atomics)]
 impl<T, U> PartialEq<sync::Arc<U>> for ArchivedRc<T, ArcFlavor>
 where
     T: ArchivePointee + PartialEq<U> + ?Sized,
@@ -184,6 +194,7 @@ where
 
 // sync::Weak
 
+#[cfg(has_atomics)]
 impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
     type Archived = ArchivedRcWeak<T::Archived, ArcFlavor>;
     type Resolver = RcWeakResolver<T::MetadataResolver>;
@@ -199,6 +210,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
     }
 }
 
+#[cfg(has_atomics)]
 impl<T, S> Serialize<S> for sync::Weak<T>
 where
     T: SerializeUnsized<S> + ?Sized + 'static,
@@ -215,6 +227,7 @@ where
 
 // Deserialize can only be implemented for sized types because weak pointers don't have from/into
 // raw functions.
+#[cfg(has_atomics)]
 impl<T, D> Deserialize<sync::Weak<T>, D> for ArchivedRcWeak<T::Archived, ArcFlavor>
 where
     T: Archive + 'static,
