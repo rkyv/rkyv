@@ -1,13 +1,10 @@
 use bytecheck::CheckBytes;
-use rkyv::{Archive, Deserialize, Serialize, with::AsBox};
+use rkyv::{with::AsBox, Archive, Deserialize, Serialize};
 
 // This is the version used by the older client, which can read newer versions
 // from senders.
 #[derive(Archive, Deserialize, Serialize)]
-#[archive_attr(
-    repr(C),
-    derive(CheckBytes),
-)]
+#[archive_attr(repr(C), derive(CheckBytes))]
 struct ExampleV1 {
     a: i32,
     b: u32,
@@ -16,10 +13,7 @@ struct ExampleV1 {
 // This is the version used by the newer client, which can send newer versions
 // to receivers.
 #[derive(Archive, Deserialize, Serialize)]
-#[archive_attr(
-    repr(C),
-    derive(CheckBytes),
-)]
+#[archive_attr(repr(C), derive(CheckBytes))]
 struct ExampleV2 {
     a: i32,
     b: i32,
@@ -34,14 +28,8 @@ struct ExampleV2 {
 // buffer.
 #[derive(Archive, Deserialize, Serialize)]
 #[repr(transparent)]
-#[archive_attr(
-    repr(transparent),
-    derive(CheckBytes),
-)]
-struct Versioned<T>(
-    #[with(AsBox)]
-    pub T,
-);
+#[archive_attr(repr(transparent), derive(CheckBytes))]
+struct Versioned<T>(#[with(AsBox)] pub T);
 
 // This is some code running on the older client. It accepts the older version
 // of the struct and prints out the `a` and `b` fields.
@@ -57,10 +45,7 @@ fn print_v2(value: &ArchivedExampleV2) {
 
 fn main() {
     // These two different versions of the type will be serialized and accessed.
-    let v1 = Versioned(ExampleV1 {
-        a: 10,
-        b: 20,
-    });
+    let v1 = Versioned(ExampleV1 { a: 10, b: 20 });
     let v2 = Versioned(ExampleV2 {
         a: 30,
         b: 50,

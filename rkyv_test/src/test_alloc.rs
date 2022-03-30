@@ -1887,8 +1887,8 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_unsafe() {
-        use rkyv::{with::Unsafe, to_archived};
         use core::cell::UnsafeCell;
+        use rkyv::{to_archived, with::Unsafe};
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
@@ -1910,7 +1910,9 @@ mod tests {
             assert_eq!(*archived.inner.get(), 42);
         }
 
-        let deserialized: Test = archived.deserialize(&mut DefaultDeserializer::default()).unwrap();
+        let deserialized: Test = archived
+            .deserialize(&mut DefaultDeserializer::default())
+            .unwrap();
         unsafe {
             assert_eq!(*deserialized.inner.get(), 42);
             *deserialized.inner.get() = 88;

@@ -5,15 +5,15 @@ use crate::{
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized, Serialize,
     SerializeUnsized,
 };
-#[cfg(not(feature = "std"))]
-use ::alloc::{alloc, boxed::Box, rc};
 #[cfg(all(not(feature = "std"), has_atomics))]
 use ::alloc::sync;
+#[cfg(not(feature = "std"))]
+use ::alloc::{alloc, boxed::Box, rc};
 use ::core::mem::forget;
-#[cfg(feature = "std")]
-use ::std::{alloc, rc};
 #[cfg(all(feature = "std", has_atomics))]
 use ::std::sync;
+#[cfg(feature = "std")]
+use ::std::{alloc, rc};
 
 // Rc
 
