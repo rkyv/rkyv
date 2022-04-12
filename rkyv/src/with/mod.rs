@@ -292,7 +292,6 @@ pub struct Map<Archivable> {
     _type: PhantomData<Archivable>,
 }
 
-
 /// A wrapper that archives an atomic with an underlying atomic.
 ///
 /// By default, atomics are archived with an underlying integer.

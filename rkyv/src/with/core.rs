@@ -6,21 +6,23 @@ use crate::{
         ArchivedOptionNonZeroU16, ArchivedOptionNonZeroU32, ArchivedOptionNonZeroU64,
         ArchivedOptionNonZeroU8,
     },
-    with::{ArchiveWith, AsBox, DeserializeWith, Inline, Map, Niche, RefAsBox, SerializeWith, Unsafe},
-    Archive, ArchiveUnsized, Deserialize, Fallible, Serialize, SerializeUnsized,
     option::ArchivedOption,
+    ser::{ScratchSpace, Serializer},
     vec::{ArchivedVec, VecResolver},
-    ser::{Serializer, ScratchSpace},
+    with::{
+        ArchiveWith, AsBox, DeserializeWith, Inline, Map, Niche, RefAsBox, SerializeWith, Unsafe,
+    },
+    Archive, ArchiveUnsized, Deserialize, Fallible, Serialize, SerializeUnsized,
 };
 use ::core::{
     cell::{Cell, UnsafeCell},
     convert::TryInto,
+    hint::unreachable_unchecked,
+    marker::PhantomData,
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
         NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
     },
-    marker::PhantomData,
-    hint::unreachable_unchecked,
     ptr,
 };
 
@@ -85,8 +87,7 @@ where
     }
 }
 
-impl<A, O, D> DeserializeWith<ArchivedVec<<A as ArchiveWith<O>>::Archived>, Vec<O>, D>
-    for Map<A>
+impl<A, O, D> DeserializeWith<ArchivedVec<<A as ArchiveWith<O>>::Archived>, Vec<O>, D> for Map<A>
 where
     A: ArchiveWith<O> + DeserializeWith<<A as ArchiveWith<O>>::Archived, O, D>,
     D: Fallible,
