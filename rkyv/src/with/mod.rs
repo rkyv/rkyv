@@ -284,7 +284,9 @@ const _: () = {
 /// #[derive(Archive)]
 /// struct Example<'a> {
 ///     #[with(Map<RefAsBox>)]
-///     a: &'a i32,
+///     option: Option<&'a i32>,
+///     #[with(Map<RefAsBox>)]
+///     vec: Vec<&'a i32>,
 /// }
 /// ```
 #[derive(Debug)]
