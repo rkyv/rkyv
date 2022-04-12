@@ -6,12 +6,13 @@ use crate::{
     string::{ArchivedString, StringResolver},
     vec::{ArchivedVec, RawArchivedVec, VecResolver},
     with::{
-        ArchiveWith, AsOwned, AsVec, CopyOptimize, DeserializeWith, Niche, Raw, RefAsBox,
+        ArchiveWith, AsOwned, AsVec, CopyOptimize, DeserializeWith, Map, Niche, Raw, RefAsBox,
         SerializeWith, With,
     },
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized, Fallible,
     MetadataResolver, Serialize, SerializeUnsized,
 };
+use ::core::marker::PhantomData;
 #[cfg(not(feature = "std"))]
 use alloc::{
     borrow::Cow,
@@ -25,6 +26,83 @@ use std::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
 };
+
+// Map for Vecs
+
+impl<A, O> ArchiveWith<Vec<O>> for Map<A>
+where
+    A: ArchiveWith<O>,
+{
+    type Archived = ArchivedVec<<A as ArchiveWith<O>>::Archived>;
+    type Resolver = VecResolver;
+
+    unsafe fn resolve_with(
+        field: &Vec<O>,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        ArchivedVec::resolve_from_len(field.len(), pos, resolver, out)
+    }
+}
+
+impl<A, O, S> SerializeWith<Vec<O>, S> for Map<A>
+where
+    S: Fallible + ScratchSpace + Serializer,
+    A: ArchiveWith<O> + SerializeWith<O, S>,
+{
+    fn serialize_with(field: &Vec<O>, s: &mut S) -> Result<Self::Resolver, S::Error> {
+        // Wrapper for O so that we have an Archive and Serialize implementation
+        // and ArchivedVec::serialize_from_* is happy about the bound constraints
+        struct RefWrapper<'o, A, O>(&'o O, PhantomData<A>);
+
+        impl<A: ArchiveWith<O>, O> Archive for RefWrapper<'_, A, O> {
+            type Archived = <A as ArchiveWith<O>>::Archived;
+            type Resolver = <A as ArchiveWith<O>>::Resolver;
+
+            unsafe fn resolve(
+                &self,
+                pos: usize,
+                resolver: Self::Resolver,
+                out: *mut Self::Archived,
+            ) {
+                A::resolve_with(self.0, pos, resolver, out)
+            }
+        }
+
+        impl<A, O, S> Serialize<S> for RefWrapper<'_, A, O>
+        where
+            A: ArchiveWith<O> + SerializeWith<O, S>,
+            S: Fallible + Serializer,
+        {
+            fn serialize(&self, s: &mut S) -> Result<Self::Resolver, S::Error> {
+                A::serialize_with(self.0, s)
+            }
+        }
+
+        let iter = field
+            .iter()
+            .map(|value| RefWrapper::<'_, A, O>(value, PhantomData));
+
+        ArchivedVec::serialize_from_iter(iter, s)
+    }
+}
+
+impl<A, O, D> DeserializeWith<ArchivedVec<<A as ArchiveWith<O>>::Archived>, Vec<O>, D> for Map<A>
+where
+    A: ArchiveWith<O> + DeserializeWith<<A as ArchiveWith<O>>::Archived, O, D>,
+    D: Fallible,
+{
+    fn deserialize_with(
+        field: &ArchivedVec<<A as ArchiveWith<O>>::Archived>,
+        d: &mut D,
+    ) -> Result<Vec<O>, D::Error> {
+        field
+            .iter()
+            .map(|value| <A as DeserializeWith<_, _, D>>::deserialize_with(value, d))
+            .collect()
+    }
+}
 
 // AsOwned
 
