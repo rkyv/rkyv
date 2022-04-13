@@ -274,6 +274,26 @@ const _: () = {
     }
 };
 
+/// A generic wrapper that allows wrapping an Option<T>.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{Archive, with::{Map, RefAsBox}};
+///
+/// #[derive(Archive)]
+/// struct Example<'a> {
+///     #[with(Map<RefAsBox>)]
+///     option: Option<&'a i32>,
+///     #[with(Map<RefAsBox>)]
+///     vec: Vec<&'a i32>,
+/// }
+/// ```
+#[derive(Debug)]
+pub struct Map<Archivable> {
+    _type: PhantomData<Archivable>,
+}
+
 /// A wrapper that archives an atomic with an underlying atomic.
 ///
 /// By default, atomics are archived with an underlying integer.

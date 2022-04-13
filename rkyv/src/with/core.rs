@@ -6,17 +6,102 @@ use crate::{
         ArchivedOptionNonZeroU16, ArchivedOptionNonZeroU32, ArchivedOptionNonZeroU64,
         ArchivedOptionNonZeroU8,
     },
-    with::{ArchiveWith, AsBox, DeserializeWith, Inline, Niche, RefAsBox, SerializeWith, Unsafe},
+    option::ArchivedOption,
+    with::{
+        ArchiveWith, AsBox, DeserializeWith, Inline, Map, Niche, RefAsBox, SerializeWith, Unsafe,
+    },
     Archive, ArchiveUnsized, Deserialize, Fallible, Serialize, SerializeUnsized,
 };
 use ::core::{
     cell::{Cell, UnsafeCell},
     convert::TryInto,
+    hint::unreachable_unchecked,
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
         NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
     },
+    ptr,
 };
+
+// Map for Options
+
+// Copy-paste from Option's impls for the most part
+impl<A, O> ArchiveWith<Option<O>> for Map<A>
+where
+    A: ArchiveWith<O>,
+{
+    type Archived = ArchivedOption<<A as ArchiveWith<O>>::Archived>;
+    type Resolver = Option<<A as ArchiveWith<O>>::Resolver>;
+
+    unsafe fn resolve_with(
+        field: &Option<O>,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        match resolver {
+            None => {
+                let out = out.cast::<ArchivedOptionVariantNone>();
+                ptr::addr_of_mut!((*out).0).write(ArchivedOptionTag::None);
+            }
+            Some(resolver) => {
+                let out = out.cast::<ArchivedOptionVariantSome<<A as ArchiveWith<O>>::Archived>>();
+                ptr::addr_of_mut!((*out).0).write(ArchivedOptionTag::Some);
+
+                let value = if let Some(value) = field.as_ref() {
+                    value
+                } else {
+                    unreachable_unchecked();
+                };
+
+                let (fp, fo) = out_field!(out.1);
+                A::resolve_with(value, pos + fp, resolver, fo);
+            }
+        }
+    }
+}
+
+impl<A, O, S> SerializeWith<Option<O>, S> for Map<A>
+where
+    S: Fallible,
+    A: ArchiveWith<O> + SerializeWith<O, S>,
+{
+    fn serialize_with(field: &Option<O>, s: &mut S) -> Result<Self::Resolver, S::Error> {
+        field
+            .as_ref()
+            .map(|value| A::serialize_with(value, s))
+            .transpose()
+    }
+}
+
+impl<A, O, D> DeserializeWith<ArchivedOption<<A as ArchiveWith<O>>::Archived>, Option<O>, D>
+    for Map<A>
+where
+    D: Fallible,
+    A: ArchiveWith<O> + DeserializeWith<<A as ArchiveWith<O>>::Archived, O, D>,
+{
+    fn deserialize_with(
+        field: &ArchivedOption<<A as ArchiveWith<O>>::Archived>,
+        d: &mut D,
+    ) -> Result<Option<O>, D::Error> {
+        match field {
+            ArchivedOption::Some(value) => Ok(Some(A::deserialize_with(value, d)?)),
+            ArchivedOption::None => Ok(None),
+        }
+    }
+}
+
+#[repr(u8)]
+enum ArchivedOptionTag {
+    None,
+    Some,
+}
+
+#[repr(C)]
+struct ArchivedOptionVariantNone(ArchivedOptionTag);
+
+#[repr(C)]
+struct ArchivedOptionVariantSome<T>(ArchivedOptionTag, T);
 
 // Inline
 
