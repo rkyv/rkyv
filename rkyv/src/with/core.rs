@@ -175,13 +175,13 @@ impl<F: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> SerializeWith<F, S> 
     }
 }
 
-impl<F: Archive, D: Fallible + ?Sized> DeserializeWith<F::Archived, F, D> for AsBox
+impl<F: Archive, D: Fallible + ?Sized> DeserializeWith<ArchivedBox<F::Archived>, F, D> for AsBox
 where
     F::Archived: Deserialize<F, D>,
 {
     #[inline]
-    fn deserialize_with(field: &F::Archived, deserializer: &mut D) -> Result<F, D::Error> {
-        field.deserialize(deserializer)
+    fn deserialize_with(field: &ArchivedBox<F::Archived>, deserializer: &mut D) -> Result<F, D::Error> {
+        field.get().deserialize(deserializer)
     }
 }
 
