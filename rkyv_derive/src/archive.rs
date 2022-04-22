@@ -418,10 +418,11 @@ fn derive_archive_impl(
                                 for field in fields.unnamed.iter().filter(|f| {
                                     !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                 }) {
-                                    let ty = with_ty(field).unwrap();
+                                    let ty = &field.ty;
+                                    let wrapped_ty = with_ty(field).unwrap();
                                     partial_ord_where
                                         .predicates
-                                        .push(parse_quote! { Archived<#ty>: PartialOrd<#ty> });
+                                        .push(parse_quote! { Archived<#wrapped_ty>: PartialOrd<#ty> });
                                 }
 
                                 let field_names = fields
@@ -1044,20 +1045,22 @@ fn derive_archive_impl(
                                     for field in fields.named.iter().filter(|f| {
                                         !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                     }) {
-                                        let ty = with_ty(field).unwrap();
+                                        let ty = &field.ty;
+                                        let wrapped_ty = with_ty(field).unwrap();
                                         partial_ord_where
                                             .predicates
-                                            .push(parse_quote! { Archived<#ty>: PartialOrd<#ty> });
+                                            .push(parse_quote! { Archived<#wrapped_ty>: PartialOrd<#ty> });
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
                                     for field in fields.unnamed.iter().filter(|f| {
                                         !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                     }) {
-                                        let ty = with_ty(field).unwrap();
+                                        let ty = &field.ty;
+                                        let wrapped_ty = with_ty(field).unwrap();
                                         partial_ord_where
                                             .predicates
-                                            .push(parse_quote! { Archived<#ty>: PartialOrd<#ty> });
+                                            .push(parse_quote! { Archived<#wrapped_ty>: PartialOrd<#ty> });
                                     }
                                 }
                                 Fields::Unit => (),
