@@ -11,7 +11,7 @@ use core::{
 /// Errors that can occur while checking an archived hash index.
 #[derive(Debug)]
 pub enum HashIndexError<C> {
-    /// An error occured while checking the layouts of displacements or entries
+    /// An error occurred while checking the layouts of displacements or entries
     LayoutError(LayoutError),
     /// A displacement value was invalid
     InvalidDisplacement {
