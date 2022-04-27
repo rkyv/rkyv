@@ -67,7 +67,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// Wrappers transparently customize archived types by providing different implementations of core
 /// traits. For example, references cannot be archived, but the `Inline` wrapper serializes a
 /// reference as if it were a field of the struct. Wrappers can be applied to fields using the
-/// `#[with(...)]` attribute. Mutliple wrappers can be used, and they are applied in reverse order
+/// `#[with(...)]` attribute. Multiple wrappers can be used, and they are applied in reverse order
 /// (i.e. `#[with(A, B, C)]` will archive `MyType` as `With<With<With<MyType, C>, B, A>`).
 #[proc_macro_derive(Archive, attributes(archive, archive_attr, omit_bounds, with))]
 pub fn derive_archive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {

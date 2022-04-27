@@ -22,11 +22,11 @@ use core::{
 /// Errors that can occur while checking an archived hash map.
 #[derive(Debug)]
 pub enum HashMapError<K, V, C> {
-    /// An error occured while checking the hash index
+    /// An error occurred while checking the hash index
     HashIndexError(HashIndexError<C>),
-    /// An error occured while checking the layouts of displacements or entries
+    /// An error occurred while checking the layouts of displacements or entries
     LayoutError(LayoutError),
-    /// An error occured while checking the entries
+    /// An error occurred while checking the entries
     CheckEntryError(SliceCheckError<ArchivedEntryError<K, V>>),
     /// A key is not located at the correct position
     InvalidKeyPosition {
