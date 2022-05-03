@@ -164,3 +164,41 @@ pub struct CStringResolver {
     pos: usize,
     metadata_resolver: MetadataResolver<CStr>,
 }
+
+#[cfg(feature = "validation")]
+const _: () = {
+    use crate::validation::{
+        owned::{CheckOwnedPointerError, OwnedPointerError},
+        ArchiveContext,
+    };
+    use bytecheck::{CheckBytes, Error};
+
+    impl<C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedCString
+    where
+        C::Error: Error,
+    {
+        type Error = CheckOwnedPointerError<CStr, C>;
+
+        #[inline]
+        unsafe fn check_bytes<'a>(
+            value: *const Self,
+            context: &mut C,
+        ) -> Result<&'a Self, Self::Error> {
+            let rel_ptr = RelPtr::<CStr>::manual_check_bytes(value.cast(), context)
+                .map_err(OwnedPointerError::PointerCheckBytesError)?;
+            let ptr = context
+                .check_subtree_rel_ptr(rel_ptr)
+                .map_err(OwnedPointerError::ContextError)?;
+
+            let range = context
+                .push_prefix_subtree(ptr)
+                .map_err(OwnedPointerError::ContextError)?;
+            CStr::check_bytes(ptr, context).map_err(OwnedPointerError::ValueCheckBytesError)?;
+            context
+                .pop_prefix_range(range)
+                .map_err(OwnedPointerError::ContextError)?;
+
+            Ok(&*value)
+        }
+    }
+};

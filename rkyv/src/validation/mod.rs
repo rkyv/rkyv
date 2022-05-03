@@ -41,6 +41,15 @@ impl LayoutRaw for str {
     }
 }
 
+#[cfg(feature = "std")]
+impl LayoutRaw for ::std::ffi::CStr {
+    #[inline]
+    fn layout_raw(value: *const Self) -> Layout {
+        let metadata = ptr_meta::metadata(value);
+        Layout::array::<::std::os::raw::c_char>(metadata).unwrap()
+    }
+}
+
 /// A context that can validate nonlocal archive memory.
 pub trait ArchiveContext: Fallible {
     /// A prefix range from an archive context.
