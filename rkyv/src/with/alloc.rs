@@ -578,13 +578,13 @@ where
     }
 }
 
-impl<T, D> DeserializeWith<ArchivedVec<T::Archived>, Vec<T>, D> for Raw
+impl<T, D> DeserializeWith<RawArchivedVec<T::Archived>, Vec<T>, D> for Raw
 where
     T: Archive,
     T::Archived: Deserialize<T, D>,
     D: Fallible + ?Sized,
 {
-    fn deserialize_with(field: &ArchivedVec<T::Archived>, _: &mut D) -> Result<Vec<T>, D::Error> {
+    fn deserialize_with(field: &RawArchivedVec<T::Archived>, _: &mut D) -> Result<Vec<T>, D::Error> {
         use ::core::{mem::size_of, ptr::copy_nonoverlapping};
 
         // Basic debug assert that T and T::Archived are at least the same size
