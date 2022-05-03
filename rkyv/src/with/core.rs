@@ -8,7 +8,8 @@ use crate::{
     },
     option::ArchivedOption,
     with::{
-        ArchiveWith, AsBox, DeserializeWith, Inline, Map, Niche, RefAsBox, SerializeWith, Unsafe,
+        ArchiveWith, AsBox, DeserializeWith, Inline, Map, Niche, RefAsBox, SerializeWith, Skip,
+        Unsafe,
     },
     Archive, ArchiveUnsized, Deserialize, Fallible, Serialize, SerializeUnsized,
 };
@@ -180,7 +181,10 @@ where
     F::Archived: Deserialize<F, D>,
 {
     #[inline]
-    fn deserialize_with(field: &ArchivedBox<F::Archived>, deserializer: &mut D) -> Result<F, D::Error> {
+    fn deserialize_with(
+        field: &ArchivedBox<F::Archived>,
+        deserializer: &mut D,
+    ) -> Result<F, D::Error> {
         field.get().deserialize(deserializer)
     }
 }
@@ -405,5 +409,26 @@ where
                 .deserialize(deserializer)
                 .map(|x| Cell::new(x))
         }
+    }
+}
+
+// Skip
+
+impl<F> ArchiveWith<F> for Skip {
+    type Archived = ();
+    type Resolver = ();
+
+    unsafe fn resolve_with(_: &F, _: usize, _: Self::Resolver, _: *mut Self::Archived) {}
+}
+
+impl<F, S: Fallible + ?Sized> SerializeWith<F, S> for Skip {
+    fn serialize_with(_: &F, _: &mut S) -> Result<(), S::Error> {
+        Ok(())
+    }
+}
+
+impl<F: Default, D: Fallible + ?Sized> DeserializeWith<(), F, D> for Skip {
+    fn deserialize_with(_: &(), _: &mut D) -> Result<F, D::Error> {
+        Ok(Default::default())
     }
 }

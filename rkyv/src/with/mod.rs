@@ -690,3 +690,21 @@ pub struct Raw;
 /// ```
 #[derive(Debug)]
 pub struct Unsafe;
+
+/// A wrapper that skips serializing a field.
+///
+/// Skipped fields must implement `Default` to be deserialized.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{Archive, with::Skip};
+///
+/// #[derive(Archive)]
+/// struct Example {
+///     #[with(Skip)]
+///     a: u32,
+/// }
+/// ```
+#[derive(Debug)]
+pub struct Skip;

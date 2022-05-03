@@ -387,9 +387,9 @@ fn derive_archive_impl(
                                 }) {
                                     let ty = &field.ty;
                                     let wrapped_ty = with_ty(field).unwrap();
-                                    partial_eq_where
-                                        .predicates
-                                        .push(parse_quote! { Archived<#wrapped_ty>: PartialEq<#ty> });
+                                    partial_eq_where.predicates.push(
+                                        parse_quote! { Archived<#wrapped_ty>: PartialEq<#ty> },
+                                    );
                                 }
 
                                 let field_names = fields
@@ -420,9 +420,9 @@ fn derive_archive_impl(
                                 }) {
                                     let ty = &field.ty;
                                     let wrapped_ty = with_ty(field).unwrap();
-                                    partial_ord_where
-                                        .predicates
-                                        .push(parse_quote! { Archived<#wrapped_ty>: PartialOrd<#ty> });
+                                    partial_ord_where.predicates.push(
+                                        parse_quote! { Archived<#wrapped_ty>: PartialOrd<#ty> },
+                                    );
                                 }
 
                                 let field_names = fields
@@ -950,9 +950,9 @@ fn derive_archive_impl(
                                     }) {
                                         let ty = &field.ty;
                                         let wrapped_ty = with_ty(field).unwrap();
-                                        partial_eq_where
-                                            .predicates
-                                            .push(parse_quote! { Archived<#wrapped_ty>: PartialEq<#ty> });
+                                        partial_eq_where.predicates.push(
+                                            parse_quote! { Archived<#wrapped_ty>: PartialEq<#ty> },
+                                        );
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
@@ -961,9 +961,9 @@ fn derive_archive_impl(
                                     }) {
                                         let ty = &field.ty;
                                         let wrapped_ty = with_ty(field).unwrap();
-                                        partial_eq_where
-                                            .predicates
-                                            .push(parse_quote! { Archived<#wrapped_ty>: PartialEq<#ty> });
+                                        partial_eq_where.predicates.push(
+                                            parse_quote! { Archived<#wrapped_ty>: PartialEq<#ty> },
+                                        );
                                     }
                                 }
                                 Fields::Unit => (),
@@ -1047,9 +1047,9 @@ fn derive_archive_impl(
                                     }) {
                                         let ty = &field.ty;
                                         let wrapped_ty = with_ty(field).unwrap();
-                                        partial_ord_where
-                                            .predicates
-                                            .push(parse_quote! { Archived<#wrapped_ty>: PartialOrd<#ty> });
+                                        partial_ord_where.predicates.push(
+                                            parse_quote! { Archived<#wrapped_ty>: PartialOrd<#ty> },
+                                        );
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
@@ -1058,9 +1058,9 @@ fn derive_archive_impl(
                                     }) {
                                         let ty = &field.ty;
                                         let wrapped_ty = with_ty(field).unwrap();
-                                        partial_ord_where
-                                            .predicates
-                                            .push(parse_quote! { Archived<#wrapped_ty>: PartialOrd<#ty> });
+                                        partial_ord_where.predicates.push(
+                                            parse_quote! { Archived<#wrapped_ty>: PartialOrd<#ty> },
+                                        );
                                     }
                                 }
                                 Fields::Unit => (),
