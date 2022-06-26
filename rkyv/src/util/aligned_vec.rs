@@ -84,7 +84,7 @@ impl AlignedVec {
             Self::new()
         } else {
             let ptr = unsafe {
-                 alloc::alloc(alloc::Layout::from_size_align_unchecked(
+                alloc::alloc(alloc::Layout::from_size_align_unchecked(
                     capacity,
                     Self::ALIGNMENT,
                 ))
@@ -297,9 +297,10 @@ impl AlignedVec {
                 .expect("cannot reserve a larger AlignedVec");
             if self.cap == 0 {
                 let new_ptr = unsafe {
-                    alloc::alloc(
-                        alloc::Layout::from_size_align_unchecked(new_cap, Self::ALIGNMENT),
-                    )
+                    alloc::alloc(alloc::Layout::from_size_align_unchecked(
+                        new_cap,
+                        Self::ALIGNMENT,
+                    ))
                 };
                 self.ptr = NonNull::new(new_ptr).unwrap();
                 self.cap = new_cap;
