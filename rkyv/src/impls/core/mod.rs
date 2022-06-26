@@ -65,6 +65,7 @@ where
             Ok(ptr::NonNull::<T>::dangling().as_ptr().cast())
         } else {
             let ptr = alloc(layout).cast::<T>();
+            assert!(!ptr.is_null());
             ptr.write(deserialized);
             Ok(ptr.cast())
         }
@@ -263,6 +264,7 @@ impl<T: Deserialize<U, D>, U, D: Fallible + ?Sized> DeserializeUnsized<[U], D> f
                 Ok(ptr::NonNull::<U>::dangling().as_ptr().cast())
             } else {
                 let result = alloc(Layout::array::<U>(self.len()).unwrap()).cast::<U>();
+                assert!(!result.is_null());
                 for (i, item) in self.iter().enumerate() {
                     result.add(i).write(item.deserialize(deserializer)?);
                 }
@@ -295,6 +297,7 @@ where
             Ok(ptr::NonNull::<U>::dangling().as_ptr().cast())
         } else {
             let result = alloc(Layout::array::<T>(self.len()).unwrap()).cast::<T>();
+            assert!(!result.is_null());
             ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
             Ok(result.cast())
         }
@@ -358,6 +361,7 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for <str as ArchiveUnsized
             Ok(ptr::null_mut())
         } else {
             let bytes = alloc(Layout::array::<u8>(self.len()).unwrap());
+            assert!(!bytes.is_null());
             ptr::copy_nonoverlapping(self.as_ptr(), bytes, self.len());
             Ok(bytes.cast())
         }

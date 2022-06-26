@@ -168,6 +168,7 @@ pub fn archive_dyn(
                             {
                                 unsafe fn deserialize_dyn(&self, deserializer: &mut dyn DynDeserializer, alloc: &mut dyn FnMut(Layout) -> *mut u8) -> Result<*mut (), DynError> {
                                     let result = alloc(core::alloc::Layout::new::<#ty>()).cast::<#ty>();
+                                    assert!(!result.is_null());
                                     result.write(self.deserialize(deserializer)?);
                                     Ok(result as *mut ())
                                 }

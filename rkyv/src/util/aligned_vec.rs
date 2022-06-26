@@ -83,16 +83,16 @@ impl AlignedVec {
         if capacity == 0 {
             Self::new()
         } else {
-            unsafe {
-                let ptr = alloc::alloc(alloc::Layout::from_size_align_unchecked(
+            let ptr = unsafe {
+                 alloc::alloc(alloc::Layout::from_size_align_unchecked(
                     capacity,
                     Self::ALIGNMENT,
-                ));
-                Self {
-                    ptr: NonNull::new_unchecked(ptr),
-                    cap: capacity,
-                    len: 0,
-                }
+                ))
+            };
+            Self {
+                ptr: NonNull::new(ptr).unwrap(),
+                cap: capacity,
+                len: 0,
             }
         }
     }
@@ -124,12 +124,10 @@ impl AlignedVec {
 
     #[inline]
     fn change_capacity(&mut self, new_cap: usize) {
-        unsafe {
-            if new_cap != self.cap {
-                let new_ptr = alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap);
-                self.ptr = NonNull::new_unchecked(new_ptr);
-                self.cap = new_cap;
-            }
+        if new_cap != self.cap {
+            let new_ptr = unsafe { alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap) };
+            self.ptr = NonNull::new(new_ptr).unwrap();
+            self.cap = new_cap;
         }
     }
 
@@ -298,18 +296,17 @@ impl AlignedVec {
                 .checked_next_power_of_two()
                 .expect("cannot reserve a larger AlignedVec");
             if self.cap == 0 {
-                unsafe {
-                    self.ptr = NonNull::new_unchecked(alloc::alloc(
+                let new_ptr = unsafe {
+                    alloc::alloc(
                         alloc::Layout::from_size_align_unchecked(new_cap, Self::ALIGNMENT),
-                    ));
-                    self.cap = new_cap;
-                }
+                    )
+                };
+                self.ptr = NonNull::new(new_ptr).unwrap();
+                self.cap = new_cap;
             } else {
-                unsafe {
-                    let new_ptr = alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap);
-                    self.ptr = NonNull::new_unchecked(new_ptr);
-                    self.cap = new_cap;
-                }
+                let new_ptr = unsafe { alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap) };
+                self.ptr = NonNull::new(new_ptr).unwrap();
+                self.cap = new_cap;
             }
         }
     }

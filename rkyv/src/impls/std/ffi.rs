@@ -59,6 +59,7 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for <CStr as ArchiveUnsiz
     ) -> Result<*mut (), D::Error> {
         let slice = self.to_bytes_with_nul();
         let bytes = alloc(Layout::array::<u8>(slice.len()).unwrap());
+        assert!(!bytes.is_null());
         ptr::copy_nonoverlapping(slice.as_ptr(), bytes, slice.len());
         Ok(bytes.cast())
     }

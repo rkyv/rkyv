@@ -120,7 +120,8 @@ impl<const N: usize> HeapScratch<N> {
         if N != 0 {
             unsafe {
                 let layout = Layout::new::<AlignedBytes<N>>();
-                let ptr = alloc::alloc(layout).cast();
+                let ptr = alloc::alloc(layout).cast::<AlignedBytes<N>>();
+                assert!(!ptr.is_null());
                 let buf = Box::from_raw(ptr);
                 Self {
                     inner: BufferScratch::new(buf),
@@ -294,6 +295,7 @@ impl ScratchSpace for AllocScratch {
             }
         }
         let result_ptr = alloc::alloc(layout);
+        assert!(!result_ptr.is_null());
         self.allocations.push((result_ptr, layout));
         let result_slice = ptr_meta::from_raw_parts_mut(result_ptr.cast(), layout.size());
         let result = NonNull::new_unchecked(result_slice);

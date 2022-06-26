@@ -144,6 +144,7 @@ mod tests {
                     alloc: &mut dyn FnMut(Layout) -> *mut u8,
                 ) -> Result<*mut (), DynError> {
                     let result = alloc(core::alloc::Layout::new::<Test>()).cast::<Test>();
+                    assert!(!result.is_null());
                     result.write(self.deserialize(deserializer)?);
                     Ok(result as *mut ())
                 }
@@ -288,6 +289,7 @@ mod tests {
                 alloc: &mut dyn FnMut(Layout) -> *mut u8,
             ) -> Result<*mut (), DynError> {
                 let result = alloc(core::alloc::Layout::new::<Test<T>>()).cast::<Test<T>>();
+                assert!(!result.is_null());
                 result.write(self.deserialize(deserializer)?);
                 Ok(result as *mut ())
             }
