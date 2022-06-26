@@ -193,7 +193,7 @@ fn derive_archive_impl(
                         let field = with_cast(f, parse_quote! { (&self.#name) }).unwrap();
                         quote! {
                             let (fp, fo) = out_field!(out.#name);
-                            ::rkyv::Archive::resolve(#field, pos + fp, resolver.#name, fo);
+                            #rkyv_path::Archive::resolve(#field, pos + fp, resolver.#name, fo);
                         }
                     });
 
@@ -372,7 +372,7 @@ fn derive_archive_impl(
                         let field = with_cast(f, parse_quote! { (&self.#index) }).unwrap();
                         quote! {
                             let (fp, fo) = out_field!(out.#index);
-                            ::rkyv::Archive::resolve(#field, pos + fp, resolver.#index, fo);
+                            #rkyv_path::Archive::resolve(#field, pos + fp, resolver.#index, fo);
                         }
                     });
 
@@ -709,7 +709,7 @@ fn derive_archive_impl(
                             let value = with_cast(f, parse_quote! { #self_binding }).unwrap();
                             quote! {
                                 let (fp, fo) = out_field!(out.#name);
-                                ::rkyv::Archive::resolve(#value, pos + fp, #resolver_binding, fo);
+                                #rkyv_path::Archive::resolve(#value, pos + fp, #resolver_binding, fo);
                             }
                         });
                         quote! {
@@ -743,7 +743,7 @@ fn derive_archive_impl(
                             let value = with_cast(f, parse_quote! { #self_binding }).unwrap();
                             quote! {
                                 let (fp, fo) = out_field!(out.#index);
-                                ::rkyv::Archive::resolve(#value, pos + fp, #resolver_binding, fo);
+                                #rkyv_path::Archive::resolve(#value, pos + fp, #resolver_binding, fo);
                             }
                         });
                         quote! {
