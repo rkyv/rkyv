@@ -84,16 +84,16 @@ impl AlignedVec {
     /// assert_eq!(vec.capacity(), 16);
     ///
     /// // These are all done without reallocating...
-    /// for i in 0..10 {
+    /// for i in 0..16 {
     ///     vec.push(i);
     /// }
-    /// assert_eq!(vec.len(), 10);
+    /// assert_eq!(vec.len(), 16);
     /// assert_eq!(vec.capacity(), 16);
     ///
     /// // ...but this may make the vector reallocate
-    /// vec.push(11);
-    /// assert_eq!(vec.len(), 11);
-    /// assert!(vec.capacity() >= 11);
+    /// vec.push(16);
+    /// assert_eq!(vec.len(), 17);
+    /// assert!(vec.capacity() >= 17);
     /// ```
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
@@ -132,11 +132,11 @@ impl AlignedVec {
     /// ```
     /// use rkyv::AlignedVec;
     ///
-    /// let mut vec = AlignedVec::with_capacity(10);
+    /// let mut vec = AlignedVec::with_capacity(17);
     /// vec.extend_from_slice(&[1, 2, 3]);
-    /// assert_eq!(vec.capacity(), 16);
+    /// assert_eq!(vec.capacity(), 32);
     /// vec.shrink_to_fit();
-    /// assert!(vec.capacity() >= 3);
+    /// assert_eq!(vec.capacity(), 16);
     /// ```
     #[inline]
     pub fn shrink_to_fit(&mut self) {
@@ -389,7 +389,7 @@ impl AlignedVec {
         unsafe {
             self.as_mut_ptr().add(self.len).write(value);
         }
-        self.len += 1;
+        unsafe { self.set_len(self.len + 1) };
     }
 
     /// Reserves the minimum capacity for exactly `additional` more elements to be inserted in the
