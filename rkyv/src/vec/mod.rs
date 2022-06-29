@@ -92,7 +92,7 @@ impl<T> ArchivedVec<T> {
     /// # Safety
     ///
     /// - `pos` must be the position of `out` within the archive
-    /// - `resolver` must bet he result of serializing `value`
+    /// - `resolver` must be the result of serializing `value`
     #[inline]
     pub unsafe fn resolve_from_len(len: usize, pos: usize, resolver: VecResolver, out: *mut Self) {
         let (fp, fo) = out_field!(out.ptr);

@@ -367,13 +367,11 @@ impl fmt::Display for DynMetadataError {
                 type_id,
                 expected,
                 found,
-            } => {
-                write!(
-                    f,
-                    "mismatched cached vtable for {}: expected {} but found {}",
-                    type_id, expected, found
-                )
-            }
+            } => write!(
+                f,
+                "mismatched cached vtable for {}: expected {} but found {}",
+                type_id, expected, found
+            ),
         }
     }
 }

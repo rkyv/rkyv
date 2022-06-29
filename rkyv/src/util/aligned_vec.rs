@@ -2,35 +2,53 @@
 use ::alloc::{alloc, boxed::Box, vec::Vec};
 use core::borrow::{Borrow, BorrowMut};
 use core::{
-    fmt,
+    cmp, fmt, hash,
     ops::{Deref, DerefMut, Index, IndexMut},
-    ptr::NonNull,
     slice,
+    slice::SliceIndex,
 };
 #[cfg(feature = "std")]
-use std::{alloc, io};
+use std::io;
 
-/// A vector of bytes that aligns its memory to 16 bytes.
-pub struct AlignedVec {
-    ptr: NonNull<u8>,
-    cap: usize,
-    len: usize,
+use crate::{AlignedBytes, Archive, Deserialize, Serialize};
+
+const ALIGNMENT: usize = 16;
+
+// TODO: replace when int_roundings feature is stabilized
+const fn div_ceiling(dividend: usize, divisor: usize) -> usize {
+    (dividend + divisor - 1) / divisor
 }
 
-impl Drop for AlignedVec {
-    #[inline]
-    fn drop(&mut self) {
-        if self.cap != 0 {
-            unsafe {
-                alloc::dealloc(self.ptr.as_ptr(), self.layout());
-            }
-        }
-    }
+/// A vector of bytes that aligns its memory to 16 bytes.
+///
+/// The alignment also applies to [`ArchivedAlignedVec`], which is useful for aligning opaque bytes inside of an archived data
+/// type.
+///
+/// ```
+/// # use rkyv::{AlignedVec, Archive, Serialize};
+/// #
+/// #[derive(Archive, Serialize)]
+/// struct HasAlignedBytes {
+///     pub bytes: AlignedVec,
+/// }
+///
+/// let mut bytes = AlignedVec::new();
+/// bytes.extend_from_slice(&[1, 2, 3]);
+/// let ser_foo = rkyv::to_bytes::<_, 0>(&HasAlignedBytes { bytes }).unwrap();
+/// let arch_foo = unsafe { rkyv::archived_root::<HasAlignedBytes>(&ser_foo) };
+/// assert_eq!(arch_foo.bytes.as_slice(), &[1, 2, 3]);
+/// assert_eq!(arch_foo.bytes.as_ptr().align_offset(16), 0);
+/// ```
+#[derive(Archive, Clone, Deserialize, Serialize)]
+#[archive(crate = "crate")]
+pub struct AlignedVec {
+    bytes: Vec<AlignedBytes<ALIGNMENT>>,
+    len: usize,
 }
 
 impl AlignedVec {
     /// The alignment of the vector
-    pub const ALIGNMENT: usize = 16;
+    pub const ALIGNMENT: usize = ALIGNMENT;
 
     /// Constructs a new, empty `AlignedVec`.
     ///
@@ -44,9 +62,8 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn new() -> Self {
-        AlignedVec {
-            ptr: NonNull::dangling(),
-            cap: 0,
+        Self {
+            bytes: Vec::new(),
             len: 0,
         }
     }
@@ -64,14 +81,14 @@ impl AlignedVec {
     ///
     /// // The vector contains no items, even though it has capacity for more
     /// assert_eq!(vec.len(), 0);
-    /// assert_eq!(vec.capacity(), 10);
+    /// assert_eq!(vec.capacity(), 16);
     ///
     /// // These are all done without reallocating...
     /// for i in 0..10 {
     ///     vec.push(i);
     /// }
     /// assert_eq!(vec.len(), 10);
-    /// assert_eq!(vec.capacity(), 10);
+    /// assert_eq!(vec.capacity(), 16);
     ///
     /// // ...but this may make the vector reallocate
     /// vec.push(11);
@@ -80,26 +97,10 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
-        if capacity == 0 {
-            Self::new()
-        } else {
-            let ptr = unsafe {
-                alloc::alloc(alloc::Layout::from_size_align_unchecked(
-                    capacity,
-                    Self::ALIGNMENT,
-                ))
-            };
-            Self {
-                ptr: NonNull::new(ptr).unwrap(),
-                cap: capacity,
-                len: 0,
-            }
+        Self {
+            bytes: Vec::with_capacity(div_ceiling(capacity, Self::ALIGNMENT)),
+            len: 0,
         }
-    }
-
-    #[inline]
-    fn layout(&self) -> alloc::Layout {
-        unsafe { alloc::Layout::from_size_align_unchecked(self.cap, Self::ALIGNMENT) }
     }
 
     /// Clears the vector, removing all values.
@@ -122,15 +123,6 @@ impl AlignedVec {
         self.len = 0;
     }
 
-    #[inline]
-    fn change_capacity(&mut self, new_cap: usize) {
-        if new_cap != self.cap {
-            let new_ptr = unsafe { alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap) };
-            self.ptr = NonNull::new(new_ptr).unwrap();
-            self.cap = new_cap;
-        }
-    }
-
     /// Shrinks the capacity of the vector as much as possible.
     ///
     /// It will drop down as close as possible to the length but the allocator may still inform the
@@ -142,17 +134,13 @@ impl AlignedVec {
     ///
     /// let mut vec = AlignedVec::with_capacity(10);
     /// vec.extend_from_slice(&[1, 2, 3]);
-    /// assert_eq!(vec.capacity(), 10);
+    /// assert_eq!(vec.capacity(), 16);
     /// vec.shrink_to_fit();
     /// assert!(vec.capacity() >= 3);
     /// ```
     #[inline]
     pub fn shrink_to_fit(&mut self) {
-        if self.len == 0 {
-            self.clear()
-        } else {
-            self.change_capacity(self.len);
-        }
+        self.bytes.shrink_to_fit();
     }
 
     /// Returns an unsafe mutable pointer to the vector's buffer.
@@ -181,7 +169,7 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut u8 {
-        self.ptr.as_ptr()
+        self.bytes.as_mut_ptr() as *mut u8
     }
 
     /// Extracts a mutable slice of the entire vector.
@@ -203,7 +191,7 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
+        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), self.len) }
     }
 
     /// Returns a raw pointer to the vector's buffer.
@@ -233,7 +221,7 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn as_ptr(&self) -> *const u8 {
-        self.ptr.as_ptr()
+        self.bytes.as_ptr() as *const u8
     }
 
     /// Extracts a slice containing the entire vector.
@@ -253,7 +241,7 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn as_slice(&self) -> &[u8] {
-        unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
+        unsafe { slice::from_raw_parts(self.as_ptr(), self.len) }
     }
 
     /// Returns the number of elements the vector can hold without reallocating.
@@ -263,11 +251,11 @@ impl AlignedVec {
     /// use rkyv::AlignedVec;
     ///
     /// let vec = AlignedVec::with_capacity(10);
-    /// assert_eq!(vec.capacity(), 10);
+    /// assert_eq!(vec.capacity(), 16);
     /// ```
     #[inline]
     pub fn capacity(&self) -> usize {
-        self.cap
+        self.bytes.capacity() * Self::ALIGNMENT
     }
 
     /// Reserves capacity for at least `additional` more bytes to be inserted into the given
@@ -285,31 +273,17 @@ impl AlignedVec {
     ///
     /// let mut vec = AlignedVec::new();
     /// vec.push(1);
-    /// vec.reserve(10);
-    /// assert!(vec.capacity() >= 11);
+    /// vec.reserve(16);
+    /// assert!(vec.capacity() >= 17);
     /// ```
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
-        let new_cap = self.len + additional;
-        if new_cap > self.cap {
-            let new_cap = new_cap
-                .checked_next_power_of_two()
-                .expect("cannot reserve a larger AlignedVec");
-            if self.cap == 0 {
-                let new_ptr = unsafe {
-                    alloc::alloc(alloc::Layout::from_size_align_unchecked(
-                        new_cap,
-                        Self::ALIGNMENT,
-                    ))
-                };
-                self.ptr = NonNull::new(new_ptr).unwrap();
-                self.cap = new_cap;
-            } else {
-                let new_ptr = unsafe { alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap) };
-                self.ptr = NonNull::new(new_ptr).unwrap();
-                self.cap = new_cap;
-            }
+        let required_cap = self.len + additional;
+        if self.capacity() >= required_cap {
+            return;
         }
+        let additional_aligned = div_ceiling(required_cap - self.capacity(), Self::ALIGNMENT);
+        self.bytes.reserve(additional_aligned)
     }
 
     /// Returns `true` if the vector contains no elements.
@@ -364,11 +338,11 @@ impl AlignedVec {
             unsafe {
                 core::ptr::copy_nonoverlapping(
                     other.as_ptr(),
-                    self.as_mut_ptr().add(self.len()),
+                    self.as_mut_ptr().add(self.len),
                     other.len(),
                 );
             }
-            self.len += other.len();
+            unsafe { self.set_len(self.len + other.len()) };
         }
     }
 
@@ -411,11 +385,11 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn push(&mut self, value: u8) {
+        self.reserve(1);
         unsafe {
-            self.reserve(1);
             self.as_mut_ptr().add(self.len).write(value);
-            self.len += 1;
         }
+        self.len += 1;
     }
 
     /// Reserves the minimum capacity for exactly `additional` more elements to be inserted in the
@@ -441,12 +415,12 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn reserve_exact(&mut self, additional: usize) {
-        let new_cap = self
-            .len
-            .checked_add(additional)
-            .and_then(|n| n.checked_next_power_of_two())
-            .expect("reserve amount overflowed");
-        self.change_capacity(new_cap);
+        let required_cap = self.len + additional;
+        if self.capacity() >= required_cap {
+            return;
+        }
+        let additional_aligned = div_ceiling(required_cap - self.capacity(), Self::ALIGNMENT);
+        self.bytes.reserve_exact(additional_aligned)
     }
 
     /// Forces the length of the vector to `new_len`.
@@ -475,8 +449,9 @@ impl AlignedVec {
     #[inline]
     pub unsafe fn set_len(&mut self, new_len: usize) {
         debug_assert!(new_len <= self.capacity());
-
         self.len = new_len;
+        // It's important to set_len here as well so that reserve and reserve_exact work as expected.
+        self.bytes.set_len(div_ceiling(new_len, Self::ALIGNMENT));
     }
 
     /// Converts the vector into `Box<[u8]>`.
@@ -501,7 +476,7 @@ impl AlignedVec {
     /// let mut vec = AlignedVec::with_capacity(10);
     /// vec.extend_from_slice(&[1, 2, 3]);
     ///
-    /// assert_eq!(vec.capacity(), 10);
+    /// assert_eq!(vec.capacity(), 16);
     /// let slice = vec.into_boxed_slice();
     /// assert_eq!(slice.len(), 3);
     /// ```
@@ -563,18 +538,6 @@ impl BorrowMut<[u8]> for AlignedVec {
     #[inline]
     fn borrow_mut(&mut self) -> &mut [u8] {
         self.as_mut_slice()
-    }
-}
-
-impl Clone for AlignedVec {
-    #[inline]
-    fn clone(&self) -> Self {
-        unsafe {
-            let mut result = AlignedVec::with_capacity(self.len);
-            result.len = self.len;
-            core::ptr::copy_nonoverlapping(self.as_ptr(), result.as_mut_ptr(), self.len);
-            result
-        }
     }
 }
 
@@ -660,3 +623,139 @@ unsafe impl Send for AlignedVec {}
 unsafe impl Sync for AlignedVec {}
 
 impl Unpin for AlignedVec {}
+
+impl ArchivedAlignedVec {
+    /// Returns the number of elements in the archived vec.
+    #[inline]
+    pub fn len(&self) -> usize {
+        from_archived!(self.len) as usize
+    }
+
+    /// Returns whether the archived vec is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Gets the elements of the archived vec as a slice.
+    #[inline]
+    pub fn as_ptr(&self) -> *const u8 {
+        self.bytes.as_ptr() as *const u8
+    }
+
+    /// Gets the elements of the archived vec as a slice.
+    #[inline]
+    pub fn as_slice(&self) -> &[u8] {
+        unsafe { slice::from_raw_parts(self.as_ptr(), self.len()) }
+    }
+}
+
+impl AsRef<[u8]> for ArchivedAlignedVec {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
+
+impl Borrow<[u8]> for ArchivedAlignedVec {
+    #[inline]
+    fn borrow(&self) -> &[u8] {
+        self.as_slice()
+    }
+}
+
+impl fmt::Debug for ArchivedAlignedVec {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list().entries(self.as_slice()).finish()
+    }
+}
+
+impl Deref for ArchivedAlignedVec {
+    type Target = [u8];
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+impl Eq for ArchivedAlignedVec {}
+
+impl hash::Hash for ArchivedAlignedVec {
+    #[inline]
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.as_slice().hash(state)
+    }
+}
+
+impl<I: SliceIndex<[u8]>> Index<I> for ArchivedAlignedVec {
+    type Output = <[u8] as Index<I>>::Output;
+
+    #[inline]
+    fn index(&self, index: I) -> &Self::Output {
+        self.as_slice().index(index)
+    }
+}
+
+impl Ord for ArchivedAlignedVec {
+    #[inline]
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.as_slice().cmp(other.as_slice())
+    }
+}
+
+impl PartialEq<ArchivedAlignedVec> for ArchivedAlignedVec {
+    #[inline]
+    fn eq(&self, other: &ArchivedAlignedVec) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<const N: usize> PartialEq<[u8; N]> for ArchivedAlignedVec {
+    #[inline]
+    fn eq(&self, other: &[u8; N]) -> bool {
+        self.as_slice().eq(&other[..])
+    }
+}
+
+impl<const N: usize> PartialEq<ArchivedAlignedVec> for [u8; N] {
+    #[inline]
+    fn eq(&self, other: &ArchivedAlignedVec) -> bool {
+        other.eq(self)
+    }
+}
+
+impl PartialEq<[u8]> for ArchivedAlignedVec {
+    #[inline]
+    fn eq(&self, other: &[u8]) -> bool {
+        self.as_slice().eq(other)
+    }
+}
+
+impl PartialEq<ArchivedAlignedVec> for [u8] {
+    #[inline]
+    fn eq(&self, other: &ArchivedAlignedVec) -> bool {
+        self.eq(other.as_slice())
+    }
+}
+
+impl PartialOrd<ArchivedAlignedVec> for ArchivedAlignedVec {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedAlignedVec) -> Option<cmp::Ordering> {
+        self.as_slice().partial_cmp(other.as_slice())
+    }
+}
+
+impl PartialOrd<[u8]> for ArchivedAlignedVec {
+    #[inline]
+    fn partial_cmp(&self, other: &[u8]) -> Option<cmp::Ordering> {
+        self.as_slice().partial_cmp(other)
+    }
+}
+
+impl PartialOrd<ArchivedAlignedVec> for [u8] {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedAlignedVec) -> Option<cmp::Ordering> {
+        self.partial_cmp(other.as_slice())
+    }
+}
