@@ -1,3 +1,10 @@
+use crate::vec::VecResolver;
+use crate::{
+    ser::{ScratchSpace, Serializer},
+    vec::ArchivedVec,
+    Archive, Archived, Serialize,
+};
+
 #[cfg(not(feature = "std"))]
 use ::alloc::{alloc, boxed::Box, vec::Vec};
 use core::borrow::{Borrow, BorrowMut};
@@ -11,6 +18,36 @@ use core::{
 use std::{alloc, io};
 
 /// A vector of bytes that aligns its memory to 16 bytes.
+///
+/// The alignment also applies to [`ArchivedAlignedVec`], which is useful for aligning opaque bytes inside of an archived data
+/// type.
+///
+/// ```
+/// # use rkyv::{archived_value, AlignedBytes, AlignedVec, Archive, Serialize};
+/// # use rkyv::ser::Serializer;
+/// # use rkyv::ser::serializers::CoreSerializer;
+/// #
+/// #[derive(Archive, Serialize)]
+/// struct HasAlignedBytes {
+///     pub bytes: AlignedVec,
+/// }
+///
+/// let mut serializer = CoreSerializer::<256, 0>::default();
+///
+/// // Write a single byte to force re-alignment.
+/// serializer.write(&[0]).unwrap();
+/// assert_eq!(serializer.pos(), 1);
+///
+/// let mut bytes = AlignedVec::new();
+/// bytes.extend_from_slice(&[1, 2, 3]);
+/// let pos = serializer.serialize_value(&HasAlignedBytes { bytes }).unwrap();
+///
+/// // Make sure we can recover the archived type with the expected alignment.
+/// let buf = serializer.into_serializer().into_inner();
+/// let archived = unsafe { archived_value::<HasAlignedBytes>(buf.as_ref(), pos) };
+/// assert_eq!(archived.bytes.as_slice(), &[1, 2, 3]);
+/// assert_eq!(archived.bytes.as_ptr().align_offset(16), 0);
+/// ```
 pub struct AlignedVec {
     ptr: NonNull<u8>,
     cap: usize,
@@ -538,6 +575,16 @@ impl From<AlignedVec> for Vec<u8> {
     }
 }
 
+impl Archive for AlignedVec {
+    type Archived = ArchivedVec<u8>;
+    type Resolver = VecResolver;
+
+    #[inline]
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+        ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
+    }
+}
+
 impl AsMut<[u8]> for AlignedVec {
     #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
@@ -655,6 +702,14 @@ impl io::Write for AlignedVec {
 
 // SAFETY: AlignedVec is safe to send to another thread
 unsafe impl Send for AlignedVec {}
+
+impl<S: ScratchSpace + Serializer + ?Sized> Serialize<S> for AlignedVec {
+    #[inline]
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        serializer.align(Self::ALIGNMENT)?;
+        ArchivedVec::<Archived<u8>>::serialize_from_slice(self.as_slice(), serializer)
+    }
+}
 
 // SAFETY: AlignedVec is safe to share between threads
 unsafe impl Sync for AlignedVec {}

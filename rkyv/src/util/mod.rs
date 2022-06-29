@@ -217,7 +217,8 @@ pub unsafe fn archived_unsized_root_mut<T: ArchiveUnsized + ?Sized>(
 /// assert_eq!(mem::align_of::<u8>(), 1);
 /// assert_eq!(mem::align_of::<AlignedBytes<256>>(), 16);
 /// ```
-#[derive(Clone, Copy, Debug)]
+#[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize)]
+#[archive(crate = "crate")]
 #[repr(C, align(16))]
 pub struct AlignedBytes<const N: usize>(pub [u8; N]);
 
