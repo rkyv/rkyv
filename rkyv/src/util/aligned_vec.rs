@@ -23,19 +23,30 @@ use std::{alloc, io};
 /// type.
 ///
 /// ```
-/// # use rkyv::{AlignedVec, Archive, Serialize};
+/// # use rkyv::{archived_value, AlignedBytes, AlignedVec, Archive, Serialize};
+/// # use rkyv::ser::Serializer;
+/// # use rkyv::ser::serializers::CoreSerializer;
 /// #
 /// #[derive(Archive, Serialize)]
 /// struct HasAlignedBytes {
 ///     pub bytes: AlignedVec,
 /// }
 ///
+/// let mut serializer = CoreSerializer::<256, 0>::default();
+///
+/// // Write a single byte to force re-alignment.
+/// serializer.write(&[0]).unwrap();
+/// assert_eq!(serializer.pos(), 1);
+///
 /// let mut bytes = AlignedVec::new();
 /// bytes.extend_from_slice(&[1, 2, 3]);
-/// let ser_foo = rkyv::to_bytes::<_, 0>(&HasAlignedBytes { bytes }).unwrap();
-/// let arch_foo = unsafe { rkyv::archived_root::<HasAlignedBytes>(&ser_foo) };
-/// assert_eq!(arch_foo.bytes.as_slice(), &[1, 2, 3]);
-/// assert_eq!(arch_foo.bytes.as_ptr().align_offset(16), 0);
+/// let pos = serializer.serialize_value(&HasAlignedBytes { bytes }).unwrap();
+///
+/// // Make sure we can recover the archived type with the expected alignment.
+/// let buf = serializer.into_serializer().into_inner();
+/// let archived = unsafe { archived_value::<HasAlignedBytes>(buf.as_ref(), pos) };
+/// assert_eq!(archived.bytes.as_slice(), &[1, 2, 3]);
+/// assert_eq!(archived.bytes.as_ptr().align_offset(16), 0);
 /// ```
 pub struct AlignedVec {
     ptr: NonNull<u8>,
