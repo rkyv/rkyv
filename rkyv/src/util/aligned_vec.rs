@@ -348,6 +348,37 @@ impl AlignedVec {
             }
         }
     }
+    /// Resizes the Vec in-place so that len is equal to new_len.
+    ///
+    /// If new_len is greater than len, the Vec is extended by the difference, with each additional slot filled with value. If new_len is less than len, the Vec is simply truncated.
+    /// 
+    /// # Panics
+    ///
+    /// Panics if the new length exceeds `usize::MAX` bytes.
+    ///
+    /// # Examples
+    /// ```
+    /// use rkyv::AlignedVec;
+    ///
+    /// let mut vec = AlignedVec::new();
+    /// vec.push(3);
+    /// vec.resize(3, 2);
+    /// assert_eq!(vec.as_slice(), &[3, 2, 2]);
+    ///
+    /// let mut vec = AlignedVec::new();
+    /// vec.extend_from_slice(&[1, 2, 3, 4]);
+    /// vec.resize(2, 0);
+    /// assert_eq!(vec.as_slice(), &[1, 2]);
+    /// ```
+    #[inline]
+    pub fn resize(&mut self, new_len: usize, value: u8) {
+        if new_len > self.len {
+            let additional = new_len - self.len;
+            self.reserve(additional);
+            unsafe { std::ptr::write_bytes(self.ptr.as_ptr().add(self.len), value, additional); }
+        }
+        unsafe { self.set_len(new_len); }
+    }
 
     /// Returns `true` if the vector contains no elements.
     ///
