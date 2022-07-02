@@ -337,10 +337,11 @@ buffer. One example is if we used
 </blockquote>
 <p>While normal pointers hold an absolute address in memory, relative pointers hold an offset to an address. This changes how
 the pointer behaves under moves:</p>
-<table><thead><tr><th>Pointer</th><th>Self is moved</th><th>Self and target are moved</th></tr></thead><tbody>
+<div class="table-wrapper"><table><thead><tr><th>Pointer</th><th>Self is moved</th><th>Self and target are moved</th></tr></thead><tbody>
 <tr><td>Absolute</td><td>✅ Target is still at address</td><td>❌ Target no longer at address</td></tr>
 <tr><td>Relative</td><td>❌ Relative distance has changed</td><td>✅ Self and target same relative distance apart</td></tr>
 </tbody></table>
+</div>
 <p>This is exactly the property we need to build data structures with total zero-copy deserialization.
 By using relative pointers, we can load data at any position in memory and still have valid pointers
 inside of it. Relative pointers don't require write access to memory either, so we can memory map
@@ -363,8 +364,7 @@ original values and resolvers combined, the archived version can be constructed.
 </ol>
 <h2 id="resolvers"><a class="header" href="#resolvers">Resolvers</a></h2>
 <p>A good example of why resolvers are necessary is when archiving a tuple. Say we have two strings:</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>let value = (&quot;hello&quot;.to_string(), &quot;world&quot;.to_string());
 <span class="boring">}
@@ -509,8 +509,7 @@ values if it is not.</p>
 possible type that can represent all of the variants.</li>
 </ul>
 <p>For example, a struct like:</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>struct Example {
     a: u32,
@@ -520,8 +519,7 @@ possible type that can represent all of the variants.</li>
 <span class="boring">}
 </span></code></pre></pre>
 <p>Would have the archived counterpart:</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>struct ArchivedExample {
     a: u32,
@@ -759,7 +757,7 @@ better approach in these cases.</p>
 <p>This is a best-effort feaure comparison between rkyv, FlatBuffers, and Cap'n Proto. This is by no
 means completely comprehensive, and pull requests that improve this are welcomed.</p>
 <h2 id="feature-matrix"><a class="header" href="#feature-matrix">Feature matrix</a></h2>
-<table><thead><tr><th>Feature</th><th>rkyv</th><th>Cap'n Proto</th><th>FlatBuffers</th></tr></thead><tbody>
+<div class="table-wrapper"><table><thead><tr><th>Feature</th><th>rkyv</th><th>Cap'n Proto</th><th>FlatBuffers</th></tr></thead><tbody>
 <tr><td>Open type system</td><td>yes</td><td>no</td><td>no</td></tr>
 <tr><td>Scalars</td><td>yes</td><td>no</td><td>yes</td></tr>
 <tr><td>Tables</td><td>no*</td><td>yes</td><td>yes</td></tr>
@@ -778,6 +776,7 @@ means completely comprehensive, and pull requests that improve this are welcomed
 <tr><td>Hash maps and B-trees</td><td>yes</td><td>no</td><td>no</td></tr>
 <tr><td>Shared pointers</td><td>yes</td><td>no</td><td>no</td></tr>
 </tbody></table>
+</div>
 <p>* <em>rkyv's open type system allows extension types that provide these capabilities</em></p>
 <h2 id="open-type-system"><a class="header" href="#open-type-system">Open type system</a></h2>
 <p>One of rkyv's primary features is that its type system is <em>open</em>. This means that users can write

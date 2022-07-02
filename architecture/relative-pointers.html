@@ -164,10 +164,11 @@ buffer. One example is if we used
 </blockquote>
 <p>While normal pointers hold an absolute address in memory, relative pointers hold an offset to an address. This changes how
 the pointer behaves under moves:</p>
-<table><thead><tr><th>Pointer</th><th>Self is moved</th><th>Self and target are moved</th></tr></thead><tbody>
+<div class="table-wrapper"><table><thead><tr><th>Pointer</th><th>Self is moved</th><th>Self and target are moved</th></tr></thead><tbody>
 <tr><td>Absolute</td><td>✅ Target is still at address</td><td>❌ Target no longer at address</td></tr>
 <tr><td>Relative</td><td>❌ Relative distance has changed</td><td>✅ Self and target same relative distance apart</td></tr>
 </tbody></table>
+</div>
 <p>This is exactly the property we need to build data structures with total zero-copy deserialization.
 By using relative pointers, we can load data at any position in memory and still have valid pointers
 inside of it. Relative pointers don't require write access to memory either, so we can memory map

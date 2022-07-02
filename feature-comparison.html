@@ -141,7 +141,7 @@
 <p>This is a best-effort feaure comparison between rkyv, FlatBuffers, and Cap'n Proto. This is by no
 means completely comprehensive, and pull requests that improve this are welcomed.</p>
 <h2 id="feature-matrix"><a class="header" href="#feature-matrix">Feature matrix</a></h2>
-<table><thead><tr><th>Feature</th><th>rkyv</th><th>Cap'n Proto</th><th>FlatBuffers</th></tr></thead><tbody>
+<div class="table-wrapper"><table><thead><tr><th>Feature</th><th>rkyv</th><th>Cap'n Proto</th><th>FlatBuffers</th></tr></thead><tbody>
 <tr><td>Open type system</td><td>yes</td><td>no</td><td>no</td></tr>
 <tr><td>Scalars</td><td>yes</td><td>no</td><td>yes</td></tr>
 <tr><td>Tables</td><td>no*</td><td>yes</td><td>yes</td></tr>
@@ -160,6 +160,7 @@ means completely comprehensive, and pull requests that improve this are welcomed
 <tr><td>Hash maps and B-trees</td><td>yes</td><td>no</td><td>no</td></tr>
 <tr><td>Shared pointers</td><td>yes</td><td>no</td><td>no</td></tr>
 </tbody></table>
+</div>
 <p>* <em>rkyv's open type system allows extension types that provide these capabilities</em></p>
 <h2 id="open-type-system"><a class="header" href="#open-type-system">Open type system</a></h2>
 <p>One of rkyv's primary features is that its type system is <em>open</em>. This means that users can write
