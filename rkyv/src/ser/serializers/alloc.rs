@@ -120,7 +120,7 @@ impl<const N: usize> HeapScratch<N> {
         if N != 0 {
             unsafe {
                 let layout = Layout::new::<AlignedBytes<N>>();
-                let ptr = alloc::alloc(layout).cast::<AlignedBytes<N>>();
+                let ptr = alloc::alloc_zeroed(layout).cast::<AlignedBytes<N>>();
                 assert!(!ptr.is_null());
                 let buf = Box::from_raw(ptr);
                 Self {

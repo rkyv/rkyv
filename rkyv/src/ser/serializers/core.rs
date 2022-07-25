@@ -201,12 +201,14 @@ impl std::error::Error for FixedSizeScratchError {}
 pub struct BufferScratch<T> {
     buffer: T,
     pos: usize,
+    // TODO: Compute this pointer eagerly in a future version of rkyv.
+    ptr: Option<NonNull<[u8]>>,
 }
 
 impl<T> BufferScratch<T> {
     /// Creates a new buffer scratch allocator.
     pub fn new(buffer: T) -> Self {
-        Self { buffer, pos: 0 }
+        Self { buffer, pos: 0, ptr: None }
     }
 
     /// Resets the scratch space to its initial state.
@@ -233,17 +235,20 @@ impl<T> Fallible for BufferScratch<T> {
 impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace for BufferScratch<T> {
     #[inline]
     unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error> {
-        let bytes = self.buffer.as_mut();
+        if self.ptr.is_none() {
+            self.ptr = Some(NonNull::from(self.buffer.as_mut()));
+        }
+        let bytes = self.ptr.unwrap().as_ptr();
 
-        let start = bytes.as_ptr().add(self.pos);
+        let start = bytes.cast::<u8>().add(self.pos);
         let pad = match (start as usize) & (layout.align() - 1) {
             0 => 0,
             x => layout.align() - x,
         };
-        if pad + layout.size() <= bytes.len() - self.pos {
+        if pad + layout.size() <= ptr_meta::metadata(bytes) - self.pos {
             self.pos += pad;
             let result_slice = ptr_meta::from_raw_parts_mut(
-                bytes.as_mut_ptr().add(self.pos).cast(),
+                bytes.cast::<u8>().add(self.pos).cast(),
                 layout.size(),
             );
             let result = NonNull::new_unchecked(result_slice);
@@ -256,11 +261,11 @@ impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace for BufferScratch<T> 
 
     #[inline]
     unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error> {
-        let bytes = self.buffer.as_mut();
+        let bytes = self.ptr.unwrap().as_ptr();
 
         let ptr = ptr.as_ptr();
-        if ptr >= bytes.as_mut_ptr() && ptr < bytes.as_mut_ptr().add(bytes.len()) {
-            let next_pos = ptr.offset_from(bytes.as_ptr()) as usize;
+        if ptr >= bytes.cast::<u8>() && ptr < bytes.cast::<u8>().add(ptr_meta::metadata(bytes)) {
+            let next_pos = ptr.offset_from(bytes.cast::<u8>()) as usize;
             if next_pos + layout.size() <= self.pos {
                 self.pos = next_pos;
                 Ok(())
