@@ -140,7 +140,7 @@ impl ArchivedStringRepr {
         *out_len = value.len() as u8;
     }
 
-    /// Rmplaces a new out-of-line representation for the given `str`.
+    /// Emplaces a new out-of-line representation for the given `str`.
     ///
     /// # Safety
     ///
