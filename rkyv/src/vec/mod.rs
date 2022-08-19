@@ -178,6 +178,35 @@ impl<T> ArchivedVec<T> {
             Ok(VecResolver { pos })
         }
     }
+
+    /// Serializes an archived `Vec` from a given iterator, which must return Items supporting Copy.
+    ///
+    /// This method is unable to perform copy optimizations; prefer
+    /// [`serialize_from_slice`](ArchivedVec::serialize_from_slice) when possible.
+    #[inline]
+    pub fn serialize_from_copyable_iter<U, B, I, S>(
+        iter: I,
+        serializer: &mut S,
+    ) -> Result<VecResolver, S::Error>
+    where
+        U: Serialize<S, Archived = T>,
+        B: Copy + Borrow<U>,
+        I: Iterator<Item = B>,
+        S: ScratchSpace + Serializer,
+    {
+        unsafe {
+            let pos = serializer.align_for::<T>()?;
+
+            for value in iter {
+                let pos_cached = serializer.pos();
+                let resolver = value.borrow().serialize(serializer)?;
+                assert!(serializer.pos() == pos_cached);
+                serializer.resolve_aligned(value.borrow(), resolver)?;
+            }
+
+            Ok(VecResolver { pos })
+        }
+    }
 }
 
 impl<T> AsRef<[T]> for ArchivedVec<T> {

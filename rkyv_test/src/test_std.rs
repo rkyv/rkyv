@@ -364,4 +364,49 @@ mod tests {
         value.insert(());
         test_archive(&value);
     }
+
+    #[test]
+    fn serialize_copyable() {
+        use rkyv::vec::ArchivedVec;
+
+        #[derive(Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Clone, Copy, Debug))]
+        enum ExampleEnum {
+            Foo,
+            Bar(u64),
+        }
+        #[derive(Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Clone, Copy, Debug))]
+        struct Example {
+            x: i32,
+            y: ExampleEnum,
+        }
+        let example_data = vec![
+            Example {
+                x: -5,
+                y: ExampleEnum::Bar(42),
+            },
+            Example {
+                x: -3,
+                y: ExampleEnum::Foo,
+            },
+        ];
+        let mut serializer = DefaultSerializer::default();
+        let iter = example_data.clone().into_iter();
+        ArchivedVec::<ArchivedExample>::serialize_from_copyable_iter(iter, &mut serializer)
+            .expect("serialization failed");
+        let buf = serializer.into_serializer().into_inner();
+        let archived_value = unsafe { archived_root::<Vec<Example>>(buf.as_ref()) };
+        assert_eq!(
+            archived_value.len(),
+            example_data.len(),
+            "archived: {:?}",
+            archived_value
+        );
+        for (ar, or) in archived_value.iter().zip(example_data.iter()) {
+            assert_eq!(ar, or)
+        }
+    }
 }
