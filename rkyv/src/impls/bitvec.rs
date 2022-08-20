@@ -17,6 +17,7 @@ use bitvec::{prelude::*, view::BitViewSized};
 // This is because when calling `as_raw_slice` we will get unwanted bits if the `BitVec` bit length is not a multiple of the bit size of T.
 #[cfg(feature = "bitvec_std")]
 #[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
+#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ArchivedBitVec<T = Archived<usize>, O = Lsb0>
 where
     T: BitStore,
@@ -94,6 +95,7 @@ where
 }
 
 #[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ArchivedBitArray<A = [Archived<usize>; 1], O = Lsb0>
 where
     A: BitViewSized,
@@ -166,7 +168,7 @@ where
 mod tests {
     use crate::{
         archived_root,
-        ser::{serializers::AllocSerializer, Serializer},
+        ser::{serializers::CoreSerializer, Serializer},
         Deserialize, Infallible,
     };
     use bitvec::prelude::*;
@@ -174,6 +176,8 @@ mod tests {
     #[cfg(feature = "bitvec_std")]
     #[test]
     fn bitvec() {
+        use crate::ser::serializers::AllocSerializer;
+
         let mut serializer = AllocSerializer::<256>::default();
         let original = bitvec![1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1];
 
@@ -189,14 +193,14 @@ mod tests {
 
     #[test]
     fn bitarr() {
-        let mut serializer = AllocSerializer::<256>::default();
-
+        let mut serializer = CoreSerializer::<256, 256>::default();
         let original = bitarr![1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1];
 
         serializer.serialize_value(&original).unwrap();
+        let end = serializer.pos();
         let buffer = serializer.into_serializer().into_inner();
 
-        let output = unsafe { archived_root::<BitArray>(&buffer) };
+        let output = unsafe { archived_root::<BitArray>(&buffer[0..end]) };
         assert_eq!(&original[..11], &output[..11]);
 
         let deserialized: BitArray = output.deserialize(&mut Infallible).unwrap();
