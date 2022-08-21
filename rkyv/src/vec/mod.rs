@@ -197,6 +197,7 @@ impl<T> ArchivedVec<T> {
     /// const SCRATCH_SIZE: usize = 256;
     /// type DefaultSerializer = AllocSerializer<SCRATCH_SIZE>;
     ///
+    /// // Build some example data structures that are a little bit complex
     /// #[derive(Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize)]
     /// #[archive(compare(PartialEq))]
     /// #[archive_attr(derive(Clone, Copy, Debug))]
@@ -211,7 +212,10 @@ impl<T> ArchivedVec<T> {
     ///     x: i32,
     ///     y: ExampleEnum,
     /// }
-    /// // Stand-in for an Iterator
+    ///
+    /// // Build the data to stand-in for an Iterator. We assume that in practice, this underlying
+    /// // Vec will not be visible to the user: perhaps the data is being generated with every call
+    /// // iterator, or perhaps it is too large to fit in memory
     /// let example_data = vec![
     ///     Example {
     ///         x: -5,
@@ -223,7 +227,7 @@ impl<T> ArchivedVec<T> {
     ///     },
     /// ];
     ///
-    /// // Assume the Iterator length is not known. Wrap it in an adapter that tells us the length
+    /// // If the Iterator length is not known, we have to wrap it in an adapter that tells us the length
     /// // after the fact
     /// struct IterCount<I, T>
     /// where
@@ -257,17 +261,26 @@ impl<T> ArchivedVec<T> {
     ///     }
     /// }
     ///
-    /// let mut serializer = DefaultSerializer::default();
     /// let mut iter = IterCount::new(example_data.clone().into_iter());
+    ///
+    /// // Build the serializer
+    /// let mut serializer = DefaultSerializer::default();
+    ///
+    /// // Do the first stage serialization pass. This writes all the data except for the final
+    /// // resolver (metadata), which will be written in the next step
     /// let resolver = ArchivedVec::<ArchivedExample>::serialize_from_copyable_iter(
     ///     &mut iter,
     ///     &mut serializer,
     /// )
     /// .expect("serialization failed");
+    ///
+    /// // Finalize the data by resolving it and writing it to the end of the serializer
     /// let mut resolved = ::core::mem::MaybeUninit::<ArchivedVec<ArchivedExample>>::uninit();
     /// unsafe {
     ///     resolved.as_mut_ptr().write_bytes(0, 1);
     ///     ArchivedVec::<ArchivedExample>::resolve_from_len(
+    ///         // We need to get the length from the iterator adapter if it is not known to us
+    ///         // otherwise
     ///         iter.count,
     ///         serializer.pos(),
     ///         resolver,
@@ -279,8 +292,13 @@ impl<T> ArchivedVec<T> {
     ///     );
     ///     serializer.write(as_bytes).unwrap();
     /// }
+    ///
+    /// // Get the raw serialized data in preparation for accessing it
     /// let buf = serializer.into_serializer().into_inner();
+    ///
+    /// // Turn the serialized data into a value we can access without reading it into memory again
     /// let archived_value = unsafe { archived_root::<Vec<Example>>(buf.as_slice()) };
+    ///
     /// assert_eq!(
     ///     archived_value.len(),
     ///     example_data.len(),
