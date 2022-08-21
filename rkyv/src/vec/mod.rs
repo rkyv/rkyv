@@ -179,18 +179,126 @@ impl<T> ArchivedVec<T> {
         }
     }
 
-    /// Serializes an archived `Vec` from a given iterator, which must return Items supporting Copy.
+    /// Serializes an archived `Vec` from a given iterator. Compared to `serialize_from_iter()`,
+    /// this function:
+    /// - supports iterators whose length is not known in advance, and
+    /// - does not collect the data in memory before serializing.
     ///
-    /// This method is unable to perform copy optimizations; prefer
-    /// [`serialize_from_slice`](ArchivedVec::serialize_from_slice) when possible.
+    /// However, it also requires the Iterator to return Items supporting Copy and whose size is
+    /// known at compile-time.
+    ///
+    /// Usage example:
+    /// ```
+    /// use rkyv::{vec::ArchivedVec, archived_root,
+    ///     ser::{serializers::{WriteSerializer, AllocSerializer}, Serializer},
+    ///     AlignedBytes, Archive, Deserialize, Serialize,
+    /// };
+    ///
+    /// const SCRATCH_SIZE: usize = 256;
+    /// type DefaultSerializer = AllocSerializer<SCRATCH_SIZE>;
+    ///
+    /// #[derive(Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize)]
+    /// #[archive(compare(PartialEq))]
+    /// #[archive_attr(derive(Clone, Copy, Debug))]
+    /// enum ExampleEnum {
+    ///     Foo,
+    ///     Bar(u64),
+    /// }
+    /// #[derive(Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize)]
+    /// #[archive(compare(PartialEq))]
+    /// #[archive_attr(derive(Clone, Copy, Debug))]
+    /// struct Example {
+    ///     x: i32,
+    ///     y: ExampleEnum,
+    /// }
+    /// // Stand-in for an Iterator
+    /// let example_data = vec![
+    ///     Example {
+    ///         x: -5,
+    ///         y: ExampleEnum::Bar(42),
+    ///     },
+    ///     Example {
+    ///         x: -3,
+    ///         y: ExampleEnum::Foo,
+    ///     },
+    /// ];
+    ///
+    /// // Assume the Iterator length is not known. Wrap it in an adapter that tells us the length
+    /// // after the fact
+    /// struct IterCount<I, T>
+    /// where
+    ///     I: Iterator<Item = T>,
+    ///     T: Copy,
+    /// {
+    ///     iter: I,
+    ///     count: usize,
+    /// }
+    /// impl<I, T> IterCount<I, T>
+    /// where
+    ///     I: Iterator<Item = T>,
+    ///     T: Copy,
+    /// {
+    ///     pub fn new(iter: I) -> Self {
+    ///         IterCount { iter, count: 0 }
+    ///     }
+    /// }
+    /// impl<I, T> Iterator for IterCount<I, T>
+    /// where
+    ///     I: Iterator<Item = T>,
+    ///     T: Copy,
+    /// {
+    ///     type Item = T;
+    ///     fn next(&mut self) -> Option<Self::Item> {
+    ///         let next_item = self.iter.next();
+    ///         if next_item.is_some() {
+    ///             self.count += 1;
+    ///         }
+    ///         next_item
+    ///     }
+    /// }
+    ///
+    /// let mut serializer = DefaultSerializer::default();
+    /// let mut iter = IterCount::new(example_data.clone().into_iter());
+    /// let resolver = ArchivedVec::<ArchivedExample>::serialize_from_copyable_iter(
+    ///     &mut iter,
+    ///     &mut serializer,
+    /// )
+    /// .expect("serialization failed");
+    /// let mut resolved = ::core::mem::MaybeUninit::<ArchivedVec<ArchivedExample>>::uninit();
+    /// unsafe {
+    ///     resolved.as_mut_ptr().write_bytes(0, 1);
+    ///     ArchivedVec::<ArchivedExample>::resolve_from_len(
+    ///         iter.count,
+    ///         serializer.pos(),
+    ///         resolver,
+    ///         resolved.as_mut_ptr(),
+    ///     );
+    ///     let as_bytes = ::core::slice::from_raw_parts_mut(
+    ///         resolved.as_mut_ptr().cast::<u8>(),
+    ///         ::core::mem::size_of::<ArchivedVec<ArchivedExample>>(),
+    ///     );
+    ///     serializer.write(as_bytes).unwrap();
+    /// }
+    /// let buf = serializer.into_serializer().into_inner();
+    /// let archived_value = unsafe { archived_root::<Vec<Example>>(buf.as_slice()) };
+    /// assert_eq!(
+    ///     archived_value.len(),
+    ///     example_data.len(),
+    ///     "archived: {:?}",
+    ///     archived_value
+    /// );
+    /// for (ar, or) in archived_value.iter().zip(example_data.iter()) {
+    ///     assert_eq!(ar, or)
+    /// }
+    /// ```
     #[inline]
-    pub fn serialize_from_copyable_iter<U, B, I, S>(
-        iter: I,
+    pub fn serialize_from_copyable_iter<B, I, S>(
+        iter: &mut I,
         serializer: &mut S,
     ) -> Result<VecResolver, S::Error>
     where
-        U: Serialize<S, Archived = T>,
-        B: Copy + Borrow<U>,
+        // U: Serialize<S, Archived = T>,
+        B: Copy + Serialize<S, Archived = T>, // Borrow<U>,
         I: Iterator<Item = B>,
         S: ScratchSpace + Serializer,
     {
@@ -199,7 +307,7 @@ impl<T> ArchivedVec<T> {
 
             for value in iter {
                 let pos_cached = serializer.pos();
-                let resolver = value.borrow().serialize(serializer)?;
+                let resolver = value.serialize(serializer)?;
                 assert!(serializer.pos() == pos_cached);
                 serializer.resolve_aligned(value.borrow(), resolver)?;
             }
