@@ -318,7 +318,7 @@ impl<T> ArchivedVec<T> {
         // U: Serialize<S, Archived = T>,
         B: Copy + Serialize<S, Archived = T>, // Borrow<U>,
         I: Iterator<Item = B>,
-        S: ScratchSpace + Serializer,
+        S: Serializer,
     {
         unsafe {
             let pos = serializer.align_for::<T>()?;
