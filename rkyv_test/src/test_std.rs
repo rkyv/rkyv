@@ -364,4 +364,28 @@ mod tests {
         value.insert(());
         test_archive(&value);
     }
+
+    // Test case for deriving attributes on an object containing an Optoin. The Option impls appear
+    // not to pass through attributes correctly.
+    #[test]
+    fn pass_thru_derive_with_option() {
+        #[derive(Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Clone, Copy, Debug))]
+        enum ExampleEnum {
+            Foo,
+            Bar(u64),
+        }
+        #[derive(Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Clone, Copy, Debug))]
+        struct Example {
+            x: i32,
+            y: Option<ExampleEnum>,
+        }
+        let _ = Example {
+            x: 0,
+            y: Some(ExampleEnum::Bar(0)),
+        };
+    }
 }
