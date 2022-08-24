@@ -1,34 +1,15 @@
 use core::convert::{TryFrom, TryInto};
 use core::{marker::PhantomData, ops::Deref};
-
-#[cfg(feature = "bitvec_std")]
+#[cfg(feature = "bitvec_alloc")]
 use crate::vec::{ArchivedVec, VecResolver};
-
 use crate::{
-    out_field,
+    out_field, bitvec::ArchivedBitVec,
     ser::{ScratchSpace, Serializer},
     Archive, Archived, Deserialize, Fallible, Serialize,
 };
 
 use bitvec::{prelude::*, view::BitViewSized};
 
-/// An archived `BitVec`.
-// We also have to store the bit length in the archived `BitVec`.
-// This is because when calling `as_raw_slice` we will get unwanted bits if the `BitVec` bit length is not a multiple of the bit size of T.
-#[cfg(feature = "bitvec_std")]
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
-#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct ArchivedBitVec<T = Archived<usize>, O = Lsb0>
-where
-    T: BitStore,
-    O: BitOrder,
-{
-    inner: ArchivedVec<T>,
-    bit_len: Archived<usize>,
-    _or: PhantomData<O>,
-}
-
-#[cfg(feature = "bitvec_std")]
 impl<T: BitStore + Archive, O: BitOrder> ArchivedBitVec<T, O> {
     /// Gets the elements of the archived `BitVec` as a `BitSlice`.
     pub fn as_bitslice(&self) -> &BitSlice<T, O> {
@@ -36,16 +17,7 @@ impl<T: BitStore + Archive, O: BitOrder> ArchivedBitVec<T, O> {
     }
 }
 
-#[cfg(feature = "bitvec_std")]
-impl<T: BitStore + Archive, O: BitOrder> Deref for ArchivedBitVec<T, O> {
-    type Target = BitSlice<T, O>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner.view_bits::<O>()[..self.bit_len as usize]
-    }
-}
-
-#[cfg(feature = "bitvec_std")]
+#[cfg(feature = "bitvec_alloc")]
 impl<T: BitStore + Archive, O: BitOrder> Archive for BitVec<T, O>
 where
     Archived<T>: BitStore,
@@ -61,13 +33,12 @@ where
     }
 }
 
-#[cfg(feature = "bitvec_std")]
-impl<
-        T: BitStore + Archive + Serialize<S>,
-        O: BitOrder,
-        S: Fallible + ?Sized + ScratchSpace + Serializer,
-    > Serialize<S> for BitVec<T, O>
+#[cfg(feature = "bitvec_alloc")]
+impl<T, O, S> Serialize<S> for BitVec<T, O>
 where
+    T: BitStore + Archive + Serialize<S>,
+    O: BitOrder,
+    S: Fallible + ?Sized + ScratchSpace + Serializer,
     Archived<T>: BitStore,
 {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, <S as Fallible>::Error> {
@@ -78,10 +49,12 @@ where
     }
 }
 
-#[cfg(feature = "bitvec_std")]
-impl<T: BitStore + Archive, O: BitOrder, D: Fallible + ?Sized> Deserialize<BitVec<T, O>, D>
-    for ArchivedBitVec<Archived<T>, O>
+#[cfg(feature = "bitvec_alloc")]
+impl<T, O, D> Deserialize<BitVec<T, O>, D> for ArchivedBitVec<Archived<T>, O>
 where
+    T: BitStore + Archive,
+    O: BitOrder,
+    D: Fallible + ?Sized,
     Archived<T>: Deserialize<T, D> + BitStore,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<BitVec<T, O>, <D as Fallible>::Error> {
@@ -136,12 +109,11 @@ where
     }
 }
 
-impl<
-        A: BitViewSized + Archive + Serialize<S>,
-        O: BitOrder,
-        S: Fallible + ?Sized + ScratchSpace + Serializer,
-    > Serialize<S> for BitArray<A, O>
+impl<A, O, S> Serialize<S> for BitArray<A, O>
 where
+    A: BitViewSized + Archive + Serialize<S>,
+    O: BitOrder,
+    S: Fallible + ?Sized + ScratchSpace + Serializer,
     Archived<A>: BitViewSized,
     for<'a> &'a A: TryFrom<&'a [A::Store]>,
 {
@@ -173,18 +145,19 @@ mod tests {
     };
     use bitvec::prelude::*;
 
-    #[cfg(feature = "bitvec_std")]
     #[test]
+    #[cfg(feature = "bitvec_alloc")]
     fn bitvec() {
-        use crate::ser::serializers::AllocSerializer;
+        use crate::ser::serializers::CoreSerializer;
 
-        let mut serializer = AllocSerializer::<256>::default();
+        let mut serializer = CoreSerializer::<256, 256>::default();
         let original = bitvec![1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1];
 
         serializer.serialize_value(&original).unwrap();
+        let end = serializer.pos();
         let buffer = serializer.into_serializer().into_inner();
 
-        let output = unsafe { archived_root::<BitVec>(&buffer) };
+        let output = unsafe { archived_root::<BitVec>(&buffer[0..end]) };
         assert_eq!(&original, output.as_bitslice());
 
         let deserialized: BitVec = output.deserialize(&mut Infallible).unwrap();

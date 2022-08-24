@@ -82,6 +82,8 @@ mod tests {
         Deserialize, Infallible,
     };
     use hashbrown::HashMap;
+    #[cfg(all(feature = "alloc", not(feature = "std")))]
+    use alloc::string::String;
 
     #[test]
     fn index_map() {

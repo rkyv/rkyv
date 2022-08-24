@@ -49,7 +49,7 @@ std = ["alloc", "bytecheck/std", "ptr_meta/std", "rend/std"]
 strict = ["rkyv_derive/strict"]
 validation = ["alloc", "bytecheck", "rend/validation"]
 
-bitvec_std = ["bitvec/std"]
+bitvec_alloc = ["bitvec/alloc"]
 tinyvec_alloc = ["tinyvec/alloc"]
 uuid_std = ["uuid/std"]
 
