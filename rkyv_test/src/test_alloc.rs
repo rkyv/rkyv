@@ -57,6 +57,30 @@ mod tests {
     }
 
     #[test]
+    fn option_is_copy() {
+        #[derive(Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Clone, Copy, Debug))]
+        enum ExampleEnum {
+            Foo,
+            Bar(u64),
+        }
+
+        #[derive(Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Clone, Copy, Debug))]
+        struct Example {
+            x: i32,
+            y: Option<ExampleEnum>,
+        }
+
+        let _ = Example {
+            x: 0,
+            y: Some(ExampleEnum::Bar(0)),
+        };
+    }
+
+    #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_result() {
         test_archive::<Result<_, ()>>(&Ok(Box::new(42)));

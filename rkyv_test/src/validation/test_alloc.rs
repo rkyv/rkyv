@@ -500,4 +500,12 @@ mod tests {
 
         assert_eq!(buf.as_ref(), &ARCHIVED_BYTES);
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_valid_durations() {
+        use core::time::Duration;
+
+        check_archived_root::<Duration>(&[0xFF, 16]).unwrap_err();
+    }
 }
