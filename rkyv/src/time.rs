@@ -4,7 +4,6 @@ use crate::Archived;
 
 /// An archived [`Duration`](core::time::Duration).
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedDuration {
     secs: Archived<u64>,
@@ -109,3 +108,44 @@ impl ArchivedDuration {
         addr_of_mut!((*out).nanos).write(to_archived!(nanos));
     }
 }
+
+#[cfg(feature = "validation")]
+const _: () = {
+    use core::fmt;
+    use crate::Fallible;
+    use bytecheck::CheckBytes;
+
+    /// An error resulting from an invalid duration.
+    ///
+    /// Durations must have a `secs` and `nanos` that when combined do not overflow a `u64`.
+    #[derive(Debug)]
+    pub struct DurationError;
+
+    impl fmt::Display for DurationError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "Duration error: nanos field is greater than 1 billion and overflows the seconds counter")
+        }
+    }
+
+    #[cfg(feature = "std")]
+    impl std::error::Error for DurationError {}
+
+    impl<C: Fallible + ?Sized> CheckBytes<C> for ArchivedDuration {
+        type Error = DurationError;
+
+        #[inline]
+        unsafe fn check_bytes<'a>(
+            value: *const Self,
+            _: &mut C,
+        ) -> Result<&'a Self, Self::Error> {
+            // The fields of `ArchivedDuration` are always valid
+            let duration = &*value;
+
+            if duration.secs.checked_add((duration.nanos / 1_000_000_000) as u64).is_none() {
+                Err(DurationError)
+            } else {
+                Ok(duration)
+            }
+        }
+    }
+};
