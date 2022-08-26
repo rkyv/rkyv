@@ -1,8 +1,9 @@
 use rkyv::{
-    archived_root,
+    check_archived_root,
     ser::{serializers::AllocSerializer, Serializer},
     Archive, Deserialize, Serialize,
 };
+use bytecheck::CheckBytes;
 use std::{collections::HashMap, fmt};
 
 #[derive(Archive, Debug, Deserialize, Serialize)]
@@ -27,13 +28,44 @@ use std::{collections::HashMap, fmt};
 // We can fix this by manually specifying the bounds required by HashMap and Vec in an attribute,
 //   and then everything will compile:
 #[archive(bound(serialize = "__S: rkyv::ser::ScratchSpace + rkyv::ser::Serializer"))]
+// We'll also add support for validating our archived type. Validation will allow us to check an
+// arbitrary buffer of bytes before accessing it so we can avoid using any unsafe code.
+//
+// To validate our archived type, we also need to derive `CheckBytes` on it. We can use the
+// `#[archive_attr(..)]` attribute to pass any attributes through to the generated type. So to
+// derive `CheckBytes` for our archived type, we simply add `#[archive_attr(derive(CheckBytes))]` to
+// our type.
+//
+// This has the same issues as our `Archive` derive, so we need to follow a similar process:
+//
+// First, we need to add the same `omit_bounds` attribute to our fields. However, this time the
+// attribute needs to be on the fields of the archived type. Luckily, we can pass through this
+// attribute in the same way, using `#[archive_attr(omit_bounds)]`.
+//
+// Next, we need to manually add the appropriate non-recursive bounds to our type. In our case, we
+// need to bound:
+//
+// `__C: rkyv::validation::ArchiveContext`: This will make sure that our `Vec` and `HashMap` have
+// the `ArchiveContext` trait implemented on the validator. This is a necessary requirement for
+// containers to check their bytes.
+//
+// `<__C as rkyv::Fallible>::Error: std::error::Error`: This bounds our validation context so that
+// we know its error type implements `Error`. This is necessary when deriving `CheckBytes` since the
+// error type for structs is a `bytecheck::StructCheckError` which contains the inner error as a
+// `Box<dyn Error>`.
+//
+// With those two changes, our recursive type can be validated with `check_archived_root`!
+#[archive_attr(
+    derive(CheckBytes),
+    check_bytes(bound = "__C: rkyv::validation::ArchiveContext, <__C as rkyv::Fallible>::Error: std::error::Error"),
+)]
 pub enum JsonValue {
     Null,
     Bool(bool),
     Number(JsonNumber),
     String(String),
-    Array(#[omit_bounds] Vec<JsonValue>),
-    Object(#[omit_bounds] HashMap<String, JsonValue>),
+    Array(#[omit_bounds] #[archive_attr(omit_bounds)] Vec<JsonValue>),
+    Object(#[omit_bounds] #[archive_attr(omit_bounds)] HashMap<String, JsonValue>),
 }
 
 impl fmt::Display for ArchivedJsonValue {
@@ -69,6 +101,7 @@ impl fmt::Display for ArchivedJsonValue {
 }
 
 #[derive(Archive, Debug, Deserialize, Serialize)]
+#[archive_attr(derive(CheckBytes))]
 pub enum JsonNumber {
     PosInt(u64),
     NegInt(i64),
@@ -97,7 +130,7 @@ fn main() {
     serializer.serialize_value(&value).unwrap();
 
     let buf = serializer.into_serializer().into_inner();
-    let archived_value = unsafe { archived_root::<JsonValue>(&buf) };
+    let archived_value = check_archived_root::<JsonValue>(&buf).unwrap();
 
     println!("{}", archived_value);
 }
