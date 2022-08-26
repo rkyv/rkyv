@@ -10,7 +10,7 @@ equivalent of a resolver.
 > being asked for. This helps enable lots of very powerful abstractions, but might require you to
 > annoate types when deserializing.
 
-This provides a more or less a traditional deserialization with the added benefit of being sped up
+This provides a more or less a traditional deserialization with the added benefit of being speed up
 somewhat by having very compatible representations. It also incurs both the memory and performance
 penalties of traditional deserialization, so make sure that it's what you need before you use it.
 Deserialization is not required to access archived data as long as you can do so through the
