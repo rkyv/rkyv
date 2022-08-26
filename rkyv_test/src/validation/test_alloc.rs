@@ -508,4 +508,11 @@ mod tests {
 
         check_archived_root::<Duration>(&[0xFF, 16]).unwrap_err();
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_invalid_btreemap() {
+        let data = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0, 0x00, 0x00, 0x00, 0x0c, 0xa5, 0xf0, 0xff, 0xff, 0xff];
+        rkyv::from_bytes::<BTreeMap<u8, Box<u8>>>(&data).unwrap_err();
+    }
 }

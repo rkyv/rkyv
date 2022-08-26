@@ -488,6 +488,7 @@ const _: () = {
                 // trailing suffix space that should be checked by subsequent fields
                 let root = NodeHeader::manual_check_header(root_ptr, context)
                     .map_err(ArchivedBTreeMapError::ContextError)?;
+
                 // To push the subtree, we need to know the real size of the root node
                 // Since the header is checked, we can just classify the pointer and use layout_raw
                 let root_layout = if root.is_inner() {
@@ -495,6 +496,15 @@ const _: () = {
                 } else {
                     Node::layout_raw(root.classify_leaf_ptr::<K, V>())
                 };
+
+                // Because the layout of the subtree is dynamic, we need to bounds check the layout
+                // declared by the root node.
+                context.bounds_check_subtree_ptr_layout(
+                    root_ptr.cast(),
+                    &root_layout,
+                ).map_err(ArchivedBTreeMapError::ContextError)?;
+
+                // Now we can push the prefix subtree range.
                 let nodes_range = context
                     .push_prefix_subtree_range(
                         root_ptr.cast(),
