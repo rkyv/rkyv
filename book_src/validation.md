@@ -58,7 +58,7 @@ All pointers are checked to make sure that they:
 However, this alone is not enough to secure against recursion attacks and memory sharing violations,
 so rkyv uses a system to verify that the archive follows its strict ownership model.
 
-Archive validation usees a memory model where all subobjects are located in contiguous memory. This
+Archive validation uses a memory model where all subobjects are located in contiguous memory. This
 is called a *subtree range*. When validating an object, the archive context keeps track of where
 subobjects are allowed to be located, and can reduce the subtree range from the beginning with
 `push_prefix_subtree_range` or the end with `push_suffix_subtree_range`. After pushing a subtree
