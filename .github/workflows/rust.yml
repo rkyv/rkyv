@@ -26,6 +26,6 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: Run miri tests
-      run: cargo miri test --verbose
+      run: MIRIFLAGS="-Zmiri-disable-stacked-borrows -Zmiri-permissive-provenance" cargo miri test --all-targets
     - name: Run wasm tests
       run: cd rkyv_test && wasm-pack test --node -- --features "wasm"
