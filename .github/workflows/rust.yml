@@ -25,5 +25,7 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
+    - name: Run miri tests
+      run: cargo miri test --verbose
     - name: Run wasm tests
       run: cd rkyv_test && wasm-pack test --node -- --features "wasm"

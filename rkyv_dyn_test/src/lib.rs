@@ -1,7 +1,9 @@
 #[cfg(feature = "validation")]
 mod validation;
 
-#[cfg(test)]
+// Miri does not support the `ctor` crate, so all of the impls here end up being unregistered.
+// See: https://github.com/rust-lang/miri/issues/450
+#[cfg(all(test, not(miri)))]
 mod tests {
     #[cfg_attr(feature = "wasm", allow(unused_imports))]
     use core::pin::Pin;
