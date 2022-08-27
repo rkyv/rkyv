@@ -4,7 +4,7 @@ mod tests {
     #[cfg(not(feature = "std"))]
     use alloc::{
         boxed::Box,
-        collections::BTreeMap,
+        collections::{BTreeMap, BTreeSet},
         rc::Rc,
         string::{String, ToString},
         vec,
@@ -16,7 +16,7 @@ mod tests {
         Deserialize, Infallible, Serialize,
     };
     #[cfg(feature = "std")]
-    use std::{collections::BTreeMap, rc::Rc};
+    use std::{collections::{BTreeMap, BTreeSet}, rc::Rc};
 
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
@@ -421,6 +421,18 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_invalid_b_tree_set() {
+        let data = AlignedBytes([
+            0, 0, 0, 0, 253, 6, 239, 6, 255, 255, 255, 252, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 5, 0, 0,
+            0, 0, 240, 255, 255, 255, 1, 128, 0, 249, 220, 255, 255, 255, 4, 0, 0, 96, 0, 0, 0, 249,
+            232, 255, 255, 255,
+        ]);
+    
+        rkyv::from_bytes::<BTreeSet<u8>>(&data.0).unwrap_err();
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_empty_b_tree() {
         let value = BTreeMap::<u8, ()>::new();
 
@@ -512,8 +524,8 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_invalid_btreemap() {
-        let data = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0, 0x00, 0x00, 0x00, 0x0c, 0xa5, 0xf0, 0xff, 0xff, 0xff];
-        rkyv::from_bytes::<BTreeMap<u8, Box<u8>>>(&data).unwrap_err();
+        let data = AlignedBytes([0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0, 0x00, 0x00, 0x00, 0x0c, 0xa5, 0xf0, 0xff, 0xff, 0xff]);
+        rkyv::from_bytes::<BTreeMap<u8, Box<u8>>>(&data.0).unwrap_err();
     }
 
     #[test]
@@ -521,7 +533,9 @@ mod tests {
     fn check_invalid_string() {
         use rkyv::validation::{CheckArchiveError, validators::CheckDeserializeError, owned::OwnedPointerError};
 
-        let e = rkyv::from_bytes::<String>(&[0x0b; 8]).unwrap_err();
+        let data = AlignedBytes([0x0b; 8]);
+        let e = rkyv::from_bytes::<String>(&data.0).unwrap_err();
+        dbg!(&e);
         assert!(matches!(
             e,
             CheckDeserializeError::CheckBytesError(

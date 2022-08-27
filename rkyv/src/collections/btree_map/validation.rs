@@ -549,7 +549,7 @@ const _: () = {
 
                 // The remaining nodes must all be leaf nodes
                 let mut entry_count = 0;
-                for (i, (node, depth)) in nodes.iter().enumerate() {
+                for (node, depth) in nodes.iter() {
                     if !node.is_leaf() {
                         return Err(ArchivedBTreeMapError::InnerNodeInLeafLevel);
                     }
@@ -571,6 +571,13 @@ const _: () = {
                         }
                     }
 
+                    // Keep track of the number of entries found
+                    entry_count += leaf.tail.len();
+                }
+
+                for (i, (node, _)) in nodes.iter().enumerate() {
+                    let leaf = node.classify_leaf::<K, V>();
+
                     // And they must link together in sorted order
                     if i < nodes.len() - 1 {
                         let next_ptr = context
@@ -590,9 +597,6 @@ const _: () = {
                             return Err(ArchivedBTreeMapError::LastLeafForwardPointerNotNull);
                         }
                     }
-
-                    // Keep track of the number of entries found
-                    entry_count += leaf.tail.len();
                 }
 
                 // Make sure that the number of entries matches the length
