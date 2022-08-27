@@ -188,16 +188,20 @@ pub struct StringResolver {
 #[cfg(feature = "validation")]
 const _: () = {
     use crate::validation::{
-        owned::{CheckOwnedPointerError, OwnedPointerError},
+        owned::OwnedPointerError,
         ArchiveContext,
     };
     use bytecheck::{CheckBytes, Error};
 
     impl<C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedString
     where
-        C::Error: Error,
+        C::Error: Error + 'static,
     {
-        type Error = CheckOwnedPointerError<str, C>;
+        type Error = OwnedPointerError<
+            <ArchivedStringRepr as CheckBytes<C>>::Error,
+            <str as CheckBytes<C>>::Error,
+            C::Error,
+        >;
 
         #[inline]
         unsafe fn check_bytes<'a>(
@@ -205,7 +209,8 @@ const _: () = {
             context: &mut C,
         ) -> Result<&'a Self, Self::Error> {
             // The repr is always valid
-            let repr = &*value.cast::<ArchivedStringRepr>();
+            let repr = ArchivedStringRepr::check_bytes(value.cast(), context)
+                .map_err(OwnedPointerError::PointerCheckBytesError)?;
 
             if repr.is_inline() {
                 str::check_bytes(repr.as_str_ptr(), context)

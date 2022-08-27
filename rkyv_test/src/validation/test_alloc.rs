@@ -515,4 +515,20 @@ mod tests {
         let data = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0, 0x00, 0x00, 0x00, 0x0c, 0xa5, 0xf0, 0xff, 0xff, 0xff];
         rkyv::from_bytes::<BTreeMap<u8, Box<u8>>>(&data).unwrap_err();
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_invalid_string() {
+        use rkyv::validation::{CheckArchiveError, validators::CheckDeserializeError, owned::OwnedPointerError};
+
+        let e = rkyv::from_bytes::<String>(&[0x0b; 8]).unwrap_err();
+        assert!(matches!(
+            e,
+            CheckDeserializeError::CheckBytesError(
+                CheckArchiveError::CheckBytesError(
+                    OwnedPointerError::PointerCheckBytesError(_)
+                )
+            )
+        ));
+    }
 }

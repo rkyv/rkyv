@@ -9,8 +9,8 @@ const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
 #[repr(C)]
 struct OutOfLineRepr {
     len: Archived<usize>,
-    // offset is always stored in little-endian format to put the sign bit at the end
-    // this representation is optimized for little-endian architectures
+    // Offset is always stored in little-endian format to put the sign bit at the end.
+    // This representation is optimized for little-endian architectures.
     offset: [u8; OFFSET_BYTES],
 }
 
@@ -157,3 +157,44 @@ impl ArchivedStringRepr {
         *out_offset = (offset as FixedIsize).to_le_bytes();
     }
 }
+
+#[cfg(feature = "validation")]
+const _: () = {
+    use crate::Fallible;
+    use bytecheck::CheckBytes;
+    use core::fmt;
+
+    /// An error resulting from an invalid string representation.
+    ///
+    /// Strings that are inline must have a length of at most [`INLINE_CAPACITY`].
+    #[derive(Debug)]
+    pub struct CheckStringReprError;
+
+    impl fmt::Display for CheckStringReprError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "Duration error: nanos field is greater than 1 billion and overflows the seconds counter")
+        }
+    }
+
+    #[cfg(feature = "std")]
+    impl std::error::Error for CheckStringReprError {}
+
+    impl<C: Fallible + ?Sized> CheckBytes<C> for ArchivedStringRepr {
+        type Error = CheckStringReprError;
+
+        #[inline]
+        unsafe fn check_bytes<'a>(
+            value: *const Self,
+            _: &mut C,
+        ) -> Result<&'a Self, Self::Error> {
+            // The fields of `ArchivedStringRepr` are always valid
+            let repr = &*value;
+
+            if repr.is_inline() && repr.len() > INLINE_CAPACITY {
+                Err(CheckStringReprError)
+            } else {
+                Ok(repr)
+            }
+        }
+    }
+};
