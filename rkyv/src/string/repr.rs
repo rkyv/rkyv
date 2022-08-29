@@ -172,7 +172,7 @@ const _: () = {
 
     impl fmt::Display for CheckStringReprError {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "Duration error: nanos field is greater than 1 billion and overflows the seconds counter")
+            write!(f, "String representation was inline but the length was too large")
         }
     }
 
