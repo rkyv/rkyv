@@ -27,6 +27,7 @@ mod tests {
 
     #[test]
     #[cfg(not(feature = "wasm"))]
+    #[cfg_attr(miri, ignore = "miri does not support ctor, see lib.rs")]
     fn check_dyn() {
         #[archive_dyn]
         pub trait TestTrait {
