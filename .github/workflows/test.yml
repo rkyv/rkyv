@@ -38,7 +38,7 @@ jobs:
           # - x86_64-unknown-netbsd
           # - wasm32-unknown-emscripten
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/cache@v2
         name: Cache Cargo registry + index
         with:
@@ -48,23 +48,13 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
-      - run: echo "::add-matcher::.github/matchers/rust.json"
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
           target: ${{ matrix.target }}
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args: --target ${{ matrix.target }} --verbose
-      - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: test
-          args: --package rkyv_test --target ${{ matrix.target }} --verbose
+      - run: cargo install cross --git https://github.com/cross-rs/cross
+      - run: echo "::add-matcher::.github/matchers/rust.json"
+      - run: cross build --target ${{ matrix.target }} --verbose
+      - run: cross test --package rkyv_test --target ${{ matrix.target }} --verbose
 
   test-native:
     name: Test (stable) - ${{ matrix.display_name }}
@@ -79,7 +69,7 @@ jobs:
           - os: windows-2019
             display_name: Windows Server 2019
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: actions/cache@v2
         name: Cache Cargo registry + index
         with:
@@ -90,16 +80,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
       - run: echo "::add-matcher::.github/matchers/rust.json"
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --verbose
-      - name: Test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --verbose
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --verbose
+      - run: cargo test --verbose
