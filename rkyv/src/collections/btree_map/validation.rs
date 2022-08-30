@@ -285,6 +285,18 @@ impl NodeHeader {
     {
         let raw_node = Self::manual_check_header(value, context)
             .map_err(ArchivedBTreeMapError::ContextError)?;
+
+        let node_layout = if raw_node.is_inner() {
+            Node::layout_raw(raw_node.classify_inner_ptr::<K>())
+        } else {
+            Node::layout_raw(raw_node.classify_leaf_ptr::<K, V>())
+        };
+
+        context.bounds_check_subtree_ptr_layout(
+            (raw_node as *const NodeHeader).cast(),
+            &node_layout,
+        ).map_err(ArchivedBTreeMapError::ContextError)?;
+
         Self::manual_check_contents::<K, V, C>(raw_node, context)?;
 
         Ok(raw_node)
