@@ -456,6 +456,10 @@ impl ::std::error::Error for AsStringError {}
 /// panic under any circumstances, it's recommended that you lock your values and then serialize
 /// them while locked.
 ///
+/// Additionally, mutating the data protected by a mutex between the serialize and resolve steps may
+/// cause undefined behavior in the resolve step. **Uses of this wrapper should be considered
+/// unsafe** with the requirement that the data not be mutated between these two steps.
+///
 /// Regular serializers don't support the custom error handling needed for this type by default. To
 /// use this wrapper, a custom serializer with an error type satisfying
 /// `<S as Fallible>::Error: From<LockError>` must be provided.
