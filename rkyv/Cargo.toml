@@ -28,6 +28,7 @@ seahash = "4.0"
 # implementations should be moved into their respective crates over time. Before adding support for
 # another crate, please consider getting rkyv support in the crate instead.
 
+bitvec = { version = "1.0", optional = true, default-features = false }
 indexmap = { version = "1.7", optional = true, default-features = false }
 smallvec = { version = "1.7", optional = true, default-features = false }
 tinyvec = { version = "1.5", optional = true, default-features = false }
@@ -48,6 +49,7 @@ std = ["alloc", "bytecheck/std", "ptr_meta/std", "rend/std"]
 strict = ["rkyv_derive/strict"]
 validation = ["alloc", "bytecheck", "rend/validation"]
 
+bitvec_alloc = ["bitvec/alloc"]
 tinyvec_alloc = ["tinyvec/alloc"]
 uuid_std = ["uuid/std"]
 

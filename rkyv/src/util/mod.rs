@@ -17,9 +17,9 @@ mod scratch_vec;
 use crate::{
     de::deserializers::SharedDeserializeMap,
     ser::{serializers::AllocSerializer, Serializer},
-    Deserialize, Fallible, Serialize,
+    Fallible,
 };
-use crate::{Archive, ArchiveUnsized, RelPtr};
+use crate::{Archive, ArchiveUnsized, RelPtr, Deserialize, Serialize};
 use core::{
     mem,
     ops::{Deref, DerefMut},

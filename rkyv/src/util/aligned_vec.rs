@@ -375,7 +375,7 @@ impl AlignedVec {
         if new_len > self.len {
             let additional = new_len - self.len;
             self.reserve(additional);
-            unsafe { std::ptr::write_bytes(self.ptr.as_ptr().add(self.len), value, additional); }
+            unsafe { core::ptr::write_bytes(self.ptr.as_ptr().add(self.len), value, additional); }
         }
         unsafe { self.set_len(new_len); }
     }

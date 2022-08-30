@@ -141,6 +141,8 @@ extern crate std;
 #[macro_use]
 pub mod macros;
 
+#[cfg(feature = "bitvec")]
+pub mod bitvec;
 pub mod boxed;
 pub mod collections;
 #[cfg(feature = "copy")]
