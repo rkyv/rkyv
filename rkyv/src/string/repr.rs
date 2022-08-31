@@ -1,7 +1,7 @@
 //! An archived string representation that supports inlining short strings.
 
 use crate::{Archived, FixedIsize, FixedUsize};
-use core::{mem, ptr, slice, str};
+use core::{mem, ptr, slice, str, marker::PhantomPinned};
 
 const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
 
@@ -12,6 +12,7 @@ struct OutOfLineRepr {
     // Offset is always stored in little-endian format to put the sign bit at the end.
     // This representation is optimized for little-endian architectures.
     offset: [u8; OFFSET_BYTES],
+    _phantom: PhantomPinned,
 }
 
 /// The maximum number of bytes that can be inlined.
