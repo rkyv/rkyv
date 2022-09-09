@@ -3,10 +3,10 @@ use crate::{
     ser::{ScratchSpace, Serializer},
     Archive, Deserialize, Fallible, Serialize,
 };
-use core::hash::Hash;
+use core::hash::{BuildHasher, Hash};
 use indexmap::IndexSet;
 
-impl<K: Archive> Archive for IndexSet<K> {
+impl<K: Archive, S> Archive for IndexSet<K, S> {
     type Archived = ArchivedIndexSet<K::Archived>;
     type Resolver = IndexSetResolver;
 
@@ -15,10 +15,11 @@ impl<K: Archive> Archive for IndexSet<K> {
     }
 }
 
-impl<K, S> Serialize<S> for IndexSet<K>
+impl<K, S, RandomState> Serialize<S> for IndexSet<K, RandomState>
 where
     K: Hash + Eq + Serialize<S>,
     S: ScratchSpace + Serializer + ?Sized,
+    RandomState: BuildHasher,
 {
     fn serialize(&self, serializer: &mut S) -> Result<IndexSetResolver, S::Error> {
         unsafe {
@@ -31,14 +32,15 @@ where
     }
 }
 
-impl<K, D> Deserialize<IndexSet<K>, D> for ArchivedIndexSet<K::Archived>
+impl<K, D, S> Deserialize<IndexSet<K, S>, D> for ArchivedIndexSet<K::Archived>
 where
     K: Archive + Hash + Eq,
     K::Archived: Deserialize<K, D>,
     D: Fallible + ?Sized,
+    S: Default + BuildHasher,
 {
-    fn deserialize(&self, deserializer: &mut D) -> Result<IndexSet<K>, D::Error> {
-        let mut result = IndexSet::with_capacity(self.len());
+    fn deserialize(&self, deserializer: &mut D) -> Result<IndexSet<K, S>, D::Error> {
+        let mut result = IndexSet::with_capacity_and_hasher(self.len(), S::default());
         for k in self.iter() {
             result.insert(k.deserialize(deserializer)?);
         }
@@ -46,8 +48,8 @@ where
     }
 }
 
-impl<UK, K: PartialEq<UK>> PartialEq<IndexSet<UK>> for ArchivedIndexSet<K> {
-    fn eq(&self, other: &IndexSet<UK>) -> bool {
+impl<UK, K: PartialEq<UK>, S: BuildHasher> PartialEq<IndexSet<UK, S>> for ArchivedIndexSet<K> {
+    fn eq(&self, other: &IndexSet<UK, S>) -> bool {
         self.iter().eq(other.iter())
     }
 }
