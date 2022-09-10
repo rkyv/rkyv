@@ -3,10 +3,10 @@ use crate::{
     ser::{ScratchSpace, Serializer},
     Archive, Deserialize, Fallible, Serialize,
 };
-use core::hash::Hash;
+use core::hash::{BuildHasher, Hash};
 use indexmap::IndexMap;
 
-impl<K: Archive, V: Archive> Archive for IndexMap<K, V> {
+impl<K: Archive, V: Archive, S> Archive for IndexMap<K, V, S> {
     type Archived = ArchivedIndexMap<K::Archived, V::Archived>;
     type Resolver = IndexMapResolver;
 
@@ -15,11 +15,12 @@ impl<K: Archive, V: Archive> Archive for IndexMap<K, V> {
     }
 }
 
-impl<K, V, S> Serialize<S> for IndexMap<K, V>
+impl<K, V, S, RandomState> Serialize<S> for IndexMap<K, V, RandomState>
 where
     K: Hash + Eq + Serialize<S>,
     V: Serialize<S>,
     S: ScratchSpace + Serializer + ?Sized,
+    RandomState: BuildHasher,
 {
     fn serialize(&self, serializer: &mut S) -> Result<IndexMapResolver, S::Error> {
         unsafe {
@@ -32,16 +33,17 @@ where
     }
 }
 
-impl<K, V, D> Deserialize<IndexMap<K, V>, D> for ArchivedIndexMap<K::Archived, V::Archived>
+impl<K, V, D, S> Deserialize<IndexMap<K, V, S>, D> for ArchivedIndexMap<K::Archived, V::Archived>
 where
     K: Archive + Hash + Eq,
     K::Archived: Deserialize<K, D>,
     V: Archive,
     V::Archived: Deserialize<V, D>,
     D: Fallible + ?Sized,
+    S: Default + BuildHasher,
 {
-    fn deserialize(&self, deserializer: &mut D) -> Result<IndexMap<K, V>, D::Error> {
-        let mut result = IndexMap::with_capacity(self.len());
+    fn deserialize(&self, deserializer: &mut D) -> Result<IndexMap<K, V, S>, D::Error> {
+        let mut result = IndexMap::with_capacity_and_hasher(self.len(), S::default());
         for (k, v) in self.iter() {
             result.insert(k.deserialize(deserializer)?, v.deserialize(deserializer)?);
         }
@@ -49,12 +51,13 @@ where
     }
 }
 
-impl<UK, K, UV, V> PartialEq<IndexMap<UK, UV>> for ArchivedIndexMap<K, V>
+impl<UK, K, UV, V, S> PartialEq<IndexMap<UK, UV, S>> for ArchivedIndexMap<K, V>
 where
     K: PartialEq<UK>,
     V: PartialEq<UV>,
+    S: BuildHasher,
 {
-    fn eq(&self, other: &IndexMap<UK, UV>) -> bool {
+    fn eq(&self, other: &IndexMap<UK, UV, S>) -> bool {
         self.iter()
             .zip(other.iter())
             .all(|((ak, av), (bk, bv))| ak == bk && av == bv)
