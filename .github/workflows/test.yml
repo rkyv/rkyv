@@ -51,7 +51,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: ${{ matrix.target }}
-      - run: cargo install cross --git https://github.com/cross-rs/cross
+      - run: cargo install cross
       - run: echo "::add-matcher::.github/matchers/rust.json"
       - run: cross build --target ${{ matrix.target }} --verbose
       - run: cross test --package rkyv_test --target ${{ matrix.target }} --verbose
