@@ -21,6 +21,8 @@ mod hashbrown;
 mod indexmap;
 #[cfg(feature = "smallvec")]
 mod smallvec;
+#[cfg(feature = "arrayvec")]
+mod arrayvec;
 #[cfg(feature = "tinyvec")]
 mod tinyvec;
 #[cfg(feature = "uuid")]
