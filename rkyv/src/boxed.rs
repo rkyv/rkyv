@@ -215,7 +215,7 @@ pub struct BoxResolver<M> {
 }
 
 impl<M> BoxResolver<M> {
-    /// Createa a new [`BoxResolver<M>`] from raw parts. Note that `M` here is ***not*** the same
+    /// Create a a new [`BoxResolver<M>`] from raw parts. Note that `M` here is ***not*** the same
     /// `T` which should be serialized/contained in the resulting [`ArchivedBox<T>`], and is rather
     /// a type that can be used to resolve any needed [`ArchivePointee::ArchivedMetadata`]
     /// for the serialized pointed-to value.
