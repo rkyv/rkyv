@@ -225,7 +225,9 @@ impl<M> BoxResolver<M> {
     /// 
     /// # Safety
     /// 
-    /// Constructing a valid resolver is quite fraught. Please make sure you understand what the implications are before doing it.
+    /// Technically no unsafety can happen directly from calling this function, however, passing this as a resolver to
+    /// [`ArchivedBox`]'s resolving functions absolutely can. In general this should be treated as a semi-private type, as
+    /// constructing a valid resolver is quite fraught. Please make sure you understand what the implications are before doing it.
     /// 
     /// - `pos`: You must ensure that you serialized and resolved (i.e. [`Serializer::serialize_value`])
     /// a `T` which will be pointed to by the final [`ArchivedBox<T>`] that this resolver will help resolve
