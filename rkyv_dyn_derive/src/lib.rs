@@ -191,7 +191,7 @@ pub fn archive_dyn(
                     #input
 
                     const _: () = {
-                        use core::alloc::Layout;
+                        use core::alloc::{Layout, LayoutError};
                         use rkyv::{
                             Archived,
                             Deserialize,
@@ -301,9 +301,9 @@ pub fn archive_dyn(
                 use rkyv_dyn::validation::{CHECK_BYTES_REGISTRY, CheckDynError, DynContext};
 
                 impl<#generic_params> LayoutRaw for (dyn #deserialize_trait<#generic_args> + '_) {
-                    fn layout_raw(value: *const Self) -> Layout {
+                    fn layout_raw(value: *const Self) -> Result<Layout, LayoutError> {
                         let metadata = ptr_meta::metadata(value);
-                        metadata.layout()
+                        Ok(metadata.layout())
                     }
                 }
 
@@ -345,7 +345,7 @@ pub fn archive_dyn(
                 #deserialize_trait_def
 
                 const _: ()  = {
-                    use core::alloc::Layout;
+                    use core::alloc::{Layout, LayoutError};
                     use rkyv::{
                         ser::{ScratchSpace, Serializer},
                         Archive,

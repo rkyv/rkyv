@@ -11,7 +11,7 @@ use crate::{
 };
 use bytecheck::{CheckBytes, Error};
 use core::{
-    alloc::Layout,
+    alloc::{Layout, LayoutError},
     convert::{Infallible, TryFrom},
     fmt,
     hint::unreachable_unchecked,
@@ -248,19 +248,18 @@ const _: () = {
 };
 
 impl<T> LayoutRaw for Node<[T]> {
-    fn layout_raw(value: *const Self) -> Layout {
+    fn layout_raw(value: *const Self) -> Result<Layout, LayoutError> {
         let len = ptr_meta::metadata(value);
         let result = Layout::new::<NodeHeader>()
-            .extend(Layout::array::<T>(len).unwrap())
-            .unwrap()
+            .extend(Layout::array::<T>(len).unwrap())?
             .0;
         #[cfg(not(feature = "strict"))]
         {
-            result
+            Ok(result)
         }
         #[cfg(feature = "strict")]
         {
-            result.pad_to_align()
+            Ok(result.pad_to_align())
         }
     }
 }
@@ -288,14 +287,17 @@ impl NodeHeader {
 
         let node_layout = if raw_node.is_inner() {
             Node::layout_raw(raw_node.classify_inner_ptr::<K>())
+                .map_err(C::wrap_layout_error)
+                .map_err(ArchivedBTreeMapError::ContextError)?
         } else {
             Node::layout_raw(raw_node.classify_leaf_ptr::<K, V>())
+                .map_err(C::wrap_layout_error)
+                .map_err(ArchivedBTreeMapError::ContextError)?
         };
 
-        context.bounds_check_subtree_ptr_layout(
-            (raw_node as *const NodeHeader).cast(),
-            &node_layout,
-        ).map_err(ArchivedBTreeMapError::ContextError)?;
+        context
+            .bounds_check_subtree_ptr_layout((raw_node as *const NodeHeader).cast(), &node_layout)
+            .map_err(ArchivedBTreeMapError::ContextError)?;
 
         Self::manual_check_contents::<K, V, C>(raw_node, context)?;
 
@@ -505,16 +507,19 @@ const _: () = {
                 // Since the header is checked, we can just classify the pointer and use layout_raw
                 let root_layout = if root.is_inner() {
                     Node::layout_raw(root.classify_inner_ptr::<K>())
+                        .map_err(C::wrap_layout_error)
+                        .map_err(ArchivedBTreeMapError::ContextError)?
                 } else {
                     Node::layout_raw(root.classify_leaf_ptr::<K, V>())
+                        .map_err(C::wrap_layout_error)
+                        .map_err(ArchivedBTreeMapError::ContextError)?
                 };
 
                 // Because the layout of the subtree is dynamic, we need to bounds check the layout
                 // declared by the root node.
-                context.bounds_check_subtree_ptr_layout(
-                    root_ptr.cast(),
-                    &root_layout,
-                ).map_err(ArchivedBTreeMapError::ContextError)?;
+                context
+                    .bounds_check_subtree_ptr_layout(root_ptr.cast(), &root_layout)
+                    .map_err(ArchivedBTreeMapError::ContextError)?;
 
                 // Now we can push the prefix subtree range.
                 let nodes_range = context

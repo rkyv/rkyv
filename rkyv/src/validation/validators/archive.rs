@@ -1,7 +1,11 @@
 //! The provided implementation for `ArchiveContext`.
 
 use crate::{validation::ArchiveContext, Fallible};
-use core::{alloc::Layout, fmt, ops::Range};
+use core::{
+    alloc::{Layout, LayoutError},
+    fmt,
+    ops::Range,
+};
 
 /// Errors that can occur when checking archive memory.
 #[derive(Debug)]
@@ -80,6 +84,11 @@ pub enum ArchiveError {
         /// The maximum depth that subtrees may be validated down to
         max_subtree_depth: usize,
     },
+    /// A layout error occurred
+    LayoutError {
+        /// A layout error
+        layout_error: LayoutError,
+    },
 }
 
 // SAFETY: ArchiveError is safe to send to another thread
@@ -155,6 +164,9 @@ impl fmt::Display for ArchiveError {
                 "pushed a subtree range that exceeded the maximum subtree depth of {}",
                 max_subtree_depth
             ),
+            ArchiveError::LayoutError { layout_error } => {
+                write!(f, "a layout error occurred: {}", layout_error)
+            }
         }
     }
 }
@@ -414,5 +426,9 @@ impl<'a> ArchiveContext for ArchiveValidator<'a> {
         } else {
             Ok(())
         }
+    }
+
+    fn wrap_layout_error(layout_error: core::alloc::LayoutError) -> Self::Error {
+        ArchiveError::LayoutError { layout_error }
     }
 }

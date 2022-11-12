@@ -5,7 +5,7 @@ pub mod validators;
 
 use crate::{Archive, ArchivePointee, Fallible, RelPtr};
 use bytecheck::CheckBytes;
-use core::{alloc::Layout, any::TypeId, fmt};
+use core::{alloc::Layout, alloc::LayoutError, any::TypeId, fmt};
 use ptr_meta::Pointee;
 #[cfg(feature = "std")]
 use std::error::Error;
@@ -15,38 +15,38 @@ use std::error::Error;
 /// Gets the layout of a type from its pointer.
 pub trait LayoutRaw {
     /// Gets the layout of the type.
-    fn layout_raw(value: *const Self) -> Layout;
+    fn layout_raw(value: *const Self) -> Result<Layout, LayoutError>;
 }
 
 impl<T> LayoutRaw for T {
     #[inline]
-    fn layout_raw(_: *const Self) -> Layout {
-        Layout::new::<T>()
+    fn layout_raw(_: *const Self) -> Result<Layout, LayoutError> {
+        Ok(Layout::new::<T>())
     }
 }
 
 impl<T> LayoutRaw for [T] {
     #[inline]
-    fn layout_raw(value: *const Self) -> Layout {
+    fn layout_raw(value: *const Self) -> Result<Layout, LayoutError> {
         let metadata = ptr_meta::metadata(value);
-        Layout::array::<T>(metadata).unwrap()
+        Layout::array::<T>(metadata)
     }
 }
 
 impl LayoutRaw for str {
     #[inline]
-    fn layout_raw(value: *const Self) -> Layout {
+    fn layout_raw(value: *const Self) -> Result<Layout, LayoutError> {
         let metadata = ptr_meta::metadata(value);
-        Layout::array::<u8>(metadata).unwrap()
+        Layout::array::<u8>(metadata)
     }
 }
 
 #[cfg(feature = "std")]
 impl LayoutRaw for ::std::ffi::CStr {
     #[inline]
-    fn layout_raw(value: *const Self) -> Layout {
+    fn layout_raw(value: *const Self) -> Result<Layout, LayoutError> {
         let metadata = ptr_meta::metadata(value);
-        Layout::array::<::std::os::raw::c_char>(metadata).unwrap()
+        Layout::array::<::std::os::raw::c_char>(metadata)
     }
 }
 
@@ -114,7 +114,7 @@ pub trait ArchiveContext: Fallible {
     ) -> Result<*const T, Self::Error> {
         let data_address = self.bounds_check_ptr(base, offset)?;
         let ptr = ptr_meta::from_raw_parts(data_address.cast(), metadata);
-        let layout = T::layout_raw(ptr);
+        let layout = T::layout_raw(ptr).map_err(Self::wrap_layout_error)?;
         self.bounds_check_layout(data_address, &layout)?;
         Ok(ptr)
     }
@@ -160,7 +160,7 @@ pub trait ArchiveContext: Fallible {
         &mut self,
         ptr: *const T,
     ) -> Result<(), Self::Error> {
-        let layout = T::layout_raw(ptr);
+        let layout = T::layout_raw(ptr).map_err(Self::wrap_layout_error)?;
         self.bounds_check_subtree_ptr_layout(ptr.cast(), &layout)
     }
 
@@ -224,7 +224,7 @@ pub trait ArchiveContext: Fallible {
         &mut self,
         root: *const T,
     ) -> Result<Self::PrefixRange, Self::Error> {
-        let layout = T::layout_raw(root);
+        let layout = T::layout_raw(root).map_err(Self::wrap_layout_error)?;
         self.push_prefix_subtree_range(root as *const u8, (root as *const u8).add(layout.size()))
     }
 
@@ -252,6 +252,9 @@ pub trait ArchiveContext: Fallible {
     ///
     /// If the range was not popped in reverse order, an error is returned.
     fn pop_suffix_range(&mut self, range: Self::SuffixRange) -> Result<(), Self::Error>;
+
+    /// Wraps a layout error in an ArchiveContext error
+    fn wrap_layout_error(error: LayoutError) -> Self::Error;
 
     /// Verifies that all outstanding claims have been returned.
     fn finish(&mut self) -> Result<(), Self::Error>;

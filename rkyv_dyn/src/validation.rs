@@ -264,6 +264,9 @@ impl ArchiveContext for (dyn DynContext + '_) {
         self.pop_suffix_range_dyn(range)
     }
 
+    fn wrap_layout_error(layout_error: core::alloc::LayoutError) -> Self::Error {
+        Box::new(layout_error) as Box<dyn Error>
+    }
     fn finish(&mut self) -> Result<(), Self::Error> {
         self.finish_dyn()
     }
