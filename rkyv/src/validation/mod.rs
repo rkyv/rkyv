@@ -13,30 +13,31 @@ use std::error::Error;
 // Replace this trait with core::mem::{align_of_val_raw, size_of_val_raw} when they get stabilized.
 
 /// Gets the layout of a type from its pointer.
-pub trait LayoutRaw {
+pub trait LayoutRaw
+where
+    Self: Pointee,
+{
     /// Gets the layout of the type.
-    fn layout_raw(value: *const Self) -> Result<Layout, LayoutError>;
+    fn layout_raw(metadata: <Self as Pointee>::Metadata) -> Result<Layout, LayoutError>;
 }
 
 impl<T> LayoutRaw for T {
     #[inline]
-    fn layout_raw(_: *const Self) -> Result<Layout, LayoutError> {
+    fn layout_raw(_: <Self as Pointee>::Metadata) -> Result<Layout, LayoutError> {
         Ok(Layout::new::<T>())
     }
 }
 
 impl<T> LayoutRaw for [T] {
     #[inline]
-    fn layout_raw(value: *const Self) -> Result<Layout, LayoutError> {
-        let metadata = ptr_meta::metadata(value);
+    fn layout_raw(metadata: <Self as Pointee>::Metadata) -> Result<Layout, LayoutError> {
         Layout::array::<T>(metadata)
     }
 }
 
 impl LayoutRaw for str {
     #[inline]
-    fn layout_raw(value: *const Self) -> Result<Layout, LayoutError> {
-        let metadata = ptr_meta::metadata(value);
+    fn layout_raw(metadata: <Self as Pointee>::Metadata) -> Result<Layout, LayoutError> {
         Layout::array::<u8>(metadata)
     }
 }
@@ -44,8 +45,7 @@ impl LayoutRaw for str {
 #[cfg(feature = "std")]
 impl LayoutRaw for ::std::ffi::CStr {
     #[inline]
-    fn layout_raw(value: *const Self) -> Result<Layout, LayoutError> {
-        let metadata = ptr_meta::metadata(value);
+    fn layout_raw(metadata: <Self as Pointee>::Metadata) -> Result<Layout, LayoutError> {
         Layout::array::<::std::os::raw::c_char>(metadata)
     }
 }
@@ -113,8 +113,8 @@ pub trait ArchiveContext: Fallible {
         metadata: T::Metadata,
     ) -> Result<*const T, Self::Error> {
         let data_address = self.bounds_check_ptr(base, offset)?;
+        let layout = T::layout_raw(metadata).map_err(Self::wrap_layout_error)?;
         let ptr = ptr_meta::from_raw_parts(data_address.cast(), metadata);
-        let layout = T::layout_raw(ptr).map_err(Self::wrap_layout_error)?;
         self.bounds_check_layout(data_address, &layout)?;
         Ok(ptr)
     }
@@ -160,7 +160,7 @@ pub trait ArchiveContext: Fallible {
         &mut self,
         ptr: *const T,
     ) -> Result<(), Self::Error> {
-        let layout = T::layout_raw(ptr).map_err(Self::wrap_layout_error)?;
+        let layout = T::layout_raw(ptr_meta::metadata(ptr)).map_err(Self::wrap_layout_error)?;
         self.bounds_check_subtree_ptr_layout(ptr.cast(), &layout)
     }
 
@@ -224,7 +224,7 @@ pub trait ArchiveContext: Fallible {
         &mut self,
         root: *const T,
     ) -> Result<Self::PrefixRange, Self::Error> {
-        let layout = T::layout_raw(root).map_err(Self::wrap_layout_error)?;
+        let layout = T::layout_raw(ptr_meta::metadata(root)).map_err(Self::wrap_layout_error)?;
         self.push_prefix_subtree_range(root as *const u8, (root as *const u8).add(layout.size()))
     }
 

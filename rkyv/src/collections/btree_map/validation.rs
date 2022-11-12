@@ -17,6 +17,7 @@ use core::{
     hint::unreachable_unchecked,
     ptr,
 };
+use ptr_meta::Pointee;
 
 impl<K, C> CheckBytes<C> for InnerNodeEntry<K>
 where
@@ -248,10 +249,9 @@ const _: () = {
 };
 
 impl<T> LayoutRaw for Node<[T]> {
-    fn layout_raw(value: *const Self) -> Result<Layout, LayoutError> {
-        let len = ptr_meta::metadata(value);
+    fn layout_raw(metadata: <Self as Pointee>::Metadata) -> Result<Layout, LayoutError> {
         let result = Layout::new::<NodeHeader>()
-            .extend(Layout::array::<T>(len).unwrap())?
+            .extend(Layout::array::<T>(metadata).unwrap())?
             .0;
         #[cfg(not(feature = "strict"))]
         {
@@ -286,11 +286,11 @@ impl NodeHeader {
             .map_err(ArchivedBTreeMapError::ContextError)?;
 
         let node_layout = if raw_node.is_inner() {
-            Node::layout_raw(raw_node.classify_inner_ptr::<K>())
+            InnerNode::<K>::layout_raw(ptr_meta::metadata(raw_node.classify_inner_ptr::<K>()))
                 .map_err(C::wrap_layout_error)
                 .map_err(ArchivedBTreeMapError::ContextError)?
         } else {
-            Node::layout_raw(raw_node.classify_leaf_ptr::<K, V>())
+            LeafNode::<K, V>::layout_raw(ptr_meta::metadata(raw_node.classify_leaf_ptr::<K, V>()))
                 .map_err(C::wrap_layout_error)
                 .map_err(ArchivedBTreeMapError::ContextError)?
         };
@@ -506,13 +506,15 @@ const _: () = {
                 // To push the subtree, we need to know the real size of the root node
                 // Since the header is checked, we can just classify the pointer and use layout_raw
                 let root_layout = if root.is_inner() {
-                    Node::layout_raw(root.classify_inner_ptr::<K>())
+                    InnerNode::<K>::layout_raw(ptr_meta::metadata(root.classify_inner_ptr::<K>()))
                         .map_err(C::wrap_layout_error)
                         .map_err(ArchivedBTreeMapError::ContextError)?
                 } else {
-                    Node::layout_raw(root.classify_leaf_ptr::<K, V>())
-                        .map_err(C::wrap_layout_error)
-                        .map_err(ArchivedBTreeMapError::ContextError)?
+                    LeafNode::<K, V>::layout_raw(ptr_meta::metadata(
+                        root.classify_leaf_ptr::<K, V>(),
+                    ))
+                    .map_err(C::wrap_layout_error)
+                    .map_err(ArchivedBTreeMapError::ContextError)?
                 };
 
                 // Because the layout of the subtree is dynamic, we need to bounds check the layout

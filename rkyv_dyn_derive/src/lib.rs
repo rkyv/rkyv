@@ -301,8 +301,7 @@ pub fn archive_dyn(
                 use rkyv_dyn::validation::{CHECK_BYTES_REGISTRY, CheckDynError, DynContext};
 
                 impl<#generic_params> LayoutRaw for (dyn #deserialize_trait<#generic_args> + '_) {
-                    fn layout_raw(value: *const Self) -> Result<Layout, LayoutError> {
-                        let metadata = ptr_meta::metadata(value);
+                    fn layout_raw(metadata: <Self as ptr_meta::Pointee>::Metadata) -> Result<Layout, LayoutError> {
                         Ok(metadata.layout())
                     }
                 }
