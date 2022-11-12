@@ -12,7 +12,7 @@ use std::error::Error;
 
 // Replace this trait with core::mem::{align_of_val_raw, size_of_val_raw} when they get stabilized.
 
-/// Gets the layout of a type from its pointer.
+/// Gets the layout of a type from its pointee type and metadata.
 pub trait LayoutRaw
 where
     Self: Pointee,
