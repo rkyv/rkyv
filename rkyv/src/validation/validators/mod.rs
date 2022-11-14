@@ -13,7 +13,11 @@ use crate::{
 };
 pub use archive::*;
 use bytecheck::CheckBytes;
-use core::{alloc::Layout, any::TypeId, fmt};
+use core::{
+    alloc::{Layout, LayoutError},
+    any::TypeId,
+    fmt,
+};
 pub use shared::*;
 pub use util::*;
 
@@ -149,6 +153,11 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
         self.archive
             .finish()
             .map_err(DefaultValidatorError::ArchiveError)
+    }
+
+    #[inline]
+    fn wrap_layout_error(error: LayoutError) -> Self::Error {
+        DefaultValidatorError::ArchiveError(ArchiveValidator::wrap_layout_error(error))
     }
 }
 
