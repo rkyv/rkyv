@@ -2163,4 +2163,22 @@ mod tests {
         assert_eq!(tracker.max_allocations(), 1);
         assert_ne!(tracker.min_buffer_size(), 0);
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_manually_drop() {
+        use core::mem::ManuallyDrop;
+
+        let vec = vec!["hello world".to_string(), "me too!".to_string()];
+
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&ManuallyDrop::new(vec.clone())).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        let archived = unsafe { archived_root::<ManuallyDrop<Vec<String>>>(result.as_slice()) };
+
+        assert_eq!(archived.len(), vec.len());
+        for (a, b) in archived.iter().zip(vec.iter()) {
+            assert_eq!(a, b);
+        }
+    }
 }
