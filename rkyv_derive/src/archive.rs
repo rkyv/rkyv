@@ -778,7 +778,7 @@ fn derive_archive_impl(
                 // If unspecified, the base repr is set to u* with the smallest unsigned integer
                 // that can represent the number of variants
                 None => {
-                    let int_repr = match data.variants.len() {
+                    let int_repr = match data.variants.len() as u128 {
                         0..=255 => IntRepr::U8,
                         256..=65_535 => IntRepr::U16,
                         65_536..=4_294_967_295 => IntRepr::U32,
