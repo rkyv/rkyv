@@ -66,7 +66,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     /// - `pos` must be the position of `out` within the archive
     /// - `resolver` must be obtained by following the safety documentation of
     /// [`BoxResolver::from_raw_parts`].
-    /// 
+    ///
     /// [`<T as ArchivePointee>::ArchivedMetadata`]: ArchivePointee::ArchivedMetadata
     pub unsafe fn resolve_from_raw_parts(
         pos: usize,
@@ -74,7 +74,12 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.0);
-        RelPtr::resolve_emplace_from_raw_parts(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        RelPtr::resolve_emplace_from_raw_parts(
+            pos + fp,
+            resolver.pos,
+            resolver.metadata_resolver,
+            fo,
+        );
     }
 
     #[doc(hidden)]
@@ -219,30 +224,33 @@ impl<M> BoxResolver<M> {
     /// `T` which should be serialized/contained in the resulting [`ArchivedBox<T>`], and is rather
     /// a type that can be used to resolve any needed [`ArchivePointee::ArchivedMetadata`]
     /// for the serialized pointed-to value.
-    /// 
+    ///
     /// In most cases, you won't need to create a [`BoxResolver`] yourself and can instead obtain it through
     /// [`ArchivedBox::serialize_from_ref`] or [`ArchivedBox::serialize_copy_from_slice`].
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// Technically no unsafety can happen directly from calling this function, however, passing this as a resolver to
     /// [`ArchivedBox`]'s resolving functions absolutely can. In general this should be treated as a semi-private type, as
     /// constructing a valid resolver is quite fraught. Please make sure you understand what the implications are before doing it.
-    /// 
+    ///
     /// - `pos`: You must ensure that you serialized and resolved (i.e. [`Serializer::serialize_value`])
     /// a `T` which will be pointed to by the final [`ArchivedBox<T>`] that this resolver will help resolve
     /// at the given `pos` within the archive.
-    /// 
+    ///
     /// - `metadata_resolver`: You must also ensure that the given `metadata_resolver` can be used to successfully produce
     /// valid [`<T as ArchivePointee>::ArchivedMetadata`] for that serialized `T`. This means it must either be:
     ///     - The necessary [`<T as ArchivePointee>::ArchivedMetadata`] itself, in which case you may use the created
     /// [`BoxResolver<<T as ArchivePointee>::ArchivedMetadta>`] as a resolver in [`ArchivedBox::resolve_from_raw_parts`]
     ///     - An [`ArchiveUnsized::MetadataResolver`] obtained from some `value: &U` where `U: ArchiveUnsized<Archived = T>`, in which case you
     /// must pass that same `value: &U` into [`ArchivedBox::resolve_from_ref`] along with this [`BoxResolver`].
-    /// 
+    ///
     /// [`<T as ArchivePointee>::ArchivedMetadata`]: ArchivePointee::ArchivedMetadata
     pub unsafe fn from_raw_parts(pos: usize, metadata_resolver: M) -> Self {
-        Self { pos, metadata_resolver }
+        Self {
+            pos,
+            metadata_resolver,
+        }
     }
 }
 

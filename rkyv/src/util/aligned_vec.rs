@@ -351,7 +351,7 @@ impl AlignedVec {
     /// Resizes the Vec in-place so that len is equal to new_len.
     ///
     /// If new_len is greater than len, the Vec is extended by the difference, with each additional slot filled with value. If new_len is less than len, the Vec is simply truncated.
-    /// 
+    ///
     /// # Panics
     ///
     /// Panics if the new length exceeds `usize::MAX` bytes.
@@ -375,9 +375,13 @@ impl AlignedVec {
         if new_len > self.len {
             let additional = new_len - self.len;
             self.reserve(additional);
-            unsafe { core::ptr::write_bytes(self.ptr.as_ptr().add(self.len), value, additional); }
+            unsafe {
+                core::ptr::write_bytes(self.ptr.as_ptr().add(self.len), value, additional);
+            }
         }
-        unsafe { self.set_len(new_len); }
+        unsafe {
+            self.set_len(new_len);
+        }
     }
 
     /// Returns `true` if the vector contains no elements.

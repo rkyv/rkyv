@@ -13,6 +13,8 @@ mod std;
 // implementations should be moved into their respective crates over time. Before adding support for
 // another crate, please consider getting rkyv support in the crate instead.
 
+#[cfg(feature = "arrayvec")]
+mod arrayvec;
 #[cfg(feature = "bitvec")]
 mod bitvec;
 #[cfg(feature = "hashbrown")]
@@ -21,8 +23,6 @@ mod hashbrown;
 mod indexmap;
 #[cfg(feature = "smallvec")]
 mod smallvec;
-#[cfg(feature = "arrayvec")]
-mod arrayvec;
 #[cfg(feature = "tinyvec")]
 mod tinyvec;
 #[cfg(feature = "uuid")]

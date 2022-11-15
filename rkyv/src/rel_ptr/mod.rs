@@ -385,14 +385,14 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
 
     /// Attempts to create a relative pointer from one position to another given
     /// raw pointer metadata.
-    /// 
+    ///
     /// This does the same thing as [`RelPtr::try_resolve_emplace`] but you must supply
     /// the [`<T as ArchivePointee>::ArchivedMetadata`][ArchivePointee::ArchivedMetadata]
     /// yourself directly rather than through an implementation of [`ArchiveUnsized`] on some
     /// value.
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// - `from` must be the position of `out` within the archive
     /// - `to` must be the position of some valid `T`
     /// - `value` must be the value being serialized
@@ -414,19 +414,19 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
 
     /// Creates a relative pointer from one position to another given
     /// raw pointer metadata.
-    /// 
+    ///
     /// This does the same thing as [`RelPtr::resolve_emplace`] but you must supply
     /// the [`<T as ArchivePointee>::ArchivedMetadata`][ArchivePointee::ArchivedMetadata]
     /// yourself directly rather than through an implementation of [`ArchiveUnsized`] on some
     /// value.
-    /// 
+    ///
     /// # Panics
     ///
     /// - The offset between `from` and `to` does not fit in an `isize`
     /// - The offset between `from` and `to` exceeds the offset storage
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// - `from` must be the position of `out` within the archive
     /// - `to` must be the position of some valid `T`
     /// - `value` must be the value being serialized

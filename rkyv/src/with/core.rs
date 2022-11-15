@@ -351,7 +351,7 @@ impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<UnsafeCell<F>, S> for 
         field: &UnsafeCell<F>,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        unsafe { (&*field.get()).serialize(serializer) }
+        unsafe { (*field.get()).serialize(serializer) }
     }
 }
 
@@ -366,7 +366,7 @@ where
         deserializer: &mut D,
     ) -> Result<UnsafeCell<F>, D::Error> {
         unsafe {
-            (&*field.get())
+            (*field.get())
                 .deserialize(deserializer)
                 .map(|x| UnsafeCell::new(x))
         }
@@ -391,7 +391,7 @@ impl<F: Archive> ArchiveWith<Cell<F>> for Unsafe {
 impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Cell<F>, S> for Unsafe {
     #[inline]
     fn serialize_with(field: &Cell<F>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        unsafe { (&*field.as_ptr()).serialize(serializer) }
+        unsafe { (*field.as_ptr()).serialize(serializer) }
     }
 }
 
@@ -405,7 +405,7 @@ where
         deserializer: &mut D,
     ) -> Result<Cell<F>, D::Error> {
         unsafe {
-            (&*field.as_ptr())
+            (*field.as_ptr())
                 .deserialize(deserializer)
                 .map(|x| Cell::new(x))
         }

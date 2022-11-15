@@ -1,7 +1,7 @@
 //! An archived string representation that supports inlining short strings.
 
 use crate::{Archived, FixedIsize, FixedUsize};
-use core::{mem, ptr, slice, str, marker::PhantomPinned};
+use core::{marker::PhantomPinned, mem, ptr, slice, str};
 
 const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
 
@@ -173,7 +173,10 @@ const _: () = {
 
     impl fmt::Display for CheckStringReprError {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "String representation was inline but the length was too large")
+            write!(
+                f,
+                "String representation was inline but the length was too large"
+            )
         }
     }
 
@@ -184,10 +187,7 @@ const _: () = {
         type Error = CheckStringReprError;
 
         #[inline]
-        unsafe fn check_bytes<'a>(
-            value: *const Self,
-            _: &mut C,
-        ) -> Result<&'a Self, Self::Error> {
+        unsafe fn check_bytes<'a>(value: *const Self, _: &mut C) -> Result<&'a Self, Self::Error> {
             // The fields of `ArchivedStringRepr` are always valid
             let repr = &*value;
 

@@ -19,7 +19,7 @@ use crate::{
     ser::{serializers::AllocSerializer, Serializer},
     Fallible,
 };
-use crate::{Archive, ArchiveUnsized, RelPtr, Deserialize, Serialize};
+use crate::{Archive, ArchiveUnsized, Deserialize, RelPtr, Serialize};
 use core::{
     mem,
     ops::{Deref, DerefMut},

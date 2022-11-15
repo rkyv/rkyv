@@ -80,9 +80,9 @@ mod tests {
         ser::{serializers::AllocSerializer, Serializer},
         Deserialize, Infallible,
     };
-    use hashbrown::HashSet;
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::string::String;
+    use hashbrown::HashSet;
 
     #[test]
     fn index_set() {

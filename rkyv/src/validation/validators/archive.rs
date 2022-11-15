@@ -183,7 +183,7 @@ pub struct PrefixRange {
 
 // SAFETY: PrefixRange is safe to send to another thread
 // This trait is not automatically implemented because the struct contains a pointer
-unsafe impl<'a> Send for PrefixRange {}
+unsafe impl Send for PrefixRange {}
 
 // SAFETY: PrefixRange is safe to share between threads
 // This trait is not automatically implemented because the struct contains a pointer
@@ -198,7 +198,7 @@ pub struct SuffixRange {
 
 // SAFETY: SuffixRange is safe to send to another thread
 // This trait is not automatically implemented because the struct contains a pointer
-unsafe impl<'a> Send for SuffixRange {}
+unsafe impl Send for SuffixRange {}
 
 // SAFETY: SuffixRange is safe to share between threads
 // This trait is not automatically implemented because the struct contains a pointer

@@ -381,14 +381,14 @@ impl<T: Archive> Archive for ManuallyDrop<T> {
 
     #[inline]
     unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        T::resolve(&*self, pos, resolver, out.cast::<T::Archived>())
+        T::resolve(self, pos, resolver, out.cast::<T::Archived>())
     }
 }
 
 impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for ManuallyDrop<T> {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        T::serialize(&*self, serializer)
+        T::serialize(self, serializer)
     }
 }
 
@@ -398,7 +398,6 @@ where
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<ManuallyDrop<T>, <D as Fallible>::Error> {
-        T::Archived::deserialize(&*self, deserializer)
-            .map(ManuallyDrop::new)
+        T::Archived::deserialize(self, deserializer).map(ManuallyDrop::new)
     }
 }

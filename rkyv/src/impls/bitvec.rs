@@ -1,12 +1,13 @@
-use core::convert::{TryFrom, TryInto};
-use core::{marker::PhantomData, ops::Deref};
 #[cfg(feature = "bitvec_alloc")]
 use crate::vec::{ArchivedVec, VecResolver};
 use crate::{
-    out_field, bitvec::ArchivedBitVec,
+    bitvec::ArchivedBitVec,
+    out_field,
     ser::{ScratchSpace, Serializer},
     Archive, Archived, Deserialize, Fallible, Serialize,
 };
+use core::convert::{TryFrom, TryInto};
+use core::{marker::PhantomData, ops::Deref};
 
 use bitvec::{prelude::*, view::BitViewSized};
 

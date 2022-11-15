@@ -1,9 +1,9 @@
+use bytecheck::CheckBytes;
 use rkyv::{
     check_archived_root,
     ser::{serializers::AllocSerializer, Serializer},
     Archive, Deserialize, Serialize,
 };
-use bytecheck::CheckBytes;
 use std::{collections::HashMap, fmt};
 
 #[derive(Archive, Debug, Deserialize, Serialize)]
@@ -57,15 +57,25 @@ use std::{collections::HashMap, fmt};
 // With those two changes, our recursive type can be validated with `check_archived_root`!
 #[archive_attr(
     derive(CheckBytes),
-    check_bytes(bound = "__C: rkyv::validation::ArchiveContext, <__C as rkyv::Fallible>::Error: std::error::Error"),
+    check_bytes(
+        bound = "__C: rkyv::validation::ArchiveContext, <__C as rkyv::Fallible>::Error: std::error::Error"
+    )
 )]
 pub enum JsonValue {
     Null,
     Bool(bool),
     Number(JsonNumber),
     String(String),
-    Array(#[omit_bounds] #[archive_attr(omit_bounds)] Vec<JsonValue>),
-    Object(#[omit_bounds] #[archive_attr(omit_bounds)] HashMap<String, JsonValue>),
+    Array(
+        #[omit_bounds]
+        #[archive_attr(omit_bounds)]
+        Vec<JsonValue>,
+    ),
+    Object(
+        #[omit_bounds]
+        #[archive_attr(omit_bounds)]
+        HashMap<String, JsonValue>,
+    ),
 }
 
 impl fmt::Display for ArchivedJsonValue {

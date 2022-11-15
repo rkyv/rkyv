@@ -208,7 +208,11 @@ pub struct BufferScratch<T> {
 impl<T> BufferScratch<T> {
     /// Creates a new buffer scratch allocator.
     pub fn new(buffer: T) -> Self {
-        Self { buffer, pos: 0, ptr: None }
+        Self {
+            buffer,
+            pos: 0,
+            ptr: None,
+        }
     }
 
     /// Resets the scratch space to its initial state.

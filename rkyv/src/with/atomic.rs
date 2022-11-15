@@ -103,7 +103,7 @@ const _: () = {
             _: Self::Resolver,
             out: *mut Self::Archived,
         ) {
-            (&*out).store(
+            (*out).store(
                 field.load(Ordering::Relaxed) as FixedUsize,
                 Ordering::Relaxed,
             );
@@ -156,7 +156,7 @@ const _: () = {
             _: Self::Resolver,
             out: *mut Self::Archived,
         ) {
-            (&*out).store(
+            (*out).store(
                 field.load(Ordering::Relaxed) as FixedIsize,
                 Ordering::Relaxed,
             );

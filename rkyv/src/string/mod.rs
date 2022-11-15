@@ -187,10 +187,7 @@ pub struct StringResolver {
 
 #[cfg(feature = "validation")]
 const _: () = {
-    use crate::validation::{
-        owned::OwnedPointerError,
-        ArchiveContext,
-    };
+    use crate::validation::{owned::OwnedPointerError, ArchiveContext};
     use bytecheck::{CheckBytes, Error};
 
     impl<C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedString

@@ -28,7 +28,8 @@ where
     }
 }
 
-impl<T, D: Fallible + ?Sized, const CAP: usize> Deserialize<ArrayVec<T, CAP>, D> for ArchivedVec<Archived<T>>
+impl<T, D: Fallible + ?Sized, const CAP: usize> Deserialize<ArrayVec<T, CAP>, D>
+    for ArchivedVec<Archived<T>>
 where
     T: Archive,
     Archived<T>: Deserialize<T, D>,

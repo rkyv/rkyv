@@ -128,7 +128,7 @@ impl<'a, F: Serialize<S> + Clone, S: Fallible + ?Sized> SerializeWith<Cow<'a, F>
     }
 }
 
-impl<'a, T: Archive + Clone, D: Fallible + ?Sized> DeserializeWith<T::Archived, T, D> for AsOwned
+impl<T: Archive + Clone, D: Fallible + ?Sized> DeserializeWith<T::Archived, T, D> for AsOwned
 where
     T::Archived: Deserialize<T, D>,
 {
