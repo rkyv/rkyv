@@ -603,6 +603,104 @@ impl AlignedVec {
     }
 }
 
+#[cfg(feature = "std")]
+const _: () = {
+    use std::io::{ErrorKind, Read};
+
+    impl AlignedVec {
+        /// Reads all bytes until EOF from `r` and appends them to this `AlignedVec`.
+        ///
+        /// If successful, this function will return the total number of bytes read.
+        ///
+        /// # Examples
+        /// ```
+        /// use rkyv::AlignedVec;
+        ///
+        /// let source = (0..4096).map(|x| (x % 256) as u8).collect::<Vec<_>>();
+        /// let mut bytes = AlignedVec::new();
+        /// bytes.extend_from_reader(&mut source.as_slice()).unwrap();
+        ///
+        /// assert_eq!(bytes.len(), 4096);
+        /// assert_eq!(bytes[0], 0);
+        /// assert_eq!(bytes[100], 100);
+        /// assert_eq!(bytes[2945], 129);
+        /// ```
+        pub fn extend_from_reader<R: Read + ?Sized>(&mut self, r: &mut R) -> std::io::Result<usize> {
+            let start_len = self.len();
+            let start_cap = self.capacity();
+
+            // Extra initialized bytes from previous loop iteration.
+            let mut initialized = 0;
+            loop {
+                if self.len() == self.capacity() {
+                    // No available capacity, reserve some space.
+                    self.reserve(32);
+                }
+
+                let read_buf_start = unsafe { self.as_mut_ptr().add(self.len) };
+                let read_buf_len = self.capacity() - self.len();
+
+                // Initialize the uninitialized portion of the available space.
+                unsafe {
+                    // The first `initialized` bytes don't need to be zeroed.
+                    // This leaves us `read_buf_len - initialized` bytes to zero
+                    // starting at `initialized`.
+                    core::ptr::write_bytes(
+                        read_buf_start.add(initialized),
+                        0,
+                        read_buf_len - initialized,
+                    );
+                }
+
+                // The entire read buffer is now initialized, so we can create a
+                // mutable slice of it.
+                let read_buf = unsafe {
+                    core::slice::from_raw_parts_mut(
+                        read_buf_start,
+                        read_buf_len,
+                    )
+                };
+
+                match r.read(read_buf) {
+                    Ok(read) => {
+                        // We filled `read` additional bytes.
+                        unsafe {
+                            self.set_len(self.len() + read);
+                        }
+                        initialized = read_buf_len - read;
+
+                        if read == 0 {
+                            return Ok(self.len() - start_len);
+                        }
+                    }
+                    Err(e) if e.kind() == ErrorKind::Interrupted => continue,
+                    Err(e) => return Err(e),
+                }
+
+                if self.len() == self.capacity() && self.capacity() == start_cap {
+                    // The buffer might be an exact fit. Let's read into a probe buffer
+                    // and see if it returns `Ok(0)`. If so, we've avoided an
+                    // unnecessary doubling of the capacity. But if not, append the
+                    // probe buffer to the primary buffer and let its capacity grow.
+                    let mut probe = [0u8; 32];
+        
+                    loop {
+                        match r.read(&mut probe) {
+                            Ok(0) => return Ok(self.len() - start_len),
+                            Ok(n) => {
+                                self.extend_from_slice(&probe[..n]);
+                                break;
+                            }
+                            Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
+                            Err(e) => return Err(e),
+                        }
+                    }
+                }
+            }
+        }
+    }
+};
+
 impl From<AlignedVec> for Vec<u8> {
     #[inline]
     fn from(aligned: AlignedVec) -> Self {
