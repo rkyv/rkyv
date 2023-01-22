@@ -162,7 +162,7 @@ impl_tuple!(T, T, T, T, T, T, T, T, T, T, T,);
 
 unsafe impl<T: ArchiveCopySafe, const N: usize> ArchiveCopySafe for [T; N] {}
 
-/// Types that are may be copy optimized.
+/// Types that may be copy optimized.
 ///
 /// By default, only [`ArchiveCopySafe`] types may be copy optimized. By enabling the `copy_unsafe`
 /// feature, all types that are [`ArchiveCopy`] may be copy optimized.
@@ -173,7 +173,7 @@ pub trait ArchiveCopyOptimize: ArchiveCopySafe {}
 #[cfg(not(feature = "copy_unsafe"))]
 impl<T: ArchiveCopySafe> ArchiveCopyOptimize for T {}
 
-/// Types that are may be copy optimized.
+/// Types that may be copy optimized.
 ///
 /// By default, only [`ArchiveCopySafe`] types may be copy optimized. By enabling the `copy_unsafe`
 /// feature, all types that are [`ArchiveCopy`] may be copy optimized.
