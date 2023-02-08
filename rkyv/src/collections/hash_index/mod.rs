@@ -61,6 +61,9 @@ impl ArchivedHashIndex {
     /// index must be checked for equality.
     #[inline]
     pub fn index<K: Hash + ?Sized>(&self, k: &K) -> Option<usize> {
+        if self.len() == 0 {
+            return None;
+        }
         let mut hasher = self.hasher();
         k.hash(&mut hasher);
         let displace_index = hasher.finish() % self.len() as u64;
