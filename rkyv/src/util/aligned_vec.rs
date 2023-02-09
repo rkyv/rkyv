@@ -162,7 +162,14 @@ impl AlignedVec {
     #[inline]
     fn change_capacity(&mut self, new_cap: usize) {
         if new_cap != self.cap {
-            let new_ptr = unsafe { alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap) };
+            let new_ptr = unsafe {
+                if self.cap != 0 {
+                    alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap)
+                } else {
+                    let layout = alloc::Layout::from_size_align_unchecked(new_cap, Self::ALIGNMENT);
+                    alloc::alloc(layout)
+                }
+            };
             self.ptr = NonNull::new(new_ptr).unwrap();
             self.cap = new_cap;
         }
