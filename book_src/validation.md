@@ -9,8 +9,7 @@ To validate an archive, you first have to derive
 type:
 
 ```rs
-use bytecheck::CheckBytes;
-use rkyv::{Archive, Deserialize, Serialize};
+use rkyv::{Archive, CheckBytes, Deserialize, Serialize};
 
 #[derive(Archive, Deserialize, Serialize)]
 #[archive_attr(derive(CheckBytes))]
