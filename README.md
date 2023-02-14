@@ -54,7 +54,7 @@
 ```rust
 use rkyv::{Archive, Deserialize, Serialize};
 // bytecheck can be used to validate your data if you want
-use bytecheck::CheckBytes;
+use rkyv::CheckBytes;
 
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 // This will generate a PartialEq impl between our unarchived and archived types

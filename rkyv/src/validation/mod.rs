@@ -3,8 +3,7 @@
 pub mod owned;
 pub mod validators;
 
-use crate::{Archive, ArchivePointee, Fallible, RelPtr};
-use bytecheck::CheckBytes;
+use crate::{Archive, ArchivePointee, CheckBytes, Fallible, RelPtr};
 use core::{alloc::Layout, alloc::LayoutError, any::TypeId, fmt};
 use ptr_meta::Pointee;
 #[cfg(feature = "std")]
