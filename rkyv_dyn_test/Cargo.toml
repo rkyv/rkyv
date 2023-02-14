@@ -11,7 +11,7 @@ repository.workspace = true
 
 [dependencies]
 bytecheck = { workspace = true, optional = true }
-ptr_meta.worspace = true
+ptr_meta.workspace = true
 rkyv = { path = "../rkyv", default-features = false }
 rkyv_dyn = { path = "../rkyv_dyn", default-features = false }
 rkyv_typename = { path = "../rkyv_typename", default-features = false }

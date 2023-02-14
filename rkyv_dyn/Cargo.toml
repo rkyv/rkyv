@@ -13,7 +13,7 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytecheck = { workspace = true, optional = true, default-features = false }
+bytecheck = { workspace = true, optional = true }
 inventory = "0.1"
 lazy_static = "1.4"
 ptr_meta.workspace = true

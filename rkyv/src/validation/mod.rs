@@ -69,7 +69,7 @@ pub trait ArchiveContext: Fallible {
     ///
     /// # Safety
     ///
-    /// - `base` must be inside the archive this valiator was created for.
+    /// - `base` must be inside the archive this validator was created for.
     unsafe fn bounds_check_ptr(
         &mut self,
         base: *const u8,
