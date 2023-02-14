@@ -208,8 +208,37 @@ where
     }
 }
 
+/// The error type for `DynContext`.
+pub struct DynError {
+    inner: Box<dyn Error>,
+}
+
+impl From<Box<dyn Error>> for DynError {
+    fn from(inner: Box<dyn Error>) -> Self {
+        Self {
+            inner,
+        }
+    }
+}
+
+impl fmt::Display for DynError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+impl fmt::Debug for DynError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+impl Error for DynError {
+
+}
+
 impl Fallible for (dyn DynContext + '_) {
-    type Error = Box<dyn Error>;
+    type Error = DynError;
 }
 
 impl ArchiveContext for (dyn DynContext + '_) {
@@ -221,7 +250,7 @@ impl ArchiveContext for (dyn DynContext + '_) {
         base: *const u8,
         offset: isize,
     ) -> Result<*const u8, Self::Error> {
-        self.bounds_check_ptr_dyn(base, offset)
+        Ok(self.bounds_check_ptr_dyn(base, offset)?)
     }
 
     unsafe fn bounds_check_layout(
@@ -229,7 +258,7 @@ impl ArchiveContext for (dyn DynContext + '_) {
         data_address: *const u8,
         layout: &Layout,
     ) -> Result<(), Self::Error> {
-        self.bounds_check_layout_dyn(data_address, layout)
+        Ok(self.bounds_check_layout_dyn(data_address, layout)?)
     }
 
     unsafe fn bounds_check_subtree_ptr_layout(
@@ -237,7 +266,7 @@ impl ArchiveContext for (dyn DynContext + '_) {
         data_address: *const u8,
         layout: &Layout,
     ) -> Result<(), Self::Error> {
-        self.bounds_check_subtree_ptr_layout_dyn(data_address, layout)
+        Ok(self.bounds_check_subtree_ptr_layout_dyn(data_address, layout)?)
     }
 
     unsafe fn push_prefix_subtree_range(
@@ -245,11 +274,11 @@ impl ArchiveContext for (dyn DynContext + '_) {
         root: *const u8,
         end: *const u8,
     ) -> Result<Self::PrefixRange, Self::Error> {
-        self.push_prefix_subtree_range_dyn(root, end)
+        Ok(self.push_prefix_subtree_range_dyn(root, end)?)
     }
 
     fn pop_prefix_range(&mut self, range: Self::PrefixRange) -> Result<(), Self::Error> {
-        self.pop_prefix_range_dyn(range)
+        Ok(self.pop_prefix_range_dyn(range)?)
     }
 
     unsafe fn push_suffix_subtree_range(
@@ -257,18 +286,20 @@ impl ArchiveContext for (dyn DynContext + '_) {
         start: *const u8,
         root: *const u8,
     ) -> Result<Self::SuffixRange, Self::Error> {
-        self.push_suffix_subtree_range_dyn(start, root)
+        Ok(self.push_suffix_subtree_range_dyn(start, root)?)
     }
 
     fn pop_suffix_range(&mut self, range: Self::SuffixRange) -> Result<(), Self::Error> {
-        self.pop_suffix_range_dyn(range)
+        Ok(self.pop_suffix_range_dyn(range)?)
     }
 
     fn wrap_layout_error(layout_error: core::alloc::LayoutError) -> Self::Error {
-        Box::new(layout_error) as Box<dyn Error>
+        DynError {
+            inner: Box::new(layout_error) as Box<dyn Error>,
+        }
     }
     fn finish(&mut self) -> Result<(), Self::Error> {
-        self.finish_dyn()
+        Ok(self.finish_dyn()?)
     }
 }
 
@@ -277,8 +308,8 @@ impl SharedContext for (dyn DynContext + '_) {
         &mut self,
         ptr: *const u8,
         type_id: TypeId,
-    ) -> Result<bool, Box<dyn Error>> {
-        self.register_shared_ptr_dyn(ptr, type_id)
+    ) -> Result<bool, DynError> {
+        Ok(self.register_shared_ptr_dyn(ptr, type_id)?)
     }
 }
 
