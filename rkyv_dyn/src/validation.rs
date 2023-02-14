@@ -28,7 +28,7 @@ pub trait DynContext {
     ///
     /// # Safety
     ///
-    /// - `base` must be inside the archive this valiator was created for.
+    /// - `base` must be inside the archive this validator was created for.
     ///
     /// [`bounds_check_ptr`]: rkyv::validation::ArchiveContext::bounds_check_ptr
     unsafe fn bounds_check_ptr_dyn(

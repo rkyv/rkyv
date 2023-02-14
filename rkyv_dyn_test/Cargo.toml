@@ -1,21 +1,21 @@
 [package]
 name = "rkyv_dyn_test"
-version = "0.7.0"
-authors = ["David Koloski <djkoloski@gmail.com>"]
-edition = "2018"
 description = "Test suit for rkyv_dyn"
-license = "MIT"
-repository = "https://github.com/rkyv/rkyv"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytecheck = { version = "0.6", optional = true }
-ptr_meta = "~0.1.3"
+bytecheck = { workspace = true, optional = true }
+ptr_meta.workspace = true
 rkyv = { path = "../rkyv", default-features = false }
 rkyv_dyn = { path = "../rkyv_dyn", default-features = false }
 rkyv_typename = { path = "../rkyv_typename", default-features = false }
-wasm-bindgen-test = { version = "0.3", optional = true }
+wasm-bindgen-test = { workspace = true, optional = true }
 
 [features]
 default = ["rkyv/size_32", "rkyv/std", "validation"]

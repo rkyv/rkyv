@@ -13,3 +13,18 @@ default-members = [
     "rkyv_test",
     "rkyv_typename",
 ]
+[workspace.package]
+version = "0.7.40"
+authors = ["David Koloski <djkoloski@gmail.com>"]
+edition = "2021"
+license = "MIT"
+documentation = "https://docs.rs/rkyv"
+repository = "https://github.com/rkyv/rkyv"
+
+[workspace.dependencies]
+bytecheck = "~0.6.8"
+proc-macro2 = "1.0"
+ptr_meta = "~0.1.3"
+quote = "1.0"
+syn = "1.0"
+wasm-bindgen-test = "0.3"
