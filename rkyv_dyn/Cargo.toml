@@ -1,6 +1,6 @@
 [package]
 name = "rkyv_dyn"
-version = "0.7.39"
+version = "0.7.40"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2018"
 description = "Trait object support for rkyv"
@@ -19,7 +19,7 @@ inventory = "0.1"
 lazy_static = "1.4"
 ptr_meta = "~0.1.3"
 rkyv = { version = "0.7", path = "../rkyv", default-features = false }
-rkyv_dyn_derive = { version = "=0.7.39", path = "../rkyv_dyn_derive" }
+rkyv_dyn_derive = { version = "=0.7.40", path = "../rkyv_dyn_derive" }
 rkyv_typename = { version = "0.7", path = "../rkyv_typename" }
 
 [features]
