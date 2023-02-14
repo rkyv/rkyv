@@ -61,8 +61,17 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
         value: &U,
         serializer: &mut S,
     ) -> Result<RcResolver<MetadataResolver<U>>, S::Error> {
+        let pos = serializer.serialize_shared(value)?;
+
+        // The positions of serialized `Rc` values must be unique. If we didn't
+        // write any data by serializing `value`, pad the serializer by a byte
+        // to ensure that our position will be unique.
+        if serializer.pos() == pos {
+            serializer.pad(1)?;
+        }
+
         Ok(RcResolver {
-            pos: serializer.serialize_shared(value)?,
+            pos,
             metadata_resolver: value.serialize_metadata(serializer)?,
         })
     }

@@ -877,6 +877,27 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_unsized_shared_ptr_empty() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        struct Test {
+            a: Rc<[u32]>,
+            b: Rc<[u32]>,
+        }
+
+        let a_rc_slice = Rc::<[u32]>::from(vec![].into_boxed_slice());
+        let b_rc_slice = Rc::<[u32]>::from(vec![100].into_boxed_slice());
+        let value = Test {
+            a: a_rc_slice,
+            b: b_rc_slice.clone(),
+        };
+
+        test_archive(&value);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_weak_ptr() {
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
