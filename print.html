@@ -700,8 +700,7 @@ consumption of untrusted and malicious data.</p>
 <p>To validate an archive, you first have to derive
 <a href="https://docs.rs/bytecheck/latest/bytecheck/trait.CheckBytes.html"><code>CheckBytes</code></a> for your archived
 type:</p>
-<pre><code class="language-rs">use bytecheck::CheckBytes;
-use rkyv::{Archive, Deserialize, Serialize};
+<pre><code class="language-rs">use rkyv::{Archive, CheckBytes, Deserialize, Serialize};
 
 #[derive(Archive, Deserialize, Serialize)]
 #[archive_attr(derive(CheckBytes))]
