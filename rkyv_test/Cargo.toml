@@ -1,11 +1,12 @@
 [package]
 name = "rkyv_test"
 description = "Test suite for rkyv crates"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-license.workspace = true
-repository.workspace = true
+version = "0.7.40"
+authors = ["David Koloski <djkoloski@gmail.com>"]
+edition = "2021"
+license = "MIT"
+documentation = "https://docs.rs/rkyv"
+repository = "https://github.com/rkyv/rkyv"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
