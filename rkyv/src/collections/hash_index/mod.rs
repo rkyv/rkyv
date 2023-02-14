@@ -61,7 +61,7 @@ impl ArchivedHashIndex {
     /// index must be checked for equality.
     #[inline]
     pub fn index<K: Hash + ?Sized>(&self, k: &K) -> Option<usize> {
-        if self.len() == 0 {
+        if self.is_empty() {
             return None;
         }
         let mut hasher = self.hasher();

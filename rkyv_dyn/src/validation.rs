@@ -215,9 +215,7 @@ pub struct DynError {
 
 impl From<Box<dyn Error>> for DynError {
     fn from(inner: Box<dyn Error>) -> Self {
-        Self {
-            inner,
-        }
+        Self { inner }
     }
 }
 
@@ -233,9 +231,7 @@ impl fmt::Debug for DynError {
     }
 }
 
-impl Error for DynError {
-
-}
+impl Error for DynError {}
 
 impl Fallible for (dyn DynContext + '_) {
     type Error = DynError;
@@ -304,11 +300,7 @@ impl ArchiveContext for (dyn DynContext + '_) {
 }
 
 impl SharedContext for (dyn DynContext + '_) {
-    fn register_shared_ptr(
-        &mut self,
-        ptr: *const u8,
-        type_id: TypeId,
-    ) -> Result<bool, DynError> {
+    fn register_shared_ptr(&mut self, ptr: *const u8, type_id: TypeId) -> Result<bool, DynError> {
         Ok(self.register_shared_ptr_dyn(ptr, type_id)?)
     }
 }

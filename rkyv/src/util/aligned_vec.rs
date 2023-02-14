@@ -19,7 +19,7 @@ use std::{alloc, io};
 
 /// A vector of bytes that aligns its memory to 16 bytes.
 ///
-/// The alignment also applies to [`ArchivedAlignedVec`], which is useful for aligning opaque bytes inside of an archived data
+/// The alignment also applies to `ArchivedAlignedVec`, which is useful for aligning opaque bytes inside of an archived data
 /// type.
 ///
 /// ```
@@ -632,7 +632,10 @@ const _: () = {
         /// assert_eq!(bytes[100], 100);
         /// assert_eq!(bytes[2945], 129);
         /// ```
-        pub fn extend_from_reader<R: Read + ?Sized>(&mut self, r: &mut R) -> std::io::Result<usize> {
+        pub fn extend_from_reader<R: Read + ?Sized>(
+            &mut self,
+            r: &mut R,
+        ) -> std::io::Result<usize> {
             let start_len = self.len();
             let start_cap = self.capacity();
 
@@ -661,12 +664,8 @@ const _: () = {
 
                 // The entire read buffer is now initialized, so we can create a
                 // mutable slice of it.
-                let read_buf = unsafe {
-                    core::slice::from_raw_parts_mut(
-                        read_buf_start,
-                        read_buf_len,
-                    )
-                };
+                let read_buf =
+                    unsafe { core::slice::from_raw_parts_mut(read_buf_start, read_buf_len) };
 
                 match r.read(read_buf) {
                     Ok(read) => {
@@ -690,7 +689,7 @@ const _: () = {
                     // unnecessary doubling of the capacity. But if not, append the
                     // probe buffer to the primary buffer and let its capacity grow.
                     let mut probe = [0u8; 32];
-        
+
                     loop {
                         match r.read(&mut probe) {
                             Ok(0) => return Ok(self.len() - start_len),

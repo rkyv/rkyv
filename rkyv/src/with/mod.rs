@@ -274,7 +274,7 @@ const _: () = {
     }
 };
 
-/// A generic wrapper that allows wrapping an Option<T>.
+/// A generic wrapper that allows wrapping an `Option<T>`.
 ///
 /// # Example
 ///

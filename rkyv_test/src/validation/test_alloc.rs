@@ -551,9 +551,8 @@ mod tests {
             owned::OwnedPointerError, validators::CheckDeserializeError, CheckArchiveError,
         };
 
-        let data = AlignedBytes([0x0b; 8]);
+        let data = AlignedBytes([0x10; 16]);
         let e = rkyv::from_bytes::<String>(&data.0).unwrap_err();
-        dbg!(&e);
         assert!(matches!(
             e,
             CheckDeserializeError::CheckBytesError(CheckArchiveError::CheckBytesError(

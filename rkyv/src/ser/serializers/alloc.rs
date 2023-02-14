@@ -129,7 +129,7 @@ impl<const N: usize> HeapScratch<N> {
             }
         } else {
             Self {
-                inner: BufferScratch::new(Box::new(AlignedBytes::default())),
+                inner: BufferScratch::new(Box::default()),
             }
         }
     }

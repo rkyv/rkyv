@@ -241,7 +241,7 @@ impl<M> BoxResolver<M> {
     /// - `metadata_resolver`: You must also ensure that the given `metadata_resolver` can be used to successfully produce
     /// valid [`<T as ArchivePointee>::ArchivedMetadata`] for that serialized `T`. This means it must either be:
     ///     - The necessary [`<T as ArchivePointee>::ArchivedMetadata`] itself, in which case you may use the created
-    /// [`BoxResolver<<T as ArchivePointee>::ArchivedMetadta>`] as a resolver in [`ArchivedBox::resolve_from_raw_parts`]
+    /// `BoxResolver<<T as ArchivePointee>::ArchivedMetadata>` as a resolver in [`ArchivedBox::resolve_from_raw_parts`]
     ///     - An [`ArchiveUnsized::MetadataResolver`] obtained from some `value: &U` where `U: ArchiveUnsized<Archived = T>`, in which case you
     /// must pass that same `value: &U` into [`ArchivedBox::resolve_from_ref`] along with this [`BoxResolver`].
     ///
