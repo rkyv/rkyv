@@ -180,6 +180,41 @@ impl PartialEq<ArchivedString> for &str {
     }
 }
 
+impl PartialEq<ArchivedString> for str {
+    #[inline]
+    fn eq(&self, other: &ArchivedString) -> bool {
+        PartialEq::eq(other.as_str(), self)
+    }
+}
+
+impl PartialOrd<&str> for ArchivedString {
+    #[inline]
+    fn partial_cmp(&self, other: &&str) -> Option<cmp::Ordering> {
+        self.as_str().partial_cmp(*other)
+    }
+}
+
+impl PartialOrd<str> for ArchivedString {
+    #[inline]
+    fn partial_cmp(&self, other: &str) -> Option<cmp::Ordering> {
+        self.as_str().partial_cmp(other)
+    }
+}
+
+impl PartialOrd<ArchivedString> for &str {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedString) -> Option<cmp::Ordering> {
+        self.partial_cmp(&other.as_str())
+    }
+}
+
+impl PartialOrd<ArchivedString> for str {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedString) -> Option<cmp::Ordering> {
+        self.partial_cmp(other.as_str())
+    }
+}
+
 /// The resolver for `String`.
 pub struct StringResolver {
     pos: usize,
