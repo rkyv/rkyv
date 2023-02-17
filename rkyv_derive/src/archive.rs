@@ -8,7 +8,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
     parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Field, Fields, Ident,
-    Index, Meta, NestedMeta, Type,
+    Index, LitStr, Meta, NestedMeta, Type,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -55,10 +55,26 @@ fn derive_archive_impl(
     let with_ty = make_with_ty(rkyv_path);
     let with_cast = make_with_cast(rkyv_path);
 
-    let archive_attrs = attributes
-        .attrs
-        .iter()
-        .map::<Attribute, _>(|d| parse_quote! { #[#d] });
+    let derive_check_bytes = if attributes.check_bytes.is_some() {
+        let bytecheck_path_str = attributes
+            .rkyv_path_str
+            .as_ref()
+            .map(|x| LitStr::new(&format!("{}::bytecheck", x.value()), x.span()))
+            .unwrap_or_else(|| parse_quote!("::rkyv::bytecheck"));
+        vec![
+            parse_quote! { #[derive(#rkyv_path::bytecheck::CheckBytes)] },
+            parse_quote! { #[check_bytes(crate = #bytecheck_path_str)] },
+        ]
+    } else {
+        Vec::new()
+    };
+
+    let archive_attrs = derive_check_bytes.into_iter().chain(
+        attributes
+            .attrs
+            .iter()
+            .map::<Attribute, _>(|d| parse_quote! { #[#d] }),
+    );
 
     if let Some(ref archive_as) = attributes.archive_as {
         if let Some(ref ident) = attributes.archived {

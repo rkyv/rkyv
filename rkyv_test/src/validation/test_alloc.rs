@@ -10,10 +10,9 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bytecheck::CheckBytes;
     use rkyv::{
         check_archived_root, check_archived_value, ser::Serializer, AlignedBytes, Archive,
-        Deserialize, Infallible, Serialize,
+        CheckBytes, Deserialize, Infallible, Serialize,
     };
     #[cfg(feature = "std")]
     use std::{
@@ -213,8 +212,8 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn cycle_detection() {
-        use bytecheck::Error;
         use core::fmt;
+        use rkyv::bytecheck::Error;
 
         use rkyv::{validation::ArchiveContext, Archived};
 
@@ -303,7 +302,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn derive_unit_struct() {
         #[derive(Archive, Serialize)]
-        #[archive_attr(derive(CheckBytes))]
+        #[archive(check_bytes)]
         struct Test;
 
         serialize_and_check(&Test);
@@ -313,7 +312,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn derive_struct() {
         #[derive(Archive, Serialize)]
-        #[archive_attr(derive(CheckBytes))]
+        #[archive(check_bytes)]
         struct Test {
             a: u32,
             b: String,
@@ -331,7 +330,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn derive_tuple_struct() {
         #[derive(Archive, Serialize)]
-        #[archive_attr(derive(CheckBytes))]
+        #[archive(check_bytes)]
         struct Test(u32, String, Box<Vec<String>>);
 
         serialize_and_check(&Test(
@@ -345,7 +344,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn derive_enum() {
         #[derive(Archive, Serialize)]
-        #[archive_attr(derive(CheckBytes))]
+        #[archive(check_bytes)]
         enum Test {
             A(u32),
             B(String),
@@ -367,9 +366,9 @@ mod tests {
         // The derive macros don't apply the right bounds from Box so we have to manually specify
         // what bounds to apply
         #[archive(bound(serialize = "__S: Serializer", deserialize = "__D: Deserializer"))]
-        #[archive_attr(derive(CheckBytes))]
+        #[archive(check_bytes)]
         #[archive_attr(check_bytes(
-            bound = "__C: ::rkyv::validation::ArchiveContext, <__C as ::rkyv::Fallible>::Error: ::bytecheck::Error"
+            bound = "__C: ::rkyv::validation::ArchiveContext, <__C as ::rkyv::Fallible>::Error: ::rkyv::bytecheck::Error"
         ))]
         enum Node {
             Nil,
@@ -387,7 +386,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_shared_ptr() {
         #[derive(Archive, Serialize, Eq, PartialEq)]
-        #[archive_attr(derive(CheckBytes))]
+        #[archive(check_bytes)]
         struct Test {
             a: Rc<u32>,
             b: Rc<u32>,
@@ -478,7 +477,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn b_tree_struct_member() {
         #[derive(Archive, Serialize, Deserialize, Debug, Default)]
-        #[archive_attr(derive(CheckBytes))]
+        #[archive(check_bytes)]
         pub struct MyType {
             pub some_list: BTreeMap<String, Vec<f32>>,
             pub values: Vec<f32>,

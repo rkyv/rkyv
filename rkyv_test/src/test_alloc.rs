@@ -106,15 +106,14 @@ mod tests {
         #[allow(unused_variables)]
         #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
         fn archive_example() {
+            // CheckBytes from bytecheck can be used to validate your data, if you want
             use rkyv::{Archive, Deserialize, Serialize};
-            // bytecheck can be used to validate your data if you want
-            use bytecheck::CheckBytes;
 
             #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
             // This will generate a PartialEq impl between our unarchived and archived types
-            #[archive(compare(PartialEq))]
             // To use the safe API, you have to derive CheckBytes for the archived type
-            #[archive_attr(derive(CheckBytes, Debug))]
+            #[archive(check_bytes, compare(PartialEq))]
+            #[archive_attr(derive(Debug))]
             struct Test {
                 int: u8,
                 string: String,
