@@ -185,6 +185,21 @@ impl<T: PartialEq<U>, U> PartialEq<ArchivedOption<T>> for Option<U> {
     }
 }
 
+impl<T> From<T> for ArchivedOption<T> {
+    /// Moves `val` into a new [`Some`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let o: ArchivedOption<u8> = ArchivedOption::from(67);
+    ///
+    /// assert_eq!(Some(67), o);
+    /// ```
+    fn from(val: T) -> ArchivedOption<T> {
+        ArchivedOption::Some(val)
+    }
+}
+
 /// An iterator over a reference to the `Some` variant of an `ArchivedOption`.
 ///
 /// This iterator yields one value if the `ArchivedOption` is a `Some`, otherwise none.
