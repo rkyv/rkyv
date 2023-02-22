@@ -56,7 +56,7 @@ use std::{collections::HashMap, fmt};
 // With those two changes, our recursive type can be validated with `check_archived_root`!
 #[archive(check_bytes)]
 #[archive_attr(check_bytes(
-    bound = "__C: rkyv::validation::ArchiveContext, <__C as rkyv::Fallible>::Error: std::error::Error"
+    bound = "__C: rkyv::validation::ArchiveContext, <__C as rkyv::Fallible>::Error: rkyv::bytecheck::Error"
 ))]
 pub enum JsonValue {
     Null,

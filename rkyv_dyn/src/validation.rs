@@ -317,14 +317,15 @@ impl fmt::Display for CheckBytesUnimplemented {
 
 impl Error for CheckBytesUnimplemented {}
 
-type CheckBytesDyn = unsafe fn(*const u8, &mut dyn DynContext) -> Result<(), Box<dyn Error>>;
+type CheckBytesDyn =
+    unsafe fn(*const u8, &mut dyn DynContext) -> Result<(), Box<dyn Error + Send + Sync>>;
 
 // This is the fallback function that gets called if the archived type doesn't implement CheckBytes.
 #[inline]
 unsafe fn check_bytes_dyn_unimplemented(
     _bytes: *const u8,
     _context: &mut dyn DynContext,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     Err(Box::new(CheckBytesUnimplemented).into())
 }
 
@@ -346,7 +347,7 @@ impl<T: for<'a> CheckBytes<dyn DynContext + 'a>> IsCheckBytesDyn<T> {
     unsafe fn check_bytes_dyn(
         bytes: *const u8,
         context: &mut dyn DynContext,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         T::check_bytes(bytes.cast(), context)?;
         Ok(())
     }
@@ -453,7 +454,7 @@ pub enum CheckDynError {
     /// The pointer metadata did not match any registered impl
     InvalidMetadata(u64),
     /// An error occurred while checking the bytes of the trait object
-    CheckBytes(Box<dyn Error>),
+    CheckBytes(Box<dyn Error + Send + Sync>),
 }
 
 impl fmt::Display for CheckDynError {
@@ -474,8 +475,8 @@ impl Error for CheckDynError {
     }
 }
 
-impl From<Box<dyn Error>> for CheckDynError {
-    fn from(e: Box<dyn Error>) -> Self {
+impl From<Box<dyn Error + Send + Sync>> for CheckDynError {
+    fn from(e: Box<dyn Error + Send + Sync>) -> Self {
         Self::CheckBytes(e)
     }
 }
