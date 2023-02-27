@@ -69,6 +69,13 @@ impl AlignedVec {
     /// The alignment of the vector
     pub const ALIGNMENT: usize = 16;
 
+    /// Maximum capacity of the vector.
+    /// Dictated by the requirements of
+    /// [`alloc::Layout`](https://doc.rust-lang.org/alloc/alloc/struct.Layout.html).
+    /// "`size`, when rounded up to the nearest multiple of `align`, must not overflow `isize`
+    /// (i.e. the rounded value must be less than or equal to `isize::MAX`)".
+    pub const MAX_CAPACITY: usize = isize::MAX as usize - (Self::ALIGNMENT - 1);
+
     /// Constructs a new, empty `AlignedVec`.
     ///
     /// The vector will not allocate until elements are pushed into it.
@@ -120,6 +127,10 @@ impl AlignedVec {
         if capacity == 0 {
             Self::new()
         } else {
+            assert!(
+                capacity <= Self::MAX_CAPACITY,
+                "`capacity` cannot exceed isize::MAX - 15"
+            );
             let ptr = unsafe {
                 alloc::alloc(alloc::Layout::from_size_align_unchecked(
                     capacity,
@@ -159,20 +170,21 @@ impl AlignedVec {
         self.len = 0;
     }
 
+    /// Change capacity of vector.
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure `new_cap` is not greater than `Self::MAX_CAPACITY`.
     #[inline]
-    fn change_capacity(&mut self, new_cap: usize) {
-        if new_cap != self.cap {
-            let new_ptr = unsafe {
-                if self.cap != 0 {
-                    alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap)
-                } else {
-                    let layout = alloc::Layout::from_size_align_unchecked(new_cap, Self::ALIGNMENT);
-                    alloc::alloc(layout)
-                }
-            };
-            self.ptr = NonNull::new(new_ptr).unwrap();
-            self.cap = new_cap;
-        }
+    unsafe fn change_capacity(&mut self, new_cap: usize) {
+        let new_ptr = if self.cap != 0 {
+            alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap)
+        } else {
+            let layout = alloc::Layout::from_size_align_unchecked(new_cap, Self::ALIGNMENT);
+            alloc::alloc(layout)
+        };
+        self.ptr = NonNull::new(new_ptr).unwrap();
+        self.cap = new_cap;
     }
 
     /// Shrinks the capacity of the vector as much as possible.
@@ -189,13 +201,16 @@ impl AlignedVec {
     /// assert_eq!(vec.capacity(), 10);
     /// vec.shrink_to_fit();
     /// assert!(vec.capacity() >= 3);
+    ///
+    /// vec.clear();
+    /// vec.shrink_to_fit();
+    /// assert!(vec.capacity() == 0);
     /// ```
     #[inline]
     pub fn shrink_to_fit(&mut self) {
-        if self.len == 0 {
-            self.clear()
-        } else {
-            self.change_capacity(self.len);
+        if self.cap != self.len {
+            // New capacity cannot exceed max as it's shrinking
+            unsafe { self.change_capacity(self.len) };
         }
     }
 
@@ -321,7 +336,7 @@ impl AlignedVec {
     ///
     /// # Panics
     ///
-    /// Panics if the new capacity exceeds `usize::MAX` bytes.
+    /// Panics if the new capacity exceeds `isize::MAX - 15` bytes.
     ///
     /// # Examples
     /// ```
@@ -334,34 +349,45 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
-        let new_cap = self.len + additional;
+        let new_cap = self
+            .len
+            .checked_add(additional)
+            .expect("cannot reserve a larger AlignedVec");
         if new_cap > self.cap {
-            let new_cap = new_cap
-                .checked_next_power_of_two()
-                .expect("cannot reserve a larger AlignedVec");
-            if self.cap == 0 {
-                let new_ptr = unsafe {
-                    alloc::alloc(alloc::Layout::from_size_align_unchecked(
-                        new_cap,
-                        Self::ALIGNMENT,
-                    ))
-                };
-                self.ptr = NonNull::new(new_ptr).unwrap();
-                self.cap = new_cap;
-            } else {
-                let new_ptr = unsafe { alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap) };
-                self.ptr = NonNull::new(new_ptr).unwrap();
-                self.cap = new_cap;
-            }
+            let new_cap = Self::get_new_capacity(new_cap);
+            // `get_new_capacity()` ensures `new_cap` does not exceed max
+            unsafe { self.change_capacity(new_cap) };
         }
     }
+
+    /// Calculate new capacity to use when capacity `cap` requested.
+    /// Panics if requested capacity exceeds maximum.
+    /// Rounds up to next power of 2, unless that would exceed max capacity,
+    /// in which case caps the capacity at the max.
+    /// Capacity returned is guaranteed not to exceed maximum.
+    #[inline]
+    fn get_new_capacity(cap: usize) -> usize {
+        if cap > (isize::MAX as usize + 1) >> 1 {
+            // Rounding up to next power of 2 would result in `isize::MAX + 1` or higher,
+            // which exceeds max capacity. So cap at max instead.
+            assert!(
+                cap <= Self::MAX_CAPACITY,
+                "cannot reserve a larger AlignedVec"
+            );
+            Self::MAX_CAPACITY
+        } else {
+            // Cannot overflow due to check above
+            cap.next_power_of_two()
+        }
+    }
+
     /// Resizes the Vec in-place so that len is equal to new_len.
     ///
     /// If new_len is greater than len, the Vec is extended by the difference, with each additional slot filled with value. If new_len is less than len, the Vec is simply truncated.
     ///
     /// # Panics
     ///
-    /// Panics if the new length exceeds `usize::MAX` bytes.
+    /// Panics if the new length exceeds `isize::MAX - 15` bytes.
     ///
     /// # Examples
     /// ```
@@ -477,7 +503,7 @@ impl AlignedVec {
     ///
     /// # Panics
     ///
-    /// Panics if the new capacity exceeds `usize::MAX` bytes.
+    /// Panics if the new capacity exceeds `isize::MAX - 15` bytes.
     ///
     /// # Examples
     /// ```
@@ -507,7 +533,7 @@ impl AlignedVec {
     ///
     /// # Panics
     ///
-    /// Panics if the new capacity overflows `usize`.
+    /// Panics if the new capacity overflows `isize::MAX - 15`.
     ///
     /// # Examples
     /// ```
@@ -523,9 +549,10 @@ impl AlignedVec {
         let new_cap = self
             .len
             .checked_add(additional)
-            .and_then(|n| n.checked_next_power_of_two())
             .expect("reserve amount overflowed");
-        self.change_capacity(new_cap);
+        let new_cap = Self::get_new_capacity(new_cap);
+        // `get_new_capacity()` ensures `new_cap` does not exceed max
+        unsafe { self.change_capacity(new_cap) };
     }
 
     /// Forces the length of the vector to `new_len`.
