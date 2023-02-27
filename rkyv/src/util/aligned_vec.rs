@@ -189,14 +189,14 @@ impl AlignedVec {
     /// assert_eq!(vec.capacity(), 10);
     /// vec.shrink_to_fit();
     /// assert!(vec.capacity() >= 3);
+    ///
+    /// vec.clear();
+    /// vec.shrink_to_fit();
+    /// assert!(vec.capacity() == 0);
     /// ```
     #[inline]
     pub fn shrink_to_fit(&mut self) {
-        if self.len == 0 {
-            self.clear()
-        } else {
-            self.change_capacity(self.len);
-        }
+        self.change_capacity(self.len);
     }
 
     /// Returns an unsafe mutable pointer to the vector's buffer.
