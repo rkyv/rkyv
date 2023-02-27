@@ -354,30 +354,22 @@ impl AlignedVec {
             .checked_add(additional)
             .expect("cannot reserve a larger AlignedVec");
         if new_cap > self.cap {
-            let new_cap = Self::get_new_capacity(new_cap);
-            // `get_new_capacity()` ensures `new_cap` does not exceed max
+            // Round capacity up to next power of 2, unless that would exceed max capacity,
+            // in which case cap the capacity at the max
+            let new_cap = if new_cap > (isize::MAX as usize + 1) >> 1 {
+                // Rounding up to next power of 2 would result in `isize::MAX + 1` or higher,
+                // which exceeds max capacity. So cap at max instead.
+                assert!(
+                    new_cap <= Self::MAX_CAPACITY,
+                    "cannot reserve a larger AlignedVec"
+                );
+                Self::MAX_CAPACITY
+            } else {
+                // Cannot overflow due to check above
+                new_cap.next_power_of_two()
+            };
+            // Above checks ensure `new_cap` does not exceed max
             unsafe { self.change_capacity(new_cap) };
-        }
-    }
-
-    /// Calculate new capacity to use when capacity `cap` requested.
-    /// Panics if requested capacity exceeds maximum.
-    /// Rounds up to next power of 2, unless that would exceed max capacity,
-    /// in which case caps the capacity at the max.
-    /// Capacity returned is guaranteed not to exceed maximum.
-    #[inline]
-    fn get_new_capacity(cap: usize) -> usize {
-        if cap > (isize::MAX as usize + 1) >> 1 {
-            // Rounding up to next power of 2 would result in `isize::MAX + 1` or higher,
-            // which exceeds max capacity. So cap at max instead.
-            assert!(
-                cap <= Self::MAX_CAPACITY,
-                "cannot reserve a larger AlignedVec"
-            );
-            Self::MAX_CAPACITY
-        } else {
-            // Cannot overflow due to check above
-            cap.next_power_of_two()
         }
     }
 
@@ -549,10 +541,14 @@ impl AlignedVec {
         let new_cap = self
             .len
             .checked_add(additional)
-            .expect("reserve amount overflowed");
-        let new_cap = Self::get_new_capacity(new_cap);
-        // `get_new_capacity()` ensures `new_cap` does not exceed max
-        unsafe { self.change_capacity(new_cap) };
+            .expect("cannot reserve a larger AlignedVec");
+        if new_cap > self.cap {
+            assert!(
+                new_cap <= Self::MAX_CAPACITY,
+                "cannot reserve a larger AlignedVec"
+            );
+            unsafe { self.change_capacity(new_cap) };
+        }
     }
 
     /// Forces the length of the vector to `new_len`.
