@@ -174,7 +174,7 @@ pub use rend;
 
 #[cfg(feature = "validation")]
 #[cfg_attr(doc_cfg, doc(cfg(feature = "validation")))]
-pub use bytecheck::CheckBytes;
+pub use bytecheck::{self, CheckBytes};
 use core::alloc::Layout;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};

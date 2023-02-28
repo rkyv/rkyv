@@ -13,8 +13,10 @@ pub struct Attributes {
     pub archive_bound: Option<LitStr>,
     pub serialize_bound: Option<LitStr>,
     pub deserialize_bound: Option<LitStr>,
+    pub check_bytes: Option<Path>,
     pub copy_safe: Option<Path>,
     pub rkyv_path: Option<Path>,
+    pub rkyv_path_str: Option<LitStr>,
 }
 
 fn try_set_attribute<T: ToTokens>(
@@ -36,7 +38,9 @@ fn try_set_attribute<T: ToTokens>(
 fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<(), Error> {
     match meta {
         Meta::Path(path) => {
-            if path.is_ident("copy_safe") {
+            if path.is_ident("check_bytes") {
+                try_set_attribute(&mut attributes.check_bytes, path.clone(), "check_bytes")
+            } else if path.is_ident("copy_safe") {
                 try_set_attribute(&mut attributes.copy_safe, path.clone(), "copy_safe")
             } else {
                 Err(Error::new_spanned(meta, "unrecognized archive argument"))
@@ -145,7 +149,9 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                     let stream = syn::parse_str(&lit_str.value())?;
                     let tokens = crate::serde::respan::respan(stream, lit_str.span());
                     let path = syn::parse2(tokens)?;
-                    try_set_attribute(&mut attributes.rkyv_path, path, "crate")
+                    try_set_attribute(&mut attributes.rkyv_path, path, "crate")?;
+                    attributes.rkyv_path_str = Some(lit_str.clone());
+                    Ok(())
                 } else {
                     Err(Error::new_spanned(meta, "crate must be a string"))
                 }
@@ -202,5 +208,6 @@ pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
             }
         }
     }
+
     Ok(result)
 }

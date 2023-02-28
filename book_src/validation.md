@@ -9,10 +9,10 @@ To validate an archive, you first have to derive
 type:
 
 ```rs
-use rkyv::{Archive, CheckBytes, Deserialize, Serialize};
+use rkyv::{Archive, Deserialize, Serialize};
 
 #[derive(Archive, Deserialize, Serialize)]
-#[archive_attr(derive(CheckBytes))]
+#[archive(check_bytes)]
 pub struct Example {
     a: i32,
     b: String,
@@ -20,8 +20,7 @@ pub struct Example {
 }
 ```
 
-The `#[archive_attr(...)]` attribute applies the provided attributes to the archived type. Finally,
-you can use
+The `#[archive(check_bytes)]` attribute derives `CheckBytes` on the archived type. Finally, you can use
 [`check_archived_root`](https://docs.rs/rkyv/0.7.1/rkyv/validation/validators/fn.check_archived_root.html) to
 check an archive and get a reference to the archived value if it was successful:
 
