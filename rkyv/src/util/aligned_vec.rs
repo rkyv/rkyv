@@ -132,13 +132,15 @@ impl AlignedVec {
                 "`capacity` cannot exceed isize::MAX - 15"
             );
             let ptr = unsafe {
-                alloc::alloc(alloc::Layout::from_size_align_unchecked(
-                    capacity,
-                    Self::ALIGNMENT,
-                ))
+                let layout = alloc::Layout::from_size_align_unchecked(capacity, Self::ALIGNMENT);
+                let ptr = alloc::alloc(layout);
+                if ptr.is_null() {
+                    alloc::handle_alloc_error(layout);
+                }
+                NonNull::new_unchecked(ptr)
             };
             Self {
-                ptr: NonNull::new(ptr).unwrap(),
+                ptr,
                 cap: capacity,
                 len: 0,
             }
@@ -178,12 +180,23 @@ impl AlignedVec {
     #[inline]
     unsafe fn change_capacity(&mut self, new_cap: usize) {
         let new_ptr = if self.cap != 0 {
-            alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap)
+            let new_ptr = alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap);
+            if new_ptr.is_null() {
+                alloc::handle_alloc_error(alloc::Layout::from_size_align_unchecked(
+                    new_cap,
+                    Self::ALIGNMENT,
+                ));
+            }
+            new_ptr
         } else {
             let layout = alloc::Layout::from_size_align_unchecked(new_cap, Self::ALIGNMENT);
-            alloc::alloc(layout)
+            let new_ptr = alloc::alloc(layout);
+            if new_ptr.is_null() {
+                alloc::handle_alloc_error(layout);
+            }
+            new_ptr
         };
-        self.ptr = NonNull::new(new_ptr).unwrap();
+        self.ptr = NonNull::new_unchecked(new_ptr);
         self.cap = new_cap;
     }
 
