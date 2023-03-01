@@ -176,7 +176,8 @@ impl AlignedVec {
     ///
     /// # Safety
     ///
-    /// Caller must ensure `new_cap` is not greater than `Self::MAX_CAPACITY`.
+    /// - `new_cap` must be less than or equal to [`MAX_CAPACITY`](AlignedVec::MAX_CAPACITY)
+    /// - `new_cap` must be greater than or equal to [`len()`](AlignedVec::len)
     #[inline]
     unsafe fn change_capacity(&mut self, new_cap: usize) {
         let new_ptr = if self.cap != 0 {
