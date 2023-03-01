@@ -383,30 +383,31 @@ impl AlignedVec {
             .len
             .checked_add(additional)
             .expect("cannot reserve a larger AlignedVec");
-        unsafe { self.increase_capacity(new_cap) };
+        unsafe { self.grow_capacity_to(new_cap) };
     }
 
-    /// Increase total capacity of vector to `new_cap` or more.
+    /// Grows total capacity of vector to `new_cap` or more.
     ///
-    /// Actual capacity will be `new_cap` rounded up to next power of 2,
+    /// Capacity after this call will be `new_cap` rounded up to next power of 2,
     /// unless that would exceed maximum capacity, in which case capacity
     /// is capped at the maximum.
     ///
-    /// This is same growth strategy used by `reserve`, and therefore also
-    /// by `push` and `extend_from_slice`.
+    /// This is same growth strategy used by `reserve`, `push` and `extend_from_slice`.
     ///
-    /// If you want to reserve an exact amount of additional space,
-    /// use `reserve_exact` instead.
+    /// Usually the safe methods `reserve` or `reserve_exact` are a better choice.
+    /// This method only exists as a micro-optimization for very performance-sensitive
+    /// code where where the calculation of capacity required has already been
+    /// performed, and you want to avoid doing it again.
     ///
     /// Maximum capacity is `isize::MAX - 15` bytes.
     ///
     /// # Panics
     ///
-    /// Panics if the `new_cap` exceeds `isize::MAX - 15` bytes.
+    /// Panics if `new_cap` exceeds `isize::MAX - 15` bytes.
     ///
     /// # Safety
     ///
-    /// Caller must ensure the new capacity requested exceeds current capacity.
+    /// - `new_cap` must be greater than current [`capacity()`](AlignedVec::capacity)
     ///
     /// # Examples
     /// ```
@@ -414,12 +415,12 @@ impl AlignedVec {
     ///
     /// let mut vec = AlignedVec::new();
     /// vec.push(1);
-    /// unsafe { vec.increase_capacity(50) };
+    /// unsafe { vec.grow_capacity_to(50) };
     /// assert_eq!(vec.len(), 1);
     /// assert_eq!(vec.capacity(), 64);
     /// ```
     #[inline]
-    pub unsafe fn increase_capacity(&mut self, new_cap: usize) {
+    pub unsafe fn grow_capacity_to(&mut self, new_cap: usize) {
         let new_cap = if new_cap > (isize::MAX as usize + 1) >> 1 {
             // Rounding up to next power of 2 would result in `isize::MAX + 1` or higher,
             // which exceeds max capacity. So cap at max instead.
@@ -591,7 +592,7 @@ impl AlignedVec {
     fn reserve_for_push(&mut self) {
         // `len` is always less than `isize::MAX`, so no possibility of overflow here
         let new_cap = self.len + 1;
-        unsafe { self.increase_capacity(new_cap) };
+        unsafe { self.grow_capacity_to(new_cap) };
     }
 
     /// Reserves the minimum capacity for exactly `additional` more elements to be inserted in the
