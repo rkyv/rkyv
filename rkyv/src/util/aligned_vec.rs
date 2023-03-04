@@ -176,7 +176,8 @@ impl AlignedVec {
     ///
     /// # Safety
     ///
-    /// Caller must ensure `new_cap` is not greater than `Self::MAX_CAPACITY`.
+    /// - `new_cap` must be less than or equal to [`MAX_CAPACITY`](AlignedVec::MAX_CAPACITY)
+    /// - `new_cap` must be greater than or equal to [`len()`](AlignedVec::len)
     #[inline]
     unsafe fn change_capacity(&mut self, new_cap: usize) {
         let new_ptr = if self.cap != 0 {
@@ -362,28 +363,78 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
+        // Cannot wrap because capacity always exceeds len,
+        // but avoids having to handle potential overflow here
+        let remaining = self.cap.wrapping_sub(self.len);
+        if additional > remaining {
+            self.do_reserve(additional);
+        }
+    }
+
+    /// Extend capacity after `reserve` has found it's necessary.
+    ///
+    /// Actually performing the extension is in this separate function marked
+    /// `#[cold]` to hint to compiler that this branch is not often taken.
+    /// This keeps the path for common case where capacity is already sufficient
+    /// as fast as possible, and makes `reserve` more likely to be inlined.
+    /// This is the same trick that Rust's `Vec::reserve` uses.
+    #[cold]
+    fn do_reserve(&mut self, additional: usize) {
         let new_cap = self
             .len
             .checked_add(additional)
             .expect("cannot reserve a larger AlignedVec");
-        if new_cap > self.cap {
-            // Round capacity up to next power of 2, unless that would exceed max capacity,
-            // in which case cap the capacity at the max
-            let new_cap = if new_cap > (isize::MAX as usize + 1) >> 1 {
-                // Rounding up to next power of 2 would result in `isize::MAX + 1` or higher,
-                // which exceeds max capacity. So cap at max instead.
-                assert!(
-                    new_cap <= Self::MAX_CAPACITY,
-                    "cannot reserve a larger AlignedVec"
-                );
-                Self::MAX_CAPACITY
-            } else {
-                // Cannot overflow due to check above
-                new_cap.next_power_of_two()
-            };
-            // Above checks ensure `new_cap` does not exceed max
-            unsafe { self.change_capacity(new_cap) };
-        }
+        unsafe { self.grow_capacity_to(new_cap) };
+    }
+
+    /// Grows total capacity of vector to `new_cap` or more.
+    ///
+    /// Capacity after this call will be `new_cap` rounded up to next power of 2,
+    /// unless that would exceed maximum capacity, in which case capacity
+    /// is capped at the maximum.
+    ///
+    /// This is same growth strategy used by `reserve`, `push` and `extend_from_slice`.
+    ///
+    /// Usually the safe methods `reserve` or `reserve_exact` are a better choice.
+    /// This method only exists as a micro-optimization for very performance-sensitive
+    /// code where where the calculation of capacity required has already been
+    /// performed, and you want to avoid doing it again.
+    ///
+    /// Maximum capacity is `isize::MAX - 15` bytes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `new_cap` exceeds `isize::MAX - 15` bytes.
+    ///
+    /// # Safety
+    ///
+    /// - `new_cap` must be greater than current [`capacity()`](AlignedVec::capacity)
+    ///
+    /// # Examples
+    /// ```
+    /// use rkyv::AlignedVec;
+    ///
+    /// let mut vec = AlignedVec::new();
+    /// vec.push(1);
+    /// unsafe { vec.grow_capacity_to(50) };
+    /// assert_eq!(vec.len(), 1);
+    /// assert_eq!(vec.capacity(), 64);
+    /// ```
+    #[inline]
+    pub unsafe fn grow_capacity_to(&mut self, new_cap: usize) {
+        let new_cap = if new_cap > (isize::MAX as usize + 1) >> 1 {
+            // Rounding up to next power of 2 would result in `isize::MAX + 1` or higher,
+            // which exceeds max capacity. So cap at max instead.
+            assert!(
+                new_cap <= Self::MAX_CAPACITY,
+                "cannot reserve a larger AlignedVec"
+            );
+            Self::MAX_CAPACITY
+        } else {
+            // Cannot overflow due to check above
+            new_cap.next_power_of_two()
+        };
+        self.change_capacity(new_cap);
     }
 
     /// Resizes the Vec in-place so that len is equal to new_len.
@@ -521,11 +572,28 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn push(&mut self, value: u8) {
+        if self.len == self.cap {
+            self.reserve_for_push();
+        }
+
         unsafe {
-            self.reserve(1);
             self.as_mut_ptr().add(self.len).write(value);
             self.len += 1;
         }
+    }
+
+    /// Extend capacity by at least 1 byte after `push` has found it's necessary.
+    ///
+    /// Actually performing the extension is in this separate function marked
+    /// `#[cold]` to hint to compiler that this branch is not often taken.
+    /// This keeps the path for common case where capacity is already sufficient
+    /// as fast as possible, and makes `push` more likely to be inlined.
+    /// This is the same trick that Rust's `Vec::push` uses.
+    #[cold]
+    fn reserve_for_push(&mut self) {
+        // `len` is always less than `isize::MAX`, so no possibility of overflow here
+        let new_cap = self.len + 1;
+        unsafe { self.grow_capacity_to(new_cap) };
     }
 
     /// Reserves the minimum capacity for exactly `additional` more elements to be inserted in the
@@ -551,6 +619,9 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn reserve_exact(&mut self, additional: usize) {
+        // This function does not use the hot/cold paths trick that `reserve`
+        // and `push` do, on assumption that user probably knows this will require
+        // an increase in capacity. Otherwise, they'd likely use `reserve`.
         let new_cap = self
             .len
             .checked_add(additional)
