@@ -205,6 +205,8 @@ pub struct BufferScratch<T> {
     ptr: Option<NonNull<[u8]>>,
 }
 
+unsafe impl<T> Send for BufferScratch<T> where T: Send {}
+
 impl<T> BufferScratch<T> {
     /// Creates a new buffer scratch allocator.
     pub fn new(buffer: T) -> Self {
