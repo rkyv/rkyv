@@ -35,7 +35,7 @@ pub trait DynContext {
         &mut self,
         base: *const u8,
         offset: isize,
-    ) -> Result<*const u8, Box<dyn Error>>;
+    ) -> Result<*const u8, Box<dyn Error + Send + Sync>>;
 
     /// Checks that a given pointer can be dereferenced.
     ///
@@ -51,7 +51,7 @@ pub trait DynContext {
         &mut self,
         data_address: *const u8,
         layout: &Layout,
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<(), Box<dyn Error + Send + Sync>>;
 
     /// Checks that the given data address and layout is located completely within the subtree
     /// range.
@@ -67,7 +67,7 @@ pub trait DynContext {
         &mut self,
         data_address: *const u8,
         layout: &Layout,
-    ) -> Result<(), Box<dyn Error>>;
+    ) -> Result<(), Box<dyn Error + Send + Sync>>;
 
     /// Pushes a new subtree range onto the validator and starts validating it.
     ///
@@ -82,14 +82,17 @@ pub trait DynContext {
         &mut self,
         root: *const u8,
         end: *const u8,
-    ) -> Result<Box<dyn Any>, Box<dyn Error>>;
+    ) -> Result<Box<dyn Any>, Box<dyn Error + Send + Sync>>;
 
     /// Pops the given range, restoring the original state with the pushed range removed.
     ///
     /// See [`pop_prefix_range`] for more information.
     ///
     /// [`pop_prefix_range`]: rkyv::validation::ArchiveContext::pop_prefix_range
-    fn pop_prefix_range_dyn(&mut self, range: Box<dyn Any>) -> Result<(), Box<dyn Error>>;
+    fn pop_prefix_range_dyn(
+        &mut self,
+        range: Box<dyn Any>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>>;
 
     /// Pushes a new subtree range onto the validator and starts validating it.
     ///
@@ -104,21 +107,24 @@ pub trait DynContext {
         &mut self,
         start: *const u8,
         root: *const u8,
-    ) -> Result<Box<dyn Any>, Box<dyn Error>>;
+    ) -> Result<Box<dyn Any>, Box<dyn Error + Send + Sync>>;
 
     /// Finishes the given range, restoring the original state with the pushed range removed.
     ///
     /// See [`pop_suffix_range`] for more information.
     ///
     /// [`pop_suffix_range`]: rkyv::validation::ArchiveContext::pop_suffix_range
-    fn pop_suffix_range_dyn(&mut self, range: Box<dyn Any>) -> Result<(), Box<dyn Error>>;
+    fn pop_suffix_range_dyn(
+        &mut self,
+        range: Box<dyn Any>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>>;
 
     /// Verifies that all outstanding claims have been returned.
     ///
     /// See [`finish`] for more information.
     ///
     /// [`finish`]: rkyv::validation::ArchiveContext::finish
-    fn finish_dyn(&mut self) -> Result<(), Box<dyn Error>>;
+    fn finish_dyn(&mut self) -> Result<(), Box<dyn Error + Send + Sync>>;
 
     /// Registers the given `ptr` as a shared pointer with the given type.
     ///
@@ -129,92 +135,99 @@ pub trait DynContext {
         &mut self,
         ptr: *const u8,
         type_id: TypeId,
-    ) -> Result<bool, Box<dyn Error>>;
+    ) -> Result<bool, Box<dyn Error + Send + Sync>>;
 }
 
 impl<C> DynContext for C
 where
     C: ArchiveContext + SharedContext + ?Sized,
-    C::Error: Error,
+    C::Error: Error + Send + Sync,
 {
     unsafe fn bounds_check_ptr_dyn(
         &mut self,
         base: *const u8,
         offset: isize,
-    ) -> Result<*const u8, Box<dyn Error>> {
+    ) -> Result<*const u8, Box<dyn Error + Send + Sync>> {
         self.bounds_check_ptr(base, offset)
-            .map_err(|e| Box::new(e) as Box<dyn Error>)
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 
     unsafe fn bounds_check_layout_dyn(
         &mut self,
         ptr: *const u8,
         layout: &Layout,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.bounds_check_layout(ptr, layout)
-            .map_err(|e| Box::new(e) as Box<dyn Error>)
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 
     unsafe fn bounds_check_subtree_ptr_layout_dyn(
         &mut self,
         data_address: *const u8,
         layout: &Layout,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.bounds_check_subtree_ptr_layout(data_address, layout)
-            .map_err(|e| Box::new(e) as Box<dyn Error>)
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 
     unsafe fn push_prefix_subtree_range_dyn(
         &mut self,
         root: *const u8,
         end: *const u8,
-    ) -> Result<Box<dyn Any>, Box<dyn Error>> {
+    ) -> Result<Box<dyn Any>, Box<dyn Error + Send + Sync>> {
         self.push_prefix_subtree_range(root, end)
             .map(|r| Box::new(r) as Box<dyn Any>)
-            .map_err(|e| Box::new(e) as Box<dyn Error>)
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 
-    fn pop_prefix_range_dyn(&mut self, range: Box<dyn Any>) -> Result<(), Box<dyn Error>> {
+    fn pop_prefix_range_dyn(
+        &mut self,
+        range: Box<dyn Any>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.pop_prefix_range(*range.downcast().unwrap())
-            .map_err(|e| Box::new(e) as Box<dyn Error>)
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 
     unsafe fn push_suffix_subtree_range_dyn(
         &mut self,
         start: *const u8,
         root: *const u8,
-    ) -> Result<Box<dyn Any>, Box<dyn Error>> {
+    ) -> Result<Box<dyn Any>, Box<dyn Error + Send + Sync>> {
         self.push_suffix_subtree_range(start, root)
             .map(|r| Box::new(r) as Box<dyn Any>)
-            .map_err(|e| Box::new(e) as Box<dyn Error>)
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 
-    fn pop_suffix_range_dyn(&mut self, range: Box<dyn Any>) -> Result<(), Box<dyn Error>> {
+    fn pop_suffix_range_dyn(
+        &mut self,
+        range: Box<dyn Any>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.pop_suffix_range(*range.downcast().unwrap())
-            .map_err(|e| Box::new(e) as Box<dyn Error>)
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 
-    fn finish_dyn(&mut self) -> Result<(), Box<dyn Error>> {
-        self.finish().map_err(|e| Box::new(e) as Box<dyn Error>)
+    fn finish_dyn(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+        self.finish()
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 
     fn register_shared_ptr_dyn(
         &mut self,
         ptr: *const u8,
         type_id: TypeId,
-    ) -> Result<bool, Box<dyn Error>> {
+    ) -> Result<bool, Box<dyn Error + Send + Sync>> {
         self.register_shared_ptr(ptr, type_id)
-            .map_err(|e| Box::new(e) as Box<dyn Error>)
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 }
 
 /// The error type for `DynContext`.
 pub struct DynError {
-    inner: Box<dyn Error>,
+    inner: Box<dyn Error + Send + Sync>,
 }
 
-impl From<Box<dyn Error>> for DynError {
-    fn from(inner: Box<dyn Error>) -> Self {
+impl From<Box<dyn Error + Send + Sync>> for DynError {
+    fn from(inner: Box<dyn Error + Send + Sync>) -> Self {
         Self { inner }
     }
 }
@@ -291,7 +304,7 @@ impl ArchiveContext for (dyn DynContext + '_) {
 
     fn wrap_layout_error(layout_error: core::alloc::LayoutError) -> Self::Error {
         DynError {
-            inner: Box::new(layout_error) as Box<dyn Error>,
+            inner: Box::new(layout_error) as Box<dyn Error + Send + Sync>,
         }
     }
     fn finish(&mut self) -> Result<(), Self::Error> {
@@ -317,14 +330,15 @@ impl fmt::Display for CheckBytesUnimplemented {
 
 impl Error for CheckBytesUnimplemented {}
 
-type CheckBytesDyn = unsafe fn(*const u8, &mut dyn DynContext) -> Result<(), Box<dyn Error>>;
+type CheckBytesDyn =
+    unsafe fn(*const u8, &mut dyn DynContext) -> Result<(), Box<dyn Error + Send + Sync>>;
 
 // This is the fallback function that gets called if the archived type doesn't implement CheckBytes.
 #[inline]
 unsafe fn check_bytes_dyn_unimplemented(
     _bytes: *const u8,
     _context: &mut dyn DynContext,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     Err(Box::new(CheckBytesUnimplemented).into())
 }
 
@@ -346,7 +360,7 @@ impl<T: for<'a> CheckBytes<dyn DynContext + 'a>> IsCheckBytesDyn<T> {
     unsafe fn check_bytes_dyn(
         bytes: *const u8,
         context: &mut dyn DynContext,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         T::check_bytes(bytes.cast(), context)?;
         Ok(())
     }
@@ -453,7 +467,7 @@ pub enum CheckDynError {
     /// The pointer metadata did not match any registered impl
     InvalidMetadata(u64),
     /// An error occurred while checking the bytes of the trait object
-    CheckBytes(Box<dyn Error>),
+    CheckBytes(Box<dyn Error + Send + Sync>),
 }
 
 impl fmt::Display for CheckDynError {
@@ -474,8 +488,8 @@ impl Error for CheckDynError {
     }
 }
 
-impl From<Box<dyn Error>> for CheckDynError {
-    fn from(e: Box<dyn Error>) -> Self {
+impl From<Box<dyn Error + Send + Sync>> for CheckDynError {
+    fn from(e: Box<dyn Error + Send + Sync>) -> Self {
         Self::CheckBytes(e)
     }
 }
