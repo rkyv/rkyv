@@ -180,6 +180,9 @@ impl AlignedVec {
     /// - `new_cap` must be greater than or equal to [`len()`](AlignedVec::len)
     #[inline]
     unsafe fn change_capacity(&mut self, new_cap: usize) {
+        debug_assert!(new_cap <= Self::MAX_CAPACITY);
+        debug_assert!(new_cap >= self.len);
+
         let new_ptr = if self.cap != 0 {
             let new_ptr = alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap);
             if new_ptr.is_null() {
@@ -422,6 +425,8 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub unsafe fn grow_capacity_to(&mut self, new_cap: usize) {
+        debug_assert!(new_cap > self.cap);
+
         let new_cap = if new_cap > (isize::MAX as usize + 1) >> 1 {
             // Rounding up to next power of 2 would result in `isize::MAX + 1` or higher,
             // which exceeds max capacity. So cap at max instead.
