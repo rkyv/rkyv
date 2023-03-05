@@ -1275,7 +1275,7 @@ fn derive_archive_impl(
                         // Some resolvers will be (), this allow is to prevent clippy from complaining
                         #[allow(clippy::unit_arg)]
                         #[inline]
-                        unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+                        unsafe fn resolve(&self, pos: usize, resolver: <Self as Archive>::Resolver, out: *mut <Self as Archive>::Archived) {
                             match resolver {
                                 #(#resolve_arms,)*
                             }
