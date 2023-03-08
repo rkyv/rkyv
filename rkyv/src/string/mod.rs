@@ -215,6 +215,20 @@ impl PartialOrd<ArchivedString> for str {
     }
 }
 
+impl PartialOrd<ArchivedString> for String {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedString) -> Option<cmp::Ordering> {
+        self.as_str().partial_cmp(other.as_str())
+    }
+}
+
+impl PartialOrd<String> for ArchivedString {
+    #[inline]
+    fn partial_cmp(&self, other: &String) -> Option<cmp::Ordering> {
+        self.as_str().partial_cmp(other.as_str())
+    }
+}
+
 /// The resolver for `String`.
 pub struct StringResolver {
     pos: usize,
