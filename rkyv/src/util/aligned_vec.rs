@@ -174,12 +174,22 @@ impl AlignedVec {
 
     /// Change capacity of vector.
     ///
+    /// Will set capacity to exactly `new_cap`.
+    /// Can be used to either grow or shrink capacity.
+    /// Backing memory will be reallocated.
+    ///
+    /// Usually the safe methods `reserve` or `reserve_exact` are a better choice.
+    /// This method only exists as a micro-optimization for very performance-sensitive
+    /// code where where the calculation of capacity required has already been
+    /// performed, and you want to avoid doing it again, or if you want to implement
+    /// a different growth strategy.
+    ///
     /// # Safety
     ///
     /// - `new_cap` must be less than or equal to [`MAX_CAPACITY`](AlignedVec::MAX_CAPACITY)
     /// - `new_cap` must be greater than or equal to [`len()`](AlignedVec::len)
     #[inline]
-    unsafe fn change_capacity(&mut self, new_cap: usize) {
+    pub unsafe fn change_capacity(&mut self, new_cap: usize) {
         debug_assert!(new_cap <= Self::MAX_CAPACITY);
         debug_assert!(new_cap >= self.len);
 
