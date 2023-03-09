@@ -163,7 +163,7 @@ impl<const ALIGNMENT: usize> AlignedByteVec<ALIGNMENT> {
         } else {
             assert!(
                 capacity <= Self::MAX_CAPACITY,
-                "`capacity` cannot exceed isize::MAX - 15"
+                "`capacity` cannot exceed `Self::MAX_CAPACITY`"
             );
             let ptr = unsafe {
                 let layout = alloc::Layout::from_size_align_unchecked(
@@ -421,7 +421,7 @@ impl<const ALIGNMENT: usize> AlignedByteVec<ALIGNMENT> {
     ///
     /// # Panics
     ///
-    /// Panics if the new capacity exceeds `isize::MAX - 15` bytes.
+    /// Panics if the new capacity exceeds `Self::MAX_CAPACITY` bytes.
     ///
     /// # Examples
     /// ```
@@ -473,11 +473,11 @@ impl<const ALIGNMENT: usize> AlignedByteVec<ALIGNMENT> {
     /// required has already been performed, and you want to avoid doing it
     /// again.
     ///
-    /// Maximum capacity is `isize::MAX - 15` bytes.
+    /// Maximum capacity is `isize::MAX + 1 - Self::ALIGNMENT` bytes.
     ///
     /// # Panics
     ///
-    /// Panics if `new_cap` exceeds `isize::MAX - 15` bytes.
+    /// Panics if `new_cap` exceeds `Self::MAX_CAPACITY` bytes.
     ///
     /// # Safety
     ///
@@ -522,7 +522,7 @@ impl<const ALIGNMENT: usize> AlignedByteVec<ALIGNMENT> {
     ///
     /// # Panics
     ///
-    /// Panics if the new length exceeds `isize::MAX - 15` bytes.
+    /// Panics if the new length exceeds `Self::MAX_CAPACITY` bytes.
     ///
     /// # Examples
     /// ```
@@ -644,7 +644,7 @@ impl<const ALIGNMENT: usize> AlignedByteVec<ALIGNMENT> {
     ///
     /// # Panics
     ///
-    /// Panics if the new capacity exceeds `isize::MAX - 15` bytes.
+    /// Panics if the new capacity exceeds `Self::MAX_CAPACITY` bytes.
     ///
     /// # Examples
     /// ```
@@ -695,7 +695,7 @@ impl<const ALIGNMENT: usize> AlignedByteVec<ALIGNMENT> {
     ///
     /// # Panics
     ///
-    /// Panics if the new capacity overflows `isize::MAX - 15`.
+    /// Panics if the new capacity exceeds `Self::MAX_CAPACITY`.
     ///
     /// # Examples
     /// ```
