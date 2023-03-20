@@ -200,7 +200,7 @@ impl fmt::Display for AllocScratchError {
         match self {
             Self::ExceededLimit { requested, remaining } => write!(
                 f,
-                "exceeded the maxmium limit of scratch space: requested {}, remaining {}",
+                "exceeded the maximum limit of scratch space: requested {}, remaining {}",
                 requested, remaining
             ),
             Self::NotPoppedInReverseOrder {
