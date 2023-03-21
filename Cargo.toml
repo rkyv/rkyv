@@ -22,7 +22,7 @@ documentation = "https://docs.rs/rkyv"
 repository = "https://github.com/rkyv/rkyv"
 
 [workspace.dependencies]
-bytecheck = "0.6.10"
+bytecheck = "0.7.0"
 proc-macro2 = "1.0"
 ptr_meta = "~0.1.3"
 quote = "1.0"
