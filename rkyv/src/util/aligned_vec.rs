@@ -193,25 +193,31 @@ impl AlignedVec {
         debug_assert!(new_cap <= Self::MAX_CAPACITY);
         debug_assert!(new_cap >= self.len);
 
-        let new_ptr = if self.cap != 0 {
-            let new_ptr = alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap);
-            if new_ptr.is_null() {
-                alloc::handle_alloc_error(alloc::Layout::from_size_align_unchecked(
-                    new_cap,
-                    Self::ALIGNMENT,
-                ));
-            }
-            new_ptr
-        } else {
-            let layout = alloc::Layout::from_size_align_unchecked(new_cap, Self::ALIGNMENT);
-            let new_ptr = alloc::alloc(layout);
-            if new_ptr.is_null() {
-                alloc::handle_alloc_error(layout);
-            }
-            new_ptr
-        };
-        self.ptr = NonNull::new_unchecked(new_ptr);
-        self.cap = new_cap;
+        if new_cap > 0 {
+            let new_ptr = if self.cap > 0 {
+                let new_ptr = alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap);
+                if new_ptr.is_null() {
+                    alloc::handle_alloc_error(alloc::Layout::from_size_align_unchecked(
+                        new_cap,
+                        Self::ALIGNMENT,
+                    ));
+                }
+                new_ptr
+            } else {
+                let layout = alloc::Layout::from_size_align_unchecked(new_cap, Self::ALIGNMENT);
+                let new_ptr = alloc::alloc(layout);
+                if new_ptr.is_null() {
+                    alloc::handle_alloc_error(layout);
+                }
+                new_ptr
+            };
+            self.ptr = NonNull::new_unchecked(new_ptr);
+            self.cap = new_cap;
+        } else if self.cap > 0 {
+            alloc::dealloc(self.ptr.as_ptr(), self.layout());
+            self.ptr = NonNull::dangling();
+            self.cap = 0;
+        }
     }
 
     /// Shrinks the capacity of the vector as much as possible.
