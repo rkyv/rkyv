@@ -1951,8 +1951,9 @@ mod tests {
         };
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&value).unwrap();
-        let result = serializer.into_serializer().into_inner();
-        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+        let mut result = serializer.into_serializer().into_inner();
+        let bytes = unsafe { Pin::new_unchecked(result.as_mut_slice()) };
+        let archived = unsafe { archived_root_mut::<Test>(bytes) };
 
         unsafe {
             assert_eq!(*archived.inner.get(), 100);
@@ -1960,7 +1961,7 @@ mod tests {
             assert_eq!(*archived.inner.get(), 42);
         }
 
-        let deserialized: Test = archived
+        let deserialized: Test = (&*archived)
             .deserialize(&mut DefaultDeserializer::default())
             .unwrap();
         unsafe {
