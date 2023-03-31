@@ -15,7 +15,7 @@ default-members = [
 ]
 
 [workspace.package]
-version = "0.7.40"
+version = "0.7.41"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2021"
 license = "MIT"
