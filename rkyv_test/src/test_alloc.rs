@@ -106,13 +106,19 @@ mod tests {
         #[allow(unused_variables)]
         #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
         fn archive_example() {
-            // CheckBytes from bytecheck can be used to validate your data, if you want
             use rkyv::{Archive, Deserialize, Serialize};
 
             #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
-            // This will generate a PartialEq impl between our unarchived and archived types
-            // To use the safe API, you have to derive CheckBytes for the archived type
-            #[archive(check_bytes, compare(PartialEq))]
+            #[archive(
+                // This will generate a PartialEq impl between our unarchived
+                // and archived types:
+                compare(PartialEq),
+                // bytecheck can be used to validate your data if you want. To
+                // use the safe API, you have to derive CheckBytes for the
+                // archived type:
+                check_bytes,
+            )]
+            // Derives can be passed through to the generated type:
             #[archive_attr(derive(Debug))]
             struct Test {
                 int: u8,
@@ -1945,8 +1951,9 @@ mod tests {
         };
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&value).unwrap();
-        let result = serializer.into_serializer().into_inner();
-        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+        let mut result = serializer.into_serializer().into_inner();
+        let bytes = unsafe { Pin::new_unchecked(result.as_mut_slice()) };
+        let archived = unsafe { archived_root_mut::<Test>(bytes) };
 
         unsafe {
             assert_eq!(*archived.inner.get(), 100);
@@ -1954,7 +1961,7 @@ mod tests {
             assert_eq!(*archived.inner.get(), 42);
         }
 
-        let deserialized: Test = archived
+        let deserialized: Test = (&*archived)
             .deserialize(&mut DefaultDeserializer::default())
             .unwrap();
         unsafe {

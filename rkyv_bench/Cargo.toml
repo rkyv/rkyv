@@ -10,7 +10,7 @@ repository.workspace = true
 
 [dependencies]
 bincode = "1.3"
-bytecheck.workspace = true
+bytecheck = { workspace = true, optional = true }
 criterion = "0.3"
 rand = "0.8"
 rand_pcg = "0.3"

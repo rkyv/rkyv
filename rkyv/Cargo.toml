@@ -13,11 +13,11 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytecheck = { workspace = true, optional = true, default-features = false }
+bytecheck = { workspace = true, optional = true }
 hashbrown = { version = "0.12", optional = true }
 ptr_meta = { workspace = true, default-features = false }
 rend = { version = "0.4", optional = true, default-features = false }
-rkyv_derive = { path = "../rkyv_derive" }
+rkyv_derive = { version = "=0.8.0", path = "../rkyv_derive" }
 seahash = "4.0"
 
 # Support for various common crates. These are primarily to get users off the ground and build some

@@ -91,6 +91,12 @@
 
 # Copy-paste version
 
+Remember to use tree borrows instead of stacked borrows:
+
+```sh
+$env:MIRIFLAGS="-Zmiri-disable-stacked-borrows -Zmiri-tree-borrows"
+```
+
 ```sh
 cargo test --no-default-features --features "size_32" >> results.txt
 cargo test --no-default-features --features "size_32 alloc" >> results.txt

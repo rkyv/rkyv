@@ -2,6 +2,7 @@ use crate::{
     string::{ArchivedString, StringResolver},
     Archive, Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
 };
+use ::core::cmp::Ordering;
 #[cfg(not(feature = "std"))]
 use ::alloc::string::{String, ToString};
 
@@ -46,5 +47,19 @@ impl PartialEq<ArchivedString> for String {
     #[inline]
     fn eq(&self, other: &ArchivedString) -> bool {
         PartialEq::eq(other.as_str(), self.as_str())
+    }
+}
+
+impl PartialOrd<ArchivedString> for String {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedString) -> Option<Ordering> {
+        self.as_str().partial_cmp(other.as_str())
+    }
+}
+
+impl PartialOrd<String> for ArchivedString {
+    #[inline]
+    fn partial_cmp(&self, other: &String) -> Option<Ordering> {
+        self.as_str().partial_cmp(other.as_str())
     }
 }
