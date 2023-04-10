@@ -206,6 +206,7 @@ pub struct BufferScratch<T> {
 }
 
 unsafe impl<T> Send for BufferScratch<T> where T: Send {}
+unsafe impl<T> Sync for BufferScratch<T> where T: Sync {}
 
 impl<T> BufferScratch<T> {
     /// Creates a new buffer scratch allocator.
