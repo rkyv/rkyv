@@ -52,6 +52,7 @@ validation = ["alloc", "bytecheck", "rend/validation"]
 bitvec_alloc = ["bitvec/alloc"]
 tinyvec_alloc = ["tinyvec/alloc"]
 uuid_std = ["uuid/std"]
+uuid_validation = ["uuid/std", "bytecheck/uuid"]
 
 [package.metadata.docs.rs]
 features = ["validation"]
