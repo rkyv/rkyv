@@ -54,7 +54,7 @@ trait ExampleTrait {
 #[archive_attr(derive(TypeName))]
 struct StringStruct(String);
 
-#[archive_dyn]
+#[archive_dyn(deserialize)]
 impl ExampleTrait for StringStruct {
     fn value(&self) -> String {
         self.0.clone()
@@ -84,14 +84,15 @@ impl ExampleTrait for Archived<IntStruct> {
     }
 }
 
+#[test]
 fn main() {
     let boxed_int = Box::new(IntStruct(42)) as Box<dyn SerializeExampleTrait>;
     let boxed_string = Box::new(StringStruct("hello world".to_string())) as Box<dyn SerializeExampleTrait>;
     let mut serializer = AllocSerializer::<256>::default();
 
-    let int_pos = serializer.serialize_value(&boxed_int).unwrap()
+    let int_pos = serializer.serialize_value(&boxed_int).unwrap();
     let string_pos = serializer.serialize_value(&boxed_string).unwrap();
-    let buf = serializer.into_inner();
+    let buf = serializer.into_serializer().into_inner();
 
     let archived_int = unsafe { archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), int_pos) };
     let archived_string = unsafe { archived_value::<Box<dyn SerializeExampleTrait>>(buf.as_ref(), string_pos) };
