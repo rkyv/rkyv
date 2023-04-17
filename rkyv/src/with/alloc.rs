@@ -48,7 +48,7 @@ where
 
 impl<A, O, S> SerializeWith<Vec<O>, S> for Map<A>
 where
-    S: Fallible + ScratchSpace + Serializer,
+    S: Fallible + ScratchSpace + Serializer + ?Sized,
     A: ArchiveWith<O> + SerializeWith<O, S>,
 {
     fn serialize_with(field: &Vec<O>, s: &mut S) -> Result<Self::Resolver, S::Error> {
@@ -73,7 +73,7 @@ where
         impl<A, O, S> Serialize<S> for RefWrapper<'_, A, O>
         where
             A: ArchiveWith<O> + SerializeWith<O, S>,
-            S: Fallible + Serializer,
+            S: Fallible + Serializer + ?Sized,
         {
             fn serialize(&self, s: &mut S) -> Result<Self::Resolver, S::Error> {
                 A::serialize_with(self.0, s)
@@ -91,7 +91,7 @@ where
 impl<A, O, D> DeserializeWith<ArchivedVec<<A as ArchiveWith<O>>::Archived>, Vec<O>, D> for Map<A>
 where
     A: ArchiveWith<O> + DeserializeWith<<A as ArchiveWith<O>>::Archived, O, D>,
-    D: Fallible,
+    D: Fallible + ?Sized,
 {
     fn deserialize_with(
         field: &ArchivedVec<<A as ArchiveWith<O>>::Archived>,
@@ -425,7 +425,7 @@ impl<T: Archive> ArchiveWith<Vec<T>> for CopyOptimize {
 impl<T, S> SerializeWith<Vec<T>, S> for CopyOptimize
 where
     T: Serialize<S>,
-    S: Serializer,
+    S: Serializer + ?Sized,
 {
     fn serialize_with(field: &Vec<T>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         use ::core::mem::size_of;
@@ -476,7 +476,7 @@ impl<T: Archive> ArchiveWith<Box<[T]>> for CopyOptimize {
 impl<T, S> SerializeWith<Box<[T]>, S> for CopyOptimize
 where
     T: Serialize<S>,
-    S: Serializer,
+    S: Serializer + ?Sized,
 {
     fn serialize_with(field: &Box<[T]>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         use ::core::mem::size_of;
@@ -530,7 +530,7 @@ impl<'a, T: Archive> ArchiveWith<With<&'a [T], RefAsBox>> for CopyOptimize {
 impl<'a, T, S> SerializeWith<With<&'a [T], RefAsBox>, S> for CopyOptimize
 where
     T: Serialize<S>,
-    S: Serializer,
+    S: Serializer + ?Sized,
 {
     fn serialize_with(
         field: &With<&'a [T], RefAsBox>,
@@ -566,7 +566,7 @@ impl<T: Archive> ArchiveWith<Vec<T>> for Raw {
 impl<T, S> SerializeWith<Vec<T>, S> for Raw
 where
     T: Serialize<S>,
-    S: Serializer,
+    S: Serializer + ?Sized,
 {
     fn serialize_with(field: &Vec<T>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         use ::core::mem::size_of;
