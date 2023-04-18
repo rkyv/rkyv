@@ -1,4 +1,3 @@
-use bytecheck::CheckBytes;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
@@ -89,7 +88,7 @@ fn generate_vec<R: Rng, T: Generate>(rng: &mut R, range: core::ops::Range<usize>
 }
 
 #[derive(Archive, Serialize, Clone, Copy, Deserialize, serde::Deserialize, serde::Serialize)]
-#[archive_attr(derive(CheckBytes))]
+#[archive(check_bytes)]
 #[repr(u8)]
 pub enum GameType {
     Survival,
@@ -111,7 +110,7 @@ impl Generate for GameType {
 }
 
 #[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
-#[archive_attr(derive(CheckBytes))]
+#[archive(check_bytes)]
 pub struct Item {
     count: i8,
     slot: u8,
@@ -139,7 +138,7 @@ impl Generate for Item {
 }
 
 #[derive(Archive, Serialize, Clone, Copy, Deserialize, serde::Serialize, serde::Deserialize)]
-#[archive_attr(derive(CheckBytes))]
+#[archive(check_bytes)]
 pub struct Abilities {
     walk_speed: f32,
     fly_speed: f32,
@@ -165,7 +164,7 @@ impl Generate for Abilities {
 }
 
 #[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
-#[archive_attr(derive(CheckBytes))]
+#[archive(check_bytes)]
 pub struct Entity {
     id: String,
     pos: (f64, f64, f64),
@@ -217,7 +216,7 @@ impl Generate for Entity {
 }
 
 #[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
-#[archive_attr(derive(CheckBytes))]
+#[archive(check_bytes)]
 pub struct RecipeBook {
     recipes: Vec<String>,
     to_be_displayed: Vec<String>,
@@ -267,7 +266,7 @@ impl Generate for RecipeBook {
 }
 
 #[derive(Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
-#[archive_attr(derive(CheckBytes))]
+#[archive(check_bytes)]
 pub struct Player {
     game_type: GameType,
     previous_game_type: GameType,
