@@ -64,7 +64,7 @@ where
 
 impl<A, O, S> SerializeWith<Option<O>, S> for Map<A>
 where
-    S: Fallible,
+    S: Fallible + ?Sized,
     A: ArchiveWith<O> + SerializeWith<O, S>,
 {
     fn serialize_with(field: &Option<O>, s: &mut S) -> Result<Self::Resolver, S::Error> {
@@ -78,7 +78,7 @@ where
 impl<A, O, D> DeserializeWith<ArchivedOption<<A as ArchiveWith<O>>::Archived>, Option<O>, D>
     for Map<A>
 where
-    D: Fallible,
+    D: Fallible + ?Sized,
     A: ArchiveWith<O> + DeserializeWith<<A as ArchiveWith<O>>::Archived, O, D>,
 {
     fn deserialize_with(
