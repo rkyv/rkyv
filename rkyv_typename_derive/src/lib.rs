@@ -92,7 +92,16 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
             }
             GenericParam::Const(c) => {
                 let value = &c.ident;
-                Some(quote!{ f(&#value.to_string())  })
+                Some(quote!{
+                    // This works for all const generic types that are supported by rust 1.68 or
+                    // below. It happens to be, for these types, that the Debug trait is
+                    // implemented in such a way that it generates the correct output for the
+                    // expected behavior.
+                    // However newer versions of the compiler may break this code in subtle and/or
+                    // less subtle ways.
+                    let const_val = &format!("{:?}", #value);
+                    f(const_val);
+                })
             }
             GenericParam::Lifetime(_) => None,
         }
