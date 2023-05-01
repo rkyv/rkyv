@@ -79,7 +79,7 @@ fn generic_one_param() {
 
 #[test]
 #[allow(dead_code)]
-fn generic_name_colisions() {
+fn generic_name_collisions() {
     // The only difference with generic_one_param() is the type parameter F
     // which could cause a name collision with the generic parameter in
     // build_type_name<F: FnMut(&str)>(...) method.
@@ -137,7 +137,7 @@ fn lifetimes() {
 
 #[test]
 #[allow(dead_code)]
-fn lifetimes_two_lifetimes_with_bounds() {
+fn two_lifetimes_with_bounds() {
     #[derive(TypeName)]
     struct Struct<'b, 'c>
     where
@@ -166,13 +166,35 @@ fn combined_generic_type_and_lifetime() {
 
 #[test]
 #[allow(dead_code)]
-fn const_generics() {
+fn const_generic_num() {
     #[derive(TypeName)]
     struct Struct<const N: usize> {
         a: u32,
         b: u128,
     }
     check_typename::<Struct<77>>("Struct<77>");
+}
+
+#[test]
+#[allow(dead_code)]
+fn const_generic_bool() {
+    #[derive(TypeName)]
+    struct Struct<const T: bool> {
+        a: u32,
+        b: u128,
+    }
+    check_typename::<Struct<true>>("Struct<true>");
+}
+
+#[test]
+#[allow(dead_code)]
+fn const_generic_char() {
+    #[derive(TypeName)]
+    struct Struct<const N: char> {
+        a: u32,
+        b: u128,
+    }
+    check_typename::<Struct<'a'>>("Struct<'a'>");
 }
 
 // Test more composite cases which could potentially cause problems such as:
