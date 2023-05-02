@@ -93,7 +93,7 @@ pub trait TypeName {
     fn build_type_name<F: FnMut(&str)>(f: F);
 }
 
-impl<T: TypeName> TypeName for &T {
+impl<T: TypeName> TypeName for &T where T: ?Sized {
     fn build_type_name<F: FnMut(&str)>(mut f: F) {
         f("&");
         T::build_type_name(f);
