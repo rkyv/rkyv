@@ -1,7 +1,7 @@
 //! An archived string representation that supports inlining short strings.
 
 use crate::{Archived, FixedIsize, FixedUsize};
-use core::{mem, ptr, slice, str};
+use core::{marker::PhantomPinned, mem, ptr, slice, str};
 
 const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
 
@@ -9,9 +9,10 @@ const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
 #[repr(C)]
 struct OutOfLineRepr {
     len: Archived<usize>,
-    // offset is always stored in little-endian format to put the sign bit at the end
-    // this representation is optimized for little-endian architectures
+    // Offset is always stored in little-endian format to put the sign bit at the end.
+    // This representation is optimized for little-endian architectures.
     offset: [u8; OFFSET_BYTES],
+    _phantom: PhantomPinned,
 }
 
 /// The maximum number of bytes that can be inlined.
@@ -139,7 +140,7 @@ impl ArchivedStringRepr {
         *out_len = value.len() as u8;
     }
 
-    /// Rmplaces a new out-of-line representation for the given `str`.
+    /// Emplaces a new out-of-line representation for the given `str`.
     ///
     /// # Safety
     ///
@@ -157,3 +158,44 @@ impl ArchivedStringRepr {
         *out_offset = (offset as FixedIsize).to_le_bytes();
     }
 }
+
+#[cfg(feature = "validation")]
+const _: () = {
+    use crate::Fallible;
+    use bytecheck::CheckBytes;
+    use core::fmt;
+
+    /// An error resulting from an invalid string representation.
+    ///
+    /// Strings that are inline must have a length of at most [`INLINE_CAPACITY`].
+    #[derive(Debug)]
+    pub struct CheckStringReprError;
+
+    impl fmt::Display for CheckStringReprError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(
+                f,
+                "String representation was inline but the length was too large"
+            )
+        }
+    }
+
+    #[cfg(feature = "std")]
+    impl std::error::Error for CheckStringReprError {}
+
+    impl<C: Fallible + ?Sized> CheckBytes<C> for ArchivedStringRepr {
+        type Error = CheckStringReprError;
+
+        #[inline]
+        unsafe fn check_bytes<'a>(value: *const Self, _: &mut C) -> Result<&'a Self, Self::Error> {
+            // The fields of `ArchivedStringRepr` are always valid
+            let repr = &*value;
+
+            if repr.is_inline() && repr.len() > INLINE_CAPACITY {
+                Err(CheckStringReprError)
+            } else {
+                Ok(repr)
+            }
+        }
+    }
+};

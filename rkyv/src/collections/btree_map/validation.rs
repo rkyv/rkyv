@@ -11,12 +11,13 @@ use crate::{
 };
 use bytecheck::{CheckBytes, Error};
 use core::{
-    alloc::Layout,
+    alloc::{Layout, LayoutError},
     convert::{Infallible, TryFrom},
     fmt,
     hint::unreachable_unchecked,
     ptr,
 };
+use ptr_meta::Pointee;
 
 impl<K, C> CheckBytes<C> for InnerNodeEntry<K>
 where
@@ -248,19 +249,17 @@ const _: () = {
 };
 
 impl<T> LayoutRaw for Node<[T]> {
-    fn layout_raw(value: *const Self) -> Layout {
-        let len = ptr_meta::metadata(value);
+    fn layout_raw(metadata: <Self as Pointee>::Metadata) -> Result<Layout, LayoutError> {
         let result = Layout::new::<NodeHeader>()
-            .extend(Layout::array::<T>(len).unwrap())
-            .unwrap()
+            .extend(Layout::array::<T>(metadata).unwrap())?
             .0;
         #[cfg(not(feature = "strict"))]
         {
-            result
+            Ok(result)
         }
         #[cfg(feature = "strict")]
         {
-            result.pad_to_align()
+            Ok(result.pad_to_align())
         }
     }
 }
@@ -285,6 +284,21 @@ impl NodeHeader {
     {
         let raw_node = Self::manual_check_header(value, context)
             .map_err(ArchivedBTreeMapError::ContextError)?;
+
+        let node_layout = if raw_node.is_inner() {
+            InnerNode::<K>::layout_raw(ptr_meta::metadata(raw_node.classify_inner_ptr::<K>()))
+                .map_err(C::wrap_layout_error)
+                .map_err(ArchivedBTreeMapError::ContextError)?
+        } else {
+            LeafNode::<K, V>::layout_raw(ptr_meta::metadata(raw_node.classify_leaf_ptr::<K, V>()))
+                .map_err(C::wrap_layout_error)
+                .map_err(ArchivedBTreeMapError::ContextError)?
+        };
+
+        context
+            .bounds_check_subtree_ptr_layout((raw_node as *const NodeHeader).cast(), &node_layout)
+            .map_err(ArchivedBTreeMapError::ContextError)?;
+
         Self::manual_check_contents::<K, V, C>(raw_node, context)?;
 
         Ok(raw_node)
@@ -488,13 +502,28 @@ const _: () = {
                 // trailing suffix space that should be checked by subsequent fields
                 let root = NodeHeader::manual_check_header(root_ptr, context)
                     .map_err(ArchivedBTreeMapError::ContextError)?;
+
                 // To push the subtree, we need to know the real size of the root node
                 // Since the header is checked, we can just classify the pointer and use layout_raw
                 let root_layout = if root.is_inner() {
-                    Node::layout_raw(root.classify_inner_ptr::<K>())
+                    InnerNode::<K>::layout_raw(ptr_meta::metadata(root.classify_inner_ptr::<K>()))
+                        .map_err(C::wrap_layout_error)
+                        .map_err(ArchivedBTreeMapError::ContextError)?
                 } else {
-                    Node::layout_raw(root.classify_leaf_ptr::<K, V>())
+                    LeafNode::<K, V>::layout_raw(ptr_meta::metadata(
+                        root.classify_leaf_ptr::<K, V>(),
+                    ))
+                    .map_err(C::wrap_layout_error)
+                    .map_err(ArchivedBTreeMapError::ContextError)?
                 };
+
+                // Because the layout of the subtree is dynamic, we need to bounds check the layout
+                // declared by the root node.
+                context
+                    .bounds_check_subtree_ptr_layout(root_ptr.cast(), &root_layout)
+                    .map_err(ArchivedBTreeMapError::ContextError)?;
+
+                // Now we can push the prefix subtree range.
                 let nodes_range = context
                     .push_prefix_subtree_range(
                         root_ptr.cast(),
@@ -539,7 +568,7 @@ const _: () = {
 
                 // The remaining nodes must all be leaf nodes
                 let mut entry_count = 0;
-                for (i, (node, depth)) in nodes.iter().enumerate() {
+                for (node, depth) in nodes.iter() {
                     if !node.is_leaf() {
                         return Err(ArchivedBTreeMapError::InnerNodeInLeafLevel);
                     }
@@ -561,6 +590,13 @@ const _: () = {
                         }
                     }
 
+                    // Keep track of the number of entries found
+                    entry_count += leaf.tail.len();
+                }
+
+                for (i, (node, _)) in nodes.iter().enumerate() {
+                    let leaf = node.classify_leaf::<K, V>();
+
                     // And they must link together in sorted order
                     if i < nodes.len() - 1 {
                         let next_ptr = context
@@ -580,9 +616,6 @@ const _: () = {
                             return Err(ArchivedBTreeMapError::LastLeafForwardPointerNotNull);
                         }
                     }
-
-                    // Keep track of the number of entries found
-                    entry_count += leaf.tail.len();
                 }
 
                 // Make sure that the number of entries matches the length

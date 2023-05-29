@@ -1,20 +1,19 @@
 [package]
 name = "rkyv_typename"
-version = "0.7.33"
-authors = ["David Koloski <djkoloski@gmail.com>"]
-edition = "2018"
 description = "Customizable naming for types"
-license = "MIT"
-documentation = "https://docs.rs/rkyv_typename"
-repository = "https://github.com/rkyv/rkyv"
 keywords = ["archive", "rkyv", "serialization", "zero-copy", "no_std"]
 categories = ["encoding", "no-std"]
 readme = "crates-io.md"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rkyv_typename_derive = { version = "=0.7.33", path = "../rkyv_typename_derive" }
+rkyv_typename_derive = { version = "0.7.41", path = "../rkyv_typename_derive" }
 
 [features]
 default = ["std"]

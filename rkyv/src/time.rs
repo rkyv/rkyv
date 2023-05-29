@@ -111,9 +111,9 @@ impl ArchivedDuration {
 
 #[cfg(feature = "validation")]
 const _: () = {
-    use core::fmt;
     use crate::Fallible;
     use bytecheck::CheckBytes;
+    use core::fmt;
 
     /// An error resulting from an invalid duration.
     ///
@@ -134,14 +134,15 @@ const _: () = {
         type Error = DurationError;
 
         #[inline]
-        unsafe fn check_bytes<'a>(
-            value: *const Self,
-            _: &mut C,
-        ) -> Result<&'a Self, Self::Error> {
+        unsafe fn check_bytes<'a>(value: *const Self, _: &mut C) -> Result<&'a Self, Self::Error> {
             // The fields of `ArchivedDuration` are always valid
             let duration = &*value;
+            let secs = from_archived!(duration.secs);
 
-            if duration.secs.checked_add((duration.nanos / 1_000_000_000) as u64).is_none() {
+            if secs
+                .checked_add((duration.nanos / 1_000_000_000) as u64)
+                .is_none()
+            {
                 Err(DurationError)
             } else {
                 Ok(duration)

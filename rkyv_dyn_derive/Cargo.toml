@@ -1,12 +1,11 @@
 [package]
 name = "rkyv_dyn_derive"
-version = "0.7.39"
-authors = ["David Koloski <djkoloski@gmail.com>"]
-edition = "2018"
 description = "Macros for rkyv_dyn"
-license = "MIT"
-documentation = "https://docs.rs/rkyv_dyn_derive"
-repository = "https://github.com/rkyv/rkyv"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -14,9 +13,9 @@ repository = "https://github.com/rkyv/rkyv"
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0"
-syn = { version = "1.0", features = ["full"] }
-quote = "1.0"
+proc-macro2.workspace = true
+syn = { workspace = true, features = ["full"] }
+quote.workspace = true
 
 [features]
 default = []

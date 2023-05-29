@@ -162,7 +162,7 @@ impl NodeHeader {
 
     #[inline]
     fn classify_inner_ptr<K>(&self) -> *const InnerNode<K> {
-        ptr_meta::from_raw_parts(self as *const Self as *const (), self.len() as usize)
+        ptr_meta::from_raw_parts(self as *const Self as *const (), self.len())
     }
 
     #[inline]
@@ -173,7 +173,7 @@ impl NodeHeader {
 
     #[inline]
     fn classify_leaf_ptr<K, V>(&self) -> *const LeafNode<K, V> {
-        ptr_meta::from_raw_parts(self as *const Self as *const (), self.len() as usize)
+        ptr_meta::from_raw_parts(self as *const Self as *const (), self.len())
     }
 
     #[inline]

@@ -107,14 +107,19 @@ mod tests {
         #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
         fn archive_example() {
             use rkyv::{Archive, Deserialize, Serialize};
-            // bytecheck can be used to validate your data if you want
-            use bytecheck::CheckBytes;
 
             #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
-            // This will generate a PartialEq impl between our unarchived and archived types
-            #[archive(compare(PartialEq))]
-            // To use the safe API, you have to derive CheckBytes for the archived type
-            #[archive_attr(derive(CheckBytes, Debug))]
+            #[archive(
+                // This will generate a PartialEq impl between our unarchived
+                // and archived types:
+                compare(PartialEq),
+                // bytecheck can be used to validate your data if you want. To
+                // use the safe API, you have to derive CheckBytes for the
+                // archived type:
+                check_bytes,
+            )]
+            // Derives can be passed through to the generated type:
+            #[archive_attr(derive(Debug))]
             struct Test {
                 int: u8,
                 string: String,
@@ -870,6 +875,27 @@ mod tests {
         let value = Test {
             a: rc_slice.clone(),
             b: rc_slice,
+        };
+
+        test_archive(&value);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_unsized_shared_ptr_empty() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        struct Test {
+            a: Rc<[u32]>,
+            b: Rc<[u32]>,
+        }
+
+        let a_rc_slice = Rc::<[u32]>::from(vec![].into_boxed_slice());
+        let b_rc_slice = Rc::<[u32]>::from(vec![100].into_boxed_slice());
+        let value = Test {
+            a: a_rc_slice,
+            b: b_rc_slice.clone(),
         };
 
         test_archive(&value);
@@ -1925,8 +1951,9 @@ mod tests {
         };
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&value).unwrap();
-        let result = serializer.into_serializer().into_inner();
-        let archived = unsafe { archived_root::<Test>(result.as_slice()) };
+        let mut result = serializer.into_serializer().into_inner();
+        let bytes = unsafe { Pin::new_unchecked(result.as_mut_slice()) };
+        let archived = unsafe { archived_root_mut::<Test>(bytes) };
 
         unsafe {
             assert_eq!(*archived.inner.get(), 100);
@@ -1934,7 +1961,7 @@ mod tests {
             assert_eq!(*archived.inner.get(), 42);
         }
 
-        let deserialized: Test = archived
+        let deserialized: Test = (&*archived)
             .deserialize(&mut DefaultDeserializer::default())
             .unwrap();
         unsafe {
@@ -2162,5 +2189,25 @@ mod tests {
         assert_ne!(tracker.max_bytes_allocated(), 0);
         assert_eq!(tracker.max_allocations(), 1);
         assert_ne!(tracker.min_buffer_size(), 0);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_manually_drop() {
+        use core::mem::ManuallyDrop;
+
+        let vec = ManuallyDrop::new(vec!["hello world".to_string(), "me too!".to_string()]);
+
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&vec).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        let archived = unsafe { archived_root::<ManuallyDrop<Vec<String>>>(result.as_slice()) };
+
+        assert_eq!(archived.len(), vec.len());
+        for (a, b) in archived.iter().zip(vec.iter()) {
+            assert_eq!(a, b);
+        }
+
+        drop(ManuallyDrop::into_inner(vec));
     }
 }

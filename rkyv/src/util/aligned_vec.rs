@@ -19,7 +19,7 @@ use std::{alloc, io};
 
 /// A vector of bytes that aligns its memory to 16 bytes.
 ///
-/// The alignment also applies to [`ArchivedAlignedVec`], which is useful for aligning opaque bytes inside of an archived data
+/// The alignment also applies to `ArchivedAlignedVec`, which is useful for aligning opaque bytes inside of an archived data
 /// type.
 ///
 /// ```
@@ -68,6 +68,13 @@ impl Drop for AlignedVec {
 impl AlignedVec {
     /// The alignment of the vector
     pub const ALIGNMENT: usize = 16;
+
+    /// Maximum capacity of the vector.
+    /// Dictated by the requirements of
+    /// [`alloc::Layout`](https://doc.rust-lang.org/alloc/alloc/struct.Layout.html).
+    /// "`size`, when rounded up to the nearest multiple of `align`, must not overflow `isize`
+    /// (i.e. the rounded value must be less than or equal to `isize::MAX`)".
+    pub const MAX_CAPACITY: usize = isize::MAX as usize - (Self::ALIGNMENT - 1);
 
     /// Constructs a new, empty `AlignedVec`.
     ///
@@ -120,14 +127,20 @@ impl AlignedVec {
         if capacity == 0 {
             Self::new()
         } else {
+            assert!(
+                capacity <= Self::MAX_CAPACITY,
+                "`capacity` cannot exceed isize::MAX - 15"
+            );
             let ptr = unsafe {
-                alloc::alloc(alloc::Layout::from_size_align_unchecked(
-                    capacity,
-                    Self::ALIGNMENT,
-                ))
+                let layout = alloc::Layout::from_size_align_unchecked(capacity, Self::ALIGNMENT);
+                let ptr = alloc::alloc(layout);
+                if ptr.is_null() {
+                    alloc::handle_alloc_error(layout);
+                }
+                NonNull::new_unchecked(ptr)
             };
             Self {
-                ptr: NonNull::new(ptr).unwrap(),
+                ptr,
                 cap: capacity,
                 len: 0,
             }
@@ -159,12 +172,51 @@ impl AlignedVec {
         self.len = 0;
     }
 
+    /// Change capacity of vector.
+    ///
+    /// Will set capacity to exactly `new_cap`.
+    /// Can be used to either grow or shrink capacity.
+    /// Backing memory will be reallocated.
+    ///
+    /// Usually the safe methods `reserve` or `reserve_exact` are a better choice.
+    /// This method only exists as a micro-optimization for very performance-sensitive
+    /// code where where the calculation of capacity required has already been
+    /// performed, and you want to avoid doing it again, or if you want to implement
+    /// a different growth strategy.
+    ///
+    /// # Safety
+    ///
+    /// - `new_cap` must be less than or equal to [`MAX_CAPACITY`](AlignedVec::MAX_CAPACITY)
+    /// - `new_cap` must be greater than or equal to [`len()`](AlignedVec::len)
     #[inline]
-    fn change_capacity(&mut self, new_cap: usize) {
-        if new_cap != self.cap {
-            let new_ptr = unsafe { alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap) };
-            self.ptr = NonNull::new(new_ptr).unwrap();
+    pub unsafe fn change_capacity(&mut self, new_cap: usize) {
+        debug_assert!(new_cap <= Self::MAX_CAPACITY);
+        debug_assert!(new_cap >= self.len);
+
+        if new_cap > 0 {
+            let new_ptr = if self.cap > 0 {
+                let new_ptr = alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap);
+                if new_ptr.is_null() {
+                    alloc::handle_alloc_error(alloc::Layout::from_size_align_unchecked(
+                        new_cap,
+                        Self::ALIGNMENT,
+                    ));
+                }
+                new_ptr
+            } else {
+                let layout = alloc::Layout::from_size_align_unchecked(new_cap, Self::ALIGNMENT);
+                let new_ptr = alloc::alloc(layout);
+                if new_ptr.is_null() {
+                    alloc::handle_alloc_error(layout);
+                }
+                new_ptr
+            };
+            self.ptr = NonNull::new_unchecked(new_ptr);
             self.cap = new_cap;
+        } else if self.cap > 0 {
+            alloc::dealloc(self.ptr.as_ptr(), self.layout());
+            self.ptr = NonNull::dangling();
+            self.cap = 0;
         }
     }
 
@@ -182,13 +234,16 @@ impl AlignedVec {
     /// assert_eq!(vec.capacity(), 10);
     /// vec.shrink_to_fit();
     /// assert!(vec.capacity() >= 3);
+    ///
+    /// vec.clear();
+    /// vec.shrink_to_fit();
+    /// assert!(vec.capacity() == 0);
     /// ```
     #[inline]
     pub fn shrink_to_fit(&mut self) {
-        if self.len == 0 {
-            self.clear()
-        } else {
-            self.change_capacity(self.len);
+        if self.cap != self.len {
+            // New capacity cannot exceed max as it's shrinking
+            unsafe { self.change_capacity(self.len) };
         }
     }
 
@@ -314,7 +369,7 @@ impl AlignedVec {
     ///
     /// # Panics
     ///
-    /// Panics if the new capacity exceeds `usize::MAX` bytes.
+    /// Panics if the new capacity exceeds `isize::MAX - 15` bytes.
     ///
     /// # Examples
     /// ```
@@ -327,34 +382,89 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
-        let new_cap = self.len + additional;
-        if new_cap > self.cap {
-            let new_cap = new_cap
-                .checked_next_power_of_two()
-                .expect("cannot reserve a larger AlignedVec");
-            if self.cap == 0 {
-                let new_ptr = unsafe {
-                    alloc::alloc(alloc::Layout::from_size_align_unchecked(
-                        new_cap,
-                        Self::ALIGNMENT,
-                    ))
-                };
-                self.ptr = NonNull::new(new_ptr).unwrap();
-                self.cap = new_cap;
-            } else {
-                let new_ptr = unsafe { alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap) };
-                self.ptr = NonNull::new(new_ptr).unwrap();
-                self.cap = new_cap;
-            }
+        // Cannot wrap because capacity always exceeds len,
+        // but avoids having to handle potential overflow here
+        let remaining = self.cap.wrapping_sub(self.len);
+        if additional > remaining {
+            self.do_reserve(additional);
         }
     }
+
+    /// Extend capacity after `reserve` has found it's necessary.
+    ///
+    /// Actually performing the extension is in this separate function marked
+    /// `#[cold]` to hint to compiler that this branch is not often taken.
+    /// This keeps the path for common case where capacity is already sufficient
+    /// as fast as possible, and makes `reserve` more likely to be inlined.
+    /// This is the same trick that Rust's `Vec::reserve` uses.
+    #[cold]
+    fn do_reserve(&mut self, additional: usize) {
+        let new_cap = self
+            .len
+            .checked_add(additional)
+            .expect("cannot reserve a larger AlignedVec");
+        unsafe { self.grow_capacity_to(new_cap) };
+    }
+
+    /// Grows total capacity of vector to `new_cap` or more.
+    ///
+    /// Capacity after this call will be `new_cap` rounded up to next power of 2,
+    /// unless that would exceed maximum capacity, in which case capacity
+    /// is capped at the maximum.
+    ///
+    /// This is same growth strategy used by `reserve`, `push` and `extend_from_slice`.
+    ///
+    /// Usually the safe methods `reserve` or `reserve_exact` are a better choice.
+    /// This method only exists as a micro-optimization for very performance-sensitive
+    /// code where where the calculation of capacity required has already been
+    /// performed, and you want to avoid doing it again.
+    ///
+    /// Maximum capacity is `isize::MAX - 15` bytes.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `new_cap` exceeds `isize::MAX - 15` bytes.
+    ///
+    /// # Safety
+    ///
+    /// - `new_cap` must be greater than current [`capacity()`](AlignedVec::capacity)
+    ///
+    /// # Examples
+    /// ```
+    /// use rkyv::AlignedVec;
+    ///
+    /// let mut vec = AlignedVec::new();
+    /// vec.push(1);
+    /// unsafe { vec.grow_capacity_to(50) };
+    /// assert_eq!(vec.len(), 1);
+    /// assert_eq!(vec.capacity(), 64);
+    /// ```
+    #[inline]
+    pub unsafe fn grow_capacity_to(&mut self, new_cap: usize) {
+        debug_assert!(new_cap > self.cap);
+
+        let new_cap = if new_cap > (isize::MAX as usize + 1) >> 1 {
+            // Rounding up to next power of 2 would result in `isize::MAX + 1` or higher,
+            // which exceeds max capacity. So cap at max instead.
+            assert!(
+                new_cap <= Self::MAX_CAPACITY,
+                "cannot reserve a larger AlignedVec"
+            );
+            Self::MAX_CAPACITY
+        } else {
+            // Cannot overflow due to check above
+            new_cap.next_power_of_two()
+        };
+        self.change_capacity(new_cap);
+    }
+
     /// Resizes the Vec in-place so that len is equal to new_len.
     ///
     /// If new_len is greater than len, the Vec is extended by the difference, with each additional slot filled with value. If new_len is less than len, the Vec is simply truncated.
-    /// 
+    ///
     /// # Panics
     ///
-    /// Panics if the new length exceeds `usize::MAX` bytes.
+    /// Panics if the new length exceeds `isize::MAX - 15` bytes.
     ///
     /// # Examples
     /// ```
@@ -375,9 +485,13 @@ impl AlignedVec {
         if new_len > self.len {
             let additional = new_len - self.len;
             self.reserve(additional);
-            unsafe { std::ptr::write_bytes(self.ptr.as_ptr().add(self.len), value, additional); }
+            unsafe {
+                core::ptr::write_bytes(self.ptr.as_ptr().add(self.len), value, additional);
+            }
         }
-        unsafe { self.set_len(new_len); }
+        unsafe {
+            self.set_len(new_len);
+        }
     }
 
     /// Returns `true` if the vector contains no elements.
@@ -466,7 +580,7 @@ impl AlignedVec {
     ///
     /// # Panics
     ///
-    /// Panics if the new capacity exceeds `usize::MAX` bytes.
+    /// Panics if the new capacity exceeds `isize::MAX - 15` bytes.
     ///
     /// # Examples
     /// ```
@@ -479,11 +593,28 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn push(&mut self, value: u8) {
+        if self.len == self.cap {
+            self.reserve_for_push();
+        }
+
         unsafe {
-            self.reserve(1);
             self.as_mut_ptr().add(self.len).write(value);
             self.len += 1;
         }
+    }
+
+    /// Extend capacity by at least 1 byte after `push` has found it's necessary.
+    ///
+    /// Actually performing the extension is in this separate function marked
+    /// `#[cold]` to hint to compiler that this branch is not often taken.
+    /// This keeps the path for common case where capacity is already sufficient
+    /// as fast as possible, and makes `push` more likely to be inlined.
+    /// This is the same trick that Rust's `Vec::push` uses.
+    #[cold]
+    fn reserve_for_push(&mut self) {
+        // `len` is always less than `isize::MAX`, so no possibility of overflow here
+        let new_cap = self.len + 1;
+        unsafe { self.grow_capacity_to(new_cap) };
     }
 
     /// Reserves the minimum capacity for exactly `additional` more elements to be inserted in the
@@ -496,7 +627,7 @@ impl AlignedVec {
     ///
     /// # Panics
     ///
-    /// Panics if the new capacity overflows `usize`.
+    /// Panics if the new capacity overflows `isize::MAX - 15`.
     ///
     /// # Examples
     /// ```
@@ -509,12 +640,20 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn reserve_exact(&mut self, additional: usize) {
+        // This function does not use the hot/cold paths trick that `reserve`
+        // and `push` do, on assumption that user probably knows this will require
+        // an increase in capacity. Otherwise, they'd likely use `reserve`.
         let new_cap = self
             .len
             .checked_add(additional)
-            .and_then(|n| n.checked_next_power_of_two())
-            .expect("reserve amount overflowed");
-        self.change_capacity(new_cap);
+            .expect("cannot reserve a larger AlignedVec");
+        if new_cap > self.cap {
+            assert!(
+                new_cap <= Self::MAX_CAPACITY,
+                "cannot reserve a larger AlignedVec"
+            );
+            unsafe { self.change_capacity(new_cap) };
+        }
     }
 
     /// Forces the length of the vector to `new_len`.
@@ -598,6 +737,103 @@ impl AlignedVec {
         Vec::from(self.as_ref())
     }
 }
+
+#[cfg(feature = "std")]
+const _: () = {
+    use std::io::{ErrorKind, Read};
+
+    impl AlignedVec {
+        /// Reads all bytes until EOF from `r` and appends them to this `AlignedVec`.
+        ///
+        /// If successful, this function will return the total number of bytes read.
+        ///
+        /// # Examples
+        /// ```
+        /// use rkyv::AlignedVec;
+        ///
+        /// let source = (0..4096).map(|x| (x % 256) as u8).collect::<Vec<_>>();
+        /// let mut bytes = AlignedVec::new();
+        /// bytes.extend_from_reader(&mut source.as_slice()).unwrap();
+        ///
+        /// assert_eq!(bytes.len(), 4096);
+        /// assert_eq!(bytes[0], 0);
+        /// assert_eq!(bytes[100], 100);
+        /// assert_eq!(bytes[2945], 129);
+        /// ```
+        pub fn extend_from_reader<R: Read + ?Sized>(
+            &mut self,
+            r: &mut R,
+        ) -> std::io::Result<usize> {
+            let start_len = self.len();
+            let start_cap = self.capacity();
+
+            // Extra initialized bytes from previous loop iteration.
+            let mut initialized = 0;
+            loop {
+                if self.len() == self.capacity() {
+                    // No available capacity, reserve some space.
+                    self.reserve(32);
+                }
+
+                let read_buf_start = unsafe { self.as_mut_ptr().add(self.len) };
+                let read_buf_len = self.capacity() - self.len();
+
+                // Initialize the uninitialized portion of the available space.
+                unsafe {
+                    // The first `initialized` bytes don't need to be zeroed.
+                    // This leaves us `read_buf_len - initialized` bytes to zero
+                    // starting at `initialized`.
+                    core::ptr::write_bytes(
+                        read_buf_start.add(initialized),
+                        0,
+                        read_buf_len - initialized,
+                    );
+                }
+
+                // The entire read buffer is now initialized, so we can create a
+                // mutable slice of it.
+                let read_buf =
+                    unsafe { core::slice::from_raw_parts_mut(read_buf_start, read_buf_len) };
+
+                match r.read(read_buf) {
+                    Ok(read) => {
+                        // We filled `read` additional bytes.
+                        unsafe {
+                            self.set_len(self.len() + read);
+                        }
+                        initialized = read_buf_len - read;
+
+                        if read == 0 {
+                            return Ok(self.len() - start_len);
+                        }
+                    }
+                    Err(e) if e.kind() == ErrorKind::Interrupted => continue,
+                    Err(e) => return Err(e),
+                }
+
+                if self.len() == self.capacity() && self.capacity() == start_cap {
+                    // The buffer might be an exact fit. Let's read into a probe buffer
+                    // and see if it returns `Ok(0)`. If so, we've avoided an
+                    // unnecessary doubling of the capacity. But if not, append the
+                    // probe buffer to the primary buffer and let its capacity grow.
+                    let mut probe = [0u8; 32];
+
+                    loop {
+                        match r.read(&mut probe) {
+                            Ok(0) => return Ok(self.len() - start_len),
+                            Ok(n) => {
+                                self.extend_from_slice(&probe[..n]);
+                                break;
+                            }
+                            Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
+                            Err(e) => return Err(e),
+                        }
+                    }
+                }
+            }
+        }
+    }
+};
 
 impl From<AlignedVec> for Vec<u8> {
     #[inline]

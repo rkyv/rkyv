@@ -1,19 +1,21 @@
 [package]
 name = "rkyv_bench"
-version = "0.7.0"
-authors = ["David Koloski <djkoloski@gmail.com>"]
-edition = "2018"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 bincode = "1.3"
-bytecheck = "0.6"
+bytecheck = { workspace = true, optional = true }
 criterion = "0.3"
 rand = "0.8"
 rand_pcg = "0.3"
-rkyv = { version = "0.7", path = "../rkyv", default-features = false, features = ["validation"] }
-rkyv_derive = { version = "0.7", path = "../rkyv_derive" }
+rkyv = { path = "../rkyv", default-features = false, features = ["validation"] }
+rkyv_derive = { path = "../rkyv_derive" }
 serde = { version = "1.0", features = ["derive"] }
 
 [features]

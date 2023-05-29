@@ -4,7 +4,7 @@ First and foremost, the motivation behind rkyv is improved performance. The way 
 that goal can also lead to gains in memory use, correctness, and security along the way.
 
 > Familiarity with other serialization frameworks and how traditional serialization works will help,
-> but is't necessary to understand how rkyv works.
+> but isn't necessary to understand how rkyv works.
 
 Most serialization frameworks like [serde](https://serde.rs) define an internal data model that
 consists of basic types such as primitives, strings, and byte arrays. This splits the work of

@@ -128,7 +128,7 @@ impl<'a, F: Serialize<S> + Clone, S: Fallible + ?Sized> SerializeWith<Cow<'a, F>
     }
 }
 
-impl<'a, T: Archive + Clone, D: Fallible + ?Sized> DeserializeWith<T::Archived, T, D> for AsOwned
+impl<T: Archive + Clone, D: Fallible + ?Sized> DeserializeWith<T::Archived, T, D> for AsOwned
 where
     T::Archived: Deserialize<T, D>,
 {
@@ -484,7 +484,7 @@ where
         // Basic debug assert that T and T::Archived are at least the same size
         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
 
-        unsafe { ArchivedBox::<[T::Archived]>::serialize_copy_from_slice(&**field, serializer) }
+        unsafe { ArchivedBox::<[T::Archived]>::serialize_copy_from_slice(field, serializer) }
     }
 }
 
@@ -542,7 +542,7 @@ where
         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
 
         unsafe {
-            ArchivedBox::<[T::Archived]>::serialize_copy_from_slice(*field.as_ref(), serializer)
+            ArchivedBox::<[T::Archived]>::serialize_copy_from_slice(field.as_ref(), serializer)
         }
     }
 }

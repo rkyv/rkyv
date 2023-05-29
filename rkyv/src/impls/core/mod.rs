@@ -5,7 +5,7 @@ use crate::{
     Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata, Deserialize,
     DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
 };
-use core::{alloc::Layout, ptr, str};
+use core::{alloc::Layout, mem::ManuallyDrop, ptr, str};
 use ptr_meta::Pointee;
 
 pub mod ops;
@@ -370,5 +370,34 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for <str as ArchiveUnsized
     #[inline]
     fn deserialize_metadata(&self, _: &mut D) -> Result<<str as Pointee>::Metadata, D::Error> {
         Ok(ptr_meta::metadata(self))
+    }
+}
+
+// `ManuallyDrop`
+
+impl<T: Archive> Archive for ManuallyDrop<T> {
+    type Archived = ManuallyDrop<T::Archived>;
+    type Resolver = T::Resolver;
+
+    #[inline]
+    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+        T::resolve(self, pos, resolver, out.cast::<T::Archived>())
+    }
+}
+
+impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for ManuallyDrop<T> {
+    #[inline]
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        T::serialize(self, serializer)
+    }
+}
+
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<ManuallyDrop<T>, D> for ManuallyDrop<T::Archived>
+where
+    T::Archived: Deserialize<T, D>,
+{
+    #[inline]
+    fn deserialize(&self, deserializer: &mut D) -> Result<ManuallyDrop<T>, <D as Fallible>::Error> {
+        T::Archived::deserialize(self, deserializer).map(ManuallyDrop::new)
     }
 }

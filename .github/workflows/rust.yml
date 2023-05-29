@@ -15,15 +15,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/install@v0.1
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@nightly
       with:
-        crate: wasm-pack
-        version: latest
-        use-tool-cache: true
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
-    - name: Run wasm tests
-      run: cd rkyv_test && wasm-pack test --node -- --features "wasm"
+        components: miri
+    - run: cargo build --verbose
+    - run: cargo test --verbose
+    - run: MIRIFLAGS="-Zmiri-disable-stacked-borrows -Zmiri-permissive-provenance" cargo miri test --all-targets
+    - run: cargo install wasm-pack
+    - run: cd rkyv_test && wasm-pack test --node -- --features "wasm"

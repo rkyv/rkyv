@@ -43,6 +43,10 @@ use syn::{parse_macro_input, DeriveInput};
 ///   recursive type definitions. Use `archive = "..."` to specify `Archive` bounds,
 ///   `serialize = "..."` to specify `Serialize` bounds, and `deserialize = "..."` to specify
 ///   `Deserialize` bounds.
+/// - `check_bytes`: Derive `CheckBytes` on the archived type, in order to enable safe
+///   deserialization. Requires `validation` feature. Not compatible with `as = "..."`. In that
+///   case, use `#[derive(CheckBytes)]` on the archived type, and include a `use rkyv::bytecheck`
+///   statement.
 /// - `copy_safe`: States that the archived type is tightly packed with no padding bytes. This
 ///   qualifies it for copy optimizations. (requires nightly)
 /// - `as = "..."`: Instead of generating a separate archived type, this type will archive as the

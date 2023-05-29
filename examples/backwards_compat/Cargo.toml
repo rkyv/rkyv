@@ -1,11 +1,13 @@
 [package]
 name = "backwards_compat"
-version = "0.1.0"
-edition = "2018"
 publish = false
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytecheck = "~0.6.8"
-rkyv = { version = "0.7", path = "../../rkyv", features = ["validation"] }
+rkyv = { path = "../../rkyv", features = ["validation"] }

@@ -9,11 +9,10 @@ To validate an archive, you first have to derive
 type:
 
 ```rs
-use bytecheck::CheckBytes;
 use rkyv::{Archive, Deserialize, Serialize};
 
 #[derive(Archive, Deserialize, Serialize)]
-#[archive_attr(derive(CheckBytes))]
+#[archive(check_bytes)]
 pub struct Example {
     a: i32,
     b: String,
@@ -21,8 +20,7 @@ pub struct Example {
 }
 ```
 
-The `#[archive_attr(...)]` attribute applies the provided attributes to the archived type. Finally,
-you can use
+The `#[archive(check_bytes)]` attribute derives `CheckBytes` on the archived type. Finally, you can use
 [`check_archived_root`](https://docs.rs/rkyv/0.7.1/rkyv/validation/validators/fn.check_archived_root.html) to
 check an archive and get a reference to the archived value if it was successful:
 
@@ -58,7 +56,7 @@ All pointers are checked to make sure that they:
 However, this alone is not enough to secure against recursion attacks and memory sharing violations,
 so rkyv uses a system to verify that the archive follows its strict ownership model.
 
-Archive validation usees a memory model where all subobjects are located in contiguous memory. This
+Archive validation uses a memory model where all subobjects are located in contiguous memory. This
 is called a *subtree range*. When validating an object, the archive context keeps track of where
 subobjects are allowed to be located, and can reduce the subtree range from the beginning with
 `push_prefix_subtree_range` or the end with `push_suffix_subtree_range`. After pushing a subtree

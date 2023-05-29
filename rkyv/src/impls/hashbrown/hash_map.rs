@@ -81,6 +81,8 @@ mod tests {
         ser::{serializers::AllocSerializer, Serializer},
         Deserialize, Infallible,
     };
+    #[cfg(all(feature = "alloc", not(feature = "std")))]
+    use alloc::string::String;
     use hashbrown::HashMap;
 
     #[test]

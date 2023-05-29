@@ -1,26 +1,25 @@
 [package]
 name = "rkyv_dyn"
-version = "0.7.39"
-authors = ["David Koloski <djkoloski@gmail.com>"]
-edition = "2018"
 description = "Trait object support for rkyv"
-license = "MIT"
-documentation = "https://docs.rs/rkyv_dyn"
-repository = "https://github.com/rkyv/rkyv"
 keywords = ["archive", "rkyv", "serialization", "zero-copy", "no_std"]
 categories = ["encoding", "no-std"]
 readme = "crates-io.md"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytecheck = { version = "~0.6.8", optional = true }
+bytecheck = { workspace = true, optional = true }
 inventory = "0.1"
 lazy_static = "1.4"
-ptr_meta = "~0.1.3"
-rkyv = { version = "0.7", path = "../rkyv", default-features = false }
-rkyv_dyn_derive = { version = "=0.7.39", path = "../rkyv_dyn_derive" }
-rkyv_typename = { version = "0.7", path = "../rkyv_typename" }
+ptr_meta.workspace = true
+rkyv = { version = "0.7.41", path = "../rkyv", default-features = false }
+rkyv_dyn_derive = { version = "0.7.41", path = "../rkyv_dyn_derive" }
+rkyv_typename = { version = "0.7.41", path = "../rkyv_typename" }
 
 [features]
 default = ["rkyv/size_32", "rkyv/std"]

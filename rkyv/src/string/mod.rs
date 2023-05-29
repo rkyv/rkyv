@@ -180,6 +180,41 @@ impl PartialEq<ArchivedString> for &str {
     }
 }
 
+impl PartialEq<ArchivedString> for str {
+    #[inline]
+    fn eq(&self, other: &ArchivedString) -> bool {
+        PartialEq::eq(other.as_str(), self)
+    }
+}
+
+impl PartialOrd<&str> for ArchivedString {
+    #[inline]
+    fn partial_cmp(&self, other: &&str) -> Option<cmp::Ordering> {
+        self.as_str().partial_cmp(*other)
+    }
+}
+
+impl PartialOrd<str> for ArchivedString {
+    #[inline]
+    fn partial_cmp(&self, other: &str) -> Option<cmp::Ordering> {
+        self.as_str().partial_cmp(other)
+    }
+}
+
+impl PartialOrd<ArchivedString> for &str {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedString) -> Option<cmp::Ordering> {
+        self.partial_cmp(&other.as_str())
+    }
+}
+
+impl PartialOrd<ArchivedString> for str {
+    #[inline]
+    fn partial_cmp(&self, other: &ArchivedString) -> Option<cmp::Ordering> {
+        self.partial_cmp(other.as_str())
+    }
+}
+
 /// The resolver for `String`.
 pub struct StringResolver {
     pos: usize,
@@ -187,17 +222,18 @@ pub struct StringResolver {
 
 #[cfg(feature = "validation")]
 const _: () = {
-    use crate::validation::{
-        owned::{CheckOwnedPointerError, OwnedPointerError},
-        ArchiveContext,
-    };
+    use crate::validation::{owned::OwnedPointerError, ArchiveContext};
     use bytecheck::{CheckBytes, Error};
 
     impl<C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedString
     where
-        C::Error: Error,
+        C::Error: Error + 'static,
     {
-        type Error = CheckOwnedPointerError<str, C>;
+        type Error = OwnedPointerError<
+            <ArchivedStringRepr as CheckBytes<C>>::Error,
+            <str as CheckBytes<C>>::Error,
+            C::Error,
+        >;
 
         #[inline]
         unsafe fn check_bytes<'a>(
@@ -205,7 +241,8 @@ const _: () = {
             context: &mut C,
         ) -> Result<&'a Self, Self::Error> {
             // The repr is always valid
-            let repr = &*value.cast::<ArchivedStringRepr>();
+            let repr = ArchivedStringRepr::check_bytes(value.cast(), context)
+                .map_err(OwnedPointerError::PointerCheckBytesError)?;
 
             if repr.is_inline() {
                 str::check_bytes(repr.as_str_ptr(), context)

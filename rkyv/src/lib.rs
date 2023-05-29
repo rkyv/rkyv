@@ -141,6 +141,8 @@ extern crate std;
 #[macro_use]
 pub mod macros;
 
+#[cfg(feature = "bitvec")]
+pub mod bitvec;
 pub mod boxed;
 pub mod collections;
 #[cfg(feature = "copy")]
@@ -170,6 +172,9 @@ pub mod with;
 #[cfg(feature = "rend")]
 pub use rend;
 
+#[cfg(feature = "validation")]
+#[cfg_attr(doc_cfg, doc(cfg(feature = "validation")))]
+pub use bytecheck::{self, CheckBytes};
 use core::alloc::Layout;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
