@@ -10,6 +10,7 @@ mod tests {
 
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
+    use rkyv::string::ArchivedString;
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
@@ -64,6 +65,22 @@ mod tests {
             assert!(hash_map.contains_key(key.as_str()));
             assert_eq!(&hash_map[key.as_str()], value);
         }
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_hash_map_tuple_retrieved_by_get_with() {
+        let mut hash_map = HashMap::new();
+        hash_map.insert(("hello".to_string(), "my".to_string()), "world".to_string());
+
+        let mut serializer = DefaultSerializer::default();
+        serializer.serialize_value(&hash_map).unwrap();
+        let buf = serializer.into_serializer().into_inner();
+        let archived_value = unsafe { archived_root::<HashMap<(String, String), String>>(buf.as_ref()) };
+
+        let get_with = archived_value.get_with(&("hello", "my"), |key, value| &(key.0.as_str(), key.1.as_str()) == value).unwrap();
+
+        assert_eq!(get_with.as_str(), "world");
     }
 
     #[test]

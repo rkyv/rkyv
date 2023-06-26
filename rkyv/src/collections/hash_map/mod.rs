@@ -119,6 +119,24 @@ impl<K, V> ArchivedHashMap<K, V> {
             .map(|index| unsafe { &self.entry(index).value })
     }
 
+    /// Gets the value associated with the given key, and matching the given predicate F.
+    /// If you are unable to construct a key that fulfils the criteria of `get`, you can use this
+    /// method instead.
+    /// E.g. if you want to use a HashMap with a tuple of String keys, constructing a key for use with `get` might be difficult
+    /// but you can use get_with like this: your_hashmap.get_with(&("my", "key"), |hashmap_key, your_key| &(hashmap_key.0.as_str(), hashmap_key.1.as_str()) == your_key)
+    #[inline]
+    pub fn get_with<Q: Hash + Eq + ?Sized, F: Fn(&K, &Q) -> bool>(&self, key: &Q, comparison_predicate: F) -> Option<&V> {
+        // Code adapted from self.find
+        self.index.index(key).and_then(|i| {
+            let entry = unsafe { self.entry(i) };
+            if comparison_predicate(&entry.key, &key) {
+                Some(&entry.value)
+            } else {
+                None
+            }
+        })
+    }
+
     /// Gets the mutable value associated with the given key.
     #[inline]
     pub fn get_pin<Q: ?Sized>(self: Pin<&mut Self>, k: &Q) -> Option<Pin<&mut V>>
