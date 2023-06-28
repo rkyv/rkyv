@@ -184,8 +184,8 @@ impl<T> ArchivedVec<T> {
     /// - supports iterators whose length is not known in advance, and
     /// - does not collect the data in memory before serializing.
     ///
-    /// However, it also requires the Iterator to return Items supporting Copy and whose size is
-    /// known at compile-time.
+    /// This method will panic if any item writes during `serialize` (i.e no additional data
+    /// written per item).
     ///
     /// Usage example:
     /// ```
@@ -268,7 +268,7 @@ impl<T> ArchivedVec<T> {
     ///
     /// // Do the first stage serialization pass. This writes all the data except for the final
     /// // resolver (metadata), which will be written in the next step
-    /// let resolver = ArchivedVec::<ArchivedExample>::serialize_from_copyable_iter(
+    /// let resolver = ArchivedVec::<ArchivedExample>::serialize_from_unknown_length_iter(
     ///     &mut iter,
     ///     &mut serializer,
     /// )
@@ -310,13 +310,12 @@ impl<T> ArchivedVec<T> {
     /// }
     /// ```
     #[inline]
-    pub fn serialize_from_copyable_iter<B, I, S>(
+    pub fn serialize_from_unknown_length_iter<B, I, S>(
         iter: &mut I,
         serializer: &mut S,
     ) -> Result<VecResolver, S::Error>
     where
-        // U: Serialize<S, Archived = T>,
-        B: Copy + Serialize<S, Archived = T>, // Borrow<U>,
+        B: Serialize<S, Archived = T>,
         I: Iterator<Item = B>,
         S: Serializer,
     {
