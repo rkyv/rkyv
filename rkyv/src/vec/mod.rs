@@ -198,14 +198,14 @@ impl<T> ArchivedVec<T> {
     /// type DefaultSerializer = AllocSerializer<SCRATCH_SIZE>;
     ///
     /// // Build some example data structures that are a little bit complex
-    /// #[derive(Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize)]
+    /// #[derive(Clone, Debug, PartialEq, Archive, Serialize, Deserialize)]
     /// #[archive(compare(PartialEq))]
     /// #[archive_attr(derive(Clone, Copy, Debug))]
     /// enum ExampleEnum {
     ///     Foo,
     ///     Bar(u64),
     /// }
-    /// #[derive(Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize)]
+    /// #[derive(Clone, Debug, PartialEq, Archive, Serialize, Deserialize)]
     /// #[archive(compare(PartialEq))]
     /// #[archive_attr(derive(Clone, Copy, Debug))]
     /// struct Example {
@@ -229,29 +229,26 @@ impl<T> ArchivedVec<T> {
     ///
     /// // If the Iterator length is not known, we have to wrap it in an adapter that tells us the length
     /// // after the fact
-    /// struct IterCount<I, T>
+    /// struct IterCount<I>
     /// where
-    ///     I: Iterator<Item = T>,
-    ///     T: Copy,
+    ///     I: Iterator,
     /// {
     ///     iter: I,
     ///     count: usize,
     /// }
-    /// impl<I, T> IterCount<I, T>
+    /// impl<I> IterCount<I>
     /// where
-    ///     I: Iterator<Item = T>,
-    ///     T: Copy,
+    ///     I: Iterator,
     /// {
     ///     pub fn new(iter: I) -> Self {
     ///         IterCount { iter, count: 0 }
     ///     }
     /// }
-    /// impl<I, T> Iterator for IterCount<I, T>
+    /// impl<I> Iterator for IterCount<I>
     /// where
-    ///     I: Iterator<Item = T>,
-    ///     T: Copy,
+    ///     I: Iterator
     /// {
-    ///     type Item = T;
+    ///     type Item = I::Item;
     ///     fn next(&mut self) -> Option<Self::Item> {
     ///         let next_item = self.iter.next();
     ///         if next_item.is_some() {

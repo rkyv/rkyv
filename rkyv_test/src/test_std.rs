@@ -365,7 +365,7 @@ mod tests {
         test_archive(&value);
     }
 
-    // Test case for deriving attributes on an object containing an Optoin. The Option impls appear
+    // Test case for deriving attributes on an object containing an Option. The Option impls appear
     // not to pass through attributes correctly.
     #[test]
     fn pass_thru_derive_with_option() {
