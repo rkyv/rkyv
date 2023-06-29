@@ -187,7 +187,7 @@ impl<T> ArchivedVec<T> {
     /// This method will panic if any item writes during `serialize` (i.e no additional data
     /// written per item).
     ///
-    /// Usage example:
+    /// # Examples
     /// ```
     /// use rkyv::{vec::ArchivedVec, archived_root,
     ///     ser::{serializers::{WriteSerializer, AllocSerializer}, Serializer},
