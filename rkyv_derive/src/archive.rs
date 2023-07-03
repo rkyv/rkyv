@@ -1,5 +1,3 @@
-use std::iter::Filter;
-
 use crate::{
     attributes::{parse_attributes, Attributes},
     repr::{BaseRepr, IntRepr, Repr},
@@ -9,12 +7,8 @@ use crate::{
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
-    parse_quote,
-    punctuated::{Iter, Punctuated},
-    spanned::Spanned,
-    token::Comma,
-    Attribute, Data, DeriveInput, Error, Field, Fields, Ident, Index, LitStr, Meta, NestedMeta,
-    Type,
+    parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Field, Fields, Ident,
+    Index, LitStr, Meta, NestedMeta, Type,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -935,7 +929,6 @@ fn derive_archive_impl(
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
-                                    let typeo = fields.unnamed.iter().filter(no_omit_bounds);
                                     for field in fields.unnamed.iter().filter(no_omit_bounds) {
                                         let ty = &field.ty;
                                         let wrapped_ty = with_ty(field).unwrap();
