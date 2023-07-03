@@ -276,8 +276,7 @@ fn derive_archive_impl(
                         }
                     }
 
-                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some()
-                    {
+                    let copy_safe_impl = (cfg!(feature = "copy") && attributes.copy_safe.is_some()).then(|| {
                         let mut copy_safe_where = where_clause.clone();
                         for field in fields.named.iter().filter(no_omit_bounds) {
                             let ty = with_ty(field).unwrap();
@@ -289,9 +288,7 @@ fn derive_archive_impl(
                         Some(quote! {
                             unsafe impl #impl_generics #rkyv_path::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
                         })
-                    } else {
-                        None
-                    };
+                    });
 
                     (
                         quote! {
@@ -447,8 +444,7 @@ fn derive_archive_impl(
                         }
                     }
 
-                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some()
-                    {
+                    let copy_safe_impl = (cfg!(feature = "copy") && attributes.copy_safe.is_some()).then(|| {
                         let mut copy_safe_where = where_clause.clone();
                         for field in fields.unnamed.iter().filter(no_omit_bounds) {
                             let ty = with_ty(field).unwrap();
@@ -460,9 +456,7 @@ fn derive_archive_impl(
                         Some(quote! {
                             unsafe impl #impl_generics #rkyv_path::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
                         })
-                    } else {
-                        None
-                    };
+                    });
 
                     (
                         quote! {
@@ -550,14 +544,11 @@ fn derive_archive_impl(
                         }
                     }
 
-                    let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some()
-                    {
+                    let copy_safe_impl = (cfg!(feature = "copy") && attributes.copy_safe.is_some()).then(|| {
                         Some(quote! {
                             unsafe impl #impl_generics #rkyv_path::copy::ArchiveCopySafe for #name #ty_generics #where_clause {}
                         })
-                    } else {
-                        None
-                    };
+                    });
 
                     (
                         quote! {
@@ -790,12 +781,9 @@ fn derive_archive_impl(
             let archived_def = if attributes.archive_as.is_none() {
                 let archived_variants = data.variants.iter().enumerate().map(|(i, v)| {
                     let variant = &v.ident;
-                    let discriminant =
-                        if is_fieldless || cfg!(feature = "arbitrary_enum_discriminant") {
-                            Some(int_repr.enum_discriminant(i))
-                        } else {
-                            None
-                        };
+                    let discriminant = (is_fieldless
+                        || cfg!(feature = "arbitrary_enum_discriminant"))
+                    .then(|| Some(int_repr.enum_discriminant(i)));
                     match v.fields {
                         Fields::Named(ref fields) => {
                             let fields = fields.named.iter().map(|f| {
@@ -1162,7 +1150,7 @@ fn derive_archive_impl(
                 }
             }
 
-            let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some() {
+            let copy_safe_impl = (cfg!(feature = "copy") && attributes.copy_safe.is_some()).then(|| {
                 let mut copy_safe_where = where_clause.clone();
                 for variant in data.variants.iter() {
                     match variant.fields {
@@ -1189,9 +1177,7 @@ fn derive_archive_impl(
                 Some(quote! {
                     unsafe impl #impl_generics #rkyv_path::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
                 })
-            } else {
-                None
-            };
+            });
 
             (
                 quote! {
