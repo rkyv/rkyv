@@ -182,11 +182,11 @@ fn derive_serialize_impl(
                     }
                     Fields::Unnamed(ref fields) => {
                         let bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                            let name = Ident::new(&format!("_{}", i), f.span());
+                            let name = Ident::new(&format!("_{i}"), f.span());
                             quote! { #name }
                         });
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                            let binding = Ident::new(&format!("_{}", i), f.span());
+                            let binding = Ident::new(&format!("_{i}"), f.span());
                             let field = with_cast(f, parse_quote! { #binding }).unwrap();
                             quote! {
                                 Serialize::<__S>::serialize(#field, serializer)?

@@ -1,3 +1,5 @@
+use std::iter::Filter;
+
 use crate::{
     attributes::{parse_attributes, Attributes},
     repr::{BaseRepr, IntRepr, Repr},
@@ -7,8 +9,12 @@ use crate::{
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
-    parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Field, Fields, Ident,
-    Index, LitStr, Meta, NestedMeta, Type,
+    parse_quote,
+    punctuated::{Iter, Punctuated},
+    spanned::Spanned,
+    token::Comma,
+    Attribute, Data, DeriveInput, Error, Field, Fields, Ident, Index, LitStr, Meta, NestedMeta,
+    Type,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -21,17 +27,16 @@ fn field_archive_attrs(field: &Field) -> impl '_ + Iterator<Item = NestedMeta> {
         .attrs
         .iter()
         .filter_map(|attr| {
-            if let Ok(Meta::List(list)) = attr.parse_meta() {
-                if list.path.is_ident("archive_attr") {
-                    Some(list.nested)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
+            let Ok(Meta::List(list)) = attr.parse_meta() else {
+                return None;
+            };
+            list.path.is_ident("archive_attr").then_some(list.nested)
         })
         .flatten()
+}
+
+fn no_omit_bounds(field: &Field) -> bool {
+    !field.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
 }
 
 fn derive_archive_impl(
@@ -118,7 +123,7 @@ fn derive_archive_impl(
         || Ident::new(&format!("Archived{}", strip_raw(name)), name.span()),
         |value| value.clone(),
     );
-    let archived_doc = format!("An archived [`{}`]", name);
+    let archived_doc = format!("An archived [`{name}`]");
 
     let archived_type = attributes.archive_as.as_ref().map_or_else(
         || Ok(parse_quote! { #archived_name #ty_generics }),
@@ -129,7 +134,7 @@ fn derive_archive_impl(
         || Ident::new(&format!("{}Resolver", strip_raw(name)), name.span()),
         |value| value.clone(),
     );
-    let resolver_doc = format!("The resolver for an archived [`{}`]", name);
+    let resolver_doc = format!("The resolver for an archived [`{name}`]");
 
     let (archive_types, archive_impls) = match input.data {
         Data::Struct(ref data) => {
@@ -179,8 +184,7 @@ fn derive_archive_impl(
                             let ty = with_ty(f).unwrap();
                             let vis = &f.vis;
                             let field_doc = format!(
-                                "The archived counterpart of [`{}::{}`]",
-                                name,
+                                "The archived counterpart of [`{name}::{}`]",
                                 field_name.unwrap()
                             );
                             let archive_attrs = field_archive_attrs(f);
@@ -362,8 +366,7 @@ fn derive_archive_impl(
                         let archived_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let ty = with_ty(f).unwrap();
                             let vis = &f.vis;
-                            let field_doc =
-                                format!("The archived counterpart of [`{}::{}`]", name, i);
+                            let field_doc = format!("The archived counterpart of [`{name}::{i}`]");
                             let archive_attrs = field_archive_attrs(f);
                             quote! {
                                 #[doc = #field_doc]
@@ -666,7 +669,7 @@ fn derive_archive_impl(
                                 #field_name: #rkyv_path::Resolver<#ty>
                             }
                         });
-                        let variant_doc = format!("The resolver for [`{}::{}`]", name, variant);
+                        let variant_doc = format!("The resolver for [`{name}::{variant}`]");
                         quote! {
                             #[doc = #variant_doc]
                             #[allow(dead_code)]
@@ -678,14 +681,13 @@ fn derive_archive_impl(
                     Fields::Unnamed(ref fields) => {
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let ty = with_ty(f).unwrap();
-                            let field_doc =
-                                format!("The resolver for [`{}::{}::{}`]", name, variant, i);
+                            let field_doc = format!("The resolver for [`{name}::{variant}::{i}`]");
                             quote! {
                                 #[doc = #field_doc]
                                 #rkyv_path::Resolver<#ty>
                             }
                         });
-                        let variant_doc = format!("The resolver for [`{}::{}`]", name, variant);
+                        let variant_doc = format!("The resolver for [`{name}::{variant}`]");
                         quote! {
                             #[doc = #variant_doc]
                             #[allow(dead_code)]
@@ -693,7 +695,7 @@ fn derive_archive_impl(
                         }
                     }
                     Fields::Unit => {
-                        let variant_doc = format!("The resolver for [`{}::{}`]", name, variant);
+                        let variant_doc = format!("The resolver for [`{name}::{variant}`]");
                         quote! {
                             #[doc = #variant_doc]
                             #[allow(dead_code)]
@@ -745,17 +747,17 @@ fn derive_archive_impl(
                     }
                     Fields::Unnamed(ref fields) => {
                         let self_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                            let name = Ident::new(&format!("self_{}", i), f.span());
+                            let name = Ident::new(&format!("self_{i}"), f.span());
                             quote! { #name }
                         });
                         let resolver_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                            let name = Ident::new(&format!("resolver_{}", i), f.span());
+                            let name = Ident::new(&format!("resolver_{i}"), f.span());
                             quote! { #name }
                         });
                         let resolves = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let index = Index::from(i + 1);
-                            let self_binding = Ident::new(&format!("self_{}", i), f.span());
-                            let resolver_binding = Ident::new(&format!("resolver_{}", i), f.span());
+                            let self_binding = Ident::new(&format!("self_{i}"), f.span());
+                            let resolver_binding = Ident::new(&format!("resolver_{i}"), f.span());
                             let value = with_cast(f, parse_quote! { #self_binding }).unwrap();
                             quote! {
                                 let (fp, fo) = out_field!(out.#index);
@@ -856,7 +858,7 @@ fn derive_archive_impl(
                                 }
                             });
                             let variant_doc =
-                                format!("The archived counterpart of [`{}::{}`]", name, variant);
+                                format!("The archived counterpart of [`{name}::{variant}`]");
                             quote! {
                                 #[doc = #variant_doc]
                                 #[allow(dead_code)]
@@ -870,8 +872,7 @@ fn derive_archive_impl(
                                 let ty = with_ty(f).unwrap();
                                 let vis = &f.vis;
                                 let field_doc = format!(
-                                    "The archived counterpart of [`{}::{}::{}`]",
-                                    name, variant, i,
+                                    "The archived counterpart of [`{name}::{variant}::{i}`]",
                                 );
                                 let archive_attrs = field_archive_attrs(f);
                                 quote! {
@@ -881,7 +882,7 @@ fn derive_archive_impl(
                                 }
                             });
                             let variant_doc =
-                                format!("The archived counterpart of [`{}::{}`]", name, variant);
+                                format!("The archived counterpart of [`{name}::{variant}`]");
                             quote! {
                                 #[doc = #variant_doc]
                                 #[allow(dead_code)]
@@ -890,7 +891,7 @@ fn derive_archive_impl(
                         }
                         Fields::Unit => {
                             let variant_doc =
-                                format!("The archived counterpart of [`{}::{}`]", name, variant);
+                                format!("The archived counterpart of [`{name}::{variant}`]");
                             quote! {
                                 #[doc = #variant_doc]
                                 #[allow(dead_code)]
@@ -972,6 +973,9 @@ fn derive_archive_impl(
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
+                                    let typeo = fields.unnamed.iter().filter(|f| {
+                                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                                    });
                                     for field in fields.unnamed.iter().filter(|f| {
                                         !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
                                     }) {
@@ -1013,10 +1017,10 @@ fn derive_archive_impl(
                                 }
                                 Fields::Unnamed(ref fields) => {
                                     let self_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                                        Ident::new(&format!("self_{}", i), f.span())
+                                        Ident::new(&format!("self_{i}"), f.span())
                                     }).collect::<Vec<_>>();
                                     let other_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                                        Ident::new(&format!("other_{}", i), f.span())
+                                        Ident::new(&format!("other_{i}"), f.span())
                                     }).collect::<Vec<_>>();
                                     quote! {
                                         #name::#variant(#(#self_bindings,)*) => match other {
@@ -1147,10 +1151,10 @@ fn derive_archive_impl(
                                 }
                                 Fields::Unnamed(ref fields) => {
                                     let self_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                                        Ident::new(&format!("self_{}", i), f.span())
+                                        Ident::new(&format!("self_{i}"), f.span())
                                     }).collect::<Vec<_>>();
                                     let other_bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                                        Ident::new(&format!("other_{}", i), f.span())
+                                        Ident::new(&format!("other_{i}"), f.span())
                                     }).collect::<Vec<_>>();
                                     quote! {
                                         #name::#variant(#(#self_bindings,)*) => match other {

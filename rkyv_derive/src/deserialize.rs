@@ -212,11 +212,11 @@ fn derive_deserialize_impl(
                     }
                     Fields::Unnamed(ref fields) => {
                         let bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                            let name = Ident::new(&format!("_{}", i), f.span());
+                            let name = Ident::new(&format!("_{i}"), f.span());
                             quote! { #name }
                         });
                         let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                            let binding = Ident::new(&format!("_{}", i), f.span());
+                            let binding = Ident::new(&format!("_{i}"), f.span());
                             let ty = with_ty(f).unwrap();
                             let value = with_inner(
                                 f,
