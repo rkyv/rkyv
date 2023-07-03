@@ -1,5 +1,5 @@
 [package]
-name = "rkyv_json_example"
+name = "opcode"
 publish = false
 version.workspace = true
 edition.workspace = true
@@ -10,4 +10,4 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rkyv = { path = "../../rkyv", features = ["validation"] }
+rkyv = { path = "../rkyv", features = ["validation"] }

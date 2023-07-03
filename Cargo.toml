@@ -1,9 +1,6 @@
 [workspace]
 members = [
-    "examples/as_string",
-    "examples/backwards_compat",
-    "examples/json",
-    "examples/opcode",
+    "examples",
     "rkyv*",
 ]
 default-members = [
