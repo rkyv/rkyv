@@ -1,5 +1,5 @@
 use proc_macro2::Ident;
-use syn::{punctuated::Punctuated, Error, LitStr, Token, WhereClause, WherePredicate};
+use syn::{punctuated::Punctuated, Error, Field, LitStr, Token, WhereClause, WherePredicate};
 
 pub fn add_bounds(bounds: &LitStr, where_clause: &mut WhereClause) -> Result<(), Error> {
     let clauses = bounds.parse_with(Punctuated::<WherePredicate, Token![,]>::parse_terminated)?;
@@ -15,4 +15,8 @@ pub fn strip_raw(ident: &Ident) -> String {
         .strip_prefix("r#")
         .map(ToString::to_string)
         .unwrap_or(as_string)
+}
+
+pub(crate) fn no_omit_bounds(field: &&Field) -> bool {
+    !field.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
 }

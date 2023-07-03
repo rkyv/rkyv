@@ -1,6 +1,6 @@
 use crate::{
     attributes::{parse_attributes, Attributes},
-    util::{add_bounds, strip_raw},
+    util::{add_bounds, no_omit_bounds, strip_raw},
     with::{make_with_cast, make_with_ty},
 };
 use proc_macro2::TokenStream;
@@ -58,11 +58,7 @@ fn derive_serialize_impl(
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
                 let mut serialize_where = where_clause.clone();
-                for field in fields
-                    .named
-                    .iter()
-                    .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                {
+                for field in fields.named.iter().filter(no_omit_bounds) {
                     let ty = with_ty(field)?;
                     serialize_where
                         .predicates
@@ -88,11 +84,7 @@ fn derive_serialize_impl(
             }
             Fields::Unnamed(ref fields) => {
                 let mut serialize_where = where_clause.clone();
-                for field in fields
-                    .unnamed
-                    .iter()
-                    .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                {
+                for field in fields.unnamed.iter().filter(no_omit_bounds) {
                     let ty = with_ty(field)?;
                     serialize_where
                         .predicates
@@ -132,11 +124,7 @@ fn derive_serialize_impl(
             for variant in data.variants.iter() {
                 match variant.fields {
                     Fields::Named(ref fields) => {
-                        for field in fields
-                            .named
-                            .iter()
-                            .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                        {
+                        for field in fields.named.iter().filter(no_omit_bounds) {
                             let ty = with_ty(field)?;
                             serialize_where
                                 .predicates
@@ -144,11 +132,7 @@ fn derive_serialize_impl(
                         }
                     }
                     Fields::Unnamed(ref fields) => {
-                        for field in fields
-                            .unnamed
-                            .iter()
-                            .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                        {
+                        for field in fields.unnamed.iter().filter(no_omit_bounds) {
                             let ty = with_ty(field)?;
                             serialize_where
                                 .predicates

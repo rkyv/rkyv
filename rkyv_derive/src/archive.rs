@@ -3,7 +3,7 @@ use std::iter::Filter;
 use crate::{
     attributes::{parse_attributes, Attributes},
     repr::{BaseRepr, IntRepr, Repr},
-    util::{add_bounds, strip_raw},
+    util::{add_bounds, no_omit_bounds, strip_raw},
     with::{make_with_cast, make_with_ty},
 };
 use proc_macro2::{Span, TokenStream};
@@ -33,10 +33,6 @@ fn field_archive_attrs(field: &Field) -> impl '_ + Iterator<Item = NestedMeta> {
             list.path.is_ident("archive_attr").then_some(list.nested)
         })
         .flatten()
-}
-
-fn no_omit_bounds(field: &Field) -> bool {
-    !field.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
 }
 
 fn derive_archive_impl(
@@ -161,11 +157,7 @@ fn derive_archive_impl(
             match data.fields {
                 Fields::Named(ref fields) => {
                     let mut archive_where = where_clause.clone();
-                    for field in fields
-                        .named
-                        .iter()
-                        .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                    {
+                    for field in fields.named.iter().filter(no_omit_bounds) {
                         let ty = with_ty(field)?;
                         archive_where
                             .predicates
@@ -223,9 +215,7 @@ fn derive_archive_impl(
                         for compare in compares {
                             if compare.is_ident("PartialEq") {
                                 let mut partial_eq_where = archive_where.clone();
-                                for field in fields.named.iter().filter(|f| {
-                                    !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
-                                }) {
+                                for field in fields.named.iter().filter(no_omit_bounds) {
                                     let ty = &field.ty;
                                     let wrapped_ty = with_ty(field).unwrap();
                                     partial_eq_where.predicates.push(
@@ -252,9 +242,7 @@ fn derive_archive_impl(
                                 });
                             } else if compare.is_ident("PartialOrd") {
                                 let mut partial_ord_where = archive_where.clone();
-                                for field in fields.named.iter().filter(|f| {
-                                    !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
-                                }) {
+                                for field in fields.named.iter().filter(no_omit_bounds) {
                                     let ty = &field.ty;
                                     let archived_ty = with_ty(field).unwrap();
                                     partial_ord_where.predicates.push(
@@ -297,11 +285,7 @@ fn derive_archive_impl(
                     let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some()
                     {
                         let mut copy_safe_where = where_clause.clone();
-                        for field in fields
-                            .named
-                            .iter()
-                            .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                        {
+                        for field in fields.named.iter().filter(no_omit_bounds) {
                             let ty = with_ty(field).unwrap();
                             copy_safe_where
                                 .predicates
@@ -346,11 +330,7 @@ fn derive_archive_impl(
                 }
                 Fields::Unnamed(ref fields) => {
                     let mut archive_where = where_clause.clone();
-                    for field in fields
-                        .unnamed
-                        .iter()
-                        .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                    {
+                    for field in fields.unnamed.iter().filter(no_omit_bounds) {
                         let ty = with_ty(field)?;
                         archive_where
                             .predicates
@@ -401,9 +381,7 @@ fn derive_archive_impl(
                         for compare in compares {
                             if compare.is_ident("PartialEq") {
                                 let mut partial_eq_where = archive_where.clone();
-                                for field in fields.unnamed.iter().filter(|f| {
-                                    !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
-                                }) {
+                                for field in fields.unnamed.iter().filter(no_omit_bounds) {
                                     let ty = &field.ty;
                                     let wrapped_ty = with_ty(field).unwrap();
                                     partial_eq_where.predicates.push(
@@ -434,9 +412,7 @@ fn derive_archive_impl(
                                 });
                             } else if compare.is_ident("PartialOrd") {
                                 let mut partial_ord_where = archive_where.clone();
-                                for field in fields.unnamed.iter().filter(|f| {
-                                    !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
-                                }) {
+                                for field in fields.unnamed.iter().filter(no_omit_bounds) {
                                     let ty = &field.ty;
                                     let wrapped_ty = with_ty(field).unwrap();
                                     partial_ord_where.predicates.push(
@@ -480,11 +456,7 @@ fn derive_archive_impl(
                     let copy_safe_impl = if cfg!(feature = "copy") && attributes.copy_safe.is_some()
                     {
                         let mut copy_safe_where = where_clause.clone();
-                        for field in fields
-                            .unnamed
-                            .iter()
-                            .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                        {
+                        for field in fields.unnamed.iter().filter(no_omit_bounds) {
                             let ty = with_ty(field).unwrap();
                             copy_safe_where
                                 .predicates
@@ -624,11 +596,7 @@ fn derive_archive_impl(
             for variant in data.variants.iter() {
                 match variant.fields {
                     Fields::Named(ref fields) => {
-                        for field in fields
-                            .named
-                            .iter()
-                            .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                        {
+                        for field in fields.named.iter().filter(no_omit_bounds) {
                             let ty = with_ty(field)?;
                             archive_where
                                 .predicates
@@ -636,11 +604,7 @@ fn derive_archive_impl(
                         }
                     }
                     Fields::Unnamed(ref fields) => {
-                        for field in fields
-                            .unnamed
-                            .iter()
-                            .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                        {
+                        for field in fields.unnamed.iter().filter(no_omit_bounds) {
                             let ty = with_ty(field)?;
                             archive_where
                                 .predicates
@@ -962,9 +926,7 @@ fn derive_archive_impl(
                         for variant in data.variants.iter() {
                             match variant.fields {
                                 Fields::Named(ref fields) => {
-                                    for field in fields.named.iter().filter(|f| {
-                                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
-                                    }) {
+                                    for field in fields.named.iter().filter(no_omit_bounds) {
                                         let ty = &field.ty;
                                         let wrapped_ty = with_ty(field).unwrap();
                                         partial_eq_where.predicates.push(
@@ -973,12 +935,8 @@ fn derive_archive_impl(
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
-                                    let typeo = fields.unnamed.iter().filter(|f| {
-                                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
-                                    });
-                                    for field in fields.unnamed.iter().filter(|f| {
-                                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
-                                    }) {
+                                    let typeo = fields.unnamed.iter().filter(no_omit_bounds);
+                                    for field in fields.unnamed.iter().filter(no_omit_bounds) {
                                         let ty = &field.ty;
                                         let wrapped_ty = with_ty(field).unwrap();
                                         partial_eq_where.predicates.push(
@@ -1062,9 +1020,7 @@ fn derive_archive_impl(
                         for variant in data.variants.iter() {
                             match variant.fields {
                                 Fields::Named(ref fields) => {
-                                    for field in fields.named.iter().filter(|f| {
-                                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
-                                    }) {
+                                    for field in fields.named.iter().filter(no_omit_bounds) {
                                         let ty = &field.ty;
                                         let wrapped_ty = with_ty(field).unwrap();
                                         partial_ord_where.predicates.push(
@@ -1073,9 +1029,7 @@ fn derive_archive_impl(
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
-                                    for field in fields.unnamed.iter().filter(|f| {
-                                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
-                                    }) {
+                                    for field in fields.unnamed.iter().filter(no_omit_bounds) {
                                         let ty = &field.ty;
                                         let wrapped_ty = with_ty(field).unwrap();
                                         partial_ord_where.predicates.push(
@@ -1220,11 +1174,7 @@ fn derive_archive_impl(
                 for variant in data.variants.iter() {
                     match variant.fields {
                         Fields::Named(ref fields) => {
-                            for field in fields
-                                .named
-                                .iter()
-                                .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                            {
+                            for field in fields.named.iter().filter(no_omit_bounds) {
                                 let ty = with_ty(field).unwrap();
                                 copy_safe_where
                                     .predicates
@@ -1232,11 +1182,7 @@ fn derive_archive_impl(
                             }
                         }
                         Fields::Unnamed(ref fields) => {
-                            for field in fields
-                                .unnamed
-                                .iter()
-                                .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                            {
+                            for field in fields.unnamed.iter().filter(no_omit_bounds) {
                                 let ty = with_ty(field).unwrap();
                                 copy_safe_where
                                     .predicates
