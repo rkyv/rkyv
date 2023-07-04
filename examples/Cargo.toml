@@ -1,5 +1,5 @@
 [package]
-name = "opcode"
+name = "examples"
 publish = false
 version.workspace = true
 edition.workspace = true
