@@ -83,4 +83,3 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --verbose
       - run: cargo test --verbose
-      - run: cargo check --examples
