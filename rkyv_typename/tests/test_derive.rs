@@ -8,6 +8,7 @@ fn check_typename<T: TypeName + ?Sized>(type_name_check: &str) {
 }
 
 // Test that the TypeName derive works for the most trivial cases
+
 #[test]
 fn builtin_types() {
     check_typename::<i32>("i32");
