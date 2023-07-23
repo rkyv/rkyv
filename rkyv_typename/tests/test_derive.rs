@@ -2,41 +2,85 @@
 use rkyv_typename::TypeName;
 
 fn check_typename<T: TypeName + ?Sized>(type_name_check: &str) {
-    let mut type_name = String::new();
-    let mod_path = module_path!();
-    let type_name_check = format!("{mod_path}::{type_name_check}");
-    T::build_type_name(|piece| type_name += piece);
-    assert_eq!(type_name, type_name_check)
+    let mut type_name_built = String::new();
+    T::build_type_name(|piece| type_name_built += piece);
+    assert_eq!(type_name_built, type_name_check)
 }
 
 // Test that the TypeName derive works for the most trivial cases
+#[test]
+fn builtin_types() {
+    check_typename::<i32>("i32");
+    check_typename::<(i32,)>("(i32,)");
+    check_typename::<(i32, i32)>("(i32, i32)");
+    check_typename::<[[u8; 4]; 8]>("[[u8; 4]; 8]");
+    check_typename::<Option<[String; 1]>>("core::option::Option<[alloc::string::String; 1]>");
+    check_typename::<Option<[Option<u8>; 4]>>(
+        "core::option::Option<[core::option::Option<u8>; 4]>"
+    );
+}
+
+#[test]
+fn derive() {
+    #[derive(TypeName)]
+    struct Test;
+
+    check_typename::<Test>("test_derive::Test");
+}
+
+#[test]
+fn derive_generic() {
+    #[derive(TypeName)]
+    struct Test<T, U, V>(T, U, V);
+
+    check_typename::<Test<u8, [i32; 4], Option<String>>>(
+        "test_derive::Test<u8, [i32; 4], core::option::Option<alloc::string::String>>"
+    );
+}
+
+#[test]
+fn derive_custom_typename() {
+    #[derive(TypeName)]
+    #[typename = "Custom"]
+    struct Test;
+
+    check_typename::<Test>("Custom");
+
+    #[derive(TypeName)]
+    #[typename = "GenericCustom"]
+    struct GenericTest<T>(T);
+
+    check_typename::<GenericTest<i32>>("GenericCustom<i32>");
+    check_typename::<GenericTest<Test>>("GenericCustom<Custom>");
+}
+
 
 #[test]
 fn trivial_struct() {
     #[derive(TypeName)]
     struct Struct {}
-    check_typename::<Struct>("Struct");
+    check_typename::<Struct>("test_derive::Struct");
 }
 
 #[test]
 fn trivial_unit_struct() {
     #[derive(TypeName)]
     struct Struct;
-    check_typename::<Struct>("Struct");
+    check_typename::<Struct>("test_derive::Struct");
 }
 
 #[test]
 fn trivial_tuple_struct() {
     #[derive(TypeName)]
     struct Struct();
-    check_typename::<Struct>("Struct");
+    check_typename::<Struct>("test_derive::Struct");
 }
 
 #[test]
 fn trivial_enum() {
     #[derive(TypeName)]
     enum Enum {}
-    check_typename::<Enum>("Enum");
+    check_typename::<Enum>("test_derive::Enum");
 }
 
 // Test non generic structs and enums
@@ -49,7 +93,7 @@ fn basic_struct() {
         a: u32,
         b: u128,
     }
-    check_typename::<Struct>("Struct");
+    check_typename::<Struct>("test_derive::Struct");
 }
 
 #[test]
@@ -60,7 +104,7 @@ fn basic_enum() {
         CaseA(u32),
         CaseB(u128),
     }
-    check_typename::<Enum>("Enum");
+    check_typename::<Enum>("test_derive::Enum");
 }
 
 // Test basic generic structs
@@ -74,7 +118,7 @@ fn generic_one_param() {
         b: u128,
         c: C,
     }
-    check_typename::<Struct<()>>("Struct<()>");
+    check_typename::<Struct<()>>("test_derive::Struct<()>");
 }
 
 #[test]
@@ -89,7 +133,7 @@ fn generic_name_collisions() {
         b: u128,
         c: F,
     }
-    check_typename::<Struct<()>>("Struct<()>");
+    check_typename::<Struct<()>>("test_derive::Struct<()>");
 }
 
 #[test]
@@ -102,7 +146,7 @@ fn generic_two_params() {
         b: u128,
         c: (C, D),
     }
-    check_typename::<Struct<(), u8>>("Struct<(), u8>");
+    check_typename::<Struct<(), u8>>("test_derive::Struct<(), u8>");
 }
 
 // Test that trait bounds are generated correctly
@@ -119,7 +163,7 @@ fn generic_with_trait_bounds() {
         b: u128,
         c: (C, D),
     }
-    check_typename::<Struct<(), u8>>("Struct<(), u8>");
+    check_typename::<Struct<(), u8>>("test_derive::Struct<(), u8>");
 }
 
 // Test types with lifetimes
@@ -132,7 +176,7 @@ fn lifetimes() {
         a: u32,
         b: &'b u128,
     }
-    check_typename::<Struct>("Struct");
+    check_typename::<Struct>("test_derive::Struct");
 }
 
 #[test]
@@ -147,7 +191,7 @@ fn two_lifetimes_with_bounds() {
         b: &'b u128,
         c: &'c i128,
     }
-    check_typename::<Struct>("Struct");
+    check_typename::<Struct>("test_derive::Struct");
 }
 
 #[test]
@@ -159,7 +203,7 @@ fn combined_generic_type_and_lifetime() {
         b: &'a u128,
         c: C,
     }
-    check_typename::<Struct<()>>("Struct<()>");
+    check_typename::<Struct<()>>("test_derive::Struct<()>");
 }
 
 // Test const generics
@@ -172,7 +216,7 @@ fn const_generic_num() {
         a: u32,
         b: u128,
     }
-    check_typename::<Struct<77>>("Struct<77>");
+    check_typename::<Struct<77>>("test_derive::Struct<77>");
 }
 
 #[test]
@@ -183,7 +227,7 @@ fn const_generic_bool() {
         a: u32,
         b: u128,
     }
-    check_typename::<Struct<true>>("Struct<true>");
+    check_typename::<Struct<true>>("test_derive::Struct<true>");
 }
 
 #[test]
@@ -194,7 +238,7 @@ fn const_generic_char() {
         a: u32,
         b: u128,
     }
-    check_typename::<Struct<'a'>>("Struct<'a'>");
+    check_typename::<Struct<'a'>>("test_derive::Struct<'a'>");
 }
 
 // Test more composite cases which could potentially cause problems such as:
@@ -239,7 +283,7 @@ fn composite_cases() {
         Struct<String, [[String; 3]; 2], Vec<Box<i128>>, &(&Enum<(u8, i8), 99>,), [u16], 33, false>,
     >(
         format!(
-            "Struct<\
+            "test_derive::Struct<\
                 alloc::string::String, \
                 [[alloc::string::String; 3]; 2], \
                 alloc::vec::Vec<alloc::boxed::Box<i128>>, \
