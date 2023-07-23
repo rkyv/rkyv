@@ -128,6 +128,8 @@ fn generic_name_collisions() {
     // The only difference with generic_one_param() is the type parameter F
     // which earlier caused a name collision with the generic parameter in
     // build_type_name<F: FnMut(&str)>(...) method.
+    // In the generated code the parameter F was used but it has been replaced
+    // with TYPENAME__F
     #[derive(TypeName)]
     struct Struct<F> {
         a: u32,
