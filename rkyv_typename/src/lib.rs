@@ -99,3 +99,15 @@ impl<T: TypeName> TypeName for &T where T: ?Sized {
         T::build_type_name(f);
     }
 }
+
+
+// Builds the const generic parameters for a type.
+// Implementing this trait outside of this crate is not of much use as long as the rust compiler
+// only allows for a limited set of generic const parameters.
+// This trait can be made public when const generics are available. Making it public now however
+// could limit the possibility to make useful changes to its interface (it would limit the
+// possibility of using potential future const-generic traits of the standard library).
+trait ConstGeneric {
+    // Submits the const generic parameter to the given function.
+    fn build_name<F: FnMut(&str)>(&self, f: F);
+}
