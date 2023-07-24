@@ -92,10 +92,7 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
             }
             GenericParam::Const(c) => {
                 let value = &c.ident;
-                Some(quote!{
-                    let const_val = &format!("{:?}", #value);
-                    f(const_val);
-                })
+                Some(quote!{ #value.build_name(&mut f) })
             }
             GenericParam::Lifetime(_) => None,
         }
@@ -123,7 +120,7 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
     );
     quote! {
         const _: () = {
-            use rkyv_typename::TypeName;
+            use rkyv_typename::{TypeName, ConstGeneric};
 
             impl #impl_generics TypeName for #name #ty_generics
             where

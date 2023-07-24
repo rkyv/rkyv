@@ -99,13 +99,15 @@ impl<T: TypeName> TypeName for &T where T: ?Sized {
 }
 
 
-// Builds the const generic parameters for a type.
-// Implementing this trait outside of this crate is not of much use as long as the compiler only
-// allows a limited set of generic const parameters.
-// This trait can be made public when const generics are available. Making it public now however
-// could limit the possibility to make useful changes to its interface (it would limit the
-// possibility of using potential future const-generic traits of the standard library).
-trait ConstGeneric {
+/// Builds the const generic parameters for a type
+///
+/// Defining more implementations for this trait is not of much use as long as the compiler only
+/// allows a limited set of generic const parameters.
+///
+/// The interface of this trait may change in the future depending on the future type-system
+/// involved with more general contst generics.
+#[doc(hidden)]
+pub trait ConstGeneric {
     // Submits the const generic parameter to the given function.
     fn build_name<F: FnMut(&str)>(&self, f: F);
 }
