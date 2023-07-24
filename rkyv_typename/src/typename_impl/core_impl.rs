@@ -7,6 +7,7 @@ macro_rules! impl_primitive {
                 f(stringify!($type));
             }
         }
+
     };
 }
 
