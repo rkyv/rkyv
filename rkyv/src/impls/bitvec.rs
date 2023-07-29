@@ -1,4 +1,4 @@
-#[cfg(feature = "bitvec_alloc")]
+#[cfg(all(feature = "bitvec", feature = "alloc"))]
 use crate::vec::{ArchivedVec, VecResolver};
 use crate::{
     bitvec::ArchivedBitVec,
@@ -18,7 +18,7 @@ impl<T: BitStore + Archive, O: BitOrder> ArchivedBitVec<T, O> {
     }
 }
 
-#[cfg(feature = "bitvec_alloc")]
+#[cfg(all(feature = "bitvec", feature = "alloc"))]
 impl<T: BitStore + Archive, O: BitOrder> Archive for BitVec<T, O>
 where
     Archived<T>: BitStore,
@@ -34,7 +34,7 @@ where
     }
 }
 
-#[cfg(feature = "bitvec_alloc")]
+#[cfg(all(feature = "bitvec", feature = "alloc"))]
 impl<T, O, S> Serialize<S> for BitVec<T, O>
 where
     T: BitStore + Archive + Serialize<S>,
@@ -50,7 +50,7 @@ where
     }
 }
 
-#[cfg(feature = "bitvec_alloc")]
+#[cfg(all(feature = "bitvec", feature = "alloc"))]
 impl<T, O, D> Deserialize<BitVec<T, O>, D> for ArchivedBitVec<Archived<T>, O>
 where
     T: BitStore + Archive,
@@ -147,7 +147,7 @@ mod tests {
     use bitvec::prelude::*;
 
     #[test]
-    #[cfg(feature = "bitvec_alloc")]
+    #[cfg(all(feature = "bitvec", feature = "alloc"))]
     fn bitvec() {
         use crate::ser::serializers::CoreSerializer;
 
