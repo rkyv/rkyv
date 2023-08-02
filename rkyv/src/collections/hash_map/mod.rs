@@ -137,7 +137,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     /// # use rkyv::string::ArchivedString;
     /// # use rkyv::collections::ArchivedHashMap;
     /// # fn get_your_hashmap() -> ArchivedHashMap<(ArchivedString, ArchivedString), ArchivedString> {
-    /// # todo!();
+    /// # panic!("Just some way of getting a hashmap that compiles");
     /// # }
     /// let your_hashmap: ArchivedHashMap<(ArchivedString, ArchivedString), ArchivedString> = get_your_hashmap();
     /// let your_value = your_hashmap.get_with(
