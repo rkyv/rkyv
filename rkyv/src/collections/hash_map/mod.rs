@@ -133,7 +133,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     ///
     /// # Examples
     ///
-    /// ```no-run
+    /// ```no_run
     /// let your_hashmap: ArchivedHashMap<(ArchivedString, ArchivedString)> = ...;
     /// your_hashmap.get_with(
     ///     &("my", "key"),
