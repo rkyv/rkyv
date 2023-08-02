@@ -134,11 +134,16 @@ impl<K, V> ArchivedHashMap<K, V> {
     /// # Examples
     ///
     /// ```no_run
-    /// let your_hashmap: ArchivedHashMap<(ArchivedString, ArchivedString)> = ...;
-    /// your_hashmap.get_with(
-    ///     &("my", "key"),
-    ///     |hashmap_key, your_key| &(hashmap_key.0.as_str(), hashmap_key.1.as_str()) == your_key),
-    /// )
+    /// # use rkyv::string::ArchivedString;
+    /// # use rkyv::collections::ArchivedHashMap;
+    /// # fn get_your_hashmap() -> ArchivedHashMap<(ArchivedString, ArchivedString), ArchivedString> {
+    /// # todo!();
+    /// # }
+    /// let your_hashmap: ArchivedHashMap<(ArchivedString, ArchivedString), ArchivedString> = get_your_hashmap();
+    /// let your_value = your_hashmap.get_with(
+    ///      &("my", "key"),
+    ///      |hashmap_key, your_key| &(hashmap_key.0.as_str(), hashmap_key.1.as_str()) == your_key
+    ///     );
     /// ```
     ///
     #[inline]
