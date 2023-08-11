@@ -247,7 +247,8 @@ fn composite_cases() {
                 [u16], \
                 33, \
                 false\
-        >")
+        >"
+        )
         .as_str(),
     );
 }

@@ -11,7 +11,7 @@ extern crate proc_macro;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse_macro_input, spanned::Spanned, AttrStyle, DeriveInput, Error, Lit, Meta, GenericParam
+    parse_macro_input, spanned::Spanned, AttrStyle, DeriveInput, Error, GenericParam, Lit, Meta,
 };
 
 #[derive(Default)]
@@ -92,7 +92,7 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
             }
             GenericParam::Const(c) => {
                 let value = &c.ident;
-                Some(quote!{
+                Some(quote! {
                     // This works for all const generic types that are supported by rust 1.68 or
                     // below. It happens to be, for these types, that the Debug trait is
                     // implemented in such a way that it generates the correct output for the
@@ -122,11 +122,8 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
         }
     };
 
-    let (impl_generics, ty_generics, where_clause) =
-        input.generics.split_for_impl();
-    let standard_derive_where_predicates = where_clause.map(
-        |w|&w.predicates
-    );
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let standard_derive_where_predicates = where_clause.map(|w| &w.predicates);
     quote! {
         const _: () = {
             use rkyv_typename::TypeName;

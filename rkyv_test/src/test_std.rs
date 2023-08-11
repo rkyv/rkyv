@@ -71,14 +71,22 @@ mod tests {
     fn archive_hash_map_tuple_retrieved_by_get_with() {
         let mut hash_map = HashMap::new();
         hash_map.insert(("my".to_string(), "key".to_string()), "value".to_string());
-        hash_map.insert(("wrong".to_string(), "key".to_string()), "wrong value".to_string());
+        hash_map.insert(
+            ("wrong".to_string(), "key".to_string()),
+            "wrong value".to_string(),
+        );
 
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&hash_map).unwrap();
         let buf = serializer.into_serializer().into_inner();
-        let archived_value = unsafe { archived_root::<HashMap<(String, String), String>>(buf.as_ref()) };
+        let archived_value =
+            unsafe { archived_root::<HashMap<(String, String), String>>(buf.as_ref()) };
 
-        let get_with = archived_value.get_with(&("my", "key"), |key, input_key| &(key.0.as_str(), key.1.as_str()) == input_key).unwrap();
+        let get_with = archived_value
+            .get_with(&("my", "key"), |key, input_key| {
+                &(key.0.as_str(), key.1.as_str()) == input_key
+            })
+            .unwrap();
 
         assert_eq!(get_with.as_str(), "value");
     }
