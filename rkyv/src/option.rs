@@ -23,6 +23,35 @@ pub enum ArchivedOption<T> {
 }
 
 impl<T> ArchivedOption<T> {
+    /// Transforms the `ArchivedOption<T>` into a `Result<T, E>`, mapping `Some(v)` to `Ok(v)` and
+    /// `None` to `Err(err)`.
+    pub fn ok_or<E>(self, err: E) -> Result<T, E> {
+        match self {
+            ArchivedOption::None => Err(err),
+            ArchivedOption::Some(x) => Ok(x),
+        }
+    }
+    /// Returns the contained [`Some`] value, consuming the `self` value.
+    pub fn unwrap(self) -> T {
+        match self {
+            ArchivedOption::None => panic!("called `ArchivedOption::unwrap()` on a `None` value"),
+            ArchivedOption::Some(value) => value,
+        }
+    }
+    /// Returns the contained [`Some`] value or a provided default.
+    pub fn unwrap_or(self, default: T) -> T {
+        match self {
+            ArchivedOption::None => default,
+            ArchivedOption::Some(value) => value,
+        }
+    }
+    /// Returns the contained [`Some`] value or computes it from a closure.
+    pub fn unwrap_or_else<F: FnOnce() -> T>(self, f: F) -> T {
+        match self {
+            ArchivedOption::None => f(),
+            ArchivedOption::Some(value) => value,
+        }
+    }
     /// Returns `true` if the option is a `None` value.
     #[inline]
     pub fn is_none(&self) -> bool {
