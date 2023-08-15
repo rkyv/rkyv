@@ -25,12 +25,7 @@ impl<S: ScratchSpace + Serializer + ?Sized> Serialize<S> for SmolStr {
 impl<D: Fallible + ?Sized> Deserialize<SmolStr, D> for ArchivedString {
     #[inline]
     fn deserialize(&self, _deserializer: &mut D) -> Result<SmolStr, D::Error> {
-        Ok(if self.as_str().len() <= 23 {
-            // SmolStr will be on the stack if length less than 23
-            SmolStr::new_inline(self.as_str())
-        } else {
-            SmolStr::new(self.as_str())
-        })
+        Ok(SmolStr::new(self.as_str()))
     }
 }
 
