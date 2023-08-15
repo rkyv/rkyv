@@ -147,7 +147,11 @@ impl<K, V> ArchivedHashMap<K, V> {
     /// ```
     ///
     #[inline]
-    pub fn get_with<Q: Hash + ?Sized, F: Fn(&K, &Q) -> bool>(&self, key: &Q, comparison_predicate: F) -> Option<&V> {
+    pub fn get_with<Q: Hash + ?Sized, F: Fn(&K, &Q) -> bool>(
+        &self,
+        key: &Q,
+        comparison_predicate: F,
+    ) -> Option<&V> {
         // Code adapted from self.find
         self.index.index(key).and_then(|i| {
             // Safety: We know the index for self.entry() here is right

@@ -2,9 +2,9 @@ use crate::{
     string::{ArchivedString, StringResolver},
     Archive, Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
 };
-use ::core::cmp::Ordering;
 #[cfg(not(feature = "std"))]
 use ::alloc::string::{String, ToString};
+use ::core::cmp::Ordering;
 
 impl Archive for String {
     type Archived = ArchivedString;
