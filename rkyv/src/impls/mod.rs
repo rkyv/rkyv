@@ -17,12 +17,16 @@ mod std;
 mod arrayvec;
 #[cfg(feature = "bitvec")]
 mod bitvec;
+#[cfg(feature = "bytes")]
+mod bytes;
 #[cfg(feature = "hashbrown")]
 mod hashbrown;
 #[cfg(feature = "indexmap")]
 mod indexmap;
 #[cfg(feature = "smallvec")]
 mod smallvec;
+#[cfg(feature = "smol_str")]
+mod smolstr;
 #[cfg(feature = "tinyvec")]
 mod tinyvec;
 #[cfg(feature = "uuid")]

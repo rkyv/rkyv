@@ -19,6 +19,30 @@ pub enum ArchivedResult<T, E> {
 }
 
 impl<T, E> ArchivedResult<T, E> {
+    /// Converts from `ArchivedResult<T, E>` to `Option<T>`.
+    pub fn ok(self) -> Option<T> {
+        match self {
+            ArchivedResult::Ok(value) => Some(value),
+            ArchivedResult::Err(_) => None,
+        }
+    }
+    /// Returns the contained [`Ok`](ArchivedResult::Ok) value, consuming the `self` value.
+    pub fn unwrap(self) -> T {
+        match self {
+            ArchivedResult::Ok(value) => value,
+            ArchivedResult::Err(_) => panic!("called `ArchivedResult::unwrap()` on an `Err` value"),
+        }
+    }
+    /// Returns the contained `Ok` value or computes it from a closure.
+    pub fn unwrap_or_else<F>(self, op: F) -> T
+    where
+        F: FnOnce(E) -> T,
+    {
+        match self {
+            ArchivedResult::Ok(t) => t,
+            ArchivedResult::Err(e) => op(e),
+        }
+    }
     /// Returns `true` if the result is [`Ok`](ArchivedResult::Ok).
     #[inline]
     pub const fn is_ok(&self) -> bool {
