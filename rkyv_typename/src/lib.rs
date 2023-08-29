@@ -108,7 +108,7 @@ where
 /// allows a limited set of generic const parameters.
 ///
 /// The interface of this trait may change in the future depending on the future type-system
-/// involved with more general contst generics.
+/// involved with more general const generics.
 #[doc(hidden)]
 pub trait ConstGeneric {
     // Submits the const generic parameter to the given function.
