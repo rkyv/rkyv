@@ -1,7 +1,6 @@
-use syn::{
-    parse_quote, punctuated::Punctuated, token::Comma, Error, Expr, Field,
-    Path, Type,
-};
+use syn::{parse_quote, Error, Expr, Field, Path, Token, Type};
+
+use crate::util::PunctuatedExt;
 
 #[inline]
 pub fn with<B, F: FnMut(B, &Type) -> B>(
@@ -13,9 +12,9 @@ pub fn with<B, F: FnMut(B, &Type) -> B>(
         .attrs
         .iter()
         .filter_map(|attr| {
-            if attr.path.is_ident("with") {
+            if attr.path().is_ident("with") {
                 Some(attr.parse_args_with(
-                    Punctuated::<Type, Comma>::parse_separated_nonempty,
+                    Vec::parse_separated_nonempty::<Token![,]>,
                 ))
             } else {
                 None

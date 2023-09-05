@@ -11,7 +11,7 @@ extern crate proc_macro;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse_macro_input, spanned::Spanned, AttrStyle, DeriveInput, Error,
+    parse_macro_input, AttrStyle, DeriveInput, Error, Expr, ExprLit,
     GenericParam, Lit, Meta,
 };
 
@@ -22,31 +22,39 @@ struct Attributes {
 
 fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
     let mut result = Attributes::default();
-    for a in input.attrs.iter() {
-        if let AttrStyle::Outer = a.style {
-            if let Ok(Meta::NameValue(meta)) = a.parse_meta() {
-                if meta.path.is_ident("typename") {
-                    if result.typename.is_none() {
-                        if let Lit::Str(ref lit_str) = meta.lit {
-                            result.typename = Some(lit_str.value());
-                        } else {
-                            return Err(Error::new(
-                                meta.lit.span(),
-                                "typename must be set to a string",
-                            )
-                            .to_compile_error());
-                        }
-                    } else {
-                        return Err(Error::new(
-                            meta.span(),
-                            "typename attribute already specified",
-                        )
-                        .to_compile_error());
-                    }
-                }
-            }
+
+    for attr in input.attrs.iter() {
+        let AttrStyle::Outer = attr.style else {
+            continue;
+        };
+
+        let Meta::NameValue(ref meta) = attr.meta else {
+            continue;
+        };
+
+        if !meta.path.is_ident("typename") {
+            continue;
+        }
+
+        if result.typename.is_some() {
+            let msg = "typename attribute already specified";
+
+            return Err(Error::new_spanned(meta, msg).to_compile_error());
+        }
+
+        if let Expr::Lit(ExprLit {
+            lit: Lit::Str(ref lit_str),
+            ..
+        }) = meta.value
+        {
+            result.typename = Some(lit_str.value());
+        } else {
+            let msg = "typename must be set to a string";
+
+            return Err(Error::new_spanned(&meta.value, msg).to_compile_error());
         }
     }
+
     Ok(result)
 }
 

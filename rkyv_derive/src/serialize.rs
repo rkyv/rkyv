@@ -59,7 +59,7 @@ fn derive_serialize_impl(
             Fields::Named(ref fields) => {
                 let mut serialize_where = where_clause.clone();
                 for field in fields.named.iter().filter(|f| {
-                    !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                    !f.attrs.iter().any(|a| a.path().is_ident("omit_bounds"))
                 }) {
                     let ty = with_ty(field)?;
                     serialize_where
@@ -87,7 +87,7 @@ fn derive_serialize_impl(
             Fields::Unnamed(ref fields) => {
                 let mut serialize_where = where_clause.clone();
                 for field in fields.unnamed.iter().filter(|f| {
-                    !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                    !f.attrs.iter().any(|a| a.path().is_ident("omit_bounds"))
                 }) {
                     let ty = with_ty(field)?;
                     serialize_where
@@ -131,7 +131,7 @@ fn derive_serialize_impl(
                         for field in fields.named.iter().filter(|f| {
                             !f.attrs
                                 .iter()
-                                .any(|a| a.path.is_ident("omit_bounds"))
+                                .any(|a| a.path().is_ident("omit_bounds"))
                         }) {
                             let ty = with_ty(field)?;
                             serialize_where
@@ -143,7 +143,7 @@ fn derive_serialize_impl(
                         for field in fields.unnamed.iter().filter(|f| {
                             !f.attrs
                                 .iter()
-                                .any(|a| a.path.is_ident("omit_bounds"))
+                                .any(|a| a.path().is_ident("omit_bounds"))
                         }) {
                             let ty = with_ty(field)?;
                             serialize_where

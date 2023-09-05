@@ -8,7 +8,7 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
     parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Field,
-    Fields, Ident, Index, LitStr, Meta, NestedMeta, Type,
+    Fields, Ident, Index, LitStr, Meta, Type,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -16,22 +16,14 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     derive_archive_impl(input, &attributes)
 }
 
-fn field_archive_attrs(field: &Field) -> impl '_ + Iterator<Item = NestedMeta> {
-    field
-        .attrs
-        .iter()
-        .filter_map(|attr| {
-            if let Ok(Meta::List(list)) = attr.parse_meta() {
-                if list.path.is_ident("archive_attr") {
-                    Some(list.nested)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        })
-        .flatten()
+fn field_archive_attrs(field: &Field) -> impl Iterator<Item = &'_ TokenStream> {
+    field.attrs.iter().filter_map(|attr| {
+        let Meta::List(ref list) = attr.meta else {
+            return None;
+        };
+
+        list.path.is_ident("archive_attr").then_some(&list.tokens)
+    })
 }
 
 fn derive_archive_impl(
@@ -162,7 +154,9 @@ fn derive_archive_impl(
                 Fields::Named(ref fields) => {
                     let mut archive_where = where_clause.clone();
                     for field in fields.named.iter().filter(|f| {
-                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                        !f.attrs
+                            .iter()
+                            .any(|a| a.path().is_ident("omit_bounds"))
                     }) {
                         let ty = with_ty(field)?;
                         archive_where
@@ -224,9 +218,9 @@ fn derive_archive_impl(
                                 let mut partial_eq_where =
                                     archive_where.clone();
                                 for field in fields.named.iter().filter(|f| {
-                                    !f.attrs
-                                        .iter()
-                                        .any(|a| a.path.is_ident("omit_bounds"))
+                                    !f.attrs.iter().any(|a| {
+                                        a.path().is_ident("omit_bounds")
+                                    })
                                 }) {
                                     let ty = &field.ty;
                                     let wrapped_ty = with_ty(field).unwrap();
@@ -257,9 +251,9 @@ fn derive_archive_impl(
                                 let mut partial_ord_where =
                                     archive_where.clone();
                                 for field in fields.named.iter().filter(|f| {
-                                    !f.attrs
-                                        .iter()
-                                        .any(|a| a.path.is_ident("omit_bounds"))
+                                    !f.attrs.iter().any(|a| {
+                                        a.path().is_ident("omit_bounds")
+                                    })
                                 }) {
                                     let ty = &field.ty;
                                     let archived_ty = with_ty(field).unwrap();
@@ -308,7 +302,7 @@ fn derive_archive_impl(
                         for field in fields.named.iter().filter(|f| {
                             !f.attrs
                                 .iter()
-                                .any(|a| a.path.is_ident("omit_bounds"))
+                                .any(|a| a.path().is_ident("omit_bounds"))
                         }) {
                             let ty = with_ty(field).unwrap();
                             copy_safe_where
@@ -355,7 +349,9 @@ fn derive_archive_impl(
                 Fields::Unnamed(ref fields) => {
                     let mut archive_where = where_clause.clone();
                     for field in fields.unnamed.iter().filter(|f| {
-                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                        !f.attrs
+                            .iter()
+                            .any(|a| a.path().is_ident("omit_bounds"))
                     }) {
                         let ty = with_ty(field)?;
                         archive_where
@@ -413,9 +409,9 @@ fn derive_archive_impl(
                                 let mut partial_eq_where =
                                     archive_where.clone();
                                 for field in fields.unnamed.iter().filter(|f| {
-                                    !f.attrs
-                                        .iter()
-                                        .any(|a| a.path.is_ident("omit_bounds"))
+                                    !f.attrs.iter().any(|a| {
+                                        a.path().is_ident("omit_bounds")
+                                    })
                                 }) {
                                     let ty = &field.ty;
                                     let wrapped_ty = with_ty(field).unwrap();
@@ -449,9 +445,9 @@ fn derive_archive_impl(
                                 let mut partial_ord_where =
                                     archive_where.clone();
                                 for field in fields.unnamed.iter().filter(|f| {
-                                    !f.attrs
-                                        .iter()
-                                        .any(|a| a.path.is_ident("omit_bounds"))
+                                    !f.attrs.iter().any(|a| {
+                                        a.path().is_ident("omit_bounds")
+                                    })
                                 }) {
                                     let ty = &field.ty;
                                     let wrapped_ty = with_ty(field).unwrap();
@@ -500,7 +496,7 @@ fn derive_archive_impl(
                         for field in fields.unnamed.iter().filter(|f| {
                             !f.attrs
                                 .iter()
-                                .any(|a| a.path.is_ident("omit_bounds"))
+                                .any(|a| a.path().is_ident("omit_bounds"))
                         }) {
                             let ty = with_ty(field).unwrap();
                             copy_safe_where
@@ -645,7 +641,7 @@ fn derive_archive_impl(
                         for field in fields.named.iter().filter(|f| {
                             !f.attrs
                                 .iter()
-                                .any(|a| a.path.is_ident("omit_bounds"))
+                                .any(|a| a.path().is_ident("omit_bounds"))
                         }) {
                             let ty = with_ty(field)?;
                             archive_where.predicates.push(
@@ -657,7 +653,7 @@ fn derive_archive_impl(
                         for field in fields.unnamed.iter().filter(|f| {
                             !f.attrs
                                 .iter()
-                                .any(|a| a.path.is_ident("omit_bounds"))
+                                .any(|a| a.path().is_ident("omit_bounds"))
                         }) {
                             let ty = with_ty(field)?;
                             archive_where.predicates.push(
@@ -991,7 +987,7 @@ fn derive_archive_impl(
                                     for field in
                                         fields.named.iter().filter(|f| {
                                             !f.attrs.iter().any(|a| {
-                                                a.path.is_ident("omit_bounds")
+                                                a.path().is_ident("omit_bounds")
                                             })
                                         })
                                     {
@@ -1007,7 +1003,7 @@ fn derive_archive_impl(
                                     for field in
                                         fields.unnamed.iter().filter(|f| {
                                             !f.attrs.iter().any(|a| {
-                                                a.path.is_ident("omit_bounds")
+                                                a.path().is_ident("omit_bounds")
                                             })
                                         })
                                     {
@@ -1098,7 +1094,7 @@ fn derive_archive_impl(
                                     for field in
                                         fields.named.iter().filter(|f| {
                                             !f.attrs.iter().any(|a| {
-                                                a.path.is_ident("omit_bounds")
+                                                a.path().is_ident("omit_bounds")
                                             })
                                         })
                                     {
@@ -1114,7 +1110,7 @@ fn derive_archive_impl(
                                     for field in
                                         fields.unnamed.iter().filter(|f| {
                                             !f.attrs.iter().any(|a| {
-                                                a.path.is_ident("omit_bounds")
+                                                a.path().is_ident("omit_bounds")
                                             })
                                         })
                                     {
@@ -1270,7 +1266,7 @@ fn derive_archive_impl(
                             for field in fields.named.iter().filter(|f| {
                                 !f.attrs
                                     .iter()
-                                    .any(|a| a.path.is_ident("omit_bounds"))
+                                    .any(|a| a.path().is_ident("omit_bounds"))
                             }) {
                                 let ty = with_ty(field).unwrap();
                                 copy_safe_where
@@ -1282,7 +1278,7 @@ fn derive_archive_impl(
                             for field in fields.unnamed.iter().filter(|f| {
                                 !f.attrs
                                     .iter()
-                                    .any(|a| a.path.is_ident("omit_bounds"))
+                                    .any(|a| a.path().is_ident("omit_bounds"))
                             }) {
                                 let ty = with_ty(field).unwrap();
                                 copy_safe_where

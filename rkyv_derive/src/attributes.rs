@@ -1,7 +1,8 @@
-use crate::repr::Repr;
+use crate::{repr::Repr, util::PunctuatedExt};
 use quote::ToTokens;
 use syn::{
-    AttrStyle, DeriveInput, Error, Ident, Lit, LitStr, Meta, NestedMeta, Path,
+    meta::ParseNestedMeta, parenthesized, AttrStyle, DeriveInput, Error, Ident,
+    LitStr, Meta, Path, Token,
 };
 
 #[derive(Default)]
@@ -32,205 +33,129 @@ fn try_set_attribute<T: ToTokens>(
     } else {
         Err(Error::new_spanned(
             value,
-            format!("{} already specified", name),
+            format!("{name} already specified"),
         ))
     }
 }
 
 fn parse_archive_attributes(
     attributes: &mut Attributes,
-    meta: &Meta,
+    meta: ParseNestedMeta<'_>,
 ) -> Result<(), Error> {
-    match meta {
-        Meta::Path(path) => {
-            if path.is_ident("check_bytes") {
-                try_set_attribute(
-                    &mut attributes.check_bytes,
-                    path.clone(),
-                    "check_bytes",
-                )
-            } else if path.is_ident("copy_safe") {
-                try_set_attribute(
-                    &mut attributes.copy_safe,
-                    path.clone(),
-                    "copy_safe",
-                )
-            } else {
-                Err(Error::new_spanned(meta, "unrecognized archive argument"))
-            }
+    if meta.path.is_ident("check_bytes") {
+        try_set_attribute(&mut attributes.check_bytes, meta.path, "check_bytes")
+    } else if meta.path.is_ident("copy_safe") {
+        try_set_attribute(&mut attributes.copy_safe, meta.path, "copy_safe")
+    } else if meta.path.is_ident("archived") {
+        let ident = meta.value()?.parse::<LitStr>()?.parse()?;
+
+        try_set_attribute(&mut attributes.archived, ident, "archived")
+    } else if meta.path.is_ident("resolver") {
+        let ident = meta.value()?.parse::<LitStr>()?.parse()?;
+
+        try_set_attribute(&mut attributes.resolver, ident, "resolver")
+    } else if meta.path.is_ident("as") {
+        try_set_attribute(
+            &mut attributes.archive_as,
+            meta.value()?.parse()?,
+            "archive as",
+        )
+    } else if meta.path.is_ident("crate") {
+        let lit_str: LitStr = meta.value()?.parse()?;
+        let stream = syn::parse_str(&lit_str.value())?;
+        let tokens = crate::serde::respan::respan(stream, lit_str.span());
+        let path: Path = syn::parse2(tokens)?;
+        try_set_attribute(&mut attributes.rkyv_path, path, "crate")?;
+        attributes.rkyv_path_str = Some(lit_str);
+
+        Ok(())
+    } else if meta.path.is_ident("compare") {
+        if attributes.compares.is_some() {
+            let msg = "compares already specified";
+
+            return Err(Error::new_spanned(meta.path, msg));
         }
-        Meta::List(list) => {
-            if list.path.is_ident("compare") {
-                if attributes.compares.is_none() {
-                    let mut compares = Vec::new();
-                    for compare in list.nested.iter() {
-                        if let NestedMeta::Meta(Meta::Path(path)) = compare {
-                            compares.push(path.clone());
-                        } else {
-                            return Err(Error::new_spanned(
-                                compare,
-                                "compare arguments must be compare traits to derive",
-                            ));
-                        }
-                    }
-                    attributes.compares = Some((list.path.clone(), compares));
-                    Ok(())
-                } else {
-                    Err(Error::new_spanned(list, "compares already specified"))
-                }
-            } else if list.path.is_ident("bound") {
-                for bound in list.nested.iter() {
-                    if let NestedMeta::Meta(Meta::NameValue(name_value)) = bound
-                    {
-                        if let Lit::Str(ref lit_str) = name_value.lit {
-                            if name_value.path.is_ident("archive") {
-                                try_set_attribute(
-                                    &mut attributes.archive_bound,
-                                    lit_str.clone(),
-                                    "archive bound",
-                                )?;
-                            } else if name_value.path.is_ident("serialize") {
-                                try_set_attribute(
-                                    &mut attributes.serialize_bound,
-                                    lit_str.clone(),
-                                    "serialize bound",
-                                )?;
-                            } else if name_value.path.is_ident("deserialize") {
-                                try_set_attribute(
-                                    &mut attributes.deserialize_bound,
-                                    lit_str.clone(),
-                                    "deserialize bound",
-                                )?;
-                            } else {
-                                return Err(Error::new_spanned(
-                                    bound,
-                                    "bound must be either serialize or deserialize",
-                                ));
-                            }
-                        } else {
-                            return Err(Error::new_spanned(
-                                bound,
-                                "bound arguments must be a string",
-                            ));
-                        }
-                    } else {
-                        return Err(Error::new_spanned(
-                            bound,
-                            "bound arguments must be serialize or deserialize bounds to apply",
-                        ));
-                    }
-                }
-                Ok(())
-            } else if list.path.is_ident("repr") {
-                // TODO: remove `archive(repr(...))` syntax
-                attributes.archived_repr.parse_args(list.nested.iter())
+
+        let content;
+        parenthesized!(content in meta.input);
+
+        let compares = Vec::parse_separated_nonempty::<Token![,]>(&content)?;
+        attributes.compares = Some((meta.path, compares));
+
+        Ok(())
+    } else if meta.path.is_ident("bound") {
+        meta.parse_nested_meta(|nested| {
+            let (bound, name) = if nested.path.is_ident("archive") {
+                (&mut attributes.archive_bound, "archive bound")
+            } else if nested.path.is_ident("serialize") {
+                (&mut attributes.serialize_bound, "serialize bound")
+            } else if nested.path.is_ident("deserialize") {
+                (&mut attributes.deserialize_bound, "deserialize bound")
             } else {
-                Err(Error::new_spanned(
-                    &list.path,
-                    "unrecognized archive argument",
-                ))
-            }
-        }
-        Meta::NameValue(meta) => {
-            if meta.path.is_ident("archived") {
-                if let Lit::Str(ref lit_str) = meta.lit {
-                    try_set_attribute(
-                        &mut attributes.archived,
-                        Ident::new(&lit_str.value(), lit_str.span()),
-                        "archived",
-                    )
-                } else {
-                    Err(Error::new_spanned(meta, "archived must be a string"))
-                }
-            } else if meta.path.is_ident("resolver") {
-                if let Lit::Str(ref lit_str) = meta.lit {
-                    try_set_attribute(
-                        &mut attributes.resolver,
-                        Ident::new(&lit_str.value(), lit_str.span()),
-                        "resolver",
-                    )
-                } else {
-                    Err(Error::new_spanned(meta, "resolver must be a string"))
-                }
-            } else if meta.path.is_ident("as") {
-                if let Lit::Str(ref lit_str) = meta.lit {
-                    try_set_attribute(
-                        &mut attributes.archive_as,
-                        lit_str.clone(),
-                        "archive as",
-                    )
-                } else {
-                    Err(Error::new_spanned(meta, "archive as must be a string"))
-                }
-            } else if meta.path.is_ident("crate") {
-                if let Lit::Str(ref lit_str) = meta.lit {
-                    let stream = syn::parse_str(&lit_str.value())?;
-                    let tokens =
-                        crate::serde::respan::respan(stream, lit_str.span());
-                    let path = syn::parse2(tokens)?;
-                    try_set_attribute(
-                        &mut attributes.rkyv_path,
-                        path,
-                        "crate",
-                    )?;
-                    attributes.rkyv_path_str = Some(lit_str.clone());
-                    Ok(())
-                } else {
-                    Err(Error::new_spanned(meta, "crate must be a string"))
-                }
-            } else {
-                Err(Error::new_spanned(meta, "unrecognized archive argument"))
-            }
-        }
+                let msg =
+                    "bound must be either archive, serialize, or deserialize";
+
+                return Err(Error::new_spanned(nested.path, msg));
+            };
+
+            let lit_str = nested.value()?.parse()?;
+
+            try_set_attribute(bound, lit_str, name)
+        })
+    } else if meta.path.is_ident("repr") {
+        // TODO: remove `archive(repr(...))` syntax
+        meta.parse_nested_meta(|nested| {
+            attributes.archived_repr.parse_list_meta(nested)
+        })
+    } else {
+        Err(meta.error("unrecognized archive argument"))
     }
 }
 
 pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
     let mut result = Attributes::default();
+
     for attr in input.attrs.iter() {
-        if let AttrStyle::Outer = attr.style {
-            if attr.path.is_ident("archive")
-                || attr.path.is_ident("archive_attr")
-            {
-                if let Meta::List(list) = attr.parse_meta()? {
-                    if list.path.is_ident("archive") {
-                        for nested in list.nested.iter() {
-                            if let NestedMeta::Meta(meta) = nested {
-                                parse_archive_attributes(&mut result, meta)?;
-                            } else {
-                                return Err(Error::new_spanned(
-                                    nested,
-                                    "archive arguments must be metas",
-                                ));
-                            }
-                        }
-                    } else if list.path.is_ident("archive_attr") {
-                        for nested in list.nested.iter() {
-                            if let NestedMeta::Meta(meta) = nested {
-                                if let Meta::List(list) = meta {
-                                    if list.path.is_ident("repr") {
-                                        result
-                                            .archived_repr
-                                            .parse_args(list.nested.iter())?;
-                                    } else {
-                                        result.attrs.push(meta.clone());
-                                    }
-                                } else {
-                                    result.attrs.push(meta.clone());
-                                }
-                            } else {
-                                return Err(Error::new_spanned(
-                                    nested,
-                                    "archive_attr arguments must be metas",
-                                ));
-                            }
-                        }
-                    }
+        let AttrStyle::Outer = attr.style else {
+            continue;
+        };
+
+        if !(attr.path().is_ident("archive")
+            || attr.path().is_ident("archive_attr"))
+        {
+            continue;
+        }
+
+        let Meta::List(ref list) = attr.meta else {
+            let msg = "archive and archive_attr may only be structured list attributes";
+
+            return Err(Error::new_spanned(attr, msg));
+        };
+
+        if list.path.is_ident("archive") {
+            list.parse_nested_meta(|nested| {
+                parse_archive_attributes(&mut result, nested)
+            })?;
+        } else if list.path.is_ident("archive_attr") {
+            let metas = list
+                .parse_args_with(Vec::parse_separated_nonempty::<Token![,]>)
+                .map_err(|e| {
+                    Error::new(e.span(), "archive_attr arguments must be metas")
+                })?;
+
+            for meta in metas {
+                let Meta::List(list) = meta else {
+                    result.attrs.push(meta);
+
+                    continue;
+                };
+
+                if list.path.is_ident("repr") {
+                    list.parse_nested_meta(|nested| {
+                        result.archived_repr.parse_list_meta(nested)
+                    })?;
                 } else {
-                    return Err(Error::new_spanned(
-                        attr,
-                        "archive and archive_attr may only be structured list attributes",
-                    ));
+                    result.attrs.push(Meta::List(list));
                 }
             }
         }

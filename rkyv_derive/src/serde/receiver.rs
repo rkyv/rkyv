@@ -155,7 +155,6 @@ impl ReplaceReceiver<'_> {
             }
 
             Type::Infer(_) | Type::Never(_) | Type::Verbatim(_) => {}
-
             _ => {}
         }
     }
@@ -187,12 +186,14 @@ impl ReplaceReceiver<'_> {
                 for arg in &mut arguments.args {
                     match arg {
                         GenericArgument::Type(arg) => self.visit_type_mut(arg),
-                        GenericArgument::Binding(arg) => {
+                        GenericArgument::AssocType(arg) => {
                             self.visit_type_mut(&mut arg.ty)
                         }
                         GenericArgument::Lifetime(_)
-                        | GenericArgument::Constraint(_)
-                        | GenericArgument::Const(_) => {}
+                        | GenericArgument::Const(_)
+                        | GenericArgument::AssocConst(_)
+                        | GenericArgument::Constraint(_) => {}
+                        _ => {}
                     }
                 }
             }
@@ -217,7 +218,8 @@ impl ReplaceReceiver<'_> {
             TypeParamBound::Trait(bound) => {
                 self.visit_path_mut(&mut bound.path)
             }
-            TypeParamBound::Lifetime(_) => {}
+            TypeParamBound::Lifetime(_) | TypeParamBound::Verbatim(_) => {}
+            _ => {}
         }
     }
 
@@ -241,7 +243,8 @@ impl ReplaceReceiver<'_> {
                             self.visit_type_param_bound_mut(bound);
                         }
                     }
-                    WherePredicate::Lifetime(_) | WherePredicate::Eq(_) => {}
+                    WherePredicate::Lifetime(_) => {}
+                    _ => {}
                 }
             }
         }
