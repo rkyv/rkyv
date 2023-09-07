@@ -8,7 +8,7 @@ equivalent of a resolver.
 > `Deserialize` also parameterizes over the type that is being deserialized into. This allows the
 > same archived type to deserialize into multiple different unarchived types depending on what's
 > being asked for. This helps enable lots of very powerful abstractions, but might require you to
-> annoate types when deserializing.
+> annotate types when deserializing.
 
 This provides a more or less a traditional deserialization with the added benefit of being sped up
 somewhat by having very compatible representations. It also incurs both the memory and performance
