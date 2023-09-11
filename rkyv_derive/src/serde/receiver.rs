@@ -7,8 +7,9 @@ use quote::ToTokens;
 use std::mem;
 use syn::punctuated::Punctuated;
 use syn::{
-    parse_quote, Data, DeriveInput, Expr, ExprPath, GenericArgument, GenericParam, Generics, Macro,
-    Path, PathArguments, QSelf, ReturnType, Token, Type, TypeParamBound, TypePath, WherePredicate,
+    parse_quote, Data, DeriveInput, Expr, ExprPath, GenericArgument,
+    GenericParam, Generics, Macro, Path, PathArguments, QSelf, ReturnType,
+    Token, Type, TypeParamBound, TypePath, WherePredicate,
 };
 
 pub fn replace_receiver(input: &mut DeriveInput) {
@@ -50,7 +51,8 @@ impl ReplaceReceiver<'_> {
             gt_token: Token![>](span),
         });
 
-        path.leading_colon = Some(**path.segments.pairs().next().unwrap().punct().unwrap());
+        path.leading_colon =
+            Some(**path.segments.pairs().next().unwrap().punct().unwrap());
 
         let segments = mem::replace(&mut path.segments, Punctuated::new());
         path.segments = segments.into_pairs().skip(1).collect();
@@ -60,8 +62,12 @@ impl ReplaceReceiver<'_> {
         let self_ty = self.self_ty(path.segments[0].ident.span());
         let variant = mem::replace(path, self_ty.path);
         for segment in &mut path.segments {
-            if let PathArguments::AngleBracketed(bracketed) = &mut segment.arguments {
-                if bracketed.colon2_token.is_none() && !bracketed.args.is_empty() {
+            if let PathArguments::AngleBracketed(bracketed) =
+                &mut segment.arguments
+            {
+                if bracketed.colon2_token.is_none()
+                    && !bracketed.args.is_empty()
+                {
                     bracketed.colon2_token = Some(<Token![::]>::default());
                 }
             }
@@ -181,7 +187,9 @@ impl ReplaceReceiver<'_> {
                 for arg in &mut arguments.args {
                     match arg {
                         GenericArgument::Type(arg) => self.visit_type_mut(arg),
-                        GenericArgument::Binding(arg) => self.visit_type_mut(&mut arg.ty),
+                        GenericArgument::Binding(arg) => {
+                            self.visit_type_mut(&mut arg.ty)
+                        }
                         GenericArgument::Lifetime(_)
                         | GenericArgument::Constraint(_)
                         | GenericArgument::Const(_) => {}
@@ -206,7 +214,9 @@ impl ReplaceReceiver<'_> {
 
     fn visit_type_param_bound_mut(&mut self, bound: &mut TypeParamBound) {
         match bound {
-            TypeParamBound::Trait(bound) => self.visit_path_mut(&mut bound.path),
+            TypeParamBound::Trait(bound) => {
+                self.visit_path_mut(&mut bound.path)
+            }
             TypeParamBound::Lifetime(_) => {}
         }
     }

@@ -57,7 +57,10 @@ impl<T> RawArchivedVec<T> {
 
     /// Gets the element at the given index ot this archived vec as a pinned mutable reference.
     #[inline]
-    pub fn index_pin<I>(self: Pin<&mut Self>, index: I) -> Pin<&mut <[T] as Index<I>>::Output>
+    pub fn index_pin<I>(
+        self: Pin<&mut Self>,
+        index: I,
+    ) -> Pin<&mut <[T] as Index<I>>::Output>
     where
         [T]: IndexMut<I>,
     {
@@ -144,14 +147,18 @@ impl<T: PartialEq<U>, U> PartialEq<RawArchivedVec<U>> for RawArchivedVec<T> {
     }
 }
 
-impl<T: PartialEq<U>, U, const N: usize> PartialEq<[U; N]> for RawArchivedVec<T> {
+impl<T: PartialEq<U>, U, const N: usize> PartialEq<[U; N]>
+    for RawArchivedVec<T>
+{
     #[inline]
     fn eq(&self, other: &[U; N]) -> bool {
         self.inner.eq(&other[..])
     }
 }
 
-impl<T: PartialEq<U>, U, const N: usize> PartialEq<RawArchivedVec<T>> for [U; N] {
+impl<T: PartialEq<U>, U, const N: usize> PartialEq<RawArchivedVec<T>>
+    for [U; N]
+{
     #[inline]
     fn eq(&self, other: &RawArchivedVec<T>) -> bool {
         self.eq(&other.inner)
@@ -218,7 +225,11 @@ const _: () = {
             value: *const Self,
             context: &mut C,
         ) -> Result<&'a Self, Self::Error> {
-            ArchivedVec::<T>::check_bytes_with::<C, _>(value.cast(), context, |_, _| Ok(()))?;
+            ArchivedVec::<T>::check_bytes_with::<C, _>(
+                value.cast(),
+                context,
+                |_, _| Ok(()),
+            )?;
             Ok(&*value)
         }
     }

@@ -1,7 +1,10 @@
 //! A helper type that archives index data for hashed collections using
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
-use crate::{Archive, Archived, RelPtr};
+use crate::{
+    primitive::{ArchivedU32, ArchivedUsize},
+    Archive, RelPtr,
+};
 use core::{
     fmt,
     hash::{Hash, Hasher},
@@ -17,15 +20,15 @@ pub mod validation;
 /// An archived hash index.
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedHashIndex {
-    len: Archived<usize>,
-    displace: RelPtr<Archived<u32>>,
+    len: ArchivedUsize,
+    displace: RelPtr<ArchivedU32>,
 }
 
 impl ArchivedHashIndex {
     /// Gets the number of items in the hash index.
     #[inline]
     pub const fn len(&self) -> usize {
-        from_archived!(self.len) as usize
+        self.len.to_native() as usize
     }
 
     #[inline]
@@ -46,13 +49,13 @@ impl ArchivedHashIndex {
     }
 
     #[inline]
-    fn displace_slice(&self) -> &[Archived<u32>] {
+    fn displace_slice(&self) -> &[ArchivedU32] {
         unsafe { slice::from_raw_parts(self.displace.as_ptr(), self.len()) }
     }
 
     #[inline]
     fn displace(&self, index: usize) -> u32 {
-        from_archived!(self.displace_slice()[index])
+        self.displace_slice()[index].to_native()
     }
 
     /// Returns the index where a key may be located in the hash index.
@@ -159,8 +162,9 @@ const _: () = {
                 bucket_size[displace as usize] += 1;
             }
 
-            displaces
-                .sort_by_key(|&(displace, _)| (Reverse(bucket_size[displace as usize]), displace));
+            displaces.sort_by_key(|&(displace, _)| {
+                (Reverse(bucket_size[displace as usize]), displace)
+            });
 
             let mut occupied = ScratchVec::new(serializer, len)?;
             for _ in 0..len {
@@ -169,7 +173,7 @@ const _: () = {
 
             let mut displacements = ScratchVec::new(serializer, len)?;
             for _ in 0..len {
-                displacements.push(to_archived!(u32::MAX));
+                displacements.push(u32::MAX);
             }
 
             let mut first_empty = 0;
@@ -184,7 +188,8 @@ const _: () = {
                 start = end;
 
                 if bucket_size > 1 {
-                    'find_seed: for seed in 0x80_00_00_00u32..=0xFF_FF_FF_FFu32 {
+                    'find_seed: for seed in 0x80_00_00_00u32..=0xFF_FF_FF_FFu32
+                    {
                         let mut base_hasher = Self::make_hasher();
                         seed.hash(&mut base_hasher);
 
@@ -194,7 +199,9 @@ const _: () = {
                             let mut hasher = base_hasher;
                             key.hash(&mut hasher);
                             let index = (hasher.finish() % len as u64) as u32;
-                            if occupied[index as usize] || assignments.contains(&index) {
+                            if occupied[index as usize]
+                                || assignments.contains(&index)
+                            {
                                 continue 'find_seed;
                             } else {
                                 assignments.push(index);
@@ -207,7 +214,7 @@ const _: () = {
                                 .as_mut_ptr()
                                 .write(bucket[i].1);
                         }
-                        displacements[displace as usize] = to_archived!(seed);
+                        displacements[displace as usize] = seed;
                         break;
                     }
                 } else {
@@ -218,16 +225,16 @@ const _: () = {
                     first_empty += offset;
                     occupied[first_empty] = true;
                     entries[first_empty].as_mut_ptr().write(bucket[0].1);
-                    displacements[displace as usize] = to_archived!(first_empty as u32);
+                    displacements[displace as usize] = first_empty as u32;
                     first_empty += 1;
                 }
             }
 
             // Write displacements
-            let displace_pos = serializer.align_for::<Archived<u32>>()?;
+            let displace_pos = serializer.align_for::<ArchivedU32>()?;
             let displacements_slice = slice::from_raw_parts(
                 displacements.as_ptr().cast::<u8>(),
-                len * size_of::<Archived<u32>>(),
+                len * size_of::<ArchivedU32>(),
             );
             serializer.write(displacements_slice)?;
 

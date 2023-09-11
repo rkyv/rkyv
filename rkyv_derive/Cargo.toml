@@ -18,10 +18,10 @@ syn.workspace = true
 quote.workspace = true
 
 [features]
-default = []
-arbitrary_enum_discriminant = []
-archive_be = []
-archive_le = []
+default = ["little_endian"]
+native_endian = []
+little_endian = []
+big_endian = []
 copy = []
 strict = []
 

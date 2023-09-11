@@ -1,8 +1,9 @@
 //! Validation implementation for utility types.
 
-use crate::{collections::util::Entry, validation::ArchiveContext};
-use ::bytecheck::CheckBytes;
-use ::core::{fmt, ptr};
+use crate::{
+    bytecheck::CheckBytes, collections::util::Entry, validation::ArchiveContext,
+};
+use core::{fmt, ptr};
 
 /// Errors that can occur while checking an archived hash map entry.
 #[derive(Debug)]
@@ -13,11 +14,17 @@ pub enum ArchivedEntryError<K, V> {
     ValueCheckError(V),
 }
 
-impl<K: fmt::Display, V: fmt::Display> fmt::Display for ArchivedEntryError<K, V> {
+impl<K: fmt::Display, V: fmt::Display> fmt::Display
+    for ArchivedEntryError<K, V>
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArchivedEntryError::KeyCheckError(e) => write!(f, "key check error: {}", e),
-            ArchivedEntryError::ValueCheckError(e) => write!(f, "value check error: {}", e),
+            ArchivedEntryError::KeyCheckError(e) => {
+                write!(f, "key check error: {}", e)
+            }
+            ArchivedEntryError::ValueCheckError(e) => {
+                write!(f, "value check error: {}", e)
+            }
         }
     }
 }
@@ -26,7 +33,9 @@ impl<K: fmt::Display, V: fmt::Display> fmt::Display for ArchivedEntryError<K, V>
 const _: () = {
     use std::error::Error;
 
-    impl<K: Error + 'static, V: Error + 'static> Error for ArchivedEntryError<K, V> {
+    impl<K: Error + 'static, V: Error + 'static> Error
+        for ArchivedEntryError<K, V>
+    {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
                 ArchivedEntryError::KeyCheckError(e) => Some(e as &dyn Error),

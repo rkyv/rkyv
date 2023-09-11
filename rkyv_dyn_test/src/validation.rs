@@ -76,12 +76,15 @@ mod tests {
             }
         }
 
-        let value: Box<dyn SerializeTestTrait> = Box::new(TestUnchecked { id: 42 });
+        let value: Box<dyn SerializeTestTrait> =
+            Box::new(TestUnchecked { id: 42 });
 
         let mut serializer = AllocSerializer::<256>::default();
         serializer.serialize_value(&value).unwrap();
         let buf = serializer.into_serializer().into_inner();
-        if let Ok(_) = check_archived_root::<Box<dyn SerializeTestTrait>>(buf.as_ref()) {
+        if let Ok(_) =
+            check_archived_root::<Box<dyn SerializeTestTrait>>(buf.as_ref())
+        {
             panic!("check passed for type that does not implement CheckBytes");
         }
     }

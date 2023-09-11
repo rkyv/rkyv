@@ -11,22 +11,26 @@ use crate::{
         hash_index::{ArchivedHashIndex, HashBuilder, HashIndexResolver},
         util::Entry,
     },
-    out_field, Archived, RelPtr,
+    out_field,
+    primitive::ArchivedUsize,
+    RelPtr,
 };
-use core::{borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData};
+use core::{
+    borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData,
+};
 
 /// An archived `IndexMap`.
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedIndexMap<K, V> {
     index: ArchivedHashIndex,
-    pivots: RelPtr<Archived<usize>>,
+    pivots: RelPtr<ArchivedUsize>,
     entries: RelPtr<Entry<K, V>>,
 }
 
 impl<K, V> ArchivedIndexMap<K, V> {
     #[inline]
     unsafe fn pivot(&self, index: usize) -> usize {
-        from_archived!(*self.pivots.as_ptr().add(index)) as usize
+        (*self.pivots.as_ptr().add(index)).to_native() as usize
     }
 
     #[inline]
@@ -202,7 +206,12 @@ impl<K, V> ArchivedIndexMap<K, V> {
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.index);
-        ArchivedHashIndex::resolve_from_len(len, pos + fp, resolver.index_resolver, fo);
+        ArchivedHashIndex::resolve_from_len(
+            len,
+            pos + fp,
+            resolver.index_resolver,
+            fo,
+        );
 
         let (fp, fo) = out_field!(out.pivots);
         RelPtr::emplace(pos + fp, resolver.pivots_pos, fo);
@@ -244,24 +253,34 @@ const _: () = {
 
             let mut entries = ScratchVec::new(serializer, iter.len())?;
             entries.set_len(len);
-            let index_resolver =
-                ArchivedHashIndex::build_and_serialize(iter.clone(), serializer, &mut entries)?;
+            let index_resolver = ArchivedHashIndex::build_and_serialize(
+                iter.clone(),
+                serializer,
+                &mut entries,
+            )?;
             let mut entries = entries.assume_init();
 
             // Serialize entries
             let mut resolvers = ScratchVec::new(serializer, iter.len())?;
             for (key, value) in iter.clone() {
-                resolvers.push((key.serialize(serializer)?, value.serialize(serializer)?));
+                resolvers.push((
+                    key.serialize(serializer)?,
+                    value.serialize(serializer)?,
+                ));
             }
 
             let entries_pos = serializer.align_for::<Entry<K, V>>()?;
-            for ((key, value), (key_resolver, value_resolver)) in iter.zip(resolvers.drain(..)) {
-                serializer
-                    .resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
+            for ((key, value), (key_resolver, value_resolver)) in
+                iter.zip(resolvers.drain(..))
+            {
+                serializer.resolve_aligned(
+                    &Entry { key, value },
+                    (key_resolver, value_resolver),
+                )?;
             }
 
             // Serialize pivots
-            let pivots_pos = serializer.align_for::<Archived<usize>>()?;
+            let pivots_pos = serializer.align_for::<ArchivedUsize>()?;
             for (key, _) in entries.drain(..) {
                 serializer.resolve_aligned(&index(key), ())?;
             }

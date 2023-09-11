@@ -1,13 +1,14 @@
 //! Validation implementation for BTreeMap.
 
 use super::{
-    ArchivedBTreeMap, ClassifiedNode, InnerNode, InnerNodeEntry, LeafNode, LeafNodeEntry, Node,
-    NodeHeader, MIN_ENTRIES_PER_INNER_NODE, MIN_ENTRIES_PER_LEAF_NODE,
+    ArchivedBTreeMap, ClassifiedNode, InnerNode, InnerNodeEntry, LeafNode,
+    LeafNodeEntry, Node, NodeHeader, MIN_ENTRIES_PER_INNER_NODE,
+    MIN_ENTRIES_PER_LEAF_NODE,
 };
 use crate::{
     rel_ptr::RelPtr,
     validation::{ArchiveContext, LayoutRaw},
-    Archived, Fallible,
+    Fallible,
 };
 use bytecheck::{CheckBytes, Error};
 use core::{
@@ -49,11 +50,17 @@ pub enum LeafNodeEntryError<K, V> {
     ValueCheckError(V),
 }
 
-impl<K: fmt::Display, V: fmt::Display> fmt::Display for LeafNodeEntryError<K, V> {
+impl<K: fmt::Display, V: fmt::Display> fmt::Display
+    for LeafNodeEntryError<K, V>
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LeafNodeEntryError::KeyCheckError(e) => write!(f, "key check error: {}", e),
-            LeafNodeEntryError::ValueCheckError(e) => write!(f, "value check error: {}", e),
+            LeafNodeEntryError::KeyCheckError(e) => {
+                write!(f, "key check error: {}", e)
+            }
+            LeafNodeEntryError::ValueCheckError(e) => {
+                write!(f, "value check error: {}", e)
+            }
         }
     }
 }
@@ -62,7 +69,9 @@ impl<K: fmt::Display, V: fmt::Display> fmt::Display for LeafNodeEntryError<K, V>
 const _: () = {
     use std::error::Error;
 
-    impl<K: Error + 'static, V: Error + 'static> Error for LeafNodeEntryError<K, V> {
+    impl<K: Error + 'static, V: Error + 'static> Error
+        for LeafNodeEntryError<K, V>
+    {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
                 Self::KeyCheckError(e) => Some(e as &dyn Error),
@@ -190,16 +199,24 @@ where
                 index, inner
             ),
             Self::InvalidNodeSize(n) => write!(f, "invalid node size: {}", n),
-            Self::MismatchedInnerChildKey => write!(f, "mismatched inner child key"),
+            Self::MismatchedInnerChildKey => {
+                write!(f, "mismatched inner child key")
+            }
             Self::InnerNodeInLeafLevel => write!(f, "inner node in leaf level"),
             Self::InvalidLeafNodeDepth { expected, actual } => write!(
                 f,
                 "expected leaf node depth {} but found leaf node depth {}",
                 expected, actual,
             ),
-            Self::UnsortedLeafNodeEntries => write!(f, "leaf node contains keys in unsorted order"),
-            Self::UnlinkedLeafNode => write!(f, "leaf nodes are not linked in the sorted order"),
-            Self::UnsortedLeafNode => write!(f, "leaf nodes are not linked in sorted order"),
+            Self::UnsortedLeafNodeEntries => {
+                write!(f, "leaf node contains keys in unsorted order")
+            }
+            Self::UnlinkedLeafNode => {
+                write!(f, "leaf nodes are not linked in the sorted order")
+            }
+            Self::UnsortedLeafNode => {
+                write!(f, "leaf nodes are not linked in sorted order")
+            }
             Self::LastLeafForwardPointerNotNull => {
                 write!(f, "the forward pointer of the last leaf was not null")
             }
@@ -208,7 +225,9 @@ where
                 "expected {} entries but there were actually {} entries",
                 expected, actual,
             ),
-            Self::IncorrectChildKey => write!(f, "incorrect child key in inner node"),
+            Self::IncorrectChildKey => {
+                write!(f, "incorrect child key in inner node")
+            }
             Self::ContextError(e) => write!(f, "context error: {}", e),
         }
     }
@@ -230,8 +249,12 @@ const _: () = {
                 Self::ValueCheckError(e) => Some(e as &dyn Error),
                 Self::TooFewInnerNodeEntries(_) => None,
                 Self::TooFewLeafNodeEntries(_) => None,
-                Self::CheckInnerNodeEntryError { inner, .. } => Some(inner as &dyn Error),
-                Self::CheckLeafNodeEntryError { inner, .. } => Some(inner as &dyn Error),
+                Self::CheckInnerNodeEntryError { inner, .. } => {
+                    Some(inner as &dyn Error)
+                }
+                Self::CheckLeafNodeEntryError { inner, .. } => {
+                    Some(inner as &dyn Error)
+                }
                 Self::InvalidNodeSize(_) => None,
                 Self::MismatchedInnerChildKey => None,
                 Self::InnerNodeInLeafLevel => None,
@@ -249,7 +272,9 @@ const _: () = {
 };
 
 impl<T> LayoutRaw for Node<[T]> {
-    fn layout_raw(metadata: <Self as Pointee>::Metadata) -> Result<Layout, LayoutError> {
+    fn layout_raw(
+        metadata: <Self as Pointee>::Metadata,
+    ) -> Result<Layout, LayoutError> {
         let result = Layout::new::<NodeHeader>()
             .extend(Layout::array::<T>(metadata).unwrap())?
             .0;
@@ -286,17 +311,24 @@ impl NodeHeader {
             .map_err(ArchivedBTreeMapError::ContextError)?;
 
         let node_layout = if raw_node.is_inner() {
-            InnerNode::<K>::layout_raw(ptr_meta::metadata(raw_node.classify_inner_ptr::<K>()))
-                .map_err(C::wrap_layout_error)
-                .map_err(ArchivedBTreeMapError::ContextError)?
+            InnerNode::<K>::layout_raw(ptr_meta::metadata(
+                raw_node.classify_inner_ptr::<K>(),
+            ))
+            .map_err(C::wrap_layout_error)
+            .map_err(ArchivedBTreeMapError::ContextError)?
         } else {
-            LeafNode::<K, V>::layout_raw(ptr_meta::metadata(raw_node.classify_leaf_ptr::<K, V>()))
-                .map_err(C::wrap_layout_error)
-                .map_err(ArchivedBTreeMapError::ContextError)?
+            LeafNode::<K, V>::layout_raw(ptr_meta::metadata(
+                raw_node.classify_leaf_ptr::<K, V>(),
+            ))
+            .map_err(C::wrap_layout_error)
+            .map_err(ArchivedBTreeMapError::ContextError)?
         };
 
         context
-            .bounds_check_subtree_ptr_layout((raw_node as *const NodeHeader).cast(), &node_layout)
+            .bounds_check_subtree_ptr_layout(
+                (raw_node as *const NodeHeader).cast(),
+                &node_layout,
+            )
             .map_err(ArchivedBTreeMapError::ContextError)?;
 
         Self::manual_check_contents::<K, V, C>(raw_node, context)?;
@@ -313,18 +345,21 @@ impl NodeHeader {
         C: ArchiveContext + ?Sized,
         C::Error: Error,
     {
-        CheckBytes::check_bytes(ptr::addr_of!((*value).meta), context).map_err(
-            // SAFETY: Infallible cannot exist
-            |_: Infallible| unreachable_unchecked(),
-        )?;
-        CheckBytes::check_bytes(ptr::addr_of!((*value).size), context).map_err(
-            // SAFETY: Infallible cannot exist
-            |_: Infallible| unreachable_unchecked(),
-        )?;
-        RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context).map_err(
-            // SAFETY: Infallible cannot exist
-            |_: Infallible| unreachable_unchecked(),
-        )?;
+        CheckBytes::check_bytes(ptr::addr_of!((*value).meta), context)
+            .map_err(
+                // SAFETY: Infallible cannot exist
+                |_: Infallible| unreachable_unchecked(),
+            )?;
+        CheckBytes::check_bytes(ptr::addr_of!((*value).size), context)
+            .map_err(
+                // SAFETY: Infallible cannot exist
+                |_: Infallible| unreachable_unchecked(),
+            )?;
+        RelPtr::manual_check_bytes(ptr::addr_of!((*value).ptr), context)
+            .map_err(
+                // SAFETY: Infallible cannot exist
+                |_: Infallible| unreachable_unchecked(),
+            )?;
 
         // All the fields have been checked and this is a valid RawNode
         Ok(&*value)
@@ -343,9 +378,9 @@ impl NodeHeader {
     {
         // Now that the fields have been checked, we can start checking the specific subtype
         let root = (raw_node as *const Self).cast();
-        let size = from_archived!(raw_node.size) as usize;
-        let offset =
-            -isize::try_from(size).map_err(|_| ArchivedBTreeMapError::InvalidNodeSize(size))?;
+        let size = raw_node.size.to_native() as usize;
+        let offset = -isize::try_from(size)
+            .map_err(|_| ArchivedBTreeMapError::InvalidNodeSize(size))?;
         let start = context
             .check_ptr(root, offset, ())
             .map_err(ArchivedBTreeMapError::ContextError)?;
@@ -355,9 +390,15 @@ impl NodeHeader {
             .push_suffix_subtree_range(start, root)
             .map_err(ArchivedBTreeMapError::ContextError)?;
         if raw_node.is_inner() {
-            InnerNode::manual_check_bytes::<V, C>(raw_node.classify_inner_ptr::<K>(), context)?;
+            InnerNode::manual_check_bytes::<V, C>(
+                raw_node.classify_inner_ptr::<K>(),
+                context,
+            )?;
         } else {
-            CheckBytes::check_bytes(raw_node.classify_leaf_ptr::<K, V>(), context)?;
+            CheckBytes::check_bytes(
+                raw_node.classify_leaf_ptr::<K, V>(),
+                context,
+            )?;
         }
         context
             .pop_suffix_range(range)
@@ -388,7 +429,8 @@ impl<K> InnerNode<K> {
             }
         }
 
-        let least_child = unsafe { &*self.header.ptr.as_ptr() }.classify::<K, V>();
+        let least_child =
+            unsafe { &*self.header.ptr.as_ptr() }.classify::<K, V>();
         let first_key = match least_child {
             ClassifiedNode::Inner(c) => c.verify_integrity::<V, C>()?,
             ClassifiedNode::Leaf(c) => &c.tail[0].key,
@@ -420,9 +462,12 @@ impl<K> InnerNode<K> {
         // The subtree range has already been set up for us so we can just check our tail
         let tail_ptr = ptr::addr_of!((*value).tail) as *const InnerNodeEntry<K>;
         for index in (0..len).rev() {
-            CheckBytes::check_bytes(tail_ptr.add(index), context).map_err(|inner| {
-                ArchivedBTreeMapError::CheckInnerNodeEntryError { index, inner }
-            })?;
+            CheckBytes::check_bytes(tail_ptr.add(index), context).map_err(
+                |inner| ArchivedBTreeMapError::CheckInnerNodeEntryError {
+                    index,
+                    inner,
+                },
+            )?;
         }
 
         Ok(&*value)
@@ -451,10 +496,15 @@ where
         }
 
         // The subtree range has already been set up for us so we can just check our tail
-        let tail_ptr = ptr::addr_of!((*value).tail) as *const LeafNodeEntry<K, V>;
+        let tail_ptr =
+            ptr::addr_of!((*value).tail) as *const LeafNodeEntry<K, V>;
         for index in (0..len).rev() {
-            CheckBytes::check_bytes(tail_ptr.add(index), context)
-                .map_err(|inner| ArchivedBTreeMapError::CheckLeafNodeEntryError { index, inner })?;
+            CheckBytes::check_bytes(tail_ptr.add(index), context).map_err(
+                |inner| ArchivedBTreeMapError::CheckLeafNodeEntryError {
+                    index,
+                    inner,
+                },
+            )?;
         }
 
         Ok(&*value)
@@ -467,6 +517,8 @@ const _: () = {
     use alloc::collections::VecDeque;
     #[cfg(feature = "std")]
     use std::collections::VecDeque;
+
+    use crate::primitive::ArchivedUsize;
 
     impl<K, V, C> CheckBytes<C> for ArchivedBTreeMap<K, V>
     where
@@ -481,14 +533,17 @@ const _: () = {
             value: *const Self,
             context: &mut C,
         ) -> Result<&'a Self, Self::Error> {
-            let len = from_archived!(*Archived::<usize>::check_bytes(
+            let len = ArchivedUsize::check_bytes(
                 ptr::addr_of!((*value).len),
                 context,
-            )?) as usize;
+            )?
+            .to_native() as usize;
 
             if len > 0 {
-                let root_rel_ptr =
-                    RelPtr::manual_check_bytes(ptr::addr_of!((*value).root), context)?;
+                let root_rel_ptr = RelPtr::manual_check_bytes(
+                    ptr::addr_of!((*value).root),
+                    context,
+                )?;
 
                 // Walk all the inner nodes, claim their memory, and check their contents
                 let mut nodes = VecDeque::new();
@@ -506,9 +561,11 @@ const _: () = {
                 // To push the subtree, we need to know the real size of the root node
                 // Since the header is checked, we can just classify the pointer and use layout_raw
                 let root_layout = if root.is_inner() {
-                    InnerNode::<K>::layout_raw(ptr_meta::metadata(root.classify_inner_ptr::<K>()))
-                        .map_err(C::wrap_layout_error)
-                        .map_err(ArchivedBTreeMapError::ContextError)?
+                    InnerNode::<K>::layout_raw(ptr_meta::metadata(
+                        root.classify_inner_ptr::<K>(),
+                    ))
+                    .map_err(C::wrap_layout_error)
+                    .map_err(ArchivedBTreeMapError::ContextError)?
                 } else {
                     LeafNode::<K, V>::layout_raw(ptr_meta::metadata(
                         root.classify_leaf_ptr::<K, V>(),
@@ -520,7 +577,10 @@ const _: () = {
                 // Because the layout of the subtree is dynamic, we need to bounds check the layout
                 // declared by the root node.
                 context
-                    .bounds_check_subtree_ptr_layout(root_ptr.cast(), &root_layout)
+                    .bounds_check_subtree_ptr_layout(
+                        root_ptr.cast(),
+                        &root_layout,
+                    )
                     .map_err(ArchivedBTreeMapError::ContextError)?;
 
                 // Now we can push the prefix subtree range.
@@ -547,7 +607,9 @@ const _: () = {
                     let child_ptr = context
                         .check_subtree_rel_ptr(&inner.header.ptr)
                         .map_err(ArchivedBTreeMapError::ContextError)?;
-                    let child = NodeHeader::manual_check_bytes::<K, V, C>(child_ptr, context)?;
+                    let child = NodeHeader::manual_check_bytes::<K, V, C>(
+                        child_ptr, context,
+                    )?;
                     nodes.push_back((child, depth + 1));
 
                     // The invariant that this node contains keys less than the first key of this node will
@@ -556,7 +618,9 @@ const _: () = {
                         let child_ptr = context
                             .check_subtree_rel_ptr(&entry.ptr)
                             .map_err(ArchivedBTreeMapError::ContextError)?;
-                        let child = NodeHeader::manual_check_bytes::<K, V, C>(child_ptr, context)?;
+                        let child = NodeHeader::manual_check_bytes::<K, V, C>(
+                            child_ptr, context,
+                        )?;
                         nodes.push_back((child, depth + 1));
                     }
                 }
@@ -570,23 +634,31 @@ const _: () = {
                 let mut entry_count = 0;
                 for (node, depth) in nodes.iter() {
                     if !node.is_leaf() {
-                        return Err(ArchivedBTreeMapError::InnerNodeInLeafLevel);
+                        return Err(
+                            ArchivedBTreeMapError::InnerNodeInLeafLevel,
+                        );
                     }
                     let leaf = node.classify_leaf::<K, V>();
 
                     // Leaf nodes must all be the same depth
                     let expected_depth = nodes.front().unwrap().1;
                     if *depth != expected_depth {
-                        return Err(ArchivedBTreeMapError::InvalidLeafNodeDepth {
-                            expected: expected_depth,
-                            actual: *depth,
-                        });
+                        return Err(
+                            ArchivedBTreeMapError::InvalidLeafNodeDepth {
+                                expected: expected_depth,
+                                actual: *depth,
+                            },
+                        );
                     }
 
                     // They must contain entries in sorted order
-                    for (prev, next) in leaf.tail.iter().zip(leaf.tail.iter().skip(1)) {
+                    for (prev, next) in
+                        leaf.tail.iter().zip(leaf.tail.iter().skip(1))
+                    {
                         if next.key < prev.key {
-                            return Err(ArchivedBTreeMapError::UnsortedLeafNodeEntries);
+                            return Err(
+                                ArchivedBTreeMapError::UnsortedLeafNodeEntries,
+                            );
                         }
                     }
 
@@ -604,11 +676,19 @@ const _: () = {
                             .map_err(ArchivedBTreeMapError::ContextError)?;
                         let next_node = nodes[i + 1].0.classify_leaf();
 
-                        if next_ptr != (next_node as *const LeafNode<K, V>).cast() {
-                            return Err(ArchivedBTreeMapError::UnlinkedLeafNode);
+                        if next_ptr
+                            != (next_node as *const LeafNode<K, V>).cast()
+                        {
+                            return Err(
+                                ArchivedBTreeMapError::UnlinkedLeafNode,
+                            );
                         }
-                        if next_node.tail[0].key < leaf.tail[leaf.tail.len() - 1].key {
-                            return Err(ArchivedBTreeMapError::UnsortedLeafNode);
+                        if next_node.tail[0].key
+                            < leaf.tail[leaf.tail.len() - 1].key
+                        {
+                            return Err(
+                                ArchivedBTreeMapError::UnsortedLeafNode,
+                            );
                         }
                     } else {
                         // The last node must have a null pointer forward

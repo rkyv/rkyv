@@ -37,12 +37,18 @@ pub enum HashMapError<K, V, C> {
     ContextError(C),
 }
 
-impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display for HashMapError<K, V, E> {
+impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display
+    for HashMapError<K, V, E>
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            HashMapError::HashIndexError(e) => write!(f, "hash index check error: {}", e),
+            HashMapError::HashIndexError(e) => {
+                write!(f, "hash index check error: {}", e)
+            }
             HashMapError::LayoutError(e) => write!(f, "layout error: {}", e),
-            HashMapError::CheckEntryError(e) => write!(f, "entry check error: {}", e),
+            HashMapError::CheckEntryError(e) => {
+                write!(f, "entry check error: {}", e)
+            }
             HashMapError::InvalidKeyPosition { index } => {
                 write!(f, "invalid key position: at index {}", index)
             }
@@ -100,7 +106,9 @@ impl<K, V, C> From<LayoutError> for HashMapError<K, V, C> {
     }
 }
 
-impl<K, V, C> From<SliceCheckError<ArchivedEntryError<K, V>>> for HashMapError<K, V, C> {
+impl<K, V, C> From<SliceCheckError<ArchivedEntryError<K, V>>>
+    for HashMapError<K, V, C>
+{
     #[inline]
     fn from(e: SliceCheckError<ArchivedEntryError<K, V>>) -> Self {
         Self::CheckEntryError(e)
@@ -120,10 +128,16 @@ where
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let index = ArchivedHashIndex::check_bytes(ptr::addr_of!((*value).index), context)?;
+        let index = ArchivedHashIndex::check_bytes(
+            ptr::addr_of!((*value).index),
+            context,
+        )?;
         Layout::array::<Entry<K, V>>(index.len())?;
 
-        let entries_rel_ptr = RelPtr::manual_check_bytes(ptr::addr_of!((*value).entries), context)?;
+        let entries_rel_ptr = RelPtr::manual_check_bytes(
+            ptr::addr_of!((*value).entries),
+            context,
+        )?;
         let entries_ptr = context
             .check_subtree_ptr::<[Entry<K, V>]>(
                 entries_rel_ptr.base(),

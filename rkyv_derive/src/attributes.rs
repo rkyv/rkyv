@@ -1,6 +1,8 @@
 use crate::repr::Repr;
 use quote::ToTokens;
-use syn::{AttrStyle, DeriveInput, Error, Ident, Lit, LitStr, Meta, NestedMeta, Path};
+use syn::{
+    AttrStyle, DeriveInput, Error, Ident, Lit, LitStr, Meta, NestedMeta, Path,
+};
 
 #[derive(Default)]
 pub struct Attributes {
@@ -35,13 +37,24 @@ fn try_set_attribute<T: ToTokens>(
     }
 }
 
-fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<(), Error> {
+fn parse_archive_attributes(
+    attributes: &mut Attributes,
+    meta: &Meta,
+) -> Result<(), Error> {
     match meta {
         Meta::Path(path) => {
             if path.is_ident("check_bytes") {
-                try_set_attribute(&mut attributes.check_bytes, path.clone(), "check_bytes")
+                try_set_attribute(
+                    &mut attributes.check_bytes,
+                    path.clone(),
+                    "check_bytes",
+                )
             } else if path.is_ident("copy_safe") {
-                try_set_attribute(&mut attributes.copy_safe, path.clone(), "copy_safe")
+                try_set_attribute(
+                    &mut attributes.copy_safe,
+                    path.clone(),
+                    "copy_safe",
+                )
             } else {
                 Err(Error::new_spanned(meta, "unrecognized archive argument"))
             }
@@ -67,7 +80,8 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                 }
             } else if list.path.is_ident("bound") {
                 for bound in list.nested.iter() {
-                    if let NestedMeta::Meta(Meta::NameValue(name_value)) = bound {
+                    if let NestedMeta::Meta(Meta::NameValue(name_value)) = bound
+                    {
                         if let Lit::Str(ref lit_str) = name_value.lit {
                             if name_value.path.is_ident("archive") {
                                 try_set_attribute(
@@ -140,16 +154,25 @@ fn parse_archive_attributes(attributes: &mut Attributes, meta: &Meta) -> Result<
                 }
             } else if meta.path.is_ident("as") {
                 if let Lit::Str(ref lit_str) = meta.lit {
-                    try_set_attribute(&mut attributes.archive_as, lit_str.clone(), "archive as")
+                    try_set_attribute(
+                        &mut attributes.archive_as,
+                        lit_str.clone(),
+                        "archive as",
+                    )
                 } else {
                     Err(Error::new_spanned(meta, "archive as must be a string"))
                 }
             } else if meta.path.is_ident("crate") {
                 if let Lit::Str(ref lit_str) = meta.lit {
                     let stream = syn::parse_str(&lit_str.value())?;
-                    let tokens = crate::serde::respan::respan(stream, lit_str.span());
+                    let tokens =
+                        crate::serde::respan::respan(stream, lit_str.span());
                     let path = syn::parse2(tokens)?;
-                    try_set_attribute(&mut attributes.rkyv_path, path, "crate")?;
+                    try_set_attribute(
+                        &mut attributes.rkyv_path,
+                        path,
+                        "crate",
+                    )?;
                     attributes.rkyv_path_str = Some(lit_str.clone());
                     Ok(())
                 } else {
@@ -166,7 +189,9 @@ pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
     let mut result = Attributes::default();
     for attr in input.attrs.iter() {
         if let AttrStyle::Outer = attr.style {
-            if attr.path.is_ident("archive") || attr.path.is_ident("archive_attr") {
+            if attr.path.is_ident("archive")
+                || attr.path.is_ident("archive_attr")
+            {
                 if let Meta::List(list) = attr.parse_meta()? {
                     if list.path.is_ident("archive") {
                         for nested in list.nested.iter() {
@@ -184,7 +209,9 @@ pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
                             if let NestedMeta::Meta(meta) = nested {
                                 if let Meta::List(list) = meta {
                                     if list.path.is_ident("repr") {
-                                        result.archived_repr.parse_args(list.nested.iter())?;
+                                        result
+                                            .archived_repr
+                                            .parse_args(list.nested.iter())?;
                                     } else {
                                         result.attrs.push(meta.clone());
                                     }

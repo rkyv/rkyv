@@ -10,14 +10,22 @@ impl Archive for SmolStr {
     type Resolver = StringResolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         ArchivedString::resolve_from_str(self, pos, resolver, out);
     }
 }
 
 impl<S: ScratchSpace + Serializer + ?Sized> Serialize<S> for SmolStr {
     #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedString::serialize_from_str(self, serializer)
     }
 }
@@ -53,7 +61,8 @@ mod tests {
         let archived = unsafe { archived_root::<SmolStr>(&result[0..end]) };
         assert_eq!(archived, &value);
 
-        let deserialized: SmolStr = archived.deserialize(&mut Infallible).unwrap();
+        let deserialized: SmolStr =
+            archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 }

@@ -2,7 +2,9 @@
 
 pub mod serializers;
 
-use crate::{Archive, ArchiveUnsized, Fallible, RelPtr, Serialize, SerializeUnsized};
+use crate::{
+    Archive, ArchiveUnsized, Fallible, RelPtr, Serialize, SerializeUnsized,
+};
 use core::{alloc::Layout, mem, ptr::NonNull, slice};
 
 /// A byte sink that knows where it is.
@@ -74,7 +76,10 @@ pub trait Serializer: Fallible {
 
     /// Archives the given object and returns the position it was archived at.
     #[inline]
-    fn serialize_value<T: Serialize<Self>>(&mut self, value: &T) -> Result<usize, Self::Error> {
+    fn serialize_value<T: Serialize<Self>>(
+        &mut self,
+        value: &T,
+    ) -> Result<usize, Self::Error> {
         let resolver = value.serialize(self)?;
         self.align_for::<T::Archived>()?;
         unsafe { self.resolve_aligned(value, resolver) }
@@ -96,11 +101,19 @@ pub trait Serializer: Fallible {
         metadata_resolver: T::MetadataResolver,
     ) -> Result<usize, Self::Error> {
         let from = self.pos();
-        debug_assert_eq!(from & (mem::align_of::<RelPtr<T::Archived>>() - 1), 0);
+        debug_assert_eq!(
+            from & (mem::align_of::<RelPtr<T::Archived>>() - 1),
+            0
+        );
 
         let mut resolved = mem::MaybeUninit::<RelPtr<T::Archived>>::uninit();
         resolved.as_mut_ptr().write_bytes(0, 1);
-        value.resolve_unsized(from, to, metadata_resolver, resolved.as_mut_ptr());
+        value.resolve_unsized(
+            from,
+            to,
+            metadata_resolver,
+            resolved.as_mut_ptr(),
+        );
 
         let data = resolved.as_ptr().cast::<u8>();
         let len = mem::size_of::<RelPtr<T::Archived>>();
@@ -130,7 +143,10 @@ pub trait ScratchSpace: Fallible {
     /// # Safety
     ///
     /// `layout` must have non-zero size.
-    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error>;
+    unsafe fn push_scratch(
+        &mut self,
+        layout: Layout,
+    ) -> Result<NonNull<[u8]>, Self::Error>;
 
     /// Deallocates previously allocated scratch space.
     ///
@@ -138,7 +154,11 @@ pub trait ScratchSpace: Fallible {
     ///
     /// - `ptr` must be the scratch memory last allocated with `push_scratch`.
     /// - `layout` must be the same layout that was used to allocate that block of memory.
-    unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error>;
+    unsafe fn pop_scratch(
+        &mut self,
+        ptr: NonNull<u8>,
+        layout: Layout,
+    ) -> Result<(), Self::Error>;
 }
 
 /// A registry that tracks serialized shared memory.
@@ -159,11 +179,19 @@ pub trait SharedSerializeRegistry: Fallible {
     }
 
     /// Adds the position of a shared pointer to the registry.
-    fn add_shared_ptr(&mut self, value: *const u8, pos: usize) -> Result<(), Self::Error>;
+    fn add_shared_ptr(
+        &mut self,
+        value: *const u8,
+        pos: usize,
+    ) -> Result<(), Self::Error>;
 
     /// Adds the position of a shared value to the registry.
     #[inline]
-    fn add_shared<T: ?Sized>(&mut self, value: &T, pos: usize) -> Result<(), Self::Error> {
+    fn add_shared<T: ?Sized>(
+        &mut self,
+        value: &T,
+        pos: usize,
+    ) -> Result<(), Self::Error> {
         self.add_shared_ptr(value as *const T as *const u8, pos)
     }
 

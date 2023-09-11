@@ -6,8 +6,8 @@ use crate::{
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Error, Fields,
-    Generics, Ident, Index,
+    parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput,
+    Error, Fields, Generics, Ident, Index,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -52,18 +52,16 @@ fn derive_deserialize_impl(
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
                 let mut deserialize_where = where_clause.clone();
-                for field in fields
-                    .named
-                    .iter()
-                    .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                {
+                for field in fields.named.iter().filter(|f| {
+                    !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                }) {
                     let ty = with_ty(field)?;
                     deserialize_where
                         .predicates
                         .push(parse_quote! { #ty: Archive });
-                    deserialize_where
-                        .predicates
-                        .push(parse_quote! { Archived<#ty>: Deserialize<#ty, __D> });
+                    deserialize_where.predicates.push(
+                        parse_quote! { Archived<#ty>: Deserialize<#ty, __D> },
+                    );
                 }
 
                 let deserialize_fields = fields.named.iter().map(|f| {
@@ -95,35 +93,34 @@ fn derive_deserialize_impl(
             }
             Fields::Unnamed(ref fields) => {
                 let mut deserialize_where = where_clause.clone();
-                for field in fields
-                    .unnamed
-                    .iter()
-                    .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                {
+                for field in fields.unnamed.iter().filter(|f| {
+                    !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
+                }) {
                     let ty = with_ty(field)?;
                     deserialize_where
                         .predicates
                         .push(parse_quote! { #ty: Archive });
-                    deserialize_where
-                        .predicates
-                        .push(parse_quote! { Archived<#ty>: Deserialize<#ty, __D> });
+                    deserialize_where.predicates.push(
+                        parse_quote! { Archived<#ty>: Deserialize<#ty, __D> },
+                    );
                 }
 
-                let deserialize_fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                    let index = Index::from(i);
-                    let ty = with_ty(f).unwrap();
-                    let value = with_inner(
-                        f,
-                        parse_quote! {
-                            Deserialize::<#ty, __D>::deserialize(
-                                &self.#index,
-                                deserializer,
-                            )?
-                        },
-                    )
-                    .unwrap();
-                    quote! { #value }
-                });
+                let deserialize_fields =
+                    fields.unnamed.iter().enumerate().map(|(i, f)| {
+                        let index = Index::from(i);
+                        let ty = with_ty(f).unwrap();
+                        let value = with_inner(
+                            f,
+                            parse_quote! {
+                                Deserialize::<#ty, __D>::deserialize(
+                                    &self.#index,
+                                    deserializer,
+                                )?
+                            },
+                        )
+                        .unwrap();
+                        quote! { #value }
+                    });
 
                 quote! {
                     impl #impl_generics Deserialize<#name #ty_generics, __D> for Archived<#name #ty_generics> #deserialize_where {
@@ -150,11 +147,11 @@ fn derive_deserialize_impl(
             for variant in data.variants.iter() {
                 match variant.fields {
                     Fields::Named(ref fields) => {
-                        for field in fields
-                            .named
-                            .iter()
-                            .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                        {
+                        for field in fields.named.iter().filter(|f| {
+                            !f.attrs
+                                .iter()
+                                .any(|a| a.path.is_ident("omit_bounds"))
+                        }) {
                             let ty = with_ty(field)?;
                             deserialize_where
                                 .predicates
@@ -165,11 +162,11 @@ fn derive_deserialize_impl(
                         }
                     }
                     Fields::Unnamed(ref fields) => {
-                        for field in fields
-                            .unnamed
-                            .iter()
-                            .filter(|f| !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds")))
-                        {
+                        for field in fields.unnamed.iter().filter(|f| {
+                            !f.attrs
+                                .iter()
+                                .any(|a| a.path.is_ident("omit_bounds"))
+                        }) {
                             let ty = with_ty(field)?;
                             deserialize_where
                                 .predicates

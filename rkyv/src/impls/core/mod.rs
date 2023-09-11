@@ -1,24 +1,28 @@
 #[cfg(feature = "copy")]
 use crate::copy::ArchiveCopyOptimize;
 use crate::{
+    primitive::ArchivedUsize,
     ser::{ScratchSpace, Serializer},
-    Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata, Deserialize,
-    DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
+    Archive, ArchivePointee, ArchiveUnsized, ArchivedMetadata, Deserialize,
+    DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
 };
 use core::{alloc::Layout, mem::ManuallyDrop, ptr, str};
 use ptr_meta::Pointee;
 
-pub mod ops;
-pub mod option;
-pub mod primitive;
-pub mod result;
-pub mod time;
+mod ops;
+mod option;
+mod primitive;
+mod result;
+mod time;
 
 impl<T> ArchivePointee for T {
     type ArchivedMetadata = ();
 
     #[inline]
-    fn pointer_metadata(_: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {}
+    fn pointer_metadata(
+        _: &Self::ArchivedMetadata,
+    ) -> <Self as Pointee>::Metadata {
+    }
 }
 
 impl<T: Archive> ArchiveUnsized for T {
@@ -72,7 +76,10 @@ where
     }
 
     #[inline]
-    fn deserialize_metadata(&self, _: &mut D) -> Result<<T as Pointee>::Metadata, D::Error> {
+    fn deserialize_metadata(
+        &self,
+        _: &mut D,
+    ) -> Result<<T as Pointee>::Metadata, D::Error> {
         Ok(())
     }
 }
@@ -130,7 +137,12 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     type Resolver = [T::Resolver; N];
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         let mut resolvers = core::mem::MaybeUninit::new(resolver);
         let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
         let out_ptr = out.cast::<T::Archived>();
@@ -144,9 +156,14 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     }
 }
 
-impl<T: Serialize<S>, S: Fallible + ?Sized, const N: usize> Serialize<S> for [T; N] {
+impl<T: Serialize<S>, S: Fallible + ?Sized, const N: usize> Serialize<S>
+    for [T; N]
+{
     #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T::Resolver>();
         for (i, value) in self.iter().enumerate() {
@@ -158,7 +175,8 @@ impl<T: Serialize<S>, S: Fallible + ?Sized, const N: usize> Serialize<S> for [T;
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized, const N: usize> Deserialize<[T; N], D> for [T::Archived; N]
+impl<T: Archive, D: Fallible + ?Sized, const N: usize> Deserialize<[T; N], D>
+    for [T::Archived; N]
 where
     T::Archived: Deserialize<T, D>,
 {
@@ -187,20 +205,24 @@ impl<T: Archive> ArchiveUnsized for [T] {
         _: Self::MetadataResolver,
         out: *mut ArchivedMetadata<Self>,
     ) {
-        out.write(to_archived!(ptr_meta::metadata(self) as FixedUsize));
+        out.write(ArchivedUsize::from_native(ptr_meta::metadata(self) as _));
     }
 }
 
 impl<T> ArchivePointee for [T] {
-    type ArchivedMetadata = Archived<usize>;
+    type ArchivedMetadata = ArchivedUsize;
 
     #[inline]
-    fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
-        from_archived!(*archived) as usize
+    fn pointer_metadata(
+        archived: &Self::ArchivedMetadata,
+    ) -> <Self as Pointee>::Metadata {
+        archived.to_native() as usize
     }
 }
 
-impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> SerializeUnsized<S> for [T] {
+impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> SerializeUnsized<S>
+    for [T]
+{
     default! {
         fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
             use crate::ScratchVec;
@@ -252,12 +274,17 @@ where
     }
 
     #[inline]
-    fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+    fn serialize_metadata(
+        &self,
+        _: &mut S,
+    ) -> Result<Self::MetadataResolver, S::Error> {
         Ok(())
     }
 }
 
-impl<T: Deserialize<U, D>, U, D: Fallible + ?Sized> DeserializeUnsized<[U], D> for [T] {
+impl<T: Deserialize<U, D>, U, D: Fallible + ?Sized> DeserializeUnsized<[U], D>
+    for [T]
+{
     default! {
         unsafe fn deserialize_unsized(&self, deserializer: &mut D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error> {
             if self.is_empty() || core::mem::size_of::<U>() == 0 {
@@ -296,7 +323,8 @@ where
         if self.is_empty() || core::mem::size_of::<T>() == 0 {
             Ok(ptr::NonNull::<U>::dangling().as_ptr().cast())
         } else {
-            let result = alloc(Layout::array::<T>(self.len()).unwrap()).cast::<T>();
+            let result =
+                alloc(Layout::array::<T>(self.len()).unwrap()).cast::<T>();
             assert!(!result.is_null());
             ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
             Ok(result.cast())
@@ -304,7 +332,10 @@ where
     }
 
     #[inline]
-    fn deserialize_metadata(&self, _: &mut D) -> Result<<[T] as Pointee>::Metadata, D::Error> {
+    fn deserialize_metadata(
+        &self,
+        _: &mut D,
+    ) -> Result<<[T] as Pointee>::Metadata, D::Error> {
         Ok(ptr_meta::metadata(self))
     }
 }
@@ -323,15 +354,17 @@ impl ArchiveUnsized for str {
         _: Self::MetadataResolver,
         out: *mut ArchivedMetadata<Self>,
     ) {
-        out.write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
+        out.write(ArchivedUsize::from_native(ptr_meta::metadata(self) as _))
     }
 }
 
 impl ArchivePointee for str {
-    type ArchivedMetadata = Archived<usize>;
+    type ArchivedMetadata = ArchivedUsize;
 
     #[inline]
-    fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
+    fn pointer_metadata(
+        archived: &Self::ArchivedMetadata,
+    ) -> <Self as Pointee>::Metadata {
         <[u8]>::pointer_metadata(archived)
     }
 }
@@ -345,12 +378,17 @@ impl<S: Serializer + ?Sized> SerializeUnsized<S> for str {
     }
 
     #[inline]
-    fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+    fn serialize_metadata(
+        &self,
+        _: &mut S,
+    ) -> Result<Self::MetadataResolver, S::Error> {
         Ok(())
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for <str as ArchiveUnsized>::Archived {
+impl<D: Fallible + ?Sized> DeserializeUnsized<str, D>
+    for <str as ArchiveUnsized>::Archived
+{
     #[inline]
     unsafe fn deserialize_unsized(
         &self,
@@ -368,7 +406,10 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for <str as ArchiveUnsized
     }
 
     #[inline]
-    fn deserialize_metadata(&self, _: &mut D) -> Result<<str as Pointee>::Metadata, D::Error> {
+    fn deserialize_metadata(
+        &self,
+        _: &mut D,
+    ) -> Result<<str as Pointee>::Metadata, D::Error> {
         Ok(ptr_meta::metadata(self))
     }
 }
@@ -380,24 +421,36 @@ impl<T: Archive> Archive for ManuallyDrop<T> {
     type Resolver = T::Resolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         T::resolve(self, pos, resolver, out.cast::<T::Archived>())
     }
 }
 
 impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for ManuallyDrop<T> {
     #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         T::serialize(self, serializer)
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<ManuallyDrop<T>, D> for ManuallyDrop<T::Archived>
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<ManuallyDrop<T>, D>
+    for ManuallyDrop<T::Archived>
 where
     T::Archived: Deserialize<T, D>,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<ManuallyDrop<T>, <D as Fallible>::Error> {
+    fn deserialize(
+        &self,
+        deserializer: &mut D,
+    ) -> Result<ManuallyDrop<T>, <D as Fallible>::Error> {
         T::Archived::deserialize(self, deserializer).map(ManuallyDrop::new)
     }
 }

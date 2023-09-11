@@ -3,7 +3,10 @@
 #[cfg(feature = "validation")]
 pub mod validation;
 
-use crate::{Archive, ArchivePointee, Archived, RelPtr};
+use crate::{
+    primitive::{ArchivedU16, ArchivedUsize},
+    Archive, ArchivePointee, RelPtr,
+};
 use core::{
     borrow::Borrow,
     cmp::Ordering,
@@ -33,7 +36,12 @@ impl<'a, UK: Archive, UV: Archive> Archive for LeafNodeEntry<&'a UK, &'a UV> {
     type Resolver = (UK::Resolver, UV::Resolver);
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         let (fp, fo) = out_field!(out.key);
         self.key.resolve(pos + fp, resolver.0, fo);
         let (fp, fo) = out_field!(out.value);
@@ -43,8 +51,8 @@ impl<'a, UK: Archive, UV: Archive> Archive for LeafNodeEntry<&'a UK, &'a UV> {
 
 #[cfg_attr(feature = "strict", repr(C))]
 struct NodeHeader {
-    meta: Archived<u16>,
-    size: Archived<usize>,
+    meta: ArchivedU16,
+    size: ArchivedUsize,
     // For leaf nodes, this points to the next leaf node in order
     // For inner nodes, this points to the node in the next layer that's less than the first key in
     // this node
@@ -54,17 +62,17 @@ struct NodeHeader {
 impl NodeHeader {
     #[inline]
     fn is_inner(&self) -> bool {
-        split_meta(from_archived!(self.meta)).0
+        split_meta(self.meta.to_native()).0
     }
 
     #[inline]
     fn is_leaf(&self) -> bool {
-        !split_meta(from_archived!(self.meta)).0
+        !split_meta(self.meta.to_native()).0
     }
 
     #[inline]
     fn len(&self) -> usize {
-        split_meta(from_archived!(self.meta)).1
+        split_meta(self.meta.to_native()).1
     }
 }
 
@@ -94,11 +102,13 @@ impl<T> Pointee for Node<[T]> {
 }
 
 impl<T> ArchivePointee for Node<[T]> {
-    type ArchivedMetadata = Archived<usize>;
+    type ArchivedMetadata = ArchivedUsize;
 
     #[inline]
-    fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
-        from_archived!(*archived) as usize
+    fn pointer_metadata(
+        archived: &Self::ArchivedMetadata,
+    ) -> <Self as Pointee>::Metadata {
+        archived.to_native() as usize
     }
 }
 
@@ -116,7 +126,12 @@ impl Archive for NodeHeaderData {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, _: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        _: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         let (fp, fo) = out_field!(out.meta);
         self.meta.resolve(pos + fp, (), fo);
 
@@ -137,7 +152,12 @@ impl<'a, UK: Archive> Archive for InnerNodeEntryData<'a, UK> {
     type Resolver = (usize, UK::Resolver);
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         let (fp, fo) = out_field!(out.ptr);
         RelPtr::emplace(pos + fp, resolver.0, fo);
         let (fp, fo) = out_field!(out.key);
@@ -186,7 +206,7 @@ impl NodeHeader {
 /// An archived [`BTreeMap`](std::collections::BTreeMap).
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedBTreeMap<K, V> {
-    len: Archived<usize>,
+    len: ArchivedUsize,
     root: RelPtr<NodeHeader>,
     _phantom: PhantomData<(K, V)>,
 }
@@ -226,10 +246,14 @@ impl<K, V> ArchivedBTreeMap<K, V> {
             }
             match node {
                 ClassifiedNode::Leaf(leaf) => unsafe {
-                    let node = (leaf as *const LeafNode<K, V> as *mut LeafNode<K, V>).cast();
+                    let node = (leaf as *const LeafNode<K, V>
+                        as *mut LeafNode<K, V>)
+                        .cast();
                     NonNull::new_unchecked(node)
                 },
-                ClassifiedNode::Inner(_) => unsafe { core::hint::unreachable_unchecked() },
+                ClassifiedNode::Inner(_) => unsafe {
+                    core::hint::unreachable_unchecked()
+                },
             }
         } else {
             NonNull::dangling()
@@ -332,7 +356,7 @@ impl<K, V> ArchivedBTreeMap<K, V> {
     /// Returns the number of items in the archived B-tree map.
     #[inline]
     pub fn len(&self) -> usize {
-        from_archived!(self.len) as usize
+        self.len.to_native() as usize
     }
 
     /// Gets an iterator over the values of the map, in order by key.
@@ -416,9 +440,11 @@ const _: () = {
                         // This is an estimate of the block size
                         // It's not exact because there may be padding to align the node and entries
                         // slice
-                        let estimated_block_size = serializer.pos() - block_start_pos
+                        let estimated_block_size = serializer.pos()
+                            - block_start_pos
                             + mem::size_of::<NodeHeader>()
-                            + resolvers.len() * mem::size_of::<LeafNodeEntry<K, V>>();
+                            + resolvers.len()
+                                * mem::size_of::<LeafNodeEntry<K, V>>();
 
                         // If we've reached or exceeded the maximum node size and have put enough
                         // entries in this node, then break
@@ -460,7 +486,9 @@ const _: () = {
                     ));
 
                     serializer.align_for::<LeafNodeEntry<K, V>>()?;
-                    for (key, value, key_resolver, value_resolver) in resolvers.drain(..).rev() {
+                    for (key, value, key_resolver, value_resolver) in
+                        resolvers.drain(..).rev()
+                    {
                         serializer.resolve_aligned(
                             &LeafNodeEntry { key, value },
                             (key_resolver, value_resolver),
@@ -487,12 +515,18 @@ const _: () = {
                             let (key, pos) = iter.next().unwrap();
 
                             // Serialize the next entry
-                            resolvers.push((key, pos, key.serialize(serializer)?));
+                            resolvers.push((
+                                key,
+                                pos,
+                                key.serialize(serializer)?,
+                            ));
 
                             // Estimate the block size
-                            let estimated_block_size = serializer.pos() - block_start_pos
+                            let estimated_block_size = serializer.pos()
+                                - block_start_pos
                                 + mem::size_of::<NodeHeader>()
-                                + resolvers.len() * mem::size_of::<InnerNodeEntry<K>>();
+                                + resolvers.len()
+                                    * mem::size_of::<InnerNodeEntry<K>>();
 
                             // If we've reached or exceeded the maximum node size and have put enough
                             // keys in this node, then break
@@ -514,7 +548,11 @@ const _: () = {
                             let (key, pos) = iter.next().unwrap();
 
                             // Serialize the next entry
-                            resolvers.push((key, pos, key.serialize(serializer)?));
+                            resolvers.push((
+                                key,
+                                pos,
+                                key.serialize(serializer)?,
+                            ));
                         }
 
                         // The next item is the first node
@@ -533,12 +571,19 @@ const _: () = {
                         };
 
                         // Add the second key and node position to the next level
-                        next_level.push((first_key, serializer.resolve_aligned(&node_header, ())?));
+                        next_level.push((
+                            first_key,
+                            serializer.resolve_aligned(&node_header, ())?,
+                        ));
 
                         serializer.align_for::<InnerNodeEntry<K>>()?;
                         for (key, pos, resolver) in resolvers.drain(..).rev() {
-                            let inner_node_data = InnerNodeEntryData::<UK> { key };
-                            serializer.resolve_aligned(&inner_node_data, (pos, resolver))?;
+                            let inner_node_data =
+                                InnerNodeEntryData::<UK> { key };
+                            serializer.resolve_aligned(
+                                &inner_node_data,
+                                (pos, resolver),
+                            )?;
                         }
                     }
 
@@ -652,9 +697,12 @@ impl<'a, K, V> Iterator for RawIter<'a, K, V> {
                 if self.index == leaf.tail.len() {
                     self.index = 0;
                     // SAFETY: when self.remaining > 0 this is guaranteed to point to a leaf node
-                    self.leaf = NonNull::new_unchecked(leaf.header.ptr.as_ptr() as *mut _);
+                    self.leaf = NonNull::new_unchecked(
+                        leaf.header.ptr.as_ptr() as *mut _,
+                    );
                 }
-                let result = &self.leaf.as_ref().classify_leaf().tail[self.index];
+                let result =
+                    &self.leaf.as_ref().classify_leaf().tail[self.index];
                 self.index += 1;
                 self.remaining -= 1;
                 Some((&result.key, &result.value))

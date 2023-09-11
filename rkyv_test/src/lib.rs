@@ -40,7 +40,7 @@ mod tests {
         test_archive(&1234567890u32);
         test_archive(&12345678901234567890u64);
         test_archive(&123456789012345678901234567890123456789u128);
-        #[cfg(not(any(feature = "strict", feature = "archive_le", feature = "archive_be")))]
+        #[cfg(not(feature = "strict"))]
         test_archive(&(24, true, 16f32));
         test_archive(&[1, 2, 3, 4, 5, 6]);
 
@@ -78,8 +78,8 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_nonzero() {
         use core::num::{
-            NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
-            NonZeroU32, NonZeroU64, NonZeroU8,
+            NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
+            NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8,
         };
 
         unsafe {

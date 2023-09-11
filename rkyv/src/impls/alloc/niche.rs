@@ -1,6 +1,6 @@
 use crate::{niche::option_box::ArchivedOptionBox, ArchivePointee};
 #[cfg(not(feature = "std"))]
-use ::alloc::boxed::Box;
+use alloc::boxed::Box;
 
 impl<T, U> PartialEq<Option<Box<T>>> for ArchivedOptionBox<U>
 where

@@ -7,8 +7,9 @@ use crate::{
         util::{validation::ArchivedEntryError, Entry},
         ArchivedHashIndex,
     },
+    primitive::ArchivedUsize,
     validation::ArchiveContext,
-    Archived, RelPtr,
+    RelPtr,
 };
 use bytecheck::{CheckBytes, Error, SliceCheckError};
 use core::{
@@ -47,15 +48,21 @@ pub enum IndexMapError<K, V, C> {
     ContextError(C),
 }
 
-impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display for IndexMapError<K, V, E> {
+impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display
+    for IndexMapError<K, V, E>
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            IndexMapError::HashIndexError(e) => write!(f, "hash index check error: {}", e),
+            IndexMapError::HashIndexError(e) => {
+                write!(f, "hash index check error: {}", e)
+            }
             IndexMapError::LayoutError(e) => write!(f, "layout error: {}", e),
             IndexMapError::PivotOutOfBounds { index, pivot } => {
                 write!(f, "pivot out of bounds: {} at index {}", pivot, index)
             }
-            IndexMapError::CheckEntryError(e) => write!(f, "entry check error: {}", e),
+            IndexMapError::CheckEntryError(e) => {
+                write!(f, "entry check error: {}", e)
+            }
             IndexMapError::InvalidKeyPosition { index } => {
                 write!(f, "invalid key position: at index {}", index)
             }
@@ -114,7 +121,9 @@ impl<K, V, C> From<LayoutError> for IndexMapError<K, V, C> {
     }
 }
 
-impl<K, V, C> From<SliceCheckError<ArchivedEntryError<K, V>>> for IndexMapError<K, V, C> {
+impl<K, V, C> From<SliceCheckError<ArchivedEntryError<K, V>>>
+    for IndexMapError<K, V, C>
+{
     #[inline]
     fn from(e: SliceCheckError<ArchivedEntryError<K, V>>) -> Self {
         Self::CheckEntryError(e)
@@ -134,11 +143,17 @@ where
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let index = ArchivedHashIndex::check_bytes(ptr::addr_of!((*value).index), context)?;
+        let index = ArchivedHashIndex::check_bytes(
+            ptr::addr_of!((*value).index),
+            context,
+        )?;
 
         // Entries
         Layout::array::<Entry<K, V>>(index.len())?;
-        let entries_rel_ptr = RelPtr::manual_check_bytes(ptr::addr_of!((*value).entries), context)?;
+        let entries_rel_ptr = RelPtr::manual_check_bytes(
+            ptr::addr_of!((*value).entries),
+            context,
+        )?;
         let entries_ptr = context
             .check_subtree_ptr::<[Entry<K, V>]>(
                 entries_rel_ptr.base(),
@@ -156,10 +171,13 @@ where
             .map_err(IndexMapError::ContextError)?;
 
         // Pivots
-        Layout::array::<Archived<usize>>(index.len())?;
-        let pivots_rel_ptr = RelPtr::manual_check_bytes(ptr::addr_of!((*value).pivots), context)?;
+        Layout::array::<ArchivedUsize>(index.len())?;
+        let pivots_rel_ptr = RelPtr::manual_check_bytes(
+            ptr::addr_of!((*value).pivots),
+            context,
+        )?;
         let pivots_ptr = context
-            .check_subtree_ptr::<[Archived<usize>]>(
+            .check_subtree_ptr::<[ArchivedUsize]>(
                 pivots_rel_ptr.base(),
                 pivots_rel_ptr.offset(),
                 index.len(),
@@ -169,21 +187,24 @@ where
         let range = context
             .push_prefix_subtree(pivots_ptr)
             .map_err(IndexMapError::ContextError)?;
-        let pivots = <[Archived<usize>]>::check_bytes(pivots_ptr, context)?;
+        let pivots = <[ArchivedUsize]>::check_bytes(pivots_ptr, context)?;
         context
             .pop_prefix_range(range)
             .map_err(IndexMapError::ContextError)?;
 
         for (i, pivot) in pivots.iter().enumerate() {
-            let pivot = from_archived!(*pivot) as usize;
+            let pivot = pivot.to_native() as usize;
             if pivot >= index.len() {
-                return Err(IndexMapError::PivotOutOfBounds { index: i, pivot });
+                return Err(IndexMapError::PivotOutOfBounds {
+                    index: i,
+                    pivot,
+                });
             }
         }
 
         for (i, entry) in entries.iter().enumerate() {
             if let Some(pivot_index) = index.index(&entry.key) {
-                let pivot = from_archived!(pivots[pivot_index]) as usize;
+                let pivot = pivots[pivot_index].to_native() as usize;
                 if pivot != i {
                     return Err(IndexMapError::InvalidKeyPosition { index: i });
                 }

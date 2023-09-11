@@ -34,7 +34,9 @@ impl<T> ArchivedOption<T> {
     /// Returns the contained [`Some`] value, consuming the `self` value.
     pub fn unwrap(self) -> T {
         match self {
-            ArchivedOption::None => panic!("called `ArchivedOption::unwrap()` on a `None` value"),
+            ArchivedOption::None => {
+                panic!("called `ArchivedOption::unwrap()` on a `None` value")
+            }
             ArchivedOption::Some(value) => value,
         }
     }

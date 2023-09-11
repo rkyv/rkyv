@@ -3,8 +3,9 @@
 mod raw;
 
 use crate::{
+    primitive::ArchivedUsize,
     ser::{ScratchSpace, Serializer},
-    Archive, Archived, RelPtr, Serialize, SerializeUnsized,
+    Archive, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{
     borrow::Borrow,
@@ -23,7 +24,7 @@ pub use self::raw::*;
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedVec<T> {
     ptr: RelPtr<T>,
-    len: Archived<usize>,
+    len: ArchivedUsize,
 }
 
 impl<T> ArchivedVec<T> {
@@ -36,7 +37,7 @@ impl<T> ArchivedVec<T> {
     /// Returns the number of elements in the archived vec.
     #[inline]
     pub fn len(&self) -> usize {
-        from_archived!(self.len) as usize
+        self.len.to_native() as usize
     }
 
     /// Returns whether the archived vec is empty.
@@ -55,7 +56,9 @@ impl<T> ArchivedVec<T> {
     #[inline]
     pub fn pin_mut_slice(self: Pin<&mut Self>) -> Pin<&mut [T]> {
         unsafe {
-            self.map_unchecked_mut(|s| core::slice::from_raw_parts_mut(s.ptr.as_mut_ptr(), s.len()))
+            self.map_unchecked_mut(|s| {
+                core::slice::from_raw_parts_mut(s.ptr.as_mut_ptr(), s.len())
+            })
         }
     }
 
@@ -64,7 +67,10 @@ impl<T> ArchivedVec<T> {
 
     /// Gets the element at the given index ot this archived vec as a pinned mutable reference.
     #[inline]
-    pub fn index_pin<I>(self: Pin<&mut Self>, index: I) -> Pin<&mut <[T] as Index<I>>::Output>
+    pub fn index_pin<I>(
+        self: Pin<&mut Self>,
+        index: I,
+    ) -> Pin<&mut <[T] as Index<I>>::Output>
     where
         [T]: IndexMut<I>,
     {
@@ -94,7 +100,12 @@ impl<T> ArchivedVec<T> {
     /// - `pos` must be the position of `out` within the archive
     /// - `resolver` must bet he result of serializing `value`
     #[inline]
-    pub unsafe fn resolve_from_len(len: usize, pos: usize, resolver: VecResolver, out: *mut Self) {
+    pub unsafe fn resolve_from_len(
+        len: usize,
+        pos: usize,
+        resolver: VecResolver,
+        out: *mut Self,
+    ) {
         let (fp, fo) = out_field!(out.ptr);
         RelPtr::emplace(pos + fp, resolver.pos, fo);
         let (fp, fo) = out_field!(out.len);
@@ -103,7 +114,10 @@ impl<T> ArchivedVec<T> {
 
     /// Serializes an archived `Vec` from a given slice.
     #[inline]
-    pub fn serialize_from_slice<U: Serialize<S, Archived = T>, S: Serializer + ?Sized>(
+    pub fn serialize_from_slice<
+        U: Serialize<S, Archived = T>,
+        S: Serializer + ?Sized,
+    >(
         slice: &[U],
         serializer: &mut S,
     ) -> Result<VecResolver, S::Error>
@@ -134,11 +148,14 @@ impl<T> ArchivedVec<T> {
         U: Serialize<S, Archived = T>,
         S: Serializer + ?Sized,
     {
-        use ::core::{mem::size_of, slice::from_raw_parts};
+        use core::{mem::size_of, slice::from_raw_parts};
 
         let pos = serializer.align_for::<T>()?;
 
-        let bytes = from_raw_parts(slice.as_ptr().cast::<u8>(), size_of::<T>() * slice.len());
+        let bytes = from_raw_parts(
+            slice.as_ptr().cast::<u8>(),
+            size_of::<T>() * slice.len(),
+        );
         serializer.write(bytes)?;
 
         Ok(VecResolver { pos })
@@ -317,10 +334,14 @@ const _: () = {
         where
             T: CheckBytes<C>,
             C: ArchiveContext + ?Sized,
-            F: FnOnce(*const [T], &mut C) -> Result<(), <[T] as CheckBytes<C>>::Error>,
+            F: FnOnce(
+                *const [T],
+                &mut C,
+            ) -> Result<(), <[T] as CheckBytes<C>>::Error>,
         {
-            let rel_ptr = RelPtr::<[T]>::manual_check_bytes(value.cast(), context)
-                .map_err(OwnedPointerError::PointerCheckBytesError)?;
+            let rel_ptr =
+                RelPtr::<[T]>::manual_check_bytes(value.cast(), context)
+                    .map_err(OwnedPointerError::PointerCheckBytesError)?;
             let ptr = context
                 .check_subtree_rel_ptr(rel_ptr)
                 .map_err(OwnedPointerError::ContextError)?;
@@ -328,7 +349,8 @@ const _: () = {
             let range = context
                 .push_prefix_subtree(ptr)
                 .map_err(OwnedPointerError::ContextError)?;
-            check_elements(ptr, context).map_err(OwnedPointerError::ValueCheckBytesError)?;
+            check_elements(ptr, context)
+                .map_err(OwnedPointerError::ValueCheckBytesError)?;
             context
                 .pop_prefix_range(range)
                 .map_err(OwnedPointerError::ContextError)?;

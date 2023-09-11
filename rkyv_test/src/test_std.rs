@@ -30,19 +30,6 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_hash_map() {
-        #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
-        {
-            test_archive(&HashMap::<i32, i32>::new());
-
-            let mut hash_map = HashMap::new();
-            hash_map.insert(1, 2);
-            hash_map.insert(3, 4);
-            hash_map.insert(5, 6);
-            hash_map.insert(7, 8);
-
-            test_archive(&hash_map);
-        }
-
         let mut hash_map = HashMap::new();
         hash_map.insert("hello".to_string(), "world".to_string());
         hash_map.insert("foo".to_string(), "bar".to_string());
@@ -51,7 +38,8 @@ mod tests {
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&hash_map).unwrap();
         let buf = serializer.into_serializer().into_inner();
-        let archived_value = unsafe { archived_root::<HashMap<String, String>>(buf.as_ref()) };
+        let archived_value =
+            unsafe { archived_root::<HashMap<String, String>>(buf.as_ref()) };
 
         assert_eq!(archived_value.len(), hash_map.len());
 
@@ -69,10 +57,17 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_hash_map_tuple_retrieved_by_get_with() {
+        #[derive(Archive, Serialize, Deserialize, Eq, Hash, PartialEq)]
+        #[archive_attr(derive(Eq, Hash, PartialEq))]
+        pub struct Pair(String, String);
+
         let mut hash_map = HashMap::new();
-        hash_map.insert(("my".to_string(), "key".to_string()), "value".to_string());
         hash_map.insert(
-            ("wrong".to_string(), "key".to_string()),
+            Pair("my".to_string(), "key".to_string()),
+            "value".to_string(),
+        );
+        hash_map.insert(
+            Pair("wrong".to_string(), "key".to_string()),
             "wrong value".to_string(),
         );
 
@@ -80,7 +75,7 @@ mod tests {
         serializer.serialize_value(&hash_map).unwrap();
         let buf = serializer.into_serializer().into_inner();
         let archived_value =
-            unsafe { archived_root::<HashMap<(String, String), String>>(buf.as_ref()) };
+            unsafe { archived_root::<HashMap<Pair, String>>(buf.as_ref()) };
 
         let get_with = archived_value
             .get_with(&("my", "key"), |key, input_key| {
@@ -99,7 +94,8 @@ mod tests {
 
         test_archive(&HashMap::<i8, i32, ahash::RandomState>::default());
 
-        let mut hash_map: HashMap<i8, _, ahash::RandomState> = HashMap::default();
+        let mut hash_map: HashMap<i8, _, ahash::RandomState> =
+            HashMap::default();
         hash_map.insert(1, 2);
         hash_map.insert(3, 4);
         hash_map.insert(5, 6);
@@ -107,7 +103,8 @@ mod tests {
 
         test_archive(&hash_map);
 
-        let mut hash_map: HashMap<_, _, ahash::RandomState> = HashMap::default();
+        let mut hash_map: HashMap<_, _, ahash::RandomState> =
+            HashMap::default();
         hash_map.insert("hello".to_string(), "world".to_string());
         hash_map.insert("foo".to_string(), "bar".to_string());
         hash_map.insert("baz".to_string(), "bat".to_string());
@@ -115,8 +112,11 @@ mod tests {
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&hash_map).unwrap();
         let buf = serializer.into_serializer().into_inner();
-        let archived_value =
-            unsafe { archived_root::<HashMap<String, String, ahash::RandomState>>(buf.as_ref()) };
+        let archived_value = unsafe {
+            archived_root::<HashMap<String, String, ahash::RandomState>>(
+                buf.as_ref(),
+            )
+        };
 
         assert_eq!(archived_value.len(), hash_map.len());
 
@@ -134,19 +134,6 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_hash_set() {
-        #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
-        {
-            test_archive(&HashSet::<i32>::new());
-
-            let mut hash_set = HashSet::new();
-            hash_set.insert(1);
-            hash_set.insert(3);
-            hash_set.insert(5);
-            hash_set.insert(7);
-
-            test_archive(&hash_set);
-        }
-
         let mut hash_set = HashSet::new();
         hash_set.insert("hello".to_string());
         hash_set.insert("foo".to_string());
@@ -155,7 +142,8 @@ mod tests {
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&hash_set).unwrap();
         let buf = serializer.into_serializer().into_inner();
-        let archived_value = unsafe { archived_root::<HashSet<String>>(buf.as_ref()) };
+        let archived_value =
+            unsafe { archived_root::<HashSet<String>>(buf.as_ref()) };
 
         assert_eq!(archived_value.len(), hash_set.len());
 
@@ -190,8 +178,9 @@ mod tests {
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&hash_set).unwrap();
         let buf = serializer.into_serializer().into_inner();
-        let archived_value =
-            unsafe { archived_root::<HashSet<String, ahash::RandomState>>(buf.as_ref()) };
+        let archived_value = unsafe {
+            archived_root::<HashSet<String, ahash::RandomState>>(buf.as_ref())
+        };
 
         assert_eq!(archived_value.len(), hash_set.len());
 
@@ -207,7 +196,9 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_net() {
-        use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
+        use std::net::{
+            IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6,
+        };
 
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
@@ -226,7 +217,12 @@ mod tests {
             ipv6: Ipv6Addr::new(31, 41, 59, 26, 53, 58, 97, 93),
             ip: IpAddr::V4(Ipv4Addr::new(31, 41, 59, 26)),
             sockv4: SocketAddrV4::new(Ipv4Addr::new(31, 41, 59, 26), 5358),
-            sockv6: SocketAddrV6::new(Ipv6Addr::new(31, 31, 59, 26, 53, 58, 97, 93), 2384, 0, 0),
+            sockv6: SocketAddrV6::new(
+                Ipv6Addr::new(31, 31, 59, 26, 53, 58, 97, 93),
+                2384,
+                0,
+                0,
+            ),
             sock: SocketAddr::V6(SocketAddrV6::new(
                 Ipv6Addr::new(31, 31, 59, 26, 53, 58, 97, 93),
                 2384,
@@ -243,7 +239,9 @@ mod tests {
     fn c_string() {
         use std::ffi::CString;
 
-        let value = unsafe { CString::from_vec_unchecked("hello world".to_string().into_bytes()) };
+        let value = unsafe {
+            CString::from_vec_unchecked("hello world".to_string().into_bytes())
+        };
         test_archive(&value);
     }
 
@@ -361,9 +359,6 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    // Don't run these tests with non-native endianness because ArchivedHashMap won't have
-    // PartialEq<HashMap>
-    #[cfg(not(any(feature = "archive_le", feature = "archive_be")))]
     fn archive_zst_containers() {
         use std::collections::HashSet;
 
@@ -371,11 +366,6 @@ mod tests {
         #[archive(compare(PartialEq))]
         #[archive_attr(derive(Debug))]
         struct MyZST;
-
-        let mut value = HashMap::new();
-        value.insert(0, ());
-        value.insert(1, ());
-        test_archive(&value);
 
         let mut value = HashMap::new();
         value.insert((), 10);

@@ -1,13 +1,13 @@
 //! Archived versions of network types.
 
-use crate::Archived;
+use crate::primitive::{ArchivedU16, ArchivedU32};
 
 /// An archived [`Ipv4Addr`](std::net::Ipv4Addr).
 #[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedIpv4Addr {
-    octets: [Archived<u8>; 4],
+    octets: [u8; 4],
 }
 
 impl ArchivedIpv4Addr {
@@ -23,7 +23,7 @@ impl ArchivedIpv4Addr {
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedIpv6Addr {
-    octets: [Archived<u8>; 16],
+    octets: [u8; 16],
 }
 
 impl ArchivedIpv6Addr {
@@ -76,7 +76,7 @@ impl ArchivedIpAddr {
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedSocketAddrV4 {
     pub(crate) ip: ArchivedIpv4Addr,
-    pub(crate) port: Archived<u16>,
+    pub(crate) port: ArchivedU16,
 }
 
 impl ArchivedSocketAddrV4 {
@@ -89,7 +89,7 @@ impl ArchivedSocketAddrV4 {
     /// Returns the port number associated with this socket address.
     #[inline]
     pub const fn port(&self) -> u16 {
-        from_archived!(self.port)
+        self.port.to_native()
     }
 }
 
@@ -99,9 +99,9 @@ impl ArchivedSocketAddrV4 {
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedSocketAddrV6 {
     pub(crate) ip: ArchivedIpv6Addr,
-    pub(crate) port: Archived<u16>,
-    pub(crate) flowinfo: Archived<u32>,
-    pub(crate) scope_id: Archived<u32>,
+    pub(crate) port: ArchivedU16,
+    pub(crate) flowinfo: ArchivedU32,
+    pub(crate) scope_id: ArchivedU32,
 }
 
 impl ArchivedSocketAddrV6 {
@@ -110,7 +110,7 @@ impl ArchivedSocketAddrV6 {
     /// See [`SocketAddrV6::flowinfo()`](std::net::SocketAddrV6::flowinfo()) for more details.
     #[inline]
     pub const fn flowinfo(&self) -> u32 {
-        from_archived!(self.flowinfo)
+        self.flowinfo.to_native()
     }
 
     /// Returns the IP address associated with this socket address.
@@ -122,7 +122,7 @@ impl ArchivedSocketAddrV6 {
     /// Returns the port number associated with this socket address.
     #[inline]
     pub const fn port(&self) -> u16 {
-        from_archived!(self.port)
+        self.port.to_native()
     }
 
     /// Returns the scope ID associated with this address.
@@ -130,7 +130,7 @@ impl ArchivedSocketAddrV6 {
     /// See [`SocketAddrV6::scope_id()`](std::net::SocketAddrV6::scope_id()) for more details.
     #[inline]
     pub const fn scope_id(&self) -> u32 {
-        from_archived!(self.scope_id)
+        self.scope_id.to_native()
     }
 }
 

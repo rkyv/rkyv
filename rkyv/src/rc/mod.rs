@@ -7,7 +7,10 @@ use crate::{
     ser::{Serializer, SharedSerializeRegistry},
     ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr, SerializeUnsized,
 };
-use core::{borrow::Borrow, cmp, fmt, hash, marker::PhantomData, ops::Deref, pin::Pin, ptr};
+use core::{
+    borrow::Borrow, cmp, fmt, hash, marker::PhantomData, ops::Deref, pin::Pin,
+    ptr,
+};
 
 /// An archived `Rc`.
 ///
@@ -49,7 +52,12 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.0);
-        value.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        value.resolve_unsized(
+            pos + fp,
+            resolver.pos,
+            resolver.metadata_resolver,
+            fo,
+        );
     }
 
     /// Serializes an archived `Rc` from a given reference.
@@ -91,7 +99,9 @@ impl<T: ArchivePointee + ?Sized, F> Borrow<T> for ArchivedRc<T, F> {
     }
 }
 
-impl<T: ArchivePointee + fmt::Debug + ?Sized, F> fmt::Debug for ArchivedRc<T, F> {
+impl<T: ArchivePointee + fmt::Debug + ?Sized, F> fmt::Debug
+    for ArchivedRc<T, F>
+{
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.get().fmt(f)
@@ -107,7 +117,9 @@ impl<T: ArchivePointee + ?Sized, F> Deref for ArchivedRc<T, F> {
     }
 }
 
-impl<T: ArchivePointee + fmt::Display + ?Sized, F> fmt::Display for ArchivedRc<T, F> {
+impl<T: ArchivePointee + fmt::Display + ?Sized, F> fmt::Display
+    for ArchivedRc<T, F>
+{
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.get().fmt(f)
@@ -116,7 +128,9 @@ impl<T: ArchivePointee + fmt::Display + ?Sized, F> fmt::Display for ArchivedRc<T
 
 impl<T: ArchivePointee + Eq + ?Sized, F> Eq for ArchivedRc<T, F> {}
 
-impl<T: ArchivePointee + hash::Hash + ?Sized, F> hash::Hash for ArchivedRc<T, F> {
+impl<T: ArchivePointee + hash::Hash + ?Sized, F> hash::Hash
+    for ArchivedRc<T, F>
+{
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.get().hash(state)
     }
@@ -185,7 +199,9 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
 
     /// Attempts to upgrade a pinned mutable weak pointer.
     #[inline]
-    pub fn upgrade_pin_mut(self: Pin<&mut Self>) -> Option<Pin<&mut ArchivedRc<T, F>>> {
+    pub fn upgrade_pin_mut(
+        self: Pin<&mut Self>,
+    ) -> Option<Pin<&mut ArchivedRc<T, F>>> {
         unsafe {
             match self.get_unchecked_mut() {
                 ArchivedRcWeak::None => None,
@@ -217,7 +233,12 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
                 ptr::addr_of_mut!((*out).0).write(ArchivedRcWeakTag::Some);
 
                 let (fp, fo) = out_field!(out.1);
-                ArchivedRc::resolve_from_ref(value.unwrap(), pos + fp, resolver, fo);
+                ArchivedRc::resolve_from_ref(
+                    value.unwrap(),
+                    pos + fp,
+                    resolver,
+                    fo,
+                );
             }
         }
     }
@@ -234,12 +255,16 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     {
         Ok(match value {
             None => RcWeakResolver::None,
-            Some(r) => RcWeakResolver::Some(ArchivedRc::<T, F>::serialize_from_ref(r, serializer)?),
+            Some(r) => RcWeakResolver::Some(
+                ArchivedRc::<T, F>::serialize_from_ref(r, serializer)?,
+            ),
         })
     }
 }
 
-impl<T: ArchivePointee + fmt::Debug + ?Sized, F> fmt::Debug for ArchivedRcWeak<T, F> {
+impl<T: ArchivePointee + fmt::Debug + ?Sized, F> fmt::Debug
+    for ArchivedRcWeak<T, F>
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "(Weak)")
     }

@@ -21,7 +21,7 @@ memory mapping.
 rkyv supports three endiannesses: native, little, and big. Native endianness will be either little
 or big, but removes the abstraction layer to more easily work with the underlying types.
 
-You can enable specific endiannesses with the `archive_le` and `archive_be` features.
+You can enable specific endiannesses with the `little_endian` and `big_endian` features.
 
 ## Is rkyv cross-platform?
 

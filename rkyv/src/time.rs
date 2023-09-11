@@ -1,13 +1,13 @@
 //! Archived versions of `time` types.
 
-use crate::Archived;
+use crate::primitive::{ArchivedU32, ArchivedU64};
 
 /// An archived [`Duration`](core::time::Duration).
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedDuration {
-    secs: Archived<u64>,
-    nanos: Archived<u32>,
+    secs: ArchivedU64,
+    nanos: ArchivedU32,
 }
 
 const NANOS_PER_SEC: u32 = 1_000_000_000;
@@ -26,7 +26,7 @@ impl ArchivedDuration {
     /// [`subsec_nanos`]: ArchivedDuration::subsec_nanos
     #[inline]
     pub const fn as_secs(&self) -> u64 {
-        from_archived!(self.secs)
+        self.secs.to_native()
     }
 
     /// Returns the fractional part of this `ArchivedDuration`, in whole milliseconds.
@@ -36,7 +36,7 @@ impl ArchivedDuration {
     /// than one thousand).
     #[inline]
     pub const fn subsec_millis(&self) -> u32 {
-        from_archived!(self.nanos) / NANOS_PER_MILLI
+        self.nanos.to_native() / NANOS_PER_MILLI
     }
 
     /// Returns the fractional part of this `ArchivedDuration`, in whole microseconds.
@@ -46,7 +46,7 @@ impl ArchivedDuration {
     /// than one million).
     #[inline]
     pub const fn subsec_micros(&self) -> u32 {
-        from_archived!(self.nanos) / NANOS_PER_MICRO
+        self.nanos.to_native() / NANOS_PER_MICRO
     }
 
     /// Returns the fractional part of this `Duration`, in nanoseconds.
@@ -56,7 +56,7 @@ impl ArchivedDuration {
     /// than one billion).
     #[inline]
     pub const fn subsec_nanos(&self) -> u32 {
-        from_archived!(self.nanos)
+        self.nanos.to_native()
     }
 
     /// Returns the total number of whole milliseconds contained by this `ArchivedDuration`.
@@ -76,7 +76,8 @@ impl ArchivedDuration {
     /// Returns the total number of nanoseconds contained by this `ArchivedDuration`.
     #[inline]
     pub const fn as_nanos(&self) -> u128 {
-        self.as_secs() as u128 * NANOS_PER_SEC as u128 + self.subsec_nanos() as u128
+        self.as_secs() as u128 * NANOS_PER_SEC as u128
+            + self.subsec_nanos() as u128
     }
 
     /// Returns the number of seconds contained by this `ArchivedDuration` as `f64`.
@@ -84,7 +85,8 @@ impl ArchivedDuration {
     /// The returned value does include the fractional (nanosecond) part of the duration.
     #[inline]
     pub fn as_secs_f64(&self) -> f64 {
-        (self.as_secs() as f64) + (self.subsec_nanos() as f64) / (NANOS_PER_SEC as f64)
+        (self.as_secs() as f64)
+            + (self.subsec_nanos() as f64) / (NANOS_PER_SEC as f64)
     }
 
     /// Returns the number of seconds contained by this `ArchivedDuration` as `f32`.
@@ -92,7 +94,8 @@ impl ArchivedDuration {
     /// The returned value does include the fractional (nanosecond) part of the duration.
     #[inline]
     pub fn as_secs_f32(&self) -> f32 {
-        (self.as_secs() as f32) + (self.subsec_nanos() as f32) / (NANOS_PER_SEC as f32)
+        (self.as_secs() as f32)
+            + (self.subsec_nanos() as f32) / (NANOS_PER_SEC as f32)
     }
 
     /// Constructs an archived duration at the given position.
@@ -104,8 +107,8 @@ impl ArchivedDuration {
     pub unsafe fn emplace(secs: u64, nanos: u32, out: *mut ArchivedDuration) {
         use core::ptr::addr_of_mut;
 
-        addr_of_mut!((*out).secs).write(to_archived!(secs));
-        addr_of_mut!((*out).nanos).write(to_archived!(nanos));
+        addr_of_mut!((*out).secs).write(ArchivedU64::from_native(secs));
+        addr_of_mut!((*out).nanos).write(ArchivedU32::from_native(nanos));
     }
 }
 
@@ -134,12 +137,16 @@ const _: () = {
         type Error = DurationError;
 
         #[inline]
-        unsafe fn check_bytes<'a>(value: *const Self, _: &mut C) -> Result<&'a Self, Self::Error> {
+        unsafe fn check_bytes<'a>(
+            value: *const Self,
+            _: &mut C,
+        ) -> Result<&'a Self, Self::Error> {
             // The fields of `ArchivedDuration` are always valid
             let duration = &*value;
-            let secs = from_archived!(duration.secs);
+            let secs = duration.secs;
 
             if secs
+                .to_native()
                 .checked_add((duration.nanos / 1_000_000_000) as u64)
                 .is_none()
             {

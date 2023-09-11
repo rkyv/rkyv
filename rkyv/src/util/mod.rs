@@ -60,7 +60,10 @@ fn check_alignment<T>(ptr: *const u8) {
 ///
 /// A `T::Archived` must be archived at the given position in the byte slice.
 #[inline]
-pub unsafe fn archived_value<T: Archive + ?Sized>(bytes: &[u8], pos: usize) -> &T::Archived {
+pub unsafe fn archived_value<T: Archive + ?Sized>(
+    bytes: &[u8],
+    pos: usize,
+) -> &T::Archived {
     #[cfg(debug_assertions)]
     check_alignment::<T::Archived>(bytes.as_ptr());
 
@@ -83,7 +86,9 @@ pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
     #[cfg(debug_assertions)]
     check_alignment::<T::Archived>(bytes.as_ptr());
 
-    Pin::new_unchecked(&mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast())
+    Pin::new_unchecked(
+        &mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast(),
+    )
 }
 
 /// Casts a [`RelPtr`] to the given unsized type from the given byte slice at the given position and
@@ -181,8 +186,13 @@ pub unsafe fn archived_root_mut<T: Archive + ?Sized>(
 /// - The byte slice must represent an archived object
 /// - The root of the object must be stored at the end of the slice (this is the default behavior)
 #[inline]
-pub unsafe fn archived_unsized_root<T: ArchiveUnsized + ?Sized>(bytes: &[u8]) -> &T::Archived {
-    archived_unsized_value::<T>(bytes, bytes.len() - mem::size_of::<RelPtr<T::Archived>>())
+pub unsafe fn archived_unsized_root<T: ArchiveUnsized + ?Sized>(
+    bytes: &[u8],
+) -> &T::Archived {
+    archived_unsized_value::<T>(
+        bytes,
+        bytes.len() - mem::size_of::<RelPtr<T::Archived>>(),
+    )
 }
 
 /// Casts a [`RelPtr`] to the given unsized type from the given byte slice by calculating the root

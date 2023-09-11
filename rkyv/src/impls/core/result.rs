@@ -1,4 +1,6 @@
-use crate::{result::ArchivedResult, Archive, Deserialize, Fallible, Serialize};
+use crate::{
+    result::ArchivedResult, Archive, Deserialize, Fallible, Serialize,
+};
 use core::{hint::unreachable_unchecked, ptr};
 
 #[allow(dead_code)]
@@ -19,7 +21,12 @@ impl<T: Archive, E: Archive> Archive for Result<T, E> {
     type Resolver = Result<T::Resolver, E::Resolver>;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         match resolver {
             Ok(resolver) => {
                 let out = out.cast::<ArchivedResultVariantOk<T::Archived>>();
@@ -45,9 +52,14 @@ impl<T: Archive, E: Archive> Archive for Result<T, E> {
     }
 }
 
-impl<T: Serialize<S>, E: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Result<T, E> {
+impl<T: Serialize<S>, E: Serialize<S>, S: Fallible + ?Sized> Serialize<S>
+    for Result<T, E>
+{
     #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         Ok(match self.as_ref() {
             Ok(value) => Ok(value.serialize(serializer)?),
             Err(value) => Err(value.serialize(serializer)?),
@@ -55,7 +67,8 @@ impl<T: Serialize<S>, E: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Re
     }
 }
 
-impl<T, E, D> Deserialize<Result<T, E>, D> for ArchivedResult<T::Archived, E::Archived>
+impl<T, E, D> Deserialize<Result<T, E>, D>
+    for ArchivedResult<T::Archived, E::Archived>
 where
     T: Archive,
     E: Archive,
@@ -64,9 +77,14 @@ where
     E::Archived: Deserialize<E, D>,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<Result<T, E>, D::Error> {
+    fn deserialize(
+        &self,
+        deserializer: &mut D,
+    ) -> Result<Result<T, E>, D::Error> {
         match self {
-            ArchivedResult::Ok(value) => Ok(Ok(value.deserialize(deserializer)?)),
+            ArchivedResult::Ok(value) => {
+                Ok(Ok(value.deserialize(deserializer)?))
+            }
             ArchivedResult::Err(err) => Ok(Err(err.deserialize(deserializer)?)),
         }
     }

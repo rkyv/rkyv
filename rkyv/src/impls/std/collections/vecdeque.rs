@@ -36,36 +36,56 @@ impl<T: Archive> Archive for VecDeque<T> {
     type Resolver = VecResolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         ArchivedVec::resolve_from_len(self.len(), pos, resolver, out);
     }
 }
 
-impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> Serialize<S> for VecDeque<T> {
+impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> Serialize<S>
+    for VecDeque<T>
+{
     #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         let (a, b) = self.as_slices();
         if b.is_empty() {
             ArchivedVec::<T::Archived>::serialize_from_slice(a, serializer)
         } else if a.is_empty() {
             ArchivedVec::<T::Archived>::serialize_from_slice(b, serializer)
         } else {
-            ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _, _>(self.iter(), serializer)
+            ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _, _>(
+                self.iter(),
+                serializer,
+            )
         }
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<VecDeque<T>, D> for ArchivedVec<T::Archived>
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<VecDeque<T>, D>
+    for ArchivedVec<T::Archived>
 where
     [T::Archived]: DeserializeUnsized<[T], D>,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<VecDeque<T>, D::Error> {
+    fn deserialize(
+        &self,
+        deserializer: &mut D,
+    ) -> Result<VecDeque<T>, D::Error> {
         unsafe {
             let data_address = self
                 .as_slice()
-                .deserialize_unsized(deserializer, |layout| alloc::alloc(layout))?;
-            let metadata = self.as_slice().deserialize_metadata(deserializer)?;
+                .deserialize_unsized(deserializer, |layout| {
+                    alloc::alloc(layout)
+                })?;
+            let metadata =
+                self.as_slice().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             let vec: Vec<T> = Box::<[T]>::from_raw(ptr).into();
             Ok(vec.into())
@@ -114,10 +134,12 @@ mod tests {
                 serializer.serialize_value(&deque).unwrap();
                 let end = serializer.pos();
                 let result = serializer.into_serializer().into_inner();
-                let archived = unsafe { archived_root::<VecDeque<i32>>(&result[0..end]) };
+                let archived =
+                    unsafe { archived_root::<VecDeque<i32>>(&result[0..end]) };
                 assert!(archived.iter().copied().eq(0..n));
 
-                let deserialized: VecDeque<i32> = archived.deserialize(&mut Infallible).unwrap();
+                let deserialized: VecDeque<i32> =
+                    archived.deserialize(&mut Infallible).unwrap();
                 assert_eq!(deque, deserialized);
             }
         }

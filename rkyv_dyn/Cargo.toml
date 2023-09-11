@@ -22,9 +22,7 @@ rkyv_dyn_derive = { version = "0.8.0", path = "../rkyv_dyn_derive" }
 rkyv_typename = { version = "0.8.0", path = "../rkyv_typename" }
 
 [features]
-default = ["rkyv/size_32", "rkyv/std"]
-archive_le = ["rkyv/archive_le"]
-archive_be = ["rkyv/archive_be"]
+default = ["strict", "validation"]
 nightly = []
 strict = ["rkyv/strict"]
 validation = ["bytecheck", "rkyv/validation", "rkyv_dyn_derive/validation"]

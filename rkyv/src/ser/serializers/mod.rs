@@ -43,7 +43,9 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::SerializerError(e) => write!(f, "serialization error: {}", e),
-            Self::ScratchSpaceError(e) => write!(f, "scratch space error: {}", e),
+            Self::ScratchSpaceError(e) => {
+                write!(f, "scratch space error: {}", e)
+            }
             Self::SharedError(e) => write!(f, "shared memory error: {}", e),
         }
     }
@@ -103,7 +105,9 @@ impl<S, C, H> CompositeSerializer<S, C, H> {
     }
 }
 
-impl<S: Default, C: Default, H: Default> Default for CompositeSerializer<S, C, H> {
+impl<S: Default, C: Default, H: Default> Default
+    for CompositeSerializer<S, C, H>
+{
     #[inline]
     fn default() -> Self {
         Self {
@@ -114,11 +118,15 @@ impl<S: Default, C: Default, H: Default> Default for CompositeSerializer<S, C, H
     }
 }
 
-impl<S: Fallible, C: Fallible, H: Fallible> Fallible for CompositeSerializer<S, C, H> {
+impl<S: Fallible, C: Fallible, H: Fallible> Fallible
+    for CompositeSerializer<S, C, H>
+{
     type Error = CompositeSerializerError<S::Error, C::Error, H::Error>;
 }
 
-impl<S: Serializer, C: Fallible, H: Fallible> Serializer for CompositeSerializer<S, C, H> {
+impl<S: Serializer, C: Fallible, H: Fallible> Serializer
+    for CompositeSerializer<S, C, H>
+{
     #[inline]
     fn pos(&self) -> usize {
         self.serializer.pos()
@@ -176,24 +184,33 @@ impl<S: Serializer, C: Fallible, H: Fallible> Serializer for CompositeSerializer
     }
 }
 
-impl<S: Fallible, C: ScratchSpace, H: Fallible> ScratchSpace for CompositeSerializer<S, C, H> {
+impl<S: Fallible, C: ScratchSpace, H: Fallible> ScratchSpace
+    for CompositeSerializer<S, C, H>
+{
     #[inline]
-    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error> {
+    unsafe fn push_scratch(
+        &mut self,
+        layout: Layout,
+    ) -> Result<NonNull<[u8]>, Self::Error> {
         self.scratch
             .push_scratch(layout)
             .map_err(CompositeSerializerError::ScratchSpaceError)
     }
 
     #[inline]
-    unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error> {
+    unsafe fn pop_scratch(
+        &mut self,
+        ptr: NonNull<u8>,
+        layout: Layout,
+    ) -> Result<(), Self::Error> {
         self.scratch
             .pop_scratch(ptr, layout)
             .map_err(CompositeSerializerError::ScratchSpaceError)
     }
 }
 
-impl<S: Fallible, C: Fallible, H: SharedSerializeRegistry> SharedSerializeRegistry
-    for CompositeSerializer<S, C, H>
+impl<S: Fallible, C: Fallible, H: SharedSerializeRegistry>
+    SharedSerializeRegistry for CompositeSerializer<S, C, H>
 {
     #[inline]
     fn get_shared_ptr(&self, value: *const u8) -> Option<usize> {
@@ -201,7 +218,11 @@ impl<S: Fallible, C: Fallible, H: SharedSerializeRegistry> SharedSerializeRegist
     }
 
     #[inline]
-    fn add_shared_ptr(&mut self, value: *const u8, pos: usize) -> Result<(), Self::Error> {
+    fn add_shared_ptr(
+        &mut self,
+        value: *const u8,
+        pos: usize,
+    ) -> Result<(), Self::Error> {
         self.shared
             .add_shared_ptr(value, pos)
             .map_err(CompositeSerializerError::SharedError)

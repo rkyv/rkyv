@@ -3,7 +3,13 @@
 #[cfg(feature = "validation")]
 mod validation;
 
-use crate::{ArchivePointee, ArchiveUnsized, Archived};
+use crate::{
+    primitive::{
+        ArchivedI16, ArchivedI32, ArchivedI64, ArchivedU16, ArchivedU32,
+        ArchivedU64,
+    },
+    ArchivePointee, ArchiveUnsized,
+};
 use core::{
     convert::TryFrom,
     fmt,
@@ -75,7 +81,7 @@ pub trait Offset: Copy {
     fn to_isize(&self) -> isize;
 }
 
-macro_rules! impl_offset {
+macro_rules! impl_offset_single_byte {
     ($ty:ty) => {
         impl Offset for $ty {
             #[inline]
@@ -94,39 +100,44 @@ macro_rules! impl_offset {
             }
         }
     };
-    (@endian $ty:ty) => {
-        impl Offset for Archived<$ty> {
+}
+
+impl_offset_single_byte!(i8);
+impl_offset_single_byte!(u8);
+
+macro_rules! impl_offset_multi_byte {
+    ($ty:ty, $archived:ty) => {
+        impl Offset for $archived {
             #[inline]
             fn between(from: usize, to: usize) -> Result<Self, OffsetError> {
                 // pointer::add and pointer::offset require that the computed offsets cannot
                 // overflow an isize, which is why we're using signed_offset instead of checked_sub
                 // for unsized types
                 <$ty>::try_from(signed_offset(from, to)?)
-                    .map(|x| to_archived!(x))
+                    .map(|x| <$archived>::from_native(x))
                     .map_err(|_| OffsetError::ExceedsStorageRange)
             }
 
             #[inline]
             fn to_isize(&self) -> isize {
                 // We're guaranteed that our offset will not exceed the the capacity of an `isize`
-                from_archived!(*self) as isize
+                self.to_native() as isize
             }
         }
     };
 }
 
-impl_offset!(i8);
-impl_offset!(@endian i16);
+impl_offset_multi_byte!(i16, ArchivedI16);
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-impl_offset!(@endian i32);
+impl_offset_multi_byte!(i32, ArchivedI32);
 #[cfg(target_pointer_width = "64")]
-impl_offset!(@endian i64);
-impl_offset!(u8);
-impl_offset!(@endian u16);
+impl_offset_multi_byte!(i64, ArchivedI64);
+
+impl_offset_multi_byte!(u16, ArchivedU16);
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-impl_offset!(@endian u32);
+impl_offset_multi_byte!(u32, ArchivedU32);
 #[cfg(target_pointer_width = "64")]
-impl_offset!(@endian u64);
+impl_offset_multi_byte!(u64, ArchivedU64);
 
 /// Errors that can occur while creating raw relative pointers.
 #[derive(Debug)]
@@ -164,7 +175,11 @@ impl<O: Offset> RawRelPtr<O> {
     /// - `out` must be located at position `from`
     /// - `to` must be a position within the archive
     #[inline]
-    pub unsafe fn try_emplace(from: usize, to: usize, out: *mut Self) -> Result<(), OffsetError> {
+    pub unsafe fn try_emplace(
+        from: usize,
+        to: usize,
+        out: *mut Self,
+    ) -> Result<(), OffsetError> {
         let offset = O::between(from, to)?;
         ptr::addr_of_mut!((*out).offset).write(offset);
         Ok(())
@@ -236,26 +251,26 @@ impl<O: Offset> fmt::Pointer for RawRelPtr<O> {
 }
 
 /// A raw relative pointer that uses an archived `i8` as the underlying offset.
-pub type RawRelPtrI8 = RawRelPtr<Archived<i8>>;
+pub type RawRelPtrI8 = RawRelPtr<i8>;
 /// A raw relative pointer that uses an archived `i16` as the underlying offset.
-pub type RawRelPtrI16 = RawRelPtr<Archived<i16>>;
+pub type RawRelPtrI16 = RawRelPtr<ArchivedI16>;
 /// A raw relative pointer that uses an archived `i32` as the underlying offset.
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-pub type RawRelPtrI32 = RawRelPtr<Archived<i32>>;
+pub type RawRelPtrI32 = RawRelPtr<ArchivedI32>;
 /// A raw relative pointer that uses an archived `i64` as the underlying offset.
 #[cfg(target_pointer_width = "64")]
-pub type RawRelPtrI64 = RawRelPtr<Archived<i64>>;
+pub type RawRelPtrI64 = RawRelPtr<ArchivedI64>;
 
 /// A raw relative pointer that uses an archived `u8` as the underlying offset.
-pub type RawRelPtrU8 = RawRelPtr<Archived<u8>>;
+pub type RawRelPtrU8 = RawRelPtr<u8>;
 /// A raw relative pointer that uses an archived `u16` as the underlying offset.
-pub type RawRelPtrU16 = RawRelPtr<Archived<u16>>;
+pub type RawRelPtrU16 = RawRelPtr<ArchivedU16>;
 /// A raw relative pointer that uses an archived `u32` as the underlying offset.
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-pub type RawRelPtrU32 = RawRelPtr<Archived<u32>>;
+pub type RawRelPtrU32 = RawRelPtr<ArchivedU32>;
 /// A raw relative pointer that uses an archived `u64` as the underlying offset.
 #[cfg(target_pointer_width = "64")]
-pub type RawRelPtrU64 = RawRelPtr<Archived<u64>>;
+pub type RawRelPtrU64 = RawRelPtr<ArchivedU64>;
 
 // TODO: implement for NonZero types
 
@@ -278,7 +293,11 @@ impl<T, O: Offset> RelPtr<T, O> {
     /// - `from` must be the position of `out` within the archive
     /// - `to` must be the position of some valid `T`
     #[inline]
-    pub unsafe fn try_emplace(from: usize, to: usize, out: *mut Self) -> Result<(), OffsetError> {
+    pub unsafe fn try_emplace(
+        from: usize,
+        to: usize,
+        out: *mut Self,
+    ) -> Result<(), OffsetError> {
         let (fp, fo) = out_field!(out.raw_ptr);
         // Skip metadata since sized T is guaranteed to be ()
         RawRelPtr::try_emplace(from + fp, to, fo)
@@ -311,7 +330,10 @@ where
     ///
     /// `pos` must be the position of `out` within the archive.
     #[inline]
-    pub unsafe fn try_emplace_null(pos: usize, out: *mut Self) -> Result<(), OffsetError> {
+    pub unsafe fn try_emplace_null(
+        pos: usize,
+        out: *mut Self,
+    ) -> Result<(), OffsetError> {
         let (fp, fo) = out_field!(out.raw_ptr);
         RawRelPtr::try_emplace(pos + fp, pos, fo)?;
         let (_, fo) = out_field!(out.metadata);
@@ -345,7 +367,9 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// - `value` must be the value being serialized
     /// - `metadata_resolver` must be the result of serializing the metadata of `value`
     #[inline]
-    pub unsafe fn try_resolve_emplace<U: ArchiveUnsized<Archived = T> + ?Sized>(
+    pub unsafe fn try_resolve_emplace<
+        U: ArchiveUnsized<Archived = T> + ?Sized,
+    >(
         from: usize,
         to: usize,
         value: &U,
@@ -380,7 +404,8 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
         metadata_resolver: U::MetadataResolver,
         out: *mut Self,
     ) {
-        Self::try_resolve_emplace(from, to, value, metadata_resolver, out).unwrap();
+        Self::try_resolve_emplace(from, to, value, metadata_resolver, out)
+            .unwrap();
     }
 
     /// Attempts to create a relative pointer from one position to another given
@@ -439,7 +464,13 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
         archived_metadata: <T as ArchivePointee>::ArchivedMetadata,
         out: *mut Self,
     ) {
-        Self::try_resolve_emplace_from_raw_parts(from, to, archived_metadata, out).unwrap();
+        Self::try_resolve_emplace_from_raw_parts(
+            from,
+            to,
+            archived_metadata,
+            out,
+        )
+        .unwrap();
     }
 
     /// Gets the base pointer for the relative pointer.
@@ -475,7 +506,10 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// Calculates the memory address being pointed to by this relative pointer.
     #[inline]
     pub fn as_ptr(&self) -> *const T {
-        ptr_meta::from_raw_parts(self.raw_ptr.as_ptr(), T::pointer_metadata(&self.metadata))
+        ptr_meta::from_raw_parts(
+            self.raw_ptr.as_ptr(),
+            T::pointer_metadata(&self.metadata),
+        )
     }
 
     /// Returns an unsafe mutable pointer to the memory address being pointed to by this relative

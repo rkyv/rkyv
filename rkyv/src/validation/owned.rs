@@ -41,7 +41,9 @@ where
 {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
-            OwnedPointerError::PointerCheckBytesError(e) => Some(e as &dyn Error),
+            OwnedPointerError::PointerCheckBytesError(e) => {
+                Some(e as &dyn Error)
+            }
             OwnedPointerError::ValueCheckBytesError(e) => Some(e as &dyn Error),
             OwnedPointerError::ContextError(e) => Some(e as &dyn Error),
         }

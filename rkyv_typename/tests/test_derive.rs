@@ -220,7 +220,16 @@ fn composite_cases() {
     }
 
     #[derive(TypeName)]
-    struct Struct<'a, C: std::fmt::Debug, D: Clone, E, F, G: ?Sized, const N: usize, const B: bool>
+    struct Struct<
+        'a,
+        C: std::fmt::Debug,
+        D: Clone,
+        E,
+        F,
+        G: ?Sized,
+        const N: usize,
+        const B: bool,
+    >
     where
         'a: 'static,
         C: Clone + 'a,
@@ -236,7 +245,15 @@ fn composite_cases() {
     }
     let mod_path = module_path!();
     check_typename::<
-        Struct<String, [[String; 3]; 2], Vec<Box<i128>>, &(&Enum<(u8, i8), 99>,), [u16], 33, false>,
+        Struct<
+            String,
+            [[String; 3]; 2],
+            Vec<Box<i128>>,
+            &(&Enum<(u8, i8), 99>,),
+            [u16],
+            33,
+            false,
+        >,
     >(
         format!(
             "Struct<\

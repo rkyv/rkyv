@@ -144,19 +144,27 @@ pub fn archive_dyn(
                 if let Some(ar_name) = args.serialize {
                     last.ident = Ident::new(&ar_name.value(), ar_name.span());
                 } else {
-                    last.ident = Ident::new(&format!("Serialize{}", last.ident), trait_.span());
+                    last.ident = Ident::new(
+                        &format!("Serialize{}", last.ident),
+                        trait_.span(),
+                    );
                 };
 
-                let (deserialize_trait, deserialize_impl) = if let Some(deserialize) =
+                let (deserialize_trait, deserialize_impl) = if let Some(
+                    deserialize,
+                ) =
                     args.deserialize
                 {
                     let mut deserialize_trait = trait_.clone();
                     let last = deserialize_trait.segments.last_mut().unwrap();
                     if let Some(ua_name) = deserialize {
-                        last.ident = Ident::new(&ua_name.value(), ua_name.span());
-                    } else {
                         last.ident =
-                            Ident::new(&format!("Deserialize{}", last.ident), trait_.span());
+                            Ident::new(&ua_name.value(), ua_name.span());
+                    } else {
+                        last.ident = Ident::new(
+                            &format!("Deserialize{}", last.ident),
+                            trait_.span(),
+                        );
                     };
 
                     (
@@ -218,7 +226,8 @@ pub fn archive_dyn(
         Input::Trait(input) => {
             let vis = &input.vis;
 
-            let generic_params = input.generics.params.iter().map(|p| quote! { #p });
+            let generic_params =
+                input.generics.params.iter().map(|p| quote! { #p });
             let generic_params = quote! { #(#generic_params),* };
 
             let generic_args = input.generics.type_params().map(|p| {
@@ -231,7 +240,9 @@ pub fn archive_dyn(
             let serialize_trait = args
                 .serialize
                 .map(|ar_name| Ident::new(&ar_name.value(), ar_name.span()))
-                .unwrap_or_else(|| Ident::new(&format!("Serialize{}", name), name.span()));
+                .unwrap_or_else(|| {
+                    Ident::new(&format!("Serialize{}", name), name.span())
+                });
 
             let type_name_wheres = input.generics.type_params().map(|p| {
                 let name = &p.ident;
@@ -239,43 +250,47 @@ pub fn archive_dyn(
             });
             let type_name_wheres = quote! { #(#type_name_wheres,)* };
 
-            let (deserialize_trait, deserialize_trait_def, deserialize_trait_impl, pointee_input) =
-                if let Some(deserialize) = args.deserialize {
-                    let deserialize_trait = if let Some(ua_name) = deserialize {
-                        Ident::new(&ua_name.value(), ua_name.span())
-                    } else {
-                        Ident::new(&format!("Deserialize{}", name), name.span())
-                    };
-
-                    (
-                        deserialize_trait.clone(),
-                        quote! {
-                            #[ptr_meta::pointee]
-                            #vis trait #deserialize_trait<#generic_params>: #name<#generic_args> + rkyv_dyn::DeserializeDyn<dyn #serialize_trait<#generic_args>> {}
-                        },
-                        quote! {
-                            impl<__T: #name<#generic_args> + DeserializeDyn<dyn #serialize_trait<#generic_args>>, #generic_params> #deserialize_trait<#generic_args> for __T {}
-
-                            impl<__D: Fallible + ?Sized, #generic_params> DeserializeUnsized<dyn #serialize_trait<#generic_args>, __D> for dyn #deserialize_trait<#generic_args> {
-                                unsafe fn deserialize_unsized(&self, mut deserializer: &mut __D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), __D::Error> {
-                                    self.deserialize_dyn(&mut deserializer, &mut alloc).map_err(|e| *e.downcast().unwrap())
-                                }
-
-                                fn deserialize_metadata(&self, mut deserializer: &mut __D) -> Result<<dyn #serialize_trait<#generic_args> as ptr_meta::Pointee>::Metadata, __D::Error> {
-                                    self.deserialize_dyn_metadata(&mut deserializer).map_err(|e| *e.downcast().unwrap())
-                                }
-                            }
-                        },
-                        quote! {},
-                    )
+            let (
+                deserialize_trait,
+                deserialize_trait_def,
+                deserialize_trait_impl,
+                pointee_input,
+            ) = if let Some(deserialize) = args.deserialize {
+                let deserialize_trait = if let Some(ua_name) = deserialize {
+                    Ident::new(&ua_name.value(), ua_name.span())
                 } else {
-                    (
-                        name.clone(),
-                        quote! {},
-                        quote! {},
-                        quote! { #[ptr_meta::pointee] },
-                    )
+                    Ident::new(&format!("Deserialize{}", name), name.span())
                 };
+
+                (
+                    deserialize_trait.clone(),
+                    quote! {
+                        #[ptr_meta::pointee]
+                        #vis trait #deserialize_trait<#generic_params>: #name<#generic_args> + rkyv_dyn::DeserializeDyn<dyn #serialize_trait<#generic_args>> {}
+                    },
+                    quote! {
+                        impl<__T: #name<#generic_args> + DeserializeDyn<dyn #serialize_trait<#generic_args>>, #generic_params> #deserialize_trait<#generic_args> for __T {}
+
+                        impl<__D: Fallible + ?Sized, #generic_params> DeserializeUnsized<dyn #serialize_trait<#generic_args>, __D> for dyn #deserialize_trait<#generic_args> {
+                            unsafe fn deserialize_unsized(&self, mut deserializer: &mut __D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), __D::Error> {
+                                self.deserialize_dyn(&mut deserializer, &mut alloc).map_err(|e| *e.downcast().unwrap())
+                            }
+
+                            fn deserialize_metadata(&self, mut deserializer: &mut __D) -> Result<<dyn #serialize_trait<#generic_args> as ptr_meta::Pointee>::Metadata, __D::Error> {
+                                self.deserialize_dyn_metadata(&mut deserializer).map_err(|e| *e.downcast().unwrap())
+                            }
+                        }
+                    },
+                    quote! {},
+                )
+            } else {
+                (
+                    name.clone(),
+                    quote! {},
+                    quote! {},
+                    quote! { #[ptr_meta::pointee] },
+                )
+            };
 
             let build_type_name = if !input.generics.params.is_empty() {
                 let dyn_name = format!("dyn {}<", deserialize_trait);

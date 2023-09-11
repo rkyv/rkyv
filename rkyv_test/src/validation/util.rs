@@ -2,8 +2,8 @@
 pub mod alloc {
     use crate::util::alloc::*;
     use rkyv::{
-        check_archived_root, ser::Serializer, validation::validators::DefaultValidator, CheckBytes,
-        Serialize,
+        check_archived_root, ser::Serializer,
+        validation::validators::DefaultValidator, CheckBytes, Serialize,
     };
 
     pub fn serialize_and_check<T: Serialize<DefaultSerializer>>(value: &T)

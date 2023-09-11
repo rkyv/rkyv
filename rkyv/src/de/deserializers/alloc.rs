@@ -30,7 +30,9 @@ unsafe impl Sync for SharedDeserializeMapError {}
 impl fmt::Display for SharedDeserializeMapError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::DuplicateSharedPointer(p) => write!(f, "duplicate shared pointer: {:p}", p),
+            Self::DuplicateSharedPointer(p) => {
+                write!(f, "duplicate shared pointer: {:p}", p)
+            }
         }
     }
 }

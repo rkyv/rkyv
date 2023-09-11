@@ -6,7 +6,10 @@ use crate::{Fallible, SerializeUnsized};
 use core::{
     borrow::Borrow,
     cmp, fmt, hash,
-    ops::{Deref, Index, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
+    ops::{
+        Deref, Index, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo,
+        RangeToInclusive,
+    },
     pin::Pin,
     str,
 };
@@ -49,7 +52,12 @@ impl ArchivedString {
         if value.len() <= repr::INLINE_CAPACITY {
             ArchivedStringRepr::emplace_inline(value, out.cast());
         } else {
-            ArchivedStringRepr::emplace_out_of_line(value, pos, resolver.pos, out.cast());
+            ArchivedStringRepr::emplace_out_of_line(
+                value,
+                pos,
+                resolver.pos,
+                out.cast(),
+            );
         }
     }
 
@@ -259,7 +267,8 @@ const _: () = {
                 let range = context
                     .push_prefix_subtree(ptr)
                     .map_err(OwnedPointerError::ContextError)?;
-                str::check_bytes(ptr, context).map_err(OwnedPointerError::ValueCheckBytesError)?;
+                str::check_bytes(ptr, context)
+                    .map_err(OwnedPointerError::ValueCheckBytesError)?;
                 context
                     .pop_prefix_range(range)
                     .map_err(OwnedPointerError::ContextError)?;

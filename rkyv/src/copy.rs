@@ -1,16 +1,19 @@
 //! Optimization primitives for copyable types.
 
-#[cfg(has_atomics)]
-use core::sync::atomic::{
-    AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicU16, AtomicU32, AtomicU8,
-};
-#[cfg(has_atomics_64)]
+#[cfg(target_has_atomic = "8")]
+use core::sync::atomic::{AtomicBool, AtomicI8, AtomicU8};
+#[cfg(target_has_atomic = "16")]
+use core::sync::atomic::{AtomicI16, AtomicU16};
+#[cfg(target_has_atomic = "32")]
+use core::sync::atomic::{AtomicI32, AtomicU32};
+#[cfg(target_has_atomic = "64")]
 use core::sync::atomic::{AtomicI64, AtomicU64};
 use core::{
     marker::{PhantomData, PhantomPinned},
     num::{
-        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
-        NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
+        NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
+        NonZeroU8, NonZeroUsize,
     },
 };
 
@@ -27,8 +30,8 @@ impl<T: ?Sized> ArchiveCopy for PhantomData<T> {}
 
 // Multibyte integers are not ArchiveCopy if the target does not match the archive endianness
 #[cfg(any(
-    all(target_endian = "little", feature = "archive_be"),
-    all(target_endian = "big", feature = "archive_le"),
+    all(target_endian = "little", feature = "big_endian"),
+    all(target_endian = "big", feature = "little_endian"),
 ))]
 const _: () = {
     impl !ArchiveCopy for i16 {}
@@ -52,32 +55,24 @@ const _: () = {
     impl !ArchiveCopy for NonZeroU128 {}
 };
 
-// Pointer-sized integers are not ArchiveCopy if the target pointer width does not match the archive
-// pointer width
-#[cfg(any(
-    all(target_pointer_width = "16", not(feature = "size_16")),
-    all(target_pointer_width = "32", not(feature = "size_32")),
-    all(target_pointer_width = "64", not(feature = "size_64"))
-))]
-const _: () = {
-    impl !ArchiveCopy for isize {}
-    impl !ArchiveCopy for usize {}
-    impl !ArchiveCopy for NonZeroIsize {}
-    impl !ArchiveCopy for NonZeroUsize {}
-};
-
-// Atomics are not ArchiveCopy if the platform supports them
-#[cfg(has_atomics)]
+// Atomics are not `ArchiveCopy`
+#[cfg(target_has_atomic = "8")]
 const _: () = {
     impl !ArchiveCopy for AtomicBool {}
     impl !ArchiveCopy for AtomicI8 {}
-    impl !ArchiveCopy for AtomicI16 {}
-    impl !ArchiveCopy for AtomicI32 {}
     impl !ArchiveCopy for AtomicU8 {}
+};
+#[cfg(target_has_atomic = "16")]
+const _: () = {
+    impl !ArchiveCopy for AtomicI16 {}
     impl !ArchiveCopy for AtomicU16 {}
+};
+#[cfg(target_has_atomic = "32")]
+const _: () = {
+    impl !ArchiveCopy for AtomicI32 {}
     impl !ArchiveCopy for AtomicU32 {}
 };
-#[cfg(has_atomics_64)]
+#[cfg(target_has_atomic = "64")]
 const _: () = {
     impl !ArchiveCopy for AtomicI64 {}
     impl !ArchiveCopy for AtomicU64 {}
@@ -109,10 +104,10 @@ unsafe impl ArchiveCopySafe for NonZeroI8 {}
 unsafe impl ArchiveCopySafe for NonZeroU8 {}
 
 // Multibyte integers are ArchiveCopySafe if the target matches the archived endianness
-#[cfg(not(any(
-    all(target_endian = "little", feature = "archive_be"),
-    all(target_endian = "big", feature = "archive_le"),
-)))]
+#[cfg(any(
+    all(target_endian = "little", feature = "little_endian"),
+    all(target_endian = "big", feature = "big_endian"),
+))]
 const _: () = {
     unsafe impl ArchiveCopySafe for i16 {}
     unsafe impl ArchiveCopySafe for i32 {}
@@ -133,20 +128,6 @@ const _: () = {
     unsafe impl ArchiveCopySafe for NonZeroU32 {}
     unsafe impl ArchiveCopySafe for NonZeroU64 {}
     unsafe impl ArchiveCopySafe for NonZeroU128 {}
-};
-
-// Pointer-sized integers are ArchiveCopySafe if the target pointer width matches the archive
-// pointer width
-#[cfg(not(any(
-    all(target_pointer_width = "16", not(feature = "size_16")),
-    all(target_pointer_width = "32", not(feature = "size_32")),
-    all(target_pointer_width = "64", not(feature = "size_64"))
-)))]
-const _: () = {
-    unsafe impl ArchiveCopySafe for isize {}
-    unsafe impl ArchiveCopySafe for usize {}
-    unsafe impl ArchiveCopySafe for NonZeroIsize {}
-    unsafe impl ArchiveCopySafe for NonZeroUsize {}
 };
 
 macro_rules! impl_tuple {

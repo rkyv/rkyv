@@ -1,11 +1,12 @@
 use crate::{
-    ser::{serializers::BufferScratch, ScratchSpace, Serializer, SharedSerializeRegistry},
+    ser::{
+        serializers::BufferScratch, ScratchSpace, Serializer,
+        SharedSerializeRegistry,
+    },
     AlignedBytes, AlignedVec, Archive, ArchiveUnsized, Fallible, RelPtr,
 };
 #[cfg(not(feature = "std"))]
-use ::alloc::{alloc, boxed::Box, vec::Vec};
-#[cfg(feature = "std")]
-use ::std::alloc;
+use alloc::{alloc, boxed::Box, vec::Vec};
 use core::{
     alloc::Layout,
     borrow::{Borrow, BorrowMut},
@@ -15,6 +16,8 @@ use core::{
 };
 #[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
+#[cfg(feature = "std")]
+use std::alloc;
 #[cfg(feature = "std")]
 use std::collections::hash_map;
 
@@ -54,7 +57,9 @@ impl<A> Fallible for AlignedSerializer<A> {
     type Error = Infallible;
 }
 
-impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerializer<A> {
+impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer
+    for AlignedSerializer<A>
+{
     #[inline]
     fn pos(&self) -> usize {
         self.inner.borrow().len()
@@ -94,7 +99,10 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer for AlignedSerial
         metadata_resolver: T::MetadataResolver,
     ) -> Result<usize, Self::Error> {
         let from = self.pos();
-        debug_assert_eq!(from & (mem::align_of::<RelPtr<T::Archived>>() - 1), 0);
+        debug_assert_eq!(
+            from & (mem::align_of::<RelPtr<T::Archived>>() - 1),
+            0
+        );
         let vec = self.inner.borrow_mut();
         let additional = mem::size_of::<RelPtr<T::Archived>>();
         vec.reserve(additional);
@@ -152,12 +160,19 @@ impl<const N: usize> Fallible for HeapScratch<N> {
 
 impl<const N: usize> ScratchSpace for HeapScratch<N> {
     #[inline]
-    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error> {
+    unsafe fn push_scratch(
+        &mut self,
+        layout: Layout,
+    ) -> Result<NonNull<[u8]>, Self::Error> {
         self.inner.push_scratch(layout)
     }
 
     #[inline]
-    unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error> {
+    unsafe fn pop_scratch(
+        &mut self,
+        ptr: NonNull<u8>,
+        layout: Layout,
+    ) -> Result<(), Self::Error> {
         self.inner.pop_scratch(ptr, layout)
     }
 }
@@ -285,7 +300,10 @@ impl Fallible for AllocScratch {
 
 impl ScratchSpace for AllocScratch {
     #[inline]
-    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<NonNull<[u8]>, Self::Error> {
+    unsafe fn push_scratch(
+        &mut self,
+        layout: Layout,
+    ) -> Result<NonNull<[u8]>, Self::Error> {
         if let Some(remaining) = self.remaining {
             if remaining < layout.size() {
                 return Err(AllocScratchError::ExceededLimit {
@@ -297,13 +315,18 @@ impl ScratchSpace for AllocScratch {
         let result_ptr = alloc::alloc(layout);
         assert!(!result_ptr.is_null());
         self.allocations.push((result_ptr, layout));
-        let result_slice = ptr_meta::from_raw_parts_mut(result_ptr.cast(), layout.size());
+        let result_slice =
+            ptr_meta::from_raw_parts_mut(result_ptr.cast(), layout.size());
         let result = NonNull::new_unchecked(result_slice);
         Ok(result)
     }
 
     #[inline]
-    unsafe fn pop_scratch(&mut self, ptr: NonNull<u8>, layout: Layout) -> Result<(), Self::Error> {
+    unsafe fn pop_scratch(
+        &mut self,
+        ptr: NonNull<u8>,
+        layout: Layout,
+    ) -> Result<(), Self::Error> {
         if let Some(&(last_ptr, last_layout)) = self.allocations.last() {
             if ptr.as_ptr() == last_ptr && layout == last_layout {
                 alloc::dealloc(ptr.as_ptr(), layout);
@@ -341,7 +364,9 @@ unsafe impl Sync for SharedSerializeMapError {}
 impl fmt::Display for SharedSerializeMapError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::DuplicateSharedPointer(p) => write!(f, "duplicate shared pointer: {:p}", p),
+            Self::DuplicateSharedPointer(p) => {
+                write!(f, "duplicate shared pointer: {:p}", p)
+            }
         }
     }
 }
@@ -393,7 +418,11 @@ impl SharedSerializeRegistry for SharedSerializeMap {
         self.shared_resolvers.get(&value).copied()
     }
 
-    fn add_shared_ptr(&mut self, value: *const u8, pos: usize) -> Result<(), Self::Error> {
+    fn add_shared_ptr(
+        &mut self,
+        value: *const u8,
+        pos: usize,
+    ) -> Result<(), Self::Error> {
         match self.shared_resolvers.entry(value) {
             hash_map::Entry::Occupied(_) => {
                 Err(SharedSerializeMapError::DuplicateSharedPointer(value))

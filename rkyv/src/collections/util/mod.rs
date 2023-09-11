@@ -22,7 +22,12 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
     type Resolver = (K::Resolver, V::Resolver);
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         let (fp, fo) = out_field!(out.key);
         self.key.resolve(pos + fp, resolver.0, fo);
 
@@ -31,9 +36,14 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
     }
 }
 
-impl<K: Serialize<S>, V: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Entry<&'_ K, &'_ V> {
+impl<K: Serialize<S>, V: Serialize<S>, S: Fallible + ?Sized> Serialize<S>
+    for Entry<&'_ K, &'_ V>
+{
     #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         Ok((
             self.key.serialize(serializer)?,
             self.value.serialize(serializer)?,

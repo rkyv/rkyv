@@ -3,21 +3,12 @@
 //! Wrappers can be applied with the `#[with(...)]` attribute in the
 //! [`Archive`](macro@crate::Archive) macro. See [`With`] for examples.
 
-#[cfg(feature = "alloc")]
-mod alloc;
-#[cfg(has_atomics)]
-mod atomic;
-mod core;
-#[cfg(feature = "std")]
-mod std;
-
-#[cfg(feature = "alloc")]
-pub use self::alloc::*;
-#[cfg(feature = "std")]
-pub use self::std::*;
+mod impls;
 
 use crate::{Archive, Deserialize, Fallible, Serialize};
-use ::core::{fmt, marker::PhantomData, mem::transmute, ops::Deref};
+use core::{fmt, marker::PhantomData, mem::transmute, ops::Deref};
+
+// TODO: Gate unsafe wrappers behind Unsafe.
 
 /// A transparent wrapper for archived fields.
 ///
@@ -196,20 +187,35 @@ impl<F: ?Sized, W: ArchiveWith<F>> Archive for With<F, W> {
     type Resolver = W::Resolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         W::resolve_with(&self.field, pos, resolver, out.cast());
     }
 }
 
 /// A variant of `Serialize` that works with `With` wrappers.
-pub trait SerializeWith<F: ?Sized, S: Fallible + ?Sized>: ArchiveWith<F> {
+pub trait SerializeWith<F: ?Sized, S: Fallible + ?Sized>:
+    ArchiveWith<F>
+{
     /// Serializes the field type `F` using the given serializer.
-    fn serialize_with(field: &F, serializer: &mut S) -> Result<Self::Resolver, S::Error>;
+    fn serialize_with(
+        field: &F,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error>;
 }
 
-impl<F: ?Sized, W: SerializeWith<F, S>, S: Fallible + ?Sized> Serialize<S> for With<F, W> {
+impl<F: ?Sized, W: SerializeWith<F, S>, S: Fallible + ?Sized> Serialize<S>
+    for With<F, W>
+{
     #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         W::serialize_with(&self.field, serializer)
     }
 }
@@ -217,7 +223,8 @@ impl<F: ?Sized, W: SerializeWith<F, S>, S: Fallible + ?Sized> Serialize<S> for W
 /// A variant of `Deserialize` that works with `With` wrappers.
 pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
     /// Deserializes the field type `F` using the given deserializer.
-    fn deserialize_with(field: &F, deserializer: &mut D) -> Result<T, D::Error>;
+    fn deserialize_with(field: &F, deserializer: &mut D)
+        -> Result<T, D::Error>;
 }
 
 impl<F, W, T, D> Deserialize<With<T, W>, D> for F
@@ -227,7 +234,10 @@ where
     D: Fallible + ?Sized,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<With<T, W>, D::Error> {
+    fn deserialize(
+        &self,
+        deserializer: &mut D,
+    ) -> Result<With<T, W>, D::Error> {
         Ok(With {
             _phantom: PhantomData,
             field: W::deserialize_with(self, deserializer)?,
@@ -268,7 +278,7 @@ const _: () = {
             value: *const Self,
             context: &mut C,
         ) -> Result<&'a Self, Self::Error> {
-            CheckBytes::check_bytes(::core::ptr::addr_of!((*value).0), context)?;
+            CheckBytes::check_bytes(core::ptr::addr_of!((*value).0), context)?;
             Ok(&*value)
         }
     }
@@ -279,13 +289,13 @@ const _: () = {
 /// # Example
 ///
 /// ```
-/// use rkyv::{Archive, with::{Map, RefAsBox}};
+/// use rkyv::{Archive, with::{Map, BoxedInline}};
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
-///     #[with(Map<RefAsBox>)]
+///     #[with(Map<BoxedInline>)]
 ///     option: Option<&'a i32>,
-///     #[with(Map<RefAsBox>)]
+///     #[with(Map<BoxedInline>)]
 ///     vec: Vec<&'a i32>,
 /// }
 /// ```
@@ -294,9 +304,48 @@ pub struct Map<Archivable> {
     _type: PhantomData<Archivable>,
 }
 
+/// A type indicating relaxed atomic loads.
+pub struct Relaxed;
+
+/// A type indicating acquire atomic loads.
+pub struct Acquire;
+
+/// A type indicating sequentially-consistent atomic loads.
+pub struct SeqCst;
+
+/// A wrapper that archives an atomic by loading its value with a particular
+/// ordering.
+///
+/// When serializing, the specified ordering will be used to load the value from
+/// the source atomic. The underlying archived type is still a non-atomic value.
+///
+/// See [`AsAtomic`] for an unsafe alternative which archives as an atomic.
+///
+/// # Example
+///
+/// ```
+/// # #[cfg(target_has_atomic = "32")]
+/// use core::sync::atomic::AtomicU32;
+/// use rkyv::{Archive, with::{AtomicLoad, Relaxed}};
+///
+/// # #[cfg(target_has_atomic = "32")]
+/// #[derive(Archive)]
+/// struct Example {
+///     #[with(AtomicLoad<Relaxed>)]
+///     a: AtomicU32,
+/// }
+/// ```
+#[derive(Debug)]
+pub struct AtomicLoad<SO> {
+    _phantom: PhantomData<SO>,
+}
+
 /// A wrapper that archives an atomic with an underlying atomic.
 ///
-/// By default, atomics are archived with an underlying integer.
+/// When serializing and deserializing, the specified ordering will be used to
+/// load the value from the source atomic.
+///
+/// See [`Load`] for a safe alternative.
 ///
 /// # Safety
 ///
@@ -305,19 +354,21 @@ pub struct Map<Archivable> {
 /// # Example
 ///
 /// ```
-/// # #[cfg(has_atomics)]
+/// # #[cfg(target_has_atomic = "32")]
 /// use core::sync::atomic::AtomicU32;
-/// use rkyv::{Archive, with::Atomic};
+/// use rkyv::{Archive, with::{AsAtomic, Relaxed}};
 ///
-/// # #[cfg(has_atomics)]
+/// # #[cfg(target_has_atomic = "32")]
 /// #[derive(Archive)]
 /// struct Example {
-///     #[with(Atomic)]
+///     #[with(AsAtomic<Relaxed, Relaxed>)]
 ///     a: AtomicU32,
 /// }
 /// ```
 #[derive(Debug)]
-pub struct Atomic;
+pub struct AsAtomic<SO, DO> {
+    _phantom: PhantomData<(SO, DO)>,
+}
 
 /// A wrapper that serializes a reference inline.
 ///
@@ -338,12 +389,10 @@ pub struct Atomic;
 #[derive(Debug)]
 pub struct Inline;
 
-/// A wrapper that serializes a reference as if it were boxed.
+/// A wrapper that serializes a field into a box.
 ///
-/// Unlike [`Inline`], unsized references can be serialized with `Boxed`.
-///
-/// References serialized with `Boxed` cannot be deserialized because the struct cannot own the
-/// deserialized value.
+/// This functions similarly to [`InlineBoxed`], but is for regular fields
+/// instead of references.
 ///
 /// # Example
 ///
@@ -351,56 +400,38 @@ pub struct Inline;
 /// use rkyv::{Archive, with::Boxed};
 ///
 /// #[derive(Archive)]
-/// struct Example<'a> {
-///     #[with(Boxed)]
-///     a: &'a str,
-/// }
-/// ```
-#[deprecated = "Use `RefAsBox` for references, or `AsBox` for direct fields"]
-pub type Boxed = RefAsBox;
-
-/// A wrapper that serializes a field into a box.
-///
-/// This functions similarly to [`RefAsBox`], but is for regular fields instead of references.
-///
-/// # Example
-///
-/// ```
-/// use rkyv::{Archive, with::AsBox};
-///
-/// #[derive(Archive)]
 /// struct Example {
-///     #[with(AsBox)]
+///     #[with(Boxed)]
 ///     a: i32,
-///     #[with(AsBox)]
+///     #[with(Boxed)]
 ///     b: str,
 /// }
 /// ```
 #[derive(Debug)]
-pub struct AsBox;
+pub struct Boxed;
 
 /// A wrapper that serializes a reference as if it were boxed.
 ///
-/// Unlike [`Inline`], unsized references can be serialized with `RefAsBox`.
+/// Unlike [`Inline`], unsized references can be serialized with `BoxedInline`.
 ///
-/// References serialized with `RefAsBox` cannot be deserialized because the struct cannot own the
-/// deserialized value.
+/// References serialized with `BoxedInline` cannot be deserialized because the
+/// struct cannot own the deserialized value.
 ///
 /// # Example
 ///
 /// ```
-/// use rkyv::{Archive, with::RefAsBox};
+/// use rkyv::{Archive, with::BoxedInline};
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
-///     #[with(RefAsBox)]
+///     #[with(BoxedInline)]
 ///     a: &'a i32,
-///     #[with(RefAsBox)]
+///     #[with(BoxedInline)]
 ///     b: &'a str,
 /// }
 /// ```
 #[derive(Debug)]
-pub struct RefAsBox;
+pub struct BoxedInline;
 
 /// A wrapper that attempts to convert a type to and from UTF-8.
 ///

@@ -1,8 +1,9 @@
 use crate::{
     ffi::{ArchivedCString, CStringResolver},
+    primitive::ArchivedUsize,
     ser::Serializer,
-    Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata, Deserialize,
-    DeserializeUnsized, Fallible, FixedUsize, Serialize, SerializeUnsized,
+    Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
+    Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
 };
 use core::{alloc::Layout, ptr};
 use ptr_meta::Pointee;
@@ -23,15 +24,17 @@ impl ArchiveUnsized for CStr {
         _: Self::MetadataResolver,
         out: *mut ArchivedMetadata<Self>,
     ) {
-        out.write(to_archived!(ptr_meta::metadata(self) as FixedUsize))
+        out.write(ArchivedUsize::from_native(ptr_meta::metadata(self) as _))
     }
 }
 
 impl ArchivePointee for CStr {
-    type ArchivedMetadata = Archived<usize>;
+    type ArchivedMetadata = ArchivedUsize;
 
     #[inline]
-    fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata {
+    fn pointer_metadata(
+        archived: &Self::ArchivedMetadata,
+    ) -> <Self as Pointee>::Metadata {
         <[u8]>::pointer_metadata(archived)
     }
 }
@@ -45,12 +48,17 @@ impl<S: Serializer + ?Sized> SerializeUnsized<S> for CStr {
     }
 
     #[inline]
-    fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
+    fn serialize_metadata(
+        &self,
+        _: &mut S,
+    ) -> Result<Self::MetadataResolver, S::Error> {
         Ok(())
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for <CStr as ArchiveUnsized>::Archived {
+impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D>
+    for <CStr as ArchiveUnsized>::Archived
+{
     #[inline]
     unsafe fn deserialize_unsized(
         &self,
@@ -65,7 +73,10 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for <CStr as ArchiveUnsiz
     }
 
     #[inline]
-    fn deserialize_metadata(&self, _: &mut D) -> Result<<CStr as Pointee>::Metadata, D::Error> {
+    fn deserialize_metadata(
+        &self,
+        _: &mut D,
+    ) -> Result<<CStr as Pointee>::Metadata, D::Error> {
         Ok(ptr_meta::metadata(self))
     }
 }
@@ -91,14 +102,27 @@ impl Archive for CString {
     type Resolver = CStringResolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        ArchivedCString::resolve_from_c_str(self.as_c_str(), pos, resolver, out);
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        ArchivedCString::resolve_from_c_str(
+            self.as_c_str(),
+            pos,
+            resolver,
+            out,
+        );
     }
 }
 
 impl<S: Serializer + ?Sized> Serialize<S> for CString {
     #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedCString::serialize_from_c_str(self.as_c_str(), serializer)
     }
 }
@@ -112,8 +136,11 @@ where
         unsafe {
             let data_address = self
                 .as_c_str()
-                .deserialize_unsized(deserializer, |layout| alloc::alloc(layout))?;
-            let metadata = self.as_c_str().deserialize_metadata(deserializer)?;
+                .deserialize_unsized(deserializer, |layout| {
+                    alloc::alloc(layout)
+                })?;
+            let metadata =
+                self.as_c_str().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<CStr>::from_raw(ptr).into())
         }

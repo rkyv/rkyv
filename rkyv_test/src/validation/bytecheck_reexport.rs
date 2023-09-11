@@ -11,7 +11,11 @@ mod tests {
     }
 
     #[derive(Archive)]
-    #[archive_attr(derive(Debug, Default), check_bytes(bound = "__C: Default"), repr(C))]
+    #[archive_attr(
+        derive(Debug, Default),
+        check_bytes(bound = "__C: Default"),
+        repr(C)
+    )]
     #[archive(check_bytes)]
     struct OtherAttr {
         a: u8,
@@ -72,8 +76,11 @@ mod tests {
             let a_bytes: *const u8 = &a as *const ArchivedTest as *const u8;
             let mut bytes = Aligned([*a_bytes.offset(0), *a_bytes.offset(1)]);
             bytes.0[1] = 5;
-            ArchivedTest::check_bytes(&bytes.0 as *const [u8] as *const ArchivedTest, &mut ())
-                .unwrap_err();
+            ArchivedTest::check_bytes(
+                &bytes.0 as *const [u8] as *const ArchivedTest,
+                &mut (),
+            )
+            .unwrap_err();
         }
 
         // Should throw compile error:

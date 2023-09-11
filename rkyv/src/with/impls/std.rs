@@ -5,8 +5,9 @@ use crate::{
     time::ArchivedDuration,
     vec::{ArchivedVec, VecResolver},
     with::{
-        ArchiveWith, AsString, AsStringError, AsVec, DeserializeWith, Immutable, Lock, LockError,
-        SerializeWith, UnixTimestamp, UnixTimestampError,
+        ArchiveWith, AsString, AsStringError, AsVec, DeserializeWith,
+        Immutable, Lock, LockError, SerializeWith, UnixTimestamp,
+        UnixTimestampError,
     },
     Archive, Deserialize, Fallible, Serialize, SerializeUnsized,
 };
@@ -34,7 +35,12 @@ impl ArchiveWith<OsString> for AsString {
     ) {
         // It's safe to unwrap here because if the OsString wasn't valid UTF-8 it would have failed
         // to serialize
-        ArchivedString::resolve_from_str(field.to_str().unwrap(), pos, resolver, out);
+        ArchivedString::resolve_from_str(
+            field.to_str().unwrap(),
+            pos,
+            resolver,
+            out,
+        );
     }
 }
 
@@ -44,7 +50,10 @@ where
     str: SerializeUnsized<S>,
 {
     #[inline]
-    fn serialize_with(field: &OsString, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize_with(
+        field: &OsString,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedString::serialize_from_str(
             field.to_str().ok_or(AsStringError::InvalidUTF8)?,
             serializer,
@@ -52,9 +61,14 @@ where
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, OsString, D> for AsString {
+impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, OsString, D>
+    for AsString
+{
     #[inline]
-    fn deserialize_with(field: &ArchivedString, _: &mut D) -> Result<OsString, D::Error> {
+    fn deserialize_with(
+        field: &ArchivedString,
+        _: &mut D,
+    ) -> Result<OsString, D::Error> {
         Ok(OsString::from_str(field.as_str()).unwrap())
     }
 }
@@ -72,7 +86,12 @@ impl ArchiveWith<PathBuf> for AsString {
     ) {
         // It's safe to unwrap here because if the OsString wasn't valid UTF-8 it would have failed
         // to serialize
-        ArchivedString::resolve_from_str(field.to_str().unwrap(), pos, resolver, out);
+        ArchivedString::resolve_from_str(
+            field.to_str().unwrap(),
+            pos,
+            resolver,
+            out,
+        );
     }
 }
 
@@ -82,7 +101,10 @@ where
     str: SerializeUnsized<S>,
 {
     #[inline]
-    fn serialize_with(field: &PathBuf, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize_with(
+        field: &PathBuf,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedString::serialize_from_str(
             field.to_str().ok_or(AsStringError::InvalidUTF8)?,
             serializer,
@@ -90,9 +112,14 @@ where
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, PathBuf, D> for AsString {
+impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, PathBuf, D>
+    for AsString
+{
     #[inline]
-    fn deserialize_with(field: &ArchivedString, _: &mut D) -> Result<PathBuf, D::Error> {
+    fn deserialize_with(
+        field: &ArchivedString,
+        _: &mut D,
+    ) -> Result<PathBuf, D::Error> {
         Ok(PathBuf::from_str(field.as_str()).unwrap())
     }
 }
@@ -126,7 +153,10 @@ where
     S::Error: From<LockError>,
 {
     #[inline]
-    fn serialize_with(field: &Mutex<F>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize_with(
+        field: &Mutex<F>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         field
             .lock()
             .map_err(|_| LockError::Poisoned)?
@@ -140,7 +170,10 @@ where
     D: Fallible + ?Sized,
 {
     #[inline]
-    fn deserialize_with(field: &Immutable<F>, deserializer: &mut D) -> Result<Mutex<T>, D::Error> {
+    fn deserialize_with(
+        field: &Immutable<F>,
+        deserializer: &mut D,
+    ) -> Result<Mutex<T>, D::Error> {
         Ok(Mutex::new(field.value().deserialize(deserializer)?))
     }
 }
@@ -172,7 +205,10 @@ where
     S::Error: From<LockError>,
 {
     #[inline]
-    fn serialize_with(field: &RwLock<F>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize_with(
+        field: &RwLock<F>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         field
             .read()
             .map_err(|_| LockError::Poisoned)?
@@ -186,7 +222,10 @@ where
     D: Fallible + ?Sized,
 {
     #[inline]
-    fn deserialize_with(field: &Immutable<F>, deserializer: &mut D) -> Result<RwLock<T>, D::Error> {
+    fn deserialize_with(
+        field: &Immutable<F>,
+        deserializer: &mut D,
+    ) -> Result<RwLock<T>, D::Error> {
         Ok(RwLock::new(field.value().deserialize(deserializer)?))
     }
 }
@@ -224,8 +263,12 @@ where
     }
 }
 
-impl<K, V, D> DeserializeWith<ArchivedVec<Entry<K::Archived, V::Archived>>, HashMap<K, V>, D>
-    for AsVec
+impl<K, V, D>
+    DeserializeWith<
+        ArchivedVec<Entry<K::Archived, V::Archived>>,
+        HashMap<K, V>,
+        D,
+    > for AsVec
 where
     K: Archive + Hash + Eq,
     V: Archive,
@@ -267,8 +310,14 @@ where
     T: Serialize<S>,
     S: ScratchSpace + Serializer + ?Sized,
 {
-    fn serialize_with(field: &HashSet<T>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _, _>(field.iter(), serializer)
+    fn serialize_with(
+        field: &HashSet<T>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _, _>(
+            field.iter(),
+            serializer,
+        )
     }
 }
 
@@ -313,7 +362,10 @@ impl<S: Fallible + ?Sized> SerializeWith<SystemTime, S> for UnixTimestamp
 where
     S::Error: From<UnixTimestampError>,
 {
-    fn serialize_with(field: &SystemTime, _: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize_with(
+        field: &SystemTime,
+        _: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         field
             .duration_since(UNIX_EPOCH)
             .map_err(|_| UnixTimestampError::TimeBeforeUnixEpoch)?;
@@ -321,8 +373,13 @@ where
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeWith<ArchivedDuration, SystemTime, D> for UnixTimestamp {
-    fn deserialize_with(field: &ArchivedDuration, _: &mut D) -> Result<SystemTime, D::Error> {
+impl<D: Fallible + ?Sized> DeserializeWith<ArchivedDuration, SystemTime, D>
+    for UnixTimestamp
+{
+    fn deserialize_with(
+        field: &ArchivedDuration,
+        _: &mut D,
+    ) -> Result<SystemTime, D::Error> {
         Ok(UNIX_EPOCH + (*field).into())
     }
 }

@@ -11,7 +11,8 @@ extern crate proc_macro;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse_macro_input, spanned::Spanned, AttrStyle, DeriveInput, Error, GenericParam, Lit, Meta,
+    parse_macro_input, spanned::Spanned, AttrStyle, DeriveInput, Error,
+    GenericParam, Lit, Meta,
 };
 
 #[derive(Default)]
@@ -53,7 +54,9 @@ fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
 ///
 /// A custom name can be set using the attribute `#[typename = "..."]`.
 #[proc_macro_derive(TypeName, attributes(typename))]
-pub fn type_name_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn type_name_derive(
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     let type_name_impl = derive_type_name_impl(&input);
@@ -122,7 +125,8 @@ fn derive_type_name_impl(input: &DeriveInput) -> TokenStream {
         }
     };
 
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) =
+        input.generics.split_for_impl();
     let standard_derive_where_predicates = where_clause.map(|w| &w.predicates);
     quote! {
         const _: () = {

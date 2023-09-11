@@ -6,8 +6,8 @@ mod util;
 
 use crate::{
     validation::{
-        check_archived_root_with_context, check_archived_value_with_context, ArchiveContext,
-        CheckTypeError, SharedContext,
+        check_archived_root_with_context, check_archived_value_with_context,
+        ArchiveContext, CheckTypeError, SharedContext,
     },
     Archive, Fallible,
 };
@@ -124,7 +124,10 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
     }
 
     #[inline]
-    fn pop_prefix_range(&mut self, range: PrefixRange) -> Result<(), Self::Error> {
+    fn pop_prefix_range(
+        &mut self,
+        range: PrefixRange,
+    ) -> Result<(), Self::Error> {
         self.archive
             .pop_prefix_range(range)
             .map_err(DefaultValidatorError::ArchiveError)
@@ -142,7 +145,10 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
     }
 
     #[inline]
-    fn pop_suffix_range(&mut self, range: SuffixRange) -> Result<(), Self::Error> {
+    fn pop_suffix_range(
+        &mut self,
+        range: SuffixRange,
+    ) -> Result<(), Self::Error> {
         self.archive
             .pop_suffix_range(range)
             .map_err(DefaultValidatorError::ArchiveError)
@@ -157,7 +163,9 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
 
     #[inline]
     fn wrap_layout_error(error: LayoutError) -> Self::Error {
-        DefaultValidatorError::ArchiveError(ArchiveValidator::wrap_layout_error(error))
+        DefaultValidatorError::ArchiveError(
+            ArchiveValidator::wrap_layout_error(error),
+        )
     }
 }
 
@@ -217,7 +225,11 @@ where
     T::Archived: CheckBytes<DefaultValidator<'a>>,
 {
     let mut validator = DefaultValidator::new(bytes);
-    check_archived_value_with_context::<T, DefaultValidator>(bytes, pos, &mut validator)
+    check_archived_value_with_context::<T, DefaultValidator>(
+        bytes,
+        pos,
+        &mut validator,
+    )
 }
 
 /// Checks the given archive at the given position for an archived version of the given type.
@@ -234,5 +246,8 @@ where
     T::Archived: CheckBytes<DefaultValidator<'a>>,
 {
     let mut validator = DefaultValidator::new(bytes);
-    check_archived_root_with_context::<T, DefaultValidator>(bytes, &mut validator)
+    check_archived_root_with_context::<T, DefaultValidator>(
+        bytes,
+        &mut validator,
+    )
 }

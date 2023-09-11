@@ -1,4 +1,6 @@
-use crate::{time::ArchivedDuration, Archive, Deserialize, Fallible, Serialize};
+use crate::{
+    time::ArchivedDuration, Archive, Deserialize, Fallible, Serialize,
+};
 use core::time::Duration;
 
 impl Archive for Duration {
@@ -6,7 +8,12 @@ impl Archive for Duration {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        _: usize,
+        _: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         ArchivedDuration::emplace(self.as_secs(), self.subsec_nanos(), out);
     }
 }

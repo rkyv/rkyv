@@ -93,7 +93,10 @@ const _: () = {
             I: ExactSizeIterator<Item = &'a UK>,
         {
             Ok(BTreeSetResolver(
-                ArchivedBTreeMap::serialize_from_reverse_iter(iter.map(|x| (x, &())), serializer)?,
+                ArchivedBTreeMap::serialize_from_reverse_iter(
+                    iter.map(|x| (x, &())),
+                    serializer,
+                )?,
             ))
         }
     }

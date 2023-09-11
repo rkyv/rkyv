@@ -1,13 +1,22 @@
-use syn::{parse_quote, punctuated::Punctuated, token::Comma, Error, Expr, Field, Path, Type};
+use syn::{
+    parse_quote, punctuated::Punctuated, token::Comma, Error, Expr, Field,
+    Path, Type,
+};
 
 #[inline]
-pub fn with<B, F: FnMut(B, &Type) -> B>(field: &Field, init: B, f: F) -> Result<B, Error> {
+pub fn with<B, F: FnMut(B, &Type) -> B>(
+    field: &Field,
+    init: B,
+    f: F,
+) -> Result<B, Error> {
     let fields = field
         .attrs
         .iter()
         .filter_map(|attr| {
             if attr.path.is_ident("with") {
-                Some(attr.parse_args_with(Punctuated::<Type, Comma>::parse_separated_nonempty))
+                Some(attr.parse_args_with(
+                    Punctuated::<Type, Comma>::parse_separated_nonempty,
+                ))
             } else {
                 None
             }
@@ -17,7 +26,9 @@ pub fn with<B, F: FnMut(B, &Type) -> B>(field: &Field, init: B, f: F) -> Result<
 }
 
 #[inline]
-pub fn make_with_ty(rkyv_path: &Path) -> impl '_ + Fn(&Field) -> Result<Type, Error> {
+pub fn make_with_ty(
+    rkyv_path: &Path,
+) -> impl '_ + Fn(&Field) -> Result<Type, Error> {
     move |field| {
         with(
             field,
@@ -28,7 +39,9 @@ pub fn make_with_ty(rkyv_path: &Path) -> impl '_ + Fn(&Field) -> Result<Type, Er
 }
 
 #[inline]
-pub fn make_with_cast(rkyv_path: &Path) -> impl '_ + Fn(&Field, Expr) -> Result<Expr, Error> {
+pub fn make_with_cast(
+    rkyv_path: &Path,
+) -> impl '_ + Fn(&Field, Expr) -> Result<Expr, Error> {
     move |field, expr| {
         with(
             field,

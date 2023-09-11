@@ -241,7 +241,10 @@ impl<T> ScratchVec<T> {
 
     // This is taken from `slice::range`, which is not yet stable.
     #[inline]
-    fn drain_range<R>(range: R, bounds: ops::RangeTo<usize>) -> ops::Range<usize>
+    fn drain_range<R>(
+        range: R,
+        bounds: ops::RangeTo<usize>,
+    ) -> ops::Range<usize>
     where
         R: ops::RangeBounds<usize>,
     {
@@ -250,17 +253,21 @@ impl<T> ScratchVec<T> {
         let start: ops::Bound<&usize> = range.start_bound();
         let start = match start {
             ops::Bound::Included(&start) => start,
-            ops::Bound::Excluded(start) => start
-                .checked_add(1)
-                .unwrap_or_else(|| panic!("attempted to index slice from after maximum usize")),
+            ops::Bound::Excluded(start) => {
+                start.checked_add(1).unwrap_or_else(|| {
+                    panic!("attempted to index slice from after maximum usize")
+                })
+            }
             ops::Bound::Unbounded => 0,
         };
 
         let end: ops::Bound<&usize> = range.end_bound();
         let end = match end {
-            ops::Bound::Included(end) => end
-                .checked_add(1)
-                .unwrap_or_else(|| panic!("attempted to index slice up to maximum usize")),
+            ops::Bound::Included(end) => {
+                end.checked_add(1).unwrap_or_else(|| {
+                    panic!("attempted to index slice up to maximum usize")
+                })
+            }
             ops::Bound::Excluded(&end) => end,
             ops::Bound::Unbounded => len,
         };
@@ -290,13 +297,19 @@ impl<T> ScratchVec<T> {
     /// Panics if the starting point is greater than the end point or if the end point is greater
     /// than the length of the vector.
     #[inline]
-    pub fn drain<R: ops::RangeBounds<usize>>(&mut self, range: R) -> Drain<'_, T> {
+    pub fn drain<R: ops::RangeBounds<usize>>(
+        &mut self,
+        range: R,
+    ) -> Drain<'_, T> {
         let len = self.len();
         let ops::Range { start, end } = Self::drain_range(range, ..len);
 
         unsafe {
             self.set_len(start);
-            let range_slice = slice::from_raw_parts_mut(self.as_mut_ptr().add(start), end - start);
+            let range_slice = slice::from_raw_parts_mut(
+                self.as_mut_ptr().add(start),
+                end - start,
+            );
             Drain {
                 tail_start: end,
                 tail_len: len - end,

@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[cfg(not(feature = "std"))]
-use ::alloc::{alloc, boxed::Box, vec::Vec};
+use alloc::{alloc, boxed::Box, vec::Vec};
 use core::borrow::{Borrow, BorrowMut};
 use core::{
     fmt,
@@ -132,7 +132,10 @@ impl AlignedVec {
                 "`capacity` cannot exceed isize::MAX - 15"
             );
             let ptr = unsafe {
-                let layout = alloc::Layout::from_size_align_unchecked(capacity, Self::ALIGNMENT);
+                let layout = alloc::Layout::from_size_align_unchecked(
+                    capacity,
+                    Self::ALIGNMENT,
+                );
                 let ptr = alloc::alloc(layout);
                 if ptr.is_null() {
                     alloc::handle_alloc_error(layout);
@@ -149,7 +152,9 @@ impl AlignedVec {
 
     #[inline]
     fn layout(&self) -> alloc::Layout {
-        unsafe { alloc::Layout::from_size_align_unchecked(self.cap, Self::ALIGNMENT) }
+        unsafe {
+            alloc::Layout::from_size_align_unchecked(self.cap, Self::ALIGNMENT)
+        }
     }
 
     /// Clears the vector, removing all values.
@@ -195,16 +200,22 @@ impl AlignedVec {
 
         if new_cap > 0 {
             let new_ptr = if self.cap > 0 {
-                let new_ptr = alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap);
+                let new_ptr =
+                    alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap);
                 if new_ptr.is_null() {
-                    alloc::handle_alloc_error(alloc::Layout::from_size_align_unchecked(
-                        new_cap,
-                        Self::ALIGNMENT,
-                    ));
+                    alloc::handle_alloc_error(
+                        alloc::Layout::from_size_align_unchecked(
+                            new_cap,
+                            Self::ALIGNMENT,
+                        ),
+                    );
                 }
                 new_ptr
             } else {
-                let layout = alloc::Layout::from_size_align_unchecked(new_cap, Self::ALIGNMENT);
+                let layout = alloc::Layout::from_size_align_unchecked(
+                    new_cap,
+                    Self::ALIGNMENT,
+                );
                 let new_ptr = alloc::alloc(layout);
                 if new_ptr.is_null() {
                     alloc::handle_alloc_error(layout);
@@ -486,7 +497,11 @@ impl AlignedVec {
             let additional = new_len - self.len;
             self.reserve(additional);
             unsafe {
-                core::ptr::write_bytes(self.ptr.as_ptr().add(self.len), value, additional);
+                core::ptr::write_bytes(
+                    self.ptr.as_ptr().add(self.len),
+                    value,
+                    additional,
+                );
             }
         }
         unsafe {
@@ -792,8 +807,12 @@ const _: () = {
 
                 // The entire read buffer is now initialized, so we can create a
                 // mutable slice of it.
-                let read_buf =
-                    unsafe { core::slice::from_raw_parts_mut(read_buf_start, read_buf_len) };
+                let read_buf = unsafe {
+                    core::slice::from_raw_parts_mut(
+                        read_buf_start,
+                        read_buf_len,
+                    )
+                };
 
                 match r.read(read_buf) {
                     Ok(read) => {
@@ -811,7 +830,8 @@ const _: () = {
                     Err(e) => return Err(e),
                 }
 
-                if self.len() == self.capacity() && self.capacity() == start_cap {
+                if self.len() == self.capacity() && self.capacity() == start_cap
+                {
                     // The buffer might be an exact fit. Let's read into a probe buffer
                     // and see if it returns `Ok(0)`. If so, we've avoided an
                     // unnecessary doubling of the capacity. But if not, append the
@@ -825,7 +845,11 @@ const _: () = {
                                 self.extend_from_slice(&probe[..n]);
                                 break;
                             }
-                            Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
+                            Err(ref e)
+                                if e.kind() == ErrorKind::Interrupted =>
+                            {
+                                continue
+                            }
                             Err(e) => return Err(e),
                         }
                     }
@@ -847,7 +871,12 @@ impl Archive for AlignedVec {
     type Resolver = VecResolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
     }
 }
@@ -886,7 +915,11 @@ impl Clone for AlignedVec {
         unsafe {
             let mut result = AlignedVec::with_capacity(self.len);
             result.len = self.len;
-            core::ptr::copy_nonoverlapping(self.as_ptr(), result.as_mut_ptr(), self.len);
+            core::ptr::copy_nonoverlapping(
+                self.as_ptr(),
+                result.as_mut_ptr(),
+                self.len,
+            );
             result
         }
     }
@@ -947,7 +980,10 @@ impl io::Write for AlignedVec {
     }
 
     #[inline]
-    fn write_vectored(&mut self, bufs: &[io::IoSlice<'_>]) -> io::Result<usize> {
+    fn write_vectored(
+        &mut self,
+        bufs: &[io::IoSlice<'_>],
+    ) -> io::Result<usize> {
         let len = bufs.iter().map(|b| b.len()).sum();
         self.reserve(len);
         for buf in bufs {
@@ -972,9 +1008,15 @@ unsafe impl Send for AlignedVec {}
 
 impl<S: ScratchSpace + Serializer + ?Sized> Serialize<S> for AlignedVec {
     #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         serializer.align(Self::ALIGNMENT)?;
-        ArchivedVec::<Archived<u8>>::serialize_from_slice(self.as_slice(), serializer)
+        ArchivedVec::<Archived<u8>>::serialize_from_slice(
+            self.as_slice(),
+            serializer,
+        )
     }
 }
 

@@ -30,7 +30,8 @@ impl<O: Offset> RawRelPtr<O> {
         O: CheckBytes<C>,
     {
         O::check_bytes(ptr::addr_of!((*value).offset), context).unwrap();
-        PhantomPinned::check_bytes(ptr::addr_of!((*value)._phantom), context).unwrap();
+        PhantomPinned::check_bytes(ptr::addr_of!((*value)._phantom), context)
+            .unwrap();
         Ok(&*value)
     }
 }
@@ -54,9 +55,17 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
         O: CheckBytes<C>,
         T::ArchivedMetadata: CheckBytes<C>,
     {
-        RawRelPtr::manual_check_bytes(ptr::addr_of!((*value).raw_ptr), context).unwrap();
-        T::ArchivedMetadata::check_bytes(ptr::addr_of!((*value).metadata), context)?;
-        PhantomData::<T>::check_bytes(ptr::addr_of!((*value)._phantom), context).unwrap();
+        RawRelPtr::manual_check_bytes(ptr::addr_of!((*value).raw_ptr), context)
+            .unwrap();
+        T::ArchivedMetadata::check_bytes(
+            ptr::addr_of!((*value).metadata),
+            context,
+        )?;
+        PhantomData::<T>::check_bytes(
+            ptr::addr_of!((*value)._phantom),
+            context,
+        )
+        .unwrap();
         Ok(&*value)
     }
 }

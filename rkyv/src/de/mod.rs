@@ -5,9 +5,9 @@ pub mod deserializers;
 #[cfg(feature = "alloc")]
 use crate::{ArchiveUnsized, DeserializeUnsized, Fallible};
 #[cfg(all(feature = "alloc", not(feature = "std")))]
-use ::alloc::boxed::Box;
+use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
-use ::core::alloc::Layout;
+use core::alloc::Layout;
 
 /// A deserializable shared pointer type.
 #[cfg(feature = "alloc")]
@@ -56,11 +56,18 @@ pub trait SharedDeserializeRegistry: Fallible {
                 metadata,
             ))
         } else {
-            let deserialized_data = unsafe { value.deserialize_unsized(self, alloc)? };
-            let shared_ptr = to_shared(ptr_meta::from_raw_parts_mut(deserialized_data, metadata));
+            let deserialized_data =
+                unsafe { value.deserialize_unsized(self, alloc)? };
+            let shared_ptr = to_shared(ptr_meta::from_raw_parts_mut(
+                deserialized_data,
+                metadata,
+            ));
             let data_address = shared_ptr.data_address();
 
-            self.add_shared_ptr(ptr, Box::new(shared_ptr) as Box<dyn SharedPointer>)?;
+            self.add_shared_ptr(
+                ptr,
+                Box::new(shared_ptr) as Box<dyn SharedPointer>,
+            )?;
             Ok(ptr_meta::from_raw_parts(data_address, metadata))
         }
     }

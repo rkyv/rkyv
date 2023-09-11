@@ -1,6 +1,8 @@
 //! Archived versions of FFI types.
 
-use crate::{ser::Serializer, ArchiveUnsized, MetadataResolver, RelPtr, SerializeUnsized};
+use crate::{
+    ser::Serializer, ArchiveUnsized, MetadataResolver, RelPtr, SerializeUnsized,
+};
 use core::{
     borrow::Borrow,
     cmp, fmt, hash,
@@ -61,7 +63,12 @@ impl ArchivedCString {
         let (fp, fo) = out_field!(out.0);
         // metadata_resolver is guaranteed to be (), but it's better to be explicit about it
         #[allow(clippy::unit_arg)]
-        c_str.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        c_str.resolve_unsized(
+            pos + fp,
+            resolver.pos,
+            resolver.metadata_resolver,
+            fo,
+        );
     }
 
     /// Serializes a C string.
@@ -184,8 +191,9 @@ const _: () = {
             value: *const Self,
             context: &mut C,
         ) -> Result<&'a Self, Self::Error> {
-            let rel_ptr = RelPtr::<CStr>::manual_check_bytes(value.cast(), context)
-                .map_err(OwnedPointerError::PointerCheckBytesError)?;
+            let rel_ptr =
+                RelPtr::<CStr>::manual_check_bytes(value.cast(), context)
+                    .map_err(OwnedPointerError::PointerCheckBytesError)?;
             let ptr = context
                 .check_subtree_rel_ptr(rel_ptr)
                 .map_err(OwnedPointerError::ContextError)?;
@@ -193,7 +201,8 @@ const _: () = {
             let range = context
                 .push_prefix_subtree(ptr)
                 .map_err(OwnedPointerError::ContextError)?;
-            CStr::check_bytes(ptr, context).map_err(OwnedPointerError::ValueCheckBytesError)?;
+            CStr::check_bytes(ptr, context)
+                .map_err(OwnedPointerError::ValueCheckBytesError)?;
             context
                 .pop_prefix_range(range)
                 .map_err(OwnedPointerError::ContextError)?;

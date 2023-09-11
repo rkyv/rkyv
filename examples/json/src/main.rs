@@ -26,7 +26,9 @@ use std::{collections::HashMap, fmt};
 //   generated bounds to prevent a recursive impl.
 // We can fix this by manually specifying the bounds required by HashMap and Vec in an attribute,
 //   and then everything will compile:
-#[archive(bound(serialize = "__S: rkyv::ser::ScratchSpace + rkyv::ser::Serializer"))]
+#[archive(bound(
+    serialize = "__S: rkyv::ser::ScratchSpace + rkyv::ser::Serializer"
+))]
 // We'll also add support for validating our archived type. Validation will allow us to check an
 // arbitrary buffer of bytes before accessing it so we can avoid using any unsafe code.
 //

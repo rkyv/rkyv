@@ -4,10 +4,10 @@ use crate::{
     Archive, Deserialize, DeserializeUnsized, Fallible, Serialize,
 };
 #[cfg(not(feature = "std"))]
-use ::alloc::{alloc, boxed::Box, vec::Vec};
-use ::core::cmp;
+use alloc::{alloc, boxed::Box, vec::Vec};
+use core::cmp;
 #[cfg(feature = "std")]
-use ::std::alloc;
+use std::alloc;
 
 impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
     #[inline]
@@ -42,19 +42,33 @@ impl<T: Archive> Archive for Vec<T> {
     type Resolver = VecResolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
     }
 }
 
-impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> Serialize<S> for Vec<T> {
+impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> Serialize<S>
+    for Vec<T>
+{
     #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        ArchivedVec::<T::Archived>::serialize_from_slice(self.as_slice(), serializer)
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedVec::<T::Archived>::serialize_from_slice(
+            self.as_slice(),
+            serializer,
+        )
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<Vec<T>, D> for ArchivedVec<T::Archived>
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<Vec<T>, D>
+    for ArchivedVec<T::Archived>
 where
     [T::Archived]: DeserializeUnsized<[T], D>,
 {
@@ -63,8 +77,11 @@ where
         unsafe {
             let data_address = self
                 .as_slice()
-                .deserialize_unsized(deserializer, |layout| alloc::alloc(layout))?;
-            let metadata = self.as_slice().deserialize_metadata(deserializer)?;
+                .deserialize_unsized(deserializer, |layout| {
+                    alloc::alloc(layout)
+                })?;
+            let metadata =
+                self.as_slice().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<[T]>::from_raw(ptr).into())
         }

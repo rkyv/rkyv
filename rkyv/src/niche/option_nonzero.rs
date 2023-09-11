@@ -4,8 +4,8 @@ use crate::Archived;
 use core::{
     cmp, fmt, hash,
     num::{
-        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU128, NonZeroU16,
-        NonZeroU32, NonZeroU64, NonZeroU8,
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
+        NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8,
     },
     pin::Pin,
 };
@@ -175,11 +175,25 @@ impl_archived_option_nonzero!(ArchivedOptionNonZeroI32, NonZeroI32, i32);
 impl_archived_option_nonzero!(ArchivedOptionNonZeroI64, NonZeroI64, i64);
 impl_archived_option_nonzero!(ArchivedOptionNonZeroI128, NonZeroI128, i128);
 
+/// A niched archived `Option<NonZeroIsize>`
+pub type ArchivedOptionNonZeroIsize = match_pointer_width!(
+    ArchivedOptionNonZeroI16,
+    ArchivedOptionNonZeroI32,
+    ArchivedOptionNonZeroI64,
+);
+
 impl_archived_option_nonzero!(ArchivedOptionNonZeroU8, NonZeroU8, u8);
 impl_archived_option_nonzero!(ArchivedOptionNonZeroU16, NonZeroU16, u16);
 impl_archived_option_nonzero!(ArchivedOptionNonZeroU32, NonZeroU32, u32);
 impl_archived_option_nonzero!(ArchivedOptionNonZeroU64, NonZeroU64, u64);
 impl_archived_option_nonzero!(ArchivedOptionNonZeroU128, NonZeroU128, u128);
+
+/// A niched archived `Option<NonZeroUsize>`
+pub type ArchivedOptionNonZeroUsize = match_pointer_width!(
+    ArchivedOptionNonZeroU16,
+    ArchivedOptionNonZeroU32,
+    ArchivedOptionNonZeroU64,
+);
 
 /// An iterator over a reference to the `Some` variant of an `ArchivedOptionNonZero` integer.
 ///

@@ -35,23 +35,17 @@ impl ToTokens for IntRepr {
 
 impl IntRepr {
     #[inline]
-    #[cfg(not(feature = "arbitrary_enum_discriminant"))]
-    pub fn enum_discriminant(&self, _: usize) -> Option<EnumDiscriminant> {
-        None
-    }
-
-    #[inline]
-    #[cfg(feature = "arbitrary_enum_discriminant")]
     pub fn enum_discriminant(&self, index: usize) -> EnumDiscriminant {
-        #[cfg(not(any(
-            all(target_endian = "little", feature = "archive_be"),
-            all(target_endian = "big", feature = "archive_le"),
-        )))]
+        #[cfg(any(
+            feature = "native_endian",
+            all(target_endian = "little", feature = "little_endian"),
+            all(target_endian = "big", feature = "big_endian"),
+        ))]
         let value = index as u128;
 
         #[cfg(any(
-            all(target_endian = "little", feature = "archive_be"),
-            all(target_endian = "big", feature = "archive_le"),
+            all(target_endian = "little", feature = "big_endian"),
+            all(target_endian = "big", feature = "little_endian"),
         ))]
         let value = match self {
             Self::I8 => (index as i8).swap_bytes() as u128,
@@ -153,7 +147,11 @@ impl Repr {
         }
     }
 
-    fn try_set_base_repr<S: ToTokens>(&mut self, repr: BaseRepr, spanned: S) -> Result<(), Error> {
+    fn try_set_base_repr<S: ToTokens>(
+        &mut self,
+        repr: BaseRepr,
+        spanned: S,
+    ) -> Result<(), Error> {
         if self.base_repr.is_some() {
             Err(Error::new_spanned(
                 spanned,
@@ -213,9 +211,13 @@ impl Repr {
                     Meta::List(list) => {
                         if list.path.is_ident("align") {
                             if list.nested.len() != 1 {
-                                return Err(Error::new_spanned(list, "missing arguments to align"));
-                            } else if let Some(NestedMeta::Lit(Lit::Int(alignment))) =
-                                list.nested.first()
+                                return Err(Error::new_spanned(
+                                    list,
+                                    "missing arguments to align",
+                                ));
+                            } else if let Some(NestedMeta::Lit(Lit::Int(
+                                alignment,
+                            ))) = list.nested.first()
                             {
                                 self.try_set_modifier(
                                     Modifier::Align(alignment.clone()),
@@ -224,7 +226,12 @@ impl Repr {
                             }
                         }
                     }
-                    _ => return Err(Error::new_spanned(meta, "invalid repr argument")),
+                    _ => {
+                        return Err(Error::new_spanned(
+                            meta,
+                            "invalid repr argument",
+                        ))
+                    }
                 }
             } else {
                 return Err(Error::new_spanned(arg, "invalid repr argument"));
@@ -241,6 +248,8 @@ impl ToTokens for Repr {
         let base_repr_iter = base_repr.iter();
         let modifier = self.modifier.as_ref().map(|(m, _)| m);
         let modifier_iter = modifier.iter();
-        tokens.append_all(quote! { #[repr(#(#base_repr_iter,)* #(#modifier_iter,)*)] });
+        tokens.append_all(
+            quote! { #[repr(#(#base_repr_iter,)* #(#modifier_iter,)*)] },
+        );
     }
 }

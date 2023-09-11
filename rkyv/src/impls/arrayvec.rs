@@ -13,17 +13,26 @@ where
     type Resolver = VecResolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
     }
 }
 
-impl<T, S: ScratchSpace + Serializer + ?Sized, const CAP: usize> Serialize<S> for ArrayVec<T, CAP>
+impl<T, S: ScratchSpace + Serializer + ?Sized, const CAP: usize> Serialize<S>
+    for ArrayVec<T, CAP>
 where
     T: Serialize<S>,
 {
     #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedVec::serialize_from_slice(self.as_slice(), serializer)
     }
 }
@@ -35,7 +44,10 @@ where
     Archived<T>: Deserialize<T, D>,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<ArrayVec<T, CAP>, D::Error> {
+    fn deserialize(
+        &self,
+        deserializer: &mut D,
+    ) -> Result<ArrayVec<T, CAP>, D::Error> {
         let mut result = ArrayVec::new();
         for item in self.as_slice() {
             result.push(item.deserialize(deserializer)?);
@@ -59,10 +71,12 @@ mod tests {
         serializer.serialize_value(&value).unwrap();
         let end = serializer.pos();
         let result = serializer.into_serializer().into_inner();
-        let archived = unsafe { archived_root::<ArrayVec<i32, 4>>(&result[0..end]) };
+        let archived =
+            unsafe { archived_root::<ArrayVec<i32, 4>>(&result[0..end]) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
 
-        let deserialized: ArrayVec<i32, 4> = archived.deserialize(&mut Infallible).unwrap();
+        let deserialized: ArrayVec<i32, 4> =
+            archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 }

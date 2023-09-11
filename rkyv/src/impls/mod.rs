@@ -1,7 +1,7 @@
 #[cfg(feature = "alloc")]
 mod alloc;
 mod core;
-#[cfg(feature = "rend")]
+mod niche;
 mod rend;
 #[cfg(feature = "std")]
 mod std;

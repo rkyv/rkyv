@@ -1,3 +1,4 @@
+use core::mem::MaybeUninit;
 use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
 use rkyv::{
@@ -9,12 +10,15 @@ use rkyv::{
     AlignedVec, Archive, Deserialize, Infallible, Serialize,
 };
 use std::collections::HashMap;
+
 trait Generate {
     fn generate<R: Rng>(rng: &mut R) -> Self;
 }
 
 impl Generate for () {
-    fn generate<R: Rng>(_: &mut R) -> Self {}
+    fn generate<R: Rng>(_: &mut R) -> Self {
+        ()
+    }
 }
 
 impl Generate for bool {
@@ -41,26 +45,19 @@ impl Generate for f64 {
     }
 }
 
-impl<T1: Generate, T2: Generate> Generate for (T1, T2) {
+impl<T: Generate, const N: usize> Generate for [T; N] {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        (T1::generate(rng), T2::generate(rng))
-    }
-}
-
-impl<T1: Generate, T2: Generate, T3: Generate> Generate for (T1, T2, T3) {
-    fn generate<R: Rng>(rng: &mut R) -> Self {
-        (T1::generate(rng), T2::generate(rng), T3::generate(rng))
-    }
-}
-
-impl<T: Generate> Generate for [T; 4] {
-    fn generate<R: Rng>(rng: &mut R) -> Self {
-        [
-            T::generate(rng),
-            T::generate(rng),
-            T::generate(rng),
-            T::generate(rng),
-        ]
+        let mut result = MaybeUninit::<[T; N]>::uninit();
+        for i in 0..N {
+            unsafe {
+                result
+                    .as_mut_ptr()
+                    .cast::<T>()
+                    .add(i)
+                    .write(T::generate(rng));
+            }
+        }
+        unsafe { result.assume_init() }
     }
 }
 
@@ -74,7 +71,10 @@ impl<T: Generate> Generate for Option<T> {
     }
 }
 
-fn generate_vec<R: Rng, T: Generate>(rng: &mut R, range: core::ops::Range<usize>) -> Vec<T> {
+fn generate_vec<R: Rng, T: Generate>(
+    rng: &mut R,
+    range: core::ops::Range<usize>,
+) -> Vec<T> {
     let len = rng.gen_range(range);
     let mut result = Vec::with_capacity(len);
     for _ in 0..len {
@@ -84,7 +84,14 @@ fn generate_vec<R: Rng, T: Generate>(rng: &mut R, range: core::ops::Range<usize>
 }
 
 #[derive(
-    Debug, Archive, Serialize, Clone, Copy, Deserialize, serde::Deserialize, serde::Serialize,
+    Archive,
+    Serialize,
+    Clone,
+    Copy,
+    Deserialize,
+    serde::Deserialize,
+    serde::Serialize,
+    Debug,
 )]
 #[archive(check_bytes)]
 #[repr(u8)]
@@ -107,7 +114,9 @@ impl Generate for GameType {
     }
 }
 
-#[derive(Debug, Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
+#[derive(
+    Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize, Debug,
+)]
 #[archive(check_bytes)]
 pub struct Item {
     count: i8,
@@ -117,7 +126,7 @@ pub struct Item {
 
 impl Generate for Item {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const IDS: [&str; 8] = [
+        const IDS: [&'static str; 8] = [
             "dirt",
             "stone",
             "pickaxe",
@@ -136,7 +145,14 @@ impl Generate for Item {
 }
 
 #[derive(
-    Debug, Archive, Serialize, Clone, Copy, Deserialize, serde::Serialize, serde::Deserialize,
+    Archive,
+    Serialize,
+    Clone,
+    Copy,
+    Deserialize,
+    serde::Serialize,
+    serde::Deserialize,
+    Debug,
 )]
 #[archive(check_bytes)]
 pub struct Abilities {
@@ -163,13 +179,15 @@ impl Generate for Abilities {
     }
 }
 
-#[derive(Debug, Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
+#[derive(
+    Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize, Debug,
+)]
 #[archive(check_bytes)]
 pub struct Entity {
     id: String,
-    pos: (f64, f64, f64),
-    motion: (f64, f64, f64),
-    rotation: (f32, f32),
+    pos: [f64; 3],
+    motion: [f64; 3],
+    rotation: [f32; 2],
     fall_distance: f32,
     fire: u16,
     air: u16,
@@ -186,18 +204,20 @@ pub struct Entity {
 
 impl Generate for Entity {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const IDS: [&str; 8] = [
-            "cow", "sheep", "zombie", "skeleton", "spider", "creeper", "parrot", "bee",
+        const IDS: [&'static str; 8] = [
+            "cow", "sheep", "zombie", "skeleton", "spider", "creeper",
+            "parrot", "bee",
         ];
-        const CUSTOM_NAMES: [&str; 8] = [
-            "rainbow", "princess", "steve", "johnny", "missy", "coward", "fairy", "howard",
+        const CUSTOM_NAMES: [&'static str; 8] = [
+            "rainbow", "princess", "steve", "johnny", "missy", "coward",
+            "fairy", "howard",
         ];
 
         Self {
             id: IDS[rng.gen_range(0..IDS.len())].to_string(),
-            pos: <(f64, f64, f64) as Generate>::generate(rng),
-            motion: <(f64, f64, f64) as Generate>::generate(rng),
-            rotation: <(f32, f32) as Generate>::generate(rng),
+            pos: <[f64; 3] as Generate>::generate(rng),
+            motion: <[f64; 3] as Generate>::generate(rng),
+            rotation: <[f32; 2] as Generate>::generate(rng),
             fall_distance: rng.gen(),
             fire: rng.gen(),
             air: rng.gen(),
@@ -206,8 +226,9 @@ impl Generate for Entity {
             invulnerable: rng.gen_bool(0.5),
             portal_cooldown: rng.gen(),
             uuid: <[u32; 4] as Generate>::generate(rng),
-            custom_name: <Option<()> as Generate>::generate(rng)
-                .map(|_| CUSTOM_NAMES[rng.gen_range(0..CUSTOM_NAMES.len())].to_string()),
+            custom_name: <Option<()> as Generate>::generate(rng).map(|_| {
+                CUSTOM_NAMES[rng.gen_range(0..CUSTOM_NAMES.len())].to_string()
+            }),
             custom_name_visible: rng.gen_bool(0.5),
             silent: rng.gen_bool(0.5),
             glowing: rng.gen_bool(0.5),
@@ -215,7 +236,9 @@ impl Generate for Entity {
     }
 }
 
-#[derive(Debug, Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
+#[derive(
+    Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize, Debug,
+)]
 #[archive(check_bytes)]
 pub struct RecipeBook {
     recipes: Vec<String>,
@@ -232,7 +255,7 @@ pub struct RecipeBook {
 
 impl Generate for RecipeBook {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const RECIPES: [&str; 8] = [
+        const RECIPES: [&'static str; 8] = [
             "pickaxe",
             "torch",
             "bow",
@@ -249,10 +272,13 @@ impl Generate for RecipeBook {
                 .iter()
                 .map(|_| RECIPES[rng.gen_range(0..RECIPES.len())].to_string())
                 .collect(),
-            to_be_displayed: generate_vec::<_, ()>(rng, 0..MAX_DISPLAYED_RECIPES)
-                .iter()
-                .map(|_| RECIPES[rng.gen_range(0..RECIPES.len())].to_string())
-                .collect(),
+            to_be_displayed: generate_vec::<_, ()>(
+                rng,
+                0..MAX_DISPLAYED_RECIPES,
+            )
+            .iter()
+            .map(|_| RECIPES[rng.gen_range(0..RECIPES.len())].to_string())
+            .collect(),
             is_filtering_craftable: rng.gen_bool(0.5),
             is_gui_open: rng.gen_bool(0.5),
             is_furnace_filtering_craftable: rng.gen_bool(0.5),
@@ -265,7 +291,27 @@ impl Generate for RecipeBook {
     }
 }
 
-#[derive(Debug, Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize)]
+#[derive(
+    Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize, Debug,
+)]
+#[archive(check_bytes)]
+pub struct RootVehicle {
+    attach: [u32; 4],
+    entity: Entity,
+}
+
+impl Generate for RootVehicle {
+    fn generate<R: Rng>(rng: &mut R) -> Self {
+        Self {
+            attach: <[u32; 4] as Generate>::generate(rng),
+            entity: <Entity as Generate>::generate(rng),
+        }
+    }
+}
+
+#[derive(
+    Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize, Debug,
+)]
 #[archive(check_bytes)]
 pub struct Player {
     game_type: GameType,
@@ -290,8 +336,8 @@ pub struct Player {
     inventory: Vec<Item>,
     ender_items: Vec<Item>,
     abilities: Abilities,
-    entered_nether_position: Option<(f64, f64, f64)>,
-    root_vehicle: Option<([u32; 4], Entity)>,
+    entered_nether_position: Option<[f64; 3]>,
+    root_vehicle: Option<RootVehicle>,
     shoulder_entity_left: Option<Entity>,
     shoulder_entity_right: Option<Entity>,
     seen_credits: bool,
@@ -300,18 +346,20 @@ pub struct Player {
 
 impl Generate for Player {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const DIMENSIONS: [&str; 3] = ["overworld", "nether", "end"];
+        const DIMENSIONS: [&'static str; 3] = ["overworld", "nether", "end"];
         const MAX_ITEMS: usize = 40;
         const MAX_ENDER_ITEMS: usize = 27;
         Self {
             game_type: GameType::generate(rng),
             previous_game_type: GameType::generate(rng),
             score: rng.gen(),
-            dimension: DIMENSIONS[rng.gen_range(0..DIMENSIONS.len())].to_string(),
+            dimension: DIMENSIONS[rng.gen_range(0..DIMENSIONS.len())]
+                .to_string(),
             selected_item_slot: rng.gen(),
             selected_item: Item::generate(rng),
-            spawn_dimension: <Option<()> as Generate>::generate(rng)
-                .map(|_| DIMENSIONS[rng.gen_range(0..DIMENSIONS.len())].to_string()),
+            spawn_dimension: <Option<()> as Generate>::generate(rng).map(
+                |_| DIMENSIONS[rng.gen_range(0..DIMENSIONS.len())].to_string(),
+            ),
             spawn_x: rng.gen(),
             spawn_y: rng.gen(),
             spawn_z: rng.gen(),
@@ -327,8 +375,10 @@ impl Generate for Player {
             inventory: generate_vec(rng, 0..MAX_ITEMS),
             ender_items: generate_vec(rng, 0..MAX_ENDER_ITEMS),
             abilities: Abilities::generate(rng),
-            entered_nether_position: <Option<(f64, f64, f64)> as Generate>::generate(rng),
-            root_vehicle: <Option<([u32; 4], Entity)> as Generate>::generate(rng),
+            entered_nether_position: <Option<[f64; 3]> as Generate>::generate(
+                rng,
+            ),
+            root_vehicle: <Option<RootVehicle> as Generate>::generate(rng),
             shoulder_entity_left: <Option<Entity> as Generate>::generate(rng),
             shoulder_entity_right: <Option<Entity> as Generate>::generate(rng),
             seen_credits: rng.gen_bool(0.5),
@@ -338,7 +388,8 @@ impl Generate for Player {
 }
 
 fn generate_player_name<R: Rng>(rng: &mut R) -> String {
-    const LEGAL_CHARS: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_";
+    const LEGAL_CHARS: &'static [u8] =
+        b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_";
 
     let len = rng.gen_range(10..40);
     let mut result = String::new();

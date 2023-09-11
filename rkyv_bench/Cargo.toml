@@ -19,9 +19,9 @@ rkyv_derive = { path = "../rkyv_derive" }
 serde = { version = "1.0", features = ["derive"] }
 
 [features]
-default = ["rkyv/size_32", "rkyv/std"]
-archive_le = ["rkyv/archive_le"]
-archive_be = ["rkyv/archive_be"]
+default = ["rkyv/pointer_width_32", "rkyv/std"]
+little_endian = ["rkyv/little_endian"]
+big_endian = ["rkyv/big_endian"]
 
 [[bench]]
 name = "bench"

@@ -1,6 +1,8 @@
 //! Validation implementations for shared pointers.
 
-use super::{ArchivedRc, ArchivedRcWeak, ArchivedRcWeakTag, ArchivedRcWeakVariantSome};
+use super::{
+    ArchivedRc, ArchivedRcWeak, ArchivedRcWeakTag, ArchivedRcWeakVariantSome,
+};
 use crate::{
     validation::{ArchiveContext, LayoutRaw, SharedContext},
     ArchivePointee, RelPtr,
@@ -47,8 +49,12 @@ const _: () = {
     {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
-                SharedPointerError::PointerCheckBytesError(e) => Some(e as &dyn Error),
-                SharedPointerError::ValueCheckBytesError(e) => Some(e as &dyn Error),
+                SharedPointerError::PointerCheckBytesError(e) => {
+                    Some(e as &dyn Error)
+                }
+                SharedPointerError::ValueCheckBytesError(e) => {
+                    Some(e as &dyn Error)
+                }
                 SharedPointerError::ContextError(e) => Some(e as &dyn Error),
             }
         }
@@ -64,7 +70,9 @@ pub enum WeakPointerError<T, R, C> {
     CheckBytes(SharedPointerError<T, R, C>),
 }
 
-impl<T: fmt::Display, R: fmt::Display, C: fmt::Display> fmt::Display for WeakPointerError<T, R, C> {
+impl<T: fmt::Display, R: fmt::Display, C: fmt::Display> fmt::Display
+    for WeakPointerError<T, R, C>
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             WeakPointerError::InvalidTag(tag) => {
@@ -108,8 +116,11 @@ where
     C::Error: Error,
     F: 'static,
 {
-    type Error =
-        SharedPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
+    type Error = SharedPointerError<
+        <T::ArchivedMetadata as CheckBytes<C>>::Error,
+        T::Error,
+        C::Error,
+    >;
 
     #[inline]
     unsafe fn check_bytes<'a>(
@@ -134,7 +145,8 @@ where
             let range = context
                 .push_prefix_subtree(ptr)
                 .map_err(SharedPointerError::ContextError)?;
-            T::check_bytes(ptr, context).map_err(SharedPointerError::ValueCheckBytesError)?;
+            T::check_bytes(ptr, context)
+                .map_err(SharedPointerError::ValueCheckBytesError)?;
             context
                 .pop_prefix_range(range)
                 .map_err(SharedPointerError::ContextError)?;
@@ -156,8 +168,11 @@ where
     C::Error: Error,
     F: 'static,
 {
-    type Error =
-        WeakPointerError<<T::ArchivedMetadata as CheckBytes<C>>::Error, T::Error, C::Error>;
+    type Error = WeakPointerError<
+        <T::ArchivedMetadata as CheckBytes<C>>::Error,
+        T::Error,
+        C::Error,
+    >;
 
     #[inline]
     unsafe fn check_bytes<'a>(
@@ -169,8 +184,11 @@ where
             ArchivedRcWeakTag::TAG_NONE => (),
             ArchivedRcWeakTag::TAG_SOME => {
                 let value = value.cast::<ArchivedRcWeakVariantSome<T, F>>();
-                ArchivedRc::<T, F>::check_bytes(ptr::addr_of!((*value).1), context)
-                    .map_err(WeakPointerError::CheckBytes)?;
+                ArchivedRc::<T, F>::check_bytes(
+                    ptr::addr_of!((*value).1),
+                    context,
+                )
+                .map_err(WeakPointerError::CheckBytes)?;
             }
             _ => return Err(WeakPointerError::InvalidTag(tag)),
         }

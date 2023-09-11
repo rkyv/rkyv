@@ -1,6 +1,11 @@
 //! Validation implementation for ArchivedHashIndex.
 
-use crate::{collections::ArchivedHashIndex, validation::ArchiveContext, Archived, RelPtr};
+use crate::{
+    collections::ArchivedHashIndex,
+    primitive::{ArchivedU32, ArchivedUsize},
+    validation::ArchiveContext,
+    RelPtr,
+};
 use bytecheck::{CheckBytes, Error, SliceCheckError};
 use core::{
     alloc::{Layout, LayoutError},
@@ -84,16 +89,17 @@ where
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let len = from_archived!(*Archived::<usize>::check_bytes(
-            ptr::addr_of!((*value).len),
-            context,
-        )?) as usize;
-        Layout::array::<Archived<u32>>(len)?;
+        let len =
+            ArchivedUsize::check_bytes(ptr::addr_of!((*value).len), context)?
+                .to_native() as usize;
+        Layout::array::<ArchivedU32>(len)?;
 
-        let displace_rel_ptr =
-            RelPtr::manual_check_bytes(ptr::addr_of!((*value).displace), context)?;
+        let displace_rel_ptr = RelPtr::manual_check_bytes(
+            ptr::addr_of!((*value).displace),
+            context,
+        )?;
         let displace_ptr = context
-            .check_subtree_ptr::<[Archived<u32>]>(
+            .check_subtree_ptr::<[ArchivedU32]>(
                 displace_rel_ptr.base(),
                 displace_rel_ptr.offset(),
                 len,
@@ -103,15 +109,18 @@ where
         let range = context
             .push_prefix_subtree(displace_ptr)
             .map_err(HashIndexError::ContextError)?;
-        let displace = <[Archived<u32>]>::check_bytes(displace_ptr, context)?;
+        let displace = <[ArchivedU32]>::check_bytes(displace_ptr, context)?;
         context
             .pop_prefix_range(range)
             .map_err(HashIndexError::ContextError)?;
 
         for (i, &d) in displace.iter().enumerate() {
-            let d = from_archived!(d);
+            let d = d.to_native();
             if d as usize >= len && d < 0x80_00_00_00 {
-                return Err(HashIndexError::InvalidDisplacement { index: i, value: d });
+                return Err(HashIndexError::InvalidDisplacement {
+                    index: i,
+                    value: d,
+                });
             }
         }
 

@@ -5,8 +5,8 @@ macro_rules! impl_test_archive {
     ($ser:ty, $de:ty) => {
         use core::fmt::Debug;
         use rkyv::{
-            archived_root, archived_unsized_root, ser::Serializer, Deserialize, Serialize,
-            SerializeUnsized,
+            archived_root, archived_unsized_root, ser::Serializer, Deserialize,
+            Serialize, SerializeUnsized,
         };
 
         pub fn test_archive<T>(value: &T)
@@ -30,8 +30,9 @@ macro_rules! impl_test_archive {
             );
         }
 
-        pub fn test_archive_ref<T: Debug + SerializeUnsized<$ser> + ?Sized>(value: &T)
-        where
+        pub fn test_archive_ref<T: Debug + SerializeUnsized<$ser> + ?Sized>(
+            value: &T,
+        ) where
             T::Archived: Debug + PartialEq<T>,
         {
             let mut serializer = <$ser>::default();
@@ -41,7 +42,8 @@ macro_rules! impl_test_archive {
             let len = serializer.pos();
             let buffer = serializer.into_serializer().into_inner();
 
-            let archived_ref = unsafe { archived_unsized_root::<T>(&buffer[0..len]) };
+            let archived_ref =
+                unsafe { archived_unsized_root::<T>(&buffer[0..len]) };
             assert_eq!(archived_ref, value);
         }
 
@@ -70,7 +72,8 @@ pub mod core {
     const BUFFER_SIZE: usize = 256;
     const SCRATCH_SIZE: usize = 256;
 
-    pub type DefaultSerializer = rkyv::ser::serializers::CoreSerializer<BUFFER_SIZE, SCRATCH_SIZE>;
+    pub type DefaultSerializer =
+        rkyv::ser::serializers::CoreSerializer<BUFFER_SIZE, SCRATCH_SIZE>;
     pub type DefaultDeserializer = rkyv::Infallible;
 
     impl_test_archive!(DefaultSerializer, DefaultDeserializer);
@@ -80,8 +83,10 @@ pub mod core {
 pub mod alloc {
     const SCRATCH_SIZE: usize = 256;
 
-    pub type DefaultSerializer = rkyv::ser::serializers::AllocSerializer<SCRATCH_SIZE>;
-    pub type DefaultDeserializer = rkyv::de::deserializers::SharedDeserializeMap;
+    pub type DefaultSerializer =
+        rkyv::ser::serializers::AllocSerializer<SCRATCH_SIZE>;
+    pub type DefaultDeserializer =
+        rkyv::de::deserializers::SharedDeserializeMap;
 
     impl_test_archive!(DefaultSerializer, DefaultDeserializer);
 }

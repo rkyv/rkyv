@@ -1,8 +1,8 @@
 //! An archived version of `Box`.
 
 use crate::{
-    ser::Serializer, ArchivePointee, ArchiveUnsized, Fallible, MetadataResolver, RelPtr, Serialize,
-    SerializeUnsized,
+    ser::Serializer, ArchivePointee, ArchiveUnsized, Fallible,
+    MetadataResolver, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};
 
@@ -39,7 +39,12 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.0);
-        value.resolve_unsized(pos + fp, resolver.pos, resolver.metadata_resolver, fo);
+        value.resolve_unsized(
+            pos + fp,
+            resolver.pos,
+            resolver.metadata_resolver,
+            fo,
+        );
     }
 
     /// Serializes an archived box from the given value and serializer.
@@ -107,11 +112,14 @@ impl<T> ArchivedBox<[T]> {
         U: Serialize<S, Archived = T>,
         S: Serializer + ?Sized,
     {
-        use ::core::{mem::size_of, slice::from_raw_parts};
+        use core::{mem::size_of, slice::from_raw_parts};
 
         let pos = serializer.align_for::<T>()?;
 
-        let bytes = from_raw_parts(slice.as_ptr().cast::<u8>(), size_of::<T>() * slice.len());
+        let bytes = from_raw_parts(
+            slice.as_ptr().cast::<u8>(),
+            size_of::<T>() * slice.len(),
+        );
         serializer.write(bytes)?;
 
         Ok(BoxResolver {
@@ -166,7 +174,9 @@ impl<T: ArchivePointee + ?Sized> Deref for ArchivedBox<T> {
     }
 }
 
-impl<T: ArchivePointee + fmt::Display + ?Sized> fmt::Display for ArchivedBox<T> {
+impl<T: ArchivePointee + fmt::Display + ?Sized> fmt::Display
+    for ArchivedBox<T>
+{
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.get().fmt(f)
@@ -277,8 +287,9 @@ const _: () = {
             value: *const Self,
             context: &mut C,
         ) -> Result<&'a Self, Self::Error> {
-            let rel_ptr = RelPtr::<T>::manual_check_bytes(value.cast(), context)
-                .map_err(OwnedPointerError::PointerCheckBytesError)?;
+            let rel_ptr =
+                RelPtr::<T>::manual_check_bytes(value.cast(), context)
+                    .map_err(OwnedPointerError::PointerCheckBytesError)?;
             let ptr = context
                 .check_subtree_rel_ptr(rel_ptr)
                 .map_err(OwnedPointerError::ContextError)?;
@@ -286,7 +297,8 @@ const _: () = {
             let range = context
                 .push_prefix_subtree(ptr)
                 .map_err(OwnedPointerError::ContextError)?;
-            T::check_bytes(ptr, context).map_err(OwnedPointerError::ValueCheckBytesError)?;
+            T::check_bytes(ptr, context)
+                .map_err(OwnedPointerError::ValueCheckBytesError)?;
             context
                 .pop_prefix_range(range)
                 .map_err(OwnedPointerError::ContextError)?;

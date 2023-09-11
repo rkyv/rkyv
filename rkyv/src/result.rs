@@ -30,7 +30,9 @@ impl<T, E> ArchivedResult<T, E> {
     pub fn unwrap(self) -> T {
         match self {
             ArchivedResult::Ok(value) => value,
-            ArchivedResult::Err(_) => panic!("called `ArchivedResult::unwrap()` on an `Err` value"),
+            ArchivedResult::Err(_) => {
+                panic!("called `ArchivedResult::unwrap()` on an `Err` value")
+            }
         }
     }
     /// Returns the contained `Ok` value or computes it from a closure.
@@ -114,7 +116,9 @@ impl<T: DerefMut, E> ArchivedResult<T, E> {
     /// Coerces the `Ok` variant of the original `ArchivedResult` via `DerefMut` and returns the new
     /// `Result`.
     #[inline]
-    pub fn as_deref_mut(&mut self) -> Result<&mut <T as Deref>::Target, &mut E> {
+    pub fn as_deref_mut(
+        &mut self,
+    ) -> Result<&mut <T as Deref>::Target, &mut E> {
         match self {
             ArchivedResult::Ok(value) => Ok(value.deref_mut()),
             ArchivedResult::Err(err) => Err(err),
@@ -202,7 +206,9 @@ impl<T: PartialOrd, E: PartialOrd> PartialOrd for ArchivedResult<T, E> {
     }
 }
 
-impl<T, U: PartialEq<T>, E, F: PartialEq<E>> PartialEq<Result<T, E>> for ArchivedResult<U, F> {
+impl<T, U: PartialEq<T>, E, F: PartialEq<E>> PartialEq<Result<T, E>>
+    for ArchivedResult<U, F>
+{
     #[inline]
     fn eq(&self, other: &Result<T, E>) -> bool {
         match self {
@@ -224,7 +230,9 @@ impl<T, U: PartialEq<T>, E, F: PartialEq<E>> PartialEq<Result<T, E>> for Archive
     }
 }
 
-impl<T: PartialEq<U>, U, E: PartialEq<F>, F> PartialEq<ArchivedResult<T, E>> for Result<U, F> {
+impl<T: PartialEq<U>, U, E: PartialEq<F>, F> PartialEq<ArchivedResult<T, E>>
+    for Result<U, F>
+{
     #[inline]
     fn eq(&self, other: &ArchivedResult<T, E>) -> bool {
         other.eq(self)

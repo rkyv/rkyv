@@ -6,13 +6,12 @@ use crate::{
     string::{ArchivedString, StringResolver},
     vec::{ArchivedVec, RawArchivedVec, VecResolver},
     with::{
-        ArchiveWith, AsOwned, AsVec, CopyOptimize, DeserializeWith, Map, Niche, Raw, RefAsBox,
-        SerializeWith, With,
+        ArchiveWith, AsOwned, AsVec, BoxedInline, CopyOptimize,
+        DeserializeWith, Map, Niche, Raw, SerializeWith, With,
     },
-    Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized, Fallible,
-    MetadataResolver, Serialize, SerializeUnsized,
+    Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
+    Fallible, MetadataResolver, Serialize, SerializeUnsized,
 };
-use ::core::marker::PhantomData;
 #[cfg(not(feature = "std"))]
 use alloc::{
     borrow::Cow,
@@ -20,6 +19,7 @@ use alloc::{
     collections::{BTreeMap, BTreeSet},
     vec::Vec,
 };
+use core::marker::PhantomData;
 #[cfg(feature = "std")]
 use std::{
     borrow::Cow,
@@ -51,7 +51,10 @@ where
     S: Fallible + ScratchSpace + Serializer + ?Sized,
     A: ArchiveWith<O> + SerializeWith<O, S>,
 {
-    fn serialize_with(field: &Vec<O>, s: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize_with(
+        field: &Vec<O>,
+        s: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         // Wrapper for O so that we have an Archive and Serialize implementation
         // and ArchivedVec::serialize_from_* is happy about the bound constraints
         struct RefWrapper<'o, A, O>(&'o O, PhantomData<A>);
@@ -88,7 +91,9 @@ where
     }
 }
 
-impl<A, O, D> DeserializeWith<ArchivedVec<<A as ArchiveWith<O>>::Archived>, Vec<O>, D> for Map<A>
+impl<A, O, D>
+    DeserializeWith<ArchivedVec<<A as ArchiveWith<O>>::Archived>, Vec<O>, D>
+    for Map<A>
 where
     A: ArchiveWith<O> + DeserializeWith<<A as ArchiveWith<O>>::Archived, O, D>,
     D: Fallible + ?Sized,
@@ -99,7 +104,9 @@ where
     ) -> Result<Vec<O>, D::Error> {
         field
             .iter()
-            .map(|value| <A as DeserializeWith<_, _, D>>::deserialize_with(value, d))
+            .map(|value| {
+                <A as DeserializeWith<_, _, D>>::deserialize_with(value, d)
+            })
             .collect()
     }
 }
@@ -121,19 +128,28 @@ impl<'a, F: Archive + Clone> ArchiveWith<Cow<'a, F>> for AsOwned {
     }
 }
 
-impl<'a, F: Serialize<S> + Clone, S: Fallible + ?Sized> SerializeWith<Cow<'a, F>, S> for AsOwned {
+impl<'a, F: Serialize<S> + Clone, S: Fallible + ?Sized>
+    SerializeWith<Cow<'a, F>, S> for AsOwned
+{
     #[inline]
-    fn serialize_with(field: &Cow<'a, F>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize_with(
+        field: &Cow<'a, F>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         field.serialize(serializer)
     }
 }
 
-impl<T: Archive + Clone, D: Fallible + ?Sized> DeserializeWith<T::Archived, T, D> for AsOwned
+impl<T: Archive + Clone, D: Fallible + ?Sized>
+    DeserializeWith<T::Archived, T, D> for AsOwned
 where
     T::Archived: Deserialize<T, D>,
 {
     #[inline]
-    fn deserialize_with(field: &T::Archived, deserializer: &mut D) -> Result<T, D::Error> {
+    fn deserialize_with(
+        field: &T::Archived,
+        deserializer: &mut D,
+    ) -> Result<T, D::Error> {
         field.deserialize(deserializer)
     }
 }
@@ -165,7 +181,8 @@ impl<'a, T: Serialize<S> + Clone, S: ScratchSpace + Serializer + ?Sized>
     }
 }
 
-impl<'a, T, D> DeserializeWith<ArchivedVec<T::Archived>, Cow<'a, [T]>, D> for AsOwned
+impl<'a, T, D> DeserializeWith<ArchivedVec<T::Archived>, Cow<'a, [T]>, D>
+    for AsOwned
 where
     T: Archive + Clone,
     T::Archived: Deserialize<T, D>,
@@ -205,7 +222,9 @@ impl<'a, S: Serializer + ?Sized> SerializeWith<Cow<'a, str>, S> for AsOwned {
     }
 }
 
-impl<'a, D: Fallible + ?Sized> DeserializeWith<ArchivedString, Cow<'a, str>, D> for AsOwned {
+impl<'a, D: Fallible + ?Sized> DeserializeWith<ArchivedString, Cow<'a, str>, D>
+    for AsOwned
+{
     #[inline]
     fn deserialize_with(
         field: &ArchivedString,
@@ -245,7 +264,9 @@ const _: () = {
         }
     }
 
-    impl<'a, D: Fallible + ?Sized> DeserializeWith<ArchivedCString, Cow<'a, CStr>, D> for AsOwned {
+    impl<'a, D: Fallible + ?Sized>
+        DeserializeWith<ArchivedCString, Cow<'a, CStr>, D> for AsOwned
+    {
         #[inline]
         fn deserialize_with(
             field: &ArchivedCString,
@@ -289,8 +310,12 @@ where
     }
 }
 
-impl<K, V, D> DeserializeWith<ArchivedVec<Entry<K::Archived, V::Archived>>, BTreeMap<K, V>, D>
-    for AsVec
+impl<K, V, D>
+    DeserializeWith<
+        ArchivedVec<Entry<K::Archived, V::Archived>>,
+        BTreeMap<K, V>,
+        D,
+    > for AsVec
 where
     K: Archive + Ord,
     V: Archive,
@@ -332,8 +357,14 @@ where
     T: Serialize<S>,
     S: ScratchSpace + Serializer + ?Sized,
 {
-    fn serialize_with(field: &BTreeSet<T>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _, _>(field.iter(), serializer)
+    fn serialize_with(
+        field: &BTreeSet<T>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _, _>(
+            field.iter(),
+            serializer,
+        )
     }
 }
 
@@ -370,7 +401,12 @@ where
         resolver: Self::Resolver,
         out: *mut Self::Archived,
     ) {
-        ArchivedOptionBox::resolve_from_option(field.as_deref(), pos, resolver, out);
+        ArchivedOptionBox::resolve_from_option(
+            field.as_deref(),
+            pos,
+            resolver,
+            out,
+        );
     }
 }
 
@@ -388,7 +424,8 @@ where
     }
 }
 
-impl<T, D> DeserializeWith<ArchivedOptionBox<T::Archived>, Option<Box<T>>, D> for Niche
+impl<T, D> DeserializeWith<ArchivedOptionBox<T::Archived>, Option<Box<T>>, D>
+    for Niche
 where
     T: ArchiveUnsized + ?Sized,
     T::Archived: DeserializeUnsized<T, D>,
@@ -427,13 +464,18 @@ where
     T: Serialize<S>,
     S: Serializer + ?Sized,
 {
-    fn serialize_with(field: &Vec<T>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        use ::core::mem::size_of;
+    fn serialize_with(
+        field: &Vec<T>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        use core::mem::size_of;
 
         // Basic debug assert that T and T::Archived are at least the same size
         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
 
-        unsafe { ArchivedVec::serialize_copy_from_slice(field.as_slice(), serializer) }
+        unsafe {
+            ArchivedVec::serialize_copy_from_slice(field.as_slice(), serializer)
+        }
     }
 }
 
@@ -443,15 +485,22 @@ where
     T::Archived: Deserialize<T, D>,
     D: Fallible + ?Sized,
 {
-    fn deserialize_with(field: &ArchivedVec<T::Archived>, _: &mut D) -> Result<Vec<T>, D::Error> {
-        use ::core::{mem::size_of, ptr::copy_nonoverlapping};
+    fn deserialize_with(
+        field: &ArchivedVec<T::Archived>,
+        _: &mut D,
+    ) -> Result<Vec<T>, D::Error> {
+        use core::{mem::size_of, ptr::copy_nonoverlapping};
 
         // Basic debug assert that T and T::Archived are at least the same size
         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
 
         let mut result = Vec::with_capacity(field.len());
         unsafe {
-            copy_nonoverlapping(field.as_ptr().cast(), result.as_mut_ptr(), field.len());
+            copy_nonoverlapping(
+                field.as_ptr().cast(),
+                result.as_mut_ptr(),
+                field.len(),
+            );
             result.set_len(field.len());
         }
 
@@ -478,17 +527,25 @@ where
     T: Serialize<S>,
     S: Serializer + ?Sized,
 {
-    fn serialize_with(field: &Box<[T]>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        use ::core::mem::size_of;
+    fn serialize_with(
+        field: &Box<[T]>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        use core::mem::size_of;
 
         // Basic debug assert that T and T::Archived are at least the same size
         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
 
-        unsafe { ArchivedBox::<[T::Archived]>::serialize_copy_from_slice(field, serializer) }
+        unsafe {
+            ArchivedBox::<[T::Archived]>::serialize_copy_from_slice(
+                field, serializer,
+            )
+        }
     }
 }
 
-impl<T, D> DeserializeWith<ArchivedBox<[T::Archived]>, Box<[T]>, D> for CopyOptimize
+impl<T, D> DeserializeWith<ArchivedBox<[T::Archived]>, Box<[T]>, D>
+    for CopyOptimize
 where
     T: Archive,
     T::Archived: Deserialize<T, D>,
@@ -498,14 +555,18 @@ where
         field: &ArchivedBox<[T::Archived]>,
         _: &mut D,
     ) -> Result<Box<[T]>, D::Error> {
-        use ::core::{mem::size_of, ptr::copy_nonoverlapping};
+        use core::{mem::size_of, ptr::copy_nonoverlapping};
 
         // Basic debug assert that T and T::Archived are at least the same size
         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
 
         let mut result = Vec::with_capacity(field.len());
         unsafe {
-            copy_nonoverlapping(field.as_ptr().cast(), result.as_mut_ptr(), field.len());
+            copy_nonoverlapping(
+                field.as_ptr().cast(),
+                result.as_mut_ptr(),
+                field.len(),
+            );
             result.set_len(field.len());
         }
 
@@ -513,12 +574,12 @@ where
     }
 }
 
-impl<'a, T: Archive> ArchiveWith<With<&'a [T], RefAsBox>> for CopyOptimize {
+impl<'a, T: Archive> ArchiveWith<With<&'a [T], BoxedInline>> for CopyOptimize {
     type Archived = ArchivedBox<[T::Archived]>;
     type Resolver = BoxResolver<MetadataResolver<[T]>>;
 
     unsafe fn resolve_with(
-        field: &With<&'a [T], RefAsBox>,
+        field: &With<&'a [T], BoxedInline>,
         pos: usize,
         resolver: Self::Resolver,
         out: *mut Self::Archived,
@@ -527,22 +588,25 @@ impl<'a, T: Archive> ArchiveWith<With<&'a [T], RefAsBox>> for CopyOptimize {
     }
 }
 
-impl<'a, T, S> SerializeWith<With<&'a [T], RefAsBox>, S> for CopyOptimize
+impl<'a, T, S> SerializeWith<With<&'a [T], BoxedInline>, S> for CopyOptimize
 where
     T: Serialize<S>,
     S: Serializer + ?Sized,
 {
     fn serialize_with(
-        field: &With<&'a [T], RefAsBox>,
+        field: &With<&'a [T], BoxedInline>,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        use ::core::mem::size_of;
+        use core::mem::size_of;
 
         // Basic debug assert that T and T::Archived are at least the same size
         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
 
         unsafe {
-            ArchivedBox::<[T::Archived]>::serialize_copy_from_slice(field.as_ref(), serializer)
+            ArchivedBox::<[T::Archived]>::serialize_copy_from_slice(
+                field.as_ref(),
+                serializer,
+            )
         }
     }
 }
@@ -559,7 +623,12 @@ impl<T: Archive> ArchiveWith<Vec<T>> for Raw {
         resolver: Self::Resolver,
         out: *mut Self::Archived,
     ) {
-        RawArchivedVec::resolve_from_slice(field.as_slice(), pos, resolver, out);
+        RawArchivedVec::resolve_from_slice(
+            field.as_slice(),
+            pos,
+            resolver,
+            out,
+        );
     }
 }
 
@@ -568,13 +637,18 @@ where
     T: Serialize<S>,
     S: Serializer + ?Sized,
 {
-    fn serialize_with(field: &Vec<T>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        use ::core::mem::size_of;
+    fn serialize_with(
+        field: &Vec<T>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        use core::mem::size_of;
 
         // Basic debug assert that T and T::Archived are at least the same size
         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
 
-        unsafe { ArchivedVec::serialize_copy_from_slice(field.as_slice(), serializer) }
+        unsafe {
+            ArchivedVec::serialize_copy_from_slice(field.as_slice(), serializer)
+        }
     }
 }
 
@@ -588,14 +662,18 @@ where
         field: &RawArchivedVec<T::Archived>,
         _: &mut D,
     ) -> Result<Vec<T>, D::Error> {
-        use ::core::{mem::size_of, ptr::copy_nonoverlapping};
+        use core::{mem::size_of, ptr::copy_nonoverlapping};
 
         // Basic debug assert that T and T::Archived are at least the same size
         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
 
         let mut result = Vec::with_capacity(field.len());
         unsafe {
-            copy_nonoverlapping(field.as_ptr().cast(), result.as_mut_ptr(), field.len());
+            copy_nonoverlapping(
+                field.as_ptr().cast(),
+                result.as_mut_ptr(),
+                field.len(),
+            );
             result.set_len(field.len());
         }
 

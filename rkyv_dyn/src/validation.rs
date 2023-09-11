@@ -13,9 +13,9 @@ use core::{
     ptr,
 };
 use rkyv::{
-    from_archived,
+    primitive::ArchivedU64,
     validation::{ArchiveContext, SharedContext},
-    Archived, Fallible,
+    Fallible,
 };
 use rkyv_typename::TypeName;
 use std::{collections::HashMap, error::Error};
@@ -286,7 +286,10 @@ impl ArchiveContext for (dyn DynContext + '_) {
         Ok(self.push_prefix_subtree_range_dyn(root, end)?)
     }
 
-    fn pop_prefix_range(&mut self, range: Self::PrefixRange) -> Result<(), Self::Error> {
+    fn pop_prefix_range(
+        &mut self,
+        range: Self::PrefixRange,
+    ) -> Result<(), Self::Error> {
         Ok(self.pop_prefix_range_dyn(range)?)
     }
 
@@ -298,11 +301,16 @@ impl ArchiveContext for (dyn DynContext + '_) {
         Ok(self.push_suffix_subtree_range_dyn(start, root)?)
     }
 
-    fn pop_suffix_range(&mut self, range: Self::SuffixRange) -> Result<(), Self::Error> {
+    fn pop_suffix_range(
+        &mut self,
+        range: Self::SuffixRange,
+    ) -> Result<(), Self::Error> {
         Ok(self.pop_suffix_range_dyn(range)?)
     }
 
-    fn wrap_layout_error(layout_error: core::alloc::LayoutError) -> Self::Error {
+    fn wrap_layout_error(
+        layout_error: core::alloc::LayoutError,
+    ) -> Self::Error {
         DynError {
             inner: Box::new(layout_error) as Box<dyn Error + Send + Sync>,
         }
@@ -313,7 +321,11 @@ impl ArchiveContext for (dyn DynContext + '_) {
 }
 
 impl SharedContext for (dyn DynContext + '_) {
-    fn register_shared_ptr(&mut self, ptr: *const u8, type_id: TypeId) -> Result<bool, DynError> {
+    fn register_shared_ptr(
+        &mut self,
+        ptr: *const u8,
+        type_id: TypeId,
+    ) -> Result<bool, DynError> {
         Ok(self.register_shared_ptr_dyn(ptr, type_id)?)
     }
 }
@@ -330,8 +342,10 @@ impl fmt::Display for CheckBytesUnimplemented {
 
 impl Error for CheckBytesUnimplemented {}
 
-type CheckBytesDyn =
-    unsafe fn(*const u8, &mut dyn DynContext) -> Result<(), Box<dyn Error + Send + Sync>>;
+type CheckBytesDyn = unsafe fn(
+    *const u8,
+    &mut dyn DynContext,
+) -> Result<(), Box<dyn Error + Send + Sync>>;
 
 // This is the fallback function that gets called if the archived type doesn't implement CheckBytes.
 #[inline]
@@ -377,7 +391,9 @@ pub struct ImplValidation {
 #[macro_export]
 macro_rules! validation {
     ($type:ty as $trait:ty) => {
-        use rkyv_dyn::validation::{ImplValidation, IsCheckBytesDyn, NotCheckBytesDyn};
+        use rkyv_dyn::validation::{
+            ImplValidation, IsCheckBytesDyn, NotCheckBytesDyn,
+        };
     };
 }
 
@@ -433,20 +449,25 @@ impl<T: TypeName + ?Sized, C: ?Sized> CheckBytes<C> for ArchivedDynMetadata<T> {
         value: *const Self,
         context: &mut C,
     ) -> Result<&'a Self, Self::Error> {
-        let type_id = from_archived!(*Archived::<u64>::check_bytes(
-            ptr::addr_of!((*value).type_id),
+        let type_id =
+            ArchivedU64::check_bytes(ptr::addr_of!((*value).type_id), context)?
+                .to_native();
+        PhantomData::<T>::check_bytes(
+            ptr::addr_of!((*value).phantom),
             context,
-        )?);
-        PhantomData::<T>::check_bytes(ptr::addr_of!((*value).phantom), context)?;
+        )?;
         if let Some(impl_data) = IMPL_REGISTRY.get::<T>(type_id) {
             let cached_vtable_ptr = ptr::addr_of!((*value).cached_vtable);
             #[cfg(feature = "vtable_cache")]
             let cached_vtable =
-                CheckBytes::check_bytes(cached_vtable_ptr, context)?.load(Ordering::Relaxed);
+                CheckBytes::check_bytes(cached_vtable_ptr, context)?
+                    .load(Ordering::Relaxed);
             #[cfg(not(feature = "vtable_cache"))]
             let cached_vtable =
-                from_archived!(*Archived::<u64>::check_bytes(cached_vtable_ptr, context)?);
-            if cached_vtable == 0 || cached_vtable as usize == impl_data.vtable {
+                ArchivedU64::check_bytes(cached_vtable_ptr, context)?
+                    .to_native();
+            if cached_vtable == 0 || cached_vtable as usize == impl_data.vtable
+            {
                 Ok(&*value)
             } else {
                 Err(DynMetadataError::MismatchedCachedVtable {
@@ -473,7 +494,9 @@ pub enum CheckDynError {
 impl fmt::Display for CheckDynError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CheckDynError::InvalidMetadata(n) => write!(f, "invalid metadata: {}", n),
+            CheckDynError::InvalidMetadata(n) => {
+                write!(f, "invalid metadata: {}", n)
+            }
             CheckDynError::CheckBytes(e) => write!(f, "check bytes: {}", e),
         }
     }
@@ -502,7 +525,9 @@ pub struct CheckBytesEntry {
 
 impl CheckBytesEntry {
     #[doc(hidden)]
-    pub fn new<TY: RegisteredImpl<TR>, TR: ?Sized>(check_bytes_dyn: CheckBytesDyn) -> Self {
+    pub fn new<TY: RegisteredImpl<TR>, TR: ?Sized>(
+        check_bytes_dyn: CheckBytesDyn,
+    ) -> Self {
         Self {
             vtable: <TY as RegisteredImpl<TR>>::vtable(),
             validation: ImplValidation {

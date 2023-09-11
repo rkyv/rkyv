@@ -161,7 +161,10 @@ mod tests {
         #[typename = "GenericCustom"]
         struct GenericTest<T>(T);
 
-        assert_eq!(type_name_string::<GenericTest<i32>>(), "GenericCustom<i32>");
+        assert_eq!(
+            type_name_string::<GenericTest<i32>>(),
+            "GenericCustom<i32>"
+        );
         assert_eq!(
             type_name_string::<GenericTest<Test>>(),
             "GenericCustom<Custom>"

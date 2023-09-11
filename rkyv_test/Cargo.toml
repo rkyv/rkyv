@@ -17,17 +17,18 @@ wasm-bindgen-test = { workspace = true, optional = true }
 ahash = { version = "0.7" }
 
 [features]
-default = ["std", "size_32", "validation"]
+default = ["pointer_width_32", "little_endian", "strict", "std", "validation"]
+
+pointer_width_16 = ["rkyv/pointer_width_16"]
+pointer_width_32 = ["rkyv/pointer_width_32"]
+pointer_width_64 = ["rkyv/pointer_width_64"]
+
+little_endian = ["rkyv/little_endian"]
+big_endian = ["rkyv/big_endian"]
+
 alloc = ["rkyv/alloc"]
-arbitrary_enum_discriminant = ["rkyv/arbitrary_enum_discriminant"]
-archive_be = ["rkyv/archive_be"]
-archive_le = ["rkyv/archive_le"]
 copy = ["rkyv/copy"]
 copy_unsafe = ["rkyv/copy_unsafe"]
-rend = ["rkyv/rend"]
-size_16 = ["rkyv/size_16"]
-size_32 = ["rkyv/size_32"]
-size_64 = ["rkyv/size_64"]
 std = ["alloc", "rkyv/std"]
 strict = ["rkyv/strict"]
 validation = ["alloc", "rkyv/validation"]

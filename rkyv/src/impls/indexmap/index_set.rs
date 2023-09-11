@@ -10,7 +10,12 @@ impl<K: Archive, S> Archive for IndexSet<K, S> {
     type Archived = ArchivedIndexSet<K::Archived>;
     type Resolver = IndexSetResolver;
 
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         ArchivedIndexSet::resolve_from_len(self.len(), pos, resolver, out);
     }
 }
@@ -21,7 +26,10 @@ where
     S: ScratchSpace + Serializer + ?Sized,
     RandomState: BuildHasher,
 {
-    fn serialize(&self, serializer: &mut S) -> Result<IndexSetResolver, S::Error> {
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<IndexSetResolver, S::Error> {
         unsafe {
             ArchivedIndexSet::serialize_from_iter_index(
                 self.iter(),
@@ -39,8 +47,12 @@ where
     D: Fallible + ?Sized,
     S: Default + BuildHasher,
 {
-    fn deserialize(&self, deserializer: &mut D) -> Result<IndexSet<K, S>, D::Error> {
-        let mut result = IndexSet::with_capacity_and_hasher(self.len(), S::default());
+    fn deserialize(
+        &self,
+        deserializer: &mut D,
+    ) -> Result<IndexSet<K, S>, D::Error> {
+        let mut result =
+            IndexSet::with_capacity_and_hasher(self.len(), S::default());
         for k in self.iter() {
             result.insert(k.deserialize(deserializer)?);
         }
@@ -48,7 +60,9 @@ where
     }
 }
 
-impl<UK, K: PartialEq<UK>, S: BuildHasher> PartialEq<IndexSet<UK, S>> for ArchivedIndexSet<K> {
+impl<UK, K: PartialEq<UK>, S: BuildHasher> PartialEq<IndexSet<UK, S>>
+    for ArchivedIndexSet<K>
+{
     fn eq(&self, other: &IndexSet<UK, S>) -> bool {
         self.iter().eq(other.iter())
     }
@@ -75,7 +89,8 @@ mod tests {
         let mut serializer = AllocSerializer::<4096>::default();
         serializer.serialize_value(&value).unwrap();
         let result = serializer.into_serializer().into_inner();
-        let archived = unsafe { archived_root::<IndexSet<String>>(result.as_ref()) };
+        let archived =
+            unsafe { archived_root::<IndexSet<String>>(result.as_ref()) };
 
         assert_eq!(value.len(), archived.len());
         for k in value.iter() {
@@ -83,7 +98,8 @@ mod tests {
             assert_eq!(k, ak);
         }
 
-        let deserialized: IndexSet<String> = archived.deserialize(&mut Infallible).unwrap();
+        let deserialized: IndexSet<String> =
+            archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 

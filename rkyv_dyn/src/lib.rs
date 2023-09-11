@@ -35,9 +35,9 @@ use ptr_meta::{DynMetadata, Pointee};
 #[cfg(feature = "vtable_cache")]
 use rkyv::with::{Atomic, With};
 use rkyv::{
-    from_archived,
+    primitive::ArchivedU64,
     ser::{ScratchSpace, Serializer},
-    to_archived, Archived, Fallible, Serialize,
+    Fallible, Serialize,
 };
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
@@ -76,7 +76,10 @@ pub trait DynSerializer {
     /// # Safety
     ///
     /// `layout` must have non-zero size.
-    unsafe fn push_scratch_dyn(&mut self, layout: Layout) -> Result<ptr::NonNull<[u8]>, DynError>;
+    unsafe fn push_scratch_dyn(
+        &mut self,
+        layout: Layout,
+    ) -> Result<ptr::NonNull<[u8]>, DynError>;
 
     /// Deallocates previously allocated scratch space.
     ///
@@ -106,7 +109,10 @@ impl<'a> Serializer for dyn DynSerializer + 'a {
 }
 
 impl<'a> ScratchSpace for dyn DynSerializer + 'a {
-    unsafe fn push_scratch(&mut self, layout: Layout) -> Result<ptr::NonNull<[u8]>, Self::Error> {
+    unsafe fn push_scratch(
+        &mut self,
+        layout: Layout,
+    ) -> Result<ptr::NonNull<[u8]>, Self::Error> {
         self.push_scratch_dyn(layout)
     }
 
@@ -128,7 +134,10 @@ impl<S: ScratchSpace + Serializer + ?Sized> DynSerializer for &mut S {
         self.write(bytes).map_err(|e| Box::new(e) as DynError)
     }
 
-    unsafe fn push_scratch_dyn(&mut self, layout: Layout) -> Result<ptr::NonNull<[u8]>, DynError> {
+    unsafe fn push_scratch_dyn(
+        &mut self,
+        layout: Layout,
+    ) -> Result<ptr::NonNull<[u8]>, DynError> {
         self.push_scratch(layout)
             .map_err(|e| Box::new(e) as DynError)
     }
@@ -258,7 +267,10 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// ```
 pub trait SerializeDyn {
     /// Writes the value to the serializer and returns the position it was written to.
-    fn serialize_dyn(&self, serializer: &mut dyn DynSerializer) -> Result<usize, DynError>;
+    fn serialize_dyn(
+        &self,
+        serializer: &mut dyn DynSerializer,
+    ) -> Result<usize, DynError>;
 
     /// Returns the type ID of the archived version of this type.
     fn archived_type_id(&self) -> u64;
@@ -268,7 +280,10 @@ impl<T: for<'a> Serialize<dyn DynSerializer + 'a>> SerializeDyn for T
 where
     T::Archived: TypeName,
 {
-    fn serialize_dyn(&self, serializer: &mut dyn DynSerializer) -> Result<usize, DynError> {
+    fn serialize_dyn(
+        &self,
+        serializer: &mut dyn DynSerializer,
+    ) -> Result<usize, DynError> {
         serializer.serialize_value(self)
     }
 
@@ -311,12 +326,12 @@ pub trait DeserializeDyn<T: Pointee + ?Sized> {
 /// The archived version of `DynMetadata`.
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedDynMetadata<T: ?Sized> {
-    type_id: Archived<u64>,
+    type_id: ArchivedU64,
     #[cfg(feature = "vtable_cache")]
-    cached_vtable: Archived<With<AtomicU64, Atomic>>,
+    cached_vtable: ArchivedAtomicU64,
     #[cfg(not(feature = "vtable_cache"))]
     #[allow(dead_code)]
-    cached_vtable: Archived<u64>,
+    cached_vtable: ArchivedU64,
     phantom: PhantomData<T>,
 }
 
@@ -327,19 +342,21 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     ///
     /// `out` must point to a valid location for an `ArchivedDynMetadata<T>`.
     pub unsafe fn emplace(type_id: u64, out: *mut Self) {
-        ptr::addr_of_mut!((*out).type_id).write(to_archived!(type_id));
+        ptr::addr_of_mut!((*out).type_id)
+            .write(ArchivedU64::from_native(type_id));
         #[cfg(feature = "vtable_cache")]
         {
             let cached_vtable = ptr::addr_of_mut!((*out).cached_vtable);
             (*cached_vtable).store(0u64, Ordering::Relaxed);
         }
         #[cfg(not(feature = "vtable_cache"))]
-        ptr::addr_of_mut!((*out).cached_vtable).write(to_archived!(0u64));
+        ptr::addr_of_mut!((*out).cached_vtable)
+            .write(ArchivedU64::from_native(0u64));
     }
 
     fn lookup_vtable(&self) -> usize {
         IMPL_REGISTRY
-            .get::<T>(from_archived!(self.type_id))
+            .get::<T>(self.type_id.to_native())
             .expect("attempted to get vtable for an unregistered impl")
             .vtable
     }
@@ -443,7 +460,8 @@ pub struct ImplEntry {
 
 impl ImplEntry {
     #[doc(hidden)]
-    pub fn new<TY: TypeName + RegisteredImpl<TR>, TR: TypeName + ?Sized>() -> Self {
+    pub fn new<TY: TypeName + RegisteredImpl<TR>, TR: TypeName + ?Sized>(
+    ) -> Self {
         Self {
             impl_id: ImplId::new::<TY, TR>(),
             data: ImplData {
@@ -475,7 +493,9 @@ impl ImplRegistry {
             eprintln!("impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
             eprintln!(
                 "existing impl registered at {}:{}:{}",
-                old_data.debug_info.file, old_data.debug_info.line, old_data.debug_info.column
+                old_data.debug_info.file,
+                old_data.debug_info.line,
+                old_data.debug_info.column
             );
             eprintln!(
                 "new impl registered at {}:{}:{}",
@@ -530,15 +550,15 @@ macro_rules! register_impl {
     ($type:ty as $trait:ty) => {
         const _: () = {
             use rkyv_dyn::{
-                debug_info, inventory, register_validation, ImplData, ImplDebugInfo, ImplEntry,
-                RegisteredImpl,
+                debug_info, inventory, register_validation, ImplData,
+                ImplDebugInfo, ImplEntry, RegisteredImpl,
             };
 
             unsafe impl RegisteredImpl<$trait> for $type {
                 fn vtable() -> usize {
                     unsafe {
                         core::mem::transmute(ptr_meta::metadata(
-                            core::ptr::null::<$type>() as *const $trait
+                            core::ptr::null::<$type>() as *const $trait,
                         ))
                     }
                 }

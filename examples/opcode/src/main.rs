@@ -43,8 +43,13 @@ impl ArchiveWith<Vec<Opcode>> for EncodeOpcodes {
     }
 }
 
-impl<S: ScratchSpace + Serializer + ?Sized> SerializeWith<Vec<Opcode>, S> for EncodeOpcodes {
-    fn serialize_with(field: &Vec<Opcode>, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+impl<S: ScratchSpace + Serializer + ?Sized> SerializeWith<Vec<Opcode>, S>
+    for EncodeOpcodes
+{
+    fn serialize_with(
+        field: &Vec<Opcode>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         // Encode opcodes into a compact binary format
         // We'll do it manually here, but you could just as easily proxy out to a serialization
         // framework like postcard
@@ -87,13 +92,21 @@ impl<S: ScratchSpace + Serializer + ?Sized> SerializeWith<Vec<Opcode>, S> for En
         // Serialize encoded opcodes
         Ok(OpcodesResolver {
             len: encoded.len(),
-            inner: ArchivedVec::serialize_from_slice(encoded.as_slice(), serializer)?,
+            inner: ArchivedVec::serialize_from_slice(
+                encoded.as_slice(),
+                serializer,
+            )?,
         })
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeWith<Archived<Vec<u8>>, Vec<Opcode>, D> for EncodeOpcodes {
-    fn deserialize_with(field: &Archived<Vec<u8>>, _: &mut D) -> Result<Vec<Opcode>, D::Error> {
+impl<D: Fallible + ?Sized> DeserializeWith<Archived<Vec<u8>>, Vec<Opcode>, D>
+    for EncodeOpcodes
+{
+    fn deserialize_with(
+        field: &Archived<Vec<u8>>,
+        _: &mut D,
+    ) -> Result<Vec<Opcode>, D::Error> {
         let mut result = Vec::new();
 
         // Decode opcodes from a compact binary format
@@ -106,7 +119,8 @@ impl<D: Fallible + ?Sized> DeserializeWith<Archived<Vec<u8>>, Vec<Opcode>, D> fo
                     result.push(Opcode::TwoBytes(arg));
                 }
                 2 => {
-                    let arg = bytes.next().unwrap() as u16 | (bytes.next().unwrap() as u16) << 8;
+                    let arg = bytes.next().unwrap() as u16
+                        | (bytes.next().unwrap() as u16) << 8;
                     result.push(Opcode::ThreeBytes(arg));
                 }
                 3 => {
@@ -173,7 +187,8 @@ fn main() {
     println!("encoded: {:?}", archived_program.opcodes);
     assert_eq!(archived_program.opcodes.len(), 23);
 
-    let deserialized_program: Program = archived_program.deserialize(&mut Infallible).unwrap();
+    let deserialized_program: Program =
+        archived_program.deserialize(&mut Infallible).unwrap();
 
     println!("deserialized opcodes: {:?}", deserialized_program.opcodes);
     assert_eq!(program, deserialized_program);

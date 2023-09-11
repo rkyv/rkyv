@@ -17,8 +17,18 @@ where
     type Resolver = HashSetResolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        ArchivedHashSet::<K::Archived>::resolve_from_len(self.len(), pos, resolver, out);
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
+        ArchivedHashSet::<K::Archived>::resolve_from_len(
+            self.len(),
+            pos,
+            resolver,
+            out,
+        );
     }
 }
 
@@ -29,7 +39,10 @@ where
     S: ScratchSpace + Serializer + ?Sized,
 {
     #[inline]
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
         unsafe { ArchivedHashSet::serialize_from_iter(self.iter(), serializer) }
     }
 }
@@ -42,7 +55,10 @@ where
     S: Default + BuildHasher,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<HashSet<K, S>, D::Error> {
+    fn deserialize(
+        &self,
+        deserializer: &mut D,
+    ) -> Result<HashSet<K, S>, D::Error> {
         let mut result = HashSet::with_hasher(S::default());
         for k in self.iter() {
             result.insert(k.deserialize(deserializer)?);
@@ -51,8 +67,8 @@ where
     }
 }
 
-impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher> PartialEq<HashSet<K, S>>
-    for ArchivedHashSet<AK>
+impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
+    PartialEq<HashSet<K, S>> for ArchivedHashSet<AK>
 {
     #[inline]
     fn eq(&self, other: &HashSet<K, S>) -> bool {
@@ -64,8 +80,8 @@ impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher> PartialEq<HashSet
     }
 }
 
-impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher> PartialEq<ArchivedHashSet<AK>>
-    for HashSet<K, S>
+impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
+    PartialEq<ArchivedHashSet<AK>> for HashSet<K, S>
 {
     #[inline]
     fn eq(&self, other: &ArchivedHashSet<AK>) -> bool {

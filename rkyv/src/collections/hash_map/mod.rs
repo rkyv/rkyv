@@ -19,7 +19,8 @@ use crate::{
     Serialize,
 };
 use core::{
-    borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData, ops::Index, pin::Pin,
+    borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData,
+    ops::Index, pin::Pin,
 };
 
 /// An archived `HashMap`.
@@ -84,7 +85,10 @@ impl<K, V> ArchivedHashMap<K, V> {
 
     /// Finds the mutable key-value entry for a key.
     #[inline]
-    pub fn get_key_value_pin<Q: ?Sized>(self: Pin<&mut Self>, k: &Q) -> Option<(&K, Pin<&mut V>)>
+    pub fn get_key_value_pin<Q: ?Sized>(
+        self: Pin<&mut Self>,
+        k: &Q,
+    ) -> Option<(&K, Pin<&mut V>)>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
@@ -157,7 +161,7 @@ impl<K, V> ArchivedHashMap<K, V> {
             // Safety: We know the index for self.entry() here is right
             // as it's returned by the underlying index, which should guarantee this invariant.
             let entry = unsafe { self.entry(i) };
-            if comparison_predicate(&entry.key, &key) {
+            if comparison_predicate(&entry.key, key) {
                 Some(&entry.value)
             } else {
                 None
@@ -167,16 +171,19 @@ impl<K, V> ArchivedHashMap<K, V> {
 
     /// Gets the mutable value associated with the given key.
     #[inline]
-    pub fn get_pin<Q: ?Sized>(self: Pin<&mut Self>, k: &Q) -> Option<Pin<&mut V>>
+    pub fn get_pin<Q: ?Sized>(
+        self: Pin<&mut Self>,
+        k: &Q,
+    ) -> Option<Pin<&mut V>>
     where
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
         unsafe {
             let hash_map = self.get_unchecked_mut();
-            hash_map
-                .find(k)
-                .map(move |index| Pin::new_unchecked(&mut hash_map.entry_mut(index).value))
+            hash_map.find(k).map(move |index| {
+                Pin::new_unchecked(&mut hash_map.entry_mut(index).value)
+            })
         }
     }
 
@@ -195,7 +202,10 @@ impl<K, V> ArchivedHashMap<K, V> {
     fn raw_iter_pin(self: Pin<&mut Self>) -> RawIterPin<K, V> {
         unsafe {
             let hash_map = self.get_unchecked_mut();
-            RawIterPin::new(hash_map.entries.as_mut_ptr().cast(), hash_map.len())
+            RawIterPin::new(
+                hash_map.entries.as_mut_ptr().cast(),
+                hash_map.len(),
+            )
         }
     }
 
@@ -254,7 +264,12 @@ impl<K, V> ArchivedHashMap<K, V> {
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.index);
-        ArchivedHashIndex::resolve_from_len(len, pos + fp, resolver.index_resolver, fo);
+        ArchivedHashIndex::resolve_from_len(
+            len,
+            pos + fp,
+            resolver.index_resolver,
+            fo,
+        );
 
         let (fp, fo) = out_field!(out.entries);
         RelPtr::emplace(pos + fp, resolver.entries_pos, fo);
@@ -285,22 +300,30 @@ const _: () = {
 
             let mut entries = ScratchVec::new(serializer, len)?;
             entries.set_len(len);
-            let index_resolver =
-                ArchivedHashIndex::build_and_serialize(iter, serializer, &mut entries)?;
+            let index_resolver = ArchivedHashIndex::build_and_serialize(
+                iter,
+                serializer,
+                &mut entries,
+            )?;
             let mut entries = entries.assume_init();
 
             // Serialize entries
             let mut resolvers = ScratchVec::new(serializer, len)?;
             for (key, value) in entries.iter() {
-                resolvers.push((key.serialize(serializer)?, value.serialize(serializer)?));
+                resolvers.push((
+                    key.serialize(serializer)?,
+                    value.serialize(serializer)?,
+                ));
             }
 
             let entries_pos = serializer.align_for::<Entry<K, V>>()?;
             for ((key, value), (key_resolver, value_resolver)) in
                 entries.drain(..).zip(resolvers.drain(..))
             {
-                serializer
-                    .resolve_aligned(&Entry { key, value }, (key_resolver, value_resolver))?;
+                serializer.resolve_aligned(
+                    &Entry { key, value },
+                    (key_resolver, value_resolver),
+                )?;
             }
 
             // Free scratch vecs
@@ -324,7 +347,9 @@ impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for ArchivedHashMap<K, V> {
 
 impl<K: Hash + Eq, V: Eq> Eq for ArchivedHashMap<K, V> {}
 
-impl<K: Eq + Hash + Borrow<Q>, Q: Eq + Hash + ?Sized, V> Index<&'_ Q> for ArchivedHashMap<K, V> {
+impl<K: Eq + Hash + Borrow<Q>, Q: Eq + Hash + ?Sized, V> Index<&'_ Q>
+    for ArchivedHashMap<K, V>
+{
     type Output = V;
 
     #[inline]
@@ -339,8 +364,9 @@ impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
         if self.len() != other.len() {
             false
         } else {
-            self.iter()
-                .all(|(key, value)| other.get(key).map_or(false, |v| *value == *v))
+            self.iter().all(|(key, value)| {
+                other.get(key).map_or(false, |v| *value == *v)
+            })
         }
     }
 }

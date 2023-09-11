@@ -8,7 +8,8 @@ mod tests {
             serializers::{AlignedSerializer, BufferSerializer},
             Serializer,
         },
-        AlignedBytes, AlignedVec, Archive, Archived, Deserialize, Fallible, Infallible, Serialize,
+        AlignedBytes, AlignedVec, Archive, Archived, Deserialize, Fallible,
+        Infallible, Serialize,
     };
 
     #[cfg(not(feature = "std"))]
@@ -58,7 +59,9 @@ mod tests {
 
     #[test]
     fn option_is_copy() {
-        #[derive(Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize)]
+        #[derive(
+            Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize,
+        )]
         #[archive(compare(PartialEq))]
         #[archive_attr(derive(Clone, Copy, Debug))]
         enum ExampleEnum {
@@ -66,7 +69,9 @@ mod tests {
             Bar(u64),
         }
 
-        #[derive(Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize)]
+        #[derive(
+            Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize,
+        )]
         #[archive(compare(PartialEq))]
         #[archive_attr(derive(Clone, Copy, Debug))]
         struct Example {
@@ -84,14 +89,20 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_result() {
         test_archive::<Result<_, ()>>(&Ok(Box::new(42)));
-        test_archive::<Result<_, ()>>(&Ok("hello world".to_string().into_boxed_str()));
+        test_archive::<Result<_, ()>>(&Ok("hello world"
+            .to_string()
+            .into_boxed_str()));
         test_archive::<Result<_, ()>>(&Ok(vec![1, 2, 3, 4].into_boxed_slice()));
         test_archive::<Result<_, ()>>(&Ok("hello world".to_string()));
         test_archive::<Result<_, ()>>(&Ok(vec![1, 2, 3, 4]));
         test_archive::<Result<_, ()>>(&Ok(Box::new(vec![1, 2, 3, 4])));
         test_archive::<Result<(), _>>(&Err(Box::new(42)));
-        test_archive::<Result<(), _>>(&Err("hello world".to_string().into_boxed_str()));
-        test_archive::<Result<(), _>>(&Err(vec![1, 2, 3, 4].into_boxed_slice()));
+        test_archive::<Result<(), _>>(&Err("hello world"
+            .to_string()
+            .into_boxed_str()));
+        test_archive::<Result<(), _>>(
+            &Err(vec![1, 2, 3, 4].into_boxed_slice()),
+        );
         test_archive::<Result<(), _>>(&Err("hello world".to_string()));
         test_archive::<Result<(), _>>(&Err(vec![1, 2, 3, 4]));
         test_archive::<Result<(), _>>(&Err(Box::new(vec![1, 2, 3, 4])));
@@ -144,7 +155,8 @@ mod tests {
             let bytes = serializer.into_serializer().into_inner();
 
             // You can use the safe API for fast zero-copy deserialization
-            let archived = rkyv::check_archived_root::<Test>(&bytes[..]).unwrap();
+            let archived =
+                rkyv::check_archived_root::<Test>(&bytes[..]).unwrap();
             assert_eq!(archived, &value);
 
             // Or you can use the unsafe API for maximum performance
@@ -152,7 +164,8 @@ mod tests {
             assert_eq!(archived, &value);
 
             // And you can always deserialize back to the original type
-            let deserialized: Test = archived.deserialize(&mut rkyv::Infallible).unwrap();
+            let deserialized: Test =
+                archived.deserialize(&mut rkyv::Infallible).unwrap();
             assert_eq!(deserialized, value);
         }
     }
@@ -347,7 +360,9 @@ mod tests {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
                     Test::A => f.debug_tuple("Test::A").finish(),
-                    Test::B(value) => f.debug_tuple("Test::B").field(value).finish(),
+                    Test::B(value) => {
+                        f.debug_tuple("Test::B").field(value).finish()
+                    }
                     Test::C { a, b } => f
                         .debug_struct("Test::C")
                         .field("a", a)
@@ -364,7 +379,9 @@ mod tests {
         {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match self {
-                    ArchivedTest::A => f.debug_tuple("ArchivedTest::A").finish(),
+                    ArchivedTest::A => {
+                        f.debug_tuple("ArchivedTest::A").finish()
+                    }
                     ArchivedTest::B(value) => {
                         f.debug_tuple("ArchivedTest::B").field(value).finish()
                     }
@@ -501,8 +518,8 @@ mod tests {
         }
 
         use inner::{
-            ArchivedTestEnum, ArchivedTestStruct, ArchivedTestTuple, TestEnum, TestStruct,
-            TestTuple,
+            ArchivedTestEnum, ArchivedTestStruct, ArchivedTestTuple, TestEnum,
+            TestStruct, TestTuple,
         };
 
         TestTuple(42.into());
@@ -521,7 +538,8 @@ mod tests {
         let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&42i32).unwrap();
         let mut buf = serializer.into_inner();
-        let mut value = unsafe { archived_root_mut::<i32>(Pin::new(buf.as_mut())) };
+        let mut value =
+            unsafe { archived_root_mut::<i32>(Pin::new(buf.as_mut())) };
         assert_eq!(*value, 42);
         *value = 11.into();
         assert_eq!(*value, 11);
@@ -554,7 +572,8 @@ mod tests {
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&value).unwrap();
         let mut buf = serializer.into_serializer().into_inner();
-        let mut value = unsafe { archived_root_mut::<Test>(Pin::new(buf.as_mut())) };
+        let mut value =
+            unsafe { archived_root_mut::<Test>(Pin::new(buf.as_mut())) };
 
         assert_eq!(*value.a, 10);
         assert_eq!(value.b.len(), 2);
@@ -596,7 +615,8 @@ mod tests {
         let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&value).unwrap();
         let mut buf = serializer.into_inner();
-        let mut value = unsafe { archived_root_mut::<Test>(Pin::new(buf.as_mut())) };
+        let mut value =
+            unsafe { archived_root_mut::<Test>(Pin::new(buf.as_mut())) };
 
         if let Archived::<Test>::A = *value {
             ()
@@ -663,7 +683,7 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn complex_bounds() {
-        use ::core::marker::PhantomData;
+        use core::marker::PhantomData;
 
         trait MyTrait {}
 
@@ -677,10 +697,18 @@ mod tests {
             type Archived = MyStruct<T::Archived>;
             type Resolver = ();
 
-            unsafe fn resolve(&self, _: usize, _: Self::Resolver, _: *mut Self::Archived) {}
+            unsafe fn resolve(
+                &self,
+                _: usize,
+                _: Self::Resolver,
+                _: *mut Self::Archived,
+            ) {
+            }
         }
 
-        impl<T: Archive + MyTrait, S: Fallible + MyTrait + ?Sized> Serialize<S> for MyStruct<T> {
+        impl<T: Archive + MyTrait, S: Fallible + MyTrait + ?Sized> Serialize<S>
+            for MyStruct<T>
+        {
             fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
                 Ok(())
             }
@@ -719,7 +747,10 @@ mod tests {
     fn archive_more_std() {
         use core::{
             num::NonZeroU8,
-            ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
+            ops::{
+                Range, RangeFrom, RangeFull, RangeInclusive, RangeTo,
+                RangeToInclusive,
+            },
         };
 
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
@@ -745,35 +776,6 @@ mod tests {
             g: RangeToInclusive { end: 87 },
         };
 
-        test_archive(&value);
-    }
-
-    #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn archive_atomic() {
-        use core::sync::atomic::{AtomicU32, Ordering};
-
-        #[derive(Archive, Debug, Deserialize, Serialize)]
-        #[archive_attr(derive(Debug))]
-        struct Test {
-            a: AtomicU32,
-        }
-
-        impl PartialEq for Test {
-            fn eq(&self, other: &Self) -> bool {
-                self.a.load(Ordering::Relaxed) == other.a.load(Ordering::Relaxed)
-            }
-        }
-
-        impl PartialEq<Test> for ArchivedTest {
-            fn eq(&self, other: &Test) -> bool {
-                self.a == other.a.load(Ordering::Relaxed)
-            }
-        }
-
-        let value = Test {
-            a: AtomicU32::new(42),
-        };
         test_archive(&value);
     }
 
@@ -811,20 +813,24 @@ mod tests {
         let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
         assert_eq!(archived, &value);
 
-        let mut mutable_archived =
-            unsafe { archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut())) };
+        let mut mutable_archived = unsafe {
+            archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut()))
+        };
         unsafe {
-            *mutable_archived.as_mut().a().get_pin_mut_unchecked() = 42u32.into();
+            *mutable_archived.as_mut().a().get_pin_mut_unchecked() =
+                42u32.into();
         }
 
         let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
         assert_eq!(*archived.a, 42);
         assert_eq!(*archived.b, 42);
 
-        let mut mutable_archived =
-            unsafe { archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut())) };
+        let mut mutable_archived = unsafe {
+            archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut()))
+        };
         unsafe {
-            *mutable_archived.as_mut().b().get_pin_mut_unchecked() = 17u32.into();
+            *mutable_archived.as_mut().b().get_pin_mut_unchecked() =
+                17u32.into();
         }
 
         let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
@@ -832,7 +838,8 @@ mod tests {
         assert_eq!(*archived.b, 17);
 
         let mut deserializer = DefaultDeserializer::default();
-        let deserialized: Test = archived.deserialize(&mut deserializer).unwrap();
+        let deserialized: Test =
+            archived.deserialize(&mut deserializer).unwrap();
 
         assert_eq!(*deserialized.a, 17);
         assert_eq!(*deserialized.b, 17);
@@ -870,8 +877,9 @@ mod tests {
             b: Rc<[String]>,
         }
 
-        let rc_slice =
-            Rc::<[String]>::from(vec!["hello".to_string(), "world".to_string()].into_boxed_slice());
+        let rc_slice = Rc::<[String]>::from(
+            vec!["hello".to_string(), "world".to_string()].into_boxed_slice(),
+        );
         let value = Test {
             a: rc_slice.clone(),
             b: rc_slice,
@@ -935,10 +943,12 @@ mod tests {
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 10);
 
-        let mut mutable_archived =
-            unsafe { archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut())) };
+        let mut mutable_archived = unsafe {
+            archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut()))
+        };
         unsafe {
-            *mutable_archived.as_mut().a().get_pin_mut_unchecked() = 42u32.into();
+            *mutable_archived.as_mut().a().get_pin_mut_unchecked() =
+                42u32.into();
         }
 
         let archived = unsafe { archived_root::<Test>(buf.as_ref()) };
@@ -946,8 +956,9 @@ mod tests {
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 42);
 
-        let mut mutable_archived =
-            unsafe { archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut())) };
+        let mut mutable_archived = unsafe {
+            archived_root_mut::<Test>(Pin::new_unchecked(buf.as_mut()))
+        };
         unsafe {
             *mutable_archived
                 .as_mut()
@@ -963,7 +974,8 @@ mod tests {
         assert_eq!(**archived.b.upgrade().unwrap(), 17);
 
         let mut deserializer = DefaultDeserializer::default();
-        let deserialized: Test = archived.deserialize(&mut deserializer).unwrap();
+        let deserialized: Test =
+            archived.deserialize(&mut deserializer).unwrap();
 
         assert_eq!(*deserialized.a, 17);
         assert!(deserialized.b.upgrade().is_some());
@@ -1029,7 +1041,10 @@ mod tests {
             Archived<String>: Deserialize<String, D>,
             Archived<Vec<i32>>: Deserialize<Vec<i32>, D>,
         {
-            fn deserialize(&self, deserializer: &mut D) -> Result<Test, D::Error> {
+            fn deserialize(
+                &self,
+                deserializer: &mut D,
+            ) -> Result<Test, D::Error> {
                 Ok(Test {
                     a: self.a.deserialize(deserializer)?,
                     b: self.b.deserialize(deserializer)?,
@@ -1109,7 +1124,7 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn buffer_serializer_zeroes_padding() {
-        use ::core::mem::size_of;
+        use core::mem::size_of;
 
         #[derive(Archive, Serialize)]
         pub struct PaddedExample {
@@ -1143,10 +1158,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(
-        not(any(feature = "archive_le", feature = "archive_be")),
-        feature = "arbitrary_enum_discriminant"
-    ))]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn arbitrary_enum_discriminant() {
         use rkyv::Infallible;
@@ -1176,14 +1187,15 @@ mod tests {
 
         assert_eq!(ReallyBigEnum::V100 as u16, 0x100u16);
 
-        #[cfg(not(any(
-            all(target_endian = "little", feature = "archive_be"),
-            all(target_endian = "big", feature = "archive_le")
-        )))]
+        #[cfg(any(
+            feature = "native_endian",
+            all(target_endian = "little", feature = "little_endian"),
+            all(target_endian = "big", feature = "big_endian")
+        ))]
         assert_eq!(ArchivedReallyBigEnum::V100 as u16, 0x100u16);
         #[cfg(any(
-            all(target_endian = "little", feature = "archive_be"),
-            all(target_endian = "big", feature = "archive_le")
+            all(target_endian = "little", feature = "big_endian"),
+            all(target_endian = "big", feature = "little_endian")
         ))]
         assert_eq!(ArchivedReallyBigEnum::V100 as u16, 0x1u16);
 
@@ -1194,7 +1206,8 @@ mod tests {
         let archived = unsafe { archived_root::<ReallyBigEnum>(buf.as_ref()) };
         assert_eq!(archived, &ArchivedReallyBigEnum::V100);
 
-        let deserialized: ReallyBigEnum = archived.deserialize(&mut Infallible).unwrap();
+        let deserialized: ReallyBigEnum =
+            archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(deserialized, ReallyBigEnum::V100);
     }
 
@@ -1338,7 +1351,9 @@ mod tests {
         #[repr(transparent)]
         struct ExampleTupleStruct<T>(T);
 
-        impl<T: PartialEq<U>, U> PartialEq<ExampleTupleStruct<U>> for ExampleTupleStruct<T> {
+        impl<T: PartialEq<U>, U> PartialEq<ExampleTupleStruct<U>>
+            for ExampleTupleStruct<T>
+        {
             fn eq(&self, other: &ExampleTupleStruct<U>) -> bool {
                 self.0.eq(&other.0)
             }
@@ -1401,7 +1416,8 @@ mod tests {
             ser::serializers::AlignedSerializer,
             ser::Serializer,
             with::{ArchiveWith, DeserializeWith, SerializeWith},
-            AlignedVec, Archive, Archived, Deserialize, Fallible, Infallible, Serialize,
+            AlignedVec, Archive, Archived, Deserialize, Fallible, Infallible,
+            Serialize,
         };
 
         #[cfg(feature = "wasm")]
@@ -1423,17 +1439,26 @@ mod tests {
             }
         }
 
-        impl<T: ToString, S: Serializer + ?Sized> SerializeWith<T, S> for ConvertToString {
-            fn serialize_with(value: &T, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        impl<T: ToString, S: Serializer + ?Sized> SerializeWith<T, S>
+            for ConvertToString
+        {
+            fn serialize_with(
+                value: &T,
+                serializer: &mut S,
+            ) -> Result<Self::Resolver, S::Error> {
                 Ok(value.to_string().serialize(serializer)?)
             }
         }
 
-        impl<T: FromStr, D: Fallible + ?Sized> DeserializeWith<Archived<String>, T, D> for ConvertToString
+        impl<T: FromStr, D: Fallible + ?Sized>
+            DeserializeWith<Archived<String>, T, D> for ConvertToString
         where
             <T as FromStr>::Err: core::fmt::Debug,
         {
-            fn deserialize_with(value: &Archived<String>, _: &mut D) -> Result<T, D::Error> {
+            fn deserialize_with(
+                value: &Archived<String>,
+                _: &mut D,
+            ) -> Result<T, D::Error> {
                 Ok(T::from_str(value.as_str()).unwrap())
             }
         }
@@ -1460,7 +1485,8 @@ mod tests {
             assert_eq!(archived.value, "10");
             assert_eq!(archived.other, 10);
 
-            let deserialized: Test = archived.deserialize(&mut Infallible).unwrap();
+            let deserialized: Test =
+                archived.deserialize(&mut Infallible).unwrap();
             assert_eq!(deserialized.value, 10);
             assert_eq!(deserialized.other, 10);
         }
@@ -1480,7 +1506,8 @@ mod tests {
             assert_eq!(archived.0, "10");
             assert_eq!(archived.1, 10);
 
-            let deserialized: Test = archived.deserialize(&mut Infallible).unwrap();
+            let deserialized: Test =
+                archived.deserialize(&mut Infallible).unwrap();
             assert_eq!(deserialized.0, 10);
             assert_eq!(deserialized.1, 10);
         }
@@ -1514,7 +1541,8 @@ mod tests {
                 panic!("expected variant A");
             };
 
-            let deserialized: Test = archived.deserialize(&mut Infallible).unwrap();
+            let deserialized: Test =
+                archived.deserialize(&mut Infallible).unwrap();
             if let Test::A { value, other } = &deserialized {
                 assert_eq!(*value, 10);
                 assert_eq!(*other, 10);
@@ -1535,7 +1563,8 @@ mod tests {
                 panic!("expected variant B");
             };
 
-            let deserialized: Test = archived.deserialize(&mut Infallible).unwrap();
+            let deserialized: Test =
+                archived.deserialize(&mut Infallible).unwrap();
             if let Test::B(value, other) = &deserialized {
                 assert_eq!(*value, 10);
                 assert_eq!(*other, 10);
@@ -1547,13 +1576,45 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn with_atomic() {
+    fn with_atomic_load() {
         use core::sync::atomic::{AtomicU32, Ordering};
-        use rkyv::with::Atomic;
+        use rkyv::with::{AtomicLoad, Relaxed};
+
+        #[derive(Archive, Debug, Deserialize, Serialize)]
+        #[archive_attr(derive(Debug))]
+        struct Test {
+            #[with(AtomicLoad<Relaxed>)]
+            a: AtomicU32,
+        }
+
+        impl PartialEq for Test {
+            fn eq(&self, other: &Self) -> bool {
+                self.a.load(Ordering::Relaxed)
+                    == other.a.load(Ordering::Relaxed)
+            }
+        }
+
+        impl PartialEq<Test> for ArchivedTest {
+            fn eq(&self, other: &Test) -> bool {
+                self.a == other.a.load(Ordering::Relaxed)
+            }
+        }
+
+        let value = Test {
+            a: AtomicU32::new(42),
+        };
+        test_archive(&value);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn with_as_atomic() {
+        use core::sync::atomic::{AtomicU32, Ordering};
+        use rkyv::with::{AsAtomic, Relaxed};
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
-            #[with(Atomic)]
+            #[with(AsAtomic<Relaxed, Relaxed>)]
             value: AtomicU32,
         }
 
@@ -1564,7 +1625,9 @@ mod tests {
         serializer.serialize_value(&value).unwrap();
         let mut result = serializer.into_inner();
         // NOTE: with(Atomic) is only sound if the backing memory is mutable, use with caution!
-        let archived = unsafe { archived_root_mut::<Test>(Pin::new(result.as_mut_slice())) };
+        let archived = unsafe {
+            archived_root_mut::<Test>(Pin::new(result.as_mut_slice()))
+        };
 
         assert_eq!(archived.value.load(Ordering::Relaxed), 42);
     }
@@ -1592,12 +1655,12 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn with_as_box() {
-        use rkyv::with::AsBox;
+    fn with_boxed() {
+        use rkyv::with::Boxed;
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
-            #[with(AsBox)]
+            #[with(Boxed)]
             value: i32,
         }
 
@@ -1612,12 +1675,12 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn with_ref_as_box() {
-        use rkyv::with::RefAsBox;
+    fn with_boxed_inline() {
+        use rkyv::with::BoxedInline;
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test<'a> {
-            #[with(RefAsBox)]
+            #[with(BoxedInline)]
             value: &'a str,
         }
 
@@ -1739,7 +1802,7 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_niche() {
-        use ::core::mem::size_of;
+        use core::mem::size_of;
         use rkyv::with::Niche;
 
         #[derive(Archive, Serialize, Deserialize)]
@@ -1774,17 +1837,22 @@ mod tests {
         assert!(archived.inner.is_none());
         assert_eq!(archived.inner, value.inner);
 
-        assert!(size_of::<Archived<Test>>() < size_of::<Archived<TestNoNiching>>());
+        assert!(
+            size_of::<Archived<Test>>() < size_of::<Archived<TestNoNiching>>()
+        );
     }
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_niche_nonzero() {
-        use ::core::{
+        use core::{
             mem::size_of,
-            num::{NonZeroI32, NonZeroI8, NonZeroIsize, NonZeroU32, NonZeroU8, NonZeroUsize},
+            num::{
+                NonZeroI32, NonZeroI8, NonZeroIsize, NonZeroU32, NonZeroU8,
+                NonZeroUsize,
+            },
         };
-        use rkyv::{from_archived, with::Niche};
+        use rkyv::with::Niche;
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
@@ -1828,15 +1896,15 @@ mod tests {
         assert!(archived.a.is_some());
         assert_eq!(archived.a.as_ref().unwrap().get(), 10);
         assert!(archived.b.is_some());
-        assert_eq!(from_archived!(*archived.b.as_ref().unwrap()).get(), 10);
+        assert_eq!(archived.b.as_ref().unwrap().get(), 10);
         assert!(archived.c.is_some());
-        assert_eq!(from_archived!(*archived.c.as_ref().unwrap()).get(), 10);
+        assert_eq!(archived.c.as_ref().unwrap().get(), 10);
         assert!(archived.d.is_some());
         assert_eq!(archived.d.as_ref().unwrap().get(), 10);
         assert!(archived.e.is_some());
-        assert_eq!(from_archived!(*archived.e.as_ref().unwrap()).get(), 10);
+        assert_eq!(archived.e.as_ref().unwrap().get(), 10);
         assert!(archived.f.is_some());
-        assert_eq!(from_archived!(*archived.f.as_ref().unwrap()).get(), 10);
+        assert_eq!(archived.f.as_ref().unwrap().get(), 10);
 
         let value = Test {
             a: None,
@@ -1858,7 +1926,9 @@ mod tests {
         assert!(archived.e.is_none());
         assert!(archived.f.is_none());
 
-        assert!(size_of::<Archived<Test>>() < size_of::<Archived<TestNoNiching>>());
+        assert!(
+            size_of::<Archived<Test>>() < size_of::<Archived<TestNoNiching>>()
+        );
     }
 
     #[test]
@@ -1891,12 +1961,12 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn with_ref_as_box_copy_optimize() {
-        use rkyv::with::{CopyOptimize, RefAsBox};
+    fn with_boxed_inline_copy_optimize() {
+        use rkyv::with::{BoxedInline, CopyOptimize};
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test<'a> {
-            #[with(CopyOptimize, RefAsBox)]
+            #[with(CopyOptimize, BoxedInline)]
             bytes: &'a [u8],
         }
 
@@ -1938,7 +2008,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_unsafe() {
         use core::cell::UnsafeCell;
-        use rkyv::{to_archived, with::Unsafe};
+        use rkyv::{primitive::ArchivedU32, with::Unsafe};
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
@@ -1957,7 +2027,7 @@ mod tests {
 
         unsafe {
             assert_eq!(*archived.inner.get(), 100);
-            *archived.inner.get() = to_archived!(42u32);
+            *archived.inner.get() = ArchivedU32::from_native(42u32);
             assert_eq!(*archived.inner.get(), 42);
         }
 
@@ -1974,12 +2044,12 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_crate_path() {
-        use ::rkyv as alt_path;
+        use rkyv as alt_path;
 
         #[derive(Archive, Deserialize, Serialize)]
         #[archive(crate = "alt_path")]
         struct Test<'a> {
-            #[with(alt_path::with::AsBox)]
+            #[with(alt_path::with::BoxedInline)]
             value: &'a str,
             other: i32,
         }
@@ -1997,7 +2067,9 @@ mod tests {
         let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&value).unwrap();
         let result = serializer.into_inner();
-        let archived = unsafe { archived_root::<BTreeMap<String, i32>>(result.as_slice()) };
+        let archived = unsafe {
+            archived_root::<BTreeMap<String, i32>>(result.as_slice())
+        };
 
         assert_eq!(archived.len(), 4);
         for (k, v) in value.iter() {
@@ -2009,7 +2081,8 @@ mod tests {
         }
         assert!(archived.get_key_value("wrong!").is_none());
 
-        let deserialized: BTreeMap<_, _> = archived.deserialize(&mut Infallible).unwrap();
+        let deserialized: BTreeMap<_, _> =
+            archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 
@@ -2021,7 +2094,9 @@ mod tests {
         let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&value).unwrap();
         let result = serializer.into_inner();
-        let archived = unsafe { archived_root::<BTreeMap<String, i32>>(result.as_slice()) };
+        let archived = unsafe {
+            archived_root::<BTreeMap<String, i32>>(result.as_slice())
+        };
 
         assert_eq!(archived.len(), 0);
         for _ in archived.iter() {
@@ -2029,7 +2104,8 @@ mod tests {
         }
         assert!(archived.get_key_value("wrong!").is_none());
 
-        let deserialized: BTreeMap<_, _> = archived.deserialize(&mut Infallible).unwrap();
+        let deserialized: BTreeMap<_, _> =
+            archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 
@@ -2045,7 +2121,8 @@ mod tests {
         let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&value).unwrap();
         let result = serializer.into_inner();
-        let archived = unsafe { archived_root::<BTreeSet<String>>(result.as_slice()) };
+        let archived =
+            unsafe { archived_root::<BTreeSet<String>>(result.as_slice()) };
 
         assert_eq!(archived.len(), 4);
         for k in value.iter() {
@@ -2056,7 +2133,8 @@ mod tests {
         }
         assert!(archived.get("wrong!").is_none());
 
-        let deserialized: BTreeSet<_> = archived.deserialize(&mut Infallible).unwrap();
+        let deserialized: BTreeSet<_> =
+            archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 
@@ -2075,7 +2153,9 @@ mod tests {
         let mut serializer = AlignedSerializer::new(AlignedVec::new());
         serializer.serialize_value(&value).unwrap();
         let result = serializer.into_inner();
-        let archived = unsafe { archived_root::<BTreeMap<String, i32>>(result.as_slice()) };
+        let archived = unsafe {
+            archived_root::<BTreeMap<String, i32>>(result.as_slice())
+        };
 
         assert_eq!(archived.len(), 100_000);
 
@@ -2092,7 +2172,8 @@ mod tests {
         }
         assert!(archived.get("wrong!").is_none());
 
-        let deserialized: BTreeMap<_, _> = archived.deserialize(&mut Infallible).unwrap();
+        let deserialized: BTreeMap<_, _> =
+            archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
     }
 
@@ -2148,7 +2229,8 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn scratch_tracker() {
         use rkyv::ser::serializers::{
-            AlignedSerializer, AllocScratch, CompositeSerializer, ScratchTracker,
+            AlignedSerializer, AllocScratch, CompositeSerializer,
+            ScratchTracker,
         };
 
         type TrackerSerializer = CompositeSerializer<
@@ -2196,12 +2278,17 @@ mod tests {
     fn archive_manually_drop() {
         use core::mem::ManuallyDrop;
 
-        let vec = ManuallyDrop::new(vec!["hello world".to_string(), "me too!".to_string()]);
+        let vec = ManuallyDrop::new(vec![
+            "hello world".to_string(),
+            "me too!".to_string(),
+        ]);
 
         let mut serializer = DefaultSerializer::default();
         serializer.serialize_value(&vec).unwrap();
         let result = serializer.into_serializer().into_inner();
-        let archived = unsafe { archived_root::<ManuallyDrop<Vec<String>>>(result.as_slice()) };
+        let archived = unsafe {
+            archived_root::<ManuallyDrop<Vec<String>>>(result.as_slice())
+        };
 
         assert_eq!(archived.len(), vec.len());
         for (a, b) in archived.iter().zip(vec.iter()) {

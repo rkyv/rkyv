@@ -1,6 +1,6 @@
 //! An archived string representation that supports inlining short strings.
 
-use crate::{Archived, FixedIsize, FixedUsize};
+use crate::primitive::{ArchivedUsize, FixedIsize};
 use core::{marker::PhantomPinned, mem, ptr, slice, str};
 
 const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
@@ -8,7 +8,7 @@ const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
 #[derive(Clone, Copy)]
 #[repr(C)]
 struct OutOfLineRepr {
-    len: Archived<usize>,
+    len: ArchivedUsize,
     // Offset is always stored in little-endian format to put the sign bit at the end.
     // This representation is optimized for little-endian architectures.
     offset: [u8; OFFSET_BYTES],
@@ -83,7 +83,7 @@ impl ArchivedStringRepr {
             if self.is_inline() {
                 self.inline.len as usize
             } else {
-                from_archived!(self.out_of_line.len) as usize
+                self.out_of_line.len.to_native() as usize
             }
         }
     }
@@ -134,7 +134,11 @@ impl ArchivedStringRepr {
     #[inline]
     pub unsafe fn emplace_inline(value: &str, out: *mut Self) {
         let out_bytes = ptr::addr_of_mut!((*out).inline.bytes);
-        ptr::copy_nonoverlapping(value.as_bytes().as_ptr(), out_bytes.cast(), value.len());
+        ptr::copy_nonoverlapping(
+            value.as_bytes().as_ptr(),
+            out_bytes.cast(),
+            value.len(),
+        );
 
         let out_len = ptr::addr_of_mut!((*out).inline.len);
         *out_len = value.len() as u8;
@@ -149,9 +153,14 @@ impl ArchivedStringRepr {
     /// - `target` must be the location of the serialized bytes of the string.
     /// - `out` must point to a valid location to write the out-of-line representation.
     #[inline]
-    pub unsafe fn emplace_out_of_line(value: &str, pos: usize, target: usize, out: *mut Self) {
+    pub unsafe fn emplace_out_of_line(
+        value: &str,
+        pos: usize,
+        target: usize,
+        out: *mut Self,
+    ) {
         let out_len = ptr::addr_of_mut!((*out).out_of_line.len);
-        out_len.write(to_archived!(value.len() as FixedUsize));
+        out_len.write(ArchivedUsize::from_native(value.len() as _));
 
         let out_offset = ptr::addr_of_mut!((*out).out_of_line.offset);
         let offset = crate::rel_ptr::signed_offset(pos, target).unwrap();
@@ -187,7 +196,10 @@ const _: () = {
         type Error = CheckStringReprError;
 
         #[inline]
-        unsafe fn check_bytes<'a>(value: *const Self, _: &mut C) -> Result<&'a Self, Self::Error> {
+        unsafe fn check_bytes<'a>(
+            value: *const Self,
+            _: &mut C,
+        ) -> Result<&'a Self, Self::Error> {
             // The fields of `ArchivedStringRepr` are always valid
             let repr = &*value;
 

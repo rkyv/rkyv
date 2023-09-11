@@ -5,7 +5,12 @@ impl Archive for Uuid {
     type Archived = Uuid;
     type Resolver = ();
 
-    unsafe fn resolve(&self, _: usize, _: Self::Resolver, out: *mut Self::Archived) {
+    unsafe fn resolve(
+        &self,
+        _: usize,
+        _: Self::Resolver,
+        out: *mut Self::Archived,
+    ) {
         // Safety: Uuid is portable and has no padding
         out.write(*self);
     }

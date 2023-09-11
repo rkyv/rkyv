@@ -53,12 +53,10 @@
 //! ## Features
 //!
 //! - `alloc`: Enables types that require the `alloc` crate. Enabled by default.
-//! - `arbitrary_enum_discriminant`: Enables the `arbitrary_enum_discriminant` feature for stable
-//!   multibyte enum discriminants using `archive_le` and `archive_be`. Requires nightly.
-//! - `archive_be`: Forces archives into a big-endian format. This guarantees cross-endian
-//!   compatibility optimized for big-endian architectures.
-//! - `archive_le`: Forces archives into a little-endian format. This guarantees cross-endian
+//! - `little_endian`: Forces archives into a little-endian format. This guarantees cross-endian
 //!   compatibility optimized for little-endian architectures.
+//! - `big_endian`: Forces archives into a big-endian format. This guarantees cross-endian
+//!   compatibility optimized for big-endian architectures.
 //! - `copy`: Enables copy optimizations for packed copyable data types. Requires nightly.
 //! - `copy_unsafe`: Automatically opts all potentially copyable types into copy optimization. This
 //!   broadly improves performance but may cause uninitialized bytes to be copied to the output.
@@ -157,6 +155,7 @@ pub mod net;
 pub mod niche;
 pub mod ops;
 pub mod option;
+pub mod primitive;
 pub mod rc;
 pub mod rel_ptr;
 pub mod result;
@@ -169,7 +168,6 @@ pub mod validation;
 pub mod vec;
 pub mod with;
 
-#[cfg(feature = "rend")]
 pub use rend;
 
 #[cfg(feature = "validation")]
@@ -185,6 +183,53 @@ pub use validation::{
     check_archived_root_with_context, check_archived_value_with_context,
     validators::{check_archived_root, check_archived_value, from_bytes},
 };
+
+use crate::primitive::ArchivedIsize;
+
+// Check endianness feature flag settings
+
+#[cfg(not(any(feature = "little_endian", feature = "big_endian")))]
+core::compiler_error!(
+    "\"litle_endian\" or \"big_endian\" must be an enabled feature"
+);
+
+#[cfg(all(feature = "little_endian", feature = "big_endian"))]
+core::compiler_error!(
+    "\"little_endian\" and \"big_endian\" are mutually-exclusive features. You \
+    may need to set `default-features = false` or compile with \
+    `--no-default-features`."
+);
+
+// Check pointer width feature flag settings
+
+#[cfg(not(any(
+    feature = "pointer_width_16",
+    feature = "pointer_width_32",
+    feature = "pointer_width_64",
+)))]
+core::compile_error!(
+    "\"pointer_width_16\", \"pointer_width_32\", or \"pointer_width_64\" must \
+    be enabled features"
+);
+
+#[cfg(all(feature = "pointer_width_16", feature = "pointer_width_32",))]
+core::compile_error!(
+    "\"pointer_width_16\" and \"pointer_width_32\" are mutually-exclusive \
+    features. You may need to set `default-features = false` or compile with \
+    `--no-default-features`."
+);
+#[cfg(all(feature = "pointer_width_16", feature = "pointer_width_64",))]
+core::compile_error!(
+    "\"pointer_width_16\" and \"pointer_width_64\" are mutually-exclusive \
+    features. You may need to set `default-features = false` or compile with \
+    `--no-default-features`."
+);
+#[cfg(all(feature = "pointer_width_32", feature = "pointer_width_64",))]
+core::compile_error!(
+    "\"pointer_width_32\" and \"pointer_width_64\" are mutually-exclusive \
+    features. You may need to set `default-features = false` or compile with \
+    `--no-default-features`."
+);
 
 /// A type that can produce an error.
 ///
@@ -207,7 +252,7 @@ pub trait Fallible {
 pub struct Infallible;
 
 impl Fallible for Infallible {
-    type Error = core::convert::Infallible;
+    type Error = ::core::convert::Infallible;
 }
 
 impl Default for Infallible {
@@ -417,7 +462,12 @@ pub trait Archive {
     ///
     /// - `pos` must be the position of `out` within the archive
     /// - `resolver` must be the result of serializing this object
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived);
+    unsafe fn resolve(
+        &self,
+        pos: usize,
+        resolver: Self::Resolver,
+        out: *mut Self::Archived,
+    );
 }
 
 /// Converts a type to its archived form.
@@ -432,7 +482,8 @@ pub trait Archive {
 pub trait Serialize<S: Fallible + ?Sized>: Archive {
     /// Writes the dependencies for the object and returns a resolver that can create the archived
     /// type.
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error>;
+    fn serialize(&self, serializer: &mut S)
+        -> Result<Self::Resolver, S::Error>;
 }
 
 /// Converts a type back from its archived form.
@@ -469,8 +520,6 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// use core::{mem::transmute, ops::{Deref, DerefMut}};
 /// use ptr_meta::Pointee;
 /// use rkyv::{
-///     from_archived,
-///     to_archived,
 ///     archived_unsized_value,
 ///     ser::{serializers::AlignedSerializer, Serializer},
 ///     AlignedVec,
@@ -479,10 +528,10 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     ArchivedMetadata,
 ///     ArchivePointee,
 ///     ArchiveUnsized,
-///     FixedUsize,
 ///     RelPtr,
 ///     Serialize,
 ///     SerializeUnsized,
+///     primitive::ArchivedUsize,
 /// };
 ///
 /// // We're going to be dealing mostly with blocks that have a trailing slice
@@ -498,7 +547,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// // For blocks with trailing slices, we need to store the length of the slice
 /// // in the metadata.
 /// pub struct BlockSliceMetadata {
-///     len: Archived<usize>,
+///     len: ArchivedUsize,
 /// }
 ///
 /// // ArchivePointee is automatically derived for sized types because pointers
@@ -515,7 +564,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     fn pointer_metadata(
 ///         archived: &Self::ArchivedMetadata
 ///     ) -> <Self as Pointee>::Metadata {
-///         from_archived!(archived.len) as usize
+///         archived.len.to_native() as usize
 ///     }
 /// }
 ///
@@ -541,7 +590,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     ) {
 ///         unsafe {
 ///             out.write(BlockSliceMetadata {
-///                 len: to_archived!(self.tail.len() as FixedUsize),
+///                 len: ArchivedUsize::from_native(self.tail.len() as _),
 ///             });
 ///         }
 ///     }
@@ -683,7 +732,9 @@ pub trait ArchivePointee: Pointee {
     type ArchivedMetadata;
 
     /// Converts some archived metadata to the pointer metadata for itself.
-    fn pointer_metadata(archived: &Self::ArchivedMetadata) -> <Self as Pointee>::Metadata;
+    fn pointer_metadata(
+        archived: &Self::ArchivedMetadata,
+    ) -> <Self as Pointee>::Metadata;
 }
 
 /// A counterpart of [`Serialize`] that's suitable for unsized types.
@@ -694,11 +745,16 @@ pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error>;
 
     /// Serializes the metadata for the given type.
-    fn serialize_metadata(&self, serializer: &mut S) -> Result<Self::MetadataResolver, S::Error>;
+    fn serialize_metadata(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::MetadataResolver, S::Error>;
 }
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
-pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: ArchivePointee {
+pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>:
+    ArchivePointee
+{
     /// Deserializes a reference to the given value.
     ///
     /// # Safety
@@ -711,28 +767,20 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: Archive
     ) -> Result<*mut (), D::Error>;
 
     /// Deserializes the metadata for the given type.
-    fn deserialize_metadata(&self, deserializer: &mut D) -> Result<T::Metadata, D::Error>;
+    fn deserialize_metadata(
+        &self,
+        deserializer: &mut D,
+    ) -> Result<T::Metadata, D::Error>;
 }
-
-/// The native type that `usize` is converted to for archiving.
-///
-/// This will be `u16`, `u32`, or `u64` when the `size_16`, `size_32`, or `size_64` features are
-/// enabled, respectively.
-pub type FixedUsize = pick_size_type!(u16, u32, u64);
-/// The native type that `isize` is converted to for archiving.
-///
-/// This will be `i16`, `i32`, or `i64` when the `size_16`, `size_32`, or `size_64` features are
-/// enabled, respectively.
-pub type FixedIsize = pick_size_type!(i16, i32, i64);
 
 /// The default raw relative pointer.
 ///
 /// This will use an archived [`FixedIsize`] to hold the offset.
-pub type RawRelPtr = rel_ptr::RawRelPtr<Archived<isize>>;
+pub type RawRelPtr = rel_ptr::RawRelPtr<ArchivedIsize>;
 /// The default relative pointer.
 ///
 /// This will use an archived [`FixedIsize`] to hold the offset.
-pub type RelPtr<T> = rel_ptr::RelPtr<T, Archived<isize>>;
+pub type RelPtr<T> = rel_ptr::RelPtr<T, ArchivedIsize>;
 
 /// Alias for the archived version of some [`Archive`] type.
 ///

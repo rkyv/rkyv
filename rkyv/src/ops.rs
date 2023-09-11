@@ -40,7 +40,9 @@ impl<T: PartialOrd<T>> ArchivedRange<T> {
     #[inline]
     pub fn is_empty(&self) -> bool {
         match self.start.partial_cmp(&self.end) {
-            None | Some(cmp::Ordering::Greater) | Some(cmp::Ordering::Equal) => true,
+            None
+            | Some(cmp::Ordering::Greater)
+            | Some(cmp::Ordering::Equal) => true,
             Some(cmp::Ordering::Less) => false,
         }
     }
