@@ -185,7 +185,7 @@ memory mapping.</p>
 <h2 id="how-does-rkyv-handle-endianness"><a class="header" href="#how-does-rkyv-handle-endianness">How does rkyv handle endianness?</a></h2>
 <p>rkyv supports three endiannesses: native, little, and big. Native endianness will be either little
 or big, but removes the abstraction layer to more easily work with the underlying types.</p>
-<p>You can enable specific endiannesses with the <code>archive_le</code> and <code>archive_be</code> features.</p>
+<p>You can enable specific endiannesses with the <code>little_endian</code> and <code>big_endian</code> features.</p>
 <h2 id="is-rkyv-cross-platform"><a class="header" href="#is-rkyv-cross-platform">Is rkyv cross-platform?</a></h2>
 <p>Yes, but rkyv has been tested mostly on x86 machines and wasm. There may be bugs that need to get
 fixed for other architectures.</p>
