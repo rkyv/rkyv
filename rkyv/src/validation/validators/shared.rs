@@ -77,18 +77,24 @@ impl<E: Error> SharedContext<E> for SharedValidator {
         address: usize,
         type_id: TypeId,
     ) -> Result<bool, E> {
-        if let Some(previous_type_id) = self.shared.get(&address) {
-            if previous_type_id != &type_id {
-                fail!(SharedError::TypeMismatch {
-                    previous: *previous_type_id,
-                    current: type_id,
-                });
-            } else {
-                Ok(false)
+        use std::collections::hash_map::Entry;
+
+        match self.shared.entry(address) {
+            Entry::Occupied(previous_type_entry) => {
+                let previous_type_id = previous_type_entry.get();
+                if previous_type_id != &type_id {
+                    fail!(SharedError::TypeMismatch {
+                        previous: *previous_type_id,
+                        current: type_id,
+                    })
+                } else {
+                    Ok(false)
+                }
             }
-        } else {
-            self.shared.insert(address, type_id);
-            Ok(true)
+            Entry::Vacant(ent) => {
+                ent.insert(type_id);
+                Ok(true)
+            }
         }
     }
 }
