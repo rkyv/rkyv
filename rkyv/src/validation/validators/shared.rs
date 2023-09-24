@@ -89,18 +89,24 @@ impl SharedContext for SharedValidator {
         ptr: *const u8,
         type_id: TypeId,
     ) -> Result<bool, Self::Error> {
-        if let Some(previous_type_id) = self.shared.get(&ptr) {
-            if previous_type_id != &type_id {
-                Err(SharedError::TypeMismatch {
-                    previous: *previous_type_id,
-                    current: type_id,
-                })
-            } else {
-                Ok(false)
+        use std::collections::hash_map::Entry;
+
+        match self.shared.entry(ptr) {
+            Entry::Occupied(previous_type_entry) => {
+                let previous_type_id = previous_type_entry.get();
+                if previous_type_id != &type_id {
+                    Err(SharedError::TypeMismatch {
+                        previous: *previous_type_id,
+                        current: type_id,
+                    })
+                } else {
+                    Ok(false)
+                }
             }
-        } else {
-            self.shared.insert(ptr, type_id);
-            Ok(true)
+            Entry::Vacant(ent) => {
+                ent.insert(type_id);
+                Ok(true)
+            }
         }
     }
 }
