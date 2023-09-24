@@ -1,6 +1,8 @@
 use proc_macro2::{Literal, Punct, Spacing, Span, TokenStream};
 use quote::{quote, ToTokens, TokenStreamExt};
-use syn::{spanned::Spanned, Error, Lit, LitInt, Meta, NestedMeta};
+use syn::{
+    meta::ParseNestedMeta, parenthesized, spanned::Spanned, Error, LitInt,
+};
 
 #[derive(Clone, Copy)]
 pub enum IntRepr {
@@ -163,82 +165,57 @@ impl Repr {
         }
     }
 
-    pub fn parse_args<'a>(
+    pub fn parse_list_meta(
         &mut self,
-        args: impl Iterator<Item = &'a NestedMeta>,
+        meta: ParseNestedMeta<'_>,
     ) -> Result<(), Error> {
-        for arg in args {
-            if let NestedMeta::Meta(meta) = arg {
-                match meta {
-                    Meta::Path(path) => {
-                        if path.is_ident("packed") {
-                            self.try_set_modifier(Modifier::Packed, path)?;
-                        } else {
-                            let parsed_repr = if path.is_ident("transparent") {
-                                BaseRepr::Transparent
-                            } else if path.is_ident("C") {
-                                BaseRepr::C
-                            } else if path.is_ident("i8") {
-                                BaseRepr::Int(IntRepr::I8)
-                            } else if path.is_ident("i16") {
-                                BaseRepr::Int(IntRepr::I16)
-                            } else if path.is_ident("i32") {
-                                BaseRepr::Int(IntRepr::I32)
-                            } else if path.is_ident("i64") {
-                                BaseRepr::Int(IntRepr::I64)
-                            } else if path.is_ident("i128") {
-                                BaseRepr::Int(IntRepr::I128)
-                            } else if path.is_ident("u8") {
-                                BaseRepr::Int(IntRepr::U8)
-                            } else if path.is_ident("u16") {
-                                BaseRepr::Int(IntRepr::U16)
-                            } else if path.is_ident("u32") {
-                                BaseRepr::Int(IntRepr::U32)
-                            } else if path.is_ident("u64") {
-                                BaseRepr::Int(IntRepr::U64)
-                            } else if path.is_ident("u128") {
-                                BaseRepr::Int(IntRepr::U128)
-                            } else {
-                                return Err(Error::new_spanned(
-                                    path,
-                                    "invalid repr, available reprs are transparent, C, i* and u*",
-                                ));
-                            };
+        if meta.path.is_ident("packed") {
+            return self.try_set_modifier(Modifier::Packed, meta.path);
+        } else if meta.path.is_ident("align") {
+            let content;
+            parenthesized!(content in meta.input);
+            let alignment = content.parse()?;
 
-                            self.try_set_base_repr(parsed_repr, path)?;
-                        }
-                    }
-                    Meta::List(list) => {
-                        if list.path.is_ident("align") {
-                            if list.nested.len() != 1 {
-                                return Err(Error::new_spanned(
-                                    list,
-                                    "missing arguments to align",
-                                ));
-                            } else if let Some(NestedMeta::Lit(Lit::Int(
-                                alignment,
-                            ))) = list.nested.first()
-                            {
-                                self.try_set_modifier(
-                                    Modifier::Align(alignment.clone()),
-                                    alignment,
-                                )?;
-                            }
-                        }
-                    }
-                    _ => {
-                        return Err(Error::new_spanned(
-                            meta,
-                            "invalid repr argument",
-                        ))
-                    }
-                }
-            } else {
-                return Err(Error::new_spanned(arg, "invalid repr argument"));
+            if !content.is_empty() {
+                return Err(content.error("align requires only one argument"));
             }
+
+            return self
+                .try_set_modifier(Modifier::Align(alignment), meta.path);
         }
 
-        Ok(())
+        let parsed_repr = if meta.path.is_ident("transparent") {
+            BaseRepr::Transparent
+        } else if meta.path.is_ident("C") {
+            BaseRepr::C
+        } else if meta.path.is_ident("i8") {
+            BaseRepr::Int(IntRepr::I8)
+        } else if meta.path.is_ident("i16") {
+            BaseRepr::Int(IntRepr::I16)
+        } else if meta.path.is_ident("i32") {
+            BaseRepr::Int(IntRepr::I32)
+        } else if meta.path.is_ident("i64") {
+            BaseRepr::Int(IntRepr::I64)
+        } else if meta.path.is_ident("i128") {
+            BaseRepr::Int(IntRepr::I128)
+        } else if meta.path.is_ident("u8") {
+            BaseRepr::Int(IntRepr::U8)
+        } else if meta.path.is_ident("u16") {
+            BaseRepr::Int(IntRepr::U16)
+        } else if meta.path.is_ident("u32") {
+            BaseRepr::Int(IntRepr::U32)
+        } else if meta.path.is_ident("u64") {
+            BaseRepr::Int(IntRepr::U64)
+        } else if meta.path.is_ident("u128") {
+            BaseRepr::Int(IntRepr::U128)
+        } else {
+            let msg =
+                "invalid repr, available reprs are transparent, C, i* and u*";
+
+            return Err(Error::new_spanned(meta.path, msg));
+        };
+
+        self.try_set_base_repr(parsed_repr, meta.path)
     }
 }
 

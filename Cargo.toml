@@ -31,5 +31,5 @@ quote = "1.0"
 rend = { version = "0.5", git = "https://github.com/rkyv/rend", branch = "master", default-features = false }
 rkyv_derive = { version = "=0.8.0", path = "rkyv_derive" }
 seahash = "4.0"
-syn = "1.0"
+syn = "2.0"
 wasm-bindgen-test = "0.3"
