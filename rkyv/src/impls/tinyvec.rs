@@ -3,7 +3,7 @@ use crate::{
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Fallible, Serialize,
 };
-#[cfg(feature = "tinyvec_alloc")]
+#[cfg(all(feature = "tinyvec", feature = "alloc"))]
 use tinyvec::TinyVec;
 use tinyvec::{Array, ArrayVec, SliceVec};
 
@@ -93,7 +93,7 @@ impl<'s, T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> Serialize<S>
 
 // TinyVec
 
-#[cfg(feature = "tinyvec_alloc")]
+#[cfg(all(feature = "tinyvec", feature = "alloc"))]
 impl<A: Array> Archive for TinyVec<A>
 where
     A::Item: Archive,
@@ -112,7 +112,7 @@ where
     }
 }
 
-#[cfg(feature = "tinyvec_alloc")]
+#[cfg(all(feature = "tinyvec", feature = "alloc"))]
 impl<A: Array, S: ScratchSpace + Serializer + ?Sized> Serialize<S>
     for TinyVec<A>
 where
@@ -127,7 +127,7 @@ where
     }
 }
 
-#[cfg(feature = "tinyvec_alloc")]
+#[cfg(all(feature = "tinyvec", feature = "alloc"))]
 impl<A: Array, D: Fallible + ?Sized> Deserialize<TinyVec<A>, D>
     for ArchivedVec<Archived<A::Item>>
 where
@@ -191,7 +191,7 @@ mod tests {
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
     }
 
-    #[cfg(feature = "tinyvec_alloc")]
+    #[cfg(all(feature = "tinyvec", feature = "alloc"))]
     #[test]
     fn tiny_vec() {
         use crate::ser::serializers::AllocSerializer;
