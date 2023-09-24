@@ -237,7 +237,7 @@ where
         field: &ArchivedVec<Entry<K::Archived, V::Archived>>,
         deserializer: &mut D,
     ) -> Result<HashMap<K, V>, D::Error> {
-        let mut result = HashMap::new();
+        let mut result = HashMap::with_capacity(field.len());
         for entry in field.iter() {
             result.insert(
                 entry.key.deserialize(deserializer)?,
@@ -282,7 +282,7 @@ where
         field: &ArchivedVec<T::Archived>,
         deserializer: &mut D,
     ) -> Result<HashSet<T>, D::Error> {
-        let mut result = HashSet::new();
+        let mut result = HashSet::with_capacity(field.len());
         for key in field.iter() {
             result.insert(key.deserialize(deserializer)?);
         }
