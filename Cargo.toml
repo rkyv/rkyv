@@ -24,7 +24,7 @@ repository = "https://github.com/rkyv/rkyv"
 
 [workspace.dependencies]
 bytecheck = { version = "0.7", default-features = false }
-hashbrown = "0.12"
+hashbrown = "0.14"
 proc-macro2 = "1.0"
 ptr_meta = { version = "0.2", default-features = false }
 quote = "1.0"
