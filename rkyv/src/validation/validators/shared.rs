@@ -69,6 +69,14 @@ impl SharedValidator {
             shared: HashMap::new(),
         }
     }
+
+    /// Shared memory validator with specific capacity.
+    #[inline]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            shared: HashMap::with_capacity(capacity),
+        }
+    }
 }
 
 impl Default for SharedValidator {
