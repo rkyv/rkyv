@@ -36,11 +36,19 @@ pub struct Unify {
 }
 
 impl Unify {
-    /// Wraps the given deserializer and adds shared memory support.
+    /// Creates a new shared pointer unifier.
     #[inline]
     pub fn new() -> Self {
         Self {
             shared_pointers: hash_map::HashMap::new(),
+        }
+    }
+
+    /// Creates a new shared pointer unifier with initial capacity.
+    #[inline]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            shared_pointers: hash_map::HashMap::with_capacity(capacity),
         }
     }
 }

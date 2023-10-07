@@ -24,6 +24,15 @@ impl DefaultValidator {
             shared: SharedValidator::new(),
         }
     }
+
+    /// Create a new validator from a byte range with specific capacity.
+    #[inline]
+    pub fn with_capacity(bytes: &[u8], capacity: usize) -> Self {
+        Self {
+            archive: ArchiveValidator::new(bytes),
+            shared: SharedValidator::with_capacity(capacity),
+        }
+    }
 }
 
 unsafe impl<E> ArchiveContext<E> for DefaultValidator

@@ -33,11 +33,19 @@ pub struct Unify {
 }
 
 impl Unify {
-    /// Creates a new shared registry map.
+    /// Creates a new shared pointer unifier.
     #[inline]
     pub fn new() -> Self {
         Self {
             shared_address_to_pos: hash_map::HashMap::new(),
+        }
+    }
+
+    /// Creates a new shared pointer unifier with initial capacity.
+    #[inline]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self {
+            shared_address_to_pos: hash_map::HashMap::with_capacity(capacity),
         }
     }
 }
