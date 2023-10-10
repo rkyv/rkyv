@@ -43,7 +43,7 @@ fn check_alignment<T>(ptr: *const u8) {
         concat!(
             "unaligned buffer, expected alignment {} but found alignment {}\n",
             "help: rkyv requires byte buffers to be aligned to access the data inside.\n",
-            "      Using an ALignedVec or manually aligning your data with #[align(...)]\n",
+            "      Using an AlignedVec or manually aligning your data with #[align(...)]\n",
             "      may resolve this issue.",
         ),
         expect_align,
