@@ -1,7 +1,7 @@
 use crate::{
     collections::btree_set::{ArchivedBTreeSet, BTreeSetResolver},
     ser::Serializer,
-    Archive, Deserialize, Fallible, Serialize,
+    Archive, Deserialize, Serialize,
 };
 #[cfg(not(feature = "std"))]
 use alloc::collections::BTreeSet;
@@ -31,7 +31,7 @@ where
     }
 }
 
-impl<K: Serialize<S> + Ord, S: Serializer + ?Sized> Serialize<S> for BTreeSet<K>
+impl<K: Serialize<S, E> + Ord, S: Serializer<E> + ?Sized, E> Serialize<S, E> for BTreeSet<K>
 where
     K::Archived: Ord,
 {
@@ -39,7 +39,7 @@ where
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         unsafe {
             ArchivedBTreeSet::serialize_from_reverse_iter(
                 self.iter().rev(),
@@ -49,17 +49,17 @@ where
     }
 }
 
-impl<K, D> Deserialize<BTreeSet<K>, D> for ArchivedBTreeSet<K::Archived>
+impl<K, D, E> Deserialize<BTreeSet<K>, D, E> for ArchivedBTreeSet<K::Archived>
 where
     K: Archive + Ord,
-    K::Archived: Deserialize<K, D> + Ord,
-    D: Fallible + ?Sized,
+    K::Archived: Deserialize<K, D, E> + Ord,
+    D: ?Sized,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<BTreeSet<K>, D::Error> {
+    ) -> Result<BTreeSet<K>, E> {
         let mut result = BTreeSet::new();
         for k in self.iter() {
             result.insert(k.deserialize(deserializer)?);

@@ -7,7 +7,7 @@ use core::{
 
 /// An archived [`Range`](::core::ops::Range).
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedRange<T> {
     /// The lower bound of the range (inclusive).
@@ -64,7 +64,7 @@ impl<T> RangeBounds<T> for ArchivedRange<T> {
 
 /// An archived [`RangeInclusive`](::core::ops::RangeInclusive).
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedRangeInclusive<T> {
     /// The lower bound of the range (inclusive).
@@ -118,7 +118,7 @@ impl<T> RangeBounds<T> for ArchivedRangeInclusive<T> {
 
 /// An archived [`RangeFrom`](::core::ops::RangeFrom).
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedRangeFrom<T> {
     /// The lower bound of the range (inclusive).
@@ -159,7 +159,7 @@ impl<T> RangeBounds<T> for ArchivedRangeFrom<T> {
 
 /// An archived [`RangeTo`](::core::ops::RangeTo).
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedRangeTo<T> {
     /// The upper bound of the range (exclusive).
@@ -200,7 +200,7 @@ impl<T> RangeBounds<T> for ArchivedRangeTo<T> {
 
 /// An archived [`RangeToInclusive`](::core::ops::RangeToInclusive).
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[cfg_attr(feature = "strict", repr(C))]
 pub struct ArchivedRangeToInclusive<T> {
     /// The upper bound of the range (inclusive).

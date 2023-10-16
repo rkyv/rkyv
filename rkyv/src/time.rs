@@ -5,6 +5,14 @@ use crate::primitive::{ArchivedU32, ArchivedU64};
 /// An archived [`Duration`](core::time::Duration).
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(
+    feature = "bytecheck",
+    derive(bytecheck::CheckBytes),
+    check_bytes(
+        bounds(__E: bytecheck::rancor::Error),
+        verify = verify::verify,
+    ),
+)]
 pub struct ArchivedDuration {
     secs: ArchivedU64,
     nanos: ArchivedU32,
@@ -112,48 +120,45 @@ impl ArchivedDuration {
     }
 }
 
-#[cfg(feature = "validation")]
-const _: () = {
-    use crate::Fallible;
-    use bytecheck::CheckBytes;
+#[cfg(feature = "bytecheck")]
+mod verify {
     use core::fmt;
+
+    use crate::time::ArchivedDuration;
 
     /// An error resulting from an invalid duration.
     ///
-    /// Durations must have a `secs` and `nanos` that when combined do not overflow a `u64`.
+    /// Durations must have a `nanos` field that is less than one billion.
     #[derive(Debug)]
-    pub struct DurationError;
+    pub struct DurationError {
+        nanos: u32,
+    }
 
     impl fmt::Display for DurationError {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "Duration error: nanos field is greater than 1 billion and overflows the seconds counter")
+            write!(
+                f,
+                "`nanos` field of `Duration` is greater than 1 billion: {}",
+                self.nanos,
+            )
         }
     }
 
     #[cfg(feature = "std")]
     impl std::error::Error for DurationError {}
 
-    impl<C: Fallible + ?Sized> CheckBytes<C> for ArchivedDuration {
-        type Error = DurationError;
-
-        #[inline]
-        unsafe fn check_bytes<'a>(
-            value: *const Self,
-            _: &mut C,
-        ) -> Result<&'a Self, Self::Error> {
-            // The fields of `ArchivedDuration` are always valid
-            let duration = &*value;
-            let secs = duration.secs;
-
-            if secs
-                .to_native()
-                .checked_add((duration.nanos / 1_000_000_000) as u64)
-                .is_none()
-            {
-                Err(DurationError)
-            } else {
-                Ok(duration)
-            }
+    #[inline]
+    pub fn verify<C: ?Sized, E: bytecheck::rancor::Error>(
+        value: &ArchivedDuration,
+        _: &mut C,
+    ) -> Result<(), E> {
+        let nanos = value.nanos.to_native();
+        if nanos > 1_000_000_000 {
+            Err(E::new(DurationError {
+                nanos,
+            }))
+        } else {
+            Ok(())
         }
     }
-};
+}

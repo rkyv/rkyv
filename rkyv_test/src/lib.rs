@@ -12,7 +12,7 @@ mod test_alloc;
 #[cfg(feature = "std")]
 mod test_std;
 pub mod util;
-#[cfg(feature = "validation")]
+#[cfg(feature = "bytecheck")]
 pub mod validation;
 
 #[cfg(test)]

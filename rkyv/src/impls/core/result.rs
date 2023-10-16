@@ -1,5 +1,5 @@
 use crate::{
-    result::ArchivedResult, Archive, Deserialize, Fallible, Serialize,
+    result::ArchivedResult, Archive, Deserialize, Serialize,
 };
 use core::{hint::unreachable_unchecked, ptr};
 
@@ -14,11 +14,11 @@ enum ArchivedResultTag {
 struct ArchivedResultVariantOk<T>(ArchivedResultTag, T);
 
 #[repr(C)]
-struct ArchivedResultVariantErr<E>(ArchivedResultTag, E);
+struct ArchivedResultVariantErr<U>(ArchivedResultTag, U);
 
-impl<T: Archive, E: Archive> Archive for Result<T, E> {
-    type Archived = ArchivedResult<T::Archived, E::Archived>;
-    type Resolver = Result<T::Resolver, E::Resolver>;
+impl<T: Archive, U: Archive> Archive for Result<T, U> {
+    type Archived = ArchivedResult<T::Archived, U::Archived>;
+    type Resolver = Result<T::Resolver, U::Resolver>;
 
     #[inline]
     unsafe fn resolve(
@@ -39,7 +39,7 @@ impl<T: Archive, E: Archive> Archive for Result<T, E> {
                 }
             }
             Err(resolver) => {
-                let out = out.cast::<ArchivedResultVariantErr<E::Archived>>();
+                let out = out.cast::<ArchivedResultVariantErr<U::Archived>>();
                 ptr::addr_of_mut!((*out).0).write(ArchivedResultTag::Err);
 
                 let (fp, fo) = out_field!(out.1);
@@ -52,14 +52,13 @@ impl<T: Archive, E: Archive> Archive for Result<T, E> {
     }
 }
 
-impl<T: Serialize<S>, E: Serialize<S>, S: Fallible + ?Sized> Serialize<S>
-    for Result<T, E>
+impl<T: Serialize<S, E>, U: Serialize<S, E>, S: ?Sized, E> Serialize<S, E> for Result<T, U>
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         Ok(match self.as_ref() {
             Ok(value) => Ok(value.serialize(serializer)?),
             Err(value) => Err(value.serialize(serializer)?),
@@ -67,20 +66,20 @@ impl<T: Serialize<S>, E: Serialize<S>, S: Fallible + ?Sized> Serialize<S>
     }
 }
 
-impl<T, E, D> Deserialize<Result<T, E>, D>
-    for ArchivedResult<T::Archived, E::Archived>
+impl<T, U, D, E> Deserialize<Result<T, U>, D, E>
+    for ArchivedResult<T::Archived, U::Archived>
 where
     T: Archive,
-    E: Archive,
-    D: Fallible + ?Sized,
-    T::Archived: Deserialize<T, D>,
-    E::Archived: Deserialize<E, D>,
+    U: Archive,
+    D: ?Sized,
+    T::Archived: Deserialize<T, D, E>,
+    U::Archived: Deserialize<U, D, E>,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<Result<T, E>, D::Error> {
+    ) -> Result<Result<T, U>, E> {
         match self {
             ArchivedResult::Ok(value) => {
                 Ok(Ok(value.deserialize(deserializer)?))

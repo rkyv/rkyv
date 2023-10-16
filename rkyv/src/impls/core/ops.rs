@@ -3,7 +3,7 @@ use crate::{
         ArchivedRange, ArchivedRangeFrom, ArchivedRangeInclusive,
         ArchivedRangeTo, ArchivedRangeToInclusive,
     },
-    Archive, Archived, Deserialize, Fallible, Serialize,
+    Archive, Archived, Deserialize, Serialize,
 };
 use core::ops::{
     Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
@@ -25,16 +25,16 @@ impl Archive for RangeFull {
     }
 }
 
-impl<S: Fallible + ?Sized> Serialize<S> for RangeFull {
+impl<S: ?Sized, E> Serialize<S, E> for RangeFull {
     #[inline]
-    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, E> {
         Ok(())
     }
 }
 
-impl<D: Fallible + ?Sized> Deserialize<RangeFull, D> for RangeFull {
+impl<D: ?Sized, E> Deserialize<RangeFull, D, E> for RangeFull {
     #[inline]
-    fn deserialize(&self, _: &mut D) -> Result<Self, D::Error> {
+    fn deserialize(&self, _: &mut D) -> Result<Self, E> {
         Ok(RangeFull)
     }
 }
@@ -59,12 +59,12 @@ impl<T: Archive> Archive for Range<T> {
     }
 }
 
-impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Range<T> {
+impl<T: Serialize<S, E>, S: ?Sized, E> Serialize<S, E> for Range<T> {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         Ok(Range {
             start: self.start.serialize(serializer)?,
             end: self.end.serialize(serializer)?,
@@ -72,13 +72,13 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Range<T> {
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<Range<T>, D>
+impl<T: Archive, D: ?Sized, E> Deserialize<Range<T>, D, E>
     for Archived<Range<T>>
 where
-    T::Archived: Deserialize<T, D>,
+    T::Archived: Deserialize<T, D, E>,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<Range<T>, D::Error> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<Range<T>, E> {
         Ok(Range {
             start: self.start.deserialize(deserializer)?,
             end: self.end.deserialize(deserializer)?,
@@ -113,12 +113,12 @@ impl<T: Archive> Archive for RangeInclusive<T> {
     }
 }
 
-impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeInclusive<T> {
+impl<T: Serialize<S, E>, S: ?Sized, E> Serialize<S, E> for RangeInclusive<T> {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         Ok(Range {
             start: self.start().serialize(serializer)?,
             end: self.end().serialize(serializer)?,
@@ -126,17 +126,17 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeInclusive<T> {
     }
 }
 
-impl<T, D> Deserialize<RangeInclusive<T>, D> for Archived<RangeInclusive<T>>
+impl<T, D, E> Deserialize<RangeInclusive<T>, D, E> for Archived<RangeInclusive<T>>
 where
     T: Archive,
-    T::Archived: Deserialize<T, D>,
-    D: Fallible + ?Sized,
+    T::Archived: Deserialize<T, D, E>,
+    D: ?Sized,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<RangeInclusive<T>, D::Error> {
+    ) -> Result<RangeInclusive<T>, E> {
         Ok(RangeInclusive::new(
             self.start.deserialize(deserializer)?,
             self.end.deserialize(deserializer)?,
@@ -171,28 +171,29 @@ impl<T: Archive> Archive for RangeFrom<T> {
     }
 }
 
-impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeFrom<T> {
+impl<T: Serialize<S, E>, S: ?Sized, E> Serialize<S, E> for RangeFrom<T> {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         Ok(RangeFrom {
             start: self.start.serialize(serializer)?,
         })
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<RangeFrom<T>, D>
-    for Archived<RangeFrom<T>>
+impl<T, D, E> Deserialize<RangeFrom<T>, D, E> for Archived<RangeFrom<T>>
 where
-    T::Archived: Deserialize<T, D>,
+    T: Archive,
+    D: ?Sized,
+    T::Archived: Deserialize<T, D, E>,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<RangeFrom<T>, D::Error> {
+    ) -> Result<RangeFrom<T>, E> {
         Ok(RangeFrom {
             start: self.start.deserialize(deserializer)?,
         })
@@ -224,28 +225,29 @@ impl<T: Archive> Archive for RangeTo<T> {
     }
 }
 
-impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeTo<T> {
+impl<T: Serialize<S, E>, S: ?Sized, E> Serialize<S, E> for RangeTo<T> {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         Ok(RangeTo {
             end: self.end.serialize(serializer)?,
         })
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<RangeTo<T>, D>
-    for Archived<RangeTo<T>>
+impl<T, D, E> Deserialize<RangeTo<T>, D, E> for Archived<RangeTo<T>>
 where
-    T::Archived: Deserialize<T, D>,
+    T: Archive,
+    D: ?Sized,
+    T::Archived: Deserialize<T, D, E>,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<RangeTo<T>, D::Error> {
+    ) -> Result<RangeTo<T>, E> {
         Ok(RangeTo {
             end: self.end.deserialize(deserializer)?,
         })
@@ -277,31 +279,29 @@ impl<T: Archive> Archive for RangeToInclusive<T> {
     }
 }
 
-impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S>
-    for RangeToInclusive<T>
-{
+impl<T: Serialize<S, E>, S: ?Sized, E> Serialize<S, E> for RangeToInclusive<T> {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         Ok(RangeToInclusive {
             end: self.end.serialize(serializer)?,
         })
     }
 }
 
-impl<T, D> Deserialize<RangeToInclusive<T>, D> for Archived<RangeToInclusive<T>>
+impl<T, D, E> Deserialize<RangeToInclusive<T>, D, E> for Archived<RangeToInclusive<T>>
 where
     T: Archive,
-    T::Archived: Deserialize<T, D>,
-    D: Fallible + ?Sized,
+    T::Archived: Deserialize<T, D, E>,
+    D: ?Sized,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<RangeToInclusive<T>, D::Error> {
+    ) -> Result<RangeToInclusive<T>, E> {
         Ok(RangeToInclusive {
             end: self.end.deserialize(deserializer)?,
         })

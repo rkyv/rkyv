@@ -1,7 +1,7 @@
 use crate::{
     collections::hash_map::{ArchivedHashMap, HashMapResolver},
     ser::{ScratchSpace, Serializer},
-    Archive, Deserialize, Fallible, Serialize,
+    Archive, Deserialize, Serialize,
 };
 use core::{
     borrow::Borrow,
@@ -27,18 +27,18 @@ where
     }
 }
 
-impl<K, V, S, RandomState> Serialize<S> for HashMap<K, V, RandomState>
+impl<K, V, S, RandomState, E> Serialize<S, E> for HashMap<K, V, RandomState>
 where
-    K: Serialize<S> + Hash + Eq,
+    K: Serialize<S, E> + Hash + Eq,
     K::Archived: Hash + Eq,
-    V: Serialize<S>,
-    S: Serializer + ScratchSpace + ?Sized,
+    V: Serialize<S, E>,
+    S: Serializer<E> + ScratchSpace<E> + ?Sized,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         unsafe { ArchivedHashMap::serialize_from_iter(self.iter(), serializer) }
     }
 }
@@ -46,19 +46,20 @@ where
 impl<
         K: Archive + Hash + Eq,
         V: Archive,
-        D: Fallible + ?Sized,
+        D: ?Sized,
         S: Default + BuildHasher,
-    > Deserialize<HashMap<K, V, S>, D>
+        E,
+    > Deserialize<HashMap<K, V, S>, D, E>
     for ArchivedHashMap<K::Archived, V::Archived>
 where
-    K::Archived: Deserialize<K, D> + Hash + Eq,
-    V::Archived: Deserialize<V, D>,
+    K::Archived: Deserialize<K, D, E> + Hash + Eq,
+    V::Archived: Deserialize<V, D, E>,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<HashMap<K, V, S>, D::Error> {
+    ) -> Result<HashMap<K, V, S>, E> {
         let mut result =
             HashMap::with_capacity_and_hasher(self.len(), S::default());
         for (k, v) in self.iter() {
@@ -105,11 +106,12 @@ mod tests {
     use crate::{
         archived_root,
         ser::{serializers::AllocSerializer, Serializer},
-        Deserialize, Infallible,
+        Deserialize,
     };
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::string::String;
     use hashbrown::HashMap;
+    use rancor::Failure;
 
     #[test]
     fn index_map() {
@@ -133,11 +135,11 @@ mod tests {
         }
 
         let deserialized: HashMap<String, i32> =
-            archived.deserialize(&mut Infallible).unwrap();
+            archived.deserialize(&mut Failure).unwrap();
         assert_eq!(value, deserialized);
     }
 
-    #[cfg(feature = "validation")]
+    #[cfg(feature = "bytecheck")]
     #[test]
     fn validate_index_map() {
         use crate::check_archived_root;

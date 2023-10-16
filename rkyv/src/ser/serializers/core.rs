@@ -1,7 +1,6 @@
-use crate::{
-    ser::{ScratchSpace, Serializer},
-    Fallible,
-};
+use rancor::Error;
+
+use crate::ser::{ScratchSpace, Serializer};
 use core::{
     alloc::Layout,
     fmt,
@@ -116,25 +115,21 @@ impl<T: Default> Default for BufferSerializer<T> {
     }
 }
 
-impl<T> Fallible for BufferSerializer<T> {
-    type Error = BufferSerializerError;
-}
-
-impl<T: AsMut<[u8]>> Serializer for BufferSerializer<T> {
+impl<T: AsMut<[u8]>, E: Error> Serializer<E> for BufferSerializer<T> {
     #[inline]
     fn pos(&self) -> usize {
         self.pos
     }
 
-    fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         let end_pos = self.pos + bytes.len();
         let archive_len = self.inner.as_mut().len();
         if end_pos > archive_len {
-            Err(BufferSerializerError::Overflow {
+            Err(E::new(BufferSerializerError::Overflow {
                 pos: self.pos,
                 bytes_needed: bytes.len(),
                 archive_len,
-            })
+            }))
         } else {
             unsafe {
                 copy_nonoverlapping(
@@ -235,18 +230,16 @@ impl<T: Default> Default for BufferScratch<T> {
     }
 }
 
-impl<T> Fallible for BufferScratch<T> {
-    type Error = FixedSizeScratchError;
-}
-
-impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace
-    for BufferScratch<T>
+impl<T: DerefMut, E> ScratchSpace<E> for BufferScratch<T>
+where
+    T::Target: AsMut<[u8]>,
+    E: Error,
 {
     #[inline]
     unsafe fn push_scratch(
         &mut self,
         layout: Layout,
-    ) -> Result<NonNull<[u8]>, Self::Error> {
+    ) -> Result<NonNull<[u8]>, E> {
         if self.ptr.is_none() {
             self.ptr = Some(NonNull::from(self.buffer.as_mut()));
         }
@@ -267,7 +260,7 @@ impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace
             self.pos += layout.size();
             Ok(result)
         } else {
-            Err(FixedSizeScratchError::OutOfScratch(layout))
+            Err(E::new(FixedSizeScratchError::OutOfScratch(layout)))
         }
     }
 
@@ -276,7 +269,7 @@ impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace
         &mut self,
         ptr: NonNull<u8>,
         layout: Layout,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), E> {
         let bytes = self.ptr.unwrap().as_ptr();
 
         let ptr = ptr.as_ptr();
@@ -288,14 +281,14 @@ impl<T: DerefMut<Target = U>, U: AsMut<[u8]>> ScratchSpace
                 self.pos = next_pos;
                 Ok(())
             } else {
-                Err(FixedSizeScratchError::NotPoppedInReverseOrder {
+                Err(E::new(FixedSizeScratchError::NotPoppedInReverseOrder {
                     pos: self.pos,
                     next_pos,
                     next_size: layout.size(),
-                })
+                }))
             }
         } else {
-            Err(FixedSizeScratchError::UnownedAllocation)
+            Err(E::new(FixedSizeScratchError::UnownedAllocation))
         }
     }
 }
@@ -323,16 +316,12 @@ impl<M: Default, F: Default> Default for FallbackScratch<M, F> {
     }
 }
 
-impl<M, F: Fallible> Fallible for FallbackScratch<M, F> {
-    type Error = F::Error;
-}
-
-impl<M: ScratchSpace, F: ScratchSpace> ScratchSpace for FallbackScratch<M, F> {
+impl<M: ScratchSpace<E>, F: ScratchSpace<E>, E> ScratchSpace<E> for FallbackScratch<M, F> {
     #[inline]
     unsafe fn push_scratch(
         &mut self,
         layout: Layout,
-    ) -> Result<NonNull<[u8]>, Self::Error> {
+    ) -> Result<NonNull<[u8]>, E> {
         self.main
             .push_scratch(layout)
             .or_else(|_| self.fallback.push_scratch(layout))
@@ -343,7 +332,7 @@ impl<M: ScratchSpace, F: ScratchSpace> ScratchSpace for FallbackScratch<M, F> {
         &mut self,
         ptr: NonNull<u8>,
         layout: Layout,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), E> {
         self.main
             .pop_scratch(ptr, layout)
             .or_else(|_| self.fallback.pop_scratch(ptr, layout))
@@ -404,16 +393,12 @@ impl<T> ScratchTracker<T> {
     }
 }
 
-impl<T: Fallible> Fallible for ScratchTracker<T> {
-    type Error = T::Error;
-}
-
-impl<T: ScratchSpace> ScratchSpace for ScratchTracker<T> {
+impl<T: ScratchSpace<E>, E> ScratchSpace<E> for ScratchTracker<T> {
     #[inline]
     unsafe fn push_scratch(
         &mut self,
         layout: Layout,
-    ) -> Result<NonNull<[u8]>, Self::Error> {
+    ) -> Result<NonNull<[u8]>, E> {
         let result = self.inner.push_scratch(layout)?;
 
         self.bytes_allocated += layout.size();
@@ -432,7 +417,7 @@ impl<T: ScratchSpace> ScratchSpace for ScratchTracker<T> {
         &mut self,
         ptr: NonNull<u8>,
         layout: Layout,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), E> {
         self.inner.pop_scratch(ptr, layout)?;
 
         self.bytes_allocated -= layout.size();

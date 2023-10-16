@@ -23,71 +23,71 @@
 - Regular tests:
   - [ ] `cargo test --no-default-features --features "size_32"`
   - [ ] `cargo test --no-default-features --features "size_32 alloc"`
-  - [ ] `cargo test --no-default-features --features "size_32 validation"`
+  - [ ] `cargo test --no-default-features --features "size_32 bytecheck"`
   - [ ] `cargo test --no-default-features --features "size_32 std"`
-  - [ ] `cargo test --no-default-features --features "size_32 std validation"`
-  - [ ] `cargo test --no-default-features --features "size_32 std validation strict"`
-  - [ ] `cargo test --no-default-features --features "size_16 archive_le std validation"`
-  - [ ] `cargo test --no-default-features --features "size_32 archive_le std validation"`
-  - [ ] `cargo test --no-default-features --features "size_64 archive_le std validation"`
-  - [ ] `cargo test --no-default-features --features "size_16 archive_be std validation"`
-  - [ ] `cargo test --no-default-features --features "size_32 archive_be std validation"`
-  - [ ] `cargo test --no-default-features --features "size_64 archive_be std validation"`
+  - [ ] `cargo test --no-default-features --features "size_32 std bytecheck"`
+  - [ ] `cargo test --no-default-features --features "size_32 std bytecheck strict"`
+  - [ ] `cargo test --no-default-features --features "size_16 archive_le std bytecheck"`
+  - [ ] `cargo test --no-default-features --features "size_32 archive_le std bytecheck"`
+  - [ ] `cargo test --no-default-features --features "size_64 archive_le std bytecheck"`
+  - [ ] `cargo test --no-default-features --features "size_16 archive_be std bytecheck"`
+  - [ ] `cargo test --no-default-features --features "size_32 archive_be std bytecheck"`
+  - [ ] `cargo test --no-default-features --features "size_64 archive_be std bytecheck"`
   - [ ] `cargo +nightly test --no-default-features --features "size_32 copy"`
   - [ ] `cargo +nightly test --no-default-features --features "size_32 copy alloc"`
-  - [ ] `cargo +nightly test --no-default-features --features "size_32 copy alloc validation"`
+  - [ ] `cargo +nightly test --no-default-features --features "size_32 copy alloc bytecheck"`
   - [ ] `cargo +nightly test --no-default-features --features "size_32 copy std"`
-  - [ ] `cargo +nightly test --no-default-features --features "size_32 copy std validation"`
-  - [ ] `cargo +nightly test --no-default-features --features "size_32 copy std validation strict"`
+  - [ ] `cargo +nightly test --no-default-features --features "size_32 copy std bytecheck"`
+  - [ ] `cargo +nightly test --no-default-features --features "size_32 copy std bytecheck strict"`
 - Release tests:
   - [ ] `cargo test --release --no-default-features --features "size_32"`
   - [ ] `cargo test --release --no-default-features --features "size_32 alloc"`
-  - [ ] `cargo test --release --no-default-features --features "size_32 validation"`
+  - [ ] `cargo test --release --no-default-features --features "size_32 bytecheck"`
   - [ ] `cargo test --release --no-default-features --features "size_32 std"`
-  - [ ] `cargo test --release --no-default-features --features "size_32 std validation"`
-  - [ ] `cargo test --release --no-default-features --features "size_32 std validation strict"`
-  - [ ] `cargo test --release --no-default-features --features "size_16 archive_le std validation"`
-  - [ ] `cargo test --release --no-default-features --features "size_32 archive_le std validation"`
-  - [ ] `cargo test --release --no-default-features --features "size_64 archive_le std validation"`
-  - [ ] `cargo test --release --no-default-features --features "size_16 archive_be std validation"`
-  - [ ] `cargo test --release --no-default-features --features "size_32 archive_be std validation"`
-  - [ ] `cargo test --release --no-default-features --features "size_64 archive_be std validation"`
+  - [ ] `cargo test --release --no-default-features --features "size_32 std bytecheck"`
+  - [ ] `cargo test --release --no-default-features --features "size_32 std bytecheck strict"`
+  - [ ] `cargo test --release --no-default-features --features "size_16 archive_le std bytecheck"`
+  - [ ] `cargo test --release --no-default-features --features "size_32 archive_le std bytecheck"`
+  - [ ] `cargo test --release --no-default-features --features "size_64 archive_le std bytecheck"`
+  - [ ] `cargo test --release --no-default-features --features "size_16 archive_be std bytecheck"`
+  - [ ] `cargo test --release --no-default-features --features "size_32 archive_be std bytecheck"`
+  - [ ] `cargo test --release --no-default-features --features "size_64 archive_be std bytecheck"`
   - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy"`
   - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy alloc"`
-  - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy alloc validation"`
+  - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy alloc bytecheck"`
   - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy std"`
-  - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy std validation"`
-  - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy std validation strict"`
+  - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy std bytecheck"`
+  - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy std bytecheck strict"`
 - Miri tests:
   - [ ] `cargo +nightly miri test --no-default-features --features "size_32"`
   - [ ] `cargo +nightly miri test --no-default-features --features "size_32 alloc"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 validation"`
+  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 bytecheck"`
   - [ ] `cargo +nightly miri test --no-default-features --features "size_32 std"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 std validation"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 std validation strict"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_16 archive_le std validation"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 archive_le std validation"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_64 archive_le std validation"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_16 archive_be std validation"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 archive_be std validation"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_64 archive_be std validation"`
+  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 std bytecheck"`
+  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 std bytecheck strict"`
+  - [ ] `cargo +nightly miri test --no-default-features --features "size_16 archive_le std bytecheck"`
+  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 archive_le std bytecheck"`
+  - [ ] `cargo +nightly miri test --no-default-features --features "size_64 archive_le std bytecheck"`
+  - [ ] `cargo +nightly miri test --no-default-features --features "size_16 archive_be std bytecheck"`
+  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 archive_be std bytecheck"`
+  - [ ] `cargo +nightly miri test --no-default-features --features "size_64 archive_be std bytecheck"`
   - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy"`
   - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy alloc"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy alloc validation"`
+  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy alloc bytecheck"`
   - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy std"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy std validation"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy std validation strict"`
+  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy std bytecheck"`
+  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy std bytecheck strict"`
 - Wasm-pack tests:
   - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32"`
   - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 alloc"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 validation"`
+  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 bytecheck"`
   - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 std"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 std validation"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 std validation strict"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_le std validation"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_le std validation"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_be std validation"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_be std validation"`
+  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 std bytecheck"`
+  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 std bytecheck strict"`
+  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_le std bytecheck"`
+  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_le std bytecheck"`
+  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_be std bytecheck"`
+  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_be std bytecheck"`
 
 # Copy-paste version
 
@@ -100,66 +100,66 @@ $env:MIRIFLAGS="-Zmiri-disable-stacked-borrows -Zmiri-tree-borrows"
 ```sh
 cargo test --no-default-features --features "size_32" >> results.txt
 cargo test --no-default-features --features "size_32 alloc" >> results.txt
-cargo test --no-default-features --features "size_32 validation" >> results.txt
+cargo test --no-default-features --features "size_32 bytecheck" >> results.txt
 cargo test --no-default-features --features "size_32 std" >> results.txt
-cargo test --no-default-features --features "size_32 std validation" >> results.txt
-cargo test --no-default-features --features "size_32 std validation strict" >> results.txt
-cargo test --no-default-features --features "size_16 archive_le std validation" >> results.txt
-cargo test --no-default-features --features "size_32 archive_le std validation" >> results.txt
-cargo test --no-default-features --features "size_64 archive_le std validation" >> results.txt
-cargo test --no-default-features --features "size_16 archive_be std validation" >> results.txt
-cargo test --no-default-features --features "size_32 archive_be std validation" >> results.txt
-cargo test --no-default-features --features "size_64 archive_be std validation" >> results.txt
+cargo test --no-default-features --features "size_32 std bytecheck" >> results.txt
+cargo test --no-default-features --features "size_32 std bytecheck strict" >> results.txt
+cargo test --no-default-features --features "size_16 archive_le std bytecheck" >> results.txt
+cargo test --no-default-features --features "size_32 archive_le std bytecheck" >> results.txt
+cargo test --no-default-features --features "size_64 archive_le std bytecheck" >> results.txt
+cargo test --no-default-features --features "size_16 archive_be std bytecheck" >> results.txt
+cargo test --no-default-features --features "size_32 archive_be std bytecheck" >> results.txt
+cargo test --no-default-features --features "size_64 archive_be std bytecheck" >> results.txt
 cargo +nightly test --no-default-features --features "size_32 copy" >> results.txt
 cargo +nightly test --no-default-features --features "size_32 copy alloc" >> results.txt
-cargo +nightly test --no-default-features --features "size_32 copy alloc validation" >> results.txt
+cargo +nightly test --no-default-features --features "size_32 copy alloc bytecheck" >> results.txt
 cargo +nightly test --no-default-features --features "size_32 copy std" >> results.txt
-cargo +nightly test --no-default-features --features "size_32 copy std validation" >> results.txt
-cargo +nightly test --no-default-features --features "size_32 copy std validation strict" >> results.txt
+cargo +nightly test --no-default-features --features "size_32 copy std bytecheck" >> results.txt
+cargo +nightly test --no-default-features --features "size_32 copy std bytecheck strict" >> results.txt
 cargo test --release --no-default-features --features "size_32" >> results.txt
 cargo test --release --no-default-features --features "size_32 alloc" >> results.txt
-cargo test --release --no-default-features --features "size_32 validation" >> results.txt
+cargo test --release --no-default-features --features "size_32 bytecheck" >> results.txt
 cargo test --release --no-default-features --features "size_32 std" >> results.txt
-cargo test --release --no-default-features --features "size_32 std validation" >> results.txt
-cargo test --release --no-default-features --features "size_32 std validation strict" >> results.txt
-cargo test --release --no-default-features --features "size_16 archive_le std validation" >> results.txt
-cargo test --release --no-default-features --features "size_32 archive_le std validation" >> results.txt
-cargo test --release --no-default-features --features "size_64 archive_le std validation" >> results.txt
-cargo test --release --no-default-features --features "size_16 archive_be std validation" >> results.txt
-cargo test --release --no-default-features --features "size_32 archive_be std validation" >> results.txt
-cargo test --release --no-default-features --features "size_64 archive_be std validation" >> results.txt
+cargo test --release --no-default-features --features "size_32 std bytecheck" >> results.txt
+cargo test --release --no-default-features --features "size_32 std bytecheck strict" >> results.txt
+cargo test --release --no-default-features --features "size_16 archive_le std bytecheck" >> results.txt
+cargo test --release --no-default-features --features "size_32 archive_le std bytecheck" >> results.txt
+cargo test --release --no-default-features --features "size_64 archive_le std bytecheck" >> results.txt
+cargo test --release --no-default-features --features "size_16 archive_be std bytecheck" >> results.txt
+cargo test --release --no-default-features --features "size_32 archive_be std bytecheck" >> results.txt
+cargo test --release --no-default-features --features "size_64 archive_be std bytecheck" >> results.txt
 cargo +nightly test --release --no-default-features --features "size_32 copy" >> results.txt
 cargo +nightly test --release --no-default-features --features "size_32 copy alloc" >> results.txt
-cargo +nightly test --release --no-default-features --features "size_32 copy alloc validation" >> results.txt
+cargo +nightly test --release --no-default-features --features "size_32 copy alloc bytecheck" >> results.txt
 cargo +nightly test --release --no-default-features --features "size_32 copy std" >> results.txt
-cargo +nightly test --release --no-default-features --features "size_32 copy std validation" >> results.txt
-cargo +nightly test --release --no-default-features --features "size_32 copy std validation strict" >> results.txt
+cargo +nightly test --release --no-default-features --features "size_32 copy std bytecheck" >> results.txt
+cargo +nightly test --release --no-default-features --features "size_32 copy std bytecheck strict" >> results.txt
 cargo +nightly miri test --no-default-features --features "size_32" >> results.txt
 cargo +nightly miri test --no-default-features --features "size_32 alloc" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 validation" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 bytecheck" >> results.txt
 cargo +nightly miri test --no-default-features --features "size_32 std" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 std validation" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 std validation strict" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_16 archive_le std validation" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 archive_le std validation" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_64 archive_le std validation" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_16 archive_be std validation" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 archive_be std validation" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_64 archive_be std validation" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 std bytecheck" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 std bytecheck strict" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_16 archive_le std bytecheck" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 archive_le std bytecheck" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_64 archive_le std bytecheck" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_16 archive_be std bytecheck" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 archive_be std bytecheck" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_64 archive_be std bytecheck" >> results.txt
 cargo +nightly miri test --no-default-features --features "size_32 copy" >> results.txt
 cargo +nightly miri test --no-default-features --features "size_32 copy alloc" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 copy alloc validation" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 copy alloc bytecheck" >> results.txt
 cargo +nightly miri test --no-default-features --features "size_32 copy std" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 copy std validation" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 copy std validation strict" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 copy std bytecheck" >> results.txt
+cargo +nightly miri test --no-default-features --features "size_32 copy std bytecheck strict" >> results.txt
 wasm-pack test --node -- --no-default-features --features "wasm size_32" >> results.txt
 wasm-pack test --node -- --no-default-features --features "wasm size_32 alloc" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_32 validation" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_32 bytecheck" >> results.txt
 wasm-pack test --node -- --no-default-features --features "wasm size_32 std" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_32 std validation" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_32 std validation strict" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_le std validation" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_le std validation" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_be std validation" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_be std validation" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_32 std bytecheck" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_32 std bytecheck strict" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_le std bytecheck" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_le std bytecheck" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_be std bytecheck" >> results.txt
+wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_be std bytecheck" >> results.txt
 ```

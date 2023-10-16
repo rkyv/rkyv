@@ -1,15 +1,13 @@
 //! Utilities for archived collections.
 
-#[cfg(feature = "validation")]
-pub mod validation;
-
-use crate::{Archive, Fallible, Serialize};
+use crate::{Archive, Serialize};
 
 /// A simple key-value pair.
 ///
 /// This is typically used by associative containers that store keys and values together.
 #[derive(Debug, Eq)]
 #[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 pub struct Entry<K, V> {
     /// The key of the pair.
     pub key: K,
@@ -36,14 +34,14 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
     }
 }
 
-impl<K: Serialize<S>, V: Serialize<S>, S: Fallible + ?Sized> Serialize<S>
+impl<K: Serialize<S, E>, V: Serialize<S, E>, S: ?Sized, E> Serialize<S, E>
     for Entry<&'_ K, &'_ V>
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         Ok((
             self.key.serialize(serializer)?,
             self.value.serialize(serializer)?,

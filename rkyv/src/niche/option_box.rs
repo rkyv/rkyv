@@ -134,13 +134,13 @@ where
 
     /// Serializes an `ArchivedOptionBox<T::Archived>` from an `Option<&T>`.
     #[inline]
-    pub fn serialize_from_option<U, S>(
+    pub fn serialize_from_option<U, S, E>(
         field: Option<&U>,
         serializer: &mut S,
-    ) -> Result<OptionBoxResolver<U::MetadataResolver>, S::Error>
+    ) -> Result<OptionBoxResolver<U::MetadataResolver>, E>
     where
-        U: SerializeUnsized<S, Archived = T> + ?Sized,
-        S: Serializer + ?Sized,
+        U: SerializeUnsized<S, E, Archived = T> + ?Sized,
+        S: Serializer<E> + ?Sized,
     {
         if let Some(value) = field {
             Ok(OptionBoxResolver::Some(ArchivedBox::serialize_from_ref(

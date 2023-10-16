@@ -1,8 +1,5 @@
 //! Archived versions of shared pointers.
 
-#[cfg(feature = "validation")]
-pub mod validation;
-
 use crate::{
     ser::{Serializer, SharedSerializeRegistry},
     ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr, SerializeUnsized,
@@ -18,13 +15,29 @@ use core::{
 /// Because there may be many varieties of shared pointers and they may not be used together, the
 /// flavor helps check that memory is not being shared incorrectly during validation.
 #[repr(transparent)]
-pub struct ArchivedRc<T: ArchivePointee + ?Sized, F>(RelPtr<T>, PhantomData<F>);
+#[cfg_attr(
+    feature = "bytecheck",
+    derive(bytecheck::CheckBytes),
+    check_bytes(
+        bounds(
+            T: bytecheck::CheckBytes<__C, __E> + crate::validation::LayoutRaw + 'static,
+            __C: crate::validation::ArchiveContext<__E> + crate::validation::SharedContext<__E>,
+            T::ArchivedMetadata: bytecheck::CheckBytes<__C, __E>,
+            __E: bytecheck::rancor::Error,
+        ),
+        verify = verify::verify,
+    ),
+)]
+pub struct ArchivedRc<T: ArchivePointee + ?Sized, F> {
+    ptr: RelPtr<T>,
+    _phantom: PhantomData<F>,
+}
 
 impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     /// Gets the value of the `ArchivedRc`.
     #[inline]
     pub fn get(&self) -> &T {
-        unsafe { &*self.0.as_ptr() }
+        unsafe { &*self.ptr.as_ptr() }
     }
 
     /// Gets the pinned mutable value of this `ArchivedRc`.
@@ -35,7 +48,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     /// of the returned borrow.
     #[inline]
     pub unsafe fn get_pin_mut_unchecked(self: Pin<&mut Self>) -> Pin<&mut T> {
-        self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr())
+        self.map_unchecked_mut(|s| &mut *s.ptr.as_ptr())
     }
 
     /// Resolves an archived `Rc` from a given reference.
@@ -51,7 +64,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
         resolver: RcResolver<MetadataResolver<U>>,
         out: *mut Self,
     ) {
-        let (fp, fo) = out_field!(out.0);
+        let (fp, fo) = out_field!(out.ptr);
         value.resolve_unsized(
             pos + fp,
             resolver.pos,
@@ -63,12 +76,13 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     /// Serializes an archived `Rc` from a given reference.
     #[inline]
     pub fn serialize_from_ref<
-        U: SerializeUnsized<S> + ?Sized,
-        S: Serializer + SharedSerializeRegistry + ?Sized,
+        U: SerializeUnsized<S, E> + ?Sized,
+        S: Serializer<E> + SharedSerializeRegistry<E> + ?Sized,
+        E,
     >(
         value: &U,
         serializer: &mut S,
-    ) -> Result<RcResolver<MetadataResolver<U>>, S::Error> {
+    ) -> Result<RcResolver<MetadataResolver<U>>, E> {
         let pos = serializer.serialize_shared(value)?;
 
         // The positions of serialized `Rc` values must be unique. If we didn't
@@ -164,7 +178,7 @@ where
 
 impl<T, F> fmt::Pointer for ArchivedRc<T, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Pointer::fmt(&self.0.base(), f)
+        fmt::Pointer::fmt(&self.ptr.base(), f)
     }
 }
 
@@ -178,6 +192,7 @@ pub struct RcResolver<T> {
 ///
 /// This is essentially just an optional [`ArchivedRc`].
 #[repr(u8)]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 pub enum ArchivedRcWeak<T: ArchivePointee + ?Sized, F> {
     /// A null weak pointer
     None,
@@ -245,13 +260,13 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
 
     /// Serializes an archived `Weak` from a given optional reference.
     #[inline]
-    pub fn serialize_from_ref<U, S>(
+    pub fn serialize_from_ref<U, S, E>(
         value: Option<&U>,
         serializer: &mut S,
-    ) -> Result<RcWeakResolver<MetadataResolver<U>>, S::Error>
+    ) -> Result<RcWeakResolver<MetadataResolver<U>>, E>
     where
-        U: SerializeUnsized<S, Archived = T> + ?Sized,
-        S: Serializer + SharedSerializeRegistry + ?Sized,
+        U: SerializeUnsized<S, E, Archived = T> + ?Sized,
+        S: Serializer<E> + SharedSerializeRegistry<E> + ?Sized,
     {
         Ok(match value {
             None => RcWeakResolver::None,
@@ -293,3 +308,45 @@ struct ArchivedRcWeakVariantSome<T: ArchivePointee + ?Sized, F>(
     ArchivedRcWeakTag,
     ArchivedRc<T, F>,
 );
+
+#[cfg(feature = "bytecheck")]
+mod verify {
+    use core::any::TypeId;
+
+    use bytecheck::{CheckBytes, rancor::Error};
+
+    use crate::{
+        validation::{ArchiveContext, ArchiveContextExt, LayoutRaw, SharedContext},
+        ArchivePointee, rc::ArchivedRc,
+    };
+
+    #[inline]
+    pub fn verify<T, F, C, E>(
+        value: &ArchivedRc<T, F>,
+        context: &mut C,
+    ) -> Result<(), E>
+    where
+        T: ArchivePointee + CheckBytes<C, E> + LayoutRaw + ?Sized + 'static,
+        C: ArchiveContext<E> + SharedContext<E> + ?Sized,
+        T::ArchivedMetadata: CheckBytes<C, E>,
+        E: Error,
+    {
+        let ptr = value.ptr.as_ptr_wrapping();
+        let type_id = TypeId::of::<ArchivedRc<T, F>>();
+
+        if context.register_shared_ptr(ptr as *const u8 as usize, type_id)? {
+            unsafe {
+                context.bounds_check_subtree_rel_ptr(&value.ptr)?;
+            }
+
+            let range = unsafe { context.push_prefix_subtree(ptr)? };
+            unsafe {
+                T::check_bytes(ptr, context)?;
+            }
+            unsafe {
+                context.pop_subtree_range(range)?;
+            }
+        }
+        Ok(())
+    }
+}

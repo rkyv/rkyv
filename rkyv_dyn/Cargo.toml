@@ -22,11 +22,11 @@ rkyv_dyn_derive = { version = "0.8.0", path = "../rkyv_dyn_derive" }
 rkyv_typename = { version = "0.8.0", path = "../rkyv_typename" }
 
 [features]
-default = ["strict", "validation"]
+default = ["strict", "bytecheck"]
 nightly = []
 strict = ["rkyv/strict"]
-validation = ["bytecheck", "rkyv/validation", "rkyv_dyn_derive/validation"]
+bytecheck = ["dep:bytecheck", "rkyv/bytecheck", "rkyv_dyn_derive/bytecheck"]
 vtable_cache = []
 
 [package.metadata.docs.rs]
-features = ["validation"]
+features = ["bytecheck"]

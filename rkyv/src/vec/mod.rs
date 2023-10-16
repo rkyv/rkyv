@@ -1,6 +1,6 @@
 //! An archived version of `Vec`.
 
-mod raw;
+// mod raw;
 
 use crate::{
     primitive::ArchivedUsize,
@@ -15,13 +15,25 @@ use core::{
     slice::SliceIndex,
 };
 
-pub use self::raw::*;
+// pub use self::raw::*;
 
 /// An archived [`Vec`].
 ///
 /// This uses a [`RelPtr`] to a `[T]` under the hood. Unlike
 /// [`ArchivedString`](crate::string::ArchivedString), it does not have an inline representation.
 #[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(
+    feature = "bytecheck",
+    derive(bytecheck::CheckBytes),
+    check_bytes(
+        bounds(
+            T: bytecheck::CheckBytes<__C, __E>,
+            __C: crate::validation::ArchiveContext<__E>,
+            __E: bytecheck::rancor::Error,
+        ),
+        verify = verify::verify,
+    ),
+)]
 pub struct ArchivedVec<T> {
     ptr: RelPtr<T>,
     len: ArchivedUsize,
@@ -31,7 +43,7 @@ impl<T> ArchivedVec<T> {
     /// Returns a pointer to the first element of the archived vec.
     #[inline]
     pub fn as_ptr(&self) -> *const T {
-        self.ptr.as_ptr()
+        unsafe { self.ptr.as_ptr().cast_const() }
     }
 
     /// Returns the number of elements in the archived vec.
@@ -57,7 +69,7 @@ impl<T> ArchivedVec<T> {
     pub fn pin_mut_slice(self: Pin<&mut Self>) -> Pin<&mut [T]> {
         unsafe {
             self.map_unchecked_mut(|s| {
-                core::slice::from_raw_parts_mut(s.ptr.as_mut_ptr(), s.len())
+                core::slice::from_raw_parts_mut(s.ptr.as_ptr(), s.len())
             })
         }
     }
@@ -115,16 +127,17 @@ impl<T> ArchivedVec<T> {
     /// Serializes an archived `Vec` from a given slice.
     #[inline]
     pub fn serialize_from_slice<
-        U: Serialize<S, Archived = T>,
-        S: Serializer + ?Sized,
+        U: Serialize<S, E, Archived = T>,
+        S: Serializer<E> + ?Sized,
+        E,
     >(
         slice: &[U],
         serializer: &mut S,
-    ) -> Result<VecResolver, S::Error>
+    ) -> Result<VecResolver, E>
     where
         // This bound is necessary only in no-alloc, no-std situations
         // SerializeUnsized is only implemented for U: Serialize<Resolver = ()> in that case
-        [U]: SerializeUnsized<S>,
+        [U]: SerializeUnsized<S, E>,
     {
         Ok(VecResolver {
             pos: slice.serialize_unsized(serializer)?,
@@ -140,13 +153,13 @@ impl<T> ArchivedVec<T> {
     /// situations where copying uninitialized bytes the output is acceptable, this function may be
     /// used with types that contain padding bytes.
     #[inline]
-    pub unsafe fn serialize_copy_from_slice<U, S>(
+    pub unsafe fn serialize_copy_from_slice<U, S, E>(
         slice: &[U],
         serializer: &mut S,
-    ) -> Result<VecResolver, S::Error>
+    ) -> Result<VecResolver, E>
     where
-        U: Serialize<S, Archived = T>,
-        S: Serializer + ?Sized,
+        U: Serialize<S, E, Archived = T>,
+        S: Serializer<E> + ?Sized,
     {
         use core::{mem::size_of, slice::from_raw_parts};
 
@@ -166,15 +179,15 @@ impl<T> ArchivedVec<T> {
     /// This method is unable to perform copy optimizations; prefer
     /// [`serialize_from_slice`](ArchivedVec::serialize_from_slice) when possible.
     #[inline]
-    pub fn serialize_from_iter<U, B, I, S>(
+    pub fn serialize_from_iter<U, I, S, E>(
         iter: I,
         serializer: &mut S,
-    ) -> Result<VecResolver, S::Error>
+    ) -> Result<VecResolver, E>
     where
-        U: Serialize<S, Archived = T>,
-        B: Borrow<U>,
-        I: ExactSizeIterator<Item = B>,
-        S: ScratchSpace + Serializer + ?Sized,
+        U: Serialize<S, E, Archived = T>,
+        I: ExactSizeIterator,
+        I::Item: Borrow<U>,
+        S: ScratchSpace<E> + Serializer<E> + ?Sized,
     {
         use crate::ScratchVec;
 
@@ -312,69 +325,39 @@ pub struct VecResolver {
     pos: usize,
 }
 
-#[cfg(feature = "validation")]
-const _: () = {
-    use crate::validation::{
-        owned::{CheckOwnedPointerError, OwnedPointerError},
-        ArchiveContext,
+#[cfg(feature = "bytecheck")]
+mod verify {
+    use crate::{
+        vec::ArchivedVec,
+        validation::{ArchiveContext, ArchiveContextExt},
     };
-    use bytecheck::{CheckBytes, Error};
+    use bytecheck::{rancor::Error, CheckBytes};
 
-    impl<T> ArchivedVec<T> {
-        /// Checks the bytes of the `ArchivedVec` with the given element checking function.
-        ///
-        /// # Safety
-        ///
-        /// `check_elements` must ensure that the pointer given to it contains only valid data.
-        pub unsafe fn check_bytes_with<'a, C, F>(
-            value: *const Self,
-            context: &mut C,
-            check_elements: F,
-        ) -> Result<&'a Self, CheckOwnedPointerError<[T], C>>
-        where
-            T: CheckBytes<C>,
-            C: ArchiveContext + ?Sized,
-            F: FnOnce(
-                *const [T],
-                &mut C,
-            ) -> Result<(), <[T] as CheckBytes<C>>::Error>,
-        {
-            let rel_ptr =
-                RelPtr::<[T]>::manual_check_bytes(value.cast(), context)
-                    .map_err(OwnedPointerError::PointerCheckBytesError)?;
-            let ptr = context
-                .check_subtree_rel_ptr(rel_ptr)
-                .map_err(OwnedPointerError::ContextError)?;
-
-            let range = context
-                .push_prefix_subtree(ptr)
-                .map_err(OwnedPointerError::ContextError)?;
-            check_elements(ptr, context)
-                .map_err(OwnedPointerError::ValueCheckBytesError)?;
-            context
-                .pop_prefix_range(range)
-                .map_err(OwnedPointerError::ContextError)?;
-
-            Ok(&*value)
-        }
-    }
-
-    impl<T, C> CheckBytes<C> for ArchivedVec<T>
+    pub fn verify<T, C, E>(
+        value: &ArchivedVec<T>,
+        context: &mut C,
+    ) -> Result<(), E>
     where
-        T: CheckBytes<C>,
-        C: ArchiveContext + ?Sized,
-        C::Error: Error,
+        T: CheckBytes<C, E>,
+        C: ArchiveContext<E> + ?Sized,
+        E: Error,
     {
-        type Error = CheckOwnedPointerError<[T], C>;
+        let ptr = unsafe {
+            context.bounds_check_subtree_base_offset::<[T]>(
+                value.ptr.base(),
+                value.ptr.offset(),
+                value.len.to_native() as usize,
+            )?
+        };
 
-        #[inline]
-        unsafe fn check_bytes<'a>(
-            value: *const Self,
-            context: &mut C,
-        ) -> Result<&'a Self, Self::Error> {
-            Self::check_bytes_with::<C, _>(value, context, |v, c| {
-                <[T]>::check_bytes(v, c).map(|_| ())
-            })
+        let range = unsafe { context.push_prefix_subtree(ptr)? };
+        unsafe {
+            <[T]>::check_bytes(ptr, context)?;
         }
+        unsafe {
+            context.pop_subtree_range(range)?;
+        }
+
+        Ok(())
     }
-};
+}

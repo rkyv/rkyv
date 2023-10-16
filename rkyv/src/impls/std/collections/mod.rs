@@ -1,3 +1,3 @@
 mod hash_map;
 mod hash_set;
-mod vecdeque;
+mod vec_deque;

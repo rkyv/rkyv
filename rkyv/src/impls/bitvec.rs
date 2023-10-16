@@ -49,7 +49,7 @@ impl<T, O, S> Serialize<S> for BitVec<T, O>
 where
     T: BitStore + Archive + Serialize<S>,
     O: BitOrder,
-    S: Fallible + ?Sized + ScratchSpace + Serializer,
+    S: ?Sized + ScratchSpace + Serializer,
     Archived<T>: BitStore,
 {
     fn serialize(
@@ -69,7 +69,7 @@ impl<T, O, D> Deserialize<BitVec<T, O>, D> for ArchivedBitVec<Archived<T>, O>
 where
     T: BitStore + Archive,
     O: BitOrder,
-    D: Fallible + ?Sized,
+    D: ?Sized,
     Archived<T>: Deserialize<T, D> + BitStore,
 {
     fn deserialize(
@@ -86,7 +86,7 @@ where
     }
 }
 
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ArchivedBitArray<A = [ArchivedUsize; 1], O = Lsb0>
 where
@@ -137,7 +137,7 @@ impl<A, O, S> Serialize<S> for BitArray<A, O>
 where
     A: BitViewSized + Archive + Serialize<S>,
     O: BitOrder,
-    S: Fallible + ?Sized + ScratchSpace + Serializer,
+    S: ?Sized + ScratchSpace + Serializer,
     Archived<A>: BitViewSized,
     for<'a> &'a A: TryFrom<&'a [A::Store]>,
 {
@@ -152,7 +152,7 @@ where
     }
 }
 
-impl<A: BitViewSized + Archive, O: BitOrder, D: Fallible + ?Sized>
+impl<A: BitViewSized + Archive, O: BitOrder, D: ?Sized>
     Deserialize<BitArray<A, O>, D> for ArchivedBitArray<Archived<A>, O>
 where
     Archived<A>: Deserialize<A, D> + BitViewSized,

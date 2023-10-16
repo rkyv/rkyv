@@ -14,8 +14,8 @@ bytecheck = { workspace = true, optional = true }
 criterion = "0.3"
 rand = "0.8"
 rand_pcg = "0.3"
-rkyv = { path = "../rkyv", default-features = false, features = ["validation"] }
-rkyv_derive = { path = "../rkyv_derive" }
+rkyv.workspace = true
+rkyv_derive.workspace = true
 serde = { version = "1.0", features = ["derive"] }
 
 [features]

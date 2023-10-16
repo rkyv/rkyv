@@ -1,7 +1,7 @@
 //! An archived version of `Box`.
 
 use crate::{
-    ser::Serializer, ArchivePointee, ArchiveUnsized, Fallible,
+    ser::Serializer, ArchivePointee, ArchiveUnsized,
     MetadataResolver, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};
@@ -9,20 +9,35 @@ use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};
 /// An archived [`Box`].
 ///
 /// This is a thin wrapper around a [`RelPtr`] to the archived type.
+#[cfg_attr(
+    feature = "bytecheck",
+    derive(bytecheck::CheckBytes),
+    check_bytes(
+        bounds(
+            T: bytecheck::CheckBytes<__C, __E> + crate::validation::LayoutRaw,
+            __C: crate::validation::ArchiveContext<__E>,
+            T::ArchivedMetadata: bytecheck::CheckBytes<__C, __E>,
+            __E: bytecheck::rancor::Error,
+        ),
+        verify = verify::verify,
+    ),
+)]
 #[repr(transparent)]
-pub struct ArchivedBox<T: ArchivePointee + ?Sized>(RelPtr<T>);
+pub struct ArchivedBox<T: ArchivePointee + ?Sized> {
+    ptr: RelPtr<T>,
+}
 
 impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     /// Returns a reference to the value of this archived box.
     #[inline]
     pub fn get(&self) -> &T {
-        unsafe { &*self.0.as_ptr() }
+        unsafe { &*self.ptr.as_ptr() }
     }
 
     /// Returns a pinned mutable reference to the value of this archived box
     #[inline]
     pub fn get_pin_mut(self: Pin<&mut Self>) -> Pin<&mut T> {
-        unsafe { self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr()) }
+        unsafe { self.map_unchecked_mut(|s| &mut *s.ptr.as_ptr()) }
     }
 
     /// Resolves an archived box from the given value and parameters.
@@ -38,7 +53,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
         resolver: BoxResolver<U::MetadataResolver>,
         out: *mut Self,
     ) {
-        let (fp, fo) = out_field!(out.0);
+        let (fp, fo) = out_field!(out.ptr);
         value.resolve_unsized(
             pos + fp,
             resolver.pos,
@@ -49,13 +64,13 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
 
     /// Serializes an archived box from the given value and serializer.
     #[inline]
-    pub fn serialize_from_ref<U, S>(
+    pub fn serialize_from_ref<U, S, E>(
         value: &U,
         serializer: &mut S,
-    ) -> Result<BoxResolver<U::MetadataResolver>, S::Error>
+    ) -> Result<BoxResolver<U::MetadataResolver>, E>
     where
-        U: SerializeUnsized<S, Archived = T> + ?Sized,
-        S: Fallible + ?Sized,
+        U: SerializeUnsized<S, E, Archived = T> + ?Sized,
+        S: ?Sized,
     {
         Ok(BoxResolver {
             pos: value.serialize_unsized(serializer)?,
@@ -78,7 +93,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
         resolver: BoxResolver<<T as ArchivePointee>::ArchivedMetadata>,
         out: *mut Self,
     ) {
-        let (fp, fo) = out_field!(out.0);
+        let (fp, fo) = out_field!(out.ptr);
         RelPtr::resolve_emplace_from_raw_parts(
             pos + fp,
             resolver.pos,
@@ -90,7 +105,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     #[doc(hidden)]
     #[inline]
     pub fn is_null(&self) -> bool {
-        self.0.is_null()
+        self.ptr.is_null()
     }
 }
 
@@ -104,13 +119,13 @@ impl<T> ArchivedBox<[T]> {
     /// situations where copying uninitialized bytes the output is acceptable, this function may be
     /// used with types that contain padding bytes.
     #[inline]
-    pub unsafe fn serialize_copy_from_slice<U, S>(
+    pub unsafe fn serialize_copy_from_slice<U, S, E>(
         slice: &[U],
         serializer: &mut S,
-    ) -> Result<BoxResolver<MetadataResolver<[U]>>, S::Error>
+    ) -> Result<BoxResolver<MetadataResolver<[U]>>, E>
     where
-        U: Serialize<S, Archived = T>,
-        S: Serializer + ?Sized,
+        U: Serialize<S, E, Archived = T>,
+        S: Serializer<E> + ?Sized,
     {
         use core::{mem::size_of, slice::from_raw_parts};
 
@@ -136,7 +151,7 @@ where
     #[doc(hidden)]
     #[inline]
     pub unsafe fn emplace_null(pos: usize, out: *mut Self) {
-        let (fp, fo) = out_field!(out.0);
+        let (fp, fo) = out_field!(out.ptr);
         RelPtr::emplace_null(pos + fp, fo);
     }
 }
@@ -161,7 +176,7 @@ where
 {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("ArchivedBox").field(&self.0).finish()
+        f.debug_tuple("ArchivedBox").field(&self.ptr).finish()
     }
 }
 
@@ -264,46 +279,39 @@ impl<M> BoxResolver<M> {
     }
 }
 
-#[cfg(feature = "validation")]
-const _: () = {
-    use crate::validation::{
-        owned::{CheckOwnedPointerError, OwnedPointerError},
-        ArchiveContext, LayoutRaw,
+#[cfg(feature = "bytecheck")]
+mod verify {
+    use bytecheck::{CheckBytes, rancor::Error};
+
+    use crate::{
+        boxed::ArchivedBox,
+        ArchivePointee,
+        validation::{
+            ArchiveContext, ArchiveContextExt, LayoutRaw,
+        },
     };
-    use bytecheck::{CheckBytes, Error};
-    use ptr_meta::Pointee;
 
-    impl<T, C> CheckBytes<C> for ArchivedBox<T>
+    #[inline]
+    pub fn verify<T, C, E>(
+        value: &ArchivedBox<T>,
+        context: &mut C,
+    ) -> Result<(), E>
     where
-        T: ArchivePointee + CheckBytes<C> + LayoutRaw + Pointee + ?Sized,
-        C: ArchiveContext + ?Sized,
-        T::ArchivedMetadata: CheckBytes<C>,
-        C::Error: Error,
+        T: ArchivePointee + CheckBytes<C, E> + LayoutRaw + ?Sized,
+        C: ArchiveContext<E> + ?Sized,
+        T::ArchivedMetadata: CheckBytes<C, E>,
+        E: Error,
     {
-        type Error = CheckOwnedPointerError<T, C>;
+        let ptr = unsafe { context.bounds_check_subtree_rel_ptr(&value.ptr)? };
 
-        #[inline]
-        unsafe fn check_bytes<'a>(
-            value: *const Self,
-            context: &mut C,
-        ) -> Result<&'a Self, Self::Error> {
-            let rel_ptr =
-                RelPtr::<T>::manual_check_bytes(value.cast(), context)
-                    .map_err(OwnedPointerError::PointerCheckBytesError)?;
-            let ptr = context
-                .check_subtree_rel_ptr(rel_ptr)
-                .map_err(OwnedPointerError::ContextError)?;
-
-            let range = context
-                .push_prefix_subtree(ptr)
-                .map_err(OwnedPointerError::ContextError)?;
-            T::check_bytes(ptr, context)
-                .map_err(OwnedPointerError::ValueCheckBytesError)?;
-            context
-                .pop_prefix_range(range)
-                .map_err(OwnedPointerError::ContextError)?;
-
-            Ok(&*value)
+        let range = unsafe { context.push_prefix_subtree(ptr)? };
+        unsafe {
+            T::check_bytes(ptr, context)?;
         }
+        unsafe {
+            context.pop_subtree_range(range)?;
+        }
+
+        Ok(())
     }
-};
+}

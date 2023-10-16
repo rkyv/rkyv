@@ -3,7 +3,7 @@
 pub mod serializers;
 
 use crate::{
-    Archive, ArchiveUnsized, Fallible, RelPtr, Serialize, SerializeUnsized,
+    Archive, ArchiveUnsized, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{alloc::Layout, mem, ptr::NonNull, slice};
 
@@ -15,16 +15,16 @@ use core::{alloc::Layout, mem, ptr::NonNull, slice};
 /// It's important that the memory for archived objects is properly aligned before attempting to
 /// read objects out of it; use an [`AlignedVec`](crate::AlignedVec) or the
 /// [`AlignedBytes`](crate::AlignedBytes) wrappers if they are appropriate.
-pub trait Serializer: Fallible {
+pub trait Serializer<E> {
     /// Returns the current position of the serializer.
     fn pos(&self) -> usize;
 
     /// Attempts to write the given bytes to the serializer.
-    fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error>;
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E>;
 
     /// Advances the given number of bytes as padding.
     #[inline]
-    fn pad(&mut self, padding: usize) -> Result<(), Self::Error> {
+    fn pad(&mut self, padding: usize) -> Result<(), E> {
         const MAX_ZEROES: usize = 32;
         const ZEROES: [u8; MAX_ZEROES] = [0; MAX_ZEROES];
         debug_assert!(padding < MAX_ZEROES);
@@ -34,7 +34,7 @@ pub trait Serializer: Fallible {
 
     /// Aligns the position of the serializer to the given alignment.
     #[inline]
-    fn align(&mut self, align: usize) -> Result<usize, Self::Error> {
+    fn align(&mut self, align: usize) -> Result<usize, E> {
         let mask = align - 1;
         debug_assert_eq!(align & mask, 0);
 
@@ -44,7 +44,7 @@ pub trait Serializer: Fallible {
 
     /// Aligns the position of the serializer to be suitable to write the given type.
     #[inline]
-    fn align_for<T>(&mut self) -> Result<usize, Self::Error> {
+    fn align_for<T>(&mut self) -> Result<usize, E> {
         self.align(mem::align_of::<T>())
     }
 
@@ -60,7 +60,7 @@ pub trait Serializer: Fallible {
         &mut self,
         value: &T,
         resolver: T::Resolver,
-    ) -> Result<usize, Self::Error> {
+    ) -> Result<usize, E> {
         let pos = self.pos();
         debug_assert_eq!(pos & (mem::align_of::<T::Archived>() - 1), 0);
 
@@ -76,10 +76,10 @@ pub trait Serializer: Fallible {
 
     /// Archives the given object and returns the position it was archived at.
     #[inline]
-    fn serialize_value<T: Serialize<Self>>(
+    fn serialize_value<T: Serialize<Self, E>>(
         &mut self,
         value: &T,
-    ) -> Result<usize, Self::Error> {
+    ) -> Result<usize, E> {
         let resolver = value.serialize(self)?;
         self.align_for::<T::Archived>()?;
         unsafe { self.resolve_aligned(value, resolver) }
@@ -99,7 +99,7 @@ pub trait Serializer: Fallible {
         value: &T,
         to: usize,
         metadata_resolver: T::MetadataResolver,
-    ) -> Result<usize, Self::Error> {
+    ) -> Result<usize, E> {
         let from = self.pos();
         debug_assert_eq!(
             from & (mem::align_of::<RelPtr<T::Archived>>() - 1),
@@ -123,10 +123,10 @@ pub trait Serializer: Fallible {
 
     /// Archives a reference to the given object and returns the position it was archived at.
     #[inline]
-    fn serialize_unsized_value<T: SerializeUnsized<Self> + ?Sized>(
+    fn serialize_unsized_value<T: SerializeUnsized<Self, E> + ?Sized>(
         &mut self,
         value: &T,
-    ) -> Result<usize, Self::Error> {
+    ) -> Result<usize, E> {
         let to = value.serialize_unsized(self)?;
         let metadata_resolver = value.serialize_metadata(self)?;
         self.align_for::<RelPtr<T::Archived>>()?;
@@ -137,7 +137,7 @@ pub trait Serializer: Fallible {
 // Someday this can probably be replaced with alloc::Allocator
 
 /// A serializer that can allocate scratch space.
-pub trait ScratchSpace: Fallible {
+pub trait ScratchSpace<E> {
     /// Allocates scratch space of the requested size.
     ///
     /// # Safety
@@ -146,7 +146,7 @@ pub trait ScratchSpace: Fallible {
     unsafe fn push_scratch(
         &mut self,
         layout: Layout,
-    ) -> Result<NonNull<[u8]>, Self::Error>;
+    ) -> Result<NonNull<[u8]>, E>;
 
     /// Deallocates previously allocated scratch space.
     ///
@@ -158,13 +158,13 @@ pub trait ScratchSpace: Fallible {
         &mut self,
         ptr: NonNull<u8>,
         layout: Layout,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<(), E>;
 }
 
 /// A registry that tracks serialized shared memory.
 ///
 /// This trait is required to serialize shared pointers.
-pub trait SharedSerializeRegistry: Fallible {
+pub trait SharedSerializeRegistry<E> {
     /// Gets the position of a previously-added shared pointer.
     ///
     /// Returns `None` if the pointer has not yet been added.
@@ -183,7 +183,7 @@ pub trait SharedSerializeRegistry: Fallible {
         &mut self,
         value: *const u8,
         pos: usize,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<(), E>;
 
     /// Adds the position of a shared value to the registry.
     #[inline]
@@ -191,19 +191,19 @@ pub trait SharedSerializeRegistry: Fallible {
         &mut self,
         value: &T,
         pos: usize,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), E> {
         self.add_shared_ptr(value as *const T as *const u8, pos)
     }
 
     /// Archives the given shared value and returns its position. If the value has already been
     /// added then it returns the position of the previously added value.
     #[inline]
-    fn serialize_shared<T: SerializeUnsized<Self> + ?Sized>(
+    fn serialize_shared<T: SerializeUnsized<Self, E> + ?Sized>(
         &mut self,
         value: &T,
-    ) -> Result<usize, Self::Error>
+    ) -> Result<usize, E>
     where
-        Self: Serializer,
+        Self: Serializer<E>,
     {
         if let Some(pos) = self.get_shared(value) {
             Ok(pos)

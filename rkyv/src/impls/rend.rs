@@ -1,4 +1,4 @@
-use crate::{rend::*, Archive, Archived, Deserialize, Fallible, Serialize};
+use crate::{rend::*, Archive, Archived, Deserialize, Serialize};
 
 macro_rules! impl_rend_primitive {
     ($type:ty) => {
@@ -22,16 +22,16 @@ macro_rules! impl_rend_primitive {
         #[cfg(feature = "copy")]
         unsafe impl crate::copy::ArchiveCopySafe for $type {}
 
-        impl<S: Fallible + ?Sized> Serialize<S> for $type {
+        impl<S: ?Sized, E> Serialize<S, E> for $type {
             #[inline]
-            fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+            fn serialize(&self, _: &mut S) -> Result<Self::Resolver, E> {
                 Ok(())
             }
         }
 
-        impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived<$type> {
+        impl<D: ?Sized, E> Deserialize<$type, D, E> for Archived<$type> {
             #[inline]
-            fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
+            fn deserialize(&self, _: &mut D) -> Result<$type, E> {
                 Ok(*self)
             }
         }
@@ -87,9 +87,11 @@ impl_rend_primitives!(
 
 #[cfg(test)]
 mod tests {
+    use rancor::Failure;
+
     use crate::{
         archived_root, ser::serializers::CoreSerializer, ser::Serializer,
-        Deserialize, Infallible, Serialize,
+        Deserialize, Serialize,
     };
     use core::fmt;
 
@@ -97,21 +99,20 @@ mod tests {
 
     fn test_archive<T>(value: &T)
     where
-        T: fmt::Debug + PartialEq + Serialize<DefaultSerializer>,
-        T::Archived: fmt::Debug + PartialEq<T> + Deserialize<T, Infallible>,
+        T: fmt::Debug + PartialEq + Serialize<DefaultSerializer, Failure>,
+        T::Archived: fmt::Debug + PartialEq<T> + Deserialize<T, (), Failure>,
     {
         let mut serializer = DefaultSerializer::default();
         serializer
             .serialize_value(value)
             .expect("failed to archive value");
-        let len = serializer.pos();
+        let len = <_ as Serializer<Failure>>::pos(&serializer);
         let buffer = serializer.into_serializer().into_inner();
 
         let archived_value = unsafe { archived_root::<T>(&buffer[0..len]) };
         assert_eq!(archived_value, value);
-        let mut deserializer = Infallible;
         assert_eq!(
-            &archived_value.deserialize(&mut deserializer).unwrap(),
+            &archived_value.deserialize(&mut ()).unwrap(),
             value
         );
     }
@@ -163,7 +164,7 @@ mod tests {
         let value = i32_be::from_native(0x12345678);
 
         let mut serializer = DefaultSerializer::default();
-        serializer.serialize_value(&value).unwrap();
+        <_ as Serializer<Failure>>::serialize_value(&mut serializer, &value).unwrap();
         let buf = serializer.into_serializer().into_inner();
 
         assert_eq!(&buf[0..4], &[0x12, 0x34, 0x56, 0x78]);
@@ -172,7 +173,7 @@ mod tests {
         let value = i32_le::from_native(0x12345678i32);
 
         let mut serializer = DefaultSerializer::default();
-        serializer.serialize_value(&value).unwrap();
+        <_ as Serializer<Failure>>::serialize_value(&mut serializer, &value).unwrap();
         let buf = serializer.into_serializer().into_inner();
 
         assert_eq!(&buf[0..4], &[0x78, 0x56, 0x34, 0x12]);

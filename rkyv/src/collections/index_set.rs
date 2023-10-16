@@ -13,7 +13,7 @@ use crate::{
 use core::{borrow::Borrow, fmt, hash::Hash};
 
 /// An archived `IndexSet`.
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct ArchivedIndexSet<K> {
     inner: ArchivedIndexMap<K, ()>,
@@ -136,16 +136,16 @@ const _: () = {
         /// - The keys returned by the iterator must be unique
         /// - The index function must return the index of the given key within the iterator
         #[inline]
-        pub unsafe fn serialize_from_iter_index<'a, UK, I, F, S>(
+        pub unsafe fn serialize_from_iter_index<'a, UK, I, F, S, E>(
             iter: I,
             index: F,
             serializer: &mut S,
-        ) -> Result<IndexSetResolver, S::Error>
+        ) -> Result<IndexSetResolver, E>
         where
-            UK: 'a + Hash + Eq + Serialize<S, Archived = K>,
+            UK: 'a + Hash + Eq + Serialize<S, E, Archived = K>,
             I: Clone + ExactSizeIterator<Item = &'a UK>,
             F: Fn(&UK) -> usize,
-            S: ScratchSpace + Serializer + ?Sized,
+            S: ScratchSpace<E> + Serializer<E> + ?Sized,
         {
             Ok(IndexSetResolver(
                 ArchivedIndexMap::serialize_from_iter_index(

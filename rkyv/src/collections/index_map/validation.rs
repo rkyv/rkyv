@@ -2,19 +2,17 @@
 
 use crate::{
     collections::{
-        hash_index::validation::HashIndexError,
         index_map::ArchivedIndexMap,
-        util::{validation::ArchivedEntryError, Entry},
+        util::Entry,
         ArchivedHashIndex,
     },
     primitive::ArchivedUsize,
     validation::ArchiveContext,
     RelPtr,
 };
-use bytecheck::{CheckBytes, Error, SliceCheckError};
+use bytecheck::CheckBytes;
 use core::{
     alloc::{Layout, LayoutError},
-    convert::Infallible,
     fmt,
     hash::Hash,
     ptr,
@@ -22,9 +20,7 @@ use core::{
 
 /// Errors that can occur while checking an archived index map.
 #[derive(Debug)]
-pub enum IndexMapError<K, V, C> {
-    /// An error occurred while checking the hash index
-    HashIndexError(HashIndexError<C>),
+pub enum IndexMapError {
     /// An error occurred while checking the layouts of displacements or entries
     LayoutError(LayoutError),
     /// A pivot indexes outside of the entries array
@@ -34,8 +30,6 @@ pub enum IndexMapError<K, V, C> {
         /// The pivot value that was invalid
         pivot: usize,
     },
-    /// An error occurred while checking the entries
-    CheckEntryError(SliceCheckError<ArchivedEntryError<K, V>>),
     /// A key is not located at the correct position
     ///
     /// This can either be due to the key being invalid for the hash index, or the pivot for the key
@@ -44,13 +38,9 @@ pub enum IndexMapError<K, V, C> {
         /// The index of the key when iterating
         index: usize,
     },
-    /// A bounds error occurred
-    ContextError(C),
 }
 
-impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display
-    for IndexMapError<K, V, E>
-{
+impl fmt::Display for IndexMapError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             IndexMapError::HashIndexError(e) => {
@@ -75,74 +65,27 @@ impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display
 const _: () = {
     use std::error::Error;
 
-    impl<K, V, C> Error for IndexMapError<K, V, C>
-    where
-        K: Error + 'static,
-        V: Error + 'static,
-        C: Error + 'static,
-    {
+    impl Error for IndexMapError {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
-                IndexMapError::HashIndexError(e) => Some(e as &dyn Error),
                 IndexMapError::LayoutError(e) => Some(e as &dyn Error),
                 IndexMapError::PivotOutOfBounds { .. } => None,
-                IndexMapError::CheckEntryError(e) => Some(e as &dyn Error),
                 IndexMapError::InvalidKeyPosition { .. } => None,
-                IndexMapError::ContextError(e) => Some(e as &dyn Error),
             }
         }
     }
 };
 
-impl<K, V, C> From<Infallible> for IndexMapError<K, V, C> {
-    fn from(_: Infallible) -> Self {
-        unsafe { core::hint::unreachable_unchecked() }
-    }
-}
-
-impl<K, V, C> From<SliceCheckError<Infallible>> for IndexMapError<K, V, C> {
-    #[inline]
-    fn from(_: SliceCheckError<Infallible>) -> Self {
-        unsafe { core::hint::unreachable_unchecked() }
-    }
-}
-
-impl<K, V, C> From<HashIndexError<C>> for IndexMapError<K, V, C> {
-    #[inline]
-    fn from(e: HashIndexError<C>) -> Self {
-        Self::HashIndexError(e)
-    }
-}
-
-impl<K, V, C> From<LayoutError> for IndexMapError<K, V, C> {
-    #[inline]
-    fn from(e: LayoutError) -> Self {
-        Self::LayoutError(e)
-    }
-}
-
-impl<K, V, C> From<SliceCheckError<ArchivedEntryError<K, V>>>
-    for IndexMapError<K, V, C>
-{
-    #[inline]
-    fn from(e: SliceCheckError<ArchivedEntryError<K, V>>) -> Self {
-        Self::CheckEntryError(e)
-    }
-}
-
-impl<K, V, C> CheckBytes<C> for ArchivedIndexMap<K, V>
+unsafe impl<K, V, C, E> CheckBytes<C, E> for ArchivedIndexMap<K, V>
 where
-    K: CheckBytes<C> + Eq + Hash,
-    V: CheckBytes<C>,
-    C: ArchiveContext + ?Sized,
-    C::Error: Error,
+    K: CheckBytes<C, E> + Eq + Hash,
+    V: CheckBytes<C, E>,
+    C: ArchiveContext<E> + ?Sized,
 {
-    type Error = IndexMapError<K::Error, V::Error, C::Error>;
-
-    unsafe fn check_bytes<'a>(
+    unsafe fn check_bytes(
         value: *const Self,
         context: &mut C,
-    ) -> Result<&'a Self, Self::Error> {
+    ) -> Result<(), E> {
         let index = ArchivedHashIndex::check_bytes(
             ptr::addr_of!((*value).index),
             context,

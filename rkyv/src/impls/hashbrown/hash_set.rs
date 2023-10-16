@@ -1,7 +1,7 @@
 use crate::{
     collections::hash_set::{ArchivedHashSet, HashSetResolver},
     ser::{ScratchSpace, Serializer},
-    Archive, Deserialize, Fallible, Serialize,
+    Archive, Deserialize, Serialize,
 };
 use core::{
     borrow::Borrow,
@@ -32,33 +32,33 @@ where
     }
 }
 
-impl<K, S, RS> Serialize<S> for HashSet<K, RS>
+impl<K, S, RS, E> Serialize<S, E> for HashSet<K, RS>
 where
     K::Archived: Hash + Eq,
-    K: Serialize<S> + Hash + Eq,
-    S: ScratchSpace + Serializer + ?Sized,
+    K: Serialize<S, E> + Hash + Eq,
+    S: ScratchSpace<E> + Serializer<E> + ?Sized,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         unsafe { ArchivedHashSet::serialize_from_iter(self.iter(), serializer) }
     }
 }
 
-impl<K, D, S> Deserialize<HashSet<K, S>, D> for ArchivedHashSet<K::Archived>
+impl<K, D, S, E> Deserialize<HashSet<K, S>, D, E> for ArchivedHashSet<K::Archived>
 where
     K: Archive + Hash + Eq,
-    K::Archived: Deserialize<K, D> + Hash + Eq,
-    D: Fallible + ?Sized,
+    K::Archived: Deserialize<K, D, E> + Hash + Eq,
+    D: ?Sized,
     S: Default + BuildHasher,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<HashSet<K, S>, D::Error> {
+    ) -> Result<HashSet<K, S>, E> {
         let mut result = HashSet::with_hasher(S::default());
         for k in self.iter() {
             result.insert(k.deserialize(deserializer)?);
@@ -94,11 +94,12 @@ mod tests {
     use crate::{
         archived_root,
         ser::{serializers::AllocSerializer, Serializer},
-        Deserialize, Infallible,
+        Deserialize,
     };
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::string::String;
     use hashbrown::HashSet;
+    use rancor::Failure;
 
     #[test]
     fn index_set() {
@@ -121,11 +122,11 @@ mod tests {
         }
 
         let deserialized: HashSet<String> =
-            archived.deserialize(&mut Infallible).unwrap();
+            archived.deserialize(&mut Failure).unwrap();
         assert_eq!(value, deserialized);
     }
 
-    #[cfg(feature = "validation")]
+    #[cfg(feature = "bytecheck")]
     #[test]
     fn validate_index_set() {
         use crate::check_archived_root;

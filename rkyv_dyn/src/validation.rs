@@ -166,7 +166,7 @@ where
         data_address: *const u8,
         layout: &Layout,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        self.bounds_check_subtree_ptr_layout(data_address, layout)
+        self.check_subtree_ptr(data_address, layout)
             .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 
@@ -270,7 +270,7 @@ impl ArchiveContext for (dyn DynContext + '_) {
         Ok(self.bounds_check_layout_dyn(data_address, layout)?)
     }
 
-    unsafe fn bounds_check_subtree_ptr_layout(
+    unsafe fn check_subtree_ptr(
         &mut self,
         data_address: *const u8,
         layout: &Layout,

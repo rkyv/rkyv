@@ -6,16 +6,15 @@ use crate::{
     validation::ArchiveContext,
     RelPtr,
 };
-use bytecheck::{CheckBytes, Error, SliceCheckError};
+use bytecheck::CheckBytes;
 use core::{
     alloc::{Layout, LayoutError},
-    convert::Infallible,
     fmt, ptr,
 };
 
 /// Errors that can occur while checking an archived hash index.
 #[derive(Debug)]
-pub enum HashIndexError<C> {
+pub enum HashIndexError {
     /// An error occurred while checking the layouts of displacements or entries
     LayoutError(LayoutError),
     /// A displacement value was invalid
@@ -25,32 +24,9 @@ pub enum HashIndexError<C> {
         /// The value of the entry at the invalid location
         value: u32,
     },
-    /// A bounds error occurred
-    ContextError(C),
 }
 
-impl<C> From<LayoutError> for HashIndexError<C> {
-    #[inline]
-    fn from(e: LayoutError) -> Self {
-        Self::LayoutError(e)
-    }
-}
-
-impl<C> From<Infallible> for HashIndexError<C> {
-    #[inline]
-    fn from(_: Infallible) -> Self {
-        unsafe { core::hint::unreachable_unchecked() }
-    }
-}
-
-impl<C> From<SliceCheckError<Infallible>> for HashIndexError<C> {
-    #[inline]
-    fn from(_: SliceCheckError<Infallible>) -> Self {
-        unsafe { core::hint::unreachable_unchecked() }
-    }
-}
-
-impl<C: fmt::Display> fmt::Display for HashIndexError<C> {
+impl fmt::Display for HashIndexError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             HashIndexError::LayoutError(e) => write!(f, "layout error: {}", e),
@@ -59,7 +35,6 @@ impl<C: fmt::Display> fmt::Display for HashIndexError<C> {
                 "invalid displacement: value {} at index {}",
                 value, index,
             ),
-            HashIndexError::ContextError(e) => e.fmt(f),
         }
     }
 }
@@ -68,27 +43,21 @@ impl<C: fmt::Display> fmt::Display for HashIndexError<C> {
 const _: () = {
     use std::error::Error;
 
-    impl<C: Error + 'static> Error for HashIndexError<C> {
+    impl Error for HashIndexError {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
                 HashIndexError::LayoutError(e) => Some(e as &dyn Error),
                 HashIndexError::InvalidDisplacement { .. } => None,
-                HashIndexError::ContextError(e) => Some(e as &dyn Error),
             }
         }
     }
 };
 
-impl<C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedHashIndex
-where
-    C::Error: Error,
-{
-    type Error = HashIndexError<C::Error>;
-
-    unsafe fn check_bytes<'a>(
+unsafe impl<C: ArchiveContext<E> + ?Sized, E> CheckBytes<C, E> for ArchivedHashIndex {
+    unsafe fn check_bytes(
         value: *const Self,
         context: &mut C,
-    ) -> Result<&'a Self, Self::Error> {
+    ) -> Result<(), E> {
         let len =
             ArchivedUsize::check_bytes(ptr::addr_of!((*value).len), context)?
                 .to_native() as usize;

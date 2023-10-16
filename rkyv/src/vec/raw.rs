@@ -99,7 +99,7 @@ impl<T> RawArchivedVec<T> {
     pub unsafe fn serialize_copy_from_slice<U, S>(
         slice: &[U],
         serializer: &mut S,
-    ) -> Result<VecResolver, S::Error>
+    ) -> Result<VecResolver, E>
     where
         U: Serialize<S, Archived = T>,
         S: Serializer + ?Sized,
@@ -207,7 +207,7 @@ impl<T: PartialOrd> PartialOrd<RawArchivedVec<T>> for [T] {
     }
 }
 
-#[cfg(feature = "validation")]
+#[cfg(feature = "bytecheck")]
 const _: () = {
     use crate::validation::{owned::CheckOwnedPointerError, ArchiveContext};
     use bytecheck::{CheckBytes, Error};

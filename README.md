@@ -101,12 +101,7 @@ let deserialized: Test = archived.deserialize(&mut rkyv::Infallible).unwrap();
 assert_eq!(deserialized, value);
 ```
 
-_Note: the safe API requires the `validation` feature:_
-
-```toml
-rkyv = { version = "0.8", features = ["validation"] }
-```
-
+_Note: the safe API requires the `bytecheck` feature (enabled by default)_
 _Read more about [available features](https://docs.rs/rkyv/latest/rkyv/#features)._
 
 # Thanks

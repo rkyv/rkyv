@@ -1,6 +1,6 @@
 # Validation
 
-Validation can be enabled with the `validation` feature. Validation leverages the
+Validation can be enabled with the `bytecheck` feature. Validation leverages the
 [`bytecheck`](https://docs.rs/bytecheck) crate to perform archive validation, and allows the
 consumption of untrusted and malicious data.
 

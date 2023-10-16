@@ -2,7 +2,7 @@
 
 pub mod repr;
 
-use crate::{Fallible, SerializeUnsized};
+use crate::SerializeUnsized;
 use core::{
     borrow::Borrow,
     cmp, fmt, hash,
@@ -21,19 +21,32 @@ use repr::{ArchivedStringRepr, INLINE_CAPACITY};
 /// inside the structure to store the string, and long strings will store a
 /// [`RelPtr`](crate::RelPtr) to a `str` instead.
 #[repr(transparent)]
-pub struct ArchivedString(repr::ArchivedStringRepr);
+#[cfg_attr(
+    feature = "bytecheck",
+    derive(bytecheck::CheckBytes),
+    check_bytes(
+        bounds(
+            __C: crate::validation::ArchiveContext<__E>,
+            __E: bytecheck::rancor::Error,
+        ),
+        verify = verify::verify,
+    ),
+)]
+pub struct ArchivedString {
+    repr: repr::ArchivedStringRepr,
+}
 
 impl ArchivedString {
     /// Extracts a string slice containing the entire `ArchivedString`.
     #[inline]
     pub fn as_str(&self) -> &str {
-        self.0.as_str()
+        self.repr.as_str()
     }
 
     /// Extracts a pinned mutable string slice containing the entire `ArchivedString`.
     #[inline]
     pub fn pin_mut_str(self: Pin<&mut Self>) -> Pin<&mut str> {
-        unsafe { self.map_unchecked_mut(|s| s.0.as_mut_str()) }
+        unsafe { self.map_unchecked_mut(|s| s.repr.as_mut_str()) }
     }
 
     /// Resolves an archived string from a given `str`.
@@ -63,12 +76,12 @@ impl ArchivedString {
 
     /// Serializes an archived string from a given `str`.
     #[inline]
-    pub fn serialize_from_str<S: Fallible + ?Sized>(
+    pub fn serialize_from_str<S: ?Sized, E>(
         value: &str,
         serializer: &mut S,
-    ) -> Result<StringResolver, S::Error>
+    ) -> Result<StringResolver, E>
     where
-        str: SerializeUnsized<S>,
+        str: SerializeUnsized<S, E>,
     {
         if value.len() <= INLINE_CAPACITY {
             Ok(StringResolver { pos: 0 })
@@ -228,53 +241,39 @@ pub struct StringResolver {
     pos: usize,
 }
 
-#[cfg(feature = "validation")]
-const _: () = {
-    use crate::validation::{owned::OwnedPointerError, ArchiveContext};
-    use bytecheck::{CheckBytes, Error};
+#[cfg(feature = "bytecheck")]
+mod verify {
+    use bytecheck::{CheckBytes, rancor::Error};
 
-    impl<C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedString
-    where
-        C::Error: Error + 'static,
-    {
-        type Error = OwnedPointerError<
-            <ArchivedStringRepr as CheckBytes<C>>::Error,
-            <str as CheckBytes<C>>::Error,
-            C::Error,
-        >;
+    use crate::{string::{ArchivedString, repr::ArchivedStringRepr}, validation::{ArchiveContext, ArchiveContextExt}};
 
-        #[inline]
-        unsafe fn check_bytes<'a>(
-            value: *const Self,
-            context: &mut C,
-        ) -> Result<&'a Self, Self::Error> {
-            // The repr is always valid
-            let repr = ArchivedStringRepr::check_bytes(value.cast(), context)
-                .map_err(OwnedPointerError::PointerCheckBytesError)?;
-
-            if repr.is_inline() {
-                str::check_bytes(repr.as_str_ptr(), context)
-                    .map_err(OwnedPointerError::ValueCheckBytesError)?;
-            } else {
-                let base = value.cast();
-                let offset = repr.out_of_line_offset();
-                let metadata = repr.len();
-
-                let ptr = context
-                    .check_subtree_ptr::<str>(base, offset, metadata)
-                    .map_err(OwnedPointerError::ContextError)?;
-
-                let range = context
-                    .push_prefix_subtree(ptr)
-                    .map_err(OwnedPointerError::ContextError)?;
-                str::check_bytes(ptr, context)
-                    .map_err(OwnedPointerError::ValueCheckBytesError)?;
-                context
-                    .pop_prefix_range(range)
-                    .map_err(OwnedPointerError::ContextError)?;
+    #[inline]
+    pub fn verify<C: ArchiveContext<E> + ?Sized, E: Error>(
+        value: &ArchivedString,
+        context: &mut C,
+    ) -> Result<(), E> {
+        if value.repr.is_inline() {
+            unsafe {
+                str::check_bytes(value.repr.as_str_ptr(), context)?;
             }
+        } else {
+            let base = (&value.repr as *const ArchivedStringRepr).cast();
+            let offset = unsafe { value.repr.out_of_line_offset() };
+            let metadata = value.repr.len();
 
-            Ok(&*value)
+            let ptr = unsafe {
+                context.bounds_check_subtree_base_offset::<str>(base, offset, metadata)?
+            };
+
+            let range = unsafe { context.push_prefix_subtree(ptr)? };
+            unsafe {
+                str::check_bytes(ptr, context)?;
+            }
+            unsafe {
+                context.pop_subtree_range(range)?;
+            }
         }
+
+        Ok(())
     }
-};
+}

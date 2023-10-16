@@ -28,7 +28,7 @@ fn derive_serialize_impl(
     }
 
     let mut impl_input_params = Punctuated::default();
-    impl_input_params.push(parse_quote! { __S: Fallible + ?Sized });
+    impl_input_params.push(parse_quote! { __S: ?Sized });
     for param in input.generics.params.iter() {
         impl_input_params.push(param.clone());
     }
@@ -76,7 +76,7 @@ fn derive_serialize_impl(
                 quote! {
                     impl #impl_generics Serialize<__S> for #name #ty_generics #serialize_where {
                         #[inline]
-                        fn serialize(&self, serializer: &mut __S) -> ::core::result::Result<Self::Resolver, __S::Error> {
+                        fn serialize(&self, serializer: &mut __S) -> ::core::result::Result<Self::Resolver, __E> {
                             Ok(#resolver {
                                 #(#resolver_values,)*
                             })
@@ -104,7 +104,7 @@ fn derive_serialize_impl(
                 quote! {
                     impl #impl_generics Serialize<__S> for #name #ty_generics #serialize_where {
                         #[inline]
-                        fn serialize(&self, serializer: &mut __S) -> ::core::result::Result<Self::Resolver, __S::Error> {
+                        fn serialize(&self, serializer: &mut __S) -> ::core::result::Result<Self::Resolver, __E> {
                             Ok(#resolver(
                                 #(#resolver_values,)*
                             ))
@@ -116,7 +116,7 @@ fn derive_serialize_impl(
                 quote! {
                     impl #impl_generics Serialize<__S> for #name #ty_generics #where_clause {
                         #[inline]
-                        fn serialize(&self, serializer: &mut __S) -> ::core::result::Result<Self::Resolver, __S::Error> {
+                        fn serialize(&self, serializer: &mut __S) -> ::core::result::Result<Self::Resolver, __E> {
                             Ok(#resolver)
                         }
                     }
@@ -201,7 +201,7 @@ fn derive_serialize_impl(
             quote! {
                 impl #impl_generics Serialize<__S> for #name #ty_generics #serialize_where {
                     #[inline]
-                    fn serialize(&self, serializer: &mut __S) -> ::core::result::Result<<Self as Archive>::Resolver, __S::Error> {
+                    fn serialize(&self, serializer: &mut __S) -> ::core::result::Result<<Self as Archive>::Resolver, __E> {
                         Ok(match self {
                             #(#serialize_arms,)*
                         })

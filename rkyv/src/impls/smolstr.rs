@@ -25,14 +25,14 @@ impl<S: ScratchSpace + Serializer + ?Sized> Serialize<S> for SmolStr {
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         ArchivedString::serialize_from_str(self, serializer)
     }
 }
 
-impl<D: Fallible + ?Sized> Deserialize<SmolStr, D> for ArchivedString {
+impl<D: ?Sized> Deserialize<SmolStr, D> for ArchivedString {
     #[inline]
-    fn deserialize(&self, _deserializer: &mut D) -> Result<SmolStr, D::Error> {
+    fn deserialize(&self, _deserializer: &mut D) -> Result<SmolStr, E> {
         Ok(SmolStr::new(self.as_str()))
     }
 }

@@ -271,12 +271,12 @@ pub fn archive_dyn(
                     quote! {
                         impl<__T: #name<#generic_args> + DeserializeDyn<dyn #serialize_trait<#generic_args>>, #generic_params> #deserialize_trait<#generic_args> for __T {}
 
-                        impl<__D: Fallible + ?Sized, #generic_params> DeserializeUnsized<dyn #serialize_trait<#generic_args>, __D> for dyn #deserialize_trait<#generic_args> {
-                            unsafe fn deserialize_unsized(&self, mut deserializer: &mut __D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), __D::Error> {
+                        impl<__D: ?Sized, #generic_params> DeserializeUnsized<dyn #serialize_trait<#generic_args>, __D> for dyn #deserialize_trait<#generic_args> {
+                            unsafe fn deserialize_unsized(&self, mut deserializer: &mut __D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), __E> {
                                 self.deserialize_dyn(&mut deserializer, &mut alloc).map_err(|e| *e.downcast().unwrap())
                             }
 
-                            fn deserialize_metadata(&self, mut deserializer: &mut __D) -> Result<<dyn #serialize_trait<#generic_args> as ptr_meta::Pointee>::Metadata, __D::Error> {
+                            fn deserialize_metadata(&self, mut deserializer: &mut __D) -> Result<<dyn #serialize_trait<#generic_args> as ptr_meta::Pointee>::Metadata, __E> {
                                 self.deserialize_dyn_metadata(&mut deserializer).map_err(|e| *e.downcast().unwrap())
                             }
                         }
@@ -309,7 +309,7 @@ pub fn archive_dyn(
                 quote! { f(stringify!(dyn #deserialize_trait)); }
             };
 
-            #[cfg(feature = "validation")]
+            #[cfg(feature = "bytecheck")]
             let validation_impl = quote! {
                 use bytecheck::CheckBytes;
                 use rkyv::validation::LayoutRaw;
@@ -346,7 +346,7 @@ pub fn archive_dyn(
                 }
             };
 
-            #[cfg(not(feature = "validation"))]
+            #[cfg(not(feature = "bytecheck"))]
             let validation_impl = quote! {};
 
             quote! {
@@ -415,11 +415,11 @@ pub fn archive_dyn(
                     }
 
                     impl<__S: ScratchSpace + Serializer + ?Sized, #generic_params> SerializeUnsized<__S> for dyn #serialize_trait<#generic_args> {
-                        fn serialize_unsized(&self, mut serializer: &mut __S) -> Result<usize, __S::Error> {
-                            self.serialize_dyn(&mut serializer).map_err(|e| *e.downcast::<__S::Error>().unwrap())
+                        fn serialize_unsized(&self, mut serializer: &mut __S) -> Result<usize, __E> {
+                            self.serialize_dyn(&mut serializer).map_err(|e| *e.downcast::<__E>().unwrap())
                         }
 
-                        fn serialize_metadata(&self, _: &mut __S) -> Result<Self::MetadataResolver, __S::Error> {
+                        fn serialize_metadata(&self, _: &mut __S) -> Result<Self::MetadataResolver, __E> {
                             Ok(())
                         }
                     }

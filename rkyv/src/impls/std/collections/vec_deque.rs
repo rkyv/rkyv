@@ -3,7 +3,7 @@ use std::{alloc, cmp, collections::VecDeque};
 use crate::{
     ser::{ScratchSpace, Serializer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Deserialize, DeserializeUnsized, Fallible, Serialize,
+    Archive, Deserialize, DeserializeUnsized, Serialize,
 };
 
 impl<T: PartialEq<U>, U> PartialEq<VecDeque<U>> for ArchivedVec<T> {
@@ -46,14 +46,14 @@ impl<T: Archive> Archive for VecDeque<T> {
     }
 }
 
-impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> Serialize<S>
+impl<T: Serialize<S, E>, S: ScratchSpace<E> + Serializer<E> + ?Sized, E> Serialize<S, E>
     for VecDeque<T>
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         let (a, b) = self.as_slices();
         if b.is_empty() {
             ArchivedVec::<T::Archived>::serialize_from_slice(a, serializer)
@@ -68,16 +68,15 @@ impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> Serialize<S>
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<VecDeque<T>, D>
-    for ArchivedVec<T::Archived>
+impl<T: Archive, D: ?Sized, E> Deserialize<VecDeque<T>, D, E> for ArchivedVec<T::Archived>
 where
-    [T::Archived]: DeserializeUnsized<[T], D>,
+    [T::Archived]: DeserializeUnsized<[T], D, E>,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<VecDeque<T>, D::Error> {
+    ) -> Result<VecDeque<T>, E> {
         unsafe {
             let data_address = self
                 .as_slice()
@@ -97,10 +96,12 @@ where
 mod tests {
     use std::collections::VecDeque;
 
-    use crate::{archived_root, ser::Serializer, Deserialize, Infallible};
+    use crate::{archived_root, ser::Serializer, Deserialize};
 
     #[test]
     fn vecdeque() {
+        use rancor::Failure;
+
         use crate::ser::serializers::CoreSerializer;
 
         for n in 2..10 {
@@ -131,15 +132,14 @@ mod tests {
                 // Now serialize and deserialize and verify that the
                 // deserialized version contains `0..n`.
                 let mut serializer = CoreSerializer::<256, 256>::default();
-                serializer.serialize_value(&deque).unwrap();
-                let end = serializer.pos();
+                <_ as Serializer<Failure>>::serialize_value(&mut serializer, &deque).unwrap();
+                let end = <_ as Serializer<Failure>>::pos(&serializer);
                 let result = serializer.into_serializer().into_inner();
                 let archived =
                     unsafe { archived_root::<VecDeque<i32>>(&result[0..end]) };
                 assert!(archived.iter().copied().eq(0..n));
 
-                let deserialized: VecDeque<i32> =
-                    archived.deserialize(&mut Infallible).unwrap();
+                let deserialized: VecDeque<i32> = <_ as Deserialize<_, _, Failure>>::deserialize(archived, &mut ()).unwrap();
                 assert_eq!(deque, deserialized);
             }
         }

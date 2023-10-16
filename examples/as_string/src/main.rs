@@ -30,7 +30,7 @@ impl<S> MySerializer<S> {
 // The Fallible trait defines the error type for our serializer. This is our new error type that
 // will implement From<AsStringError>.
 impl<S: Fallible> Fallible for MySerializer<S> {
-    type Error = MySerializerError<S::Error>;
+    type Error = MySerializerError<E>;
 }
 
 // Our Serializer impl just forwards everything down to the inner serializer.

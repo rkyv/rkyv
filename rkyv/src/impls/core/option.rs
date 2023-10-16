@@ -1,5 +1,5 @@
 use crate::{
-    option::ArchivedOption, Archive, Deserialize, Fallible, Serialize,
+    option::ArchivedOption, Archive, Deserialize, Serialize,
 };
 use core::{hint::unreachable_unchecked, ptr};
 
@@ -49,25 +49,25 @@ impl<T: Archive> Archive for Option<T> {
     }
 }
 
-impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Option<T> {
+impl<T: Serialize<S, E>, S: ?Sized, E> Serialize<S, E> for Option<T> {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         self.as_ref()
             .map(|value| value.serialize(serializer))
             .transpose()
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<Option<T>, D>
+impl<T: Archive, D: ?Sized, E> Deserialize<Option<T>, D, E>
     for ArchivedOption<T::Archived>
 where
-    T::Archived: Deserialize<T, D>,
+    T::Archived: Deserialize<T, D, E>,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<Option<T>, D::Error> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<Option<T>, E> {
         match self {
             ArchivedOption::Some(value) => {
                 Ok(Some(value.deserialize(deserializer)?))

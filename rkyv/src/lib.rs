@@ -74,7 +74,7 @@
 //!   *Note*: Enabling `strict` will disable [`Archive`] implementations for tuples, as tuples
 //!   do not have a C type layout. Making a generic `Tuple<T1, T2>` and deriving [`Archive`] for it
 //!   should provide similar functionality.
-//! - `validation`: Enables validation support through `bytecheck`.
+//! - `bytecheck`: Enables validation support through `bytecheck`.
 //!
 //! ## Crate support
 //!
@@ -163,22 +163,23 @@ pub mod ser;
 pub mod string;
 pub mod time;
 pub mod util;
-#[cfg(feature = "validation")]
+#[cfg(feature = "bytecheck")]
 pub mod validation;
 pub mod vec;
 pub mod with;
 
+pub use rancor;
 pub use rend;
 
-#[cfg(feature = "validation")]
-#[cfg_attr(doc_cfg, doc(cfg(feature = "validation")))]
+#[cfg(feature = "bytecheck")]
+#[cfg_attr(doc_cfg, doc(cfg(feature = "bytecheck")))]
 pub use bytecheck::{self, CheckBytes};
 use core::alloc::Layout;
 use ptr_meta::Pointee;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
 pub use util::*;
-#[cfg(feature = "validation")]
-#[cfg_attr(doc_cfg, doc(cfg(feature = "validation")))]
+#[cfg(feature = "bytecheck")]
+#[cfg_attr(doc_cfg, doc(cfg(feature = "bytecheck")))]
 pub use validation::{
     check_archived_root_with_context, check_archived_value_with_context,
     validators::{check_archived_root, check_archived_value, from_bytes},
@@ -230,36 +231,6 @@ core::compile_error!(
     features. You may need to set `default-features = false` or compile with \
     `--no-default-features`."
 );
-
-/// A type that can produce an error.
-///
-/// This trait is always implemented by serializers and deserializers. Its purpose is to provide an
-/// error type without restricting what other capabilities the type must provide.
-///
-/// When writing implementations for [`Serialize`] and [`Deserialize`], it's best practice to bound
-/// the serializer or deserializer by `Fallible` and then require that the serialized types support
-/// it (i.e. `S: Fallible, MyType: Serialize<S>`).
-pub trait Fallible {
-    /// The error produced by any failing methods.
-    type Error: 'static;
-}
-
-/// A fallible type that cannot produce errors.
-///
-/// This type can be used to serialize and deserialize types that cannot fail to serialize or
-/// deserialize.
-#[derive(Debug)]
-pub struct Infallible;
-
-impl Fallible for Infallible {
-    type Error = ::core::convert::Infallible;
-}
-
-impl Default for Infallible {
-    fn default() -> Self {
-        Infallible
-    }
-}
 
 /// A type that can be used without deserializing.
 ///
@@ -318,7 +289,7 @@ impl Default for Infallible {
 /// serializer.serialize_value(&value).unwrap();
 /// let bytes = serializer.into_serializer().into_inner();
 ///
-/// // You can use the safe API with the validation feature turned on,
+/// // You can use the safe API with the `bytecheck` feature enabled,
 /// // or you can use the unsafe API (shown here) for maximum performance
 /// let archived = unsafe { rkyv::archived_root::<Test>(&bytes[..]) };
 /// assert_eq!(archived, &value);
@@ -328,7 +299,7 @@ impl Default for Infallible {
 /// assert_eq!(deserialized, value);
 /// ```
 ///
-/// _Note: the safe API requires the `validation` feature._
+/// _Note: the safe API requires the `bytecheck` feature._
 ///
 /// Many of the core and standard library types already have `Archive` implementations available,
 /// but you may need to implement `Archive` for your own types in some cases the derive macro cannot
@@ -419,7 +390,7 @@ impl Default for Infallible {
 ///     fn serialize(
 ///         &self,
 ///         serializer: &mut S
-///     ) -> Result<Self::Resolver, S::Error> {
+///     ) -> Result<Self::Resolver, E> {
 ///         // This is where we want to write the bytes of our string and return
 ///         // a resolver that knows where those bytes were written.
 ///         // We also need to serialize the metadata for our str.
@@ -479,11 +450,10 @@ pub trait Archive {
 /// should then serialize their dependencies during `serialize`.
 ///
 /// See [`Archive`] for examples of implementing `Serialize`.
-pub trait Serialize<S: Fallible + ?Sized>: Archive {
+pub trait Serialize<S: ?Sized, E>: Archive {
     /// Writes the dependencies for the object and returns a resolver that can create the archived
     /// type.
-    fn serialize(&self, serializer: &mut S)
-        -> Result<Self::Resolver, S::Error>;
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, E>;
 }
 
 /// Converts a type back from its archived form.
@@ -493,9 +463,9 @@ pub trait Serialize<S: Fallible + ?Sized>: Archive {
 /// capabilities (e.g. [`SharedDeserializeRegistry`](de::SharedDeserializeRegistry)).
 ///
 /// This can be derived with [`Deserialize`](macro@Deserialize).
-pub trait Deserialize<T, D: Fallible + ?Sized> {
+pub trait Deserialize<T, D: ?Sized, E> {
     /// Deserializes using the given deserializer
-    fn deserialize(&self, deserializer: &mut D) -> Result<T, D::Error>;
+    fn deserialize(&self, deserializer: &mut D) -> Result<T, E>;
 }
 
 /// A counterpart of [`Archive`] that's suitable for unsized types.
@@ -608,7 +578,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     fn serialize_unsized(
 ///         &self,
 ///         serializer: &mut S
-///     ) -> Result<usize, S::Error> {
+///     ) -> Result<usize, E> {
 ///         // First, we archive the head and all the tails. This will make sure
 ///         // that when we finally build our block, we don't accidentally mess
 ///         // up the structure with serialized dependencies.
@@ -638,7 +608,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     fn serialize_metadata(
 ///         &self,
 ///         serializer: &mut S
-///     ) -> Result<Self::MetadataResolver, S::Error> {
+///     ) -> Result<Self::MetadataResolver, E> {
 ///         Ok(())
 ///     }
 /// }
@@ -740,21 +710,19 @@ pub trait ArchivePointee: Pointee {
 /// A counterpart of [`Serialize`] that's suitable for unsized types.
 ///
 /// See [`ArchiveUnsized`] for examples of implementing `SerializeUnsized`.
-pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
+pub trait SerializeUnsized<S: ?Sized, E>: ArchiveUnsized {
     /// Writes the object and returns the position of the archived type.
-    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error>;
+    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, E>;
 
     /// Serializes the metadata for the given type.
     fn serialize_metadata(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::MetadataResolver, S::Error>;
+    ) -> Result<Self::MetadataResolver, E>;
 }
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
-pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>:
-    ArchivePointee
-{
+pub trait DeserializeUnsized<T: Pointee + ?Sized, D: ?Sized, E>: ArchivePointee {
     /// Deserializes a reference to the given value.
     ///
     /// # Safety
@@ -764,13 +732,13 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>:
         &self,
         deserializer: &mut D,
         alloc: impl FnMut(Layout) -> *mut u8,
-    ) -> Result<*mut (), D::Error>;
+    ) -> Result<*mut (), E>;
 
     /// Deserializes the metadata for the given type.
     fn deserialize_metadata(
         &self,
         deserializer: &mut D,
-    ) -> Result<T::Metadata, D::Error>;
+    ) -> Result<T::Metadata, E>;
 }
 
 /// The default raw relative pointer.

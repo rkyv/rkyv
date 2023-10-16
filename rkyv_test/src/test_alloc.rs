@@ -108,7 +108,7 @@ mod tests {
         test_archive::<Result<(), _>>(&Err(Box::new(vec![1, 2, 3, 4])));
     }
 
-    #[cfg(all(feature = "std", feature = "validation"))]
+    #[cfg(all(feature = "std", feature = "bytecheck"))]
     mod isolate {
         #[cfg(feature = "wasm")]
         use wasm_bindgen_test::*;
@@ -706,10 +706,10 @@ mod tests {
             }
         }
 
-        impl<T: Archive + MyTrait, S: Fallible + MyTrait + ?Sized> Serialize<S>
+        impl<T: Archive + MyTrait, S: MyTrait + ?Sized> Serialize<S>
             for MyStruct<T>
         {
-            fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+            fn serialize(&self, _: &mut S) -> Result<Self::Resolver, E> {
                 Ok(())
             }
         }
@@ -717,9 +717,9 @@ mod tests {
         impl<T, D> Deserialize<MyStruct<T>, D> for Archived<MyStruct<T>>
         where
             T: Archive + MyTrait,
-            D: Fallible + MyTrait + ?Sized,
+            D: MyTrait + ?Sized,
         {
-            fn deserialize(&self, _: &mut D) -> Result<MyStruct<T>, D::Error> {
+            fn deserialize(&self, _: &mut D) -> Result<MyStruct<T>, E> {
                 Ok(MyStruct {
                     _phantom: PhantomData,
                 })
@@ -1017,14 +1017,14 @@ mod tests {
             d: Vec<i32>,
         }
 
-        impl<S: Fallible + ?Sized> Serialize<S> for Test
+        impl<S: ?Sized> Serialize<S> for Test
         where
             i32: Serialize<S>,
             Option<u32>: Serialize<S>,
             String: Serialize<S>,
             Vec<i32>: Serialize<S>,
         {
-            fn serialize(&self, serializer: &mut S) -> Result<RTest, S::Error> {
+            fn serialize(&self, serializer: &mut S) -> Result<RTest, E> {
                 Ok(RTest {
                     a: self.a.serialize(serializer)?,
                     b: self.b.serialize(serializer)?,
@@ -1034,7 +1034,7 @@ mod tests {
             }
         }
 
-        impl<D: Fallible + ?Sized> Deserialize<Test, D> for ATest
+        impl<D: ?Sized> Deserialize<Test, D> for ATest
         where
             Archived<i32>: Deserialize<i32, D>,
             Archived<Option<u32>>: Deserialize<Option<u32>, D>,
@@ -1044,7 +1044,7 @@ mod tests {
             fn deserialize(
                 &self,
                 deserializer: &mut D,
-            ) -> Result<Test, D::Error> {
+            ) -> Result<Test, E> {
                 Ok(Test {
                     a: self.a.deserialize(deserializer)?,
                     b: self.b.deserialize(deserializer)?,
@@ -1445,12 +1445,12 @@ mod tests {
             fn serialize_with(
                 value: &T,
                 serializer: &mut S,
-            ) -> Result<Self::Resolver, S::Error> {
+            ) -> Result<Self::Resolver, E> {
                 Ok(value.to_string().serialize(serializer)?)
             }
         }
 
-        impl<T: FromStr, D: Fallible + ?Sized>
+        impl<T: FromStr, D: ?Sized>
             DeserializeWith<Archived<String>, T, D> for ConvertToString
         where
             <T as FromStr>::Err: core::fmt::Debug,
@@ -1458,7 +1458,7 @@ mod tests {
             fn deserialize_with(
                 value: &Archived<String>,
                 _: &mut D,
-            ) -> Result<T, D::Error> {
+            ) -> Result<T, E> {
                 Ok(T::from_str(value.as_str()).unwrap())
             }
         }

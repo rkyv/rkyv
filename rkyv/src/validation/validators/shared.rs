@@ -1,7 +1,10 @@
 //! Validators add validation capabilities by wrapping and extending basic validators.
 
-use crate::{validation::SharedContext, Fallible};
 use core::{any::TypeId, fmt};
+
+use bytecheck::rancor::Error;
+
+use crate::validation::SharedContext;
 
 #[cfg(not(feature = "std"))]
 use hashbrown::HashMap;
@@ -34,31 +37,19 @@ impl fmt::Display for SharedError {
 }
 
 #[cfg(feature = "std")]
-const _: () = {
-    use std::error::Error;
-
-    impl Error for SharedError {
-        fn source(&self) -> Option<&(dyn Error + 'static)> {
-            match self {
-                SharedError::TypeMismatch { .. } => None,
-            }
+impl std::error::Error for SharedError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            SharedError::TypeMismatch { .. } => None,
         }
     }
-};
+}
 
 /// A validator that can verify shared memory.
 #[derive(Debug)]
 pub struct SharedValidator {
-    shared: HashMap<*const u8, TypeId>,
+    shared: HashMap<usize, TypeId>,
 }
-
-// SAFETY: SharedValidator is safe to send to another thread
-// This trait is not automatically implemented because the struct contains a pointer
-unsafe impl Send for SharedValidator {}
-
-// SAFETY: SharedValidator is safe to share between threads
-// This trait is not automatically implemented because the struct contains a pointer
-unsafe impl Sync for SharedValidator {}
 
 impl SharedValidator {
     /// Wraps the given context and adds shared memory validation.
@@ -78,28 +69,24 @@ impl Default for SharedValidator {
     }
 }
 
-impl Fallible for SharedValidator {
-    type Error = SharedError;
-}
-
-impl SharedContext for SharedValidator {
+impl<E: Error> SharedContext<E> for SharedValidator {
     #[inline]
     fn register_shared_ptr(
         &mut self,
-        ptr: *const u8,
+        address: usize,
         type_id: TypeId,
-    ) -> Result<bool, Self::Error> {
-        if let Some(previous_type_id) = self.shared.get(&ptr) {
+    ) -> Result<bool, E> {
+        if let Some(previous_type_id) = self.shared.get(&address) {
             if previous_type_id != &type_id {
-                Err(SharedError::TypeMismatch {
+                Err(E::new(SharedError::TypeMismatch {
                     previous: *previous_type_id,
                     current: type_id,
-                })
+                }))
             } else {
                 Ok(false)
             }
         } else {
-            self.shared.insert(ptr, type_id);
+            self.shared.insert(address, type_id);
             Ok(true)
         }
     }

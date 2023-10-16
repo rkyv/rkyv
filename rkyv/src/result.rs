@@ -9,7 +9,7 @@ use core::{
 /// An archived [`Result`] that represents either success ([`Ok`](ArchivedResult::Ok)) or failure
 /// ([`Err`](ArchivedResult::Err)).
 #[derive(Debug)]
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(u8)]
 pub enum ArchivedResult<T, E> {
     /// Contains the success value

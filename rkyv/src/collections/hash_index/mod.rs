@@ -14,7 +14,7 @@ use core::{
 /// The hash builder for archived hash indexes.
 pub use seahash::SeaHasher as HashBuilder;
 
-#[cfg(feature = "validation")]
+#[cfg(feature = "bytecheck")]
 pub mod validation;
 
 /// An archived hash index.
@@ -134,15 +134,15 @@ const _: () = {
         /// - The keys returned by the iterator must be unique.
         /// - `entries` must have a capacity of `iter.len()` entries.
         #[allow(clippy::type_complexity)]
-        pub unsafe fn build_and_serialize<'a, K, V, S, I>(
+        pub unsafe fn build_and_serialize<'a, K, V, S, I, E>(
             iter: I,
             serializer: &mut S,
             entries: &mut ScratchVec<MaybeUninit<(&'a K, &'a V)>>,
-        ) -> Result<HashIndexResolver, S::Error>
+        ) -> Result<HashIndexResolver, E>
         where
             K: 'a + Hash,
             V: 'a,
-            S: Serializer + ScratchSpace + ?Sized,
+            S: Serializer<E> + ScratchSpace<E> + ?Sized,
             I: ExactSizeIterator<Item = (&'a K, &'a V)>,
         {
             let len = iter.len();

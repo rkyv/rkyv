@@ -19,7 +19,7 @@ quote.workspace = true
 
 [features]
 default = []
-validation = []
+bytecheck = []
 
 [package.metadata.docs.rs]
 all-features = true

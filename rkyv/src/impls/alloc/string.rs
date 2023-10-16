@@ -1,6 +1,6 @@
 use crate::{
     string::{ArchivedString, StringResolver},
-    Archive, Deserialize, DeserializeUnsized, Fallible, Serialize,
+    Archive, Deserialize, DeserializeUnsized, Serialize,
     SerializeUnsized,
 };
 #[cfg(not(feature = "std"))]
@@ -22,25 +22,25 @@ impl Archive for String {
     }
 }
 
-impl<S: Fallible + ?Sized> Serialize<S> for String
+impl<S: ?Sized, E> Serialize<S, E> for String
 where
-    str: SerializeUnsized<S>,
+    str: SerializeUnsized<S, E>,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         ArchivedString::serialize_from_str(self.as_str(), serializer)
     }
 }
 
-impl<D: Fallible + ?Sized> Deserialize<String, D> for ArchivedString
+impl<D: ?Sized, E> Deserialize<String, D, E> for ArchivedString
 where
-    str: DeserializeUnsized<str, D>,
+    str: DeserializeUnsized<str, D, E>,
 {
     #[inline]
-    fn deserialize(&self, _: &mut D) -> Result<String, D::Error> {
+    fn deserialize(&self, _: &mut D) -> Result<String, E> {
         Ok(self.as_str().to_string())
     }
 }

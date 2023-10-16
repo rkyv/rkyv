@@ -25,14 +25,14 @@ impl<S: ScratchSpace + Serializer + ?Sized> Serialize<S> for Bytes {
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         ArchivedVec::serialize_from_slice(self, serializer)
     }
 }
 
-impl<D: Fallible + ?Sized> Deserialize<Bytes, D> for ArchivedVec<Archived<u8>> {
+impl<D: ?Sized> Deserialize<Bytes, D> for ArchivedVec<Archived<u8>> {
     #[inline]
-    fn deserialize(&self, _deserializer: &mut D) -> Result<Bytes, D::Error> {
+    fn deserialize(&self, _deserializer: &mut D) -> Result<Bytes, E> {
         let mut result = BytesMut::new();
         result.extend_from_slice(self.as_slice());
         Ok(result.freeze())

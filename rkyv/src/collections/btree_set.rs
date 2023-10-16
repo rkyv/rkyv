@@ -5,7 +5,7 @@ use core::{borrow::Borrow, fmt};
 
 /// An archived `BTreeSet`. This is a wrapper around a B-tree map with the same key and a value of
 /// `()`.
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct ArchivedBTreeSet<K>(ArchivedBTreeMap<K, ()>);
@@ -83,13 +83,13 @@ const _: () = {
         ///
         /// - Keys returned by the iterator must be unique
         /// - Keys must be in reverse sorted order from last to first
-        pub unsafe fn serialize_from_reverse_iter<'a, UK, S, I>(
+        pub unsafe fn serialize_from_reverse_iter<'a, UK, S, I, E>(
             iter: I,
             serializer: &mut S,
-        ) -> Result<BTreeSetResolver, S::Error>
+        ) -> Result<BTreeSetResolver, E>
         where
-            UK: 'a + Serialize<S, Archived = K>,
-            S: Serializer + ?Sized,
+            UK: 'a + Serialize<S, E, Archived = K>,
+            S: Serializer<E> + ?Sized,
             I: ExactSizeIterator<Item = &'a UK>,
         {
             Ok(BTreeSetResolver(

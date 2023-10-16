@@ -18,9 +18,9 @@ rkyv_typename = { path = "../rkyv_typename", default-features = false }
 wasm-bindgen-test = { workspace = true, optional = true }
 
 [features]
-default = ["rkyv/std", "validation"]
+default = ["rkyv/std", "bytecheck"]
+bytecheck = ["dep:bytecheck", "rkyv_dyn/bytecheck"]
 nightly = ["rkyv_dyn/nightly"]
 strict = ["rkyv_dyn/strict"]
-validation = ["bytecheck", "rkyv_dyn/validation"]
 vtable_cache = ["rkyv_dyn/vtable_cache"]
 wasm = ["wasm-bindgen-test"]

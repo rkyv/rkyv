@@ -1,8 +1,5 @@
 //! Relative pointer implementations and options.
 
-#[cfg(feature = "validation")]
-mod validation;
-
 use crate::{
     primitive::{
         ArchivedI16, ArchivedI32, ArchivedI64, ArchivedU16, ArchivedU32,
@@ -161,6 +158,7 @@ pub enum RelPtrError {
 /// Relative pointers are *relative*, meaning that the pointee can be moved with the target without
 /// invalidating the pointer. However, if either the pointee or the target move independently, the
 /// pointer will be invalidated.
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct RawRelPtr<O> {
     offset: O,
@@ -200,14 +198,8 @@ impl<O: Offset> RawRelPtr<O> {
 
     /// Gets the base pointer for the relative pointer.
     #[inline]
-    pub fn base(&self) -> *const u8 {
-        (self as *const Self).cast::<u8>()
-    }
-
-    /// Gets the mutable base pointer for the relative pointer.
-    #[inline]
-    pub fn base_mut(&mut self) -> *mut u8 {
-        (self as *mut Self).cast::<u8>()
+    pub fn base(&self) -> *mut u8 {
+        (self as *const Self).cast_mut().cast::<u8>()
     }
 
     /// Gets the offset of the relative pointer from its base.
@@ -224,15 +216,13 @@ impl<O: Offset> RawRelPtr<O> {
 
     /// Calculates the memory address being pointed to by this relative pointer.
     #[inline]
-    pub fn as_ptr(&self) -> *const () {
+    pub unsafe fn as_ptr(&self) -> *mut () {
         unsafe { self.base().offset(self.offset()).cast() }
     }
 
-    /// Returns an unsafe mutable pointer to the memory address being pointed to
-    /// by this relative pointer.
     #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut () {
-        unsafe { self.base_mut().offset(self.offset()).cast() }
+    pub fn as_ptr_wrapping(&self) -> *mut () {
+        self.base().wrapping_offset(self.offset()).cast()
     }
 }
 
@@ -246,7 +236,7 @@ impl<O: fmt::Debug> fmt::Debug for RawRelPtr<O> {
 
 impl<O: Offset> fmt::Pointer for RawRelPtr<O> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Pointer::fmt(&self.as_ptr(), f)
+        fmt::Pointer::fmt(&self.as_ptr_wrapping(), f)
     }
 }
 
@@ -279,6 +269,7 @@ pub type RawRelPtrU64 = RawRelPtr<ArchivedU64>;
 /// This is a strongly-typed version of [`RawRelPtr`].
 ///
 /// See [`Archive`](crate::Archive) for an example of creating one.
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 pub struct RelPtr<T: ArchivePointee + ?Sized, O> {
     raw_ptr: RawRelPtr<O>,
     metadata: T::ArchivedMetadata,
@@ -475,14 +466,8 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
 
     /// Gets the base pointer for the relative pointer.
     #[inline]
-    pub fn base(&self) -> *const u8 {
+    pub fn base(&self) -> *mut u8 {
         self.raw_ptr.base()
-    }
-
-    /// Gets the mutable base pointer for the relative pointer.
-    #[inline]
-    pub fn base_mut(&mut self) -> *mut u8 {
-        self.raw_ptr.base_mut()
     }
 
     /// Gets the offset of the relative pointer from its base.
@@ -505,19 +490,17 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
 
     /// Calculates the memory address being pointed to by this relative pointer.
     #[inline]
-    pub fn as_ptr(&self) -> *const T {
-        ptr_meta::from_raw_parts(
+    pub unsafe fn as_ptr(&self) -> *mut T {
+        ptr_meta::from_raw_parts_mut(
             self.raw_ptr.as_ptr(),
             T::pointer_metadata(&self.metadata),
         )
     }
 
-    /// Returns an unsafe mutable pointer to the memory address being pointed to by this relative
-    /// pointer.
     #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut T {
+    pub fn as_ptr_wrapping(&self) -> *mut T {
         ptr_meta::from_raw_parts_mut(
-            self.raw_ptr.as_mut_ptr(),
+            self.raw_ptr.as_ptr_wrapping(),
             T::pointer_metadata(&self.metadata),
         )
     }
@@ -537,6 +520,6 @@ where
 
 impl<T: ArchivePointee + ?Sized, O: Offset> fmt::Pointer for RelPtr<T, O> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Pointer::fmt(&self.as_ptr(), f)
+        fmt::Pointer::fmt(&self.as_ptr_wrapping(), f)
     }
 }

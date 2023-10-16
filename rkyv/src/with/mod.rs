@@ -5,7 +5,7 @@
 
 mod impls;
 
-use crate::{Archive, Deserialize, Fallible, Serialize};
+use crate::{Archive, Deserialize, Serialize};
 use core::{fmt, marker::PhantomData, mem::transmute, ops::Deref};
 
 // TODO: Gate unsafe wrappers behind Unsafe.
@@ -114,21 +114,21 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 ///     }
 /// }
 ///
-/// impl<S: Fallible + ?Sized> SerializeWith<i32, S> for Incremented
+/// impl<S: ?Sized> SerializeWith<i32, S> for Incremented
 /// where
 ///     i32: Serialize<S>,
 /// {
-///     fn serialize_with(field: &i32, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+///     fn serialize_with(field: &i32, serializer: &mut S) -> Result<Self::Resolver, E> {
 ///         let incremented = field + 1;
 ///         incremented.serialize(serializer)
 ///     }
 /// }
 ///
-/// impl<D: Fallible + ?Sized> DeserializeWith<Archived<i32>, i32, D> for Incremented
+/// impl<D: ?Sized> DeserializeWith<Archived<i32>, i32, D> for Incremented
 /// where
 ///     Archived<i32>: Deserialize<i32, D>,
 /// {
-///     fn deserialize_with(field: &Archived<i32>, deserializer: &mut D) -> Result<i32, D::Error> {
+///     fn deserialize_with(field: &Archived<i32>, deserializer: &mut D) -> Result<i32, E> {
 ///         Ok(field.deserialize(deserializer)? - 1)
 ///     }
 /// }
@@ -198,46 +198,44 @@ impl<F: ?Sized, W: ArchiveWith<F>> Archive for With<F, W> {
 }
 
 /// A variant of `Serialize` that works with `With` wrappers.
-pub trait SerializeWith<F: ?Sized, S: Fallible + ?Sized>:
-    ArchiveWith<F>
+pub trait SerializeWith<F: ?Sized, S: ?Sized, E>: ArchiveWith<F>
 {
     /// Serializes the field type `F` using the given serializer.
     fn serialize_with(
         field: &F,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error>;
+    ) -> Result<Self::Resolver, E>;
 }
 
-impl<F: ?Sized, W: SerializeWith<F, S>, S: Fallible + ?Sized> Serialize<S>
+impl<F: ?Sized, W: SerializeWith<F, S, E>, S: ?Sized, E> Serialize<S, E>
     for With<F, W>
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         W::serialize_with(&self.field, serializer)
     }
 }
 
 /// A variant of `Deserialize` that works with `With` wrappers.
-pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
+pub trait DeserializeWith<F: ?Sized, T, D: ?Sized, E> {
     /// Deserializes the field type `F` using the given deserializer.
-    fn deserialize_with(field: &F, deserializer: &mut D)
-        -> Result<T, D::Error>;
+    fn deserialize_with(field: &F, deserializer: &mut D) -> Result<T, E>;
 }
 
-impl<F, W, T, D> Deserialize<With<T, W>, D> for F
+impl<F, W, T, D, E> Deserialize<With<T, W>, D, E> for F
 where
     F: ?Sized,
-    W: DeserializeWith<F, T, D>,
-    D: Fallible + ?Sized,
+    W: DeserializeWith<F, T, D, E>,
+    D: ?Sized,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<With<T, W>, D::Error> {
+    ) -> Result<With<T, W>, E> {
         Ok(With {
             _phantom: PhantomData,
             field: W::deserialize_with(self, deserializer)?,
@@ -248,6 +246,7 @@ where
 /// A wrapper to make a type immutable.
 #[repr(transparent)]
 #[derive(Debug)]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 pub struct Immutable<T: ?Sized>(T);
 
 impl<T: ?Sized> Immutable<T> {
@@ -266,23 +265,6 @@ impl<T: ?Sized> Deref for Immutable<T> {
         &self.0
     }
 }
-
-#[cfg(feature = "validation")]
-const _: () = {
-    use bytecheck::CheckBytes;
-
-    impl<T: CheckBytes<C> + ?Sized, C: ?Sized> CheckBytes<C> for Immutable<T> {
-        type Error = T::Error;
-
-        unsafe fn check_bytes<'a>(
-            value: *const Self,
-            context: &mut C,
-        ) -> Result<&'a Self, Self::Error> {
-            CheckBytes::check_bytes(core::ptr::addr_of!((*value).0), context)?;
-            Ok(&*value)
-        }
-    }
-};
 
 /// A generic wrapper that allows wrapping an `Option<T>`.
 ///
@@ -463,7 +445,7 @@ pub struct AsString;
 #[derive(Debug)]
 pub enum AsStringError {
     /// The `OsString` or `PathBuf` was not valid UTF-8.
-    InvalidUTF8,
+    InvalidStr,
 }
 
 impl fmt::Display for AsStringError {

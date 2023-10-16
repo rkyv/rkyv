@@ -1006,12 +1006,12 @@ impl io::Write for AlignedVec {
 // SAFETY: AlignedVec is safe to send to another thread
 unsafe impl Send for AlignedVec {}
 
-impl<S: ScratchSpace + Serializer + ?Sized> Serialize<S> for AlignedVec {
+impl<S: ScratchSpace<E> + Serializer<E> + ?Sized, E> Serialize<S, E> for AlignedVec {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         serializer.align(Self::ALIGNMENT)?;
         ArchivedVec::<Archived<u8>>::serialize_from_slice(
             self.as_slice(),

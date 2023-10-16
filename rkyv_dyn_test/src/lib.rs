@@ -1,4 +1,4 @@
-#[cfg(feature = "validation")]
+#[cfg(feature = "bytecheck")]
 mod validation;
 
 // Miri does not support the `ctor` crate, so all of the impls here end up being unregistered.
@@ -95,15 +95,15 @@ mod tests {
                 fn serialize_unsized(
                     &self,
                     mut serializer: &mut S,
-                ) -> Result<usize, S::Error> {
+                ) -> Result<usize, E> {
                     self.serialize_dyn(&mut serializer)
-                        .map_err(|e| *e.downcast::<S::Error>().unwrap())
+                        .map_err(|e| *e.downcast::<E>().unwrap())
                 }
 
                 fn serialize_metadata(
                     &self,
                     _: &mut S,
-                ) -> Result<Self::MetadataResolver, S::Error> {
+                ) -> Result<Self::MetadataResolver, E> {
                     Ok(())
                 }
             }
@@ -111,13 +111,13 @@ mod tests {
             impl<D> DeserializeUnsized<dyn SerializeTestTrait, D>
                 for dyn DeserializeTestTrait
             where
-                D: Fallible + ?Sized,
+                D: ?Sized,
             {
                 unsafe fn deserialize_unsized(
                     &self,
                     mut deserializer: &mut D,
                     mut alloc: impl FnMut(Layout) -> *mut u8,
-                ) -> Result<*mut (), D::Error> {
+                ) -> Result<*mut (), E> {
                     self.deserialize_dyn(&mut deserializer, &mut alloc)
                         .map_err(|e| *e.downcast().unwrap())
                 }
@@ -127,7 +127,7 @@ mod tests {
                     mut deserializer: &mut D,
                 ) -> Result<
                     <dyn SerializeTestTrait as ptr_meta::Pointee>::Metadata,
-                    D::Error,
+                    E,
                 > {
                     self.deserialize_dyn_metadata(&mut deserializer)
                         .map_err(|e| *e.downcast().unwrap())

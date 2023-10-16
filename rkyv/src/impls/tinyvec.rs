@@ -36,12 +36,12 @@ where
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         ArchivedVec::serialize_from_slice(self.as_slice(), serializer)
     }
 }
 
-impl<A: Array, D: Fallible + ?Sized> Deserialize<ArrayVec<A>, D>
+impl<A: Array, D: ?Sized> Deserialize<ArrayVec<A>, D>
     for ArchivedVec<Archived<A::Item>>
 where
     A::Item: Archive,
@@ -51,7 +51,7 @@ where
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<ArrayVec<A>, D::Error> {
+    ) -> Result<ArrayVec<A>, E> {
         let mut result = ArrayVec::new();
         for item in self.as_slice() {
             result.push(item.deserialize(deserializer)?);
@@ -84,7 +84,7 @@ impl<'s, T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> Serialize<S>
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         ArchivedVec::serialize_from_slice(self.as_slice(), serializer)
     }
 }
@@ -122,13 +122,13 @@ where
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         ArchivedVec::serialize_from_slice(self.as_slice(), serializer)
     }
 }
 
 #[cfg(feature = "tinyvec_alloc")]
-impl<A: Array, D: Fallible + ?Sized> Deserialize<TinyVec<A>, D>
+impl<A: Array, D: ?Sized> Deserialize<TinyVec<A>, D>
     for ArchivedVec<Archived<A::Item>>
 where
     A::Item: Archive,
@@ -138,7 +138,7 @@ where
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<TinyVec<A>, D::Error> {
+    ) -> Result<TinyVec<A>, E> {
         let mut result = TinyVec::new();
         for item in self.as_slice() {
             result.push(item.deserialize(deserializer)?);

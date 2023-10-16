@@ -1,9 +1,6 @@
 //! Adapters wrap deserializers and add support for deserializer traits.
 
-use crate::{
-    de::{SharedDeserializeRegistry, SharedPointer},
-    Fallible,
-};
+use crate::de::{SharedDeserializeRegistry, SharedPointer};
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use core::fmt;
@@ -78,11 +75,7 @@ impl Default for SharedDeserializeMap {
     }
 }
 
-impl Fallible for SharedDeserializeMap {
-    type Error = SharedDeserializeMapError;
-}
-
-impl SharedDeserializeRegistry for SharedDeserializeMap {
+impl<E> SharedDeserializeRegistry<E> for SharedDeserializeMap {
     fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer> {
         self.shared_pointers.get(&ptr).map(|p| p.as_ref())
     }
@@ -91,7 +84,7 @@ impl SharedDeserializeRegistry for SharedDeserializeMap {
         &mut self,
         ptr: *const u8,
         shared: Box<dyn SharedPointer>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), E> {
         match self.shared_pointers.entry(ptr) {
             hash_map::Entry::Occupied(_) => {
                 Err(SharedDeserializeMapError::DuplicateSharedPointer(ptr))

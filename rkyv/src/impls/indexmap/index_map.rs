@@ -30,7 +30,7 @@ where
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<IndexMapResolver, S::Error> {
+    ) -> Result<IndexMapResolver, E> {
         unsafe {
             ArchivedIndexMap::serialize_from_iter_index(
                 self.iter(),
@@ -48,13 +48,13 @@ where
     K::Archived: Deserialize<K, D>,
     V: Archive,
     V::Archived: Deserialize<V, D>,
-    D: Fallible + ?Sized,
+    D: ?Sized,
     S: Default + BuildHasher,
 {
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<IndexMap<K, V, S>, D::Error> {
+    ) -> Result<IndexMap<K, V, S>, E> {
         let mut result =
             IndexMap::with_capacity_and_hasher(self.len(), S::default());
         for (k, v) in self.iter() {
@@ -116,7 +116,7 @@ mod tests {
         assert_eq!(value, deserialized);
     }
 
-    #[cfg(feature = "validation")]
+    #[cfg(feature = "bytecheck")]
     #[test]
     fn validate_index_map() {
         use crate::check_archived_root;

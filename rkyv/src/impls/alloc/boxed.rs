@@ -1,7 +1,7 @@
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized,
-    Fallible, Serialize, SerializeUnsized,
+    Serialize, SerializeUnsized,
 };
 #[cfg(not(feature = "std"))]
 use alloc::{alloc, boxed::Box};
@@ -24,26 +24,26 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     }
 }
 
-impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> Serialize<S>
+impl<T: SerializeUnsized<S, E> + ?Sized, S: ?Sized, E> Serialize<S, E>
     for Box<T>
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         ArchivedBox::serialize_from_ref(self.as_ref(), serializer)
     }
 }
 
-impl<T, D> Deserialize<Box<T>, D> for ArchivedBox<T::Archived>
+impl<T, D, E> Deserialize<Box<T>, D, E> for ArchivedBox<T::Archived>
 where
     T: ArchiveUnsized + ?Sized,
-    T::Archived: DeserializeUnsized<T, D>,
-    D: Fallible + ?Sized,
+    T::Archived: DeserializeUnsized<T, D, E>,
+    D: ?Sized,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, E> {
         unsafe {
             let data_address =
                 self.get().deserialize_unsized(deserializer, |layout| {

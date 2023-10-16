@@ -32,12 +32,12 @@ where
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         ArchivedVec::serialize_from_slice(self.as_slice(), serializer)
     }
 }
 
-impl<T, D: Fallible + ?Sized, const CAP: usize> Deserialize<ArrayVec<T, CAP>, D>
+impl<T, D: ?Sized, const CAP: usize> Deserialize<ArrayVec<T, CAP>, D>
     for ArchivedVec<Archived<T>>
 where
     T: Archive,
@@ -47,7 +47,7 @@ where
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<ArrayVec<T, CAP>, D::Error> {
+    ) -> Result<ArrayVec<T, CAP>, E> {
         let mut result = ArrayVec::new();
         for item in self.as_slice() {
             result.push(item.deserialize(deserializer)?);

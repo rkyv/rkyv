@@ -43,10 +43,10 @@ impl<T> ScratchVec<T> {
     /// - The vector must not outlive the given scratch space.
     /// - Vectors must be dropped in the reverse order they are allocated.
     #[inline]
-    pub unsafe fn new<S: ScratchSpace + ?Sized>(
+    pub unsafe fn new<S: ScratchSpace<E> + ?Sized, E>(
         scratch_space: &mut S,
         capacity: usize,
-    ) -> Result<Self, S::Error> {
+    ) -> Result<Self, E> {
         let layout = Layout::array::<T>(capacity).unwrap();
         if layout.size() == 0 {
             Ok(Self {
@@ -75,10 +75,10 @@ impl<T> ScratchVec<T> {
     ///
     /// The given scratch space must be the same one used to allocate the scratch vec.
     #[inline]
-    pub unsafe fn free<S: ScratchSpace + ?Sized>(
+    pub unsafe fn free<S: ScratchSpace<E> + ?Sized, E>(
         self,
         scratch_space: &mut S,
-    ) -> Result<(), S::Error> {
+    ) -> Result<(), E> {
         let layout = self.layout();
         if layout.size() != 0 {
             let ptr = self.ptr.cast();

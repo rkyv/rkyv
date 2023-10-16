@@ -17,7 +17,6 @@ mod scratch_vec;
 use crate::{
     de::deserializers::SharedDeserializeMap,
     ser::{serializers::AllocSerializer, Serializer},
-    Fallible,
 };
 use crate::{Archive, ArchiveUnsized, Deserialize, RelPtr, Serialize};
 use core::{
@@ -134,7 +133,7 @@ pub unsafe fn archived_unsized_value_mut<T: ArchiveUnsized + ?Sized>(
         .as_mut_ptr()
         .add(pos)
         .cast::<RelPtr<T::Archived>>();
-    Pin::new_unchecked(&mut *rel_ptr.as_mut_ptr())
+    Pin::new_unchecked(&mut *rel_ptr.as_ptr())
 }
 
 /// Casts an archived value from the given byte slice by calculating the root position.
@@ -227,9 +226,11 @@ pub unsafe fn archived_unsized_root_mut<T: ArchiveUnsized + ?Sized>(
 /// assert_eq!(mem::align_of::<u8>(), 1);
 /// assert_eq!(mem::align_of::<AlignedBytes<256>>(), 16);
 /// ```
-#[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize)]
-#[archive(crate = "crate")]
+// TODO: Re-enable
+// #[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize)]
+// #[archive(crate = "crate")]
 #[repr(C, align(16))]
+#[derive(Debug)]
 pub struct AlignedBytes<const N: usize>(pub [u8; N]);
 
 impl<const N: usize> Default for AlignedBytes<N> {
@@ -296,11 +297,11 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 /// ```
 #[cfg(feature = "alloc")]
 #[inline]
-pub fn to_bytes<T, const N: usize>(
+pub fn to_bytes<T, E, const N: usize>(
     value: &T,
-) -> Result<AlignedVec, <AllocSerializer<N> as Fallible>::Error>
+) -> Result<AlignedVec, E>
 where
-    T: Serialize<AllocSerializer<N>>,
+    T: Serialize<AllocSerializer<N>, E>,
 {
     let mut serializer = AllocSerializer::<N>::default();
     serializer.serialize_value(value)?;
@@ -335,12 +336,12 @@ where
 /// ```
 #[cfg(feature = "alloc")]
 #[inline]
-pub unsafe fn from_bytes_unchecked<T>(
+pub unsafe fn from_bytes_unchecked<T, E>(
     bytes: &[u8],
-) -> Result<T, <SharedDeserializeMap as Fallible>::Error>
+) -> Result<T, E>
 where
     T: Archive,
-    T::Archived: Deserialize<T, SharedDeserializeMap>,
+    T::Archived: Deserialize<T, SharedDeserializeMap, E>,
 {
     archived_root::<T>(bytes).deserialize(&mut SharedDeserializeMap::default())
 }

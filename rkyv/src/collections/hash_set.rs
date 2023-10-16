@@ -13,7 +13,7 @@ use core::{borrow::Borrow, fmt, hash::Hash};
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key and a value of
 /// `()`.
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct ArchivedHashSet<K>(ArchivedHashMap<K, ()>);
 
@@ -88,13 +88,13 @@ impl<K> ArchivedHashSet<K> {
     /// The keys returned by the iterator must be unique.
     #[cfg(feature = "alloc")]
     #[inline]
-    pub unsafe fn serialize_from_iter<'a, KU, S, I>(
+    pub unsafe fn serialize_from_iter<'a, KU, S, I, E>(
         iter: I,
         serializer: &mut S,
-    ) -> Result<HashSetResolver, S::Error>
+    ) -> Result<HashSetResolver, E>
     where
-        KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
-        S: Serializer + ScratchSpace + ?Sized,
+        KU: 'a + Serialize<S, E, Archived = K> + Hash + Eq,
+        S: Serializer<E> + ScratchSpace<E> + ?Sized,
         I: ExactSizeIterator<Item = &'a KU>,
     {
         Ok(HashSetResolver(ArchivedHashMap::serialize_from_iter(

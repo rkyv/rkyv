@@ -1,7 +1,7 @@
 use crate::{
     ser::{ScratchSpace, Serializer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Deserialize, DeserializeUnsized, Fallible, Serialize,
+    Archive, Deserialize, DeserializeUnsized, Serialize,
 };
 #[cfg(not(feature = "std"))]
 use alloc::{alloc, boxed::Box, vec::Vec};
@@ -52,14 +52,14 @@ impl<T: Archive> Archive for Vec<T> {
     }
 }
 
-impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> Serialize<S>
+impl<T: Serialize<S, E>, S: ScratchSpace<E> + Serializer<E> + ?Sized, E> Serialize<S, E>
     for Vec<T>
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         ArchivedVec::<T::Archived>::serialize_from_slice(
             self.as_slice(),
             serializer,
@@ -67,13 +67,13 @@ impl<T: Serialize<S>, S: ScratchSpace + Serializer + ?Sized> Serialize<S>
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<Vec<T>, D>
+impl<T: Archive, D: ?Sized, E> Deserialize<Vec<T>, D, E>
     for ArchivedVec<T::Archived>
 where
-    [T::Archived]: DeserializeUnsized<[T], D>,
+    [T::Archived]: DeserializeUnsized<[T], D, E>,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<Vec<T>, D::Error> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<Vec<T>, E> {
         unsafe {
             let data_address = self
                 .as_slice()

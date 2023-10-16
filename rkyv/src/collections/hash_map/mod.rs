@@ -3,7 +3,7 @@
 //! During archiving, hashmaps are built into minimal perfect hashmaps using
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
-#[cfg(feature = "validation")]
+#[cfg(feature = "bytecheck")]
 pub mod validation;
 
 use crate::{
@@ -284,14 +284,14 @@ const _: () = {
         /// # Safety
         ///
         /// The keys returned by the iterator must be unique.
-        pub unsafe fn serialize_from_iter<'a, KU, VU, S, I>(
+        pub unsafe fn serialize_from_iter<'a, KU, VU, S, I, E>(
             iter: I,
             serializer: &mut S,
-        ) -> Result<HashMapResolver, S::Error>
+        ) -> Result<HashMapResolver, E>
         where
-            KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
-            VU: 'a + Serialize<S, Archived = V>,
-            S: Serializer + ScratchSpace + ?Sized,
+            KU: 'a + Serialize<S, E, Archived = K> + Hash + Eq,
+            VU: 'a + Serialize<S, E, Archived = V>,
+            S: Serializer<E> + ScratchSpace<E> + ?Sized,
             I: ExactSizeIterator<Item = (&'a KU, &'a VU)>,
         {
             use crate::ScratchVec;

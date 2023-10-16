@@ -3,7 +3,7 @@
 pub mod deserializers;
 
 #[cfg(feature = "alloc")]
-use crate::{ArchiveUnsized, DeserializeUnsized, Fallible};
+use crate::{ArchiveUnsized, DeserializeUnsized};
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
@@ -20,7 +20,7 @@ pub trait SharedPointer {
 ///
 /// This trait is required to deserialize shared pointers.
 #[cfg(feature = "alloc")]
-pub trait SharedDeserializeRegistry: Fallible {
+pub trait SharedDeserializeRegistry<E> {
     /// Gets the data pointer of a previously-deserialized shared pointer.
     fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer>;
 
@@ -29,7 +29,7 @@ pub trait SharedDeserializeRegistry: Fallible {
         &mut self,
         ptr: *const u8,
         shared: Box<dyn SharedPointer>,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<(), E>;
 
     /// Checks whether the given reference has been deserialized and either uses the existing shared
     /// pointer to it, or deserializes it and converts it to a shared pointer with `to_shared`.
@@ -39,13 +39,13 @@ pub trait SharedDeserializeRegistry: Fallible {
         value: &T::Archived,
         to_shared: F,
         alloc: A,
-    ) -> Result<*const T, Self::Error>
+    ) -> Result<*const T, E>
     where
         T: ArchiveUnsized + ?Sized,
         P: SharedPointer + 'static,
         F: FnOnce(*mut T) -> P,
         A: FnMut(Layout) -> *mut u8,
-        T::Archived: DeserializeUnsized<T, Self>,
+        T::Archived: DeserializeUnsized<T, Self, E>,
     {
         let ptr = value as *const T::Archived as *const u8;
         let metadata = T::Archived::deserialize_metadata(value, self)?;

@@ -3,14 +3,14 @@ use crate::{
         serializers::BufferScratch, ScratchSpace, Serializer,
         SharedSerializeRegistry,
     },
-    AlignedBytes, AlignedVec, Archive, ArchiveUnsized, Fallible, RelPtr,
+    AlignedBytes, AlignedVec, Archive, ArchiveUnsized, RelPtr,
 };
 #[cfg(not(feature = "std"))]
 use alloc::{alloc, boxed::Box, vec::Vec};
+use rancor::Error;
 use core::{
     alloc::Layout,
     borrow::{Borrow, BorrowMut},
-    convert::Infallible,
     fmt, mem,
     ptr::NonNull,
 };
@@ -53,20 +53,14 @@ impl<A: Default> Default for AlignedSerializer<A> {
     }
 }
 
-impl<A> Fallible for AlignedSerializer<A> {
-    type Error = Infallible;
-}
-
-impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer
-    for AlignedSerializer<A>
-{
+impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>, E> Serializer<E> for AlignedSerializer<A> {
     #[inline]
     fn pos(&self) -> usize {
         self.inner.borrow().len()
     }
 
     #[inline]
-    fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         self.inner.borrow_mut().extend_from_slice(bytes);
         Ok(())
     }
@@ -76,8 +70,8 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer
         &mut self,
         value: &T,
         resolver: T::Resolver,
-    ) -> Result<usize, Self::Error> {
-        let pos = self.pos();
+    ) -> Result<usize, E> {
+        let pos = <_ as Serializer<E>>::pos(self);
         debug_assert_eq!(pos & (mem::align_of::<T::Archived>() - 1), 0);
         let vec = self.inner.borrow_mut();
         let additional = mem::size_of::<T::Archived>();
@@ -97,8 +91,8 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>> Serializer
         value: &T,
         to: usize,
         metadata_resolver: T::MetadataResolver,
-    ) -> Result<usize, Self::Error> {
-        let from = self.pos();
+    ) -> Result<usize, E> {
+        let from = <_ as Serializer<E>>::pos(self);
         debug_assert_eq!(
             from & (mem::align_of::<RelPtr<T::Archived>>() - 1),
             0
@@ -154,16 +148,12 @@ impl<const N: usize> Default for HeapScratch<N> {
     }
 }
 
-impl<const N: usize> Fallible for HeapScratch<N> {
-    type Error = <BufferScratch<Box<[u8]>> as Fallible>::Error;
-}
-
-impl<const N: usize> ScratchSpace for HeapScratch<N> {
+impl<const N: usize, E: Error> ScratchSpace<E> for HeapScratch<N> {
     #[inline]
     unsafe fn push_scratch(
         &mut self,
         layout: Layout,
-    ) -> Result<NonNull<[u8]>, Self::Error> {
+    ) -> Result<NonNull<[u8]>, E> {
         self.inner.push_scratch(layout)
     }
 
@@ -172,7 +162,7 @@ impl<const N: usize> ScratchSpace for HeapScratch<N> {
         &mut self,
         ptr: NonNull<u8>,
         layout: Layout,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), E> {
         self.inner.pop_scratch(ptr, layout)
     }
 }
@@ -294,22 +284,18 @@ impl Default for AllocScratch {
     }
 }
 
-impl Fallible for AllocScratch {
-    type Error = AllocScratchError;
-}
-
-impl ScratchSpace for AllocScratch {
+impl<E: Error> ScratchSpace<E> for AllocScratch {
     #[inline]
     unsafe fn push_scratch(
         &mut self,
         layout: Layout,
-    ) -> Result<NonNull<[u8]>, Self::Error> {
+    ) -> Result<NonNull<[u8]>, E> {
         if let Some(remaining) = self.remaining {
             if remaining < layout.size() {
-                return Err(AllocScratchError::ExceededLimit {
+                return Err(E::new(AllocScratchError::ExceededLimit {
                     requested: layout.size(),
                     remaining,
-                });
+                }));
             }
         }
         let result_ptr = alloc::alloc(layout);
@@ -326,22 +312,22 @@ impl ScratchSpace for AllocScratch {
         &mut self,
         ptr: NonNull<u8>,
         layout: Layout,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), E> {
         if let Some(&(last_ptr, last_layout)) = self.allocations.last() {
             if ptr.as_ptr() == last_ptr && layout == last_layout {
                 alloc::dealloc(ptr.as_ptr(), layout);
                 self.allocations.pop();
                 Ok(())
             } else {
-                Err(AllocScratchError::NotPoppedInReverseOrder {
+                Err(E::new(AllocScratchError::NotPoppedInReverseOrder {
                     expected: last_ptr,
                     expected_layout: last_layout,
                     actual: ptr.as_ptr(),
                     actual_layout: layout,
-                })
+                }))
             }
         } else {
-            Err(AllocScratchError::NoAllocationsToPop)
+            Err(E::new(AllocScratchError::NoAllocationsToPop))
         }
     }
 }
@@ -409,11 +395,7 @@ impl Default for SharedSerializeMap {
     }
 }
 
-impl Fallible for SharedSerializeMap {
-    type Error = SharedSerializeMapError;
-}
-
-impl SharedSerializeRegistry for SharedSerializeMap {
+impl<E: Error> SharedSerializeRegistry<E> for SharedSerializeMap {
     fn get_shared_ptr(&self, value: *const u8) -> Option<usize> {
         self.shared_resolvers.get(&value).copied()
     }
@@ -422,10 +404,10 @@ impl SharedSerializeRegistry for SharedSerializeMap {
         &mut self,
         value: *const u8,
         pos: usize,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), E> {
         match self.shared_resolvers.entry(value) {
             hash_map::Entry::Occupied(_) => {
-                Err(SharedSerializeMapError::DuplicateSharedPointer(value))
+                Err(E::new(SharedSerializeMapError::DuplicateSharedPointer(value)))
             }
             hash_map::Entry::Vacant(e) => {
                 e.insert(pos);

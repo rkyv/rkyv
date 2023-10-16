@@ -13,7 +13,7 @@ use core::{
 /// It functions identically to [`Option`] but has a different internal
 /// representation to allow for archiving.
 #[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "validation", derive(bytecheck::CheckBytes))]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(u8)]
 pub enum ArchivedOption<T> {
     /// No value

@@ -95,7 +95,7 @@ impl ArchivedStringRepr {
     }
 
     /// Returns a pointer to the string as a `str`.
-    #[cfg(feature = "validation")]
+    #[cfg(feature = "bytecheck")]
     #[inline]
     pub fn as_str_ptr(&self) -> *const str {
         ptr_meta::from_raw_parts(self.as_ptr().cast(), self.len())
@@ -168,10 +168,9 @@ impl ArchivedStringRepr {
     }
 }
 
-#[cfg(feature = "validation")]
+#[cfg(feature = "bytecheck")]
 const _: () = {
-    use crate::Fallible;
-    use bytecheck::CheckBytes;
+    use bytecheck::{CheckBytes, rancor::Error};
     use core::fmt;
 
     /// An error resulting from an invalid string representation.
@@ -184,7 +183,7 @@ const _: () = {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             write!(
                 f,
-                "String representation was inline but the length was too large"
+                "String representation was inline but the length was too large",
             )
         }
     }
@@ -192,21 +191,19 @@ const _: () = {
     #[cfg(feature = "std")]
     impl std::error::Error for CheckStringReprError {}
 
-    impl<C: Fallible + ?Sized> CheckBytes<C> for ArchivedStringRepr {
-        type Error = CheckStringReprError;
-
+    unsafe impl<C: ?Sized, E: Error> CheckBytes<C, E> for ArchivedStringRepr {
         #[inline]
-        unsafe fn check_bytes<'a>(
+        unsafe fn check_bytes(
             value: *const Self,
             _: &mut C,
-        ) -> Result<&'a Self, Self::Error> {
+        ) -> Result<(), E> {
             // The fields of `ArchivedStringRepr` are always valid
             let repr = &*value;
 
             if repr.is_inline() && repr.len() > INLINE_CAPACITY {
-                Err(CheckStringReprError)
+                Err(E::new(CheckStringReprError))
             } else {
-                Ok(repr)
+                Ok(())
             }
         }
     }

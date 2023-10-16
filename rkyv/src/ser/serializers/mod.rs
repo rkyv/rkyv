@@ -10,9 +10,9 @@ mod std;
 use crate::AlignedVec;
 use crate::{
     ser::{ScratchSpace, Serializer, SharedSerializeRegistry},
-    AlignedBytes, Archive, ArchiveUnsized, Fallible, Infallible,
+    AlignedBytes, Archive, ArchiveUnsized,
 };
-use ::core::{alloc::Layout, fmt, ptr::NonNull};
+use ::core::{alloc::Layout, ptr::NonNull};
 
 #[doc(inline)]
 #[cfg(feature = "alloc")]
@@ -23,57 +23,9 @@ pub use self::core::*;
 #[cfg(feature = "std")]
 pub use self::std::*;
 
-/// The default serializer error.
-#[derive(Debug)]
-pub enum CompositeSerializerError<S, C, H> {
-    /// An error occurred while serializing
-    SerializerError(S),
-    /// An error occurred while using scratch space
-    ScratchSpaceError(C),
-    /// An error occurred while serializing shared memory
-    SharedError(H),
-}
-
-impl<S, C, H> fmt::Display for CompositeSerializerError<S, C, H>
-where
-    S: fmt::Display,
-    C: fmt::Display,
-    H: fmt::Display,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::SerializerError(e) => write!(f, "serialization error: {}", e),
-            Self::ScratchSpaceError(e) => {
-                write!(f, "scratch space error: {}", e)
-            }
-            Self::SharedError(e) => write!(f, "shared memory error: {}", e),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-const _: () = {
-    use ::std::error::Error;
-
-    impl<S, C, H> Error for CompositeSerializerError<S, C, H>
-    where
-        S: Error + 'static,
-        C: Error + 'static,
-        H: Error + 'static,
-    {
-        fn source(&self) -> Option<&(dyn Error + 'static)> {
-            match self {
-                Self::SerializerError(e) => Some(e as &dyn Error),
-                Self::ScratchSpaceError(e) => Some(e as &dyn Error),
-                Self::SharedError(e) => Some(e as &dyn Error),
-            }
-        }
-    }
-};
-
 /// A serializer built from composeable pieces.
 #[derive(Debug)]
-pub struct CompositeSerializer<S = Infallible, C = Infallible, H = Infallible> {
+pub struct CompositeSerializer<S = (), C = (), H = ()> {
     serializer: S,
     scratch: C,
     shared: H,
@@ -118,46 +70,30 @@ impl<S: Default, C: Default, H: Default> Default
     }
 }
 
-impl<S: Fallible, C: Fallible, H: Fallible> Fallible
-    for CompositeSerializer<S, C, H>
-{
-    type Error = CompositeSerializerError<S::Error, C::Error, H::Error>;
-}
-
-impl<S: Serializer, C: Fallible, H: Fallible> Serializer
-    for CompositeSerializer<S, C, H>
-{
+impl<S: Serializer<E>, C, H, E> Serializer<E> for CompositeSerializer<S, C, H> {
     #[inline]
     fn pos(&self) -> usize {
         self.serializer.pos()
     }
 
     #[inline]
-    fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
-        self.serializer
-            .write(bytes)
-            .map_err(CompositeSerializerError::SerializerError)
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
+        self.serializer.write(bytes)
     }
 
     #[inline]
-    fn pad(&mut self, padding: usize) -> Result<(), Self::Error> {
-        self.serializer
-            .pad(padding)
-            .map_err(CompositeSerializerError::SerializerError)
+    fn pad(&mut self, padding: usize) -> Result<(), E> {
+        self.serializer.pad(padding)
     }
 
     #[inline]
-    fn align(&mut self, align: usize) -> Result<usize, Self::Error> {
-        self.serializer
-            .align(align)
-            .map_err(CompositeSerializerError::SerializerError)
+    fn align(&mut self, align: usize) -> Result<usize, E> {
+        self.serializer.align(align)
     }
 
     #[inline]
-    fn align_for<T>(&mut self) -> Result<usize, Self::Error> {
-        self.serializer
-            .align_for::<T>()
-            .map_err(CompositeSerializerError::SerializerError)
+    fn align_for<T>(&mut self) -> Result<usize, E> {
+        self.serializer.align_for::<T>()
     }
 
     #[inline]
@@ -165,10 +101,8 @@ impl<S: Serializer, C: Fallible, H: Fallible> Serializer
         &mut self,
         value: &T,
         resolver: T::Resolver,
-    ) -> Result<usize, Self::Error> {
-        self.serializer
-            .resolve_aligned::<T>(value, resolver)
-            .map_err(CompositeSerializerError::SerializerError)
+    ) -> Result<usize, E> {
+        self.serializer.resolve_aligned::<T>(value, resolver)
     }
 
     #[inline]
@@ -177,24 +111,18 @@ impl<S: Serializer, C: Fallible, H: Fallible> Serializer
         value: &T,
         to: usize,
         metadata_resolver: T::MetadataResolver,
-    ) -> Result<usize, Self::Error> {
-        self.serializer
-            .resolve_unsized_aligned(value, to, metadata_resolver)
-            .map_err(CompositeSerializerError::SerializerError)
+    ) -> Result<usize, E> {
+        self.serializer.resolve_unsized_aligned(value, to, metadata_resolver)
     }
 }
 
-impl<S: Fallible, C: ScratchSpace, H: Fallible> ScratchSpace
-    for CompositeSerializer<S, C, H>
-{
+impl<S, C: ScratchSpace<E>, H, E> ScratchSpace<E> for CompositeSerializer<S, C, H> {
     #[inline]
     unsafe fn push_scratch(
         &mut self,
         layout: Layout,
-    ) -> Result<NonNull<[u8]>, Self::Error> {
-        self.scratch
-            .push_scratch(layout)
-            .map_err(CompositeSerializerError::ScratchSpaceError)
+    ) -> Result<NonNull<[u8]>, E> {
+        self.scratch.push_scratch(layout)
     }
 
     #[inline]
@@ -202,15 +130,13 @@ impl<S: Fallible, C: ScratchSpace, H: Fallible> ScratchSpace
         &mut self,
         ptr: NonNull<u8>,
         layout: Layout,
-    ) -> Result<(), Self::Error> {
-        self.scratch
-            .pop_scratch(ptr, layout)
-            .map_err(CompositeSerializerError::ScratchSpaceError)
+    ) -> Result<(), E> {
+        self.scratch.pop_scratch(ptr, layout)
     }
 }
 
-impl<S: Fallible, C: Fallible, H: SharedSerializeRegistry>
-    SharedSerializeRegistry for CompositeSerializer<S, C, H>
+impl<S, C, H: SharedSerializeRegistry<E>, E>
+    SharedSerializeRegistry<E> for CompositeSerializer<S, C, H>
 {
     #[inline]
     fn get_shared_ptr(&self, value: *const u8) -> Option<usize> {
@@ -222,10 +148,8 @@ impl<S: Fallible, C: Fallible, H: SharedSerializeRegistry>
         &mut self,
         value: *const u8,
         pos: usize,
-    ) -> Result<(), Self::Error> {
-        self.shared
-            .add_shared_ptr(value, pos)
-            .map_err(CompositeSerializerError::SharedError)
+    ) -> Result<(), E> {
+        self.shared.add_shared_ptr(value, pos)
     }
 }
 
@@ -237,7 +161,7 @@ impl<S: Fallible, C: Fallible, H: SharedSerializeRegistry>
 pub type CoreSerializer<const S: usize, const C: usize> = CompositeSerializer<
     BufferSerializer<AlignedBytes<S>>,
     BufferScratch<AlignedBytes<C>>,
-    Infallible,
+    (),
 >;
 
 /// A general-purpose serializer suitable for environments where allocations can be made.

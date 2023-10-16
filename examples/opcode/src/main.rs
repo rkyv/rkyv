@@ -49,7 +49,7 @@ impl<S: ScratchSpace + Serializer + ?Sized> SerializeWith<Vec<Opcode>, S>
     fn serialize_with(
         field: &Vec<Opcode>,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         // Encode opcodes into a compact binary format
         // We'll do it manually here, but you could just as easily proxy out to a serialization
         // framework like postcard
@@ -100,13 +100,13 @@ impl<S: ScratchSpace + Serializer + ?Sized> SerializeWith<Vec<Opcode>, S>
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeWith<Archived<Vec<u8>>, Vec<Opcode>, D>
+impl<D: ?Sized> DeserializeWith<Archived<Vec<u8>>, Vec<Opcode>, D>
     for EncodeOpcodes
 {
     fn deserialize_with(
         field: &Archived<Vec<u8>>,
         _: &mut D,
-    ) -> Result<Vec<Opcode>, D::Error> {
+    ) -> Result<Vec<Opcode>, E> {
         let mut result = Vec::new();
 
         // Decode opcodes from a compact binary format

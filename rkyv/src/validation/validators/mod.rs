@@ -7,63 +7,30 @@ mod util;
 use crate::{
     validation::{
         check_archived_root_with_context, check_archived_value_with_context,
-        ArchiveContext, CheckTypeError, SharedContext,
+        ArchiveContext, SharedContext,
     },
-    Archive, Fallible,
+    Archive,
 };
 pub use archive::*;
-use bytecheck::CheckBytes;
+use bytecheck::{CheckBytes, rancor::Error};
 use core::{
-    alloc::{Layout, LayoutError},
     any::TypeId,
-    fmt,
+    ops::Range,
 };
 pub use shared::*;
 pub use util::*;
 
-/// The default validator error.
-#[derive(Debug)]
-pub enum DefaultValidatorError {
-    /// An archive validator error occurred.
-    ArchiveError(ArchiveError),
-    /// A shared validator error occurred.
-    SharedError(SharedError),
-}
-
-impl fmt::Display for DefaultValidatorError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ArchiveError(e) => write!(f, "{}", e),
-            Self::SharedError(e) => write!(f, "{}", e),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-const _: () = {
-    use std::error::Error;
-
-    impl Error for DefaultValidatorError {
-        fn source(&self) -> Option<&(dyn Error + 'static)> {
-            match self {
-                Self::ArchiveError(e) => Some(e as &dyn Error),
-                Self::SharedError(e) => Some(e as &dyn Error),
-            }
-        }
-    }
-};
-
 /// The default validator.
 #[derive(Debug)]
-pub struct DefaultValidator<'a> {
-    archive: ArchiveValidator<'a>,
+pub struct DefaultValidator {
+    archive: ArchiveValidator,
     shared: SharedValidator,
 }
 
-impl<'a> DefaultValidator<'a> {
+impl DefaultValidator {
     /// Creates a new validator from a byte range.
     #[inline]
-    pub fn new(bytes: &'a [u8]) -> Self {
+    pub fn new(bytes: &[u8]) -> Self {
         Self {
             archive: ArchiveValidator::new(bytes),
             shared: SharedValidator::new(),
@@ -71,45 +38,17 @@ impl<'a> DefaultValidator<'a> {
     }
 }
 
-impl<'a> Fallible for DefaultValidator<'a> {
-    type Error = DefaultValidatorError;
-}
-
-impl<'a> ArchiveContext for DefaultValidator<'a> {
-    type PrefixRange = <ArchiveValidator<'a> as ArchiveContext>::PrefixRange;
-    type SuffixRange = <ArchiveValidator<'a> as ArchiveContext>::SuffixRange;
-
+unsafe impl<E> ArchiveContext<E> for DefaultValidator
+where
+    ArchiveValidator: ArchiveContext<E>,
+{
     #[inline]
-    unsafe fn bounds_check_ptr(
+    fn check_subtree_ptr(
         &mut self,
-        base: *const u8,
-        offset: isize,
-    ) -> Result<*const u8, Self::Error> {
-        self.archive
-            .bounds_check_ptr(base, offset)
-            .map_err(DefaultValidatorError::ArchiveError)
-    }
-
-    #[inline]
-    unsafe fn bounds_check_layout(
-        &mut self,
-        data_address: *const u8,
-        layout: &Layout,
-    ) -> Result<(), Self::Error> {
-        self.archive
-            .bounds_check_layout(data_address, layout)
-            .map_err(DefaultValidatorError::ArchiveError)
-    }
-
-    #[inline]
-    unsafe fn bounds_check_subtree_ptr_layout(
-        &mut self,
-        data_address: *const u8,
-        layout: &Layout,
-    ) -> Result<(), Self::Error> {
-        self.archive
-            .bounds_check_subtree_ptr_layout(data_address, layout)
-            .map_err(DefaultValidatorError::ArchiveError)
+        ptr: *const u8,
+        layout: &core::alloc::Layout,
+    ) -> Result<(), E> {
+        self.archive.check_subtree_ptr(ptr, layout)
     }
 
     #[inline]
@@ -117,20 +56,8 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
         &mut self,
         root: *const u8,
         end: *const u8,
-    ) -> Result<PrefixRange, Self::Error> {
-        self.archive
-            .push_prefix_subtree_range(root, end)
-            .map_err(DefaultValidatorError::ArchiveError)
-    }
-
-    #[inline]
-    fn pop_prefix_range(
-        &mut self,
-        range: PrefixRange,
-    ) -> Result<(), Self::Error> {
-        self.archive
-            .pop_prefix_range(range)
-            .map_err(DefaultValidatorError::ArchiveError)
+    ) -> Result<Range<usize>, E> {
+        self.archive.push_prefix_subtree_range(root, end)
     }
 
     #[inline]
@@ -138,47 +65,32 @@ impl<'a> ArchiveContext for DefaultValidator<'a> {
         &mut self,
         start: *const u8,
         root: *const u8,
-    ) -> Result<SuffixRange, Self::Error> {
-        self.archive
-            .push_suffix_subtree_range(start, root)
-            .map_err(DefaultValidatorError::ArchiveError)
+    ) -> Result<Range<usize>, E> {
+        self.archive.push_suffix_subtree_range(start, root)
     }
 
     #[inline]
-    fn pop_suffix_range(
+    unsafe fn pop_subtree_range(
         &mut self,
-        range: SuffixRange,
-    ) -> Result<(), Self::Error> {
-        self.archive
-            .pop_suffix_range(range)
-            .map_err(DefaultValidatorError::ArchiveError)
-    }
-
-    #[inline]
-    fn finish(&mut self) -> Result<(), Self::Error> {
-        self.archive
-            .finish()
-            .map_err(DefaultValidatorError::ArchiveError)
-    }
-
-    #[inline]
-    fn wrap_layout_error(error: LayoutError) -> Self::Error {
-        DefaultValidatorError::ArchiveError(
-            ArchiveValidator::wrap_layout_error(error),
-        )
+        range: Range<usize>,
+    ) -> Result<(), E> {
+        unsafe {
+            self.archive.pop_subtree_range(range)
+        }
     }
 }
 
-impl<'a> SharedContext for DefaultValidator<'a> {
+impl<E> SharedContext<E> for DefaultValidator
+where
+    SharedValidator: SharedContext<E>,
+{
     #[inline]
     fn register_shared_ptr(
         &mut self,
-        ptr: *const u8,
+        address: usize,
         type_id: TypeId,
-    ) -> Result<bool, Self::Error> {
-        self.shared
-            .register_shared_ptr(ptr, type_id)
-            .map_err(DefaultValidatorError::SharedError)
+    ) -> Result<bool, E> {
+        self.shared.register_shared_ptr(address, type_id)
     }
 }
 
@@ -217,15 +129,16 @@ impl<'a> SharedContext for DefaultValidator<'a> {
 /// let archived = check_archived_value::<Example>(buf.as_ref(), pos).unwrap();
 /// ```
 #[inline]
-pub fn check_archived_value<'a, T: Archive>(
-    bytes: &'a [u8],
-    pos: usize,
-) -> Result<&T::Archived, CheckTypeError<T::Archived, DefaultValidator<'a>>>
+pub fn check_archived_value<T: Archive, E>(
+    bytes: &[u8],
+    pos: isize,
+) -> Result<&T::Archived, E>
 where
-    T::Archived: CheckBytes<DefaultValidator<'a>>,
+    T::Archived: CheckBytes<DefaultValidator, E>,
+    E: Error,
 {
     let mut validator = DefaultValidator::new(bytes);
-    check_archived_value_with_context::<T, DefaultValidator>(
+    check_archived_value_with_context::<T, DefaultValidator, E>(
         bytes,
         pos,
         &mut validator,
@@ -239,14 +152,15 @@ where
 ///
 /// See [`check_archived_value`] for more details.
 #[inline]
-pub fn check_archived_root<'a, T: Archive>(
-    bytes: &'a [u8],
-) -> Result<&'a T::Archived, CheckTypeError<T::Archived, DefaultValidator<'a>>>
+pub fn check_archived_root<T: Archive, E>(
+    bytes: &[u8],
+) -> Result<&T::Archived, E>
 where
-    T::Archived: CheckBytes<DefaultValidator<'a>>,
+    T::Archived: CheckBytes<DefaultValidator, E>,
+    E: Error,
 {
     let mut validator = DefaultValidator::new(bytes);
-    check_archived_root_with_context::<T, DefaultValidator>(
+    check_archived_root_with_context::<T, DefaultValidator, E>(
         bytes,
         &mut validator,
     )

@@ -14,8 +14,21 @@ use std::ffi::CStr;
 /// An archived [`CString`](std::ffi::CString).
 ///
 /// Uses a [`RelPtr`] to a `CStr` under the hood.
+#[cfg_attr(
+    feature = "bytecheck",
+    derive(bytecheck::CheckBytes),
+    check_bytes(
+        bounds(
+            __C: crate::validation::ArchiveContext<__E>,
+            __E: bytecheck::rancor::Error,
+        ),
+        verify = verify::verify,
+    ),
+)]
 #[repr(transparent)]
-pub struct ArchivedCString(RelPtr<CStr>);
+pub struct ArchivedCString {
+    ptr: RelPtr<CStr>,
+}
 
 impl ArchivedCString {
     /// Returns the contents of this CString as a slice of bytes.
@@ -38,13 +51,13 @@ impl ArchivedCString {
     /// Extracts a `CStr` slice containing the entire string.
     #[inline]
     pub fn as_c_str(&self) -> &CStr {
-        unsafe { &*self.0.as_ptr() }
+        unsafe { &*self.ptr.as_ptr() }
     }
 
     /// Extracts a pinned mutable `CStr` slice containing the entire string.
     #[inline]
     pub fn pin_mut_c_str(self: Pin<&mut Self>) -> Pin<&mut CStr> {
-        unsafe { self.map_unchecked_mut(|s| &mut *s.0.as_mut_ptr()) }
+        unsafe { self.map_unchecked_mut(|s| &mut *s.ptr.as_ptr()) }
     }
 
     /// Resolves an archived C string from the given C string and parameters.
@@ -60,7 +73,7 @@ impl ArchivedCString {
         resolver: CStringResolver,
         out: *mut Self,
     ) {
-        let (fp, fo) = out_field!(out.0);
+        let (fp, fo) = out_field!(out.ptr);
         // metadata_resolver is guaranteed to be (), but it's better to be explicit about it
         #[allow(clippy::unit_arg)]
         c_str.resolve_unsized(
@@ -73,10 +86,10 @@ impl ArchivedCString {
 
     /// Serializes a C string.
     #[inline]
-    pub fn serialize_from_c_str<S: Serializer + ?Sized>(
+    pub fn serialize_from_c_str<S: Serializer<E> + ?Sized, E>(
         c_str: &CStr,
         serializer: &mut S,
-    ) -> Result<CStringResolver, S::Error> {
+    ) -> Result<CStringResolver, E> {
         Ok(CStringResolver {
             pos: c_str.serialize_unsized(serializer)?,
             metadata_resolver: c_str.serialize_metadata(serializer)?,
@@ -172,42 +185,32 @@ pub struct CStringResolver {
     metadata_resolver: MetadataResolver<CStr>,
 }
 
-#[cfg(feature = "validation")]
-const _: () = {
-    use crate::validation::{
-        owned::{CheckOwnedPointerError, OwnedPointerError},
-        ArchiveContext,
-    };
-    use bytecheck::{CheckBytes, Error};
+#[cfg(feature = "bytecheck")]
+mod verify {
+    use core::ffi::CStr;
 
-    impl<C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedCString
-    where
-        C::Error: Error,
-    {
-        type Error = CheckOwnedPointerError<CStr, C>;
+    use bytecheck::CheckBytes;
 
-        #[inline]
-        unsafe fn check_bytes<'a>(
-            value: *const Self,
-            context: &mut C,
-        ) -> Result<&'a Self, Self::Error> {
-            let rel_ptr =
-                RelPtr::<CStr>::manual_check_bytes(value.cast(), context)
-                    .map_err(OwnedPointerError::PointerCheckBytesError)?;
-            let ptr = context
-                .check_subtree_rel_ptr(rel_ptr)
-                .map_err(OwnedPointerError::ContextError)?;
+    use crate::{ffi::ArchivedCString, validation::{ArchiveContext, ArchiveContextExt}};
 
-            let range = context
-                .push_prefix_subtree(ptr)
-                .map_err(OwnedPointerError::ContextError)?;
-            CStr::check_bytes(ptr, context)
-                .map_err(OwnedPointerError::ValueCheckBytesError)?;
-            context
-                .pop_prefix_range(range)
-                .map_err(OwnedPointerError::ContextError)?;
+    #[inline]
+    pub fn verify<C: ArchiveContext<E> + ?Sized, E: bytecheck::rancor::Error>(
+        value: &ArchivedCString,
+        context: &mut C,
+    ) -> Result<(), E> {
+        let ptr = unsafe {
+            context.bounds_check_subtree_rel_ptr(&value.ptr)?
+        };
 
-            Ok(&*value)
+        let range = unsafe { context.push_prefix_subtree(ptr)? };
+        unsafe {
+            CStr::check_bytes(ptr, context)?;
         }
+        unsafe {
+            context.pop_subtree_range(range)?;
+        }
+
+        Ok(())
     }
-};
+}
+

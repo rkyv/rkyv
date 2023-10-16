@@ -20,14 +20,14 @@ impl Archive for Uuid {
 #[cfg(feature = "copy")]
 unsafe impl crate::copy::ArchiveCopySafe for Uuid {}
 
-impl<S: Fallible + ?Sized> Serialize<S> for Uuid {
-    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+impl<S: ?Sized> Serialize<S> for Uuid {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, E> {
         Ok(())
     }
 }
 
-impl<D: Fallible + ?Sized> Deserialize<Uuid, D> for Uuid {
-    fn deserialize(&self, _: &mut D) -> Result<Uuid, D::Error> {
+impl<D: ?Sized> Deserialize<Uuid, D> for Uuid {
+    fn deserialize(&self, _: &mut D) -> Result<Uuid, E> {
         Ok(*self)
     }
 }

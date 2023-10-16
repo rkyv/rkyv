@@ -2,18 +2,16 @@
 
 use crate::{
     collections::{
-        hash_index::validation::HashIndexError,
         hash_map::ArchivedHashMap,
-        util::{validation::ArchivedEntryError, Entry},
+        util::Entry,
         ArchivedHashIndex,
     },
     validation::ArchiveContext,
     RelPtr,
 };
-use bytecheck::{CheckBytes, Error, SliceCheckError};
+use bytecheck::CheckBytes;
 use core::{
     alloc::{Layout, LayoutError},
-    convert::Infallible,
     fmt,
     hash::Hash,
     ptr,
@@ -21,38 +19,23 @@ use core::{
 
 /// Errors that can occur while checking an archived hash map.
 #[derive(Debug)]
-pub enum HashMapError<K, V, C> {
-    /// An error occurred while checking the hash index
-    HashIndexError(HashIndexError<C>),
+pub enum HashMapError {
     /// An error occurred while checking the layouts of displacements or entries
     LayoutError(LayoutError),
-    /// An error occurred while checking the entries
-    CheckEntryError(SliceCheckError<ArchivedEntryError<K, V>>),
     /// A key is not located at the correct position
     InvalidKeyPosition {
         /// The index of the key when iterating
         index: usize,
     },
-    /// A bounds error occurred
-    ContextError(C),
 }
 
-impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display
-    for HashMapError<K, V, E>
-{
+impl fmt::Display for HashMapError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            HashMapError::HashIndexError(e) => {
-                write!(f, "hash index check error: {}", e)
-            }
             HashMapError::LayoutError(e) => write!(f, "layout error: {}", e),
-            HashMapError::CheckEntryError(e) => {
-                write!(f, "entry check error: {}", e)
-            }
             HashMapError::InvalidKeyPosition { index } => {
                 write!(f, "invalid key position: at index {}", index)
             }
-            HashMapError::ContextError(e) => e.fmt(f),
         }
     }
 }
@@ -61,12 +44,7 @@ impl<K: fmt::Display, V: fmt::Display, E: fmt::Display> fmt::Display
 const _: () = {
     use std::error::Error;
 
-    impl<K, V, C> Error for HashMapError<K, V, C>
-    where
-        K: Error + 'static,
-        V: Error + 'static,
-        C: Error + 'static,
-    {
+    impl Error for HashMapError {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
                 HashMapError::HashIndexError(e) => Some(e as &dyn Error),
@@ -79,55 +57,16 @@ const _: () = {
     }
 };
 
-impl<K, V, C> From<Infallible> for HashMapError<K, V, C> {
-    fn from(_: Infallible) -> Self {
-        unsafe { core::hint::unreachable_unchecked() }
-    }
-}
-
-impl<K, V, C> From<SliceCheckError<Infallible>> for HashMapError<K, V, C> {
-    #[inline]
-    fn from(_: SliceCheckError<Infallible>) -> Self {
-        unsafe { core::hint::unreachable_unchecked() }
-    }
-}
-
-impl<K, V, C> From<HashIndexError<C>> for HashMapError<K, V, C> {
-    #[inline]
-    fn from(e: HashIndexError<C>) -> Self {
-        Self::HashIndexError(e)
-    }
-}
-
-impl<K, V, C> From<LayoutError> for HashMapError<K, V, C> {
-    #[inline]
-    fn from(e: LayoutError) -> Self {
-        Self::LayoutError(e)
-    }
-}
-
-impl<K, V, C> From<SliceCheckError<ArchivedEntryError<K, V>>>
-    for HashMapError<K, V, C>
-{
-    #[inline]
-    fn from(e: SliceCheckError<ArchivedEntryError<K, V>>) -> Self {
-        Self::CheckEntryError(e)
-    }
-}
-
-impl<K, V, C> CheckBytes<C> for ArchivedHashMap<K, V>
+unsafe impl<K, V, C, E> CheckBytes<C, E> for ArchivedHashMap<K, V>
 where
-    K: CheckBytes<C> + Eq + Hash,
-    V: CheckBytes<C>,
-    C: ArchiveContext + ?Sized,
-    C::Error: Error,
+    K: CheckBytes<C, E> + Eq + Hash,
+    V: CheckBytes<C, E>,
+    C: ArchiveContext<E> + ?Sized,
 {
-    type Error = HashMapError<K::Error, V::Error, C::Error>;
-
-    unsafe fn check_bytes<'a>(
+    unsafe fn check_bytes(
         value: *const Self,
         context: &mut C,
-    ) -> Result<&'a Self, Self::Error> {
+    ) -> Result<(), E> {
         let index = ArchivedHashIndex::check_bytes(
             ptr::addr_of!((*value).index),
             context,

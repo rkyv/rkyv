@@ -1,7 +1,7 @@
 use crate::{
     collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver},
     ser::Serializer,
-    Archive, Deserialize, Fallible, Serialize,
+    Archive, Deserialize, Serialize,
 };
 #[cfg(not(feature = "std"))]
 use alloc::collections::BTreeMap;
@@ -26,8 +26,8 @@ where
     }
 }
 
-impl<K: Serialize<S> + Ord, V: Serialize<S>, S: Serializer + ?Sized>
-    Serialize<S> for BTreeMap<K, V>
+impl<K: Serialize<S, E> + Ord, V: Serialize<S, E>, S: Serializer<E> + ?Sized, E>
+    Serialize<S, E> for BTreeMap<K, V>
 where
     K::Archived: Ord,
 {
@@ -35,7 +35,7 @@ where
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         unsafe {
             ArchivedBTreeMap::serialize_from_reverse_iter(
                 self.iter().rev(),
@@ -45,18 +45,18 @@ where
     }
 }
 
-impl<K: Archive + Ord, V: Archive, D: Fallible + ?Sized>
-    Deserialize<BTreeMap<K, V>, D>
+impl<K: Archive + Ord, V: Archive, D: ?Sized, E>
+    Deserialize<BTreeMap<K, V>, D, E>
     for ArchivedBTreeMap<K::Archived, V::Archived>
 where
-    K::Archived: Deserialize<K, D> + Ord,
-    V::Archived: Deserialize<V, D>,
+    K::Archived: Deserialize<K, D, E> + Ord,
+    V::Archived: Deserialize<V, D, E>,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<BTreeMap<K, V>, D::Error> {
+    ) -> Result<BTreeMap<K, V>, E> {
         let mut result = BTreeMap::new();
         for (key, value) in self.iter() {
             result.insert(

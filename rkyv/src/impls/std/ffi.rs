@@ -3,7 +3,7 @@ use crate::{
     primitive::ArchivedUsize,
     ser::Serializer,
     Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
-    Deserialize, DeserializeUnsized, Fallible, Serialize, SerializeUnsized,
+    Deserialize, DeserializeUnsized, Serialize, SerializeUnsized,
 };
 use core::{alloc::Layout, ptr};
 use ptr_meta::Pointee;
@@ -39,9 +39,9 @@ impl ArchivePointee for CStr {
     }
 }
 
-impl<S: Serializer + ?Sized> SerializeUnsized<S> for CStr {
+impl<S: Serializer<E> + ?Sized, E> SerializeUnsized<S, E> for CStr {
     #[inline]
-    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
+    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, E> {
         let result = serializer.pos();
         serializer.write(self.to_bytes_with_nul())?;
         Ok(result)
@@ -51,20 +51,18 @@ impl<S: Serializer + ?Sized> SerializeUnsized<S> for CStr {
     fn serialize_metadata(
         &self,
         _: &mut S,
-    ) -> Result<Self::MetadataResolver, S::Error> {
+    ) -> Result<Self::MetadataResolver, E> {
         Ok(())
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D>
-    for <CStr as ArchiveUnsized>::Archived
-{
+impl<D: ?Sized, E> DeserializeUnsized<CStr, D, E> for <CStr as ArchiveUnsized>::Archived {
     #[inline]
     unsafe fn deserialize_unsized(
         &self,
         _: &mut D,
         mut alloc: impl FnMut(Layout) -> *mut u8,
-    ) -> Result<*mut (), D::Error> {
+    ) -> Result<*mut (), E> {
         let slice = self.to_bytes_with_nul();
         let bytes = alloc(Layout::array::<u8>(slice.len()).unwrap());
         assert!(!bytes.is_null());
@@ -76,7 +74,7 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D>
     fn deserialize_metadata(
         &self,
         _: &mut D,
-    ) -> Result<<CStr as Pointee>::Metadata, D::Error> {
+    ) -> Result<<CStr as Pointee>::Metadata, E> {
         Ok(ptr_meta::metadata(self))
     }
 }
@@ -117,22 +115,22 @@ impl Archive for CString {
     }
 }
 
-impl<S: Serializer + ?Sized> Serialize<S> for CString {
+impl<S: Serializer<E> + ?Sized, E> Serialize<S, E> for CString {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
+    ) -> Result<Self::Resolver, E> {
         ArchivedCString::serialize_from_c_str(self.as_c_str(), serializer)
     }
 }
 
-impl<D: Fallible + ?Sized> Deserialize<CString, D> for Archived<CString>
+impl<D: ?Sized, E> Deserialize<CString, D, E> for Archived<CString>
 where
-    CStr: DeserializeUnsized<CStr, D>,
+    CStr: DeserializeUnsized<CStr, D, E>,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<CString, D::Error> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<CString, E> {
         unsafe {
             let data_address = self
                 .as_c_str()

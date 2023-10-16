@@ -239,7 +239,7 @@ mod tests {
             fn serialize(
                 &self,
                 serializer: &mut S,
-            ) -> Result<NodeResolver, S::Error> {
+            ) -> Result<NodeResolver, E> {
                 Ok(match self {
                     Node::Nil => NodeResolver::Nil,
                     Node::Cons(inner) => {

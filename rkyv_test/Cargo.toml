@@ -12,12 +12,12 @@ repository = "https://github.com/rkyv/rkyv"
 
 [dependencies]
 ptr_meta = { workspace = true, default-features = false }
-rkyv = { path = "../rkyv", default-features = false }
+rkyv = { workspace = true, default-features = false }
 wasm-bindgen-test = { workspace = true, optional = true }
 ahash = { version = "0.7" }
 
 [features]
-default = ["pointer_width_32", "little_endian", "strict", "std", "validation"]
+default = ["pointer_width_32", "little_endian", "strict", "std", "bytecheck"]
 
 pointer_width_16 = ["rkyv/pointer_width_16"]
 pointer_width_32 = ["rkyv/pointer_width_32"]
@@ -27,9 +27,9 @@ little_endian = ["rkyv/little_endian"]
 big_endian = ["rkyv/big_endian"]
 
 alloc = ["rkyv/alloc"]
+bytecheck = ["rkyv/bytecheck"]
 copy = ["rkyv/copy"]
 copy_unsafe = ["rkyv/copy_unsafe"]
 std = ["alloc", "rkyv/std"]
 strict = ["rkyv/strict"]
-validation = ["alloc", "rkyv/validation"]
 wasm = ["wasm-bindgen-test"]

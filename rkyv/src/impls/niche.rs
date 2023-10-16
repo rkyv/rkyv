@@ -12,7 +12,6 @@ use crate::{
         ArchivedOptionNonZeroU64, ArchivedOptionNonZeroU8,
     },
     with::{ArchiveWith, DeserializeWith, Niche, SerializeWith},
-    Fallible,
 };
 
 macro_rules! impl_nonzero_niche {
@@ -32,24 +31,24 @@ macro_rules! impl_nonzero_niche {
             }
         }
 
-        impl<S: Fallible + ?Sized> SerializeWith<Option<$nz>, S> for Niche {
+        impl<S: ?Sized, E> SerializeWith<Option<$nz>, S, E> for Niche {
             #[inline]
             fn serialize_with(
                 _: &Option<$nz>,
                 _: &mut S,
-            ) -> Result<Self::Resolver, S::Error> {
+            ) -> Result<Self::Resolver, E> {
                 Ok(())
             }
         }
 
-        impl<D: Fallible + ?Sized> DeserializeWith<$ar, Option<$nz>, D>
+        impl<D: ?Sized, E> DeserializeWith<$ar, Option<$nz>, D, E>
             for Niche
         {
             #[inline]
             fn deserialize_with(
                 field: &$ar,
                 _: &mut D,
-            ) -> Result<Option<$nz>, D::Error> {
+            ) -> Result<Option<$nz>, E> {
                 Ok(field.as_ref().map(|x| (*x).into()))
             }
         }

@@ -19,7 +19,7 @@
 #![deny(rustdoc::missing_crate_level_docs)]
 #![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
-#[cfg(feature = "validation")]
+#[cfg(feature = "bytecheck")]
 pub mod validation;
 
 #[cfg(feature = "vtable_cache")]
@@ -42,7 +42,7 @@ use rkyv::{
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
-#[cfg(feature = "validation")]
+#[cfg(feature = "bytecheck")]
 pub use validation::{CheckDynError, DynContext};
 
 #[doc(hidden)]
@@ -299,7 +299,7 @@ impl<'a> Fallible for dyn DynDeserializer + 'a {
     type Error = DynError;
 }
 
-impl<D: Fallible + ?Sized> DynDeserializer for &mut D {}
+impl<D: ?Sized> DynDeserializer for &mut D {}
 
 /// A trait object that can be deserialized.
 ///
@@ -532,7 +532,7 @@ pub unsafe trait RegisteredImpl<T: ?Sized> {
 }
 
 #[doc(hidden)]
-#[cfg(not(feature = "validation"))]
+#[cfg(not(feature = "bytecheck"))]
 #[macro_export]
 macro_rules! register_validation {
     ($type:ty as $trait:ty) => {};

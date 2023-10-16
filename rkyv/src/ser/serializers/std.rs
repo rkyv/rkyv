@@ -1,4 +1,4 @@
-use crate::{ser::Serializer, Fallible};
+use crate::ser::Serializer;
 use std::io;
 
 /// Wraps a type that implements [`io::Write`](std::io::Write) and equips it with [`Serializer`].
@@ -42,19 +42,15 @@ impl<W: io::Write> WriteSerializer<W> {
     }
 }
 
-impl<W: io::Write> Fallible for WriteSerializer<W> {
-    type Error = io::Error;
-}
-
-impl<W: io::Write> Serializer for WriteSerializer<W> {
+impl<W: io::Write, E: rancor::Error> Serializer<E> for WriteSerializer<W> {
     #[inline]
     fn pos(&self) -> usize {
         self.pos
     }
 
     #[inline]
-    fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
-        self.inner.write_all(bytes)?;
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
+        self.inner.write_all(bytes).map_err(E::new)?;
         self.pos += bytes.len();
         Ok(())
     }
