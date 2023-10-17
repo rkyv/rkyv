@@ -209,13 +209,6 @@ impl<T, U: PartialEq<T>> PartialEq<Option<T>> for ArchivedOption<U> {
     }
 }
 
-impl<T: PartialEq<U>, U> PartialEq<ArchivedOption<T>> for Option<U> {
-    #[inline]
-    fn eq(&self, other: &ArchivedOption<T>) -> bool {
-        other.eq(self)
-    }
-}
-
 impl<T> From<T> for ArchivedOption<T> {
     /// Moves `val` into a new [`Some`].
     ///
