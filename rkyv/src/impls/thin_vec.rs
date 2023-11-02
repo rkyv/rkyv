@@ -55,3 +55,29 @@ where
         Ok(result)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{archived_root, ser::Serializer, Deserialize, Infallible};
+    use thin_vec::ThinVec;
+
+    #[test]
+    fn thin_vec() {
+        use crate::ser::serializers::AllocSerializer;
+        #[cfg(not(feature = "std"))]
+        use alloc::vec;
+
+        let value = ThinVec::from_iter([10, 20, 40, 80]);
+
+        let mut serializer = AllocSerializer::<256>::default();
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_serializer().into_inner();
+        let archived =
+            unsafe { archived_root::<ThinVec<i32>>(result.as_ref()) };
+        assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
+
+        let deserialized: ThinVec<i32> =
+            archived.deserialize(&mut Infallible).unwrap();
+        assert_eq!(value, deserialized);
+    }
+}
