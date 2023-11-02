@@ -28,7 +28,7 @@ seahash.workspace = true
 # another crate, please consider getting rkyv support in the crate instead.
 
 bitvec = { version = "1.0", optional = true, default-features = false }
-indexmap = { version = "1.7", optional = true, default-features = false }
+indexmap = { version = "2.1", optional = true, default-features = false }
 smallvec = { version = "1.7", optional = true, default-features = false }
 smol_str = { version = "0.2", optional = true, default-features = false }
 arrayvec = { version = "0.7", optional = true, default-features = false }
