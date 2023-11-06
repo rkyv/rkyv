@@ -174,6 +174,7 @@ impl<T> ArchivedVec<T> {
         Ok(VecResolver { pos })
     }
 
+    // TODO: try to remove `U` parameter
     /// Serializes an archived `Vec` from a given iterator.
     ///
     /// This method is unable to perform copy optimizations; prefer

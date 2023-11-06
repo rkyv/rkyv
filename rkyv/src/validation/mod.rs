@@ -124,6 +124,7 @@ pub unsafe trait ArchiveContext<E> {
     ) -> Result<(), E>;
 }
 
+/// Helper methods for `ArchiveContext`s.
 pub trait ArchiveContextExt<E>: ArchiveContext<E> {
     /// Checks that the given relative pointer to a subtree can be dereferenced.
     ///
@@ -254,7 +255,7 @@ where
         CheckBytes::check_bytes(ptr, context)?;
         context.pop_subtree_range(range)?;
 
-        Ok(unsafe { &*ptr })
+        Ok(&*ptr)
     }
 }
 

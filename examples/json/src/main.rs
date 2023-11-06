@@ -26,9 +26,7 @@ use std::{collections::HashMap, fmt};
 //   generated bounds to prevent a recursive impl.
 // We can fix this by manually specifying the bounds required by HashMap and Vec in an attribute,
 //   and then everything will compile:
-#[archive(bound(
-    serialize = "__S: rkyv::ser::ScratchSpace + rkyv::ser::Serializer"
-))]
+#[archive(serialize_bounds(__S: rkyv::ser::Serializer<__E> + rkyv::ser::ScratchSpace<__E>))]
 // We'll also add support for validating our archived type. Validation will allow us to check an
 // arbitrary buffer of bytes before accessing it so we can avoid using any unsafe code.
 //
@@ -58,7 +56,10 @@ use std::{collections::HashMap, fmt};
 // With those two changes, our recursive type can be validated with `check_archived_root`!
 #[archive(check_bytes)]
 #[archive_attr(check_bytes(
-    bound = "__C: rkyv::validation::ArchiveContext, <__C as rkyv::Fallible>::Error: rkyv::bytecheck::Error"
+    bounds(
+        __C: rkyv::validation::ArchiveContext<__E>,
+        __E: rkyv::bytecheck::rancor::Error,
+    )
 ))]
 pub enum JsonValue {
     Null,

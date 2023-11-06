@@ -215,11 +215,20 @@ impl<O: Offset> RawRelPtr<O> {
     }
 
     /// Calculates the memory address being pointed to by this relative pointer.
+    ///
+    /// # Safety
+    ///
+    /// The offset of this relative pointer, when added to its base, must be
+    /// located in the same allocated object as it.
     #[inline]
     pub unsafe fn as_ptr(&self) -> *mut () {
         unsafe { self.base().offset(self.offset()).cast() }
     }
 
+    /// Calculates the memory address being pointed to by this relative pointer
+    /// using wrapping methods.
+    ///
+    /// This method is a safer but potentially slower version of `as_ptr`.
     #[inline]
     pub fn as_ptr_wrapping(&self) -> *mut () {
         self.base().wrapping_offset(self.offset()).cast()
@@ -489,6 +498,11 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     }
 
     /// Calculates the memory address being pointed to by this relative pointer.
+    ///
+    /// # Safety
+    ///
+    /// The offset of this relative pointer, when added to its base, must be
+    /// located in the same allocated object as it.
     #[inline]
     pub unsafe fn as_ptr(&self) -> *mut T {
         ptr_meta::from_raw_parts_mut(
@@ -497,6 +511,10 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
         )
     }
 
+    /// Calculates the memory address being pointed to by this relative pointer
+    /// using wrapping methods.
+    ///
+    /// This method is a safer but potentially slower version of `as_ptr`.
     #[inline]
     pub fn as_ptr_wrapping(&self) -> *mut T {
         ptr_meta::from_raw_parts_mut(

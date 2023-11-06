@@ -21,6 +21,7 @@ use core::{
     check_bytes(
         bounds(
             T: bytecheck::CheckBytes<__C, __E> + crate::validation::LayoutRaw + 'static,
+            F: 'static,
             __C: crate::validation::ArchiveContext<__E> + crate::validation::SharedContext<__E>,
             T::ArchivedMetadata: bytecheck::CheckBytes<__C, __E>,
             __E: bytecheck::rancor::Error,
@@ -327,6 +328,7 @@ mod verify {
     ) -> Result<(), E>
     where
         T: ArchivePointee + CheckBytes<C, E> + LayoutRaw + ?Sized + 'static,
+        F: 'static,
         C: ArchiveContext<E> + SharedContext<E> + ?Sized,
         T::ArchivedMetadata: CheckBytes<C, E>,
         E: Error,

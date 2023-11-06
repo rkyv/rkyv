@@ -187,12 +187,8 @@ impl ReplaceReceiver<'_> {
                 for arg in &mut arguments.args {
                     match arg {
                         GenericArgument::Type(arg) => self.visit_type_mut(arg),
-                        GenericArgument::Binding(arg) => {
-                            self.visit_type_mut(&mut arg.ty)
-                        }
-                        GenericArgument::Lifetime(_)
-                        | GenericArgument::Constraint(_)
-                        | GenericArgument::Const(_) => {}
+                        GenericArgument::AssocType(arg) => self.visit_type_mut(&mut arg.ty),
+                        _ => {}
                     }
                 }
             }
@@ -217,7 +213,7 @@ impl ReplaceReceiver<'_> {
             TypeParamBound::Trait(bound) => {
                 self.visit_path_mut(&mut bound.path)
             }
-            TypeParamBound::Lifetime(_) => {}
+            _ => {}
         }
     }
 
@@ -241,7 +237,7 @@ impl ReplaceReceiver<'_> {
                             self.visit_type_param_bound_mut(bound);
                         }
                     }
-                    WherePredicate::Lifetime(_) | WherePredicate::Eq(_) => {}
+                    _ => {}
                 }
             }
         }

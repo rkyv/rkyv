@@ -1,7 +1,7 @@
 //! [`Archive`](crate::Archive) implementation for B-tree maps.
 
-#[cfg(feature = "bytecheck")]
-pub mod validation;
+// #[cfg(feature = "bytecheck")]
+// pub mod validation;
 
 use crate::{
     primitive::{ArchivedU16, ArchivedUsize},

@@ -14,8 +14,8 @@ use core::{
 /// The hash builder for archived hash indexes.
 pub use seahash::SeaHasher as HashBuilder;
 
-#[cfg(feature = "bytecheck")]
-pub mod validation;
+// #[cfg(feature = "bytecheck")]
+// pub mod validation;
 
 /// An archived hash index.
 #[cfg_attr(feature = "strict", repr(C))]

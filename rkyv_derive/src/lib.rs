@@ -9,7 +9,6 @@
 mod archive;
 mod attributes;
 mod deserialize;
-mod repr;
 mod serde;
 mod serialize;
 mod util;

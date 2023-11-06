@@ -297,7 +297,7 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 /// ```
 #[cfg(feature = "alloc")]
 #[inline]
-pub fn to_bytes<T, E, const N: usize>(
+pub fn to_bytes<T, const N: usize, E>(
     value: &T,
 ) -> Result<AlignedVec, E>
 where

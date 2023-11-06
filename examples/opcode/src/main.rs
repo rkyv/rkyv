@@ -3,7 +3,7 @@ use rkyv::{
     ser::{serializers::AllocSerializer, ScratchSpace, Serializer},
     vec::{ArchivedVec, VecResolver},
     with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Archive, Archived, Deserialize, Fallible, Infallible, Serialize,
+    Archive, Archived, Deserialize, Serialize, rancor::Failure,
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -43,7 +43,7 @@ impl ArchiveWith<Vec<Opcode>> for EncodeOpcodes {
     }
 }
 
-impl<S: ScratchSpace + Serializer + ?Sized> SerializeWith<Vec<Opcode>, S>
+impl<S: ScratchSpace<E> + Serializer<E> + ?Sized, E> SerializeWith<Vec<Opcode>, S, E>
     for EncodeOpcodes
 {
     fn serialize_with(
@@ -100,7 +100,7 @@ impl<S: ScratchSpace + Serializer + ?Sized> SerializeWith<Vec<Opcode>, S>
     }
 }
 
-impl<D: ?Sized> DeserializeWith<Archived<Vec<u8>>, Vec<Opcode>, D>
+impl<D: ?Sized, E> DeserializeWith<Archived<Vec<u8>>, Vec<Opcode>, D, E>
     for EncodeOpcodes
 {
     fn deserialize_with(
@@ -179,7 +179,7 @@ fn main() {
     println!("opcodes: {:?}", program.opcodes);
 
     let mut serializer = AllocSerializer::<4096>::default();
-    serializer.serialize_value(&program).unwrap();
+    Serializer::<Failure>::serialize_value(&mut serializer, &program).unwrap();
 
     let buf = serializer.into_serializer().into_inner();
     let archived_program = unsafe { archived_root::<Program>(&buf) };
@@ -188,7 +188,7 @@ fn main() {
     assert_eq!(archived_program.opcodes.len(), 23);
 
     let deserialized_program: Program =
-        archived_program.deserialize(&mut Infallible).unwrap();
+        Deserialize::<Program, _, Failure>::deserialize(archived_program, &mut ()).unwrap();
 
     println!("deserialized opcodes: {:?}", deserialized_program.opcodes);
     assert_eq!(program, deserialized_program);

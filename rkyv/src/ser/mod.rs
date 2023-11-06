@@ -7,6 +7,9 @@ use crate::{
 };
 use core::{alloc::Layout, mem, ptr::NonNull, slice};
 
+// TODO: try to make calling these methods more ergonomic in contexts where `E`
+// isn't well-defined.
+
 /// A byte sink that knows where it is.
 ///
 /// A type that is [`io::Write`](std::io::Write) can be wrapped in a

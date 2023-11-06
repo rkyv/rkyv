@@ -43,20 +43,13 @@ pub enum IndexMapError {
 impl fmt::Display for IndexMapError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            IndexMapError::HashIndexError(e) => {
-                write!(f, "hash index check error: {}", e)
-            }
             IndexMapError::LayoutError(e) => write!(f, "layout error: {}", e),
             IndexMapError::PivotOutOfBounds { index, pivot } => {
                 write!(f, "pivot out of bounds: {} at index {}", pivot, index)
             }
-            IndexMapError::CheckEntryError(e) => {
-                write!(f, "entry check error: {}", e)
-            }
             IndexMapError::InvalidKeyPosition { index } => {
                 write!(f, "invalid key position: at index {}", index)
             }
-            IndexMapError::ContextError(e) => e.fmt(f),
         }
     }
 }

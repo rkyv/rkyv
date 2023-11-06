@@ -1,20 +1,5 @@
 use proc_macro2::Ident;
-use syn::{
-    punctuated::Punctuated, Error, LitStr, Token, WhereClause, WherePredicate,
-};
-
-pub fn add_bounds(
-    bounds: &LitStr,
-    where_clause: &mut WhereClause,
-) -> Result<(), Error> {
-    let clauses = bounds.parse_with(
-        Punctuated::<WherePredicate, Token![,]>::parse_terminated,
-    )?;
-    for clause in clauses {
-        where_clause.predicates.push(clause);
-    }
-    Ok(())
-}
+use syn::{Field, Meta};
 
 pub fn strip_raw(ident: &Ident) -> String {
     let as_string = ident.to_string();
@@ -22,4 +7,14 @@ pub fn strip_raw(ident: &Ident) -> String {
         .strip_prefix("r#")
         .map(ToString::to_string)
         .unwrap_or(as_string)
+}
+
+pub fn is_not_omitted(f: &&Field) -> bool {
+    f.attrs.iter().all(|attr| {
+        if let Meta::Path(path) = &attr.meta {
+            !path.is_ident("omit_bounds")
+        } else {
+            true
+        }
+    })
 }

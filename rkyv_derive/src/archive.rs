@@ -1,14 +1,13 @@
 use crate::{
     attributes::{parse_attributes, Attributes},
-    repr::{BaseRepr, IntRepr, Repr},
-    util::{add_bounds, strip_raw},
+    util::{is_not_omitted, strip_raw},
     with::{make_with_cast, make_with_ty},
 };
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::{TokenStream, Literal};
 use quote::quote;
 use syn::{
     parse_quote, spanned::Spanned, Attribute, Data, DeriveInput, Error, Field,
-    Fields, Ident, Index, LitStr, Meta, NestedMeta, Type,
+    Fields, Ident, Index, LitStr, Meta, Type,
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -16,14 +15,14 @@ pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     derive_archive_impl(input, &attributes)
 }
 
-fn field_archive_attrs(field: &Field) -> impl '_ + Iterator<Item = NestedMeta> {
+fn field_archive_attrs(field: &Field) -> impl '_ + Iterator<Item = &TokenStream> {
     field
         .attrs
         .iter()
         .filter_map(|attr| {
-            if let Ok(Meta::List(list)) = attr.parse_meta() {
+            if let Meta::List(list) = &attr.meta {
                 if list.path.is_ident("archive_attr") {
-                    Some(list.nested)
+                    Some(&list.tokens)
                 } else {
                     None
                 }
@@ -31,7 +30,6 @@ fn field_archive_attrs(field: &Field) -> impl '_ + Iterator<Item = NestedMeta> {
                 None
             }
         })
-        .flatten()
 }
 
 fn derive_archive_impl(
@@ -39,8 +37,10 @@ fn derive_archive_impl(
     attributes: &Attributes,
 ) -> Result<TokenStream, Error> {
     let where_clause = input.generics.make_where_clause();
-    if let Some(ref bounds) = attributes.archive_bound {
-        add_bounds(bounds, where_clause)?;
+    if let Some(ref bounds) = attributes.archive_bounds {
+        for bound in bounds {
+            where_clause.predicates.push(bound.clone());
+        }
     }
 
     let name = &input.ident;
@@ -98,25 +98,6 @@ fn derive_archive_impl(
                 ),
             ));
         }
-        if let Some(span) = attributes
-            .archived_repr
-            .base_repr
-            .map(|(_, s)| s)
-            .or_else(|| {
-                attributes.archived_repr.modifier.as_ref().map(|(_, s)| *s)
-            })
-        {
-            return Err(Error::new(
-                span,
-                format!(
-                    "\
-                        repr(...) may not be used with as = \"...\"\n\
-                        place the repr attribute on the archived type ({}) instead\
-                    ",
-                    archive_as.value()
-                ),
-            ));
-        }
     }
 
     let archived_name = attributes.archived.as_ref().map_or_else(
@@ -138,32 +119,16 @@ fn derive_archive_impl(
 
     let (archive_types, archive_impls) = match input.data {
         Data::Struct(ref data) => {
-            let base_repr = if cfg!(feature = "strict") {
-                Some(match attributes.archived_repr.base_repr {
-                    // The base repr for structs may not be i*/u* in strict mode
-                    Some((BaseRepr::Int(_), span)) => return Err(Error::new(
-                        span,
-                        "archived structs may only be repr(C) or repr(transparent) in strict mode",
-                    )),
-                    // The base repr may be C or transparent in strict mode
-                    Some((repr @ BaseRepr::C | repr @ BaseRepr::Transparent, span)) => (repr, span),
-                    // If unspecified, the base repr is set to C
-                    None => (BaseRepr::C, Span::call_site()),
-                })
+            let repr = if cfg!(feature = "strict") {
+                Some(quote! { #[repr(C)] })
             } else {
-                attributes.archived_repr.base_repr
-            };
-            let repr = Repr {
-                base_repr,
-                modifier: attributes.archived_repr.modifier.clone(),
+                None
             };
 
             match data.fields {
                 Fields::Named(ref fields) => {
                     let mut archive_where = where_clause.clone();
-                    for field in fields.named.iter().filter(|f| {
-                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
-                    }) {
+                    for field in fields.named.iter().filter(is_not_omitted) {
                         let ty = with_ty(field)?;
                         archive_where
                             .predicates
@@ -218,16 +183,12 @@ fn derive_archive_impl(
 
                     let mut partial_eq_impl = None;
                     let mut partial_ord_impl = None;
-                    if let Some((_, ref compares)) = attributes.compares {
+                    if let Some(ref compares) = attributes.compares {
                         for compare in compares {
                             if compare.is_ident("PartialEq") {
                                 let mut partial_eq_where =
                                     archive_where.clone();
-                                for field in fields.named.iter().filter(|f| {
-                                    !f.attrs
-                                        .iter()
-                                        .any(|a| a.path.is_ident("omit_bounds"))
-                                }) {
+                                for field in fields.named.iter().filter(is_not_omitted) {
                                     let ty = &field.ty;
                                     let wrapped_ty = with_ty(field).unwrap();
                                     partial_eq_where.predicates.push(
@@ -256,11 +217,7 @@ fn derive_archive_impl(
                             } else if compare.is_ident("PartialOrd") {
                                 let mut partial_ord_where =
                                     archive_where.clone();
-                                for field in fields.named.iter().filter(|f| {
-                                    !f.attrs
-                                        .iter()
-                                        .any(|a| a.path.is_ident("omit_bounds"))
-                                }) {
+                                for field in fields.named.iter().filter(is_not_omitted) {
                                     let ty = &field.ty;
                                     let archived_ty = with_ty(field).unwrap();
                                     partial_ord_where.predicates.push(
@@ -305,11 +262,7 @@ fn derive_archive_impl(
                         && attributes.copy_safe.is_some()
                     {
                         let mut copy_safe_where = where_clause.clone();
-                        for field in fields.named.iter().filter(|f| {
-                            !f.attrs
-                                .iter()
-                                .any(|a| a.path.is_ident("omit_bounds"))
-                        }) {
+                        for field in fields.named.iter().filter(is_not_omitted) {
                             let ty = with_ty(field).unwrap();
                             copy_safe_where
                                 .predicates
@@ -354,9 +307,7 @@ fn derive_archive_impl(
                 }
                 Fields::Unnamed(ref fields) => {
                     let mut archive_where = where_clause.clone();
-                    for field in fields.unnamed.iter().filter(|f| {
-                        !f.attrs.iter().any(|a| a.path.is_ident("omit_bounds"))
-                    }) {
+                    for field in fields.unnamed.iter().filter(is_not_omitted) {
                         let ty = with_ty(field)?;
                         archive_where
                             .predicates
@@ -407,16 +358,12 @@ fn derive_archive_impl(
 
                     let mut partial_eq_impl = None;
                     let mut partial_ord_impl = None;
-                    if let Some((_, ref compares)) = attributes.compares {
+                    if let Some(ref compares) = attributes.compares {
                         for compare in compares {
                             if compare.is_ident("PartialEq") {
                                 let mut partial_eq_where =
                                     archive_where.clone();
-                                for field in fields.unnamed.iter().filter(|f| {
-                                    !f.attrs
-                                        .iter()
-                                        .any(|a| a.path.is_ident("omit_bounds"))
-                                }) {
+                                for field in fields.unnamed.iter().filter(is_not_omitted) {
                                     let ty = &field.ty;
                                     let wrapped_ty = with_ty(field).unwrap();
                                     partial_eq_where.predicates.push(
@@ -448,11 +395,7 @@ fn derive_archive_impl(
                             } else if compare.is_ident("PartialOrd") {
                                 let mut partial_ord_where =
                                     archive_where.clone();
-                                for field in fields.unnamed.iter().filter(|f| {
-                                    !f.attrs
-                                        .iter()
-                                        .any(|a| a.path.is_ident("omit_bounds"))
-                                }) {
+                                for field in fields.unnamed.iter().filter(is_not_omitted) {
                                     let ty = &field.ty;
                                     let wrapped_ty = with_ty(field).unwrap();
                                     partial_ord_where.predicates.push(
@@ -497,11 +440,7 @@ fn derive_archive_impl(
                         && attributes.copy_safe.is_some()
                     {
                         let mut copy_safe_where = where_clause.clone();
-                        for field in fields.unnamed.iter().filter(|f| {
-                            !f.attrs
-                                .iter()
-                                .any(|a| a.path.is_ident("omit_bounds"))
-                        }) {
+                        for field in fields.unnamed.iter().filter(is_not_omitted) {
                             let ty = with_ty(field).unwrap();
                             copy_safe_where
                                 .predicates
@@ -558,7 +497,7 @@ fn derive_archive_impl(
 
                     let mut partial_eq_impl = None;
                     let mut partial_ord_impl = None;
-                    if let Some((_, ref compares)) = attributes.compares {
+                    if let Some(ref compares) = attributes.compares {
                         for compare in compares {
                             if compare.is_ident("PartialEq") {
                                 partial_eq_impl = Some(quote! {
@@ -642,11 +581,7 @@ fn derive_archive_impl(
             for variant in data.variants.iter() {
                 match variant.fields {
                     Fields::Named(ref fields) => {
-                        for field in fields.named.iter().filter(|f| {
-                            !f.attrs
-                                .iter()
-                                .any(|a| a.path.is_ident("omit_bounds"))
-                        }) {
+                        for field in fields.named.iter().filter(is_not_omitted) {
                             let ty = with_ty(field)?;
                             archive_where.predicates.push(
                                 parse_quote! { #ty: #rkyv_path::Archive },
@@ -654,11 +589,7 @@ fn derive_archive_impl(
                         }
                     }
                     Fields::Unnamed(ref fields) => {
-                        for field in fields.unnamed.iter().filter(|f| {
-                            !f.attrs
-                                .iter()
-                                .any(|a| a.path.is_ident("omit_bounds"))
-                        }) {
+                        for field in fields.unnamed.iter().filter(is_not_omitted) {
                             let ty = with_ty(field)?;
                             archive_where.predicates.push(
                                 parse_quote! { #ty: #rkyv_path::Archive },
@@ -817,51 +748,20 @@ fn derive_archive_impl(
                 }
             });
 
-            let (int_repr, int_repr_span) =
-                match attributes.archived_repr.base_repr {
-                    // The base repr for enums may not be Rust, transparent, or C
-                    Some((BaseRepr::Transparent | BaseRepr::C, span)) => {
-                        return Err(Error::new(
-                            span,
-                            "enums may only be repr(i*) or repr(u*)",
-                        ))
-                    }
-                    // The base repr for enums may be i*/u*
-                    Some((BaseRepr::Int(int_repr), span)) => (int_repr, span),
-                    // If unspecified, the base repr is set to u* with the smallest unsigned integer
-                    // that can represent the number of variants
-                    None => {
-                        let int_repr = match data.variants.len() as u128 {
-                            0..=255 => IntRepr::U8,
-                            256..=65_535 => IntRepr::U16,
-                            65_536..=4_294_967_295 => IntRepr::U32,
-                            4_294_967_296..=18_446_744_073_709_551_615 => {
-                                IntRepr::U64
-                            }
-                            _ => IntRepr::U128,
-                        };
-                        (int_repr, Span::call_site())
-                    }
-                };
-            let repr = Repr {
-                base_repr: Some((BaseRepr::Int(int_repr), int_repr_span)),
-                modifier: attributes.archived_repr.modifier.clone(),
+            let repr = match data.variants.len() as u128 {
+                0..=255 => quote! { #[repr(u8)] },
+                256..=65_535 => quote! { #[repr(u16)] },
+                65_536..=4_294_967_295 => quote! { #[repr(u32)] },
+                4_294_967_296..=18_446_744_073_709_551_615 => {
+                    quote! { #[repr(u64)] }
+                }
+                _ => quote! { #[repr(u128)] },
             };
-
-            let is_fieldless = data
-                .variants
-                .iter()
-                .all(|v| matches!(v.fields, Fields::Unit));
 
             let archived_def = if attributes.archive_as.is_none() {
                 let archived_variants = data.variants.iter().enumerate().map(|(i, v)| {
                     let variant = &v.ident;
-                    let discriminant =
-                        if is_fieldless || cfg!(feature = "arbitrary_enum_discriminant") {
-                            Some(int_repr.enum_discriminant(i))
-                        } else {
-                            None
-                        };
+                    let discriminant = Literal::usize_unsuffixed(i);
                     match v.fields {
                         Fields::Named(ref fields) => {
                             let fields = fields.named.iter().map(|f| {
@@ -888,7 +788,7 @@ fn derive_archive_impl(
                                 #[allow(dead_code)]
                                 #variant {
                                     #(#fields,)*
-                                } #discriminant
+                                } = #discriminant
                             }
                         }
                         Fields::Unnamed(ref fields) => {
@@ -911,7 +811,7 @@ fn derive_archive_impl(
                             quote! {
                                 #[doc = #variant_doc]
                                 #[allow(dead_code)]
-                                #variant(#(#fields,)*) #discriminant
+                                #variant(#(#fields,)*) = #discriminant
                             }
                         }
                         Fields::Unit => {
@@ -920,7 +820,7 @@ fn derive_archive_impl(
                             quote! {
                                 #[doc = #variant_doc]
                                 #[allow(dead_code)]
-                                #variant #discriminant
+                                #variant = #discriminant
                             }
                         }
                     }
@@ -942,8 +842,8 @@ fn derive_archive_impl(
             let archived_variant_tags =
                 data.variants.iter().enumerate().map(|(i, v)| {
                     let variant = &v.ident;
-                    let discriminant = int_repr.enum_discriminant(i);
-                    quote! { #variant #discriminant }
+                    let discriminant = Literal::usize_unsuffixed(i);
+                    quote! { #variant = #discriminant }
                 });
 
             let archived_variant_structs = data.variants.iter().map(|v| {
@@ -981,20 +881,14 @@ fn derive_archive_impl(
 
             let mut partial_eq_impl = None;
             let mut partial_ord_impl = None;
-            if let Some((_, ref compares)) = attributes.compares {
+            if let Some(ref compares) = attributes.compares {
                 for compare in compares {
                     if compare.is_ident("PartialEq") {
                         let mut partial_eq_where = archive_where.clone();
                         for variant in data.variants.iter() {
                             match variant.fields {
                                 Fields::Named(ref fields) => {
-                                    for field in
-                                        fields.named.iter().filter(|f| {
-                                            !f.attrs.iter().any(|a| {
-                                                a.path.is_ident("omit_bounds")
-                                            })
-                                        })
-                                    {
+                                    for field in fields.named.iter().filter(is_not_omitted) {
                                         let ty = &field.ty;
                                         let wrapped_ty =
                                             with_ty(field).unwrap();
@@ -1004,13 +898,7 @@ fn derive_archive_impl(
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
-                                    for field in
-                                        fields.unnamed.iter().filter(|f| {
-                                            !f.attrs.iter().any(|a| {
-                                                a.path.is_ident("omit_bounds")
-                                            })
-                                        })
-                                    {
+                                    for field in fields.unnamed.iter().filter(is_not_omitted) {
                                         let ty = &field.ty;
                                         let wrapped_ty =
                                             with_ty(field).unwrap();
@@ -1095,13 +983,7 @@ fn derive_archive_impl(
                         for variant in data.variants.iter() {
                             match variant.fields {
                                 Fields::Named(ref fields) => {
-                                    for field in
-                                        fields.named.iter().filter(|f| {
-                                            !f.attrs.iter().any(|a| {
-                                                a.path.is_ident("omit_bounds")
-                                            })
-                                        })
-                                    {
+                                    for field in fields.named.iter().filter(is_not_omitted) {
                                         let ty = &field.ty;
                                         let wrapped_ty =
                                             with_ty(field).unwrap();
@@ -1111,13 +993,7 @@ fn derive_archive_impl(
                                     }
                                 }
                                 Fields::Unnamed(ref fields) => {
-                                    for field in
-                                        fields.unnamed.iter().filter(|f| {
-                                            !f.attrs.iter().any(|a| {
-                                                a.path.is_ident("omit_bounds")
-                                            })
-                                        })
-                                    {
+                                    for field in fields.unnamed.iter().filter(is_not_omitted) {
                                         let ty = &field.ty;
                                         let wrapped_ty =
                                             with_ty(field).unwrap();
@@ -1267,11 +1143,7 @@ fn derive_archive_impl(
                 for variant in data.variants.iter() {
                     match variant.fields {
                         Fields::Named(ref fields) => {
-                            for field in fields.named.iter().filter(|f| {
-                                !f.attrs
-                                    .iter()
-                                    .any(|a| a.path.is_ident("omit_bounds"))
-                            }) {
+                            for field in fields.named.iter().filter(is_not_omitted) {
                                 let ty = with_ty(field).unwrap();
                                 copy_safe_where
                                     .predicates
@@ -1279,11 +1151,7 @@ fn derive_archive_impl(
                             }
                         }
                         Fields::Unnamed(ref fields) => {
-                            for field in fields.unnamed.iter().filter(|f| {
-                                !f.attrs
-                                    .iter()
-                                    .any(|a| a.path.is_ident("omit_bounds"))
-                            }) {
+                            for field in fields.unnamed.iter().filter(is_not_omitted) {
                                 let ty = with_ty(field).unwrap();
                                 copy_safe_where
                                     .predicates
@@ -1312,7 +1180,7 @@ fn derive_archive_impl(
                     }
                 },
                 quote! {
-                    #[repr(#int_repr)]
+                    #repr
                     enum ArchivedTag {
                         #(#archived_variant_tags,)*
                     }

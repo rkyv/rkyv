@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "examples/as_string",
     "examples/backwards_compat",
     "examples/json",
     "examples/opcode",
@@ -20,6 +19,7 @@ default-members = [
     "rkyv_test",
     "rkyv_typename",
 ]
+resolver = "2"
 
 [workspace.package]
 # TODO: STOP!! GO RESOLVE ALL OF THE TODO COMMENTS BEFORE BUMPING THIS VERSION!!
@@ -31,15 +31,15 @@ documentation = "https://docs.rs/rkyv"
 repository = "https://github.com/rkyv/rkyv"
 
 [workspace.dependencies]
-bytecheck = { version = "0.8", default-features = false, features = ["simdutf8"], path = "../bytecheck/bytecheck" }
+bytecheck = { version = "0.8.0-pre1", default-features = false, features = ["simdutf8"] }
 hashbrown = "0.12"
 proc-macro2 = "1.0"
-ptr_meta = { version = "0.3", default-features = false, path = "../ptr_meta/ptr_meta" }
+ptr_meta = { version = "0.3.0-pre1", default-features = false }
 quote = "1.0"
-rend = { version = "0.5", default-features = false, path = "../rend" }
-rancor = { version = "0.1", deafult-features = false, path = "../rancor" }
+rend = { version = "0.5.0-pre2", default-features = false }
+rancor = { version = "0.1.0-pre1", deafult-features = false }
 rkyv = { version = "=0.8.0", path = "rkyv" }
 rkyv_derive = { version = "=0.8.0", path = "rkyv_derive" }
 seahash = "4.0"
-syn = "1.0"
+syn = "2.0"
 wasm-bindgen-test = "0.3"

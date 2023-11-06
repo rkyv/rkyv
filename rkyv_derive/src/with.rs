@@ -1,6 +1,6 @@
 use syn::{
     parse_quote, punctuated::Punctuated, token::Comma, Error, Expr, Field,
-    Path, Type,
+    Path, Type, Meta,
 };
 
 #[inline]
@@ -13,10 +13,14 @@ pub fn with<B, F: FnMut(B, &Type) -> B>(
         .attrs
         .iter()
         .filter_map(|attr| {
-            if attr.path.is_ident("with") {
-                Some(attr.parse_args_with(
-                    Punctuated::<Type, Comma>::parse_separated_nonempty,
-                ))
+            if let Meta::List(list) = &attr.meta {
+                if list.path.is_ident("with") {
+                    Some(attr.parse_args_with(
+                        Punctuated::<Type, Comma>::parse_separated_nonempty,
+                    ))
+                } else {
+                    None
+                }
             } else {
                 None
             }

@@ -3,8 +3,8 @@
 //! During archiving, hashmaps are built into minimal perfect hashmaps using
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
-#[cfg(feature = "bytecheck")]
-pub mod validation;
+// #[cfg(feature = "bytecheck")]
+// pub mod validation;
 
 use crate::{
     collections::{
@@ -51,7 +51,7 @@ impl<K, V> ArchivedHashMap<K, V> {
 
     #[inline]
     unsafe fn entry_mut(&mut self, index: usize) -> &mut Entry<K, V> {
-        &mut *self.entries.as_mut_ptr().add(index)
+        &mut *self.entries.as_ptr().add(index)
     }
 
     #[inline]
@@ -194,16 +194,16 @@ impl<K, V> ArchivedHashMap<K, V> {
     }
 
     #[inline]
-    fn raw_iter(&self) -> RawIter<K, V> {
+    unsafe fn raw_iter(&self) -> RawIter<K, V> {
         RawIter::new(self.entries.as_ptr().cast(), self.len())
     }
 
     #[inline]
-    fn raw_iter_pin(self: Pin<&mut Self>) -> RawIterPin<K, V> {
+    unsafe fn raw_iter_pin(self: Pin<&mut Self>) -> RawIterPin<K, V> {
         unsafe {
             let hash_map = self.get_unchecked_mut();
             RawIterPin::new(
-                hash_map.entries.as_mut_ptr().cast(),
+                hash_map.entries.as_ptr().cast(),
                 hash_map.len(),
             )
         }
@@ -213,7 +213,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     #[inline]
     pub fn iter(&self) -> Iter<K, V> {
         Iter {
-            inner: self.raw_iter(),
+            inner: unsafe { self.raw_iter() },
         }
     }
 
@@ -221,7 +221,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     #[inline]
     pub fn iter_pin(self: Pin<&mut Self>) -> IterPin<K, V> {
         IterPin {
-            inner: self.raw_iter_pin(),
+            inner: unsafe { self.raw_iter_pin() },
         }
     }
 
@@ -229,7 +229,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     #[inline]
     pub fn keys(&self) -> Keys<K, V> {
         Keys {
-            inner: self.raw_iter(),
+            inner: unsafe { self.raw_iter() },
         }
     }
 
@@ -237,7 +237,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     #[inline]
     pub fn values(&self) -> Values<K, V> {
         Values {
-            inner: self.raw_iter(),
+            inner: unsafe { self.raw_iter() },
         }
     }
 
@@ -245,7 +245,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     #[inline]
     pub fn values_pin(self: Pin<&mut Self>) -> ValuesPin<K, V> {
         ValuesPin {
-            inner: self.raw_iter_pin(),
+            inner: unsafe { self.raw_iter_pin() },
         }
     }
 

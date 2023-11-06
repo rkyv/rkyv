@@ -3,8 +3,8 @@
 //! During archiving, hashmaps are built into minimal perfect hashmaps using
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
-#[cfg(feature = "bytecheck")]
-pub mod validation;
+// #[cfg(feature = "bytecheck")]
+// pub mod validation;
 
 use crate::{
     collections::{
@@ -147,15 +147,17 @@ impl<K, V> ArchivedIndexMap<K, V> {
     }
 
     #[inline]
-    fn raw_iter(&self) -> RawIter<K, V> {
-        RawIter::new(self.entries.as_ptr().cast(), self.len())
+    unsafe fn raw_iter(&self) -> RawIter<K, V> {
+        unsafe {
+            RawIter::new(self.entries.as_ptr().cast(), self.len())
+        }
     }
 
     /// Returns an iterator over the key-value pairs of the map in order
     #[inline]
     pub fn iter(&self) -> Iter<K, V> {
         Iter {
-            inner: self.raw_iter(),
+            inner: unsafe { self.raw_iter() },
         }
     }
 
@@ -163,7 +165,7 @@ impl<K, V> ArchivedIndexMap<K, V> {
     #[inline]
     pub fn keys(&self) -> Keys<K, V> {
         Keys {
-            inner: self.raw_iter(),
+            inner: unsafe { self.raw_iter() },
         }
     }
 
@@ -188,7 +190,7 @@ impl<K, V> ArchivedIndexMap<K, V> {
     #[inline]
     pub fn values(&self) -> Values<K, V> {
         Values {
-            inner: self.raw_iter(),
+            inner: unsafe { self.raw_iter() },
         }
     }
 

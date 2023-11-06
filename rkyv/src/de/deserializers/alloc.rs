@@ -3,6 +3,7 @@
 use crate::de::{SharedDeserializeRegistry, SharedPointer};
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
+use rancor::Error;
 use core::fmt;
 #[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
@@ -35,11 +36,7 @@ impl fmt::Display for SharedDeserializeMapError {
 }
 
 #[cfg(feature = "std")]
-const _: () = {
-    use std::error::Error;
-
-    impl Error for SharedDeserializeMapError {}
-};
+impl std::error::Error for SharedDeserializeMapError {}
 
 /// An adapter that adds shared deserialization support to a deserializer.
 pub struct SharedDeserializeMap {
@@ -75,7 +72,7 @@ impl Default for SharedDeserializeMap {
     }
 }
 
-impl<E> SharedDeserializeRegistry<E> for SharedDeserializeMap {
+impl<E: Error> SharedDeserializeRegistry<E> for SharedDeserializeMap {
     fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer> {
         self.shared_pointers.get(&ptr).map(|p| p.as_ref())
     }
@@ -87,7 +84,7 @@ impl<E> SharedDeserializeRegistry<E> for SharedDeserializeMap {
     ) -> Result<(), E> {
         match self.shared_pointers.entry(ptr) {
             hash_map::Entry::Occupied(_) => {
-                Err(SharedDeserializeMapError::DuplicateSharedPointer(ptr))
+                Err(E::new(SharedDeserializeMapError::DuplicateSharedPointer(ptr)))
             }
             hash_map::Entry::Vacant(e) => {
                 e.insert(shared);
