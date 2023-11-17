@@ -12,7 +12,7 @@ fn main() {
         | "asmjs-unknown-emscripten"
         | "wasm32-unknown-emscripten"
         | "wasm32-unknown-unknown"
-        | "xtensa-esp32-none-elf" => has_atomic64 = false,
+        | "xtensa-esp32-none" => has_atomic64 = false,
         _ => {}
     }
 
