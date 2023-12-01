@@ -105,7 +105,7 @@ impl fmt::Display for ArchiveError {
             ArchiveError::Overflow { base, offset } => write!(
                 f,
                 "relative pointer overflowed: base {:p} offset {}",
-                base, offset
+                *base, offset
             ),
             ArchiveError::Underaligned {
                 expected_align,
@@ -122,22 +122,22 @@ impl fmt::Display for ArchiveError {
             } => write!(
                 f,
                 "pointer out of bounds: base {:p} offset {} not in range {:p}..{:p}",
-                base, offset, range.start, range.end
+                *base, offset, range.start, range.end
             ),
             ArchiveError::Overrun { ptr, size, range } => write!(
                 f,
                 "pointer overran buffer: ptr {:p} size {} in range {:p}..{:p}",
-                ptr, size, range.start, range.end
+                *ptr, size, range.start, range.end
             ),
             ArchiveError::Unaligned { ptr, align } => write!(
                 f,
                 "unaligned pointer: ptr {:p} unaligned for alignment {}",
-                ptr, align
+                *ptr, align
             ),
             ArchiveError::SubtreePointerOutOfBounds { ptr, subtree_range } => write!(
                 f,
                 "subtree pointer out of bounds: ptr {:p} not in range {:p}..{:p}",
-                ptr, subtree_range.start, subtree_range.end
+                *ptr, subtree_range.start, subtree_range.end
             ),
             ArchiveError::SubtreePointerOverrun {
                 ptr,
@@ -146,7 +146,7 @@ impl fmt::Display for ArchiveError {
             } => write!(
                 f,
                 "subtree pointer overran range: ptr {:p} size {} in range {:p}..{:p}",
-                ptr, size, subtree_range.start, subtree_range.end
+                *ptr, size, subtree_range.start, subtree_range.end
             ),
             ArchiveError::RangePoppedOutOfOrder {
                 expected_depth,
