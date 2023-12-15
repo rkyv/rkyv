@@ -41,7 +41,7 @@
 //! support custom contextual types.
 //!
 //! Finally, rkyv makes it possible to serialize trait objects and use them *as trait objects*
-//! without deserialization. See the `archive_dyn` crate for more details.
+//! without deserialization. See the `rkyv_dyn` crate for more details.
 //!
 //! ## Tradeoffs
 //!
