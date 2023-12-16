@@ -3,9 +3,10 @@
 pub mod serializers;
 
 use crate::{
-    Archive, ArchiveUnsized, RelPtr, Serialize, SerializeUnsized,
+    Archive, ArchiveUnsized, RelPtr, SerializeUnsized,
 };
 use core::{alloc::Layout, mem, ptr::NonNull, slice};
+use rancor::{Fallible, Strategy};
 
 // TODO: try to make calling these methods more ergonomic in contexts where `E`
 // isn't well-defined.
@@ -18,7 +19,7 @@ use core::{alloc::Layout, mem, ptr::NonNull, slice};
 /// It's important that the memory for archived objects is properly aligned before attempting to
 /// read objects out of it; use an [`AlignedVec`](crate::AlignedVec) or the
 /// [`AlignedBytes`](crate::AlignedBytes) wrappers if they are appropriate.
-pub trait Serializer<E> {
+pub trait Serializer<E = <Self as Fallible>::Error> {
     /// Returns the current position of the serializer.
     fn pos(&self) -> usize;
 
@@ -77,17 +78,6 @@ pub trait Serializer<E> {
         Ok(pos)
     }
 
-    /// Archives the given object and returns the position it was archived at.
-    #[inline]
-    fn serialize_value<T: Serialize<Self, E>>(
-        &mut self,
-        value: &T,
-    ) -> Result<usize, E> {
-        let resolver = value.serialize(self)?;
-        self.align_for::<T::Archived>()?;
-        unsafe { self.resolve_aligned(value, resolver) }
-    }
-
     /// Resolves the given reference with its resolver and writes the archived reference.
     ///
     /// Returns the position of the written archived `RelPtr`.
@@ -123,24 +113,25 @@ pub trait Serializer<E> {
         self.write(slice::from_raw_parts(data, len))?;
         Ok(from)
     }
+}
 
-    /// Archives a reference to the given object and returns the position it was archived at.
-    #[inline]
-    fn serialize_unsized_value<T: SerializeUnsized<Self, E> + ?Sized>(
-        &mut self,
-        value: &T,
-    ) -> Result<usize, E> {
-        let to = value.serialize_unsized(self)?;
-        let metadata_resolver = value.serialize_metadata(self)?;
-        self.align_for::<RelPtr<T::Archived>>()?;
-        unsafe { self.resolve_unsized_aligned(value, to, metadata_resolver) }
+impl<T, E> Serializer<E> for Strategy<T, E>
+where
+    T: Serializer<E> + ?Sized,
+{
+    fn pos(&self) -> usize {
+        T::pos(self)
+    }
+
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
+        T::write(self, bytes)
     }
 }
 
 // Someday this can probably be replaced with alloc::Allocator
 
 /// A serializer that can allocate scratch space.
-pub trait ScratchSpace<E> {
+pub trait ScratchSpace<E = <Self as Fallible>::Error> {
     /// Allocates scratch space of the requested size.
     ///
     /// # Safety
@@ -164,10 +155,29 @@ pub trait ScratchSpace<E> {
     ) -> Result<(), E>;
 }
 
+impl<T: ScratchSpace<E>, E> ScratchSpace<E> for Strategy<T, E> {
+    unsafe fn push_scratch(
+        &mut self,
+        layout: Layout,
+    ) -> Result<NonNull<[u8]>, E> {
+        T::push_scratch(self, layout)
+    }
+
+    unsafe fn pop_scratch(
+        &mut self,
+        ptr: NonNull<u8>,
+        layout: Layout,
+    ) -> Result<(), E> {
+        T::pop_scratch(self, ptr, layout)
+    }
+}
+
+// TODO: Make this name shorter
+
 /// A registry that tracks serialized shared memory.
 ///
 /// This trait is required to serialize shared pointers.
-pub trait SharedSerializeRegistry<E> {
+pub trait SharedSerializeRegistry<E = <Self as Fallible>::Error> {
     /// Gets the position of a previously-added shared pointer.
     ///
     /// Returns `None` if the pointer has not yet been added.
@@ -197,17 +207,31 @@ pub trait SharedSerializeRegistry<E> {
     ) -> Result<(), E> {
         self.add_shared_ptr(value as *const T as *const u8, pos)
     }
+}
 
+impl<T: SharedSerializeRegistry<E> + ?Sized, E> SharedSerializeRegistry<E> for Strategy<T, E> {
+    fn get_shared_ptr(&self, value: *const u8) -> Option<usize> {
+        T::get_shared_ptr(self, value)
+    }
+
+    fn add_shared_ptr(
+        &mut self,
+        value: *const u8,
+        pos: usize,
+    ) -> Result<(), E> {
+        T::add_shared_ptr(self, value, pos)
+    }
+}
+
+/// TODO: Document this
+pub trait SharedSerializeRegistryExt: Fallible + SharedSerializeRegistry<Self::Error> {
     /// Archives the given shared value and returns its position. If the value has already been
     /// added then it returns the position of the previously added value.
     #[inline]
-    fn serialize_shared<T: SerializeUnsized<Self, E> + ?Sized>(
+    fn serialize_shared<T: SerializeUnsized<Self> + ?Sized>(
         &mut self,
         value: &T,
-    ) -> Result<usize, E>
-    where
-        Self: Serializer<E>,
-    {
+    ) -> Result<usize, <Self as Fallible>::Error> {
         if let Some(pos) = self.get_shared(value) {
             Ok(pos)
         } else {
@@ -217,3 +241,5 @@ pub trait SharedSerializeRegistry<E> {
         }
     }
 }
+
+impl<S: Fallible + SharedSerializeRegistry + ?Sized> SharedSerializeRegistryExt for S {}

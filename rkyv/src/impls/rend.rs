@@ -1,4 +1,5 @@
 use crate::{rend::*, Archive, Archived, Deserialize, Serialize};
+use rancor::Fallible;
 
 macro_rules! impl_rend_primitive {
     ($type:ty) => {
@@ -22,16 +23,16 @@ macro_rules! impl_rend_primitive {
         #[cfg(feature = "copy")]
         unsafe impl crate::copy::ArchiveCopySafe for $type {}
 
-        impl<S: ?Sized, E> Serialize<S, E> for $type {
+        impl<S: Fallible + ?Sized> Serialize<S> for $type {
             #[inline]
-            fn serialize(&self, _: &mut S) -> Result<Self::Resolver, E> {
+            fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
                 Ok(())
             }
         }
 
-        impl<D: ?Sized, E> Deserialize<$type, D, E> for Archived<$type> {
+        impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived<$type> {
             #[inline]
-            fn deserialize(&self, _: &mut D) -> Result<$type, E> {
+            fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
                 Ok(*self)
             }
         }
@@ -87,10 +88,10 @@ impl_rend_primitives!(
 
 #[cfg(test)]
 mod tests {
-    use rancor::Failure;
+    use rancor::{Failure, Strategy};
 
     use crate::{
-        archived_root, ser::serializers::CoreSerializer, ser::Serializer,
+        access_unchecked, ser::serializers::CoreSerializer, ser::Serializer,
         Deserialize, Serialize,
     };
     use core::fmt;
@@ -99,20 +100,20 @@ mod tests {
 
     fn test_archive<T>(value: &T)
     where
-        T: fmt::Debug + PartialEq + Serialize<DefaultSerializer, Failure>,
-        T::Archived: fmt::Debug + PartialEq<T> + Deserialize<T, (), Failure>,
+        T: fmt::Debug + PartialEq + Serialize<Strategy<DefaultSerializer, Failure>>,
+        T::Archived: fmt::Debug + PartialEq<T> + Deserialize<T, Strategy<(), Failure>>,
     {
-        let mut serializer = DefaultSerializer::default();
-        serializer
-            .serialize_value(value)
-            .expect("failed to archive value");
-        let len = <_ as Serializer<Failure>>::pos(&serializer);
+        let serializer = crate::util::serialize_into::<_, _, Failure>(
+            value,
+            DefaultSerializer::default(),
+        ).expect("failed to archive value");
+        let len = Serializer::<Failure>::pos(&serializer);
         let buffer = serializer.into_serializer().into_inner();
 
-        let archived_value = unsafe { archived_root::<T>(&buffer[0..len]) };
+        let archived_value = unsafe { access_unchecked::<T>(&buffer[0..len]) };
         assert_eq!(archived_value, value);
         assert_eq!(
-            &archived_value.deserialize(&mut ()).unwrap(),
+            &archived_value.deserialize(Strategy::wrap(&mut ())).unwrap(),
             value
         );
     }
@@ -155,16 +156,15 @@ mod tests {
     #[test]
     fn archive_rend_endianness() {
         // Check representations to make sure endianness is preserved
-        use crate::{
-            rend::{i32_be, i32_le},
-            ser::Serializer,
-        };
+        use crate::rend::{i32_be, i32_le};
 
         // Big endian
         let value = i32_be::from_native(0x12345678);
 
-        let mut serializer = DefaultSerializer::default();
-        <_ as Serializer<Failure>>::serialize_value(&mut serializer, &value).unwrap();
+        let serializer = crate::util::serialize_into::<_, _, Failure>(
+            &value,
+            DefaultSerializer::default(),
+        ).unwrap();
         let buf = serializer.into_serializer().into_inner();
 
         assert_eq!(&buf[0..4], &[0x12, 0x34, 0x56, 0x78]);
@@ -172,8 +172,10 @@ mod tests {
         // Little endian
         let value = i32_le::from_native(0x12345678i32);
 
-        let mut serializer = DefaultSerializer::default();
-        <_ as Serializer<Failure>>::serialize_value(&mut serializer, &value).unwrap();
+        let serializer = crate::util::serialize_into::<_, _, Failure>(
+            &value,
+            DefaultSerializer::default(),
+        ).unwrap();
         let buf = serializer.into_serializer().into_inner();
 
         assert_eq!(&buf[0..4], &[0x78, 0x56, 0x34, 0x12]);

@@ -5,64 +5,65 @@ macro_rules! impl_test_archive {
     ($ser:ty, $de:ty) => {
         use core::fmt::Debug;
         use rkyv::{
-            archived_root, archived_unsized_root, ser::Serializer, Deserialize,
+            Archived, access_unchecked,
+            util::{access_unsized_unchecked, serialize_into, serialize_rel_ptr_into},
+            ser::Serializer, Deserialize,
             Serialize, SerializeUnsized,
+            rancor::{Strategy, Failure},
         };
 
         pub fn test_archive<T>(value: &T)
         where
-            T: Debug + PartialEq + Serialize<$ser>,
-            T::Archived: Debug + PartialEq<T> + Deserialize<T, $de>,
+            T: Debug + PartialEq + Serialize<Strategy<$ser, Failure>>,
+            T::Archived: Debug + PartialEq<T> + Deserialize<T, Strategy<$de, Failure>>,
         {
-            let mut serializer = <$ser>::default();
-            serializer
-                .serialize_value(value)
-                .expect("failed to archive value");
-            let len = serializer.pos();
+            let serializer = serialize_into(
+                value,
+                <$ser>::default(),
+            ).expect("failed to serialize value");
+            let len = Serializer::<Failure>::pos(&serializer);
             let buffer = serializer.into_serializer().into_inner();
 
-            let archived_value = unsafe { archived_root::<T>(&buffer[0..len]) };
+            let archived_value = unsafe { access_unchecked::<T>(&buffer[0..len]) };
             assert_eq!(archived_value, value);
             let mut deserializer = <$de>::default();
-            assert_eq!(
-                &archived_value.deserialize(&mut deserializer).unwrap(),
-                value
-            );
+            let de_value: T = <Archived<T> as Deserialize<T, Strategy<$de, Failure>>>::deserialize(archived_value, Strategy::<$de, Failure>::wrap(&mut deserializer)).unwrap();
+            assert_eq!(&de_value, value);
         }
 
-        pub fn test_archive_ref<T: Debug + SerializeUnsized<$ser> + ?Sized>(
+        pub fn test_archive_ref<T: Debug + SerializeUnsized<Strategy<$ser, Failure>> + ?Sized>(
             value: &T,
         ) where
             T::Archived: Debug + PartialEq<T>,
         {
-            let mut serializer = <$ser>::default();
-            serializer
-                .serialize_unsized_value(value)
-                .expect("failed to archive ref");
-            let len = serializer.pos();
+            let serializer = serialize_rel_ptr_into(
+                value,
+                <$ser>::default(),
+            ).expect("failed to serialize relative pointer");
+            let len = Serializer::<Failure>::pos(&serializer);
             let buffer = serializer.into_serializer().into_inner();
 
             let archived_ref =
-                unsafe { archived_unsized_root::<T>(&buffer[0..len]) };
+                unsafe { access_unsized_unchecked::<T>(&buffer[0..len]) };
             assert_eq!(archived_ref, value);
         }
 
         pub fn test_archive_container<
-            T: Serialize<$ser, Archived = U> + core::ops::Deref<Target = TV>,
+            T: Serialize<Strategy<$ser, Failure>, Archived = U> + core::ops::Deref<Target = TV>,
             TV: Debug + ?Sized,
             U: core::ops::Deref<Target = TU>,
             TU: Debug + PartialEq<TV> + ?Sized,
         >(
             value: &T,
         ) {
-            let mut serializer = <$ser>::default();
-            serializer
-                .serialize_value(value)
-                .expect("failed to archive ref");
-            let len = serializer.pos();
+            let mut serializer = serialize_into(
+                value,
+                <$ser>::default(),
+            ).expect("failed to serialize value");
+            let len = Serializer::<Failure>::pos(&serializer);
             let buffer = serializer.into_serializer().into_inner();
 
-            let archived_ref = unsafe { archived_root::<T>(&buffer[0..len]) };
+            let archived_ref = unsafe { access_unchecked::<T>(&buffer[0..len]) };
             assert_eq!(archived_ref.deref(), value.deref());
         }
     };
@@ -74,7 +75,7 @@ pub mod core {
 
     pub type DefaultSerializer =
         rkyv::ser::serializers::CoreSerializer<BUFFER_SIZE, SCRATCH_SIZE>;
-    pub type DefaultDeserializer = rkyv::Infallible;
+    pub type DefaultDeserializer = ();
 
     impl_test_archive!(DefaultSerializer, DefaultDeserializer);
 }

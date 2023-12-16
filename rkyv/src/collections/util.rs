@@ -1,6 +1,7 @@
 //! Utilities for archived collections.
 
 use crate::{Archive, Serialize};
+use rancor::Fallible;
 
 /// A simple key-value pair.
 ///
@@ -34,14 +35,14 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
     }
 }
 
-impl<K: Serialize<S, E>, V: Serialize<S, E>, S: ?Sized, E> Serialize<S, E>
+impl<K: Serialize<S>, V: Serialize<S>, S: Fallible + ?Sized> Serialize<S>
     for Entry<&'_ K, &'_ V>
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         Ok((
             self.key.serialize(serializer)?,
             self.value.serialize(serializer)?,

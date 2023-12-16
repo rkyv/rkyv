@@ -12,6 +12,7 @@ use core::{
     ops::Deref,
     pin::Pin,
 };
+use rancor::Fallible;
 
 /// A niched archived `Option<Box<T>>`.
 ///
@@ -134,13 +135,13 @@ where
 
     /// Serializes an `ArchivedOptionBox<T::Archived>` from an `Option<&T>`.
     #[inline]
-    pub fn serialize_from_option<U, S, E>(
+    pub fn serialize_from_option<U, S>(
         field: Option<&U>,
         serializer: &mut S,
-    ) -> Result<OptionBoxResolver<U::MetadataResolver>, E>
+    ) -> Result<OptionBoxResolver<U::MetadataResolver>, S::Error>
     where
-        U: SerializeUnsized<S, E, Archived = T> + ?Sized,
-        S: Serializer<E> + ?Sized,
+        U: SerializeUnsized<S, Archived = T> + ?Sized,
+        S: Fallible + Serializer + ?Sized,
     {
         if let Some(value) = field {
             Ok(OptionBoxResolver::Some(ArchivedBox::serialize_from_ref(

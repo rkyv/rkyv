@@ -2,6 +2,7 @@ use crate::{
     time::ArchivedDuration, Archive, Deserialize, Serialize,
 };
 use core::time::Duration;
+use rancor::Fallible;
 
 impl Archive for Duration {
     type Archived = ArchivedDuration;
@@ -18,16 +19,16 @@ impl Archive for Duration {
     }
 }
 
-impl<S: ?Sized, E> Serialize<S, E> for Duration {
+impl<S: Fallible + ?Sized> Serialize<S> for Duration {
     #[inline]
-    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, E> {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
-impl<D: ?Sized, E> Deserialize<Duration, D, E> for ArchivedDuration {
+impl<D: Fallible + ?Sized> Deserialize<Duration, D> for ArchivedDuration {
     #[inline]
-    fn deserialize(&self, _: &mut D) -> Result<Duration, E> {
+    fn deserialize(&self, _: &mut D) -> Result<Duration, D::Error> {
         Ok(Duration::new(self.as_secs(), self.subsec_nanos()))
     }
 }

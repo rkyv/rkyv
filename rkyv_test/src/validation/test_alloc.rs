@@ -11,8 +11,8 @@ mod tests {
         vec::Vec,
     };
     use rkyv::{
-        check_archived_root, check_archived_value, ser::Serializer,
-        AlignedBytes, Archive, CheckBytes, Deserialize, Infallible, Serialize,
+        access, serialize, util::AlignedBytes, validation::util::access_pos, ser::Serializer,
+        Archive, CheckBytes, Deserialize, Serialize, rancor::Failure,
     };
     #[cfg(feature = "std")]
     use std::{
@@ -26,14 +26,11 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn basic_functionality() {
-        // Regular archiving
+        // Regular serializing
         let value = Some("Hello world".to_string());
+        let buf = serialize::<_, 256, Failure>(&value).unwrap();
 
-        let mut serializer = DefaultSerializer::default();
-        serializer.serialize_value(&value).unwrap();
-        let buf = serializer.into_serializer().into_inner();
-
-        let result = check_archived_root::<Option<String>>(buf.as_ref());
+        let result = access::<Option<String>, Failure>(buf.as_ref());
         result.unwrap();
 
         #[cfg(all(feature = "pointer_width_16", feature = "little_endian"))]
@@ -107,71 +104,32 @@ mod tests {
         ]);
 
         let result =
-            check_archived_root::<Option<Box<[u8]>>>(synthetic_buf.as_ref());
+            access::<Option<Box<[u8]>>, Failure>(synthetic_buf.as_ref());
         result.unwrap();
 
-        // Various buffer errors:
-        use rkyv::validation::{
-            validators::{ArchiveError, DefaultValidatorError},
-            CheckArchiveError,
-        };
         // Out of bounds
-        match check_archived_value::<u32>(
+        access_pos::<u32, Failure>(
             AlignedBytes([0, 1, 2, 3, 4]).as_ref(),
             8,
-        ) {
-            Err(CheckArchiveError::ContextError(
-                DefaultValidatorError::ArchiveError(
-                    ArchiveError::OutOfBounds { .. },
-                ),
-            )) => (),
-            other => panic!("expected out of bounds error, got {:?}", other),
-        }
+        ).expect_err("expected out of bounds error");
         // Overrun
-        match check_archived_value::<u32>(
+        access_pos::<u32, Failure>(
             AlignedBytes([0, 1, 2, 3, 4]).as_ref(),
             4,
-        ) {
-            Err(CheckArchiveError::ContextError(
-                DefaultValidatorError::ArchiveError(ArchiveError::Overrun {
-                    ..
-                }),
-            )) => (),
-            other => panic!("expected overrun error, got {:?}", other),
-        }
+        ).expect_err("expected overrun error");
         // Unaligned
-        match check_archived_value::<u32>(
+        access_pos::<u32, Failure>(
             AlignedBytes([0, 1, 2, 3, 4]).as_ref(),
             1,
-        ) {
-            Err(CheckArchiveError::ContextError(
-                DefaultValidatorError::ArchiveError(ArchiveError::Unaligned {
-                    ..
-                }),
-            )) => (),
-            other => panic!("expected unaligned error, got {:?}", other),
-        }
+        ).expect_err("expected unaligned error");
         // Underaligned
-        match check_archived_value::<u32>(
+        access_pos::<u32, Failure>(
             &AlignedBytes([0, 1, 2, 3, 4])[1..],
             0,
-        ) {
-            Err(CheckArchiveError::ContextError(
-                DefaultValidatorError::ArchiveError(
-                    ArchiveError::Underaligned { .. },
-                ),
-            )) => (),
-            other => panic!("expected underaligned error, got {:?}", other),
-        }
+        ).expect_err("expected underaligned error");
         // Undersized
-        match check_archived_root::<u32>(&AlignedBytes([]).as_ref()) {
-            Err(CheckArchiveError::ContextError(
-                DefaultValidatorError::ArchiveError(
-                    ArchiveError::OutOfBounds { .. },
-                ),
-            )) => (),
-            other => panic!("expected out of bounds error, got {:?}", other),
-        }
+        access::<u32, Failure>(&AlignedBytes([]).as_ref())
+            .expect_err("expected out of bounds error");
     }
 
     #[cfg(feature = "pointer_width_32")]
@@ -187,7 +145,7 @@ mod tests {
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
         ]);
 
-        let result = check_archived_value::<Option<Box<[u8]>>>(
+        let result = access_pos::<Option<Box<[u8]>>>(
             synthetic_buf.as_ref(),
             0,
         );
@@ -210,7 +168,7 @@ mod tests {
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
         ]);
 
-        check_archived_value::<[Box<[u8]>; 2]>(synthetic_buf.as_ref(), 0)
+        access_pos::<[Box<[u8]>; 2]>(synthetic_buf.as_ref(), 0)
             .unwrap_err();
     }
 
@@ -218,8 +176,7 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn cycle_detection() {
-        use core::fmt;
-        use rkyv::bytecheck::Error;
+        use rkyv::rancor::Fallible;
 
         use rkyv::{validation::ArchiveContext, Archived};
 
@@ -235,11 +192,11 @@ mod tests {
             Cons(#[omit_bounds] Box<Node>),
         }
 
-        impl<S: Serializer + ?Sized> Serialize<S> for Node {
+        impl<S: Fallible + Serializer + ?Sized> Serialize<S> for Node {
             fn serialize(
                 &self,
                 serializer: &mut S,
-            ) -> Result<NodeResolver, E> {
+            ) -> Result<NodeResolver, S::Error> {
                 Ok(match self {
                     Node::Nil => NodeResolver::Nil,
                     Node::Cons(inner) => {
@@ -249,36 +206,14 @@ mod tests {
             }
         }
 
-        #[derive(Debug)]
-        struct NodeError(Box<dyn Error>);
-
-        impl fmt::Display for NodeError {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "node error: {}", self.0)
-            }
-        }
-
-        #[cfg(feature = "std")]
-        const _: () = {
-            use std::error::Error;
-
-            impl Error for NodeError {
-                fn source(&self) -> Option<&(dyn Error + 'static)> {
-                    Some(self.0.as_error())
-                }
-            }
-        };
-
-        impl<C: ArchiveContext + ?Sized> CheckBytes<C> for ArchivedNode
+        unsafe impl<C> CheckBytes<C> for ArchivedNode
         where
-            C::Error: Error,
+            C: Fallible + ArchiveContext + ?Sized,
         {
-            type Error = NodeError;
-
             unsafe fn check_bytes<'a>(
                 value: *const Self,
                 context: &mut C,
-            ) -> Result<&'a Self, Self::Error> {
+            ) -> Result<&'a Self, C::Error> {
                 let bytes = value.cast::<u8>();
                 let tag = *bytes;
                 match tag {
@@ -287,8 +222,7 @@ mod tests {
                         <Archived<Box<Node>> as CheckBytes<C>>::check_bytes(
                             bytes.add(4).cast(),
                             context,
-                        )
-                        .map_err(|e| NodeError(Box::new(e)))?;
+                        )?;
                     }
                     _ => panic!(),
                 }
@@ -306,7 +240,7 @@ mod tests {
             244u8, 255u8, 255u8, 255u8, // Node is 12 bytes back
         ]);
 
-        check_archived_value::<Node>(synthetic_buf.as_ref(), 0).unwrap_err();
+        access_pos::<Node>(synthetic_buf.as_ref(), 0).unwrap_err();
     }
 
     #[test]
@@ -376,13 +310,13 @@ mod tests {
         #[derive(Archive, Serialize)]
         // The derive macros don't apply the right bounds from Box so we have to manually specify
         // what bounds to apply
-        #[archive(bound(
-            serialize = "__S: Serializer",
-            deserialize = "__D: Deserializer"
-        ))]
+        #[archive(
+            serialize_bounds(__S: Serializer),
+            deserialize_bounds(__D: Deserializer),
+        )]
         #[archive(check_bytes)]
         #[archive_attr(check_bytes(
-            bound = "__C: ::rkyv::validation::ArchiveContext, <__C as ::rkyv::Fallible>::Error: ::rkyv::bytecheck::Error"
+            bounds(__C: ::rkyv::validation::ArchiveContext)
         ))]
         enum Node {
             Nil,
@@ -418,7 +352,7 @@ mod tests {
         serializer.serialize_value(&value).unwrap();
         let buf = serializer.into_serializer().into_inner();
 
-        check_archived_root::<Test>(buf.as_ref()).unwrap();
+        access::<Test>(buf.as_ref()).unwrap();
     }
 
     #[test]
@@ -434,7 +368,7 @@ mod tests {
         serializer.serialize_value(&value).unwrap();
         let buf = serializer.into_serializer().into_inner();
 
-        check_archived_root::<BTreeMap<String, i32>>(buf.as_ref()).unwrap();
+        access::<BTreeMap<String, i32>>(buf.as_ref()).unwrap();
     }
 
     #[test]
@@ -446,7 +380,7 @@ mod tests {
             220, 255, 255, 255, 4, 0, 0, 96, 0, 0, 0, 249, 232, 255, 255, 255,
         ]);
 
-        rkyv::from_bytes::<BTreeSet<u8>>(&data.0).unwrap_err();
+        rkyv::deserialize::<BTreeSet<u8>>(&data.0).unwrap_err();
 
         let data = AlignedBytes([
             1, 29, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 253, 0, 0, 116, 255, 255, 40,
@@ -457,7 +391,7 @@ mod tests {
             1, 255, 251, 0, 184, 255, 255, 255,
         ]);
 
-        rkyv::from_bytes::<BTreeSet<Box<u8>>>(&data.0).unwrap_err();
+        rkyv::deserialize::<BTreeSet<Box<u8>>>(&data.0).unwrap_err();
     }
 
     #[test]
@@ -469,7 +403,7 @@ mod tests {
         serializer.serialize_value(&value).unwrap();
         let buf = serializer.into_serializer().into_inner();
 
-        check_archived_root::<BTreeMap<u8, ()>>(buf.as_ref()).unwrap();
+        access::<BTreeMap<u8, ()>>(buf.as_ref()).unwrap();
     }
 
     #[test]
@@ -487,7 +421,7 @@ mod tests {
         serializer.serialize_value(&value).unwrap();
         let buf = serializer.into_serializer().into_inner();
 
-        check_archived_root::<BTreeMap<String, i32>>(buf.as_ref()).unwrap();
+        access::<BTreeMap<String, i32>>(buf.as_ref()).unwrap();
     }
 
     #[test]
@@ -512,8 +446,8 @@ mod tests {
         serializer.serialize_value(&value).unwrap();
         let buf = serializer.into_serializer().into_inner();
 
-        let value = check_archived_root::<MyType>(&buf).unwrap();
-        let _: MyType = value.deserialize(&mut Infallible).unwrap();
+        let value = access::<MyType>(&buf).unwrap();
+        let _: MyType = value.deserialize(&mut ()).unwrap();
     }
 
     #[test]
@@ -521,7 +455,7 @@ mod tests {
     fn check_valid_durations() {
         use core::time::Duration;
 
-        check_archived_root::<Duration>(&[0xFF, 16]).unwrap_err();
+        access::<Duration>(&[0xFF, 16]).unwrap_err();
     }
 
     #[test]
@@ -531,26 +465,13 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0, 0x00, 0x00, 0x00, 0x0c, 0xa5,
             0xf0, 0xff, 0xff, 0xff,
         ]);
-        rkyv::from_bytes::<BTreeMap<u8, Box<u8>>>(&data.0).unwrap_err();
+        rkyv::deserialize::<BTreeMap<u8, Box<u8>>>(&data.0).unwrap_err();
     }
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_invalid_string() {
-        use rkyv::validation::{
-            owned::OwnedPointerError, validators::CheckDeserializeError,
-            CheckArchiveError,
-        };
-
         let data = AlignedBytes([0x10; 16]);
-        let e = rkyv::from_bytes::<String>(&data.0).unwrap_err();
-        assert!(matches!(
-            e,
-            CheckDeserializeError::CheckBytesError(
-                CheckArchiveError::CheckBytesError(
-                    OwnedPointerError::PointerCheckBytesError(_)
-                )
-            )
-        ));
+        rkyv::deserialize::<String>(&data.0).unwrap_err();
     }
 }

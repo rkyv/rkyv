@@ -117,10 +117,11 @@ impl ArchivedHashIndex {
 const _: () = {
     use crate::{
         ser::{ScratchSpace, Serializer},
-        ScratchVec,
+        util::ScratchVec,
     };
     #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
+    use rancor::Fallible;
     use core::{
         cmp::Reverse,
         mem::{size_of, MaybeUninit},
@@ -134,15 +135,15 @@ const _: () = {
         /// - The keys returned by the iterator must be unique.
         /// - `entries` must have a capacity of `iter.len()` entries.
         #[allow(clippy::type_complexity)]
-        pub unsafe fn build_and_serialize<'a, K, V, S, I, E>(
+        pub unsafe fn build_and_serialize<'a, K, V, S, I>(
             iter: I,
             serializer: &mut S,
             entries: &mut ScratchVec<MaybeUninit<(&'a K, &'a V)>>,
-        ) -> Result<HashIndexResolver, E>
+        ) -> Result<HashIndexResolver, S::Error>
         where
             K: 'a + Hash,
             V: 'a,
-            S: Serializer<E> + ScratchSpace<E> + ?Sized,
+            S: Fallible + Serializer + ScratchSpace + ?Sized,
             I: ExactSizeIterator<Item = (&'a K, &'a V)>,
         {
             let len = iter.len();

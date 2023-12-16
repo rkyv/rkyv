@@ -1,4 +1,4 @@
-//! [`Archive`](crate::Archive) implementation for B-tree maps.
+//! [`Archive`] implementation for B-tree maps.
 
 // #[cfg(feature = "bytecheck")]
 // pub mod validation;
@@ -396,6 +396,7 @@ const _: () = {
     use crate::{ser::Serializer, Serialize};
     #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
+    use rancor::Fallible;
     use core::mem;
 
     impl<K, V> ArchivedBTreeMap<K, V> {
@@ -405,14 +406,14 @@ const _: () = {
         ///
         /// - Keys returned by the iterator must be unique
         /// - Keys must be in reverse sorted order from last to first
-        pub unsafe fn serialize_from_reverse_iter<'a, UK, UV, S, E, I>(
+        pub unsafe fn serialize_from_reverse_iter<'a, UK, UV, S, I>(
             mut iter: I,
             serializer: &mut S,
-        ) -> Result<BTreeMapResolver, E>
+        ) -> Result<BTreeMapResolver, S::Error>
         where
-            UK: 'a + Serialize<S, E, Archived = K>,
-            UV: 'a + Serialize<S, E, Archived = V>,
-            S: Serializer<E> + ?Sized,
+            UK: 'a + Serialize<S, Archived = K>,
+            UV: 'a + Serialize<S, Archived = V>,
+            S: Fallible + Serializer + ?Sized,
             I: ExactSizeIterator<Item = (&'a UK, &'a UV)>,
         {
             if iter.len() == 0 {

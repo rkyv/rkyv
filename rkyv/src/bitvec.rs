@@ -1,6 +1,6 @@
 //! Archived bitwise containers.
 
-use crate::{vec::ArchivedVec, Archived};
+use crate::{vec::ArchivedVec, primitive::ArchivedUsize};
 use bitvec::{
     order::{BitOrder, Lsb0},
     slice::BitSlice,
@@ -26,6 +26,6 @@ impl<T: BitStore, O: BitOrder> Deref for ArchivedBitVec<T, O> {
     type Target = BitSlice<T, O>;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner.view_bits::<O>()[..self.bit_len as usize]
+        &self.inner.view_bits::<O>()[..self.bit_len.to_native() as usize]
     }
 }

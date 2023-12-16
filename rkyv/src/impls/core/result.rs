@@ -2,6 +2,7 @@ use crate::{
     result::ArchivedResult, Archive, Deserialize, Serialize,
 };
 use core::{hint::unreachable_unchecked, ptr};
+use rancor::Fallible;
 
 #[allow(dead_code)]
 #[repr(u8)]
@@ -52,13 +53,13 @@ impl<T: Archive, U: Archive> Archive for Result<T, U> {
     }
 }
 
-impl<T: Serialize<S, E>, U: Serialize<S, E>, S: ?Sized, E> Serialize<S, E> for Result<T, U>
+impl<T: Serialize<S>, U: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Result<T, U>
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         Ok(match self.as_ref() {
             Ok(value) => Ok(value.serialize(serializer)?),
             Err(value) => Err(value.serialize(serializer)?),
@@ -66,20 +67,20 @@ impl<T: Serialize<S, E>, U: Serialize<S, E>, S: ?Sized, E> Serialize<S, E> for R
     }
 }
 
-impl<T, U, D, E> Deserialize<Result<T, U>, D, E>
+impl<T, U, D> Deserialize<Result<T, U>, D>
     for ArchivedResult<T::Archived, U::Archived>
 where
     T: Archive,
     U: Archive,
-    D: ?Sized,
-    T::Archived: Deserialize<T, D, E>,
-    U::Archived: Deserialize<U, D, E>,
+    D: Fallible + ?Sized,
+    T::Archived: Deserialize<T, D>,
+    U::Archived: Deserialize<U, D>,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<Result<T, U>, E> {
+    ) -> Result<Result<T, U>, D::Error> {
         match self {
             ArchivedResult::Ok(value) => {
                 Ok(Ok(value.deserialize(deserializer)?))

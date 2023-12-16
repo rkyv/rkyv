@@ -38,8 +38,8 @@ fn parse_archive_attributes(
     meta: ParseNestedMeta<'_>,
 ) -> Result<(), Error> {
     if meta.path.is_ident("check_bytes") {
-        if !meta.input.is_empty() {
-            return Err(Error::new_spanned(meta.path, "check_bytes argument must be a path"));
+        if !meta.input.is_empty() && !meta.input.peek(Token![,]) {
+            return Err(meta.error("check_bytes argument must be a path"));
         }
 
         try_set_attribute(
@@ -48,8 +48,8 @@ fn parse_archive_attributes(
             "check_bytes",
         )
     } else if meta.path.is_ident("copy_safe") {
-        if !meta.input.is_empty() {
-            return Err(Error::new_spanned(meta.path, "copy_safe argument must be a path"));
+        if !meta.input.is_empty() && !meta.input.peek(Token![,]) {
+            return Err(meta.error("copy_safe argument must be a path"));
         }
 
         try_set_attribute(

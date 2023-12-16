@@ -20,14 +20,14 @@ impl Archive for Uuid {
 #[cfg(feature = "copy")]
 unsafe impl crate::copy::ArchiveCopySafe for Uuid {}
 
-impl<S: ?Sized> Serialize<S> for Uuid {
-    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, E> {
+impl<S: Fallible + ?Sized> Serialize<S> for Uuid {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
-impl<D: ?Sized> Deserialize<Uuid, D> for Uuid {
-    fn deserialize(&self, _: &mut D) -> Result<Uuid, E> {
+impl<D: Fallible + ?Sized> Deserialize<Uuid, D> for Uuid {
+    fn deserialize(&self, _: &mut D) -> Result<Uuid, D::Error> {
         Ok(*self)
     }
 }
@@ -35,11 +35,12 @@ impl<D: ?Sized> Deserialize<Uuid, D> for Uuid {
 #[cfg(test)]
 mod rkyv_tests {
     use crate::{
-        archived_root,
-        ser::{serializers::AlignedSerializer, Serializer},
+        access_unchecked,
+        ser::serializers::AlignedSerializer,
         util::AlignedVec,
-        Deserialize, Infallible,
+        Deserialize,
     };
+    use rancor::{Strategy, Infallible};
     use uuid::Uuid;
 
     #[test]
@@ -47,17 +48,17 @@ mod rkyv_tests {
         let uuid_str = "f9168c5e-ceb2-4faa-b6bf-329bf39fa1e4";
         let u = Uuid::parse_str(uuid_str).unwrap();
 
-        let mut serializer = AlignedSerializer::new(AlignedVec::new());
-        serializer
-            .serialize_value(&u)
-            .expect("failed to archive uuid");
+        let serializer = crate::util::serialize_into::<_, _, Infallible>(
+            &u,
+            AlignedSerializer::new(AlignedVec::new()),
+        ).expect("failed to archive uuid");
         let buf = serializer.into_inner();
-        let archived = unsafe { archived_root::<Uuid>(buf.as_ref()) };
+        let archived = unsafe { access_unchecked::<Uuid>(buf.as_ref()) };
 
         assert_eq!(&u, archived);
 
         let deserialized = archived
-            .deserialize(&mut Infallible)
+            .deserialize(Strategy::<_, Infallible>::wrap(&mut ()))
             .expect("failed to deserialize uuid");
 
         assert_eq!(u, deserialized);

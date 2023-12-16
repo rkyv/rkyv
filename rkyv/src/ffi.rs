@@ -1,5 +1,7 @@
 //! Archived versions of FFI types.
 
+use rancor::Fallible;
+
 use crate::{
     ser::Serializer, ArchiveUnsized, MetadataResolver, RelPtr, SerializeUnsized,
 };
@@ -17,13 +19,7 @@ use std::ffi::CStr;
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
-    check_bytes(
-        bounds(
-            __C: crate::validation::ArchiveContext<__E>,
-            __E: bytecheck::rancor::Error,
-        ),
-        verify = verify::verify,
-    ),
+    check_bytes(verify),
 )]
 #[repr(transparent)]
 pub struct ArchivedCString {
@@ -86,10 +82,10 @@ impl ArchivedCString {
 
     /// Serializes a C string.
     #[inline]
-    pub fn serialize_from_c_str<S: Serializer<E> + ?Sized, E>(
+    pub fn serialize_from_c_str<S: Fallible + Serializer + ?Sized>(
         c_str: &CStr,
         serializer: &mut S,
-    ) -> Result<CStringResolver, E> {
+    ) -> Result<CStringResolver, S::Error> {
         Ok(CStringResolver {
             pos: c_str.serialize_unsized(serializer)?,
             metadata_resolver: c_str.serialize_metadata(serializer)?,
@@ -189,28 +185,31 @@ pub struct CStringResolver {
 mod verify {
     use core::ffi::CStr;
 
-    use bytecheck::CheckBytes;
+    use bytecheck::{CheckBytes, Verify, rancor::Fallible};
 
     use crate::{ffi::ArchivedCString, validation::{ArchiveContext, ArchiveContextExt}};
 
-    #[inline]
-    pub fn verify<C: ArchiveContext<E> + ?Sized, E: bytecheck::rancor::Error>(
-        value: &ArchivedCString,
-        context: &mut C,
-    ) -> Result<(), E> {
-        let ptr = unsafe {
-            context.bounds_check_subtree_rel_ptr(&value.ptr)?
-        };
+    unsafe impl<C> Verify<C> for ArchivedCString
+    where
+        C: Fallible + ArchiveContext + ?Sized,
+        C::Error: bytecheck::rancor::Error,
+    {
+        #[inline]
+        fn verify(&self, context: &mut C) -> Result<(), C::Error> {
+            let ptr = unsafe {
+                context.bounds_check_subtree_rel_ptr(&self.ptr)?
+            };
 
-        let range = unsafe { context.push_prefix_subtree(ptr)? };
-        unsafe {
-            CStr::check_bytes(ptr, context)?;
-        }
-        unsafe {
-            context.pop_subtree_range(range)?;
-        }
+            let range = unsafe { context.push_prefix_subtree(ptr)? };
+            unsafe {
+                CStr::check_bytes(ptr, context)?;
+            }
+            unsafe {
+                context.pop_subtree_range(range)?;
+            }
 
-        Ok(())
+            Ok(())
+        }
     }
 }
 

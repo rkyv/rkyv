@@ -176,14 +176,19 @@ pub use rend;
 pub use bytecheck::{self, CheckBytes};
 use core::alloc::Layout;
 use ptr_meta::Pointee;
+use rancor::Fallible;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
-pub use util::*;
+#[doc(inline)]
+pub use util::{
+    access_unchecked,
+    access_unchecked_mut,
+    serialize,
+    deserialize_unchecked,
+};
 #[cfg(feature = "bytecheck")]
 #[cfg_attr(doc_cfg, doc(cfg(feature = "bytecheck")))]
-pub use validation::{
-    check_archived_root_with_context, check_archived_value_with_context,
-    validators::{check_archived_root, check_archived_value, from_bytes},
-};
+#[doc(inline)]
+pub use validation::util::{access, deserialize};
 
 use crate::primitive::ArchivedIsize;
 
@@ -390,7 +395,7 @@ core::compile_error!(
 ///     fn serialize(
 ///         &self,
 ///         serializer: &mut S
-///     ) -> Result<Self::Resolver, E> {
+///     ) -> Result<Self::Resolver, S::Error> {
 ///         // This is where we want to write the bytes of our string and return
 ///         // a resolver that knows where those bytes were written.
 ///         // We also need to serialize the metadata for our str.
@@ -450,11 +455,38 @@ pub trait Archive {
 /// should then serialize their dependencies during `serialize`.
 ///
 /// See [`Archive`] for examples of implementing `Serialize`.
-pub trait Serialize<S: ?Sized, E>: Archive {
+pub trait Serialize<S: Fallible + ?Sized>: Archive {
     /// Writes the dependencies for the object and returns a resolver that can create the archived
     /// type.
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, E>;
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error>;
 }
+
+/// TODO: Document
+pub trait SerializeExt<S: Fallible + crate::ser::Serializer + ?Sized>: Serialize<S> {
+    /// Archives the given object and returns the position it was archived at.
+    #[inline]
+    fn serialize_and_resolve(&self, serializer: &mut S) -> Result<usize, S::Error> {
+        let resolver = self.serialize(serializer)?;
+        serializer.align_for::<Self::Archived>()?;
+        unsafe { serializer.resolve_aligned(self, resolver) }
+    }
+}
+
+impl<T: Serialize<S> + ?Sized, S: Fallible + crate::ser::Serializer + ?Sized> SerializeExt<S> for T {}
+
+/// TODO: Document
+pub trait SerializeUnsizedExt<S: Fallible + crate::ser::Serializer + ?Sized>: SerializeUnsized<S> {
+    /// Archives a reference to the given object and returns the position it was archived at.
+    #[inline]
+    fn serialize_and_resolve_rel_ptr(&self, serializer: &mut S) -> Result<usize, S::Error> {
+        let to = self.serialize_unsized(serializer)?;
+        let metadata_resolver = self.serialize_metadata(serializer)?;
+        serializer.align_for::<RelPtr<Self::Archived>>()?;
+        unsafe { serializer.resolve_unsized_aligned(self, to, metadata_resolver) }
+    }
+}
+
+impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + crate::ser::Serializer + ?Sized> SerializeUnsizedExt<S> for T {}
 
 /// Converts a type back from its archived form.
 ///
@@ -463,9 +495,9 @@ pub trait Serialize<S: ?Sized, E>: Archive {
 /// capabilities (e.g. [`SharedDeserializeRegistry`](de::SharedDeserializeRegistry)).
 ///
 /// This can be derived with [`Deserialize`](macro@Deserialize).
-pub trait Deserialize<T, D: ?Sized, E> {
+pub trait Deserialize<T, D: Fallible + ?Sized> {
     /// Deserializes using the given deserializer
-    fn deserialize(&self, deserializer: &mut D) -> Result<T, E>;
+    fn deserialize(&self, deserializer: &mut D) -> Result<T, D::Error>;
 }
 
 /// A counterpart of [`Archive`] that's suitable for unsized types.
@@ -578,7 +610,7 @@ pub trait Deserialize<T, D: ?Sized, E> {
 ///     fn serialize_unsized(
 ///         &self,
 ///         serializer: &mut S
-///     ) -> Result<usize, E> {
+///     ) -> Result<usize, S::Error> {
 ///         // First, we archive the head and all the tails. This will make sure
 ///         // that when we finally build our block, we don't accidentally mess
 ///         // up the structure with serialized dependencies.
@@ -608,7 +640,7 @@ pub trait Deserialize<T, D: ?Sized, E> {
 ///     fn serialize_metadata(
 ///         &self,
 ///         serializer: &mut S
-///     ) -> Result<Self::MetadataResolver, E> {
+///     ) -> Result<Self::MetadataResolver, S::Error> {
 ///         Ok(())
 ///     }
 /// }
@@ -710,19 +742,19 @@ pub trait ArchivePointee: Pointee {
 /// A counterpart of [`Serialize`] that's suitable for unsized types.
 ///
 /// See [`ArchiveUnsized`] for examples of implementing `SerializeUnsized`.
-pub trait SerializeUnsized<S: ?Sized, E>: ArchiveUnsized {
+pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
     /// Writes the object and returns the position of the archived type.
-    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, E>;
+    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error>;
 
     /// Serializes the metadata for the given type.
     fn serialize_metadata(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::MetadataResolver, E>;
+    ) -> Result<Self::MetadataResolver, S::Error>;
 }
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
-pub trait DeserializeUnsized<T: Pointee + ?Sized, D: ?Sized, E>: ArchivePointee {
+pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>: ArchivePointee {
     /// Deserializes a reference to the given value.
     ///
     /// # Safety
@@ -732,22 +764,24 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: ?Sized, E>: ArchivePointee 
         &self,
         deserializer: &mut D,
         alloc: impl FnMut(Layout) -> *mut u8,
-    ) -> Result<*mut (), E>;
+    ) -> Result<*mut (), D::Error>;
 
     /// Deserializes the metadata for the given type.
     fn deserialize_metadata(
         &self,
         deserializer: &mut D,
-    ) -> Result<T::Metadata, E>;
+    ) -> Result<T::Metadata, D::Error>;
 }
 
 /// The default raw relative pointer.
 ///
-/// This will use an archived [`FixedIsize`] to hold the offset.
+/// This will use an archived [`FixedIsize`](crate::primitive::FixedIsize) to
+/// hold the offset.
 pub type RawRelPtr = rel_ptr::RawRelPtr<ArchivedIsize>;
 /// The default relative pointer.
 ///
-/// This will use an archived [`FixedIsize`] to hold the offset.
+/// This will use an archived [`FixedIsize`](crate::primitive::FixedIsize) to
+/// hold the offset.
 pub type RelPtr<T> = rel_ptr::RelPtr<T, ArchivedIsize>;
 
 /// Alias for the archived version of some [`Archive`] type.

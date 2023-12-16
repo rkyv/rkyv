@@ -111,7 +111,7 @@ mod tests {
             impl<D> DeserializeUnsized<dyn SerializeTestTrait, D>
                 for dyn DeserializeTestTrait
             where
-                D: ?Sized,
+                D: Fallible + ?Sized,
             {
                 unsafe fn deserialize_unsized(
                     &self,

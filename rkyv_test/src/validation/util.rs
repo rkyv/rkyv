@@ -2,20 +2,20 @@
 pub mod alloc {
     use crate::util::alloc::*;
     use rkyv::{
-        check_archived_root, ser::Serializer,
-        validation::validators::DefaultValidator, CheckBytes, Serialize,
+        access,
+        validation::validators::DefaultValidator, CheckBytes, Serialize, rancor::{Error, Strategy},
     };
 
-    pub fn serialize_and_check<T: Serialize<DefaultSerializer>>(value: &T)
+    pub fn serialize_and_check<T: Serialize<Strategy<DefaultSerializer, E>>, E: Error>(value: &T)
     where
-        T::Archived: for<'a> CheckBytes<DefaultValidator<'a>>,
+        T::Archived: for<'a> CheckBytes<Strategy<DefaultValidator, E>>,
     {
-        let mut serializer = DefaultSerializer::default();
-        serializer
-            .serialize_value(value)
-            .expect("failed to archive value");
+        let serializer = rkyv::serialize_with(
+            value,
+            DefaultSerializer::default(),
+        ).expect("failed to archive value");
         let buf = serializer.into_serializer().into_inner();
 
-        check_archived_root::<T>(buf.as_ref()).unwrap();
+        access::<T, E>(buf.as_ref()).unwrap();
     }
 }

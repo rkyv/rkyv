@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use rkyv::{Archive, CheckBytes};
+    use rkyv::{Archive, CheckBytes, rancor::{Strategy, Failure}};
 
     #[derive(Archive)]
-    #[archive_attr(derive(Debug, Default), repr(C))]
+    #[archive_attr(derive(Debug, Default))]
     #[archive(check_bytes)]
     struct Test {
         a: u8,
@@ -13,8 +13,7 @@ mod tests {
     #[derive(Archive)]
     #[archive_attr(
         derive(Debug, Default),
-        check_bytes(bound = "__C: Default"),
-        repr(C)
+        check_bytes(bounds(__C: Default)),
     )]
     #[archive(check_bytes)]
     struct OtherAttr {
@@ -26,7 +25,6 @@ mod tests {
     #[archive_attr(
         derive(CheckBytes, Debug, Default),
         check_bytes(crate = "rkyv::bytecheck"),
-        repr(C)
     )]
     struct ExplicitCrate {
         a: u8,
@@ -55,11 +53,12 @@ mod tests {
 
     mod rkyv_path {
         // Doesn't hide it from users of `::rkyv`, but tests that we add the
-        // attribute when `rkyv2::CheckBytes` is derived instead of `rkyv::CheckBytes`.
+        // attribute when `rkyv2::CheckBytes` is derived instead of
+        // `rkyv::CheckBytes`.
         mod rkyv {}
         use ::rkyv as rkyv2;
         #[derive(rkyv2::Archive)]
-        #[archive(crate = "rkyv2", check_bytes)]
+        #[archive(crate = rkyv2, check_bytes)]
         struct RkyvPath;
     }
 
@@ -70,7 +69,10 @@ mod tests {
     fn test() {
         let a = ArchivedTest::default();
         unsafe {
-            ArchivedTest::check_bytes(&a, &mut ()).unwrap();
+            ArchivedTest::check_bytes(
+                &a,
+                Strategy::<_, Failure>::wrap(&mut ()),
+            ).unwrap();
         }
         unsafe {
             let a_bytes: *const u8 = &a as *const ArchivedTest as *const u8;
@@ -78,17 +80,9 @@ mod tests {
             bytes.0[1] = 5;
             ArchivedTest::check_bytes(
                 &bytes.0 as *const [u8] as *const ArchivedTest,
-                &mut (),
+                Strategy::<_, Failure>::wrap(&mut ()),
             )
             .unwrap_err();
         }
-
-        // Should throw compile error:
-        //     ArchivedOtherAttr::check_bytes(0 as *const _, &mut NoDefault).unwrap();
-        //     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `NoDefault`
-        /* unsafe {
-            struct NoDefault;
-            ArchivedOtherAttr::check_bytes(0 as *const _, &mut NoDefault).unwrap();
-        } */
     }
 }

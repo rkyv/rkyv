@@ -13,11 +13,12 @@ use std::{
         ToSocketAddrs,
     },
 };
+use rancor::Fallible;
 
 // Ipv4Addr
 
 impl ArchivedIpv4Addr {
-    /// Returns an [`Ipv4Addr`](std::net::Ipv4Addr) with the same value.
+    /// Returns an [`Ipv4Addr`] with the same value.
     #[inline]
     pub const fn as_ipv4(&self) -> Ipv4Addr {
         let octets = self.octets();
@@ -26,7 +27,7 @@ impl ArchivedIpv4Addr {
 
     /// Returns `true` if this is a broadcast address (255.255.255.255).
     ///
-    /// See [`Ipv4Addr::is_broadcast()`](std::net::Ipv4Addr::is_broadcast()) for more details.
+    /// See [`Ipv4Addr::is_broadcast`] for more details.
     #[inline]
     pub const fn is_broadcast(&self) -> bool {
         self.as_ipv4().is_broadcast()
@@ -34,7 +35,7 @@ impl ArchivedIpv4Addr {
 
     /// Returns `true` if this address is in a range designated for documentation.
     ///
-    /// See [`Ipv4Addr::is_documentation()`](std::net::Ipv4Addr::is_documentation()) for more details.
+    /// See [`Ipv4Addr::is_documentation`] for more details.
     #[inline]
     pub const fn is_documentation(&self) -> bool {
         self.as_ipv4().is_documentation()
@@ -42,7 +43,7 @@ impl ArchivedIpv4Addr {
 
     /// Returns `true` if the address is link-local (169.254.0.0/16).
     ///
-    /// See [`Ipv4Addr::is_link_local()`](std::net::Ipv4Addr::is_link_local()) for more details.
+    /// See [`Ipv4Addr::is_link_local`] for more details.
     #[inline]
     pub const fn is_link_local(&self) -> bool {
         self.as_ipv4().is_link_local()
@@ -50,7 +51,7 @@ impl ArchivedIpv4Addr {
 
     /// Returns `true` if this is a loopback address (127.0.0.0/8).
     ///
-    /// See [`Ipv4Addr::is_loopback()`](std::net::Ipv4Addr::is_loopback()) for more details.
+    /// See [`Ipv4Addr::is_loopback`] for more details.
     #[inline]
     pub const fn is_loopback(&self) -> bool {
         self.as_ipv4().is_loopback()
@@ -58,7 +59,7 @@ impl ArchivedIpv4Addr {
 
     /// Returns `true` if this is a multicast address (224.0.0.0/4).
     ///
-    /// See [`Ipv4Addr::is_multicast()`](std::net::Ipv4Addr::is_multicast()) for more details.
+    /// See [`Ipv4Addr::is_multicast`] for more details.
     #[inline]
     pub const fn is_multicast(&self) -> bool {
         self.as_ipv4().is_multicast()
@@ -66,7 +67,7 @@ impl ArchivedIpv4Addr {
 
     /// Returns `true` if this is a private address.
     ///
-    /// See [`Ipv4Addr::is_private()`](std::net::Ipv4Addr::is_private()) for more details.
+    /// See [`Ipv4Addr::is_private`] for more details.
     #[inline]
     pub const fn is_private(&self) -> bool {
         self.as_ipv4().is_private()
@@ -74,15 +75,16 @@ impl ArchivedIpv4Addr {
 
     /// Returns `true` for the special 'unspecified' address (0.0.0.0).
     ///
-    /// See [`Ipv4Addr::is_unspecified()`](std::net::Ipv4Addr::is_unspecified()) for more details.
+    /// See [`Ipv4Addr::is_unspecified`] for more details.
     #[inline]
     pub const fn is_unspecified(&self) -> bool {
         self.as_ipv4().is_unspecified()
     }
 
-    /// Converts this address to an IPv4-compatible [`IPv6` address](std::net::Ipv6Addr).
+    /// Converts this address to an IPv4-compatible
+    /// [`IPv6` address](std::net::Ipv6Addr).
     ///
-    /// See [`Ipv4Addr::to_ipv6_compatible()`](std::net::Ipv4Addr::to_ipv6_compatible()) for more
+    /// See [`Ipv4Addr::to_ipv6_compatible`] for more
     /// details.
     #[inline]
     #[allow(clippy::wrong_self_convention)]
@@ -90,9 +92,10 @@ impl ArchivedIpv4Addr {
         self.as_ipv4().to_ipv6_compatible()
     }
 
-    /// Converts this address to an IPv4-mapped [`IPv6` address](std::net::Ipv6Addr).
+    /// Converts this address to an IPv4-mapped
+    /// [`IPv6` address](std::net::Ipv6Addr).
     ///
-    /// See [`Ipv4Addr::to_ipv6_mapped()`](std::net::Ipv4Addr::to_ipv6_mapped()) for more details.
+    /// See [`Ipv4Addr::to_ipv6_mapped`] for more details.
     #[inline]
     #[allow(clippy::wrong_self_convention)]
     pub const fn to_ipv6_mapped(&self) -> Ipv6Addr {
@@ -143,16 +146,16 @@ impl Archive for Ipv4Addr {
     }
 }
 
-impl<S: ?Sized, E> Serialize<S, E> for Ipv4Addr {
+impl<S: Fallible + ?Sized> Serialize<S> for Ipv4Addr {
     #[inline]
-    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, E> {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
-impl<D: ?Sized, E> Deserialize<Ipv4Addr, D, E> for ArchivedIpv4Addr {
+impl<D: Fallible + ?Sized> Deserialize<Ipv4Addr, D> for ArchivedIpv4Addr {
     #[inline]
-    fn deserialize(&self, _: &mut D) -> Result<Ipv4Addr, E> {
+    fn deserialize(&self, _: &mut D) -> Result<Ipv4Addr, D::Error> {
         Ok(self.as_ipv4())
     }
 }
@@ -160,7 +163,7 @@ impl<D: ?Sized, E> Deserialize<Ipv4Addr, D, E> for ArchivedIpv4Addr {
 // Ipv6Addr
 
 impl ArchivedIpv6Addr {
-    /// Returns an [`Ipv6Addr`](std::net::Ipv6Addr) with the same value.
+    /// Returns an [`Ipv6Addr`] with the same value.
     #[inline]
     pub const fn as_ipv6(&self) -> Ipv6Addr {
         let segments = self.segments();
@@ -206,8 +209,8 @@ impl ArchivedIpv6Addr {
         self.as_ipv6().octets()
     }
 
-    /// Converts this address to an [`IPv4` address](std::net::Ipv4Addr). Returns
-    /// [`None`](std::option::Option::None) if this address is neither IPv4-compatible or
+    /// Converts this address to an [`IPv4` address](std::net::Ipv4Addr).
+    /// Returns [`None`] if this address is neither IPv4-compatible or
     /// IPv4-mapped.
     #[inline]
     #[allow(clippy::wrong_self_convention)]
@@ -259,16 +262,16 @@ impl Archive for Ipv6Addr {
     }
 }
 
-impl<S: ?Sized, E> Serialize<S, E> for Ipv6Addr {
+impl<S: Fallible + ?Sized> Serialize<S> for Ipv6Addr {
     #[inline]
-    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, E> {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
-impl<D: ?Sized, E> Deserialize<Ipv6Addr, D, E> for ArchivedIpv6Addr {
+impl<D: Fallible + ?Sized> Deserialize<Ipv6Addr, D> for ArchivedIpv6Addr {
     #[inline]
-    fn deserialize(&self, _: &mut D) -> Result<Ipv6Addr, E> {
+    fn deserialize(&self, _: &mut D) -> Result<Ipv6Addr, D::Error> {
         Ok(self.as_ipv6())
     }
 }
@@ -276,7 +279,7 @@ impl<D: ?Sized, E> Deserialize<Ipv6Addr, D, E> for ArchivedIpv6Addr {
 // IpAddr
 
 impl ArchivedIpAddr {
-    /// Returns an [`IpAddr`](std::net::IpAddr) with the same value.
+    /// Returns an [`IpAddr`] with the same value.
     #[inline]
     pub const fn as_ipaddr(&self) -> IpAddr {
         match self {
@@ -409,12 +412,12 @@ impl Archive for IpAddr {
     }
 }
 
-impl<S: ?Sized, E> Serialize<S, E> for IpAddr {
+impl<S: Fallible + ?Sized> Serialize<S> for IpAddr {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         match self {
             IpAddr::V4(ipv4_addr) => ipv4_addr.serialize(serializer),
             IpAddr::V6(ipv6_addr) => ipv6_addr.serialize(serializer),
@@ -422,9 +425,9 @@ impl<S: ?Sized, E> Serialize<S, E> for IpAddr {
     }
 }
 
-impl<D: ?Sized, E> Deserialize<IpAddr, D, E> for ArchivedIpAddr {
+impl<D: Fallible + ?Sized> Deserialize<IpAddr, D> for ArchivedIpAddr {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<IpAddr, E> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<IpAddr, D::Error> {
         match self {
             ArchivedIpAddr::V4(ipv4_addr) => {
                 Ok(IpAddr::V4(ipv4_addr.deserialize(deserializer)?))
@@ -439,7 +442,7 @@ impl<D: ?Sized, E> Deserialize<IpAddr, D, E> for ArchivedIpAddr {
 // SocketAddrV4
 
 impl ArchivedSocketAddrV4 {
-    /// Returns a [`SocketAddrV4`](std::net::SocketAddrV4) with the same value.
+    /// Returns a [`SocketAddrV4`] with the same value.
     #[inline]
     pub fn as_socket_addr_v4(&self) -> SocketAddrV4 {
         SocketAddrV4::new(self.ip().as_ipv4(), self.port())
@@ -503,21 +506,22 @@ impl Archive for SocketAddrV4 {
     }
 }
 
-impl<S: ?Sized, E> Serialize<S, E> for SocketAddrV4 {
+impl<S: Fallible + ?Sized> Serialize<S> for SocketAddrV4 {
     #[inline]
-    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, E> {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
-impl<D: ?Sized, E> Deserialize<SocketAddrV4, D, E>
-    for ArchivedSocketAddrV4
+impl<D> Deserialize<SocketAddrV4, D> for ArchivedSocketAddrV4
+where
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<SocketAddrV4, E> {
+    ) -> Result<SocketAddrV4, D::Error> {
         let ip = self.ip().deserialize(deserializer)?;
         Ok(SocketAddrV4::new(ip, self.port()))
     }
@@ -526,7 +530,7 @@ impl<D: ?Sized, E> Deserialize<SocketAddrV4, D, E>
 // SocketAddrV6
 
 impl ArchivedSocketAddrV6 {
-    /// Returns a [`SocketAddrV6`](std::net::SocketAddrV6) with the same value.
+    /// Returns a [`SocketAddrV6`] with the same value.
     #[inline]
     pub fn as_socket_addr_v6(&self) -> SocketAddrV6 {
         SocketAddrV6::new(
@@ -599,19 +603,19 @@ impl Archive for SocketAddrV6 {
     }
 }
 
-impl<S: ?Sized, E> Serialize<S, E> for SocketAddrV6 {
+impl<S: Fallible + ?Sized> Serialize<S> for SocketAddrV6 {
     #[inline]
-    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, E> {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
-impl<D: ?Sized, E> Deserialize<SocketAddrV6, D, E> for ArchivedSocketAddrV6 {
+impl<D: Fallible + ?Sized> Deserialize<SocketAddrV6, D> for ArchivedSocketAddrV6 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<SocketAddrV6, E> {
+    ) -> Result<SocketAddrV6, D::Error> {
         let ip = self.ip().deserialize(deserializer)?;
         Ok(SocketAddrV6::new(
             ip,
@@ -625,7 +629,7 @@ impl<D: ?Sized, E> Deserialize<SocketAddrV6, D, E> for ArchivedSocketAddrV6 {
 // SocketAddr
 
 impl ArchivedSocketAddr {
-    /// Returns a [`SocketAddr`](std::net::SocketAddr) with the same value.
+    /// Returns a [`SocketAddr`] with the same value.
     #[inline]
     pub fn as_socket_addr(&self) -> SocketAddr {
         match self {
@@ -731,12 +735,12 @@ impl Archive for SocketAddr {
     }
 }
 
-impl<S: ?Sized, E> Serialize<S, E> for SocketAddr {
+impl<S: Fallible + ?Sized> Serialize<S> for SocketAddr {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         match self {
             SocketAddr::V4(socket_addr) => socket_addr.serialize(serializer),
             SocketAddr::V6(socket_addr) => socket_addr.serialize(serializer),
@@ -744,12 +748,12 @@ impl<S: ?Sized, E> Serialize<S, E> for SocketAddr {
     }
 }
 
-impl<D: ?Sized, E> Deserialize<SocketAddr, D, E> for ArchivedSocketAddr {
+impl<D: Fallible + ?Sized> Deserialize<SocketAddr, D> for ArchivedSocketAddr {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<SocketAddr, E> {
+    ) -> Result<SocketAddr, D::Error> {
         match self {
             ArchivedSocketAddr::V4(socket_addr) => {
                 Ok(SocketAddr::V4(socket_addr.deserialize(deserializer)?))

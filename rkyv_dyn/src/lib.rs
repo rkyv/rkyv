@@ -37,7 +37,8 @@ use rkyv::with::{Atomic, With};
 use rkyv::{
     primitive::ArchivedU64,
     ser::{ScratchSpace, Serializer},
-    Fallible, Serialize,
+    Serialize,
+    rancor::Fallible,
 };
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
@@ -299,7 +300,7 @@ impl<'a> Fallible for dyn DynDeserializer + 'a {
     type Error = DynError;
 }
 
-impl<D: ?Sized> DynDeserializer for &mut D {}
+impl<D: Fallible + ?Sized> DynDeserializer for &mut D {}
 
 /// A trait object that can be deserialized.
 ///

@@ -5,25 +5,27 @@ members = [
     "examples/opcode",
     "rkyv",
     "rkyv_derive",
-    "rkyv_dyn",
-    "rkyv_dyn_derive",
-    "rkyv_dyn_test",
+    # TODO: re-enable
+    # "rkyv_dyn",
+    # "rkyv_dyn_derive",
+    # "rkyv_dyn_test",
     "rkyv_test",
     "rkyv_typename",
     "rkyv_typename_derive",
 ]
 default-members = [
     "rkyv",
-    "rkyv_dyn",
-    "rkyv_dyn_test",
+    # TODO: re-enable
+    # "rkyv_dyn",
+    # "rkyv_dyn_test",
     "rkyv_test",
     "rkyv_typename",
 ]
 resolver = "2"
 
 [workspace.package]
-# TODO: STOP!! GO RESOLVE ALL OF THE TODO COMMENTS BEFORE BUMPING THIS VERSION!!
-version = "0.8.0"
+# STOP! RESOLVE ALL TODO COMMENTS BEFORE PUBLISHING 0.8.0!
+version = "0.8.0-pre1"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -31,15 +33,19 @@ documentation = "https://docs.rs/rkyv"
 repository = "https://github.com/rkyv/rkyv"
 
 [workspace.dependencies]
-bytecheck = { version = "0.8.0-pre1", default-features = false, features = ["simdutf8"] }
+bytecheck = { version = "0.8.0-pre5", default-features = false, features = ["simdutf8"] }
 hashbrown = "0.12"
 proc-macro2 = "1.0"
 ptr_meta = { version = "0.3.0-pre1", default-features = false }
 quote = "1.0"
-rend = { version = "0.5.0-pre2", default-features = false }
-rancor = { version = "0.1.0-pre1", deafult-features = false }
-rkyv = { version = "=0.8.0", path = "rkyv" }
-rkyv_derive = { version = "=0.8.0", path = "rkyv_derive" }
+rend = { version = "0.5.0-pre5", default-features = false }
+rancor = { version = "0.1.0-pre7", deafult-features = false }
+rkyv = { version = "0.8.0-pre1", path = "rkyv" }
+# rkyv_dyn = { version = "0.8.0-pre1", path = "rkyv_dyn" }
+rkyv_typename = { version = "0.8.0-pre1", path = "rkyv_typename" }
 seahash = "4.0"
 syn = "2.0"
 wasm-bindgen-test = "0.3"
+
+[patch.crates-io]
+bytecheck = { path = "../bytecheck/bytecheck" }

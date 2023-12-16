@@ -1,9 +1,9 @@
 use rkyv::{
-    archived_root,
-    ser::{serializers::AllocSerializer, ScratchSpace, Serializer},
+    access_unchecked,
+    ser::{ScratchSpace, Serializer},
     vec::{ArchivedVec, VecResolver},
     with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Archive, Archived, Deserialize, Serialize, rancor::Failure,
+    Archive, Archived, Deserialize, Serialize, rancor::{Failure, Fallible, Strategy},
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -43,13 +43,14 @@ impl ArchiveWith<Vec<Opcode>> for EncodeOpcodes {
     }
 }
 
-impl<S: ScratchSpace<E> + Serializer<E> + ?Sized, E> SerializeWith<Vec<Opcode>, S, E>
-    for EncodeOpcodes
+impl<S> SerializeWith<Vec<Opcode>, S> for EncodeOpcodes
+where
+    S: Fallible + ScratchSpace + Serializer + ?Sized,
 {
     fn serialize_with(
         field: &Vec<Opcode>,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         // Encode opcodes into a compact binary format
         // We'll do it manually here, but you could just as easily proxy out to a serialization
         // framework like postcard
@@ -100,13 +101,14 @@ impl<S: ScratchSpace<E> + Serializer<E> + ?Sized, E> SerializeWith<Vec<Opcode>, 
     }
 }
 
-impl<D: ?Sized, E> DeserializeWith<Archived<Vec<u8>>, Vec<Opcode>, D, E>
-    for EncodeOpcodes
+impl<D> DeserializeWith<Archived<Vec<u8>>, Vec<Opcode>, D> for EncodeOpcodes
+where
+    D: Fallible + ?Sized,
 {
     fn deserialize_with(
         field: &Archived<Vec<u8>>,
         _: &mut D,
-    ) -> Result<Vec<Opcode>, E> {
+    ) -> Result<Vec<Opcode>, D::Error> {
         let mut result = Vec::new();
 
         // Decode opcodes from a compact binary format
@@ -178,17 +180,14 @@ fn main() {
     };
     println!("opcodes: {:?}", program.opcodes);
 
-    let mut serializer = AllocSerializer::<4096>::default();
-    Serializer::<Failure>::serialize_value(&mut serializer, &program).unwrap();
-
-    let buf = serializer.into_serializer().into_inner();
-    let archived_program = unsafe { archived_root::<Program>(&buf) };
+    let buf = rkyv::serialize::<_, 4096, Failure>(&program).unwrap();
+    let archived_program = unsafe { access_unchecked::<Program>(&buf) };
 
     println!("encoded: {:?}", archived_program.opcodes);
     assert_eq!(archived_program.opcodes.len(), 23);
 
     let deserialized_program: Program =
-        Deserialize::<Program, _, Failure>::deserialize(archived_program, &mut ()).unwrap();
+        Deserialize::<Program, _>::deserialize(archived_program, Strategy::<_, Failure>::wrap(&mut ())).unwrap();
 
     println!("deserialized opcodes: {:?}", deserialized_program.opcodes);
     assert_eq!(program, deserialized_program);

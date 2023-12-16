@@ -37,6 +37,7 @@ use {
     },
     core::sync::atomic::{AtomicIsize, AtomicUsize},
 };
+use rancor::Fallible;
 
 trait LoadOrdering {
     const ORDERING: Ordering;
@@ -56,30 +57,30 @@ impl LoadOrdering for SeqCst {
 
 macro_rules! impl_serialize_with_atomic {
     ($atomic:ty) => {
-        impl<S, SO, E> SerializeWith<$atomic, S, E> for AtomicLoad<SO>
+        impl<S, SO> SerializeWith<$atomic, S> for AtomicLoad<SO>
         where
-            S: ?Sized,
+            S: Fallible + ?Sized,
             SO: LoadOrdering,
         {
             #[inline]
             fn serialize_with(
                 _: &$atomic,
                 _: &mut S,
-            ) -> Result<Self::Resolver, E> {
+            ) -> Result<Self::Resolver, S::Error> {
                 Ok(())
             }
         }
 
-        impl<S, SO, DO, E> SerializeWith<$atomic, S, E> for AsAtomic<SO, DO>
+        impl<S, SO, DO> SerializeWith<$atomic, S> for AsAtomic<SO, DO>
         where
-            S: ?Sized,
+            S: Fallible + ?Sized,
             SO: LoadOrdering,
         {
             #[inline]
             fn serialize_with(
                 _: &$atomic,
                 _: &mut S,
-            ) -> Result<Self::Resolver, E> {
+            ) -> Result<Self::Resolver, S::Error> {
                 Ok(())
             }
         }
@@ -123,30 +124,30 @@ macro_rules! impl_single_byte_atomic {
 
         impl_serialize_with_atomic!($atomic);
 
-        impl<D, SO, E> DeserializeWith<$non_atomic, $atomic, D, E> for AtomicLoad<SO>
+        impl<D, SO> DeserializeWith<$non_atomic, $atomic, D> for AtomicLoad<SO>
         where
-            D: ?Sized,
+            D: Fallible + ?Sized,
         {
             #[inline]
             fn deserialize_with(
                 field: &$non_atomic,
                 _: &mut D,
-            ) -> Result<$atomic, E> {
+            ) -> Result<$atomic, D::Error> {
                 Ok(<$atomic>::new(*field))
             }
         }
 
-        impl<D, SO, DO, E> DeserializeWith<$atomic, $atomic, D, E>
+        impl<D, SO, DO> DeserializeWith<$atomic, $atomic, D>
             for AsAtomic<SO, DO>
         where
-            D: ?Sized,
+            D: Fallible + ?Sized,
             DO: LoadOrdering,
         {
             #[inline]
             fn deserialize_with(
                 field: &$atomic,
                 _: &mut D,
-            ) -> Result<$atomic, E> {
+            ) -> Result<$atomic, D::Error> {
                 Ok(<$atomic>::new(field.load(DO::ORDERING)))
             }
         }
@@ -207,31 +208,31 @@ macro_rules! impl_multi_byte_atomic {
 
         impl_serialize_with_atomic!($atomic);
 
-        impl<D, SO, E> DeserializeWith<$archived_non_atomic, $atomic, D, E>
+        impl<D, SO> DeserializeWith<$archived_non_atomic, $atomic, D>
             for AtomicLoad<SO>
         where
-            D: ?Sized,
+            D: Fallible + ?Sized,
         {
             #[inline]
             fn deserialize_with(
                 field: &$archived_non_atomic,
                 _: &mut D,
-            ) -> Result<$atomic, E> {
+            ) -> Result<$atomic, D::Error> {
                 Ok(<$atomic>::new(field.to_native()))
             }
         }
 
-        impl<D, SO, DO, E> DeserializeWith<$archived, $atomic, D, E>
+        impl<D, SO, DO> DeserializeWith<$archived, $atomic, D>
             for AsAtomic<SO, DO>
         where
-            D: ?Sized,
+            D: Fallible + ?Sized,
             DO: LoadOrdering,
         {
             #[inline]
             fn deserialize_with(
                 field: &$archived,
                 _: &mut D,
-            ) -> Result<$atomic, E> {
+            ) -> Result<$atomic, D::Error> {
                 Ok(<$atomic>::new(field.load(DO::ORDERING)))
             }
         }
@@ -303,31 +304,31 @@ macro_rules! impl_atomic_size_type {
 
         impl_serialize_with_atomic!($atomic);
 
-        impl<D, SO, E> DeserializeWith<$archived_non_atomic, $atomic, D, E>
+        impl<D, SO> DeserializeWith<$archived_non_atomic, $atomic, D>
             for AtomicLoad<SO>
         where
-            D: ?Sized,
+            D: Fallible + ?Sized,
         {
             #[inline]
             fn deserialize_with(
                 field: &$archived_non_atomic,
                 _: &mut D,
-            ) -> Result<$atomic, E> {
+            ) -> Result<$atomic, D::Error> {
                 Ok(<$atomic>::new(field.to_native() as _))
             }
         }
 
-        impl<D, SO, DO, E> DeserializeWith<$archived, $atomic, D, E>
+        impl<D, SO, DO> DeserializeWith<$archived, $atomic, D>
             for AsAtomic<SO, DO>
         where
-            D: ?Sized,
+            D: Fallible + ?Sized,
             DO: LoadOrdering,
         {
             #[inline]
             fn deserialize_with(
                 field: &$archived,
                 _: &mut D,
-            ) -> Result<$atomic, E> {
+            ) -> Result<$atomic, D::Error> {
                 Ok(<$atomic>::new(field.load(DO::ORDERING) as _))
             }
         }

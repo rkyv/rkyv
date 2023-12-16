@@ -5,6 +5,7 @@ use crate::{
     MetadataResolver, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};
+use rancor::Fallible;
 
 /// An archived [`Box`].
 ///
@@ -12,15 +13,7 @@ use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
-    check_bytes(
-        bounds(
-            T: bytecheck::CheckBytes<__C, __E> + crate::validation::LayoutRaw,
-            __C: crate::validation::ArchiveContext<__E>,
-            T::ArchivedMetadata: bytecheck::CheckBytes<__C, __E>,
-            __E: bytecheck::rancor::Error,
-        ),
-        verify = verify::verify,
-    ),
+    check_bytes(verify),
 )]
 #[repr(transparent)]
 pub struct ArchivedBox<T: ArchivePointee + ?Sized> {
@@ -64,13 +57,13 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
 
     /// Serializes an archived box from the given value and serializer.
     #[inline]
-    pub fn serialize_from_ref<U, S, E>(
+    pub fn serialize_from_ref<U, S>(
         value: &U,
         serializer: &mut S,
-    ) -> Result<BoxResolver<U::MetadataResolver>, E>
+    ) -> Result<BoxResolver<U::MetadataResolver>, S::Error>
     where
-        U: SerializeUnsized<S, E, Archived = T> + ?Sized,
-        S: ?Sized,
+        U: SerializeUnsized<S, Archived = T> + ?Sized,
+        S: Fallible + ?Sized,
     {
         Ok(BoxResolver {
             pos: value.serialize_unsized(serializer)?,
@@ -119,13 +112,13 @@ impl<T> ArchivedBox<[T]> {
     /// situations where copying uninitialized bytes the output is acceptable, this function may be
     /// used with types that contain padding bytes.
     #[inline]
-    pub unsafe fn serialize_copy_from_slice<U, S, E>(
+    pub unsafe fn serialize_copy_from_slice<U, S>(
         slice: &[U],
         serializer: &mut S,
-    ) -> Result<BoxResolver<MetadataResolver<[U]>>, E>
+    ) -> Result<BoxResolver<MetadataResolver<[U]>>, S::Error>
     where
-        U: Serialize<S, E, Archived = T>,
-        S: Serializer<E> + ?Sized,
+        U: Serialize<S, Archived = T>,
+        S: Fallible + Serializer + ?Sized,
     {
         use core::{mem::size_of, slice::from_raw_parts};
 
@@ -259,9 +252,10 @@ impl<M> BoxResolver<M> {
     /// [`ArchivedBox`]'s resolving functions absolutely can. In general this should be treated as a semi-private type, as
     /// constructing a valid resolver is quite fraught. Please make sure you understand what the implications are before doing it.
     ///
-    /// - `pos`: You must ensure that you serialized and resolved (i.e. [`Serializer::serialize_value`])
-    /// a `T` which will be pointed to by the final [`ArchivedBox<T>`] that this resolver will help resolve
-    /// at the given `pos` within the archive.
+    /// - `pos`: You must ensure that you serialized and resolved (e.g.
+    ///   [`serialize_and_resolve`](crate::SerializeExt::serialize_and_resolve))
+    ///   a `T` which will be pointed to by the final [`ArchivedBox<T>`] that
+    ///   this resolver will help resolve at the given `pos` within the archive.
     ///
     /// - `metadata_resolver`: You must also ensure that the given `metadata_resolver` can be used to successfully produce
     /// valid [`<T as ArchivePointee>::ArchivedMetadata`] for that serialized `T`. This means it must either be:
@@ -281,7 +275,7 @@ impl<M> BoxResolver<M> {
 
 #[cfg(feature = "bytecheck")]
 mod verify {
-    use bytecheck::{CheckBytes, rancor::Error};
+    use bytecheck::{Verify, CheckBytes, rancor::{Fallible, Error}};
 
     use crate::{
         boxed::ArchivedBox,
@@ -291,27 +285,26 @@ mod verify {
         },
     };
 
-    #[inline]
-    pub fn verify<T, C, E>(
-        value: &ArchivedBox<T>,
-        context: &mut C,
-    ) -> Result<(), E>
+    unsafe impl<T, C> Verify<C> for ArchivedBox<T>
     where
-        T: ArchivePointee + CheckBytes<C, E> + LayoutRaw + ?Sized,
-        C: ArchiveContext<E> + ?Sized,
-        T::ArchivedMetadata: CheckBytes<C, E>,
-        E: Error,
+        T: ArchivePointee + CheckBytes<C> + LayoutRaw + ?Sized,
+        T::ArchivedMetadata: CheckBytes<C>,
+        C: Fallible + ArchiveContext + ?Sized,
+        C::Error: Error,
     {
-        let ptr = unsafe { context.bounds_check_subtree_rel_ptr(&value.ptr)? };
-
-        let range = unsafe { context.push_prefix_subtree(ptr)? };
-        unsafe {
-            T::check_bytes(ptr, context)?;
+        #[inline]
+        fn verify(&self, context: &mut C) -> Result<(), C::Error> {
+            let ptr = unsafe { context.bounds_check_subtree_rel_ptr(&self.ptr)? };
+    
+            let range = unsafe { context.push_prefix_subtree(ptr)? };
+            unsafe {
+                T::check_bytes(ptr, context)?;
+            }
+            unsafe {
+                context.pop_subtree_range(range)?;
+            }
+    
+            Ok(())
         }
-        unsafe {
-            context.pop_subtree_range(range)?;
-        }
-
-        Ok(())
     }
 }

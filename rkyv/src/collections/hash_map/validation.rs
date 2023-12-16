@@ -57,7 +57,7 @@ const _: () = {
     }
 };
 
-unsafe impl<K, V, C, E> CheckBytes<C, E> for ArchivedHashMap<K, V>
+unsafe impl<K, V, C> CheckBytes<C, E> for ArchivedHashMap<K, V>
 where
     K: CheckBytes<C, E> + Eq + Hash,
     V: CheckBytes<C, E>,

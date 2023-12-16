@@ -16,14 +16,15 @@ mod scratch_vec;
 #[cfg(feature = "alloc")]
 use crate::{
     de::deserializers::SharedDeserializeMap,
-    ser::{serializers::AllocSerializer, Serializer},
+    ser::serializers::AllocSerializer,
 };
-use crate::{Archive, ArchiveUnsized, Deserialize, RelPtr, Serialize};
+use crate::{Archive, ArchiveUnsized, Deserialize, RelPtr, Serialize, SerializeExt as _, ser::Serializer, SerializeUnsized, SerializeUnsizedExt as _};
 use core::{
     mem,
     ops::{Deref, DerefMut},
     pin::Pin,
 };
+use rancor::Strategy;
 
 #[doc(inline)]
 #[cfg(feature = "alloc")]
@@ -50,16 +51,19 @@ fn check_alignment<T>(ptr: *const u8) {
     );
 }
 
-/// Casts an archived value from the given byte slice at the given position.
+/// Accesses an archived value from the given byte slice at the given position.
 ///
-/// This helps avoid situations where lifetimes get inappropriately assigned and allow buffer
-/// mutation after getting archived value references.
+/// This function does not check that the data at the given position is valid.
+/// Use [`access_pos`](crate::validation::util::access_pos)
+///
+/// This helps avoid situations where lifetimes get inappropriately assigned and
+/// allow buffer mutation after getting archived value references.
 ///
 /// # Safety
 ///
-/// A `T::Archived` must be archived at the given position in the byte slice.
+/// A `T::Archived` must be located at the given position in the byte slice.
 #[inline]
-pub unsafe fn archived_value<T: Archive + ?Sized>(
+pub unsafe fn access_pos_unchecked<T: Archive + ?Sized>(
     bytes: &[u8],
     pos: usize,
 ) -> &T::Archived {
@@ -69,16 +73,17 @@ pub unsafe fn archived_value<T: Archive + ?Sized>(
     &*bytes.as_ptr().add(pos).cast()
 }
 
-/// Casts a mutable archived value from the given byte slice at the given position.
+/// Accesses a mutable archived value from the given byte slice at the given
+/// position.
 ///
-/// This helps avoid situations where lifetimes get inappropriately assigned and allow buffer
-/// mutation after getting archived value references.
+/// This helps avoid situations where lifetimes get inappropriately assigned and
+/// allow buffer mutation after getting archived value references.
 ///
 /// # Safety
 ///
-/// A `T::Archived` must be archived at the given position in the byte slice.
+/// A `T::Archived` must be located at the given position in the byte slice.
 #[inline]
-pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
+pub unsafe fn access_pos_unchecked_mut<T: Archive + ?Sized>(
     bytes: Pin<&mut [u8]>,
     pos: usize,
 ) -> Pin<&mut T::Archived> {
@@ -90,17 +95,18 @@ pub unsafe fn archived_value_mut<T: Archive + ?Sized>(
     )
 }
 
-/// Casts a [`RelPtr`] to the given unsized type from the given byte slice at the given position and
-/// returns the value it points to.
+/// Accesses a [`RelPtr`] that points to an archived value from the given byte
+/// slice at the given position.
 ///
-/// This helps avoid situations where lifetimes get inappropriately assigned and allow buffer
-/// mutation after getting archived value references.
+/// This helps avoid situations where lifetimes get inappropriately assigned and
+/// allow buffer mutation after getting archived value references.
 ///
 /// # Safety
 ///
-/// A `RelPtr<T::Archived>` must be archived at the given position in the byte slice.
+/// A `RelPtr<T::Archived>` must be located at the given position in the byte
+/// slice.
 #[inline]
-pub unsafe fn archived_unsized_value<T: ArchiveUnsized + ?Sized>(
+pub unsafe fn access_pos_unsized_unchecked<T: ArchiveUnsized + ?Sized>(
     bytes: &[u8],
     pos: usize,
 ) -> &T::Archived {
@@ -111,17 +117,18 @@ pub unsafe fn archived_unsized_value<T: ArchiveUnsized + ?Sized>(
     &*rel_ptr.as_ptr()
 }
 
-/// Casts a mutable [`RelPtr`] to the given unsized type from the given byte slice at the given
-/// position and returns the value it points to.
+/// Accesses a mutable [`RelPtr`] that points to an archived value from the
+/// given byte slice at the given position.
 ///
-/// This helps avoid situations where lifetimes get inappropriately assigned and allow buffer
-/// mutation after getting archived value references.
+/// This helps avoid situations where lifetimes get inappropriately assigned and
+/// allow buffer mutation after getting archived value references.
 ///
 /// # Safety
 ///
-/// A `RelPtr<T::Archived>` must be archived at the given position in the byte slice.
+/// A `RelPtr<T::Archived>` must be located at the given position in the byte
+/// slice.
 #[inline]
-pub unsafe fn archived_unsized_value_mut<T: ArchiveUnsized + ?Sized>(
+pub unsafe fn access_pos_unsized_unchecked_mut<T: ArchiveUnsized + ?Sized>(
     bytes: Pin<&mut [u8]>,
     pos: usize,
 ) -> Pin<&mut T::Archived> {
@@ -136,83 +143,94 @@ pub unsafe fn archived_unsized_value_mut<T: ArchiveUnsized + ?Sized>(
     Pin::new_unchecked(&mut *rel_ptr.as_ptr())
 }
 
-/// Casts an archived value from the given byte slice by calculating the root position.
+/// Accesses an archived value from the given byte slice by calculating the root
+/// position.
 ///
-/// This is a wrapper for [`archived_value`](crate::archived_value) that calculates the correct
-/// position of the root using the length of the byte slice. If your byte slice is not guaranteed to
-/// end immediately after the root object, you may need to store the position of the root object
-/// returned from [`serialize_value`](crate::ser::Serializer::serialize_value).
+/// This is a wrapper for [`access_pos_unchecked`] that calculates the position
+/// of the root object using the length of the byte slice. If your byte slice is
+/// not guaranteed to end immediately after the root object, you may need to
+/// store the position of the root object returned from
+/// [`serialize_and_resolve`](crate::SerializeExt::serialize_and_resolve).
 ///
 /// # Safety
 ///
-/// - The byte slice must represent an archived object
-/// - The root of the object must be stored at the end of the slice (this is the default behavior)
+/// - The byte slice must represent an archived object.
+/// - The root of the object must be stored at the end of the slice (this is the
+///   default behavior).
 #[inline]
-pub unsafe fn archived_root<T: Archive + ?Sized>(bytes: &[u8]) -> &T::Archived {
-    archived_value::<T>(bytes, bytes.len() - mem::size_of::<T::Archived>())
+pub unsafe fn access_unchecked<T>(bytes: &[u8]) -> &T::Archived
+where
+    T: Archive + ?Sized,
+{
+    access_pos_unchecked::<T>(bytes, bytes.len() - mem::size_of::<T::Archived>())
 }
 
-/// Casts a mutable archived value from the given byte slice by calculating the root position.
+/// Accesses a mutable archived value from the given byte slice by calculating
+/// the root position.
 ///
-/// This is a wrapper for [`archived_value_mut`](crate::archived_value_mut) that calculates the
-/// correct position of the root using the length of the byte slice. If your byte slice is not
-/// guaranteed to end immediately after the root object, you may need to store the position of the
-/// root object returned from [`serialize_value`](crate::ser::Serializer::serialize_value).
+/// This is a wrapper for [`access_pos_unchecked_mut`] that calculates the
+/// position of the root object using the length of the byte slice. If your byte
+/// slice is not guaranteed to end immediately after the root object, you may
+/// need to store the position of the root object returned from
+/// [`serialize_and_resolve`](crate::SerializeExt::serialize_and_resolve).
 ///
 /// # Safety
 ///
-/// - The byte slice must represent an archived object
-/// - The root of the object must be stored at the end of the slice (this is the default behavior)
+/// - The byte slice must represent an archived object.
+/// - The root of the object must be stored at the end of the slice (this is the
+///   default behavior).
 #[inline]
-pub unsafe fn archived_root_mut<T: Archive + ?Sized>(
+pub unsafe fn access_unchecked_mut<T: Archive + ?Sized>(
     bytes: Pin<&mut [u8]>,
 ) -> Pin<&mut T::Archived> {
     let pos = bytes.len() - mem::size_of::<T::Archived>();
-    archived_value_mut::<T>(bytes, pos)
+    access_pos_unchecked_mut::<T>(bytes, pos)
 }
 
-/// Casts a [`RelPtr`] to the given unsized type from the given byte slice by calculating the root
-/// position.
+/// Accesses a [`RelPtr`] that points to an archived value from the given byte
+/// slice by calculating the root position.
 ///
-/// This is a wrapper for [`archived_unsized_value`](crate::archived_unsized_value) that calculates
-/// the correct position of the root using the length of the byte slice. If your byte slice is not
-/// guaranteed to end immediately after the root object, you may need to store the position of the
-/// root object returned from
-/// [`serialize_unsized_value`](crate::ser::Serializer::serialize_unsized_value).
+/// This is a wrapper for [`access_unsized_unchecked`] that calculates the
+/// position of the root object using the length of the byte slice. If your byte
+/// slice is not guaranteed to end immediately after the root object, you may
+/// need to store the position of the root object returned from
+/// [`serialize_and_resolve_rel_ptr`](crate::SerializeUnsizedExt::serialize_and_resolve_rel_ptr).
 ///
 /// # Safety
 ///
-/// - The byte slice must represent an archived object
-/// - The root of the object must be stored at the end of the slice (this is the default behavior)
+/// - The byte slice must represent an archived object.
+/// - The root of the object must be stored at the end of the slice (this is the
+///   default behavior).
 #[inline]
-pub unsafe fn archived_unsized_root<T: ArchiveUnsized + ?Sized>(
+pub unsafe fn access_unsized_unchecked<T: ArchiveUnsized + ?Sized>(
     bytes: &[u8],
 ) -> &T::Archived {
-    archived_unsized_value::<T>(
+    access_pos_unsized_unchecked::<T>(
         bytes,
         bytes.len() - mem::size_of::<RelPtr<T::Archived>>(),
     )
 }
 
-/// Casts a [`RelPtr`] to the given unsized type from the given byte slice by calculating the root
-/// position.
+/// Accesses a mutable [`RelPtr`] that points to an archived value from the
+/// given byte slice by calculating the root position.
 ///
-/// This is a wrapper for [`archived_unsized_value_mut`](crate::archived_unsized_value_mut) that
-/// calculates the correct position of the root using the length of the byte slice. If your byte
-/// slice is not guaranteed to end immediately after the root object, you may need to store the
-/// position of the root object returned from
-/// [`serialize_unsized_value`](crate::ser::Serializer::serialize_unsized_value).
+/// This is a wrapper for [`access_unsized_unchecked_mut`] that calculates the
+/// position of the root object using the length of the byte slice. If your byte
+/// slice is not guaranteed to end immediately after the root object, you may
+/// need to store the position of the root object returned from
+/// [`serialize_and_resolve_rel_ptr`](crate::SerializeUnsizedExt::serialize_and_resolve_rel_ptr).
 ///
 /// # Safety
 ///
-/// - The byte slice must represent an archived object
-/// - The root of the object must be stored at the end of the slice (this is the default behavior)
+/// - The byte slice must represent an archived object.
+/// - The root of the object must be stored at the end of the slice (this is the
+///   default behavior).
 #[inline]
-pub unsafe fn archived_unsized_root_mut<T: ArchiveUnsized + ?Sized>(
+pub unsafe fn access_unsized_unchecked_mut<T: ArchiveUnsized + ?Sized>(
     bytes: Pin<&mut [u8]>,
 ) -> Pin<&mut T::Archived> {
     let pos = bytes.len() - mem::size_of::<RelPtr<T::Archived>>();
-    archived_unsized_value_mut::<T>(bytes, pos)
+    access_pos_unsized_unchecked_mut::<T>(bytes, pos)
 }
 
 /// A buffer of bytes aligned to 16 bytes.
@@ -271,14 +289,15 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 
 /// Serializes the given value and returns the resulting bytes.
 ///
-/// The const generic parameter `N` specifies the number of bytes to pre-allocate as scratch space.
-/// Choosing a good default value for your data can be difficult without any data, so consider using
-/// [`ScratchTracker`](crate::ser::serializers::ScratchTracker) to determine how much scratch space
-/// is typically used.
+/// The const generic parameter `N` specifies the number of bytes to
+/// pre-allocate as scratch space. Choosing a good default value for your data
+/// can be difficult without any data, so consider using a
+/// [`ScratchTracker`](crate::ser::serializers::ScratchTracker) to determine how
+/// much scratch space is typically used.
 ///
-/// This function is only available with the `alloc` feature because it uses a general-purpose
-/// serializer. In no-alloc and high-performance environments, the serializer should be customized
-/// for the specific situation.
+/// This function is only available with the `alloc` feature because it uses a
+/// general-purpose serializer. In no-alloc and high-performance environments,
+/// the serializer should be customized for the specific situation.
 ///
 /// # Examples
 /// ```
@@ -297,27 +316,98 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 /// ```
 #[cfg(feature = "alloc")]
 #[inline]
-pub fn to_bytes<T, const N: usize, E>(
+pub fn serialize<T, const N: usize, E>(
     value: &T,
 ) -> Result<AlignedVec, E>
 where
-    T: Serialize<AllocSerializer<N>, E>,
+    T: Serialize<Strategy<AllocSerializer<N>, E>>,
 {
-    let mut serializer = AllocSerializer::<N>::default();
-    serializer.serialize_value(value)?;
-    Ok(serializer.into_serializer().into_inner())
+    Ok(serialize_into(value, AllocSerializer::<N>::default())?.into_serializer().into_inner())
+}
+
+/// Serializes a [`RelPtr`] to the given unsized value and returns the resulting
+/// bytes.
+#[cfg(feature = "alloc")]
+#[inline]
+pub fn serialize_rel_ptr<T, const N: usize, E>(
+    value: &T,
+) -> Result<AlignedVec, E>
+where
+    T: SerializeUnsized<Strategy<AllocSerializer<N>, E>> + ?Sized,
+{
+    Ok(serialize_rel_ptr_into(value, AllocSerializer::<N>::default())?.into_serializer().into_inner())
+}
+
+/// Serializes the given value into the given serializer and then returns the
+/// serializer.
+#[inline]
+pub fn serialize_into<T, S, E>(
+    value: &T,
+    mut serializer: S,
+) -> Result<S, E>
+where
+    T: Serialize<Strategy<S, E>>,
+    S: Serializer<E>,
+{
+    serialize_using(value, &mut serializer)?;
+    Ok(serializer)
+}
+
+/// Serializes a [`RelPtr`] to the given unsized value into the given serializer
+/// and then returns the serializer.
+#[inline]
+pub fn serialize_rel_ptr_into<T, S, E>(
+    value: &T,
+    mut serializer: S,
+) -> Result<S, E>
+where
+    T: SerializeUnsized<Strategy<S, E>> + ?Sized,
+    S: Serializer<E>,
+{
+    serialize_rel_ptr_using(value, &mut serializer)?;
+    Ok(serializer)
+}
+
+/// Serializes the given value into the given serializer.
+#[inline]
+pub fn serialize_using<T, S, E>(
+    value: &T,
+    serializer: &mut S,
+) -> Result<(), E>
+where
+    T: Serialize<Strategy<S, E>>,
+    S: Serializer<E> + ?Sized,
+{
+    value.serialize_and_resolve(Strategy::wrap(serializer))?;
+    Ok(())
+}
+
+/// Serializes a [`RelPtr`] to the given unsized value into the given
+/// serializer.
+#[inline]
+pub fn serialize_rel_ptr_using<T, S, E>(
+    value: &T,
+    serializer: &mut S,
+) -> Result<(), E>
+where
+    T: SerializeUnsized<Strategy<S, E>> + ?Sized,
+    S: Serializer<E> + ?Sized,
+{
+    value.serialize_and_resolve_rel_ptr(Strategy::wrap(serializer))?;
+    Ok(())
 }
 
 /// Deserializes a value from the given bytes.
 ///
-/// This function is only available with the `alloc` feature because it uses a general-purpose
-/// deserializer. In no-alloc and high-performance environments, the deserializer should be
-/// customized for the specific situation.
+/// This function is only available with the `alloc` feature because it uses a
+/// general-purpose deserializer. In no-alloc and high-performance environments,
+/// the deserializer should be customized for the specific situation.
 ///
 /// # Safety
 ///
-/// - The byte slice must represent an archived object
-/// - The root of the object must be stored at the end of the slice (this is the default behavior)
+/// - The byte slice must represent an archived object.
+/// - The root of the object must be stored at the end of the slice (this is the
+///   default behavior).
 ///
 /// # Examples
 /// ```
@@ -336,12 +426,25 @@ where
 /// ```
 #[cfg(feature = "alloc")]
 #[inline]
-pub unsafe fn from_bytes_unchecked<T, E>(
+pub unsafe fn deserialize_unchecked<T, E>(
     bytes: &[u8],
 ) -> Result<T, E>
 where
     T: Archive,
-    T::Archived: Deserialize<T, SharedDeserializeMap, E>,
+    T::Archived: Deserialize<T, Strategy<SharedDeserializeMap, E>>,
 {
-    archived_root::<T>(bytes).deserialize(&mut SharedDeserializeMap::default())
+    deserialize_using_unchecked(bytes, &mut SharedDeserializeMap::default())
+}
+
+/// TODO: document
+#[inline]
+pub unsafe fn deserialize_using_unchecked<T, D, E>(
+    bytes: &[u8],
+    deserializer: &mut D,
+) -> Result<T, E>
+where
+    T: Archive,
+    T::Archived: Deserialize<T, Strategy<D, E>>,
+{
+    access_unchecked::<T>(bytes).deserialize(Strategy::wrap(deserializer))
 }

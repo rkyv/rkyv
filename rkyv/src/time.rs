@@ -8,10 +8,7 @@ use crate::primitive::{ArchivedU32, ArchivedU64};
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
-    check_bytes(
-        bounds(__E: bytecheck::rancor::Error),
-        verify = verify::verify,
-    ),
+    check_bytes(verify),
 )]
 pub struct ArchivedDuration {
     secs: ArchivedU64,
@@ -123,8 +120,8 @@ impl ArchivedDuration {
 #[cfg(feature = "bytecheck")]
 mod verify {
     use core::fmt;
-
-    use crate::time::ArchivedDuration;
+    use bytecheck::{Verify, rancor::{Fallible, Error}};
+    use super::ArchivedDuration;
 
     /// An error resulting from an invalid duration.
     ///
@@ -147,18 +144,21 @@ mod verify {
     #[cfg(feature = "std")]
     impl std::error::Error for DurationError {}
 
-    #[inline]
-    pub fn verify<C: ?Sized, E: bytecheck::rancor::Error>(
-        value: &ArchivedDuration,
-        _: &mut C,
-    ) -> Result<(), E> {
-        let nanos = value.nanos.to_native();
-        if nanos > 1_000_000_000 {
-            Err(E::new(DurationError {
-                nanos,
-            }))
-        } else {
-            Ok(())
+    unsafe impl<C> Verify<C> for ArchivedDuration
+    where
+        C: Fallible + ?Sized,
+        C::Error: Error,
+    {
+        #[inline]
+        fn verify(&self, _: &mut C) -> Result<(), C::Error> {
+            let nanos = self.nanos.to_native();
+            if nanos > 1_000_000_000 {
+                Err(C::Error::new(DurationError {
+                    nanos,
+                }))
+            } else {
+                Ok(())
+            }
         }
     }
 }

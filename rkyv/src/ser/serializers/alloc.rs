@@ -3,7 +3,7 @@ use crate::{
         serializers::BufferScratch, ScratchSpace, Serializer,
         SharedSerializeRegistry,
     },
-    AlignedBytes, AlignedVec, Archive, ArchiveUnsized, RelPtr,
+    util::{AlignedBytes, AlignedVec}, Archive, ArchiveUnsized, RelPtr,
 };
 #[cfg(not(feature = "std"))]
 use alloc::{alloc, boxed::Box, vec::Vec};
@@ -71,7 +71,7 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>, E> Serializer<E> for Aligned
         value: &T,
         resolver: T::Resolver,
     ) -> Result<usize, E> {
-        let pos = <_ as Serializer<E>>::pos(self);
+        let pos = Serializer::<E>::pos(self);
         debug_assert_eq!(pos & (mem::align_of::<T::Archived>() - 1), 0);
         let vec = self.inner.borrow_mut();
         let additional = mem::size_of::<T::Archived>();
@@ -92,7 +92,7 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>, E> Serializer<E> for Aligned
         to: usize,
         metadata_resolver: T::MetadataResolver,
     ) -> Result<usize, E> {
-        let from = <_ as Serializer<E>>::pos(self);
+        let from = Serializer::<E>::pos(self);
         debug_assert_eq!(
             from & (mem::align_of::<RelPtr<T::Archived>>() - 1),
             0

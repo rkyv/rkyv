@@ -1,7 +1,8 @@
 [package]
 name = "rkyv_test"
+publish = false
 description = "Test suite for rkyv crates"
-version = "0.8.0"
+version.workspace = true
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2021"
 license = "MIT"

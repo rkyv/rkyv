@@ -370,7 +370,7 @@ impl<K> InnerNode<K> {
     }
 }
 
-unsafe impl<K, V, C, E> CheckBytes<C, E> for LeafNode<K, V>
+unsafe impl<K, V, C> CheckBytes<C, E> for LeafNode<K, V>
 where
     K: CheckBytes<C, E>,
     V: CheckBytes<C, E>,
@@ -413,7 +413,7 @@ const _: () = {
 
     use crate::primitive::ArchivedUsize;
 
-    unsafe impl<K, V, C, E> CheckBytes<C, E> for ArchivedBTreeMap<K, V>
+    unsafe impl<K, V, C> CheckBytes<C, E> for ArchivedBTreeMap<K, V>
     where
         K: CheckBytes<C, E> + Ord,
         V: CheckBytes<C, E>,

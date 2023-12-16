@@ -7,10 +7,10 @@ mod core;
 mod std;
 
 #[cfg(feature = "alloc")]
-use crate::AlignedVec;
+use crate::util::AlignedVec;
 use crate::{
     ser::{ScratchSpace, Serializer, SharedSerializeRegistry},
-    AlignedBytes, Archive, ArchiveUnsized,
+    util::AlignedBytes, Archive, ArchiveUnsized,
 };
 use ::core::{alloc::Layout, ptr::NonNull};
 
