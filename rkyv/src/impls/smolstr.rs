@@ -20,19 +20,22 @@ impl Archive for SmolStr {
     }
 }
 
-impl<S: ScratchSpace + Serializer + ?Sized> Serialize<S> for SmolStr {
+impl<S> Serialize<S> for SmolStr
+where
+    S: Fallible + ScratchSpace + Serializer + ?Sized,
+{
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedString::serialize_from_str(self, serializer)
     }
 }
 
-impl<D: ?Sized> Deserialize<SmolStr, D> for ArchivedString {
+impl<D: Fallible + ?Sized> Deserialize<SmolStr, D> for ArchivedString {
     #[inline]
-    fn deserialize(&self, _deserializer: &mut D) -> Result<SmolStr, E> {
+    fn deserialize(&self, _deserializer: &mut D) -> Result<SmolStr, D::Error> {
         Ok(SmolStr::new(self.as_str()))
     }
 }
@@ -45,7 +48,8 @@ impl PartialEq<SmolStr> for ArchivedString {
 
 #[cfg(test)]
 mod tests {
-    use crate::{archived_root, ser::Serializer, Deserialize, Infallible};
+    use crate::{access_unchecked, deserialize, ser::Serializer};
+    use rancor::{Failure, Infallible};
     use smol_str::SmolStr;
 
     #[test]
@@ -54,15 +58,18 @@ mod tests {
 
         let value = SmolStr::new("smol_str");
 
-        let mut serializer = CoreSerializer::<256, 256>::default();
-        serializer.serialize_value(&value).unwrap();
-        let end = serializer.pos();
+        let serializer = crate::util::serialize_into::<_, _, Failure>(
+            &value,
+            CoreSerializer::<256, 256>::default(),
+        )
+        .unwrap();
+        let end = Serializer::<Failure>::pos(&serializer);
         let result = serializer.into_serializer().into_inner();
-        let archived = unsafe { archived_root::<SmolStr>(&result[0..end]) };
+        let archived = unsafe { access_unchecked::<SmolStr>(&result[0..end]) };
         assert_eq!(archived, &value);
 
-        let deserialized: SmolStr =
-            archived.deserialize(&mut Infallible).unwrap();
+        let deserialized =
+            deserialize::<SmolStr, _, Infallible>(archived, &mut ()).unwrap();
         assert_eq!(value, deserialized);
     }
 }

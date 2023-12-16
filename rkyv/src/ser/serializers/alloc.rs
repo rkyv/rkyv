@@ -3,11 +3,11 @@ use crate::{
         serializers::BufferScratch, ScratchSpace, Serializer,
         SharedSerializeRegistry,
     },
-    AlignedBytes, AlignedVec, Archive, ArchiveUnsized, RelPtr,
+    util::{AlignedBytes, AlignedVec},
+    Archive, ArchiveUnsized, RelPtr,
 };
 #[cfg(not(feature = "std"))]
 use alloc::{alloc, boxed::Box, vec::Vec};
-use rancor::Error;
 use core::{
     alloc::Layout,
     borrow::{Borrow, BorrowMut},
@@ -16,6 +16,7 @@ use core::{
 };
 #[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
+use rancor::Error;
 #[cfg(feature = "std")]
 use std::alloc;
 #[cfg(feature = "std")]
@@ -53,7 +54,9 @@ impl<A: Default> Default for AlignedSerializer<A> {
     }
 }
 
-impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>, E> Serializer<E> for AlignedSerializer<A> {
+impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>, E> Serializer<E>
+    for AlignedSerializer<A>
+{
     #[inline]
     fn pos(&self) -> usize {
         self.inner.borrow().len()
@@ -71,7 +74,7 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>, E> Serializer<E> for Aligned
         value: &T,
         resolver: T::Resolver,
     ) -> Result<usize, E> {
-        let pos = <_ as Serializer<E>>::pos(self);
+        let pos = Serializer::<E>::pos(self);
         debug_assert_eq!(pos & (mem::align_of::<T::Archived>() - 1), 0);
         let vec = self.inner.borrow_mut();
         let additional = mem::size_of::<T::Archived>();
@@ -92,7 +95,7 @@ impl<A: Borrow<AlignedVec> + BorrowMut<AlignedVec>, E> Serializer<E> for Aligned
         to: usize,
         metadata_resolver: T::MetadataResolver,
     ) -> Result<usize, E> {
-        let from = <_ as Serializer<E>>::pos(self);
+        let from = Serializer::<E>::pos(self);
         debug_assert_eq!(
             from & (mem::align_of::<RelPtr<T::Archived>>() - 1),
             0
@@ -406,9 +409,9 @@ impl<E: Error> SharedSerializeRegistry<E> for SharedSerializeMap {
         pos: usize,
     ) -> Result<(), E> {
         match self.shared_resolvers.entry(value) {
-            hash_map::Entry::Occupied(_) => {
-                Err(E::new(SharedSerializeMapError::DuplicateSharedPointer(value)))
-            }
+            hash_map::Entry::Occupied(_) => Err(E::new(
+                SharedSerializeMapError::DuplicateSharedPointer(value),
+            )),
             hash_map::Entry::Vacant(e) => {
                 e.insert(pos);
                 Ok(())

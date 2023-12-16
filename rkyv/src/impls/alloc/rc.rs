@@ -1,6 +1,9 @@
 use crate::{
     de::{SharedDeserializeRegistry, SharedPointer},
-    rc::{ArchivedRc, ArchivedRcWeak, RcResolver, RcWeakResolver},
+    rc::{
+        ArcFlavor, ArchivedRc, ArchivedRcWeak, RcFlavor, RcResolver,
+        RcWeakResolver,
+    },
     ser::{Serializer, SharedSerializeRegistry},
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized,
     Serialize, SerializeUnsized,
@@ -8,15 +11,11 @@ use crate::{
 #[cfg(not(feature = "std"))]
 use alloc::{alloc, boxed::Box, rc, sync};
 use core::mem::forget;
+use rancor::Fallible;
 #[cfg(feature = "std")]
 use std::{alloc, rc, sync};
 
 // Rc
-
-// TODO: move these flavors into a public path
-
-/// The flavor type for `Rc`.
-pub struct RcFlavor;
 
 impl<T: ?Sized> SharedPointer for rc::Rc<T> {
     #[inline]
@@ -40,16 +39,16 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
     }
 }
 
-impl<T, S, E> Serialize<S, E> for rc::Rc<T>
+impl<T, S> Serialize<S> for rc::Rc<T>
 where
-    T: SerializeUnsized<S, E> + ?Sized + 'static,
-    S: Serializer<E> + SharedSerializeRegistry<E> + ?Sized,
+    T: SerializeUnsized<S> + ?Sized + 'static,
+    S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedRc::<T::Archived, RcFlavor>::serialize_from_ref(
             self.as_ref(),
             serializer,
@@ -57,14 +56,14 @@ where
     }
 }
 
-impl<T, D, E> Deserialize<rc::Rc<T>, D, E> for ArchivedRc<T::Archived, RcFlavor>
+impl<T, D> Deserialize<rc::Rc<T>, D> for ArchivedRc<T::Archived, RcFlavor>
 where
     T: ArchiveUnsized + ?Sized + 'static,
-    T::Archived: DeserializeUnsized<T, D, E>,
-    D: SharedDeserializeRegistry<E> + ?Sized,
+    T::Archived: DeserializeUnsized<T, D>,
+    D: Fallible + SharedDeserializeRegistry + ?Sized,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<rc::Rc<T>, E> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<rc::Rc<T>, D::Error> {
         let raw_shared_ptr = deserializer.deserialize_shared(
             self.get(),
             |ptr| rc::Rc::<T>::from(unsafe { Box::from_raw(ptr) }),
@@ -107,16 +106,16 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
     }
 }
 
-impl<T, S, E> Serialize<S, E> for rc::Weak<T>
+impl<T, S> Serialize<S> for rc::Weak<T>
 where
-    T: SerializeUnsized<S, E> + ?Sized + 'static,
-    S: Serializer<E> + SharedSerializeRegistry<E> + ?Sized,
+    T: SerializeUnsized<S> + ?Sized + 'static,
+    S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedRcWeak::<T::Archived, RcFlavor>::serialize_from_ref(
             self.upgrade().as_ref().map(|v| v.as_ref()),
             serializer,
@@ -126,17 +125,17 @@ where
 
 // Deserialize can only be implemented for sized types because weak pointers don't have from/into
 // raw functions.
-impl<T, D, E> Deserialize<rc::Weak<T>, D, E> for ArchivedRcWeak<T::Archived, RcFlavor>
+impl<T, D> Deserialize<rc::Weak<T>, D> for ArchivedRcWeak<T::Archived, RcFlavor>
 where
     T: Archive + 'static,
-    T::Archived: DeserializeUnsized<T, D, E>,
-    D: SharedDeserializeRegistry<E> + ?Sized,
+    T::Archived: DeserializeUnsized<T, D>,
+    D: Fallible + SharedDeserializeRegistry + ?Sized,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<rc::Weak<T>, E> {
+    ) -> Result<rc::Weak<T>, D::Error> {
         Ok(match self {
             ArchivedRcWeak::None => rc::Weak::new(),
             ArchivedRcWeak::Some(r) => {
@@ -147,9 +146,6 @@ where
 }
 
 // Arc
-
-/// The flavor type for `Arc`.
-pub struct ArcFlavor;
 
 impl<T: ?Sized> SharedPointer for sync::Arc<T> {
     #[inline]
@@ -173,16 +169,16 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     }
 }
 
-impl<T, S, E> Serialize<S, E> for sync::Arc<T>
+impl<T, S> Serialize<S> for sync::Arc<T>
 where
-    T: SerializeUnsized<S, E> + ?Sized + 'static,
-    S: Serializer<E> + SharedSerializeRegistry<E> + ?Sized,
+    T: SerializeUnsized<S> + ?Sized + 'static,
+    S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedRc::<T::Archived, ArcFlavor>::serialize_from_ref(
             self.as_ref(),
             serializer,
@@ -190,19 +186,17 @@ where
     }
 }
 
-impl<
-    T: ArchiveUnsized + ?Sized + 'static,
-    D: SharedDeserializeRegistry<E> + ?Sized,
-    E,
-> Deserialize<sync::Arc<T>, D, E> for ArchivedRc<T::Archived, ArcFlavor>
+impl<T, D> Deserialize<sync::Arc<T>, D> for ArchivedRc<T::Archived, ArcFlavor>
 where
-    T::Archived: DeserializeUnsized<T, D, E>,
+    T: ArchiveUnsized + ?Sized + 'static,
+    T::Archived: DeserializeUnsized<T, D>,
+    D: Fallible + SharedDeserializeRegistry + ?Sized,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<sync::Arc<T>, E> {
+    ) -> Result<sync::Arc<T>, D::Error> {
         let raw_shared_ptr = deserializer.deserialize_shared(
             self.get(),
             |ptr| sync::Arc::<T>::from(unsafe { Box::from_raw(ptr) }),
@@ -247,16 +241,16 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
     }
 }
 
-impl<T, S, E> Serialize<S, E> for sync::Weak<T>
+impl<T, S> Serialize<S> for sync::Weak<T>
 where
-    T: SerializeUnsized<S, E> + ?Sized + 'static,
-    S: Serializer<E> + SharedSerializeRegistry<E> + ?Sized,
+    T: SerializeUnsized<S> + ?Sized + 'static,
+    S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedRcWeak::<T::Archived, ArcFlavor>::serialize_from_ref(
             self.upgrade().as_ref().map(|v| v.as_ref()),
             serializer,
@@ -266,18 +260,18 @@ where
 
 // Deserialize can only be implemented for sized types because weak pointers don't have from/into
 // raw functions.
-impl<T, D, E> Deserialize<sync::Weak<T>, D, E>
+impl<T, D> Deserialize<sync::Weak<T>, D>
     for ArchivedRcWeak<T::Archived, ArcFlavor>
 where
     T: Archive + 'static,
-    T::Archived: DeserializeUnsized<T, D, E>,
-    D: SharedDeserializeRegistry<E> + ?Sized,
+    T::Archived: DeserializeUnsized<T, D>,
+    D: Fallible + SharedDeserializeRegistry + ?Sized,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<sync::Weak<T>, E> {
+    ) -> Result<sync::Weak<T>, D::Error> {
         Ok(match self {
             ArchivedRcWeak::None => sync::Weak::new(),
             ArchivedRcWeak::Some(r) => {

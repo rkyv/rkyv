@@ -170,7 +170,10 @@ impl ArchivedStringRepr {
 
 #[cfg(feature = "bytecheck")]
 const _: () = {
-    use bytecheck::{CheckBytes, rancor::Error};
+    use bytecheck::{
+        rancor::{Error, Fallible},
+        CheckBytes,
+    };
     use core::fmt;
 
     /// An error resulting from an invalid string representation.
@@ -191,17 +194,21 @@ const _: () = {
     #[cfg(feature = "std")]
     impl std::error::Error for CheckStringReprError {}
 
-    unsafe impl<C: ?Sized, E: Error> CheckBytes<C, E> for ArchivedStringRepr {
+    unsafe impl<C> CheckBytes<C> for ArchivedStringRepr
+    where
+        C: Fallible + ?Sized,
+        C::Error: Error,
+    {
         #[inline]
         unsafe fn check_bytes(
             value: *const Self,
             _: &mut C,
-        ) -> Result<(), E> {
+        ) -> Result<(), C::Error> {
             // The fields of `ArchivedStringRepr` are always valid
             let repr = &*value;
 
             if repr.is_inline() && repr.len() > INLINE_CAPACITY {
-                Err(E::new(CheckStringReprError))
+                Err(C::Error::new(CheckStringReprError))
             } else {
                 Ok(())
             }

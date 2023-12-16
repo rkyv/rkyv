@@ -163,7 +163,7 @@ macro_rules! impl_archived_option_nonzero {
         impl PartialOrd for $ar {
             #[inline]
             fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-                self.as_ref().partial_cmp(&other.as_ref())
+                Some(self.cmp(other))
             }
         }
     };

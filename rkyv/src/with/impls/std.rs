@@ -5,17 +5,17 @@ use crate::{
     time::ArchivedDuration,
     vec::{ArchivedVec, VecResolver},
     with::{
-        ArchiveWith, AsString, AsStringError, AsVec, DeserializeWith,
-        Immutable, Lock, LockError, SerializeWith, UnixTimestamp,
+        ArchiveWith, AsString, AsVec, DeserializeWith, Immutable, InvalidStr,
+        Lock, Poisoned, SerializeWith, UnixTimestamp,
     },
     Archive, Deserialize, Serialize, SerializeUnsized,
-    rancor::Error,
 };
 use core::{hash::Hash, str::FromStr};
+use rancor::{Error, Fallible, OptionExt, ResultExt};
 use std::{
     collections::{HashMap, HashSet},
     ffi::OsString,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{Mutex, RwLock},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -44,30 +44,31 @@ impl ArchiveWith<OsString> for AsString {
     }
 }
 
-impl<S: ?Sized, E: Error> SerializeWith<OsString, S, E> for AsString
+impl<S: Fallible + ?Sized> SerializeWith<OsString, S> for AsString
 where
-    str: SerializeUnsized<S, E>,
+    S::Error: Error,
+    str: SerializeUnsized<S>,
 {
     #[inline]
     fn serialize_with(
         field: &OsString,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedString::serialize_from_str(
-            field.to_str().ok_or_else(|| E::new(AsStringError::InvalidStr))?,
+            field.to_str().into_trace(InvalidStr)?,
             serializer,
         )
     }
 }
 
-impl<D: ?Sized, E> DeserializeWith<ArchivedString, OsString, D, E>
+impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, OsString, D>
     for AsString
 {
     #[inline]
     fn deserialize_with(
         field: &ArchivedString,
         _: &mut D,
-    ) -> Result<OsString, E> {
+    ) -> Result<OsString, D::Error> {
         Ok(OsString::from_str(field.as_str()).unwrap())
     }
 }
@@ -94,30 +95,32 @@ impl ArchiveWith<PathBuf> for AsString {
     }
 }
 
-impl<S: ?Sized, E> SerializeWith<PathBuf, S, E> for AsString
+impl<S: Fallible + ?Sized> SerializeWith<PathBuf, S> for AsString
 where
-    E: From<AsStringError>,
-    str: SerializeUnsized<S, E>,
+    S::Error: Error,
+    str: SerializeUnsized<S>,
 {
     #[inline]
     fn serialize_with(
         field: &PathBuf,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedString::serialize_from_str(
-            field.to_str().ok_or(AsStringError::InvalidStr)?,
+            field.to_str().into_trace(InvalidStr)?,
             serializer,
         )
     }
 }
 
-impl<D: ?Sized, E> DeserializeWith<ArchivedString, PathBuf, D, E> for AsString {
+impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, PathBuf, D>
+    for AsString
+{
     #[inline]
     fn deserialize_with(
         field: &ArchivedString,
         _: &mut D,
-    ) -> Result<PathBuf, E> {
-        Ok(PathBuf::from_str(field.as_str()).unwrap())
+    ) -> Result<PathBuf, D::Error> {
+        Ok(Path::new(field.as_str()).to_path_buf())
     }
 }
 
@@ -145,34 +148,34 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
     }
 }
 
-impl<F, S, E> SerializeWith<Mutex<F>, S, E> for Lock
+impl<F, S> SerializeWith<Mutex<F>, S> for Lock
 where
-    F: Serialize<S, E>,
-    S: ?Sized,
-    E: Error,
+    F: Serialize<S>,
+    S: Fallible + ?Sized,
+    S::Error: Error,
 {
     #[inline]
     fn serialize_with(
         field: &Mutex<F>,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         field
             .lock()
-            .map_err(|_| E::new(LockError::Poisoned))?
+            .map_err(|_| S::Error::new(Poisoned))?
             .serialize(serializer)
     }
 }
 
-impl<F, T, D, E> DeserializeWith<Immutable<F>, Mutex<T>, D, E> for Lock
+impl<F, T, D> DeserializeWith<Immutable<F>, Mutex<T>, D> for Lock
 where
-    F: Deserialize<T, D, E>,
-    D: ?Sized,
+    F: Deserialize<T, D>,
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize_with(
         field: &Immutable<F>,
         deserializer: &mut D,
-    ) -> Result<Mutex<T>, E> {
+    ) -> Result<Mutex<T>, D::Error> {
         Ok(Mutex::new(field.value().deserialize(deserializer)?))
     }
 }
@@ -199,34 +202,34 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
     }
 }
 
-impl<F, S, E> SerializeWith<RwLock<F>, S, E> for Lock
+impl<F, S> SerializeWith<RwLock<F>, S> for Lock
 where
-    F: Serialize<S, E>,
-    S: ?Sized,
-    E: Error,
+    F: Serialize<S>,
+    S: Fallible + ?Sized,
+    S::Error: Error,
 {
     #[inline]
     fn serialize_with(
         field: &RwLock<F>,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         field
             .read()
-            .map_err(|_| E::new(LockError::Poisoned))?
+            .map_err(|_| S::Error::new(Poisoned))?
             .serialize(serializer)
     }
 }
 
-impl<F, T, D, E> DeserializeWith<Immutable<F>, RwLock<T>, D, E> for Lock
+impl<F, T, D> DeserializeWith<Immutable<F>, RwLock<T>, D> for Lock
 where
-    F: Deserialize<T, D, E>,
-    D: ?Sized,
+    F: Deserialize<T, D>,
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize_with(
         field: &Immutable<F>,
         deserializer: &mut D,
-    ) -> Result<RwLock<T>, E> {
+    ) -> Result<RwLock<T>, D::Error> {
         Ok(RwLock::new(field.value().deserialize(deserializer)?))
     }
 }
@@ -247,16 +250,16 @@ impl<K: Archive, V: Archive> ArchiveWith<HashMap<K, V>> for AsVec {
     }
 }
 
-impl<K, V, S, E> SerializeWith<HashMap<K, V>, S, E> for AsVec
+impl<K, V, S> SerializeWith<HashMap<K, V>, S> for AsVec
 where
-    K: Serialize<S, E>,
-    V: Serialize<S, E>,
-    S: ScratchSpace<E> + Serializer<E> + ?Sized,
+    K: Serialize<S>,
+    V: Serialize<S>,
+    S: Fallible + ScratchSpace + Serializer + ?Sized,
 {
     fn serialize_with(
         field: &HashMap<K, V>,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedVec::serialize_from_iter(
             field.iter().map(|(key, value)| Entry { key, value }),
             serializer,
@@ -264,24 +267,23 @@ where
     }
 }
 
-impl<K, V, D, E>
+impl<K, V, D>
     DeserializeWith<
         ArchivedVec<Entry<K::Archived, V::Archived>>,
         HashMap<K, V>,
         D,
-        E,
     > for AsVec
 where
     K: Archive + Hash + Eq,
     V: Archive,
-    K::Archived: Deserialize<K, D, E>,
-    V::Archived: Deserialize<V, D, E>,
-    D: ?Sized,
+    K::Archived: Deserialize<K, D>,
+    V::Archived: Deserialize<V, D>,
+    D: Fallible + ?Sized,
 {
     fn deserialize_with(
         field: &ArchivedVec<Entry<K::Archived, V::Archived>>,
         deserializer: &mut D,
-    ) -> Result<HashMap<K, V>, E> {
+    ) -> Result<HashMap<K, V>, D::Error> {
         let mut result = HashMap::new();
         for entry in field.iter() {
             result.insert(
@@ -307,32 +309,32 @@ impl<T: Archive> ArchiveWith<HashSet<T>> for AsVec {
     }
 }
 
-impl<T, S, E> SerializeWith<HashSet<T>, S, E> for AsVec
+impl<T, S> SerializeWith<HashSet<T>, S> for AsVec
 where
-    T: Serialize<S, E>,
-    S: ScratchSpace<E> + Serializer<E> + ?Sized,
+    T: Serialize<S>,
+    S: Fallible + ScratchSpace + Serializer + ?Sized,
 {
     fn serialize_with(
         field: &HashSet<T>,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
-        ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _, _>(
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _>(
             field.iter(),
             serializer,
         )
     }
 }
 
-impl<T, D, E> DeserializeWith<ArchivedVec<T::Archived>, HashSet<T>, D, E> for AsVec
+impl<T, D> DeserializeWith<ArchivedVec<T::Archived>, HashSet<T>, D> for AsVec
 where
     T: Archive + Hash + Eq,
-    T::Archived: Deserialize<T, D, E>,
-    D: ?Sized,
+    T::Archived: Deserialize<T, D>,
+    D: Fallible + ?Sized,
 {
     fn deserialize_with(
         field: &ArchivedVec<T::Archived>,
         deserializer: &mut D,
-    ) -> Result<HashSet<T>, E> {
+    ) -> Result<HashSet<T>, D::Error> {
         let mut result = HashSet::new();
         for key in field.iter() {
             result.insert(key.deserialize(deserializer)?);
@@ -360,28 +362,27 @@ impl ArchiveWith<SystemTime> for UnixTimestamp {
     }
 }
 
-impl<S: ?Sized, E> SerializeWith<SystemTime, S, E> for UnixTimestamp
+impl<S> SerializeWith<SystemTime, S> for UnixTimestamp
 where
-    E: Error,
+    S: Fallible + ?Sized,
+    S::Error: Error,
 {
     fn serialize_with(
         field: &SystemTime,
         _: &mut S,
-    ) -> Result<Self::Resolver, E> {
-        field
-            .duration_since(UNIX_EPOCH)
-            .map_err(|e| E::new(e))?;
+    ) -> Result<Self::Resolver, S::Error> {
+        field.duration_since(UNIX_EPOCH).into_error()?;
         Ok(())
     }
 }
 
-impl<D: ?Sized, E> DeserializeWith<ArchivedDuration, SystemTime, D, E>
+impl<D: Fallible + ?Sized> DeserializeWith<ArchivedDuration, SystemTime, D>
     for UnixTimestamp
 {
     fn deserialize_with(
         field: &ArchivedDuration,
         _: &mut D,
-    ) -> Result<SystemTime, E> {
+    ) -> Result<SystemTime, D::Error> {
         Ok(UNIX_EPOCH + (*field).into())
     }
 }

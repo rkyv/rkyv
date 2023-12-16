@@ -1,13 +1,14 @@
 //! Validation implementations and helper types.
 
+pub mod util;
 pub mod validators;
 
 use core::{alloc::Layout, alloc::LayoutError, any::TypeId, ops::Range};
 
-use bytecheck::rancor::Error;
+use bytecheck::rancor::{Error, Fallible, Strategy};
 use ptr_meta::Pointee;
 
-use crate::{Archive, ArchivePointee, CheckBytes, RelPtr};
+use crate::{ArchivePointee, RelPtr};
 
 // Replace this trait with core::mem::{align_of_val_raw, size_of_val_raw} when they get stabilized.
 
@@ -68,7 +69,7 @@ impl LayoutRaw for ::std::ffi::CStr {
 /// # Safety
 ///
 /// TODO
-pub unsafe trait ArchiveContext<E> {
+pub unsafe trait ArchiveContext<E = <Self as Fallible>::Error> {
     /// Checks that the given data address and layout is located completely within the subtree
     /// range.
     fn check_subtree_ptr(
@@ -124,6 +125,42 @@ pub unsafe trait ArchiveContext<E> {
     ) -> Result<(), E>;
 }
 
+unsafe impl<T, E> ArchiveContext<E> for Strategy<T, E>
+where
+    T: ArchiveContext<E>,
+{
+    fn check_subtree_ptr(
+        &mut self,
+        ptr: *const u8,
+        layout: &Layout,
+    ) -> Result<(), E> {
+        T::check_subtree_ptr(self, ptr, layout)
+    }
+
+    unsafe fn push_prefix_subtree_range(
+        &mut self,
+        root: *const u8,
+        end: *const u8,
+    ) -> Result<Range<usize>, E> {
+        T::push_prefix_subtree_range(self, root, end)
+    }
+
+    unsafe fn push_suffix_subtree_range(
+        &mut self,
+        start: *const u8,
+        root: *const u8,
+    ) -> Result<Range<usize>, E> {
+        T::push_suffix_subtree_range(self, start, root)
+    }
+
+    unsafe fn pop_subtree_range(
+        &mut self,
+        range: Range<usize>,
+    ) -> Result<(), E> {
+        T::pop_subtree_range(self, range)
+    }
+}
+
 /// Helper methods for `ArchiveContext`s.
 pub trait ArchiveContextExt<E>: ArchiveContext<E> {
     /// Checks that the given relative pointer to a subtree can be dereferenced.
@@ -132,7 +169,9 @@ pub trait ArchiveContextExt<E>: ArchiveContext<E> {
     ///
     /// - `base` must be inside the archive this validator was created for.
     /// - `metadata` must be the metadata for the pointer defined by `base` and `offset`.
-    unsafe fn bounds_check_subtree_base_offset<T: LayoutRaw + Pointee + ?Sized>(
+    unsafe fn bounds_check_subtree_base_offset<
+        T: LayoutRaw + Pointee + ?Sized,
+    >(
         &mut self,
         base: *const u8,
         offset: isize,
@@ -144,7 +183,9 @@ pub trait ArchiveContextExt<E>: ArchiveContext<E> {
     /// # Safety
     ///
     /// - `rel_ptr` must be inside the archive this validator was created for.
-    unsafe fn bounds_check_subtree_rel_ptr<T: ArchivePointee + LayoutRaw + ?Sized>(
+    unsafe fn bounds_check_subtree_rel_ptr<
+        T: ArchivePointee + LayoutRaw + ?Sized,
+    >(
         &mut self,
         rel_ptr: &RelPtr<T>,
     ) -> Result<*const T, E>;
@@ -170,7 +211,9 @@ impl<C: ArchiveContext<E> + ?Sized, E: Error> ArchiveContextExt<E> for C {
     /// - `base` must be inside the archive this validator was created for.
     /// - `metadata` must be the metadata for the pointer defined by `base` and `offset`.
     #[inline]
-    unsafe fn bounds_check_subtree_base_offset<T: LayoutRaw + Pointee + ?Sized>(
+    unsafe fn bounds_check_subtree_base_offset<
+        T: LayoutRaw + Pointee + ?Sized,
+    >(
         &mut self,
         base: *const u8,
         offset: isize,
@@ -188,7 +231,9 @@ impl<C: ArchiveContext<E> + ?Sized, E: Error> ArchiveContextExt<E> for C {
     ///
     /// - `rel_ptr` must be inside the archive this validator was created for.
     #[inline]
-    unsafe fn bounds_check_subtree_rel_ptr<T: ArchivePointee + LayoutRaw + ?Sized>(
+    unsafe fn bounds_check_subtree_rel_ptr<
+        T: ArchivePointee + LayoutRaw + ?Sized,
+    >(
         &mut self,
         rel_ptr: &RelPtr<T>,
     ) -> Result<*const T, E> {
@@ -222,7 +267,7 @@ impl<C: ArchiveContext<E> + ?Sized, E: Error> ArchiveContextExt<E> for C {
 /// A context that can validate shared archive memory.
 ///
 /// Shared pointers require this kind of context to validate.
-pub trait SharedContext<E> {
+pub trait SharedContext<E = <Self as Fallible>::Error> {
     /// Registers the given `ptr` as a shared pointer with the given type.
     ///
     /// Returns `true` if the pointer was newly-registered and `check_bytes` should be called.
@@ -233,49 +278,15 @@ pub trait SharedContext<E> {
     ) -> Result<bool, E>;
 }
 
-/// Checks the given archive with an additional context.
-///
-/// See [`check_archived_value`](crate::validation::validators::check_archived_value) for more details.
-#[inline]
-pub fn check_archived_value_with_context<'a, T, C, E>(
-    buf: &'a [u8],
-    pos: isize,
-    context: &mut C,
-) -> Result<&'a T::Archived, E>
+impl<T, E> SharedContext<E> for Strategy<T, E>
 where
-    T: Archive,
-    T::Archived: CheckBytes<C, E> + Pointee<Metadata = ()>,
-    C: ArchiveContext<E> + ?Sized,
-    E: Error,
+    T: SharedContext<E>,
 {
-    unsafe {
-        let ptr = context.bounds_check_subtree_base_offset(buf.as_ptr(), pos, ())?;
-
-        let range = context.push_prefix_subtree(ptr)?;
-        CheckBytes::check_bytes(ptr, context)?;
-        context.pop_subtree_range(range)?;
-
-        Ok(&*ptr)
+    fn register_shared_ptr(
+        &mut self,
+        address: usize,
+        type_id: TypeId,
+    ) -> Result<bool, E> {
+        T::register_shared_ptr(self, address, type_id)
     }
-}
-
-/// Checks the given archive with an additional context.
-///
-/// See [`check_archived_value`](crate::validation::validators::check_archived_value) for more details.
-#[inline]
-pub fn check_archived_root_with_context<'a, T, C, E>(
-    buf: &'a [u8],
-    context: &mut C,
-) -> Result<&'a T::Archived, E>
-where
-    T: Archive,
-    T::Archived: CheckBytes<C, E> + Pointee<Metadata = ()>,
-    C: ArchiveContext<E> + ?Sized,
-    E: Error,
-{
-    check_archived_value_with_context::<T, C, E>(
-        buf,
-        buf.len() as isize - core::mem::size_of::<T::Archived>() as isize,
-        context,
-    )
 }

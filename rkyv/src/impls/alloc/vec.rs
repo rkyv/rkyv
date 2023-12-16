@@ -6,6 +6,7 @@ use crate::{
 #[cfg(not(feature = "std"))]
 use alloc::{alloc, boxed::Box, vec::Vec};
 use core::cmp;
+use rancor::Fallible;
 #[cfg(feature = "std")]
 use std::alloc;
 
@@ -52,14 +53,14 @@ impl<T: Archive> Archive for Vec<T> {
     }
 }
 
-impl<T: Serialize<S, E>, S: ScratchSpace<E> + Serializer<E> + ?Sized, E> Serialize<S, E>
-    for Vec<T>
+impl<T: Serialize<S>, S: Fallible + ScratchSpace + Serializer + ?Sized>
+    Serialize<S> for Vec<T>
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedVec::<T::Archived>::serialize_from_slice(
             self.as_slice(),
             serializer,
@@ -67,13 +68,13 @@ impl<T: Serialize<S, E>, S: ScratchSpace<E> + Serializer<E> + ?Sized, E> Seriali
     }
 }
 
-impl<T: Archive, D: ?Sized, E> Deserialize<Vec<T>, D, E>
+impl<T: Archive, D: Fallible + ?Sized> Deserialize<Vec<T>, D>
     for ArchivedVec<T::Archived>
 where
-    [T::Archived]: DeserializeUnsized<[T], D, E>,
+    [T::Archived]: DeserializeUnsized<[T], D>,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<Vec<T>, E> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<Vec<T>, D::Error> {
         unsafe {
             let data_address = self
                 .as_slice()

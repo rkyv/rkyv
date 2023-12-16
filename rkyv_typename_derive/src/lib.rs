@@ -11,7 +11,7 @@ extern crate proc_macro;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse_macro_input, spanned::Spanned, AttrStyle, DeriveInput, Error,
+    parse_macro_input, spanned::Spanned, AttrStyle, DeriveInput, Error, Expr,
     GenericParam, Lit, Meta,
 };
 
@@ -22,28 +22,38 @@ struct Attributes {
 
 fn parse_attributes(input: &DeriveInput) -> Result<Attributes, TokenStream> {
     let mut result = Attributes::default();
-    for a in input.attrs.iter() {
-        if let AttrStyle::Outer = a.style {
-            if let Ok(Meta::NameValue(meta)) = a.parse_meta() {
-                if meta.path.is_ident("typename") {
-                    if result.typename.is_none() {
-                        if let Lit::Str(ref lit_str) = meta.lit {
+    for attr in input.attrs.iter() {
+        if !matches!(attr.style, AttrStyle::Outer) {
+            continue;
+        }
+
+        if attr.path().is_ident("typename") {
+            if let Meta::NameValue(name_value) = &attr.meta {
+                if let Expr::Lit(expr_lit) = &name_value.value {
+                    if let Lit::Str(lit_str) = &expr_lit.lit {
+                        if result.typename.is_none() {
                             result.typename = Some(lit_str.value());
                         } else {
                             return Err(Error::new(
-                                meta.lit.span(),
-                                "typename must be set to a string",
+                                attr.span(),
+                                "typename attribute already specified",
                             )
                             .to_compile_error());
                         }
                     } else {
                         return Err(Error::new(
-                            meta.span(),
-                            "typename attribute already specified",
+                            expr_lit.span(),
+                            "typename must be set to a string",
                         )
                         .to_compile_error());
                     }
                 }
+            } else {
+                return Err(Error::new(
+                    attr.meta.span(),
+                    "attribute must be of the form #[typename = \"name\"]",
+                )
+                .to_compile_error());
             }
         }
     }

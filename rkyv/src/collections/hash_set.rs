@@ -10,6 +10,7 @@ use crate::{
     Serialize,
 };
 use core::{borrow::Borrow, fmt, hash::Hash};
+use rancor::Fallible;
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key and a value of
 /// `()`.
@@ -88,13 +89,13 @@ impl<K> ArchivedHashSet<K> {
     /// The keys returned by the iterator must be unique.
     #[cfg(feature = "alloc")]
     #[inline]
-    pub unsafe fn serialize_from_iter<'a, KU, S, I, E>(
+    pub unsafe fn serialize_from_iter<'a, KU, S, I>(
         iter: I,
         serializer: &mut S,
-    ) -> Result<HashSetResolver, E>
+    ) -> Result<HashSetResolver, S::Error>
     where
-        KU: 'a + Serialize<S, E, Archived = K> + Hash + Eq,
-        S: Serializer<E> + ScratchSpace<E> + ?Sized,
+        KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
+        S: Fallible + Serializer + ScratchSpace + ?Sized,
         I: ExactSizeIterator<Item = &'a KU>,
     {
         Ok(HashSetResolver(ArchivedHashMap::serialize_from_iter(

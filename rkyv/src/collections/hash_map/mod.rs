@@ -202,10 +202,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     unsafe fn raw_iter_pin(self: Pin<&mut Self>) -> RawIterPin<K, V> {
         unsafe {
             let hash_map = self.get_unchecked_mut();
-            RawIterPin::new(
-                hash_map.entries.as_ptr().cast(),
-                hash_map.len(),
-            )
+            RawIterPin::new(hash_map.entries.as_ptr().cast(), hash_map.len())
         }
     }
 
@@ -278,23 +275,25 @@ impl<K, V> ArchivedHashMap<K, V> {
 
 #[cfg(feature = "alloc")]
 const _: () = {
+    use rancor::Fallible;
+
     impl<K, V> ArchivedHashMap<K, V> {
         /// Serializes an iterator of key-value pairs as a hash map.
         ///
         /// # Safety
         ///
         /// The keys returned by the iterator must be unique.
-        pub unsafe fn serialize_from_iter<'a, KU, VU, S, I, E>(
+        pub unsafe fn serialize_from_iter<'a, KU, VU, S, I>(
             iter: I,
             serializer: &mut S,
-        ) -> Result<HashMapResolver, E>
+        ) -> Result<HashMapResolver, S::Error>
         where
-            KU: 'a + Serialize<S, E, Archived = K> + Hash + Eq,
-            VU: 'a + Serialize<S, E, Archived = V>,
-            S: Serializer<E> + ScratchSpace<E> + ?Sized,
+            KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
+            VU: 'a + Serialize<S, Archived = V>,
+            S: Fallible + Serializer + ScratchSpace + ?Sized,
             I: ExactSizeIterator<Item = (&'a KU, &'a VU)>,
         {
-            use crate::ScratchVec;
+            use crate::util::ScratchVec;
 
             let len = iter.len();
 

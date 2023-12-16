@@ -6,6 +6,7 @@ use crate::{
 #[cfg(not(feature = "std"))]
 use alloc::{alloc, boxed::Box};
 use core::cmp;
+use rancor::Fallible;
 #[cfg(feature = "std")]
 use std::alloc;
 
@@ -24,26 +25,26 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     }
 }
 
-impl<T: SerializeUnsized<S, E> + ?Sized, S: ?Sized, E> Serialize<S, E>
+impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> Serialize<S>
     for Box<T>
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedBox::serialize_from_ref(self.as_ref(), serializer)
     }
 }
 
-impl<T, D, E> Deserialize<Box<T>, D, E> for ArchivedBox<T::Archived>
+impl<T, D> Deserialize<Box<T>, D> for ArchivedBox<T::Archived>
 where
     T: ArchiveUnsized + ?Sized,
-    T::Archived: DeserializeUnsized<T, D, E>,
-    D: ?Sized,
+    T::Archived: DeserializeUnsized<T, D>,
+    D: Fallible + ?Sized,
 {
     #[inline]
-    fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, E> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {
         unsafe {
             let data_address =
                 self.get().deserialize_unsized(deserializer, |layout| {

@@ -8,6 +8,7 @@ use crate::{ArchiveUnsized, DeserializeUnsized};
 use alloc::boxed::Box;
 #[cfg(feature = "alloc")]
 use core::alloc::Layout;
+use rancor::{Fallible, Strategy};
 
 /// A deserializable shared pointer type.
 #[cfg(feature = "alloc")]
@@ -20,7 +21,7 @@ pub trait SharedPointer {
 ///
 /// This trait is required to deserialize shared pointers.
 #[cfg(feature = "alloc")]
-pub trait SharedDeserializeRegistry<E> {
+pub trait SharedDeserializeRegistry<E = <Self as Fallible>::Error> {
     /// Gets the data pointer of a previously-deserialized shared pointer.
     fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer>;
 
@@ -39,13 +40,14 @@ pub trait SharedDeserializeRegistry<E> {
         value: &T::Archived,
         to_shared: F,
         alloc: A,
-    ) -> Result<*const T, E>
+    ) -> Result<*const T, Self::Error>
     where
         T: ArchiveUnsized + ?Sized,
+        T::Archived: DeserializeUnsized<T, Self>,
         P: SharedPointer + 'static,
         F: FnOnce(*mut T) -> P,
         A: FnMut(Layout) -> *mut u8,
-        T::Archived: DeserializeUnsized<T, Self, E>,
+        Self: Fallible<Error = E>,
     {
         let ptr = value as *const T::Archived as *const u8;
         let metadata = T::Archived::deserialize_metadata(value, self)?;
@@ -70,5 +72,24 @@ pub trait SharedDeserializeRegistry<E> {
             )?;
             Ok(ptr_meta::from_raw_parts(data_address, metadata))
         }
+    }
+}
+
+impl<T, E> SharedDeserializeRegistry<E> for Strategy<T, E>
+where
+    T: SharedDeserializeRegistry<E>,
+{
+    #[inline]
+    fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer> {
+        T::get_shared_ptr(self, ptr)
+    }
+
+    #[inline]
+    fn add_shared_ptr(
+        &mut self,
+        ptr: *const u8,
+        shared: Box<dyn SharedPointer>,
+    ) -> Result<(), E> {
+        T::add_shared_ptr(self, ptr, shared)
     }
 }

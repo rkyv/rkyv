@@ -14,6 +14,7 @@ use core::{
     pin::Pin,
     slice::SliceIndex,
 };
+use rancor::Fallible;
 
 // pub use self::raw::*;
 
@@ -25,14 +26,7 @@ use core::{
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
-    check_bytes(
-        bounds(
-            T: bytecheck::CheckBytes<__C, __E>,
-            __C: crate::validation::ArchiveContext<__E>,
-            __E: bytecheck::rancor::Error,
-        ),
-        verify = verify::verify,
-    ),
+    check_bytes(verify)
 )]
 pub struct ArchivedVec<T> {
     ptr: RelPtr<T>,
@@ -127,17 +121,16 @@ impl<T> ArchivedVec<T> {
     /// Serializes an archived `Vec` from a given slice.
     #[inline]
     pub fn serialize_from_slice<
-        U: Serialize<S, E, Archived = T>,
-        S: Serializer<E> + ?Sized,
-        E,
+        U: Serialize<S, Archived = T>,
+        S: Fallible + Serializer + ?Sized,
     >(
         slice: &[U],
         serializer: &mut S,
-    ) -> Result<VecResolver, E>
+    ) -> Result<VecResolver, S::Error>
     where
         // This bound is necessary only in no-alloc, no-std situations
         // SerializeUnsized is only implemented for U: Serialize<Resolver = ()> in that case
-        [U]: SerializeUnsized<S, E>,
+        [U]: SerializeUnsized<S>,
     {
         Ok(VecResolver {
             pos: slice.serialize_unsized(serializer)?,
@@ -153,13 +146,13 @@ impl<T> ArchivedVec<T> {
     /// situations where copying uninitialized bytes the output is acceptable, this function may be
     /// used with types that contain padding bytes.
     #[inline]
-    pub unsafe fn serialize_copy_from_slice<U, S, E>(
+    pub unsafe fn serialize_copy_from_slice<U, S>(
         slice: &[U],
         serializer: &mut S,
-    ) -> Result<VecResolver, E>
+    ) -> Result<VecResolver, S::Error>
     where
-        U: Serialize<S, E, Archived = T>,
-        S: Serializer<E> + ?Sized,
+        U: Serialize<S, Archived = T>,
+        S: Fallible + Serializer + ?Sized,
     {
         use core::{mem::size_of, slice::from_raw_parts};
 
@@ -180,17 +173,17 @@ impl<T> ArchivedVec<T> {
     /// This method is unable to perform copy optimizations; prefer
     /// [`serialize_from_slice`](ArchivedVec::serialize_from_slice) when possible.
     #[inline]
-    pub fn serialize_from_iter<U, I, S, E>(
+    pub fn serialize_from_iter<U, I, S>(
         iter: I,
         serializer: &mut S,
-    ) -> Result<VecResolver, E>
+    ) -> Result<VecResolver, S::Error>
     where
-        U: Serialize<S, E, Archived = T>,
+        U: Serialize<S, Archived = T>,
         I: ExactSizeIterator,
         I::Item: Borrow<U>,
-        S: ScratchSpace<E> + Serializer<E> + ?Sized,
+        S: Fallible + ScratchSpace + Serializer + ?Sized,
     {
-        use crate::ScratchVec;
+        use crate::util::ScratchVec;
 
         unsafe {
             let mut resolvers = ScratchVec::new(serializer, iter.len())?;
@@ -329,36 +322,38 @@ pub struct VecResolver {
 #[cfg(feature = "bytecheck")]
 mod verify {
     use crate::{
-        vec::ArchivedVec,
         validation::{ArchiveContext, ArchiveContextExt},
+        vec::ArchivedVec,
     };
-    use bytecheck::{rancor::Error, CheckBytes};
+    use bytecheck::{
+        rancor::{Error, Fallible},
+        CheckBytes, Verify,
+    };
 
-    pub fn verify<T, C, E>(
-        value: &ArchivedVec<T>,
-        context: &mut C,
-    ) -> Result<(), E>
+    unsafe impl<T, C> Verify<C> for ArchivedVec<T>
     where
-        T: CheckBytes<C, E>,
-        C: ArchiveContext<E> + ?Sized,
-        E: Error,
+        T: CheckBytes<C>,
+        C: Fallible + ArchiveContext + ?Sized,
+        C::Error: Error,
     {
-        let ptr = unsafe {
-            context.bounds_check_subtree_base_offset::<[T]>(
-                value.ptr.base(),
-                value.ptr.offset(),
-                value.len.to_native() as usize,
-            )?
-        };
+        fn verify(&self, context: &mut C) -> Result<(), C::Error> {
+            let ptr = unsafe {
+                context.bounds_check_subtree_base_offset::<[T]>(
+                    self.ptr.base(),
+                    self.ptr.offset(),
+                    self.len.to_native() as usize,
+                )?
+            };
 
-        let range = unsafe { context.push_prefix_subtree(ptr)? };
-        unsafe {
-            <[T]>::check_bytes(ptr, context)?;
-        }
-        unsafe {
-            context.pop_subtree_range(range)?;
-        }
+            let range = unsafe { context.push_prefix_subtree(ptr)? };
+            unsafe {
+                <[T]>::check_bytes(ptr, context)?;
+            }
+            unsafe {
+                context.pop_subtree_range(range)?;
+            }
 
-        Ok(())
+            Ok(())
+        }
     }
 }

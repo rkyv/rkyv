@@ -14,6 +14,7 @@ use core::{
     ptr::NonNull,
     slice,
 };
+use rancor::Fallible;
 #[cfg(feature = "std")]
 use std::{alloc, io};
 
@@ -1006,12 +1007,14 @@ impl io::Write for AlignedVec {
 // SAFETY: AlignedVec is safe to send to another thread
 unsafe impl Send for AlignedVec {}
 
-impl<S: ScratchSpace<E> + Serializer<E> + ?Sized, E> Serialize<S, E> for AlignedVec {
+impl<S: Fallible + ScratchSpace + Serializer + ?Sized> Serialize<S>
+    for AlignedVec
+{
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         serializer.align(Self::ALIGNMENT)?;
         ArchivedVec::<Archived<u8>>::serialize_from_slice(
             self.as_slice(),

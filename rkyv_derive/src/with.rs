@@ -1,6 +1,6 @@
 use syn::{
     parse_quote, punctuated::Punctuated, token::Comma, Error, Expr, Field,
-    Path, Type, Meta,
+    Meta, Path, Type,
 };
 
 #[inline]

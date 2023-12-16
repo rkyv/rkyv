@@ -7,6 +7,7 @@ mod impls;
 
 use crate::{Archive, Deserialize, Serialize};
 use core::{fmt, marker::PhantomData, mem::transmute, ops::Deref};
+use rancor::Fallible;
 
 // TODO: Gate unsafe wrappers behind Unsafe.
 
@@ -114,17 +115,17 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 ///     }
 /// }
 ///
-/// impl<S: ?Sized> SerializeWith<i32, S> for Incremented
+/// impl<S: Fallible + ?Sized> SerializeWith<i32, S> for Incremented
 /// where
 ///     i32: Serialize<S>,
 /// {
-///     fn serialize_with(field: &i32, serializer: &mut S) -> Result<Self::Resolver, E> {
+///     fn serialize_with(field: &i32, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
 ///         let incremented = field + 1;
 ///         incremented.serialize(serializer)
 ///     }
 /// }
 ///
-/// impl<D: ?Sized> DeserializeWith<Archived<i32>, i32, D> for Incremented
+/// impl<D: Fallible + ?Sized> DeserializeWith<Archived<i32>, i32, D> for Incremented
 /// where
 ///     Archived<i32>: Deserialize<i32, D>,
 /// {
@@ -198,44 +199,49 @@ impl<F: ?Sized, W: ArchiveWith<F>> Archive for With<F, W> {
 }
 
 /// A variant of `Serialize` that works with `With` wrappers.
-pub trait SerializeWith<F: ?Sized, S: ?Sized, E>: ArchiveWith<F>
+pub trait SerializeWith<F: ?Sized, S: Fallible + ?Sized>:
+    ArchiveWith<F>
 {
     /// Serializes the field type `F` using the given serializer.
     fn serialize_with(
         field: &F,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E>;
+    ) -> Result<Self::Resolver, S::Error>;
 }
 
-impl<F: ?Sized, W: SerializeWith<F, S, E>, S: ?Sized, E> Serialize<S, E>
-    for With<F, W>
+impl<F, W, S> Serialize<S> for With<F, W>
+where
+    F: ?Sized,
+    W: SerializeWith<F, S>,
+    S: Fallible + ?Sized,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         W::serialize_with(&self.field, serializer)
     }
 }
 
 /// A variant of `Deserialize` that works with `With` wrappers.
-pub trait DeserializeWith<F: ?Sized, T, D: ?Sized, E> {
+pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
     /// Deserializes the field type `F` using the given deserializer.
-    fn deserialize_with(field: &F, deserializer: &mut D) -> Result<T, E>;
+    fn deserialize_with(field: &F, deserializer: &mut D)
+        -> Result<T, D::Error>;
 }
 
-impl<F, W, T, D, E> Deserialize<With<T, W>, D, E> for F
+impl<F, W, T, D> Deserialize<With<T, W>, D> for F
 where
     F: ?Sized,
-    W: DeserializeWith<F, T, D, E>,
-    D: ?Sized,
+    W: DeserializeWith<F, T, D>,
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<With<T, W>, E> {
+    ) -> Result<With<T, W>, D::Error> {
         Ok(With {
             _phantom: PhantomData,
             field: W::deserialize_with(self, deserializer)?,
@@ -327,11 +333,12 @@ pub struct AtomicLoad<SO> {
 /// When serializing and deserializing, the specified ordering will be used to
 /// load the value from the source atomic.
 ///
-/// See [`Load`] for a safe alternative.
+/// See [`AtomicLoad`] for a safe alternative.
 ///
 /// # Safety
 ///
-/// This wrapper is only safe to use when the backing memory for wrapped types is mutable.
+/// This wrapper is only safe to use when the backing memory for wrapped types
+/// is mutable.
 ///
 /// # Example
 ///
@@ -373,7 +380,7 @@ pub struct Inline;
 
 /// A wrapper that serializes a field into a box.
 ///
-/// This functions similarly to [`InlineBoxed`], but is for regular fields
+/// This functions similarly to [`BoxedInline`], but is for regular fields
 /// instead of references.
 ///
 /// # Example
@@ -441,21 +448,17 @@ pub struct BoxedInline;
 #[derive(Debug)]
 pub struct AsString;
 
-/// Errors that can occur when serializing a [`AsString`] wrapper.
 #[derive(Debug)]
-pub enum AsStringError {
-    /// The `OsString` or `PathBuf` was not valid UTF-8.
-    InvalidStr,
-}
+struct InvalidStr;
 
-impl fmt::Display for AsStringError {
+impl fmt::Display for InvalidStr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "invalid UTF-8")
     }
 }
 
 #[cfg(feature = "std")]
-impl ::std::error::Error for AsStringError {}
+impl ::std::error::Error for InvalidStr {}
 
 /// A wrapper that locks a lock and serializes the value immutably.
 ///
@@ -492,21 +495,17 @@ impl ::std::error::Error for AsStringError {}
 #[derive(Debug)]
 pub struct Lock;
 
-/// Errors that can occur while serializing a [`Lock`] wrapper
 #[derive(Debug)]
-pub enum LockError {
-    /// The mutex was poisoned
-    Poisoned,
-}
+struct Poisoned;
 
-impl fmt::Display for LockError {
+impl fmt::Display for Poisoned {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "lock poisoned")
     }
 }
 
 #[cfg(feature = "std")]
-impl ::std::error::Error for LockError {}
+impl ::std::error::Error for Poisoned {}
 
 /// A wrapper that serializes a `Cow` as if it were owned.
 ///

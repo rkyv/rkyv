@@ -1,8 +1,4 @@
-use rkyv::{
-    check_archived_root,
-    ser::{serializers::AllocSerializer, Serializer},
-    Archive, Deserialize, Serialize,
-};
+use rkyv::{access, rancor::Failure, Archive, Deserialize, Serialize};
 use std::{collections::HashMap, fmt};
 
 #[derive(Archive, Debug, Deserialize, Serialize)]
@@ -26,7 +22,7 @@ use std::{collections::HashMap, fmt};
 //   generated bounds to prevent a recursive impl.
 // We can fix this by manually specifying the bounds required by HashMap and Vec in an attribute,
 //   and then everything will compile:
-#[archive(serialize_bounds(__S: rkyv::ser::Serializer<__E> + rkyv::ser::ScratchSpace<__E>))]
+#[archive(serialize_bounds(__S: rkyv::ser::Serializer + rkyv::ser::ScratchSpace))]
 // We'll also add support for validating our archived type. Validation will allow us to check an
 // arbitrary buffer of bytes before accessing it so we can avoid using any unsafe code.
 //
@@ -57,8 +53,7 @@ use std::{collections::HashMap, fmt};
 #[archive(check_bytes)]
 #[archive_attr(check_bytes(
     bounds(
-        __C: rkyv::validation::ArchiveContext<__E>,
-        __E: rkyv::bytecheck::rancor::Error,
+        __C: rkyv::validation::ArchiveContext,
     )
 ))]
 pub enum JsonValue {
@@ -136,11 +131,8 @@ fn main() {
     hash_map.insert("project".into(), JsonValue::Null);
     let value = JsonValue::Object(hash_map);
 
-    let mut serializer = AllocSerializer::<4096>::default();
-    serializer.serialize_value(&value).unwrap();
-
-    let buf = serializer.into_serializer().into_inner();
-    let archived_value = check_archived_root::<JsonValue>(&buf).unwrap();
+    let buf = rkyv::to_bytes::<_, 4096, Failure>(&value).unwrap();
+    let archived_value = access::<JsonValue, Failure>(&buf).unwrap();
 
     println!("{}", archived_value);
 }

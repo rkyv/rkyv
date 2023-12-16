@@ -1,5 +1,9 @@
 use quote::ToTokens;
-use syn::{DeriveInput, Error, Ident, LitStr, Meta, Path, WherePredicate, parse::Parse, punctuated::Punctuated, Token, AttrStyle, meta::ParseNestedMeta, parenthesized};
+use syn::{
+    meta::ParseNestedMeta, parenthesized, parse::Parse, punctuated::Punctuated,
+    AttrStyle, DeriveInput, Error, Ident, LitStr, Meta, Path, Token,
+    WherePredicate,
+};
 
 #[derive(Default)]
 pub struct Attributes {
@@ -38,38 +42,27 @@ fn parse_archive_attributes(
     meta: ParseNestedMeta<'_>,
 ) -> Result<(), Error> {
     if meta.path.is_ident("check_bytes") {
-        if !meta.input.is_empty() {
-            return Err(Error::new_spanned(meta.path, "check_bytes argument must be a path"));
+        if !meta.input.is_empty() && !meta.input.peek(Token![,]) {
+            return Err(meta.error("check_bytes argument must be a path"));
         }
 
-        try_set_attribute(
-            &mut attributes.check_bytes,
-            meta.path,
-            "check_bytes",
-        )
+        try_set_attribute(&mut attributes.check_bytes, meta.path, "check_bytes")
     } else if meta.path.is_ident("copy_safe") {
-        if !meta.input.is_empty() {
-            return Err(Error::new_spanned(meta.path, "copy_safe argument must be a path"));
+        if !meta.input.is_empty() && !meta.input.peek(Token![,]) {
+            return Err(meta.error("copy_safe argument must be a path"));
         }
 
-        try_set_attribute(
-            &mut attributes.copy_safe,
-            meta.path,
-            "copy_safe",
-        )
+        try_set_attribute(&mut attributes.copy_safe, meta.path, "copy_safe")
     } else if meta.path.is_ident("compare") {
         let traits;
         parenthesized!(traits in meta.input);
         let traits = traits.parse_terminated(Path::parse, Token![,])?;
-        try_set_attribute(
-            &mut attributes.compares,
-            traits,
-            "compare",
-        )
+        try_set_attribute(&mut attributes.compares, traits, "compare")
     } else if meta.path.is_ident("archive_bounds") {
         let bounds;
         parenthesized!(bounds in meta.input);
-        let clauses = bounds.parse_terminated(WherePredicate::parse, Token![,])?;
+        let clauses =
+            bounds.parse_terminated(WherePredicate::parse, Token![,])?;
         try_set_attribute(
             &mut attributes.archive_bounds,
             clauses,
@@ -78,7 +71,8 @@ fn parse_archive_attributes(
     } else if meta.path.is_ident("serialize_bounds") {
         let bounds;
         parenthesized!(bounds in meta.input);
-        let clauses = bounds.parse_terminated(WherePredicate::parse, Token![,])?;
+        let clauses =
+            bounds.parse_terminated(WherePredicate::parse, Token![,])?;
         try_set_attribute(
             &mut attributes.serialize_bounds,
             clauses,
@@ -87,7 +81,8 @@ fn parse_archive_attributes(
     } else if meta.path.is_ident("deserialize_bounds") {
         let bounds;
         parenthesized!(bounds in meta.input);
-        let clauses = bounds.parse_terminated(WherePredicate::parse, Token![,])?;
+        let clauses =
+            bounds.parse_terminated(WherePredicate::parse, Token![,])?;
         try_set_attribute(
             &mut attributes.deserialize_bounds,
             clauses,
@@ -118,7 +113,10 @@ fn parse_archive_attributes(
             "crate",
         )
     } else {
-        Err(Error::new_spanned(meta.path, "unrecognized archive argument"))
+        Err(Error::new_spanned(
+            meta.path,
+            "unrecognized archive argument",
+        ))
     }
 }
 
@@ -134,9 +132,12 @@ pub fn parse_attributes(input: &DeriveInput) -> Result<Attributes, Error> {
                 parse_archive_attributes(&mut result, nested)
             })?;
         } else if attr.path().is_ident("archive_attr") {
-            result.attrs.extend(attr
-                .parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated)?
-                .into_iter());
+            result.attrs.extend(
+                attr.parse_args_with(
+                    Punctuated::<Meta, Token![,]>::parse_terminated,
+                )?
+                .into_iter(),
+            );
         }
     }
 

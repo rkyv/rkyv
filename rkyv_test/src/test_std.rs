@@ -2,9 +2,9 @@
 mod tests {
     use crate::util::alloc::*;
     use rkyv::{
-        archived_root,
-        ser::{serializers::WriteSerializer, Serializer},
-        AlignedBytes, Archive, Deserialize, Serialize,
+        access_unchecked, rancor::Failure, ser::serializers::WriteSerializer,
+        serialize, to_bytes, util::AlignedBytes, Archive, Deserialize,
+        Serialize,
     };
     use std::collections::{HashMap, HashSet};
 
@@ -23,7 +23,7 @@ mod tests {
         let mut buf = AlignedBytes([0u8; 3]);
         let mut ser = WriteSerializer::new(&mut buf[..]);
         let foo = Example { x: 100 };
-        ser.serialize_value(&foo)
+        serialize::<_, _, Failure>(&foo, &mut ser)
             .expect_err("serialized to an undersized buffer must fail");
     }
 
@@ -35,11 +35,10 @@ mod tests {
         hash_map.insert("foo".to_string(), "bar".to_string());
         hash_map.insert("baz".to_string(), "bat".to_string());
 
-        let mut serializer = DefaultSerializer::default();
-        serializer.serialize_value(&hash_map).unwrap();
-        let buf = serializer.into_serializer().into_inner();
-        let archived_value =
-            unsafe { archived_root::<HashMap<String, String>>(buf.as_ref()) };
+        let buf = to_bytes::<_, 256, Failure>(&hash_map).unwrap();
+        let archived_value = unsafe {
+            access_unchecked::<HashMap<String, String>>(buf.as_ref())
+        };
 
         assert_eq!(archived_value.len(), hash_map.len());
 
@@ -71,11 +70,9 @@ mod tests {
             "wrong value".to_string(),
         );
 
-        let mut serializer = DefaultSerializer::default();
-        serializer.serialize_value(&hash_map).unwrap();
-        let buf = serializer.into_serializer().into_inner();
+        let buf = to_bytes::<_, 256, Failure>(&hash_map).unwrap();
         let archived_value =
-            unsafe { archived_root::<HashMap<Pair, String>>(buf.as_ref()) };
+            unsafe { access_unchecked::<HashMap<Pair, String>>(buf.as_ref()) };
 
         let get_with = archived_value
             .get_with(&("my", "key"), |key, input_key| {
@@ -109,11 +106,9 @@ mod tests {
         hash_map.insert("foo".to_string(), "bar".to_string());
         hash_map.insert("baz".to_string(), "bat".to_string());
 
-        let mut serializer = DefaultSerializer::default();
-        serializer.serialize_value(&hash_map).unwrap();
-        let buf = serializer.into_serializer().into_inner();
+        let buf = to_bytes::<_, 256, Failure>(&hash_map).unwrap();
         let archived_value = unsafe {
-            archived_root::<HashMap<String, String, ahash::RandomState>>(
+            access_unchecked::<HashMap<String, String, ahash::RandomState>>(
                 buf.as_ref(),
             )
         };
@@ -139,11 +134,9 @@ mod tests {
         hash_set.insert("foo".to_string());
         hash_set.insert("baz".to_string());
 
-        let mut serializer = DefaultSerializer::default();
-        serializer.serialize_value(&hash_set).unwrap();
-        let buf = serializer.into_serializer().into_inner();
+        let buf = to_bytes::<_, 256, Failure>(&hash_set).unwrap();
         let archived_value =
-            unsafe { archived_root::<HashSet<String>>(buf.as_ref()) };
+            unsafe { access_unchecked::<HashSet<String>>(buf.as_ref()) };
 
         assert_eq!(archived_value.len(), hash_set.len());
 
@@ -175,11 +168,11 @@ mod tests {
         hash_set.insert("foo".to_string());
         hash_set.insert("baz".to_string());
 
-        let mut serializer = DefaultSerializer::default();
-        serializer.serialize_value(&hash_set).unwrap();
-        let buf = serializer.into_serializer().into_inner();
+        let buf = to_bytes::<_, 256, Failure>(&hash_set).unwrap();
         let archived_value = unsafe {
-            archived_root::<HashSet<String, ahash::RandomState>>(buf.as_ref())
+            access_unchecked::<HashSet<String, ahash::RandomState>>(
+                buf.as_ref(),
+            )
         };
 
         assert_eq!(archived_value.len(), hash_set.len());

@@ -1,13 +1,20 @@
 //! Archived versions of shared pointers.
 
 use crate::{
-    ser::{Serializer, SharedSerializeRegistry},
+    ser::{Serializer, SharedSerializeRegistry, SharedSerializeRegistryExt},
     ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr, SerializeUnsized,
 };
 use core::{
     borrow::Borrow, cmp, fmt, hash, marker::PhantomData, ops::Deref, pin::Pin,
     ptr,
 };
+use rancor::Fallible;
+
+/// The flavor type for [`Rc`](std::rc::Rc).
+pub struct RcFlavor;
+
+/// The flavor type for [`Arc`](std::sync::Arc).
+pub struct ArcFlavor;
 
 /// An archived `Rc`.
 ///
@@ -18,16 +25,7 @@ use core::{
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
-    check_bytes(
-        bounds(
-            T: bytecheck::CheckBytes<__C, __E> + crate::validation::LayoutRaw + 'static,
-            F: 'static,
-            __C: crate::validation::ArchiveContext<__E> + crate::validation::SharedContext<__E>,
-            T::ArchivedMetadata: bytecheck::CheckBytes<__C, __E>,
-            __E: bytecheck::rancor::Error,
-        ),
-        verify = verify::verify,
-    ),
+    check_bytes(verify)
 )]
 pub struct ArchivedRc<T: ArchivePointee + ?Sized, F> {
     ptr: RelPtr<T>,
@@ -76,14 +74,14 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
 
     /// Serializes an archived `Rc` from a given reference.
     #[inline]
-    pub fn serialize_from_ref<
-        U: SerializeUnsized<S, E> + ?Sized,
-        S: Serializer<E> + SharedSerializeRegistry<E> + ?Sized,
-        E,
-    >(
+    pub fn serialize_from_ref<U, S>(
         value: &U,
         serializer: &mut S,
-    ) -> Result<RcResolver<MetadataResolver<U>>, E> {
+    ) -> Result<RcResolver<MetadataResolver<U>>, S::Error>
+    where
+        U: SerializeUnsized<S> + ?Sized,
+        S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
+    {
         let pos = serializer.serialize_shared(value)?;
 
         // The positions of serialized `Rc` values must be unique. If we didn't
@@ -261,13 +259,13 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
 
     /// Serializes an archived `Weak` from a given optional reference.
     #[inline]
-    pub fn serialize_from_ref<U, S, E>(
+    pub fn serialize_from_ref<U, S>(
         value: Option<&U>,
         serializer: &mut S,
-    ) -> Result<RcWeakResolver<MetadataResolver<U>>, E>
+    ) -> Result<RcWeakResolver<MetadataResolver<U>>, S::Error>
     where
-        U: SerializeUnsized<S, E, Archived = T> + ?Sized,
-        S: Serializer<E> + SharedSerializeRegistry<E> + ?Sized,
+        U: SerializeUnsized<S, Archived = T> + ?Sized,
+        S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
     {
         Ok(match value {
             None => RcWeakResolver::None,
@@ -312,43 +310,48 @@ struct ArchivedRcWeakVariantSome<T: ArchivePointee + ?Sized, F>(
 
 #[cfg(feature = "bytecheck")]
 mod verify {
+    use super::ArchivedRc;
+    use crate::{
+        validation::{
+            ArchiveContext, ArchiveContextExt, LayoutRaw, SharedContext,
+        },
+        ArchivePointee,
+    };
+    use bytecheck::{
+        rancor::{Error, Fallible},
+        CheckBytes, Verify,
+    };
     use core::any::TypeId;
 
-    use bytecheck::{CheckBytes, rancor::Error};
-
-    use crate::{
-        validation::{ArchiveContext, ArchiveContextExt, LayoutRaw, SharedContext},
-        ArchivePointee, rc::ArchivedRc,
-    };
-
-    #[inline]
-    pub fn verify<T, F, C, E>(
-        value: &ArchivedRc<T, F>,
-        context: &mut C,
-    ) -> Result<(), E>
+    unsafe impl<T, F, C> Verify<C> for ArchivedRc<T, F>
     where
-        T: ArchivePointee + CheckBytes<C, E> + LayoutRaw + ?Sized + 'static,
+        T: ArchivePointee + CheckBytes<C> + LayoutRaw + ?Sized + 'static,
+        T::ArchivedMetadata: CheckBytes<C>,
         F: 'static,
-        C: ArchiveContext<E> + SharedContext<E> + ?Sized,
-        T::ArchivedMetadata: CheckBytes<C, E>,
-        E: Error,
+        C: Fallible + ArchiveContext + SharedContext + ?Sized,
+        C::Error: Error,
     {
-        let ptr = value.ptr.as_ptr_wrapping();
-        let type_id = TypeId::of::<ArchivedRc<T, F>>();
+        #[inline]
+        fn verify(&self, context: &mut C) -> Result<(), C::Error> {
+            let ptr = self.ptr.as_ptr_wrapping();
+            let type_id = TypeId::of::<ArchivedRc<T, F>>();
 
-        if context.register_shared_ptr(ptr as *const u8 as usize, type_id)? {
-            unsafe {
-                context.bounds_check_subtree_rel_ptr(&value.ptr)?;
-            }
+            if context
+                .register_shared_ptr(ptr as *const u8 as usize, type_id)?
+            {
+                unsafe {
+                    context.bounds_check_subtree_rel_ptr(&self.ptr)?;
+                }
 
-            let range = unsafe { context.push_prefix_subtree(ptr)? };
-            unsafe {
-                T::check_bytes(ptr, context)?;
+                let range = unsafe { context.push_prefix_subtree(ptr)? };
+                unsafe {
+                    T::check_bytes(ptr, context)?;
+                }
+                unsafe {
+                    context.pop_subtree_range(range)?;
+                }
             }
-            unsafe {
-                context.pop_subtree_range(range)?;
-            }
+            Ok(())
         }
-        Ok(())
     }
 }

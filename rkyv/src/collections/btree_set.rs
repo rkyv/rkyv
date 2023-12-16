@@ -74,6 +74,8 @@ impl<K> ArchivedBTreeSet<K> {
 
 #[cfg(feature = "alloc")]
 const _: () = {
+    use rancor::Fallible;
+
     use crate::{ser::Serializer, Serialize};
 
     impl<K> ArchivedBTreeSet<K> {
@@ -83,13 +85,13 @@ const _: () = {
         ///
         /// - Keys returned by the iterator must be unique
         /// - Keys must be in reverse sorted order from last to first
-        pub unsafe fn serialize_from_reverse_iter<'a, UK, S, I, E>(
+        pub unsafe fn serialize_from_reverse_iter<'a, UK, S, I>(
             iter: I,
             serializer: &mut S,
-        ) -> Result<BTreeSetResolver, E>
+        ) -> Result<BTreeSetResolver, S::Error>
         where
-            UK: 'a + Serialize<S, E, Archived = K>,
-            S: Serializer<E> + ?Sized,
+            UK: 'a + Serialize<S, Archived = K>,
+            S: Fallible + Serializer + ?Sized,
             I: ExactSizeIterator<Item = &'a UK>,
         {
             Ok(BTreeSetResolver(

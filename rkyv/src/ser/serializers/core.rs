@@ -316,7 +316,9 @@ impl<M: Default, F: Default> Default for FallbackScratch<M, F> {
     }
 }
 
-impl<M: ScratchSpace<E>, F: ScratchSpace<E>, E> ScratchSpace<E> for FallbackScratch<M, F> {
+impl<M: ScratchSpace<E>, F: ScratchSpace<E>, E> ScratchSpace<E>
+    for FallbackScratch<M, F>
+{
     #[inline]
     unsafe fn push_scratch(
         &mut self,

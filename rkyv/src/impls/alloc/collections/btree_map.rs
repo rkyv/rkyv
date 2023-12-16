@@ -5,6 +5,7 @@ use crate::{
 };
 #[cfg(not(feature = "std"))]
 use alloc::collections::BTreeMap;
+use rancor::Fallible;
 #[cfg(feature = "std")]
 use std::collections::BTreeMap;
 
@@ -26,16 +27,18 @@ where
     }
 }
 
-impl<K: Serialize<S, E> + Ord, V: Serialize<S, E>, S: Serializer<E> + ?Sized, E>
-    Serialize<S, E> for BTreeMap<K, V>
+impl<K, V, S> Serialize<S> for BTreeMap<K, V>
 where
+    K: Serialize<S> + Ord,
     K::Archived: Ord,
+    V: Serialize<S>,
+    S: Fallible + Serializer + ?Sized,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         unsafe {
             ArchivedBTreeMap::serialize_from_reverse_iter(
                 self.iter().rev(),
@@ -45,18 +48,18 @@ where
     }
 }
 
-impl<K: Archive + Ord, V: Archive, D: ?Sized, E>
-    Deserialize<BTreeMap<K, V>, D, E>
+impl<K: Archive + Ord, V: Archive, D: Fallible + ?Sized>
+    Deserialize<BTreeMap<K, V>, D>
     for ArchivedBTreeMap<K::Archived, V::Archived>
 where
-    K::Archived: Deserialize<K, D, E> + Ord,
-    V::Archived: Deserialize<V, D, E>,
+    K::Archived: Deserialize<K, D> + Ord,
+    V::Archived: Deserialize<V, D>,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<BTreeMap<K, V>, E> {
+    ) -> Result<BTreeMap<K, V>, D::Error> {
         let mut result = BTreeMap::new();
         for (key, value) in self.iter() {
             result.insert(

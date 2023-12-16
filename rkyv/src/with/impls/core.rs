@@ -9,8 +9,7 @@ use crate::{
         ArchiveWith, Boxed, BoxedInline, DeserializeWith, Inline, Map, Niche,
         SerializeWith, Skip, Unsafe,
     },
-    Archive, ArchiveUnsized, Deserialize, Serialize,
-    SerializeUnsized,
+    Archive, ArchiveUnsized, Deserialize, Serialize, SerializeUnsized,
 };
 use core::{
     cell::{Cell, UnsafeCell},
@@ -19,6 +18,7 @@ use core::{
     num::{NonZeroIsize, NonZeroUsize},
     ptr,
 };
+use rancor::Fallible;
 
 // Map for Options
 
@@ -61,15 +61,15 @@ where
     }
 }
 
-impl<A, O, S, E> SerializeWith<Option<O>, S, E> for Map<A>
+impl<A, O, S> SerializeWith<Option<O>, S> for Map<A>
 where
-    S: ?Sized,
-    A: ArchiveWith<O> + SerializeWith<O, S, E>,
+    S: Fallible + ?Sized,
+    A: ArchiveWith<O> + SerializeWith<O, S>,
 {
     fn serialize_with(
         field: &Option<O>,
         s: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         field
             .as_ref()
             .map(|value| A::serialize_with(value, s))
@@ -77,21 +77,20 @@ where
     }
 }
 
-impl<A, O, D, E>
+impl<A, O, D>
     DeserializeWith<
         ArchivedOption<<A as ArchiveWith<O>>::Archived>,
         Option<O>,
         D,
-        E,
     > for Map<A>
 where
-    D: ?Sized,
-    A: ArchiveWith<O> + DeserializeWith<<A as ArchiveWith<O>>::Archived, O, D, E>,
+    D: Fallible + ?Sized,
+    A: ArchiveWith<O> + DeserializeWith<<A as ArchiveWith<O>>::Archived, O, D>,
 {
     fn deserialize_with(
         field: &ArchivedOption<<A as ArchiveWith<O>>::Archived>,
         d: &mut D,
-    ) -> Result<Option<O>, E> {
+    ) -> Result<Option<O>, D::Error> {
         match field {
             ArchivedOption::Some(value) => {
                 Ok(Some(A::deserialize_with(value, d)?))
@@ -130,12 +129,12 @@ impl<F: Archive> ArchiveWith<&F> for Inline {
     }
 }
 
-impl<F: Serialize<S, E>, S: ?Sized, E> SerializeWith<&F, S, E> for Inline {
+impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<&F, S> for Inline {
     #[inline]
     fn serialize_with(
         field: &&F,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         field.serialize(serializer)
     }
 }
@@ -157,14 +156,14 @@ impl<F: ArchiveUnsized + ?Sized> ArchiveWith<&F> for BoxedInline {
     }
 }
 
-impl<F: SerializeUnsized<S, E> + ?Sized, S: ?Sized, E> SerializeWith<&F, S, E>
+impl<F: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> SerializeWith<&F, S>
     for BoxedInline
 {
     #[inline]
     fn serialize_with(
         field: &&F,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedBox::serialize_from_ref(*field, serializer)
     }
 }
@@ -186,28 +185,28 @@ impl<F: ArchiveUnsized + ?Sized> ArchiveWith<F> for Boxed {
     }
 }
 
-impl<F: SerializeUnsized<S, E> + ?Sized, S: ?Sized, E> SerializeWith<F, S, E>
+impl<F: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> SerializeWith<F, S>
     for Boxed
 {
     #[inline]
     fn serialize_with(
         field: &F,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         ArchivedBox::serialize_from_ref(field, serializer)
     }
 }
 
-impl<F: Archive, D: ?Sized, E>
-    DeserializeWith<ArchivedBox<F::Archived>, F, D, E> for Boxed
+impl<F: Archive, D: Fallible + ?Sized>
+    DeserializeWith<ArchivedBox<F::Archived>, F, D> for Boxed
 where
-    F::Archived: Deserialize<F, D, E>,
+    F::Archived: Deserialize<F, D>,
 {
     #[inline]
     fn deserialize_with(
         field: &ArchivedBox<F::Archived>,
         deserializer: &mut D,
-    ) -> Result<F, E> {
+    ) -> Result<F, D::Error> {
         field.get().deserialize(deserializer)
     }
 }
@@ -230,25 +229,25 @@ impl ArchiveWith<Option<NonZeroIsize>> for Niche {
     }
 }
 
-impl<S: ?Sized, E> SerializeWith<Option<NonZeroIsize>, S, E> for Niche {
+impl<S: Fallible + ?Sized> SerializeWith<Option<NonZeroIsize>, S> for Niche {
     #[inline]
     fn serialize_with(
         _: &Option<NonZeroIsize>,
         _: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
-impl<D: ?Sized, E>
-    DeserializeWith<ArchivedOptionNonZeroIsize, Option<NonZeroIsize>, D, E>
+impl<D: Fallible + ?Sized>
+    DeserializeWith<ArchivedOptionNonZeroIsize, Option<NonZeroIsize>, D>
     for Niche
 {
     #[inline]
     fn deserialize_with(
         field: &ArchivedOptionNonZeroIsize,
         _: &mut D,
-    ) -> Result<Option<NonZeroIsize>, E> {
+    ) -> Result<Option<NonZeroIsize>, D::Error> {
         // This conversion is necessary with archive_be and archive_le
         #[allow(clippy::useless_conversion)]
         Ok(field
@@ -273,25 +272,25 @@ impl ArchiveWith<Option<NonZeroUsize>> for Niche {
     }
 }
 
-impl<S: ?Sized, E> SerializeWith<Option<NonZeroUsize>, S, E> for Niche {
+impl<S: Fallible + ?Sized> SerializeWith<Option<NonZeroUsize>, S> for Niche {
     #[inline]
     fn serialize_with(
         _: &Option<NonZeroUsize>,
         _: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
-impl<D: ?Sized, E>
-    DeserializeWith<ArchivedOptionNonZeroUsize, Option<NonZeroUsize>, D, E>
+impl<D: Fallible + ?Sized>
+    DeserializeWith<ArchivedOptionNonZeroUsize, Option<NonZeroUsize>, D>
     for Niche
 {
     #[inline]
     fn deserialize_with(
         field: &ArchivedOptionNonZeroUsize,
         _: &mut D,
-    ) -> Result<Option<NonZeroUsize>, E> {
+    ) -> Result<Option<NonZeroUsize>, D::Error> {
         // This conversion is necessary with archive_be and archive_le
         #[allow(clippy::useless_conversion)]
         Ok(field
@@ -317,28 +316,28 @@ impl<F: Archive> ArchiveWith<UnsafeCell<F>> for Unsafe {
     }
 }
 
-impl<F: Serialize<S, E>, S: ?Sized, E> SerializeWith<UnsafeCell<F>, S, E>
+impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<UnsafeCell<F>, S>
     for Unsafe
 {
     #[inline]
     fn serialize_with(
         field: &UnsafeCell<F>,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         unsafe { (*field.get()).serialize(serializer) }
     }
 }
 
-impl<F: Archive, D: ?Sized, E>
-    DeserializeWith<UnsafeCell<F::Archived>, UnsafeCell<F>, D, E> for Unsafe
+impl<F: Archive, D: Fallible + ?Sized>
+    DeserializeWith<UnsafeCell<F::Archived>, UnsafeCell<F>, D> for Unsafe
 where
-    F::Archived: Deserialize<F, D, E>,
+    F::Archived: Deserialize<F, D>,
 {
     #[inline]
     fn deserialize_with(
         field: &UnsafeCell<F::Archived>,
         deserializer: &mut D,
-    ) -> Result<UnsafeCell<F>, E> {
+    ) -> Result<UnsafeCell<F>, D::Error> {
         unsafe {
             (*field.get())
                 .deserialize(deserializer)
@@ -362,28 +361,28 @@ impl<F: Archive> ArchiveWith<Cell<F>> for Unsafe {
     }
 }
 
-impl<F: Serialize<S, E>, S: ?Sized, E> SerializeWith<Cell<F>, S, E>
+impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Cell<F>, S>
     for Unsafe
 {
     #[inline]
     fn serialize_with(
         field: &Cell<F>,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         unsafe { (*field.as_ptr()).serialize(serializer) }
     }
 }
 
-impl<F: Archive, D: ?Sized, E>
-    DeserializeWith<Cell<F::Archived>, Cell<F>, D, E> for Unsafe
+impl<F: Archive, D: Fallible + ?Sized>
+    DeserializeWith<Cell<F::Archived>, Cell<F>, D> for Unsafe
 where
-    F::Archived: Deserialize<F, D, E>,
+    F::Archived: Deserialize<F, D>,
 {
     #[inline]
     fn deserialize_with(
         field: &Cell<F::Archived>,
         deserializer: &mut D,
-    ) -> Result<Cell<F>, E> {
+    ) -> Result<Cell<F>, D::Error> {
         unsafe {
             (*field.as_ptr())
                 .deserialize(deserializer)
@@ -407,14 +406,14 @@ impl<F> ArchiveWith<F> for Skip {
     }
 }
 
-impl<F, S: ?Sized, E> SerializeWith<F, S, E> for Skip {
-    fn serialize_with(_: &F, _: &mut S) -> Result<(), E> {
+impl<F, S: Fallible + ?Sized> SerializeWith<F, S> for Skip {
+    fn serialize_with(_: &F, _: &mut S) -> Result<(), S::Error> {
         Ok(())
     }
 }
 
-impl<F: Default, D: ?Sized, E> DeserializeWith<(), F, D, E> for Skip {
-    fn deserialize_with(_: &(), _: &mut D) -> Result<F, E> {
+impl<F: Default, D: Fallible + ?Sized> DeserializeWith<(), F, D> for Skip {
+    fn deserialize_with(_: &(), _: &mut D) -> Result<F, D::Error> {
         Ok(Default::default())
     }
 }

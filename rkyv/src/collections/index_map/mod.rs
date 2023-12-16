@@ -148,9 +148,7 @@ impl<K, V> ArchivedIndexMap<K, V> {
 
     #[inline]
     unsafe fn raw_iter(&self) -> RawIter<K, V> {
-        unsafe {
-            RawIter::new(self.entries.as_ptr().cast(), self.len())
-        }
+        unsafe { RawIter::new(self.entries.as_ptr().cast(), self.len()) }
     }
 
     /// Returns an iterator over the key-value pairs of the map in order
@@ -225,6 +223,8 @@ impl<K, V> ArchivedIndexMap<K, V> {
 
 #[cfg(feature = "alloc")]
 const _: () = {
+    use rancor::Fallible;
+
     use crate::{
         ser::{ScratchSpace, Serializer},
         Serialize,
@@ -237,19 +237,19 @@ const _: () = {
         ///
         /// - The keys returned by the iterator must be unique
         /// - The index function must return the index of the given key within the iterator
-        pub unsafe fn serialize_from_iter_index<'a, UK, UV, I, F, S, E>(
+        pub unsafe fn serialize_from_iter_index<'a, UK, UV, I, F, S>(
             iter: I,
             index: F,
             serializer: &mut S,
-        ) -> Result<IndexMapResolver, E>
+        ) -> Result<IndexMapResolver, S::Error>
         where
-            UK: 'a + Serialize<S, E, Archived = K> + Hash + Eq,
-            UV: 'a + Serialize<S, E, Archived = V>,
+            UK: 'a + Serialize<S, Archived = K> + Hash + Eq,
+            UV: 'a + Serialize<S, Archived = V>,
             I: Clone + ExactSizeIterator<Item = (&'a UK, &'a UV)>,
             F: Fn(&UK) -> usize,
-            S: Serializer<E> + ScratchSpace<E> + ?Sized,
+            S: Fallible + Serializer + ScratchSpace + ?Sized,
         {
-            use crate::ScratchVec;
+            use crate::util::ScratchVec;
 
             let len = iter.len();
 

@@ -3,14 +3,13 @@
 use core::{
     alloc::{Layout, LayoutError},
     fmt,
-    ops::Range, num::NonZeroUsize,
+    num::NonZeroUsize,
+    ops::Range,
 };
 
 use bytecheck::rancor::Error;
 
 use crate::validation::ArchiveContext;
-
-// TODO: remove raw pointers
 
 /// Errors that can occur when checking archive memory.
 #[derive(Debug)]
@@ -18,7 +17,7 @@ pub enum ArchiveError {
     /// The pointer wasn't aligned properly for the desired type
     Unaligned {
         /// The pointer to the type
-        ptr: *const u8,
+        address: usize,
         /// The required alignment of the type
         align: usize,
     },
@@ -42,21 +41,13 @@ pub enum ArchiveError {
     },
 }
 
-// SAFETY: ArchiveError is safe to send to another thread
-// This trait is not automatically implemented because the enum contains a pointer
-unsafe impl Send for ArchiveError {}
-
-// SAFETY: ArchiveError is safe to share between threads
-// This trait is not automatically implemented because the enum contains a pointer
-unsafe impl Sync for ArchiveError {}
-
 impl fmt::Display for ArchiveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArchiveError::Unaligned { ptr, align } => write!(
+            ArchiveError::Unaligned { address, align } => write!(
                 f,
                 "unaligned pointer: ptr {:p} unaligned for alignment {}",
-                ptr, align
+                address, align
             ),
             ArchiveError::InvalidSubtreePointer {
                 address,
@@ -111,10 +102,16 @@ impl ArchiveValidator {
 
     /// Crates a new bounds validator for the given bytes with a maximum validation depth.
     #[inline]
-    pub fn with_max_depth(bytes: &[u8], max_subtree_depth: Option<NonZeroUsize>) -> Self {
+    pub fn with_max_depth(
+        bytes: &[u8],
+        max_subtree_depth: Option<NonZeroUsize>,
+    ) -> Self {
         let Range { start, end } = bytes.as_ptr_range();
         Self {
-            subtree_range: Range { start: start as usize, end: end as usize },
+            subtree_range: Range {
+                start: start as usize,
+                end: end as usize,
+            },
             max_subtree_depth,
         }
     }
@@ -131,13 +128,13 @@ unsafe impl<E: Error> ArchiveContext<E> for ArchiveValidator {
         let end = ptr.wrapping_add(layout.size()) as usize;
         if start < self.subtree_range.start || end > self.subtree_range.end {
             Err(E::new(ArchiveError::InvalidSubtreePointer {
-                address: start as usize,
+                address: start,
                 size: layout.size(),
                 subtree_range: self.subtree_range.clone(),
             }))
         } else if start & (layout.align() - 1) != 0 {
             Err(E::new(ArchiveError::Unaligned {
-                ptr,
+                address: ptr as usize,
                 align: layout.align(),
             }))
         } else {
@@ -153,7 +150,9 @@ unsafe impl<E: Error> ArchiveContext<E> for ArchiveValidator {
     ) -> Result<Range<usize>, E> {
         if let Some(max_subtree_depth) = &mut self.max_subtree_depth {
             *max_subtree_depth = NonZeroUsize::new(max_subtree_depth.get() - 1)
-                .ok_or_else(|| E::new(ArchiveError::ExceededMaximumSubtreeDepth))?;
+                .ok_or_else(|| {
+                    E::new(ArchiveError::ExceededMaximumSubtreeDepth)
+                })?;
         }
 
         let result = Range {
@@ -172,7 +171,9 @@ unsafe impl<E: Error> ArchiveContext<E> for ArchiveValidator {
     ) -> Result<Range<usize>, E> {
         if let Some(max_subtree_depth) = &mut self.max_subtree_depth {
             *max_subtree_depth = NonZeroUsize::new(max_subtree_depth.get() - 1)
-                .ok_or_else(|| E::new(ArchiveError::ExceededMaximumSubtreeDepth))?;
+                .ok_or_else(|| {
+                    E::new(ArchiveError::ExceededMaximumSubtreeDepth)
+                })?;
         }
 
         let result = Range {

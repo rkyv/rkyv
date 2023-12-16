@@ -7,6 +7,7 @@ use core::{
     borrow::Borrow,
     hash::{BuildHasher, Hash},
 };
+use rancor::Fallible;
 use std::collections::HashMap;
 
 impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>
@@ -27,39 +28,37 @@ where
     }
 }
 
-impl<K, V, S, RandomState, E> Serialize<S, E> for HashMap<K, V, RandomState>
+impl<K, V, S, RandomState> Serialize<S> for HashMap<K, V, RandomState>
 where
-    K: Serialize<S, E> + Hash + Eq,
+    K: Serialize<S> + Hash + Eq,
     K::Archived: Hash + Eq,
-    V: Serialize<S, E>,
-    S: Serializer<E> + ScratchSpace<E> + ?Sized,
+    V: Serialize<S>,
+    S: Fallible + Serializer + ScratchSpace + ?Sized,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
-    ) -> Result<Self::Resolver, E> {
+    ) -> Result<Self::Resolver, S::Error> {
         unsafe { ArchivedHashMap::serialize_from_iter(self.iter(), serializer) }
     }
 }
 
-impl<
-    K: Archive + Hash + Eq,
-    V: Archive,
-    D: ?Sized,
-    S: Default + BuildHasher,
-    E,
-> Deserialize<HashMap<K, V, S>, D, E>
+impl<K, V, D, S> Deserialize<HashMap<K, V, S>, D>
     for ArchivedHashMap<K::Archived, V::Archived>
 where
-    K::Archived: Deserialize<K, D, E> + Hash + Eq,
-    V::Archived: Deserialize<V, D, E>,
+    K: Archive + Hash + Eq,
+    K::Archived: Deserialize<K, D> + Hash + Eq,
+    V: Archive,
+    V::Archived: Deserialize<V, D>,
+    D: Fallible + ?Sized,
+    S: Default + BuildHasher,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
-    ) -> Result<HashMap<K, V, S>, E> {
+    ) -> Result<HashMap<K, V, S>, D::Error> {
         let mut result =
             HashMap::with_capacity_and_hasher(self.len(), S::default());
         for (k, v) in self.iter() {
@@ -73,12 +72,12 @@ where
 }
 
 impl<
-    K: Hash + Eq + Borrow<AK>,
-    V,
-    AK: Hash + Eq,
-    AV: PartialEq<V>,
-    S: BuildHasher,
-> PartialEq<HashMap<K, V, S>> for ArchivedHashMap<AK, AV>
+        K: Hash + Eq + Borrow<AK>,
+        V,
+        AK: Hash + Eq,
+        AV: PartialEq<V>,
+        S: BuildHasher,
+    > PartialEq<HashMap<K, V, S>> for ArchivedHashMap<AK, AV>
 {
     #[inline]
     fn eq(&self, other: &HashMap<K, V, S>) -> bool {

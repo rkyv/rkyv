@@ -13,6 +13,7 @@ use core::{
     pin::Pin,
     str,
 };
+use rancor::Fallible;
 use repr::{ArchivedStringRepr, INLINE_CAPACITY};
 
 /// An archived [`String`].
@@ -24,13 +25,7 @@ use repr::{ArchivedStringRepr, INLINE_CAPACITY};
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
-    check_bytes(
-        bounds(
-            __C: crate::validation::ArchiveContext<__E>,
-            __E: bytecheck::rancor::Error,
-        ),
-        verify = verify::verify,
-    ),
+    check_bytes(verify)
 )]
 pub struct ArchivedString {
     repr: repr::ArchivedStringRepr,
@@ -76,12 +71,12 @@ impl ArchivedString {
 
     /// Serializes an archived string from a given `str`.
     #[inline]
-    pub fn serialize_from_str<S: ?Sized, E>(
+    pub fn serialize_from_str<S: Fallible + ?Sized>(
         value: &str,
         serializer: &mut S,
-    ) -> Result<StringResolver, E>
+    ) -> Result<StringResolver, S::Error>
     where
-        str: SerializeUnsized<S, E>,
+        str: SerializeUnsized<S>,
     {
         if value.len() <= INLINE_CAPACITY {
             Ok(StringResolver { pos: 0 })
@@ -176,7 +171,7 @@ impl PartialEq for ArchivedString {
 impl PartialOrd for ArchivedString {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        self.as_str().partial_cmp(other.as_str())
+        Some(self.cmp(other))
     }
 }
 
@@ -243,37 +238,48 @@ pub struct StringResolver {
 
 #[cfg(feature = "bytecheck")]
 mod verify {
-    use bytecheck::{CheckBytes, rancor::Error};
+    use bytecheck::{
+        rancor::{Error, Fallible},
+        CheckBytes, Verify,
+    };
 
-    use crate::{string::{ArchivedString, repr::ArchivedStringRepr}, validation::{ArchiveContext, ArchiveContextExt}};
+    use crate::{
+        string::{repr::ArchivedStringRepr, ArchivedString},
+        validation::{ArchiveContext, ArchiveContextExt},
+    };
 
-    #[inline]
-    pub fn verify<C: ArchiveContext<E> + ?Sized, E: Error>(
-        value: &ArchivedString,
-        context: &mut C,
-    ) -> Result<(), E> {
-        if value.repr.is_inline() {
-            unsafe {
-                str::check_bytes(value.repr.as_str_ptr(), context)?;
+    unsafe impl<C> Verify<C> for ArchivedString
+    where
+        C: Fallible + ArchiveContext + ?Sized,
+        C::Error: Error,
+    {
+        #[inline]
+        fn verify(&self, context: &mut C) -> Result<(), C::Error> {
+            if self.repr.is_inline() {
+                unsafe {
+                    str::check_bytes(self.repr.as_str_ptr(), context)?;
+                }
+            } else {
+                let base = (&self.repr as *const ArchivedStringRepr).cast();
+                let offset = unsafe { self.repr.out_of_line_offset() };
+                let metadata = self.repr.len();
+
+                let ptr = unsafe {
+                    context.bounds_check_subtree_base_offset::<str>(
+                        base, offset, metadata,
+                    )?
+                };
+
+                let range = unsafe { context.push_prefix_subtree(ptr)? };
+                unsafe {
+                    str::check_bytes(ptr, context)?;
+                }
+                unsafe {
+                    context.pop_subtree_range(range)?;
+                }
             }
-        } else {
-            let base = (&value.repr as *const ArchivedStringRepr).cast();
-            let offset = unsafe { value.repr.out_of_line_offset() };
-            let metadata = value.repr.len();
 
-            let ptr = unsafe {
-                context.bounds_check_subtree_base_offset::<str>(base, offset, metadata)?
-            };
-
-            let range = unsafe { context.push_prefix_subtree(ptr)? };
-            unsafe {
-                str::check_bytes(ptr, context)?;
-            }
-            unsafe {
-                context.pop_subtree_range(range)?;
-            }
+            Ok(())
         }
-
-        Ok(())
     }
 }

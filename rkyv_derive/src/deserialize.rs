@@ -19,6 +19,10 @@ fn derive_deserialize_impl(
     mut input: DeriveInput,
     attributes: &Attributes,
 ) -> Result<TokenStream, Error> {
+    let default_rkyv_path = parse_quote! { ::rkyv };
+    let rkyv_path = attributes.rkyv_path.as_ref().unwrap_or(&default_rkyv_path);
+    let with_ty = make_with_ty(rkyv_path);
+
     let where_clause = input.generics.make_where_clause();
     if let Some(ref bounds) = attributes.archive_bounds {
         for bound in bounds {
@@ -32,8 +36,8 @@ fn derive_deserialize_impl(
     }
 
     let mut impl_input_params = Punctuated::default();
-    impl_input_params.push(parse_quote! { __D: ?Sized });
-    impl_input_params.push(parse_quote! { __E });
+    impl_input_params
+        .push(parse_quote! { __D: #rkyv_path::rancor::Fallible + ?Sized });
     for param in input.generics.params.iter() {
         impl_input_params.push(param.clone());
     }
@@ -43,10 +47,6 @@ fn derive_deserialize_impl(
         gt_token: Some(Default::default()),
         where_clause: input.generics.where_clause.clone(),
     };
-
-    let default_rkyv_path = parse_quote! { ::rkyv };
-    let rkyv_path = attributes.rkyv_path.as_ref().unwrap_or(&default_rkyv_path);
-    let with_ty = make_with_ty(rkyv_path);
 
     let name = &input.ident;
     let (impl_generics, _, _) = impl_input_generics.split_for_impl();
@@ -63,7 +63,7 @@ fn derive_deserialize_impl(
                         .predicates
                         .push(parse_quote! { #ty: #rkyv_path::Archive });
                     deserialize_where.predicates.push(
-                        parse_quote! { #rkyv_path::Archived<#ty>: #rkyv_path::Deserialize<#ty, __D, __E> },
+                        parse_quote! { #rkyv_path::Archived<#ty>: #rkyv_path::Deserialize<#ty, __D> },
                     );
                 }
 
@@ -73,7 +73,7 @@ fn derive_deserialize_impl(
                     let value = with_inner(
                         f,
                         parse_quote! {
-                            #rkyv_path::Deserialize::<#ty, __D, __E>::deserialize(
+                            #rkyv_path::Deserialize::<#ty, __D>::deserialize(
                                 &self.#name,
                                 deserializer,
                             )?
@@ -84,9 +84,9 @@ fn derive_deserialize_impl(
                 });
 
                 quote! {
-                    impl #impl_generics #rkyv_path::Deserialize<#name #ty_generics, __D, __E> for #rkyv_path::Archived<#name #ty_generics> #deserialize_where {
+                    impl #impl_generics #rkyv_path::Deserialize<#name #ty_generics, __D> for #rkyv_path::Archived<#name #ty_generics> #deserialize_where {
                         #[inline]
-                        fn deserialize(&self, deserializer: &mut __D) -> ::core::result::Result<#name #ty_generics, __E> {
+                        fn deserialize(&self, deserializer: &mut __D) -> ::core::result::Result<#name #ty_generics, <__D as #rkyv_path::rancor::Fallible>::Error> {
                             Ok(#name {
                                 #(#deserialize_fields,)*
                             })
@@ -102,7 +102,7 @@ fn derive_deserialize_impl(
                         .predicates
                         .push(parse_quote! { #ty: #rkyv_path::Archive });
                     deserialize_where.predicates.push(
-                        parse_quote! { #rkyv_path::Archived<#ty>: #rkyv_path::Deserialize<#ty, __D, __E> },
+                        parse_quote! { #rkyv_path::Archived<#ty>: #rkyv_path::Deserialize<#ty, __D> },
                     );
                 }
 
@@ -113,7 +113,7 @@ fn derive_deserialize_impl(
                         let value = with_inner(
                             f,
                             parse_quote! {
-                                #rkyv_path::Deserialize::<#ty, __D, __E>::deserialize(
+                                #rkyv_path::Deserialize::<#ty, __D>::deserialize(
                                     &self.#index,
                                     deserializer,
                                 )?
@@ -124,9 +124,9 @@ fn derive_deserialize_impl(
                     });
 
                 quote! {
-                    impl #impl_generics #rkyv_path::Deserialize<#name #ty_generics, __D, __E> for #rkyv_path::Archived<#name #ty_generics> #deserialize_where {
+                    impl #impl_generics #rkyv_path::Deserialize<#name #ty_generics, __D> for #rkyv_path::Archived<#name #ty_generics> #deserialize_where {
                         #[inline]
-                        fn deserialize(&self, deserializer: &mut __D) -> ::core::result::Result<#name #ty_generics, __E> {
+                        fn deserialize(&self, deserializer: &mut __D) -> ::core::result::Result<#name #ty_generics, <__D as #rkyv_path::rancor::Fallible>::Error> {
                             Ok(#name(
                                 #(#deserialize_fields,)*
                             ))
@@ -135,9 +135,9 @@ fn derive_deserialize_impl(
                 }
             }
             Fields::Unit => quote! {
-                impl #impl_generics #rkyv_path::Deserialize<#name #ty_generics, __D, __E> for #rkyv_path::Archived<#name #ty_generics> #where_clause {
+                impl #impl_generics #rkyv_path::Deserialize<#name #ty_generics, __D> for #rkyv_path::Archived<#name #ty_generics> #where_clause {
                     #[inline]
-                    fn deserialize(&self, _: &mut __D) -> ::core::result::Result<#name #ty_generics, __E> {
+                    fn deserialize(&self, _: &mut __D) -> ::core::result::Result<#name #ty_generics, <__D as #rkyv_path::rancor::Fallible>::Error> {
                         Ok(#name)
                     }
                 }
@@ -148,25 +148,28 @@ fn derive_deserialize_impl(
             for variant in data.variants.iter() {
                 match variant.fields {
                     Fields::Named(ref fields) => {
-                        for field in fields.named.iter().filter(is_not_omitted) {
+                        for field in fields.named.iter().filter(is_not_omitted)
+                        {
                             let ty = with_ty(field)?;
+                            deserialize_where.predicates.push(
+                                parse_quote! { #ty: #rkyv_path::Archive },
+                            );
                             deserialize_where
                                 .predicates
-                                .push(parse_quote! { #ty: #rkyv_path::Archive });
-                            deserialize_where
-                                .predicates
-                                .push(parse_quote! { #rkyv_path::Archived<#ty>: #rkyv_path::Deserialize<#ty, __D, __E> });
+                                .push(parse_quote! { #rkyv_path::Archived<#ty>: #rkyv_path::Deserialize<#ty, __D> });
                         }
                     }
                     Fields::Unnamed(ref fields) => {
-                        for field in fields.unnamed.iter().filter(is_not_omitted) {
+                        for field in
+                            fields.unnamed.iter().filter(is_not_omitted)
+                        {
                             let ty = with_ty(field)?;
+                            deserialize_where.predicates.push(
+                                parse_quote! { #ty: #rkyv_path::Archive },
+                            );
                             deserialize_where
                                 .predicates
-                                .push(parse_quote! { #ty: #rkyv_path::Archive });
-                            deserialize_where
-                                .predicates
-                                .push(parse_quote! { #rkyv_path::Archived<#ty>: #rkyv_path::Deserialize<#ty, __D, __E> });
+                                .push(parse_quote! { #rkyv_path::Archived<#ty>: #rkyv_path::Deserialize<#ty, __D> });
                         }
                     }
                     Fields::Unit => (),
@@ -187,7 +190,7 @@ fn derive_deserialize_impl(
                             let value = with_inner(
                                 f,
                                 parse_quote! {
-                                    #rkyv_path::Deserialize::<#ty, __D, __E>::deserialize(
+                                    #rkyv_path::Deserialize::<#ty, __D>::deserialize(
                                         #name,
                                         deserializer,
                                     )?
@@ -211,7 +214,7 @@ fn derive_deserialize_impl(
                             let value = with_inner(
                                 f,
                                 parse_quote! {
-                                    #rkyv_path::Deserialize::<#ty, __D, __E>::deserialize(
+                                    #rkyv_path::Deserialize::<#ty, __D>::deserialize(
                                         #binding,
                                         deserializer,
                                     )?
@@ -231,9 +234,9 @@ fn derive_deserialize_impl(
             });
 
             quote! {
-                impl #impl_generics #rkyv_path::Deserialize<#name #ty_generics, __D, __E> for #rkyv_path::Archived<#name #ty_generics> #deserialize_where {
+                impl #impl_generics #rkyv_path::Deserialize<#name #ty_generics, __D> for #rkyv_path::Archived<#name #ty_generics> #deserialize_where {
                     #[inline]
-                    fn deserialize(&self, deserializer: &mut __D) -> ::core::result::Result<#name #ty_generics, __E> {
+                    fn deserialize(&self, deserializer: &mut __D) -> ::core::result::Result<#name #ty_generics, <__D as #rkyv_path::rancor::Fallible>::Error> {
                         Ok(match self {
                             #(#deserialize_variants,)*
                         })

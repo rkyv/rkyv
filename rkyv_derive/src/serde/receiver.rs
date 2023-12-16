@@ -187,7 +187,9 @@ impl ReplaceReceiver<'_> {
                 for arg in &mut arguments.args {
                     match arg {
                         GenericArgument::Type(arg) => self.visit_type_mut(arg),
-                        GenericArgument::AssocType(arg) => self.visit_type_mut(&mut arg.ty),
+                        GenericArgument::AssocType(arg) => {
+                            self.visit_type_mut(&mut arg.ty)
+                        }
                         _ => {}
                     }
                 }
@@ -209,11 +211,8 @@ impl ReplaceReceiver<'_> {
     }
 
     fn visit_type_param_bound_mut(&mut self, bound: &mut TypeParamBound) {
-        match bound {
-            TypeParamBound::Trait(bound) => {
-                self.visit_path_mut(&mut bound.path)
-            }
-            _ => {}
+        if let TypeParamBound::Trait(bound) = bound {
+            self.visit_path_mut(&mut bound.path)
         }
     }
 
@@ -230,14 +229,11 @@ impl ReplaceReceiver<'_> {
         }
         if let Some(where_clause) = &mut generics.where_clause {
             for predicate in &mut where_clause.predicates {
-                match predicate {
-                    WherePredicate::Type(predicate) => {
-                        self.visit_type_mut(&mut predicate.bounded_ty);
-                        for bound in &mut predicate.bounds {
-                            self.visit_type_param_bound_mut(bound);
-                        }
+                if let WherePredicate::Type(predicate) = predicate {
+                    self.visit_type_mut(&mut predicate.bounded_ty);
+                    for bound in &mut predicate.bounds {
+                        self.visit_type_param_bound_mut(bound);
                     }
-                    _ => {}
                 }
             }
         }

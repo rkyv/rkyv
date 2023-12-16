@@ -7,10 +7,11 @@ mod core;
 mod std;
 
 #[cfg(feature = "alloc")]
-use crate::AlignedVec;
+use crate::util::AlignedVec;
 use crate::{
     ser::{ScratchSpace, Serializer, SharedSerializeRegistry},
-    AlignedBytes, Archive, ArchiveUnsized,
+    util::AlignedBytes,
+    Archive, ArchiveUnsized,
 };
 use ::core::{alloc::Layout, ptr::NonNull};
 
@@ -112,11 +113,14 @@ impl<S: Serializer<E>, C, H, E> Serializer<E> for CompositeSerializer<S, C, H> {
         to: usize,
         metadata_resolver: T::MetadataResolver,
     ) -> Result<usize, E> {
-        self.serializer.resolve_unsized_aligned(value, to, metadata_resolver)
+        self.serializer
+            .resolve_unsized_aligned(value, to, metadata_resolver)
     }
 }
 
-impl<S, C: ScratchSpace<E>, H, E> ScratchSpace<E> for CompositeSerializer<S, C, H> {
+impl<S, C: ScratchSpace<E>, H, E> ScratchSpace<E>
+    for CompositeSerializer<S, C, H>
+{
     #[inline]
     unsafe fn push_scratch(
         &mut self,
@@ -135,8 +139,8 @@ impl<S, C: ScratchSpace<E>, H, E> ScratchSpace<E> for CompositeSerializer<S, C, 
     }
 }
 
-impl<S, C, H: SharedSerializeRegistry<E>, E>
-    SharedSerializeRegistry<E> for CompositeSerializer<S, C, H>
+impl<S, C, H: SharedSerializeRegistry<E>, E> SharedSerializeRegistry<E>
+    for CompositeSerializer<S, C, H>
 {
     #[inline]
     fn get_shared_ptr(&self, value: *const u8) -> Option<usize> {

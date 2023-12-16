@@ -11,6 +11,7 @@ use crate::{
     out_field,
 };
 use core::{borrow::Borrow, fmt, hash::Hash};
+use rancor::Fallible;
 
 /// An archived `IndexSet`.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -136,16 +137,16 @@ const _: () = {
         /// - The keys returned by the iterator must be unique
         /// - The index function must return the index of the given key within the iterator
         #[inline]
-        pub unsafe fn serialize_from_iter_index<'a, UK, I, F, S, E>(
+        pub unsafe fn serialize_from_iter_index<'a, UK, I, F, S>(
             iter: I,
             index: F,
             serializer: &mut S,
-        ) -> Result<IndexSetResolver, E>
+        ) -> Result<IndexSetResolver, S::Error>
         where
-            UK: 'a + Hash + Eq + Serialize<S, E, Archived = K>,
+            UK: 'a + Hash + Eq + Serialize<S, Archived = K>,
             I: Clone + ExactSizeIterator<Item = &'a UK>,
             F: Fn(&UK) -> usize,
-            S: ScratchSpace<E> + Serializer<E> + ?Sized,
+            S: Fallible + ScratchSpace + Serializer + ?Sized,
         {
             Ok(IndexSetResolver(
                 ArchivedIndexMap::serialize_from_iter_index(
