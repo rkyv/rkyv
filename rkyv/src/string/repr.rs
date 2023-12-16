@@ -31,6 +31,16 @@ pub union ArchivedStringRepr {
     inline: InlineRepr,
 }
 
+impl Clone for ArchivedStringRepr {
+    fn clone(&self) -> Self {
+        if self.is_inline() {
+            unsafe { Self { inline: self.inline.clone() } }
+        } else {
+            unsafe { Self { out_of_line: self.out_of_line.clone() } }
+        }
+    }
+}
+
 impl ArchivedStringRepr {
     /// Returns whether the representation is inline.
     #[inline]

@@ -20,6 +20,7 @@ use repr::{ArchivedStringRepr, INLINE_CAPACITY};
 /// This has inline and out-of-line representations. Short strings will use the available space
 /// inside the structure to store the string, and long strings will store a
 /// [`RelPtr`](crate::RelPtr) to a `str` instead.
+#[derive(Clone)]
 #[repr(transparent)]
 pub struct ArchivedString(repr::ArchivedStringRepr);
 
