@@ -134,10 +134,10 @@ pub unsafe fn archived_unsized_value_mut<T: ArchiveUnsized + ?Sized>(
 
 /// Casts an archived value from the given byte slice by calculating the root position.
 ///
-/// This is a wrapper for [`archived_value`](crate::archived_value) that calculates the correct
-/// position of the root using the length of the byte slice. If your byte slice is not guaranteed to
-/// end immediately after the root object, you may need to store the position of the root object
-/// returned from [`serialize_value`](crate::ser::Serializer::serialize_value).
+/// This is a wrapper for [`archived_value`] that calculates the correct position of the root using
+/// the length of the byte slice. If your byte slice is not guaranteed to end immediately after the
+/// root object, you may need to store the position of the root object returned from
+/// [`serialize_value`](crate::ser::Serializer::serialize_value).
 ///
 /// # Safety
 ///
@@ -150,10 +150,10 @@ pub unsafe fn archived_root<T: Archive + ?Sized>(bytes: &[u8]) -> &T::Archived {
 
 /// Casts a mutable archived value from the given byte slice by calculating the root position.
 ///
-/// This is a wrapper for [`archived_value_mut`](crate::archived_value_mut) that calculates the
-/// correct position of the root using the length of the byte slice. If your byte slice is not
-/// guaranteed to end immediately after the root object, you may need to store the position of the
-/// root object returned from [`serialize_value`](crate::ser::Serializer::serialize_value).
+/// This is a wrapper for [`archived_value_mut`] that calculates the correct position of the root
+/// using the length of the byte slice. If your byte slice is not guaranteed to end immediately
+/// after the root object, you may need to store the position of the root object returned from
+/// [`serialize_value`](crate::ser::Serializer::serialize_value).
 ///
 /// # Safety
 ///
@@ -170,10 +170,9 @@ pub unsafe fn archived_root_mut<T: Archive + ?Sized>(
 /// Casts a [`RelPtr`] to the given unsized type from the given byte slice by calculating the root
 /// position.
 ///
-/// This is a wrapper for [`archived_unsized_value`](crate::archived_unsized_value) that calculates
-/// the correct position of the root using the length of the byte slice. If your byte slice is not
-/// guaranteed to end immediately after the root object, you may need to store the position of the
-/// root object returned from
+/// This is a wrapper for [`archived_unsized_value`] that calculates the correct position of the
+/// root using the length of the byte slice. If your byte slice is not guaranteed to end immediately
+/// after the root object, you may need to store the position of the root object returned from
 /// [`serialize_unsized_value`](crate::ser::Serializer::serialize_unsized_value).
 ///
 /// # Safety
@@ -188,10 +187,9 @@ pub unsafe fn archived_unsized_root<T: ArchiveUnsized + ?Sized>(bytes: &[u8]) ->
 /// Casts a [`RelPtr`] to the given unsized type from the given byte slice by calculating the root
 /// position.
 ///
-/// This is a wrapper for [`archived_unsized_value_mut`](crate::archived_unsized_value_mut) that
-/// calculates the correct position of the root using the length of the byte slice. If your byte
-/// slice is not guaranteed to end immediately after the root object, you may need to store the
-/// position of the root object returned from
+/// This is a wrapper for [`archived_unsized_value_mut`] that calculates the correct position of the
+/// root using the length of the byte slice. If your byte slice is not guaranteed to end immediately
+/// after the root object, you may need to store the position of the root object returned from
 /// [`serialize_unsized_value`](crate::ser::Serializer::serialize_unsized_value).
 ///
 /// # Safety

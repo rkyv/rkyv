@@ -13,9 +13,10 @@ default-members = [
     "rkyv_test",
     "rkyv_typename",
 ]
+resolver = "2"
 
 [workspace.package]
-version = "0.7.42"
+version = "0.7.43"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2021"
 license = "MIT"

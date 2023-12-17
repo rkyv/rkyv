@@ -97,6 +97,9 @@ impl SharedContext for SharedValidator {
         ptr: *const u8,
         type_id: TypeId,
     ) -> Result<bool, Self::Error> {
+        #[cfg(not(feature = "std"))]
+        use hashbrown::hash_map::Entry;
+        #[cfg(feature = "std")]
         use std::collections::hash_map::Entry;
 
         match self.shared.entry(ptr) {

@@ -89,7 +89,7 @@ impl<T: ?Sized> !ArchiveCopy for *mut T {}
 impl<T: ?Sized> !ArchiveCopy for &T {}
 impl<T: ?Sized> !ArchiveCopy for &mut T {}
 
-impl !ArchiveCopy for crate::RawRelPtr {}
+impl<O> !ArchiveCopy for crate::rel_ptr::RawRelPtr<O> {}
 
 /// Types that are `ArchiveCopy` and have no padding.
 ///

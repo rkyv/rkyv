@@ -11,11 +11,6 @@ mod core;
 #[cfg(feature = "std")]
 mod std;
 
-#[cfg(feature = "alloc")]
-pub use self::alloc::*;
-#[cfg(feature = "std")]
-pub use self::std::*;
-
 use crate::{Archive, Deserialize, Fallible, Serialize};
 use ::core::{fmt, marker::PhantomData, mem::transmute, ops::Deref};
 

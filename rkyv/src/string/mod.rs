@@ -155,7 +155,7 @@ impl PartialEq for ArchivedString {
 impl PartialOrd for ArchivedString {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        self.as_str().partial_cmp(other.as_str())
+        Some(self.cmp(other))
     }
 }
 

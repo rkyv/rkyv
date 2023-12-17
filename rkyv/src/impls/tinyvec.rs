@@ -85,8 +85,7 @@ where
 }
 
 #[cfg(all(feature = "tinyvec", feature = "alloc"))]
-impl<A: Array, S: ScratchSpace + Serializer + ?Sized> Serialize<S>
-    for TinyVec<A>
+impl<A: Array, S: ScratchSpace + Serializer + ?Sized> Serialize<S> for TinyVec<A>
 where
     A::Item: Serialize<S>,
 {
@@ -97,8 +96,7 @@ where
 }
 
 #[cfg(all(feature = "tinyvec", feature = "alloc"))]
-impl<A: Array, D: Fallible + ?Sized> Deserialize<TinyVec<A>, D>
-    for ArchivedVec<Archived<A::Item>>
+impl<A: Array, D: Fallible + ?Sized> Deserialize<TinyVec<A>, D> for ArchivedVec<Archived<A::Item>>
 where
     A::Item: Archive,
     Archived<A::Item>: Deserialize<A::Item, D>,

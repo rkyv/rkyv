@@ -68,6 +68,8 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    // Serializing tuples is not supported in `strict` mode.
+    #[cfg(not(feature = "strict"))]
     fn archive_hash_map_tuple_retrieved_by_get_with() {
         let mut hash_map = HashMap::new();
         hash_map.insert(("my".to_string(), "key".to_string()), "value".to_string());

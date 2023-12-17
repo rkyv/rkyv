@@ -12,7 +12,7 @@ mod tests {
     };
     use rkyv::{
         check_archived_root, check_archived_value, ser::Serializer, AlignedBytes, Archive,
-        CheckBytes, Deserialize, Infallible, Serialize,
+        Deserialize, Infallible, Serialize,
     };
     #[cfg(feature = "std")]
     use std::{
@@ -213,7 +213,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn cycle_detection() {
         use core::fmt;
-        use rkyv::bytecheck::Error;
+        use rkyv::bytecheck::{CheckBytes, Error};
 
         use rkyv::{validation::ArchiveContext, Archived};
 
@@ -566,8 +566,7 @@ mod tests {
     fn check_tuple_serialization_ordering() {
         let value = (vec![123], vec![45]);
 
-        let bytes = rkyv::to_bytes::<_, 16>(&value)
-            .expect("Failed to serialize VideoFrame");
+        let bytes = rkyv::to_bytes::<_, 16>(&value).expect("Failed to serialize VideoFrame");
 
         rkyv::from_bytes::<(Vec<i32>, Vec<i32>)>(&bytes[..]).unwrap();
     }

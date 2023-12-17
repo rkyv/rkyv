@@ -17,9 +17,9 @@ bytecheck = { workspace = true, optional = true }
 inventory = "0.1"
 lazy_static = "1.4"
 ptr_meta.workspace = true
-rkyv = { version = "0.7.41", path = "../rkyv", default-features = false }
-rkyv_dyn_derive = { version = "0.7.41", path = "../rkyv_dyn_derive" }
-rkyv_typename = { version = "0.7.41", path = "../rkyv_typename" }
+rkyv = { version = "0.7.43", path = "../rkyv", default-features = false }
+rkyv_dyn_derive = { version = "0.7.43", path = "../rkyv_dyn_derive" }
+rkyv_typename = { version = "0.7.43", path = "../rkyv_typename" }
 
 [features]
 default = ["rkyv/size_32", "rkyv/std"]

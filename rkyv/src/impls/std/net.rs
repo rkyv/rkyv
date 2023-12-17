@@ -14,7 +14,7 @@ use std::{
 // Ipv4Addr
 
 impl ArchivedIpv4Addr {
-    /// Returns an [`Ipv4Addr`](std::net::Ipv4Addr) with the same value.
+    /// Returns an [`Ipv4Addr`] with the same value.
     #[inline]
     pub const fn as_ipv4(&self) -> Ipv4Addr {
         let octets = self.octets();
@@ -152,7 +152,7 @@ impl<D: Fallible + ?Sized> Deserialize<Ipv4Addr, D> for ArchivedIpv4Addr {
 // Ipv6Addr
 
 impl ArchivedIpv6Addr {
-    /// Returns an [`Ipv6Addr`](std::net::Ipv6Addr) with the same value.
+    /// Returns an [`Ipv6Addr`] with the same value.
     #[inline]
     pub const fn as_ipv6(&self) -> Ipv6Addr {
         let segments = self.segments();
@@ -199,8 +199,7 @@ impl ArchivedIpv6Addr {
     }
 
     /// Converts this address to an [`IPv4` address](std::net::Ipv4Addr). Returns
-    /// [`None`](std::option::Option::None) if this address is neither IPv4-compatible or
-    /// IPv4-mapped.
+    /// [`None`] if this address is neither IPv4-compatible or IPv4-mapped.
     #[inline]
     #[allow(clippy::wrong_self_convention)]
     pub const fn to_ipv4(&self) -> Option<Ipv4Addr> {
@@ -263,7 +262,7 @@ impl<D: Fallible + ?Sized> Deserialize<Ipv6Addr, D> for ArchivedIpv6Addr {
 // IpAddr
 
 impl ArchivedIpAddr {
-    /// Returns an [`IpAddr`](std::net::IpAddr) with the same value.
+    /// Returns an [`IpAddr`] with the same value.
     #[inline]
     pub const fn as_ipaddr(&self) -> IpAddr {
         match self {
@@ -414,7 +413,7 @@ impl<D: Fallible + ?Sized> Deserialize<IpAddr, D> for ArchivedIpAddr {
 // SocketAddrV4
 
 impl ArchivedSocketAddrV4 {
-    /// Returns a [`SocketAddrV4`](std::net::SocketAddrV4) with the same value.
+    /// Returns a [`SocketAddrV4`] with the same value.
     #[inline]
     pub fn as_socket_addr_v4(&self) -> SocketAddrV4 {
         SocketAddrV4::new(self.ip().as_ipv4(), self.port())
@@ -488,7 +487,7 @@ impl<D: Fallible + ?Sized> Deserialize<SocketAddrV4, D> for ArchivedSocketAddrV4
 // SocketAddrV6
 
 impl ArchivedSocketAddrV6 {
-    /// Returns a [`SocketAddrV6`](std::net::SocketAddrV6) with the same value.
+    /// Returns a [`SocketAddrV6`] with the same value.
     #[inline]
     pub fn as_socket_addr_v6(&self) -> SocketAddrV6 {
         SocketAddrV6::new(
@@ -576,7 +575,7 @@ impl<D: Fallible + ?Sized> Deserialize<SocketAddrV6, D> for ArchivedSocketAddrV6
 // SocketAddr
 
 impl ArchivedSocketAddr {
-    /// Returns a [`SocketAddr`](std::net::SocketAddr) with the same value.
+    /// Returns a [`SocketAddr`] with the same value.
     #[inline]
     pub fn as_socket_addr(&self) -> SocketAddr {
         match self {

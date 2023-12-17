@@ -157,7 +157,7 @@ impl<K, V> ArchivedHashMap<K, V> {
             // Safety: We know the index for self.entry() here is right
             // as it's returned by the underlying index, which should guarantee this invariant.
             let entry = unsafe { self.entry(i) };
-            if comparison_predicate(&entry.key, &key) {
+            if comparison_predicate(&entry.key, key) {
                 Some(&entry.value)
             } else {
                 None

@@ -1,4 +1,4 @@
-//! [`Archive`](crate::Archive) implementation for B-tree maps.
+//! [`Archive`] implementation for B-tree maps.
 
 #[cfg(feature = "validation")]
 pub mod validation;

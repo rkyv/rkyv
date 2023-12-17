@@ -155,7 +155,7 @@ impl PartialEq<ArchivedCString> for &CStr {
 impl PartialOrd for ArchivedCString {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        self.as_bytes().partial_cmp(other.as_bytes())
+        Some(self.cmp(other))
     }
 }
 
