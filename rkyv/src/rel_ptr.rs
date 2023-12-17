@@ -152,12 +152,12 @@ pub enum RelPtrError {
 /// pointers that can be safely relocated as long as the source and target are moved together. This
 /// is what allows memory to be moved from disk into memory and accessed without decoding.
 ///
-/// Regular pointers are *absolute*, meaning that the pointee can be moved without invalidating the
-/// pointer. However, the target cannot be moved or the pointer is invalidated.
+/// Regular pointers are *absolute*, meaning that the pointer can be moved without being
+/// invalidated. However, the pointee **cannot** be moved, otherwise the pointer is invalidated.
 ///
-/// Relative pointers are *relative*, meaning that the pointee can be moved with the target without
-/// invalidating the pointer. However, if either the pointee or the target move independently, the
-/// pointer will be invalidated.
+/// Relative pointers are *relative*, meaning that the **pointer** can be moved with the
+/// **pointee** without invalidating the pointer. However, if either the **pointer** or the
+/// **pointee** move independently, the pointer will be invalidated.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct RawRelPtr<O> {
