@@ -1,3 +1,5 @@
+use rancor::ResultExt as _;
+
 use crate::ser::Serializer;
 use std::io;
 
@@ -50,7 +52,7 @@ impl<W: io::Write, E: rancor::Error> Serializer<E> for WriteSerializer<W> {
 
     #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
-        self.inner.write_all(bytes).map_err(E::new)?;
+        self.inner.write_all(bytes).into_error()?;
         self.pos += bytes.len();
         Ok(())
     }

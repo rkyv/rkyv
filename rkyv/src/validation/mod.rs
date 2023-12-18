@@ -7,6 +7,7 @@ use core::{alloc::Layout, alloc::LayoutError, any::TypeId, ops::Range};
 
 use bytecheck::rancor::{Error, Fallible, Strategy};
 use ptr_meta::Pointee;
+use rancor::ResultExt as _;
 
 use crate::{ArchivePointee, RelPtr};
 
@@ -220,7 +221,7 @@ impl<C: ArchiveContext<E> + ?Sized, E: Error> ArchiveContextExt<E> for C {
         metadata: T::Metadata,
     ) -> Result<*const T, E> {
         let ptr = base.wrapping_offset(offset);
-        let layout = T::layout_raw(metadata).map_err(E::new)?;
+        let layout = T::layout_raw(metadata).into_error()?;
         self.check_subtree_ptr(ptr, &layout)?;
         Ok(ptr_meta::from_raw_parts(ptr.cast(), metadata))
     }
@@ -256,7 +257,7 @@ impl<C: ArchiveContext<E> + ?Sized, E: Error> ArchiveContextExt<E> for C {
         &mut self,
         root: *const T,
     ) -> Result<Range<usize>, E> {
-        let layout = T::layout_raw(ptr_meta::metadata(root)).map_err(E::new)?;
+        let layout = T::layout_raw(ptr_meta::metadata(root)).into_error()?;
         self.push_prefix_subtree_range(
             root as *const u8,
             (root as *const u8).add(layout.size()),

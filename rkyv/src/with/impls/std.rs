@@ -161,7 +161,8 @@ where
     ) -> Result<Self::Resolver, S::Error> {
         field
             .lock()
-            .map_err(|_| S::Error::new(Poisoned))?
+            .ok()
+            .into_trace(Poisoned)?
             .serialize(serializer)
     }
 }
@@ -215,7 +216,8 @@ where
     ) -> Result<Self::Resolver, S::Error> {
         field
             .read()
-            .map_err(|_| S::Error::new(Poisoned))?
+            .ok()
+            .into_trace(Poisoned)?
             .serialize(serializer)
     }
 }

@@ -43,9 +43,3 @@ should not implement `SerializeDyn`, so the shim trait approach was favored for 
 When the shim trait is serialized, it stores the type hash of the underlying type in its metadata so
 it can get the correct vtable for it when accessed. This requires that all vtables for implementing
 types must be known ahead of time, which is when we use `archive_dyn` for the second time.
-
-Using `archive_dyn` on a trait implementation registers the vtable for that implementation with a
-global lookup, allowing it to be retrieved later on. Because this process can be slow, the
-`vtable_cache` feature allows the vtable lookup to be performed only the first time, then cached
-locally for future lookups. This is one of the places where alternate implementations may take a
-different approach and choose a different set of benefits and tradeoffs.

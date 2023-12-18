@@ -6,7 +6,7 @@ use alloc::boxed::Box;
 use core::fmt;
 #[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
-use rancor::Error;
+use rancor::{Error, fail};
 #[cfg(feature = "std")]
 use std::collections::hash_map;
 
@@ -83,9 +83,9 @@ impl<E: Error> SharedDeserializeRegistry<E> for SharedDeserializeMap {
         shared: Box<dyn SharedPointer>,
     ) -> Result<(), E> {
         match self.shared_pointers.entry(ptr) {
-            hash_map::Entry::Occupied(_) => Err(E::new(
-                SharedDeserializeMapError::DuplicateSharedPointer(ptr),
-            )),
+            hash_map::Entry::Occupied(_) => {
+                fail!(SharedDeserializeMapError::DuplicateSharedPointer(ptr));
+            }
             hash_map::Entry::Vacant(e) => {
                 e.insert(shared);
                 Ok(())

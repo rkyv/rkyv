@@ -124,6 +124,7 @@ mod verify {
         rancor::{Error, Fallible},
         Verify,
     };
+    use rancor::fail;
     use core::fmt;
 
     /// An error resulting from an invalid duration.
@@ -156,7 +157,7 @@ mod verify {
         fn verify(&self, _: &mut C) -> Result<(), C::Error> {
             let nanos = self.nanos.to_native();
             if nanos > 1_000_000_000 {
-                Err(C::Error::new(DurationError { nanos }))
+                fail!(DurationError { nanos });
             } else {
                 Ok(())
             }

@@ -11,8 +11,6 @@
 //! - `strict`: Guarantees that types will have the same representations across platforms and
 //!   compilations. This is already the case in practice, but this feature provides a guarantee.
 //! - `validation`: Enables validation support through `bytecheck`.
-//! - `vtable_cache`: Enables local vtable caching to speed up lookups after the first. This
-//!   requires mutating the archive, which is not possible for all use cases.
 
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_docs)]
@@ -22,55 +20,33 @@
 #[cfg(feature = "bytecheck")]
 pub mod validation;
 
-#[cfg(feature = "vtable_cache")]
-use core::sync::atomic::{AtomicU64, Ordering};
 use core::{
     alloc::Layout,
-    any::Any,
     hash::{Hash, Hasher},
     marker::PhantomData,
     ptr,
 };
 use ptr_meta::{DynMetadata, Pointee};
-#[cfg(feature = "vtable_cache")]
-use rkyv::with::{Atomic, With};
 use rkyv::{
     primitive::ArchivedU64,
     ser::{ScratchSpace, Serializer},
     Serialize,
-    rancor::Fallible,
 };
 pub use rkyv_dyn_derive::archive_dyn;
 use rkyv_typename::TypeName;
 use std::collections::{hash_map::DefaultHasher, HashMap};
-#[cfg(feature = "bytecheck")]
-pub use validation::{CheckDynError, DynContext};
-
-#[doc(hidden)]
-pub use inventory;
-
-#[cfg(all(feature = "vtable_cache", feature = "nightly"))]
-use core::intrinsics::likely;
-#[cfg(all(feature = "vtable_cache", not(feature = "nightly")))]
-#[inline]
-fn likely(b: bool) -> bool {
-    b
-}
-
-/// An error that can occur while serializing and deserializing trait objects.
-pub type DynError = Box<dyn Any>;
 
 /// An object-safe version of `Serializer`.
 ///
 /// Instead of an associated error type, `DynSerializer` returns the [`DynError`] type. If you have
 /// a serializer that already implements `Serializer`, then it will automatically implement
 /// `DynSerializer`.
-pub trait DynSerializer {
+pub trait DynSerializer<E> {
     /// Returns the current position of the serializer.
     fn pos_dyn(&self) -> usize;
 
     /// Attempts to write the given bytes to the serializer.
-    fn write_dyn(&mut self, bytes: &[u8]) -> Result<(), DynError>;
+    fn write_dyn(&mut self, bytes: &[u8]) -> Result<(), E>;
 
     /// Allocates scratch space of the requested size.
     ///
@@ -80,7 +56,7 @@ pub trait DynSerializer {
     unsafe fn push_scratch_dyn(
         &mut self,
         layout: Layout,
-    ) -> Result<ptr::NonNull<[u8]>, DynError>;
+    ) -> Result<ptr::NonNull<[u8]>, E>;
 
     /// Deallocates previously allocated scratch space.
     ///
@@ -92,28 +68,26 @@ pub trait DynSerializer {
         &mut self,
         ptr: ptr::NonNull<u8>,
         layout: Layout,
-    ) -> Result<(), DynError>;
+    ) -> Result<(), E>;
+
+    // TODO: support shared pointer operations
 }
 
-impl<'a> Fallible for dyn DynSerializer + 'a {
-    type Error = DynError;
-}
-
-impl<'a> Serializer for dyn DynSerializer + 'a {
+impl<'a, E> Serializer<E> for dyn DynSerializer<E> + 'a {
     fn pos(&self) -> usize {
         self.pos_dyn()
     }
 
-    fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         self.write_dyn(bytes)
     }
 }
 
-impl<'a> ScratchSpace for dyn DynSerializer + 'a {
+impl<'a, E> ScratchSpace<E> for dyn DynSerializer<E> + 'a {
     unsafe fn push_scratch(
         &mut self,
         layout: Layout,
-    ) -> Result<ptr::NonNull<[u8]>, Self::Error> {
+    ) -> Result<ptr::NonNull<[u8]>, E> {
         self.push_scratch_dyn(layout)
     }
 
@@ -121,35 +95,8 @@ impl<'a> ScratchSpace for dyn DynSerializer + 'a {
         &mut self,
         ptr: ptr::NonNull<u8>,
         layout: Layout,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), E> {
         self.pop_scratch_dyn(ptr, layout)
-    }
-}
-
-impl<S: ScratchSpace + Serializer + ?Sized> DynSerializer for &mut S {
-    fn pos_dyn(&self) -> usize {
-        self.pos()
-    }
-
-    fn write_dyn(&mut self, bytes: &[u8]) -> Result<(), DynError> {
-        self.write(bytes).map_err(|e| Box::new(e) as DynError)
-    }
-
-    unsafe fn push_scratch_dyn(
-        &mut self,
-        layout: Layout,
-    ) -> Result<ptr::NonNull<[u8]>, DynError> {
-        self.push_scratch(layout)
-            .map_err(|e| Box::new(e) as DynError)
-    }
-
-    unsafe fn pop_scratch_dyn(
-        &mut self,
-        ptr: ptr::NonNull<u8>,
-        layout: Layout,
-    ) -> Result<(), DynError> {
-        self.pop_scratch(ptr, layout)
-            .map_err(|e| Box::new(e) as DynError)
     }
 }
 
@@ -266,26 +213,26 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// assert_eq!(deserialized_int.value(), "42");
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```
-pub trait SerializeDyn {
+pub trait SerializeDyn<E> {
     /// Writes the value to the serializer and returns the position it was written to.
     fn serialize_dyn(
         &self,
-        serializer: &mut dyn DynSerializer,
-    ) -> Result<usize, DynError>;
+        serializer: &mut dyn DynSerializer<E>,
+    ) -> Result<usize, E>;
 
     /// Returns the type ID of the archived version of this type.
     fn archived_type_id(&self) -> u64;
 }
 
-impl<T: for<'a> Serialize<dyn DynSerializer + 'a>> SerializeDyn for T
+impl<T: for<'a> Serialize<dyn DynSerializer<E> + 'a>, E> SerializeDyn<E> for T
 where
     T::Archived: TypeName,
 {
     fn serialize_dyn(
         &self,
-        serializer: &mut dyn DynSerializer,
-    ) -> Result<usize, DynError> {
-        serializer.serialize_value(self)
+        serializer: &mut dyn DynSerializer<E>,
+    ) -> Result<usize, E> {
+        self.serialize_and_resolve(serializer)
     }
 
     fn archived_type_id(&self) -> u64 {
@@ -294,18 +241,14 @@ where
 }
 
 /// An object-safe version of `Deserializer`.
-pub trait DynDeserializer {}
-
-impl<'a> Fallible for dyn DynDeserializer + 'a {
-    type Error = DynError;
+pub trait DynDeserializer<E> {
+    // TODO: support shared pointers
 }
-
-impl<D: Fallible + ?Sized> DynDeserializer for &mut D {}
 
 /// A trait object that can be deserialized.
 ///
 /// See [`SerializeDyn`] for more information.
-pub trait DeserializeDyn<T: Pointee + ?Sized> {
+pub trait DeserializeDyn<T: Pointee + ?Sized, E> {
     /// Deserializes the given value as a trait object.
     ///
     /// # Safety
@@ -313,26 +256,26 @@ pub trait DeserializeDyn<T: Pointee + ?Sized> {
     /// The memory returned must be properly deallocated.
     unsafe fn deserialize_dyn(
         &self,
-        deserializer: &mut dyn DynDeserializer,
+        deserializer: &mut dyn DynDeserializer<E>,
         alloc: &mut dyn FnMut(Layout) -> *mut u8,
-    ) -> Result<*mut (), DynError>;
+    ) -> Result<*mut (), E>;
 
     /// Returns the metadata for the deserialized version of this value.
     fn deserialize_dyn_metadata(
         &self,
-        deserializer: &mut dyn DynDeserializer,
-    ) -> Result<T::Metadata, DynError>;
+        deserializer: &mut dyn DynDeserializer<E>,
+    ) -> Result<T::Metadata, E>;
 }
 
 /// The archived version of `DynMetadata`.
 #[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(
+    feature = "bytecheck",
+    derive(bytecheck::CheckBytes),
+    check_bytes(verify),
+)]
 pub struct ArchivedDynMetadata<T: ?Sized> {
     type_id: ArchivedU64,
-    #[cfg(feature = "vtable_cache")]
-    cached_vtable: ArchivedAtomicU64,
-    #[cfg(not(feature = "vtable_cache"))]
-    #[allow(dead_code)]
-    cached_vtable: ArchivedU64,
     phantom: PhantomData<T>,
 }
 
@@ -345,14 +288,9 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
     pub unsafe fn emplace(type_id: u64, out: *mut Self) {
         ptr::addr_of_mut!((*out).type_id)
             .write(ArchivedU64::from_native(type_id));
-        #[cfg(feature = "vtable_cache")]
-        {
-            let cached_vtable = ptr::addr_of_mut!((*out).cached_vtable);
-            (*cached_vtable).store(0u64, Ordering::Relaxed);
-        }
-        #[cfg(not(feature = "vtable_cache"))]
-        ptr::addr_of_mut!((*out).cached_vtable)
-            .write(ArchivedU64::from_native(0u64));
+        // Technically not necessary, but for completeness
+        ptr::addr_of_mut!((*out).phantom)
+            .write(PhantomData);
     }
 
     fn lookup_vtable(&self) -> usize {
@@ -362,23 +300,7 @@ impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
             .vtable
     }
 
-    /// Gets the vtable address for this trait object. With the `vtable_cache` feature, this will
-    /// store the address locally on the first lookup.
-    #[cfg(feature = "vtable_cache")]
-    pub fn vtable(&self) -> usize {
-        let cached_vtable = self.cached_vtable.load(Ordering::Relaxed);
-        if likely(cached_vtable != 0) {
-            return cached_vtable as usize;
-        }
-        let vtable = self.lookup_vtable();
-        self.cached_vtable
-            .store(vtable as usize as u64, Ordering::Relaxed);
-        vtable
-    }
-
-    /// Gets the vtable address for this trait object. With the `vtable_cache` feature, this will
-    /// store the address locally on the first lookup.
-    #[cfg(not(feature = "vtable_cache"))]
+    /// Gets the vtable address for this trait object.
     pub fn vtable(&self) -> usize {
         self.lookup_vtable()
     }
@@ -473,8 +395,6 @@ impl ImplEntry {
     }
 }
 
-inventory::collect!(ImplEntry);
-
 struct ImplRegistry {
     id_to_data: HashMap<ImplId, ImplData>,
 }
@@ -513,16 +433,6 @@ impl ImplRegistry {
     fn get<T: TypeName + ?Sized>(&self, type_id: u64) -> Option<&ImplData> {
         self.id_to_data.get(&ImplId::from_type_id::<T>(type_id))
     }
-}
-
-lazy_static::lazy_static! {
-    static ref IMPL_REGISTRY: ImplRegistry = {
-        let mut result = ImplRegistry::new();
-        for entry in inventory::iter::<ImplEntry> {
-            result.add_entry(entry);
-        }
-        result
-    };
 }
 
 /// Guarantees that an impl has been registered for the type as the given trait object.

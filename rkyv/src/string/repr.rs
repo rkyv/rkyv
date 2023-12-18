@@ -174,6 +174,7 @@ const _: () = {
         rancor::{Error, Fallible},
         CheckBytes,
     };
+    use rancor::fail;
     use core::fmt;
 
     /// An error resulting from an invalid string representation.
@@ -208,7 +209,7 @@ const _: () = {
             let repr = &*value;
 
             if repr.is_inline() && repr.len() > INLINE_CAPACITY {
-                Err(C::Error::new(CheckStringReprError))
+                fail!(CheckStringReprError);
             } else {
                 Ok(())
             }

@@ -1,4 +1,4 @@
-use rancor::Error;
+use rancor::{Error, fail};
 
 use crate::ser::{ScratchSpace, Serializer};
 use core::{
@@ -125,11 +125,11 @@ impl<T: AsMut<[u8]>, E: Error> Serializer<E> for BufferSerializer<T> {
         let end_pos = self.pos + bytes.len();
         let archive_len = self.inner.as_mut().len();
         if end_pos > archive_len {
-            Err(E::new(BufferSerializerError::Overflow {
+            fail!(BufferSerializerError::Overflow {
                 pos: self.pos,
                 bytes_needed: bytes.len(),
                 archive_len,
-            }))
+            });
         } else {
             unsafe {
                 copy_nonoverlapping(
@@ -260,7 +260,7 @@ where
             self.pos += layout.size();
             Ok(result)
         } else {
-            Err(E::new(FixedSizeScratchError::OutOfScratch(layout)))
+            fail!(FixedSizeScratchError::OutOfScratch(layout));
         }
     }
 
@@ -281,14 +281,14 @@ where
                 self.pos = next_pos;
                 Ok(())
             } else {
-                Err(E::new(FixedSizeScratchError::NotPoppedInReverseOrder {
+                fail!(FixedSizeScratchError::NotPoppedInReverseOrder {
                     pos: self.pos,
                     next_pos,
                     next_size: layout.size(),
-                }))
+                });
             }
         } else {
-            Err(E::new(FixedSizeScratchError::UnownedAllocation))
+            fail!(FixedSizeScratchError::UnownedAllocation);
         }
     }
 }

@@ -14,7 +14,6 @@ repository.workspace = true
 
 [dependencies]
 bytecheck = { workspace = true, optional = true }
-inventory = "0.1"
 lazy_static = "1.4"
 ptr_meta.workspace = true
 rkyv = { workspace = true, path = "../rkyv", default-features = false }
@@ -22,11 +21,11 @@ rkyv_dyn_derive = { version = "=0.8.0-pre1", path = "../rkyv_dyn_derive" }
 rkyv_typename = { workspace = true, path = "../rkyv_typename" }
 
 [features]
-default = ["strict", "bytecheck"]
+default = ["std", "strict", "bytecheck"]
 nightly = []
+std = ["bytecheck?/std"]
 strict = ["rkyv/strict"]
 bytecheck = ["dep:bytecheck", "rkyv/bytecheck", "rkyv_dyn_derive/bytecheck"]
-vtable_cache = []
 
 [package.metadata.docs.rs]
 features = ["bytecheck"]

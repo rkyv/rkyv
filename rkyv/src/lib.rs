@@ -448,7 +448,7 @@ pub trait Archive {
 ///
 /// Objects perform any supportive serialization during [`serialize`](Serialize::serialize). For
 /// types that reference nonlocal (pointed-to) data, this is when that data must be serialized to
-/// the output. These types will need to bound `S` to implement [`Serializer`](ser::Serializer) and
+/// the output. These types will need to bound `S` to implement [`Serializer`] and
 /// any other required traits (e.g. [`SharedSerializeRegistry`](ser::SharedSerializeRegistry)). They
 /// should then serialize their dependencies during `serialize`.
 ///

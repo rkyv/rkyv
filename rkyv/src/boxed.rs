@@ -253,7 +253,7 @@ impl<M> BoxResolver<M> {
     /// constructing a valid resolver is quite fraught. Please make sure you understand what the implications are before doing it.
     ///
     /// - `pos`: You must ensure that you serialized and resolved (e.g.
-    ///   [`serialize_and_resolve`](crate::SerializeExt::serialize_and_resolve))
+    ///   [`serialize_and_resolve`](crate::Serialize::serialize_and_resolve))
     ///   a `T` which will be pointed to by the final [`ArchivedBox<T>`] that
     ///   this resolver will help resolve at the given `pos` within the archive.
     ///

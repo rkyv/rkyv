@@ -152,7 +152,7 @@ pub unsafe fn access_pos_unsized_unchecked_mut<T: ArchiveUnsized + ?Sized>(
 /// of the root object using the length of the byte slice. If your byte slice is
 /// not guaranteed to end immediately after the root object, you may need to
 /// store the position of the root object returned from
-/// [`serialize_and_resolve`](crate::SerializeExt::serialize_and_resolve).
+/// [`serialize_and_resolve`](crate::Serialize::serialize_and_resolve).
 ///
 /// # Safety
 ///
@@ -177,7 +177,7 @@ where
 /// position of the root object using the length of the byte slice. If your byte
 /// slice is not guaranteed to end immediately after the root object, you may
 /// need to store the position of the root object returned from
-/// [`serialize_and_resolve`](crate::SerializeExt::serialize_and_resolve).
+/// [`serialize_and_resolve`](crate::Serialize::serialize_and_resolve).
 ///
 /// # Safety
 ///
@@ -199,7 +199,7 @@ pub unsafe fn access_unchecked_mut<T: Archive + ?Sized>(
 /// position of the root object using the length of the byte slice. If your byte
 /// slice is not guaranteed to end immediately after the root object, you may
 /// need to store the position of the root object returned from
-/// [`serialize_and_resolve_rel_ptr`](crate::SerializeUnsizedExt::serialize_and_resolve_rel_ptr).
+/// [`serialize_and_resolve_rel_ptr`](crate::SerializeUnsized::serialize_and_resolve_rel_ptr).
 ///
 /// # Safety
 ///
@@ -223,7 +223,7 @@ pub unsafe fn access_unsized_unchecked<T: ArchiveUnsized + ?Sized>(
 /// position of the root object using the length of the byte slice. If your byte
 /// slice is not guaranteed to end immediately after the root object, you may
 /// need to store the position of the root object returned from
-/// [`serialize_and_resolve_rel_ptr`](crate::SerializeUnsizedExt::serialize_and_resolve_rel_ptr).
+/// [`serialize_and_resolve_rel_ptr`](crate::SerializeUnsized::serialize_and_resolve_rel_ptr).
 ///
 /// # Safety
 ///

@@ -8,6 +8,7 @@ use core::{
 };
 
 use bytecheck::rancor::Error;
+use rancor::{fail, OptionExt};
 
 use crate::validation::ArchiveContext;
 
@@ -127,16 +128,16 @@ unsafe impl<E: Error> ArchiveContext<E> for ArchiveValidator {
         let start = ptr as usize;
         let end = ptr.wrapping_add(layout.size()) as usize;
         if start < self.subtree_range.start || end > self.subtree_range.end {
-            Err(E::new(ArchiveError::InvalidSubtreePointer {
+            fail!(ArchiveError::InvalidSubtreePointer {
                 address: start,
                 size: layout.size(),
                 subtree_range: self.subtree_range.clone(),
-            }))
+            });
         } else if start & (layout.align() - 1) != 0 {
-            Err(E::new(ArchiveError::Unaligned {
+            fail!(ArchiveError::Unaligned {
                 address: ptr as usize,
                 align: layout.align(),
-            }))
+            });
         } else {
             Ok(())
         }
@@ -150,9 +151,7 @@ unsafe impl<E: Error> ArchiveContext<E> for ArchiveValidator {
     ) -> Result<Range<usize>, E> {
         if let Some(max_subtree_depth) = &mut self.max_subtree_depth {
             *max_subtree_depth = NonZeroUsize::new(max_subtree_depth.get() - 1)
-                .ok_or_else(|| {
-                    E::new(ArchiveError::ExceededMaximumSubtreeDepth)
-                })?;
+                .into_trace(ArchiveError::ExceededMaximumSubtreeDepth)?;
         }
 
         let result = Range {
@@ -171,9 +170,7 @@ unsafe impl<E: Error> ArchiveContext<E> for ArchiveValidator {
     ) -> Result<Range<usize>, E> {
         if let Some(max_subtree_depth) = &mut self.max_subtree_depth {
             *max_subtree_depth = NonZeroUsize::new(max_subtree_depth.get() - 1)
-                .ok_or_else(|| {
-                    E::new(ArchiveError::ExceededMaximumSubtreeDepth)
-                })?;
+                .into_trace(ArchiveError::ExceededMaximumSubtreeDepth)?;
         }
 
         let result = Range {
@@ -194,7 +191,7 @@ unsafe impl<E: Error> ArchiveContext<E> for ArchiveValidator {
         if let Some(max_subtree_depth) = &mut self.max_subtree_depth {
             *max_subtree_depth = max_subtree_depth
                 .checked_add(1)
-                .ok_or_else(|| E::new(ArchiveError::RangePoppedTooManyTimes))?;
+                .into_trace(ArchiveError::RangePoppedTooManyTimes)?;
         }
         Ok(())
     }

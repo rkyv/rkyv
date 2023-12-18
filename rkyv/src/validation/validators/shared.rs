@@ -3,6 +3,7 @@
 use core::{any::TypeId, fmt};
 
 use bytecheck::rancor::Error;
+use rancor::fail;
 
 use crate::validation::SharedContext;
 
@@ -78,10 +79,10 @@ impl<E: Error> SharedContext<E> for SharedValidator {
     ) -> Result<bool, E> {
         if let Some(previous_type_id) = self.shared.get(&address) {
             if previous_type_id != &type_id {
-                Err(E::new(SharedError::TypeMismatch {
+                fail!(SharedError::TypeMismatch {
                     previous: *previous_type_id,
                     current: type_id,
-                }))
+                });
             } else {
                 Ok(false)
             }

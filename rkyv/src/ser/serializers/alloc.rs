@@ -16,7 +16,7 @@ use core::{
 };
 #[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
-use rancor::Error;
+use rancor::{Error, fail};
 #[cfg(feature = "std")]
 use std::alloc;
 #[cfg(feature = "std")]
@@ -295,10 +295,10 @@ impl<E: Error> ScratchSpace<E> for AllocScratch {
     ) -> Result<NonNull<[u8]>, E> {
         if let Some(remaining) = self.remaining {
             if remaining < layout.size() {
-                return Err(E::new(AllocScratchError::ExceededLimit {
+                fail!(AllocScratchError::ExceededLimit {
                     requested: layout.size(),
                     remaining,
-                }));
+                });
             }
         }
         let result_ptr = alloc::alloc(layout);
@@ -322,15 +322,15 @@ impl<E: Error> ScratchSpace<E> for AllocScratch {
                 self.allocations.pop();
                 Ok(())
             } else {
-                Err(E::new(AllocScratchError::NotPoppedInReverseOrder {
+                fail!(AllocScratchError::NotPoppedInReverseOrder {
                     expected: last_ptr,
                     expected_layout: last_layout,
                     actual: ptr.as_ptr(),
                     actual_layout: layout,
-                }))
+                });
             }
         } else {
-            Err(E::new(AllocScratchError::NoAllocationsToPop))
+            fail!(AllocScratchError::NoAllocationsToPop);
         }
     }
 }
@@ -409,9 +409,9 @@ impl<E: Error> SharedSerializeRegistry<E> for SharedSerializeMap {
         pos: usize,
     ) -> Result<(), E> {
         match self.shared_resolvers.entry(value) {
-            hash_map::Entry::Occupied(_) => Err(E::new(
-                SharedSerializeMapError::DuplicateSharedPointer(value),
-            )),
+            hash_map::Entry::Occupied(_) => {
+                fail!(SharedSerializeMapError::DuplicateSharedPointer(value));
+            }
             hash_map::Entry::Vacant(e) => {
                 e.insert(pos);
                 Ok(())
