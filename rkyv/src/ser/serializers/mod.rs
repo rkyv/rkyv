@@ -11,7 +11,6 @@ use crate::util::AlignedVec;
 use crate::{
     ser::{ScratchSpace, Serializer, SharedSerializeRegistry},
     util::AlignedBytes,
-    Archive, ArchiveUnsized,
 };
 use ::core::{alloc::Layout, ptr::NonNull};
 
@@ -80,41 +79,6 @@ impl<S: Serializer<E>, C, H, E> Serializer<E> for CompositeSerializer<S, C, H> {
     #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         self.serializer.write(bytes)
-    }
-
-    #[inline]
-    fn pad(&mut self, padding: usize) -> Result<(), E> {
-        self.serializer.pad(padding)
-    }
-
-    #[inline]
-    fn align(&mut self, align: usize) -> Result<usize, E> {
-        self.serializer.align(align)
-    }
-
-    #[inline]
-    fn align_for<T>(&mut self) -> Result<usize, E> {
-        self.serializer.align_for::<T>()
-    }
-
-    #[inline]
-    unsafe fn resolve_aligned<T: Archive + ?Sized>(
-        &mut self,
-        value: &T,
-        resolver: T::Resolver,
-    ) -> Result<usize, E> {
-        self.serializer.resolve_aligned::<T>(value, resolver)
-    }
-
-    #[inline]
-    unsafe fn resolve_unsized_aligned<T: ArchiveUnsized + ?Sized>(
-        &mut self,
-        value: &T,
-        to: usize,
-        metadata_resolver: T::MetadataResolver,
-    ) -> Result<usize, E> {
-        self.serializer
-            .resolve_unsized_aligned(value, to, metadata_resolver)
     }
 }
 

@@ -35,7 +35,6 @@
 
 - [rkyv](https://docs.rs/rkyv), the core library
 - [rkyv_dyn](https://docs.rs/rkyv_dyn), which adds trait object support to rkyv
-- [rkyv_typename](https://docs.rs/rkyv_typename), a type naming library
 
 ## Benchmarks
 

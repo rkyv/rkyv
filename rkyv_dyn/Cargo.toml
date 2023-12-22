@@ -16,15 +16,13 @@ repository.workspace = true
 bytecheck = { workspace = true, optional = true }
 lazy_static = "1.4"
 ptr_meta.workspace = true
+rancor.workspace = true
 rkyv = { workspace = true, path = "../rkyv", default-features = false }
 rkyv_dyn_derive = { version = "=0.8.0-pre1", path = "../rkyv_dyn_derive" }
-rkyv_typename = { workspace = true, path = "../rkyv_typename" }
 
 [features]
-default = ["std", "strict", "bytecheck"]
-nightly = []
+default = ["std", "bytecheck"]
 std = ["bytecheck?/std"]
-strict = ["rkyv/strict"]
 bytecheck = ["dep:bytecheck", "rkyv/bytecheck", "rkyv_dyn_derive/bytecheck"]
 
 [package.metadata.docs.rs]

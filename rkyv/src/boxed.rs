@@ -1,7 +1,7 @@
 //! An archived version of `Box`.
 
 use crate::{
-    ser::Serializer, ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr,
+    ser::{Serializer, SerializerExt as _}, ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr,
     Serialize, SerializeUnsized,
 };
 use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};

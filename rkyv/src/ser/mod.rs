@@ -23,7 +23,23 @@ pub trait Serializer<E = <Self as Fallible>::Error> {
 
     /// Attempts to write the given bytes to the serializer.
     fn write(&mut self, bytes: &[u8]) -> Result<(), E>;
+}
 
+impl<T, E> Serializer<E> for Strategy<T, E>
+where
+    T: Serializer<E> + ?Sized,
+{
+    fn pos(&self) -> usize {
+        T::pos(self)
+    }
+
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
+        T::write(self, bytes)
+    }
+}
+
+/// TODO: Document
+pub trait SerializerExt<E>: Serializer<E> {
     /// Advances the given number of bytes as padding.
     #[inline]
     fn pad(&mut self, padding: usize) -> Result<(), E> {
@@ -113,18 +129,10 @@ pub trait Serializer<E = <Self as Fallible>::Error> {
     }
 }
 
-impl<T, E> Serializer<E> for Strategy<T, E>
+impl<T, E> SerializerExt<E> for T
 where
     T: Serializer<E> + ?Sized,
-{
-    fn pos(&self) -> usize {
-        T::pos(self)
-    }
-
-    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
-        T::write(self, bytes)
-    }
-}
+{}
 
 // Someday this can probably be replaced with alloc::Allocator
 
@@ -181,31 +189,13 @@ pub trait SharedSerializeRegistry<E = <Self as Fallible>::Error> {
     /// Returns `None` if the pointer has not yet been added.
     fn get_shared_ptr(&self, value: *const u8) -> Option<usize>;
 
-    /// Gets the position of a previously-added shared value.
-    ///
-    /// Returns `None` if the value has not yet been added.
-    #[inline]
-    fn get_shared<T: ?Sized>(&self, value: &T) -> Option<usize> {
-        self.get_shared_ptr(value as *const T as *const u8)
-    }
-
     /// Adds the position of a shared pointer to the registry.
-    fn add_shared_ptr(&mut self, value: *const u8, pos: usize)
-        -> Result<(), E>;
-
-    /// Adds the position of a shared value to the registry.
-    #[inline]
-    fn add_shared<T: ?Sized>(
-        &mut self,
-        value: &T,
-        pos: usize,
-    ) -> Result<(), E> {
-        self.add_shared_ptr(value as *const T as *const u8, pos)
-    }
+    fn add_shared_ptr(&mut self, value: *const u8, pos: usize) -> Result<(), E>;
 }
 
-impl<T: SharedSerializeRegistry<E> + ?Sized, E> SharedSerializeRegistry<E>
-    for Strategy<T, E>
+impl<T, E> SharedSerializeRegistry<E> for Strategy<T, E>
+where
+    T: SharedSerializeRegistry<E> + ?Sized,
 {
     fn get_shared_ptr(&self, value: *const u8) -> Option<usize> {
         T::get_shared_ptr(self, value)
@@ -221,14 +211,35 @@ impl<T: SharedSerializeRegistry<E> + ?Sized, E> SharedSerializeRegistry<E>
 }
 
 /// TODO: Document this
-pub trait SharedSerializeRegistryExt: Fallible + SharedSerializeRegistry {
+pub trait SharedSerializeRegistryExt<E>: SharedSerializeRegistry<E> {
+    /// Gets the position of a previously-added shared value.
+    ///
+    /// Returns `None` if the value has not yet been added.
+    #[inline]
+    fn get_shared<T: ?Sized>(&self, value: &T) -> Option<usize> {
+        self.get_shared_ptr(value as *const T as *const u8)
+    }
+
+    /// Adds the position of a shared value to the registry.
+    #[inline]
+    fn add_shared<T: ?Sized>(
+        &mut self,
+        value: &T,
+        pos: usize,
+    ) -> Result<(), E> {
+        self.add_shared_ptr(value as *const T as *const u8, pos)
+    }
+
     /// Archives the given shared value and returns its position. If the value has already been
     /// added then it returns the position of the previously added value.
     #[inline]
     fn serialize_shared<T: SerializeUnsized<Self> + ?Sized>(
         &mut self,
         value: &T,
-    ) -> Result<usize, <Self as Fallible>::Error> {
+    ) -> Result<usize, <Self as Fallible>::Error>
+    where
+        Self: Fallible<Error = E>,
+    {
         if let Some(pos) = self.get_shared(value) {
             Ok(pos)
         } else {
@@ -239,7 +250,8 @@ pub trait SharedSerializeRegistryExt: Fallible + SharedSerializeRegistry {
     }
 }
 
-impl<S: Fallible + SharedSerializeRegistry + ?Sized> SharedSerializeRegistryExt
-    for S
+impl<S, E> SharedSerializeRegistryExt<E> for S
+where
+    S: SharedSerializeRegistry<E> + ?Sized,
 {
 }

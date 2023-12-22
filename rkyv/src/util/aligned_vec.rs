@@ -1,6 +1,6 @@
 use crate::vec::VecResolver;
 use crate::{
-    ser::{ScratchSpace, Serializer},
+    ser::{ScratchSpace, Serializer, SerializerExt as _},
     vec::ArchivedVec,
     Archive, Archived, Serialize,
 };

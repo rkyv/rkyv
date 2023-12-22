@@ -11,8 +11,6 @@ mod tests {
     };
     #[cfg_attr(feature = "wasm", allow(unused_imports))]
     use rkyv_dyn::archive_dyn;
-    #[cfg_attr(feature = "wasm", allow(unused_imports))]
-    use rkyv_typename::TypeName;
 
     #[cfg_attr(feature = "wasm", allow(dead_code))]
     fn serialize_and_check<T: Serialize<AllocSerializer<256>>>(value: &T)
@@ -35,7 +33,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize)]
-        #[archive_attr(derive(CheckBytes, TypeName))]
+        #[archive_attr(derive(CheckBytes))]
         pub struct Test {
             id: i32,
         }
@@ -58,7 +56,6 @@ mod tests {
         serialize_and_check(&value);
 
         #[derive(Archive, Serialize)]
-        #[archive_attr(derive(TypeName))]
         pub struct TestUnchecked {
             id: i32,
         }

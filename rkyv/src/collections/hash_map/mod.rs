@@ -12,6 +12,7 @@ use crate::{
         util::Entry,
     },
     RelPtr,
+    ser::SerializerExt as _,
 };
 #[cfg(feature = "alloc")]
 use crate::{

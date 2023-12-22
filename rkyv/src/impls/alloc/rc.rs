@@ -1,5 +1,5 @@
 use crate::{
-    de::{SharedDeserializeRegistry, SharedPointer},
+    de::{SharedDeserializeRegistry, SharedDeserializeRegistryExt as _, SharedPointer},
     rc::{
         ArcFlavor, ArchivedRc, ArchivedRcWeak, RcFlavor, RcResolver,
         RcWeakResolver,

@@ -1,6 +1,6 @@
 [package]
 name = "rkyv_dyn_test"
-description = "Test suit for rkyv_dyn"
+description = "Test suite for rkyv_dyn"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -14,12 +14,9 @@ bytecheck = { workspace = true, features = ["std"], optional = true }
 ptr_meta.workspace = true
 rkyv = { path = "../rkyv", default-features = false }
 rkyv_dyn = { path = "../rkyv_dyn", default-features = false }
-rkyv_typename = { path = "../rkyv_typename", default-features = false }
 wasm-bindgen-test = { workspace = true, optional = true }
 
 [features]
 default = ["rkyv/std", "bytecheck"]
 bytecheck = ["dep:bytecheck", "rkyv_dyn/bytecheck"]
-nightly = ["rkyv_dyn/nightly"]
-strict = ["rkyv_dyn/strict"]
 wasm = ["wasm-bindgen-test"]

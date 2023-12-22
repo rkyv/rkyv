@@ -188,7 +188,7 @@ pub use util::{
 #[doc(inline)]
 pub use validation::util::{access, from_bytes};
 
-use crate::{primitive::ArchivedIsize, ser::Serializer};
+use crate::{primitive::ArchivedIsize, ser::{Serializer, SerializerExt as _}};
 
 // Check endianness feature flag settings
 
@@ -661,6 +661,7 @@ pub trait ArchiveUnsized: Pointee {
     /// archived pointer metadata.
     type Archived: ArchivePointee + ?Sized;
 
+    // TODO: remove MetadataResolver, it never does anything
     /// The resolver for the metadata of this type.
     ///
     /// Because the pointer metadata must be archived with the relative pointer and not with the

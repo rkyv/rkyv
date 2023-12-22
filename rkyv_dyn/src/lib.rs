@@ -7,103 +7,73 @@
 //!
 //! ## Features
 //!
-//! - `nightly`: Enables some nightly features, such as [`likely`](std::intrinsics::likely).
-//! - `strict`: Guarantees that types will have the same representations across platforms and
-//!   compilations. This is already the case in practice, but this feature provides a guarantee.
-//! - `validation`: Enables validation support through `bytecheck`.
+//! - `bytecheck`: Enables validation support through `bytecheck`.
 
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_docs)]
 #![deny(rustdoc::missing_crate_level_docs)]
-#![cfg_attr(feature = "nightly", feature(core_intrinsics))]
 
-#[cfg(feature = "bytecheck")]
-pub mod validation;
+mod lazy_static;
+// TODO: re-enable
+// #[cfg(feature = "bytecheck")]
+// mod bytecheck;
 
 use core::{
     alloc::Layout,
-    hash::{Hash, Hasher},
     marker::PhantomData,
     ptr,
 };
-use ptr_meta::{DynMetadata, Pointee};
+use ptr_meta::{Pointee, DynMetadata};
+use rancor::Fallible;
 use rkyv::{
-    primitive::ArchivedU64,
-    ser::{ScratchSpace, Serializer},
-    Serialize,
+    primitive::FixedUsize,
+    ser::{ScratchSpace, Serializer, SharedSerializeRegistry},
+    de::SharedDeserializeRegistry, Serialize, Archived,
 };
 pub use rkyv_dyn_derive::archive_dyn;
-use rkyv_typename::TypeName;
-use std::collections::{hash_map::DefaultHasher, HashMap};
+pub use lazy_static::LazyStatic;
+
+/// The type of trait impl IDs.
+pub type ImplId = FixedUsize;
 
 /// An object-safe version of `Serializer`.
 ///
 /// Instead of an associated error type, `DynSerializer` returns the [`DynError`] type. If you have
 /// a serializer that already implements `Serializer`, then it will automatically implement
 /// `DynSerializer`.
-pub trait DynSerializer<E> {
-    /// Returns the current position of the serializer.
-    fn pos_dyn(&self) -> usize;
+pub trait DynSerializer<E>:
+    Serializer<E>
+    + ScratchSpace<E>
+    + SharedSerializeRegistry<E>
+{}
 
-    /// Attempts to write the given bytes to the serializer.
-    fn write_dyn(&mut self, bytes: &[u8]) -> Result<(), E>;
-
-    /// Allocates scratch space of the requested size.
-    ///
-    /// # Safety
-    ///
-    /// `layout` must have non-zero size.
-    unsafe fn push_scratch_dyn(
-        &mut self,
-        layout: Layout,
-    ) -> Result<ptr::NonNull<[u8]>, E>;
-
-    /// Deallocates previously allocated scratch space.
-    ///
-    /// # Safety
-    ///
-    /// - `ptr` must be the scratch memory last allocated with `push_scratch`.
-    /// - `layout` must be the same layout that was used to allocate that block of memory.
-    unsafe fn pop_scratch_dyn(
-        &mut self,
-        ptr: ptr::NonNull<u8>,
-        layout: Layout,
-    ) -> Result<(), E>;
-
-    // TODO: support shared pointer operations
+impl<E> Fallible for dyn DynSerializer<E> + '_ {
+    type Error = E;
 }
 
-impl<'a, E> Serializer<E> for dyn DynSerializer<E> + 'a {
-    fn pos(&self) -> usize {
-        self.pos_dyn()
-    }
+impl<S, E> DynSerializer<E> for S
+where
+    S: Serializer<E> + ScratchSpace<E> + SharedSerializeRegistry<E>,
+{}
 
-    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
-        self.write_dyn(bytes)
+/// TODO
+pub trait IntoDynSerializer<E> {
+    /// TODO
+    fn into_dyn_serializer(&mut self) -> &mut dyn DynSerializer<E>;
+}
+
+impl<S: DynSerializer<E>, E> IntoDynSerializer<E> for S {
+    #[inline]
+    fn into_dyn_serializer(&mut self) -> &mut dyn DynSerializer<E> {
+        self as &mut dyn DynSerializer<E>
     }
 }
 
-impl<'a, E> ScratchSpace<E> for dyn DynSerializer<E> + 'a {
-    unsafe fn push_scratch(
-        &mut self,
-        layout: Layout,
-    ) -> Result<ptr::NonNull<[u8]>, E> {
-        self.push_scratch_dyn(layout)
+impl<E> IntoDynSerializer<E> for dyn DynSerializer<E> {
+    #[inline]
+    fn into_dyn_serializer(&mut self) -> &mut dyn DynSerializer<E> {
+        self
     }
-
-    unsafe fn pop_scratch(
-        &mut self,
-        ptr: ptr::NonNull<u8>,
-        layout: Layout,
-    ) -> Result<(), E> {
-        self.pop_scratch_dyn(ptr, layout)
-    }
-}
-
-fn hash_type<T: TypeName + ?Sized>() -> u64 {
-    let mut hasher = DefaultHasher::new();
-    T::build_type_name(|piece| piece.hash(&mut hasher));
-    hasher.finish()
 }
 
 /// A trait object that can be archived.
@@ -113,12 +83,10 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// 1. Add [`archive_dyn`](macro@archive_dyn) on your trait to make a serializable version of it. By
 ///    default, it will be named "Serialize" + your trait name. To rename the trait, pass the
 ///    argument `serialize = "..."` as a parameter.
-/// 2. Implement `Archive` and `Serialize` for the type you want to make trait objects of and
-///    `TypeName` for the archived versions of them.
-/// 3. Implement your trait for your type and add the attribute `#[archive_dyn]` to it. Make sure to
+/// 2. Implement your trait for your type and add the attribute `#[archive_dyn]` to it. Make sure to
 ///    implement your trait for your archived type as well. This invocation must have the same
 ///    attributes as the trait invocation.
-/// 4. If deserialization support is desired, add `deserialize` or `deserialize = "..."` as
+/// 3. If deserialization support is desired, add `deserialize` or `deserialize = "..."` as
 ///    parameters and implement `Deserialize` for the type. By default, the deserialize trait will
 ///    be named "Deserialize" + your trait name. Passing a trait name will use that name instead.
 ///
@@ -147,7 +115,6 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 ///     Serialize,
 /// };
 /// use rkyv_dyn::archive_dyn;
-/// use rkyv_typename::TypeName;
 ///
 /// #[archive_dyn(deserialize)]
 /// trait ExampleTrait {
@@ -155,7 +122,6 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// }
 ///
 /// #[derive(Archive, Serialize, Deserialize)]
-/// #[archive_attr(derive(TypeName))]
 /// struct StringStruct(String);
 ///
 /// #[archive_dyn(deserialize)]
@@ -172,7 +138,6 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// }
 ///
 /// #[derive(Archive, Serialize, Deserialize)]
-/// #[archive_attr(derive(TypeName))]
 /// struct IntStruct(i32);
 ///
 /// #[archive_dyn(deserialize)]
@@ -214,273 +179,240 @@ fn hash_type<T: TypeName + ?Sized>() -> u64 {
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```
 pub trait SerializeDyn<E> {
-    /// Writes the value to the serializer and returns the position it was written to.
-    fn serialize_dyn(
+    /// Serializes this value and returns the position it is located at.
+    fn serialize_and_resolve_dyn(
         &self,
         serializer: &mut dyn DynSerializer<E>,
     ) -> Result<usize, E>;
-
-    /// Returns the type ID of the archived version of this type.
-    fn archived_type_id(&self) -> u64;
 }
 
-impl<T: for<'a> Serialize<dyn DynSerializer<E> + 'a>, E> SerializeDyn<E> for T
-where
-    T::Archived: TypeName,
-{
-    fn serialize_dyn(
+impl<T: for<'a> Serialize<dyn DynSerializer<E> + 'a>, E> SerializeDyn<E> for T {
+    fn serialize_and_resolve_dyn(
         &self,
         serializer: &mut dyn DynSerializer<E>,
     ) -> Result<usize, E> {
         self.serialize_and_resolve(serializer)
     }
-
-    fn archived_type_id(&self) -> u64 {
-        hash_type::<T::Archived>()
-    }
 }
 
 /// An object-safe version of `Deserializer`.
-pub trait DynDeserializer<E> {
-    // TODO: support shared pointers
+pub trait DynDeserializer<E>: SharedDeserializeRegistry<E> {}
+
+impl<E> Fallible for dyn DynDeserializer<E> + '_ {
+    type Error = E;
+}
+
+impl<D, E> DynDeserializer<E> for D
+where
+    D: SharedDeserializeRegistry<E>,
+{}
+
+/// TODO
+pub trait IntoDynDeserializer<E> {
+    /// TODO
+    fn into_dyn_deserializer(&mut self) -> &mut dyn DynDeserializer<E>;
+}
+
+impl<S: DynDeserializer<E>, E> IntoDynDeserializer<E> for S {
+    #[inline]
+    fn into_dyn_deserializer(&mut self) -> &mut dyn DynDeserializer<E> {
+        self as &mut dyn DynDeserializer<E>
+    }
+}
+
+impl<E> IntoDynDeserializer<E> for dyn DynDeserializer<E> {
+    #[inline]
+    fn into_dyn_deserializer(&mut self) -> &mut dyn DynDeserializer<E> {
+        self
+    }
 }
 
 /// A trait object that can be deserialized.
 ///
 /// See [`SerializeDyn`] for more information.
 pub trait DeserializeDyn<T: Pointee + ?Sized, E> {
-    /// Deserializes the given value as a trait object.
-    ///
-    /// # Safety
-    ///
-    /// The memory returned must be properly deallocated.
-    unsafe fn deserialize_dyn(
+    /// Deserializes this value and returns a pointer to it.
+    fn deserialize_dyn(
         &self,
         deserializer: &mut dyn DynDeserializer<E>,
         alloc: &mut dyn FnMut(Layout) -> *mut u8,
     ) -> Result<*mut (), E>;
 
-    /// Returns the metadata for the deserialized version of this value.
-    fn deserialize_dyn_metadata(
-        &self,
-        deserializer: &mut dyn DynDeserializer<E>,
-    ) -> Result<T::Metadata, E>;
+    /// Returns the pointer metadata for the deserialized form of this type.
+    fn deserialized_pointer_metadata(&self) -> DynMetadata<T>;
 }
 
 /// The archived version of `DynMetadata`.
-#[cfg_attr(feature = "strict", repr(C))]
 #[cfg_attr(
     feature = "bytecheck",
-    derive(bytecheck::CheckBytes),
+    derive(::bytecheck::CheckBytes),
     check_bytes(verify),
 )]
+#[repr(transparent)]
 pub struct ArchivedDynMetadata<T: ?Sized> {
-    type_id: ArchivedU64,
+    impl_id: Archived<ImplId>,
     phantom: PhantomData<T>,
 }
 
-impl<T: TypeName + ?Sized> ArchivedDynMetadata<T> {
+impl<T: ?Sized> ArchivedDynMetadata<T> {
     /// Creates a new `ArchivedDynMetadata` for the given type.
     ///
     /// # Safety
     ///
     /// `out` must point to a valid location for an `ArchivedDynMetadata<T>`.
-    pub unsafe fn emplace(type_id: u64, out: *mut Self) {
-        ptr::addr_of_mut!((*out).type_id)
-            .write(ArchivedU64::from_native(type_id));
+    pub unsafe fn emplace(impl_id: ImplId, out: *mut Self) {
+        ptr::addr_of_mut!((*out).impl_id)
+            .write(Archived::<ImplId>::from_native(impl_id));
         // Technically not necessary, but for completeness
         ptr::addr_of_mut!((*out).phantom)
             .write(PhantomData);
     }
 
-    fn lookup_vtable(&self) -> usize {
-        IMPL_REGISTRY
-            .get::<T>(self.type_id.to_native())
-            .expect("attempted to get vtable for an unregistered impl")
-            .vtable
+    /// Returns the impl ID of the associated with this `ArchivedDynMetadata`.
+    pub fn impl_id(&self) -> ImplId {
+        self.impl_id.to_native()
     }
 
-    /// Gets the vtable address for this trait object.
-    pub fn vtable(&self) -> usize {
-        self.lookup_vtable()
-    }
-
-    /// Gets the `DynMetadata` associated with this `ArchivedDynMetadata`.
-    pub fn pointer_metadata(&self) -> DynMetadata<T> {
-        unsafe { core::mem::transmute(self.vtable()) }
-    }
-}
-
-#[cfg(debug_assertions)]
-#[doc(hidden)]
-#[derive(Copy, Clone)]
-pub struct ImplDebugInfo {
-    pub file: &'static str,
-    pub line: u32,
-    pub column: u32,
-}
-
-#[cfg(debug_assertions)]
-#[doc(hidden)]
-#[macro_export]
-macro_rules! debug_info {
-    () => {
-        rkyv_dyn::ImplDebugInfo {
-            file: core::file!(),
-            line: core::line!(),
-            column: core::column!(),
-        }
-    };
-}
-
-#[cfg(not(debug_assertions))]
-#[doc(hidden)]
-#[derive(Copy, Clone)]
-pub struct ImplDebugInfo;
-
-#[cfg(not(debug_assertions))]
-#[doc(hidden)]
-#[macro_export]
-macro_rules! debug_info {
-    () => {
-        rkyv_dyn::ImplDebugInfo
-    };
-}
-
-#[doc(hidden)]
-#[derive(Clone, Copy)]
-pub struct ImplData {
-    pub vtable: usize,
-    pub debug_info: ImplDebugInfo,
-}
-
-#[derive(Clone, Copy, Hash, Eq, PartialEq)]
-struct ImplId {
-    trait_id: u64,
-    type_id: u64,
-}
-
-impl ImplId {
-    fn new<TY: TypeName, TR: TypeName + ?Sized>() -> Self {
-        Self::from_type_id::<TR>(hash_type::<TY>())
-    }
-
-    fn from_type_id<TR: TypeName + ?Sized>(type_id: u64) -> Self {
-        Self {
-            trait_id: hash_type::<TR>(),
-            // The last bit of the type ID is set to 1 to make sure we can differentiate between
-            // cached and uncached vtables when the feature is turned on
-            type_id: type_id | 1,
+    /// Returns the pointer metadata for the trait object this metadata refers
+    /// to.
+    pub fn lookup_metadata(&self) -> DynMetadata<T> {
+        unsafe {
+            TRAIT_IMPLS.get().expect("TRAIT_IMPLS was not initialized for rkyv_dyn")[self.impl_id() as usize].downcast_metadata()
         }
     }
 }
 
-#[doc(hidden)]
-pub struct ImplEntry {
-    impl_id: ImplId,
-    data: ImplData,
+/// The trait object metadata for a trait implementation.
+#[derive(Clone, Copy, Debug)]
+pub struct TraitImpl {
+    // The type of this `DynMetadata` is erased. Whatever uses it will transmute
+    // it to the correct `DynMetadata<T>`.
+    metadata: DynMetadata<()>,
 }
 
-impl ImplEntry {
-    #[doc(hidden)]
-    pub fn new<TY: TypeName + RegisteredImpl<TR>, TR: TypeName + ?Sized>(
+impl TraitImpl {
+    /// Creates a new trait impl from a trait object pointer.
+    ///
+    /// # Safety
+    ///
+    /// `pointer` must have valid metadata.
+    pub unsafe fn from_pointer<T: Pointee<Metadata = DynMetadata<T>> + ?Sized>(
+        pointer: *const T,
     ) -> Self {
+        Self::from_metadata(ptr_meta::metadata(pointer))
+    }
+
+    /// Creates a new trait impl from its trait object metadata.
+    pub fn from_metadata<T: ?Sized>(metadata: DynMetadata<T>) -> Self {
         Self {
-            impl_id: ImplId::new::<TY, TR>(),
-            data: ImplData {
-                vtable: <TY as RegisteredImpl<TR>>::vtable(),
-                debug_info: <TY as RegisteredImpl<TR>>::debug_info(),
-            },
-        }
-    }
-}
-
-struct ImplRegistry {
-    id_to_data: HashMap<ImplId, ImplData>,
-}
-
-impl ImplRegistry {
-    fn new() -> Self {
-        Self {
-            id_to_data: HashMap::new(),
+            // SAFETY: All `DynMetadata<T>` have the same layout and validity.
+            // They all contain a single erased `&'static VTable` reference and
+            // a `PhantomData<T>`.
+            metadata: unsafe { core::mem::transmute(metadata) },
         }
     }
 
-    fn add_entry(&mut self, entry: &ImplEntry) {
-        let old_value = self.id_to_data.insert(entry.impl_id, entry.data);
-
-        #[cfg(debug_assertions)]
-        if let Some(old_data) = old_value {
-            eprintln!("impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
-            eprintln!(
-                "existing impl registered at {}:{}:{}",
-                old_data.debug_info.file,
-                old_data.debug_info.line,
-                old_data.debug_info.column
-            );
-            eprintln!(
-                "new impl registered at {}:{}:{}",
-                entry.data.debug_info.file,
-                entry.data.debug_info.line,
-                entry.data.debug_info.column
-            );
-            panic!();
-        }
-
-        debug_assert!(old_value.is_none(), "impl id conflict, a trait implementation was likely added twice (but it's possible there was a hash collision)");
-    }
-
-    fn get<T: TypeName + ?Sized>(&self, type_id: u64) -> Option<&ImplData> {
-        self.id_to_data.get(&ImplId::from_type_id::<T>(type_id))
+    /// Returns the trait object metadata of this trait implementation downcast
+    /// to the given type.
+    ///
+    /// # Safety
+    ///
+    /// `T` must be the `dyn Trait` that this `TraitImpl` corresponds to.
+    pub unsafe fn downcast_metadata<T: ?Sized>(&self) -> DynMetadata<T> {
+        unsafe { core::mem::transmute(self.metadata) }
     }
 }
 
-/// Guarantees that an impl has been registered for the type as the given trait object.
-#[doc(hidden)]
-pub unsafe trait RegisteredImpl<T: ?Sized> {
-    fn vtable() -> usize;
-    fn debug_info() -> ImplDebugInfo;
-}
-
-#[doc(hidden)]
-#[cfg(not(feature = "bytecheck"))]
-#[macro_export]
-macro_rules! register_validation {
-    ($type:ty as $trait:ty) => {};
-}
-
-/// Registers a new impl with the trait object system.
+/// Creates a new [`TraitImpl`] from the given type and dyn trait.
 ///
-/// This is called by `#[archive_dyn]` when attached to a trait implementation. You might need to
-/// call this manually if you're using generic traits and types, since each specific instance needs
-/// to be individually registered.
+/// See [`register_trait_impls`] for a macro that registers these trait impls
+/// globally.
 ///
-/// Call it like `register_impl!(MyType as dyn MyTrait)`.
+/// # Example
+/// ```
+/// struct MyType;
+///
+/// trait MyTrait {}
+///
+/// impl MyTrait for MyType {}
+///
+/// let trait_impl = trait_impl!(MyType as dyn MyTrait);
+/// ```
 #[macro_export]
-macro_rules! register_impl {
+macro_rules! trait_impl {
     ($type:ty as $trait:ty) => {
-        const _: () = {
-            use rkyv_dyn::{
-                debug_info, inventory, register_validation, ImplData,
-                ImplDebugInfo, ImplEntry, RegisteredImpl,
-            };
+        // SAFETY: The given pointer is guaranteed to have valid metadata
+        // because we just made them.
+        unsafe {
+            $crate::TraitImpl::from_pointer(
+                ::core::ptr::null::<$type>() as *const $trait
+            )
+        }
+    };
+}
 
-            unsafe impl RegisteredImpl<$trait> for $type {
-                fn vtable() -> usize {
-                    unsafe {
-                        core::mem::transmute(ptr_meta::metadata(
-                            core::ptr::null::<$type>() as *const $trait,
-                        ))
-                    }
-                }
+/// All registered trait impls for `rkyv_dyn`.
+///
+/// This can be initialized with 
+pub static TRAIT_IMPLS: LazyStatic<&'static [TraitImpl]> = LazyStatic::new();
 
-                fn debug_info() -> ImplDebugInfo {
-                    debug_info!()
-                }
-            }
-
-            inventory::submit! { ImplEntry::new::<$type, $trait>() }
-            register_validation!($type as $trait);
+/// Globally registers the given trait impls. This macro performs three basic
+/// functions:
+///
+/// 1. Generating `impl RegisteredImpl<$trait> for $type` definitions with valid
+///    impl IDs.
+/// 2. Creating and initializing a static array of [`TraitImpl`]s, one for each
+///    trait impl argument.
+/// 3. Initializing [`TRAIT_IMPLS`] with a reference to the array of
+///    [`TraitImpl`]s.
+#[macro_export]
+macro_rules! register_trait_impls {
+    ($($type:ty as $trait:ty $(= $id:expr)?),* $(,)?) => {
+        let _: () = {
+            $crate::register_trait_impls!(@register $($type as $trait $(= $id)?,)*);
+            const TRAIT_IMPL_COUNT: usize = 0
+                $(+ { let _ = ::core::marker::PhantomData::<$type>; 1 })*;
+            static TRAIT_IMPLS: $crate::LazyStatic<[$crate::TraitImpl; TRAIT_IMPL_COUNT]> =
+                $crate::LazyStatic::new();
+            let trait_impls = TRAIT_IMPLS.init([
+                $(
+                    $crate::trait_impl!($type as $trait),
+                )*
+            ]).unwrap();
+            $crate::TRAIT_IMPLS.init(trait_impls).unwrap();
         };
     };
+    (@register $first_type:ty as $first_trait:ty $(= $first_id:expr)?, $($rest_type:ty as $rest_trait:ty $(= $rest_id:expr)?,)*) => {
+        struct ImplIds;
+
+        trait Registered<const ID: $crate::ImplId> {}
+
+        unsafe impl $crate::RegisteredImpl<$first_trait> for $first_type {
+            const IMPL_ID: $crate::ImplId = $crate::register_trait_impls!(@choose_id 0, $($first_id)?);
+        }
+        impl Registered<{ <$first_type as $crate::RegisteredImpl<$first_trait>>::IMPL_ID }> for ImplIds {}
+
+        $crate::register_trait_impls!(@register_rest $first_type as $first_trait, $($rest_type:ty as $rest_trait:ty $(= $rest_id:expr)?,)*);
+    };
+    (@register_rest $prev_type:ty as $prev_trait:ty,) => {};
+    (@register_rest $prev_type:ty as $prev_trait:ty, $type:ty as $trait:ty $(= $id:expr)?, $($rest_type:ty as $rest_trait:ty $(= $rest_id:expr)?,)*) => {
+        unsafe impl $crate::RegisteredImpl<$trait> for $type {
+            const IMPL_ID: $crate::ImplId = $crate::register_trait_impls!(@choose_id <$prev_type as $crate::RegisteredImpl<$prev_trait>>::IMPL_ID + 1, $($id)?);
+        }
+        impl Registered<{ <$type as $crate::RegisteredImpl<$trait>>::IMPL_ID }> for ImplIds {}
+
+        $crate::register_trait_impls!(@register_rest $type as $trait, $($rest_type as $rest_trait $(= $rest_id)?,)*);
+    };
+    (@choose_id $default:expr, $explicit:expr) => { $explicit };
+    (@choose_id $default:expr,) => { $default };
+}
+
+/// A trait impl that has a globally-unique ID.
+///
+/// # Safety
+///
+/// `IMPL_ID` must be globally unique.
+pub unsafe trait RegisteredImpl<T: ?Sized> {
+    /// The ID of this trait impl.
+    const IMPL_ID: ImplId;
 }

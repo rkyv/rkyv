@@ -4,6 +4,7 @@
 use crate::{
     primitive::{ArchivedU32, ArchivedUsize},
     Archive, RelPtr,
+    ser::SerializerExt as _,
 };
 use core::{
     fmt,

@@ -2,7 +2,7 @@
 use crate::copy::ArchiveCopyOptimize;
 use crate::{
     primitive::ArchivedUsize,
-    ser::{ScratchSpace, Serializer},
+    ser::{ScratchSpace, Serializer, SerializerExt as _},
     Archive, ArchivePointee, ArchiveUnsized, ArchivedMetadata, Deserialize,
     DeserializeUnsized, Serialize, SerializeUnsized,
 };

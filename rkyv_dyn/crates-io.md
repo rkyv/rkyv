@@ -13,7 +13,6 @@ Trait object serialization for rkyv.
 
 - [rkyv](https://docs.rs/rkyv), the core library
 - [rkyv_dyn](https://docs.rs/rkyv_dyn), which adds trait object support to rkyv
-- [rkyv_typename](https://docs.rs/rkyv_typename), a type naming library
 
 ## Benchmarks
 
@@ -43,7 +42,6 @@ use rkyv::{
     Serialize,
 };
 use rkyv_dyn::archive_dyn;
-use rkyv_typename::TypeName;
 
 #[archive_dyn(deserialize)]
 trait ExampleTrait {
@@ -51,7 +49,6 @@ trait ExampleTrait {
 }
 
 #[derive(Archive, Serialize, Deserialize)]
-#[archive_attr(derive(TypeName))]
 struct StringStruct(String);
 
 #[archive_dyn(deserialize)]
@@ -68,7 +65,6 @@ impl ExampleTrait for Archived<StringStruct> {
 }
 
 #[derive(Archive, Serialize, Deserialize)]
-#[archive_attr(derive(TypeName))]
 struct IntStruct(i32);
 
 #[archive_dyn(deserialize)]

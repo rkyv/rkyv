@@ -14,6 +14,7 @@ use crate::{
     out_field,
     primitive::ArchivedUsize,
     RelPtr,
+    ser::SerializerExt as _,
 };
 use core::{
     borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData,

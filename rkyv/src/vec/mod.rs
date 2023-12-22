@@ -4,7 +4,7 @@
 
 use crate::{
     primitive::ArchivedUsize,
-    ser::{ScratchSpace, Serializer},
+    ser::{ScratchSpace, Serializer, SerializerExt as _},
     Archive, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{

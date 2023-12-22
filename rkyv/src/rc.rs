@@ -1,7 +1,7 @@
 //! Archived versions of shared pointers.
 
 use crate::{
-    ser::{Serializer, SharedSerializeRegistry, SharedSerializeRegistryExt},
+    ser::{Serializer, SerializerExt as _, SharedSerializeRegistry, SharedSerializeRegistryExt},
     ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr, SerializeUnsized,
 };
 use core::{

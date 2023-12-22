@@ -31,7 +31,29 @@ pub trait SharedDeserializeRegistry<E = <Self as Fallible>::Error> {
         ptr: *const u8,
         shared: Box<dyn SharedPointer>,
     ) -> Result<(), E>;
+}
 
+impl<T, E> SharedDeserializeRegistry<E> for Strategy<T, E>
+where
+    T: SharedDeserializeRegistry<E>,
+{
+    #[inline]
+    fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer> {
+        T::get_shared_ptr(self, ptr)
+    }
+
+    #[inline]
+    fn add_shared_ptr(
+        &mut self,
+        ptr: *const u8,
+        shared: Box<dyn SharedPointer>,
+    ) -> Result<(), E> {
+        T::add_shared_ptr(self, ptr, shared)
+    }
+}
+
+/// Helper methods for `SharedDeserializeRegistry`.
+pub trait SharedDeserializeRegistryExt<E>: SharedDeserializeRegistry<E> {
     /// Checks whether the given reference has been deserialized and either uses the existing shared
     /// pointer to it, or deserializes it and converts it to a shared pointer with `to_shared`.
     #[inline]
@@ -75,21 +97,7 @@ pub trait SharedDeserializeRegistry<E = <Self as Fallible>::Error> {
     }
 }
 
-impl<T, E> SharedDeserializeRegistry<E> for Strategy<T, E>
+impl<T, E> SharedDeserializeRegistryExt<E> for T
 where
-    T: SharedDeserializeRegistry<E>,
-{
-    #[inline]
-    fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer> {
-        T::get_shared_ptr(self, ptr)
-    }
-
-    #[inline]
-    fn add_shared_ptr(
-        &mut self,
-        ptr: *const u8,
-        shared: Box<dyn SharedPointer>,
-    ) -> Result<(), E> {
-        T::add_shared_ptr(self, ptr, shared)
-    }
-}
+    T: SharedDeserializeRegistry<E> + ?Sized,
+{}
