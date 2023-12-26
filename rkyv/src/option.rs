@@ -194,6 +194,7 @@ impl<T: PartialOrd> PartialOrd for ArchivedOption<T> {
     }
 }
 
+#[cfg(feature = "extra_traits")]
 impl<T, U: PartialOrd<T>> PartialOrd<Option<T>> for ArchivedOption<U> {
     #[inline]
     fn partial_cmp(&self, other: &Option<T>) -> Option<cmp::Ordering> {
@@ -206,6 +207,7 @@ impl<T, U: PartialOrd<T>> PartialOrd<Option<T>> for ArchivedOption<U> {
     }
 }
 
+#[cfg(feature = "extra_traits")]
 impl<T: PartialOrd<U>, U> PartialOrd<ArchivedOption<T>> for Option<U> {
     #[inline]
     fn partial_cmp(&self, other: &ArchivedOption<T>) -> Option<cmp::Ordering> {
@@ -312,6 +314,7 @@ mod tests {
     use core::cmp::Ordering;
 
     #[test]
+    #[cfg(feature = "extra_traits")]
     fn partial_ord_option() {
         let a: ArchivedOption<u8> = ArchivedOption::Some(42);
         let b = Some(42);
