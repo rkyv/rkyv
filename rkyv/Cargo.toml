@@ -49,6 +49,7 @@ strict = ["rkyv_derive/strict"]
 copy = ["rkyv_derive/copy"]
 copy_unsafe = []
 validation = ["alloc", "bytecheck", "rend/validation"]
+extra_traits = []
 
 # Crate support
 uuid = ["dep:uuid", "bytecheck?/uuid"]
