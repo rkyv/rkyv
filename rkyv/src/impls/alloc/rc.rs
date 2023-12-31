@@ -1,5 +1,8 @@
 use crate::{
-    de::{SharedDeserializeRegistry, SharedDeserializeRegistryExt as _, SharedPointer},
+    de::{
+        SharedDeserializeRegistry, SharedDeserializeRegistryExt as _,
+        SharedPointer,
+    },
     rc::{
         ArcFlavor, ArchivedRc, ArchivedRcWeak, RcFlavor, RcResolver,
         RcWeakResolver,
@@ -26,7 +29,7 @@ impl<T: ?Sized> SharedPointer for rc::Rc<T> {
 
 impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
     type Archived = ArchivedRc<T::Archived, RcFlavor>;
-    type Resolver = RcResolver<T::MetadataResolver>;
+    type Resolver = RcResolver;
 
     #[inline]
     unsafe fn resolve(
@@ -88,7 +91,7 @@ impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<rc::Rc<U>>
 
 impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
     type Archived = ArchivedRcWeak<T::Archived, RcFlavor>;
-    type Resolver = RcWeakResolver<T::MetadataResolver>;
+    type Resolver = RcWeakResolver;
 
     #[inline]
     unsafe fn resolve(
@@ -156,7 +159,7 @@ impl<T: ?Sized> SharedPointer for sync::Arc<T> {
 
 impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     type Archived = ArchivedRc<T::Archived, ArcFlavor>;
-    type Resolver = RcResolver<T::MetadataResolver>;
+    type Resolver = RcResolver;
 
     #[inline]
     unsafe fn resolve(
@@ -223,7 +226,7 @@ where
 
 impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
     type Archived = ArchivedRcWeak<T::Archived, ArcFlavor>;
-    type Resolver = RcWeakResolver<T::MetadataResolver>;
+    type Resolver = RcWeakResolver;
 
     #[inline]
     unsafe fn resolve(

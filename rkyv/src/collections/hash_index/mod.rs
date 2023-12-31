@@ -3,8 +3,8 @@
 
 use crate::{
     primitive::{ArchivedU32, ArchivedUsize},
-    Archive, RelPtr,
     ser::SerializerExt as _,
+    Archive, RelPtr,
 };
 use core::{
     fmt,

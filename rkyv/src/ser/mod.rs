@@ -105,7 +105,6 @@ pub trait SerializerExt<E>: Serializer<E> {
         &mut self,
         value: &T,
         to: usize,
-        metadata_resolver: T::MetadataResolver,
     ) -> Result<usize, E> {
         let from = self.pos();
         debug_assert_eq!(
@@ -115,10 +114,10 @@ pub trait SerializerExt<E>: Serializer<E> {
 
         let mut resolved = mem::MaybeUninit::<RelPtr<T::Archived>>::uninit();
         resolved.as_mut_ptr().write_bytes(0, 1);
-        value.resolve_unsized(
+        RelPtr::resolve_emplace(
             from,
             to,
-            metadata_resolver,
+            value.archived_metadata(),
             resolved.as_mut_ptr(),
         );
 
@@ -129,10 +128,7 @@ pub trait SerializerExt<E>: Serializer<E> {
     }
 }
 
-impl<T, E> SerializerExt<E> for T
-where
-    T: Serializer<E> + ?Sized,
-{}
+impl<T, E> SerializerExt<E> for T where T: Serializer<E> + ?Sized {}
 
 // Someday this can probably be replaced with alloc::Allocator
 
@@ -190,7 +186,8 @@ pub trait SharedSerializeRegistry<E = <Self as Fallible>::Error> {
     fn get_shared_ptr(&self, value: *const u8) -> Option<usize>;
 
     /// Adds the position of a shared pointer to the registry.
-    fn add_shared_ptr(&mut self, value: *const u8, pos: usize) -> Result<(), E>;
+    fn add_shared_ptr(&mut self, value: *const u8, pos: usize)
+        -> Result<(), E>;
 }
 
 impl<T, E> SharedSerializeRegistry<E> for Strategy<T, E>
@@ -250,8 +247,7 @@ pub trait SharedSerializeRegistryExt<E>: SharedSerializeRegistry<E> {
     }
 }
 
-impl<S, E> SharedSerializeRegistryExt<E> for S
-where
-    S: SharedSerializeRegistry<E> + ?Sized,
+impl<S, E> SharedSerializeRegistryExt<E> for S where
+    S: SharedSerializeRegistry<E> + ?Sized
 {
 }

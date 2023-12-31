@@ -74,7 +74,7 @@ fn main() {
     print_v2(&v2_as_v2.0);
 
     // But we can't view a v1 as a v2 because v1 is not forward-compatible with v2
-    if let Ok(_) = rkyv::access::<Versioned<ExampleV2>, Failure>(&v1_bytes) {
+    if rkyv::access::<Versioned<ExampleV2>, Failure>(&v1_bytes).is_ok() {
         panic!("v1 bytes should not validate as v2");
     } else {
         println!("verified that v1 cannot be viewed as v2");

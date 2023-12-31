@@ -5,13 +5,13 @@ use crate::{
         ArchivedI16, ArchivedI32, ArchivedI64, ArchivedU16, ArchivedU32,
         ArchivedU64,
     },
-    ArchivePointee, ArchiveUnsized,
+    ArchivePointee,
 };
 use core::{
     convert::TryFrom,
     fmt,
     marker::{PhantomData, PhantomPinned},
-    ptr,
+    ptr::{self, addr_of_mut},
 };
 
 /// An error where the distance between two positions cannot be represented by the offset type.
@@ -367,19 +367,15 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// - `value` must be the value being serialized
     /// - `metadata_resolver` must be the result of serializing the metadata of `value`
     #[inline]
-    pub unsafe fn try_resolve_emplace<
-        U: ArchiveUnsized<Archived = T> + ?Sized,
-    >(
+    pub unsafe fn try_resolve_emplace(
         from: usize,
         to: usize,
-        value: &U,
-        metadata_resolver: U::MetadataResolver,
+        metadata: T::ArchivedMetadata,
         out: *mut Self,
     ) -> Result<(), OffsetError> {
         let (fp, fo) = out_field!(out.raw_ptr);
         RawRelPtr::try_emplace(from + fp, to, fo)?;
-        let (fp, fo) = out_field!(out.metadata);
-        value.resolve_metadata(from + fp, metadata_resolver, fo);
+        addr_of_mut!((*out).metadata).write(metadata);
         Ok(())
     }
 
@@ -397,80 +393,13 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// - `value` must be the value being serialized
     /// - `metadata_resolver` must be the result of serializing the metadata of `value`
     #[inline]
-    pub unsafe fn resolve_emplace<U: ArchiveUnsized<Archived = T> + ?Sized>(
+    pub unsafe fn resolve_emplace(
         from: usize,
         to: usize,
-        value: &U,
-        metadata_resolver: U::MetadataResolver,
+        metadata: T::ArchivedMetadata,
         out: *mut Self,
     ) {
-        Self::try_resolve_emplace(from, to, value, metadata_resolver, out)
-            .unwrap();
-    }
-
-    /// Attempts to create a relative pointer from one position to another given
-    /// raw pointer metadata.
-    ///
-    /// This does the same thing as [`RelPtr::try_resolve_emplace`] but you must supply
-    /// the [`<T as ArchivePointee>::ArchivedMetadata`][ArchivePointee::ArchivedMetadata]
-    /// yourself directly rather than through an implementation of [`ArchiveUnsized`] on some
-    /// value.
-    ///
-    /// # Safety
-    ///
-    /// - `from` must be the position of `out` within the archive
-    /// - `to` must be the position of some valid `T`
-    /// - `value` must be the value being serialized
-    /// - `archived_metadata` must produce valid metadata for the pointee of the resulting
-    /// `RelPtr` (the thing being pointed at) when [`<T as ArchivePointee>::pointer_metadata(archived_metadata)`][ArchivePointee::pointer_metadata]
-    /// is called.
-    pub unsafe fn try_resolve_emplace_from_raw_parts(
-        from: usize,
-        to: usize,
-        archived_metadata: <T as ArchivePointee>::ArchivedMetadata,
-        out: *mut Self,
-    ) -> Result<(), OffsetError> {
-        let (fp, fo) = out_field!(out.raw_ptr);
-        RawRelPtr::try_emplace(from + fp, to, fo)?;
-        let (_fp, fo) = out_field!(out.metadata);
-        *fo = archived_metadata;
-        Ok(())
-    }
-
-    /// Creates a relative pointer from one position to another given
-    /// raw pointer metadata.
-    ///
-    /// This does the same thing as [`RelPtr::resolve_emplace`] but you must supply
-    /// the [`<T as ArchivePointee>::ArchivedMetadata`][ArchivePointee::ArchivedMetadata]
-    /// yourself directly rather than through an implementation of [`ArchiveUnsized`] on some
-    /// value.
-    ///
-    /// # Panics
-    ///
-    /// - The offset between `from` and `to` does not fit in an `isize`
-    /// - The offset between `from` and `to` exceeds the offset storage
-    ///
-    /// # Safety
-    ///
-    /// - `from` must be the position of `out` within the archive
-    /// - `to` must be the position of some valid `T`
-    /// - `value` must be the value being serialized
-    /// - `archived_metadata` must produce valid metadata for the pointee of the resulting
-    /// `RelPtr` (the thing being pointed at) when [`<T as ArchivePointee>::pointer_metadata(archived_metadata)`][ArchivePointee::pointer_metadata]
-    /// is called.
-    pub unsafe fn resolve_emplace_from_raw_parts(
-        from: usize,
-        to: usize,
-        archived_metadata: <T as ArchivePointee>::ArchivedMetadata,
-        out: *mut Self,
-    ) {
-        Self::try_resolve_emplace_from_raw_parts(
-            from,
-            to,
-            archived_metadata,
-            out,
-        )
-        .unwrap();
+        Self::try_resolve_emplace(from, to, metadata, out).unwrap();
     }
 
     /// Gets the base pointer for the relative pointer.

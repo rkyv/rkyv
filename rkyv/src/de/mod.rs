@@ -53,7 +53,9 @@ where
 }
 
 /// Helper methods for `SharedDeserializeRegistry`.
-pub trait SharedDeserializeRegistryExt<E>: SharedDeserializeRegistry<E> {
+pub trait SharedDeserializeRegistryExt<E>:
+    SharedDeserializeRegistry<E>
+{
     /// Checks whether the given reference has been deserialized and either uses the existing shared
     /// pointer to it, or deserializes it and converts it to a shared pointer with `to_shared`.
     #[inline]
@@ -97,7 +99,7 @@ pub trait SharedDeserializeRegistryExt<E>: SharedDeserializeRegistry<E> {
     }
 }
 
-impl<T, E> SharedDeserializeRegistryExt<E> for T
-where
-    T: SharedDeserializeRegistry<E> + ?Sized,
-{}
+impl<T, E> SharedDeserializeRegistryExt<E> for T where
+    T: SharedDeserializeRegistry<E> + ?Sized
+{
+}

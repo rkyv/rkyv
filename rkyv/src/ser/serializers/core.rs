@@ -1,4 +1,4 @@
-use rancor::{Error, fail};
+use rancor::{fail, Error};
 
 use crate::ser::{ScratchSpace, Serializer};
 use core::{

@@ -18,20 +18,17 @@ mod lazy_static;
 // #[cfg(feature = "bytecheck")]
 // mod bytecheck;
 
-use core::{
-    alloc::Layout,
-    marker::PhantomData,
-    ptr,
-};
-use ptr_meta::{Pointee, DynMetadata};
+use core::{alloc::Layout, hash, marker::PhantomData};
+pub use lazy_static::LazyStatic;
+use ptr_meta::{DynMetadata, Pointee};
 use rancor::Fallible;
 use rkyv::{
+    de::SharedDeserializeRegistry,
     primitive::FixedUsize,
     ser::{ScratchSpace, Serializer, SharedSerializeRegistry},
-    de::SharedDeserializeRegistry, Serialize, Archived,
+    Archived, Serialize,
 };
 pub use rkyv_dyn_derive::archive_dyn;
-pub use lazy_static::LazyStatic;
 
 /// The type of trait impl IDs.
 pub type ImplId = FixedUsize;
@@ -42,36 +39,35 @@ pub type ImplId = FixedUsize;
 /// a serializer that already implements `Serializer`, then it will automatically implement
 /// `DynSerializer`.
 pub trait DynSerializer<E>:
-    Serializer<E>
-    + ScratchSpace<E>
-    + SharedSerializeRegistry<E>
-{}
+    Serializer<E> + ScratchSpace<E> + SharedSerializeRegistry<E>
+{
+}
 
 impl<E> Fallible for dyn DynSerializer<E> + '_ {
     type Error = E;
 }
 
-impl<S, E> DynSerializer<E> for S
-where
-    S: Serializer<E> + ScratchSpace<E> + SharedSerializeRegistry<E>,
-{}
-
-/// TODO
-pub trait IntoDynSerializer<E> {
-    /// TODO
-    fn into_dyn_serializer(&mut self) -> &mut dyn DynSerializer<E>;
+impl<S, E> DynSerializer<E> for S where
+    S: Serializer<E> + ScratchSpace<E> + SharedSerializeRegistry<E>
+{
 }
 
-impl<S: DynSerializer<E>, E> IntoDynSerializer<E> for S {
+/// TODO
+pub trait AsDynSerializer<E> {
+    /// TODO
+    fn as_dyn_serializer(&mut self) -> &mut dyn DynSerializer<E>;
+}
+
+impl<S: DynSerializer<E>, E> AsDynSerializer<E> for S {
     #[inline]
-    fn into_dyn_serializer(&mut self) -> &mut dyn DynSerializer<E> {
+    fn as_dyn_serializer(&mut self) -> &mut dyn DynSerializer<E> {
         self as &mut dyn DynSerializer<E>
     }
 }
 
-impl<E> IntoDynSerializer<E> for dyn DynSerializer<E> {
+impl<E> AsDynSerializer<E> for dyn DynSerializer<E> {
     #[inline]
-    fn into_dyn_serializer(&mut self) -> &mut dyn DynSerializer<E> {
+    fn as_dyn_serializer(&mut self) -> &mut dyn DynSerializer<E> {
         self
     }
 }
@@ -202,27 +198,24 @@ impl<E> Fallible for dyn DynDeserializer<E> + '_ {
     type Error = E;
 }
 
-impl<D, E> DynDeserializer<E> for D
-where
-    D: SharedDeserializeRegistry<E>,
-{}
+impl<D, E> DynDeserializer<E> for D where D: SharedDeserializeRegistry<E> {}
 
 /// TODO
-pub trait IntoDynDeserializer<E> {
+pub trait AsDynDeserializer<E> {
     /// TODO
-    fn into_dyn_deserializer(&mut self) -> &mut dyn DynDeserializer<E>;
+    fn as_dyn_deserializer(&mut self) -> &mut dyn DynDeserializer<E>;
 }
 
-impl<S: DynDeserializer<E>, E> IntoDynDeserializer<E> for S {
+impl<S: DynDeserializer<E>, E> AsDynDeserializer<E> for S {
     #[inline]
-    fn into_dyn_deserializer(&mut self) -> &mut dyn DynDeserializer<E> {
+    fn as_dyn_deserializer(&mut self) -> &mut dyn DynDeserializer<E> {
         self as &mut dyn DynDeserializer<E>
     }
 }
 
-impl<E> IntoDynDeserializer<E> for dyn DynDeserializer<E> {
+impl<E> AsDynDeserializer<E> for dyn DynDeserializer<E> {
     #[inline]
-    fn into_dyn_deserializer(&mut self) -> &mut dyn DynDeserializer<E> {
+    fn as_dyn_deserializer(&mut self) -> &mut dyn DynDeserializer<E> {
         self
     }
 }
@@ -246,7 +239,7 @@ pub trait DeserializeDyn<T: Pointee + ?Sized, E> {
 #[cfg_attr(
     feature = "bytecheck",
     derive(::bytecheck::CheckBytes),
-    check_bytes(verify),
+    check_bytes(verify)
 )]
 #[repr(transparent)]
 pub struct ArchivedDynMetadata<T: ?Sized> {
@@ -254,18 +247,22 @@ pub struct ArchivedDynMetadata<T: ?Sized> {
     phantom: PhantomData<T>,
 }
 
+impl<T: ?Sized> Copy for ArchivedDynMetadata<T> {}
+unsafe impl<T: ?Sized> Send for ArchivedDynMetadata<T> {}
+unsafe impl<T: ?Sized> Sync for ArchivedDynMetadata<T> {}
+impl<T: ?Sized> Unpin for ArchivedDynMetadata<T> {}
+
 impl<T: ?Sized> ArchivedDynMetadata<T> {
     /// Creates a new `ArchivedDynMetadata` for the given type.
     ///
     /// # Safety
     ///
     /// `out` must point to a valid location for an `ArchivedDynMetadata<T>`.
-    pub unsafe fn emplace(impl_id: ImplId, out: *mut Self) {
-        ptr::addr_of_mut!((*out).impl_id)
-            .write(Archived::<ImplId>::from_native(impl_id));
-        // Technically not necessary, but for completeness
-        ptr::addr_of_mut!((*out).phantom)
-            .write(PhantomData);
+    pub fn new(impl_id: ImplId) -> Self {
+        Self {
+            impl_id: Archived::<ImplId>::from_native(impl_id),
+            phantom: PhantomData,
+        }
     }
 
     /// Returns the impl ID of the associated with this `ArchivedDynMetadata`.
@@ -277,8 +274,49 @@ impl<T: ?Sized> ArchivedDynMetadata<T> {
     /// to.
     pub fn lookup_metadata(&self) -> DynMetadata<T> {
         unsafe {
-            TRAIT_IMPLS.get().expect("TRAIT_IMPLS was not initialized for rkyv_dyn")[self.impl_id() as usize].downcast_metadata()
+            TRAIT_IMPLS
+                .get()
+                .expect("TRAIT_IMPLS was not initialized for rkyv_dyn")
+                [self.impl_id() as usize]
+                .downcast_metadata()
         }
+    }
+}
+
+impl<T: ?Sized> Clone for ArchivedDynMetadata<T> {
+    #[inline]
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T: ?Sized> hash::Hash for ArchivedDynMetadata<T> {
+    #[inline]
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.impl_id.hash(state);
+    }
+}
+
+impl<T: ?Sized> PartialEq for ArchivedDynMetadata<T> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.impl_id.eq(&other.impl_id)
+    }
+}
+
+impl<T: ?Sized> Eq for ArchivedDynMetadata<T> {}
+
+impl<T: ?Sized> PartialOrd for ArchivedDynMetadata<T> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<T: ?Sized> Ord for ArchivedDynMetadata<T> {
+    #[inline]
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.impl_id.cmp(&other.impl_id)
     }
 }
 
@@ -296,7 +334,9 @@ impl TraitImpl {
     /// # Safety
     ///
     /// `pointer` must have valid metadata.
-    pub unsafe fn from_pointer<T: Pointee<Metadata = DynMetadata<T>> + ?Sized>(
+    pub unsafe fn from_pointer<
+        T: Pointee<Metadata = DynMetadata<T>> + ?Sized,
+    >(
         pointer: *const T,
     ) -> Self {
         Self::from_metadata(ptr_meta::metadata(pointer))
@@ -353,7 +393,7 @@ macro_rules! trait_impl {
 
 /// All registered trait impls for `rkyv_dyn`.
 ///
-/// This can be initialized with 
+/// This can be initialized with
 pub static TRAIT_IMPLS: LazyStatic<&'static [TraitImpl]> = LazyStatic::new();
 
 /// Globally registers the given trait impls. This macro performs three basic

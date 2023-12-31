@@ -2,9 +2,7 @@
 
 use rancor::Fallible;
 
-use crate::{
-    ser::Serializer, ArchiveUnsized, MetadataResolver, RelPtr, SerializeUnsized,
-};
+use crate::{ser::Serializer, ArchiveUnsized, RelPtr, SerializeUnsized};
 use core::{
     borrow::Borrow,
     cmp, fmt, hash,
@@ -70,12 +68,10 @@ impl ArchivedCString {
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.ptr);
-        // metadata_resolver is guaranteed to be (), but it's better to be explicit about it
-        #[allow(clippy::unit_arg)]
-        c_str.resolve_unsized(
+        RelPtr::resolve_emplace(
             pos + fp,
             resolver.pos,
-            resolver.metadata_resolver,
+            c_str.archived_metadata(),
             fo,
         );
     }
@@ -88,7 +84,6 @@ impl ArchivedCString {
     ) -> Result<CStringResolver, S::Error> {
         Ok(CStringResolver {
             pos: c_str.serialize_unsized(serializer)?,
-            metadata_resolver: c_str.serialize_metadata(serializer)?,
         })
     }
 }
@@ -178,7 +173,6 @@ impl PartialOrd for ArchivedCString {
 /// The resolver for `CString`.
 pub struct CStringResolver {
     pos: usize,
-    metadata_resolver: MetadataResolver<CStr>,
 }
 
 #[cfg(feature = "bytecheck")]

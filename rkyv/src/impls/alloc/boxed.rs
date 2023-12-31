@@ -12,7 +12,7 @@ use std::alloc;
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     type Archived = ArchivedBox<T::Archived>;
-    type Resolver = BoxResolver<T::MetadataResolver>;
+    type Resolver = BoxResolver;
 
     #[inline]
     unsafe fn resolve(

@@ -124,8 +124,8 @@ mod verify {
         rancor::{Error, Fallible},
         Verify,
     };
-    use rancor::fail;
     use core::fmt;
+    use rancor::fail;
 
     /// An error resulting from an invalid duration.
     ///

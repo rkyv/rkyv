@@ -16,16 +16,9 @@ use std::ffi::{CStr, CString};
 impl ArchiveUnsized for CStr {
     type Archived = CStr;
 
-    type MetadataResolver = ();
-
     #[inline]
-    unsafe fn resolve_metadata(
-        &self,
-        _: usize,
-        _: Self::MetadataResolver,
-        out: *mut ArchivedMetadata<Self>,
-    ) {
-        out.write(ArchivedUsize::from_native(ptr_meta::metadata(self) as _))
+    fn archived_metadata(&self) -> ArchivedMetadata<Self> {
+        ArchivedUsize::from_native(ptr_meta::metadata(self) as _)
     }
 }
 
@@ -46,14 +39,6 @@ impl<S: Fallible + Serializer + ?Sized> SerializeUnsized<S> for CStr {
         let result = serializer.pos();
         serializer.write(self.to_bytes_with_nul())?;
         Ok(result)
-    }
-
-    #[inline]
-    fn serialize_metadata(
-        &self,
-        _: &mut S,
-    ) -> Result<Self::MetadataResolver, S::Error> {
-        Ok(())
     }
 }
 

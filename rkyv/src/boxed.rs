@@ -1,8 +1,8 @@
 //! An archived version of `Box`.
 
 use crate::{
-    ser::{Serializer, SerializerExt as _}, ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr,
-    Serialize, SerializeUnsized,
+    ser::{Serializer, SerializerExt as _},
+    ArchivePointee, ArchiveUnsized, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};
 use rancor::Fallible;
@@ -43,16 +43,15 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: &U,
         pos: usize,
-        resolver: BoxResolver<U::MetadataResolver>,
+        resolver: BoxResolver,
         out: *mut Self,
     ) {
-        let (fp, fo) = out_field!(out.ptr);
-        value.resolve_unsized(
-            pos + fp,
-            resolver.pos,
-            resolver.metadata_resolver,
-            fo,
-        );
+        Self::resolve_from_raw_parts(
+            pos,
+            resolver,
+            value.archived_metadata(),
+            out,
+        )
     }
 
     /// Serializes an archived box from the given value and serializer.
@@ -60,19 +59,18 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     pub fn serialize_from_ref<U, S>(
         value: &U,
         serializer: &mut S,
-    ) -> Result<BoxResolver<U::MetadataResolver>, S::Error>
+    ) -> Result<BoxResolver, S::Error>
     where
         U: SerializeUnsized<S, Archived = T> + ?Sized,
         S: Fallible + ?Sized,
     {
         Ok(BoxResolver {
             pos: value.serialize_unsized(serializer)?,
-            metadata_resolver: value.serialize_metadata(serializer)?,
         })
     }
 
-    /// Resolves an archived box from a [`BoxResolver`] which contains
-    /// the raw [`<T as ArchivePointee>::ArchivedMetadata`] directly.
+    /// Resolves an archived box from a [`BoxResolver`] and the raw
+    /// [`<T as ArchivePointee>::ArchivedMetadata`] directly.
     ///
     /// # Safety
     ///
@@ -83,16 +81,12 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     /// [`<T as ArchivePointee>::ArchivedMetadata`]: ArchivePointee::ArchivedMetadata
     pub unsafe fn resolve_from_raw_parts(
         pos: usize,
-        resolver: BoxResolver<<T as ArchivePointee>::ArchivedMetadata>,
+        resolver: BoxResolver,
+        metadata: T::ArchivedMetadata,
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.ptr);
-        RelPtr::resolve_emplace_from_raw_parts(
-            pos + fp,
-            resolver.pos,
-            resolver.metadata_resolver,
-            fo,
-        );
+        RelPtr::resolve_emplace(pos + fp, resolver.pos, metadata, fo);
     }
 
     #[doc(hidden)]
@@ -115,7 +109,7 @@ impl<T> ArchivedBox<[T]> {
     pub unsafe fn serialize_copy_from_slice<U, S>(
         slice: &[U],
         serializer: &mut S,
-    ) -> Result<BoxResolver<MetadataResolver<[U]>>, S::Error>
+    ) -> Result<BoxResolver, S::Error>
     where
         U: Serialize<S, Archived = T>,
         S: Fallible + Serializer + ?Sized,
@@ -130,10 +124,7 @@ impl<T> ArchivedBox<[T]> {
         );
         serializer.write(bytes)?;
 
-        Ok(BoxResolver {
-            pos,
-            metadata_resolver: (),
-        })
+        Ok(BoxResolver { pos })
     }
 }
 
@@ -232,44 +223,18 @@ impl<T: ArchivePointee + ?Sized> fmt::Pointer for ArchivedBox<T> {
 }
 
 /// The resolver for `Box`.
-pub struct BoxResolver<M> {
+pub struct BoxResolver {
     pos: usize,
-    metadata_resolver: M,
 }
 
-impl<M> BoxResolver<M> {
-    /// Create a a new [`BoxResolver<M>`] from raw parts. Note that `M` here is ***not*** the same
-    /// `T` which should be serialized/contained in the resulting [`ArchivedBox<T>`], and is rather
-    /// a type that can be used to resolve any needed [`ArchivePointee::ArchivedMetadata`]
-    /// for the serialized pointed-to value.
+impl BoxResolver {
+    /// Creates a new [`BoxResolver`] from the position of a serialized value.
     ///
-    /// In most cases, you won't need to create a [`BoxResolver`] yourself and can instead obtain it through
-    /// [`ArchivedBox::serialize_from_ref`] or [`ArchivedBox::serialize_copy_from_slice`].
-    ///
-    /// # Safety
-    ///
-    /// Technically no unsafety can happen directly from calling this function, however, passing this as a resolver to
-    /// [`ArchivedBox`]'s resolving functions absolutely can. In general this should be treated as a semi-private type, as
-    /// constructing a valid resolver is quite fraught. Please make sure you understand what the implications are before doing it.
-    ///
-    /// - `pos`: You must ensure that you serialized and resolved (e.g.
-    ///   [`serialize_and_resolve`](crate::Serialize::serialize_and_resolve))
-    ///   a `T` which will be pointed to by the final [`ArchivedBox<T>`] that
-    ///   this resolver will help resolve at the given `pos` within the archive.
-    ///
-    /// - `metadata_resolver`: You must also ensure that the given `metadata_resolver` can be used to successfully produce
-    /// valid [`<T as ArchivePointee>::ArchivedMetadata`] for that serialized `T`. This means it must either be:
-    ///     - The necessary [`<T as ArchivePointee>::ArchivedMetadata`] itself, in which case you may use the created
-    /// `BoxResolver<<T as ArchivePointee>::ArchivedMetadata>` as a resolver in [`ArchivedBox::resolve_from_raw_parts`]
-    ///     - An [`ArchiveUnsized::MetadataResolver`] obtained from some `value: &U` where `U: ArchiveUnsized<Archived = T>`, in which case you
-    /// must pass that same `value: &U` into [`ArchivedBox::resolve_from_ref`] along with this [`BoxResolver`].
-    ///
-    /// [`<T as ArchivePointee>::ArchivedMetadata`]: ArchivePointee::ArchivedMetadata
-    pub unsafe fn from_raw_parts(pos: usize, metadata_resolver: M) -> Self {
-        Self {
-            pos,
-            metadata_resolver,
-        }
+    /// In most cases, you won't need to create a [`BoxResolver`] yourself and
+    /// can instead obtain it through [`ArchivedBox::serialize_from_ref`] or
+    /// [`ArchivedBox::serialize_copy_from_slice`].
+    pub fn from_pos(pos: usize) -> Self {
+        Self { pos }
     }
 }
 

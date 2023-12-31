@@ -5,7 +5,8 @@
 
 use crate::{
     primitive::{ArchivedU16, ArchivedUsize},
-    Archive, ArchivePointee, RelPtr, ser::SerializerExt as _,
+    ser::SerializerExt as _,
+    Archive, ArchivePointee, RelPtr,
 };
 use core::{
     borrow::Borrow,

@@ -174,7 +174,7 @@ pub use rend;
 #[cfg(feature = "bytecheck")]
 #[cfg_attr(doc_cfg, doc(cfg(feature = "bytecheck")))]
 pub use bytecheck;
-use core::alloc::Layout;
+use core::{alloc::Layout, hash::Hash};
 use ptr_meta::Pointee;
 use rancor::Fallible;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
@@ -188,7 +188,10 @@ pub use util::{
 #[doc(inline)]
 pub use validation::util::{access, from_bytes};
 
-use crate::{primitive::ArchivedIsize, ser::{Serializer, SerializerExt as _}};
+use crate::{
+    primitive::ArchivedIsize,
+    ser::{Serializer, SerializerExt as _},
+};
 
 // Check endianness feature flag settings
 
@@ -661,55 +664,8 @@ pub trait ArchiveUnsized: Pointee {
     /// archived pointer metadata.
     type Archived: ArchivePointee + ?Sized;
 
-    // TODO: remove MetadataResolver, it never does anything
-    /// The resolver for the metadata of this type.
-    ///
-    /// Because the pointer metadata must be archived with the relative pointer and not with the
-    /// structure itself, its resolver must be passed back to the structure holding the pointer.
-    type MetadataResolver;
-
-    /// Creates the archived version of the metadata for this value at the given position and writes
-    /// it to the given output.
-    ///
-    /// The output should be initialized field-by-field rather than by writing a whole struct.
-    /// Performing a typed copy will mark all of the padding bytes as uninitialized, but they must
-    /// remain set to the value they currently have. This prevents leaking uninitialized memory to
-    /// the final archive.
-    ///
-    /// # Safety
-    ///
-    /// - `pos` must be the position of `out` within the archive
-    /// - `resolver` must be the result of serializing this object's metadata
-    unsafe fn resolve_metadata(
-        &self,
-        pos: usize,
-        resolver: Self::MetadataResolver,
-        out: *mut ArchivedMetadata<Self>,
-    );
-
-    /// Resolves a relative pointer to this value with the given `from` and `to` and writes it to
-    /// the given output.
-    ///
-    /// The output should be initialized field-by-field rather than by writing a whole struct.
-    /// Performing a typed copy will mark all of the padding bytes as uninitialized, but they must
-    /// remain set to the value they currently have. This prevents leaking uninitialized memory to
-    /// the final archive.
-    ///
-    /// # Safety
-    ///
-    /// - `from` must be the position of `out` within the archive
-    /// - `to` must be the position of some `Self::Archived` within the archive
-    /// - `resolver` must be the result of serializing this object
-    #[inline]
-    unsafe fn resolve_unsized(
-        &self,
-        from: usize,
-        to: usize,
-        resolver: Self::MetadataResolver,
-        out: *mut RelPtr<Self::Archived>,
-    ) {
-        RelPtr::resolve_emplace(from, to, self, resolver, out);
-    }
+    /// Creates the archived version of the metadata for this value.
+    fn archived_metadata(&self) -> ArchivedMetadata<Self>;
 }
 
 /// An archived type with associated metadata for its relative pointer.
@@ -718,7 +674,7 @@ pub trait ArchiveUnsized: Pointee {
 /// all sized types by default.
 pub trait ArchivePointee: Pointee {
     /// The archived version of the pointer metadata for this type.
-    type ArchivedMetadata;
+    type ArchivedMetadata: Copy + Send + Sync + Ord + Hash + Unpin;
 
     /// Converts some archived metadata to the pointer metadata for itself.
     fn pointer_metadata(
@@ -733,12 +689,6 @@ pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
     /// Writes the object and returns the position of the archived type.
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error>;
 
-    /// Serializes the metadata for the given type.
-    fn serialize_metadata(
-        &self,
-        serializer: &mut S,
-    ) -> Result<Self::MetadataResolver, S::Error>;
-
     /// Archives a reference to the given object and returns the position it was archived at.
     #[inline]
     fn serialize_and_resolve_rel_ptr(
@@ -749,11 +699,8 @@ pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
         S: Serializer,
     {
         let to = self.serialize_unsized(serializer)?;
-        let metadata_resolver = self.serialize_metadata(serializer)?;
         serializer.align_for::<RelPtr<Self::Archived>>()?;
-        unsafe {
-            serializer.resolve_unsized_aligned(self, to, metadata_resolver)
-        }
+        unsafe { serializer.resolve_unsized_aligned(self, to) }
     }
 }
 
@@ -803,7 +750,3 @@ pub type Resolver<T> = <T as Archive>::Resolver;
 /// This can be useful for reducing the lengths of type definitions.
 pub type ArchivedMetadata<T> =
     <<T as ArchiveUnsized>::Archived as ArchivePointee>::ArchivedMetadata;
-/// Alias for the metadata resolver for some [`ArchiveUnsized`] type.
-///
-/// This can be useful for reducing the lengths of type definitions.
-pub type MetadataResolver<T> = <T as ArchiveUnsized>::MetadataResolver;

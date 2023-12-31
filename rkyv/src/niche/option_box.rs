@@ -115,7 +115,7 @@ where
     >(
         field: Option<&U>,
         pos: usize,
-        resolver: OptionBoxResolver<U::MetadataResolver>,
+        resolver: OptionBoxResolver,
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.inner);
@@ -138,7 +138,7 @@ where
     pub fn serialize_from_option<U, S>(
         field: Option<&U>,
         serializer: &mut S,
-    ) -> Result<OptionBoxResolver<U::MetadataResolver>, S::Error>
+    ) -> Result<OptionBoxResolver, S::Error>
     where
         U: SerializeUnsized<S, Archived = T> + ?Sized,
         S: Fallible + Serializer + ?Sized,
@@ -217,9 +217,9 @@ pub type Iter<'a, T> = crate::option::Iter<'a, T>;
 pub type IterMut<'a, T> = crate::option::IterMut<'a, T>;
 
 /// The resolver for [`ArchivedOptionBox`].
-pub enum OptionBoxResolver<T> {
+pub enum OptionBoxResolver {
     /// The `ArchivedOptionBox` was `None`
     None,
     /// The resolver for the `ArchivedBox`
-    Some(BoxResolver<T>),
+    Some(BoxResolver),
 }

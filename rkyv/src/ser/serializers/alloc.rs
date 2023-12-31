@@ -15,7 +15,7 @@ use core::{
 };
 #[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
-use rancor::{Error, fail};
+use rancor::{fail, Error};
 #[cfg(feature = "std")]
 use std::alloc;
 #[cfg(feature = "std")]

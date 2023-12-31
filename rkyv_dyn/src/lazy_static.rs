@@ -1,4 +1,8 @@
-use core::{sync::atomic::{AtomicU8, Ordering}, cell::UnsafeCell, mem::MaybeUninit};
+use core::{
+    cell::UnsafeCell,
+    mem::MaybeUninit,
+    sync::atomic::{AtomicU8, Ordering},
+};
 
 /// A value that can be initialized once lazily.
 pub struct LazyStatic<T> {

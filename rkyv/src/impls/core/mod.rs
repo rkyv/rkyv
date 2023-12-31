@@ -29,16 +29,8 @@ impl<T> ArchivePointee for T {
 impl<T: Archive> ArchiveUnsized for T {
     type Archived = T::Archived;
 
-    type MetadataResolver = ();
-
     #[inline]
-    unsafe fn resolve_metadata(
-        &self,
-        _: usize,
-        _: Self::MetadataResolver,
-        _: *mut ArchivedMetadata<Self>,
-    ) {
-    }
+    fn archived_metadata(&self) -> ArchivedMetadata<Self> {}
 }
 
 impl<T, S> SerializeUnsized<S> for T
@@ -49,11 +41,6 @@ where
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         self.serialize_and_resolve(serializer)
-    }
-
-    #[inline]
-    fn serialize_metadata(&self, _: &mut S) -> Result<(), S::Error> {
-        Ok(())
     }
 }
 
@@ -206,16 +193,8 @@ where
 impl<T: Archive> ArchiveUnsized for [T] {
     type Archived = [T::Archived];
 
-    type MetadataResolver = ();
-
-    #[inline]
-    unsafe fn resolve_metadata(
-        &self,
-        _: usize,
-        _: Self::MetadataResolver,
-        out: *mut ArchivedMetadata<Self>,
-    ) {
-        out.write(ArchivedUsize::from_native(ptr_meta::metadata(self) as _));
+    fn archived_metadata(&self) -> ArchivedMetadata<Self> {
+        ArchivedUsize::from_native(ptr_meta::metadata(self) as _)
     }
 }
 
@@ -254,13 +233,6 @@ where
 
                 Ok(result)
             }
-        }
-    }
-
-    default! {
-        #[inline]
-        fn serialize_metadata(&self, _: &mut S) -> Result<Self::MetadataResolver, S::Error> {
-            Ok(())
         }
     }
 }
@@ -359,16 +331,9 @@ where
 impl ArchiveUnsized for str {
     type Archived = str;
 
-    type MetadataResolver = ();
-
     #[inline]
-    unsafe fn resolve_metadata(
-        &self,
-        _: usize,
-        _: Self::MetadataResolver,
-        out: *mut ArchivedMetadata<Self>,
-    ) {
-        out.write(ArchivedUsize::from_native(ptr_meta::metadata(self) as _))
+    fn archived_metadata(&self) -> ArchivedMetadata<Self> {
+        ArchivedUsize::from_native(ptr_meta::metadata(self) as _)
     }
 }
 
@@ -389,14 +354,6 @@ impl<S: Fallible + Serializer + ?Sized> SerializeUnsized<S> for str {
         let result = serializer.pos();
         serializer.write(self.as_bytes())?;
         Ok(result)
-    }
-
-    #[inline]
-    fn serialize_metadata(
-        &self,
-        _: &mut S,
-    ) -> Result<Self::MetadataResolver, S::Error> {
-        Ok(())
     }
 }
 

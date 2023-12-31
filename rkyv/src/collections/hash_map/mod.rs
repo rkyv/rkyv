@@ -11,8 +11,8 @@ use crate::{
         hash_index::{ArchivedHashIndex, HashIndexResolver},
         util::Entry,
     },
-    RelPtr,
     ser::SerializerExt as _,
+    RelPtr,
 };
 #[cfg(feature = "alloc")]
 use crate::{

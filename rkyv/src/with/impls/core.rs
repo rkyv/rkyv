@@ -143,7 +143,7 @@ impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<&F, S> for Inline {
 
 impl<F: ArchiveUnsized + ?Sized> ArchiveWith<&F> for BoxedInline {
     type Archived = ArchivedBox<F::Archived>;
-    type Resolver = BoxResolver<F::MetadataResolver>;
+    type Resolver = BoxResolver;
 
     #[inline]
     unsafe fn resolve_with(
@@ -172,7 +172,7 @@ impl<F: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> SerializeWith<&F, S>
 
 impl<F: ArchiveUnsized + ?Sized> ArchiveWith<F> for Boxed {
     type Archived = ArchivedBox<F::Archived>;
-    type Resolver = BoxResolver<F::MetadataResolver>;
+    type Resolver = BoxResolver;
 
     #[inline]
     unsafe fn resolve_with(

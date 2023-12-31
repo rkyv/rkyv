@@ -10,7 +10,7 @@ use crate::{
         DeserializeWith, Map, Niche, SerializeWith, With,
     },
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
-    MetadataResolver, Serialize, SerializeUnsized,
+    Serialize, SerializeUnsized,
 };
 #[cfg(not(feature = "std"))]
 use alloc::{
@@ -403,7 +403,7 @@ where
     ArchivedMetadata<T>: Default,
 {
     type Archived = ArchivedOptionBox<T::Archived>;
-    type Resolver = OptionBoxResolver<T::MetadataResolver>;
+    type Resolver = OptionBoxResolver;
 
     unsafe fn resolve_with(
         field: &Option<Box<T>>,
@@ -520,7 +520,7 @@ where
 
 impl<T: Archive> ArchiveWith<Box<[T]>> for CopyOptimize {
     type Archived = ArchivedBox<[T::Archived]>;
-    type Resolver = BoxResolver<MetadataResolver<[T]>>;
+    type Resolver = BoxResolver;
 
     unsafe fn resolve_with(
         field: &Box<[T]>,
@@ -586,7 +586,7 @@ where
 
 impl<'a, T: Archive> ArchiveWith<With<&'a [T], BoxedInline>> for CopyOptimize {
     type Archived = ArchivedBox<[T::Archived]>;
-    type Resolver = BoxResolver<MetadataResolver<[T]>>;
+    type Resolver = BoxResolver;
 
     unsafe fn resolve_with(
         field: &With<&'a [T], BoxedInline>,

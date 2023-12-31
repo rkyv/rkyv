@@ -1,8 +1,11 @@
 //! Archived versions of shared pointers.
 
 use crate::{
-    ser::{Serializer, SerializerExt as _, SharedSerializeRegistry, SharedSerializeRegistryExt},
-    ArchivePointee, ArchiveUnsized, MetadataResolver, RelPtr, SerializeUnsized,
+    ser::{
+        Serializer, SerializerExt as _, SharedSerializeRegistry,
+        SharedSerializeRegistryExt,
+    },
+    ArchivePointee, ArchiveUnsized, RelPtr, SerializeUnsized,
 };
 use core::{
     borrow::Borrow, cmp, fmt, hash, marker::PhantomData, ops::Deref, pin::Pin,
@@ -60,14 +63,14 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: &U,
         pos: usize,
-        resolver: RcResolver<MetadataResolver<U>>,
+        resolver: RcResolver,
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.ptr);
-        value.resolve_unsized(
+        RelPtr::resolve_emplace(
             pos + fp,
             resolver.pos,
-            resolver.metadata_resolver,
+            value.archived_metadata(),
             fo,
         );
     }
@@ -77,7 +80,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     pub fn serialize_from_ref<U, S>(
         value: &U,
         serializer: &mut S,
-    ) -> Result<RcResolver<MetadataResolver<U>>, S::Error>
+    ) -> Result<RcResolver, S::Error>
     where
         U: SerializeUnsized<S> + ?Sized,
         S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
@@ -91,10 +94,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
             serializer.pad(1)?;
         }
 
-        Ok(RcResolver {
-            pos,
-            metadata_resolver: value.serialize_metadata(serializer)?,
-        })
+        Ok(RcResolver { pos })
     }
 }
 
@@ -182,9 +182,8 @@ impl<T, F> fmt::Pointer for ArchivedRc<T, F> {
 }
 
 /// The resolver for `Rc`.
-pub struct RcResolver<T> {
+pub struct RcResolver {
     pos: usize,
-    metadata_resolver: T,
 }
 
 /// An archived `rc::Weak`.
@@ -234,7 +233,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: Option<&U>,
         pos: usize,
-        resolver: RcWeakResolver<MetadataResolver<U>>,
+        resolver: RcWeakResolver,
         out: *mut Self,
     ) {
         match resolver {
@@ -262,7 +261,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     pub fn serialize_from_ref<U, S>(
         value: Option<&U>,
         serializer: &mut S,
-    ) -> Result<RcWeakResolver<MetadataResolver<U>>, S::Error>
+    ) -> Result<RcWeakResolver, S::Error>
     where
         U: SerializeUnsized<S, Archived = T> + ?Sized,
         S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
@@ -285,11 +284,11 @@ impl<T: ArchivePointee + fmt::Debug + ?Sized, F> fmt::Debug
 }
 
 /// The resolver for `rc::Weak`.
-pub enum RcWeakResolver<T> {
+pub enum RcWeakResolver {
     /// The weak pointer was null
     None,
     /// The weak pointer was to some shared pointer
-    Some(RcResolver<T>),
+    Some(RcResolver),
 }
 
 #[allow(dead_code)]

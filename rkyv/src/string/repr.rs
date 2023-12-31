@@ -174,8 +174,8 @@ const _: () = {
         rancor::{Error, Fallible},
         CheckBytes,
     };
-    use rancor::fail;
     use core::fmt;
+    use rancor::fail;
 
     /// An error resulting from an invalid string representation.
     ///

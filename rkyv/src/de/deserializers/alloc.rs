@@ -6,7 +6,7 @@ use alloc::boxed::Box;
 use core::fmt;
 #[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
-use rancor::{Error, fail};
+use rancor::{fail, Error};
 #[cfg(feature = "std")]
 use std::collections::hash_map;
 
