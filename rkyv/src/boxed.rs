@@ -69,16 +69,12 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
         })
     }
 
-    /// Resolves an archived box from a [`BoxResolver`] and the raw
-    /// [`<T as ArchivePointee>::ArchivedMetadata`] directly.
+    /// Resolves an archived box from a [`BoxResolver`] and the raw metadata
+    /// directly.
     ///
     /// # Safety
     ///
-    /// - `pos` must be the position of `out` within the archive
-    /// - `resolver` must be obtained by following the safety documentation of
-    /// [`BoxResolver::from_raw_parts`].
-    ///
-    /// [`<T as ArchivePointee>::ArchivedMetadata`]: ArchivePointee::ArchivedMetadata
+    /// `out` must point to a `Self` that is valid for reads and writes.
     pub unsafe fn resolve_from_raw_parts(
         pos: usize,
         resolver: BoxResolver,
@@ -86,7 +82,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.ptr);
-        RelPtr::resolve_emplace(pos + fp, resolver.pos, metadata, fo);
+        RelPtr::emplace_unsized(pos + fp, resolver.pos, metadata, fo);
     }
 
     #[doc(hidden)]

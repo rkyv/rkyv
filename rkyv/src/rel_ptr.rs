@@ -1,5 +1,7 @@
 //! Relative pointer implementations and options.
 
+use rancor::{fail, Error, Panic, ResultExt as _};
+
 use crate::{
     primitive::{
         ArchivedI16, ArchivedI32, ArchivedI64, ArchivedU16, ArchivedU32,
@@ -14,86 +16,59 @@ use core::{
     ptr::{self, addr_of_mut},
 };
 
-/// An error where the distance between two positions cannot be represented by the offset type.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum OffsetError {
-    /// The offset overflowed the range of `isize`
-    IsizeOverflow,
-    /// The offset is too far for the offset type of the relative pointer
-    ExceedsStorageRange,
-}
+struct IsizeOverflow;
 
-impl fmt::Display for OffsetError {
+impl fmt::Display for IsizeOverflow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            OffsetError::IsizeOverflow => write!(f, "the offset overflowed the range of `isize`"),
-            OffsetError::ExceedsStorageRange => write!(
-                f,
-                "the offset is too far for the offset type of the relative pointer"
-            ),
-        }
+        write!(f, "the offset overflowed the range of `isize`")
     }
 }
 
 #[cfg(feature = "std")]
-impl std::error::Error for OffsetError {}
+impl std::error::Error for IsizeOverflow {}
 
-/// Calculates the offset between two positions as an `isize`.
-///
-/// This function exists solely to get the distance between two `usizes` as an `isize` with a full
-/// range of values.
-///
-/// # Examples
-///
-/// ```
-/// use rkyv::rel_ptr::{signed_offset, OffsetError};
-///
-/// assert_eq!(signed_offset(0, 1), Ok(1));
-/// assert_eq!(signed_offset(1, 0), Ok(-1));
-/// assert_eq!(signed_offset(0, isize::MAX as usize), Ok(isize::MAX));
-/// assert_eq!(signed_offset(isize::MAX as usize, 0), Ok(-isize::MAX));
-/// assert_eq!(signed_offset(0, isize::MAX as usize + 1), Err(OffsetError::IsizeOverflow));
-/// assert_eq!(signed_offset(isize::MAX as usize + 1, 0), Ok(isize::MIN));
-/// assert_eq!(signed_offset(0, isize::MAX as usize + 2), Err(OffsetError::IsizeOverflow));
-/// assert_eq!(signed_offset(isize::MAX as usize + 2, 0), Err(OffsetError::IsizeOverflow));
-/// ```
-#[inline]
-pub fn signed_offset(from: usize, to: usize) -> Result<isize, OffsetError> {
-    let (result, overflow) = to.overflowing_sub(from);
-    if (!overflow && result <= (isize::MAX as usize))
-        || (overflow && result >= (isize::MIN as usize))
-    {
-        Ok(result as isize)
-    } else {
-        Err(OffsetError::IsizeOverflow)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ExceedsStorageRange;
+
+impl fmt::Display for ExceedsStorageRange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "the offset is too far for the offset type of the relative pointer",
+        )
     }
 }
+
+#[cfg(feature = "std")]
+impl std::error::Error for ExceedsStorageRange {}
 
 /// A offset that can be used with [`RawRelPtr`].
 pub trait Offset: Copy {
     /// Creates a new offset between a `from` position and a `to` position.
-    fn between(from: usize, to: usize) -> Result<Self, OffsetError>;
+    fn from_isize<E: Error>(value: isize) -> Result<Self, E>;
 
     /// Gets the offset as an `isize`.
-    fn to_isize(&self) -> isize;
+    fn to_isize(self) -> isize;
 }
 
 macro_rules! impl_offset_single_byte {
     ($ty:ty) => {
         impl Offset for $ty {
             #[inline]
-            fn between(from: usize, to: usize) -> Result<Self, OffsetError> {
-                // pointer::add and pointer::offset require that the computed offsets cannot
-                // overflow an isize, which is why we're using signed_offset instead of checked_sub
-                // for unsized types
-                Self::try_from(signed_offset(from, to)?)
-                    .map_err(|_| OffsetError::ExceedsStorageRange)
+            fn from_isize<E: Error>(value: isize) -> Result<Self, E> {
+                // `pointer::add`` and `pointer::offset` require that the
+                // computed offsets cannot overflow an isize, which is why we're
+                // using signed_offset instead of `checked_sub` for unsized
+                // types.
+                Self::try_from(value).into_error()
             }
 
             #[inline]
-            fn to_isize(&self) -> isize {
-                // We're guaranteed that our offset will not exceed the the capacity of an `isize`
-                *self as isize
+            fn to_isize(self) -> isize {
+                // We're guaranteed that our offset will not exceed the the
+                // capacity of an `isize`
+                self as isize
             }
         }
     };
@@ -106,18 +81,20 @@ macro_rules! impl_offset_multi_byte {
     ($ty:ty, $archived:ty) => {
         impl Offset for $archived {
             #[inline]
-            fn between(from: usize, to: usize) -> Result<Self, OffsetError> {
-                // pointer::add and pointer::offset require that the computed offsets cannot
-                // overflow an isize, which is why we're using signed_offset instead of checked_sub
-                // for unsized types
-                <$ty>::try_from(signed_offset(from, to)?)
-                    .map(|x| <$archived>::from_native(x))
-                    .map_err(|_| OffsetError::ExceedsStorageRange)
+            fn from_isize<E: Error>(value: isize) -> Result<Self, E> {
+                // `pointer::add`` and `pointer::offset` require that the
+                // computed offsets cannot overflow an isize, which is why we're
+                // using signed_offset instead of `checked_sub` for unsized
+                // types.
+                Ok(<$archived>::from_native(
+                    <$ty>::try_from(value).into_error()?,
+                ))
             }
 
             #[inline]
-            fn to_isize(&self) -> isize {
-                // We're guaranteed that our offset will not exceed the the capacity of an `isize`
+            fn to_isize(self) -> isize {
+                // We're guaranteed that our offset will not exceed the the
+                // capacity of an `isize`.
                 self.to_native() as isize
             }
         }
@@ -165,35 +142,68 @@ pub struct RawRelPtr<O> {
     _phantom: PhantomPinned,
 }
 
+/// Calculates the offset between two positions as an `isize`.
+///
+/// This function exists solely to get the distance between two `usizes` as an `isize` with a full
+/// range of values.
+///
+/// # Examples
+///
+/// ```
+/// use rkyv::rel_ptr::{signed_offset, OffsetError};
+///
+/// assert_eq!(signed_offset(0, 1), Ok(1));
+/// assert_eq!(signed_offset(1, 0), Ok(-1));
+/// assert_eq!(signed_offset(0, isize::MAX as usize), Ok(isize::MAX));
+/// assert_eq!(signed_offset(isize::MAX as usize, 0), Ok(-isize::MAX));
+/// assert_eq!(signed_offset(0, isize::MAX as usize + 1), Err(IsizeOverflow));
+/// assert_eq!(signed_offset(isize::MAX as usize + 1, 0), Ok(isize::MIN));
+/// assert_eq!(signed_offset(0, isize::MAX as usize + 2), Err(IsizeOverflow));
+/// assert_eq!(signed_offset(isize::MAX as usize + 2, 0), Err(IsizeOverflow));
+/// ```
+#[inline]
+pub fn signed_offset<E: Error>(from: usize, to: usize) -> Result<isize, E> {
+    let (result, overflow) = to.overflowing_sub(from);
+    if (!overflow && result <= (isize::MAX as usize))
+        || (overflow && result >= (isize::MIN as usize))
+    {
+        Ok(result as isize)
+    } else {
+        fail!(IsizeOverflow);
+    }
+}
+
 impl<O: Offset> RawRelPtr<O> {
-    /// Attempts to create a new `RawRelPtr` in-place between the given `from` and `to` positions.
+    /// Attempts to create a new `RawRelPtr` in-place between the given `from`
+    /// and `to` positions.
     ///
     /// # Safety
     ///
-    /// - `out` must be located at position `from`
-    /// - `to` must be a position within the archive
+    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_emplace(
+    pub unsafe fn try_emplace<E: Error>(
         from: usize,
         to: usize,
         out: *mut Self,
-    ) -> Result<(), OffsetError> {
-        let offset = O::between(from, to)?;
+    ) -> Result<(), E> {
+        let offset = O::from_isize(signed_offset(from, to)?)?;
         ptr::addr_of_mut!((*out).offset).write(offset);
         Ok(())
     }
 
     /// Creates a new `RawRelPtr` in-place between the given `from` and `to` positions.
     ///
+    /// # Panics
+    ///
+    /// - If the offset between `from` and `to` does not fit in an `isize`
+    /// - If the offset between `from` and `to` exceeds the offset storage
+    ///
     /// # Safety
     ///
-    /// - `out` must be located at position `from`
-    /// - `to` must be a position within the archive
-    /// - The offset between `from` and `to` must fit in an `isize` and not exceed the offset
-    ///   storage
+    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
     pub unsafe fn emplace(from: usize, to: usize, out: *mut Self) {
-        Self::try_emplace(from, to, out).unwrap();
+        Self::try_emplace::<Panic>(from, to, out).always_ok()
     }
 
     /// Gets the base pointer for the relative pointer.
@@ -290,14 +300,13 @@ impl<T, O: Offset> RelPtr<T, O> {
     ///
     /// # Safety
     ///
-    /// - `from` must be the position of `out` within the archive
-    /// - `to` must be the position of some valid `T`
+    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_emplace(
+    pub unsafe fn try_emplace<E: Error>(
         from: usize,
         to: usize,
         out: *mut Self,
-    ) -> Result<(), OffsetError> {
+    ) -> Result<(), E> {
         let (fp, fo) = out_field!(out.raw_ptr);
         // Skip metadata since sized T is guaranteed to be ()
         RawRelPtr::try_emplace(from + fp, to, fo)
@@ -307,16 +316,15 @@ impl<T, O: Offset> RelPtr<T, O> {
     ///
     /// # Panics
     ///
-    /// - The offset between `from` and `to` does not fit in an `isize`
-    /// - The offset between `from` and `to` exceeds the offset storage
+    /// - If the offset between `from` and `to` does not fit in an `isize`
+    /// - If the offset between `from` and `to` exceeds the offset storage
     ///
     /// # Safety
     ///
-    /// - `from` must be the position of `out` within the archive
-    /// - `to` must be the position of some valid `T`
+    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
     pub unsafe fn emplace(from: usize, to: usize, out: *mut Self) {
-        Self::try_emplace(from, to, out).unwrap();
+        Self::try_emplace::<Panic>(from, to, out).always_ok()
     }
 }
 
@@ -328,12 +336,12 @@ where
     ///
     /// # Safety
     ///
-    /// `pos` must be the position of `out` within the archive.
+    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_emplace_null(
+    pub unsafe fn try_emplace_null<E: Error>(
         pos: usize,
         out: *mut Self,
-    ) -> Result<(), OffsetError> {
+    ) -> Result<(), E> {
         let (fp, fo) = out_field!(out.raw_ptr);
         RawRelPtr::try_emplace(pos + fp, pos, fo)?;
         let (_, fo) = out_field!(out.metadata);
@@ -345,15 +353,15 @@ where
     ///
     /// # Panics
     ///
-    /// - An offset of `0` does not fit in an `isize`
-    /// - An offset of `0` exceeds the offset storage
+    /// - If an offset of `0` does not fit in an `isize`
+    /// - If an offset of `0` exceeds the offset storage
     ///
     /// # Safety
     ///
-    /// `pos` must be the position of `out` within the archive.
+    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
     pub unsafe fn emplace_null(pos: usize, out: *mut Self) {
-        Self::try_emplace_null(pos, out).unwrap()
+        Self::try_emplace_null::<Panic>(pos, out).always_ok()
     }
 }
 
@@ -362,17 +370,14 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     ///
     /// # Safety
     ///
-    /// - `from` must be the position of `out` within the archive
-    /// - `to` must be the position of some valid `T`
-    /// - `value` must be the value being serialized
-    /// - `metadata_resolver` must be the result of serializing the metadata of `value`
+    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_resolve_emplace(
+    pub unsafe fn try_emplace_unsized<E: Error>(
         from: usize,
         to: usize,
         metadata: T::ArchivedMetadata,
         out: *mut Self,
-    ) -> Result<(), OffsetError> {
+    ) -> Result<(), E> {
         let (fp, fo) = out_field!(out.raw_ptr);
         RawRelPtr::try_emplace(from + fp, to, fo)?;
         addr_of_mut!((*out).metadata).write(metadata);
@@ -383,23 +388,20 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     ///
     /// # Panics
     ///
-    /// - The offset between `from` and `to` does not fit in an `isize`
-    /// - The offset between `from` and `to` exceeds the offset storage
+    /// - If the offset between `from` and `to` does not fit in an `isize`
+    /// - If the offset between `from` and `to` exceeds the offset storage
     ///
     /// # Safety
     ///
-    /// - `from` must be the position of `out` within the archive
-    /// - `to` must be the position of some valid `T`
-    /// - `value` must be the value being serialized
-    /// - `metadata_resolver` must be the result of serializing the metadata of `value`
+    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn resolve_emplace(
+    pub unsafe fn emplace_unsized(
         from: usize,
         to: usize,
         metadata: T::ArchivedMetadata,
         out: *mut Self,
     ) {
-        Self::try_resolve_emplace(from, to, metadata, out).unwrap();
+        Self::try_emplace_unsized::<Panic>(from, to, metadata, out).always_ok()
     }
 
     /// Gets the base pointer for the relative pointer.

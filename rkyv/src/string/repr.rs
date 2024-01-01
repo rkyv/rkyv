@@ -1,5 +1,7 @@
 //! An archived string representation that supports inlining short strings.
 
+use rancor::{Error, Panic, ResultExt as _};
+
 use crate::primitive::{ArchivedUsize, FixedIsize};
 use core::{marker::PhantomPinned, mem, ptr, slice, str};
 
@@ -149,9 +151,37 @@ impl ArchivedStringRepr {
     /// # Safety
     ///
     /// - The length of `str` must be greater than [`INLINE_CAPACITY`].
-    /// - `pos` must be the location of the representation within the archive.
-    /// - `target` must be the location of the serialized bytes of the string.
-    /// - `out` must point to a valid location to write the out-of-line representation.
+    /// - `out` must point to a `Self` that is valid for reads and writes.
+    #[inline]
+    pub unsafe fn try_emplace_out_of_line<E: Error>(
+        value: &str,
+        pos: usize,
+        target: usize,
+        out: *mut Self,
+    ) -> Result<(), E> {
+        let out_len = ptr::addr_of_mut!((*out).out_of_line.len);
+        out_len.write(ArchivedUsize::from_native(
+            value.len().try_into().into_error()?,
+        ));
+
+        let out_offset = ptr::addr_of_mut!((*out).out_of_line.offset);
+        let offset = crate::rel_ptr::signed_offset(pos, target)?;
+        *out_offset = (offset as FixedIsize).to_le_bytes();
+
+        Ok(())
+    }
+
+    /// Emplaces a new out-of-line representation for the given `str`.
+    ///
+    /// # Panics
+    ///
+    /// - The offset calculated for the repr does not fit in an `isize`
+    /// - The offset calculated for the repr exceeds the offset storage
+    ///
+    /// # Safety
+    ///
+    /// - The length of `str` must be greater than [`INLINE_CAPACITY`].
+    /// - `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
     pub unsafe fn emplace_out_of_line(
         value: &str,
@@ -159,21 +189,14 @@ impl ArchivedStringRepr {
         target: usize,
         out: *mut Self,
     ) {
-        let out_len = ptr::addr_of_mut!((*out).out_of_line.len);
-        out_len.write(ArchivedUsize::from_native(value.len() as _));
-
-        let out_offset = ptr::addr_of_mut!((*out).out_of_line.offset);
-        let offset = crate::rel_ptr::signed_offset(pos, target).unwrap();
-        *out_offset = (offset as FixedIsize).to_le_bytes();
+        Self::try_emplace_out_of_line::<Panic>(value, pos, target, out)
+            .always_ok()
     }
 }
 
 #[cfg(feature = "bytecheck")]
 const _: () = {
-    use bytecheck::{
-        rancor::{Error, Fallible},
-        CheckBytes,
-    };
+    use bytecheck::{rancor::Fallible, CheckBytes};
     use core::fmt;
     use rancor::fail;
 

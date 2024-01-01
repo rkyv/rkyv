@@ -57,8 +57,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     ///
     /// # Safety
     ///
-    /// - `pos` must be the position of `out` within the archive
-    /// - `resolver` must be the result of serializing `value`
+    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
     pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: &U,
@@ -67,7 +66,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.ptr);
-        RelPtr::resolve_emplace(
+        RelPtr::emplace_unsized(
             pos + fp,
             resolver.pos,
             value.archived_metadata(),

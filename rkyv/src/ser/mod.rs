@@ -98,9 +98,7 @@ pub trait SerializerExt<E>: Serializer<E> {
     ///
     /// # Safety
     ///
-    /// - `metadata_resolver` must be the result of serializing the metadata of `value`
-    /// - `to` must be the position of the serialized `value` within the archive
-    /// - The serializer must be aligned for a `RelPtr<T::Archived>`
+    /// The serializer must be aligned for a `RelPtr<T::Archived>`.
     unsafe fn resolve_unsized_aligned<T: ArchiveUnsized + ?Sized>(
         &mut self,
         value: &T,
@@ -114,7 +112,7 @@ pub trait SerializerExt<E>: Serializer<E> {
 
         let mut resolved = mem::MaybeUninit::<RelPtr<T::Archived>>::uninit();
         resolved.as_mut_ptr().write_bytes(0, 1);
-        RelPtr::resolve_emplace(
+        RelPtr::emplace_unsized(
             from,
             to,
             value.archived_metadata(),
