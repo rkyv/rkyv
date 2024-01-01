@@ -15,11 +15,11 @@ macro_rules! impl_test_archive {
             Deserialize, Serialize, SerializeUnsized,
         };
 
-        pub fn test_archive<T>(value: &T)
+        pub fn test_archive_with<T, F>(value: &T, cmp: F)
         where
             T: Debug + PartialEq + Serialize<Strategy<$ser, Failure>>,
-            T::Archived:
-                Debug + PartialEq<T> + Deserialize<T, Strategy<$de, Failure>>,
+            T::Archived: Debug + Deserialize<T, Strategy<$de, Failure>>,
+            F: FnOnce(&T, &T::Archived) -> bool,
         {
             let serializer = serialize_into(value, <$ser>::default())
                 .expect("failed to serialize value");
@@ -28,12 +28,22 @@ macro_rules! impl_test_archive {
 
             let archived_value =
                 unsafe { access_unchecked::<T>(&buffer[0..len]) };
-            assert_eq!(archived_value, value);
+            assert!(cmp(value, archived_value));
+
             let mut deserializer = <$de>::default();
             let de_value =
                 deserialize::<T, _, Failure>(archived_value, &mut deserializer)
                     .unwrap();
             assert_eq!(&de_value, value);
+        }
+
+        pub fn test_archive<T>(value: &T)
+        where
+            T: Debug + PartialEq + Serialize<Strategy<$ser, Failure>>,
+            T::Archived:
+                Debug + PartialEq<T> + Deserialize<T, Strategy<$de, Failure>>,
+        {
+            test_archive_with(value, |a, b| b == a);
         }
 
         pub fn test_archive_ref<

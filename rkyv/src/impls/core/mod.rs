@@ -76,55 +76,85 @@ where
     }
 }
 
-// TODO: Correct the mistakes of your past. Serialize tuple elements lowest to highest.
-
-#[cfg(not(feature = "strict"))]
-macro_rules! peel_tuple {
-    ($type:ident $index:tt, $($type_rest:ident $index_rest:tt,)*) => { impl_tuple! { $($type_rest $index_rest,)* } };
-}
-
-#[cfg(not(feature = "strict"))]
 macro_rules! impl_tuple {
-    () => ();
-    ($($type:ident $index:tt,)+) => {
-        impl<$($type: Archive),+> Archive for ($($type,)+) {
-            type Archived = ($($type::Archived,)+);
-            type Resolver = ($($type::Resolver,)+);
+    ($($type:ident $index:tt),*) => {
+        #[cfg(not(feature = "strict"))]
+        impl<$($type),*> Archive for ($($type,)*)
+        where
+            $($type: Archive,)*
+        {
+            type Archived = ($($type::Archived,)*);
+            type Resolver = ($($type::Resolver,)*);
 
             #[inline]
-            unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+            unsafe fn resolve(
+                &self,
+                pos: usize,
+                resolver: Self::Resolver,
+                out: *mut Self::Archived,
+            ) {
                 $(
                     let (fp, fo) = out_field!(out.$index);
                     self.$index.resolve(pos + fp, resolver.$index, fo);
-                )+
+                )*
             }
         }
 
-        impl<$($type: Serialize<S>),+, S: Fallible + ?Sized> Serialize<S> for ($($type,)+) {
-            #[inline]
-            fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-                let rev = ($(self.$index.serialize(serializer)?,)+);
-                Ok(($(rev.$index,)+))
-            }
-        }
-
-        impl<D: Fallible + ?Sized, $($type: Archive),+> Deserialize<($($type,)+), D> for ($($type::Archived,)+)
+        #[cfg(not(feature = "strict"))]
+        impl<$($type,)* S> Serialize<S> for ($($type,)*)
         where
-            $($type::Archived: Deserialize<$type, D>,)+
+            $($type: Serialize<S>,)*
+            S: Fallible + ?Sized,
         {
             #[inline]
-            fn deserialize(&self, deserializer: &mut D) -> Result<($($type,)+), D::Error> {
-                let rev = ($(&self.$index,)+);
-                Ok(($(rev.$index.deserialize(deserializer)?,)+))
+            fn serialize(
+                &self,
+                serializer: &mut S,
+            ) -> Result<Self::Resolver, S::Error> {
+                Ok((
+                    $(self.$index.serialize(serializer)?,)*
+                ))
             }
         }
 
-        peel_tuple! { $($type $index,)+ }
+        #[cfg(not(feature = "strict"))]
+        impl<$($type,)* D> Deserialize<($($type,)*), D> for ($($type::Archived,)*)
+        where
+            D: Fallible + ?Sized,
+            $($type: Archive,)*
+            $($type::Archived: Deserialize<$type, D>,)*
+        {
+            #[inline]
+            fn deserialize(
+                &self,
+                deserializer: &mut D,
+            ) -> Result<($($type,)*), D::Error> {
+                Ok((
+                    $(self.$index.deserialize(deserializer)?,)*
+                ))
+            }
+        }
     };
 }
 
-#[cfg(not(feature = "strict"))]
-impl_tuple! { T11 11, T10 10, T9 9, T8 8, T7 7, T6 6, T5 5, T4 4, T3 3, T2 2, T1 1, T0 0, }
+impl_tuple!(T0 0);
+impl_tuple!(T0 0, T1 1);
+impl_tuple!(T0 0, T1 1, T2 2);
+impl_tuple!(T0 0, T1 1, T2 2, T3 3);
+impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4);
+impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4, T5 5);
+impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6);
+impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7);
+impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8);
+impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9);
+impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9, T10 10);
+impl_tuple!(
+    T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9, T10 10, T11 11
+);
+impl_tuple!(
+    T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9, T10 10, T11 11,
+    T12 12
+);
 
 impl<T: Archive, const N: usize> Archive for [T; N] {
     type Archived = [T::Archived; N];

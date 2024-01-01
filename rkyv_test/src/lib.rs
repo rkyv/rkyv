@@ -41,7 +41,9 @@ mod tests {
         test_archive(&12345678901234567890u64);
         test_archive(&123456789012345678901234567890123456789u128);
         #[cfg(not(feature = "strict"))]
-        test_archive(&(24, true, 16f32));
+        test_archive_with(&(24, true, 16f32), |(a, b, c), (d, e, f)| {
+            a == d && b == e && c == f
+        });
         test_archive(&[1, 2, 3, 4, 5, 6]);
 
         test_archive(&Option::<()>::None);

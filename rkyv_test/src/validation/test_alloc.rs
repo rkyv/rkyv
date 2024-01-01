@@ -127,6 +127,18 @@ mod tests {
             .expect_err("expected out of bounds error");
     }
 
+    #[test]
+    #[cfg(not(feature = "strict"))]
+    fn tuple_ordering() {
+        serialize_and_check::<_, Failure>(&(
+            24,
+            true,
+            16f32,
+            "hello world".to_string(),
+            "and again!".to_string(),
+        ));
+    }
+
     #[cfg(feature = "pointer_width_32")]
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]

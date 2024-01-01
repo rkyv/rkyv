@@ -281,8 +281,6 @@ pub type RawRelPtrU32 = RawRelPtr<ArchivedU32>;
 #[cfg(target_pointer_width = "64")]
 pub type RawRelPtrU64 = RawRelPtr<ArchivedU64>;
 
-// TODO: implement for NonZero types
-
 /// A pointer which resolves to relative to its position in memory.
 ///
 /// This is a strongly-typed version of [`RawRelPtr`].
