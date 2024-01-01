@@ -9,7 +9,7 @@ mod std;
 #[cfg(feature = "alloc")]
 use crate::util::AlignedVec;
 use crate::{
-    ser::{ScratchSpace, Serializer, SharedSerializeRegistry},
+    ser::{ScratchSpace, Serializer, SharedSerializer},
     util::AlignedBytes,
 };
 use ::core::{alloc::Layout, ptr::NonNull};
@@ -103,7 +103,7 @@ impl<S, C: ScratchSpace<E>, H, E> ScratchSpace<E>
     }
 }
 
-impl<S, C, H: SharedSerializeRegistry<E>, E> SharedSerializeRegistry<E>
+impl<S, C, H: SharedSerializer<E>, E> SharedSerializer<E>
     for CompositeSerializer<S, C, H>
 {
     #[inline]

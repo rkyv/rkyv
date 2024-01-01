@@ -1,6 +1,6 @@
 //! Adapters wrap deserializers and add support for deserializer traits.
 
-use crate::de::{SharedDeserializeRegistry, SharedPointer};
+use crate::de::{SharedDeserializer, SharedPointer};
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use core::fmt;
@@ -72,7 +72,7 @@ impl Default for SharedDeserializeMap {
     }
 }
 
-impl<E: Error> SharedDeserializeRegistry<E> for SharedDeserializeMap {
+impl<E: Error> SharedDeserializer<E> for SharedDeserializeMap {
     fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer> {
         self.shared_pointers.get(&ptr).map(|p| p.as_ref())
     }

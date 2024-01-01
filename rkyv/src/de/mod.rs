@@ -21,7 +21,7 @@ pub trait SharedPointer {
 ///
 /// This trait is required to deserialize shared pointers.
 #[cfg(feature = "alloc")]
-pub trait SharedDeserializeRegistry<E = <Self as Fallible>::Error> {
+pub trait SharedDeserializer<E = <Self as Fallible>::Error> {
     /// Gets the data pointer of a previously-deserialized shared pointer.
     fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer>;
 
@@ -33,9 +33,9 @@ pub trait SharedDeserializeRegistry<E = <Self as Fallible>::Error> {
     ) -> Result<(), E>;
 }
 
-impl<T, E> SharedDeserializeRegistry<E> for Strategy<T, E>
+impl<T, E> SharedDeserializer<E> for Strategy<T, E>
 where
-    T: SharedDeserializeRegistry<E>,
+    T: SharedDeserializer<E>,
 {
     #[inline]
     fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer> {
@@ -53,9 +53,7 @@ where
 }
 
 /// Helper methods for `SharedDeserializeRegistry`.
-pub trait SharedDeserializeRegistryExt<E>:
-    SharedDeserializeRegistry<E>
-{
+pub trait SharedDeserializerExt<E>: SharedDeserializer<E> {
     /// Checks whether the given reference has been deserialized and either uses the existing shared
     /// pointer to it, or deserializes it and converts it to a shared pointer with `to_shared`.
     #[inline]
@@ -99,7 +97,5 @@ pub trait SharedDeserializeRegistryExt<E>:
     }
 }
 
-impl<T, E> SharedDeserializeRegistryExt<E> for T where
-    T: SharedDeserializeRegistry<E> + ?Sized
-{
-}
+impl<T, E> SharedDeserializerExt<E> for T where T: SharedDeserializer<E> + ?Sized
+{}

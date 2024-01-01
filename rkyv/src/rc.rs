@@ -2,8 +2,7 @@
 
 use crate::{
     ser::{
-        Serializer, SerializerExt as _, SharedSerializeRegistry,
-        SharedSerializeRegistryExt,
+        Serializer, SerializerExt as _, SharedSerializer, SharedSerializerExt,
     },
     ArchivePointee, ArchiveUnsized, RelPtr, SerializeUnsized,
 };
@@ -82,7 +81,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     ) -> Result<RcResolver, S::Error>
     where
         U: SerializeUnsized<S> + ?Sized,
-        S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
+        S: Fallible + Serializer + SharedSerializer + ?Sized,
     {
         let pos = serializer.serialize_shared(value)?;
 
@@ -263,7 +262,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     ) -> Result<RcWeakResolver, S::Error>
     where
         U: SerializeUnsized<S, Archived = T> + ?Sized,
-        S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
+        S: Fallible + Serializer + SharedSerializer + ?Sized,
     {
         Ok(match value {
             None => RcWeakResolver::None,

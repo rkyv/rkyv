@@ -1,7 +1,6 @@
 use crate::{
     ser::{
-        serializers::BufferScratch, ScratchSpace, Serializer,
-        SharedSerializeRegistry,
+        serializers::BufferScratch, ScratchSpace, Serializer, SharedSerializer,
     },
     util::{AlignedBytes, AlignedVec},
 };
@@ -400,7 +399,7 @@ impl Default for SharedSerializeMap {
     }
 }
 
-impl<E: Error> SharedSerializeRegistry<E> for SharedSerializeMap {
+impl<E: Error> SharedSerializer<E> for SharedSerializeMap {
     fn get_shared_ptr(&self, value: *const u8) -> Option<usize> {
         self.shared_resolvers.get(&value).copied()
     }

@@ -452,7 +452,7 @@ pub trait Archive {
 /// Objects perform any supportive serialization during [`serialize`](Serialize::serialize). For
 /// types that reference nonlocal (pointed-to) data, this is when that data must be serialized to
 /// the output. These types will need to bound `S` to implement [`Serializer`] and
-/// any other required traits (e.g. [`SharedSerializeRegistry`](ser::SharedSerializeRegistry)). They
+/// any other required traits (e.g. [`SharedSerializer`](ser::SharedSerializer)). They
 /// should then serialize their dependencies during `serialize`.
 ///
 /// See [`Archive`] for examples of implementing `Serialize`.
@@ -481,7 +481,7 @@ pub trait Serialize<S: Fallible + ?Sized>: Archive {
 ///
 /// Some types may require specific deserializer capabilities, such as `Rc` and `Arc`. In these
 /// cases, the deserializer type `D` should be bound so that it implements traits that provide those
-/// capabilities (e.g. [`SharedDeserializeRegistry`](de::SharedDeserializeRegistry)).
+/// capabilities (e.g. [`SharedDeserializer`](de::SharedDeserializer)).
 ///
 /// This can be derived with [`Deserialize`](macro@Deserialize).
 pub trait Deserialize<T, D: Fallible + ?Sized> {

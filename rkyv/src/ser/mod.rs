@@ -172,12 +172,10 @@ impl<T: ScratchSpace<E>, E> ScratchSpace<E> for Strategy<T, E> {
     }
 }
 
-// TODO: Make this name shorter
-
 /// A registry that tracks serialized shared memory.
 ///
 /// This trait is required to serialize shared pointers.
-pub trait SharedSerializeRegistry<E = <Self as Fallible>::Error> {
+pub trait SharedSerializer<E = <Self as Fallible>::Error> {
     /// Gets the position of a previously-added shared pointer.
     ///
     /// Returns `None` if the pointer has not yet been added.
@@ -188,9 +186,9 @@ pub trait SharedSerializeRegistry<E = <Self as Fallible>::Error> {
         -> Result<(), E>;
 }
 
-impl<T, E> SharedSerializeRegistry<E> for Strategy<T, E>
+impl<T, E> SharedSerializer<E> for Strategy<T, E>
 where
-    T: SharedSerializeRegistry<E> + ?Sized,
+    T: SharedSerializer<E> + ?Sized,
 {
     fn get_shared_ptr(&self, value: *const u8) -> Option<usize> {
         T::get_shared_ptr(self, value)
@@ -206,7 +204,7 @@ where
 }
 
 /// TODO: Document this
-pub trait SharedSerializeRegistryExt<E>: SharedSerializeRegistry<E> {
+pub trait SharedSerializerExt<E>: SharedSerializer<E> {
     /// Gets the position of a previously-added shared value.
     ///
     /// Returns `None` if the value has not yet been added.
@@ -245,7 +243,4 @@ pub trait SharedSerializeRegistryExt<E>: SharedSerializeRegistry<E> {
     }
 }
 
-impl<S, E> SharedSerializeRegistryExt<E> for S where
-    S: SharedSerializeRegistry<E> + ?Sized
-{
-}
+impl<S, E> SharedSerializerExt<E> for S where S: SharedSerializer<E> + ?Sized {}

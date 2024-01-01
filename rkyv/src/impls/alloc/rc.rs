@@ -1,13 +1,10 @@
 use crate::{
-    de::{
-        SharedDeserializeRegistry, SharedDeserializeRegistryExt as _,
-        SharedPointer,
-    },
+    de::{SharedDeserializer, SharedDeserializerExt as _, SharedPointer},
     rc::{
         ArcFlavor, ArchivedRc, ArchivedRcWeak, RcFlavor, RcResolver,
         RcWeakResolver,
     },
-    ser::{Serializer, SharedSerializeRegistry},
+    ser::{Serializer, SharedSerializer},
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized,
     Serialize, SerializeUnsized,
 };
@@ -45,7 +42,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
 impl<T, S> Serialize<S> for rc::Rc<T>
 where
     T: SerializeUnsized<S> + ?Sized + 'static,
-    S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
+    S: Fallible + Serializer + SharedSerializer + ?Sized,
 {
     #[inline]
     fn serialize(
@@ -63,7 +60,7 @@ impl<T, D> Deserialize<rc::Rc<T>, D> for ArchivedRc<T::Archived, RcFlavor>
 where
     T: ArchiveUnsized + ?Sized + 'static,
     T::Archived: DeserializeUnsized<T, D>,
-    D: Fallible + SharedDeserializeRegistry + ?Sized,
+    D: Fallible + SharedDeserializer + ?Sized,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<rc::Rc<T>, D::Error> {
@@ -112,7 +109,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
 impl<T, S> Serialize<S> for rc::Weak<T>
 where
     T: SerializeUnsized<S> + ?Sized + 'static,
-    S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
+    S: Fallible + Serializer + SharedSerializer + ?Sized,
 {
     #[inline]
     fn serialize(
@@ -132,7 +129,7 @@ impl<T, D> Deserialize<rc::Weak<T>, D> for ArchivedRcWeak<T::Archived, RcFlavor>
 where
     T: Archive + 'static,
     T::Archived: DeserializeUnsized<T, D>,
-    D: Fallible + SharedDeserializeRegistry + ?Sized,
+    D: Fallible + SharedDeserializer + ?Sized,
 {
     #[inline]
     fn deserialize(
@@ -175,7 +172,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
 impl<T, S> Serialize<S> for sync::Arc<T>
 where
     T: SerializeUnsized<S> + ?Sized + 'static,
-    S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
+    S: Fallible + Serializer + SharedSerializer + ?Sized,
 {
     #[inline]
     fn serialize(
@@ -193,7 +190,7 @@ impl<T, D> Deserialize<sync::Arc<T>, D> for ArchivedRc<T::Archived, ArcFlavor>
 where
     T: ArchiveUnsized + ?Sized + 'static,
     T::Archived: DeserializeUnsized<T, D>,
-    D: Fallible + SharedDeserializeRegistry + ?Sized,
+    D: Fallible + SharedDeserializer + ?Sized,
 {
     #[inline]
     fn deserialize(
@@ -247,7 +244,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
 impl<T, S> Serialize<S> for sync::Weak<T>
 where
     T: SerializeUnsized<S> + ?Sized + 'static,
-    S: Fallible + Serializer + SharedSerializeRegistry + ?Sized,
+    S: Fallible + Serializer + SharedSerializer + ?Sized,
 {
     #[inline]
     fn serialize(
@@ -268,7 +265,7 @@ impl<T, D> Deserialize<sync::Weak<T>, D>
 where
     T: Archive + 'static,
     T::Archived: DeserializeUnsized<T, D>,
-    D: Fallible + SharedDeserializeRegistry + ?Sized,
+    D: Fallible + SharedDeserializer + ?Sized,
 {
     #[inline]
     fn deserialize(

@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "examples/backwards_compat",
-    "examples/json",
+    # TODO: Re-enable
+    # "examples/json",
     "examples/opcode",
     "rkyv",
     "rkyv_derive",
