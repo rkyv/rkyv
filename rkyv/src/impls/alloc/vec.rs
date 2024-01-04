@@ -23,10 +23,18 @@ impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for Vec<T> {
     }
 }
 
-impl<T: PartialOrd> PartialOrd<Vec<T>> for ArchivedVec<T> {
+impl<T: PartialOrd<U>, U> PartialOrd<Vec<U>> for ArchivedVec<T>
+{
     #[inline]
-    fn partial_cmp(&self, other: &Vec<T>) -> Option<cmp::Ordering> {
-        self.as_slice().partial_cmp(other.as_slice())
+    fn partial_cmp(&self, other: &Vec<U>) -> Option<cmp::Ordering> {
+        let min_len = self.len().min(other.len());
+        for i in 0..min_len {
+            match self[i].partial_cmp(&other[i]) {
+                Some(cmp::Ordering::Equal) => continue,
+                result => return result,
+            }
+        }
+        self.len().partial_cmp(&other.len())
     }
 }
 
