@@ -116,11 +116,3 @@ Thanks to all the sponsors that keep development sustainable. Special thanks to 
 </p>
 
 > Dusk Network is the first privacy blockchain for financial applications. Our mission is to enable any size enterprise to collaborate at scale, meet compliance requirements, and ensure that transaction data remains confidential.
-
-## Bronze Sponsors
-
-<p align="center">
-    <a href="https://traverseresearch.nl/">
-        <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/sponsors/traverse_research.png" alt="Traverse Research">
-    </a>
-</p>
