@@ -29,25 +29,15 @@ impl std::error::Error for DuplicateSharedPointer {}
 /// pointer.
 #[derive(Debug)]
 pub struct Unify {
-    shared_ptr_to_pos: hash_map::HashMap<*const u8, usize>,
+    shared_address_to_pos: hash_map::HashMap<usize, usize>,
 }
-
-// TODO: get rid of these by replacing pointer with usize in key of shared_ptr_to_pos
-
-// SAFETY: SharedSerializeMap is safe to send to another thread
-// This trait is not automatically implemented because the struct contains a pointer
-unsafe impl Send for Unify {}
-
-// SAFETY: SharedSerializeMap is safe to share between threads
-// This trait is not automatically implemented because the struct contains a pointer
-unsafe impl Sync for Unify {}
 
 impl Unify {
     /// Creates a new shared registry map.
     #[inline]
     pub fn new() -> Self {
         Self {
-            shared_ptr_to_pos: hash_map::HashMap::new(),
+            shared_address_to_pos: hash_map::HashMap::new(),
         }
     }
 }
@@ -60,20 +50,14 @@ impl Default for Unify {
 }
 
 impl<E: Error> Sharing<E> for Unify {
-    fn get_shared_ptr(&self, value: *const u8) -> Option<usize> {
-        self.shared_ptr_to_pos.get(&value).copied()
+    fn get_shared_ptr(&self, address: usize) -> Option<usize> {
+        self.shared_address_to_pos.get(&address).copied()
     }
 
-    fn add_shared_ptr(
-        &mut self,
-        value: *const u8,
-        pos: usize,
-    ) -> Result<(), E> {
-        match self.shared_ptr_to_pos.entry(value) {
+    fn add_shared_ptr(&mut self, address: usize, pos: usize) -> Result<(), E> {
+        match self.shared_address_to_pos.entry(address) {
             hash_map::Entry::Occupied(_) => {
-                fail!(DuplicateSharedPointer {
-                    address: value as usize
-                });
+                fail!(DuplicateSharedPointer { address });
             }
             hash_map::Entry::Vacant(e) => {
                 e.insert(pos);

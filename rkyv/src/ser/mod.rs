@@ -108,17 +108,13 @@ impl<W, A: Allocator<E>, S, E> Allocator<E> for Composite<W, A, S> {
 
 impl<W, A, S: Sharing<E>, E> Sharing<E> for Composite<W, A, S> {
     #[inline]
-    fn get_shared_ptr(&self, value: *const u8) -> Option<usize> {
-        self.share.get_shared_ptr(value)
+    fn get_shared_ptr(&self, address: usize) -> Option<usize> {
+        self.share.get_shared_ptr(address)
     }
 
     #[inline]
-    fn add_shared_ptr(
-        &mut self,
-        value: *const u8,
-        pos: usize,
-    ) -> Result<(), E> {
-        self.share.add_shared_ptr(value, pos)
+    fn add_shared_ptr(&mut self, address: usize, pos: usize) -> Result<(), E> {
+        self.share.add_shared_ptr(address, pos)
     }
 }
 

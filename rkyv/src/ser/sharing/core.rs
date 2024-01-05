@@ -6,11 +6,11 @@ use crate::ser::Sharing;
 pub struct Duplicate;
 
 impl<E> Sharing<E> for Duplicate {
-    fn get_shared_ptr(&self, _: *const u8) -> Option<usize> {
+    fn get_shared_ptr(&self, _: usize) -> Option<usize> {
         None
     }
 
-    fn add_shared_ptr(&mut self, _: *const u8, _: usize) -> Result<(), E> {
+    fn add_shared_ptr(&mut self, _: usize, _: usize) -> Result<(), E> {
         Ok(())
     }
 }

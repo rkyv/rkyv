@@ -1,6 +1,6 @@
 //! Adapters wrap deserializers and add support for deserializer traits.
 
-use crate::de::{Pooling, SharedPointer};
+use super::{Pooling, SharedPointer};
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use core::{fmt, mem::size_of};
@@ -32,7 +32,7 @@ impl std::error::Error for DuplicateSharedPointer {}
 /// A shared pointer strategy that unifies deserializations of the same shared
 /// pointer.
 pub struct Unify {
-    shared_pointers: hash_map::HashMap<*const u8, Box<dyn SharedPointer>>,
+    shared_pointers: hash_map::HashMap<usize, Box<dyn SharedPointer>>,
 }
 
 impl Unify {
@@ -65,20 +65,18 @@ impl Default for Unify {
 }
 
 impl<E: Error> Pooling<E> for Unify {
-    fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer> {
-        self.shared_pointers.get(&ptr).map(|p| p.as_ref())
+    fn get_shared_ptr(&mut self, address: usize) -> Option<&dyn SharedPointer> {
+        self.shared_pointers.get(&address).map(|p| p.as_ref())
     }
 
     fn add_shared_ptr(
         &mut self,
-        ptr: *const u8,
+        address: usize,
         shared: Box<dyn SharedPointer>,
     ) -> Result<(), E> {
-        match self.shared_pointers.entry(ptr) {
+        match self.shared_pointers.entry(address) {
             hash_map::Entry::Occupied(_) => {
-                fail!(DuplicateSharedPointer {
-                    address: ptr as usize
-                });
+                fail!(DuplicateSharedPointer { address });
             }
             hash_map::Entry::Vacant(e) => {
                 e.insert(shared);
