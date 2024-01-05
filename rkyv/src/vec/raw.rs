@@ -55,7 +55,7 @@ impl<T> RawArchivedVec<T> {
     // This method can go away once pinned slices have indexing support
     // https://github.com/rust-lang/rust/pull/78370
 
-    /// Gets the element at the given index ot this archived vec as a pinned mutable reference.
+    /// Gets the element at the given index to this archived vec as a pinned mutable reference.
     #[inline]
     pub fn index_pin<I>(
         self: Pin<&mut Self>,

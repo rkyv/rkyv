@@ -196,7 +196,7 @@ use crate::{
 
 #[cfg(not(any(feature = "little_endian", feature = "big_endian")))]
 core::compiler_error!(
-    "\"litle_endian\" or \"big_endian\" must be an enabled feature"
+    "\"little_endian\" or \"big_endian\" must be an enabled feature"
 );
 
 #[cfg(all(feature = "little_endian", feature = "big_endian"))]
