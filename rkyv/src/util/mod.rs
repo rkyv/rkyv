@@ -247,11 +247,9 @@ pub unsafe fn access_unsized_unchecked_mut<T: ArchiveUnsized + ?Sized>(
 /// assert_eq!(mem::align_of::<u8>(), 1);
 /// assert_eq!(mem::align_of::<AlignedBytes<256>>(), 16);
 /// ```
-// TODO: Re-enable
-// #[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize)]
-// #[archive(crate = "crate")]
+#[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize)]
+#[archive(crate = crate)]
 #[repr(C, align(16))]
-#[derive(Debug)]
 pub struct AlignedBytes<const N: usize>(pub [u8; N]);
 
 impl<const N: usize> Default for AlignedBytes<N> {
