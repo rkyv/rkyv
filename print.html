@@ -194,7 +194,6 @@ and milestones.</li>
 <ul>
 <li><a href="https://docs.rs/rkyv">rkyv</a>, the core library</li>
 <li><a href="https://docs.rs/rkyv_dyn">rkyv_dyn</a>, which adds trait object support to rkyv</li>
-<li><a href="https://docs.rs/rkyv_typename">rkyv_typename</a>, a type naming library</li>
 </ul>
 <h2 id="benchmarks"><a class="header" href="#benchmarks">Benchmarks</a></h2>
 <ul>
@@ -719,13 +718,8 @@ should not implement <code>SerializeDyn</code>, so the shim trait approach was f
 <p>When the shim trait is serialized, it stores the type hash of the underlying type in its metadata so
 it can get the correct vtable for it when accessed. This requires that all vtables for implementing
 types must be known ahead of time, which is when we use <code>archive_dyn</code> for the second time.</p>
-<p>Using <code>archive_dyn</code> on a trait implementation registers the vtable for that implementation with a
-global lookup, allowing it to be retrieved later on. Because this process can be slow, the
-<code>vtable_cache</code> feature allows the vtable lookup to be performed only the first time, then cached
-locally for future lookups. This is one of the places where alternate implementations may take a
-different approach and choose a different set of benefits and tradeoffs.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="validation"><a class="header" href="#validation">Validation</a></h1>
-<p>Validation can be enabled with the <code>validation</code> feature. Validation leverages the
+<p>Validation can be enabled with the <code>bytecheck</code> feature. Validation leverages the
 <a href="https://docs.rs/bytecheck"><code>bytecheck</code></a> crate to perform archive validation, and allows the
 consumption of untrusted and malicious data.</p>
 <p>To validate an archive, you first have to derive
