@@ -1,246 +1,148 @@
-//! Serialization traits, serializers, and adapters.
+//! Serialization traits and adapters.
 
-pub mod serializers;
+pub mod allocator;
+pub mod sharing;
+pub mod writer;
 
-use crate::{Archive, ArchiveUnsized, RelPtr, SerializeUnsized};
-use core::{alloc::Layout, mem, ptr::NonNull, slice};
-use rancor::{Fallible, Strategy};
+#[doc(inline)]
+pub use self::{
+    allocator::Allocator,
+    sharing::{Sharing, SharingExt},
+    writer::{Positional, Writer, WriterExt},
+};
 
-// TODO: try to make calling these methods more ergonomic in contexts where `E`
-// isn't well-defined.
+#[cfg(feature = "alloc")]
+use crate::util::AlignedVec;
+use crate::{
+    ser::{
+        allocator::{
+            BackupAllocator, BufferAllocator, BumpAllocator, GlobalAllocator,
+        },
+        sharing::{Duplicate, Unify},
+        writer::BufferWriter,
+    },
+    util::AlignedBytes,
+};
+use ::core::{alloc::Layout, ptr::NonNull};
 
-/// A byte sink that knows where it is.
-///
-/// A type that is [`io::Write`](std::io::Write) can be wrapped in a
-/// [`WriteSerializer`](serializers::WriteSerializer) to equip it with `Serializer`.
-///
-/// It's important that the memory for archived objects is properly aligned before attempting to
-/// read objects out of it; use an [`AlignedVec`](crate::util::AlignedVec) or the
-/// [`AlignedBytes`](crate::util::AlignedBytes) wrappers if they are appropriate.
-pub trait Serializer<E = <Self as Fallible>::Error> {
-    /// Returns the current position of the serializer.
-    fn pos(&self) -> usize;
-
-    /// Attempts to write the given bytes to the serializer.
-    fn write(&mut self, bytes: &[u8]) -> Result<(), E>;
+/// A serializer built from composeable pieces.
+#[derive(Debug)]
+pub struct Composite<W = (), A = (), S = ()> {
+    /// The writer of the `Composite` serializer.
+    pub writer: W,
+    /// The allocator of the `Composite` serializer.
+    pub allocator: A,
+    /// The shared pointer strategy of the `Composite` serializer.
+    pub share: S,
 }
 
-impl<T, E> Serializer<E> for Strategy<T, E>
-where
-    T: Serializer<E> + ?Sized,
-{
+impl<W, A, S> Composite<W, A, S> {
+    /// Creates a new composite serializer from serializer, scratch, and shared pointer strategy.
+    #[inline]
+    pub fn new(writer: W, allocator: A, share: S) -> Self {
+        Self {
+            writer,
+            allocator,
+            share,
+        }
+    }
+
+    /// Consumes the composite serializer and returns the components.
+    #[inline]
+    pub fn into_raw_parts(self) -> (W, A, S) {
+        (self.writer, self.allocator, self.share)
+    }
+
+    /// Consumes the composite serializer and returns the serializer.
+    ///
+    /// The allocator and shared pointer strategies are discarded.
+    #[inline]
+    pub fn into_writer(self) -> W {
+        self.writer
+    }
+}
+
+impl<W: Default, A: Default, S: Default> Default for Composite<W, A, S> {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            writer: W::default(),
+            allocator: A::default(),
+            share: S::default(),
+        }
+    }
+}
+
+impl<W: Positional, A, S> Positional for Composite<W, A, S> {
+    #[inline]
     fn pos(&self) -> usize {
-        T::pos(self)
+        self.writer.pos()
     }
+}
 
+impl<W: Writer<E>, A, S, E> Writer<E> for Composite<W, A, S> {
+    #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
-        T::write(self, bytes)
+        self.writer.write(bytes)
     }
 }
 
-/// TODO: Document
-pub trait SerializerExt<E>: Serializer<E> {
-    /// Advances the given number of bytes as padding.
+impl<W, A: Allocator<E>, S, E> Allocator<E> for Composite<W, A, S> {
     #[inline]
-    fn pad(&mut self, padding: usize) -> Result<(), E> {
-        const MAX_ZEROES: usize = 32;
-        const ZEROES: [u8; MAX_ZEROES] = [0; MAX_ZEROES];
-        debug_assert!(padding < MAX_ZEROES);
-
-        self.write(&ZEROES[0..padding])
-    }
-
-    /// Aligns the position of the serializer to the given alignment.
-    #[inline]
-    fn align(&mut self, align: usize) -> Result<usize, E> {
-        let mask = align - 1;
-        debug_assert_eq!(align & mask, 0);
-
-        self.pad((align - (self.pos() & mask)) & mask)?;
-        Ok(self.pos())
-    }
-
-    /// Aligns the position of the serializer to be suitable to write the given type.
-    #[inline]
-    fn align_for<T>(&mut self) -> Result<usize, E> {
-        self.align(mem::align_of::<T>())
-    }
-
-    /// Resolves the given value with its resolver and writes the archived type.
-    ///
-    /// Returns the position of the written archived type.
-    ///
-    /// # Safety
-    ///
-    /// - `resolver` must be the result of serializing `value`
-    /// - The serializer must be aligned for a `T::Archived`
-    unsafe fn resolve_aligned<T: Archive + ?Sized>(
-        &mut self,
-        value: &T,
-        resolver: T::Resolver,
-    ) -> Result<usize, E> {
-        let pos = self.pos();
-        debug_assert_eq!(pos & (mem::align_of::<T::Archived>() - 1), 0);
-
-        let mut resolved = mem::MaybeUninit::<T::Archived>::uninit();
-        resolved.as_mut_ptr().write_bytes(0, 1);
-        value.resolve(pos, resolver, resolved.as_mut_ptr());
-
-        let data = resolved.as_ptr().cast::<u8>();
-        let len = mem::size_of::<T::Archived>();
-        self.write(slice::from_raw_parts(data, len))?;
-        Ok(pos)
-    }
-
-    /// Resolves the given reference with its resolver and writes the archived reference.
-    ///
-    /// Returns the position of the written archived `RelPtr`.
-    ///
-    /// # Safety
-    ///
-    /// The serializer must be aligned for a `RelPtr<T::Archived>`.
-    unsafe fn resolve_unsized_aligned<T: ArchiveUnsized + ?Sized>(
-        &mut self,
-        value: &T,
-        to: usize,
-    ) -> Result<usize, E> {
-        let from = self.pos();
-        debug_assert_eq!(
-            from & (mem::align_of::<RelPtr<T::Archived>>() - 1),
-            0
-        );
-
-        let mut resolved = mem::MaybeUninit::<RelPtr<T::Archived>>::uninit();
-        resolved.as_mut_ptr().write_bytes(0, 1);
-        RelPtr::emplace_unsized(
-            from,
-            to,
-            value.archived_metadata(),
-            resolved.as_mut_ptr(),
-        );
-
-        let data = resolved.as_ptr().cast::<u8>();
-        let len = mem::size_of::<RelPtr<T::Archived>>();
-        self.write(slice::from_raw_parts(data, len))?;
-        Ok(from)
-    }
-}
-
-impl<T, E> SerializerExt<E> for T where T: Serializer<E> + ?Sized {}
-
-// Someday this can probably be replaced with alloc::Allocator
-
-/// A serializer that can allocate scratch space.
-pub trait ScratchSpace<E = <Self as Fallible>::Error> {
-    /// Allocates scratch space of the requested size.
-    ///
-    /// # Safety
-    ///
-    /// `layout` must have non-zero size.
-    unsafe fn push_scratch(
-        &mut self,
-        layout: Layout,
-    ) -> Result<NonNull<[u8]>, E>;
-
-    /// Deallocates previously allocated scratch space.
-    ///
-    /// # Safety
-    ///
-    /// - `ptr` must be the scratch memory last allocated with `push_scratch`.
-    /// - `layout` must be the same layout that was used to allocate that block of memory.
-    unsafe fn pop_scratch(
-        &mut self,
-        ptr: NonNull<u8>,
-        layout: Layout,
-    ) -> Result<(), E>;
-}
-
-impl<T: ScratchSpace<E>, E> ScratchSpace<E> for Strategy<T, E> {
-    unsafe fn push_scratch(
+    unsafe fn push_alloc(
         &mut self,
         layout: Layout,
     ) -> Result<NonNull<[u8]>, E> {
-        T::push_scratch(self, layout)
+        self.allocator.push_alloc(layout)
     }
 
-    unsafe fn pop_scratch(
+    #[inline]
+    unsafe fn pop_alloc(
         &mut self,
         ptr: NonNull<u8>,
         layout: Layout,
     ) -> Result<(), E> {
-        T::pop_scratch(self, ptr, layout)
+        self.allocator.pop_alloc(ptr, layout)
     }
 }
 
-/// A registry that tracks serialized shared memory.
-///
-/// This trait is required to serialize shared pointers.
-pub trait SharedSerializer<E = <Self as Fallible>::Error> {
-    /// Gets the position of a previously-added shared pointer.
-    ///
-    /// Returns `None` if the pointer has not yet been added.
-    fn get_shared_ptr(&self, value: *const u8) -> Option<usize>;
-
-    /// Adds the position of a shared pointer to the registry.
-    fn add_shared_ptr(&mut self, value: *const u8, pos: usize)
-        -> Result<(), E>;
-}
-
-impl<T, E> SharedSerializer<E> for Strategy<T, E>
-where
-    T: SharedSerializer<E> + ?Sized,
-{
+impl<W, A, S: Sharing<E>, E> Sharing<E> for Composite<W, A, S> {
+    #[inline]
     fn get_shared_ptr(&self, value: *const u8) -> Option<usize> {
-        T::get_shared_ptr(self, value)
+        self.share.get_shared_ptr(value)
     }
 
+    #[inline]
     fn add_shared_ptr(
         &mut self,
         value: *const u8,
         pos: usize,
     ) -> Result<(), E> {
-        T::add_shared_ptr(self, value, pos)
+        self.share.add_shared_ptr(value, pos)
     }
 }
 
-/// TODO: Document this
-pub trait SharedSerializerExt<E>: SharedSerializer<E> {
-    /// Gets the position of a previously-added shared value.
-    ///
-    /// Returns `None` if the value has not yet been added.
-    #[inline]
-    fn get_shared<T: ?Sized>(&self, value: &T) -> Option<usize> {
-        self.get_shared_ptr(value as *const T as *const u8)
-    }
+/// A serializer suitable for environments where allocations cannot be made.
+///
+/// `CoreSerializer` takes two arguments: the amount of serialization memory to allocate and the
+/// amount of scratch space to allocate. If you run out of either while serializing, the serializer
+/// will return an error.
+pub type CoreSerializer<const W: usize, const A: usize> = Composite<
+    BufferWriter<AlignedBytes<W>>,
+    BufferAllocator<AlignedBytes<A>>,
+    Duplicate,
+>;
 
-    /// Adds the position of a shared value to the registry.
-    #[inline]
-    fn add_shared<T: ?Sized>(
-        &mut self,
-        value: &T,
-        pos: usize,
-    ) -> Result<(), E> {
-        self.add_shared_ptr(value as *const T as *const u8, pos)
-    }
-
-    /// Archives the given shared value and returns its position. If the value has already been
-    /// added then it returns the position of the previously added value.
-    #[inline]
-    fn serialize_shared<T: SerializeUnsized<Self> + ?Sized>(
-        &mut self,
-        value: &T,
-    ) -> Result<usize, <Self as Fallible>::Error>
-    where
-        Self: Fallible<Error = E>,
-    {
-        if let Some(pos) = self.get_shared(value) {
-            Ok(pos)
-        } else {
-            let pos = value.serialize_unsized(self)?;
-            self.add_shared(value, pos)?;
-            Ok(pos)
-        }
-    }
-}
-
-impl<S, E> SharedSerializerExt<E> for S where S: SharedSerializer<E> + ?Sized {}
+/// A general-purpose serializer suitable for environments where allocations can be made.
+///
+/// `AllocSerializer` takes one argument: the amount of scratch space to allocate before spilling
+/// allocations over into heap memory. A large amount of scratch space may result in some of it not
+/// being used, but too little scratch space will result in many allocations and decreased
+/// performance. You should consider your use case carefully when determining how much scratch space
+/// to pre-allocate.
+#[cfg(feature = "alloc")]
+pub type AllocSerializer<const A: usize> = Composite<
+    AlignedVec,
+    BackupAllocator<BumpAllocator<A>, GlobalAllocator>,
+    Unify,
+>;

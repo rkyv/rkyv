@@ -1,49 +1,41 @@
 //! Adapters wrap deserializers and add support for deserializer traits.
 
-use crate::de::{SharedDeserializer, SharedPointer};
+use crate::de::{Pooling, SharedPointer};
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
-use core::fmt;
+use core::{fmt, mem::size_of};
 #[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
 use rancor::{fail, Error};
 #[cfg(feature = "std")]
 use std::collections::hash_map;
 
-/// An error that can occur while deserializing shared pointers.
 #[derive(Debug)]
-pub enum SharedDeserializeMapError {
-    /// A shared pointer was added multiple times
-    DuplicateSharedPointer(*const u8),
+struct DuplicateSharedPointer {
+    address: usize,
 }
 
-// SAFETY: SharedDeserializeMapError is safe to send to another thread
-// This trait is not automatically implemented because the enum contains a pointer
-unsafe impl Send for SharedDeserializeMapError {}
-
-// SAFETY: SharedDeserializeMapError is safe to share between threads
-// This trait is not automatically implemented because the enum contains a pointer
-unsafe impl Sync for SharedDeserializeMapError {}
-
-impl fmt::Display for SharedDeserializeMapError {
+impl fmt::Display for DuplicateSharedPointer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::DuplicateSharedPointer(p) => {
-                write!(f, "duplicate shared pointer: {:p}", p)
-            }
-        }
+        write!(
+            f,
+            "duplicate shared pointer: {:#.*x}",
+            size_of::<usize>() * 2,
+            self.address
+        )
     }
 }
 
 #[cfg(feature = "std")]
-impl std::error::Error for SharedDeserializeMapError {}
+impl std::error::Error for DuplicateSharedPointer {}
 
-/// An adapter that adds shared deserialization support to a deserializer.
-pub struct SharedDeserializeMap {
+/// A shared pointer strategy that unifies deserializations of the same shared
+/// pointer.
+pub struct Unify {
     shared_pointers: hash_map::HashMap<*const u8, Box<dyn SharedPointer>>,
 }
 
-impl SharedDeserializeMap {
+impl Unify {
     /// Wraps the given deserializer and adds shared memory support.
     #[inline]
     pub fn new() -> Self {
@@ -53,7 +45,7 @@ impl SharedDeserializeMap {
     }
 }
 
-impl fmt::Debug for SharedDeserializeMap {
+impl fmt::Debug for Unify {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_map()
             .entries(
@@ -65,14 +57,14 @@ impl fmt::Debug for SharedDeserializeMap {
     }
 }
 
-impl Default for SharedDeserializeMap {
+impl Default for Unify {
     #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<E: Error> SharedDeserializer<E> for SharedDeserializeMap {
+impl<E: Error> Pooling<E> for Unify {
     fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer> {
         self.shared_pointers.get(&ptr).map(|p| p.as_ref())
     }
@@ -84,7 +76,9 @@ impl<E: Error> SharedDeserializer<E> for SharedDeserializeMap {
     ) -> Result<(), E> {
         match self.shared_pointers.entry(ptr) {
             hash_map::Entry::Occupied(_) => {
-                fail!(SharedDeserializeMapError::DuplicateSharedPointer(ptr));
+                fail!(DuplicateSharedPointer {
+                    address: ptr as usize
+                });
             }
             hash_map::Entry::Vacant(e) => {
                 e.insert(shared);

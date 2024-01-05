@@ -17,7 +17,9 @@ pub mod validation;
 
 #[cfg(test)]
 mod tests {
-    use crate::util::core::*;
+    #[cfg(not(feature = "strict"))]
+    use crate::util::core::test_archive_with;
+    use crate::util::core::{test_archive, test_archive_ref};
 
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;

@@ -34,10 +34,7 @@ impl<D: Fallible + ?Sized> Deserialize<Uuid, D> for Uuid {
 
 #[cfg(test)]
 mod rkyv_tests {
-    use crate::{
-        access_unchecked, deserialize, ser::serializers::AlignedSerializer,
-        util::AlignedVec,
-    };
+    use crate::{access_unchecked, deserialize, util::AlignedVec};
     use rancor::Infallible;
     use uuid::Uuid;
 
@@ -46,12 +43,11 @@ mod rkyv_tests {
         let uuid_str = "f9168c5e-ceb2-4faa-b6bf-329bf39fa1e4";
         let u = Uuid::parse_str(uuid_str).unwrap();
 
-        let serializer = crate::util::serialize_into::<_, _, Infallible>(
+        let buf = crate::util::serialize_into::<_, _, Infallible>(
             &u,
-            AlignedSerializer::new(AlignedVec::new()),
+            AlignedVec::new(),
         )
         .expect("failed to archive uuid");
-        let buf = serializer.into_inner();
         let archived = unsafe { access_unchecked::<Uuid>(buf.as_ref()) };
 
         assert_eq!(&u, archived);

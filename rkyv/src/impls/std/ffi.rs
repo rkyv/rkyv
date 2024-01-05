@@ -1,7 +1,7 @@
 use crate::{
     ffi::{ArchivedCString, CStringResolver},
     primitive::ArchivedUsize,
-    ser::Serializer,
+    ser::Writer,
     Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
     Deserialize, DeserializeUnsized, Serialize, SerializeUnsized,
 };
@@ -33,7 +33,7 @@ impl ArchivePointee for CStr {
     }
 }
 
-impl<S: Fallible + Serializer + ?Sized> SerializeUnsized<S> for CStr {
+impl<S: Fallible + Writer + ?Sized> SerializeUnsized<S> for CStr {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         let result = serializer.pos();
@@ -103,7 +103,7 @@ impl Archive for CString {
     }
 }
 
-impl<S: Fallible + Serializer + ?Sized> Serialize<S> for CString {
+impl<S: Fallible + Writer + ?Sized> Serialize<S> for CString {
     #[inline]
     fn serialize(
         &self,

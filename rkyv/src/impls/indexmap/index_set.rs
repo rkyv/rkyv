@@ -1,6 +1,6 @@
 use crate::{
     collections::index_set::{ArchivedIndexSet, IndexSetResolver},
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     Archive, Deserialize, Fallible, Serialize,
 };
 use core::hash::{BuildHasher, Hash};
@@ -23,7 +23,7 @@ impl<K: Archive, S> Archive for IndexSet<K, S> {
 impl<K, S, RandomState> Serialize<S> for IndexSet<K, RandomState>
 where
     K: Hash + Eq + Serialize<S>,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
     RandomState: BuildHasher,
 {
     fn serialize(

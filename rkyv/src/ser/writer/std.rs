@@ -1,15 +1,15 @@
 use rancor::ResultExt as _;
 
-use crate::ser::Serializer;
+use crate::ser::{Positional, Writer};
 use std::io;
 
-/// Wraps a type that implements [`io::Write`](std::io::Write) and equips it with [`Serializer`].
+/// Wraps a type that implements [`io::Write`](std::io::Write) and equips it with [`Writer`].
 ///
 /// # Examples
 /// ```
-/// use rkyv::ser::{serializers::WriteSerializer, Serializer};
+/// use rkyv::ser::{serializers::IoWriter, Serializer};
 ///
-/// let mut serializer = WriteSerializer::new(Vec::new());
+/// let mut serializer = IoWriter::new(Vec::new());
 /// assert_eq!(serializer.pos(), 0);
 /// serializer.write(&[0u8, 1u8, 2u8, 3u8]);
 /// assert_eq!(serializer.pos(), 4);
@@ -18,12 +18,12 @@ use std::io;
 /// assert_eq!(buf, vec![0u8, 1u8, 2u8, 3u8]);
 /// ```
 #[derive(Debug)]
-pub struct WriteSerializer<W: io::Write> {
+pub struct IoWriter<W> {
     inner: W,
     pos: usize,
 }
 
-impl<W: io::Write> WriteSerializer<W> {
+impl<W> IoWriter<W> {
     /// Creates a new serializer from a writer.
     #[inline]
     pub fn new(inner: W) -> Self {
@@ -44,12 +44,14 @@ impl<W: io::Write> WriteSerializer<W> {
     }
 }
 
-impl<W: io::Write, E: rancor::Error> Serializer<E> for WriteSerializer<W> {
+impl<W> Positional for IoWriter<W> {
     #[inline]
     fn pos(&self) -> usize {
         self.pos
     }
+}
 
+impl<W: io::Write, E: rancor::Error> Writer<E> for IoWriter<W> {
     #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         self.inner.write_all(bytes).into_error()?;

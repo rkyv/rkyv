@@ -4,7 +4,7 @@
 
 use crate::{
     primitive::ArchivedUsize,
-    ser::{ScratchSpace, Serializer, SerializerExt as _},
+    ser::{Allocator, Writer, WriterExt as _},
     Archive, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{
@@ -122,7 +122,7 @@ impl<T> ArchivedVec<T> {
     #[inline]
     pub fn serialize_from_slice<
         U: Serialize<S, Archived = T>,
-        S: Fallible + Serializer + ?Sized,
+        S: Fallible + Writer + ?Sized,
     >(
         slice: &[U],
         serializer: &mut S,
@@ -152,7 +152,7 @@ impl<T> ArchivedVec<T> {
     ) -> Result<VecResolver, S::Error>
     where
         U: Serialize<S, Archived = T>,
-        S: Fallible + Serializer + ?Sized,
+        S: Fallible + Writer + ?Sized,
     {
         use core::{mem::size_of, slice::from_raw_parts};
 
@@ -181,7 +181,7 @@ impl<T> ArchivedVec<T> {
         U: Serialize<S, Archived = T>,
         I: ExactSizeIterator,
         I::Item: Borrow<U>,
-        S: Fallible + ScratchSpace + Serializer + ?Sized,
+        S: Fallible + Allocator + Writer + ?Sized,
     {
         use crate::util::ScratchVec;
 

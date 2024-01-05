@@ -14,11 +14,9 @@ mod aligned_vec;
 mod scratch_vec;
 
 #[cfg(feature = "alloc")]
+use crate::{de::pooling::Unify, ser::AllocSerializer};
 use crate::{
-    de::deserializers::SharedDeserializeMap, ser::serializers::AllocSerializer,
-};
-use crate::{
-    ser::Serializer, Archive, ArchiveUnsized, Deserialize, RelPtr, Serialize,
+    ser::Writer, Archive, ArchiveUnsized, Deserialize, RelPtr, Serialize,
     SerializeUnsized,
 };
 use core::{
@@ -296,9 +294,9 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 ///
 /// The const generic parameter `N` specifies the number of bytes to
 /// pre-allocate as scratch space. Choosing a good default value for your data
-/// can be difficult without any data, so consider using a
-/// [`ScratchTracker`](crate::ser::serializers::ScratchTracker) to determine how
-/// much scratch space is typically used.
+/// can be difficult without any data, so consider using an
+/// [`AllocationTracker`](crate::ser::allocator::AllocationTracker) to determine
+/// how much scratch space is typically used.
 ///
 /// This function is only available with the `alloc` feature because it uses a
 /// general-purpose serializer. In no-alloc and high-performance environments,
@@ -325,9 +323,7 @@ pub fn to_bytes<T, const N: usize, E>(value: &T) -> Result<AlignedVec, E>
 where
     T: Serialize<Strategy<AllocSerializer<N>, E>>,
 {
-    Ok(serialize_into(value, AllocSerializer::<N>::default())?
-        .into_serializer()
-        .into_inner())
+    Ok(serialize_into(value, AllocSerializer::<N>::default())?.into_writer())
 }
 
 /// Serializes the given value into the given serializer and then returns the
@@ -336,7 +332,7 @@ where
 pub fn serialize_into<T, S, E>(value: &T, mut serializer: S) -> Result<S, E>
 where
     T: Serialize<Strategy<S, E>>,
-    S: Serializer<E>,
+    S: Writer<E>,
 {
     serialize(value, &mut serializer)?;
     Ok(serializer)
@@ -351,7 +347,7 @@ pub fn serialize_rel_ptr_into<T, S, E>(
 ) -> Result<S, E>
 where
     T: SerializeUnsized<Strategy<S, E>> + ?Sized,
-    S: Serializer<E>,
+    S: Writer<E>,
 {
     serialize_rel_ptr(value, &mut serializer)?;
     Ok(serializer)
@@ -362,7 +358,7 @@ where
 pub fn serialize<T, S, E>(value: &T, serializer: &mut S) -> Result<(), E>
 where
     T: Serialize<Strategy<S, E>>,
-    S: Serializer<E> + ?Sized,
+    S: Writer<E> + ?Sized,
 {
     value.serialize_and_resolve(Strategy::wrap(serializer))?;
     Ok(())
@@ -377,7 +373,7 @@ pub fn serialize_rel_ptr<T, S, E>(
 ) -> Result<(), E>
 where
     T: SerializeUnsized<Strategy<S, E>> + ?Sized,
-    S: Serializer<E> + ?Sized,
+    S: Writer<E> + ?Sized,
 {
     value.serialize_and_resolve_rel_ptr(Strategy::wrap(serializer))?;
     Ok(())
@@ -415,12 +411,9 @@ where
 pub unsafe fn from_bytes_unchecked<T, E>(bytes: &[u8]) -> Result<T, E>
 where
     T: Archive,
-    T::Archived: Deserialize<T, Strategy<SharedDeserializeMap, E>>,
+    T::Archived: Deserialize<T, Strategy<Unify, E>>,
 {
-    deserialize(
-        access_unchecked::<T>(bytes),
-        &mut SharedDeserializeMap::default(),
-    )
+    deserialize(access_unchecked::<T>(bytes), &mut Unify::default())
 }
 
 /// TODO: document

@@ -1,9 +1,7 @@
 //! Archived versions of shared pointers.
 
 use crate::{
-    ser::{
-        Serializer, SerializerExt as _, SharedSerializer, SharedSerializerExt,
-    },
+    ser::{Sharing, SharingExt, Writer, WriterExt as _},
     ArchivePointee, ArchiveUnsized, RelPtr, SerializeUnsized,
 };
 use core::{
@@ -81,7 +79,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     ) -> Result<RcResolver, S::Error>
     where
         U: SerializeUnsized<S> + ?Sized,
-        S: Fallible + Serializer + SharedSerializer + ?Sized,
+        S: Fallible + Writer + Sharing + ?Sized,
     {
         let pos = serializer.serialize_shared(value)?;
 
@@ -262,7 +260,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     ) -> Result<RcWeakResolver, S::Error>
     where
         U: SerializeUnsized<S, Archived = T> + ?Sized,
-        S: Fallible + Serializer + SharedSerializer + ?Sized,
+        S: Fallible + Writer + Sharing + ?Sized,
     {
         Ok(match value {
             None => RcWeakResolver::None,

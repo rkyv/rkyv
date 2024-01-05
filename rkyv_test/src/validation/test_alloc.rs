@@ -14,7 +14,7 @@ mod tests {
         access,
         bytecheck::CheckBytes,
         rancor::{Error, Failure},
-        ser::Serializer,
+        ser::Writer,
         to_bytes,
         util::{serialize_into, AlignedBytes},
         validation::util::access_pos,
@@ -197,7 +197,7 @@ mod tests {
             Cons(#[omit_bounds] Box<Node>),
         }
 
-        impl<S: Fallible + Serializer + ?Sized> Serialize<S> for Node {
+        impl<S: Fallible + Writer + ?Sized> Serialize<S> for Node {
             fn serialize(
                 &self,
                 serializer: &mut S,
@@ -317,7 +317,7 @@ mod tests {
         // The derive macros don't apply the right bounds from Box so we have to manually specify
         // what bounds to apply
         #[archive(
-            serialize_bounds(__S: Serializer),
+            serialize_bounds(__S: Writer),
             deserialize_bounds(__D: Deserializer),
         )]
         #[archive(check_bytes)]
@@ -354,12 +354,12 @@ mod tests {
             b: shared.clone(),
         };
 
-        let serializer = serialize_into::<_, _, Failure>(
+        let buf = serialize_into::<_, _, Failure>(
             &value,
             DefaultSerializer::default(),
         )
-        .unwrap();
-        let buf = serializer.into_serializer().into_inner();
+        .unwrap()
+        .into_writer();
 
         access::<Test, Failure>(buf.as_ref()).unwrap();
     }

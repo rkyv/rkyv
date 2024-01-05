@@ -1,5 +1,5 @@
 use crate::{
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Fallible, Serialize,
 };
@@ -27,7 +27,7 @@ impl<A, S> Serialize<S> for SmallVec<A>
 where
     A: Array,
     A::Item: Serialize<S>,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     #[inline]
     fn serialize(
@@ -60,13 +60,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{access_unchecked, deserialize, ser::Serializer};
+    use crate::{access_unchecked, deserialize, ser::Positional as _};
     use rancor::{Failure, Infallible};
     use smallvec::{smallvec, SmallVec};
 
     #[test]
     fn small_vec() {
-        use crate::ser::serializers::CoreSerializer;
+        use crate::ser::CoreSerializer;
 
         let value: SmallVec<[i32; 10]> = smallvec![10, 20, 40, 80];
 
@@ -75,8 +75,8 @@ mod tests {
             CoreSerializer::<256, 256>::default(),
         )
         .unwrap();
-        let end = Serializer::<Failure>::pos(&serializer);
-        let result = serializer.into_serializer().into_inner();
+        let end = serializer.pos();
+        let result = serializer.into_writer().into_inner();
         let archived =
             unsafe { access_unchecked::<SmallVec<[i32; 10]>>(&result[0..end]) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);

@@ -1,5 +1,5 @@
 use crate::{
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Fallible, Serialize,
 };
@@ -26,7 +26,7 @@ where
 impl<T, S, const CAP: usize> Serialize<S> for ArrayVec<T, CAP>
 where
     T: Serialize<S>,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     #[inline]
     fn serialize(
@@ -59,13 +59,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{access_unchecked, deserialize, ser::Serializer};
+    use crate::{access_unchecked, deserialize, ser::Positional as _};
     use arrayvec::ArrayVec;
     use rancor::{Failure, Infallible};
 
     #[test]
     fn array_vec() {
-        use crate::ser::serializers::CoreSerializer;
+        use crate::ser::CoreSerializer;
 
         let value: ArrayVec<i32, 4> = ArrayVec::from([10, 20, 40, 80]);
 
@@ -74,8 +74,8 @@ mod tests {
             CoreSerializer::<256, 256>::default(),
         )
         .unwrap();
-        let end = Serializer::<Failure>::pos(&serializer);
-        let result = serializer.into_serializer().into_inner();
+        let end = serializer.pos();
+        let result = serializer.into_writer().into_inner();
         let archived =
             unsafe { access_unchecked::<ArrayVec<i32, 4>>(&result[0..end]) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);

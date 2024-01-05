@@ -4,7 +4,7 @@ use crate::{
     bitvec::ArchivedBitVec,
     out_field,
     primitive::ArchivedUsize,
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Fallible, Serialize,
 };
@@ -51,7 +51,7 @@ impl<T, O, S> Serialize<S> for BitVec<T, O>
 where
     T: BitStore + Archive + Serialize<S>,
     O: BitOrder,
-    S: Fallible + ?Sized + ScratchSpace + Serializer,
+    S: Fallible + ?Sized + Allocator + Writer,
     Archived<T>: BitStore,
 {
     fn serialize(
@@ -135,7 +135,7 @@ impl<A, O, S> Serialize<S> for BitArray<A, O>
 where
     A: BitViewSized + Archive + Serialize<S>,
     O: BitOrder,
-    S: Fallible + ?Sized + ScratchSpace + Serializer,
+    S: Fallible + ?Sized + Allocator + Writer,
     Archived<A>: BitViewSized,
     for<'a> &'a A: TryFrom<&'a [A::Store]>,
 {

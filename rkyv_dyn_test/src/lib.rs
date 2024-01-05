@@ -22,7 +22,7 @@ mod tests {
             use ptr_meta::{DynMetadata, Pointee};
             use rkyv::{
                 access_unchecked,
-                de::deserializers::SharedDeserializeMap,
+                de::pooling::Unify,
                 deserialize,
                 rancor::Fallible,
                 rancor::{Failure, Strategy},
@@ -195,8 +195,7 @@ mod tests {
                 _,
                 Failure,
             >(
-                archived_value,
-                Strategy::wrap(&mut SharedDeserializeMap::default()),
+                archived_value, Strategy::wrap(&mut Unify::default())
             )
             .unwrap();
             assert_eq!(value.get_id(), deserialized_value.get_id());

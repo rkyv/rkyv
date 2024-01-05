@@ -5,7 +5,7 @@ use ptr_meta::Pointee;
 use rancor::{Error, Strategy};
 
 use crate::{
-    de::deserializers::SharedDeserializeMap,
+    de::pooling::Unify,
     deserialize,
     validation::{
         validators::DefaultValidator, ArchiveContext, ArchiveContextExt as _,
@@ -166,9 +166,9 @@ pub fn from_bytes<T, E>(bytes: &[u8]) -> Result<T, E>
 where
     T: Archive,
     T::Archived: CheckBytes<Strategy<DefaultValidator, E>>
-        + Deserialize<T, Strategy<SharedDeserializeMap, E>>,
+        + Deserialize<T, Strategy<Unify, E>>,
     E: Error,
 {
-    let mut deserializer = SharedDeserializeMap::default();
+    let mut deserializer = Unify::default();
     deserialize(access::<T, E>(bytes)?, &mut deserializer)
 }

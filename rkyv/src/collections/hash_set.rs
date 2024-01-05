@@ -6,7 +6,7 @@
 use crate::collections::hash_map::{ArchivedHashMap, HashMapResolver, Keys};
 #[cfg(feature = "alloc")]
 use crate::{
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     Serialize,
 };
 use core::{borrow::Borrow, fmt, hash::Hash};
@@ -95,7 +95,7 @@ impl<K> ArchivedHashSet<K> {
     ) -> Result<HashSetResolver, S::Error>
     where
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
-        S: Fallible + Serializer + ScratchSpace + ?Sized,
+        S: Fallible + Writer + Allocator + ?Sized,
         I: ExactSizeIterator<Item = &'a KU>,
     {
         Ok(HashSetResolver(ArchivedHashMap::serialize_from_iter(

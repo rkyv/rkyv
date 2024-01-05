@@ -2,7 +2,8 @@
 
 #[cfg(feature = "alloc")]
 mod alloc;
+mod core;
 
-#[doc(inline)]
 #[cfg(feature = "alloc")]
 pub use self::alloc::*;
+pub use self::core::*;

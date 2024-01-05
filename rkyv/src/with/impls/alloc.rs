@@ -2,7 +2,7 @@ use crate::{
     boxed::{ArchivedBox, BoxResolver},
     collections::util::Entry,
     niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     string::{ArchivedString, StringResolver},
     vec::{ArchivedVec, VecResolver},
     with::{
@@ -49,7 +49,7 @@ where
 
 impl<A, O, S> SerializeWith<Vec<O>, S> for Map<A>
 where
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
     A: ArchiveWith<O> + SerializeWith<O, S>,
 {
     fn serialize_with(
@@ -77,7 +77,7 @@ where
         impl<A, O, S> Serialize<S> for RefWrapper<'_, A, O>
         where
             A: ArchiveWith<O> + SerializeWith<O, S>,
-            S: Fallible + Serializer + ?Sized,
+            S: Fallible + Writer + ?Sized,
         {
             fn serialize(&self, s: &mut S) -> Result<Self::Resolver, S::Error> {
                 A::serialize_with(self.0, s)
@@ -174,7 +174,7 @@ impl<'a, T: Archive + Clone> ArchiveWith<Cow<'a, [T]>> for AsOwned {
 impl<'a, T, S> SerializeWith<Cow<'a, [T]>, S> for AsOwned
 where
     T: Serialize<S> + Clone,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     #[inline]
     fn serialize_with(
@@ -218,7 +218,7 @@ impl<'a> ArchiveWith<Cow<'a, str>> for AsOwned {
 
 impl<'a, S> SerializeWith<Cow<'a, str>, S> for AsOwned
 where
-    S: Fallible + Serializer + ?Sized,
+    S: Fallible + Writer + ?Sized,
 {
     #[inline]
     fn serialize_with(
@@ -262,7 +262,7 @@ const _: () = {
         }
     }
 
-    impl<'a, S: Fallible + Serializer + ?Sized> SerializeWith<Cow<'a, CStr>, S>
+    impl<'a, S: Fallible + Writer + ?Sized> SerializeWith<Cow<'a, CStr>, S>
         for AsOwned
     {
         #[inline]
@@ -307,7 +307,7 @@ impl<K, V, S> SerializeWith<BTreeMap<K, V>, S> for AsVec
 where
     K: Serialize<S>,
     V: Serialize<S>,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     fn serialize_with(
         field: &BTreeMap<K, V>,
@@ -365,7 +365,7 @@ impl<T: Archive> ArchiveWith<BTreeSet<T>> for AsVec {
 impl<T, S> SerializeWith<BTreeSet<T>, S> for AsVec
 where
     T: Serialize<S>,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     fn serialize_with(
         field: &BTreeSet<T>,
@@ -423,7 +423,7 @@ where
 impl<T, S> SerializeWith<Option<Box<T>>, S> for Niche
 where
     T: SerializeUnsized<S> + ?Sized,
-    S: Fallible + Serializer + ?Sized,
+    S: Fallible + Writer + ?Sized,
     ArchivedMetadata<T>: Default,
 {
     fn serialize_with(
@@ -472,7 +472,7 @@ impl<T: Archive> ArchiveWith<Vec<T>> for CopyOptimize {
 impl<T, S> SerializeWith<Vec<T>, S> for CopyOptimize
 where
     T: Serialize<S>,
-    S: Fallible + Serializer + ?Sized,
+    S: Fallible + Writer + ?Sized,
 {
     fn serialize_with(
         field: &Vec<T>,
@@ -535,7 +535,7 @@ impl<T: Archive> ArchiveWith<Box<[T]>> for CopyOptimize {
 impl<T, S> SerializeWith<Box<[T]>, S> for CopyOptimize
 where
     T: Serialize<S>,
-    S: Fallible + Serializer + ?Sized,
+    S: Fallible + Writer + ?Sized,
 {
     fn serialize_with(
         field: &Box<[T]>,
@@ -601,7 +601,7 @@ impl<'a, T: Archive> ArchiveWith<With<&'a [T], BoxedInline>> for CopyOptimize {
 impl<'a, T, S> SerializeWith<With<&'a [T], BoxedInline>, S> for CopyOptimize
 where
     T: Serialize<S>,
-    S: Fallible + Serializer + ?Sized,
+    S: Fallible + Writer + ?Sized,
 {
     fn serialize_with(
         field: &With<&'a [T], BoxedInline>,

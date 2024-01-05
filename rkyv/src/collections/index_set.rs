@@ -125,7 +125,7 @@ impl<K> ArchivedIndexSet<K> {
 #[cfg(feature = "alloc")]
 const _: () = {
     use crate::{
-        ser::{ScratchSpace, Serializer},
+        ser::{Allocator, Writer},
         Serialize,
     };
 
@@ -146,7 +146,7 @@ const _: () = {
             UK: 'a + Hash + Eq + Serialize<S, Archived = K>,
             I: Clone + ExactSizeIterator<Item = &'a UK>,
             F: Fn(&UK) -> usize,
-            S: Fallible + ScratchSpace + Serializer + ?Sized,
+            S: Fallible + Allocator + Writer + ?Sized,
         {
             Ok(IndexSetResolver(
                 ArchivedIndexMap::serialize_from_iter_index(

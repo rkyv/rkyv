@@ -1,6 +1,6 @@
 use crate::{
     collections::index_map::{ArchivedIndexMap, IndexMapResolver},
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     Archive, Deserialize, Fallible, Serialize,
 };
 use core::hash::{BuildHasher, Hash};
@@ -24,7 +24,7 @@ impl<K, V, S, RandomState> Serialize<S> for IndexMap<K, V, RandomState>
 where
     K: Hash + Eq + Serialize<S>,
     V: Serialize<S>,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
     RandomState: BuildHasher,
 {
     fn serialize(

@@ -1,6 +1,6 @@
 //! Deserialization traits, deserializers, and adapters.
 
-pub mod deserializers;
+pub mod pooling;
 
 #[cfg(feature = "alloc")]
 use crate::{ArchiveUnsized, DeserializeUnsized};
@@ -17,11 +17,11 @@ pub trait SharedPointer {
     fn data_address(&self) -> *const ();
 }
 
-/// A registry that tracks deserialized shared memory.
+/// A shared pointer deserialization strategy.
 ///
-/// This trait is required to deserialize shared pointers.
+/// This trait is required to deserialize `Rc` and `Arc`.
 #[cfg(feature = "alloc")]
-pub trait SharedDeserializer<E = <Self as Fallible>::Error> {
+pub trait Pooling<E = <Self as Fallible>::Error> {
     /// Gets the data pointer of a previously-deserialized shared pointer.
     fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer>;
 
@@ -33,9 +33,9 @@ pub trait SharedDeserializer<E = <Self as Fallible>::Error> {
     ) -> Result<(), E>;
 }
 
-impl<T, E> SharedDeserializer<E> for Strategy<T, E>
+impl<T, E> Pooling<E> for Strategy<T, E>
 where
-    T: SharedDeserializer<E>,
+    T: Pooling<E>,
 {
     #[inline]
     fn get_shared_ptr(&mut self, ptr: *const u8) -> Option<&dyn SharedPointer> {
@@ -53,7 +53,7 @@ where
 }
 
 /// Helper methods for `SharedDeserializeRegistry`.
-pub trait SharedDeserializerExt<E>: SharedDeserializer<E> {
+pub trait PoolingExt<E>: Pooling<E> {
     /// Checks whether the given reference has been deserialized and either uses the existing shared
     /// pointer to it, or deserializes it and converts it to a shared pointer with `to_shared`.
     #[inline]
@@ -97,5 +97,4 @@ pub trait SharedDeserializerExt<E>: SharedDeserializer<E> {
     }
 }
 
-impl<T, E> SharedDeserializerExt<E> for T where T: SharedDeserializer<E> + ?Sized
-{}
+impl<T, E> PoolingExt<E> for T where T: Pooling<E> + ?Sized {}

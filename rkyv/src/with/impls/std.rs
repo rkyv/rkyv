@@ -1,6 +1,6 @@
 use crate::{
     collections::util::Entry,
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     string::{ArchivedString, StringResolver},
     time::ArchivedDuration,
     vec::{ArchivedVec, VecResolver},
@@ -256,7 +256,7 @@ impl<K, V, S> SerializeWith<HashMap<K, V>, S> for AsVec
 where
     K: Serialize<S>,
     V: Serialize<S>,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     fn serialize_with(
         field: &HashMap<K, V>,
@@ -314,7 +314,7 @@ impl<T: Archive> ArchiveWith<HashSet<T>> for AsVec {
 impl<T, S> SerializeWith<HashSet<T>, S> for AsVec
 where
     T: Serialize<S>,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     fn serialize_with(
         field: &HashSet<T>,

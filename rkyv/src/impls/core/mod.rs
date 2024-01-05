@@ -2,7 +2,7 @@
 use crate::copy::ArchiveCopyOptimize;
 use crate::{
     primitive::ArchivedUsize,
-    ser::{ScratchSpace, Serializer, SerializerExt as _},
+    ser::{Allocator, Writer, WriterExt as _},
     Archive, ArchivePointee, ArchiveUnsized, ArchivedMetadata, Deserialize,
     DeserializeUnsized, Serialize, SerializeUnsized,
 };
@@ -36,7 +36,7 @@ impl<T: Archive> ArchiveUnsized for T {
 impl<T, S> SerializeUnsized<S> for T
 where
     T: Serialize<S>,
-    S: Fallible + Serializer + ?Sized,
+    S: Fallible + Writer + ?Sized,
 {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
@@ -242,7 +242,7 @@ impl<T> ArchivePointee for [T] {
 impl<T, S> SerializeUnsized<S> for [T]
 where
     T: Serialize<S>,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     default! {
         fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
@@ -271,7 +271,7 @@ where
 impl<T, S> SerializeUnsized<S> for [T]
 where
     T: Serialize<S> + crate::copy::ArchiveCopyOptimize,
-    S: ScratchSpace + Serializer + ?Sized,
+    S: Allocator + Writer + ?Sized,
 {
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, E> {
         unsafe {
@@ -378,7 +378,7 @@ impl ArchivePointee for str {
     }
 }
 
-impl<S: Fallible + Serializer + ?Sized> SerializeUnsized<S> for str {
+impl<S: Fallible + Writer + ?Sized> SerializeUnsized<S> for str {
     #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         let result = serializer.pos();
@@ -395,7 +395,7 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for str {
         mut alloc: impl FnMut(Layout) -> *mut u8,
     ) -> Result<*mut (), D::Error> {
         if self.is_empty() {
-            Ok(ptr::null_mut())
+            Ok(ptr::NonNull::dangling().as_ptr())
         } else {
             let bytes = alloc(Layout::array::<u8>(self.len()).unwrap());
             assert!(!bytes.is_null());

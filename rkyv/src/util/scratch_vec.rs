@@ -1,4 +1,4 @@
-use crate::ser::ScratchSpace;
+use crate::ser::Allocator;
 use core::{
     alloc::Layout,
     borrow::{Borrow, BorrowMut},
@@ -43,7 +43,7 @@ impl<T> ScratchVec<T> {
     /// - The vector must not outlive the given scratch space.
     /// - Vectors must be dropped in the reverse order they are allocated.
     #[inline]
-    pub unsafe fn new<S: ScratchSpace<E> + ?Sized, E>(
+    pub unsafe fn new<S: Allocator<E> + ?Sized, E>(
         scratch_space: &mut S,
         capacity: usize,
     ) -> Result<Self, E> {
@@ -55,7 +55,7 @@ impl<T> ScratchVec<T> {
                 len: 0,
             })
         } else {
-            let ptr = scratch_space.push_scratch(layout)?;
+            let ptr = scratch_space.push_alloc(layout)?;
             Ok(Self {
                 ptr: ptr.cast(),
                 cap: capacity,
@@ -75,7 +75,7 @@ impl<T> ScratchVec<T> {
     ///
     /// The given scratch space must be the same one used to allocate the scratch vec.
     #[inline]
-    pub unsafe fn free<S: ScratchSpace<E> + ?Sized, E>(
+    pub unsafe fn free<S: Allocator<E> + ?Sized, E>(
         self,
         scratch_space: &mut S,
     ) -> Result<(), E> {
@@ -83,7 +83,7 @@ impl<T> ScratchVec<T> {
         if layout.size() != 0 {
             let ptr = self.ptr.cast();
             core::mem::drop(self);
-            scratch_space.pop_scratch(ptr, layout)?;
+            scratch_space.pop_alloc(ptr, layout)?;
         }
         Ok(())
     }

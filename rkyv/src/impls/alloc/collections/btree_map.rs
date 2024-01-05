@@ -1,6 +1,6 @@
 use crate::{
     collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver},
-    ser::Serializer,
+    ser::Writer,
     Archive, Deserialize, Serialize,
 };
 #[cfg(not(feature = "std"))]
@@ -32,7 +32,7 @@ where
     K: Serialize<S> + Ord,
     K::Archived: Ord,
     V: Serialize<S>,
-    S: Fallible + Serializer + ?Sized,
+    S: Fallible + Writer + ?Sized,
 {
     #[inline]
     fn serialize(

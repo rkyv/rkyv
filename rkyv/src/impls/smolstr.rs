@@ -1,5 +1,5 @@
 use crate::{
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     string::{ArchivedString, StringResolver},
     Archive, Deserialize, Fallible, Serialize,
 };
@@ -22,7 +22,7 @@ impl Archive for SmolStr {
 
 impl<S> Serialize<S> for SmolStr
 where
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     #[inline]
     fn serialize(
@@ -48,13 +48,13 @@ impl PartialEq<SmolStr> for ArchivedString {
 
 #[cfg(test)]
 mod tests {
-    use crate::{access_unchecked, deserialize, ser::Serializer};
+    use crate::{access_unchecked, deserialize, ser::Positional as _};
     use rancor::{Failure, Infallible};
     use smol_str::SmolStr;
 
     #[test]
     fn smolstr() {
-        use crate::ser::serializers::CoreSerializer;
+        use crate::ser::CoreSerializer;
 
         let value = SmolStr::new("smol_str");
 
@@ -63,8 +63,8 @@ mod tests {
             CoreSerializer::<256, 256>::default(),
         )
         .unwrap();
-        let end = Serializer::<Failure>::pos(&serializer);
-        let result = serializer.into_serializer().into_inner();
+        let end = serializer.pos();
+        let result = serializer.into_writer().into_inner();
         let archived = unsafe { access_unchecked::<SmolStr>(&result[0..end]) };
         assert_eq!(archived, &value);
 

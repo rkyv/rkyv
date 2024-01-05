@@ -13,7 +13,7 @@ use crate::{
     },
     out_field,
     primitive::ArchivedUsize,
-    ser::SerializerExt as _,
+    ser::WriterExt as _,
     RelPtr,
 };
 use core::{
@@ -227,7 +227,7 @@ const _: () = {
     use rancor::Fallible;
 
     use crate::{
-        ser::{ScratchSpace, Serializer},
+        ser::{Allocator, Writer},
         Serialize,
     };
 
@@ -248,7 +248,7 @@ const _: () = {
             UV: 'a + Serialize<S, Archived = V>,
             I: Clone + ExactSizeIterator<Item = (&'a UK, &'a UV)>,
             F: Fn(&UK) -> usize,
-            S: Fallible + Serializer + ScratchSpace + ?Sized,
+            S: Fallible + Writer + Allocator + ?Sized,
         {
             use crate::util::ScratchVec;
 

@@ -2,7 +2,7 @@
 
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
-    ser::Serializer,
+    ser::Writer,
     ArchivePointee, ArchiveUnsized, SerializeUnsized,
 };
 use core::{
@@ -141,7 +141,7 @@ where
     ) -> Result<OptionBoxResolver, S::Error>
     where
         U: SerializeUnsized<S, Archived = T> + ?Sized,
-        S: Fallible + Serializer + ?Sized,
+        S: Fallible + Writer + ?Sized,
     {
         if let Some(value) = field {
             Ok(OptionBoxResolver::Some(ArchivedBox::serialize_from_ref(

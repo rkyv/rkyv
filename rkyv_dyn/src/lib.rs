@@ -23,9 +23,9 @@ pub use lazy_static::LazyStatic;
 use ptr_meta::{DynMetadata, Pointee};
 use rancor::Fallible;
 use rkyv::{
-    de::SharedDeserializer,
+    de::Pooling,
     primitive::FixedUsize,
-    ser::{ScratchSpace, Serializer, SharedSerializer},
+    ser::{Allocator, Sharing, Writer},
     Archived, Serialize,
 };
 pub use rkyv_dyn_derive::archive_dyn;
@@ -38,19 +38,13 @@ pub type ImplId = FixedUsize;
 /// Instead of an associated error type, `DynSerializer` returns the `E` type. If you have
 /// a serializer that already implements `Serializer`, then it will automatically implement
 /// `DynSerializer`.
-pub trait DynSerializer<E>:
-    Serializer<E> + ScratchSpace<E> + SharedSerializer<E>
-{
-}
+pub trait DynSerializer<E>: Writer<E> + Allocator<E> + Sharing<E> {}
 
 impl<E> Fallible for dyn DynSerializer<E> + '_ {
     type Error = E;
 }
 
-impl<S, E> DynSerializer<E> for S where
-    S: Serializer<E> + ScratchSpace<E> + SharedSerializer<E>
-{
-}
+impl<S, E> DynSerializer<E> for S where S: Writer<E> + Allocator<E> + Sharing<E> {}
 
 /// TODO
 pub trait AsDynSerializer<E> {
@@ -192,13 +186,13 @@ impl<T: for<'a> Serialize<dyn DynSerializer<E> + 'a>, E> SerializeDyn<E> for T {
 }
 
 /// An object-safe version of `Deserializer`.
-pub trait DynDeserializer<E>: SharedDeserializer<E> {}
+pub trait DynDeserializer<E>: Pooling<E> {}
 
 impl<E> Fallible for dyn DynDeserializer<E> + '_ {
     type Error = E;
 }
 
-impl<D, E> DynDeserializer<E> for D where D: SharedDeserializer<E> {}
+impl<D, E> DynDeserializer<E> for D where D: Pooling<E> {}
 
 /// TODO
 pub trait AsDynDeserializer<E> {

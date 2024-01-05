@@ -17,10 +17,10 @@ pub mod alloc {
     ) where
         T::Archived: for<'a> CheckBytes<Strategy<DefaultValidator, E>>,
     {
-        let serializer =
+        let buf =
             rkyv::util::serialize_into(value, DefaultSerializer::default())
-                .expect("failed to archive value");
-        let buf = serializer.into_serializer().into_inner();
+                .expect("failed to archive value")
+                .into_writer();
 
         access::<T, E>(buf.as_ref()).unwrap();
     }

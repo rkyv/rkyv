@@ -1,5 +1,5 @@
 use crate::{
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Deserialize, DeserializeUnsized, Serialize,
 };
@@ -53,8 +53,8 @@ impl<T: Archive> Archive for Vec<T> {
     }
 }
 
-impl<T: Serialize<S>, S: Fallible + ScratchSpace + Serializer + ?Sized>
-    Serialize<S> for Vec<T>
+impl<T: Serialize<S>, S: Fallible + Allocator + Writer + ?Sized> Serialize<S>
+    for Vec<T>
 {
     #[inline]
     fn serialize(

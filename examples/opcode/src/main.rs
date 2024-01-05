@@ -1,7 +1,7 @@
 use rkyv::{
     access_unchecked, deserialize,
     rancor::{Failure, Fallible},
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     with::{ArchiveWith, DeserializeWith, SerializeWith},
     Archive, Archived, Deserialize, Serialize,
@@ -46,7 +46,7 @@ impl ArchiveWith<Vec<Opcode>> for EncodeOpcodes {
 
 impl<S> SerializeWith<Vec<Opcode>, S> for EncodeOpcodes
 where
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     fn serialize_with(
         field: &Vec<Opcode>,

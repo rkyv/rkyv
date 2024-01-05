@@ -76,7 +76,7 @@ impl<K> ArchivedBTreeSet<K> {
 const _: () = {
     use rancor::Fallible;
 
-    use crate::{ser::Serializer, Serialize};
+    use crate::{ser::Writer, Serialize};
 
     impl<K> ArchivedBTreeSet<K> {
         /// Serializes an ordered iterator of key-value pairs as a B-tree map.
@@ -91,7 +91,7 @@ const _: () = {
         ) -> Result<BTreeSetResolver, S::Error>
         where
             UK: 'a + Serialize<S, Archived = K>,
-            S: Fallible + Serializer + ?Sized,
+            S: Fallible + Writer + ?Sized,
             I: ExactSizeIterator<Item = &'a UK>,
         {
             Ok(BTreeSetResolver(

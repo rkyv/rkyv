@@ -2,9 +2,8 @@
 mod tests {
     use crate::util::alloc::*;
     use rkyv::{
-        access_unchecked, rancor::Failure, ser::serializers::WriteSerializer,
-        serialize, to_bytes, util::AlignedBytes, Archive, Deserialize,
-        Serialize,
+        access_unchecked, rancor::Failure, ser::writer::IoWriter, serialize,
+        to_bytes, util::AlignedBytes, Archive, Deserialize, Serialize,
     };
     use std::collections::{HashMap, HashSet};
 
@@ -21,7 +20,7 @@ mod tests {
         }
 
         let mut buf = AlignedBytes([0u8; 3]);
-        let mut ser = WriteSerializer::new(&mut buf[..]);
+        let mut ser = IoWriter::new(&mut buf[..]);
         let foo = Example { x: 100 };
         serialize::<_, _, Failure>(&foo, &mut ser)
             .expect_err("serialized to an undersized buffer must fail");

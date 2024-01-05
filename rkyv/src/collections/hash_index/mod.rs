@@ -3,7 +3,7 @@
 
 use crate::{
     primitive::{ArchivedU32, ArchivedUsize},
-    ser::SerializerExt as _,
+    ser::WriterExt as _,
     Archive, RelPtr,
 };
 use core::{
@@ -117,7 +117,7 @@ impl ArchivedHashIndex {
 #[cfg(feature = "alloc")]
 const _: () = {
     use crate::{
-        ser::{ScratchSpace, Serializer},
+        ser::{Allocator, Writer},
         util::ScratchVec,
     };
     #[cfg(not(feature = "std"))]
@@ -144,7 +144,7 @@ const _: () = {
         where
             K: 'a + Hash,
             V: 'a,
-            S: Fallible + Serializer + ScratchSpace + ?Sized,
+            S: Fallible + Writer + Allocator + ?Sized,
             I: ExactSizeIterator<Item = (&'a K, &'a V)>,
         {
             let len = iter.len();

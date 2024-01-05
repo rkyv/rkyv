@@ -1,5 +1,5 @@
 use crate::{
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Fallible, Serialize,
 };
@@ -20,7 +20,7 @@ impl Archive for Bytes {
     }
 }
 
-impl<S: Fallible + ScratchSpace + Serializer + ?Sized> Serialize<S> for Bytes {
+impl<S: Fallible + Allocator + Writer + ?Sized> Serialize<S> for Bytes {
     #[inline]
     fn serialize(
         &self,
@@ -50,13 +50,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{access_unchecked, deserialize, ser::Serializer};
+    use crate::{access_unchecked, deserialize, ser::Positional as _};
     use bytes::Bytes;
     use rancor::{Failure, Infallible};
 
     #[test]
     fn bytes() {
-        use crate::ser::serializers::CoreSerializer;
+        use crate::ser::CoreSerializer;
 
         let value = Bytes::from(vec![10, 20, 40, 80]);
 
@@ -65,8 +65,8 @@ mod tests {
             CoreSerializer::<256, 256>::default(),
         )
         .unwrap();
-        let end = Serializer::<Failure>::pos(&serializer);
-        let result = serializer.into_serializer().into_inner();
+        let end = serializer.pos();
+        let result = serializer.into_writer().into_inner();
         let archived = unsafe { access_unchecked::<Bytes>(&result[0..end]) };
         assert_eq!(archived, &value);
 

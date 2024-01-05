@@ -1,6 +1,6 @@
 use crate::vec::VecResolver;
 use crate::{
-    ser::{ScratchSpace, Serializer, SerializerExt as _},
+    ser::{Allocator, Writer, WriterExt as _},
     vec::ArchivedVec,
     Archive, Archived, Serialize,
 };
@@ -1007,9 +1007,7 @@ impl io::Write for AlignedVec {
 // SAFETY: AlignedVec is safe to send to another thread
 unsafe impl Send for AlignedVec {}
 
-impl<S: Fallible + ScratchSpace + Serializer + ?Sized> Serialize<S>
-    for AlignedVec
-{
+impl<S: Fallible + Allocator + Writer + ?Sized> Serialize<S> for AlignedVec {
     #[inline]
     fn serialize(
         &self,

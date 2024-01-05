@@ -1,6 +1,6 @@
 use crate::{
     collections::hash_map::{ArchivedHashMap, HashMapResolver},
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     Archive, Deserialize, Serialize,
 };
 use core::{
@@ -33,7 +33,7 @@ where
     K: Serialize<S> + Hash + Eq,
     K::Archived: Hash + Eq,
     V: Serialize<S>,
-    S: Fallible + Serializer + ScratchSpace + ?Sized,
+    S: Fallible + Writer + Allocator + ?Sized,
 {
     #[inline]
     fn serialize(

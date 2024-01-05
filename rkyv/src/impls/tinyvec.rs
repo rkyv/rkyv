@@ -1,5 +1,5 @@
 use crate::{
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Fallible, Serialize,
 };
@@ -31,7 +31,7 @@ impl<A, S> Serialize<S> for ArrayVec<A>
 where
     A: Array,
     A::Item: Serialize<S>,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     #[inline]
     fn serialize(
@@ -82,7 +82,7 @@ impl<'s, T: Archive> Archive for SliceVec<'s, T> {
 impl<'s, T, S> Serialize<S> for SliceVec<'s, T>
 where
     T: Serialize<S>,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     #[inline]
     fn serialize(
@@ -121,7 +121,7 @@ impl<A, S> Serialize<S> for TinyVec<A>
 where
     A: Array,
     A::Item: Serialize<S>,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     #[inline]
     fn serialize(
@@ -155,13 +155,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{access_unchecked, deserialize, ser::Serializer};
+    use crate::{access_unchecked, deserialize, ser::Positional as _};
     use rancor::{Failure, Infallible};
     use tinyvec::{array_vec, Array, ArrayVec, SliceVec};
 
     #[test]
     fn array_vec() {
-        use crate::ser::serializers::CoreSerializer;
+        use crate::ser::CoreSerializer;
 
         let value = array_vec!([i32; 10] => 10, 20, 40, 80);
 
@@ -170,8 +170,8 @@ mod tests {
             CoreSerializer::<256, 256>::default(),
         )
         .unwrap();
-        let end = Serializer::<Failure>::pos(&serializer);
-        let result = serializer.into_serializer().into_inner();
+        let end = serializer.pos();
+        let result = serializer.into_writer().into_inner();
         let archived =
             unsafe { access_unchecked::<ArrayVec<[i32; 10]>>(&result[0..end]) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn slice_vec() {
-        use crate::ser::serializers::CoreSerializer;
+        use crate::ser::CoreSerializer;
 
         let mut backing = [0i32; 10];
         let mut value = SliceVec::from_slice_len(backing.as_slice_mut(), 0);
@@ -200,8 +200,8 @@ mod tests {
             CoreSerializer::<256, 256>::default(),
         )
         .unwrap();
-        let end = Serializer::<Failure>::pos(&serializer);
-        let result = serializer.into_serializer().into_inner();
+        let end = serializer.pos();
+        let result = serializer.into_writer().into_inner();
         let archived =
             unsafe { access_unchecked::<SliceVec<'_, i32>>(&result[0..end]) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);

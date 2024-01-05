@@ -5,7 +5,7 @@
 
 use crate::{
     primitive::{ArchivedU16, ArchivedUsize},
-    ser::SerializerExt as _,
+    ser::WriterExt as _,
     Archive, ArchivePointee, RelPtr,
 };
 use core::{
@@ -394,7 +394,7 @@ impl<K, V> ArchivedBTreeMap<K, V> {
 
 #[cfg(feature = "alloc")]
 const _: () = {
-    use crate::{ser::Serializer, Serialize};
+    use crate::{ser::Writer, Serialize};
     #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
     use core::mem;
@@ -414,7 +414,7 @@ const _: () = {
         where
             UK: 'a + Serialize<S, Archived = K>,
             UV: 'a + Serialize<S, Archived = V>,
-            S: Fallible + Serializer + ?Sized,
+            S: Fallible + Writer + ?Sized,
             I: ExactSizeIterator<Item = (&'a UK, &'a UV)>,
         {
             if iter.len() == 0 {

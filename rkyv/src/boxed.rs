@@ -1,7 +1,7 @@
 //! An archived version of `Box`.
 
 use crate::{
-    ser::{Serializer, SerializerExt as _},
+    ser::{Writer, WriterExt as _},
     ArchivePointee, ArchiveUnsized, RelPtr, Serialize, SerializeUnsized,
 };
 use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};
@@ -108,7 +108,7 @@ impl<T> ArchivedBox<[T]> {
     ) -> Result<BoxResolver, S::Error>
     where
         U: Serialize<S, Archived = T>,
-        S: Fallible + Serializer + ?Sized,
+        S: Fallible + Writer + ?Sized,
     {
         use core::{mem::size_of, slice::from_raw_parts};
 

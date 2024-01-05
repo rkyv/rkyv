@@ -2,7 +2,7 @@
 
 use rancor::Fallible;
 
-use crate::{ser::Serializer, ArchiveUnsized, RelPtr, SerializeUnsized};
+use crate::{ser::Writer, ArchiveUnsized, RelPtr, SerializeUnsized};
 use core::{
     borrow::Borrow,
     cmp, fmt, hash,
@@ -77,7 +77,7 @@ impl ArchivedCString {
 
     /// Serializes a C string.
     #[inline]
-    pub fn serialize_from_c_str<S: Fallible + Serializer + ?Sized>(
+    pub fn serialize_from_c_str<S: Fallible + Writer + ?Sized>(
         c_str: &CStr,
         serializer: &mut S,
     ) -> Result<CStringResolver, S::Error> {

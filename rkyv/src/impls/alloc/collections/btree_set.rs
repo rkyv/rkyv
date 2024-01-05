@@ -1,6 +1,6 @@
 use crate::{
     collections::btree_set::{ArchivedBTreeSet, BTreeSetResolver},
-    ser::Serializer,
+    ser::Writer,
     Archive, Deserialize, Serialize,
 };
 #[cfg(not(feature = "std"))]
@@ -36,7 +36,7 @@ impl<K, S> Serialize<S> for BTreeSet<K>
 where
     K: Serialize<S> + Ord,
     K::Archived: Ord,
-    S: Fallible + Serializer + ?Sized,
+    S: Fallible + Writer + ?Sized,
 {
     #[inline]
     fn serialize(

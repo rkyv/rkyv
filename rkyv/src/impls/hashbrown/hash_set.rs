@@ -1,6 +1,6 @@
 use crate::{
     collections::hash_set::{ArchivedHashSet, HashSetResolver},
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     Archive, Deserialize, Serialize,
 };
 use core::{
@@ -37,7 +37,7 @@ impl<K, S, RS> Serialize<S> for HashSet<K, RS>
 where
     K::Archived: Hash + Eq,
     K: Serialize<S> + Hash + Eq,
-    S: Fallible + ScratchSpace + Serializer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
 {
     #[inline]
     fn serialize(

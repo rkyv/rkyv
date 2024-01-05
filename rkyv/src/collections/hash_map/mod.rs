@@ -11,12 +11,12 @@ use crate::{
         hash_index::{ArchivedHashIndex, HashIndexResolver},
         util::Entry,
     },
-    ser::SerializerExt as _,
+    ser::WriterExt as _,
     RelPtr,
 };
 #[cfg(feature = "alloc")]
 use crate::{
-    ser::{ScratchSpace, Serializer},
+    ser::{Allocator, Writer},
     Serialize,
 };
 use core::{
@@ -291,7 +291,7 @@ const _: () = {
         where
             KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
             VU: 'a + Serialize<S, Archived = V>,
-            S: Fallible + Serializer + ScratchSpace + ?Sized,
+            S: Fallible + Writer + Allocator + ?Sized,
             I: ExactSizeIterator<Item = (&'a KU, &'a VU)>,
         {
             use crate::util::ScratchVec;

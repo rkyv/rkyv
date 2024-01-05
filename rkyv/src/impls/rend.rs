@@ -91,8 +91,8 @@ mod tests {
     use rancor::{Failure, Strategy};
 
     use crate::{
-        access_unchecked, deserialize, ser::serializers::CoreSerializer,
-        ser::Serializer, Deserialize, Serialize,
+        access_unchecked, deserialize, ser::CoreSerializer,
+        ser::Positional as _, Deserialize, Serialize,
     };
     use core::fmt;
 
@@ -111,8 +111,8 @@ mod tests {
             DefaultSerializer::default(),
         )
         .expect("failed to archive value");
-        let len = Serializer::<Failure>::pos(&serializer);
-        let buffer = serializer.into_serializer().into_inner();
+        let len = serializer.pos();
+        let buffer = serializer.into_writer().into_inner();
 
         let archived_value = unsafe { access_unchecked::<T>(&buffer[0..len]) };
         assert_eq!(archived_value, value);
@@ -170,7 +170,7 @@ mod tests {
             DefaultSerializer::default(),
         )
         .unwrap();
-        let buf = serializer.into_serializer().into_inner();
+        let buf = serializer.into_writer().into_inner();
 
         assert_eq!(&buf[0..4], &[0x12, 0x34, 0x56, 0x78]);
 
@@ -182,7 +182,7 @@ mod tests {
             DefaultSerializer::default(),
         )
         .unwrap();
-        let buf = serializer.into_serializer().into_inner();
+        let buf = serializer.into_writer().into_inner();
 
         assert_eq!(&buf[0..4], &[0x78, 0x56, 0x34, 0x12]);
     }
