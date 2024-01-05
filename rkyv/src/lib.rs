@@ -94,7 +94,6 @@
 //! Support for each of these crates can be enabled with a feature of the same name. Additionally,
 //! the following external crate features are available:
 //!
-//! - `tinyvec_alloc`: Supports types behind the `alloc` feature in `tinyvec`.
 //! - `uuid_std`: Enables the `std` feature in `uuid`.
 //!
 //! ## Examples

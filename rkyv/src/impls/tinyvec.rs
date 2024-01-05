@@ -207,28 +207,28 @@ mod tests {
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
     }
 
-    #[cfg(feature = "tinyvec_alloc")]
+    #[cfg(all(feature = "tinyvec", feature = "alloc"))]
     #[test]
     fn tiny_vec() {
-        use crate::ser::serializers::AllocSerializer;
+        use crate::ser::AllocSerializer;
         #[cfg(not(feature = "std"))]
         use alloc::vec;
         use tinyvec::{tiny_vec, TinyVec};
 
         let value = tiny_vec!([i32; 10] => 10, 20, 40, 80);
 
-        let serializer = crate::serialize_with::<_, _, Failure>(
+        let serializer = crate::util::serialize_into::<_, _, Failure>(
             &value,
             AllocSerializer::<256>::default(),
         )
         .unwrap();
-        let result = serializer.into_serializer().into_inner();
+        let result = serializer.into_writer();
         let archived =
             unsafe { access_unchecked::<TinyVec<[i32; 10]>>(result.as_ref()) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
 
         let deserialized: TinyVec<[i32; 10]> =
-            archived.deserialize(&mut Infallible).unwrap();
+            deserialize::<_, _, Failure>(archived, &mut ()).unwrap();
         assert_eq!(value, deserialized);
     }
 }
