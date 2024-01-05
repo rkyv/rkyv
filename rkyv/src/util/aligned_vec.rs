@@ -269,7 +269,7 @@ impl AlignedVec {
     /// ```
     /// use rkyv::AlignedVec;
     ///
-    /// // Allocate vecotr big enough for 4 bytes.
+    /// // Allocate vector big enough for 4 bytes.
     /// let size = 4;
     /// let mut x = AlignedVec::with_capacity(size);
     /// let x_ptr = x.as_mut_ptr();
