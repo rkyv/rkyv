@@ -3,7 +3,7 @@
 </p>
 
 [rkyv](http://github.com/rkyv/rkyv) (*archive*) is a zero-copy deserialization framework for
-rust.
+Rust.
 
 This book covers the motivation, architecture, and major features of rkyv. It is the best way to
 learn and understand rkyv, but won't go as in-depth on specifics as the documentation will. Don't be
