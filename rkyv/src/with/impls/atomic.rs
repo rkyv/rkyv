@@ -29,7 +29,10 @@ use {
 };
 #[cfg(any(
     all(target_has_atomic = "16", feature = "pointer_width_16"),
-    all(target_has_atomic = "32", feature = "pointer_width_32"),
+    all(
+        target_has_atomic = "32",
+        not(any(feature = "pointer_width_16", feature = "pointer_width_64")),
+    ),
     all(target_has_atomic = "64", feature = "pointer_width_64"),
 ))]
 use {
@@ -345,7 +348,10 @@ macro_rules! impl_atomic_size_types {
 
 #[cfg(any(
     all(target_has_atomic = "16", feature = "pointer_width_16"),
-    all(target_has_atomic = "32", feature = "pointer_width_32"),
+    all(
+        target_has_atomic = "32",
+        not(any(feature = "pointer_width_16", feature = "pointer_width_64")),
+    ),
     all(target_has_atomic = "64", feature = "pointer_width_64"),
 ))]
 impl_atomic_size_types! {
