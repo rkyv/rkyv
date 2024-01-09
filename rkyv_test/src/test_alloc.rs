@@ -545,8 +545,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn basic_mutable_refs() {
         let mut buf = to_bytes::<_, 0, Failure>(&42i32).unwrap();
-        let mut value =
-            unsafe { access_unchecked_mut::<i32>(Pin::new(buf.as_mut())) };
+        let mut value = unsafe { access_unchecked_mut::<i32>(buf.as_mut()) };
         assert_eq!(*value, 42);
         *value = 11.into();
         assert_eq!(*value, 11);
@@ -577,8 +576,7 @@ mod tests {
         };
 
         let mut buf = to_bytes::<_, 256, Failure>(&value).unwrap();
-        let mut value =
-            unsafe { access_unchecked_mut::<Test>(Pin::new(buf.as_mut())) };
+        let mut value = unsafe { access_unchecked_mut::<Test>(buf.as_mut()) };
 
         assert_eq!(*value.a, 10);
         assert_eq!(value.b.len(), 2);
@@ -618,8 +616,7 @@ mod tests {
         let value = Test::A;
 
         let mut buf = to_bytes::<_, 0, Failure>(&value).unwrap();
-        let mut value =
-            unsafe { access_unchecked_mut::<Test>(Pin::new(buf.as_mut())) };
+        let mut value = unsafe { access_unchecked_mut::<Test>(buf.as_mut()) };
 
         if let Archived::<Test>::A = *value {
             ()
@@ -818,9 +815,8 @@ mod tests {
         let archived = unsafe { access_unchecked::<Test>(buf.as_ref()) };
         assert_eq!(archived, &value);
 
-        let mut mutable_archived = unsafe {
-            access_unchecked_mut::<Test>(Pin::new_unchecked(buf.as_mut()))
-        };
+        let mut mutable_archived =
+            unsafe { access_unchecked_mut::<Test>(buf.as_mut()) };
         unsafe {
             *mutable_archived.as_mut().a().get_pin_mut_unchecked() =
                 42u32.into();
@@ -830,9 +826,8 @@ mod tests {
         assert_eq!(*archived.a, 42);
         assert_eq!(*archived.b, 42);
 
-        let mut mutable_archived = unsafe {
-            access_unchecked_mut::<Test>(Pin::new_unchecked(buf.as_mut()))
-        };
+        let mut mutable_archived =
+            unsafe { access_unchecked_mut::<Test>(buf.as_mut()) };
         unsafe {
             *mutable_archived.as_mut().b().get_pin_mut_unchecked() =
                 17u32.into();
@@ -952,9 +947,8 @@ mod tests {
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 10);
 
-        let mut mutable_archived = unsafe {
-            access_unchecked_mut::<Test>(Pin::new_unchecked(buf.as_mut()))
-        };
+        let mut mutable_archived =
+            unsafe { access_unchecked_mut::<Test>(buf.as_mut()) };
         unsafe {
             *mutable_archived.as_mut().a().get_pin_mut_unchecked() =
                 42u32.into();
@@ -965,9 +959,8 @@ mod tests {
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 42);
 
-        let mut mutable_archived = unsafe {
-            access_unchecked_mut::<Test>(Pin::new_unchecked(buf.as_mut()))
-        };
+        let mut mutable_archived =
+            unsafe { access_unchecked_mut::<Test>(buf.as_mut()) };
         unsafe {
             *mutable_archived
                 .as_mut()
@@ -1649,9 +1642,8 @@ mod tests {
         let mut result =
             serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
         // NOTE: with(Atomic) is only sound if the backing memory is mutable, use with caution!
-        let archived = unsafe {
-            access_unchecked_mut::<Test>(Pin::new(result.as_mut_slice()))
-        };
+        let archived =
+            unsafe { access_unchecked_mut::<Test>(result.as_mut_slice()) };
 
         assert_eq!(archived.value.load(Ordering::Relaxed), 42);
     }
@@ -2071,8 +2063,8 @@ mod tests {
         )
         .unwrap()
         .into_writer();
-        let bytes = unsafe { Pin::new_unchecked(result.as_mut_slice()) };
-        let archived = unsafe { access_unchecked_mut::<Test>(bytes) };
+        let archived =
+            unsafe { access_unchecked_mut::<Test>(result.as_mut_slice()) };
 
         unsafe {
             assert_eq!(*archived.inner.get(), 100);

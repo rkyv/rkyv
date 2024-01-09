@@ -185,7 +185,7 @@ pub use util::{
 #[cfg(feature = "bytecheck")]
 #[cfg_attr(doc_cfg, doc(cfg(feature = "bytecheck")))]
 #[doc(inline)]
-pub use validation::util::{access, from_bytes};
+pub use validation::util::{access, access_mut, from_bytes};
 
 use crate::{
     primitive::ArchivedIsize,

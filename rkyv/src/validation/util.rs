@@ -1,28 +1,63 @@
 //! Utility methods for accessing and deserializing safely.
 
+use core::{mem::size_of, pin::Pin};
+
 use bytecheck::CheckBytes;
 use ptr_meta::Pointee;
-use rancor::{Error, Strategy};
+use rancor::{Error, ResultExt as _, Strategy};
 
 use crate::{
     de::pooling::Unify,
     deserialize,
+    util::{access_pos_unchecked, access_pos_unchecked_mut},
     validation::{
         validators::DefaultValidator, ArchiveContext, ArchiveContextExt as _,
     },
     Archive, Deserialize,
 };
 
+/// Checks a byte slice for a valid instance of the given archived type at the
+/// given position with the given context.
+pub fn check_pos_with_context<T, C, E>(
+    bytes: &[u8],
+    pos: usize,
+    context: &mut C,
+) -> Result<(), E>
+where
+    T: Archive,
+    T::Archived: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    C: ArchiveContext<E> + ?Sized,
+    E: Error,
+{
+    unsafe {
+        let offset = pos.try_into().into_error()?;
+
+        let ptr = context.bounds_check_subtree_base_offset::<T::Archived>(
+            bytes.as_ptr(),
+            offset,
+            (),
+        )?;
+
+        let range = context.push_prefix_subtree(ptr)?;
+        CheckBytes::check_bytes(ptr, Strategy::wrap(context))?;
+        context.pop_subtree_range(range)?;
+
+        Ok(())
+    }
+}
+
+// TODO: Either this should be unsafe or there must be some invariant that
+// `check_pos_with_context` verifies that the position is dereferenceable
+// regardless of what context was used to verify it.
+
 /// Accesses an archived value from the given byte slice at the given position
 /// after checking its validity with the given context.
 ///
-/// This is a safe alternative to [`access_pos_unchecked`][unsafe_version].
-///
-/// [unsafe_version]: crate::util::access_pos_unchecked
+/// This is a safe alternative to [`access_pos_unchecked`].
 #[inline]
 pub fn access_pos_with_context<'a, T, C, E>(
-    buf: &'a [u8],
-    pos: isize,
+    bytes: &'a [u8],
+    pos: usize,
     context: &mut C,
 ) -> Result<&'a T::Archived, E>
 where
@@ -31,16 +66,8 @@ where
     C: ArchiveContext<E> + ?Sized,
     E: Error,
 {
-    unsafe {
-        let ptr =
-            context.bounds_check_subtree_base_offset(buf.as_ptr(), pos, ())?;
-
-        let range = context.push_prefix_subtree(ptr)?;
-        CheckBytes::check_bytes(ptr, Strategy::wrap(context))?;
-        context.pop_subtree_range(range)?;
-
-        Ok(&*ptr)
-    }
+    check_pos_with_context::<T, C, E>(bytes, pos, context)?;
+    unsafe { Ok(access_pos_unchecked::<T>(bytes, pos)) }
 }
 
 /// Accesses an archived value from the given byte slice by calculating the root
@@ -51,7 +78,7 @@ where
 /// [unsafe_version]: crate::access_unchecked
 #[inline]
 pub fn access_with_context<'a, T, C, E>(
-    buf: &'a [u8],
+    bytes: &'a [u8],
     context: &mut C,
 ) -> Result<&'a T::Archived, E>
 where
@@ -61,8 +88,8 @@ where
     E: Error,
 {
     access_pos_with_context::<T, C, E>(
-        buf,
-        buf.len() as isize - core::mem::size_of::<T::Archived>() as isize,
+        bytes,
+        bytes.len().saturating_sub(size_of::<T::Archived>()),
         context,
     )
 }
@@ -70,9 +97,7 @@ where
 /// Accesses an archived value from the given byte slice at the given position
 /// after checking its validity.
 ///
-/// This is a safe alternative to [`access_pos_unchecked`][unsafe_version].
-///
-/// [unsafe_version]: crate::util::access_pos_unchecked
+/// This is a safe alternative to [`access_pos_unchecked`].
 ///
 /// # Examples
 /// ```
@@ -100,15 +125,13 @@ where
 /// let mut serializer = AlignedSerializer::new(AlignedVec::new());
 /// let pos = serializer.serialize_value(&value)
 ///     .expect("failed to archive test");
-/// let buf = serializer.into_inner();
-/// let archived = check_archived_value::<Example>(buf.as_ref(), pos).unwrap();
+/// let bytes = serializer.into_inner();
+/// let archived = check_archived_value::<Example>(bytes.as_ref(), pos).unwrap();
 /// ```
 #[inline]
-pub fn access_pos<T: Archive, E>(
-    bytes: &[u8],
-    pos: isize,
-) -> Result<&T::Archived, E>
+pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T::Archived, E>
 where
+    T: Archive,
     T::Archived: CheckBytes<Strategy<DefaultValidator, E>>,
     E: Error,
 {
@@ -127,8 +150,9 @@ where
 ///
 /// [unsafe_version]: crate::access_unchecked
 #[inline]
-pub fn access<T: Archive, E>(bytes: &[u8]) -> Result<&T::Archived, E>
+pub fn access<T, E>(bytes: &[u8]) -> Result<&T::Archived, E>
 where
+    T: Archive,
     T::Archived: CheckBytes<Strategy<DefaultValidator, E>>,
     E: Error,
 {
@@ -136,7 +160,96 @@ where
     access_with_context::<T, DefaultValidator, E>(bytes, &mut validator)
 }
 
-// TODO: access_mut/access_mut_*
+// TODO: `Pin` is not technically correct for the return type. `Pin` requires
+// the pinned value to be dropped before its memory can be reused, but archived
+// types explicitly do not require that. It just wants immovable types.
+
+// TODO: `bytes` may no longer be a fully-initialized `[u8]` after mutable
+// operations. We really need some kind of opaque byte container for these
+// operations.
+
+/// Mutably accesses an archived value from the given byte slice at the given
+/// position after checking its validity with the given context.
+///
+/// This is a safe alternative to [`access_pos_unchecked_mut`].
+#[inline]
+pub fn access_pos_with_context_mut<'a, T, C, E>(
+    bytes: &'a mut [u8],
+    pos: usize,
+    context: &mut C,
+) -> Result<Pin<&'a mut T::Archived>, E>
+where
+    T: Archive,
+    T::Archived: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    C: ArchiveContext<E> + ?Sized,
+    E: Error,
+{
+    check_pos_with_context::<T, C, E>(bytes, pos, context)?;
+    unsafe { Ok(access_pos_unchecked_mut::<T>(bytes, pos)) }
+}
+
+/// Mutably accesses an archived value from the given byte slice by calculating
+/// the root position after checking its validity with the given context.
+///
+/// This is a safe alternative to [`access_unchecked_mut`][unsafe_version].
+///
+/// [unsafe_version]: crate::access_unchecked_mut
+#[inline]
+pub fn access_with_context_mut<'a, T, C, E>(
+    bytes: &'a mut [u8],
+    context: &mut C,
+) -> Result<Pin<&'a mut T::Archived>, E>
+where
+    T: Archive,
+    T::Archived: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    C: ArchiveContext<E> + ?Sized,
+    E: Error,
+{
+    access_pos_with_context_mut::<T, C, E>(
+        bytes,
+        bytes.len().saturating_sub(size_of::<T::Archived>()),
+        context,
+    )
+}
+
+/// Mutably accesses an archived value from the given byte slice at the given
+/// position after checking its validity.
+///
+/// This is a safe alternative to [`access_pos_unchecked`].
+#[inline]
+pub fn access_pos_mut<T, E>(
+    bytes: &mut [u8],
+    pos: usize,
+) -> Result<Pin<&mut T::Archived>, E>
+where
+    T: Archive,
+    T::Archived: CheckBytes<Strategy<DefaultValidator, E>>,
+    E: Error,
+{
+    let mut validator = DefaultValidator::new(bytes);
+    access_pos_with_context_mut::<T, DefaultValidator, E>(
+        bytes,
+        pos,
+        &mut validator,
+    )
+}
+
+/// Mutably accesses an archived value from the given byte slice by calculating
+/// the root position after checking its validity.
+///
+/// This is a safe alternative to [`access_unchecked`][unsafe_version].
+///
+/// [unsafe_version]: crate::access_unchecked
+#[inline]
+pub fn access_mut<T, E>(bytes: &mut [u8]) -> Result<Pin<&mut T::Archived>, E>
+where
+    T: Archive,
+    T::Archived: CheckBytes<Strategy<DefaultValidator, E>>,
+    E: Error,
+{
+    let mut validator = DefaultValidator::new(bytes);
+    access_with_context_mut::<T, DefaultValidator, E>(bytes, &mut validator)
+}
 
 /// Checks and deserializes a value from the given bytes.
 ///

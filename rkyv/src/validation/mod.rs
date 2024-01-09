@@ -62,9 +62,6 @@ impl LayoutRaw for ::std::ffi::CStr {
     }
 }
 
-// TODO: Try removing depth usize and storing it on the validator instead to
-// save stack space
-
 /// A context that can validate nonlocal archive memory.
 ///
 /// # Safety

@@ -84,15 +84,13 @@ pub unsafe fn access_pos_unchecked<T: Archive + ?Sized>(
 /// A `T::Archived` must be located at the given position in the byte slice.
 #[inline]
 pub unsafe fn access_pos_unchecked_mut<T: Archive + ?Sized>(
-    bytes: Pin<&mut [u8]>,
+    bytes: &mut [u8],
     pos: usize,
 ) -> Pin<&mut T::Archived> {
     #[cfg(debug_assertions)]
     check_alignment::<T::Archived>(bytes.as_ptr());
 
-    Pin::new_unchecked(
-        &mut *bytes.get_unchecked_mut().as_mut_ptr().add(pos).cast(),
-    )
+    Pin::new_unchecked(&mut *bytes.as_mut_ptr().add(pos).cast())
 }
 
 /// Accesses a [`RelPtr`] that points to an archived value from the given byte
@@ -129,17 +127,14 @@ pub unsafe fn access_pos_unsized_unchecked<T: ArchiveUnsized + ?Sized>(
 /// slice.
 #[inline]
 pub unsafe fn access_pos_unsized_unchecked_mut<T: ArchiveUnsized + ?Sized>(
-    bytes: Pin<&mut [u8]>,
+    bytes: &mut [u8],
     pos: usize,
 ) -> Pin<&mut T::Archived> {
     #[cfg(debug_assertions)]
     check_alignment::<RelPtr<T::Archived>>(bytes.as_ptr());
 
-    let rel_ptr = &mut *bytes
-        .get_unchecked_mut()
-        .as_mut_ptr()
-        .add(pos)
-        .cast::<RelPtr<T::Archived>>();
+    let rel_ptr =
+        &mut *bytes.as_mut_ptr().add(pos).cast::<RelPtr<T::Archived>>();
     Pin::new_unchecked(&mut *rel_ptr.as_ptr())
 }
 
@@ -184,7 +179,7 @@ where
 ///   default behavior).
 #[inline]
 pub unsafe fn access_unchecked_mut<T: Archive + ?Sized>(
-    bytes: Pin<&mut [u8]>,
+    bytes: &mut [u8],
 ) -> Pin<&mut T::Archived> {
     let pos = bytes.len() - mem::size_of::<T::Archived>();
     access_pos_unchecked_mut::<T>(bytes, pos)
@@ -230,7 +225,7 @@ pub unsafe fn access_unsized_unchecked<T: ArchiveUnsized + ?Sized>(
 ///   default behavior).
 #[inline]
 pub unsafe fn access_unsized_unchecked_mut<T: ArchiveUnsized + ?Sized>(
-    bytes: Pin<&mut [u8]>,
+    bytes: &mut [u8],
 ) -> Pin<&mut T::Archived> {
     let pos = bytes.len() - mem::size_of::<RelPtr<T::Archived>>();
     access_pos_unsized_unchecked_mut::<T>(bytes, pos)
