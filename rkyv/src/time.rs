@@ -4,7 +4,7 @@ use crate::primitive::{ArchivedU32, ArchivedU64};
 
 /// An archived [`Duration`](core::time::Duration).
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),

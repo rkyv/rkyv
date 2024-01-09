@@ -14,7 +14,7 @@ use core::{marker::PhantomData, ops::Deref};
 // This is because when calling `as_raw_slice` we will get unwanted bits if the `BitVec` bit length is not a multiple of the bit size of T.
 // TODO: verify that bit_len matches the archived vector len in a verify meta
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 #[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ArchivedBitVec<T = ArchivedUsize, O = Lsb0> {
     pub(crate) inner: ArchivedVec<T>,

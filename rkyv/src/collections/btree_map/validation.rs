@@ -199,11 +199,11 @@ impl<T> LayoutRaw for Node<[T]> {
         let result = Layout::new::<NodeHeader>()
             .extend(Layout::array::<T>(metadata).unwrap())?
             .0;
-        #[cfg(not(feature = "strict"))]
+        #[cfg(not(feature = "stable_layout"))]
         {
             Ok(result)
         }
-        #[cfg(feature = "strict")]
+        #[cfg(feature = "stable_layout")]
         {
             Ok(result.pad_to_align())
         }

@@ -78,7 +78,7 @@ where
 
 macro_rules! impl_tuple {
     ($($type:ident $index:tt),*) => {
-        #[cfg(not(feature = "strict"))]
+        #[cfg(not(feature = "stable_layout"))]
         impl<$($type),*> Archive for ($($type,)*)
         where
             $($type: Archive,)*
@@ -100,7 +100,7 @@ macro_rules! impl_tuple {
             }
         }
 
-        #[cfg(not(feature = "strict"))]
+        #[cfg(not(feature = "stable_layout"))]
         impl<$($type,)* S> Serialize<S> for ($($type,)*)
         where
             $($type: Serialize<S>,)*
@@ -117,7 +117,7 @@ macro_rules! impl_tuple {
             }
         }
 
-        #[cfg(not(feature = "strict"))]
+        #[cfg(not(feature = "stable_layout"))]
         impl<$($type,)* D> Deserialize<($($type,)*), D> for ($($type::Archived,)*)
         where
             D: Fallible + ?Sized,

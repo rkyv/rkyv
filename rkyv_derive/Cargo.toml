@@ -23,7 +23,7 @@ native_endian = []
 little_endian = []
 big_endian = []
 copy = []
-strict = []
+stable_layout = []
 
 [package.metadata.docs.rs]
 all-features = true

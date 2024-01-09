@@ -7,7 +7,7 @@ use rancor::Fallible;
 ///
 /// This is typically used by associative containers that store keys and values together.
 #[derive(Debug, Eq)]
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 pub struct Entry<K, V> {
     /// The key of the pair.

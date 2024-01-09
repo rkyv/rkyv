@@ -42,7 +42,7 @@ default = [
     "little_endian",
     "pointer_width_32",
     "std",
-    "strict",
+    "stable_layout",
     "bytecheck",
     # TODO: disable these optional dependencies
     "bitvec",
@@ -61,7 +61,7 @@ pointer_width_32 = []
 pointer_width_64 = []
 alloc = ["hashbrown", "bitvec?/alloc", "tinyvec?/alloc"]
 std = ["alloc", "bytecheck?/std", "bytes?/std", "ptr_meta/std", "uuid?/std"]
-strict = ["rkyv_derive/strict"]
+stable_layout = ["rkyv_derive/stable_layout"]
 copy = ["rkyv_derive/copy"]
 copy_unsafe = []
 bytecheck = ["dep:bytecheck", "alloc", "rend/bytecheck"]

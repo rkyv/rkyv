@@ -18,7 +18,7 @@ wasm-bindgen-test = { workspace = true, optional = true }
 ahash = { version = "0.7" }
 
 [features]
-default = ["pointer_width_32", "little_endian", "strict", "std", "bytecheck"]
+default = ["pointer_width_32", "little_endian", "stable_layout", "std", "bytecheck"]
 
 pointer_width_16 = ["rkyv/pointer_width_16"]
 pointer_width_32 = ["rkyv/pointer_width_32"]
@@ -32,5 +32,5 @@ bytecheck = ["rkyv/bytecheck"]
 copy = ["rkyv/copy"]
 copy_unsafe = ["rkyv/copy_unsafe"]
 std = ["alloc", "rkyv/std"]
-strict = ["rkyv/strict"]
+stable_layout = ["rkyv/stable_layout"]
 wasm = ["wasm-bindgen-test"]

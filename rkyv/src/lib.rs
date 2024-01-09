@@ -67,13 +67,13 @@
 //! - `size_64`: Archives integral `*size` types as 64-bit integers. This is intended to be used
 //!   only for very large archives and may cause unnecessary data bloat.
 //! - `std`: Enables standard library support. Enabled by default.
-//! - `strict`: Guarantees that types will have the same representations across platforms and
+//! - `stable_layout`: Guarantees that types will have the same representations across platforms and
 //!   compilations. This is already the case in practice, but this feature provides a guarantee
 //!   along with C type compatibility.
 //!
-//!   *Note*: Enabling `strict` will disable [`Archive`] implementations for tuples, as tuples
-//!   do not have a C type layout. Making a generic `Tuple<T1, T2>` and deriving [`Archive`] for it
-//!   should provide similar functionality.
+//!   *Note*: Enabling `stable_layout` will disable [`Archive`] implementations for tuples, as
+//!   tuples do not have a C-compatible type layout. Making a generic `Tuple<T1, T2>` and deriving
+//!   [`Archive`] for it should provide similar functionality.
 //! - `bytecheck`: Enables validation support through `bytecheck`.
 //!
 //! ## Crate support

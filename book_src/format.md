@@ -3,6 +3,7 @@
 Types which derive `Archive` generate an archived version of the type where:
 
 - Member types are replaced with their archived counterparts
+- Structs are `#[repr(C)]`.
 - Enums have `#[repr(N)]` where N is `u8`, `u16`, `u32`, `u64`, or `u128`, choosing the smallest
 possible type that can represent all of the variants.
 
@@ -19,23 +20,30 @@ struct Example {
 Would have the archived counterpart:
 
 ```rust
+#[repr(C)]
 struct ArchivedExample {
-    a: u32,
+    a: u32_le,
     b: ArchivedString,
-    c: ArchivedBox<(u32, ArchivedString)>,
+    c: ArchivedBox<(u32_le, ArchivedString)>,
 }
 ```
 
-With the `strict` feature, these structs are additionally annotated with `#[repr(C)]` for guaranteed
-portability and stability.
+With the `little_endian` and `stable_layout` features enabled (`stable_layout`
+is enabled by default).
 
-> In most cases, the `strict` feature will not be necessary and can reduce the space efficiency of
-> archived types. Make sure you understand your use case carefully and read the crate documentation
-> for details on the `strict` feature.
+rkyv provides `Archive` implementations for common core and std types by
+default. In general they follow the same format as derived implementations, but
+may differ in some cases. For example, `ArchivedString` performs a small string
+optimization which helps reduce memory use.
 
-rkyv provides `Archive` implementations for common core and std types by default. In general they
-follow the same format as derived implementations, but may differ in some cases. For example,
-`ArchivedString` performs a small string optimization which helps reduce memory use.
+## `stable_layout`
+
+The `stable_layout` feature guarantees that archived structs are portable across
+targets and compiler versions by annotating structs with `#[repr(C)]`. This is
+what you want in most cases, but does increase the serialized size because it
+prevents the compiler from reordering struct fields. If this kind of stability
+isn't helpful or the tradeoffs aren't favorable, you can disable `stable_layout`
+to allow the compiler to reorder struct fields again.
 
 ## Object order
 

@@ -1223,7 +1223,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    #[cfg(not(feature = "strict"))]
+    #[cfg(not(feature = "stable_layout"))]
     fn repr_rust() {
         #[derive(Archive)]
         pub struct Test {
@@ -1236,7 +1236,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "strict"))]
+    #[cfg(not(feature = "stable_layout"))]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn repr_transparent() {
         #[derive(Archive)]
@@ -1249,7 +1249,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "strict"))]
+    #[cfg(not(feature = "stable_layout"))]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn repr_c() {
         #[derive(Archive)]
@@ -1265,7 +1265,7 @@ mod tests {
 
     // TODO: fix derive handling of explicit archived enum reprs
     // #[test]
-    // #[cfg(not(feature = "strict"))]
+    // #[cfg(not(feature = "stable_layout"))]
     // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     // fn repr_int() {
     //     #[derive(Archive)]

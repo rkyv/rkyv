@@ -20,14 +20,14 @@ use core::{
 };
 use ptr_meta::Pointee;
 
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 struct InnerNodeEntry<K> {
     ptr: RelPtr<NodeHeader>,
     key: K,
 }
 
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 struct LeafNodeEntry<K, V> {
     key: K,
@@ -52,7 +52,7 @@ impl<'a, UK: Archive, UV: Archive> Archive for LeafNodeEntry<&'a UK, &'a UV> {
     }
 }
 
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 struct NodeHeader {
     meta: ArchivedU16,
     size: ArchivedUsize,
@@ -94,7 +94,7 @@ fn split_meta(meta: u16) -> (bool, usize) {
     (meta & 0x80_00 == 0x80_00, (meta & 0x7F_FF) as usize)
 }
 
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 struct Node<T: ?Sized> {
     header: NodeHeader,
     tail: T,
@@ -207,7 +207,7 @@ impl NodeHeader {
 }
 
 /// An archived [`BTreeMap`](std::collections::BTreeMap).
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 pub struct ArchivedBTreeMap<K, V> {
     len: ArchivedUsize,
     root: RelPtr<NodeHeader>,

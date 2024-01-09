@@ -17,7 +17,7 @@ pub mod validation;
 
 #[cfg(test)]
 mod tests {
-    #[cfg(not(feature = "strict"))]
+    #[cfg(not(feature = "stable_layout"))]
     use crate::util::core::test_archive_with;
     use crate::util::core::{test_archive, test_archive_ref};
 
@@ -42,7 +42,7 @@ mod tests {
         test_archive(&1234567890u32);
         test_archive(&12345678901234567890u64);
         test_archive(&123456789012345678901234567890123456789u128);
-        #[cfg(not(feature = "strict"))]
+        #[cfg(not(feature = "stable_layout"))]
         test_archive_with(&(24, true, 16f32), |(a, b, c), (d, e, f)| {
             a == d && b == e && c == f
         });
@@ -57,7 +57,6 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_refs() {
-        #[cfg(not(feature = "strict"))]
         test_archive_ref::<[i32; 4]>(&[1, 2, 3, 4]);
         test_archive_ref::<str>("hello world");
         test_archive_ref::<[i32]>([1, 2, 3, 4].as_ref());

@@ -21,7 +21,7 @@ use core::{
 };
 
 /// An archived `IndexMap`.
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 pub struct ArchivedIndexMap<K, V> {
     index: ArchivedHashIndex,
     pivots: RelPtr<ArchivedUsize>,

@@ -22,7 +22,7 @@ use rancor::Fallible;
 ///
 /// This uses a [`RelPtr`] to a `[T]` under the hood. Unlike
 /// [`ArchivedString`](crate::string::ArchivedString), it does not have an inline representation.
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),

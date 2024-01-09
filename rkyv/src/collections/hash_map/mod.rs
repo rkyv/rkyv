@@ -25,7 +25,7 @@ use core::{
 };
 
 /// An archived `HashMap`.
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 pub struct ArchivedHashMap<K, V> {
     index: ArchivedHashIndex,
     entries: RelPtr<Entry<K, V>>,

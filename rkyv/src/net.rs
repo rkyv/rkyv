@@ -73,7 +73,7 @@ impl ArchivedIpAddr {
 /// An archived [`SocketAddrV4`](std::net::SocketAddrV4).
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 pub struct ArchivedSocketAddrV4 {
     pub(crate) ip: ArchivedIpv4Addr,
     pub(crate) port: ArchivedU16,
@@ -96,7 +96,7 @@ impl ArchivedSocketAddrV4 {
 /// An archived [`SocketAddrV6`](std::net::SocketAddrV6).
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 pub struct ArchivedSocketAddrV6 {
     pub(crate) ip: ArchivedIpv6Addr,
     pub(crate) port: ArchivedU16,

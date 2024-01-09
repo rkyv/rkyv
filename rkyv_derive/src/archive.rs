@@ -118,7 +118,7 @@ fn derive_archive_impl(
 
     let (archive_types, archive_impls) = match input.data {
         Data::Struct(ref data) => {
-            let repr = if cfg!(feature = "strict") {
+            let repr = if cfg!(feature = "stable_layout") {
                 Some(quote! { #[repr(C)] })
             } else {
                 None

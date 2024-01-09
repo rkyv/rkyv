@@ -128,7 +128,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "strict"))]
+    #[cfg(not(feature = "stable_layout"))]
     fn tuple_ordering() {
         serialize_and_check::<_, Failure>(&(
             24,

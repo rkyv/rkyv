@@ -19,7 +19,7 @@ pub use seahash::SeaHasher as HashBuilder;
 // pub mod validation;
 
 /// An archived hash index.
-#[cfg_attr(feature = "strict", repr(C))]
+#[cfg_attr(feature = "stable_layout", repr(C))]
 pub struct ArchivedHashIndex {
     len: ArchivedUsize,
     displace: RelPtr<ArchivedU32>,
