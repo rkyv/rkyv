@@ -208,31 +208,43 @@ core::compiler_error!(
 
 // Check pointer width feature flag settings
 
-#[cfg(not(any(
+#[cfg(all(
     feature = "pointer_width_16",
     feature = "pointer_width_32",
-    feature = "pointer_width_64",
-)))]
-core::compile_error!(
-    "\"pointer_width_16\", \"pointer_width_32\", or \"pointer_width_64\" must \
-    be enabled features"
-);
-
-#[cfg(all(feature = "pointer_width_16", feature = "pointer_width_32",))]
+    not(feature = "pointer_width_64")
+))]
 core::compile_error!(
     "\"pointer_width_16\" and \"pointer_width_32\" are mutually-exclusive \
     features. You may need to set `default-features = false` or compile with \
     `--no-default-features`."
 );
-#[cfg(all(feature = "pointer_width_16", feature = "pointer_width_64",))]
+#[cfg(all(
+    feature = "pointer_width_16",
+    feature = "pointer_width_64",
+    not(feature = "pointer_width_32")
+))]
 core::compile_error!(
     "\"pointer_width_16\" and \"pointer_width_64\" are mutually-exclusive \
     features. You may need to set `default-features = false` or compile with \
     `--no-default-features`."
 );
-#[cfg(all(feature = "pointer_width_32", feature = "pointer_width_64",))]
+#[cfg(all(
+    feature = "pointer_width_32",
+    feature = "pointer_width_64",
+    not(feature = "pointer_width_16")
+))]
 core::compile_error!(
     "\"pointer_width_32\" and \"pointer_width_64\" are mutually-exclusive \
+    features. You may need to set `default-features = false` or compile with \
+    `--no-default-features`."
+);
+#[cfg(all(
+    feature = "pointer_width_16",
+    feature = "pointer_width_32",
+    feature = "pointer_width_64"
+))]
+core::compile_error!(
+    "\"pointer_width_16\", \"pointer_width_32\", and \"pointer_width_64\" are mutually-exclusive \
     features. You may need to set `default-features = false` or compile with \
     `--no-default-features`."
 );

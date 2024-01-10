@@ -66,7 +66,7 @@ define_multibyte_primitives! {
 ///
 /// This will be `i16`, `i32`, or `i64` when the `pointer_width_16`,
 /// `pointer_width_32`, or `pointer_width_64` features are enabled,
-/// respectively.
+/// respectively. With no pointer width features enabled, it defaults to `i32`.
 pub type FixedIsize = match_pointer_width!(i16, i32, i64);
 
 /// The archived version of `isize` chosen based on the currently-enabled
@@ -78,7 +78,7 @@ pub type ArchivedIsize =
 ///
 /// This will be `u16`, `u32`, or `u64` when the `pointer_width_16`,
 /// `pointer_width_32`, or `pointer_width_64` features are enabled,
-/// respectively.
+/// respectively. With no pointer width features enabled, it defaults to `u32`.
 pub type FixedUsize = match_pointer_width!(u16, u32, u64);
 
 /// The archived version of `isize` chosen based on the currently-enabled
@@ -101,7 +101,8 @@ define_multibyte_primitives! {
 ///
 /// This will be `NonZeroI16`, `NonZeroI32`, or `NonZeroI64` when the
 /// `pointer_width_16`, `pointer_width_32`, or `pointer_width_64` features are
-/// enabled, respectively.
+/// enabled, respectively. With no pointer width features enabled, it defaults
+/// to `NonZeroI32`.
 pub type FixedNonZeroIsize = match_pointer_width!(
     ::core::num::NonZeroI16,
     ::core::num::NonZeroI32,
@@ -120,7 +121,8 @@ pub type ArchivedNonZeroIsize = match_pointer_width!(
 ///
 /// This will be `NonZeroU16`, `NonZeroU32`, or `NonZeroU64` when the
 /// `pointer_width_16`, `pointer_width_32`, or `pointer_width_64` features are
-/// enabled, respectively.
+/// enabled, respectively. With no pointer width features enabled, it defaults
+/// to `NonZeroU32`.
 pub type FixedNonZeroUsize = match_pointer_width!(
     ::core::num::NonZeroU16,
     ::core::num::NonZeroU32,
@@ -157,7 +159,8 @@ macro_rules! define_size_atomics {
         ///
         /// This will be `AtomicI16`, `AtomicI32`, or `AtomicI64` when the
         /// `pointer_width_16`, `pointer_width_32`, or `pointer_width_64`
-        /// features are enabled, respectively.
+        /// features are enabled, respectively. With no pointer width features
+        /// enabled, it defaults to `AtomicI32`.
         pub type FixedAtomicIsize = match_pointer_width!(
             ::core::sync::atomic::AtomicI16,
             ::core::sync::atomic::AtomicI32,
@@ -176,7 +179,8 @@ macro_rules! define_size_atomics {
         ///
         /// This will be `AtomicU16`, `AtomicU32`, or `AtomicU64` when the
         /// `pointer_width_16`, `pointer_width_32`, or `pointer_width_64`
-        /// features are enabled, respectively.
+        /// features are enabled, respectively. With no pointer width features
+        /// enabled, it defaults to `AtomicU32`.
         pub type FixedAtomicUsize = match_pointer_width!(
             ::core::sync::atomic::AtomicU16,
             ::core::sync::atomic::AtomicU32,
@@ -195,7 +199,10 @@ macro_rules! define_size_atomics {
 
 #[cfg(any(
     all(target_has_atomic = "16", feature = "pointer_width_16"),
-    all(target_has_atomic = "32", feature = "pointer_width_32"),
+    all(
+        target_has_atomic = "32",
+        not(any(feature = "pointer_width_16", feature = "pointer_width_64")),
+    ),
     all(target_has_atomic = "64", feature = "pointer_width_64"),
 ))]
 define_size_atomics!();
