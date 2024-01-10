@@ -47,7 +47,7 @@ impl std::error::Error for BufferAllocError {}
 ///
 /// Pairing this fixed-size allocator with a fallback allocator can help prevent
 /// running out of space unexpectedly.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BufferAllocator<T> {
     buffer: T,
     pos: usize,
@@ -69,12 +69,6 @@ impl<T> BufferAllocator<T> {
     /// Consumes the buffer allocator, returning the underlying buffer.
     pub fn into_inner(self) -> T {
         self.buffer
-    }
-}
-
-impl<T: Default> Default for BufferAllocator<T> {
-    fn default() -> Self {
-        Self::new(T::default())
     }
 }
 

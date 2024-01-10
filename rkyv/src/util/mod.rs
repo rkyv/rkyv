@@ -316,7 +316,7 @@ pub fn to_bytes<T, const N: usize, E>(value: &T) -> Result<AlignedVec, E>
 where
     T: Serialize<Strategy<AllocSerializer<N>, E>>,
 {
-    Ok(serialize_into(value, AllocSerializer::<N>::default())?.into_writer())
+    Ok(serialize_into(value, Default::default())?.into_writer())
 }
 
 /// Serializes the given value into the given serializer and then returns the

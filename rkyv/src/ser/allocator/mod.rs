@@ -52,7 +52,7 @@ impl<T: Allocator<E>, E> Allocator<E> for Strategy<T, E> {
 }
 
 /// Allocates space with a primary and backup allocator.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BackupAllocator<P, B> {
     primary: P,
     backup: B,
@@ -62,15 +62,6 @@ impl<P, B> BackupAllocator<P, B> {
     /// Creates a backup allocator from primary and backup allocators.
     pub fn new(primary: P, backup: B) -> Self {
         Self { primary, backup }
-    }
-}
-
-impl<P: Default, B: Default> Default for BackupAllocator<P, B> {
-    fn default() -> Self {
-        Self {
-            primary: P::default(),
-            backup: B::default(),
-        }
     }
 }
 
@@ -102,7 +93,7 @@ where
 }
 
 /// A passthrough allocator that tracks usage.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AllocationTracker<T> {
     inner: T,
     bytes_allocated: usize,

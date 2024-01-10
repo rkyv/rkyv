@@ -119,7 +119,7 @@ const _: () = {
 ///
 /// This allocator will panic if scratch is popped that it did not allocate. For this reason, it
 /// should only ever be used as a fallback allocator.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct GlobalAllocator {
     remaining: Option<usize>,
     allocations: Vec<(*mut u8, Layout)>,
@@ -136,10 +136,7 @@ unsafe impl Sync for GlobalAllocator {}
 impl GlobalAllocator {
     /// Creates a new scratch allocator with no allocation limit.
     pub fn new() -> Self {
-        Self {
-            remaining: None,
-            allocations: Vec::new(),
-        }
+        Self::default()
     }
 
     /// Creates a new scratch allocator with the given allocation limit.
@@ -158,12 +155,6 @@ impl Drop for GlobalAllocator {
                 dealloc(ptr, layout);
             }
         }
-    }
-}
-
-impl Default for GlobalAllocator {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
