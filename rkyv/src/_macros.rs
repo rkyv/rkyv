@@ -1,3 +1,6 @@
+// TODO: remove specialization in favor of runtime switching like
+// if Self::IS_TRIVIALLY_COPYABLE { fast } else { slow }
+
 #[cfg(feature = "copy")]
 macro_rules! default {
     (#[inline] $($fn:tt)*) => { #[inline] default $($fn)* };

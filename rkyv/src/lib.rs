@@ -134,10 +134,8 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
-#[doc(hidden)]
 #[macro_use]
-pub mod macros;
-
+mod _macros;
 #[cfg(feature = "bitvec")]
 pub mod bitvec;
 pub mod boxed;
