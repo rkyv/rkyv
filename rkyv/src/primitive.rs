@@ -1,17 +1,17 @@
 //! Definitions of archived primitives and type aliases based on enabled
 //! features.
 
-#[cfg(feature = "little_endian")]
+#[cfg(not(feature = "big_endian"))]
 use crate::rend::{
     char_le, f32_le, f64_le, i128_le, i16_le, i32_le, i64_le, u128_le, u16_le,
     u32_le, u64_le, NonZeroI128_le, NonZeroI16_le, NonZeroI32_le,
     NonZeroI64_le, NonZeroU128_le, NonZeroU16_le, NonZeroU32_le, NonZeroU64_le,
 };
-#[cfg(all(feature = "little_endian", target_has_atomic = "16"))]
+#[cfg(all(not(feature = "big_endian"), target_has_atomic = "16"))]
 use rend::{AtomicI16_le, AtomicU16_le};
-#[cfg(all(feature = "little_endian", target_has_atomic = "32"))]
+#[cfg(all(not(feature = "big_endian"), target_has_atomic = "32"))]
 use rend::{AtomicI32_le, AtomicU32_le};
-#[cfg(all(feature = "little_endian", target_has_atomic = "64"))]
+#[cfg(all(not(feature = "big_endian"), target_has_atomic = "64"))]
 use rend::{AtomicI64_le, AtomicU64_le};
 
 #[cfg(feature = "big_endian")]
@@ -33,7 +33,7 @@ macro_rules! define_multibyte_primitive {
             "The archived version of `",
             stringify!($)
         )]
-        #[cfg(feature = "little_endian")]
+        #[cfg(not(feature = "big_endian"))]
         pub type $archived = $le;
         #[cfg(feature = "big_endian")]
         pub type $archived = $be;

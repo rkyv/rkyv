@@ -194,11 +194,6 @@ use crate::{
 
 // Check endianness feature flag settings
 
-#[cfg(not(any(feature = "little_endian", feature = "big_endian")))]
-core::compiler_error!(
-    "\"little_endian\" or \"big_endian\" must be an enabled feature"
-);
-
 #[cfg(all(feature = "little_endian", feature = "big_endian"))]
 core::compiler_error!(
     "\"little_endian\" and \"big_endian\" are mutually-exclusive features. You \

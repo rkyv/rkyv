@@ -31,7 +31,7 @@ impl<T: ?Sized> ArchiveCopy for PhantomData<T> {}
 // Multibyte integers are not ArchiveCopy if the target does not match the archive endianness
 #[cfg(any(
     all(target_endian = "little", feature = "big_endian"),
-    all(target_endian = "big", feature = "little_endian"),
+    all(target_endian = "big", not(feature = "big_endian")),
 ))]
 const _: () = {
     impl !ArchiveCopy for i16 {}
@@ -105,7 +105,7 @@ unsafe impl ArchiveCopySafe for NonZeroU8 {}
 
 // Multibyte integers are ArchiveCopySafe if the target matches the archived endianness
 #[cfg(any(
-    all(target_endian = "little", feature = "little_endian"),
+    all(target_endian = "little", not(feature = "big_endian")),
     all(target_endian = "big", feature = "big_endian"),
 ))]
 const _: () = {
