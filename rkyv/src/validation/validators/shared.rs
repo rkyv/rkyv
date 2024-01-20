@@ -47,7 +47,7 @@ impl std::error::Error for SharedError {
 }
 
 /// A validator that can verify shared memory.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SharedValidator {
     shared: HashMap<usize, TypeId>,
 }
@@ -68,13 +68,6 @@ impl SharedValidator {
         Self {
             shared: HashMap::with_capacity(capacity),
         }
-    }
-}
-
-impl Default for SharedValidator {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
     }
 }
 

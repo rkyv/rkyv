@@ -62,7 +62,7 @@ const _: () = {
 ///     panic!("archived event was of the wrong type");
 /// }
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BufferWriter<T> {
     inner: T,
     pos: usize,
@@ -100,13 +100,6 @@ impl<T> BufferWriter<T> {
     #[inline]
     pub fn into_inner(self) -> T {
         self.inner
-    }
-}
-
-impl<T: Default> Default for BufferWriter<T> {
-    #[inline]
-    fn default() -> Self {
-        Self::new(T::default())
     }
 }
 

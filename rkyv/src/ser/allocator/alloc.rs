@@ -12,7 +12,7 @@ use crate::{
 };
 
 /// Fixed-size scratch space allocated on the heap.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BumpAllocator<const N: usize> {
     inner: BufferAllocator<Box<AlignedBytes<N>>>,
 }
@@ -40,12 +40,6 @@ impl<const N: usize> BumpAllocator<N> {
     /// Gets the memory layout of the heap-allocated space.
     pub fn layout() -> Layout {
         unsafe { Layout::from_size_align_unchecked(N, 1) }
-    }
-}
-
-impl<const N: usize> Default for BumpAllocator<N> {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

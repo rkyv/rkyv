@@ -27,7 +27,7 @@ impl std::error::Error for DuplicateSharedPointer {}
 
 /// A shared pointer strategy that unifies serializations of the same shared
 /// pointer.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Unify {
     shared_address_to_pos: hash_map::HashMap<usize, usize>,
 }
@@ -47,13 +47,6 @@ impl Unify {
         Self {
             shared_address_to_pos: hash_map::HashMap::with_capacity(capacity),
         }
-    }
-}
-
-impl Default for Unify {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
     }
 }
 

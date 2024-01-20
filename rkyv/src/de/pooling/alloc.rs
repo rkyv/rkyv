@@ -31,6 +31,7 @@ impl std::error::Error for DuplicateSharedPointer {}
 
 /// A shared pointer strategy that unifies deserializations of the same shared
 /// pointer.
+#[derive(Default)]
 pub struct Unify {
     shared_pointers: hash_map::HashMap<usize, Box<dyn SharedPointer>>,
 }
@@ -39,9 +40,7 @@ impl Unify {
     /// Creates a new shared pointer unifier.
     #[inline]
     pub fn new() -> Self {
-        Self {
-            shared_pointers: hash_map::HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Creates a new shared pointer unifier with initial capacity.
@@ -62,13 +61,6 @@ impl fmt::Debug for Unify {
                     .map(|(s, p)| (s, &**p as *const _)),
             )
             .finish()
-    }
-}
-
-impl Default for Unify {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
     }
 }
 

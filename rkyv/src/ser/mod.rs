@@ -26,7 +26,7 @@ use crate::{
 use ::core::{alloc::Layout, ptr::NonNull};
 
 /// A serializer built from composeable pieces.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Composite<W = (), A = (), S = ()> {
     /// The writer of the `Composite` serializer.
     pub writer: W,
@@ -59,17 +59,6 @@ impl<W, A, S> Composite<W, A, S> {
     #[inline]
     pub fn into_writer(self) -> W {
         self.writer
-    }
-}
-
-impl<W: Default, A: Default, S: Default> Default for Composite<W, A, S> {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            writer: W::default(),
-            allocator: A::default(),
-            share: S::default(),
-        }
     }
 }
 
