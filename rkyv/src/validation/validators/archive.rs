@@ -101,7 +101,7 @@ unsafe impl Sync for ArchiveError {}
 
 impl fmt::Display for ArchiveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
+        match *self {
             ArchiveError::Overflow { base, offset } => write!(
                 f,
                 "relative pointer overflowed: base {:p} offset {}",
@@ -118,23 +118,32 @@ impl fmt::Display for ArchiveError {
             ArchiveError::OutOfBounds {
                 base,
                 offset,
-                range,
+                ref range,
             } => write!(
                 f,
                 "pointer out of bounds: base {:p} offset {} not in range {:p}..{:p}",
                 base, offset, range.start, range.end
             ),
-            ArchiveError::Overrun { ptr, size, range } => write!(
+            ArchiveError::Overrun {
+                ptr,
+                size,
+                ref range,
+            } => write!(
                 f,
                 "pointer overran buffer: ptr {:p} size {} in range {:p}..{:p}",
                 ptr, size, range.start, range.end
             ),
-            ArchiveError::Unaligned { ptr, align } => write!(
-                f,
-                "unaligned pointer: ptr {:p} unaligned for alignment {}",
-                ptr, align
-            ),
-            ArchiveError::SubtreePointerOutOfBounds { ptr, subtree_range } => write!(
+            ArchiveError::Unaligned { ptr, align } => {
+                write!(
+                    f,
+                    "unaligned pointer: ptr {:p} unaligned for alignment {}",
+                    ptr, align
+                )
+            }
+            ArchiveError::SubtreePointerOutOfBounds {
+                ptr,
+                ref subtree_range,
+            } => write!(
                 f,
                 "subtree pointer out of bounds: ptr {:p} not in range {:p}..{:p}",
                 ptr, subtree_range.start, subtree_range.end
@@ -142,7 +151,7 @@ impl fmt::Display for ArchiveError {
             ArchiveError::SubtreePointerOverrun {
                 ptr,
                 size,
-                subtree_range,
+                ref subtree_range,
             } => write!(
                 f,
                 "subtree pointer overran range: ptr {:p} size {} in range {:p}..{:p}",
@@ -156,7 +165,7 @@ impl fmt::Display for ArchiveError {
                 "subtree range popped out of order: expected depth {}, actual depth {}",
                 expected_depth, actual_depth
             ),
-            ArchiveError::UnpoppedSubtreeRanges { last_range } => {
+            ArchiveError::UnpoppedSubtreeRanges { ref last_range } => {
                 write!(f, "unpopped subtree ranges: last range {}", last_range)
             }
             ArchiveError::ExceededMaximumSubtreeDepth { max_subtree_depth } => write!(
@@ -164,7 +173,7 @@ impl fmt::Display for ArchiveError {
                 "pushed a subtree range that exceeded the maximum subtree depth of {}",
                 max_subtree_depth
             ),
-            ArchiveError::LayoutError { layout_error } => {
+            ArchiveError::LayoutError { ref layout_error } => {
                 write!(f, "a layout error occurred: {}", layout_error)
             }
         }
