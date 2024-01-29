@@ -5,6 +5,7 @@ pub mod btree_set;
 pub mod hash_index;
 pub mod hash_map;
 pub mod hash_set;
+pub mod swisstable;
 // TODO: move these into a separate crate when indexmap adds rkyv support
 pub mod index_map;
 pub mod index_set;

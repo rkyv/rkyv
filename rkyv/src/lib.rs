@@ -157,6 +157,7 @@ pub mod rc;
 pub mod rel_ptr;
 pub mod result;
 pub mod ser;
+mod simd;
 pub mod string;
 pub mod time;
 pub mod util;

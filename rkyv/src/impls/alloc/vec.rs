@@ -24,8 +24,7 @@ impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for Vec<T> {
     }
 }
 
-impl<T: PartialOrd<U>, U> PartialOrd<Vec<U>> for ArchivedVec<T>
-{
+impl<T: PartialOrd<U>, U> PartialOrd<Vec<U>> for ArchivedVec<T> {
     #[inline]
     fn partial_cmp(&self, other: &Vec<U>) -> Option<cmp::Ordering> {
         let min_len = self.len().min(other.len());

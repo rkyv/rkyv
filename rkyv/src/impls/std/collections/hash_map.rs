@@ -1,5 +1,5 @@
 use crate::{
-    collections::hash_map::{ArchivedHashMap, HashMapResolver},
+    collections::swisstable::{ArchivedSwissTable, SwissTableResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Serialize,
 };
@@ -7,15 +7,15 @@ use core::{
     borrow::Borrow,
     hash::{BuildHasher, Hash},
 };
-use rancor::Fallible;
+use rancor::{Error, Fallible};
 use std::collections::HashMap;
 
 impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>
 where
     K::Archived: Hash + Eq,
 {
-    type Archived = ArchivedHashMap<K::Archived, V::Archived>;
-    type Resolver = HashMapResolver;
+    type Archived = ArchivedSwissTable<K::Archived, V::Archived>;
+    type Resolver = SwissTableResolver;
 
     #[inline]
     unsafe fn resolve(
@@ -24,7 +24,13 @@ where
         resolver: Self::Resolver,
         out: *mut Self::Archived,
     ) {
-        ArchivedHashMap::resolve_from_len(self.len(), pos, resolver, out);
+        ArchivedSwissTable::resolve_from_len(
+            self.len(),
+            (7, 8),
+            pos,
+            resolver,
+            out,
+        );
     }
 }
 
@@ -34,18 +40,19 @@ where
     K::Archived: Hash + Eq,
     V: Serialize<S>,
     S: Fallible + Writer + Allocator + ?Sized,
+    S::Error: Error,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        unsafe { ArchivedHashMap::serialize_from_iter(self.iter(), serializer) }
+        ArchivedSwissTable::serialize_from_iter(self.iter(), (7, 8), serializer)
     }
 }
 
 impl<K, V, D, S> Deserialize<HashMap<K, V, S>, D>
-    for ArchivedHashMap<K::Archived, V::Archived>
+    for ArchivedSwissTable<K::Archived, V::Archived>
 where
     K: Archive + Hash + Eq,
     K::Archived: Deserialize<K, D> + Hash + Eq,
@@ -77,7 +84,7 @@ impl<
         AK: Hash + Eq,
         AV: PartialEq<V>,
         S: BuildHasher,
-    > PartialEq<HashMap<K, V, S>> for ArchivedHashMap<AK, AV>
+    > PartialEq<HashMap<K, V, S>> for ArchivedSwissTable<AK, AV>
 {
     #[inline]
     fn eq(&self, other: &HashMap<K, V, S>) -> bool {
@@ -92,10 +99,10 @@ impl<
 }
 
 impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>>
-    PartialEq<ArchivedHashMap<AK, AV>> for HashMap<K, V>
+    PartialEq<ArchivedSwissTable<AK, AV>> for HashMap<K, V>
 {
     #[inline]
-    fn eq(&self, other: &ArchivedHashMap<AK, AV>) -> bool {
+    fn eq(&self, other: &ArchivedSwissTable<AK, AV>) -> bool {
         other.eq(self)
     }
 }

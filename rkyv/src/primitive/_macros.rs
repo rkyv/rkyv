@@ -1,10 +1,11 @@
+#[rustfmt::skip]
 macro_rules! define_archived_type_alias {
     ($archived:ident: $name:ident, $ty:ty) => {
         #[doc = concat!(
-                    "The archived version of `",
-                    stringify!($name),
-                    "`.",
-                )]
+            "The archived version of `",
+            stringify!($name),
+            "`.",
+        )]
         pub type $archived = $ty;
     };
 }
