@@ -27,7 +27,7 @@ use core::{
     mem::size_of,
     ops::Index,
     pin::Pin,
-    ptr::{self, null_mut, NonNull},
+    ptr::{self, null, NonNull},
     slice,
 };
 
@@ -42,6 +42,7 @@ use crate::{
 };
 
 #[cfg_attr(feature = "stable_layout", repr(C))]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 struct Entry<K, V> {
     key: K,
     value: V,
@@ -49,7 +50,11 @@ struct Entry<K, V> {
 
 /// An archived SwissTable hash map.
 #[cfg_attr(feature = "stable_layout", repr(C))]
-#[derive(Debug)]
+#[cfg_attr(
+    feature = "bytecheck",
+    derive(bytecheck::CheckBytes),
+    check_bytes(verify)
+)]
 pub struct ArchivedSwissTable<K, V> {
     ptr: RawRelPtr,
     len: ArchivedUsize,
@@ -134,7 +139,7 @@ impl<K, V> ArchivedSwissTable<K, V> {
         capacity.checked_next_power_of_two().unwrap() - 1
     }
 
-    #[inline(always)]
+    // #[inline(always)]
     fn get_entry<C>(&self, hash: u64, cmp: C) -> Option<NonNull<Entry<K, V>>>
     where
         C: Fn(&K) -> bool,
@@ -150,6 +155,8 @@ impl<K, V> ArchivedSwissTable<K, V> {
         let bucket_mask = Self::bucket_mask(capacity);
 
         loop {
+            let mut any_empty = false;
+
             for _ in 0..MAX_GROUP_WIDTH / Group::WIDTH {
                 let group = unsafe { Group::read(self.control(probe_seq.pos)) };
 
@@ -165,11 +172,13 @@ impl<K, V> ArchivedSwissTable<K, V> {
                 }
 
                 // TODO: likely
-                if group.match_empty().any_bit_set() {
-                    return None;
-                }
+                any_empty = any_empty || group.match_empty().any_bit_set();
 
                 probe_seq.next_group();
+            }
+
+            if any_empty {
+                return None;
             }
 
             loop {
@@ -296,13 +305,13 @@ impl<K, V> ArchivedSwissTable<K, V> {
 
     /// Returns whether the SwissTable is empty.
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len.to_native() == 0
     }
 
     /// Returns the number of elements in the SwissTable.
     #[inline]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.len.to_native() as usize
     }
 
@@ -312,21 +321,26 @@ impl<K, V> ArchivedSwissTable<K, V> {
         self.cap.to_native() as usize
     }
 
+    fn control_iter(&self) -> ControlIter {
+        ControlIter {
+            current_mask: unsafe { Group::read(self.control(0)).match_full() },
+            next_group: unsafe { self.control(Group::WIDTH) },
+        }
+    }
+
     fn raw_iter(&self) -> RawIter<K, V> {
         if self.is_empty() {
             RawIter {
-                current_mask: Bitmask::EMPTY,
-                entries: null_mut(),
-                next_group: null_mut(),
+                controls: ControlIter::none(),
+                entries: NonNull::dangling(),
                 items_left: 0,
             }
         } else {
             RawIter {
-                current_mask: unsafe {
-                    Group::read(self.control(0)).match_full()
+                controls: self.control_iter(),
+                entries: unsafe {
+                    NonNull::new_unchecked(self.ptr.as_ptr().cast())
                 },
-                entries: unsafe { self.ptr.as_ptr().cast() },
-                next_group: unsafe { self.control(Group::WIDTH) },
                 items_left: self.len(),
             }
         }
@@ -383,24 +397,34 @@ impl<K, V> ArchivedSwissTable<K, V> {
         len: usize,
         load_factor: (usize, usize),
     ) -> Result<usize, E> {
-        Ok(len
-            .checked_mul(load_factor.1)
-            .into_trace("overflow while adjusting capacity")?
-            / load_factor.0)
+        Ok(usize::max(
+            len.checked_mul(load_factor.1)
+                .into_trace("overflow while adjusting capacity")?
+                / load_factor.0,
+            len + 1,
+        ))
     }
 
     #[inline]
     fn control_count<E: Error>(capacity: usize) -> Result<usize, E> {
-        capacity
-            .checked_next_multiple_of(MAX_GROUP_WIDTH)
-            .into_trace(
-                "overflow while calculating buckets from adjusted capacity",
-            )
+        capacity.checked_add(MAX_GROUP_WIDTH - 1).into_trace(
+            "overflow while calculating buckets from adjusted capacity",
+        )
+    }
+
+    fn memory_layout<E: Error>(
+        capacity: usize,
+        control_count: usize,
+    ) -> Result<(Layout, usize), E> {
+        let buckets_layout =
+            Layout::array::<Entry<K, V>>(capacity).into_error()?;
+        let control_layout = Layout::array::<u8>(control_count).into_error()?;
+        buckets_layout.extend(control_layout).into_error()
     }
 
     /// Serializes an iterator of key-value pairs as a hash map.
     pub fn serialize_from_iter<'a, KU, VU, I, S>(
-        mut iter: I,
+        iter: I,
         load_factor: (usize, usize),
         serializer: &mut S,
     ) -> Result<SwissTableResolver, S::Error>
@@ -436,10 +460,11 @@ impl<K, V> ArchivedSwissTable<K, V> {
         let len = iter.len();
 
         if len == 0 {
-            if iter.next().is_some() {
+            let count = iter.count();
+            if count != 0 {
                 fail!(IteratorLengthMismatch {
                     expected: 0,
-                    actual: 1 + iter.count(),
+                    actual: count,
                 });
             }
 
@@ -466,13 +491,8 @@ impl<K, V> ArchivedSwissTable<K, V> {
         let capacity = Self::capacity_from_len(len, load_factor)?;
         let control_count = Self::control_count(capacity)?;
 
-        let buckets_layout =
-            Layout::array::<Entry<K, V>>(capacity).into_error()?;
-        let control_layout = unsafe {
-            Layout::from_size_align_unchecked(control_count, MAX_GROUP_WIDTH)
-        };
         let (layout, control_offset) =
-            buckets_layout.extend(control_layout).into_error()?;
+            Self::memory_layout(capacity, control_count)?;
 
         let alloc = unsafe { serializer.push_alloc(layout)?.cast::<u8>() };
 
@@ -504,27 +524,43 @@ impl<K, V> ArchivedSwissTable<K, V> {
                     let group = unsafe { Group::read(ptr.add(probe_seq.pos)) };
 
                     if let Some(bit) = group.match_empty().lowest_set_bit() {
-                        let control_index = (probe_seq.pos + bit) & bucket_mask;
-                        let index = control_index % capacity;
+                        let index = (probe_seq.pos + bit) % capacity;
 
-                        // Update control byte(s)
+                        // Update control byte
                         unsafe {
-                            ptr.add(control_index).write(h2_hash);
                             ptr.add(index).write(h2_hash);
                         }
+                        // If it's near the end of the group, update the
+                        // wraparound control byte
+                        if index < control_count - capacity {
+                            unsafe {
+                                ptr.add(capacity + index).write(h2_hash);
+                            }
+                        }
 
-                        let entry_pos = pos + control_offset
+                        let entry_offset = control_offset
                             - (index + 1) * size_of::<Entry<K, V>>();
                         let out = unsafe {
-                            alloc.as_ptr().add(entry_pos).cast::<Entry<K, V>>()
+                            alloc
+                                .as_ptr()
+                                .add(entry_offset)
+                                .cast::<Entry<K, V>>()
                         };
                         let (fp, fo) = out_field!(out.key);
                         unsafe {
-                            key.resolve(pos + fp, key_resolver, fo);
+                            key.resolve(
+                                pos + entry_offset + fp,
+                                key_resolver,
+                                fo,
+                            );
                         }
                         let (fp, fo) = out_field!(out.value);
                         unsafe {
-                            value.resolve(pos + fp, value_resolver, fo);
+                            value.resolve(
+                                pos + entry_offset + fp,
+                                value_resolver,
+                                fo,
+                            );
                         }
 
                         break 'insert;
@@ -587,15 +623,38 @@ impl<K, V> ArchivedSwissTable<K, V> {
     }
 }
 
-impl<K, V, Q> Index<&Q> for ArchivedSwissTable<K, V>
+impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for ArchivedSwissTable<K, V> {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_map().entries(self.iter()).finish()
+    }
+}
+
+impl<K: Hash + Eq, V: Eq> Eq for ArchivedSwissTable<K, V> {}
+
+impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedSwissTable<K, V> {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            false
+        } else {
+            self.iter().all(|(key, value)| {
+                other.get(key).map_or(false, |v| *value == *v)
+            })
+        }
+    }
+}
+
+impl<K, Q, V> Index<&'_ Q> for ArchivedSwissTable<K, V>
 where
     K: Eq + Hash + Borrow<Q>,
     Q: Eq + Hash + ?Sized,
 {
     type Output = V;
 
-    fn index(&self, index: &Q) -> &Self::Output {
-        self.get(index).unwrap()
+    #[inline]
+    fn index(&self, key: &Q) -> &V {
+        self.get(key).unwrap()
     }
 }
 
@@ -604,37 +663,66 @@ pub struct SwissTableResolver {
     pos: usize,
 }
 
-struct RawIter<K, V> {
+struct ControlIter {
     current_mask: Bitmask,
-    entries: *mut Entry<K, V>,
     next_group: *const u8,
+}
+
+unsafe impl Send for ControlIter {}
+unsafe impl Sync for ControlIter {}
+
+impl ControlIter {
+    fn none() -> Self {
+        Self {
+            current_mask: Bitmask::EMPTY,
+            next_group: null(),
+        }
+    }
+
+    #[inline]
+    fn next_full(&mut self) -> Option<usize> {
+        let bit = self.current_mask.lowest_set_bit()?;
+        self.current_mask = self.current_mask.remove_lowest_bit();
+        Some(bit)
+    }
+
+    #[inline]
+    fn move_next(&mut self) {
+        self.current_mask =
+            unsafe { Group::read(self.next_group).match_full() };
+        self.next_group = unsafe { self.next_group.add(Group::WIDTH) };
+    }
+}
+
+struct RawIter<K, V> {
+    controls: ControlIter,
+    entries: NonNull<Entry<K, V>>,
     items_left: usize,
 }
 
-unsafe impl<K, V> Send for RawIter<K, V> {}
-unsafe impl<K, V> Sync for RawIter<K, V> {}
-
 impl<K, V> Iterator for RawIter<K, V> {
-    type Item = *mut Entry<K, V>;
+    type Item = NonNull<Entry<K, V>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.items_left == 0 {
             None
         } else {
-            loop {
-                if let Some(bit) = self.current_mask.lowest_set_bit() {
-                    self.current_mask.remove_lowest_bit();
-                    let entry = unsafe { self.entries.sub(bit + 1) };
-                    self.items_left -= 1;
-                    break Some(entry);
-                } else {
-                    self.current_mask =
-                        unsafe { Group::read(self.next_group).match_full() };
-                    self.entries = unsafe { self.entries.sub(Group::WIDTH) };
-                    self.next_group =
-                        unsafe { self.next_group.add(Group::WIDTH) };
+            let bit = loop {
+                if let Some(bit) = self.controls.next_full() {
+                    break bit;
                 }
-            }
+                self.controls.move_next();
+                self.entries = unsafe {
+                    NonNull::new_unchecked(
+                        self.entries.as_ptr().sub(Group::WIDTH),
+                    )
+                };
+            };
+            self.items_left -= 1;
+            let entry = unsafe {
+                NonNull::new_unchecked(self.entries.as_ptr().sub(bit + 1))
+            };
+            Some(entry)
         }
     }
 }
@@ -651,7 +739,7 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.raw.next().map(|entry| {
-            let entry = unsafe { &*entry };
+            let entry = unsafe { entry.as_ref() };
             (&entry.key, &entry.value)
         })
     }
@@ -676,8 +764,8 @@ impl<'a, K, V> Iterator for IterMut<'a, K, V> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        self.raw.next().map(|entry| {
-            let entry = unsafe { &mut *entry };
+        self.raw.next().map(|mut entry| {
+            let entry = unsafe { entry.as_mut() };
             let value = unsafe { Pin::new_unchecked(&mut entry.value) };
             (&entry.key, value)
         })
@@ -704,7 +792,7 @@ impl<'a, K, V> Iterator for Keys<'a, K, V> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.raw.next().map(|entry| {
-            let entry = unsafe { &*entry };
+            let entry = unsafe { entry.as_ref() };
             &entry.key
         })
     }
@@ -730,7 +818,7 @@ impl<'a, K, V> Iterator for Values<'a, K, V> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.raw.next().map(|entry| {
-            let entry = unsafe { &*entry };
+            let entry = unsafe { entry.as_ref() };
             &entry.value
         })
     }
@@ -755,8 +843,8 @@ impl<'a, K, V> Iterator for ValuesMut<'a, K, V> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        self.raw.next().map(|entry| {
-            let entry = unsafe { &mut *entry };
+        self.raw.next().map(|mut entry| {
+            let entry = unsafe { entry.as_mut() };
             unsafe { Pin::new_unchecked(&mut entry.value) }
         })
     }
@@ -769,3 +857,122 @@ impl<K, V> ExactSizeIterator for ValuesMut<'_, K, V> {
 }
 
 impl<K, V> FusedIterator for ValuesMut<'_, K, V> {}
+
+#[cfg(feature = "bytecheck")]
+mod verify {
+    use core::fmt;
+
+    use bytecheck::{CheckBytes, Verify};
+    use rancor::{fail, Error, Fallible};
+
+    use super::{ArchivedSwissTable, Entry};
+    use crate::{
+        simd::Group,
+        validation::{ArchiveContext, ArchiveContextExt},
+    };
+
+    #[derive(Debug)]
+    struct InvalidLength {
+        len: usize,
+        cap: usize,
+    }
+
+    impl fmt::Display for InvalidLength {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(
+                f,
+                "swisstable length must be strictly less than its capacity (length: {}, capacity: {})",
+                self.len,
+                self.cap,
+            )
+        }
+    }
+
+    #[cfg(feature = "std")]
+    impl std::error::Error for InvalidLength {}
+
+    #[derive(Debug)]
+    struct UnwrappedControlByte {
+        index: usize,
+    }
+
+    impl fmt::Display for UnwrappedControlByte {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "unwrapped control byte at index {}", self.index,)
+        }
+    }
+
+    #[cfg(feature = "std")]
+    impl std::error::Error for UnwrappedControlByte {}
+
+    unsafe impl<C, K, V> Verify<C> for ArchivedSwissTable<K, V>
+    where
+        C: Fallible + ArchiveContext,
+        C::Error: Error,
+        K: CheckBytes<C>,
+        V: CheckBytes<C>,
+    {
+        fn verify(&self, context: &mut C) -> Result<(), C::Error> {
+            let len = self.len();
+            let cap = self.capacity();
+
+            if len == 0 && cap == 0 {
+                return Ok(());
+            }
+
+            if self.len() >= cap {
+                fail!(InvalidLength { len, cap });
+            }
+
+            // Check memory allocation
+            let control_count = Self::control_count(cap)?;
+            let (layout, control_offset) =
+                Self::memory_layout(cap, control_count)?;
+            let ptr = self
+                .ptr
+                .as_ptr_wrapping()
+                .cast::<u8>()
+                .wrapping_sub(control_offset);
+            context.check_subtree_ptr(ptr, &layout)?;
+
+            let range = unsafe { context.push_prefix_subtree(ptr)? };
+
+            // Check each non-empty bucket
+            let mut controls = self.control_iter();
+            let mut base_index = 0;
+            'outer: while base_index < cap {
+                while let Some(bit) = controls.next_full() {
+                    let index = base_index + bit;
+                    if index >= cap {
+                        break 'outer;
+                    }
+
+                    unsafe {
+                        Entry::check_bytes(
+                            self.bucket(index).as_ptr(),
+                            context,
+                        )?;
+                    }
+                }
+
+                controls.move_next();
+                base_index += Group::WIDTH;
+            }
+
+            // Verify that wrapped bytes are set correctly
+            for i in cap..usize::min(2 * cap, control_count) {
+                let byte = unsafe { *self.control(i) };
+                let wrapped = unsafe { *self.control(i % cap) };
+                if wrapped != byte {
+                    fail!(UnwrappedControlByte { index: i })
+                }
+            }
+
+            unsafe {
+                context.pop_subtree_range(range)?;
+            }
+
+            Ok(())
+        }
+    }
+}

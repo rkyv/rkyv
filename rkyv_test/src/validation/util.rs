@@ -9,13 +9,11 @@ pub mod alloc {
         Serialize,
     };
 
-    pub fn serialize_and_check<
+    pub fn serialize_and_check<T, E>(value: &T)
+    where
         T: Serialize<Strategy<DefaultSerializer, E>>,
-        E: Error,
-    >(
-        value: &T,
-    ) where
         T::Archived: for<'a> CheckBytes<Strategy<DefaultValidator, E>>,
+        E: Error,
     {
         let buf =
             rkyv::util::serialize_into(value, DefaultSerializer::default())

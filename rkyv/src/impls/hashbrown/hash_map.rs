@@ -1,5 +1,5 @@
 use crate::{
-    collections::hash_map::{ArchivedHashMap, HashMapResolver},
+    collections::swiss_table::{ArchivedSwissTable, SwissTableResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Serialize,
 };
@@ -8,14 +8,14 @@ use core::{
     hash::{BuildHasher, Hash},
 };
 use hashbrown::HashMap;
-use rancor::Fallible;
+use rancor::{Error, Fallible};
 
 impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>
 where
     K::Archived: Hash + Eq,
 {
-    type Archived = ArchivedHashMap<K::Archived, V::Archived>;
-    type Resolver = HashMapResolver;
+    type Archived = ArchivedSwissTable<K::Archived, V::Archived>;
+    type Resolver = SwissTableResolver;
 
     #[inline]
     unsafe fn resolve(
@@ -24,7 +24,13 @@ where
         resolver: Self::Resolver,
         out: *mut Self::Archived,
     ) {
-        ArchivedHashMap::resolve_from_len(self.len(), pos, resolver, out);
+        ArchivedSwissTable::resolve_from_len(
+            self.len(),
+            (7, 8),
+            pos,
+            resolver,
+            out,
+        );
     }
 }
 
@@ -34,18 +40,19 @@ where
     K::Archived: Hash + Eq,
     V: Serialize<S>,
     S: Fallible + Writer + Allocator + ?Sized,
+    S::Error: Error,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        unsafe { ArchivedHashMap::serialize_from_iter(self.iter(), serializer) }
+        ArchivedSwissTable::serialize_from_iter(self.iter(), (7, 8), serializer)
     }
 }
 
 impl<K, V, D, S> Deserialize<HashMap<K, V, S>, D>
-    for ArchivedHashMap<K::Archived, V::Archived>
+    for ArchivedSwissTable<K::Archived, V::Archived>
 where
     K: Archive + Hash + Eq,
     K::Archived: Deserialize<K, D> + Hash + Eq,
@@ -71,13 +78,12 @@ where
     }
 }
 
-impl<
-        K: Hash + Eq + Borrow<AK>,
-        V,
-        AK: Hash + Eq,
-        AV: PartialEq<V>,
-        S: BuildHasher,
-    > PartialEq<HashMap<K, V, S>> for ArchivedHashMap<AK, AV>
+impl<K, V, AK, AV, S> PartialEq<HashMap<K, V, S>> for ArchivedSwissTable<AK, AV>
+where
+    K: Hash + Eq + Borrow<AK>,
+    AK: Hash + Eq,
+    AV: PartialEq<V>,
+    S: BuildHasher,
 {
     #[inline]
     fn eq(&self, other: &HashMap<K, V, S>) -> bool {
@@ -91,69 +97,63 @@ impl<
     }
 }
 
-impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>>
-    PartialEq<ArchivedHashMap<AK, AV>> for HashMap<K, V>
+impl<K, V, AK, AV> PartialEq<ArchivedSwissTable<AK, AV>> for HashMap<K, V>
+where
+    K: Hash + Eq + Borrow<AK>,
+    AK: Hash + Eq,
+    AV: PartialEq<V>,
 {
     #[inline]
-    fn eq(&self, other: &ArchivedHashMap<AK, AV>) -> bool {
+    fn eq(&self, other: &ArchivedSwissTable<AK, AV>) -> bool {
         other.eq(self)
     }
 }
 
-// TODO: uncomment
-// #[cfg(test)]
-// mod tests {
-//     use crate::{
-//         archived_root,
-//         ser::{serializers::AllocSerializer, Serializer},
-//         Deserialize,
-//     };
-//     #[cfg(all(feature = "alloc", not(feature = "std")))]
-//     use alloc::string::String;
-//     use hashbrown::HashMap;
-//     use rancor::Failure;
+#[cfg(test)]
+mod tests {
+    use crate::{access, access_unchecked, deserialize, to_bytes};
+    #[cfg(all(feature = "alloc", not(feature = "std")))]
+    use alloc::string::String;
+    use hashbrown::HashMap;
+    use rancor::Failure;
 
-//     #[test]
-//     fn index_map() {
-//         let mut value = HashMap::new();
-//         value.insert(String::from("foo"), 10);
-//         value.insert(String::from("bar"), 20);
-//         value.insert(String::from("baz"), 40);
-//         value.insert(String::from("bat"), 80);
+    #[test]
+    fn index_map() {
+        let mut value = HashMap::new();
+        value.insert(String::from("foo"), 10);
+        value.insert(String::from("bar"), 20);
+        value.insert(String::from("baz"), 40);
+        value.insert(String::from("bat"), 80);
 
-//         let mut serializer = AllocSerializer::<4096>::default();
-//         Serializer::<Failure>::serialize_value(&mut serializer, &value).unwrap();
-//         let result = serializer.into_serializer().into_inner();
-//         let archived =
-//             unsafe { archived_root::<HashMap<String, i32>>(result.as_ref()) };
+        let result = to_bytes::<_, 256, Failure>(&value).unwrap();
+        let archived = unsafe {
+            access_unchecked::<HashMap<String, i32>>(result.as_ref())
+        };
 
-//         assert_eq!(value.len(), archived.len());
-//         for (k, v) in value.iter() {
-//             let (ak, av) = archived.get_key_value(k.as_str()).unwrap();
-//             assert_eq!(k, ak);
-//             assert_eq!(v, av);
-//         }
+        assert_eq!(value.len(), archived.len());
+        for (k, v) in value.iter() {
+            let (ak, av) = archived.get_key_value(k.as_str()).unwrap();
+            assert_eq!(k, ak);
+            assert_eq!(v, av);
+        }
 
-//         let deserialized = Deserialize::<HashMap<String, i32>, _, Failure>::deserialize(archived, &mut ()).unwrap();
-//         assert_eq!(value, deserialized);
-//     }
+        let deserialized =
+            deserialize::<HashMap<String, i32>, _, Failure>(archived, &mut ())
+                .unwrap();
+        assert_eq!(value, deserialized);
+    }
 
-//     TODO: uncomment
-//     #[cfg(feature = "bytecheck")]
-//     #[test]
-//     fn validate_index_map() {
-//         use crate::check_archived_root;
+    #[cfg(feature = "bytecheck")]
+    #[test]
+    fn validate_index_map() {
+        let mut value = HashMap::new();
+        value.insert(String::from("foo"), 10);
+        value.insert(String::from("bar"), 20);
+        value.insert(String::from("baz"), 40);
+        value.insert(String::from("bat"), 80);
 
-//         let mut value = HashMap::new();
-//         value.insert(String::from("foo"), 10);
-//         value.insert(String::from("bar"), 20);
-//         value.insert(String::from("baz"), 40);
-//         value.insert(String::from("bat"), 80);
-
-//         let mut serializer = AllocSerializer::<4096>::default();
-//         Serializer::<Failure>::serialize_value(&mut serializer, &value).unwrap();
-//         let result = serializer.into_serializer().into_inner();
-//         check_archived_root::<HashMap<String, i32>, Failure>(result.as_ref())
-//             .expect("failed to validate archived index map");
-//     }
-// }
+        let bytes = to_bytes::<_, 256, Failure>(&value).unwrap();
+        access::<HashMap<String, i32>, crate::rancor::Panic>(bytes.as_ref())
+            .expect("failed to validate archived index map");
+    }
+}

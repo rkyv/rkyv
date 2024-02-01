@@ -1,5 +1,5 @@
 use crate::{
-    collections::swisstable::{ArchivedSwissTable, SwissTableResolver},
+    collections::swiss_table::{ArchivedSwissTable, SwissTableResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Serialize,
 };

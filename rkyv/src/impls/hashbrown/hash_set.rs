@@ -1,5 +1,5 @@
 use crate::{
-    collections::hash_set::{ArchivedHashSet, HashSetResolver},
+    collections::swiss_set::{ArchivedSwissSet, SwissSetResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Serialize,
 };
@@ -8,14 +8,14 @@ use core::{
     hash::{BuildHasher, Hash},
 };
 use hashbrown::HashSet;
-use rancor::Fallible;
+use rancor::{Error, Fallible};
 
 impl<K: Archive + Hash + Eq, S> Archive for HashSet<K, S>
 where
     K::Archived: Hash + Eq,
 {
-    type Archived = ArchivedHashSet<K::Archived>;
-    type Resolver = HashSetResolver;
+    type Archived = ArchivedSwissSet<K::Archived>;
+    type Resolver = SwissSetResolver;
 
     #[inline]
     unsafe fn resolve(
@@ -24,8 +24,9 @@ where
         resolver: Self::Resolver,
         out: *mut Self::Archived,
     ) {
-        ArchivedHashSet::<K::Archived>::resolve_from_len(
+        ArchivedSwissSet::<K::Archived>::resolve_from_len(
             self.len(),
+            (7, 8),
             pos,
             resolver,
             out,
@@ -38,17 +39,18 @@ where
     K::Archived: Hash + Eq,
     K: Serialize<S> + Hash + Eq,
     S: Fallible + Allocator + Writer + ?Sized,
+    S::Error: Error,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        unsafe { ArchivedHashSet::serialize_from_iter(self.iter(), serializer) }
+        ArchivedSwissSet::serialize_from_iter(self.iter(), (7, 8), serializer)
     }
 }
 
-impl<K, D, S> Deserialize<HashSet<K, S>, D> for ArchivedHashSet<K::Archived>
+impl<K, D, S> Deserialize<HashSet<K, S>, D> for ArchivedSwissSet<K::Archived>
 where
     K: Archive + Hash + Eq,
     K::Archived: Deserialize<K, D> + Hash + Eq,
@@ -69,7 +71,7 @@ where
 }
 
 impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
-    PartialEq<HashSet<K, S>> for ArchivedHashSet<AK>
+    PartialEq<HashSet<K, S>> for ArchivedSwissSet<AK>
 {
     #[inline]
     fn eq(&self, other: &HashSet<K, S>) -> bool {
@@ -82,66 +84,57 @@ impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
 }
 
 impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
-    PartialEq<ArchivedHashSet<AK>> for HashSet<K, S>
+    PartialEq<ArchivedSwissSet<AK>> for HashSet<K, S>
 {
     #[inline]
-    fn eq(&self, other: &ArchivedHashSet<AK>) -> bool {
+    fn eq(&self, other: &ArchivedSwissSet<AK>) -> bool {
         other.eq(self)
     }
 }
 
-// TODO: uncomment
-// #[cfg(test)]
-// mod tests {
-//     use crate::{
-//         archived_root,
-//         ser::{serializers::AllocSerializer, Serializer},
-//         Deserialize,
-//     };
-//     #[cfg(all(feature = "alloc", not(feature = "std")))]
-//     use alloc::string::String;
-//     use hashbrown::HashSet;
-//     use rancor::Failure;
+#[cfg(test)]
+mod tests {
+    use crate::{access, access_unchecked, deserialize, to_bytes};
+    #[cfg(all(feature = "alloc", not(feature = "std")))]
+    use alloc::string::String;
+    use hashbrown::HashSet;
+    use rancor::Failure;
 
-//     #[test]
-//     fn index_set() {
-//         let mut value = HashSet::new();
-//         value.insert(String::from("foo"));
-//         value.insert(String::from("bar"));
-//         value.insert(String::from("baz"));
-//         value.insert(String::from("bat"));
+    #[test]
+    fn index_set() {
+        let mut value = HashSet::new();
+        value.insert(String::from("foo"));
+        value.insert(String::from("bar"));
+        value.insert(String::from("baz"));
+        value.insert(String::from("bat"));
 
-//         let mut serializer = AllocSerializer::<4096>::default();
-//         Serializer::<Failure>::serialize_value(&mut serializer, &value).unwrap();
-//         let result = serializer.into_serializer().into_inner();
-//         let archived =
-//             unsafe { archived_root::<HashSet<String>>(result.as_ref()) };
+        let bytes = to_bytes::<_, 256, Failure>(&value).unwrap();
+        let archived =
+            unsafe { access_unchecked::<HashSet<String>>(bytes.as_ref()) };
 
-//         assert_eq!(value.len(), archived.len());
-//         for k in value.iter() {
-//             let ak = archived.get(k.as_str()).unwrap();
-//             assert_eq!(k, ak);
-//         }
+        assert_eq!(value.len(), archived.len());
+        for k in value.iter() {
+            let ak = archived.get(k.as_str()).unwrap();
+            assert_eq!(k, ak);
+        }
 
-//         let deserialized = Deserialize::<HashSet<String>, _, Failure>::deserialize(archived, &mut ()).unwrap();
-//         assert_eq!(value, deserialized);
-//     }
+        let deserialized =
+            deserialize::<HashSet<String>, _, Failure>(archived, &mut ())
+                .unwrap();
+        assert_eq!(value, deserialized);
+    }
 
-//     #[cfg(feature = "bytecheck")]
-//     #[test]
-//     fn validate_index_set() {
-//         use crate::check_archived_root;
+    #[cfg(feature = "bytecheck")]
+    #[test]
+    fn validate_index_set() {
+        let mut value = HashSet::new();
+        value.insert(String::from("foo"));
+        value.insert(String::from("bar"));
+        value.insert(String::from("baz"));
+        value.insert(String::from("bat"));
 
-//         let mut value = HashSet::new();
-//         value.insert(String::from("foo"));
-//         value.insert(String::from("bar"));
-//         value.insert(String::from("baz"));
-//         value.insert(String::from("bat"));
-
-//         let mut serializer = AllocSerializer::<4096>::default();
-//         Serializer::<Failure>::serialize_value(&mut serializer, &value).unwrap();
-//         let result = serializer.into_serializer().into_inner();
-//         check_archived_root::<HashSet<String>, Failure>(result.as_ref())
-//             .expect("failed to validate archived index set");
-//     }
-// }
+        let bytes = to_bytes::<_, 256, Failure>(&value).unwrap();
+        access::<HashSet<String>, rancor::Panic>(bytes.as_ref())
+            .expect("failed to validate archived index set");
+    }
+}
