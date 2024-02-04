@@ -74,7 +74,7 @@ mod tests {
             unsafe { access_unchecked::<HashMap<Pair, String>>(buf.as_ref()) };
 
         let get_with = archived_value
-            .get_with(&("my", "key"), |key, input_key| {
+            .get_with(&("my", "key"), |input_key, key| {
                 &(key.0.as_str(), key.1.as_str()) == input_key
             })
             .unwrap();

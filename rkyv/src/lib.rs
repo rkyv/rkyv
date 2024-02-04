@@ -147,6 +147,7 @@ pub mod de;
 // If CStr ever gets moved into `core` then this module will no longer need cfg(feature = "std")
 #[cfg(feature = "std")]
 pub mod ffi;
+mod hash;
 mod impls;
 pub mod net;
 pub mod niche;
