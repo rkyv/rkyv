@@ -20,8 +20,11 @@ fn main() {
     match arch {
         // NOTE: Not all ARMv7 variants are listed here, as certain variants do actually provide
         // 64-bit atomics. (`armv7`, `armv7a`, and `armv7s`, specifically)
-        "armv5te" | "mips" | "mipsel" | "powerpc" | "riscv32imac" | "thumbv7em" | "thumbv7m"
-        | "thumbv8m.base" | "thumbv8m.main" | "armebv7r" | "armv7r" => has_atomic64 = false,
+        "armv5te" | "mips" | "mipsel" | "powerpc" | "riscv32imac" | "riscv32imafc"
+        | "riscv32imafdc" | "thumbv7em" | "thumbv7m" | "thumbv8m.base" | "thumbv8m.main"
+        | "armebv7r" | "armv7r" => {
+            has_atomic64 = false;
+        }
         "avr" | "riscv32i" | "riscv32im" | "riscv32imc" | "thumbv6m" => {
             has_atomic32 = false;
             has_atomic64 = false;

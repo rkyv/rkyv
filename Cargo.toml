@@ -16,7 +16,7 @@ default-members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.7.43"
+version = "0.7.44"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -24,7 +24,7 @@ documentation = "https://docs.rs/rkyv"
 repository = "https://github.com/rkyv/rkyv"
 
 [workspace.dependencies]
-bytecheck = { version = "=0.6.11", default-features = false }
+bytecheck = { version = "0.6.11", default-features = false }
 proc-macro2 = "1.0"
 ptr_meta = { version = "~0.1.3", default-features = false }
 quote = "1.0"
