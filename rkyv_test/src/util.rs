@@ -5,9 +5,7 @@ pub mod core {
     use core::fmt::Debug;
 
     use rkyv::{
-        access_unchecked,
-        de::pooling::Unify,
-        deserialize,
+        access_unchecked, deserialize,
         rancor::{Failure, Strategy},
         ser::Positional as _,
         util::{
@@ -21,7 +19,7 @@ pub mod core {
 
     pub type DefaultSerializer =
         rkyv::ser::CoreSerializer<BUFFER_SIZE, SCRATCH_SIZE>;
-    pub type DefaultDeserializer = Unify;
+    pub type DefaultDeserializer = rkyv::de::pooling::Duplicate;
 
     pub fn test_archive_with<T, C>(value: &T, cmp: C)
     where

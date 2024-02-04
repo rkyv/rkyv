@@ -176,15 +176,29 @@ use core::{alloc::Layout, hash::Hash};
 use ptr_meta::Pointee;
 use rancor::Fallible;
 pub use rkyv_derive::{Archive, Deserialize, Serialize};
+
 #[doc(inline)]
 pub use util::{
-    access_unchecked, access_unchecked_mut, deserialize, from_bytes_unchecked,
-    serialize, to_bytes,
+    access_unchecked, access_unchecked_mut, deserialize, serialize,
 };
+
+#[cfg(feature = "alloc")]
+#[cfg_attr(doc_cfg, doc(cfg(feature = "alloc")))]
+#[doc(inline)]
+pub use util::{from_bytes_unchecked, to_bytes};
+
 #[cfg(feature = "bytecheck")]
 #[cfg_attr(doc_cfg, doc(cfg(feature = "bytecheck")))]
 #[doc(inline)]
-pub use validation::util::{access, access_mut, from_bytes};
+pub use validation::util::{access, access_mut};
+
+#[cfg(all(feature = "bytecheck", feature = "alloc"))]
+#[cfg_attr(
+    doc_cfg,
+    doc(cfg(all(feature = "bytecheck", feature = "alloc")))
+)]
+#[doc(inline)]
+pub use validation::util::from_bytes;
 
 use crate::{
     primitive::ArchivedIsize,

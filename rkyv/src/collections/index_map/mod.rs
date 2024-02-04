@@ -11,11 +11,13 @@ use crate::{
         hash_index::{ArchivedHashIndex, HashBuilder, HashIndexResolver},
         util::Entry,
     },
+    ser::{Allocator, Writer, WriterExt as _},
+    Serialize,
     out_field,
     primitive::ArchivedUsize,
-    ser::WriterExt as _,
     RelPtr,
 };
+use rancor::Fallible;
 use core::{
     borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData,
 };
@@ -220,86 +222,74 @@ impl<K, V> ArchivedIndexMap<K, V> {
         let (fp, fo) = out_field!(out.entries);
         RelPtr::emplace(pos + fp, resolver.entries_pos, fo);
     }
-}
 
-#[cfg(feature = "alloc")]
-const _: () = {
-    use rancor::Fallible;
+    /// Serializes an iterator of key-value pairs as an index map.
+    ///
+    /// # Safety
+    ///
+    /// - The keys returned by the iterator must be unique
+    /// - The index function must return the index of the given key within the iterator
+    pub unsafe fn serialize_from_iter_index<'a, UK, UV, I, F, S>(
+        iter: I,
+        index: F,
+        serializer: &mut S,
+    ) -> Result<IndexMapResolver, S::Error>
+    where
+        UK: 'a + Serialize<S, Archived = K> + Hash + Eq,
+        UV: 'a + Serialize<S, Archived = V>,
+        I: Clone + ExactSizeIterator<Item = (&'a UK, &'a UV)>,
+        F: Fn(&UK) -> usize,
+        S: Fallible + Writer + Allocator + ?Sized,
+    {
+        use crate::util::ScratchVec;
 
-    use crate::{
-        ser::{Allocator, Writer},
-        Serialize,
-    };
+        let len = iter.len();
 
-    impl<K, V> ArchivedIndexMap<K, V> {
-        /// Serializes an iterator of key-value pairs as an index map.
-        ///
-        /// # Safety
-        ///
-        /// - The keys returned by the iterator must be unique
-        /// - The index function must return the index of the given key within the iterator
-        pub unsafe fn serialize_from_iter_index<'a, UK, UV, I, F, S>(
-            iter: I,
-            index: F,
-            serializer: &mut S,
-        ) -> Result<IndexMapResolver, S::Error>
-        where
-            UK: 'a + Serialize<S, Archived = K> + Hash + Eq,
-            UV: 'a + Serialize<S, Archived = V>,
-            I: Clone + ExactSizeIterator<Item = (&'a UK, &'a UV)>,
-            F: Fn(&UK) -> usize,
-            S: Fallible + Writer + Allocator + ?Sized,
-        {
-            use crate::util::ScratchVec;
+        let mut entries = ScratchVec::new(serializer, iter.len())?;
+        entries.set_len(len);
+        let index_resolver = ArchivedHashIndex::build_and_serialize(
+            iter.clone(),
+            serializer,
+            &mut entries,
+        )?;
+        let mut entries = entries.assume_init();
 
-            let len = iter.len();
-
-            let mut entries = ScratchVec::new(serializer, iter.len())?;
-            entries.set_len(len);
-            let index_resolver = ArchivedHashIndex::build_and_serialize(
-                iter.clone(),
-                serializer,
-                &mut entries,
-            )?;
-            let mut entries = entries.assume_init();
-
-            // Serialize entries
-            let mut resolvers = ScratchVec::new(serializer, iter.len())?;
-            for (key, value) in iter.clone() {
-                resolvers.push((
-                    key.serialize(serializer)?,
-                    value.serialize(serializer)?,
-                ));
-            }
-
-            let entries_pos = serializer.align_for::<Entry<K, V>>()?;
-            for ((key, value), (key_resolver, value_resolver)) in
-                iter.zip(resolvers.drain(..))
-            {
-                serializer.resolve_aligned(
-                    &Entry { key, value },
-                    (key_resolver, value_resolver),
-                )?;
-            }
-
-            // Serialize pivots
-            let pivots_pos = serializer.align_for::<ArchivedUsize>()?;
-            for (key, _) in entries.drain(..) {
-                serializer.resolve_aligned(&index(key), ())?;
-            }
-
-            // Free scratch vecs
-            resolvers.free(serializer)?;
-            entries.free(serializer)?;
-
-            Ok(IndexMapResolver {
-                index_resolver,
-                pivots_pos,
-                entries_pos,
-            })
+        // Serialize entries
+        let mut resolvers = ScratchVec::new(serializer, iter.len())?;
+        for (key, value) in iter.clone() {
+            resolvers.push((
+                key.serialize(serializer)?,
+                value.serialize(serializer)?,
+            ));
         }
+
+        let entries_pos = serializer.align_for::<Entry<K, V>>()?;
+        for ((key, value), (key_resolver, value_resolver)) in
+            iter.zip(resolvers.drain(..))
+        {
+            serializer.resolve_aligned(
+                &Entry { key, value },
+                (key_resolver, value_resolver),
+            )?;
+        }
+
+        // Serialize pivots
+        let pivots_pos = serializer.align_for::<ArchivedUsize>()?;
+        for (key, _) in entries.drain(..) {
+            serializer.resolve_aligned(&index(key), ())?;
+        }
+
+        // Free scratch vecs
+        resolvers.free(serializer)?;
+        entries.free(serializer)?;
+
+        Ok(IndexMapResolver {
+            index_resolver,
+            pivots_pos,
+            entries_pos,
+        })
     }
-};
+}
 
 impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for ArchivedIndexMap<K, V> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

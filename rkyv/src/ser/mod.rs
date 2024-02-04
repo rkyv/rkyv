@@ -11,17 +11,19 @@ pub use self::{
     writer::{Positional, Writer, WriterExt},
 };
 
-#[cfg(feature = "alloc")]
-use crate::util::AlignedVec;
 use crate::{
     ser::{
-        allocator::{
-            BackupAllocator, BufferAllocator, BumpAllocator, GlobalAllocator,
-        },
-        sharing::{Duplicate, Unify},
-        writer::BufferWriter,
+        allocator::BufferAllocator, sharing::Duplicate, writer::BufferWriter,
     },
     util::AlignedBytes,
+};
+#[cfg(feature = "alloc")]
+use crate::{
+    ser::{
+        allocator::{BackupAllocator, BumpAllocator, GlobalAllocator},
+        sharing::Unify,
+    },
+    util::AlignedVec,
 };
 use ::core::{alloc::Layout, ptr::NonNull};
 

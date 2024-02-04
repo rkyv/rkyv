@@ -11,7 +11,6 @@ use crate::{
     out_field,
 };
 use core::{borrow::Borrow, fmt, hash::Hash};
-use rancor::Fallible;
 
 /// An archived `IndexSet`.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -128,6 +127,7 @@ const _: () = {
         ser::{Allocator, Writer},
         Serialize,
     };
+    use rancor::Fallible;
 
     impl<K> ArchivedIndexSet<K> {
         /// Serializes an iterator of keys as an index set.

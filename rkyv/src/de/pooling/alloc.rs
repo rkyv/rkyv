@@ -1,6 +1,6 @@
 //! Adapters wrap deserializers and add support for deserializer traits.
 
-use super::{Pooling, SharedPointer};
+use super::{ErasedPtr, Pooling};
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
 use core::{fmt, mem::size_of};
@@ -29,11 +29,25 @@ impl fmt::Display for DuplicateSharedPointer {
 #[cfg(feature = "std")]
 impl std::error::Error for DuplicateSharedPointer {}
 
+#[derive(Debug)]
+struct SharedPointer {
+    ptr: ErasedPtr,
+    drop: unsafe fn(ErasedPtr),
+}
+
+impl Drop for SharedPointer {
+    fn drop(&mut self) {
+        unsafe {
+            (self.drop)(self.ptr);
+        }
+    }
+}
+
 /// A shared pointer strategy that unifies deserializations of the same shared
 /// pointer.
 #[derive(Default)]
 pub struct Unify {
-    shared_pointers: hash_map::HashMap<usize, Box<dyn SharedPointer>>,
+    shared_pointers: hash_map::HashMap<usize, SharedPointer>,
 }
 
 impl Unify {
@@ -54,32 +68,27 @@ impl Unify {
 
 impl fmt::Debug for Unify {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_map()
-            .entries(
-                self.shared_pointers
-                    .iter()
-                    .map(|(s, p)| (s, &**p as *const _)),
-            )
-            .finish()
+        f.debug_map().entries(self.shared_pointers.iter()).finish()
     }
 }
 
 impl<E: Error> Pooling<E> for Unify {
-    fn get_shared_ptr(&mut self, address: usize) -> Option<&dyn SharedPointer> {
-        self.shared_pointers.get(&address).map(|p| p.as_ref())
+    fn get_shared_ptr(&mut self, address: usize) -> Option<ErasedPtr> {
+        self.shared_pointers.get(&address).map(|p| p.ptr)
     }
 
-    fn add_shared_ptr(
+    unsafe fn add_shared_ptr(
         &mut self,
         address: usize,
-        shared: Box<dyn SharedPointer>,
+        ptr: ErasedPtr,
+        drop: unsafe fn(ErasedPtr),
     ) -> Result<(), E> {
         match self.shared_pointers.entry(address) {
             hash_map::Entry::Occupied(_) => {
                 fail!(DuplicateSharedPointer { address });
             }
             hash_map::Entry::Vacant(e) => {
-                e.insert(shared);
+                e.insert(SharedPointer { ptr, drop });
                 Ok(())
             }
         }

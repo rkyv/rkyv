@@ -6,7 +6,6 @@
 use crate::collections::swiss_table::{
     ArchivedSwissTable, Keys, SwissTableResolver,
 };
-#[cfg(feature = "alloc")]
 use crate::{
     ser::{Allocator, Writer},
     Serialize,
@@ -85,7 +84,6 @@ impl<K> ArchivedSwissSet<K> {
     }
 
     /// Serializes an iterator of keys as a hash set.
-    #[cfg(feature = "alloc")]
     #[inline]
     pub fn serialize_from_iter<'a, KU, S, I>(
         iter: I,

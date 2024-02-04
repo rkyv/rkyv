@@ -1,4 +1,4 @@
-use super::{Pooling, SharedPointer};
+use super::{ErasedPtr, Pooling};
 
 /// A shared pointer strategy that duplicates deserializations of the same
 /// shared pointer.
@@ -6,14 +6,15 @@ use super::{Pooling, SharedPointer};
 pub struct Duplicate;
 
 impl<E> Pooling<E> for Duplicate {
-    fn get_shared_ptr(&mut self, _: usize) -> Option<&dyn SharedPointer> {
+    fn get_shared_ptr(&mut self, _: usize) -> Option<ErasedPtr> {
         None
     }
 
-    fn add_shared_ptr(
+    unsafe fn add_shared_ptr(
         &mut self,
         _: usize,
-        _: Box<dyn SharedPointer>,
+        _: ErasedPtr,
+        _: unsafe fn(ErasedPtr),
     ) -> Result<(), E> {
         Ok(())
     }

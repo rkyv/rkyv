@@ -1,5 +1,5 @@
 use crate::{
-    de::{Pooling, PoolingExt as _, SharedPointer},
+    de::{Metadata, Pooling, PoolingExt as _, SharedPointer},
     rc::{
         ArcFlavor, ArchivedRc, ArchivedRcWeak, RcFlavor, RcResolver,
         RcWeakResolver,
@@ -10,19 +10,12 @@ use crate::{
 };
 #[cfg(not(feature = "std"))]
 use alloc::{alloc, boxed::Box, rc, sync};
-use core::mem::forget;
+use ptr_meta::Pointee;
 use rancor::Fallible;
 #[cfg(feature = "std")]
 use std::{alloc, rc, sync};
 
 // Rc
-
-impl<T: ?Sized> SharedPointer for rc::Rc<T> {
-    #[inline]
-    fn data_address(&self) -> *const () {
-        rc::Rc::as_ptr(self) as *const ()
-    }
-}
 
 impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
     type Archived = ArchivedRc<T::Archived, RcFlavor>;
@@ -56,22 +49,38 @@ where
     }
 }
 
+unsafe impl<T: ?Sized> SharedPointer<T> for rc::Rc<T> {
+    unsafe fn from_value(ptr: *mut T) -> *mut T {
+        let rc = rc::Rc::<T>::from(unsafe { Box::from_raw(ptr) });
+        rc::Rc::into_raw(rc).cast_mut()
+    }
+
+    unsafe fn drop(ptr: *mut T) {
+        drop(unsafe { rc::Rc::from_raw(ptr) });
+    }
+}
+
 impl<T, D> Deserialize<rc::Rc<T>, D> for ArchivedRc<T::Archived, RcFlavor>
 where
-    T: ArchiveUnsized + ?Sized + 'static,
+    T: ArchiveUnsized + Pointee + ?Sized + 'static,
     T::Archived: DeserializeUnsized<T, D>,
+    T::Metadata: Into<Metadata>,
+    Metadata: Into<T::Metadata>,
     D: Fallible + Pooling + ?Sized,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<rc::Rc<T>, D::Error> {
-        let raw_shared_ptr = deserializer.deserialize_shared(
-            self.get(),
-            |ptr| rc::Rc::<T>::from(unsafe { Box::from_raw(ptr) }),
-            |layout| unsafe { alloc::alloc(layout) },
-        )?;
-        let shared_ptr = unsafe { rc::Rc::<T>::from_raw(raw_shared_ptr) };
-        forget(shared_ptr.clone());
-        Ok(shared_ptr)
+        let raw_shared_ptr = deserializer
+            .deserialize_shared::<_, rc::Rc<T>, _>(
+                self.get(),
+                // TODO: make sure that Rc<()> and Arc<()> won't alloc with zero
+                // size layouts
+                |layout| unsafe { alloc::alloc(layout) },
+            )?;
+        unsafe {
+            rc::Rc::<T>::increment_strong_count(raw_shared_ptr);
+        }
+        unsafe { Ok(rc::Rc::<T>::from_raw(raw_shared_ptr)) }
     }
 }
 
@@ -147,13 +156,6 @@ where
 
 // Arc
 
-impl<T: ?Sized> SharedPointer for sync::Arc<T> {
-    #[inline]
-    fn data_address(&self) -> *const () {
-        sync::Arc::as_ptr(self) as *const ()
-    }
-}
-
 impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     type Archived = ArchivedRc<T::Archived, ArcFlavor>;
     type Resolver = RcResolver;
@@ -186,9 +188,22 @@ where
     }
 }
 
+unsafe impl<T: ?Sized> SharedPointer<T> for sync::Arc<T> {
+    unsafe fn from_value(ptr: *mut T) -> *mut T {
+        let arc = sync::Arc::<T>::from(unsafe { Box::from_raw(ptr) });
+        sync::Arc::into_raw(arc).cast_mut()
+    }
+
+    unsafe fn drop(ptr: *mut T) {
+        drop(unsafe { sync::Arc::from_raw(ptr) });
+    }
+}
+
 impl<T, D> Deserialize<sync::Arc<T>, D> for ArchivedRc<T::Archived, ArcFlavor>
 where
-    T: ArchiveUnsized + ?Sized + 'static,
+    T: ArchiveUnsized + Pointee + ?Sized + 'static,
+    T::Metadata: Into<Metadata>,
+    Metadata: Into<T::Metadata>,
     T::Archived: DeserializeUnsized<T, D>,
     D: Fallible + Pooling + ?Sized,
 {
@@ -197,14 +212,17 @@ where
         &self,
         deserializer: &mut D,
     ) -> Result<sync::Arc<T>, D::Error> {
-        let raw_shared_ptr = deserializer.deserialize_shared(
-            self.get(),
-            |ptr| sync::Arc::<T>::from(unsafe { Box::from_raw(ptr) }),
-            |layout| unsafe { alloc::alloc(layout) },
-        )?;
-        let shared_ptr = unsafe { sync::Arc::<T>::from_raw(raw_shared_ptr) };
-        forget(shared_ptr.clone());
-        Ok(shared_ptr)
+        let raw_shared_ptr = deserializer
+            .deserialize_shared::<_, sync::Arc<T>, _>(
+                self.get(),
+                // TODO: make sure that Rc<()> and Arc<()> won't alloc with zero
+                // size layouts
+                |layout| unsafe { alloc::alloc(layout) },
+            )?;
+        unsafe {
+            sync::Arc::<T>::increment_strong_count(raw_shared_ptr);
+        }
+        unsafe { Ok(sync::Arc::<T>::from_raw(raw_shared_ptr)) }
     }
 }
 

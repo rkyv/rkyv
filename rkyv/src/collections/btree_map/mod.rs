@@ -5,7 +5,6 @@
 
 use crate::{
     primitive::{ArchivedU16, ArchivedUsize},
-    ser::WriterExt as _,
     Archive, ArchivePointee, RelPtr,
 };
 use core::{
@@ -394,7 +393,10 @@ impl<K, V> ArchivedBTreeMap<K, V> {
 
 #[cfg(feature = "alloc")]
 const _: () = {
-    use crate::{ser::Writer, Serialize};
+    use crate::{
+        ser::{Writer, WriterExt as _},
+        Serialize,
+    };
     #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
     use core::mem;
