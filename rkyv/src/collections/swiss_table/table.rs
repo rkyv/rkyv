@@ -37,14 +37,14 @@ use crate::{
     Archive as _, RawRelPtr, Serialize,
 };
 
-/// An archived raw SwissTable hash map.
+/// A low-level archived SwissTable hash table with explicit hashing.
 #[cfg_attr(feature = "stable_layout", repr(C))]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
     check_bytes(verify)
 )]
-pub struct ArchivedRawSwissTable<T> {
+pub struct ArchivedHashTable<T> {
     ptr: RawRelPtr,
     len: ArchivedUsize,
     cap: ArchivedUsize,
@@ -82,7 +82,7 @@ impl ProbeSeq {
     }
 }
 
-impl<T> ArchivedRawSwissTable<T> {
+impl<T> ArchivedHashTable<T> {
     fn probe_seq(hash: u64, capacity: usize) -> ProbeSeq {
         ProbeSeq {
             pos: h1(hash) % capacity,
@@ -107,7 +107,7 @@ impl<T> ArchivedRawSwissTable<T> {
         capacity.checked_next_power_of_two().unwrap() - 1
     }
 
-    // #[inline(always)]
+    #[inline(always)]
     fn get_entry<C>(&self, hash: u64, cmp: C) -> Option<NonNull<T>>
     where
         C: Fn(&T) -> bool,
@@ -182,19 +182,19 @@ impl<T> ArchivedRawSwissTable<T> {
         Some(unsafe { Pin::new_unchecked(ptr.as_mut()) })
     }
 
-    /// Returns whether the SwissTable is empty.
+    /// Returns whether the hash table is empty.
     #[inline]
     pub const fn is_empty(&self) -> bool {
         self.len.to_native() == 0
     }
 
-    /// Returns the number of elements in the SwissTable.
+    /// Returns the number of elements in the hash table.
     #[inline]
     pub const fn len(&self) -> usize {
         self.len.to_native() as usize
     }
 
-    /// Returns the total capacity of the SwissTable.
+    /// Returns the total capacity of the hash table.
     #[inline]
     pub fn capacity(&self) -> usize {
         self.cap.to_native() as usize
@@ -207,7 +207,7 @@ impl<T> ArchivedRawSwissTable<T> {
         }
     }
 
-    /// Returns an iterator over the entry pointers in the raw SwissTable.
+    /// Returns an iterator over the entry pointers in the hash table.
     pub fn raw_iter(&self) -> RawIter<T> {
         if self.is_empty() {
             RawIter {
@@ -261,7 +261,7 @@ impl<T> ArchivedRawSwissTable<T> {
         hash_item: fn(&TU) -> u64,
         load_factor: (usize, usize),
         serializer: &mut S,
-    ) -> Result<RawSwissTableResolver, S::Error>
+    ) -> Result<HashTableResolver, S::Error>
     where
         TU: Serialize<S, Archived = T>,
         S: Fallible + Writer + Allocator + ?Sized,
@@ -301,7 +301,7 @@ impl<T> ArchivedRawSwissTable<T> {
                 });
             }
 
-            return Ok(RawSwissTableResolver { pos: 0 });
+            return Ok(HashTableResolver { pos: 0 });
         }
 
         // Serialize all items
@@ -317,7 +317,7 @@ impl<T> ArchivedRawSwissTable<T> {
             resolvers.push(i.serialize(serializer)?);
         }
 
-        // Allocate scratch space for the SwissTable storage
+        // Allocate scratch space for the hash table storage
         let capacity = Self::capacity_from_len(len, load_factor)?;
         let control_count = Self::control_count(capacity)?;
 
@@ -403,7 +403,7 @@ impl<T> ArchivedRawSwissTable<T> {
             resolvers.free(serializer)?;
         }
 
-        Ok(RawSwissTableResolver {
+        Ok(HashTableResolver {
             pos: pos + control_offset,
         })
     }
@@ -417,7 +417,7 @@ impl<T> ArchivedRawSwissTable<T> {
         len: usize,
         load_factor: (usize, usize),
         pos: usize,
-        resolver: RawSwissTableResolver,
+        resolver: HashTableResolver,
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.ptr);
@@ -435,8 +435,8 @@ impl<T> ArchivedRawSwissTable<T> {
     }
 }
 
-/// The resolver for archived [SwissTables](ArchivedSwissTable).
-pub struct RawSwissTableResolver {
+/// The resolver for [`ArchivedHashTable`].
+pub struct HashTableResolver {
     pos: usize,
 }
 
@@ -471,7 +471,7 @@ impl ControlIter {
     }
 }
 
-/// An iterator over the entry pointers of a raw SwissTable.
+/// An iterator over the entry pointers of an [`ArchivedHashTable`].
 pub struct RawIter<T> {
     controls: ControlIter,
     entries: NonNull<T>,
@@ -519,7 +519,7 @@ mod verify {
     use bytecheck::{CheckBytes, Verify};
     use rancor::{fail, Error, Fallible};
 
-    use super::ArchivedRawSwissTable;
+    use super::ArchivedHashTable;
     use crate::{
         simd::Group,
         validation::{ArchiveContext, ArchiveContextExt},
@@ -535,7 +535,7 @@ mod verify {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             write!(
                 f,
-                "swisstable length must be strictly less than its capacity (length: {}, capacity: {})",
+                "hash table length must be strictly less than its capacity (length: {}, capacity: {})",
                 self.len,
                 self.cap,
             )
@@ -559,7 +559,7 @@ mod verify {
     #[cfg(feature = "std")]
     impl std::error::Error for UnwrappedControlByte {}
 
-    unsafe impl<C, T> Verify<C> for ArchivedRawSwissTable<T>
+    unsafe impl<C, T> Verify<C> for ArchivedHashTable<T>
     where
         C: Fallible + ArchiveContext,
         C::Error: Error,

@@ -1,5 +1,5 @@
 use crate::{
-    collections::swiss_set::{ArchivedSwissSet, SwissSetResolver},
+    collections::swiss_table::set::{ArchivedHashSet, HashSetResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Serialize,
 };
@@ -14,8 +14,8 @@ impl<K: Archive + Hash + Eq, S> Archive for HashSet<K, S>
 where
     K::Archived: Hash + Eq,
 {
-    type Archived = ArchivedSwissSet<K::Archived>;
-    type Resolver = SwissSetResolver;
+    type Archived = ArchivedHashSet<K::Archived>;
+    type Resolver = HashSetResolver;
 
     #[inline]
     unsafe fn resolve(
@@ -24,7 +24,7 @@ where
         resolver: Self::Resolver,
         out: *mut Self::Archived,
     ) {
-        ArchivedSwissSet::<K::Archived>::resolve_from_len(
+        ArchivedHashSet::<K::Archived>::resolve_from_len(
             self.len(),
             (7, 8),
             pos,
@@ -46,11 +46,11 @@ where
         &self,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        ArchivedSwissSet::serialize_from_iter(self.iter(), (7, 8), serializer)
+        ArchivedHashSet::serialize_from_iter(self.iter(), (7, 8), serializer)
     }
 }
 
-impl<K, D, S> Deserialize<HashSet<K, S>, D> for ArchivedSwissSet<K::Archived>
+impl<K, D, S> Deserialize<HashSet<K, S>, D> for ArchivedHashSet<K::Archived>
 where
     K: Archive + Hash + Eq,
     K::Archived: Deserialize<K, D> + Hash + Eq,
@@ -71,7 +71,7 @@ where
 }
 
 impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
-    PartialEq<HashSet<K, S>> for ArchivedSwissSet<AK>
+    PartialEq<HashSet<K, S>> for ArchivedHashSet<AK>
 {
     #[inline]
     fn eq(&self, other: &HashSet<K, S>) -> bool {
@@ -84,10 +84,10 @@ impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
 }
 
 impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
-    PartialEq<ArchivedSwissSet<AK>> for HashSet<K, S>
+    PartialEq<ArchivedHashSet<AK>> for HashSet<K, S>
 {
     #[inline]
-    fn eq(&self, other: &ArchivedSwissSet<AK>) -> bool {
+    fn eq(&self, other: &ArchivedHashSet<AK>) -> bool {
         other.eq(self)
     }
 }

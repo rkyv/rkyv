@@ -1,5 +1,5 @@
 use crate::{
-    collections::swiss_table::{ArchivedSwissTable, SwissTableResolver},
+    collections::swiss_table::map::{ArchivedHashMap, HashMapResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Serialize,
 };
@@ -14,8 +14,8 @@ impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>
 where
     K::Archived: Hash + Eq,
 {
-    type Archived = ArchivedSwissTable<K::Archived, V::Archived>;
-    type Resolver = SwissTableResolver;
+    type Archived = ArchivedHashMap<K::Archived, V::Archived>;
+    type Resolver = HashMapResolver;
 
     #[inline]
     unsafe fn resolve(
@@ -24,7 +24,7 @@ where
         resolver: Self::Resolver,
         out: *mut Self::Archived,
     ) {
-        ArchivedSwissTable::resolve_from_len(
+        ArchivedHashMap::resolve_from_len(
             self.len(),
             (7, 8),
             pos,
@@ -47,12 +47,12 @@ where
         &self,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        ArchivedSwissTable::serialize_from_iter(self.iter(), (7, 8), serializer)
+        ArchivedHashMap::serialize_from_iter(self.iter(), (7, 8), serializer)
     }
 }
 
 impl<K, V, D, S> Deserialize<HashMap<K, V, S>, D>
-    for ArchivedSwissTable<K::Archived, V::Archived>
+    for ArchivedHashMap<K::Archived, V::Archived>
 where
     K: Archive + Hash + Eq,
     K::Archived: Deserialize<K, D> + Hash + Eq,
@@ -84,7 +84,7 @@ impl<
         AK: Hash + Eq,
         AV: PartialEq<V>,
         S: BuildHasher,
-    > PartialEq<HashMap<K, V, S>> for ArchivedSwissTable<AK, AV>
+    > PartialEq<HashMap<K, V, S>> for ArchivedHashMap<AK, AV>
 {
     #[inline]
     fn eq(&self, other: &HashMap<K, V, S>) -> bool {
@@ -99,10 +99,10 @@ impl<
 }
 
 impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>>
-    PartialEq<ArchivedSwissTable<AK, AV>> for HashMap<K, V>
+    PartialEq<ArchivedHashMap<AK, AV>> for HashMap<K, V>
 {
     #[inline]
-    fn eq(&self, other: &ArchivedSwissTable<AK, AV>) -> bool {
+    fn eq(&self, other: &ArchivedHashMap<AK, AV>) -> bool {
         other.eq(self)
     }
 }

@@ -1,21 +1,4 @@
-//! An archived hash map implementation based on Google's high-performance
-//! SwissTable hash map.
-//!
-//! Notable differences from other implementations:
-//!
-//! - The number of control bytes is rounded up to a maximum group width (16)
-//!   instead of the next power of two. This reduces the number of empty buckets
-//!   on the wire. Since this collection is immutable after writing, we'll never
-//!   benefit from having more buckets than we need.
-//! - Because the bucket count is not a power of two, the triangular probing
-//!   sequence simply skips any indices larger than the actual size of the
-//!   buckets array.
-//! - Instead of the final control bytes always being marked EMPTY, the last
-//!   control bytes repeat the first few. This helps reduce the number of
-//!   lookups when probing at the end of the control bytes.
-//! - Because the available SIMD group width may be less than the maximum group
-//!   width, each probe reads N groups before striding where N is the maximum
-//!   group width divided by the SIMD group width.
+//! Archived hash map implementation using an archived SwissTable.
 
 use core::{
     borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData,
@@ -25,8 +8,8 @@ use core::{
 use rancor::{Error, Fallible};
 
 use crate::{
-    collections::raw_swiss_table::{
-        ArchivedRawSwissTable, RawIter, RawSwissTableResolver,
+    collections::swiss_table::table::{
+        ArchivedHashTable, HashTableResolver, RawIter,
     },
     hash::hash_value,
     ser::{Allocator, Writer},
@@ -87,11 +70,11 @@ struct Entry<K, V> {
 /// An archived SwissTable hash map.
 #[cfg_attr(feature = "stable_layout", repr(C))]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-pub struct ArchivedSwissTable<K, V> {
-    raw: ArchivedRawSwissTable<Entry<K, V>>,
+pub struct ArchivedHashMap<K, V> {
+    raw: ArchivedHashTable<Entry<K, V>>,
 }
 
-impl<K, V> ArchivedSwissTable<K, V> {
+impl<K, V> ArchivedHashMap<K, V> {
     /// Returns the key-value pair corresponding to the supplied key.
     #[inline]
     pub fn get_key_value_with<Q, C>(&self, key: &Q, cmp: C) -> Option<(&K, &V)>
@@ -191,7 +174,7 @@ impl<K, V> ArchivedSwissTable<K, V> {
         Some(self.get_key_value_mut(key)?.1)
     }
 
-    /// Returns whether the SwissTable contains the given key.
+    /// Returns whether the hash map contains the given key.
     #[inline]
     pub fn contains_key<Q>(&self, key: &Q) -> bool
     where
@@ -201,25 +184,25 @@ impl<K, V> ArchivedSwissTable<K, V> {
         self.get(key).is_some()
     }
 
-    /// Returns whether the SwissTable is empty.
+    /// Returns whether the hash map is empty.
     #[inline]
     pub const fn is_empty(&self) -> bool {
         self.raw.is_empty()
     }
 
-    /// Returns the number of elements in the SwissTable.
+    /// Returns the number of elements in the hash map.
     #[inline]
     pub const fn len(&self) -> usize {
         self.raw.len()
     }
 
-    /// Returns the total capacity of the SwissTable.
+    /// Returns the total capacity of the hash map.
     #[inline]
     pub fn capacity(&self) -> usize {
         self.raw.capacity()
     }
 
-    /// Returns an iterator over the key-value entries in the SwissTable.
+    /// Returns an iterator over the key-value entries in the hash map.
     #[inline]
     pub fn iter(&self) -> Iter<'_, K, V> {
         Iter {
@@ -228,8 +211,7 @@ impl<K, V> ArchivedSwissTable<K, V> {
         }
     }
 
-    /// Returns an iterator over the mutable key-value entries in the
-    /// SwissTable.
+    /// Returns an iterator over the mutable key-value entries in the hash map.
     #[inline]
     pub fn iter_mut(self: Pin<&mut Self>) -> IterMut<'_, K, V> {
         IterMut {
@@ -238,7 +220,7 @@ impl<K, V> ArchivedSwissTable<K, V> {
         }
     }
 
-    /// Returns an iterator over the keys in the SwissTable.
+    /// Returns an iterator over the keys in the hash map.
     #[inline]
     pub fn keys(&self) -> Keys<'_, K, V> {
         Keys {
@@ -247,7 +229,7 @@ impl<K, V> ArchivedSwissTable<K, V> {
         }
     }
 
-    /// Returns an iterator over the values in the SwissTable.
+    /// Returns an iterator over the values in the hash map.
     #[inline]
     pub fn values(&self) -> Values<'_, K, V> {
         Values {
@@ -256,7 +238,7 @@ impl<K, V> ArchivedSwissTable<K, V> {
         }
     }
 
-    /// Returns an iterator over the mutable values in the SwissTable.
+    /// Returns an iterator over the mutable values in the hash map.
     #[inline]
     pub fn values_mut(self: Pin<&mut Self>) -> ValuesMut<'_, K, V> {
         ValuesMut {
@@ -270,7 +252,7 @@ impl<K, V> ArchivedSwissTable<K, V> {
         iter: I,
         load_factor: (usize, usize),
         serializer: &mut S,
-    ) -> Result<SwissTableResolver, S::Error>
+    ) -> Result<HashMapResolver, S::Error>
     where
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
         VU: 'a + Serialize<S, Archived = V>,
@@ -278,13 +260,13 @@ impl<K, V> ArchivedSwissTable<K, V> {
         S::Error: Error,
         I: Clone + ExactSizeIterator<Item = (&'a KU, &'a VU)>,
     {
-        ArchivedRawSwissTable::<Entry<K, V>>::serialize_from_iter(
+        ArchivedHashTable::<Entry<K, V>>::serialize_from_iter(
             iter.map(|(key, value)| EntryAdapter { key, value }),
             |e| hash_value(e.key),
             load_factor,
             serializer,
         )
-        .map(SwissTableResolver)
+        .map(HashMapResolver)
     }
 
     /// Resolves an archived hash map from a given length and parameters.
@@ -296,10 +278,10 @@ impl<K, V> ArchivedSwissTable<K, V> {
         len: usize,
         load_factor: (usize, usize),
         pos: usize,
-        resolver: SwissTableResolver,
+        resolver: HashMapResolver,
         out: *mut Self,
     ) {
-        ArchivedRawSwissTable::<Entry<K, V>>::resolve_from_len(
+        ArchivedHashTable::<Entry<K, V>>::resolve_from_len(
             len,
             load_factor,
             pos,
@@ -309,16 +291,16 @@ impl<K, V> ArchivedSwissTable<K, V> {
     }
 }
 
-impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for ArchivedSwissTable<K, V> {
+impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for ArchivedHashMap<K, V> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_map().entries(self.iter()).finish()
     }
 }
 
-impl<K: Hash + Eq, V: Eq> Eq for ArchivedSwissTable<K, V> {}
+impl<K: Hash + Eq, V: Eq> Eq for ArchivedHashMap<K, V> {}
 
-impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedSwissTable<K, V> {
+impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         if self.len() != other.len() {
@@ -331,7 +313,7 @@ impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedSwissTable<K, V> {
     }
 }
 
-impl<K, Q, V> Index<&'_ Q> for ArchivedSwissTable<K, V>
+impl<K, Q, V> Index<&'_ Q> for ArchivedHashMap<K, V>
 where
     K: Eq + Hash + Borrow<Q>,
     Q: Eq + Hash + ?Sized,
@@ -344,13 +326,13 @@ where
     }
 }
 
-/// The resolver for archived [SwissTables](ArchivedSwissTable).
-pub struct SwissTableResolver(RawSwissTableResolver);
+/// The resolver for [`ArchivedHashMap`].
+pub struct HashMapResolver(HashTableResolver);
 
-/// An iterator over the key-value pairs of a SwissTable.
+/// An iterator over the key-value pairs of an [`ArchivedHashMap`].
 pub struct Iter<'a, K, V> {
     raw: RawIter<Entry<K, V>>,
-    _phantom: PhantomData<&'a ArchivedSwissTable<K, V>>,
+    _phantom: PhantomData<&'a ArchivedHashMap<K, V>>,
 }
 
 impl<'a, K, V> Iterator for Iter<'a, K, V> {
@@ -374,10 +356,10 @@ impl<K, V> ExactSizeIterator for Iter<'_, K, V> {
 
 impl<K, V> FusedIterator for Iter<'_, K, V> {}
 
-/// An iterator over the mutable key-value pairs of a SwissTable.
+/// An iterator over the mutable key-value pairs of an [`ArchivedHashMap`].
 pub struct IterMut<'a, K, V> {
     raw: RawIter<Entry<K, V>>,
-    _phantom: PhantomData<&'a ArchivedSwissTable<K, V>>,
+    _phantom: PhantomData<&'a ArchivedHashMap<K, V>>,
 }
 
 impl<'a, K, V> Iterator for IterMut<'a, K, V> {
@@ -401,10 +383,10 @@ impl<K, V> ExactSizeIterator for IterMut<'_, K, V> {
 
 impl<K, V> FusedIterator for IterMut<'_, K, V> {}
 
-/// An iterator over the keys of a SwissTable.
+/// An iterator over the keys of an [`ArchivedHashMap`].
 pub struct Keys<'a, K, V> {
     raw: RawIter<Entry<K, V>>,
-    _phantom: PhantomData<&'a ArchivedSwissTable<K, V>>,
+    _phantom: PhantomData<&'a ArchivedHashMap<K, V>>,
 }
 
 impl<'a, K, V> Iterator for Keys<'a, K, V> {
@@ -427,10 +409,10 @@ impl<K, V> ExactSizeIterator for Keys<'_, K, V> {
 
 impl<K, V> FusedIterator for Keys<'_, K, V> {}
 
-/// An iterator over the values of a SwissTable.
+/// An iterator over the values of an [`ArchivedHashMap`].
 pub struct Values<'a, K, V> {
     raw: RawIter<Entry<K, V>>,
-    _phantom: PhantomData<&'a ArchivedSwissTable<K, V>>,
+    _phantom: PhantomData<&'a ArchivedHashMap<K, V>>,
 }
 
 impl<'a, K, V> Iterator for Values<'a, K, V> {
@@ -453,10 +435,10 @@ impl<K, V> ExactSizeIterator for Values<'_, K, V> {
 
 impl<K, V> FusedIterator for Values<'_, K, V> {}
 
-/// An iterator over the mutable values of a SwissTable.
+/// An iterator over the mutable values of an [`ArchivedHashMap`].
 pub struct ValuesMut<'a, K, V> {
     raw: RawIter<Entry<K, V>>,
-    _phantom: PhantomData<&'a ArchivedSwissTable<K, V>>,
+    _phantom: PhantomData<&'a ArchivedHashMap<K, V>>,
 }
 
 impl<'a, K, V> Iterator for ValuesMut<'a, K, V> {

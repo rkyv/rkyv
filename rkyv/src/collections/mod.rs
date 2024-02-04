@@ -2,8 +2,6 @@
 
 pub mod btree_map;
 pub mod btree_set;
-pub mod raw_swiss_table;
-pub mod swiss_set;
 pub mod swiss_table;
 // TODO: move these into a separate crate when indexmap adds rkyv support
 // pub mod index_map;

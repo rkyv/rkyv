@@ -1,10 +1,7 @@
-//! Archived hash set implementation.
-//!
-//! During archiving, hashsets are built into minimal perfect hashsets using
-//! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
+//! Archived hash set implementation using an archived SwissTable.
 
-use crate::collections::swiss_table::{
-    ArchivedSwissTable, Keys, SwissTableResolver,
+use crate::collections::swiss_table::map::{
+    ArchivedHashMap, HashMapResolver, Keys,
 };
 use crate::{
     ser::{Allocator, Writer},
@@ -13,13 +10,13 @@ use crate::{
 use core::{borrow::Borrow, fmt, hash::Hash};
 use rancor::{Error, Fallible};
 
-/// An archived `HashSet`. This is a wrapper around a hash map with the same key and a value of
-/// `()`.
+/// An archived `HashSet`. This is a wrapper around a hash map with the same key
+/// and unit value.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
-pub struct ArchivedSwissSet<K>(ArchivedSwissTable<K, ()>);
+pub struct ArchivedHashSet<K>(ArchivedHashMap<K, ()>);
 
-impl<K> ArchivedSwissSet<K> {
+impl<K> ArchivedHashSet<K> {
     /// Gets the number of items in the hash set.
     #[inline]
     pub const fn len(&self) -> usize {
@@ -70,11 +67,11 @@ impl<K> ArchivedSwissSet<K> {
         len: usize,
         load_factor: (usize, usize),
         pos: usize,
-        resolver: SwissSetResolver,
+        resolver: HashSetResolver,
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.0);
-        ArchivedSwissTable::resolve_from_len(
+        ArchivedHashMap::resolve_from_len(
             len,
             load_factor,
             pos + fp,
@@ -89,14 +86,14 @@ impl<K> ArchivedSwissSet<K> {
         iter: I,
         load_factor: (usize, usize),
         serializer: &mut S,
-    ) -> Result<SwissSetResolver, S::Error>
+    ) -> Result<HashSetResolver, S::Error>
     where
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
         S: Fallible + Writer + Allocator + ?Sized,
         S::Error: Error,
         I: Clone + ExactSizeIterator<Item = &'a KU>,
     {
-        Ok(SwissSetResolver(ArchivedSwissTable::serialize_from_iter(
+        Ok(HashSetResolver(ArchivedHashMap::serialize_from_iter(
             iter.map(|x| (x, &())),
             load_factor,
             serializer,
@@ -104,20 +101,20 @@ impl<K> ArchivedSwissSet<K> {
     }
 }
 
-impl<K: fmt::Debug> fmt::Debug for ArchivedSwissSet<K> {
+impl<K: fmt::Debug> fmt::Debug for ArchivedHashSet<K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_set().entries(self.iter()).finish()
     }
 }
 
 /// The resolver for archived hash sets.
-pub struct SwissSetResolver(SwissTableResolver);
+pub struct HashSetResolver(HashMapResolver);
 
-impl<K: Hash + Eq> PartialEq for ArchivedSwissSet<K> {
+impl<K: Hash + Eq> PartialEq for ArchivedHashSet<K> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<K: Hash + Eq> Eq for ArchivedSwissSet<K> {}
+impl<K: Hash + Eq> Eq for ArchivedHashSet<K> {}
