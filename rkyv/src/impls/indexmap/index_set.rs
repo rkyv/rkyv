@@ -1,10 +1,11 @@
 use crate::{
-    collections::index_set::{ArchivedIndexSet, IndexSetResolver},
+    collections::swiss_table::{ArchivedIndexSet, IndexSetResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Fallible, Serialize,
 };
 use core::hash::{BuildHasher, Hash};
 use indexmap::IndexSet;
+use rancor::Error;
 
 impl<K: Archive, S> Archive for IndexSet<K, S> {
     type Archived = ArchivedIndexSet<K::Archived>;
@@ -16,7 +17,13 @@ impl<K: Archive, S> Archive for IndexSet<K, S> {
         resolver: Self::Resolver,
         out: *mut Self::Archived,
     ) {
-        ArchivedIndexSet::resolve_from_len(self.len(), pos, resolver, out);
+        ArchivedIndexSet::resolve_from_len(
+            self.len(),
+            (7, 8),
+            pos,
+            resolver,
+            out,
+        );
     }
 }
 
@@ -24,19 +31,13 @@ impl<K, S, RandomState> Serialize<S> for IndexSet<K, RandomState>
 where
     K: Hash + Eq + Serialize<S>,
     S: Fallible + Allocator + Writer + ?Sized,
-    RandomState: BuildHasher,
+    S::Error: Error,
 {
     fn serialize(
         &self,
         serializer: &mut S,
     ) -> Result<IndexSetResolver, S::Error> {
-        unsafe {
-            ArchivedIndexSet::serialize_from_iter_index(
-                self.iter(),
-                |k| self.get_index_of(k).unwrap(),
-                serializer,
-            )
-        }
+        ArchivedIndexSet::serialize_from_iter(self.iter(), (7, 8), serializer)
     }
 }
 
@@ -68,52 +69,51 @@ impl<UK, K: PartialEq<UK>, S: BuildHasher> PartialEq<IndexSet<UK, S>>
     }
 }
 
-// TODO: re-enable after switching indexmap over to swisstable
-// #[cfg(test)]
-// mod tests {
-//     use crate::{access_unchecked, deserialize};
-//     use indexmap::{indexset, IndexSet};
-//     use rancor::{Failure, Infallible};
+#[cfg(test)]
+mod tests {
+    use crate::{access_unchecked, deserialize};
+    use indexmap::{indexset, IndexSet};
+    use rancor::{Failure, Infallible};
 
-//     #[test]
-//     fn index_set() {
-//         let value = indexset! {
-//             String::from("foo"),
-//             String::from("bar"),
-//             String::from("baz"),
-//             String::from("bat"),
-//         };
+    #[test]
+    fn index_set() {
+        let value = indexset! {
+            String::from("foo"),
+            String::from("bar"),
+            String::from("baz"),
+            String::from("bat"),
+        };
 
-//         let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
-//         let archived =
-//             unsafe { access_unchecked::<IndexSet<String>>(result.as_ref()) };
+        let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
+        let archived =
+            unsafe { access_unchecked::<IndexSet<String>>(result.as_ref()) };
 
-//         assert_eq!(value.len(), archived.len());
-//         for k in value.iter() {
-//             let ak = archived.get(k.as_str()).unwrap();
-//             assert_eq!(k, ak);
-//         }
+        assert_eq!(value.len(), archived.len());
+        for k in value.iter() {
+            let ak = archived.get(k.as_str()).unwrap();
+            assert_eq!(k, ak);
+        }
 
-//         let deserialized =
-//             deserialize::<IndexSet<String>, _, Infallible>(archived, &mut ())
-//                 .unwrap();
-//         assert_eq!(value, deserialized);
-//     }
+        let deserialized =
+            deserialize::<IndexSet<String>, _, Infallible>(archived, &mut ())
+                .unwrap();
+        assert_eq!(value, deserialized);
+    }
 
-//     #[cfg(feature = "bytecheck")]
-//     #[test]
-//     fn validate_index_set() {
-//         use crate::check_archived_root;
+    #[cfg(feature = "bytecheck")]
+    #[test]
+    fn validate_index_set() {
+        use crate::access;
 
-//         let value = indexset! {
-//             String::from("foo"),
-//             String::from("bar"),
-//             String::from("baz"),
-//             String::from("bat"),
-//         };
+        let value = indexset! {
+            String::from("foo"),
+            String::from("bar"),
+            String::from("baz"),
+            String::from("bat"),
+        };
 
-//         let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
-//         check_archived_root::<IndexSet<String>>(result.as_ref())
-//             .expect("failed to validate archived index set");
-//     }
-// }
+        let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
+        access::<IndexSet<String>, Failure>(result.as_ref())
+            .expect("failed to validate archived index set");
+    }
+}

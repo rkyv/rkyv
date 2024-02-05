@@ -14,13 +14,15 @@ use rancor::{Error, Fallible};
 /// and unit value.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
-pub struct ArchivedHashSet<K>(ArchivedHashMap<K, ()>);
+pub struct ArchivedHashSet<K> {
+    inner: ArchivedHashMap<K, ()>,
+}
 
 impl<K> ArchivedHashSet<K> {
     /// Gets the number of items in the hash set.
     #[inline]
     pub const fn len(&self) -> usize {
-        self.0.len()
+        self.inner.len()
     }
 
     /// Gets the key corresponding to the given key in the hash set.
@@ -30,7 +32,7 @@ impl<K> ArchivedHashSet<K> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.0.get_key_value(k).map(|(k, _)| k)
+        self.inner.get_key_value(k).map(|(k, _)| k)
     }
 
     /// Returns whether the given key is in the hash set.
@@ -40,28 +42,26 @@ impl<K> ArchivedHashSet<K> {
         K: Borrow<Q>,
         Q: Hash + Eq,
     {
-        self.0.contains_key(k)
+        self.inner.contains_key(k)
     }
 
     /// Returns whether there are no items in the hash set.
     #[inline]
     pub const fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.inner.is_empty()
     }
 
     /// Gets an iterator over the keys of the underlying hash map.
     #[inline]
     pub fn iter(&self) -> Keys<K, ()> {
-        self.0.keys()
+        self.inner.keys()
     }
 
     /// Resolves an archived hash set from the given length and parameters.
     ///
     /// # Safety
     ///
-    /// - `len` must be the number of elements that were serialized
-    /// - `pos` must be the position of `out` within the archive
-    /// - `resolver` must be the result of serializing a hash map
+    /// `out` must point to a `Self` that properly aligned and valid for writes.
     #[inline]
     pub unsafe fn resolve_from_len(
         len: usize,
@@ -70,7 +70,7 @@ impl<K> ArchivedHashSet<K> {
         resolver: HashSetResolver,
         out: *mut Self,
     ) {
-        let (fp, fo) = out_field!(out.0);
+        let (fp, fo) = out_field!(out.inner);
         ArchivedHashMap::resolve_from_len(
             len,
             load_factor,
@@ -107,14 +107,14 @@ impl<K: fmt::Debug> fmt::Debug for ArchivedHashSet<K> {
     }
 }
 
-/// The resolver for archived hash sets.
-pub struct HashSetResolver(HashMapResolver);
-
 impl<K: Hash + Eq> PartialEq for ArchivedHashSet<K> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
+        self.inner == other.inner
     }
 }
 
 impl<K: Hash + Eq> Eq for ArchivedHashSet<K> {}
+
+/// The resolver for archived hash sets.
+pub struct HashSetResolver(HashMapResolver);

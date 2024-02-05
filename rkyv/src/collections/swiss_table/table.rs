@@ -1,4 +1,4 @@
-//! An archived hash map implementation based on Google's high-performance
+//! An archived hash table implementation based on Google's high-performance
 //! SwissTable hash map.
 //!
 //! Notable differences from other implementations:
@@ -255,18 +255,19 @@ impl<T> ArchivedHashTable<T> {
         buckets_layout.extend(control_layout).into_error()
     }
 
-    /// Serializes an iterator of items as a raw map.
-    pub fn serialize_from_iter<TU, I, S>(
-        iter: I,
-        hash_item: fn(&TU) -> u64,
+    /// Serializes an iterator of items as a hash table.
+    pub fn serialize_from_iter<I, H, S>(
+        items: I,
+        hashes: H,
         load_factor: (usize, usize),
         serializer: &mut S,
     ) -> Result<HashTableResolver, S::Error>
     where
-        TU: Serialize<S, Archived = T>,
+        I: Clone + ExactSizeIterator,
+        I::Item: Serialize<S, Archived = T>,
+        H: ExactSizeIterator<Item = u64>,
         S: Fallible + Writer + Allocator + ?Sized,
         S::Error: Error,
-        I: Clone + ExactSizeIterator<Item = TU>,
     {
         // TODO: error if load_factor.0 is greater than load_factor.1
 
@@ -290,10 +291,10 @@ impl<T> ArchivedHashTable<T> {
         #[cfg(feature = "std")]
         impl std::error::Error for IteratorLengthMismatch {}
 
-        let len = iter.len();
+        let len = items.len();
 
         if len == 0 {
-            let count = iter.count();
+            let count = items.count();
             if count != 0 {
                 fail!(IteratorLengthMismatch {
                     expected: 0,
@@ -306,11 +307,11 @@ impl<T> ArchivedHashTable<T> {
 
         // Serialize all items
         let mut resolvers = unsafe { ScratchVec::new(serializer, len)? };
-        for i in iter.clone() {
+        for i in items.clone() {
             if resolvers.len() == len {
                 fail!(IteratorLengthMismatch {
                     expected: len,
-                    actual: len + iter.count(),
+                    actual: len + items.count(),
                 });
             }
 
@@ -342,8 +343,8 @@ impl<T> ArchivedHashTable<T> {
 
         let pos = serializer.align(layout.align())?;
 
-        for (i, resolver) in iter.zip(resolvers.drain(..)) {
-            let hash = hash_item(&i);
+        for ((i, resolver), hash) in items.zip(resolvers.drain(..)).zip(hashes)
+        {
             let h2_hash = h2(hash);
             let mut probe_seq = Self::probe_seq(hash, capacity);
 
@@ -408,7 +409,7 @@ impl<T> ArchivedHashTable<T> {
         })
     }
 
-    /// Resolves an archived hash map from a given length and parameters.
+    /// Resolves an archived hash table from a given length and parameters.
     ///
     /// # Safety
     ///

@@ -21,9 +21,8 @@ mod bitvec;
 mod bytes;
 #[cfg(feature = "hashbrown")]
 mod hashbrown;
-// TODO: re-enable
-// #[cfg(feature = "indexmap")]
-// mod indexmap;
+#[cfg(feature = "indexmap")]
+mod indexmap;
 #[cfg(feature = "smallvec")]
 mod smallvec;
 #[cfg(feature = "smol_str")]

@@ -4,13 +4,15 @@
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
 use crate::{
-    collections::{
-        hash_index::HashBuilder,
-        index_map::{ArchivedIndexMap, IndexMapResolver, Keys},
+    collections::swiss_table::{
+        index_map::Keys, ArchivedIndexMap, IndexMapResolver,
     },
     out_field,
+    ser::{Allocator, Writer},
+    Serialize,
 };
 use core::{borrow::Borrow, fmt, hash::Hash};
+use rancor::{Error, Fallible};
 
 /// An archived `IndexSet`.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -28,12 +30,6 @@ impl<K> ArchivedIndexSet<K> {
         Q: Hash + Eq,
     {
         self.inner.contains_key(k)
-    }
-
-    /// Returns the first key.
-    #[inline]
-    pub fn first(&self) -> Option<&K> {
-        self.inner.first().map(|(k, _)| k)
     }
 
     /// Returns the value stored in the set, if any.
@@ -72,12 +68,6 @@ impl<K> ArchivedIndexSet<K> {
         self.inner.get_index_of(key)
     }
 
-    /// Gets the hasher for this index set.
-    #[inline]
-    pub fn hasher(&self) -> HashBuilder {
-        self.inner.hasher()
-    }
-
     /// Returns whether the index set contains no values.
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -90,12 +80,6 @@ impl<K> ArchivedIndexSet<K> {
         self.inner.keys()
     }
 
-    /// Returns the last key.
-    #[inline]
-    pub fn last(&self) -> Option<&K> {
-        self.inner.last().map(|(k, _)| k)
-    }
-
     /// Returns the number of elements in the index set.
     #[inline]
     pub fn len(&self) -> usize {
@@ -106,58 +90,45 @@ impl<K> ArchivedIndexSet<K> {
     ///
     /// # Safety
     ///
-    /// - `len` must be the number of elements that were serialized
-    /// - `pos` must be the position of `out` within the archive
-    /// - `resolver` must be the result of serializing a hash map
+    /// `out` must point to a `Self` that properly aligned and valid for writes.
     #[inline]
     pub unsafe fn resolve_from_len(
         len: usize,
+        load_factor: (usize, usize),
         pos: usize,
         resolver: IndexSetResolver,
         out: *mut Self,
     ) {
         let (fp, fo) = out_field!(out.inner);
-        ArchivedIndexMap::resolve_from_len(len, pos + fp, resolver.0, fo);
+        ArchivedIndexMap::resolve_from_len(
+            len,
+            load_factor,
+            pos + fp,
+            resolver.0,
+            fo,
+        );
+    }
+
+    /// Serializes an iterator of keys as an index set.
+    #[inline]
+    pub fn serialize_from_iter<'a, I, UK, S>(
+        iter: I,
+        load_factor: (usize, usize),
+        serializer: &mut S,
+    ) -> Result<IndexSetResolver, S::Error>
+    where
+        I: Clone + ExactSizeIterator<Item = &'a UK>,
+        UK: 'a + Serialize<S, Archived = K> + Hash + Eq,
+        S: Fallible + Writer + Allocator + ?Sized,
+        S::Error: Error,
+    {
+        Ok(IndexSetResolver(ArchivedIndexMap::serialize_from_iter(
+            iter.map(|x| (x, &())),
+            load_factor,
+            serializer,
+        )?))
     }
 }
-
-#[cfg(feature = "alloc")]
-const _: () = {
-    use crate::{
-        ser::{Allocator, Writer},
-        Serialize,
-    };
-    use rancor::Fallible;
-
-    impl<K> ArchivedIndexSet<K> {
-        /// Serializes an iterator of keys as an index set.
-        ///
-        /// # Safety
-        ///
-        /// - The keys returned by the iterator must be unique
-        /// - The index function must return the index of the given key within the iterator
-        #[inline]
-        pub unsafe fn serialize_from_iter_index<'a, UK, I, F, S>(
-            iter: I,
-            index: F,
-            serializer: &mut S,
-        ) -> Result<IndexSetResolver, S::Error>
-        where
-            UK: 'a + Hash + Eq + Serialize<S, Archived = K>,
-            I: Clone + ExactSizeIterator<Item = &'a UK>,
-            F: Fn(&UK) -> usize,
-            S: Fallible + Allocator + Writer + ?Sized,
-        {
-            Ok(IndexSetResolver(
-                ArchivedIndexMap::serialize_from_iter_index(
-                    iter.map(|k| (k, &())),
-                    index,
-                    serializer,
-                )?,
-            ))
-        }
-    }
-};
 
 impl<K: fmt::Debug> fmt::Debug for ArchivedIndexSet<K> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -171,5 +142,7 @@ impl<K: PartialEq> PartialEq for ArchivedIndexSet<K> {
     }
 }
 
-/// The resolver for `IndexSet`.
+impl<K: Eq> Eq for ArchivedIndexSet<K> {}
+
+/// The resolver for archived index sets.
 pub struct IndexSetResolver(IndexMapResolver);
