@@ -14,7 +14,7 @@ repository.workspace = true
 
 [dependencies]
 bytecheck = { workspace = true, optional = true }
-hashbrown = { version = "0.12", optional = true }
+hashbrown = { version = "0.14", optional = true }
 ptr_meta = { workspace = true, default-features = false }
 rend = { version = "0.4", optional = true, default-features = false }
 rkyv_derive = { version = "=0.7.44", path = "../rkyv_derive" }
