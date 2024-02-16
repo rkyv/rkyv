@@ -1,3 +1,14 @@
+use core::{
+    marker::{PhantomData, PhantomPinned},
+    num::{
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
+        NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
+        NonZeroU8, NonZeroUsize,
+    },
+};
+
+use rancor::Fallible;
+
 use crate::{
     primitive::{
         ArchivedChar, ArchivedF32, ArchivedF64, ArchivedI128, ArchivedI16,
@@ -9,15 +20,6 @@ use crate::{
     },
     Archive, Archived, Deserialize, Serialize,
 };
-use core::{
-    marker::{PhantomData, PhantomPinned},
-    num::{
-        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
-        NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
-        NonZeroU8, NonZeroUsize,
-    },
-};
-use rancor::Fallible;
 
 macro_rules! impl_serialize_noop {
     ($type:ty) => {

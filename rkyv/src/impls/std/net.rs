@@ -1,18 +1,20 @@
-use crate::{
-    net::{
-        ArchivedIpAddr, ArchivedIpv4Addr, ArchivedIpv6Addr, ArchivedSocketAddr,
-        ArchivedSocketAddrV4, ArchivedSocketAddrV6,
-    },
-    Archive, Deserialize, Serialize,
-};
 use core::{cmp, ptr};
-use rancor::Fallible;
 use std::{
     io,
     net::{
         IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6,
         ToSocketAddrs,
     },
+};
+
+use rancor::Fallible;
+
+use crate::{
+    net::{
+        ArchivedIpAddr, ArchivedIpv4Addr, ArchivedIpv6Addr, ArchivedSocketAddr,
+        ArchivedSocketAddrV4, ArchivedSocketAddrV6,
+    },
+    Archive, Deserialize, Serialize,
 };
 
 // Ipv4Addr

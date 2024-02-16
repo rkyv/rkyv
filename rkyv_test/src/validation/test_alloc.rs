@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use crate::{util::alloc::*, validation::util::alloc::serialize_and_check};
     #[cfg(not(feature = "std"))]
     use alloc::{
         boxed::Box,
@@ -10,6 +9,9 @@ mod tests {
         vec,
         vec::Vec,
     };
+    #[cfg(feature = "std")]
+    use std::rc::Rc;
+
     use rkyv::{
         access,
         bytecheck::CheckBytes,
@@ -20,11 +22,10 @@ mod tests {
         validation::util::access_pos,
         Archive, Serialize,
     };
-    #[cfg(feature = "std")]
-    use std::rc::Rc;
-
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
+
+    use crate::{util::alloc::*, validation::util::alloc::serialize_and_check};
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
@@ -182,7 +183,6 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn cycle_detection() {
         use rkyv::rancor::Fallible;
-
         use rkyv::{validation::ArchiveContext, Archived};
 
         #[derive(Archive)]

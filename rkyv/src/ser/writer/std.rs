@@ -1,7 +1,8 @@
+use std::io;
+
 use rancor::ResultExt as _;
 
 use crate::ser::{Positional, Writer};
-use std::io;
 
 /// Wraps a type that implements [`io::Write`](std::io::Write) and equips it
 /// with [`Writer`].

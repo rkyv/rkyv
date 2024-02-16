@@ -1,4 +1,3 @@
-use crate::ser::Allocator;
 use core::{
     alloc::Layout,
     borrow::{Borrow, BorrowMut},
@@ -8,6 +7,8 @@ use core::{
     ptr::NonNull,
     slice,
 };
+
+use crate::ser::Allocator;
 
 /// A vector view into serializer scratch space.
 pub struct ScratchVec<T> {

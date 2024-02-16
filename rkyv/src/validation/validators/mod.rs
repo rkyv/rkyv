@@ -3,10 +3,12 @@
 mod archive;
 mod shared;
 
-use crate::validation::{ArchiveContext, SharedContext};
-pub use archive::*;
 use core::{any::TypeId, ops::Range};
+
+pub use archive::*;
 pub use shared::*;
+
+use crate::validation::{ArchiveContext, SharedContext};
 
 /// The default validator.
 #[derive(Debug)]

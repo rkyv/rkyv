@@ -3,6 +3,18 @@
 //! During archiving, hashmaps are built into minimal perfect hashmaps using
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
+use core::{
+    borrow::Borrow,
+    fmt,
+    hash::Hash,
+    iter::FusedIterator,
+    marker::PhantomData,
+    pin::Pin,
+    slice::{from_raw_parts, from_raw_parts_mut},
+};
+
+use rancor::{Error, Fallible};
+
 use crate::{
     collections::swiss_table::{
         ArchivedHashTable, Entry, EntryAdapter, EntryResolver,
@@ -14,16 +26,6 @@ use crate::{
     ser::{Allocator, Writer, WriterExt as _},
     RelPtr, Serialize,
 };
-use core::{
-    borrow::Borrow,
-    fmt,
-    hash::Hash,
-    iter::FusedIterator,
-    marker::PhantomData,
-    pin::Pin,
-    slice::{from_raw_parts, from_raw_parts_mut},
-};
-use rancor::{Error, Fallible};
 
 /// An archived `IndexMap`.
 #[cfg_attr(feature = "stable_layout", repr(C))]

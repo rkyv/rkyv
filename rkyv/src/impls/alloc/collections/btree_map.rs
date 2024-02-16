@@ -1,13 +1,15 @@
+#[cfg(not(feature = "std"))]
+use alloc::collections::BTreeMap;
+#[cfg(feature = "std")]
+use std::collections::BTreeMap;
+
+use rancor::Fallible;
+
 use crate::{
     collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver},
     ser::Writer,
     Archive, Deserialize, Serialize,
 };
-#[cfg(not(feature = "std"))]
-use alloc::collections::BTreeMap;
-use rancor::Fallible;
-#[cfg(feature = "std")]
-use std::collections::BTreeMap;
 
 impl<K: Archive + Ord, V: Archive> Archive for BTreeMap<K, V>
 where

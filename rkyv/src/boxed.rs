@@ -1,11 +1,13 @@
 //! An archived version of `Box`.
 
+use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};
+
+use rancor::Fallible;
+
 use crate::{
     ser::{Writer, WriterExt as _},
     ArchivePointee, ArchiveUnsized, RelPtr, Serialize, SerializeUnsized,
 };
-use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};
-use rancor::Fallible;
 
 /// An archived [`Box`].
 ///

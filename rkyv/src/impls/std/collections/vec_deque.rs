@@ -1,12 +1,12 @@
 use std::{alloc, cmp, collections::VecDeque};
 
+use rancor::Fallible;
+
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Deserialize, DeserializeUnsized, Serialize,
 };
-
-use rancor::Fallible;
 
 impl<T: PartialEq<U>, U> PartialEq<VecDeque<U>> for ArchivedVec<T> {
     #[inline]

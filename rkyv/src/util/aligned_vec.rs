@@ -1,12 +1,3 @@
-use crate::vec::VecResolver;
-use crate::{
-    ser::{Allocator, Writer, WriterExt as _},
-    vec::ArchivedVec,
-    Archive, Archived, Serialize,
-};
-
-#[cfg(not(feature = "std"))]
-use ::alloc::{alloc, boxed::Box, vec::Vec};
 use core::borrow::{Borrow, BorrowMut};
 use core::{
     fmt,
@@ -14,9 +5,19 @@ use core::{
     ptr::NonNull,
     slice,
 };
-use rancor::Fallible;
 #[cfg(feature = "std")]
 use std::{alloc, io};
+
+#[cfg(not(feature = "std"))]
+use ::alloc::{alloc, boxed::Box, vec::Vec};
+use rancor::Fallible;
+
+use crate::vec::VecResolver;
+use crate::{
+    ser::{Allocator, Writer, WriterExt as _},
+    vec::ArchivedVec,
+    Archive, Archived, Serialize,
+};
 
 /// A vector of bytes that aligns its memory to 16 bytes.
 ///

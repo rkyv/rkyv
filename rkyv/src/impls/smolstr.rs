@@ -1,10 +1,11 @@
+use rancor::Fallible;
+use smol_str::SmolStr;
+
 use crate::{
     ser::{Allocator, Writer},
     string::{ArchivedString, StringResolver},
     Archive, Deserialize, Serialize,
 };
-use rancor::Fallible;
-use smol_str::SmolStr;
 
 impl Archive for SmolStr {
     type Archived = ArchivedString;
@@ -49,9 +50,10 @@ impl PartialEq<SmolStr> for ArchivedString {
 
 #[cfg(test)]
 mod tests {
-    use crate::{access_unchecked, deserialize, ser::Positional as _};
     use rancor::{Failure, Infallible};
     use smol_str::SmolStr;
+
+    use crate::{access_unchecked, deserialize, ser::Positional as _};
 
     #[test]
     fn smolstr() {

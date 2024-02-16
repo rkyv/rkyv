@@ -5,6 +5,7 @@ where
     Q: Hash + ?Sized,
 {
     use core::hash::Hasher;
+
     use seahash::SeaHasher;
 
     // TODO: switch hasher / pick nothing-up-my-sleeve numbers for initial

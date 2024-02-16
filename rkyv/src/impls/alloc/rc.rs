@@ -1,3 +1,11 @@
+#[cfg(not(feature = "std"))]
+use alloc::{alloc::alloc, boxed::Box, rc, sync};
+#[cfg(feature = "std")]
+use std::{alloc::alloc, rc, sync};
+
+use ptr_meta::Pointee;
+use rancor::Fallible;
+
 use crate::{
     de::{Metadata, Pooling, PoolingExt as _, SharedPointer},
     rc::{
@@ -8,12 +16,6 @@ use crate::{
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized,
     Serialize, SerializeUnsized,
 };
-#[cfg(not(feature = "std"))]
-use alloc::{alloc::alloc, boxed::Box, rc, sync};
-use ptr_meta::Pointee;
-use rancor::Fallible;
-#[cfg(feature = "std")]
-use std::{alloc::alloc, rc, sync};
 
 // Rc
 

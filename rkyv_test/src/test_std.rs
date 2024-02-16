@@ -1,14 +1,15 @@
 #[cfg(test)]
 mod tests {
-    use crate::util::alloc::*;
+    use std::collections::{HashMap, HashSet};
+
     use rkyv::{
         access_unchecked, rancor::Failure, ser::writer::IoWriter, serialize,
         to_bytes, util::AlignedBytes, Archive, Deserialize, Serialize,
     };
-    use std::collections::{HashMap, HashSet};
-
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
+
+    use crate::util::alloc::*;
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]

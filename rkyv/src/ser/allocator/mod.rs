@@ -4,12 +4,12 @@
 mod alloc;
 mod core;
 
+use ::core::{alloc::Layout, ptr::NonNull};
+use rancor::{Fallible, Strategy};
+
 #[cfg(feature = "alloc")]
 pub use self::alloc::*;
 pub use self::core::*;
-
-use ::core::{alloc::Layout, ptr::NonNull};
-use rancor::{Fallible, Strategy};
 
 /// A serializer that can allocate scratch space.
 pub trait Allocator<E = <Self as Fallible>::Error> {

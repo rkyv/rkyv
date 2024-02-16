@@ -4,14 +4,14 @@
 mod alloc;
 mod core;
 
-#[cfg(feature = "alloc")]
-pub use self::alloc::*;
-pub use self::core::*;
-
-use crate::{ArchiveUnsized, DeserializeUnsized};
 use ::core::{alloc::Layout, fmt, mem::transmute};
 use ptr_meta::{from_raw_parts_mut, metadata, DynMetadata, Pointee};
 use rancor::{Fallible, Strategy};
+
+#[cfg(feature = "alloc")]
+pub use self::alloc::*;
+pub use self::core::*;
+use crate::{ArchiveUnsized, DeserializeUnsized};
 
 /// Type-erased pointer metadata.
 #[derive(Clone, Copy)]

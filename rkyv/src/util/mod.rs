@@ -14,17 +14,12 @@
 mod aligned_vec;
 mod scratch_vec;
 
-#[cfg(feature = "alloc")]
-use crate::{de::pooling::Unify, ser::AllocSerializer};
-use crate::{
-    ser::Writer, Archive, ArchiveUnsized, Deserialize, RelPtr, Serialize,
-    SerializeUnsized,
-};
 use core::{
     mem,
     ops::{Deref, DerefMut},
     pin::Pin,
 };
+
 use rancor::Strategy;
 
 #[doc(inline)]
@@ -32,6 +27,12 @@ use rancor::Strategy;
 pub use self::aligned_vec::*;
 #[doc(inline)]
 pub use self::scratch_vec::*;
+#[cfg(feature = "alloc")]
+use crate::{de::pooling::Unify, ser::AllocSerializer};
+use crate::{
+    ser::Writer, Archive, ArchiveUnsized, Deserialize, RelPtr, Serialize,
+    SerializeUnsized,
+};
 
 #[cfg(debug_assertions)]
 #[inline]

@@ -1,13 +1,14 @@
-use crate::{
-    attributes::{parse_attributes, Attributes},
-    util::is_not_omitted,
-    with::{make_with_ty, with_inner},
-};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
     parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput,
     Error, Fields, Generics, Ident, Index,
+};
+
+use crate::{
+    attributes::{parse_attributes, Attributes},
+    util::is_not_omitted,
+    with::{make_with_ty, with_inner},
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {

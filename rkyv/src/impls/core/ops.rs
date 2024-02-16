@@ -1,3 +1,9 @@
+use core::ops::{
+    Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
+};
+
+use rancor::Fallible;
+
 use crate::{
     ops::{
         ArchivedRange, ArchivedRangeFrom, ArchivedRangeInclusive,
@@ -5,10 +11,6 @@ use crate::{
     },
     Archive, Archived, Deserialize, Serialize,
 };
-use core::ops::{
-    Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
-};
-use rancor::Fallible;
 
 // RangeFull
 

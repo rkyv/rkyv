@@ -1,3 +1,8 @@
+use core::{alloc::Layout, mem::ManuallyDrop, ptr, str};
+
+use ptr_meta::Pointee;
+use rancor::Fallible;
+
 #[cfg(feature = "copy")]
 use crate::copy::ArchiveCopyOptimize;
 use crate::{
@@ -6,9 +11,6 @@ use crate::{
     Archive, ArchivePointee, ArchiveUnsized, ArchivedMetadata, Deserialize,
     DeserializeUnsized, Serialize, SerializeUnsized,
 };
-use core::{alloc::Layout, mem::ManuallyDrop, ptr, str};
-use ptr_meta::Pointee;
-use rancor::Fallible;
 
 mod ops;
 mod option;

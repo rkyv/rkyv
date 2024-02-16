@@ -1,12 +1,13 @@
 //! The core traits provided by rkyv.
 
+use core::{alloc::Layout, hash::Hash};
+
 use crate::{
     ptr_meta::Pointee,
     rancor::Fallible,
     ser::{Writer, WriterExt as _},
     ArchivedMetadata, RelPtr,
 };
-use core::{alloc::Layout, hash::Hash};
 
 /// A type that can be used without deserializing.
 ///

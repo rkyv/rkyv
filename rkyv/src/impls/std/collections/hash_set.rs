@@ -1,14 +1,16 @@
+use core::{
+    borrow::Borrow,
+    hash::{BuildHasher, Hash},
+};
+use std::collections::HashSet;
+
+use rancor::{Error, Fallible};
+
 use crate::{
     collections::swiss_table::set::{ArchivedHashSet, HashSetResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Serialize,
 };
-use core::{
-    borrow::Borrow,
-    hash::{BuildHasher, Hash},
-};
-use rancor::{Error, Fallible};
-use std::collections::HashSet;
 
 impl<K: Archive + Hash + Eq, S> Archive for HashSet<K, S>
 where

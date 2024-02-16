@@ -1,6 +1,7 @@
-use crate::{Archive, Deserialize, Serialize};
 use rancor::Fallible;
 use uuid::Uuid;
+
+use crate::{Archive, Deserialize, Serialize};
 
 impl Archive for Uuid {
     type Archived = Uuid;
@@ -35,9 +36,10 @@ impl<D: Fallible + ?Sized> Deserialize<Uuid, D> for Uuid {
 
 #[cfg(test)]
 mod rkyv_tests {
-    use crate::{access_unchecked, deserialize, util::AlignedVec};
     use rancor::Infallible;
     use uuid::Uuid;
+
+    use crate::{access_unchecked, deserialize, util::AlignedVec};
 
     #[test]
     fn test_serialize_deserialize() {

@@ -1,5 +1,6 @@
-use rkyv::{access, rancor::Failure, Archive, Deserialize, Serialize};
 use std::{collections::HashMap, fmt};
+
+use rkyv::{access, rancor::Failure, Archive, Deserialize, Serialize};
 
 #[derive(Archive, Debug, Deserialize, Serialize)]
 // We have a recursive type, which requires some special handling

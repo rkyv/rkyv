@@ -1,5 +1,12 @@
 //! Relative pointer implementations and options.
 
+use core::{
+    convert::TryFrom,
+    fmt,
+    marker::{PhantomData, PhantomPinned},
+    ptr::{self, addr_of_mut},
+};
+
 use rancor::{fail, Error, Panic, ResultExt as _};
 
 use crate::{
@@ -8,12 +15,6 @@ use crate::{
         ArchivedU64,
     },
     ArchivePointee,
-};
-use core::{
-    convert::TryFrom,
-    fmt,
-    marker::{PhantomData, PhantomPinned},
-    ptr::{self, addr_of_mut},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -3,10 +3,6 @@
 // #[cfg(feature = "bytecheck")]
 // pub mod validation;
 
-use crate::{
-    primitive::{ArchivedU16, ArchivedUsize},
-    Archive, ArchivePointee, RelPtr,
-};
 use core::{
     borrow::Borrow,
     cmp::Ordering,
@@ -17,7 +13,13 @@ use core::{
     ops::Index,
     ptr::NonNull,
 };
+
 use ptr_meta::Pointee;
+
+use crate::{
+    primitive::{ArchivedU16, ArchivedUsize},
+    Archive, ArchivePointee, RelPtr,
+};
 
 #[cfg_attr(feature = "stable_layout", repr(C))]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -394,14 +396,16 @@ impl<K, V> ArchivedBTreeMap<K, V> {
 
 #[cfg(feature = "alloc")]
 const _: () = {
+    #[cfg(not(feature = "std"))]
+    use alloc::vec::Vec;
+    use core::mem;
+
+    use rancor::Fallible;
+
     use crate::{
         ser::{Writer, WriterExt as _},
         Serialize,
     };
-    #[cfg(not(feature = "std"))]
-    use alloc::vec::Vec;
-    use core::mem;
-    use rancor::Fallible;
 
     impl<K, V> ArchivedBTreeMap<K, V> {
         /// Serializes an ordered iterator of key-value pairs as a B-tree map.

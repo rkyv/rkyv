@@ -1,16 +1,18 @@
 // Code in this file is taken whole or in part from serde: https://github.com/serde-rs/serde
 // The original license for this code is included in LICENSE
 
-use super::respan::respan;
+use std::mem;
+
 use proc_macro2::Span;
 use quote::ToTokens;
-use std::mem;
 use syn::punctuated::Punctuated;
 use syn::{
     parse_quote, Data, DeriveInput, Expr, ExprPath, GenericArgument,
     GenericParam, Generics, Macro, Path, PathArguments, QSelf, ReturnType,
     Token, Type, TypeParamBound, TypePath, WherePredicate,
 };
+
+use super::respan::respan;
 
 pub fn replace_receiver(input: &mut DeriveInput) {
     let self_ty = {

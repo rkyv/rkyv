@@ -1,7 +1,8 @@
 //! [`Archive`](crate::Archive) implementation for B-tree sets.
 
-use crate::collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver, Keys};
 use core::{borrow::Borrow, fmt};
+
+use crate::collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver, Keys};
 
 /// An archived `BTreeSet`. This is a wrapper around a B-tree map with the same
 /// key and a value of `()`.

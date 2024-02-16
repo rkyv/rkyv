@@ -1,3 +1,13 @@
+use core::{
+    cell::{Cell, UnsafeCell},
+    convert::TryInto,
+    hint::unreachable_unchecked,
+    num::{NonZeroIsize, NonZeroUsize},
+    ptr,
+};
+
+use rancor::Fallible;
+
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     niche::option_nonzero::{
@@ -11,14 +21,6 @@ use crate::{
     },
     Archive, ArchiveUnsized, Deserialize, Serialize, SerializeUnsized,
 };
-use core::{
-    cell::{Cell, UnsafeCell},
-    convert::TryInto,
-    hint::unreachable_unchecked,
-    num::{NonZeroIsize, NonZeroUsize},
-    ptr,
-};
-use rancor::Fallible;
 
 // Map for Options
 

@@ -4,12 +4,11 @@
 mod alloc;
 mod core;
 
+use rancor::{Fallible, Strategy};
+
 #[cfg(feature = "alloc")]
 pub use self::alloc::*;
 pub use self::core::*;
-
-use rancor::{Fallible, Strategy};
-
 use crate::SerializeUnsized;
 
 /// A shared pointer serialization strategy.

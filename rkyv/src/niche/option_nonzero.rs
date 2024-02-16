@@ -1,6 +1,5 @@
 //! Niched archived `Option<NonZero>` integers that use less space.
 
-use crate::Archived;
 use core::{
     cmp, fmt, hash,
     num::{
@@ -9,6 +8,8 @@ use core::{
     },
     pin::Pin,
 };
+
+use crate::Archived;
 
 macro_rules! impl_archived_option_nonzero {
     ($ar:ident, $nz:ty, $ne:ty) => {

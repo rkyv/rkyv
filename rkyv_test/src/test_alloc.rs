@@ -1,16 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use crate::util::alloc::*;
-    use core::{convert::Infallible, pin::Pin};
-    use rkyv::{
-        access_unchecked, access_unchecked_mut,
-        rancor::{Error, Failure, Fallible, Strategy},
-        ser::{writer::BufferWriter, Writer},
-        to_bytes,
-        util::{deserialize, serialize_into, AlignedBytes, AlignedVec},
-        Archive, Archived, Deserialize, Serialize,
-    };
-
     #[cfg(not(feature = "std"))]
     use alloc::{
         borrow::Cow,
@@ -21,6 +10,7 @@ mod tests {
         vec,
         vec::Vec,
     };
+    use core::{convert::Infallible, pin::Pin};
     #[cfg(feature = "std")]
     use std::{
         borrow::Cow,
@@ -28,8 +18,18 @@ mod tests {
         rc::{Rc, Weak},
     };
 
+    use rkyv::{
+        access_unchecked, access_unchecked_mut,
+        rancor::{Error, Failure, Fallible, Strategy},
+        ser::{writer::BufferWriter, Writer},
+        to_bytes,
+        util::{deserialize, serialize_into, AlignedBytes, AlignedVec},
+        Archive, Archived, Deserialize, Serialize,
+    };
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
+
+    use crate::util::alloc::*;
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
@@ -1425,6 +1425,7 @@ mod tests {
         #[cfg(not(feature = "std"))]
         use alloc::string::{String, ToString};
         use core::{convert::Infallible, str::FromStr};
+
         use rkyv::{
             access_unchecked, deserialize,
             rancor::{Failure, Fallible},
@@ -1433,7 +1434,6 @@ mod tests {
             with::{ArchiveWith, DeserializeWith, SerializeWith},
             Archive, Archived, Deserialize, Serialize,
         };
-
         #[cfg(feature = "wasm")]
         use wasm_bindgen_test::*;
 
@@ -1596,6 +1596,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_atomic_load() {
         use core::sync::atomic::{AtomicU32, Ordering};
+
         use rkyv::with::{AtomicLoad, Relaxed};
 
         #[derive(Archive, Debug, Deserialize, Serialize)]
@@ -1628,6 +1629,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_as_atomic() {
         use core::sync::atomic::{AtomicU32, Ordering};
+
         use rkyv::with::{AsAtomic, Relaxed};
 
         #[derive(Archive, Serialize, Deserialize)]
@@ -1746,9 +1748,10 @@ mod tests {
     fn with_as_vec() {
         #[cfg(not(feature = "std"))]
         use alloc::collections::{BTreeMap, BTreeSet};
-        use rkyv::{collections::util::Entry, with::AsVec};
         #[cfg(feature = "std")]
         use std::collections::{BTreeMap, BTreeSet};
+
+        use rkyv::{collections::util::Entry, with::AsVec};
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
@@ -1823,6 +1826,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_niche() {
         use core::mem::size_of;
+
         use rkyv::with::Niche;
 
         #[derive(Archive, Serialize, Deserialize)]
@@ -1878,6 +1882,7 @@ mod tests {
                 NonZeroUsize,
             },
         };
+
         use rkyv::with::Niche;
 
         #[derive(Archive, Serialize, Deserialize)]
@@ -2047,6 +2052,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_unsafe() {
         use core::cell::UnsafeCell;
+
         use rkyv::{primitive::ArchivedU32, with::Unsafe};
 
         #[derive(Archive, Serialize, Deserialize)]

@@ -6,13 +6,12 @@ mod core;
 #[cfg(feature = "std")]
 mod std;
 
-pub use self::core::*;
-#[cfg(feature = "std")]
-pub use self::std::*;
-
 use ::core::{mem, slice};
 use rancor::{Fallible, Strategy};
 
+pub use self::core::*;
+#[cfg(feature = "std")]
+pub use self::std::*;
 use crate::{Archive, ArchiveUnsized, RelPtr};
 
 /// A writer that knows its current position.

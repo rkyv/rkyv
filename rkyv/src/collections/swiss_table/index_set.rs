@@ -3,6 +3,10 @@
 //! During archiving, index sets are built into minimal perfect index sets using
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
+use core::{borrow::Borrow, fmt, hash::Hash};
+
+use rancor::{Error, Fallible};
+
 use crate::{
     collections::swiss_table::{
         index_map::Keys, ArchivedIndexMap, IndexMapResolver,
@@ -11,8 +15,6 @@ use crate::{
     ser::{Allocator, Writer},
     Serialize,
 };
-use core::{borrow::Borrow, fmt, hash::Hash};
-use rancor::{Error, Fallible};
 
 /// An archived `IndexSet`.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]

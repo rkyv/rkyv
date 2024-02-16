@@ -1,12 +1,14 @@
+use core::hash::{BuildHasher, Hash};
+
+use indexmap::IndexSet;
+use rancor::Error;
+use rancor::Fallible;
+
 use crate::{
     collections::swiss_table::{ArchivedIndexSet, IndexSetResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Serialize,
 };
-use core::hash::{BuildHasher, Hash};
-use indexmap::IndexSet;
-use rancor::Error;
-use rancor::Fallible;
 
 impl<K: Archive, S> Archive for IndexSet<K, S> {
     type Archived = ArchivedIndexSet<K::Archived>;
@@ -72,11 +74,13 @@ impl<UK, K: PartialEq<UK>, S: BuildHasher> PartialEq<IndexSet<UK, S>>
 
 #[cfg(test)]
 mod tests {
-    use crate::{access_unchecked, deserialize};
     #[cfg(not(feature = "std"))]
     use alloc::string::String;
+
     use indexmap::{indexset, IndexSet};
     use rancor::{Failure, Infallible};
+
+    use crate::{access_unchecked, deserialize};
 
     #[test]
     fn index_set() {

@@ -1,6 +1,8 @@
-use crate::{time::ArchivedDuration, Archive, Deserialize, Serialize};
 use core::time::Duration;
+
 use rancor::Fallible;
+
+use crate::{time::ArchivedDuration, Archive, Deserialize, Serialize};
 
 impl Archive for Duration {
     type Archived = ArchivedDuration;

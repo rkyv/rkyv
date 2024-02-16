@@ -1,13 +1,15 @@
 //! Archived bitwise containers.
 
-use crate::{primitive::ArchivedUsize, vec::ArchivedVec};
+use core::{marker::PhantomData, ops::Deref};
+
 use bitvec::{
     order::{BitOrder, Lsb0},
     slice::BitSlice,
     store::BitStore,
     view::BitView,
 };
-use core::{marker::PhantomData, ops::Deref};
+
+use crate::{primitive::ArchivedUsize, vec::ArchivedVec};
 
 /// An archived `BitVec`.
 // We also have to store the bit length in the archived `BitVec`.

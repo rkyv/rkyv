@@ -1,7 +1,8 @@
 //! Utilities for archived collections.
 
-use crate::{Archive, Serialize};
 use rancor::Fallible;
+
+use crate::{Archive, Serialize};
 
 /// A simple key-value pair.
 ///

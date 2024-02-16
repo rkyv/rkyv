@@ -4,13 +4,14 @@ pub mod allocator;
 pub mod sharing;
 pub mod writer;
 
+use ::core::{alloc::Layout, ptr::NonNull};
+
 #[doc(inline)]
 pub use self::{
     allocator::Allocator,
     sharing::{Sharing, SharingExt},
     writer::{Positional, Writer, WriterExt},
 };
-
 use crate::{
     ser::{
         allocator::BufferAllocator, sharing::Duplicate, writer::BufferWriter,
@@ -25,7 +26,6 @@ use crate::{
     },
     util::AlignedVec,
 };
-use ::core::{alloc::Layout, ptr::NonNull};
 
 /// A serializer built from composeable pieces.
 #[derive(Debug, Default)]

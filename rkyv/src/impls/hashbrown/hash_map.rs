@@ -1,14 +1,16 @@
+use core::{
+    borrow::Borrow,
+    hash::{BuildHasher, Hash},
+};
+
+use hashbrown::HashMap;
+use rancor::{Error, Fallible};
+
 use crate::{
     collections::swiss_table::map::{ArchivedHashMap, HashMapResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Serialize,
 };
-use core::{
-    borrow::Borrow,
-    hash::{BuildHasher, Hash},
-};
-use hashbrown::HashMap;
-use rancor::{Error, Fallible};
 
 impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>
 where
@@ -111,11 +113,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{access, access_unchecked, deserialize, to_bytes};
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::string::String;
+
     use hashbrown::HashMap;
     use rancor::Failure;
+
+    use crate::{access, access_unchecked, deserialize, to_bytes};
 
     #[test]
     fn index_map() {

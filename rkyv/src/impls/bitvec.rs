@@ -1,3 +1,9 @@
+use core::convert::{TryFrom, TryInto};
+use core::{marker::PhantomData, ops::Deref};
+
+use bitvec::{prelude::*, view::BitViewSized};
+use rancor::Fallible;
+
 #[cfg(feature = "bitvec_alloc")]
 use crate::vec::{ArchivedVec, VecResolver};
 use crate::{
@@ -8,11 +14,6 @@ use crate::{
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Serialize,
 };
-use core::convert::{TryFrom, TryInto};
-use core::{marker::PhantomData, ops::Deref};
-use rancor::Fallible;
-
-use bitvec::{prelude::*, view::BitViewSized};
 
 impl<T: BitStore + Archive, O: BitOrder> ArchivedBitVec<T, O> {
     /// Gets the elements of the archived `BitVec` as a `BitSlice`.

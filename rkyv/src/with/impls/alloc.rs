@@ -1,3 +1,20 @@
+#[cfg(not(feature = "std"))]
+use alloc::{
+    borrow::Cow,
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet},
+    vec::Vec,
+};
+use core::marker::PhantomData;
+#[cfg(feature = "std")]
+use std::{
+    borrow::Cow,
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet},
+};
+
+use rancor::Fallible;
+
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     collections::util::Entry,
@@ -11,21 +28,6 @@ use crate::{
     },
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
     Serialize, SerializeUnsized,
-};
-#[cfg(not(feature = "std"))]
-use alloc::{
-    borrow::Cow,
-    boxed::Box,
-    collections::{BTreeMap, BTreeSet},
-    vec::Vec,
-};
-use core::marker::PhantomData;
-use rancor::Fallible;
-#[cfg(feature = "std")]
-use std::{
-    borrow::Cow,
-    boxed::Box,
-    collections::{BTreeMap, BTreeSet},
 };
 
 // Map for Vecs
@@ -245,8 +247,9 @@ where
 
 #[cfg(feature = "std")]
 const _: () = {
-    use crate::ffi::{ArchivedCString, CStringResolver};
     use std::ffi::CStr;
+
+    use crate::ffi::{ArchivedCString, CStringResolver};
 
     impl<'a> ArchiveWith<Cow<'a, CStr>> for AsOwned {
         type Archived = ArchivedCString;

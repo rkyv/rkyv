@@ -1,7 +1,8 @@
+use core::{fmt, ptr::copy_nonoverlapping};
+
 use rancor::{fail, Error};
 
 use crate::ser::{Positional, Writer};
-use core::{fmt, ptr::copy_nonoverlapping};
 
 #[derive(Debug)]
 struct BufferOverflow {

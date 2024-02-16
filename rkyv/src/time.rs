@@ -128,13 +128,15 @@ impl ArchivedDuration {
 
 #[cfg(feature = "bytecheck")]
 mod verify {
-    use super::ArchivedDuration;
+    use core::fmt;
+
     use bytecheck::{
         rancor::{Error, Fallible},
         Verify,
     };
-    use core::fmt;
     use rancor::fail;
+
+    use super::ArchivedDuration;
 
     /// An error resulting from an invalid duration.
     ///

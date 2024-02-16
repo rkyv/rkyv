@@ -199,23 +199,10 @@ pub mod with;
 
 // Exports
 
-#[doc(inline)]
-pub use crate::{
-    alias::*,
-    traits::*,
-    util::{access_unchecked, access_unchecked_mut, deserialize, serialize},
-};
-
 #[cfg(feature = "alloc")]
 #[cfg_attr(doc_cfg, doc(cfg(feature = "alloc")))]
 #[doc(inline)]
 pub use util::{from_bytes_unchecked, to_bytes};
-
-#[cfg(feature = "bytecheck")]
-#[cfg_attr(doc_cfg, doc(cfg(feature = "bytecheck")))]
-#[doc(inline)]
-pub use validation::util::{access, access_mut};
-
 #[cfg(all(feature = "bytecheck", feature = "alloc"))]
 #[cfg_attr(
     doc_cfg,
@@ -223,6 +210,17 @@ pub use validation::util::{access, access_mut};
 )]
 #[doc(inline)]
 pub use validation::util::from_bytes;
+#[cfg(feature = "bytecheck")]
+#[cfg_attr(doc_cfg, doc(cfg(feature = "bytecheck")))]
+#[doc(inline)]
+pub use validation::util::{access, access_mut};
+
+#[doc(inline)]
+pub use crate::{
+    alias::*,
+    traits::*,
+    util::{access_unchecked, access_unchecked_mut, deserialize, serialize},
+};
 
 // Check endianness feature flag settings
 

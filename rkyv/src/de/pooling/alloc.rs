@@ -1,12 +1,14 @@
 //! Adapters wrap deserializers and add support for deserializer traits.
 
-use super::{ErasedPtr, Pooling};
 use core::{fmt, mem::size_of};
+#[cfg(feature = "std")]
+use std::collections::hash_map;
+
 #[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
 use rancor::{fail, Error};
-#[cfg(feature = "std")]
-use std::collections::hash_map;
+
+use super::{ErasedPtr, Pooling};
 
 #[derive(Debug)]
 struct DuplicateSharedPointer {

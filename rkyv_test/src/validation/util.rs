@@ -1,6 +1,5 @@
 #[cfg(feature = "alloc")]
 pub mod alloc {
-    use crate::util::alloc::*;
     use rkyv::{
         access,
         bytecheck::CheckBytes,
@@ -8,6 +7,8 @@ pub mod alloc {
         validation::validators::DefaultValidator,
         Serialize,
     };
+
+    use crate::util::alloc::*;
 
     pub fn serialize_and_check<T, E>(value: &T)
     where

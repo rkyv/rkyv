@@ -1,8 +1,5 @@
 //! Archived versions of FFI types.
 
-use rancor::Fallible;
-
-use crate::{ser::Writer, ArchiveUnsized, RelPtr, SerializeUnsized};
 use core::{
     borrow::Borrow,
     cmp, fmt, hash,
@@ -10,6 +7,10 @@ use core::{
     pin::Pin,
 };
 use std::ffi::CStr;
+
+use rancor::Fallible;
+
+use crate::{ser::Writer, ArchiveUnsized, RelPtr, SerializeUnsized};
 
 /// An archived [`CString`](std::ffi::CString).
 ///

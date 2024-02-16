@@ -1,11 +1,13 @@
+#[cfg(not(feature = "std"))]
+use alloc::string::{String, ToString};
+use core::cmp::Ordering;
+
+use rancor::Fallible;
+
 use crate::{
     string::{ArchivedString, StringResolver},
     Archive, Deserialize, DeserializeUnsized, Serialize, SerializeUnsized,
 };
-#[cfg(not(feature = "std"))]
-use alloc::string::{String, ToString};
-use core::cmp::Ordering;
-use rancor::Fallible;
 
 impl Archive for String {
     type Archived = ArchivedString;

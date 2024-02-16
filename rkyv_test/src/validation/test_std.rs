@@ -1,11 +1,12 @@
 #[cfg(test)]
 mod tests {
-    use crate::validation::util::alloc::serialize_and_check;
     use std::collections::{HashMap, HashSet};
 
     use rkyv::rancor::Failure;
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
+
+    use crate::validation::util::alloc::serialize_and_check;
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]

@@ -1,5 +1,9 @@
 //! Archived hash set implementation using an archived SwissTable.
 
+use core::{borrow::Borrow, fmt, hash::Hash};
+
+use rancor::{Error, Fallible};
+
 use crate::collections::swiss_table::map::{
     ArchivedHashMap, HashMapResolver, Keys,
 };
@@ -7,8 +11,6 @@ use crate::{
     ser::{Allocator, Writer},
     Serialize,
 };
-use core::{borrow::Borrow, fmt, hash::Hash};
-use rancor::{Error, Fallible};
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key
 /// and unit value.

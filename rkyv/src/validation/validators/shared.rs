@@ -2,16 +2,15 @@
 //! validators.
 
 use core::{any::TypeId, fmt};
+#[cfg(feature = "std")]
+use std::collections::HashMap;
 
 use bytecheck::rancor::Error;
+#[cfg(not(feature = "std"))]
+use hashbrown::HashMap;
 use rancor::fail;
 
 use crate::validation::SharedContext;
-
-#[cfg(not(feature = "std"))]
-use hashbrown::HashMap;
-#[cfg(feature = "std")]
-use std::collections::HashMap;
 
 /// Errors that can occur when checking shared memory.
 #[derive(Debug)]
@@ -80,10 +79,11 @@ impl<E: Error> SharedContext<E> for SharedValidator {
         address: usize,
         type_id: TypeId,
     ) -> Result<bool, E> {
-        #[cfg(not(feature = "std"))]
-        use hashbrown::hash_map::Entry;
         #[cfg(feature = "std")]
         use std::collections::hash_map::Entry;
+
+        #[cfg(not(feature = "std"))]
+        use hashbrown::hash_map::Entry;
 
         match self.shared.entry(address) {
             Entry::Occupied(previous_type_entry) => {

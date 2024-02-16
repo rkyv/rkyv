@@ -1,12 +1,13 @@
+use rancor::Fallible;
+#[cfg(all(feature = "tinyvec", feature = "alloc"))]
+use tinyvec::TinyVec;
+use tinyvec::{Array, ArrayVec, SliceVec};
+
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Serialize,
 };
-use rancor::Fallible;
-#[cfg(all(feature = "tinyvec", feature = "alloc"))]
-use tinyvec::TinyVec;
-use tinyvec::{Array, ArrayVec, SliceVec};
 
 // ArrayVec
 
@@ -156,9 +157,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{access_unchecked, deserialize, ser::Positional as _};
     use rancor::{Failure, Infallible};
     use tinyvec::{array_vec, Array, ArrayVec, SliceVec};
+
+    use crate::{access_unchecked, deserialize, ser::Positional as _};
 
     #[test]
     fn array_vec() {
@@ -211,10 +213,12 @@ mod tests {
     #[cfg(all(feature = "tinyvec", feature = "alloc"))]
     #[test]
     fn tiny_vec() {
-        use crate::ser::AllocSerializer;
         #[cfg(not(feature = "std"))]
         use alloc::vec;
+
         use tinyvec::{tiny_vec, TinyVec};
+
+        use crate::ser::AllocSerializer;
 
         let value = tiny_vec!([i32; 10] => 10, 20, 40, 80);
 

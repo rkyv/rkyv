@@ -1,14 +1,16 @@
 //! Archived versions of shared pointers.
 
-use crate::{
-    ser::{Sharing, SharingExt, Writer, WriterExt as _},
-    ArchivePointee, ArchiveUnsized, RelPtr, SerializeUnsized,
-};
 use core::{
     borrow::Borrow, cmp, fmt, hash, marker::PhantomData, ops::Deref, pin::Pin,
     ptr,
 };
+
 use rancor::Fallible;
+
+use crate::{
+    ser::{Sharing, SharingExt, Writer, WriterExt as _},
+    ArchivePointee, ArchiveUnsized, RelPtr, SerializeUnsized,
+};
 
 /// The flavor type for [`Rc`](std::rc::Rc).
 pub struct RcFlavor;
@@ -306,6 +308,13 @@ struct ArchivedRcWeakVariantSome<T: ArchivePointee + ?Sized, F>(
 
 #[cfg(feature = "bytecheck")]
 mod verify {
+    use core::any::TypeId;
+
+    use bytecheck::{
+        rancor::{Error, Fallible},
+        CheckBytes, Verify,
+    };
+
     use super::ArchivedRc;
     use crate::{
         validation::{
@@ -313,11 +322,6 @@ mod verify {
         },
         ArchivePointee,
     };
-    use bytecheck::{
-        rancor::{Error, Fallible},
-        CheckBytes, Verify,
-    };
-    use core::any::TypeId;
 
     unsafe impl<T, F, C> Verify<C> for ArchivedRc<T, F>
     where

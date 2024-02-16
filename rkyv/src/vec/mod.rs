@@ -2,11 +2,6 @@
 
 // mod raw;
 
-use crate::{
-    primitive::ArchivedUsize,
-    ser::{Allocator, Writer, WriterExt as _},
-    Archive, RelPtr, Serialize, SerializeUnsized,
-};
 use core::{
     borrow::Borrow,
     cmp, fmt, hash,
@@ -14,7 +9,14 @@ use core::{
     pin::Pin,
     slice::SliceIndex,
 };
+
 use rancor::Fallible;
+
+use crate::{
+    primitive::ArchivedUsize,
+    ser::{Allocator, Writer, WriterExt as _},
+    Archive, RelPtr, Serialize, SerializeUnsized,
+};
 
 // pub use self::raw::*;
 
@@ -327,13 +329,14 @@ pub struct VecResolver {
 
 #[cfg(feature = "bytecheck")]
 mod verify {
-    use crate::{
-        validation::{ArchiveContext, ArchiveContextExt},
-        vec::ArchivedVec,
-    };
     use bytecheck::{
         rancor::{Error, Fallible},
         CheckBytes, Verify,
+    };
+
+    use crate::{
+        validation::{ArchiveContext, ArchiveContextExt},
+        vec::ArchivedVec,
     };
 
     unsafe impl<T, C> Verify<C> for ArchivedVec<T>

@@ -1,5 +1,6 @@
-use crate::{rend::*, Archive, Archived, Deserialize, Serialize};
 use rancor::Fallible;
+
+use crate::{rend::*, Archive, Archived, Deserialize, Serialize};
 
 macro_rules! impl_rend_primitive {
     ($type:ty) => {
@@ -88,13 +89,14 @@ impl_rend_primitives!(
 
 #[cfg(test)]
 mod tests {
+    use core::fmt;
+
     use rancor::{Failure, Strategy};
 
     use crate::{
         access_unchecked, deserialize, ser::CoreSerializer,
         ser::Positional as _, Deserialize, Serialize,
     };
-    use core::fmt;
 
     type DefaultSerializer = CoreSerializer<256, 256>;
 

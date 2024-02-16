@@ -1,5 +1,6 @@
-use crate::time::ArchivedDuration;
 use std::time::Duration;
+
+use crate::time::ArchivedDuration;
 
 impl PartialEq<Duration> for ArchivedDuration {
     #[inline]

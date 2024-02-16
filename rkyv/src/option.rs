@@ -321,8 +321,9 @@ mod tests {
     #[test]
     #[cfg(feature = "extra_traits")]
     fn partial_ord_option() {
-        use super::ArchivedOption;
         use core::cmp::Ordering;
+
+        use super::ArchivedOption;
 
         let a: ArchivedOption<u8> = ArchivedOption::Some(42);
         let b = Some(42);

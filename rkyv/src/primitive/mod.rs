@@ -7,30 +7,8 @@ mod _macros;
 mod atomic;
 
 // Aligned little-endian
-#[cfg(all(not(feature = "unaligned"), not(feature = "big_endian")))]
-use crate::rend::{
-    char_le, f32_le, f64_le, i128_le, i16_le, i32_le, i64_le, u128_le, u16_le,
-    u32_le, u64_le, NonZeroI128_le, NonZeroI16_le, NonZeroI32_le,
-    NonZeroI64_le, NonZeroU128_le, NonZeroU16_le, NonZeroU32_le, NonZeroU64_le,
-};
-
-// Aligned big-endian
-#[cfg(all(not(feature = "unaligned"), feature = "big_endian"))]
-use crate::rend::{
-    char_be, f32_be, f64_be, i128_be, i16_be, i32_be, i64_be, u128_be, u16_be,
-    u32_be, u64_be, NonZeroI128_be, NonZeroI16_be, NonZeroI32_be,
-    NonZeroI64_be, NonZeroU128_be, NonZeroU16_be, NonZeroU32_be, NonZeroU64_be,
-};
-
-// Unaligned little-endian
-#[cfg(all(feature = "unaligned", not(feature = "big_endian")))]
-use crate::rend::unaligned::{
-    char_ule, f32_ule, f64_ule, i128_ule, i16_ule, i32_ule, i64_ule, u128_ule,
-    u16_ule, u32_ule, u64_ule, NonZeroI128_ule, NonZeroI16_ule, NonZeroI32_ule,
-    NonZeroI64_ule, NonZeroU128_ule, NonZeroU16_ule, NonZeroU32_ule,
-    NonZeroU64_ule,
-};
-
+#[cfg(not(feature = "unaligned"))]
+pub use self::atomic::*;
 // Unaligned big-endian
 #[cfg(all(feature = "unaligned", feature = "big_endian"))]
 use crate::rend::unaligned::{
@@ -39,9 +17,27 @@ use crate::rend::unaligned::{
     NonZeroI64_ube, NonZeroU128_ube, NonZeroU16_ube, NonZeroU32_ube,
     NonZeroU64_ube,
 };
-
-#[cfg(not(feature = "unaligned"))]
-pub use self::atomic::*;
+// Unaligned little-endian
+#[cfg(all(feature = "unaligned", not(feature = "big_endian")))]
+use crate::rend::unaligned::{
+    char_ule, f32_ule, f64_ule, i128_ule, i16_ule, i32_ule, i64_ule, u128_ule,
+    u16_ule, u32_ule, u64_ule, NonZeroI128_ule, NonZeroI16_ule, NonZeroI32_ule,
+    NonZeroI64_ule, NonZeroU128_ule, NonZeroU16_ule, NonZeroU32_ule,
+    NonZeroU64_ule,
+};
+// Aligned big-endian
+#[cfg(all(not(feature = "unaligned"), feature = "big_endian"))]
+use crate::rend::{
+    char_be, f32_be, f64_be, i128_be, i16_be, i32_be, i64_be, u128_be, u16_be,
+    u32_be, u64_be, NonZeroI128_be, NonZeroI16_be, NonZeroI32_be,
+    NonZeroI64_be, NonZeroU128_be, NonZeroU16_be, NonZeroU32_be, NonZeroU64_be,
+};
+#[cfg(all(not(feature = "unaligned"), not(feature = "big_endian")))]
+use crate::rend::{
+    char_le, f32_le, f64_le, i128_le, i16_le, i32_le, i64_le, u128_le, u16_le,
+    u32_le, u64_le, NonZeroI128_le, NonZeroI16_le, NonZeroI32_le,
+    NonZeroI64_le, NonZeroU128_le, NonZeroU16_le, NonZeroU32_le, NonZeroU64_le,
+};
 
 macro_rules! define_multibyte_primitive {
     ($archived:ident: $name:ident, $le:ty, $ule:ty, $be:ty, $ube:ty) => {

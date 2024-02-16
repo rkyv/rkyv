@@ -1,14 +1,16 @@
+use core::{
+    borrow::Borrow,
+    hash::{BuildHasher, Hash},
+};
+use std::collections::HashMap;
+
+use rancor::{Error, Fallible};
+
 use crate::{
     collections::swiss_table::map::{ArchivedHashMap, HashMapResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Serialize,
 };
-use core::{
-    borrow::Borrow,
-    hash::{BuildHasher, Hash},
-};
-use rancor::{Error, Fallible};
-use std::collections::HashMap;
 
 impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>
 where

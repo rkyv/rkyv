@@ -1,3 +1,14 @@
+use core::{hash::Hash, str::FromStr};
+use std::{
+    collections::{HashMap, HashSet},
+    ffi::OsString,
+    path::{Path, PathBuf},
+    sync::{Mutex, RwLock},
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+use rancor::{Error, Fallible, OptionExt, ResultExt};
+
 use crate::{
     collections::util::Entry,
     ser::{Allocator, Writer},
@@ -9,15 +20,6 @@ use crate::{
         Lock, Poisoned, SerializeWith, UnixTimestamp,
     },
     Archive, Deserialize, Serialize, SerializeUnsized,
-};
-use core::{hash::Hash, str::FromStr};
-use rancor::{Error, Fallible, OptionExt, ResultExt};
-use std::{
-    collections::{HashMap, HashSet},
-    ffi::OsString,
-    path::{Path, PathBuf},
-    sync::{Mutex, RwLock},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 // AsString

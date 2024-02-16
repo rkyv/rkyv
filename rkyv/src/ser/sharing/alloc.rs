@@ -1,10 +1,12 @@
-use crate::ser::Sharing;
 use core::{fmt, mem::size_of};
+#[cfg(feature = "std")]
+use std::collections::hash_map;
+
 #[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
 use rancor::{fail, Error};
-#[cfg(feature = "std")]
-use std::collections::hash_map;
+
+use crate::ser::Sharing;
 
 #[derive(Debug)]
 struct DuplicateSharedPointer {

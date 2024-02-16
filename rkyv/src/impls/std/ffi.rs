@@ -1,3 +1,10 @@
+use core::{alloc::Layout, ptr};
+use std::alloc;
+use std::ffi::{CStr, CString};
+
+use ptr_meta::Pointee;
+use rancor::Fallible;
+
 use crate::{
     ffi::{ArchivedCString, CStringResolver},
     primitive::ArchivedUsize,
@@ -5,11 +12,6 @@ use crate::{
     Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
     Deserialize, DeserializeUnsized, Serialize, SerializeUnsized,
 };
-use core::{alloc::Layout, ptr};
-use ptr_meta::Pointee;
-use rancor::Fallible;
-use std::alloc;
-use std::ffi::{CStr, CString};
 
 // CStr
 

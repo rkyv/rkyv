@@ -1,10 +1,11 @@
+use rancor::Fallible;
+use smallvec::{Array, SmallVec};
+
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Serialize,
 };
-use rancor::Fallible;
-use smallvec::{Array, SmallVec};
 
 impl<A: Array> Archive for SmallVec<A>
 where
@@ -61,9 +62,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{access_unchecked, deserialize, ser::Positional as _};
     use rancor::{Failure, Infallible};
     use smallvec::{smallvec, SmallVec};
+
+    use crate::{access_unchecked, deserialize, ser::Positional as _};
 
     #[test]
     fn small_vec() {

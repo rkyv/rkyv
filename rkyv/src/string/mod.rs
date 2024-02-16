@@ -2,7 +2,6 @@
 
 pub mod repr;
 
-use crate::SerializeUnsized;
 use core::{
     borrow::Borrow,
     cmp, fmt, hash,
@@ -13,8 +12,11 @@ use core::{
     pin::Pin,
     str,
 };
+
 use rancor::Fallible;
 use repr::{ArchivedStringRepr, INLINE_CAPACITY};
+
+use crate::SerializeUnsized;
 
 /// An archived [`String`].
 ///

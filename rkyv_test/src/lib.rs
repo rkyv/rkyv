@@ -17,12 +17,12 @@ pub mod validation;
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "wasm")]
+    use wasm_bindgen_test::*;
+
     #[cfg(not(feature = "stable_layout"))]
     use crate::util::core::test_archive_with;
     use crate::util::core::{test_archive, test_archive_ref};
-
-    #[cfg(feature = "wasm")]
-    use wasm_bindgen_test::*;
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]

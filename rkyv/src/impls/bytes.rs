@@ -1,10 +1,11 @@
+use bytes::{Bytes, BytesMut};
+use rancor::Fallible;
+
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Serialize,
 };
-use bytes::{Bytes, BytesMut};
-use rancor::Fallible;
 
 impl Archive for Bytes {
     type Archived = ArchivedVec<u8>;
@@ -51,11 +52,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{access_unchecked, deserialize, ser::Positional as _};
     #[cfg(not(feature = "std"))]
     use alloc::vec;
+
     use bytes::Bytes;
     use rancor::{Failure, Infallible};
+
+    use crate::{access_unchecked, deserialize, ser::Positional as _};
 
     #[test]
     fn bytes() {

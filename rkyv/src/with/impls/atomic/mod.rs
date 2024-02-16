@@ -3,14 +3,16 @@ mod _macros;
 #[cfg(not(feature = "unaligned"))]
 mod multibyte;
 
+use core::sync::atomic::Ordering;
+#[cfg(target_has_atomic = "8")]
+use core::sync::atomic::{AtomicBool, AtomicI8, AtomicU8};
+
+use rancor::Fallible;
+
 use crate::with::{
     Acquire, ArchiveWith, AsAtomic, AtomicLoad, DeserializeWith, Relaxed,
     SeqCst,
 };
-use core::sync::atomic::Ordering;
-#[cfg(target_has_atomic = "8")]
-use core::sync::atomic::{AtomicBool, AtomicI8, AtomicU8};
-use rancor::Fallible;
 
 trait LoadOrdering {
     const ORDERING: Ordering;

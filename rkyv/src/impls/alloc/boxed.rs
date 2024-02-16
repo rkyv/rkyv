@@ -1,14 +1,16 @@
+use core::cmp;
+
+#[cfg(not(feature = "std"))]
+use ::alloc::{alloc, boxed::Box};
+#[cfg(feature = "std")]
+use ::std::alloc;
+use rancor::Fallible;
+
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized,
     Serialize, SerializeUnsized,
 };
-#[cfg(not(feature = "std"))]
-use ::alloc::{alloc, boxed::Box};
-#[cfg(feature = "std")]
-use ::std::alloc;
-use core::cmp;
-use rancor::Fallible;
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     type Archived = ArchivedBox<T::Archived>;

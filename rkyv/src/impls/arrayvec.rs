@@ -1,10 +1,11 @@
+use arrayvec::ArrayVec;
+use rancor::Fallible;
+
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Serialize,
 };
-use arrayvec::ArrayVec;
-use rancor::Fallible;
 
 impl<T, const CAP: usize> Archive for ArrayVec<T, CAP>
 where
@@ -60,9 +61,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{access_unchecked, deserialize, ser::Positional as _};
     use arrayvec::ArrayVec;
     use rancor::{Failure, Infallible};
+
+    use crate::{access_unchecked, deserialize, ser::Positional as _};
 
     #[test]
     fn array_vec() {

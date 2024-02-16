@@ -5,9 +5,11 @@
 
 mod impls;
 
-use crate::{Archive, Deserialize, Serialize};
 use core::{fmt, marker::PhantomData, mem::transmute, ops::Deref};
+
 use rancor::Fallible;
+
+use crate::{Archive, Deserialize, Serialize};
 
 // TODO: Gate unsafe wrappers behind Unsafe.
 

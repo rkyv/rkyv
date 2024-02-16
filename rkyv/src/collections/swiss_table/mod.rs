@@ -9,11 +9,11 @@ pub mod table;
 pub use index_map::{ArchivedIndexMap, IndexMapResolver};
 pub use index_set::{ArchivedIndexSet, IndexSetResolver};
 pub use map::{ArchivedHashMap, HashMapResolver};
+use rancor::Fallible;
 pub use set::{ArchivedHashSet, HashSetResolver};
 pub use table::{ArchivedHashTable, HashTableResolver};
 
 use crate::{Archive, Serialize};
-use rancor::Fallible;
 
 struct EntryAdapter<'a, K, V> {
     key: &'a K,

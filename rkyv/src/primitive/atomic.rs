@@ -1,16 +1,15 @@
-#[cfg(all(not(feature = "big_endian"), target_has_atomic = "16"))]
-use rend::{AtomicI16_le, AtomicU16_le};
-#[cfg(all(not(feature = "big_endian"), target_has_atomic = "32"))]
-use rend::{AtomicI32_le, AtomicU32_le};
-#[cfg(all(not(feature = "big_endian"), target_has_atomic = "64"))]
-use rend::{AtomicI64_le, AtomicU64_le};
-
 #[cfg(all(feature = "big_endian", target_has_atomic = "16"))]
 use rend::{AtomicI16_be, AtomicU16_be};
+#[cfg(all(not(feature = "big_endian"), target_has_atomic = "16"))]
+use rend::{AtomicI16_le, AtomicU16_le};
 #[cfg(all(feature = "big_endian", target_has_atomic = "32"))]
 use rend::{AtomicI32_be, AtomicU32_be};
+#[cfg(all(not(feature = "big_endian"), target_has_atomic = "32"))]
+use rend::{AtomicI32_le, AtomicU32_le};
 #[cfg(all(feature = "big_endian", target_has_atomic = "64"))]
 use rend::{AtomicI64_be, AtomicU64_be};
+#[cfg(all(not(feature = "big_endian"), target_has_atomic = "64"))]
+use rend::{AtomicI64_le, AtomicU64_le};
 
 #[cfg(target_has_atomic = "16")]
 define_archived_primitive!(ArchivedAtomicI16: AtomicI16, AtomicI16_le, AtomicI16_be);

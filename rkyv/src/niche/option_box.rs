@@ -1,10 +1,5 @@
 //! A niched archived `Option<Box<T>>` that uses less space.
 
-use crate::{
-    boxed::{ArchivedBox, BoxResolver},
-    ser::Writer,
-    ArchivePointee, ArchiveUnsized, SerializeUnsized,
-};
 use core::{
     cmp::{self, Eq, Ord, PartialEq, PartialOrd},
     fmt, hash,
@@ -12,7 +7,14 @@ use core::{
     ops::Deref,
     pin::Pin,
 };
+
 use rancor::Fallible;
+
+use crate::{
+    boxed::{ArchivedBox, BoxResolver},
+    ser::Writer,
+    ArchivePointee, ArchiveUnsized, SerializeUnsized,
+};
 
 /// A niched archived `Option<Box<T>>`.
 ///

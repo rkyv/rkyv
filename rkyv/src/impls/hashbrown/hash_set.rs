@@ -1,14 +1,16 @@
+use core::{
+    borrow::Borrow,
+    hash::{BuildHasher, Hash},
+};
+
+use hashbrown::HashSet;
+use rancor::{Error, Fallible};
+
 use crate::{
     collections::swiss_table::set::{ArchivedHashSet, HashSetResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Serialize,
 };
-use core::{
-    borrow::Borrow,
-    hash::{BuildHasher, Hash},
-};
-use hashbrown::HashSet;
-use rancor::{Error, Fallible};
 
 impl<K: Archive + Hash + Eq, S> Archive for HashSet<K, S>
 where
@@ -94,11 +96,13 @@ impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
 
 #[cfg(test)]
 mod tests {
-    use crate::{access, access_unchecked, deserialize, to_bytes};
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::string::String;
+
     use hashbrown::HashSet;
     use rancor::Failure;
+
+    use crate::{access, access_unchecked, deserialize, to_bytes};
 
     #[test]
     fn index_set() {

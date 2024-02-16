@@ -1,9 +1,10 @@
 //! An archived string representation that supports inlining short strings.
 
+use core::{marker::PhantomPinned, mem, ptr, slice, str};
+
 use rancor::{Error, Panic, ResultExt as _};
 
 use crate::primitive::{ArchivedUsize, FixedIsize};
-use core::{marker::PhantomPinned, mem, ptr, slice, str};
 
 const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
 
@@ -198,8 +199,9 @@ impl ArchivedStringRepr {
 
 #[cfg(feature = "bytecheck")]
 const _: () = {
-    use bytecheck::{rancor::Fallible, CheckBytes};
     use core::fmt;
+
+    use bytecheck::{rancor::Fallible, CheckBytes};
     use rancor::fail;
 
     /// An error resulting from an invalid string representation.

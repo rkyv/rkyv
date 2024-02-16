@@ -1,6 +1,8 @@
-use crate::{option::ArchivedOption, Archive, Deserialize, Serialize};
 use core::{hint::unreachable_unchecked, ptr};
+
 use rancor::Fallible;
+
+use crate::{option::ArchivedOption, Archive, Deserialize, Serialize};
 
 #[allow(dead_code)]
 #[repr(u8)]

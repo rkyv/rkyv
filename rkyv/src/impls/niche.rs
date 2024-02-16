@@ -3,6 +3,8 @@ use core::num::{
     NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8,
 };
 
+use rancor::Fallible;
+
 use crate::{
     niche::option_nonzero::{
         ArchivedOptionNonZeroI128, ArchivedOptionNonZeroI16,
@@ -13,8 +15,6 @@ use crate::{
     },
     with::{ArchiveWith, DeserializeWith, Niche, SerializeWith},
 };
-
-use rancor::Fallible;
 
 macro_rules! impl_nonzero_niche {
     ($ar:ty, $nz:ty, $ne:ty) => {
