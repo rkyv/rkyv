@@ -1,7 +1,7 @@
 //! Archived hash map implementation using an archived SwissTable.
 
 use core::{
-    borrow::Borrow, fmt, hash::Hash, iter::FusedIterator, marker::PhantomData,
+    borrow::Borrow, fmt, hash::{Hash, Hasher}, iter::FusedIterator, marker::PhantomData,
     ops::Index, pin::Pin,
 };
 
@@ -12,7 +12,7 @@ use crate::{
         table::{ArchivedHashTable, HashTableResolver, RawIter},
         Entry, EntryAdapter,
     },
-    hash::hash_value,
+    hash::{hash_value, FxHasher64},
     ser::{Allocator, Writer},
     Serialize,
 };
@@ -20,11 +20,77 @@ use crate::{
 /// An archived SwissTable hash map.
 #[cfg_attr(feature = "stable_layout", repr(C))]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-pub struct ArchivedHashMap<K, V> {
+pub struct ArchivedHashMap<K, V, H = FxHasher64> {
     table: ArchivedHashTable<Entry<K, V>>,
+    _phantom: PhantomData<H>,
 }
 
-impl<K, V> ArchivedHashMap<K, V> {
+impl<K, V, H> ArchivedHashMap<K, V, H> {
+    /// Returns whether the hash map is empty.
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
+        self.table.is_empty()
+    }
+
+    /// Returns the number of elements in the hash map.
+    #[inline]
+    pub const fn len(&self) -> usize {
+        self.table.len()
+    }
+
+    /// Returns the total capacity of the hash map.
+    #[inline]
+    pub fn capacity(&self) -> usize {
+        self.table.capacity()
+    }
+
+    /// Returns an iterator over the key-value entries in the hash map.
+    #[inline]
+    pub fn iter(&self) -> Iter<'_, K, V, H> {
+        Iter {
+            raw: self.table.raw_iter(),
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Returns an iterator over the mutable key-value entries in the hash map.
+    #[inline]
+    pub fn iter_mut(self: Pin<&mut Self>) -> IterMut<'_, K, V, H> {
+        IterMut {
+            raw: self.table.raw_iter(),
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Returns an iterator over the keys in the hash map.
+    #[inline]
+    pub fn keys(&self) -> Keys<'_, K, V, H> {
+        Keys {
+            raw: self.table.raw_iter(),
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Returns an iterator over the values in the hash map.
+    #[inline]
+    pub fn values(&self) -> Values<'_, K, V, H> {
+        Values {
+            raw: self.table.raw_iter(),
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Returns an iterator over the mutable values in the hash map.
+    #[inline]
+    pub fn values_mut(self: Pin<&mut Self>) -> ValuesMut<'_, K, V, H> {
+        ValuesMut {
+            raw: self.table.raw_iter(),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
     /// Returns the key-value pair corresponding to the supplied key using the
     /// given comparison function.
     #[inline]
@@ -34,7 +100,7 @@ impl<K, V> ArchivedHashMap<K, V> {
         C: Fn(&Q, &K) -> bool,
     {
         let entry =
-            self.table.get_with(hash_value(key), |e| cmp(key, &e.key))?;
+            self.table.get_with(hash_value::<Q, H>(key), |e| cmp(key, &e.key))?;
         Some((&entry.key, &entry.value))
     }
 
@@ -84,7 +150,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     {
         let table = unsafe { Pin::map_unchecked_mut(self, |s| &mut s.table) };
         let entry =
-            table.get_with_mut(hash_value(key), |e| cmp(key, &e.key))?;
+            table.get_with_mut(hash_value::<Q, H>(key), |e| cmp(key, &e.key))?;
         let entry = unsafe { Pin::into_inner_unchecked(entry) };
         let key = &entry.key;
         let value = unsafe { Pin::new_unchecked(&mut entry.value) };
@@ -141,69 +207,6 @@ impl<K, V> ArchivedHashMap<K, V> {
         self.get(key).is_some()
     }
 
-    /// Returns whether the hash map is empty.
-    #[inline]
-    pub const fn is_empty(&self) -> bool {
-        self.table.is_empty()
-    }
-
-    /// Returns the number of elements in the hash map.
-    #[inline]
-    pub const fn len(&self) -> usize {
-        self.table.len()
-    }
-
-    /// Returns the total capacity of the hash map.
-    #[inline]
-    pub fn capacity(&self) -> usize {
-        self.table.capacity()
-    }
-
-    /// Returns an iterator over the key-value entries in the hash map.
-    #[inline]
-    pub fn iter(&self) -> Iter<'_, K, V> {
-        Iter {
-            raw: self.table.raw_iter(),
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Returns an iterator over the mutable key-value entries in the hash map.
-    #[inline]
-    pub fn iter_mut(self: Pin<&mut Self>) -> IterMut<'_, K, V> {
-        IterMut {
-            raw: self.table.raw_iter(),
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Returns an iterator over the keys in the hash map.
-    #[inline]
-    pub fn keys(&self) -> Keys<'_, K, V> {
-        Keys {
-            raw: self.table.raw_iter(),
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Returns an iterator over the values in the hash map.
-    #[inline]
-    pub fn values(&self) -> Values<'_, K, V> {
-        Values {
-            raw: self.table.raw_iter(),
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Returns an iterator over the mutable values in the hash map.
-    #[inline]
-    pub fn values_mut(self: Pin<&mut Self>) -> ValuesMut<'_, K, V> {
-        ValuesMut {
-            raw: self.table.raw_iter(),
-            _phantom: PhantomData,
-        }
-    }
-
     /// Serializes an iterator of key-value pairs as a hash map.
     pub fn serialize_from_iter<'a, I, KU, VU, S>(
         iter: I,
@@ -219,7 +222,7 @@ impl<K, V> ArchivedHashMap<K, V> {
     {
         ArchivedHashTable::<Entry<K, V>>::serialize_from_iter(
             iter.clone().map(|(key, value)| EntryAdapter { key, value }),
-            iter.map(|(key, _)| hash_value(key)),
+            iter.map(|(key, _)| hash_value::<KU, H>(key)),
             load_factor,
             serializer,
         )
@@ -248,16 +251,30 @@ impl<K, V> ArchivedHashMap<K, V> {
     }
 }
 
-impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for ArchivedHashMap<K, V> {
+impl<K, V, H> fmt::Debug for ArchivedHashMap<K, V, H>
+where
+    K: fmt::Debug,
+    V: fmt::Debug,
+{
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_map().entries(self.iter()).finish()
     }
 }
 
-impl<K: Hash + Eq, V: Eq> Eq for ArchivedHashMap<K, V> {}
+impl<K, V, H> Eq for ArchivedHashMap<K, V, H>
+where
+    K: Hash + Eq,
+    V: Eq,
+    H: Default + Hasher,
+{}
 
-impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
+impl<K, V, H> PartialEq for ArchivedHashMap<K, V, H>
+where
+    K: Hash + Eq,
+    V: PartialEq,
+    H: Default + Hasher,
+{
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         if self.len() != other.len() {
@@ -270,10 +287,11 @@ impl<K: Hash + Eq, V: PartialEq> PartialEq for ArchivedHashMap<K, V> {
     }
 }
 
-impl<K, Q, V> Index<&'_ Q> for ArchivedHashMap<K, V>
+impl<K, Q, V, H> Index<&'_ Q> for ArchivedHashMap<K, V, H>
 where
     K: Eq + Hash + Borrow<Q>,
     Q: Eq + Hash + ?Sized,
+    H: Default + Hasher,
 {
     type Output = V;
 
@@ -287,12 +305,12 @@ where
 pub struct HashMapResolver(HashTableResolver);
 
 /// An iterator over the key-value pairs of an [`ArchivedHashMap`].
-pub struct Iter<'a, K, V> {
+pub struct Iter<'a, K, V, H> {
     raw: RawIter<Entry<K, V>>,
-    _phantom: PhantomData<&'a ArchivedHashMap<K, V>>,
+    _phantom: PhantomData<&'a ArchivedHashMap<K, V, H>>,
 }
 
-impl<'a, K, V> Iterator for Iter<'a, K, V> {
+impl<'a, K, V, H> Iterator for Iter<'a, K, V, H> {
     type Item = (&'a K, &'a V);
 
     #[inline]
@@ -304,22 +322,22 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
     }
 }
 
-impl<K, V> ExactSizeIterator for Iter<'_, K, V> {
+impl<K, V, H> ExactSizeIterator for Iter<'_, K, V, H> {
     #[inline]
     fn len(&self) -> usize {
         self.raw.len()
     }
 }
 
-impl<K, V> FusedIterator for Iter<'_, K, V> {}
+impl<K, V, H> FusedIterator for Iter<'_, K, V, H> {}
 
 /// An iterator over the mutable key-value pairs of an [`ArchivedHashMap`].
-pub struct IterMut<'a, K, V> {
+pub struct IterMut<'a, K, V, H> {
     raw: RawIter<Entry<K, V>>,
-    _phantom: PhantomData<&'a ArchivedHashMap<K, V>>,
+    _phantom: PhantomData<&'a ArchivedHashMap<K, V, H>>,
 }
 
-impl<'a, K, V> Iterator for IterMut<'a, K, V> {
+impl<'a, K, V, H> Iterator for IterMut<'a, K, V, H> {
     type Item = (&'a K, Pin<&'a mut V>);
 
     #[inline]
@@ -332,21 +350,21 @@ impl<'a, K, V> Iterator for IterMut<'a, K, V> {
     }
 }
 
-impl<K, V> ExactSizeIterator for IterMut<'_, K, V> {
+impl<K, V, H> ExactSizeIterator for IterMut<'_, K, V, H> {
     fn len(&self) -> usize {
         self.raw.len()
     }
 }
 
-impl<K, V> FusedIterator for IterMut<'_, K, V> {}
+impl<K, V, H> FusedIterator for IterMut<'_, K, V, H> {}
 
 /// An iterator over the keys of an [`ArchivedHashMap`].
-pub struct Keys<'a, K, V> {
+pub struct Keys<'a, K, V, H> {
     raw: RawIter<Entry<K, V>>,
-    _phantom: PhantomData<&'a ArchivedHashMap<K, V>>,
+    _phantom: PhantomData<&'a ArchivedHashMap<K, V, H>>,
 }
 
-impl<'a, K, V> Iterator for Keys<'a, K, V> {
+impl<'a, K, V, H> Iterator for Keys<'a, K, V, H> {
     type Item = &'a K;
 
     #[inline]
@@ -358,21 +376,21 @@ impl<'a, K, V> Iterator for Keys<'a, K, V> {
     }
 }
 
-impl<K, V> ExactSizeIterator for Keys<'_, K, V> {
+impl<K, V, H> ExactSizeIterator for Keys<'_, K, V, H> {
     fn len(&self) -> usize {
         self.raw.len()
     }
 }
 
-impl<K, V> FusedIterator for Keys<'_, K, V> {}
+impl<K, V, H> FusedIterator for Keys<'_, K, V, H> {}
 
 /// An iterator over the values of an [`ArchivedHashMap`].
-pub struct Values<'a, K, V> {
+pub struct Values<'a, K, V, H> {
     raw: RawIter<Entry<K, V>>,
-    _phantom: PhantomData<&'a ArchivedHashMap<K, V>>,
+    _phantom: PhantomData<&'a ArchivedHashMap<K, V, H>>,
 }
 
-impl<'a, K, V> Iterator for Values<'a, K, V> {
+impl<'a, K, V, H> Iterator for Values<'a, K, V, H> {
     type Item = &'a V;
 
     #[inline]
@@ -384,21 +402,21 @@ impl<'a, K, V> Iterator for Values<'a, K, V> {
     }
 }
 
-impl<K, V> ExactSizeIterator for Values<'_, K, V> {
+impl<K, V, H> ExactSizeIterator for Values<'_, K, V, H> {
     fn len(&self) -> usize {
         self.raw.len()
     }
 }
 
-impl<K, V> FusedIterator for Values<'_, K, V> {}
+impl<K, V, H> FusedIterator for Values<'_, K, V, H> {}
 
 /// An iterator over the mutable values of an [`ArchivedHashMap`].
-pub struct ValuesMut<'a, K, V> {
+pub struct ValuesMut<'a, K, V, H> {
     raw: RawIter<Entry<K, V>>,
-    _phantom: PhantomData<&'a ArchivedHashMap<K, V>>,
+    _phantom: PhantomData<&'a ArchivedHashMap<K, V, H>>,
 }
 
-impl<'a, K, V> Iterator for ValuesMut<'a, K, V> {
+impl<'a, K, V, H> Iterator for ValuesMut<'a, K, V, H> {
     type Item = Pin<&'a mut V>;
 
     #[inline]
@@ -410,10 +428,10 @@ impl<'a, K, V> Iterator for ValuesMut<'a, K, V> {
     }
 }
 
-impl<K, V> ExactSizeIterator for ValuesMut<'_, K, V> {
+impl<K, V, H> ExactSizeIterator for ValuesMut<'_, K, V, H> {
     fn len(&self) -> usize {
         self.raw.len()
     }
 }
 
-impl<K, V> FusedIterator for ValuesMut<'_, K, V> {}
+impl<K, V, H> FusedIterator for ValuesMut<'_, K, V, H> {}

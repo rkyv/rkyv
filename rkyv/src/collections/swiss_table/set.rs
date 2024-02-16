@@ -1,5 +1,6 @@
 //! Archived hash set implementation using an archived SwissTable.
 
+use core::hash::Hasher;
 use core::{borrow::Borrow, fmt, hash::Hash};
 
 use rancor::{Error, Fallible};
@@ -7,6 +8,7 @@ use rancor::{Error, Fallible};
 use crate::collections::swiss_table::map::{
     ArchivedHashMap, HashMapResolver, Keys,
 };
+use crate::hash::FxHasher64;
 use crate::{
     ser::{Allocator, Writer},
     Serialize,
@@ -16,17 +18,31 @@ use crate::{
 /// and unit value.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
-pub struct ArchivedHashSet<K> {
-    inner: ArchivedHashMap<K, ()>,
+pub struct ArchivedHashSet<K, H = FxHasher64> {
+    inner: ArchivedHashMap<K, (), H>,
 }
 
-impl<K> ArchivedHashSet<K> {
+impl<K, H> ArchivedHashSet<K, H> {
     /// Gets the number of items in the hash set.
     #[inline]
     pub const fn len(&self) -> usize {
         self.inner.len()
     }
 
+    /// Returns whether there are no items in the hash set.
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    /// Gets an iterator over the keys of the underlying hash map.
+    #[inline]
+    pub fn iter(&self) -> Keys<K, (), H> {
+        self.inner.keys()
+    }
+}
+
+impl<K, H: Hasher + Default> ArchivedHashSet<K, H> {
     /// Gets the key corresponding to the given key in the hash set.
     #[inline]
     pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&K>
@@ -45,18 +61,6 @@ impl<K> ArchivedHashSet<K> {
         Q: Hash + Eq,
     {
         self.inner.contains_key(k)
-    }
-
-    /// Returns whether there are no items in the hash set.
-    #[inline]
-    pub const fn is_empty(&self) -> bool {
-        self.inner.is_empty()
-    }
-
-    /// Gets an iterator over the keys of the underlying hash map.
-    #[inline]
-    pub fn iter(&self) -> Keys<K, ()> {
-        self.inner.keys()
     }
 
     /// Resolves an archived hash set from the given length and parameters.
@@ -95,7 +99,7 @@ impl<K> ArchivedHashSet<K> {
         S::Error: Error,
         I: Clone + ExactSizeIterator<Item = &'a KU>,
     {
-        Ok(HashSetResolver(ArchivedHashMap::serialize_from_iter(
+        Ok(HashSetResolver(ArchivedHashMap::<K, (), H>::serialize_from_iter(
             iter.map(|x| (x, &())),
             load_factor,
             serializer,
@@ -103,20 +107,20 @@ impl<K> ArchivedHashSet<K> {
     }
 }
 
-impl<K: fmt::Debug> fmt::Debug for ArchivedHashSet<K> {
+impl<K: fmt::Debug, H> fmt::Debug for ArchivedHashSet<K, H> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_set().entries(self.iter()).finish()
     }
 }
 
-impl<K: Hash + Eq> PartialEq for ArchivedHashSet<K> {
+impl<K: Hash + Eq, H: Hasher + Default> PartialEq for ArchivedHashSet<K, H> {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }
 }
 
-impl<K: Hash + Eq> Eq for ArchivedHashSet<K> {}
+impl<K: Hash + Eq, H: Hasher + Default> Eq for ArchivedHashSet<K, H> {}
 
 /// The resolver for archived hash sets.
 pub struct HashSetResolver(HashMapResolver);

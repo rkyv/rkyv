@@ -6,7 +6,7 @@
 use core::{
     borrow::Borrow,
     fmt,
-    hash::Hash,
+    hash::{Hash, Hasher},
     iter::FusedIterator,
     marker::PhantomData,
     pin::Pin,
@@ -20,7 +20,7 @@ use crate::{
         ArchivedHashTable, Entry, EntryAdapter, EntryResolver,
         HashTableResolver,
     },
-    hash::hash_value,
+    hash::{hash_value, FxHasher64},
     out_field,
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt as _},
@@ -34,12 +34,13 @@ use crate::{
     derive(bytecheck::CheckBytes),
     check_bytes(verify)
 )]
-pub struct ArchivedIndexMap<K, V> {
+pub struct ArchivedIndexMap<K, V, H = FxHasher64> {
     table: ArchivedHashTable<ArchivedUsize>,
     entries: RelPtr<Entry<K, V>>,
+    _phantom: PhantomData<H>,
 }
 
-impl<K, V> ArchivedIndexMap<K, V> {
+impl<K, V, H> ArchivedIndexMap<K, V, H> {
     fn entries(&self) -> &[Entry<K, V>] {
         unsafe { from_raw_parts(self.entries.as_ptr(), self.len()) }
     }
@@ -53,6 +54,49 @@ impl<K, V> ArchivedIndexMap<K, V> {
         }
     }
 
+    /// Returns `true` if the map contains no elements.
+    #[inline]
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    #[inline]
+    unsafe fn raw_iter(&self) -> RawIter<K, V> {
+        unsafe { RawIter::new(self.entries.as_ptr().cast(), self.len()) }
+    }
+
+    /// Returns an iterator over the key-value pairs of the map in order
+    #[inline]
+    pub fn iter(&self) -> Iter<K, V> {
+        Iter {
+            inner: unsafe { self.raw_iter() },
+        }
+    }
+
+    /// Returns an iterator over the keys of the map in order
+    #[inline]
+    pub fn keys(&self) -> Keys<K, V> {
+        Keys {
+            inner: unsafe { self.raw_iter() },
+        }
+    }
+
+    /// Gets the number of items in the index map.
+    #[inline]
+    pub const fn len(&self) -> usize {
+        self.table.len()
+    }
+
+    /// Returns an iterator over the values of the map in order.
+    #[inline]
+    pub fn values(&self) -> Values<K, V> {
+        Values {
+            inner: unsafe { self.raw_iter() },
+        }
+    }
+}
+
+impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
     /// Gets the index, key, and value corresponding to the supplied key using
     /// the given comparison function.
     #[inline]
@@ -246,7 +290,7 @@ impl<K, V> ArchivedIndexMap<K, V> {
         C: Fn(&Q, &K) -> bool,
     {
         let entries = self.entries();
-        let index = self.table.get_with(hash_value(key), |i| {
+        let index = self.table.get_with(hash_value::<Q, H>(key), |i| {
             cmp(key, &entries[i.to_native() as usize].key)
         })?;
         Some(index.to_native() as usize)
@@ -260,47 +304,6 @@ impl<K, V> ArchivedIndexMap<K, V> {
         Q: Hash + Eq + ?Sized,
     {
         self.get_index_of_with(key, |q, k| q == k.borrow())
-    }
-
-    /// Returns `true` if the map contains no elements.
-    #[inline]
-    pub const fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    #[inline]
-    unsafe fn raw_iter(&self) -> RawIter<K, V> {
-        unsafe { RawIter::new(self.entries.as_ptr().cast(), self.len()) }
-    }
-
-    /// Returns an iterator over the key-value pairs of the map in order
-    #[inline]
-    pub fn iter(&self) -> Iter<K, V> {
-        Iter {
-            inner: unsafe { self.raw_iter() },
-        }
-    }
-
-    /// Returns an iterator over the keys of the map in order
-    #[inline]
-    pub fn keys(&self) -> Keys<K, V> {
-        Keys {
-            inner: unsafe { self.raw_iter() },
-        }
-    }
-
-    /// Gets the number of items in the index map.
-    #[inline]
-    pub const fn len(&self) -> usize {
-        self.table.len()
-    }
-
-    /// Returns an iterator over the values of the map in order.
-    #[inline]
-    pub fn values(&self) -> Values<K, V> {
-        Values {
-            inner: unsafe { self.raw_iter() },
-        }
     }
 
     /// Resolves an archived index map from a given length and parameters.
@@ -347,7 +350,7 @@ impl<K, V> ArchivedIndexMap<K, V> {
         let table_resolver =
             ArchivedHashTable::<ArchivedUsize>::serialize_from_iter(
                 0..iter.len(),
-                iter.clone().map(|(key, _)| hash_value(key)),
+                iter.clone().map(|(key, _)| hash_value::<UK, H>(key)),
                 load_factor,
                 serializer,
             )?;
@@ -379,19 +382,27 @@ impl<K, V> ArchivedIndexMap<K, V> {
     }
 }
 
-impl<K: fmt::Debug, V: fmt::Debug> fmt::Debug for ArchivedIndexMap<K, V> {
+impl<K, V, H> fmt::Debug for ArchivedIndexMap<K, V, H>
+where
+    K: fmt::Debug,
+    V: fmt::Debug,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_map().entries(self.iter()).finish()
     }
 }
 
-impl<K: PartialEq, V: PartialEq> PartialEq for ArchivedIndexMap<K, V> {
+impl<K, V, H> PartialEq for ArchivedIndexMap<K, V, H>
+where
+    K: PartialEq,
+    V: PartialEq,
+{
     fn eq(&self, other: &Self) -> bool {
         self.iter().eq(other.iter())
     }
 }
 
-impl<K: Eq, V: Eq> Eq for ArchivedIndexMap<K, V> {}
+impl<K: Eq, V: Eq, H> Eq for ArchivedIndexMap<K, V, H> {}
 
 struct RawIter<'a, K, V> {
     current: *const Entry<K, V>,
@@ -523,7 +534,7 @@ mod verify {
         validation::{ArchiveContext, ArchiveContextExt},
     };
 
-    unsafe impl<C, K, V> Verify<C> for ArchivedIndexMap<K, V>
+    unsafe impl<C, K, V, H> Verify<C> for ArchivedIndexMap<K, V, H>
     where
         C: Fallible + ArchiveContext + ?Sized,
         C::Error: Error,

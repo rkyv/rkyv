@@ -176,7 +176,7 @@ pub mod de;
 // longer need cfg(feature = "std")
 #[cfg(feature = "std")]
 pub mod ffi;
-mod hash;
+pub mod hash;
 mod impls;
 pub mod net;
 pub mod niche;

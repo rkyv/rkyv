@@ -19,7 +19,6 @@ ptr_meta.workspace = true
 rancor.workspace = true
 rend.workspace = true
 rkyv_derive = { version = "=0.8.0-pre1", path = "../rkyv_derive" }
-seahash.workspace = true
 
 # Support for various common crates. These are primarily to get users off the ground and build some
 # momentum.

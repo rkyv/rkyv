@@ -48,7 +48,7 @@ where
         &self,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        ArchivedHashSet::serialize_from_iter(self.iter(), (7, 8), serializer)
+        ArchivedHashSet::<K::Archived>::serialize_from_iter(self.iter(), (7, 8), serializer)
     }
 }
 
