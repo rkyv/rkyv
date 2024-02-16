@@ -26,17 +26,19 @@ impl<T> Drop for ScratchVec<T> {
     }
 }
 
-// SAFETY: ScratchVec is safe to send to another thread is T is safe to send to another thread
+// SAFETY: ScratchVec is safe to send to another thread is T is safe to send to
+// another thread
 unsafe impl<T: Send> Send for ScratchVec<T> {}
 
-// SAFETY: ScratchVec is safe to share between threads if T is safe to share between threads
+// SAFETY: ScratchVec is safe to share between threads if T is safe to share
+// between threads
 unsafe impl<T: Sync> Sync for ScratchVec<T> {}
 
 impl<T> ScratchVec<T> {
     /// Constructs a new, empty `ScratchVec` with the specified capacity.
     ///
-    /// The vector will be able to hold exactly `capacity` elements. If `capacity` is 0, the vector
-    /// will not allocate.
+    /// The vector will be able to hold exactly `capacity` elements. If
+    /// `capacity` is 0, the vector will not allocate.
     ///
     /// # Safety
     ///
@@ -64,16 +66,19 @@ impl<T> ScratchVec<T> {
         }
     }
 
-    /// Frees the memory associated with the scratch vec and releases it back to the scratch space.
+    /// Frees the memory associated with the scratch vec and releases it back to
+    /// the scratch space.
     ///
-    /// This must be called when serialization succeeds, but may be omitted when serialization
-    /// fails. In that case, the elements of the scratch vec will be dropped but the memory will not
-    /// be popped. It is the duty of the scratch space in that case to ensure that memory resources
+    /// This must be called when serialization succeeds, but may be omitted when
+    /// serialization fails. In that case, the elements of the scratch vec
+    /// will be dropped but the memory will not be popped. It is the duty of
+    /// the scratch space in that case to ensure that memory resources
     /// are properly cleaned up.
     ///
     /// # Safety
     ///
-    /// The given scratch space must be the same one used to allocate the scratch vec.
+    /// The given scratch space must be the same one used to allocate the
+    /// scratch vec.
     #[inline]
     pub unsafe fn free<S: Allocator<E> + ?Sized, E>(
         self,
@@ -95,7 +100,8 @@ impl<T> ScratchVec<T> {
 
     /// Clears the vector, removing all values.
     ///
-    /// Note that this method has no effect on the allocated capacity of the vector.
+    /// Note that this method has no effect on the allocated capacity of the
+    /// vector.
     #[inline]
     pub fn clear(&mut self) {
         self.len = 0;
@@ -103,8 +109,8 @@ impl<T> ScratchVec<T> {
 
     /// Returns an unsafe mutable pointer to the vector's buffer.
     ///
-    /// The caller must ensure that the vector outlives the pointer this function returns, or else
-    /// it will end up pointing to garbage.
+    /// The caller must ensure that the vector outlives the pointer this
+    /// function returns, or else it will end up pointing to garbage.
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut T {
         self.ptr.as_ptr()
@@ -120,12 +126,13 @@ impl<T> ScratchVec<T> {
 
     /// Returns a raw pointer to the vector's buffer.
     ///
-    /// The caller must ensure that the vector outlives the pointer this functions returns, or else
-    /// it will end up pointing to garbage.
+    /// The caller must ensure that the vector outlives the pointer this
+    /// functions returns, or else it will end up pointing to garbage.
     ///
-    /// The caller must also ensure that the memory the pointer (non-transitively) points to is
-    /// never written to (except inside an `UnsafeCell`) using this pointer or any pointer derived
-    /// from it. If you need to mutate the contents of the slice, use
+    /// The caller must also ensure that the memory the pointer
+    /// (non-transitively) points to is never written to (except inside an
+    /// `UnsafeCell`) using this pointer or any pointer derived from it. If
+    /// you need to mutate the contents of the slice, use
     /// [`as_mut_ptr`](ScratchVec::as_mut_ptr).
     #[inline]
     pub fn as_ptr(&self) -> *const T {
@@ -146,8 +153,8 @@ impl<T> ScratchVec<T> {
         self.cap
     }
 
-    /// Ensures that there is capacity for at least `additional` more elements to be inserted into
-    /// the `ScratchVec`.
+    /// Ensures that there is capacity for at least `additional` more elements
+    /// to be inserted into the `ScratchVec`.
     ///
     /// # Panics
     ///
@@ -165,7 +172,8 @@ impl<T> ScratchVec<T> {
         self.len == 0
     }
 
-    /// Returns the number of elements in the vector, also referred to as its `length`.
+    /// Returns the number of elements in the vector, also referred to as its
+    /// `length`.
     #[inline]
     pub fn len(&self) -> usize {
         self.len
@@ -189,7 +197,8 @@ impl<T> ScratchVec<T> {
         }
     }
 
-    /// Removes the last element from a vector and returns it, or `None` if it is empty.
+    /// Removes the last element from a vector and returns it, or `None` if it
+    /// is empty.
     #[inline]
     pub fn pop(&mut self) -> Option<T> {
         if self.len == 0 {
@@ -212,9 +221,11 @@ impl<T> ScratchVec<T> {
         }
     }
 
-    /// Reserves the minimum capacity for exactly `additional` more elements to be inserted in the
-    /// given `AlignedVec`. After calling `reserve_exact`, capacity will be greater than or equal
-    /// to `self.len() + additional`. Does nothing if the capacity is already sufficient.
+    /// Reserves the minimum capacity for exactly `additional` more elements to
+    /// be inserted in the given `AlignedVec`. After calling
+    /// `reserve_exact`, capacity will be greater than or equal
+    /// to `self.len() + additional`. Does nothing if the capacity is already
+    /// sufficient.
     ///
     /// # Panics
     ///
@@ -226,11 +237,13 @@ impl<T> ScratchVec<T> {
 
     /// Forces the length of the vector to `new_len`.
     ///
-    /// This is a low-level operation that maintains none of the normal invariants of the type.
+    /// This is a low-level operation that maintains none of the normal
+    /// invariants of the type.
     ///
     /// # Safety
     ///
-    /// - `new_len` must be less than or equal to [`capacity()`](ScratchVec::capacity)
+    /// - `new_len` must be less than or equal to
+    ///   [`capacity()`](ScratchVec::capacity)
     /// - The elements at `old_len..new_len` must be initialized
     #[inline]
     pub unsafe fn set_len(&mut self, new_len: usize) {
@@ -285,17 +298,18 @@ impl<T> ScratchVec<T> {
         ops::Range { start, end }
     }
 
-    /// Creates a draining iterator that removes the specified range in the vector and yields the
-    /// removed items.
+    /// Creates a draining iterator that removes the specified range in the
+    /// vector and yields the removed items.
     ///
-    /// When the iterator **is** dropped, all elements in the range are removed from the vector,
-    /// even if the iterator was not fully consumed. If the iterator **is not** dropped (with
-    /// `mem::forget` for example), it is unspecified how many elements are removed.
+    /// When the iterator **is** dropped, all elements in the range are removed
+    /// from the vector, even if the iterator was not fully consumed. If the
+    /// iterator **is not** dropped (with `mem::forget` for example), it is
+    /// unspecified how many elements are removed.
     ///
     /// # Panics
     ///
-    /// Panics if the starting point is greater than the end point or if the end point is greater
-    /// than the length of the vector.
+    /// Panics if the starting point is greater than the end point or if the end
+    /// point is greater than the length of the vector.
     #[inline]
     pub fn drain<R: ops::RangeBounds<usize>>(
         &mut self,
@@ -321,14 +335,14 @@ impl<T> ScratchVec<T> {
 }
 
 impl<T> ScratchVec<MaybeUninit<T>> {
-    /// Assuming that all the elements are initialized, removes the `MaybeUninit` wrapper from the
-    /// vector.
+    /// Assuming that all the elements are initialized, removes the
+    /// `MaybeUninit` wrapper from the vector.
     ///
     /// # Safety
     ///
-    /// It is up to the caller to guarantee that the `MaybeUninit<T>` elements really are in an
-    /// initialized state. Calling this when the content is not yet fully initialized causes
-    /// undefined behavior.
+    /// It is up to the caller to guarantee that the `MaybeUninit<T>` elements
+    /// really are in an initialized state. Calling this when the content is
+    /// not yet fully initialized causes undefined behavior.
     #[inline]
     pub fn assume_init(self) -> ScratchVec<T> {
         ScratchVec {
@@ -408,7 +422,8 @@ impl<T, I: slice::SliceIndex<[T]>> ops::IndexMut<I> for ScratchVec<T> {
 
 /// A draining iterator for `ScratchVec<T>`.
 ///
-/// This `struct` is created by [`ScratchVec::drain`]. See its documentation for more.
+/// This `struct` is created by [`ScratchVec::drain`]. See its documentation for
+/// more.
 pub struct Drain<'a, T: 'a> {
     tail_start: usize,
     tail_len: usize,
@@ -464,14 +479,15 @@ impl<T> DoubleEndedIterator for Drain<'_, T> {
 
 impl<T> Drop for Drain<'_, T> {
     fn drop(&mut self) {
-        /// Continues dropping the remaining elements in the `Drain`, then moves back the
-        /// un-`Drain`ed elements to restore the original `Vec`.
+        /// Continues dropping the remaining elements in the `Drain`, then moves
+        /// back the un-`Drain`ed elements to restore the original
+        /// `Vec`.
         struct DropGuard<'r, 'a, T>(&'r mut Drain<'a, T>);
 
         impl<'r, 'a, T> Drop for DropGuard<'r, 'a, T> {
             fn drop(&mut self) {
-                // Continue the same loop we have below. If the loop already finished, this does
-                // nothing.
+                // Continue the same loop we have below. If the loop already
+                // finished, this does nothing.
                 self.0.for_each(drop);
 
                 if self.0.tail_len > 0 {

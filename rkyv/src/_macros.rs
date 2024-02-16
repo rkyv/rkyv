@@ -13,14 +13,15 @@ macro_rules! default {
     ($($fn:tt)*) => { $($fn)* };
 }
 
-/// Returns a tuple of `(field_pos, field_out)`, where `field_pos` is the "position",
-/// i.e. offset in bytes, of the field relative to the base address of the struct and `field_out`
-/// is a `*mut` that points to the field directly.
+/// Returns a tuple of `(field_pos, field_out)`, where `field_pos` is the
+/// "position", i.e. offset in bytes, of the field relative to the base address
+/// of the struct and `field_out` is a `*mut` that points to the field directly.
 ///
-/// This is essentially a convenience wrapper around [`core::ptr::addr_of_mut!`] that also
-/// gives back the relative offset of the field, as these are often needed together. You will often
-/// see the return values named `(fp, fo)` in internal use of this macro, which stand for `field_pos`
-/// and `field_out` respectively as discussed above.
+/// This is essentially a convenience wrapper around [`core::ptr::addr_of_mut!`]
+/// that also gives back the relative offset of the field, as these are often
+/// needed together. You will often see the return values named `(fp, fo)` in
+/// internal use of this macro, which stand for `field_pos` and `field_out`
+/// respectively as discussed above.
 ///
 /// # Example
 ///

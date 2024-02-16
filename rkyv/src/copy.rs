@@ -19,16 +19,19 @@ use core::{
 
 /// A type that is `Copy` and can be archived without additional processing.
 ///
-/// This trait is similar to `Copy` in that it's automatically implemented for all types composed
-/// entirely of other `ArchiveCopy` types. `Copy` is necessary, but not sufficient for `ArchiveCopy`
-/// as some `Copy` type representations may vary from platform to platform.
+/// This trait is similar to `Copy` in that it's automatically implemented for
+/// all types composed entirely of other `ArchiveCopy` types. `Copy` is
+/// necessary, but not sufficient for `ArchiveCopy` as some `Copy` type
+/// representations may vary from platform to platform.
 #[rustc_unsafe_specialization_marker]
 pub auto trait ArchiveCopy {}
 
-// (), PhantomData, PhantomPinned, bool, i8, u8, NonZeroI8, and NonZeroU8 are always ArchiveCopy
+// (), PhantomData, PhantomPinned, bool, i8, u8, NonZeroI8, and NonZeroU8 are
+// always ArchiveCopy
 impl<T: ?Sized> ArchiveCopy for PhantomData<T> {}
 
-// Multibyte integers are not ArchiveCopy if the target does not match the archive endianness
+// Multibyte integers are not ArchiveCopy if the target does not match the
+// archive endianness
 #[cfg(any(
     all(target_endian = "little", feature = "big_endian"),
     all(target_endian = "big", not(feature = "big_endian")),
@@ -88,12 +91,13 @@ impl !ArchiveCopy for crate::RawRelPtr {}
 
 /// Types that are `ArchiveCopy` and have no padding.
 ///
-/// These types are always safe to `memcpy` around because they will never contain uninitialized
-/// padding.
+/// These types are always safe to `memcpy` around because they will never
+/// contain uninitialized padding.
 #[rustc_unsafe_specialization_marker]
 pub unsafe trait ArchiveCopySafe: ArchiveCopy + Sized {}
 
-// (), PhantomData, PhantomPinned, bool, i8, u8, NonZeroI8, and NonZeroU8 are always ArchiveCopySafe
+// (), PhantomData, PhantomPinned, bool, i8, u8, NonZeroI8, and NonZeroU8 are
+// always ArchiveCopySafe
 unsafe impl ArchiveCopySafe for () {}
 unsafe impl<T: ?Sized> ArchiveCopySafe for PhantomData<T> {}
 unsafe impl ArchiveCopySafe for PhantomPinned {}
@@ -103,7 +107,8 @@ unsafe impl ArchiveCopySafe for u8 {}
 unsafe impl ArchiveCopySafe for NonZeroI8 {}
 unsafe impl ArchiveCopySafe for NonZeroU8 {}
 
-// Multibyte integers are ArchiveCopySafe if the target matches the archived endianness
+// Multibyte integers are ArchiveCopySafe if the target matches the archived
+// endianness
 #[cfg(any(
     all(target_endian = "little", not(feature = "big_endian")),
     all(target_endian = "big", feature = "big_endian"),
@@ -145,8 +150,9 @@ unsafe impl<T: ArchiveCopySafe, const N: usize> ArchiveCopySafe for [T; N] {}
 
 /// Types that may be copy optimized.
 ///
-/// By default, only [`ArchiveCopySafe`] types may be copy optimized. By enabling the `copy_unsafe`
-/// feature, all types that are [`ArchiveCopy`] may be copy optimized.
+/// By default, only [`ArchiveCopySafe`] types may be copy optimized. By
+/// enabling the `copy_unsafe` feature, all types that are [`ArchiveCopy`] may
+/// be copy optimized.
 #[cfg(not(feature = "copy_unsafe"))]
 #[rustc_unsafe_specialization_marker]
 pub trait ArchiveCopyOptimize: ArchiveCopySafe {}
@@ -156,8 +162,9 @@ impl<T: ArchiveCopySafe> ArchiveCopyOptimize for T {}
 
 /// Types that may be copy optimized.
 ///
-/// By default, only [`ArchiveCopySafe`] types may be copy optimized. By enabling the `copy_unsafe`
-/// feature, all types that are [`ArchiveCopy`] may be copy optimized.
+/// By default, only [`ArchiveCopySafe`] types may be copy optimized. By
+/// enabling the `copy_unsafe` feature, all types that are [`ArchiveCopy`] may
+/// be copy optimized.
 #[cfg(feature = "copy_unsafe")]
 #[rustc_unsafe_specialization_marker]
 pub trait ArchiveCopyOptimize: ArchiveCopy {}

@@ -101,7 +101,8 @@ impl ArchiveValidator {
         Self::with_max_depth(bytes, None)
     }
 
-    /// Crates a new bounds validator for the given bytes with a maximum validation depth.
+    /// Crates a new bounds validator for the given bytes with a maximum
+    /// validation depth.
     #[inline]
     pub fn with_max_depth(
         bytes: &[u8],

@@ -1,7 +1,7 @@
 //! Trait object serialization for rkyv.
 //!
-//! With `rkyv_dyn`, trait objects can be serialized with rkyv then the methods can be called
-//! without deserializing. All it takes is some macro magic.
+//! With `rkyv_dyn`, trait objects can be serialized with rkyv then the methods
+//! can be called without deserializing. All it takes is some macro magic.
 //!
 //! See [`SerializeDyn`] for an example of how to use rkyv_dyn.
 //!
@@ -35,9 +35,9 @@ pub type ImplId = FixedUsize;
 
 /// An object-safe version of `Serializer`.
 ///
-/// Instead of an associated error type, `DynSerializer` returns the `E` type. If you have
-/// a serializer that already implements `Serializer`, then it will automatically implement
-/// `DynSerializer`.
+/// Instead of an associated error type, `DynSerializer` returns the `E` type.
+/// If you have a serializer that already implements `Serializer`, then it will
+/// automatically implement `DynSerializer`.
 pub trait DynSerializer<E>: Writer<E> + Allocator<E> + Sharing<E> {}
 
 impl<E> Fallible for dyn DynSerializer<E> + '_ {
@@ -70,21 +70,24 @@ impl<E> AsDynSerializer<E> for dyn DynSerializer<E> {
 ///
 /// To add archive support for a trait object:
 ///
-/// 1. Add [`archive_dyn`](macro@archive_dyn) on your trait to make a serializable version of it. By
-///    default, it will be named "Serialize" + your trait name. To rename the trait, pass the
-///    argument `serialize = "..."` as a parameter.
-/// 2. Implement your trait for your type and add the attribute `#[archive_dyn]` to it. Make sure to
-///    implement your trait for your archived type as well. This invocation must have the same
-///    attributes as the trait invocation.
-/// 3. If deserialization support is desired, add `deserialize` or `deserialize = "..."` as
-///    parameters and implement `Deserialize` for the type. By default, the deserialize trait will
-///    be named "Deserialize" + your trait name. Passing a trait name will use that name instead.
+/// 1. Add [`archive_dyn`](macro@archive_dyn) on your trait to make a
+///    serializable version of it. By default, it will be named "Serialize" +
+///    your trait name. To rename the trait, pass the argument `serialize =
+///    "..."` as a parameter.
+/// 2. Implement your trait for your type and add the attribute `#[archive_dyn]`
+///    to it. Make sure to implement your trait for your archived type as well.
+///    This invocation must have the same attributes as the trait invocation.
+/// 3. If deserialization support is desired, add `deserialize` or `deserialize
+///    = "..."` as parameters and implement `Deserialize` for the type. By
+///    default, the deserialize trait will be named "Deserialize" + your trait
+///    name. Passing a trait name will use that name instead.
 ///
 /// Then you're ready to serialize boxed trait objects!
 ///
-/// Even though your deserialized values are boxed as serialize trait objects, your archived values
-/// are boxed as regular trait objects. This is because your deserialized values have to implement
-/// `SerializeDyn` but your archived values do not.
+/// Even though your deserialized values are boxed as serialize trait objects,
+/// your archived values are boxed as regular trait objects. This is because
+/// your deserialized values have to implement `SerializeDyn` but your archived
+/// values do not.
 ///
 /// # Examples
 ///
@@ -317,8 +320,8 @@ impl<T: ?Sized> Ord for ArchivedDynMetadata<T> {
 /// The trait object metadata for a trait implementation.
 #[derive(Clone, Copy, Debug)]
 pub struct TraitImpl {
-    // The type of this `DynMetadata` is erased. Whatever uses it will transmute
-    // it to the correct `DynMetadata<T>`.
+    // The type of this `DynMetadata` is erased. Whatever uses it will
+    // transmute it to the correct `DynMetadata<T>`.
     metadata: DynMetadata<()>,
 }
 

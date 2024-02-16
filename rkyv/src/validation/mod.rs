@@ -11,7 +11,8 @@ use rancor::ResultExt as _;
 
 use crate::{ArchivePointee, RelPtr};
 
-// Replace this trait with core::mem::{align_of_val_raw, size_of_val_raw} when they get stabilized.
+// Replace this trait with core::mem::{align_of_val_raw, size_of_val_raw} when
+// they get stabilized.
 
 // TODO: Try to remove or fold into another trait
 /// Gets the layout of a type from its pointee type and metadata.
@@ -68,8 +69,8 @@ impl LayoutRaw for ::std::ffi::CStr {
 ///
 /// TODO
 pub unsafe trait ArchiveContext<E = <Self as Fallible>::Error> {
-    /// Checks that the given data address and layout is located completely within the subtree
-    /// range.
+    /// Checks that the given data address and layout is located completely
+    /// within the subtree range.
     fn check_subtree_ptr(
         &mut self,
         ptr: *const u8,
@@ -78,9 +79,10 @@ pub unsafe trait ArchiveContext<E = <Self as Fallible>::Error> {
 
     /// Pushes a new subtree range onto the validator and starts validating it.
     ///
-    /// After calling `push_subtree_claim_to`, the validator will have a subtree range starting at
-    /// the original start and ending at `root`. After popping the returned range, the validator
-    /// will have a subtree range starting at `end` and ending at the original end.
+    /// After calling `push_subtree_claim_to`, the validator will have a subtree
+    /// range starting at the original start and ending at `root`. After
+    /// popping the returned range, the validator will have a subtree range
+    /// starting at `end` and ending at the original end.
     ///
     /// # Safety
     ///
@@ -95,9 +97,10 @@ pub unsafe trait ArchiveContext<E = <Self as Fallible>::Error> {
 
     /// Pushes a new subtree range onto the validator and starts validating it.
     ///
-    /// After calling `push_prefix_subtree_range`, the validator will have a subtree range starting
-    /// at `start` and ending at `root`. After popping the returned range, the validator will have a
-    /// subtree range starting at the original start and ending at `start`.
+    /// After calling `push_prefix_subtree_range`, the validator will have a
+    /// subtree range starting at `start` and ending at `root`. After
+    /// popping the returned range, the validator will have a subtree range
+    /// starting at the original start and ending at `start`.
     ///
     /// # Safety
     ///
@@ -108,7 +111,8 @@ pub unsafe trait ArchiveContext<E = <Self as Fallible>::Error> {
         root: *const u8,
     ) -> Result<Range<usize>, E>;
 
-    /// Pops the given range, restoring the original state with the pushed range removed.
+    /// Pops the given range, restoring the original state with the pushed range
+    /// removed.
     ///
     /// If the range was not popped in reverse order, an error is returned.
     ///
@@ -166,7 +170,8 @@ pub trait ArchiveContextExt<E>: ArchiveContext<E> {
     /// # Safety
     ///
     /// - `base` must be inside the archive this validator was created for.
-    /// - `metadata` must be the metadata for the pointer defined by `base` and `offset`.
+    /// - `metadata` must be the metadata for the pointer defined by `base` and
+    ///   `offset`.
     unsafe fn bounds_check_subtree_base_offset<
         T: LayoutRaw + Pointee + ?Sized,
     >(
@@ -190,7 +195,8 @@ pub trait ArchiveContextExt<E>: ArchiveContext<E> {
 
     /// Pushes a new subtree range onto the validator and starts validating it.
     ///
-    /// The claimed range spans from the end of `start` to the end of the current subobject range.
+    /// The claimed range spans from the end of `start` to the end of the
+    /// current subobject range.
     ///
     /// # Safety
     ///
@@ -207,7 +213,8 @@ impl<C: ArchiveContext<E> + ?Sized, E: Error> ArchiveContextExt<E> for C {
     /// # Safety
     ///
     /// - `base` must be inside the archive this validator was created for.
-    /// - `metadata` must be the metadata for the pointer defined by `base` and `offset`.
+    /// - `metadata` must be the metadata for the pointer defined by `base` and
+    ///   `offset`.
     #[inline]
     unsafe fn bounds_check_subtree_base_offset<
         T: LayoutRaw + Pointee + ?Sized,
@@ -244,7 +251,8 @@ impl<C: ArchiveContext<E> + ?Sized, E: Error> ArchiveContextExt<E> for C {
 
     /// Pushes a new subtree range onto the validator and starts validating it.
     ///
-    /// The claimed range spans from the end of `start` to the end of the current subobject range.
+    /// The claimed range spans from the end of `start` to the end of the
+    /// current subobject range.
     ///
     /// # Safety
     ///
@@ -268,7 +276,8 @@ impl<C: ArchiveContext<E> + ?Sized, E: Error> ArchiveContextExt<E> for C {
 pub trait SharedContext<E = <Self as Fallible>::Error> {
     /// Registers the given `ptr` as a shared pointer with the given type.
     ///
-    /// Returns `true` if the pointer was newly-registered and `check_bytes` should be called.
+    /// Returns `true` if the pointer was newly-registered and `check_bytes`
+    /// should be called.
     fn register_shared_ptr(
         &mut self,
         address: usize,

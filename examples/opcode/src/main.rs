@@ -53,8 +53,8 @@ where
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
         // Encode opcodes into a compact binary format
-        // We'll do it manually here, but you could just as easily proxy out to a serialization
-        // framework like postcard
+        // We'll do it manually here, but you could just as easily proxy out to
+        // a serialization framework like postcard
         let mut encoded = Vec::new();
         for opcode in field.iter() {
             match opcode {
@@ -152,8 +152,9 @@ where
                     }
                     result.push(Opcode::VariableLength(arg));
                 }
-                // Either the deserializer can be bound to support decode errors, or the opcodes can
-                // be checked during validation with bytecheck
+                // Either the deserializer can be bound to support decode
+                // errors, or the opcodes can be checked during
+                // validation with bytecheck
                 _ => panic!("unexpected opcode"),
             }
         }

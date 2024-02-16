@@ -18,8 +18,8 @@ macro_rules! impl_rend_primitive {
             }
         }
 
-        // Safety: rend primitives always have the same representation archived and unarchived and
-        // contain no padding
+        // Safety: rend primitives always have the same representation archived
+        // and unarchived and contain no padding
         #[cfg(feature = "copy")]
         unsafe impl crate::copy::ArchiveCopySafe for $type {}
 

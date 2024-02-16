@@ -10,29 +10,33 @@ use core::{alloc::Layout, hash::Hash};
 
 /// A type that can be used without deserializing.
 ///
-/// `Archive` is one of three basic traits used to work with zero-copy data and controls the layout
-/// of the data in its archived zero-copy representation. The [`Serialize`] trait helps transform
-/// types into that representation, and the [`Deserialize`] trait helps transform types back out.
+/// `Archive` is one of three basic traits used to work with zero-copy data and
+/// controls the layout of the data in its archived zero-copy representation.
+/// The [`Serialize`] trait helps transform types into that representation, and
+/// the [`Deserialize`] trait helps transform types back out.
 ///
-/// Types that implement `Archive` must have a well-defined archived size. Unsized types can be
-/// supported using the [`ArchiveUnsized`] trait, along with [`SerializeUnsized`] and
-/// [`DeserializeUnsized`].
+/// Types that implement `Archive` must have a well-defined archived size.
+/// Unsized types can be supported using the [`ArchiveUnsized`] trait, along
+/// with [`SerializeUnsized`] and [`DeserializeUnsized`].
 ///
-/// Archiving is done depth-first, writing any data owned by a type before writing the data for the
-/// type itself. The type must be able to create the archived type from only its own data and its
-/// resolver.
+/// Archiving is done depth-first, writing any data owned by a type before
+/// writing the data for the type itself. The type must be able to create the
+/// archived type from only its own data and its resolver.
 ///
-/// Archived data is always treated as if it is tree-shaped, with the root owning its direct
-/// descendents and so on. Data that is not tree-shaped can be supported using special serializer
-/// and deserializer bounds (see [`ArchivedRc`](crate::rc::ArchivedRc) for example). In a buffer of
-/// serialized data, objects are laid out in *reverse order*. This means that the root object is
-/// located near the end of the buffer and leaf objects are located near the beginning.
+/// Archived data is always treated as if it is tree-shaped, with the root
+/// owning its direct descendents and so on. Data that is not tree-shaped can be
+/// supported using special serializer and deserializer bounds (see
+/// [`ArchivedRc`](crate::rc::ArchivedRc) for example). In a buffer of
+/// serialized data, objects are laid out in *reverse order*. This means that
+/// the root object is located near the end of the buffer and leaf objects are
+/// located near the beginning.
 ///
 /// # Examples
 ///
-/// Most of the time, `#[derive(Archive)]` will create an acceptable implementation. You can use the
-/// `#[archive(...)]` and `#[archive_attr(...)]` attributes to control how the implementation is
-/// generated. See the [`Archive`](macro@Archive) derive macro for more details.
+/// Most of the time, `#[derive(Archive)]` will create an acceptable
+/// implementation. You can use the `#[archive(...)]` and `#[archive_attr(...)]`
+/// attributes to control how the implementation is generated. See the
+/// [`Archive`](macro@crate::Archive) derive macro for more details.
 ///
 /// ```
 /// use rkyv::{Archive, Deserialize, Serialize};
@@ -77,14 +81,15 @@ use core::{alloc::Layout, hash::Hash};
 ///
 /// _Note: the safe API requires the `bytecheck` feature._
 ///
-/// Many of the core and standard library types already have `Archive` implementations available,
-/// but you may need to implement `Archive` for your own types in some cases the derive macro cannot
-/// handle.
+/// Many of the core and standard library types already have `Archive`
+/// implementations available, but you may need to implement `Archive` for your
+/// own types in some cases the derive macro cannot handle.
 ///
-/// In this example, we add our own wrapper that serializes a `&'static str` as if it's owned.
-/// Normally you can lean on the archived version of `String` to do most of the work, or use the
-/// [`Inline`](crate::with::Inline) to do exactly this. This example does everything to demonstrate
-/// how to implement `Archive` for your own types.
+/// In this example, we add our own wrapper that serializes a `&'static str` as
+/// if it's owned. Normally you can lean on the archived version of `String` to
+/// do most of the work, or use the [`Inline`](crate::with::Inline) to do
+/// exactly this. This example does everything to demonstrate how to implement
+/// `Archive` for your own types.
 ///
 /// ```
 /// use core::{slice, str};
@@ -193,16 +198,18 @@ pub trait Archive {
     /// In this form, the data can be used with zero-copy deserialization.
     type Archived;
 
-    /// The resolver for this type. It must contain all the additional information from serializing
-    /// needed to make the archived type from the normal type.
+    /// The resolver for this type. It must contain all the additional
+    /// information from serializing needed to make the archived type from
+    /// the normal type.
     type Resolver;
 
-    /// Creates the archived version of this value at the given position and writes it to the given
-    /// output.
+    /// Creates the archived version of this value at the given position and
+    /// writes it to the given output.
     ///
-    /// The output should be initialized field-by-field rather than by writing a whole struct.
-    /// Performing a typed copy will mark all of the padding bytes as uninitialized, but they must
-    /// remain set to the value they currently have. This prevents leaking uninitialized memory to
+    /// The output should be initialized field-by-field rather than by writing a
+    /// whole struct. Performing a typed copy will mark all of the padding
+    /// bytes as uninitialized, but they must remain set to the value they
+    /// currently have. This prevents leaking uninitialized memory to
     /// the final archive.
     ///
     /// # Safety
@@ -219,16 +226,17 @@ pub trait Archive {
 
 /// Converts a type to its archived form.
 ///
-/// Objects perform any supportive serialization during [`serialize`](Serialize::serialize). For
-/// types that reference nonlocal (pointed-to) data, this is when that data must be serialized to
-/// the output. These types will need to bound `S` to implement [`Writer`] and
-/// any other required traits (e.g. [`Sharing`](ser::Sharing)). They should then
-/// serialize their dependencies during `serialize`.
+/// Objects perform any supportive serialization during
+/// [`serialize`](Serialize::serialize). For types that reference nonlocal
+/// (pointed-to) data, this is when that data must be serialized to the output.
+/// These types will need to bound `S` to implement [`Writer`] and
+/// any other required traits (e.g. [`Sharing`](crate::ser::Sharing)). They
+/// should then serialize their dependencies during `serialize`.
 ///
 /// See [`Archive`] for examples of implementing `Serialize`.
 pub trait Serialize<S: Fallible + ?Sized>: Archive {
-    /// Writes the dependencies for the object and returns a resolver that can create the archived
-    /// type.
+    /// Writes the dependencies for the object and returns a resolver that can
+    /// create the archived type.
     fn serialize(&self, serializer: &mut S)
         -> Result<Self::Resolver, S::Error>;
 
@@ -249,11 +257,12 @@ pub trait Serialize<S: Fallible + ?Sized>: Archive {
 
 /// Converts a type back from its archived form.
 ///
-/// Some types may require specific deserializer capabilities, such as `Rc` and `Arc`. In these
-/// cases, the deserializer type `D` should be bound so that it implements traits that provide those
-/// capabilities (e.g. [`Pooling`](de::Pooling)).
+/// Some types may require specific deserializer capabilities, such as `Rc` and
+/// `Arc`. In these cases, the deserializer type `D` should be bound so that it
+/// implements traits that provide those capabilities (e.g.
+/// [`Pooling`](crate::de::Pooling)).
 ///
-/// This can be derived with [`Deserialize`](macro@Deserialize).
+/// This can be derived with [`Deserialize`](macro@crate::Deserialize).
 pub trait Deserialize<T, D: Fallible + ?Sized> {
     /// Deserializes using the given deserializer
     fn deserialize(&self, deserializer: &mut D) -> Result<T, D::Error>;
@@ -261,21 +270,25 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 
 /// A counterpart of [`Archive`] that's suitable for unsized types.
 ///
-/// Unlike `Archive`, types that implement `ArchiveUnsized` must be serialized separately from their
-/// owning object. For example, whereas an `i32` might be laid out as part of a larger struct, a
-/// `Box<i32>` would serialize the `i32` somewhere in the archive and the `Box` would point to it as
-/// part of the larger struct. Because of this, the equivalent [`Resolver`](Archive::Resolver) type
-/// for `ArchiveUnsized` is always a `usize` representing the position of the serialized value.
+/// Unlike `Archive`, types that implement `ArchiveUnsized` must be serialized
+/// separately from their owning object. For example, whereas an `i32` might be
+/// laid out as part of a larger struct, a `Box<i32>` would serialize the `i32`
+/// somewhere in the archive and the `Box` would point to it as part of the
+/// larger struct. Because of this, the equivalent
+/// [`Resolver`](Archive::Resolver) type for `ArchiveUnsized` is always a
+/// `usize` representing the position of the serialized value.
 ///
-/// `ArchiveUnsized` is automatically implemented for all types that implement [`Archive`]. Nothing
-/// special needs to be done to use them with types like `Box`, `Rc`, and `Arc`. It is also already
-/// implemented for slices and string slices, and the `rkyv_dyn` crate can be used to archive trait
-/// objects. Other unsized types must manually implement `ArchiveUnsized`.
+/// `ArchiveUnsized` is automatically implemented for all types that implement
+/// [`Archive`]. Nothing special needs to be done to use them with types like
+/// `Box`, `Rc`, and `Arc`. It is also already implemented for slices and string
+/// slices, and the `rkyv_dyn` crate can be used to archive trait objects. Other
+/// unsized types must manually implement `ArchiveUnsized`.
 ///
 /// # Examples
 ///
-/// This example shows how to manually implement `ArchiveUnsized` for an unsized type. Special care
-/// must be taken to ensure that the types are laid out correctly.
+/// This example shows how to manually implement `ArchiveUnsized` for an unsized
+/// type. Special care must be taken to ensure that the types are laid out
+/// correctly.
 ///
 /// ```
 /// use core::{mem::transmute, ops::{Deref, DerefMut}};
@@ -428,10 +441,11 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// assert_eq!(archived_ref.tail, [1, 2, 3, 4]);
 /// ```
 pub trait ArchiveUnsized: Pointee {
-    /// The archived counterpart of this type. Unlike `Archive`, it may be unsized.
+    /// The archived counterpart of this type. Unlike `Archive`, it may be
+    /// unsized.
     ///
-    /// This type must implement [`ArchivePointee`], a trait that helps make valid pointers using
-    /// archived pointer metadata.
+    /// This type must implement [`ArchivePointee`], a trait that helps make
+    /// valid pointers using archived pointer metadata.
     type Archived: ArchivePointee + ?Sized;
 
     /// Creates the archived version of the metadata for this value.
@@ -440,8 +454,8 @@ pub trait ArchiveUnsized: Pointee {
 
 /// An archived type with associated metadata for its relative pointer.
 ///
-/// This is mostly used in the context of smart pointers and unsized types, and is implemented for
-/// all sized types by default.
+/// This is mostly used in the context of smart pointers and unsized types, and
+/// is implemented for all sized types by default.
 pub trait ArchivePointee: Pointee {
     /// The archived version of the pointer metadata for this type.
     type ArchivedMetadata: Copy + Send + Sync + Ord + Hash + Unpin;
@@ -459,7 +473,8 @@ pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
     /// Writes the object and returns the position of the archived type.
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error>;
 
-    /// Archives a reference to the given object and returns the position it was archived at.
+    /// Archives a reference to the given object and returns the position it was
+    /// archived at.
     #[inline]
     fn serialize_and_resolve_rel_ptr(
         &self,
@@ -482,7 +497,8 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>:
     ///
     /// # Safety
     ///
-    /// `out` must point to memory with the layout returned by `deserialized_layout`.
+    /// `out` must point to memory with the layout returned by
+    /// `deserialized_layout`.
     unsafe fn deserialize_unsized(
         &self,
         deserializer: &mut D,

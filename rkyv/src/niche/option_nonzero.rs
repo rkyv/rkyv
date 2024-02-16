@@ -195,15 +195,16 @@ pub type ArchivedOptionNonZeroUsize = match_pointer_width!(
     ArchivedOptionNonZeroU64,
 );
 
-/// An iterator over a reference to the `Some` variant of an `ArchivedOptionNonZero` integer.
+/// An iterator over a reference to the `Some` variant of an
+/// `ArchivedOptionNonZero` integer.
 ///
-/// This iterator yields one value if the `ArchivedOptionNonZero` integer is a `Some`, otherwise
-/// none.
+/// This iterator yields one value if the `ArchivedOptionNonZero` integer is a
+/// `Some`, otherwise none.
 pub type Iter<'a, T> = crate::option::Iter<'a, T>;
 
-/// An iterator over a mutable reference to the `Some` variant of an `ArchivedOptionNonZero`
-/// integer.
+/// An iterator over a mutable reference to the `Some` variant of an
+/// `ArchivedOptionNonZero` integer.
 ///
-/// This iterator yields one value if the `ArchivedOptionNonZero` integer is a `Some`, otherwise
-/// none.
+/// This iterator yields one value if the `ArchivedOptionNonZero` integer is a
+/// `Some`, otherwise none.
 pub type IterMut<'a, T> = crate::option::IterMut<'a, T>;

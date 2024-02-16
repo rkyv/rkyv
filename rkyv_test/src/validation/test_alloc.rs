@@ -314,8 +314,8 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn recursive_type() {
         #[derive(Archive, Serialize)]
-        // The derive macros don't apply the right bounds from Box so we have to manually specify
-        // what bounds to apply
+        // The derive macros don't apply the right bounds from Box so we have to
+        // manually specify what bounds to apply
         #[archive(
             serialize_bounds(__S: Writer),
             deserialize_bounds(__D: Deserializer),
@@ -387,19 +387,19 @@ mod tests {
     //     let data = AlignedBytes([
     //         0, 0, 0, 0, 253, 6, 239, 6, 255, 255, 255, 252, 0, 0, 0, 0, 0, 0,
     //         0, 0, 1, 0, 0, 5, 0, 0, 0, 0, 240, 255, 255, 255, 1, 128, 0, 249,
-    //         220, 255, 255, 255, 4, 0, 0, 96, 0, 0, 0, 249, 232, 255, 255, 255,
-    //     ]);
+    //         220, 255, 255, 255, 4, 0, 0, 96, 0, 0, 0, 249, 232, 255, 255,
+    // 255,     ]);
 
     //     rkyv::from_bytes::<BTreeSet<u8>, Failure>(&data.0).unwrap_err();
 
     //     let data = AlignedBytes([
-    //         1, 29, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 253, 0, 0, 116, 255, 255, 40,
-    //         0, 8, 0, 0, 0, 236, 255, 255, 255, 1, 128, 72, 0, 220, 255, 255,
-    //         255, 236, 255, 255, 255, 0, 0, 0, 0, 32, 0, 255, 254, 255, 0, 94,
-    //         2, 33, 0, 0, 0, 0, 0, 0, 0, 61, 1, 38, 0, 0, 32, 0, 255, 255, 1, 0,
-    //         1, 255, 255, 0, 184, 4, 0, 28, 0, 8, 0, 2, 142, 255, 255, 255, 3,
-    //         1, 255, 251, 0, 184, 255, 255, 255,
-    //     ]);
+    //         1, 29, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 253, 0, 0, 116, 255, 255,
+    // 40,         0, 8, 0, 0, 0, 236, 255, 255, 255, 1, 128, 72, 0, 220,
+    // 255, 255,         255, 236, 255, 255, 255, 0, 0, 0, 0, 32, 0, 255,
+    // 254, 255, 0, 94,         2, 33, 0, 0, 0, 0, 0, 0, 0, 61, 1, 38, 0, 0,
+    // 32, 0, 255, 255, 1, 0,         1, 255, 255, 0, 184, 4, 0, 28, 0, 8,
+    // 0, 2, 142, 255, 255, 255, 3,         1, 255, 251, 0, 184, 255, 255,
+    // 255,     ]);
 
     //     rkyv::from_bytes::<BTreeSet<Box<u8>>, Failure>(&data.0).unwrap_err();
     // }
@@ -476,8 +476,8 @@ mod tests {
     //         0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0, 0x00, 0x00, 0x00, 0x0c, 0xa5,
     //         0xf0, 0xff, 0xff, 0xff,
     //     ]);
-    //     rkyv::from_bytes::<BTreeMap<u8, Box<u8>>, Failure>(&data.0).unwrap_err();
-    // }
+    //     rkyv::from_bytes::<BTreeMap<u8, Box<u8>>,
+    // Failure>(&data.0).unwrap_err(); }
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]

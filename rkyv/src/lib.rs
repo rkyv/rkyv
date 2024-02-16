@@ -4,106 +4,119 @@
 //!
 //! It's similar to other zero-copy deserialization frameworks such as
 //! [Cap'n Proto](https://capnproto.org) and [FlatBuffers](https://google.github.io/flatbuffers).
-//! However, while the former have external schemas and heavily restricted data types, rkyv allows
-//! all serialized types to be defined in code and can serialize a wide variety of types that the
-//! others cannot. Additionally, rkyv is designed to have little to no overhead, and in most cases
-//! will perform exactly the same as native types.
+//! However, while the former have external schemas and heavily restricted data
+//! types, rkyv allows all serialized types to be defined in code and can
+//! serialize a wide variety of types that the others cannot. Additionally, rkyv
+//! is designed to have little to no overhead, and in most cases will perform
+//! exactly the same as native types.
 //!
 //! ## Design
 //!
 //! Like [serde](https://serde.rs), rkyv uses Rust's powerful trait system to serialize data without
-//! the need for reflection. Despite having a wide array of features, you also only pay for what you
-//! use. If your data checks out, the serialization process can be as simple as a `memcpy`! Like
-//! serde, this allows rkyv to perform at speeds similar to handwritten serializers.
+//! the need for reflection. Despite having a wide array of features, you also
+//! only pay for what you use. If your data checks out, the serialization
+//! process can be as simple as a `memcpy`! Like serde, this allows rkyv to
+//! perform at speeds similar to handwritten serializers.
 //!
-//! Unlike serde, rkyv produces data that is guaranteed deserialization free. If you wrote your data
-//! to disk, you can just `mmap` your file into memory, cast a pointer, and your data is ready to
-//! use. This makes it ideal for high-performance and IO-bound applications.
+//! Unlike serde, rkyv produces data that is guaranteed deserialization free. If
+//! you wrote your data to disk, you can just `mmap` your file into memory, cast
+//! a pointer, and your data is ready to use. This makes it ideal for
+//! high-performance and IO-bound applications.
 //!
-//! Limited data mutation is supported through `Pin` APIs, and archived values can be truly
-//! deserialized with [`Deserialize`] if full mutation capabilities are needed.
+//! Limited data mutation is supported through `Pin` APIs, and archived values
+//! can be truly deserialized with [`Deserialize`] if full mutation capabilities
+//! are needed.
 //!
 //! [The book](https://rkyv.org) has more details on the design and capabilities of rkyv.
 //!
 //! ## Type support
 //!
-//! rkyv has a hashmap implementation that is built for zero-copy deserialization, so you can
-//! serialize your hashmaps with abandon. The implementation performs perfect hashing with the
-//! compress, hash and displace algorithm to use as little memory as possible while still performing
+//! rkyv has a hashmap implementation that is built for zero-copy
+//! deserialization, so you can serialize your hashmaps with abandon. The
+//! implementation performs perfect hashing with the compress, hash and displace
+//! algorithm to use as little memory as possible while still performing
 //! fast lookups.
 //!
-//! It also comes with a B+ tree implementation that is built for maximum performance by splitting
-//! data into easily-pageable 4KB segments. This makes it perfect for building immutable databases
-//! and structures for bulk data.
+//! It also comes with a B+ tree implementation that is built for maximum
+//! performance by splitting data into easily-pageable 4KB segments. This makes
+//! it perfect for building immutable databases and structures for bulk data.
 //!
-//! rkyv also has support for contextual serialization, deserialization, and validation. It can
-//! properly serialize and deserialize shared pointers like `Rc` and `Arc`, and can be extended to
-//! support custom contextual types.
+//! rkyv also has support for contextual serialization, deserialization, and
+//! validation. It can properly serialize and deserialize shared pointers like
+//! `Rc` and `Arc`, and can be extended to support custom contextual types.
 //!
-//! Finally, rkyv makes it possible to serialize trait objects and use them *as trait objects*
-//! without deserialization. See the `rkyv_dyn` crate for more details.
+//! Finally, rkyv makes it possible to serialize trait objects and use them *as
+//! trait objects* without deserialization. See the `rkyv_dyn` crate for more
+//! details.
 //!
 //! ## Tradeoffs
 //!
-//! While rkyv is a great format for final data, it lacks a full schema system and isn't well
-//! equipped for data migration and schema upgrades. If your use case requires these capabilities,
-//! you may need additional libraries the build these features on top of rkyv. You can use other
-//! serialization frameworks like serde with the same types as rkyv conflict-free.
+//! While rkyv is a great format for final data, it lacks a full schema system
+//! and isn't well equipped for data migration and schema upgrades. If your use
+//! case requires these capabilities, you may need additional libraries the
+//! build these features on top of rkyv. You can use other serialization
+//! frameworks like serde with the same types as rkyv conflict-free.
 //!
 //! ## Features
 //!
 //! - `alloc`: Enables types that require the `alloc` crate. Enabled by default.
-//! - `little_endian`: Forces archives into a little-endian format. This guarantees cross-endian
-//!   compatibility optimized for little-endian architectures.
-//! - `big_endian`: Forces archives into a big-endian format. This guarantees cross-endian
-//!   compatibility optimized for big-endian architectures.
-//! - `copy`: Enables copy optimizations for packed copyable data types. Requires nightly.
-//! - `copy_unsafe`: Automatically opts all potentially copyable types into copy optimization. This
-//!   broadly improves performance but may cause uninitialized bytes to be copied to the output.
+//! - `little_endian`: Forces archives into a little-endian format. This
+//!   guarantees cross-endian compatibility optimized for little-endian
+//!   architectures.
+//! - `big_endian`: Forces archives into a big-endian format. This guarantees
+//!   cross-endian compatibility optimized for big-endian architectures.
+//! - `copy`: Enables copy optimizations for packed copyable data types.
 //!   Requires nightly.
-//! - `size_16`: Archives integral `*size` types as 16-bit integers. This is intended to be used
-//!   only for small archives and may not handle large, more general data.
-//! - `size_32`: Archives integral `*size` types as 32-bit integers. Enabled by default.
-//! - `size_64`: Archives integral `*size` types as 64-bit integers. This is intended to be used
-//!   only for very large archives and may cause unnecessary data bloat.
+//! - `copy_unsafe`: Automatically opts all potentially copyable types into copy
+//!   optimization. This broadly improves performance but may cause
+//!   uninitialized bytes to be copied to the output. Requires nightly.
+//! - `size_16`: Archives integral `*size` types as 16-bit integers. This is
+//!   intended to be used only for small archives and may not handle large, more
+//!   general data.
+//! - `size_32`: Archives integral `*size` types as 32-bit integers. Enabled by
+//!   default.
+//! - `size_64`: Archives integral `*size` types as 64-bit integers. This is
+//!   intended to be used only for very large archives and may cause unnecessary
+//!   data bloat.
 //! - `std`: Enables standard library support. Enabled by default.
-//! - `stable_layout`: Guarantees that types will have the same representations across platforms and
-//!   compilations. This is already the case in practice, but this feature provides a guarantee
-//!   along with C type compatibility.
-//!
-//!   *Note*: Enabling `stable_layout` will disable [`Archive`] implementations for tuples, as
-//!   tuples do not have a C-compatible type layout. Making a generic `Tuple<T1, T2>` and deriving
-//!   [`Archive`] for it should provide similar functionality.
+//! - `stable_layout`: Guarantees that types will have the same representations
+//!   across platforms and compilations. This is already the case in practice,
+//!   but this feature provides a guarantee along with C type compatibility.
+//!   *Note*: Enabling `stable_layout` will disable [`Archive`] implementations
+//! for tuples, as   tuples do not have a C-compatible type layout. Making a
+//! generic `Tuple<T1, T2>` and deriving   [`Archive`] for it should provide
+//! similar functionality.
 //! - `bytecheck`: Enables validation support through `bytecheck`.
 //!
 //! ## Crate support
 //!
-//! Some common crates need to be supported by rkyv before an official integration has been made.
-//! Support is provided by rkyv for these crates, but in the future crates should depend on rkyv and
-//! provide their own implementations. The crates that already have support provided by rkyv should
-//! work toward integrating the implementations into themselves.
+//! Some common crates need to be supported by rkyv before an official
+//! integration has been made. Support is provided by rkyv for these crates, but
+//! in the future crates should depend on rkyv and provide their own
+//! implementations. The crates that already have support provided by rkyv
+//! should work toward integrating the implementations into themselves.
 //!
 //! Crates supported by rkyv:
 //!
 //! - [`indexmap`](https://docs.rs/indexmap)
-//! - [`rend`](https://docs.rs/rend) *Enabled automatically when using endian-specific archive
-//!   features.*
+//! - [`rend`](https://docs.rs/rend) *Enabled automatically when using
+//!   endian-specific archive features.*
 //! - [`tinyvec`](https://docs.rs/tinyvec)
 //! - [`uuid`](https://docs.rs/uuid)
 //!
-//! Support for each of these crates can be enabled with a feature of the same name. Additionally,
-//! the following external crate features are available:
+//! Support for each of these crates can be enabled with a feature of the same
+//! name. Additionally, the following external crate features are available:
 //!
 //! - `uuid_std`: Enables the `std` feature in `uuid`.
 //!
 //! ## Examples
 //!
-//! - See [`Archive`] for examples of how to use rkyv through the derive macro and manual
-//!   implementation.
+//! - See [`Archive`] for examples of how to use rkyv through the derive macro
+//!   and manual implementation.
 //! - For more details on the derive macro and its capabilities, see
 //!   [`Archive`](macro@Archive).
-//! - Fully worked examples using rkyv are available in the
-//!   [`examples` directory](https://github.com/rkyv/rkyv/tree/master/examples) of the source repo.
+//! - Fully worked examples using rkyv are available in the [`examples` directory](https://github.com/rkyv/rkyv/tree/master/examples)
+//!   of the source repo.
 
 // Crate attributes
 
@@ -158,8 +171,9 @@ pub mod collections;
 #[cfg(feature = "copy")]
 pub mod copy;
 pub mod de;
-// This is pretty unfortunate. CStr doesn't rely on the rest of std, but it's not in core.
-// If CStr ever gets moved into `core` then this module will no longer need cfg(feature = "std")
+// This is pretty unfortunate. CStr doesn't rely on the rest of std, but it's
+// not in core. If CStr ever gets moved into `core` then this module will no
+// longer need cfg(feature = "std")
 #[cfg(feature = "std")]
 pub mod ffi;
 mod hash;

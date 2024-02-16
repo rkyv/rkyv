@@ -3,8 +3,8 @@
 use crate::collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver, Keys};
 use core::{borrow::Borrow, fmt};
 
-/// An archived `BTreeSet`. This is a wrapper around a B-tree map with the same key and a value of
-/// `()`.
+/// An archived `BTreeSet`. This is a wrapper around a B-tree map with the same
+/// key and a value of `()`.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
@@ -13,8 +13,8 @@ pub struct ArchivedBTreeSet<K>(ArchivedBTreeMap<K, ()>);
 impl<K> ArchivedBTreeSet<K> {
     /// Returns `true` if the set contains a value for the specified key.
     ///
-    /// The key may be any borrowed form of the set's key type, but the ordering on the borrowed
-    /// form _must_ match the ordering on the key type.
+    /// The key may be any borrowed form of the set's key type, but the ordering
+    /// on the borrowed form _must_ match the ordering on the key type.
     #[inline]
     pub fn contains_key<Q: Ord + ?Sized>(&self, key: &Q) -> bool
     where
@@ -23,10 +23,12 @@ impl<K> ArchivedBTreeSet<K> {
         self.0.contains_key(key)
     }
 
-    /// Returns a reference to the value int he set, if any, that is equal to the given value.
+    /// Returns a reference to the value int he set, if any, that is equal to
+    /// the given value.
     ///
-    /// The value may be any borrowed form of the set's value type, but the ordering on the borrowed
-    /// form _must_ match the ordering on the value type.
+    /// The value may be any borrowed form of the set's value type, but the
+    /// ordering on the borrowed form _must_ match the ordering on the value
+    /// type.
     #[inline]
     pub fn get<Q: Ord + ?Sized>(&self, value: &Q) -> Option<&K>
     where

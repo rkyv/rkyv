@@ -116,25 +116,29 @@ impl_offset_multi_byte!(u64, ArchivedU64);
 /// Errors that can occur while creating raw relative pointers.
 #[derive(Debug)]
 pub enum RelPtrError {
-    /// The given `from` and `to` positions for the relative pointer failed to form a valid offset.
+    /// The given `from` and `to` positions for the relative pointer failed to
+    /// form a valid offset.
     ///
-    /// This is probably because the distance between them could not be represented by the offset
-    /// type.
+    /// This is probably because the distance between them could not be
+    /// represented by the offset type.
     OffsetError,
 }
 
 /// An untyped pointer which resolves relative to its position in memory.
 ///
-/// This is the most fundamental building block in rkyv. It allows the construction and use of
-/// pointers that can be safely relocated as long as the source and target are moved together. This
-/// is what allows memory to be moved from disk into memory and accessed without decoding.
+/// This is the most fundamental building block in rkyv. It allows the
+/// construction and use of pointers that can be safely relocated as long as the
+/// source and target are moved together. This is what allows memory to be moved
+/// from disk into memory and accessed without decoding.
 ///
-/// Regular pointers are *absolute*, meaning that the pointer can be moved without being
-/// invalidated. However, the pointee **cannot** be moved, otherwise the pointer is invalidated.
+/// Regular pointers are *absolute*, meaning that the pointer can be moved
+/// without being invalidated. However, the pointee **cannot** be moved,
+/// otherwise the pointer is invalidated.
 ///
-/// Relative pointers are *relative*, meaning that the **pointer** can be moved with the
-/// **pointee** without invalidating the pointer. However, if either the **pointer** or the
-/// **pointee** move independently, the pointer will be invalidated.
+/// Relative pointers are *relative*, meaning that the **pointer** can be moved
+/// with the **pointee** without invalidating the pointer. However, if either
+/// the **pointer** or the **pointee** move independently, the pointer will be
+/// invalidated.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct RawRelPtr<O> {
@@ -144,8 +148,8 @@ pub struct RawRelPtr<O> {
 
 /// Calculates the offset between two positions as an `isize`.
 ///
-/// This function exists solely to get the distance between two `usizes` as an `isize` with a full
-/// range of values.
+/// This function exists solely to get the distance between two `usizes` as an
+/// `isize` with a full range of values.
 ///
 /// # Examples
 ///
@@ -191,7 +195,8 @@ impl<O: Offset> RawRelPtr<O> {
         Ok(())
     }
 
-    /// Creates a new `RawRelPtr` in-place between the given `from` and `to` positions.
+    /// Creates a new `RawRelPtr` in-place between the given `from` and `to`
+    /// positions.
     ///
     /// # Panics
     ///

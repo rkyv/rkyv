@@ -21,7 +21,8 @@ use rancor::Fallible;
 /// An archived [`Vec`].
 ///
 /// This uses a [`RelPtr`] to a `[T]` under the hood. Unlike
-/// [`ArchivedString`](crate::string::ArchivedString), it does not have an inline representation.
+/// [`ArchivedString`](crate::string::ArchivedString), it does not have an
+/// inline representation.
 #[cfg_attr(feature = "stable_layout", repr(C))]
 #[cfg_attr(
     feature = "bytecheck",
@@ -71,7 +72,8 @@ impl<T> ArchivedVec<T> {
     // This method can go away once pinned slices have indexing support
     // https://github.com/rust-lang/rust/pull/78370
 
-    /// Gets the element at the given index to this archived vec as a pinned mutable reference.
+    /// Gets the element at the given index to this archived vec as a pinned
+    /// mutable reference.
     #[inline]
     pub fn index_pin<I>(
         self: Pin<&mut Self>,
@@ -129,7 +131,8 @@ impl<T> ArchivedVec<T> {
     ) -> Result<VecResolver, S::Error>
     where
         // This bound is necessary only in no-alloc, no-std situations
-        // SerializeUnsized is only implemented for U: Serialize<Resolver = ()> in that case
+        // SerializeUnsized is only implemented for U: Serialize<Resolver = ()> in
+        // that case
         [U]: SerializeUnsized<S>,
     {
         Ok(VecResolver {
@@ -137,14 +140,16 @@ impl<T> ArchivedVec<T> {
         })
     }
 
-    /// Serializes an archived `Vec` from a given slice by directly copying bytes.
+    /// Serializes an archived `Vec` from a given slice by directly copying
+    /// bytes.
     ///
     /// # Safety
     ///
-    /// The type being serialized must be copy-safe. Copy-safe types must be trivially copyable
-    /// (have the same archived and unarchived representations) and contain no padding bytes. In
-    /// situations where copying uninitialized bytes the output is acceptable, this function may be
-    /// used with types that contain padding bytes.
+    /// The type being serialized must be copy-safe. Copy-safe types must be
+    /// trivially copyable (have the same archived and unarchived
+    /// representations) and contain no padding bytes. In situations where
+    /// copying uninitialized bytes the output is acceptable, this function may
+    /// be used with types that contain padding bytes.
     #[inline]
     pub unsafe fn serialize_copy_from_slice<U, S>(
         slice: &[U],
@@ -171,7 +176,8 @@ impl<T> ArchivedVec<T> {
     /// Serializes an archived `Vec` from a given iterator.
     ///
     /// This method is unable to perform copy optimizations; prefer
-    /// [`serialize_from_slice`](ArchivedVec::serialize_from_slice) when possible.
+    /// [`serialize_from_slice`](ArchivedVec::serialize_from_slice) when
+    /// possible.
     #[inline]
     pub fn serialize_from_iter<U, I, S>(
         iter: I,

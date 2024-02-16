@@ -177,8 +177,9 @@ where
 
 /// Helper methods for `SharedDeserializeRegistry`.
 pub trait PoolingExt<E>: Pooling<E> {
-    /// Checks whether the given reference has been deserialized and either uses the existing shared
-    /// pointer to it, or deserializes it and converts it to a shared pointer with `to_shared`.
+    /// Checks whether the given reference has been deserialized and either uses
+    /// the existing shared pointer to it, or deserializes it and converts
+    /// it to a shared pointer with `to_shared`.
     #[inline]
     fn deserialize_shared<T, P, A>(
         &mut self,

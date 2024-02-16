@@ -292,14 +292,15 @@ mod tests {
     //         }
     //     }
 
-    //     impl<T> rkyv_dyn::DeserializeDyn<dyn STestTrait<String>> for ArchivedTest<T>
-    //     where
+    //     impl<T> rkyv_dyn::DeserializeDyn<dyn STestTrait<String>> for
+    // ArchivedTest<T>     where
     //         T: Archive
     //             + for<'a> Serialize<dyn DynSerializer + 'a>
     //             + core::fmt::Display
     //             + TypeName
     //             + 'static,
-    //         ArchivedTest<T>: for<'a> Deserialize<Test<T>, (dyn DynDeserializer + 'a)>
+    //         ArchivedTest<T>: for<'a> Deserialize<Test<T>, (dyn
+    // DynDeserializer + 'a)>
     //             + rkyv_dyn::RegisteredImpl<dyn DTestTrait<String>>,
     //     {
     //         unsafe fn deserialize_dyn(
@@ -320,13 +321,9 @@ mod tests {
     //         ) -> Result<
     //             <dyn STestTrait<String> as ptr_meta::Pointee>::Metadata,
     //             DynError,
-    //         > {
-    //             unsafe {
-    //                 Ok(core::mem::transmute(ptr_meta::metadata(
-    //                     core::ptr::null::<Test<T>>()
-    //                         as *const dyn STestTrait<String>,
-    //                 )))
-    //             }
+    //         > { unsafe { Ok(core::mem::transmute(ptr_meta::metadata(
+    //         > core::ptr::null::<Test<T>>() as *const dyn STestTrait<String>,
+    //         > ))) }
     //         }
     //     }
 
@@ -341,9 +338,9 @@ mod tests {
 
     //     trait_impl!(Archived<Test<String>> as dyn DTestTrait<String>);
 
-    //     let i32_value: Box<dyn STestTrait<i32>> = Box::new(Test { value: 42 });
-    //     let string_value: Box<dyn STestTrait<String>> = Box::new(Test {
-    //         value: "hello world".to_string(),
+    //     let i32_value: Box<dyn STestTrait<i32>> = Box::new(Test { value: 42
+    // });     let string_value: Box<dyn STestTrait<String>> = Box::new(Test
+    // {         value: "hello world".to_string(),
     //     });
 
     //     let mut serializer = AllocSerializer::<256>::default();
@@ -360,7 +357,8 @@ mod tests {
     //         )
     //     };
     //     assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
-    //     assert_eq!(string_value.get_value(), string_archived_value.get_value());
+    //     assert_eq!(string_value.get_value(),
+    // string_archived_value.get_value());
 
     //     // exercise vtable cache
     //     assert_eq!(i32_value.get_value(), i32_archived_value.get_value());
@@ -368,11 +366,13 @@ mod tests {
 
     //     let i32_deserialized_value: Box<dyn STestTrait<i32>> =
     //         i32_archived_value.deserialize(&mut Infallible).unwrap();
-    //     assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
-    //     assert_eq!(i32_value.get_value(), i32_deserialized_value.get_value());
+    //     assert_eq!(i32_value.get_value(),
+    // i32_deserialized_value.get_value());     assert_eq!(i32_value.
+    // get_value(), i32_deserialized_value.get_value());
 
-    //     assert_eq!(string_value.get_value(), string_archived_value.get_value());
-    //     assert_eq!(string_value.get_value(), string_archived_value.get_value());
+    //     assert_eq!(string_value.get_value(),
+    // string_archived_value.get_value());     assert_eq!(string_value.
+    // get_value(), string_archived_value.get_value());
 
     //     let string_deserialized_value: Box<dyn STestTrait<String>> =
     //         string_archived_value.deserialize(&mut Infallible).unwrap();

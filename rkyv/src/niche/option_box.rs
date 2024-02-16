@@ -55,13 +55,15 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
         }
     }
 
-    /// Converts from `Pin<&ArchivedOptionBox<T>>` to `Option<Pin<&ArchivedBox<T>>>`.
+    /// Converts from `Pin<&ArchivedOptionBox<T>>` to
+    /// `Option<Pin<&ArchivedBox<T>>>`.
     #[inline]
     pub fn as_pin_ref(self: Pin<&Self>) -> Option<Pin<&ArchivedBox<T>>> {
         unsafe { Pin::get_ref(self).as_ref().map(|x| Pin::new_unchecked(x)) }
     }
 
-    /// Converts from `Pin<&mut ArchivedOption<T>>` to `Option<Pin<&mut ArchivedBox<T>>>`.
+    /// Converts from `Pin<&mut ArchivedOption<T>>` to `Option<Pin<&mut
+    /// ArchivedBox<T>>>`.
     #[inline]
     pub fn as_pin_mut(
         self: Pin<&mut Self>,
@@ -91,8 +93,8 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
 
     /// Converts from `&ArchivedOptionBox<T>` to `Option<&T>`.
     ///
-    /// Leaves the original `ArchivedOptionBox` in-place, creating a new one with a reference to the
-    /// original one.
+    /// Leaves the original `ArchivedOptionBox` in-place, creating a new one
+    /// with a reference to the original one.
     #[inline]
     pub fn as_deref(&self) -> Option<&T> {
         self.as_ref().map(|x| (*x).deref())
@@ -202,16 +204,20 @@ impl<T: ArchivePointee + PartialOrd + ?Sized> PartialOrd
     }
 }
 
-/// An iterator over a reference to the `Some` variant of an `ArchivedOptionBox`.
+/// An iterator over a reference to the `Some` variant of an
+/// `ArchivedOptionBox`.
 ///
-/// This iterator yields one value if the `ArchivedOptionBox` is a `Some`, otherwise none.
+/// This iterator yields one value if the `ArchivedOptionBox` is a `Some`,
+/// otherwise none.
 ///
 /// This `struct` is created by the [`ArchivedOptionBox::iter`] function.
 pub type Iter<'a, T> = crate::option::Iter<'a, T>;
 
-/// An iterator over a mutable reference to the `Some` variant of an `ArchivedOptionBox`.
+/// An iterator over a mutable reference to the `Some` variant of an
+/// `ArchivedOptionBox`.
 ///
-/// This iterator yields one value if the `ArchivedOptionBox` is a `Some`, otherwise none.
+/// This iterator yields one value if the `ArchivedOptionBox` is a `Some`,
+/// otherwise none.
 ///
 /// This `struct` is created by the [`ArchivedOptionBox::iter_mut`] function.
 pub type IterMut<'a, T> = crate::option::IterMut<'a, T>;

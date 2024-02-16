@@ -11,8 +11,9 @@ const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
 #[repr(C)]
 struct OutOfLineRepr {
     len: ArchivedUsize,
-    // Offset is always stored in little-endian format to put the sign bit at the end.
-    // This representation is optimized for little-endian architectures.
+    // Offset is always stored in little-endian format to put the sign bit at
+    // the end. This representation is optimized for little-endian
+    // architectures.
     offset: [u8; OFFSET_BYTES],
     _phantom: PhantomPinned,
 }
@@ -132,7 +133,8 @@ impl ArchivedStringRepr {
     /// # Safety
     ///
     /// - The length of `str` must be less than or equal to [`INLINE_CAPACITY`].
-    /// - `out` must point to a valid location to write the inline representation.
+    /// - `out` must point to a valid location to write the inline
+    ///   representation.
     #[inline]
     pub unsafe fn emplace_inline(value: &str, out: *mut Self) {
         let out_bytes = ptr::addr_of_mut!((*out).inline.bytes);
@@ -202,7 +204,8 @@ const _: () = {
 
     /// An error resulting from an invalid string representation.
     ///
-    /// Strings that are inline must have a length of at most [`INLINE_CAPACITY`].
+    /// Strings that are inline must have a length of at most
+    /// [`INLINE_CAPACITY`].
     #[derive(Debug)]
     pub struct CheckStringReprError;
 

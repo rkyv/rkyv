@@ -33,7 +33,8 @@ impl ArchivedIpv4Addr {
         self.as_ipv4().is_broadcast()
     }
 
-    /// Returns `true` if this address is in a range designated for documentation.
+    /// Returns `true` if this address is in a range designated for
+    /// documentation.
     ///
     /// See [`Ipv4Addr::is_documentation`] for more details.
     #[inline]
@@ -181,7 +182,8 @@ impl ArchivedIpv6Addr {
 
     /// Returns `true` if this is a loopback address (::1).
     ///
-    /// See [`Ipv6Addr::is_loopback()`](std::net::Ipv6Addr::is_loopback()) for more details.
+    /// See [`Ipv6Addr::is_loopback()`](std::net::Ipv6Addr::is_loopback()) for
+    /// more details.
     #[inline]
     pub const fn is_loopback(&self) -> bool {
         self.as_ipv6().is_loopback()
@@ -189,7 +191,8 @@ impl ArchivedIpv6Addr {
 
     /// Returns `true` if this is a multicast address (ff00::/8).
     ///
-    /// See [`Ipv6Addr::is_multicast()`](std::net::Ipv6Addr::is_multicast()) for more details.
+    /// See [`Ipv6Addr::is_multicast()`](std::net::Ipv6Addr::is_multicast()) for
+    /// more details.
     #[inline]
     pub const fn is_multicast(&self) -> bool {
         self.as_ipv6().is_multicast()
@@ -197,7 +200,8 @@ impl ArchivedIpv6Addr {
 
     /// Returns `true` for the special 'unspecified' address (::).
     ///
-    /// See [`Ipv6Addr::is_unspecified()`](std::net::Ipv6Addr::is_unspecified()) for more details.
+    /// See [`Ipv6Addr::is_unspecified()`](std::net::Ipv6Addr::is_unspecified())
+    /// for more details.
     #[inline]
     pub const fn is_unspecified(&self) -> bool {
         self.as_ipv6().is_unspecified()
@@ -290,7 +294,8 @@ impl ArchivedIpAddr {
 
     /// Returns `true` if this is a loopback address.
     ///
-    /// See [`IpAddr::is_loopback()`](std::net::IpAddr::is_loopback()) for more details.
+    /// See [`IpAddr::is_loopback()`](std::net::IpAddr::is_loopback()) for more
+    /// details.
     #[inline]
     pub const fn is_loopback(&self) -> bool {
         match self {
@@ -301,7 +306,8 @@ impl ArchivedIpAddr {
 
     /// Returns `true` if this is a multicast address.
     ///
-    /// See [`IpAddr::is_multicast()`](std::net::IpAddr::is_multicast()) for more details.
+    /// See [`IpAddr::is_multicast()`](std::net::IpAddr::is_multicast()) for
+    /// more details.
     #[inline]
     pub const fn is_multicast(&self) -> bool {
         match self {
@@ -312,7 +318,8 @@ impl ArchivedIpAddr {
 
     /// Returns `true` for the special 'unspecified' address.
     ///
-    /// See [`IpAddr::is_unspecified()`](std::net::IpAddr::is_unspecified()) for more details.
+    /// See [`IpAddr::is_unspecified()`](std::net::IpAddr::is_unspecified()) for
+    /// more details.
     #[inline]
     pub const fn is_unspecified(&self) -> bool {
         match self {
@@ -395,7 +402,8 @@ impl Archive for IpAddr {
                 ptr::addr_of_mut!((*out).0).write(ArchivedIpAddrTag::V4);
 
                 let (fp, fo) = out_field!(out.1);
-                // resolver is guaranteed to be (), but it's better to be explicit about it
+                // resolver is guaranteed to be (), but it's better to be
+                // explicit about it
                 #[allow(clippy::unit_arg)]
                 ipv4_addr.resolve(pos + fp, resolver, fo);
             }
@@ -404,7 +412,8 @@ impl Archive for IpAddr {
                 ptr::addr_of_mut!((*out).0).write(ArchivedIpAddrTag::V6);
 
                 let (fp, fo) = out_field!(out.1);
-                // resolver is guaranteed to be (), but it's better to be explicit about it
+                // resolver is guaranteed to be (), but it's better to be
+                // explicit about it
                 #[allow(clippy::unit_arg)]
                 ipv6_addr.resolve(pos + fp, resolver, fo);
             }
@@ -720,7 +729,8 @@ impl Archive for SocketAddr {
                 ptr::addr_of_mut!((*out).0).write(ArchivedSocketAddrTag::V4);
 
                 let (fp, fo) = out_field!(out.1);
-                // resolver is guaranteed to be (), but it's better to be explicit about it
+                // resolver is guaranteed to be (), but it's better to be
+                // explicit about it
                 #[allow(clippy::unit_arg)]
                 socket_addr.resolve(pos + fp, resolver, fo);
             }
@@ -729,7 +739,8 @@ impl Archive for SocketAddr {
                 ptr::addr_of_mut!((*out).0).write(ArchivedSocketAddrTag::V6);
 
                 let (fp, fo) = out_field!(out.1);
-                // resolver is guaranteed to be (), but it's better to be explicit about it
+                // resolver is guaranteed to be (), but it's better to be
+                // explicit about it
                 #[allow(clippy::unit_arg)]
                 socket_addr.resolve(pos + fp, resolver, fo);
             }

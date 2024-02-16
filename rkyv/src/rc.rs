@@ -18,9 +18,10 @@ pub struct ArcFlavor;
 
 /// An archived `Rc`.
 ///
-/// This is a thin wrapper around a [`RelPtr`] to the archived type paired with a "flavor" type.
-/// Because there may be many varieties of shared pointers and they may not be used together, the
-/// flavor helps check that memory is not being shared incorrectly during validation.
+/// This is a thin wrapper around a [`RelPtr`] to the archived type paired with
+/// a "flavor" type. Because there may be many varieties of shared pointers and
+/// they may not be used together, the flavor helps check that memory is not
+/// being shared incorrectly during validation.
 #[repr(transparent)]
 #[cfg_attr(
     feature = "bytecheck",
@@ -43,8 +44,8 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     ///
     /// # Safety
     ///
-    /// Any other `ArchivedRc` pointers to the same value must not be dereferenced for the duration
-    /// of the returned borrow.
+    /// Any other `ArchivedRc` pointers to the same value must not be
+    /// dereferenced for the duration of the returned borrow.
     #[inline]
     pub unsafe fn get_pin_mut_unchecked(self: Pin<&mut Self>) -> Pin<&mut T> {
         self.map_unchecked_mut(|s| &mut *s.ptr.as_ptr())

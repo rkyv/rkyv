@@ -26,7 +26,8 @@ pub trait Allocator<E = <Self as Fallible>::Error> {
     /// # Safety
     ///
     /// - `ptr` must be the scratch memory last allocated with `push_scratch`.
-    /// - `layout` must be the same layout that was used to allocate that block of memory.
+    /// - `layout` must be the same layout that was used to allocate that block
+    ///   of memory.
     unsafe fn pop_alloc(
         &mut self,
         ptr: NonNull<u8>,

@@ -33,8 +33,8 @@ impl ArchiveWith<OsString> for AsString {
         resolver: Self::Resolver,
         out: *mut Self::Archived,
     ) {
-        // It's safe to unwrap here because if the OsString wasn't valid UTF-8 it would have failed
-        // to serialize
+        // It's safe to unwrap here because if the OsString wasn't valid UTF-8
+        // it would have failed to serialize
         ArchivedString::resolve_from_str(
             field.to_str().unwrap(),
             pos,
@@ -84,8 +84,8 @@ impl ArchiveWith<PathBuf> for AsString {
         resolver: Self::Resolver,
         out: *mut Self::Archived,
     ) {
-        // It's safe to unwrap here because if the OsString wasn't valid UTF-8 it would have failed
-        // to serialize
+        // It's safe to unwrap here because if the OsString wasn't valid UTF-8
+        // it would have failed to serialize
         ArchivedString::resolve_from_str(
             field.to_str().unwrap(),
             pos,
@@ -137,12 +137,15 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
         resolver: Self::Resolver,
         out: *mut Self::Archived,
     ) {
-        // Unfortunately, we have to unwrap here because resolve must be infallible
+        // Unfortunately, we have to unwrap here because resolve must be
+        // infallible
         //
-        // An alternative would be to only implement ArchiveWith for Arc<Mutex<F>>, copy an Arc into
-        // the resolver, and hold the guard in there as well (as a reference to the internal mutex).
-        // This unfortunately will cause a deadlock if two Arcs to the same Mutex are serialized
-        // before the first is resolved. The compromise is, unfortunately, to just unwrap poison
+        // An alternative would be to only implement ArchiveWith for
+        // Arc<Mutex<F>>, copy an Arc into the resolver, and hold the
+        // guard in there as well (as a reference to the internal mutex).
+        // This unfortunately will cause a deadlock if two Arcs to the same
+        // Mutex are serialized before the first is resolved. The
+        // compromise is, unfortunately, to just unwrap poison
         // errors here and document it.
         field.lock().unwrap().resolve(pos, resolver, out.cast());
     }
@@ -192,13 +195,16 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
         resolver: Self::Resolver,
         out: *mut Self::Archived,
     ) {
-        // Unfortunately, we have to unwrap here because resolve must be infallible
+        // Unfortunately, we have to unwrap here because resolve must be
+        // infallible
         //
-        // An alternative would be to only implement ArchiveWith for Arc<Mutex<F>>, copy a an Arc
-        // into the resolver, and hold the guard in there as well (as a reference to the internal
-        // mutex). This unfortunately will cause a deadlock if two Arcs to the same Mutex are
-        // serialized before the first is resolved. The compromise is, unfortunately, to just
-        // unwrap poison errors here and document it.
+        // An alternative would be to only implement ArchiveWith for
+        // Arc<Mutex<F>>, copy a an Arc into the resolver, and hold the
+        // guard in there as well (as a reference to the internal
+        // mutex). This unfortunately will cause a deadlock if two Arcs to the
+        // same Mutex are serialized before the first is resolved. The
+        // compromise is, unfortunately, to just unwrap poison errors
+        // here and document it.
         field.read().unwrap().resolve(pos, resolver, out.cast());
     }
 }

@@ -3,7 +3,8 @@ use rancor::ResultExt as _;
 use crate::ser::{Positional, Writer};
 use std::io;
 
-/// Wraps a type that implements [`io::Write`](std::io::Write) and equips it with [`Writer`].
+/// Wraps a type that implements [`io::Write`](std::io::Write) and equips it
+/// with [`Writer`].
 ///
 /// # Examples
 /// ```
@@ -30,14 +31,15 @@ impl<W> IoWriter<W> {
         Self::with_pos(inner, 0)
     }
 
-    /// Creates a new serializer from a writer, and assumes that the underlying writer is currently
-    /// at the given position.
+    /// Creates a new serializer from a writer, and assumes that the underlying
+    /// writer is currently at the given position.
     #[inline]
     pub fn with_pos(inner: W, pos: usize) -> Self {
         Self { inner, pos }
     }
 
-    /// Consumes the serializer and returns the internal writer used to create it.
+    /// Consumes the serializer and returns the internal writer used to create
+    /// it.
     #[inline]
     pub fn into_inner(self) -> W {
         self.inner

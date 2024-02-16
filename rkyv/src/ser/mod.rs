@@ -39,7 +39,8 @@ pub struct Composite<W = (), A = (), S = ()> {
 }
 
 impl<W, A, S> Composite<W, A, S> {
-    /// Creates a new composite serializer from serializer, scratch, and shared pointer strategy.
+    /// Creates a new composite serializer from serializer, scratch, and shared
+    /// pointer strategy.
     #[inline]
     pub fn new(writer: W, allocator: A, share: S) -> Self {
         Self {
@@ -111,22 +112,24 @@ impl<W, A, S: Sharing<E>, E> Sharing<E> for Composite<W, A, S> {
 
 /// A serializer suitable for environments where allocations cannot be made.
 ///
-/// `CoreSerializer` takes two arguments: the amount of serialization memory to allocate and the
-/// amount of scratch space to allocate. If you run out of either while serializing, the serializer
-/// will return an error.
+/// `CoreSerializer` takes two arguments: the amount of serialization memory to
+/// allocate and the amount of scratch space to allocate. If you run out of
+/// either while serializing, the serializer will return an error.
 pub type CoreSerializer<const W: usize, const A: usize> = Composite<
     BufferWriter<AlignedBytes<W>>,
     BufferAllocator<AlignedBytes<A>>,
     Duplicate,
 >;
 
-/// A general-purpose serializer suitable for environments where allocations can be made.
+/// A general-purpose serializer suitable for environments where allocations can
+/// be made.
 ///
-/// `AllocSerializer` takes one argument: the amount of scratch space to allocate before spilling
-/// allocations over into heap memory. A large amount of scratch space may result in some of it not
-/// being used, but too little scratch space will result in many allocations and decreased
-/// performance. You should consider your use case carefully when determining how much scratch space
-/// to pre-allocate.
+/// `AllocSerializer` takes one argument: the amount of scratch space to
+/// allocate before spilling allocations over into heap memory. A large amount
+/// of scratch space may result in some of it not being used, but too little
+/// scratch space will result in many allocations and decreased performance. You
+/// should consider your use case carefully when determining how much scratch
+/// space to pre-allocate.
 #[cfg(feature = "alloc")]
 pub type AllocSerializer<const A: usize> = Composite<
     AlignedVec,

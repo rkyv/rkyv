@@ -55,15 +55,15 @@ pub enum ArchivedIpAddr {
 }
 
 impl ArchivedIpAddr {
-    /// Returns `true` if this address is an [`IPv4` address](std::net::IpAddr::V4), and `false`
-    /// otherwise.
+    /// Returns `true` if this address is an [`IPv4`
+    /// address](std::net::IpAddr::V4), and `false` otherwise.
     #[inline]
     pub const fn is_ipv4(&self) -> bool {
         matches!(self, ArchivedIpAddr::V4(_))
     }
 
-    /// Returns `true` if this address is an [`IPv6` address](std::net::IpAddr::V6), and `false`
-    /// otherwise.
+    /// Returns `true` if this address is an [`IPv6`
+    /// address](std::net::IpAddr::V6), and `false` otherwise.
     #[inline]
     pub const fn is_ipv6(&self) -> bool {
         matches!(self, ArchivedIpAddr::V6(_))
@@ -107,7 +107,8 @@ pub struct ArchivedSocketAddrV6 {
 impl ArchivedSocketAddrV6 {
     /// Returns the flow information associated with this address.
     ///
-    /// See [`SocketAddrV6::flowinfo()`](std::net::SocketAddrV6::flowinfo()) for more details.
+    /// See [`SocketAddrV6::flowinfo()`](std::net::SocketAddrV6::flowinfo()) for
+    /// more details.
     #[inline]
     pub const fn flowinfo(&self) -> u32 {
         self.flowinfo.to_native()
@@ -127,7 +128,8 @@ impl ArchivedSocketAddrV6 {
 
     /// Returns the scope ID associated with this address.
     ///
-    /// See [`SocketAddrV6::scope_id()`](std::net::SocketAddrV6::scope_id()) for more details.
+    /// See [`SocketAddrV6::scope_id()`](std::net::SocketAddrV6::scope_id()) for
+    /// more details.
     #[inline]
     pub const fn scope_id(&self) -> u32 {
         self.scope_id.to_native()
@@ -155,15 +157,17 @@ impl ArchivedSocketAddr {
         }
     }
 
-    /// Returns `true` if the [IP address](std::net::IpAddr) in this `ArchivedSocketAddr` is an
-    /// [`IPv4` address](std::net::IpAddr::V4), and `false` otherwise.
+    /// Returns `true` if the [IP address](std::net::IpAddr) in this
+    /// `ArchivedSocketAddr` is an [`IPv4` address](std::net::IpAddr::V4),
+    /// and `false` otherwise.
     #[inline]
     pub fn is_ipv4(&self) -> bool {
         matches!(self, ArchivedSocketAddr::V4(_))
     }
 
-    /// Returns `true` if the [IP address](std::net::IpAddr) in this `ArchivedSocketAddr` is an
-    /// [`IPv6` address](std::net::IpAddr::V6), and `false` otherwise.
+    /// Returns `true` if the [IP address](std::net::IpAddr) in this
+    /// `ArchivedSocketAddr` is an [`IPv6` address](std::net::IpAddr::V6),
+    /// and `false` otherwise.
     #[inline]
     pub fn is_ipv6(&self) -> bool {
         matches!(self, ArchivedSocketAddr::V6(_))

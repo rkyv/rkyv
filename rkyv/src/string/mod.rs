@@ -18,9 +18,9 @@ use repr::{ArchivedStringRepr, INLINE_CAPACITY};
 
 /// An archived [`String`].
 ///
-/// This has inline and out-of-line representations. Short strings will use the available space
-/// inside the structure to store the string, and long strings will store a
-/// [`RelPtr`](crate::RelPtr) to a `str` instead.
+/// This has inline and out-of-line representations. Short strings will use the
+/// available space inside the structure to store the string, and long strings
+/// will store a [`RelPtr`](crate::RelPtr) to a `str` instead.
 #[repr(transparent)]
 #[cfg_attr(
     feature = "bytecheck",
@@ -38,7 +38,8 @@ impl ArchivedString {
         self.repr.as_str()
     }
 
-    /// Extracts a pinned mutable string slice containing the entire `ArchivedString`.
+    /// Extracts a pinned mutable string slice containing the entire
+    /// `ArchivedString`.
     #[inline]
     pub fn pin_mut_str(self: Pin<&mut Self>) -> Pin<&mut str> {
         unsafe { self.map_unchecked_mut(|s| s.repr.as_mut_str()) }

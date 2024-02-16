@@ -27,16 +27,17 @@ pub struct ArchivedCString {
 impl ArchivedCString {
     /// Returns the contents of this CString as a slice of bytes.
     ///
-    /// The returned slice does **not** contain the trailing nul terminator, and it is guaranteed to
-    /// not have any interior nul bytes. If you need the nul terminator, use
+    /// The returned slice does **not** contain the trailing nul terminator, and
+    /// it is guaranteed to not have any interior nul bytes. If you need the
+    /// nul terminator, use
     /// [`as_bytes_with_nul`][ArchivedCString::as_bytes_with_nul()] instead.
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
         self.as_c_str().to_bytes()
     }
 
-    /// Equivalent to [`as_bytes`][ArchivedCString::as_bytes()] except that the returned slice
-    /// includes the trailing nul terminator.
+    /// Equivalent to [`as_bytes`][ArchivedCString::as_bytes()] except that the
+    /// returned slice includes the trailing nul terminator.
     #[inline]
     pub fn as_bytes_with_nul(&self) -> &[u8] {
         self.as_c_str().to_bytes_with_nul()

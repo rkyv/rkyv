@@ -29,8 +29,8 @@ const _: () = {
 
 /// Wraps a byte buffer and equips it with [`Writer`].
 ///
-/// Common uses include archiving in `#![no_std]` environments and archiving small objects without
-/// allocating.
+/// Common uses include archiving in `#![no_std]` environments and archiving
+/// small objects without allocating.
 ///
 /// # Examples
 /// ```
@@ -88,9 +88,9 @@ impl<T> BufferWriter<T> {
         &mut self.inner
     }
 
-    /// Creates a new archive buffer from a byte buffer. The buffer will start writing at the given
-    /// position, but the buffer must contain all bytes (otherwise the alignments of types may not
-    /// be correct).
+    /// Creates a new archive buffer from a byte buffer. The buffer will start
+    /// writing at the given position, but the buffer must contain all bytes
+    /// (otherwise the alignments of types may not be correct).
     #[inline]
     pub fn with_pos(inner: T, pos: usize) -> Self {
         Self { inner, pos }

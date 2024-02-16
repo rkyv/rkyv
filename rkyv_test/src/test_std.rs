@@ -261,7 +261,8 @@ mod tests {
 
     //     assert_eq!(*archived.value, 10);
 
-    //     let deserialized: Test = archived.deserialize(&mut Infallible).unwrap();
+    //     let deserialized: Test = archived.deserialize(&mut
+    // Infallible).unwrap();
 
     //     assert_eq!(*deserialized.value.lock().unwrap(), 10);
     // }
@@ -288,7 +289,8 @@ mod tests {
 
     //     assert_eq!(*archived.value, 10);
 
-    //     let deserialized: Test = archived.deserialize(&mut Infallible).unwrap();
+    //     let deserialized: Test = archived.deserialize(&mut
+    // Infallible).unwrap();
 
     //     assert_eq!(*deserialized.value.read().unwrap(), 10);
     // }
@@ -316,7 +318,8 @@ mod tests {
 
     //     assert_eq!(archived.value, "hello world");
 
-    //     let deserialized: Test = archived.deserialize(&mut Infallible).unwrap();
+    //     let deserialized: Test = archived.deserialize(&mut
+    // Infallible).unwrap();
 
     //     assert_eq!(deserialized.value, "hello world");
     // }
@@ -344,7 +347,8 @@ mod tests {
 
     //     assert_eq!(archived.value, "hello world");
 
-    //     let deserialized: Test = archived.deserialize(&mut Infallible).unwrap();
+    //     let deserialized: Test = archived.deserialize(&mut
+    // Infallible).unwrap();
 
     //     assert_eq!(deserialized.value.to_str().unwrap(), "hello world");
     // }

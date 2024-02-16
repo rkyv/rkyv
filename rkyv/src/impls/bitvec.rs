@@ -195,8 +195,8 @@ where
 //         let output = unsafe { archived_root::<BitVec>(&buffer[0..end]) };
 //         assert_eq!(&original, output.as_bitslice());
 
-//         let deserialized = deserialize::<BitVec, _, Infallible>(output, &mut ()).unwrap();
-//         assert_eq!(deserialized, original);
+//         let deserialized = deserialize::<BitVec, _, Infallible>(output, &mut
+// ()).unwrap();         assert_eq!(deserialized, original);
 //     }
 
 //     #[test]
@@ -213,7 +213,7 @@ where
 //         let output = unsafe { archived_root::<BitArray>(&buffer[0..end]) };
 //         assert_eq!(&original[..11], &output[..11]);
 
-//         let deserialized = deserialize::<BitArray, _, Infallible>(output, &mut ()).unwrap();
-//         assert_eq!(&deserialized[..11], &original[..11]);
+//         let deserialized = deserialize::<BitArray, _, Infallible>(output,
+// &mut ()).unwrap();         assert_eq!(&deserialized[..11], &original[..11]);
 //     }
 // }

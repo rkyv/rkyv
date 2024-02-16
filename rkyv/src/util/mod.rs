@@ -2,12 +2,13 @@
 //!
 //! ## Buffer access
 //!
-//! Helper functions to get the root object of an archive under certain conditions.
+//! Helper functions to get the root object of an archive under certain
+//! conditions.
 //!
 //! ## Alignment
 //!
-//! Alignment helpers ensure that byte buffers are properly aligned when accessing and deserializing
-//! data.
+//! Alignment helpers ensure that byte buffers are properly aligned when
+//! accessing and deserializing data.
 
 #[cfg(feature = "alloc")]
 mod aligned_vec;

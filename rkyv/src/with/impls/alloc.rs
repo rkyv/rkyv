@@ -57,7 +57,8 @@ where
         s: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
         // Wrapper for O so that we have an Archive and Serialize implementation
-        // and ArchivedVec::serialize_from_* is happy about the bound constraints
+        // and ArchivedVec::serialize_from_* is happy about the bound
+        // constraints
         struct RefWrapper<'o, A, O>(&'o O, PhantomData<A>);
 
         impl<A: ArchiveWith<O>, O> Archive for RefWrapper<'_, A, O> {
@@ -653,12 +654,12 @@ where
 //     ) -> Result<Self::Resolver, S::Error> {
 //         use core::mem::size_of;
 
-//         // Basic debug assert that T and T::Archived are at least the same size
-//         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
+//         // Basic debug assert that T and T::Archived are at least the same
+// size         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
 
 //         unsafe {
-//             ArchivedVec::serialize_copy_from_slice(field.as_slice(), serializer)
-//         }
+//             ArchivedVec::serialize_copy_from_slice(field.as_slice(),
+// serializer)         }
 //     }
 // }
 
@@ -674,8 +675,8 @@ where
 //     ) -> Result<Vec<T>, E> {
 //         use core::{mem::size_of, ptr::copy_nonoverlapping};
 
-//         // Basic debug assert that T and T::Archived are at least the same size
-//         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
+//         // Basic debug assert that T and T::Archived are at least the same
+// size         debug_assert_eq!(size_of::<T>(), size_of::<T::Archived>());
 
 //         let mut result = Vec::with_capacity(field.len());
 //         unsafe {

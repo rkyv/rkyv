@@ -58,8 +58,9 @@ pub trait SharingExt<E>: Sharing<E> {
         self.add_shared_ptr(value as *const T as *const () as usize, pos)
     }
 
-    /// Archives the given shared value and returns its position. If the value has already been
-    /// added then it returns the position of the previously added value.
+    /// Archives the given shared value and returns its position. If the value
+    /// has already been added then it returns the position of the
+    /// previously added value.
     #[inline]
     fn serialize_shared<T: SerializeUnsized<Self> + ?Sized>(
         &mut self,

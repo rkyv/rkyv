@@ -6,8 +6,8 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-/// An archived [`Result`] that represents either success ([`Ok`](ArchivedResult::Ok)) or failure
-/// ([`Err`](ArchivedResult::Err)).
+/// An archived [`Result`] that represents either success
+/// ([`Ok`](ArchivedResult::Ok)) or failure ([`Err`](ArchivedResult::Err)).
 #[derive(Debug)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(u8)]
@@ -26,7 +26,8 @@ impl<T, E> ArchivedResult<T, E> {
             ArchivedResult::Err(_) => None,
         }
     }
-    /// Returns the contained [`Ok`](ArchivedResult::Ok) value, consuming the `self` value.
+    /// Returns the contained [`Ok`](ArchivedResult::Ok) value, consuming the
+    /// `self` value.
     pub fn unwrap(self) -> T {
         match self {
             ArchivedResult::Ok(value) => value,
@@ -57,7 +58,8 @@ impl<T, E> ArchivedResult<T, E> {
         matches!(self, ArchivedResult::Err(_))
     }
 
-    /// Returns a `Result` containing the success and error values of this `ArchivedResult`.
+    /// Returns a `Result` containing the success and error values of this
+    /// `ArchivedResult`.
     #[inline]
     pub fn as_ref(&self) -> Result<&T, &E> {
         match self {
@@ -77,7 +79,8 @@ impl<T, E> ArchivedResult<T, E> {
 
     /// Returns an iterator over the possibly contained value.
     ///
-    /// The iterator yields one value if the result is `ArchivedResult::Ok`, otherwise none.
+    /// The iterator yields one value if the result is `ArchivedResult::Ok`,
+    /// otherwise none.
     #[inline]
     pub fn iter(&self) -> Iter<'_, T> {
         Iter {
@@ -87,7 +90,8 @@ impl<T, E> ArchivedResult<T, E> {
 
     /// Returns a mutable iterator over the possibly contained value.
     ///
-    /// The iterator yields one value if the result is `ArchivedResult::Ok`, otherwise none.
+    /// The iterator yields one value if the result is `ArchivedResult::Ok`,
+    /// otherwise none.
     #[inline]
     pub fn iter_mut(&mut self) -> IterMut<'_, T> {
         IterMut {
@@ -97,10 +101,11 @@ impl<T, E> ArchivedResult<T, E> {
 }
 
 impl<T: Deref, E> ArchivedResult<T, E> {
-    /// Converts from `&ArchivedResult<T, E>` to `Result<&<T as Deref>::Target, &E>`.
+    /// Converts from `&ArchivedResult<T, E>` to `Result<&<T as Deref>::Target,
+    /// &E>`.
     ///
-    /// Coerces the `Ok` variant of the original `ArchivedResult` via `Deref` and returns the new
-    /// `Result`.
+    /// Coerces the `Ok` variant of the original `ArchivedResult` via `Deref`
+    /// and returns the new `Result`.
     #[inline]
     pub fn as_deref(&self) -> Result<&<T as Deref>::Target, &E> {
         match self {
@@ -111,10 +116,11 @@ impl<T: Deref, E> ArchivedResult<T, E> {
 }
 
 impl<T: DerefMut, E> ArchivedResult<T, E> {
-    /// Converts from `&mut ArchivedResult<T, E>` to `Result<&mut <T as Deref>::Target, &mut E>`.
+    /// Converts from `&mut ArchivedResult<T, E>` to `Result<&mut <T as
+    /// Deref>::Target, &mut E>`.
     ///
-    /// Coerces the `Ok` variant of the original `ArchivedResult` via `DerefMut` and returns the new
-    /// `Result`.
+    /// Coerces the `Ok` variant of the original `ArchivedResult` via `DerefMut`
+    /// and returns the new `Result`.
     #[inline]
     pub fn as_deref_mut(
         &mut self,
@@ -151,7 +157,8 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     }
 }
 
-/// An iterator over a mutable reference to the `Ok` variant of an [`ArchivedResult`].
+/// An iterator over a mutable reference to the `Ok` variant of an
+/// [`ArchivedResult`].
 ///
 /// The iterator yields one value if the result is `Ok`, otherwise none.
 ///

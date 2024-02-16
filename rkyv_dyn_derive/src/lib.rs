@@ -111,18 +111,20 @@ impl Parse for Args {
 
 /// Creates archivable trait objects and registers implementations.
 ///
-/// Prepend to trait definitions and implementations. For generic implementations, you may need to
-/// manually register impls with the trait object system. See `register_impl` for more information.
+/// Prepend to trait definitions and implementations. For generic
+/// implementations, you may need to manually register impls with the trait
+/// object system. See `register_impl` for more information.
 ///
 /// See `ArchiveDyn` for usage information and examples.
 ///
 /// # Parameters
 ///
-/// - `serialize = "..."`: Chooses the name of the serialize trait. By default, it will be named
-///   "Serialize" + your trait name.
-/// - `deserialize`, `deserialize = "..."`: Adds deserialization support to the archived trait.
-///   Similarly to the `name` parameter, you can choose the name of the deserialize trait and by
-///   default it will be named "Deserialize" + your trait name.
+/// - `serialize = "..."`: Chooses the name of the serialize trait. By default,
+///   it will be named "Serialize" + your trait name.
+/// - `deserialize`, `deserialize = "..."`: Adds deserialization support to the
+///   archived trait. Similarly to the `name` parameter, you can choose the name
+///   of the deserialize trait and by default it will be named "Deserialize" +
+///   your trait name.
 #[proc_macro_attribute]
 pub fn archive_dyn(
     attr: proc_macro::TokenStream,

@@ -1,4 +1,5 @@
-//! Validators add validation capabilities by wrapping and extending basic validators.
+//! Validators add validation capabilities by wrapping and extending basic
+//! validators.
 
 use core::{any::TypeId, fmt};
 
@@ -57,7 +58,8 @@ impl SharedValidator {
     #[inline]
     pub fn new() -> Self {
         Self {
-            // TODO: consider deferring this to avoid the overhead of constructing
+            // TODO: consider deferring this to avoid the overhead of
+            // constructing
             shared: HashMap::new(),
         }
     }

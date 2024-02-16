@@ -73,8 +73,8 @@ where
         let raw_shared_ptr = deserializer
             .deserialize_shared::<_, rc::Rc<T>, _>(
                 self.get(),
-                // TODO: make sure that Rc<()> and Arc<()> won't alloc with zero
-                // size layouts
+                // TODO: make sure that Rc<()> and Arc<()> won't alloc with
+                // zero size layouts
                 |layout| unsafe { alloc(layout) },
             )?;
         unsafe {
@@ -132,8 +132,8 @@ where
     }
 }
 
-// Deserialize can only be implemented for sized types because weak pointers don't have from/into
-// raw functions.
+// Deserialize can only be implemented for sized types because weak pointers
+// don't have from/into raw functions.
 impl<T, D> Deserialize<rc::Weak<T>, D> for ArchivedRcWeak<T::Archived, RcFlavor>
 where
     T: Archive + 'static,
@@ -215,8 +215,8 @@ where
         let raw_shared_ptr = deserializer
             .deserialize_shared::<_, sync::Arc<T>, _>(
                 self.get(),
-                // TODO: make sure that Rc<()> and Arc<()> won't alloc with zero
-                // size layouts
+                // TODO: make sure that Rc<()> and Arc<()> won't alloc with
+                // zero size layouts
                 |layout| unsafe { alloc(layout) },
             )?;
         unsafe {
@@ -276,8 +276,8 @@ where
     }
 }
 
-// Deserialize can only be implemented for sized types because weak pointers don't have from/into
-// raw functions.
+// Deserialize can only be implemented for sized types because weak pointers
+// don't have from/into raw functions.
 impl<T, D> Deserialize<sync::Weak<T>, D>
     for ArchivedRcWeak<T::Archived, ArcFlavor>
 where

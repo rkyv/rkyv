@@ -5,7 +5,8 @@ use rancor::Fallible;
 
 /// A simple key-value pair.
 ///
-/// This is typically used by associative containers that store keys and values together.
+/// This is typically used by associative containers that store keys and values
+/// together.
 #[derive(Debug, Eq)]
 #[cfg_attr(feature = "stable_layout", repr(C))]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]

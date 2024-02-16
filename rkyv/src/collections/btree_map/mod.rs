@@ -56,8 +56,8 @@ struct NodeHeader {
     meta: ArchivedU16,
     size: ArchivedUsize,
     // For leaf nodes, this points to the next leaf node in order
-    // For inner nodes, this points to the node in the next layer that's less than the first key in
-    // this node
+    // For inner nodes, this points to the node in the next layer that's less
+    // than the first key in this node
     ptr: RelPtr<NodeHeader>,
 }
 
@@ -264,8 +264,8 @@ impl<K, V> ArchivedBTreeMap<K, V> {
 
     /// Returns `true` if the map contains a value for the specified key.
     ///
-    /// The key may be any borrowed form of the map's key type, but the ordering on the borrowed
-    /// form _must_ match the ordering on the key type.
+    /// The key may be any borrowed form of the map's key type, but the ordering
+    /// on the borrowed form _must_ match the ordering on the key type.
     #[inline]
     pub fn contains_key<Q: Ord + ?Sized>(&self, key: &Q) -> bool
     where
@@ -276,8 +276,8 @@ impl<K, V> ArchivedBTreeMap<K, V> {
 
     /// Returns a reference to the value corresponding to the key.
     ///
-    /// The key may be any borrowed form of the map’s key type, but the ordering on the borrowed
-    /// form must match the ordering on the key type.
+    /// The key may be any borrowed form of the map’s key type, but the ordering
+    /// on the borrowed form must match the ordering on the key type.
     #[inline]
     pub fn get<Q: Ord + ?Sized>(&self, key: &Q) -> Option<&V>
     where
@@ -288,8 +288,9 @@ impl<K, V> ArchivedBTreeMap<K, V> {
 
     /// Returns the key-value pair corresponding to the supplied key.
     ///
-    /// The supplied key may be any borrowed form of the map’s key type, but the ordering on the
-    /// borrowed form must match the ordering on the key type.
+    /// The supplied key may be any borrowed form of the map’s key type, but the
+    /// ordering on the borrowed form must match the ordering on the key
+    /// type.
     pub fn get_key_value<Q: Ord + ?Sized>(&self, k: &Q) -> Option<(&K, &V)>
     where
         K: Borrow<Q> + Ord,
@@ -422,11 +423,13 @@ const _: () = {
             if iter.len() == 0 {
                 Ok(BTreeMapResolver { root_pos: 0 })
             } else {
-                // The memory span of a single node should not exceed 4kb to keep everything within
-                // the distance of a single IO page
+                // The memory span of a single node should not exceed 4kb to
+                // keep everything within the distance of a
+                // single IO page
                 const MAX_NODE_SIZE: usize = 4096;
 
-                // The nodes that must go in the next level in reverse order (key, node_pos)
+                // The nodes that must go in the next level in reverse order
+                // (key, node_pos)
                 let mut next_level = Vec::new();
                 let mut resolvers = Vec::new();
 
@@ -444,15 +447,16 @@ const _: () = {
 
                     loop {
                         // This is an estimate of the block size
-                        // It's not exact because there may be padding to align the node and entries
-                        // slice
+                        // It's not exact because there may be padding to align
+                        // the node and entries slice
                         let estimated_block_size = serializer.pos()
                             - block_start_pos
                             + mem::size_of::<NodeHeader>()
                             + resolvers.len()
                                 * mem::size_of::<LeafNodeEntry<K, V>>();
 
-                        // If we've reached or exceeded the maximum node size and have put enough
+                        // If we've reached or exceeded the maximum node size
+                        // and have put enough
                         // entries in this node, then break
                         if estimated_block_size >= MAX_NODE_SIZE
                             && resolvers.len() >= MIN_ENTRIES_PER_LEAF_NODE
@@ -481,7 +485,8 @@ const _: () = {
                     let raw_node = NodeHeaderData {
                         meta: combine_meta(false, resolvers.len()),
                         size: serializer.pos() - block_start_pos,
-                        // The last element of next_level is the next block we're linked to
+                        // The last element of next_level is the next block
+                        // we're linked to
                         pos: next_level.last().map(|&(_, pos)| pos),
                     };
 
@@ -502,13 +507,15 @@ const _: () = {
                     }
                 }
 
-                // Subsequent levels are populated by serializing node keys from the previous level
-                // When there's only one node left, that's our root
+                // Subsequent levels are populated by serializing node keys from
+                // the previous level When there's only one node
+                // left, that's our root
                 let mut current_level = Vec::new();
                 let mut resolvers = Vec::new();
                 while next_level.len() > 1 {
-                    // Our previous next_level becomes our current level, and current_level is
-                    // guaranteed to be empty at this point
+                    // Our previous next_level becomes our current level, and
+                    // current_level is guaranteed to be
+                    // empty at this point
                     mem::swap(&mut current_level, &mut next_level);
 
                     let mut iter = current_level.drain(..);
@@ -516,7 +523,8 @@ const _: () = {
                         // Start a new inner block
                         let block_start_pos = serializer.pos();
 
-                        // When we break, we're guaranteed to have at least one node left
+                        // When we break, we're guaranteed to have at least one
+                        // node left
                         while iter.len() > 1 {
                             let (key, pos) = iter.next().unwrap();
 
@@ -534,7 +542,8 @@ const _: () = {
                                 + resolvers.len()
                                     * mem::size_of::<InnerNodeEntry<K>>();
 
-                            // If we've reached or exceeded the maximum node size and have put enough
+                            // If we've reached or exceeded the maximum node
+                            // size and have put enough
                             // keys in this node, then break
                             if estimated_block_size >= MAX_NODE_SIZE
                                 && resolvers.len() >= MIN_ENTRIES_PER_INNER_NODE
@@ -545,9 +554,11 @@ const _: () = {
 
                         // Three cases here:
                         // 1 entry left: use it as the last key
-                        // 2 entries left: serialize the next one and use the last as last to avoid
+                        // 2 entries left: serialize the next one and use the
+                        // last as last to avoid
                         //   putting only one entry in the final block
-                        // 3+ entries left: use next as last, next block will contain at least two
+                        // 3+ entries left: use next as last, next block will
+                        // contain at least two
                         //   entries
 
                         if iter.len() == 2 {
@@ -572,11 +583,13 @@ const _: () = {
                         let node_header = NodeHeaderData {
                             meta: combine_meta(true, resolvers.len()),
                             size: serializer.pos() - block_start_pos,
-                            // The pos of the first key is used to make the pointer for inner nodes
+                            // The pos of the first key is used to make the
+                            // pointer for inner nodes
                             pos: Some(first_pos),
                         };
 
-                        // Add the second key and node position to the next level
+                        // Add the second key and node position to the next
+                        // level
                         next_level.push((
                             first_key,
                             serializer.resolve_aligned(&node_header, ())?,
@@ -702,7 +715,8 @@ impl<'a, K, V> Iterator for RawIter<'a, K, V> {
                 let leaf = self.leaf.as_ref().classify_leaf::<K, V>();
                 if self.index == leaf.tail.len() {
                     self.index = 0;
-                    // SAFETY: when self.remaining > 0 this is guaranteed to point to a leaf node
+                    // SAFETY: when self.remaining > 0 this is guaranteed to
+                    // point to a leaf node
                     self.leaf = NonNull::new_unchecked(
                         leaf.header.ptr.as_ptr() as *mut _,
                     );

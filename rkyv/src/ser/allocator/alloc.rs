@@ -115,8 +115,8 @@ const _: () = {
 
 /// Scratch space that always uses the global allocator.
 ///
-/// This allocator will panic if scratch is popped that it did not allocate. For this reason, it
-/// should only ever be used as a fallback allocator.
+/// This allocator will panic if scratch is popped that it did not allocate. For
+/// this reason, it should only ever be used as a fallback allocator.
 #[derive(Debug, Default)]
 pub struct GlobalAllocator {
     remaining: Option<usize>,
@@ -124,11 +124,13 @@ pub struct GlobalAllocator {
 }
 
 // SAFETY: AllocScratch is safe to send to another thread
-// This trait is not automatically implemented because the struct contains a pointer
+// This trait is not automatically implemented because the struct contains a
+// pointer
 unsafe impl Send for GlobalAllocator {}
 
 // SAFETY: AllocScratch is safe to share between threads
-// This trait is not automatically implemented because the struct contains a pointer
+// This trait is not automatically implemented because the struct contains a
+// pointer
 unsafe impl Sync for GlobalAllocator {}
 
 impl GlobalAllocator {

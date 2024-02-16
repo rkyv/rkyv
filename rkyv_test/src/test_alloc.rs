@@ -639,8 +639,8 @@ mod tests {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
         #[archive_attr(derive(Debug))]
-        // The derive macros don't apply the right bounds from Box so we have to manually specify
-        // what bounds to apply
+        // The derive macros don't apply the right bounds from Box so we have to
+        // manually specify what bounds to apply
         #[archive(serialize_bounds(__S: Writer))]
         enum Node {
             Nil,
@@ -656,8 +656,8 @@ mod tests {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
         #[archive_attr(derive(Debug))]
-        // The derive macros don't apply the right bounds from Box so we have to manually specify
-        // what bounds to apply
+        // The derive macros don't apply the right bounds from Box so we have to
+        // manually specify what bounds to apply
         #[archive(serialize_bounds(__S: Writer))]
         pub enum LinkedList<T: Archive>
         where
@@ -1641,7 +1641,8 @@ mod tests {
         };
         let mut result =
             serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
-        // NOTE: with(Atomic) is only sound if the backing memory is mutable, use with caution!
+        // NOTE: with(Atomic) is only sound if the backing memory is mutable,
+        // use with caution!
         let archived =
             unsafe { access_unchecked_mut::<Test>(result.as_mut_slice()) };
 

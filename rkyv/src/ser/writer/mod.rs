@@ -75,7 +75,8 @@ pub trait WriterExt<E>: Writer<E> {
         Ok(self.pos())
     }
 
-    /// Aligns the position of the serializer to be suitable to write the given type.
+    /// Aligns the position of the serializer to be suitable to write the given
+    /// type.
     #[inline]
     fn align_for<T>(&mut self) -> Result<usize, E> {
         self.align(mem::align_of::<T>())
@@ -107,7 +108,8 @@ pub trait WriterExt<E>: Writer<E> {
         Ok(pos)
     }
 
-    /// Resolves the given reference with its resolver and writes the archived reference.
+    /// Resolves the given reference with its resolver and writes the archived
+    /// reference.
     ///
     /// Returns the position of the written archived `RelPtr`.
     ///

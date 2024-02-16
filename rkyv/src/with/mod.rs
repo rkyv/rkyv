@@ -13,13 +13,15 @@ use rancor::Fallible;
 
 /// A transparent wrapper for archived fields.
 ///
-/// This is used by the `#[with(...)]` attribute in the [`Archive`](macro@crate::Archive) macro to
-/// create transparent serialization wrappers. Those wrappers leverage [`ArchiveWith`] to change
-/// how the type is archived, serialized, and deserialized.
+/// This is used by the `#[with(...)]` attribute in the
+/// [`Archive`](macro@crate::Archive) macro to create transparent serialization
+/// wrappers. Those wrappers leverage [`ArchiveWith`] to change how the type is
+/// archived, serialized, and deserialized.
 ///
-/// When a field is serialized, a reference to the field (i.e. `&T`) can be cast to a reference to a
-/// wrapping `With` (i.e. `With<T, Wrapper>`) and serialized instead. This is safe to do because
-/// `With` is a transparent wrapper and is shaped exactly the same as the underlying field.
+/// When a field is serialized, a reference to the field (i.e. `&T`) can be cast
+/// to a reference to a wrapping `With` (i.e. `With<T, Wrapper>`) and serialized
+/// instead. This is safe to do because `With` is a transparent wrapper and is
+/// shaped exactly the same as the underlying field.
 ///
 /// # Example
 ///
@@ -47,8 +49,9 @@ impl<F: ?Sized, W> With<F, W> {
     /// This is always safe to do because `With` is a transparent wrapper.
     #[inline]
     pub fn cast(field: &F) -> &'_ With<F, W> {
-        // Safety: transmuting from an unsized type reference to a reference to a transparent
-        // wrapper is safe because they both have the same data address and metadata
+        // Safety: transmuting from an unsized type reference to a reference to
+        // a transparent wrapper is safe because they both have the same
+        // data address and metadata
         #[allow(clippy::transmute_ptr_to_ptr)]
         unsafe {
             transmute(field)
@@ -72,12 +75,13 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 
 /// A variant of [`Archive`] that works with [`With`] wrappers.
 ///
-/// Creating a wrapper allows users to customize how fields are archived easily without changing the
-/// unarchived type.
+/// Creating a wrapper allows users to customize how fields are archived easily
+/// without changing the unarchived type.
 ///
-/// This trait allows wrapper types to transparently change the archive behaviors for struct fields.
-/// When a field is serialized, its reference may be converted to a [`With`] reference, and that
-/// reference may be serialized instead. `With` references look for implementations of `ArchiveWith`
+/// This trait allows wrapper types to transparently change the archive
+/// behaviors for struct fields. When a field is serialized, its reference may
+/// be converted to a [`With`] reference, and that reference may be serialized
+/// instead. `With` references look for implementations of `ArchiveWith`
 /// to determine how a wrapped field should be treated.
 ///
 /// # Example
@@ -361,8 +365,8 @@ pub struct AsAtomic<SO, DO> {
 
 /// A wrapper that serializes a reference inline.
 ///
-/// References serialized with `Inline` cannot be deserialized because the struct cannot own the
-/// deserialized value.
+/// References serialized with `Inline` cannot be deserialized because the
+/// struct cannot own the deserialized value.
 ///
 /// # Example
 ///
@@ -424,12 +428,13 @@ pub struct BoxedInline;
 
 /// A wrapper that attempts to convert a type to and from UTF-8.
 ///
-/// Types like `OsString` and `PathBuf` aren't guaranteed to be encoded as UTF-8, but they usually
-/// are anyway. Using this wrapper will archive them as if they were regular `String`s.
+/// Types like `OsString` and `PathBuf` aren't guaranteed to be encoded as
+/// UTF-8, but they usually are anyway. Using this wrapper will archive them as
+/// if they were regular `String`s.
 ///
-/// Regular serializers don't support the custom error handling needed for this type by default. To
-/// use this wrapper, a custom serializer with an error type satisfying
-/// `<S as Fallible>::Error: From<AsStringError>` must be provided.
+/// Regular serializers don't support the custom error handling needed for this
+/// type by default. To use this wrapper, a custom serializer with an error type
+/// satisfying `<S as Fallible>::Error: From<AsStringError>` must be provided.
 ///
 /// # Example
 ///
@@ -464,21 +469,23 @@ impl ::std::error::Error for InvalidStr {}
 ///
 /// This wrapper can panic under very specific circumstances when:
 ///
-/// 1. `serialize_with` is called and succeeds in locking the value to serialize it.
+/// 1. `serialize_with` is called and succeeds in locking the value to serialize
+///    it.
 /// 2. Another thread locks the value and panics, poisoning the lock
 /// 3. `resolve_with` is called and gets a poisoned value.
 ///
-/// Unfortunately, it's not possible to work around this issue. If your code absolutely must not
-/// panic under any circumstances, it's recommended that you lock your values and then serialize
-/// them while locked.
+/// Unfortunately, it's not possible to work around this issue. If your code
+/// absolutely must not panic under any circumstances, it's recommended that you
+/// lock your values and then serialize them while locked.
 ///
-/// Additionally, mutating the data protected by a mutex between the serialize and resolve steps may
-/// cause undefined behavior in the resolve step. **Uses of this wrapper should be considered
-/// unsafe** with the requirement that the data not be mutated between these two steps.
+/// Additionally, mutating the data protected by a mutex between the serialize
+/// and resolve steps may cause undefined behavior in the resolve step. **Uses
+/// of this wrapper should be considered unsafe** with the requirement that the
+/// data not be mutated between these two steps.
 ///
-/// Regular serializers don't support the custom error handling needed for this type by default. To
-/// use this wrapper, a custom serializer with an error type satisfying
-/// `<S as Fallible>::Error: From<LockError>` must be provided.
+/// Regular serializers don't support the custom error handling needed for this
+/// type by default. To use this wrapper, a custom serializer with an error type
+/// satisfying `<S as Fallible>::Error: From<LockError>` must be provided.
 ///
 /// # Example
 ///
@@ -524,10 +531,12 @@ impl ::std::error::Error for Poisoned {}
 #[derive(Debug)]
 pub struct AsOwned;
 
-/// A wrapper that serializes associative containers as a `Vec` of key-value pairs.
+/// A wrapper that serializes associative containers as a `Vec` of key-value
+/// pairs.
 ///
-/// This provides faster serialization for containers like `HashMap` and `BTreeMap` by serializing
-/// the key-value pairs directly instead of building a data structure in the buffer.
+/// This provides faster serialization for containers like `HashMap` and
+/// `BTreeMap` by serializing the key-value pairs directly instead of building a
+/// data structure in the buffer.
 ///
 /// # Example
 ///
@@ -546,8 +555,8 @@ pub struct AsVec;
 
 /// A wrapper that niches some type combinations.
 ///
-/// A common type combination is `Option<Box<T>>`. By using a null pointer, the archived version can
-/// save some space on-disk.
+/// A common type combination is `Option<Box<T>>`. By using a null pointer, the
+/// archived version can save some space on-disk.
 ///
 /// # Example
 ///
@@ -571,19 +580,20 @@ pub struct AsVec;
 #[derive(Debug)]
 pub struct Niche;
 
-/// A wrapper that provides specialized, performant implementations of serialization and
-/// deserialization.
+/// A wrapper that provides specialized, performant implementations of
+/// serialization and deserialization.
 ///
-/// This wrapper can be used with containers like `Vec`, but care must be taken to ensure that they
-/// contain copy-safe types. Copy-safe types must be trivially copyable (have the same archived and
-/// unarchived representations) and contain no padding bytes. In situations where copying
-/// uninitialized bytes the output is acceptable, this wrapper may be used with containers of types
-/// that contain padding bytes.
+/// This wrapper can be used with containers like `Vec`, but care must be taken
+/// to ensure that they contain copy-safe types. Copy-safe types must be
+/// trivially copyable (have the same archived and unarchived representations)
+/// and contain no padding bytes. In situations where copying uninitialized
+/// bytes the output is acceptable, this wrapper may be used with containers of
+/// types that contain padding bytes.
 ///
 /// # Safety
 ///
-/// Using this wrapper with containers containing non-copy-safe types may result in undefined
-/// behavior.
+/// Using this wrapper with containers containing non-copy-safe types may result
+/// in undefined behavior.
 ///
 /// # Example
 ///
@@ -600,15 +610,18 @@ pub struct Niche;
 pub struct CopyOptimize;
 
 /// A wrapper that converts a [`SystemTime`](::std::time::SystemTime) to a
-/// [`Duration`](::std::time::Duration) since [`UNIX_EPOCH`](::std::time::UNIX_EPOCH).
+/// [`Duration`](::std::time::Duration) since
+/// [`UNIX_EPOCH`](::std::time::UNIX_EPOCH).
 ///
-/// If the serialized time occurs before the UNIX epoch, serialization will panic during `resolve`.
-/// The resulting archived time will be an [`ArchivedDuration`](crate::time::ArchivedDuration)
-/// relative to the UNIX epoch.
+/// If the serialized time occurs before the UNIX epoch, serialization will
+/// panic during `resolve`. The resulting archived time will be an
+/// [`ArchivedDuration`](crate::time::ArchivedDuration) relative to the UNIX
+/// epoch.
 ///
-/// Regular serializers don't support the custom error handling needed for this type by default. To
-/// use this wrapper, a custom serializer with an error type satisfying
-/// `<S as Fallible>::Error: From<UnixTimestampError>` must be provided.
+/// Regular serializers don't support the custom error handling needed for this
+/// type by default. To use this wrapper, a custom serializer with an error type
+/// satisfying `<S as Fallible>::Error: From<UnixTimestampError>` must be
+/// provided.
 ///
 /// # Example
 ///
@@ -640,24 +653,25 @@ impl fmt::Display for UnixTimestampError {
 #[cfg(feature = "std")]
 impl ::std::error::Error for UnixTimestampError {}
 
-/// A wrapper that provides an optimized bulk data array. This is primarily intended for large
-/// amounts of raw data, like bytes, floats, or integers.
+/// A wrapper that provides an optimized bulk data array. This is primarily
+/// intended for large amounts of raw data, like bytes, floats, or integers.
 ///
-/// This wrapper can be used with containers like `Vec`, but care must be taken to ensure that they
-/// contain copy-safe types. Copy-safe types must be trivially copyable (have the same archived and
-/// unarchived representations) and contain no padding bytes. In situations where copying
-/// uninitialized bytes the output is acceptable, this wrapper may be used with containers of types
-/// that contain padding bytes.
+/// This wrapper can be used with containers like `Vec`, but care must be taken
+/// to ensure that they contain copy-safe types. Copy-safe types must be
+/// trivially copyable (have the same archived and unarchived representations)
+/// and contain no padding bytes. In situations where copying uninitialized
+/// bytes the output is acceptable, this wrapper may be used with containers of
+/// types that contain padding bytes.
 ///
-/// Unlike [`CopyOptimize`], this wrapper will also skip validation for its elements. If the
-/// elements of the container can have any invalid bit patterns (e.g. `char`, `bool`, complex
-/// containers, etc.), then using `Raw` in an insecure setting can lead to undefined behavior. Take
-/// great caution!
+/// Unlike [`CopyOptimize`], this wrapper will also skip validation for its
+/// elements. If the elements of the container can have any invalid bit patterns
+/// (e.g. `char`, `bool`, complex containers, etc.), then using `Raw` in an
+/// insecure setting can lead to undefined behavior. Take great caution!
 ///
 /// # Safety
 ///
-/// Using this wrapper with containers containing non-copy-safe types or types that require
-/// validation may result in undefined behavior.
+/// Using this wrapper with containers containing non-copy-safe types or types
+/// that require validation may result in undefined behavior.
 ///
 /// # Example
 ///
@@ -677,18 +691,19 @@ pub struct Raw;
 
 /// A wrapper that allows serialize-unsafe types to be serialized.
 ///
-/// Types like `Cell` and `UnsafeCell` may contain serializable types, but have unsafe access
-/// semantics due to interior mutability. They may be safe to serialize, but only under conditions
-/// that rkyv is unable to guarantee.
+/// Types like `Cell` and `UnsafeCell` may contain serializable types, but have
+/// unsafe access semantics due to interior mutability. They may be safe to
+/// serialize, but only under conditions that rkyv is unable to guarantee.
 ///
-/// This wrapper enables serializing these types, and places the burden of verifying that their
-/// access semantics are used safely on the user.
+/// This wrapper enables serializing these types, and places the burden of
+/// verifying that their access semantics are used safely on the user.
 ///
 /// # Safety
 ///
-/// Using this wrapper on types with interior mutability can create races conditions or allow access
-/// to data in an invalid state if access semantics are not followed properly. During serialization,
-/// the data must not be modified.
+/// Using this wrapper on types with interior mutability can create races
+/// conditions or allow access to data in an invalid state if access semantics
+/// are not followed properly. During serialization, the data must not be
+/// modified.
 ///
 /// # Example
 ///
