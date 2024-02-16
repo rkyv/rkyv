@@ -4,11 +4,11 @@ use crate::{
     Archive, Deserialize, DeserializeUnsized, Serialize,
 };
 #[cfg(not(feature = "std"))]
-use alloc::{alloc, boxed::Box, vec::Vec};
+use ::alloc::{alloc, boxed::Box, vec::Vec};
+#[cfg(feature = "std")]
+use ::std::alloc;
 use core::cmp;
 use rancor::Fallible;
-#[cfg(feature = "std")]
-use std::alloc;
 
 impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
     #[inline]

@@ -1,8 +1,9 @@
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Deserialize, Fallible, Serialize,
+    Archive, Archived, Deserialize, Serialize,
 };
+use rancor::Fallible;
 use smallvec::{Array, SmallVec};
 
 impl<A: Array> Archive for SmallVec<A>

@@ -22,7 +22,7 @@ use std::{collections::HashMap, fmt};
 //   generated bounds to prevent a recursive impl.
 // We can fix this by manually specifying the bounds required by HashMap and Vec in an attribute,
 //   and then everything will compile:
-#[archive(serialize_bounds(__S: rkyv::ser::Serializer + rkyv::ser::ScratchSpace))]
+#[archive(serialize_bounds(__S: rkyv::ser::Writer + rkyv::ser::Allocator, __S::Error: rkyv::rancor::Error))]
 // We'll also add support for validating our archived type. Validation will allow us to check an
 // arbitrary buffer of bytes before accessing it so we can avoid using any unsafe code.
 //

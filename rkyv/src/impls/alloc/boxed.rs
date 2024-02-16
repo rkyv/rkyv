@@ -4,11 +4,11 @@ use crate::{
     Serialize, SerializeUnsized,
 };
 #[cfg(not(feature = "std"))]
-use alloc::{alloc, boxed::Box};
+use ::alloc::{alloc, boxed::Box};
+#[cfg(feature = "std")]
+use ::std::alloc;
 use core::cmp;
 use rancor::Fallible;
-#[cfg(feature = "std")]
-use std::alloc;
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     type Archived = ArchivedBox<T::Archived>;

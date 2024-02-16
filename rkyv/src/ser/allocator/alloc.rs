@@ -1,7 +1,11 @@
 use core::{alloc::Layout, fmt, ptr::NonNull};
 
 #[cfg(not(feature = "std"))]
-use alloc::alloc::{alloc, alloc_zeroed, dealloc};
+use alloc::{
+    alloc::{alloc, alloc_zeroed, dealloc},
+    boxed::Box,
+    vec::Vec,
+};
 use rancor::{fail, Error};
 #[cfg(feature = "std")]
 use std::alloc::{alloc, alloc_zeroed, dealloc};

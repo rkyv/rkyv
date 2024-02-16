@@ -6,10 +6,11 @@ use crate::{
     primitive::ArchivedUsize,
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Deserialize, Fallible, Serialize,
+    Archive, Archived, Deserialize, Serialize,
 };
 use core::convert::{TryFrom, TryInto};
 use core::{marker::PhantomData, ops::Deref};
+use rancor::Fallible;
 
 use bitvec::{prelude::*, view::BitViewSized};
 

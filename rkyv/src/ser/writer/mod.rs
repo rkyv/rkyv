@@ -6,8 +6,6 @@ mod core;
 #[cfg(feature = "std")]
 mod std;
 
-#[cfg(feature = "alloc")]
-pub use self::alloc::*;
 pub use self::core::*;
 #[cfg(feature = "std")]
 pub use self::std::*;

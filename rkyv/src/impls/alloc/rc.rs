@@ -9,11 +9,11 @@ use crate::{
     Serialize, SerializeUnsized,
 };
 #[cfg(not(feature = "std"))]
-use alloc::{alloc, boxed::Box, rc, sync};
+use alloc::{alloc::alloc, boxed::Box, rc, sync};
 use ptr_meta::Pointee;
 use rancor::Fallible;
 #[cfg(feature = "std")]
-use std::{alloc, rc, sync};
+use std::{alloc::alloc, rc, sync};
 
 // Rc
 
@@ -75,7 +75,7 @@ where
                 self.get(),
                 // TODO: make sure that Rc<()> and Arc<()> won't alloc with zero
                 // size layouts
-                |layout| unsafe { alloc::alloc(layout) },
+                |layout| unsafe { alloc(layout) },
             )?;
         unsafe {
             rc::Rc::<T>::increment_strong_count(raw_shared_ptr);
@@ -217,7 +217,7 @@ where
                 self.get(),
                 // TODO: make sure that Rc<()> and Arc<()> won't alloc with zero
                 // size layouts
-                |layout| unsafe { alloc::alloc(layout) },
+                |layout| unsafe { alloc(layout) },
             )?;
         unsafe {
             sync::Arc::<T>::increment_strong_count(raw_shared_ptr);

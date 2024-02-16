@@ -12,7 +12,7 @@ repository.workspace = true
 [dependencies]
 bytecheck = { workspace = true, features = ["std"], optional = true }
 ptr_meta.workspace = true
-rkyv = { path = "../rkyv", default-features = false }
+rkyv.workspace = true
 rkyv_dyn = { path = "../rkyv_dyn", default-features = false }
 wasm-bindgen-test = { workspace = true, optional = true }
 

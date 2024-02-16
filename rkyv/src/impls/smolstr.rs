@@ -1,8 +1,9 @@
 use crate::{
     ser::{Allocator, Writer},
     string::{ArchivedString, StringResolver},
-    Archive, Deserialize, Fallible, Serialize,
+    Archive, Deserialize, Serialize,
 };
+use rancor::Fallible;
 use smol_str::SmolStr;
 
 impl Archive for SmolStr {

@@ -3,17 +3,15 @@ name = "rkyv_test"
 publish = false
 description = "Test suite for rkyv crates"
 version.workspace = true
-authors = ["David Koloski <djkoloski@gmail.com>"]
-edition = "2021"
-license = "MIT"
-documentation = "https://docs.rs/rkyv"
-repository = "https://github.com/rkyv/rkyv"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ptr_meta = { workspace = true, default-features = false }
-rkyv = { workspace = true, default-features = false }
+ptr_meta.workspace = true
+rkyv.workspace = true
 wasm-bindgen-test = { workspace = true, optional = true }
 ahash = { version = "0.7" }
 

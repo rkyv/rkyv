@@ -1,8 +1,6 @@
 //! Adapters wrap deserializers and add support for deserializer traits.
 
 use super::{ErasedPtr, Pooling};
-#[cfg(not(feature = "std"))]
-use alloc::boxed::Box;
 use core::{fmt, mem::size_of};
 #[cfg(not(feature = "std"))]
 use hashbrown::hash_map;

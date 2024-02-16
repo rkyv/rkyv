@@ -1,4 +1,5 @@
-use crate::{Archive, Deserialize, Fallible, Serialize};
+use crate::{Archive, Deserialize, Serialize};
+use rancor::Fallible;
 use uuid::Uuid;
 
 impl Archive for Uuid {

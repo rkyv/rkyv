@@ -2,6 +2,8 @@ use crate::{
     ser::{Positional, Writer},
     util::AlignedVec,
 };
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
 
 impl Positional for Vec<u8> {
     #[inline]

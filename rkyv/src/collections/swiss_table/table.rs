@@ -562,7 +562,7 @@ mod verify {
 
     unsafe impl<C, T> Verify<C> for ArchivedHashTable<T>
     where
-        C: Fallible + ArchiveContext,
+        C: Fallible + ArchiveContext + ?Sized,
         C::Error: Error,
         T: CheckBytes<C>,
     {

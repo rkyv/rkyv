@@ -523,7 +523,7 @@ mod verify {
 
     unsafe impl<C, K, V> Verify<C> for ArchivedIndexMap<K, V>
     where
-        C: Fallible + ArchiveContext,
+        C: Fallible + ArchiveContext + ?Sized,
         C::Error: Error,
         K: CheckBytes<C>,
         V: CheckBytes<C>,

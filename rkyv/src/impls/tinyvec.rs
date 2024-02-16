@@ -1,8 +1,9 @@
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Deserialize, Fallible, Serialize,
+    Archive, Archived, Deserialize, Serialize,
 };
+use rancor::Fallible;
 #[cfg(all(feature = "tinyvec", feature = "alloc"))]
 use tinyvec::TinyVec;
 use tinyvec::{Array, ArrayVec, SliceVec};

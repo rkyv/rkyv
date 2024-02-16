@@ -1,9 +1,10 @@
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Deserialize, Fallible, Serialize,
+    Archive, Archived, Deserialize, Serialize,
 };
 use arrayvec::ArrayVec;
+use rancor::Fallible;
 
 impl<T, const CAP: usize> Archive for ArrayVec<T, CAP>
 where

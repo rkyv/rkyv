@@ -1,11 +1,12 @@
 use crate::{
     collections::swiss_table::{ArchivedIndexMap, IndexMapResolver},
     ser::{Allocator, Writer},
-    Archive, Deserialize, Fallible, Serialize,
+    Archive, Deserialize, Serialize,
 };
 use core::hash::{BuildHasher, Hash};
 use indexmap::IndexMap;
 use rancor::Error;
+use rancor::Fallible;
 
 impl<K: Archive, V: Archive, S> Archive for IndexMap<K, V, S> {
     type Archived = ArchivedIndexMap<K::Archived, V::Archived>;
@@ -84,6 +85,8 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{access_unchecked, deserialize};
+    #[cfg(not(feature = "std"))]
+    use alloc::string::String;
     use indexmap::{indexmap, IndexMap};
     use rancor::{Failure, Infallible};
 
