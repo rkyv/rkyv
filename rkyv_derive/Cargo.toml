@@ -18,10 +18,7 @@ syn.workspace = true
 quote.workspace = true
 
 [features]
-default = ["little_endian"]
-native_endian = []
-little_endian = []
-big_endian = []
+default = []
 copy = []
 stable_layout = []
 

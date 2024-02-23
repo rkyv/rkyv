@@ -18,7 +18,7 @@ hashbrown = { workspace = true, optional = true }
 ptr_meta.workspace = true
 rancor.workspace = true
 rend.workspace = true
-rkyv_derive = { version = "=0.8.0-pre1", path = "../rkyv_derive" }
+rkyv_derive.workspace = true
 
 # Support for various common crates. These are primarily to get users off the ground and build some
 # momentum.
@@ -53,8 +53,8 @@ default = [
     "uuid",
     "bytes",
 ]
-little_endian = ["rkyv_derive/little_endian"]
-big_endian = ["rkyv_derive/big_endian"]
+little_endian = []
+big_endian = []
 unaligned = []
 pointer_width_16 = []
 pointer_width_32 = []
