@@ -60,22 +60,33 @@ fn main() {
 
     // We can view a v1 as a v1
     let v1_as_v1 =
-        rkyv::access::<Versioned<ExampleV1>, Failure>(&v1_bytes).unwrap();
+        rkyv::access::<rkyv::Archived<Versioned<ExampleV1>>, Failure>(
+            &v1_bytes,
+        )
+        .unwrap();
     print_v1(&v1_as_v1.0);
 
     // We can view a v2 as a v1
     let v2_as_v1 =
-        rkyv::access::<Versioned<ExampleV1>, Failure>(&v2_bytes).unwrap();
+        rkyv::access::<rkyv::Archived<Versioned<ExampleV1>>, Failure>(
+            &v2_bytes,
+        )
+        .unwrap();
     print_v1(&v2_as_v1.0);
 
     // And we can view a v2 as a v2
     let v2_as_v2 =
-        rkyv::access::<Versioned<ExampleV2>, Failure>(&v2_bytes).unwrap();
+        rkyv::access::<rkyv::Archived<Versioned<ExampleV2>>, Failure>(
+            &v2_bytes,
+        )
+        .unwrap();
     print_v2(&v2_as_v2.0);
 
     // But we can't view a v1 as a v2 because v1 is not forward-compatible with
     // v2
-    if rkyv::access::<Versioned<ExampleV2>, Failure>(&v1_bytes).is_ok() {
+    if rkyv::access::<rkyv::Archived<Versioned<ExampleV2>>, Failure>(&v1_bytes)
+        .is_ok()
+    {
         panic!("v1 bytes should not validate as v2");
     } else {
         println!("verified that v1 cannot be viewed as v2");

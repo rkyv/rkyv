@@ -183,7 +183,7 @@ fn main() {
     println!("opcodes: {:?}", program.opcodes);
 
     let buf = rkyv::to_bytes::<_, 4096, Failure>(&program).unwrap();
-    let archived_program = unsafe { access_unchecked::<Program>(&buf) };
+    let archived_program = unsafe { access_unchecked::<ArchivedProgram>(&buf) };
 
     println!("encoded: {:?}", archived_program.opcodes);
     assert_eq!(archived_program.opcodes.len(), 23);

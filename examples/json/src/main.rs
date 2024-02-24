@@ -140,7 +140,7 @@ fn main() {
     let value = JsonValue::Object(hash_map);
 
     let buf = rkyv::to_bytes::<_, 4096, Failure>(&value).unwrap();
-    let archived_value = access::<JsonValue, Failure>(&buf).unwrap();
+    let archived_value = access::<ArchivedJsonValue, Failure>(&buf).unwrap();
 
     println!("{}", archived_value);
 }

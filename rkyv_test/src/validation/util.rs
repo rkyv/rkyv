@@ -21,6 +21,6 @@ pub mod alloc {
                 .expect("failed to archive value")
                 .into_writer();
 
-        access::<T, E>(buf.as_ref()).unwrap();
+        access::<T::Archived, E>(buf.as_ref()).unwrap();
     }
 }
