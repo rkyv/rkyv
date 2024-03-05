@@ -21,7 +21,6 @@ use crate::{
         HashTableResolver,
     },
     hash::{hash_value, FxHasher64},
-    out_field,
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt as _},
     Portable, RelPtr, Serialize,

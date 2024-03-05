@@ -1,7 +1,6 @@
 //! Relative pointer implementations and options.
 
 use core::{
-    convert::TryFrom,
     fmt,
     marker::{PhantomData, PhantomPinned},
     ptr::{self, addr_of_mut},

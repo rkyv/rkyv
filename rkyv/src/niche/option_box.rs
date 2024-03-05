@@ -1,7 +1,7 @@
 //! A niched archived `Option<Box<T>>` that uses less space.
 
 use core::{
-    cmp::{self, Eq, Ord, PartialEq, PartialOrd},
+    cmp,
     fmt, hash,
     hint::unreachable_unchecked,
     ops::Deref,

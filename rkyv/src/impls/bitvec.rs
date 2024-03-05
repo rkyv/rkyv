@@ -1,4 +1,3 @@
-use core::convert::{TryFrom, TryInto};
 use core::ops::Deref;
 
 use bitvec::{prelude::*, view::BitViewSized};
@@ -9,7 +8,6 @@ use crate::bitvec::ArchivedBitArray;
 use crate::vec::{ArchivedVec, VecResolver};
 use crate::{
     bitvec::ArchivedBitVec,
-    out_field,
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Serialize,
