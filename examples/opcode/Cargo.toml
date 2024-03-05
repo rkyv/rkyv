@@ -1,5 +1,5 @@
 [package]
-name = "opcode"
+name = "example_opcode"
 publish = false
 version.workspace = true
 edition.workspace = true
@@ -10,4 +10,4 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rkyv.workspace = true
+rkyv = { workspace = true, features = ["alloc"] }
