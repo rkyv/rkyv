@@ -1,10 +1,16 @@
 //! Archived versions of `time` types.
 
-use crate::primitive::{ArchivedU32, ArchivedU64};
+use crate::{
+    primitive::{ArchivedU32, ArchivedU64},
+    Portable,
+};
 
 /// An archived [`Duration`](core::time::Duration).
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "stable_layout", repr(C))]
+#[derive(
+    Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd, Portable,
+)]
+#[archive(crate)]
+#[repr(C)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),

@@ -17,10 +17,10 @@ pub mod validation;
 
 #[cfg(test)]
 mod tests {
+    use rkyv::tuple::ArchivedTuple3;
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
 
-    #[cfg(not(feature = "stable_layout"))]
     use crate::util::core::test_archive_with;
     use crate::util::core::{test_archive, test_archive_ref};
 
@@ -42,10 +42,10 @@ mod tests {
         test_archive(&1234567890u32);
         test_archive(&12345678901234567890u64);
         test_archive(&123456789012345678901234567890123456789u128);
-        #[cfg(not(feature = "stable_layout"))]
-        test_archive_with(&(24, true, 16f32), |(a, b, c), (d, e, f)| {
-            a == d && b == e && c == f
-        });
+        test_archive_with(
+            &(24, true, 16f32),
+            |(a, b, c), ArchivedTuple3(d, e, f)| a == d && b == e && c == f,
+        );
         test_archive(&[1, 2, 3, 4, 5, 6]);
 
         test_archive(&Option::<()>::None);

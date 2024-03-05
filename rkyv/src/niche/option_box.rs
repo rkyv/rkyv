@@ -13,12 +13,14 @@ use rancor::Fallible;
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     ser::Writer,
-    ArchivePointee, ArchiveUnsized, SerializeUnsized,
+    ArchivePointee, ArchiveUnsized, Portable, SerializeUnsized,
 };
 
 /// A niched archived `Option<Box<T>>`.
 ///
 /// It uses less space by storing the `None` variant as a null pointer.
+#[derive(Portable)]
+#[archive(crate)]
 #[repr(transparent)]
 pub struct ArchivedOptionBox<T: ArchivePointee + ?Sized> {
     inner: ArchivedBox<T>,

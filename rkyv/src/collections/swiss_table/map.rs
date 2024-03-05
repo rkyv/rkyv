@@ -1,8 +1,13 @@
 //! Archived hash map implementation using an archived SwissTable.
 
 use core::{
-    borrow::Borrow, fmt, hash::{Hash, Hasher}, iter::FusedIterator, marker::PhantomData,
-    ops::Index, pin::Pin,
+    borrow::Borrow,
+    fmt,
+    hash::{Hash, Hasher},
+    iter::FusedIterator,
+    marker::PhantomData,
+    ops::Index,
+    pin::Pin,
 };
 
 use rancor::{Error, Fallible};
@@ -14,11 +19,13 @@ use crate::{
     },
     hash::{hash_value, FxHasher64},
     ser::{Allocator, Writer},
-    Serialize,
+    Portable, Serialize,
 };
 
 /// An archived SwissTable hash map.
-#[cfg_attr(feature = "stable_layout", repr(C))]
+#[derive(Portable)]
+#[archive(crate)]
+#[repr(transparent)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 pub struct ArchivedHashMap<K, V, H = FxHasher64> {
     table: ArchivedHashTable<Entry<K, V>>,
@@ -99,8 +106,9 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
         Q: Hash + Eq + ?Sized,
         C: Fn(&Q, &K) -> bool,
     {
-        let entry =
-            self.table.get_with(hash_value::<Q, H>(key), |e| cmp(key, &e.key))?;
+        let entry = self
+            .table
+            .get_with(hash_value::<Q, H>(key), |e| cmp(key, &e.key))?;
         Some((&entry.key, &entry.value))
     }
 
@@ -149,8 +157,8 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
         C: Fn(&Q, &K) -> bool,
     {
         let table = unsafe { Pin::map_unchecked_mut(self, |s| &mut s.table) };
-        let entry =
-            table.get_with_mut(hash_value::<Q, H>(key), |e| cmp(key, &e.key))?;
+        let entry = table
+            .get_with_mut(hash_value::<Q, H>(key), |e| cmp(key, &e.key))?;
         let entry = unsafe { Pin::into_inner_unchecked(entry) };
         let key = &entry.key;
         let value = unsafe { Pin::new_unchecked(&mut entry.value) };
@@ -267,7 +275,8 @@ where
     K: Hash + Eq,
     V: Eq,
     H: Default + Hasher,
-{}
+{
+}
 
 impl<K, V, H> PartialEq for ArchivedHashMap<K, V, H>
 where

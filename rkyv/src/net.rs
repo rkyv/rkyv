@@ -1,8 +1,13 @@
 //! Archived versions of network types.
 
-use crate::primitive::{ArchivedU16, ArchivedU32};
+use crate::{
+    primitive::{ArchivedU16, ArchivedU32},
+    Portable,
+};
 
 /// An archived [`Ipv4Addr`](std::net::Ipv4Addr).
+#[derive(Portable)]
+#[archive(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
@@ -19,6 +24,8 @@ impl ArchivedIpv4Addr {
 }
 
 /// An archived [`Ipv6Addr`](std::net::Ipv6Addr).
+#[derive(Portable)]
+#[archive(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
@@ -44,6 +51,8 @@ impl ArchivedIpv6Addr {
 }
 
 /// An archived [`IpAddr`](std::net::IpAddr).
+#[derive(Portable)]
+#[archive(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
@@ -71,9 +80,11 @@ impl ArchivedIpAddr {
 }
 
 /// An archived [`SocketAddrV4`](std::net::SocketAddrV4).
+#[derive(Portable)]
+#[archive(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "stable_layout", repr(C))]
+#[repr(C)]
 pub struct ArchivedSocketAddrV4 {
     pub(crate) ip: ArchivedIpv4Addr,
     pub(crate) port: ArchivedU16,
@@ -94,9 +105,11 @@ impl ArchivedSocketAddrV4 {
 }
 
 /// An archived [`SocketAddrV6`](std::net::SocketAddrV6).
+#[derive(Portable)]
+#[archive(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "stable_layout", repr(C))]
+#[repr(C)]
 pub struct ArchivedSocketAddrV6 {
     pub(crate) ip: ArchivedIpv6Addr,
     pub(crate) port: ArchivedU16,
@@ -137,6 +150,8 @@ impl ArchivedSocketAddrV6 {
 }
 
 /// An archived [`SocketAddr`](std::net::SocketAddr).
+#[derive(Portable)]
+#[archive(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]

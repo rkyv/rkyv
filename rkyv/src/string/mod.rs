@@ -16,7 +16,7 @@ use core::{
 use rancor::Fallible;
 use repr::{ArchivedStringRepr, INLINE_CAPACITY};
 
-use crate::SerializeUnsized;
+use crate::{Portable, SerializeUnsized};
 
 /// An archived [`String`].
 ///
@@ -29,6 +29,8 @@ use crate::SerializeUnsized;
     derive(bytecheck::CheckBytes),
     check_bytes(verify)
 )]
+#[derive(Portable)]
+#[archive(crate)]
 pub struct ArchivedString {
     repr: repr::ArchivedStringRepr,
 }

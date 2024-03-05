@@ -3,17 +3,27 @@
 //! During archiving, index sets are built into minimal perfect index sets using
 //! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
 
-use core::{borrow::Borrow, fmt, hash::{Hash, Hasher}};
+use core::{
+    borrow::Borrow,
+    fmt,
+    hash::{Hash, Hasher},
+};
 
 use rancor::{Error, Fallible};
 
 use crate::{
     collections::swiss_table::{
         index_map::Keys, ArchivedIndexMap, IndexMapResolver,
-    }, hash::FxHasher64, out_field, ser::{Allocator, Writer}, Serialize
+    },
+    hash::FxHasher64,
+    out_field,
+    ser::{Allocator, Writer},
+    Portable, Serialize,
 };
 
 /// An archived `IndexSet`.
+#[derive(Portable)]
+#[archive(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct ArchivedIndexSet<K, H = FxHasher64> {
@@ -123,11 +133,13 @@ impl<K, H: Default + Hasher> ArchivedIndexSet<K, H> {
         S: Fallible + Writer + Allocator + ?Sized,
         S::Error: Error,
     {
-        Ok(IndexSetResolver(ArchivedIndexMap::<K, (), H>::serialize_from_iter(
-            iter.map(|x| (x, &())),
-            load_factor,
-            serializer,
-        )?))
+        Ok(IndexSetResolver(
+            ArchivedIndexMap::<K, (), H>::serialize_from_iter(
+                iter.map(|x| (x, &())),
+                load_factor,
+                serializer,
+            )?,
+        ))
     }
 }
 

@@ -28,22 +28,12 @@ struct ArchivedExample {
 }
 ```
 
-With the `little_endian` and `stable_layout` features enabled (`stable_layout`
-is enabled by default).
+With the `little_endian` feature enabled.
 
 rkyv provides `Archive` implementations for common core and std types by
 default. In general they follow the same format as derived implementations, but
 may differ in some cases. For example, `ArchivedString` performs a small string
 optimization which helps reduce memory use.
-
-## `stable_layout`
-
-The `stable_layout` feature guarantees that archived structs are portable across
-targets and compiler versions by annotating structs with `#[repr(C)]`. This is
-what you want in most cases, but does increase the serialized size because it
-prevents the compiler from reordering struct fields. If this kind of stability
-isn't helpful or the tradeoffs aren't favorable, you can disable `stable_layout`
-to allow the compiler to reorder struct fields again.
 
 ## Object order
 

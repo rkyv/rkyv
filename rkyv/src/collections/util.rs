@@ -2,14 +2,15 @@
 
 use rancor::Fallible;
 
-use crate::{Archive, Serialize};
+use crate::{Archive, Portable, Serialize};
 
 /// A simple key-value pair.
 ///
 /// This is typically used by associative containers that store keys and values
 /// together.
-#[derive(Debug, Eq)]
-#[cfg_attr(feature = "stable_layout", repr(C))]
+#[derive(Debug, Eq, Portable)]
+#[archive(crate)]
+#[repr(C)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 pub struct Entry<K, V> {
     /// The key of the pair.

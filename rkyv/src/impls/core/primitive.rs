@@ -18,8 +18,64 @@ use crate::{
         ArchivedNonZeroU32, ArchivedNonZeroU64, ArchivedNonZeroUsize,
         ArchivedU128, ArchivedU16, ArchivedU32, ArchivedU64, ArchivedUsize,
     },
-    Archive, Archived, Deserialize, Serialize,
+    Archive, Archived, Deserialize, Portable, Serialize,
 };
+
+macro_rules! unsafe_impl_portable {
+    ($($ty:ty),* $(,)?) => {
+        $(unsafe impl Portable for $ty {})*
+    };
+}
+
+unsafe_impl_portable! {
+    (),
+    bool,
+    i8,
+    u8,
+    NonZeroI8,
+    NonZeroU8,
+    rend::NonZeroI16_be,
+    rend::NonZeroI16_le,
+    rend::NonZeroI32_be,
+    rend::NonZeroI32_le,
+    rend::NonZeroI64_be,
+    rend::NonZeroI64_le,
+    rend::NonZeroI128_be,
+    rend::NonZeroI128_le,
+    rend::NonZeroU16_be,
+    rend::NonZeroU16_le,
+    rend::NonZeroU32_be,
+    rend::NonZeroU32_le,
+    rend::NonZeroU64_be,
+    rend::NonZeroU64_le,
+    rend::NonZeroU128_be,
+    rend::NonZeroU128_le,
+    rend::char_be,
+    rend::char_le,
+    rend::f32_be,
+    rend::f32_le,
+    rend::f64_be,
+    rend::f64_le,
+    rend::i16_be,
+    rend::i16_le,
+    rend::i32_be,
+    rend::i32_le,
+    rend::i64_be,
+    rend::i64_le,
+    rend::i128_be,
+    rend::i128_le,
+    rend::u16_be,
+    rend::u16_le,
+    rend::u32_be,
+    rend::u32_le,
+    rend::u64_be,
+    rend::u64_le,
+    rend::u128_be,
+    rend::u128_le,
+}
+
+unsafe impl<T: Portable, const N: usize> Portable for [T; N] {}
+unsafe impl<T: Portable> Portable for [T] {}
 
 macro_rules! impl_serialize_noop {
     ($type:ty) => {
@@ -137,6 +193,8 @@ impl_multibyte_primitives! {
 
 // PhantomData
 
+unsafe impl<T: ?Sized> Portable for PhantomData<T> {}
+
 impl<T: ?Sized> Archive for PhantomData<T> {
     type Archived = PhantomData<T>;
     type Resolver = ();
@@ -168,6 +226,9 @@ impl<T: ?Sized, D: Fallible + ?Sized> Deserialize<PhantomData<T>, D>
 }
 
 // PhantomPinned
+
+unsafe_impl_portable!(PhantomPinned);
+
 impl Archive for PhantomPinned {
     type Archived = PhantomPinned;
     type Resolver = ();
@@ -323,3 +384,36 @@ impl<D: Fallible + ?Sized> Deserialize<NonZeroIsize, D>
         Ok(unsafe { NonZeroIsize::new_unchecked(self.get() as isize) })
     }
 }
+
+// Atomics
+
+#[cfg(target_has_atomic = "8")]
+unsafe_impl_portable!(
+    core::sync::atomic::AtomicBool,
+    core::sync::atomic::AtomicI8,
+    core::sync::atomic::AtomicU8,
+);
+
+#[cfg(target_has_atomic = "16")]
+unsafe_impl_portable!(
+    rend::AtomicI16_be,
+    rend::AtomicI16_le,
+    rend::AtomicU16_be,
+    rend::AtomicU16_le,
+);
+
+#[cfg(target_has_atomic = "32")]
+unsafe_impl_portable!(
+    rend::AtomicI32_be,
+    rend::AtomicI32_le,
+    rend::AtomicU32_be,
+    rend::AtomicU32_le,
+);
+
+#[cfg(target_has_atomic = "64")]
+unsafe_impl_portable!(
+    rend::AtomicI64_be,
+    rend::AtomicI64_le,
+    rend::AtomicU64_be,
+    rend::AtomicU64_le,
+);

@@ -6,13 +6,13 @@ use syn::{
 };
 
 use crate::{
-    attributes::{parse_attributes, Attributes},
+    attributes::Attributes,
     util::{is_not_omitted, strip_raw},
     with::{make_with_cast, make_with_ty},
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
-    let attributes = parse_attributes(&input)?;
+    let attributes = Attributes::parse(&input)?;
     derive_archive_impl(input, &attributes)
 }
 
@@ -51,22 +51,16 @@ fn derive_archive_impl(
         input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 
-    let default_rkyv_path = parse_quote! { ::rkyv };
-    let rkyv_path = attributes.rkyv_path.as_ref().unwrap_or(&default_rkyv_path);
-    let with_ty = make_with_ty(rkyv_path);
-    let with_cast = make_with_cast(rkyv_path);
+    let rkyv_path = attributes.rkyv_path();
+    let with_ty = make_with_ty(&rkyv_path);
+    let with_cast = make_with_cast(&rkyv_path);
 
     let derive_check_bytes = if attributes.check_bytes.is_some() {
-        let bytecheck_path_str = attributes
-            .rkyv_path_str
-            .as_ref()
-            .map(|x| {
-                LitStr::new(&format!("{}::bytecheck", x.value()), x.span())
-            })
-            .unwrap_or_else(|| parse_quote!("::rkyv::bytecheck"));
+        let path = quote!(#rkyv_path::bytecheck).to_string();
+        let path_lit_str = LitStr::new(&path, rkyv_path.span());
         vec![
             parse_quote! { #[derive(#rkyv_path::bytecheck::CheckBytes)] },
-            parse_quote! { #[check_bytes(crate = #bytecheck_path_str)] },
+            parse_quote! { #[check_bytes(crate = #path_lit_str)] },
         ]
     } else {
         Vec::new()
@@ -119,12 +113,6 @@ fn derive_archive_impl(
 
     let (archive_types, archive_impls) = match input.data {
         Data::Struct(ref data) => {
-            let repr = if cfg!(feature = "stable_layout") {
-                Some(quote! { #[repr(C)] })
-            } else {
-                None
-            };
-
             match data.fields {
                 Fields::Named(ref fields) => {
                     let mut archive_where = where_clause.clone();
@@ -160,10 +148,13 @@ fn derive_archive_impl(
                         });
 
                         Some(quote! {
+                            // SAFETY: As long as the `Archive` impl holds, the archived type is guaranteed to be `Portable`.
+                            unsafe impl #impl_generics #rkyv_path::Portable for #archived_name #ty_generics #archive_where {}
+
                             #[automatically_derived]
                             #[doc = #archived_doc]
                             #(#archive_attrs)*
-                            #repr
+                            #[repr(C)]
                             #vis struct #archived_name #generics #archive_where {
                                 #(#archived_fields,)*
                             }
@@ -292,7 +283,7 @@ fn derive_archive_impl(
                             }
                         },
                         quote! {
-                            impl #impl_generics Archive for #name #ty_generics #archive_where {
+                            impl #impl_generics #rkyv_path::Archive for #name #ty_generics #archive_where {
                                 type Archived = #archived_type;
                                 type Resolver = #resolver #ty_generics;
 
@@ -342,10 +333,13 @@ fn derive_archive_impl(
                             });
 
                         Some(quote! {
+                            // SAFETY: As long as the `Archive` impl holds, the archived type is guaranteed to be `Portable`.
+                            unsafe impl #impl_generics #rkyv_path::Portable for #archived_name #ty_generics #archive_where {}
+
                             #[automatically_derived]
                             #[doc = #archived_doc]
                             #(#archive_attrs)*
-                            #repr
+                            #[repr(C)]
                             #vis struct #archived_name #generics (#(#archived_fields,)*) #archive_where;
                         })
                     } else {
@@ -495,10 +489,13 @@ fn derive_archive_impl(
                 Fields::Unit => {
                     let archived_def = if attributes.archive_as.is_none() {
                         Some(quote! {
+                            // SAFETY: As long as the `Archive` impl holds, the archived type is guaranteed to be `Portable`.
+                            unsafe impl #impl_generics #rkyv_path::Portable for #archived_name #ty_generics #where_clause {}
+
                             #[automatically_derived]
                             #[doc = #archived_doc]
                             #(#archive_attrs)*
-                            #repr
+                            #[repr(C)]
                             #vis struct #archived_name #generics
                             #where_clause;
                         })
@@ -841,6 +838,9 @@ fn derive_archive_impl(
                 });
 
                 Some(quote! {
+                    // SAFETY: As long as the `Archive` impl holds, the archived type is guaranteed to be `Portable`.
+                    unsafe impl #impl_generics #rkyv_path::Portable for #archived_name #ty_generics #archive_where {}
+
                     #[automatically_derived]
                     #[doc = #archived_doc]
                     #(#archive_attrs)*

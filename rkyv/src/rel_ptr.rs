@@ -14,7 +14,7 @@ use crate::{
         ArchivedI16, ArchivedI32, ArchivedI64, ArchivedU16, ArchivedU32,
         ArchivedU64,
     },
-    ArchivePointee,
+    ArchivePointee, Portable,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -140,6 +140,10 @@ pub enum RelPtrError {
 /// with the **pointee** without invalidating the pointer. However, if either
 /// the **pointer** or the **pointee** move independently, the pointer will be
 /// invalidated.
+// TODO: should RawRelPtr not implement Portable? We're missing a check that the
+// type it gets a pointer to is Portable.
+#[derive(Portable)]
+#[archive(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct RawRelPtr<O> {
@@ -293,10 +297,22 @@ pub type RawRelPtrU64 = RawRelPtr<ArchivedU64>;
 ///
 /// See [`Archive`](crate::Archive) for an example of creating one.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
+#[repr(C)]
 pub struct RelPtr<T: ArchivePointee + ?Sized, O> {
     raw_ptr: RawRelPtr<O>,
     metadata: T::ArchivedMetadata,
     _phantom: PhantomData<T>,
+}
+
+// SAFETY: `RelPtr<T, O>` is portable if all of its fields are portable _and_
+// the target type is also portable.
+unsafe impl<T, O> Portable for RelPtr<T, O>
+where
+    T: ArchivePointee + Portable + ?Sized,
+    RawRelPtr<O>: Portable,
+    T::ArchivedMetadata: Portable,
+    PhantomData<T>: Portable,
+{
 }
 
 impl<T, O: Offset> RelPtr<T, O> {

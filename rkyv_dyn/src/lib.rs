@@ -27,7 +27,7 @@ use rkyv::{
     de::Pooling,
     primitive::FixedUsize,
     ser::{Allocator, Sharing, Writer},
-    Archived, Serialize,
+    Archived, Portable, Serialize,
 };
 pub use rkyv_dyn_derive::archive_dyn;
 
@@ -234,6 +234,7 @@ pub trait DeserializeDyn<T: Pointee + ?Sized, E> {
 }
 
 /// The archived version of `DynMetadata`.
+#[derive(Portable)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(::bytecheck::CheckBytes),

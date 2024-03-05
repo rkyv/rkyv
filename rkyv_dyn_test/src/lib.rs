@@ -24,11 +24,10 @@ mod tests {
                 access_unchecked,
                 de::pooling::Unify,
                 deserialize,
-                rancor::Fallible,
-                rancor::{Failure, Strategy},
+                rancor::{Failure, Fallible, Strategy},
                 to_bytes, Archive, ArchivePointee, ArchiveUnsized, Archived,
-                ArchivedMetadata, Deserialize, DeserializeUnsized, Serialize,
-                SerializeUnsized,
+                ArchivedMetadata, Deserialize, DeserializeUnsized, Portable,
+                Serialize, SerializeUnsized,
             };
             use rkyv_dyn::{
                 register_trait_impls, ArchivedDynMetadata, AsDynDeserializer,
@@ -83,6 +82,7 @@ mod tests {
             pub trait DeserializeTestTrait<SE, DE>:
                 TestTrait
                 + DeserializeDyn<dyn SerializeTestTrait<SE, DE>, DE>
+                + Portable
             {
             }
 
@@ -99,6 +99,7 @@ mod tests {
             impl<T, SE, DE> DeserializeTestTrait<SE, DE> for T where
                 T: TestTrait
                     + DeserializeDyn<dyn SerializeTestTrait<SE, DE>, DE>
+                    + Portable
             {
             }
 

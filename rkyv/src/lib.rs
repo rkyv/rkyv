@@ -79,13 +79,6 @@
 //!   intended to be used only for very large archives and may cause unnecessary
 //!   data bloat.
 //! - `std`: Enables standard library support. Enabled by default.
-//! - `stable_layout`: Guarantees that types will have the same representations
-//!   across platforms and compilations. This is already the case in practice,
-//!   but this feature provides a guarantee along with C type compatibility.
-//!   *Note*: Enabling `stable_layout` will disable [`Archive`] implementations
-//! for tuples, as   tuples do not have a C-compatible type layout. Making a
-//! generic `Tuple<T1, T2>` and deriving   [`Archive`] for it should provide
-//! similar functionality.
 //! - `bytecheck`: Enables validation support through `bytecheck`.
 //!
 //! ## Crate support
@@ -157,7 +150,7 @@ pub use ::bytecheck;
 pub use ::ptr_meta;
 pub use ::rancor;
 pub use ::rend;
-pub use ::rkyv_derive::{Archive, Deserialize, Serialize};
+pub use ::rkyv_derive::{Archive, Deserialize, Portable, Serialize};
 
 // Modules
 
@@ -191,6 +184,7 @@ mod simd;
 pub mod string;
 pub mod time;
 pub mod traits;
+pub mod tuple;
 pub mod util;
 #[cfg(feature = "bytecheck")]
 pub mod validation;

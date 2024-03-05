@@ -6,12 +6,15 @@ use rancor::Fallible;
 
 use crate::{
     ser::{Writer, WriterExt as _},
-    ArchivePointee, ArchiveUnsized, RelPtr, Serialize, SerializeUnsized,
+    ArchivePointee, ArchiveUnsized, Portable, RelPtr, Serialize,
+    SerializeUnsized,
 };
 
 /// An archived [`Box`].
 ///
 /// This is a thin wrapper around a [`RelPtr`] to the archived type.
+#[derive(Portable)]
+#[archive(crate)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),

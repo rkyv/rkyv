@@ -9,7 +9,7 @@ use rancor::Fallible;
 
 use crate::{
     ser::{Sharing, SharingExt, Writer, WriterExt as _},
-    ArchivePointee, ArchiveUnsized, RelPtr, SerializeUnsized,
+    ArchivePointee, ArchiveUnsized, Portable, RelPtr, SerializeUnsized,
 };
 
 /// The flavor type for [`Rc`](std::rc::Rc).
@@ -24,6 +24,8 @@ pub struct ArcFlavor;
 /// a "flavor" type. Because there may be many varieties of shared pointers and
 /// they may not be used together, the flavor helps check that memory is not
 /// being shared incorrectly during validation.
+#[derive(Portable)]
+#[archive(crate)]
 #[repr(transparent)]
 #[cfg_attr(
     feature = "bytecheck",
@@ -188,6 +190,8 @@ pub struct RcResolver {
 /// An archived `rc::Weak`.
 ///
 /// This is essentially just an optional [`ArchivedRc`].
+#[derive(Portable)]
+#[archive(crate)]
 #[repr(u8)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 pub enum ArchivedRcWeak<T: ArchivePointee + ?Sized, F> {

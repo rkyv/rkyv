@@ -8,7 +8,6 @@ mod tests {
 
     #[derive(Archive)]
     #[archive_attr(derive(Debug, Default))]
-    #[cfg_attr(not(feature = "stable_layout"), archive_attr(repr(C)))]
     #[archive(check_bytes)]
     struct Test {
         a: u8,
