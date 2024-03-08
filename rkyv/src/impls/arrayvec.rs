@@ -64,7 +64,10 @@ mod tests {
     use arrayvec::ArrayVec;
     use rancor::{Failure, Infallible};
 
-    use crate::{access_unchecked, deserialize, ser::Positional as _};
+    use crate::{
+        access_unchecked, deserialize, ser::Positional as _, vec::ArchivedVec,
+        Archived,
+    };
 
     #[test]
     fn array_vec() {
@@ -79,8 +82,9 @@ mod tests {
         .unwrap();
         let end = serializer.pos();
         let result = serializer.into_writer().into_inner();
-        let archived =
-            unsafe { access_unchecked::<ArrayVec<i32, 4>>(&result[0..end]) };
+        let archived = unsafe {
+            access_unchecked::<ArchivedVec<Archived<i32>>>(&result[0..end])
+        };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
 
         let deserialized =

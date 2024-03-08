@@ -160,7 +160,10 @@ mod tests {
     use rancor::{Failure, Infallible};
     use tinyvec::{array_vec, Array, ArrayVec, SliceVec};
 
-    use crate::{access_unchecked, deserialize, ser::Positional as _};
+    use crate::{
+        access_unchecked, deserialize, ser::Positional as _, vec::ArchivedVec,
+        Archived,
+    };
 
     #[test]
     fn array_vec() {
@@ -175,8 +178,9 @@ mod tests {
         .unwrap();
         let end = serializer.pos();
         let result = serializer.into_writer().into_inner();
-        let archived =
-            unsafe { access_unchecked::<ArrayVec<[i32; 10]>>(&result[0..end]) };
+        let archived = unsafe {
+            access_unchecked::<ArchivedVec<Archived<i32>>>(&result[0..end])
+        };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
 
         let deserialized = deserialize::<ArrayVec<[i32; 10]>, _, Infallible>(
@@ -205,8 +209,9 @@ mod tests {
         .unwrap();
         let end = serializer.pos();
         let result = serializer.into_writer().into_inner();
-        let archived =
-            unsafe { access_unchecked::<SliceVec<'_, i32>>(&result[0..end]) };
+        let archived = unsafe {
+            access_unchecked::<ArchivedVec<Archived<i32>>>(&result[0..end])
+        };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
     }
 
@@ -228,8 +233,9 @@ mod tests {
         )
         .unwrap();
         let result = serializer.into_writer();
-        let archived =
-            unsafe { access_unchecked::<TinyVec<[i32; 10]>>(result.as_ref()) };
+        let archived = unsafe {
+            access_unchecked::<ArchivedVec<Archived<i32>>>(result.as_ref())
+        };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
 
         let deserialized: TinyVec<[i32; 10]> =

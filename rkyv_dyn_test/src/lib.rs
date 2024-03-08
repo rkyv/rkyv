@@ -179,9 +179,9 @@ mod tests {
 
             let buf = to_bytes::<_, 1024, _>(&value).unwrap();
             let archived_value = unsafe {
-                access_unchecked::<Box<dyn SerializeTestTrait<Failure, Failure>>>(
-                    buf.as_ref(),
-                )
+                access_unchecked::<
+                    Archived<Box<dyn SerializeTestTrait<Failure, Failure>>>,
+                >(buf.as_ref())
             };
             assert_eq!(value.get_id(), archived_value.get_id());
 

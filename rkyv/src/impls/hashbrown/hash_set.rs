@@ -106,7 +106,10 @@ mod tests {
     use hashbrown::HashSet;
     use rancor::Failure;
 
-    use crate::{access, access_unchecked, deserialize, to_bytes};
+    use crate::{
+        access, access_unchecked, collections::swiss_table::ArchivedHashSet,
+        deserialize, string::ArchivedString, to_bytes,
+    };
 
     #[test]
     fn index_set() {
@@ -117,8 +120,9 @@ mod tests {
         value.insert(String::from("bat"));
 
         let bytes = to_bytes::<_, 256, Failure>(&value).unwrap();
-        let archived =
-            unsafe { access_unchecked::<HashSet<String>>(bytes.as_ref()) };
+        let archived = unsafe {
+            access_unchecked::<ArchivedHashSet<ArchivedString>>(bytes.as_ref())
+        };
 
         assert_eq!(value.len(), archived.len());
         for k in value.iter() {
@@ -142,7 +146,9 @@ mod tests {
         value.insert(String::from("bat"));
 
         let bytes = to_bytes::<_, 256, Failure>(&value).unwrap();
-        access::<HashSet<String>, rancor::Panic>(bytes.as_ref())
-            .expect("failed to validate archived index set");
+        access::<ArchivedHashSet<ArchivedString>, rancor::Panic>(
+            bytes.as_ref(),
+        )
+        .expect("failed to validate archived index set");
     }
 }

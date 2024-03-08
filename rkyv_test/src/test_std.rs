@@ -4,7 +4,8 @@ mod tests {
 
     use rkyv::{
         access_unchecked, rancor::Failure, ser::writer::IoWriter, serialize,
-        to_bytes, util::AlignedBytes, Archive, Deserialize, Serialize,
+        to_bytes, util::AlignedBytes, Archive, Archived, Deserialize,
+        Serialize,
     };
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
@@ -37,7 +38,7 @@ mod tests {
 
         let buf = to_bytes::<_, 256, Failure>(&hash_map).unwrap();
         let archived_value = unsafe {
-            access_unchecked::<HashMap<String, String>>(buf.as_ref())
+            access_unchecked::<Archived<HashMap<String, String>>>(buf.as_ref())
         };
 
         assert_eq!(archived_value.len(), hash_map.len());
@@ -71,8 +72,9 @@ mod tests {
         );
 
         let buf = to_bytes::<_, 256, Failure>(&hash_map).unwrap();
-        let archived_value =
-            unsafe { access_unchecked::<HashMap<Pair, String>>(buf.as_ref()) };
+        let archived_value = unsafe {
+            access_unchecked::<Archived<HashMap<Pair, String>>>(buf.as_ref())
+        };
 
         let get_with = archived_value
             .get_with(&("my", "key"), |input_key, key| {
@@ -108,9 +110,9 @@ mod tests {
 
         let buf = to_bytes::<_, 256, Failure>(&hash_map).unwrap();
         let archived_value = unsafe {
-            access_unchecked::<HashMap<String, String, ahash::RandomState>>(
-                buf.as_ref(),
-            )
+            access_unchecked::<
+                Archived<HashMap<String, String, ahash::RandomState>>,
+            >(buf.as_ref())
         };
 
         assert_eq!(archived_value.len(), hash_map.len());
@@ -135,8 +137,9 @@ mod tests {
         hash_set.insert("baz".to_string());
 
         let buf = to_bytes::<_, 256, Failure>(&hash_set).unwrap();
-        let archived_value =
-            unsafe { access_unchecked::<HashSet<String>>(buf.as_ref()) };
+        let archived_value = unsafe {
+            access_unchecked::<Archived<HashSet<String>>>(buf.as_ref())
+        };
 
         assert_eq!(archived_value.len(), hash_set.len());
 
@@ -170,7 +173,7 @@ mod tests {
 
         let buf = to_bytes::<_, 256, Failure>(&hash_set).unwrap();
         let archived_value = unsafe {
-            access_unchecked::<HashSet<String, ahash::RandomState>>(
+            access_unchecked::<Archived<HashSet<String, ahash::RandomState>>>(
                 buf.as_ref(),
             )
         };
