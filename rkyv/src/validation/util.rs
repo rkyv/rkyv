@@ -13,7 +13,7 @@ use crate::{
     validation::{
         validators::DefaultValidator, ArchiveContext, ArchiveContextExt as _,
     },
-    Archive, Deserialize,
+    Archive, Deserialize, Portable,
 };
 
 /// Checks a byte slice for a valid instance of the given archived type at the
@@ -60,7 +60,7 @@ pub fn access_pos_with_context<'a, T, C, E>(
     context: &mut C,
 ) -> Result<&'a T, E>
 where
-    T: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
     E: Error,
 {
@@ -80,7 +80,7 @@ pub fn access_with_context<'a, T, C, E>(
     context: &mut C,
 ) -> Result<&'a T, E>
 where
-    T: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
     E: Error,
 {
@@ -128,7 +128,7 @@ where
 #[inline]
 pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T, E>
 where
-    T: CheckBytes<Strategy<DefaultValidator, E>>,
+    T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
     E: Error,
 {
     let mut validator = DefaultValidator::new(bytes);
@@ -148,7 +148,7 @@ where
 #[inline]
 pub fn access<T, E>(bytes: &[u8]) -> Result<&T, E>
 where
-    T: CheckBytes<Strategy<DefaultValidator, E>>,
+    T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
     E: Error,
 {
     let mut validator = DefaultValidator::new(bytes);
@@ -174,7 +174,7 @@ pub fn access_pos_with_context_mut<'a, T, C, E>(
     context: &mut C,
 ) -> Result<Pin<&'a mut T>, E>
 where
-    T: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
     E: Error,
 {
@@ -194,7 +194,7 @@ pub fn access_with_context_mut<'a, T, C, E>(
     context: &mut C,
 ) -> Result<Pin<&'a mut T>, E>
 where
-    T: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
     E: Error,
 {
@@ -215,7 +215,7 @@ pub fn access_pos_mut<T, E>(
     pos: usize,
 ) -> Result<Pin<&mut T>, E>
 where
-    T: CheckBytes<Strategy<DefaultValidator, E>>,
+    T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
     E: Error,
 {
     let mut validator = DefaultValidator::new(bytes);
@@ -235,7 +235,7 @@ where
 #[inline]
 pub fn access_mut<T, E>(bytes: &mut [u8]) -> Result<Pin<&mut T>, E>
 where
-    T: CheckBytes<Strategy<DefaultValidator, E>>,
+    T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
     E: Error,
 {
     let mut validator = DefaultValidator::new(bytes);

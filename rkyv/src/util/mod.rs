@@ -37,7 +37,7 @@ use crate::{
 
 #[cfg(debug_assertions)]
 #[inline]
-fn check_alignment<T>(ptr: *const u8) {
+fn check_alignment<T: Portable>(ptr: *const u8) {
     let expect_align = core::mem::align_of::<T>();
     let actual_align = (ptr as usize) & (expect_align - 1);
     debug_assert_eq!(
@@ -66,7 +66,10 @@ fn check_alignment<T>(ptr: *const u8) {
 ///
 /// A `T` must be located at the given position in the byte slice.
 #[inline]
-pub unsafe fn access_pos_unchecked<T>(bytes: &[u8], pos: usize) -> &T {
+pub unsafe fn access_pos_unchecked<T: Portable>(
+    bytes: &[u8],
+    pos: usize,
+) -> &T {
     #[cfg(debug_assertions)]
     check_alignment::<T>(bytes.as_ptr());
 
@@ -83,7 +86,7 @@ pub unsafe fn access_pos_unchecked<T>(bytes: &[u8], pos: usize) -> &T {
 ///
 /// A `T` must be located at the given position in the byte slice.
 #[inline]
-pub unsafe fn access_pos_unchecked_mut<T>(
+pub unsafe fn access_pos_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
     pos: usize,
 ) -> Pin<&mut T> {
@@ -104,7 +107,10 @@ pub unsafe fn access_pos_unchecked_mut<T>(
 /// A `RelPtr<T>` must be located at the given position in the byte
 /// slice.
 #[inline]
-pub unsafe fn access_pos_unsized_unchecked<T>(bytes: &[u8], pos: usize) -> &T
+pub unsafe fn access_pos_unsized_unchecked<T: Portable>(
+    bytes: &[u8],
+    pos: usize,
+) -> &T
 where
     T: ?Sized + ArchivePointee,
 {
@@ -126,7 +132,7 @@ where
 /// A `RelPtr<T>` must be located at the given position in the byte
 /// slice.
 #[inline]
-pub unsafe fn access_pos_unsized_unchecked_mut<T>(
+pub unsafe fn access_pos_unsized_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
     pos: usize,
 ) -> Pin<&mut T>
@@ -155,7 +161,7 @@ where
 /// - The root of the object must be stored at the end of the slice (this is the
 ///   default behavior).
 #[inline]
-pub unsafe fn access_unchecked<T>(bytes: &[u8]) -> &T {
+pub unsafe fn access_unchecked<T: Portable>(bytes: &[u8]) -> &T {
     access_pos_unchecked::<T>(bytes, bytes.len() - mem::size_of::<T>())
 }
 
@@ -174,7 +180,9 @@ pub unsafe fn access_unchecked<T>(bytes: &[u8]) -> &T {
 /// - The root of the object must be stored at the end of the slice (this is the
 ///   default behavior).
 #[inline]
-pub unsafe fn access_unchecked_mut<T>(bytes: &mut [u8]) -> Pin<&mut T> {
+pub unsafe fn access_unchecked_mut<T: Portable>(
+    bytes: &mut [u8],
+) -> Pin<&mut T> {
     let pos = bytes.len() - mem::size_of::<T>();
     access_pos_unchecked_mut::<T>(bytes, pos)
 }
@@ -194,7 +202,7 @@ pub unsafe fn access_unchecked_mut<T>(bytes: &mut [u8]) -> Pin<&mut T> {
 /// - The root of the object must be stored at the end of the slice (this is the
 ///   default behavior).
 #[inline]
-pub unsafe fn access_unsized_unchecked<T>(bytes: &[u8]) -> &T
+pub unsafe fn access_unsized_unchecked<T: Portable>(bytes: &[u8]) -> &T
 where
     T: ?Sized + ArchivePointee,
 {
@@ -219,7 +227,9 @@ where
 /// - The root of the object must be stored at the end of the slice (this is the
 ///   default behavior).
 #[inline]
-pub unsafe fn access_unsized_unchecked_mut<T>(bytes: &mut [u8]) -> Pin<&mut T>
+pub unsafe fn access_unsized_unchecked_mut<T: Portable>(
+    bytes: &mut [u8],
+) -> Pin<&mut T>
 where
     T: ?Sized + ArchivePointee,
 {
