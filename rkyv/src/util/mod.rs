@@ -27,6 +27,7 @@ use rancor::Strategy;
 pub use self::aligned_vec::*;
 #[doc(inline)]
 pub use self::scratch_vec::*;
+use crate::Portable;
 #[cfg(feature = "alloc")]
 use crate::{de::pooling::Unify, ser::AllocSerializer};
 use crate::{
@@ -237,8 +238,9 @@ where
 /// assert_eq!(mem::align_of::<u8>(), 1);
 /// assert_eq!(mem::align_of::<AlignedBytes<256>>(), 16);
 /// ```
-#[derive(Archive, Clone, Copy, Debug, Deserialize, Serialize)]
-#[archive(crate = crate)]
+// TODO: re-enable archive derives
+#[derive(Archive, Clone, Copy, Debug, Deserialize, Portable, Serialize)]
+#[archive(crate)]
 #[repr(C, align(16))]
 pub struct AlignedBytes<const N: usize>(pub [u8; N]);
 

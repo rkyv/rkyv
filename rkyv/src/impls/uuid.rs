@@ -1,7 +1,9 @@
 use rancor::Fallible;
 use uuid::Uuid;
 
-use crate::{Archive, Deserialize, Serialize};
+use crate::{Archive, Deserialize, Portable, Serialize};
+
+unsafe impl Portable for Uuid {}
 
 impl Archive for Uuid {
     type Archived = Uuid;

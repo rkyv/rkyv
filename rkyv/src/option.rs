@@ -8,13 +8,16 @@ use core::{
     pin::Pin,
 };
 
+use crate::Portable;
+
 /// An archived [`Option`].
 ///
 /// It functions identically to [`Option`] but has a different internal
 /// representation to allow for archiving.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(u8)]
+#[archive(crate)]
 pub enum ArchivedOption<T> {
     /// No value
     None,

@@ -11,11 +11,13 @@ use crate::collections::swiss_table::map::{
 use crate::hash::FxHasher64;
 use crate::{
     ser::{Allocator, Writer},
-    Serialize,
+    Portable, Serialize,
 };
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key
 /// and unit value.
+#[derive(Portable)]
+#[archive(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct ArchivedHashSet<K, H = FxHasher64> {
@@ -99,11 +101,13 @@ impl<K, H: Hasher + Default> ArchivedHashSet<K, H> {
         S::Error: Error,
         I: Clone + ExactSizeIterator<Item = &'a KU>,
     {
-        Ok(HashSetResolver(ArchivedHashMap::<K, (), H>::serialize_from_iter(
-            iter.map(|x| (x, &())),
-            load_factor,
-            serializer,
-        )?))
+        Ok(HashSetResolver(
+            ArchivedHashMap::<K, (), H>::serialize_from_iter(
+                iter.map(|x| (x, &())),
+                load_factor,
+                serializer,
+            )?,
+        ))
     }
 }
 

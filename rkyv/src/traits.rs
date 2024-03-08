@@ -9,6 +9,18 @@ use crate::{
     ArchivedMetadata, RelPtr,
 };
 
+/// A type with a stable, well-defined layout that is the same on all targets.
+///
+/// # Safety
+///
+/// To implement this trait, a type must have a stable, well-defined layout that
+/// is the same on all targets. For structs and unions, this means that they
+/// must be `#[repr(transparent)]` or `#[repr(C)]`. For enums, this means that
+/// they must be `#[repr(C)]`, `#[repr(int)]`, or `#[repr(C, int)]`.
+/// Additionally, all fields that the type may contain or produce relative
+/// pointers to must also be `Portable`.
+pub unsafe trait Portable {}
+
 /// A type that can be used without deserializing.
 ///
 /// `Archive` is one of three basic traits used to work with zero-copy data and
@@ -197,7 +209,7 @@ pub trait Archive {
     /// The archived representation of this type.
     ///
     /// In this form, the data can be used with zero-copy deserialization.
-    type Archived;
+    type Archived: Portable;
 
     /// The resolver for this type. It must contain all the additional
     /// information from serializing needed to make the archived type from
@@ -447,7 +459,7 @@ pub trait ArchiveUnsized: Pointee {
     ///
     /// This type must implement [`ArchivePointee`], a trait that helps make
     /// valid pointers using archived pointer metadata.
-    type Archived: ArchivePointee + ?Sized;
+    type Archived: ArchivePointee + Portable + ?Sized;
 
     /// Creates the archived version of the metadata for this value.
     fn archived_metadata(&self) -> ArchivedMetadata<Self>;
@@ -459,7 +471,7 @@ pub trait ArchiveUnsized: Pointee {
 /// is implemented for all sized types by default.
 pub trait ArchivePointee: Pointee {
     /// The archived version of the pointer metadata for this type.
-    type ArchivedMetadata: Copy + Send + Sync + Ord + Hash + Unpin;
+    type ArchivedMetadata: Copy + Send + Sync + Ord + Hash + Unpin + Portable;
 
     /// Converts some archived metadata to the pointer metadata for itself.
     fn pointer_metadata(

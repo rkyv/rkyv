@@ -2,12 +2,16 @@
 
 use core::{borrow::Borrow, fmt};
 
-use crate::collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver, Keys};
+use crate::{
+    collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver, Keys},
+    Portable,
+};
 
 /// An archived `BTreeSet`. This is a wrapper around a B-tree map with the same
 /// key and a value of `()`.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Eq, Hash, Ord, PartialEq, PartialOrd, Portable)]
+#[archive(crate)]
 #[repr(transparent)]
 pub struct ArchivedBTreeSet<K>(ArchivedBTreeMap<K, ()>);
 

@@ -1,15 +1,15 @@
 use core::convert::{TryFrom, TryInto};
-use core::{marker::PhantomData, ops::Deref};
+use core::ops::Deref;
 
 use bitvec::{prelude::*, view::BitViewSized};
 use rancor::Fallible;
 
+use crate::bitvec::ArchivedBitArray;
 #[cfg(feature = "bitvec_alloc")]
 use crate::vec::{ArchivedVec, VecResolver};
 use crate::{
     bitvec::ArchivedBitVec,
     out_field,
-    primitive::ArchivedUsize,
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Serialize,
@@ -87,28 +87,6 @@ where
         let mut bitvec = BitVec::<T, O>::from_vec(vec);
         bitvec.truncate(bit_len);
         Ok(bitvec)
-    }
-}
-
-#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct ArchivedBitArray<A = [ArchivedUsize; 1], O = Lsb0> {
-    inner: A,
-    _or: PhantomData<O>,
-}
-
-impl<A: BitViewSized + Archive, O: BitOrder> ArchivedBitArray<A, O> {
-    /// Gets the elements of the archived `BitArray` as a `BitSlice`.
-    pub fn as_bitslice(&self) -> &BitSlice<A::Store, O> {
-        self.deref()
-    }
-}
-
-impl<A: BitViewSized + Archive, O: BitOrder> Deref for ArchivedBitArray<A, O> {
-    type Target = BitSlice<A::Store, O>;
-
-    fn deref(&self) -> &Self::Target {
-        self.inner.view_bits::<O>()
     }
 }
 

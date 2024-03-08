@@ -24,11 +24,13 @@ use crate::{
     out_field,
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt as _},
-    RelPtr, Serialize,
+    Portable, RelPtr, Serialize,
 };
 
 /// An archived `IndexMap`.
-#[cfg_attr(feature = "stable_layout", repr(C))]
+#[derive(Portable)]
+#[archive(crate)]
+#[repr(C)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),

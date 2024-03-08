@@ -15,7 +15,7 @@ use rancor::Fallible;
 use crate::{
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt as _},
-    Archive, RelPtr, Serialize, SerializeUnsized,
+    Archive, Portable, RelPtr, Serialize, SerializeUnsized,
 };
 
 // pub use self::raw::*;
@@ -25,7 +25,9 @@ use crate::{
 /// This uses a [`RelPtr`] to a `[T]` under the hood. Unlike
 /// [`ArchivedString`](crate::string::ArchivedString), it does not have an
 /// inline representation.
-#[cfg_attr(feature = "stable_layout", repr(C))]
+#[derive(Portable)]
+#[archive(crate)]
+#[repr(C)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),

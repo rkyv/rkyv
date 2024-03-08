@@ -10,11 +10,13 @@ use std::ffi::CStr;
 
 use rancor::Fallible;
 
-use crate::{ser::Writer, ArchiveUnsized, RelPtr, SerializeUnsized};
+use crate::{ser::Writer, ArchiveUnsized, Portable, RelPtr, SerializeUnsized};
 
 /// An archived [`CString`](std::ffi::CString).
 ///
 /// Uses a [`RelPtr`] to a `CStr` under the hood.
+#[derive(Portable)]
+#[archive(crate)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),

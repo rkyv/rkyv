@@ -10,10 +10,12 @@ use crate::{
     primitive::ArchivedUsize,
     ser::Writer,
     Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
-    Deserialize, DeserializeUnsized, Serialize, SerializeUnsized,
+    Deserialize, DeserializeUnsized, Portable, Serialize, SerializeUnsized,
 };
 
 // CStr
+
+unsafe impl Portable for CStr {}
 
 impl ArchiveUnsized for CStr {
     type Archived = CStr;

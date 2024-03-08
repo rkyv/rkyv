@@ -6,13 +6,13 @@ use syn::{
 };
 
 use crate::{
-    attributes::{parse_attributes, Attributes},
+    attributes::Attributes,
     util::is_not_omitted,
     with::{make_with_ty, with_inner},
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
-    let attributes = parse_attributes(&input)?;
+    let attributes = Attributes::parse(&input)?;
     derive_deserialize_impl(input, &attributes)
 }
 
@@ -20,9 +20,8 @@ fn derive_deserialize_impl(
     mut input: DeriveInput,
     attributes: &Attributes,
 ) -> Result<TokenStream, Error> {
-    let default_rkyv_path = parse_quote! { ::rkyv };
-    let rkyv_path = attributes.rkyv_path.as_ref().unwrap_or(&default_rkyv_path);
-    let with_ty = make_with_ty(rkyv_path);
+    let rkyv_path = attributes.rkyv_path();
+    let with_ty = make_with_ty(&rkyv_path);
 
     let where_clause = input.generics.make_where_clause();
     if let Some(ref bounds) = attributes.archive_bounds {

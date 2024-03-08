@@ -34,11 +34,13 @@ use crate::{
     ser::{Allocator, Writer, WriterExt},
     simd::{Bitmask, Group, MAX_GROUP_WIDTH},
     util::ScratchVec,
-    Archive as _, RawRelPtr, Serialize,
+    Archive as _, Portable, RawRelPtr, Serialize,
 };
 
 /// A low-level archived SwissTable hash table with explicit hashing.
-#[cfg_attr(feature = "stable_layout", repr(C))]
+#[derive(Portable)]
+#[archive(crate)]
+#[repr(C)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),

@@ -9,7 +9,7 @@ use core::{fmt, marker::PhantomData, mem::transmute, ops::Deref};
 
 use rancor::Fallible;
 
-use crate::{Archive, Deserialize, Serialize};
+use crate::{Archive, Deserialize, Portable, Serialize};
 
 // TODO: Gate unsafe wrappers behind Unsafe.
 
@@ -171,7 +171,7 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 /// ```
 pub trait ArchiveWith<F: ?Sized> {
     /// The archived type of a `With<F, Self>`.
-    type Archived;
+    type Archived: Portable;
     /// The resolver of a `With<F, Self>`.
     type Resolver;
 
@@ -256,8 +256,9 @@ where
 }
 
 /// A wrapper to make a type immutable.
+#[derive(Debug, Portable)]
+#[archive(crate)]
 #[repr(transparent)]
-#[derive(Debug)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 pub struct Immutable<T: ?Sized>(T);
 

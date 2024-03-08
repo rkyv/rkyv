@@ -4,11 +4,15 @@ use core::{marker::PhantomPinned, mem, ptr, slice, str};
 
 use rancor::{Error, Panic, ResultExt as _};
 
-use crate::primitive::{ArchivedUsize, FixedIsize};
+use crate::{
+    primitive::{ArchivedUsize, FixedIsize},
+    Portable,
+};
 
 const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Portable)]
+#[archive(crate)]
 #[repr(C)]
 struct OutOfLineRepr {
     len: ArchivedUsize,
@@ -22,7 +26,8 @@ struct OutOfLineRepr {
 /// The maximum number of bytes that can be inlined.
 pub const INLINE_CAPACITY: usize = mem::size_of::<OutOfLineRepr>() - 1;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Portable)]
+#[archive(crate)]
 #[repr(C)]
 struct InlineRepr {
     bytes: [u8; INLINE_CAPACITY],
@@ -30,6 +35,9 @@ struct InlineRepr {
 }
 
 /// An archived string representation that can inline short strings.
+#[derive(Portable)]
+#[archive(crate)]
+#[repr(C)]
 pub union ArchivedStringRepr {
     out_of_line: OutOfLineRepr,
     inline: InlineRepr,

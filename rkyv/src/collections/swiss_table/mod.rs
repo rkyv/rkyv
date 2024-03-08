@@ -13,7 +13,7 @@ use rancor::Fallible;
 pub use set::{ArchivedHashSet, HashSetResolver};
 pub use table::{ArchivedHashTable, HashTableResolver};
 
-use crate::{Archive, Serialize};
+use crate::{Archive, Portable, Serialize};
 
 struct EntryAdapter<'a, K, V> {
     key: &'a K,
@@ -59,7 +59,9 @@ where
     }
 }
 
-#[cfg_attr(feature = "stable_layout", repr(C))]
+#[derive(Portable)]
+#[archive(crate)]
+#[repr(C)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 struct Entry<K, V> {
     key: K,

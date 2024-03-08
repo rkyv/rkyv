@@ -9,10 +9,14 @@ use crate::{
         ArchivedRange, ArchivedRangeFrom, ArchivedRangeInclusive,
         ArchivedRangeTo, ArchivedRangeToInclusive,
     },
-    Archive, Archived, Deserialize, Serialize,
+    Archive, Archived, Deserialize, Portable, Serialize,
 };
 
 // RangeFull
+
+// TODO: Technically ZSTs do not need to have a defined alignment, so this impl
+// is technically incorrect. We should replace it.
+unsafe impl Portable for RangeFull {}
 
 impl Archive for RangeFull {
     type Archived = Self;

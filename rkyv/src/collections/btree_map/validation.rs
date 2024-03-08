@@ -196,17 +196,10 @@ impl<T> LayoutRaw for Node<[T]> {
     fn layout_raw(
         metadata: <Self as Pointee>::Metadata,
     ) -> Result<Layout, LayoutError> {
-        let result = Layout::new::<NodeHeader>()
+        Ok(Layout::new::<NodeHeader>()
             .extend(Layout::array::<T>(metadata).unwrap())?
-            .0;
-        #[cfg(not(feature = "stable_layout"))]
-        {
-            Ok(result)
-        }
-        #[cfg(feature = "stable_layout")]
-        {
-            Ok(result.pad_to_align())
-        }
+            .0
+            .pad_to_align())
     }
 }
 

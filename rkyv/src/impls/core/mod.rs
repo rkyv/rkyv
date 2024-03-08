@@ -1,4 +1,9 @@
-use core::{alloc::Layout, mem::ManuallyDrop, ptr, str};
+use core::{
+    alloc::Layout,
+    cell::{Cell, UnsafeCell},
+    mem::ManuallyDrop,
+    ptr, str,
+};
 
 use ptr_meta::Pointee;
 use rancor::Fallible;
@@ -8,8 +13,9 @@ use crate::copy::ArchiveCopyOptimize;
 use crate::{
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt as _},
+    tuple::*,
     Archive, ArchivePointee, ArchiveUnsized, ArchivedMetadata, Deserialize,
-    DeserializeUnsized, Serialize, SerializeUnsized,
+    DeserializeUnsized, Portable, Serialize, SerializeUnsized,
 };
 
 mod ops;
@@ -79,13 +85,12 @@ where
 }
 
 macro_rules! impl_tuple {
-    ($($type:ident $index:tt),*) => {
-        #[cfg(not(feature = "stable_layout"))]
+    ($name:ident, $($type:ident $index:tt),*) => {
         impl<$($type),*> Archive for ($($type,)*)
         where
             $($type: Archive,)*
         {
-            type Archived = ($($type::Archived,)*);
+            type Archived = $name<$($type::Archived,)*>;
             type Resolver = ($($type::Resolver,)*);
 
             #[inline]
@@ -102,7 +107,6 @@ macro_rules! impl_tuple {
             }
         }
 
-        #[cfg(not(feature = "stable_layout"))]
         impl<$($type,)* S> Serialize<S> for ($($type,)*)
         where
             $($type: Serialize<S>,)*
@@ -119,8 +123,7 @@ macro_rules! impl_tuple {
             }
         }
 
-        #[cfg(not(feature = "stable_layout"))]
-        impl<$($type,)* D> Deserialize<($($type,)*), D> for ($($type::Archived,)*)
+        impl<$($type,)* D> Deserialize<($($type,)*), D> for $name<$($type::Archived,)*>
         where
             D: Fallible + ?Sized,
             $($type: Archive,)*
@@ -139,22 +142,22 @@ macro_rules! impl_tuple {
     };
 }
 
-impl_tuple!(T0 0);
-impl_tuple!(T0 0, T1 1);
-impl_tuple!(T0 0, T1 1, T2 2);
-impl_tuple!(T0 0, T1 1, T2 2, T3 3);
-impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4);
-impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4, T5 5);
-impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6);
-impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7);
-impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8);
-impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9);
-impl_tuple!(T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9, T10 10);
+impl_tuple!(ArchivedTuple1, T0 0);
+impl_tuple!(ArchivedTuple2, T0 0, T1 1);
+impl_tuple!(ArchivedTuple3, T0 0, T1 1, T2 2);
+impl_tuple!(ArchivedTuple4, T0 0, T1 1, T2 2, T3 3);
+impl_tuple!(ArchivedTuple5, T0 0, T1 1, T2 2, T3 3, T4 4);
+impl_tuple!(ArchivedTuple6, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5);
+impl_tuple!(ArchivedTuple7, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6);
+impl_tuple!(ArchivedTuple8, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7);
+impl_tuple!(ArchivedTuple9, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8);
+impl_tuple!(ArchivedTuple10, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9);
+impl_tuple!(ArchivedTuple11, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9, T10 10);
 impl_tuple!(
-    T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9, T10 10, T11 11
+    ArchivedTuple12, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9, T10 10, T11 11
 );
 impl_tuple!(
-    T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9, T10 10, T11 11,
+    ArchivedTuple13, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9, T10 10, T11 11,
     T12 12
 );
 
@@ -360,6 +363,8 @@ where
 
 /// `str`
 
+unsafe impl Portable for str {}
+
 impl ArchiveUnsized for str {
     type Archived = str;
 
@@ -417,6 +422,8 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for str {
 
 // `ManuallyDrop`
 
+unsafe impl<T: Portable> Portable for ManuallyDrop<T> {}
+
 impl<T: Archive> Archive for ManuallyDrop<T> {
     type Archived = ManuallyDrop<T::Archived>;
     type Resolver = T::Resolver;
@@ -456,3 +463,11 @@ where
         T::Archived::deserialize(self, deserializer).map(ManuallyDrop::new)
     }
 }
+
+// `Cell`
+
+unsafe impl<T: Portable + ?Sized> Portable for Cell<T> {}
+
+// `UnsafeCell`
+
+unsafe impl<T: Portable + ?Sized> Portable for UnsafeCell<T> {}

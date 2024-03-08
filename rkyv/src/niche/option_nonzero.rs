@@ -9,11 +9,13 @@ use core::{
     pin::Pin,
 };
 
-use crate::Archived;
+use crate::{Archived, Portable};
 
 macro_rules! impl_archived_option_nonzero {
     ($ar:ident, $nz:ty, $ne:ty) => {
         #[doc = concat!("A niched archived `Option<", stringify!($nz), ">`")]
+        #[derive(Portable)]
+        #[archive(crate)]
         #[repr(transparent)]
         pub struct $ar {
             inner: Archived<$ne>,
