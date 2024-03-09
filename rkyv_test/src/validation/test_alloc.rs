@@ -20,7 +20,7 @@ mod tests {
         to_bytes,
         util::{serialize_into, AlignedBytes},
         validation::util::access_pos,
-        Archive, Serialize,
+        Archive, Archived, Serialize,
     };
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
@@ -34,7 +34,7 @@ mod tests {
         let value = Some("Hello world".to_string());
         let buf = to_bytes::<_, 256, Failure>(&value).unwrap();
 
-        let result = access::<Option<String>, Failure>(buf.as_ref());
+        let result = access::<Archived<Option<String>>, Failure>(buf.as_ref());
         result.unwrap();
 
         #[cfg(all(feature = "pointer_width_16", feature = "little_endian"))]
@@ -107,24 +107,37 @@ mod tests {
             11u8, // string is 11 characters long
         ]);
 
-        let result =
-            access::<Option<Box<[u8]>>, Failure>(synthetic_buf.as_ref());
+        let result = access::<Archived<Option<Box<[u8]>>>, Failure>(
+            synthetic_buf.as_ref(),
+        );
         result.unwrap();
 
         // Out of bounds
-        access_pos::<u32, Failure>(AlignedBytes([0, 1, 2, 3, 4]).as_ref(), 8)
-            .expect_err("expected out of bounds error");
+        access_pos::<Archived<u32>, Failure>(
+            AlignedBytes([0, 1, 2, 3, 4]).as_ref(),
+            8,
+        )
+        .expect_err("expected out of bounds error");
         // Overrun
-        access_pos::<u32, Failure>(AlignedBytes([0, 1, 2, 3, 4]).as_ref(), 4)
-            .expect_err("expected overrun error");
+        access_pos::<Archived<u32>, Failure>(
+            AlignedBytes([0, 1, 2, 3, 4]).as_ref(),
+            4,
+        )
+        .expect_err("expected overrun error");
         // Unaligned
-        access_pos::<u32, Failure>(AlignedBytes([0, 1, 2, 3, 4]).as_ref(), 1)
-            .expect_err("expected unaligned error");
+        access_pos::<Archived<u32>, Failure>(
+            AlignedBytes([0, 1, 2, 3, 4]).as_ref(),
+            1,
+        )
+        .expect_err("expected unaligned error");
         // Underaligned
-        access_pos::<u32, Failure>(&AlignedBytes([0, 1, 2, 3, 4])[1..], 0)
-            .expect_err("expected underaligned error");
+        access_pos::<Archived<u32>, Failure>(
+            &AlignedBytes([0, 1, 2, 3, 4])[1..],
+            0,
+        )
+        .expect_err("expected underaligned error");
         // Undersized
-        access::<u32, Failure>(&AlignedBytes([]).as_ref())
+        access::<Archived<u32>, Failure>(&AlignedBytes([]).as_ref())
             .expect_err("expected out of bounds error");
     }
 
@@ -152,8 +165,10 @@ mod tests {
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
         ]);
 
-        let result =
-            access_pos::<Option<Box<[u8]>>, Failure>(synthetic_buf.as_ref(), 0);
+        let result = access_pos::<Archived<Option<Box<[u8]>>>, Failure>(
+            synthetic_buf.as_ref(),
+            0,
+        );
         result.unwrap_err();
     }
 
@@ -173,8 +188,11 @@ mod tests {
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
         ]);
 
-        access_pos::<[Box<[u8]>; 2], Failure>(synthetic_buf.as_ref(), 0)
-            .unwrap_err();
+        access_pos::<Archived<[Box<[u8]>; 2]>, Failure>(
+            synthetic_buf.as_ref(),
+            0,
+        )
+        .unwrap_err();
     }
 
     #[cfg(feature = "pointer_width_32")]
@@ -245,7 +263,8 @@ mod tests {
             244u8, 255u8, 255u8, 255u8, // Node is 12 bytes back
         ]);
 
-        access_pos::<Node, Failure>(synthetic_buf.as_ref(), 0).unwrap_err();
+        access_pos::<ArchivedNode, Failure>(synthetic_buf.as_ref(), 0)
+            .unwrap_err();
     }
 
     #[test]
@@ -360,7 +379,7 @@ mod tests {
         .unwrap()
         .into_writer();
 
-        access::<Test, Failure>(buf.as_ref()).unwrap();
+        access::<ArchivedTest, Failure>(buf.as_ref()).unwrap();
     }
 
     // TODO: re-enable after btreemap validation is fixed

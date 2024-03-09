@@ -53,7 +53,10 @@ mod tests {
     use rancor::{Failure, Infallible};
     use smol_str::SmolStr;
 
-    use crate::{access_unchecked, deserialize, ser::Positional as _};
+    use crate::{
+        access_unchecked, deserialize, ser::Positional as _,
+        string::ArchivedString,
+    };
 
     #[test]
     fn smolstr() {
@@ -68,7 +71,8 @@ mod tests {
         .unwrap();
         let end = serializer.pos();
         let result = serializer.into_writer().into_inner();
-        let archived = unsafe { access_unchecked::<SmolStr>(&result[0..end]) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedString>(&result[0..end]) };
         assert_eq!(archived, &value);
 
         let deserialized =

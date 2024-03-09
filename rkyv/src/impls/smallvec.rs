@@ -65,7 +65,10 @@ mod tests {
     use rancor::{Failure, Infallible};
     use smallvec::{smallvec, SmallVec};
 
-    use crate::{access_unchecked, deserialize, ser::Positional as _};
+    use crate::{
+        access_unchecked, deserialize, ser::Positional as _, vec::ArchivedVec,
+        Archived,
+    };
 
     #[test]
     fn small_vec() {
@@ -80,8 +83,9 @@ mod tests {
         .unwrap();
         let end = serializer.pos();
         let result = serializer.into_writer().into_inner();
-        let archived =
-            unsafe { access_unchecked::<SmallVec<[i32; 10]>>(&result[0..end]) };
+        let archived = unsafe {
+            access_unchecked::<ArchivedVec<Archived<i32>>>(&result[0..end])
+        };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
 
         let deserialized = deserialize::<SmallVec<[i32; 10]>, _, Infallible>(

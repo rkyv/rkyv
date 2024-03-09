@@ -13,7 +13,7 @@ use crate::{
     validation::{
         validators::DefaultValidator, ArchiveContext, ArchiveContextExt as _,
     },
-    Archive, Deserialize,
+    Archive, Deserialize, Portable,
 };
 
 /// Checks a byte slice for a valid instance of the given archived type at the
@@ -24,15 +24,14 @@ pub fn check_pos_with_context<T, C, E>(
     context: &mut C,
 ) -> Result<(), E>
 where
-    T: Archive,
-    T::Archived: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    T: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
     E: Error,
 {
     unsafe {
         let offset = pos.try_into().into_error()?;
 
-        let ptr = context.bounds_check_subtree_base_offset::<T::Archived>(
+        let ptr = context.bounds_check_subtree_base_offset::<T>(
             bytes.as_ptr(),
             offset,
             (),
@@ -59,10 +58,9 @@ pub fn access_pos_with_context<'a, T, C, E>(
     bytes: &'a [u8],
     pos: usize,
     context: &mut C,
-) -> Result<&'a T::Archived, E>
+) -> Result<&'a T, E>
 where
-    T: Archive,
-    T::Archived: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
     E: Error,
 {
@@ -80,16 +78,15 @@ where
 pub fn access_with_context<'a, T, C, E>(
     bytes: &'a [u8],
     context: &mut C,
-) -> Result<&'a T::Archived, E>
+) -> Result<&'a T, E>
 where
-    T: Archive,
-    T::Archived: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
     E: Error,
 {
     access_pos_with_context::<T, C, E>(
         bytes,
-        bytes.len().saturating_sub(size_of::<T::Archived>()),
+        bytes.len().saturating_sub(size_of::<T>()),
         context,
     )
 }
@@ -129,10 +126,9 @@ where
 /// let archived = check_archived_value::<Example>(bytes.as_ref(), pos).unwrap();
 /// ```
 #[inline]
-pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T::Archived, E>
+pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T, E>
 where
-    T: Archive,
-    T::Archived: CheckBytes<Strategy<DefaultValidator, E>>,
+    T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
     E: Error,
 {
     let mut validator = DefaultValidator::new(bytes);
@@ -150,10 +146,9 @@ where
 ///
 /// [unsafe_version]: crate::access_unchecked
 #[inline]
-pub fn access<T, E>(bytes: &[u8]) -> Result<&T::Archived, E>
+pub fn access<T, E>(bytes: &[u8]) -> Result<&T, E>
 where
-    T: Archive,
-    T::Archived: CheckBytes<Strategy<DefaultValidator, E>>,
+    T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
     E: Error,
 {
     let mut validator = DefaultValidator::new(bytes);
@@ -177,10 +172,9 @@ pub fn access_pos_with_context_mut<'a, T, C, E>(
     bytes: &'a mut [u8],
     pos: usize,
     context: &mut C,
-) -> Result<Pin<&'a mut T::Archived>, E>
+) -> Result<Pin<&'a mut T>, E>
 where
-    T: Archive,
-    T::Archived: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
     E: Error,
 {
@@ -198,16 +192,15 @@ where
 pub fn access_with_context_mut<'a, T, C, E>(
     bytes: &'a mut [u8],
     context: &mut C,
-) -> Result<Pin<&'a mut T::Archived>, E>
+) -> Result<Pin<&'a mut T>, E>
 where
-    T: Archive,
-    T::Archived: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
     E: Error,
 {
     access_pos_with_context_mut::<T, C, E>(
         bytes,
-        bytes.len().saturating_sub(size_of::<T::Archived>()),
+        bytes.len().saturating_sub(size_of::<T>()),
         context,
     )
 }
@@ -220,10 +213,9 @@ where
 pub fn access_pos_mut<T, E>(
     bytes: &mut [u8],
     pos: usize,
-) -> Result<Pin<&mut T::Archived>, E>
+) -> Result<Pin<&mut T>, E>
 where
-    T: Archive,
-    T::Archived: CheckBytes<Strategy<DefaultValidator, E>>,
+    T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
     E: Error,
 {
     let mut validator = DefaultValidator::new(bytes);
@@ -241,10 +233,9 @@ where
 ///
 /// [unsafe_version]: crate::access_unchecked
 #[inline]
-pub fn access_mut<T, E>(bytes: &mut [u8]) -> Result<Pin<&mut T::Archived>, E>
+pub fn access_mut<T, E>(bytes: &mut [u8]) -> Result<Pin<&mut T>, E>
 where
-    T: Archive,
-    T::Archived: CheckBytes<Strategy<DefaultValidator, E>>,
+    T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
     E: Error,
 {
     let mut validator = DefaultValidator::new(bytes);
@@ -283,5 +274,5 @@ where
     E: Error,
 {
     let mut deserializer = Unify::default();
-    deserialize(access::<T, E>(bytes)?, &mut deserializer)
+    deserialize(access::<T::Archived, E>(bytes)?, &mut deserializer)
 }

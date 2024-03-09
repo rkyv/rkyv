@@ -102,7 +102,10 @@ where
 mod tests {
     use std::collections::VecDeque;
 
-    use crate::{access_unchecked, deserialize, ser::Positional as _};
+    use crate::{
+        access_unchecked, deserialize, ser::Positional as _, vec::ArchivedVec,
+        Archived,
+    };
 
     #[test]
     fn vecdeque() {
@@ -145,7 +148,9 @@ mod tests {
                 let end = serializer.pos();
                 let result = serializer.into_writer().into_inner();
                 let archived = unsafe {
-                    access_unchecked::<VecDeque<i32>>(&result[0..end])
+                    access_unchecked::<ArchivedVec<Archived<i32>>>(
+                        &result[0..end],
+                    )
                 };
                 assert!(archived.iter().copied().eq(0..n));
 

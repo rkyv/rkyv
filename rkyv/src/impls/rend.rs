@@ -116,7 +116,8 @@ mod tests {
         let len = serializer.pos();
         let buffer = serializer.into_writer().into_inner();
 
-        let archived_value = unsafe { access_unchecked::<T>(&buffer[0..len]) };
+        let archived_value =
+            unsafe { access_unchecked::<T::Archived>(&buffer[0..len]) };
         assert_eq!(archived_value, value);
         assert_eq!(
             &deserialize::<T, _, Failure>(archived_value, &mut ()).unwrap(),

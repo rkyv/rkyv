@@ -33,7 +33,8 @@ pub mod core {
         let len = serializer.pos();
         let buffer = serializer.writer.inner();
 
-        let archived_value = unsafe { access_unchecked::<T>(&buffer[0..len]) };
+        let archived_value =
+            unsafe { access_unchecked::<T::Archived>(&buffer[0..len]) };
         assert!(cmp(value, archived_value));
 
         let mut deserializer = DefaultDeserializer::default();
@@ -67,7 +68,7 @@ pub mod core {
         let buffer = serializer.writer.inner();
 
         let archived_ref =
-            unsafe { access_unsized_unchecked::<T>(&buffer[0..len]) };
+            unsafe { access_unsized_unchecked::<T::Archived>(&buffer[0..len]) };
         assert_eq!(archived_ref, value);
     }
 }
@@ -101,7 +102,8 @@ pub mod alloc {
         let len = serializer.pos();
         let buffer = &serializer.writer;
 
-        let archived_value = unsafe { access_unchecked::<T>(&buffer[0..len]) };
+        let archived_value =
+            unsafe { access_unchecked::<T::Archived>(&buffer[0..len]) };
         assert!(cmp(value, archived_value));
 
         let mut deserializer = DefaultDeserializer::default();

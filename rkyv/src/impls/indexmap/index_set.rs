@@ -84,7 +84,10 @@ mod tests {
     use indexmap::{indexset, IndexSet};
     use rancor::{Failure, Infallible};
 
-    use crate::{access_unchecked, deserialize};
+    use crate::{
+        access_unchecked, collections::swiss_table::ArchivedIndexSet,
+        deserialize, string::ArchivedString,
+    };
 
     #[test]
     fn index_set() {
@@ -96,8 +99,11 @@ mod tests {
         };
 
         let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
-        let archived =
-            unsafe { access_unchecked::<IndexSet<String>>(result.as_ref()) };
+        let archived = unsafe {
+            access_unchecked::<ArchivedIndexSet<ArchivedString>>(
+                result.as_ref(),
+            )
+        };
 
         assert_eq!(value.len(), archived.len());
         for k in value.iter() {
@@ -124,7 +130,7 @@ mod tests {
         };
 
         let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
-        access::<IndexSet<String>, Failure>(result.as_ref())
+        access::<ArchivedIndexSet<ArchivedString>, Failure>(result.as_ref())
             .expect("failed to validate archived index set");
     }
 }

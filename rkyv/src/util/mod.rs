@@ -31,13 +31,13 @@ use crate::Portable;
 #[cfg(feature = "alloc")]
 use crate::{de::pooling::Unify, ser::AllocSerializer};
 use crate::{
-    ser::Writer, Archive, ArchiveUnsized, Deserialize, RelPtr, Serialize,
+    ser::Writer, Archive, ArchivePointee, Deserialize, RelPtr, Serialize,
     SerializeUnsized,
 };
 
 #[cfg(debug_assertions)]
 #[inline]
-fn check_alignment<T>(ptr: *const u8) {
+fn check_alignment<T: Portable>(ptr: *const u8) {
     let expect_align = core::mem::align_of::<T>();
     let actual_align = (ptr as usize) & (expect_align - 1);
     debug_assert_eq!(
@@ -64,14 +64,14 @@ fn check_alignment<T>(ptr: *const u8) {
 ///
 /// # Safety
 ///
-/// A `T::Archived` must be located at the given position in the byte slice.
+/// A `T` must be located at the given position in the byte slice.
 #[inline]
-pub unsafe fn access_pos_unchecked<T: Archive + ?Sized>(
+pub unsafe fn access_pos_unchecked<T: Portable>(
     bytes: &[u8],
     pos: usize,
-) -> &T::Archived {
+) -> &T {
     #[cfg(debug_assertions)]
-    check_alignment::<T::Archived>(bytes.as_ptr());
+    check_alignment::<T>(bytes.as_ptr());
 
     &*bytes.as_ptr().add(pos).cast()
 }
@@ -84,14 +84,14 @@ pub unsafe fn access_pos_unchecked<T: Archive + ?Sized>(
 ///
 /// # Safety
 ///
-/// A `T::Archived` must be located at the given position in the byte slice.
+/// A `T` must be located at the given position in the byte slice.
 #[inline]
-pub unsafe fn access_pos_unchecked_mut<T: Archive + ?Sized>(
+pub unsafe fn access_pos_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
     pos: usize,
-) -> Pin<&mut T::Archived> {
+) -> Pin<&mut T> {
     #[cfg(debug_assertions)]
-    check_alignment::<T::Archived>(bytes.as_ptr());
+    check_alignment::<T>(bytes.as_ptr());
 
     Pin::new_unchecked(&mut *bytes.as_mut_ptr().add(pos).cast())
 }
@@ -104,17 +104,20 @@ pub unsafe fn access_pos_unchecked_mut<T: Archive + ?Sized>(
 ///
 /// # Safety
 ///
-/// A `RelPtr<T::Archived>` must be located at the given position in the byte
+/// A `RelPtr<T>` must be located at the given position in the byte
 /// slice.
 #[inline]
-pub unsafe fn access_pos_unsized_unchecked<T: ArchiveUnsized + ?Sized>(
+pub unsafe fn access_pos_unsized_unchecked<T: Portable>(
     bytes: &[u8],
     pos: usize,
-) -> &T::Archived {
+) -> &T
+where
+    T: ?Sized + ArchivePointee,
+{
     #[cfg(debug_assertions)]
-    check_alignment::<RelPtr<T::Archived>>(bytes.as_ptr());
+    check_alignment::<RelPtr<T>>(bytes.as_ptr());
 
-    let rel_ptr = &*bytes.as_ptr().add(pos).cast::<RelPtr<T::Archived>>();
+    let rel_ptr = &*bytes.as_ptr().add(pos).cast::<RelPtr<T>>();
     &*rel_ptr.as_ptr()
 }
 
@@ -126,18 +129,20 @@ pub unsafe fn access_pos_unsized_unchecked<T: ArchiveUnsized + ?Sized>(
 ///
 /// # Safety
 ///
-/// A `RelPtr<T::Archived>` must be located at the given position in the byte
+/// A `RelPtr<T>` must be located at the given position in the byte
 /// slice.
 #[inline]
-pub unsafe fn access_pos_unsized_unchecked_mut<T: ArchiveUnsized + ?Sized>(
+pub unsafe fn access_pos_unsized_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
     pos: usize,
-) -> Pin<&mut T::Archived> {
+) -> Pin<&mut T>
+where
+    T: ?Sized + ArchivePointee,
+{
     #[cfg(debug_assertions)]
-    check_alignment::<RelPtr<T::Archived>>(bytes.as_ptr());
+    check_alignment::<RelPtr<T>>(bytes.as_ptr());
 
-    let rel_ptr =
-        &mut *bytes.as_mut_ptr().add(pos).cast::<RelPtr<T::Archived>>();
+    let rel_ptr = &mut *bytes.as_mut_ptr().add(pos).cast::<RelPtr<T>>();
     Pin::new_unchecked(&mut *rel_ptr.as_ptr())
 }
 
@@ -156,14 +161,8 @@ pub unsafe fn access_pos_unsized_unchecked_mut<T: ArchiveUnsized + ?Sized>(
 /// - The root of the object must be stored at the end of the slice (this is the
 ///   default behavior).
 #[inline]
-pub unsafe fn access_unchecked<T>(bytes: &[u8]) -> &T::Archived
-where
-    T: Archive + ?Sized,
-{
-    access_pos_unchecked::<T>(
-        bytes,
-        bytes.len() - mem::size_of::<T::Archived>(),
-    )
+pub unsafe fn access_unchecked<T: Portable>(bytes: &[u8]) -> &T {
+    access_pos_unchecked::<T>(bytes, bytes.len() - mem::size_of::<T>())
 }
 
 /// Accesses a mutable archived value from the given byte slice by calculating
@@ -181,10 +180,10 @@ where
 /// - The root of the object must be stored at the end of the slice (this is the
 ///   default behavior).
 #[inline]
-pub unsafe fn access_unchecked_mut<T: Archive + ?Sized>(
+pub unsafe fn access_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
-) -> Pin<&mut T::Archived> {
-    let pos = bytes.len() - mem::size_of::<T::Archived>();
+) -> Pin<&mut T> {
+    let pos = bytes.len() - mem::size_of::<T>();
     access_pos_unchecked_mut::<T>(bytes, pos)
 }
 
@@ -203,12 +202,13 @@ pub unsafe fn access_unchecked_mut<T: Archive + ?Sized>(
 /// - The root of the object must be stored at the end of the slice (this is the
 ///   default behavior).
 #[inline]
-pub unsafe fn access_unsized_unchecked<T: ArchiveUnsized + ?Sized>(
-    bytes: &[u8],
-) -> &T::Archived {
+pub unsafe fn access_unsized_unchecked<T: Portable>(bytes: &[u8]) -> &T
+where
+    T: ?Sized + ArchivePointee,
+{
     access_pos_unsized_unchecked::<T>(
         bytes,
-        bytes.len() - mem::size_of::<RelPtr<T::Archived>>(),
+        bytes.len() - mem::size_of::<RelPtr<T>>(),
     )
 }
 
@@ -227,10 +227,13 @@ pub unsafe fn access_unsized_unchecked<T: ArchiveUnsized + ?Sized>(
 /// - The root of the object must be stored at the end of the slice (this is the
 ///   default behavior).
 #[inline]
-pub unsafe fn access_unsized_unchecked_mut<T: ArchiveUnsized + ?Sized>(
+pub unsafe fn access_unsized_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
-) -> Pin<&mut T::Archived> {
-    let pos = bytes.len() - mem::size_of::<RelPtr<T::Archived>>();
+) -> Pin<&mut T>
+where
+    T: ?Sized + ArchivePointee,
+{
+    let pos = bytes.len() - mem::size_of::<RelPtr<T>>();
     access_pos_unsized_unchecked_mut::<T>(bytes, pos)
 }
 
@@ -410,7 +413,10 @@ where
     T: Archive,
     T::Archived: Deserialize<T, Strategy<Unify, E>>,
 {
-    deserialize(access_unchecked::<T>(bytes), &mut Unify::default())
+    deserialize(
+        access_unchecked::<T::Archived>(bytes),
+        &mut Unify::default(),
+    )
 }
 
 /// TODO: document

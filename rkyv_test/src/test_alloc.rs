@@ -167,12 +167,13 @@ mod tests {
             let bytes = serializer.into_writer();
 
             // You can use the safe API for fast zero-copy deserialization
-            let archived = rkyv::access::<Test, Failure>(&bytes[..]).unwrap();
+            let archived =
+                rkyv::access::<ArchivedTest, Failure>(&bytes[..]).unwrap();
             assert_eq!(archived, &value);
 
             // Or you can use the unsafe API for maximum performance
             let archived =
-                unsafe { rkyv::access_unchecked::<Test>(&bytes[..]) };
+                unsafe { rkyv::access_unchecked::<ArchivedTest>(&bytes[..]) };
             assert_eq!(archived, &value);
 
             // And you can always deserialize back to the original type
@@ -502,7 +503,8 @@ mod tests {
 
         let buf =
             to_bytes::<_, 0, Failure>(&value).expect("failed to archive value");
-        let archived_value = unsafe { access_unchecked::<Test>(buf.as_ref()) };
+        let archived_value =
+            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
 
         assert_eq!(archived_value, &archived_value.clone());
     }
@@ -545,7 +547,8 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn basic_mutable_refs() {
         let mut buf = to_bytes::<_, 0, Failure>(&42i32).unwrap();
-        let mut value = unsafe { access_unchecked_mut::<i32>(buf.as_mut()) };
+        let mut value =
+            unsafe { access_unchecked_mut::<Archived<i32>>(buf.as_mut()) };
         assert_eq!(*value, 42);
         *value = 11.into();
         assert_eq!(*value, 11);
@@ -576,7 +579,8 @@ mod tests {
         };
 
         let mut buf = to_bytes::<_, 256, Failure>(&value).unwrap();
-        let mut value = unsafe { access_unchecked_mut::<Test>(buf.as_mut()) };
+        let mut value =
+            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
 
         assert_eq!(*value.a, 10);
         assert_eq!(value.b.len(), 2);
@@ -616,7 +620,8 @@ mod tests {
         let value = Test::A;
 
         let mut buf = to_bytes::<_, 0, Failure>(&value).unwrap();
-        let mut value = unsafe { access_unchecked_mut::<Test>(buf.as_mut()) };
+        let mut value =
+            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
 
         if let Archived::<Test>::A = *value {
             ()
@@ -814,28 +819,31 @@ mod tests {
 
         let mut buf = to_bytes::<_, 256, Failure>(&value).unwrap();
 
-        let archived = unsafe { access_unchecked::<Test>(buf.as_ref()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
         assert_eq!(archived, &value);
 
         let mut mutable_archived =
-            unsafe { access_unchecked_mut::<Test>(buf.as_mut()) };
+            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
         unsafe {
             *mutable_archived.as_mut().a().get_pin_mut_unchecked() =
                 42u32.into();
         }
 
-        let archived = unsafe { access_unchecked::<Test>(buf.as_ref()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
         assert_eq!(*archived.a, 42);
         assert_eq!(*archived.b, 42);
 
         let mut mutable_archived =
-            unsafe { access_unchecked_mut::<Test>(buf.as_mut()) };
+            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
         unsafe {
             *mutable_archived.as_mut().b().get_pin_mut_unchecked() =
                 17u32.into();
         }
 
-        let archived = unsafe { access_unchecked::<Test>(buf.as_ref()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
         assert_eq!(*archived.a, 17);
         assert_eq!(*archived.b, 17);
 
@@ -944,25 +952,27 @@ mod tests {
         .unwrap();
         let mut buf = serializer.into_writer();
 
-        let archived = unsafe { access_unchecked::<Test>(buf.as_ref()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
         assert_eq!(*archived.a, 10);
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 10);
 
         let mut mutable_archived =
-            unsafe { access_unchecked_mut::<Test>(buf.as_mut()) };
+            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
         unsafe {
             *mutable_archived.as_mut().a().get_pin_mut_unchecked() =
                 42u32.into();
         }
 
-        let archived = unsafe { access_unchecked::<Test>(buf.as_ref()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
         assert_eq!(*archived.a, 42);
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 42);
 
         let mut mutable_archived =
-            unsafe { access_unchecked_mut::<Test>(buf.as_mut()) };
+            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
         unsafe {
             *mutable_archived
                 .as_mut()
@@ -972,7 +982,8 @@ mod tests {
                 .get_pin_mut_unchecked() = 17u32.into();
         }
 
-        let archived = unsafe { access_unchecked::<Test>(buf.as_ref()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
         assert_eq!(*archived.a, 17);
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 17);
@@ -1438,7 +1449,7 @@ mod tests {
                 serialize_into::<_, _, Failure>(&value, AlignedVec::new())
                     .unwrap();
             let archived =
-                unsafe { access_unchecked::<Test>(result.as_slice()) };
+                unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
             assert_eq!(archived.value, "10");
             assert_eq!(archived.other, 10);
@@ -1460,7 +1471,7 @@ mod tests {
                 serialize_into::<_, _, Failure>(&value, AlignedVec::new())
                     .unwrap();
             let archived =
-                unsafe { access_unchecked::<Test>(result.as_slice()) };
+                unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
             assert_eq!(archived.0, "10");
             assert_eq!(archived.1, 10);
@@ -1492,7 +1503,7 @@ mod tests {
                 serialize_into::<_, _, Failure>(&value, AlignedVec::new())
                     .unwrap();
             let archived =
-                unsafe { access_unchecked::<Test>(result.as_slice()) };
+                unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
             if let ArchivedTest::A { value, other } = archived {
                 assert_eq!(*value, "10");
@@ -1515,7 +1526,7 @@ mod tests {
                 serialize_into::<_, _, Failure>(&value, AlignedVec::new())
                     .unwrap();
             let archived =
-                unsafe { access_unchecked::<Test>(result.as_slice()) };
+                unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
             if let ArchivedTest::B(value, other) = archived {
                 assert_eq!(*value, "10");
@@ -1588,8 +1599,9 @@ mod tests {
             serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
         // NOTE: with(Atomic) is only sound if the backing memory is mutable,
         // use with caution!
-        let archived =
-            unsafe { access_unchecked_mut::<Test>(result.as_mut_slice()) };
+        let archived = unsafe {
+            access_unchecked_mut::<ArchivedTest>(result.as_mut_slice())
+        };
 
         assert_eq!(archived.value.load(Ordering::Relaxed), 42);
     }
@@ -1609,7 +1621,8 @@ mod tests {
         let value = Test { value: &a };
         let result =
             serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
-        let archived = unsafe { access_unchecked::<Test>(result.as_slice()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
         assert_eq!(archived.value, 42);
     }
@@ -1628,7 +1641,8 @@ mod tests {
         let value = Test { value: 42 };
         let result =
             serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
-        let archived = unsafe { access_unchecked::<Test>(result.as_slice()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
         assert_eq!(archived.value.get(), &42);
     }
@@ -1648,7 +1662,8 @@ mod tests {
         let value = Test { value: &a };
         let result =
             serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
-        let archived = unsafe { access_unchecked::<Test>(result.as_slice()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
         assert_eq!(archived.value.as_ref(), "hello world");
     }
@@ -1679,7 +1694,8 @@ mod tests {
         )
         .unwrap()
         .into_writer();
-        let archived = unsafe { access_unchecked::<Test>(result.as_slice()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
         assert_eq!(archived.a, 100);
         assert_eq!(archived.b, [1, 2, 3, 4, 5, 6]);
@@ -1727,7 +1743,8 @@ mod tests {
         )
         .unwrap()
         .into_writer();
-        let archived = unsafe { access_unchecked::<Test>(result.as_slice()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
         assert_eq!(archived.a.len(), 3);
         assert!(archived
@@ -1792,7 +1809,8 @@ mod tests {
         )
         .unwrap()
         .into_writer();
-        let archived = unsafe { access_unchecked::<Test>(result.as_slice()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
         assert!(archived.inner.is_some());
         assert_eq!(&**archived.inner.as_ref().unwrap(), "hello world");
@@ -1805,7 +1823,8 @@ mod tests {
         )
         .unwrap()
         .into_writer();
-        let archived = unsafe { access_unchecked::<Test>(result.as_slice()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
         assert!(archived.inner.is_none());
         assert_eq!(archived.inner, value.inner);
@@ -1868,7 +1887,8 @@ mod tests {
         )
         .unwrap()
         .into_writer();
-        let archived = unsafe { access_unchecked::<Test>(result.as_slice()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
         assert!(archived.a.is_some());
         assert_eq!(archived.a.as_ref().unwrap().get(), 10);
@@ -1897,7 +1917,8 @@ mod tests {
         )
         .unwrap()
         .into_writer();
-        let archived = unsafe { access_unchecked::<Test>(result.as_slice()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
         assert!(archived.a.is_none());
         assert!(archived.b.is_none());
@@ -1934,7 +1955,8 @@ mod tests {
         )
         .unwrap()
         .into_writer();
-        let archived = unsafe { access_unchecked::<Test>(result.as_slice()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
         assert_eq!(archived.bytes, value.bytes);
 
@@ -1964,7 +1986,8 @@ mod tests {
         )
         .unwrap()
         .into_writer();
-        let archived = unsafe { access_unchecked::<Test>(result.as_slice()) };
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
         assert_eq!(&*archived.bytes, value.bytes);
     }
@@ -2013,8 +2036,9 @@ mod tests {
         )
         .unwrap()
         .into_writer();
-        let archived =
-            unsafe { access_unchecked_mut::<Test>(result.as_mut_slice()) };
+        let archived = unsafe {
+            access_unchecked_mut::<ArchivedTest>(result.as_mut_slice())
+        };
 
         unsafe {
             assert_eq!(*archived.inner.get(), 100);
@@ -2060,7 +2084,9 @@ mod tests {
         let result =
             serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
         let archived = unsafe {
-            access_unchecked::<BTreeMap<String, i32>>(result.as_slice())
+            access_unchecked::<Archived<BTreeMap<String, i32>>>(
+                result.as_slice(),
+            )
         };
 
         assert_eq!(archived.len(), 4);
@@ -2087,10 +2113,13 @@ mod tests {
         let result =
             serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
         let archived = unsafe {
-            access_unchecked::<BTreeMap<String, i32>>(result.as_slice())
+            access_unchecked::<Archived<BTreeMap<String, i32>>>(
+                result.as_slice(),
+            )
         };
 
         assert_eq!(archived.len(), 0);
+        #[allow(clippy::never_loop)]
         for _ in archived.iter() {
             panic!("there should be no values in the archived empty btree");
         }
@@ -2113,8 +2142,9 @@ mod tests {
 
         let result =
             serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
-        let archived =
-            unsafe { access_unchecked::<BTreeSet<String>>(result.as_slice()) };
+        let archived = unsafe {
+            access_unchecked::<Archived<BTreeSet<String>>>(result.as_slice())
+        };
 
         assert_eq!(archived.len(), 4);
         for k in value.iter() {
@@ -2146,7 +2176,9 @@ mod tests {
         let result =
             serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
         let archived = unsafe {
-            access_unchecked::<BTreeMap<String, i32>>(result.as_slice())
+            access_unchecked::<Archived<BTreeMap<String, i32>>>(
+                result.as_slice(),
+            )
         };
 
         assert_eq!(archived.len(), 100_000);
@@ -2279,7 +2311,9 @@ mod tests {
                 .unwrap()
                 .into_writer();
         let archived = unsafe {
-            access_unchecked::<ManuallyDrop<Vec<String>>>(result.as_slice())
+            access_unchecked::<Archived<ManuallyDrop<Vec<String>>>>(
+                result.as_slice(),
+            )
         };
 
         assert_eq!(archived.len(), vec.len());

@@ -96,7 +96,10 @@ mod tests {
     use indexmap::{indexmap, IndexMap};
     use rancor::{Failure, Infallible};
 
-    use crate::{access_unchecked, deserialize};
+    use crate::{
+        access_unchecked, collections::swiss_table::ArchivedIndexMap,
+        deserialize, string::ArchivedString, Archived,
+    };
 
     #[test]
     fn index_map() {
@@ -109,7 +112,9 @@ mod tests {
 
         let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
         let archived = unsafe {
-            access_unchecked::<IndexMap<String, i32>>(result.as_ref())
+            access_unchecked::<ArchivedIndexMap<ArchivedString, Archived<i32>>>(
+                result.as_ref(),
+            )
         };
 
         assert_eq!(value.len(), archived.len());
@@ -142,7 +147,9 @@ mod tests {
         };
 
         let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
-        access::<IndexMap<String, i32>, Failure>(result.as_ref())
-            .expect("failed to validate archived index map");
+        access::<ArchivedIndexMap<ArchivedString, Archived<i32>>, Failure>(
+            result.as_ref(),
+        )
+        .expect("failed to validate archived index map");
     }
 }

@@ -123,7 +123,10 @@ mod tests {
     use hashbrown::HashMap;
     use rancor::Failure;
 
-    use crate::{access, access_unchecked, deserialize, to_bytes};
+    use crate::{
+        access, access_unchecked, collections::swiss_table::ArchivedHashMap,
+        deserialize, string::ArchivedString, to_bytes, Archived,
+    };
 
     #[test]
     fn index_map() {
@@ -135,7 +138,9 @@ mod tests {
 
         let result = to_bytes::<_, 256, Failure>(&value).unwrap();
         let archived = unsafe {
-            access_unchecked::<HashMap<String, i32>>(result.as_ref())
+            access_unchecked::<ArchivedHashMap<ArchivedString, Archived<i32>>>(
+                result.as_ref(),
+            )
         };
 
         assert_eq!(value.len(), archived.len());
@@ -161,7 +166,10 @@ mod tests {
         value.insert(String::from("bat"), 80);
 
         let bytes = to_bytes::<_, 256, Failure>(&value).unwrap();
-        access::<HashMap<String, i32>, crate::rancor::Panic>(bytes.as_ref())
-            .expect("failed to validate archived index map");
+        access::<
+            ArchivedHashMap<ArchivedString, Archived<i32>>,
+            crate::rancor::Panic,
+        >(bytes.as_ref())
+        .expect("failed to validate archived index map");
     }
 }
