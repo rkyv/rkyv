@@ -67,7 +67,7 @@ macro_rules! impl_offset_single_byte {
 
             #[inline]
             fn to_isize(self) -> isize {
-                // We're guaranteed that our offset will not exceed the the
+                // We're guaranteed that our offset will not exceed the
                 // capacity of an `isize`
                 self as isize
             }
@@ -94,7 +94,7 @@ macro_rules! impl_offset_multi_byte {
 
             #[inline]
             fn to_isize(self) -> isize {
-                // We're guaranteed that our offset will not exceed the the
+                // We're guaranteed that our offset will not exceed the
                 // capacity of an `isize`.
                 self.to_native() as isize
             }
