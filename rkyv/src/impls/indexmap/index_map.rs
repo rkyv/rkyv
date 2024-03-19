@@ -93,22 +93,24 @@ mod tests {
     #[cfg(not(feature = "std"))]
     use alloc::string::String;
 
-    use indexmap::{indexmap, IndexMap};
+    use core::hash::BuildHasherDefault;
+
+    use indexmap::IndexMap;
     use rancor::{Failure, Infallible};
 
     use crate::{
-        access_unchecked, collections::swiss_table::ArchivedIndexMap,
-        deserialize, string::ArchivedString, Archived,
+        access_unchecked, collections::swiss_table::ArchivedIndexMap, deserialize, hash::FxHasher64, string::ArchivedString, Archived
     };
 
     #[test]
     fn index_map() {
-        let value = indexmap! {
-            String::from("foo") => 10,
-            String::from("bar") => 20,
-            String::from("baz") => 40,
-            String::from("bat") => 80,
-        };
+        let mut value = IndexMap::with_hasher(
+            BuildHasherDefault::<FxHasher64>::default(),
+        );
+        value.insert(String::from("foo"), 10);
+        value.insert(String::from("bar"), 20);
+        value.insert(String::from("baz"), 40);
+        value.insert(String::from("bat"), 80);
 
         let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
         let archived = unsafe {
@@ -124,7 +126,7 @@ mod tests {
             assert_eq!(v, av);
         }
 
-        let deserialized = deserialize::<IndexMap<String, i32>, _, Infallible>(
+        let deserialized = deserialize::<IndexMap<String, i32, BuildHasherDefault<FxHasher64>>, _, Infallible>(
             archived,
             &mut (),
         )
@@ -139,12 +141,13 @@ mod tests {
 
         use crate::access;
 
-        let value = indexmap! {
-            String::from("foo") => 10,
-            String::from("bar") => 20,
-            String::from("baz") => 40,
-            String::from("bat") => 80,
-        };
+        let mut value = IndexMap::with_hasher(
+            BuildHasherDefault::<FxHasher64>::default(),
+        );
+        value.insert(String::from("foo"), 10);
+        value.insert(String::from("bar"), 20);
+        value.insert(String::from("baz"), 40);
+        value.insert(String::from("bat"), 80);
 
         let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
         access::<ArchivedIndexMap<ArchivedString, Archived<i32>>, Failure>(

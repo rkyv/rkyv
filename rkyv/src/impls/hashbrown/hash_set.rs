@@ -107,7 +107,7 @@ mod tests {
     use rancor::Failure;
 
     use crate::{
-        access, access_unchecked, collections::swiss_table::ArchivedHashSet,
+        access_unchecked, collections::swiss_table::ArchivedHashSet,
         deserialize, string::ArchivedString, to_bytes,
     };
 
@@ -139,6 +139,8 @@ mod tests {
     #[cfg(feature = "bytecheck")]
     #[test]
     fn validate_index_set() {
+        use crate::access;
+
         let mut value = HashSet::new();
         value.insert(String::from("foo"));
         value.insert(String::from("bar"));

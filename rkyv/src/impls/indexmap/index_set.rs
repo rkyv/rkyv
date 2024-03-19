@@ -81,22 +81,25 @@ mod tests {
     #[cfg(not(feature = "std"))]
     use alloc::string::String;
 
-    use indexmap::{indexset, IndexSet};
+    use core::hash::BuildHasherDefault;
+
+    use indexmap::IndexSet;
     use rancor::{Failure, Infallible};
 
     use crate::{
         access_unchecked, collections::swiss_table::ArchivedIndexSet,
-        deserialize, string::ArchivedString,
+        deserialize, string::ArchivedString, hash::FxHasher64,
     };
 
     #[test]
     fn index_set() {
-        let value = indexset! {
-            String::from("foo"),
-            String::from("bar"),
-            String::from("baz"),
-            String::from("bat"),
-        };
+        let mut value = IndexSet::with_hasher(
+            BuildHasherDefault::<FxHasher64>::default(),
+        );
+        value.insert(String::from("foo"));
+        value.insert(String::from("bar"));
+        value.insert(String::from("baz"));
+        value.insert(String::from("bat"));
 
         let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
         let archived = unsafe {
@@ -112,7 +115,7 @@ mod tests {
         }
 
         let deserialized =
-            deserialize::<IndexSet<String>, _, Infallible>(archived, &mut ())
+            deserialize::<IndexSet<String, BuildHasherDefault<FxHasher64>>, _, Infallible>(archived, &mut ())
                 .unwrap();
         assert_eq!(value, deserialized);
     }
@@ -122,12 +125,13 @@ mod tests {
     fn validate_index_set() {
         use crate::access;
 
-        let value = indexset! {
-            String::from("foo"),
-            String::from("bar"),
-            String::from("baz"),
-            String::from("bat"),
-        };
+        let mut value = IndexSet::with_hasher(
+            BuildHasherDefault::<FxHasher64>::default(),
+        );
+        value.insert(String::from("foo"));
+        value.insert(String::from("bar"));
+        value.insert(String::from("baz"));
+        value.insert(String::from("bat"));
 
         let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
         access::<ArchivedIndexSet<ArchivedString>, Failure>(result.as_ref())

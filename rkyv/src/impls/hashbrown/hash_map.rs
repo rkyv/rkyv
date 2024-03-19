@@ -124,7 +124,7 @@ mod tests {
     use rancor::Failure;
 
     use crate::{
-        access, access_unchecked, collections::swiss_table::ArchivedHashMap,
+        access_unchecked, collections::swiss_table::ArchivedHashMap,
         deserialize, string::ArchivedString, to_bytes, Archived,
     };
 
@@ -159,6 +159,8 @@ mod tests {
     #[cfg(feature = "bytecheck")]
     #[test]
     fn validate_index_map() {
+        use crate::access;
+
         let mut value = HashMap::new();
         value.insert(String::from("foo"), 10);
         value.insert(String::from("bar"), 20);
