@@ -10,6 +10,8 @@ use core::marker::PhantomData;
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
+    rc::Rc,
+    sync::Arc,
 };
 
 use rancor::Fallible;
@@ -22,7 +24,7 @@ use crate::{
     string::{ArchivedString, StringResolver},
     vec::{ArchivedVec, VecResolver},
     with::{
-        ArchiveWith, AsOwned, AsVec, BoxedInline, CopyOptimize,
+        ArchiveWith, AsOwned, AsVec, BoxedInline, Cloned, CopyOptimize,
         DeserializeWith, Map, Niche, SerializeWith, With,
     },
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
@@ -693,3 +695,69 @@ where
 //         Ok(result)
 //     }
 // }
+
+// Cloned
+
+impl<T: Archive> ArchiveWith<Arc<T>> for Cloned {
+    type Archived = T::Archived;
+    type Resolver = T::Resolver;
+
+    unsafe fn resolve_with(
+        x: &Arc<T>,
+        pos: usize,
+        resolver: Self::Resolver,
+        archived: *mut Self::Archived,
+    ) {
+        x.as_ref().resolve(pos, resolver, archived)
+    }
+}
+
+impl<T: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Arc<T>, S>
+    for Cloned
+{
+    fn serialize_with(
+        x: &Arc<T>,
+        s: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        x.as_ref().serialize(s)
+    }
+}
+
+impl<A: Deserialize<T, D>, T, D: Fallible + ?Sized>
+    DeserializeWith<A, Arc<T>, D> for Cloned
+{
+    fn deserialize_with(x: &A, d: &mut D) -> Result<Arc<T>, D::Error> {
+        Ok(Arc::new(A::deserialize(x, d)?))
+    }
+}
+
+impl<T: Archive> ArchiveWith<Rc<T>> for Cloned {
+    type Archived = T::Archived;
+    type Resolver = T::Resolver;
+
+    unsafe fn resolve_with(
+        x: &Rc<T>,
+        pos: usize,
+        resolver: Self::Resolver,
+        archived: *mut Self::Archived,
+    ) {
+        x.as_ref().resolve(pos, resolver, archived)
+    }
+}
+
+impl<T: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Rc<T>, S> for Cloned {
+    fn serialize_with(
+        x: &Rc<T>,
+        s: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        x.as_ref().serialize(s)
+    }
+}
+
+impl<A: Deserialize<T, D>, T, D: Fallible + ?Sized> DeserializeWith<A, Rc<T>, D>
+    for Cloned
+{
+    fn deserialize_with(x: &A, d: &mut D) -> Result<Rc<T>, D::Error> {
+        Ok(Rc::new(A::deserialize(x, d)?))
+    }
+}

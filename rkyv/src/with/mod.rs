@@ -742,3 +742,7 @@ pub struct Unsafe;
 /// ```
 #[derive(Debug)]
 pub struct Skip;
+
+/// A wrapper that clones the contents of `Arc` and `Rc` pointers.
+#[derive(Debug)]
+pub struct Cloned;
