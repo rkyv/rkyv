@@ -319,8 +319,30 @@ impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
     }
 }
 
+impl<'a, T> IntoIterator for &'a ArchivedOption<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a mut ArchivedOption<T> {
+    type Item = &'a mut T;
+    type IntoIter = IterMut<'a, T>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_mut()
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     #[cfg(feature = "extra_traits")]
     fn partial_ord_option() {
@@ -342,5 +364,17 @@ mod tests {
         let b = Some(1);
         assert_eq!(Some(Ordering::Greater), a.partial_cmp(&b));
         assert_eq!(Some(Ordering::Less), b.partial_cmp(&a));
+    }
+
+    #[test]
+    fn into_iter() {
+        let x: ArchivedOption<u8> = ArchivedOption::Some(1);
+        let mut iter = IntoIterator::into_iter(&x);
+        assert_eq!(iter.next(), Some(&1));
+        assert_eq!(iter.next(), None);
+
+        let x: ArchivedOption<u8> = ArchivedOption::None;
+        let mut iter = IntoIterator::into_iter(&x);
+        assert_eq!(iter.next(), None);
     }
 }
