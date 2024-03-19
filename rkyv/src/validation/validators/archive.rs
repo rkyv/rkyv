@@ -44,11 +44,13 @@ pub enum ArchiveError {
 
 impl fmt::Display for ArchiveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const W: usize = (usize::BITS / 4 + 2) as usize;
+
         match self {
             ArchiveError::Unaligned { address, align } => write!(
                 f,
-                "unaligned pointer: ptr {:p} unaligned for alignment {}",
-                address, align
+                "unaligned pointer: ptr {address:#0w$x} unaligned for alignment {align}",
+                w = W,
             ),
             ArchiveError::InvalidSubtreePointer {
                 address,
@@ -56,8 +58,8 @@ impl fmt::Display for ArchiveError {
                 subtree_range,
             } => write!(
                 f,
-                "subtree pointer overran range: ptr {:#x} size {} in range {:#x}..{:#x}",
-                address, size, subtree_range.start, subtree_range.end
+                "subtree pointer overran range: ptr {address:#0w$x} size {size} in range {:#0w$x}..{:#0w$x}",
+                subtree_range.start, subtree_range.end, w = W,
             ),
             ArchiveError::RangePoppedTooManyTimes => write!(
                 f,

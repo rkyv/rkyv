@@ -83,6 +83,8 @@ enum GlobalAllocatorError {
 
 impl fmt::Display for GlobalAllocatorError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const W: usize = (usize::BITS / 4 + 2) as usize;
+
         match self {
             Self::ExceededLimit { requested, remaining } => write!(
                 f,
@@ -96,8 +98,8 @@ impl fmt::Display for GlobalAllocatorError {
                 actual_layout,
             } => write!(
                 f,
-                "scratch space was not popped in reverse order: expected {:p} with size {} and align {}, found {:p} with size {} and align {}",
-                expected, expected_layout.size(), expected_layout.align(), actual, actual_layout.size(), actual_layout.align()
+                "scratch space was not popped in reverse order: expected {expected:#0w$x} with size {} and align {}, found {actual:#0w$x} with size {} and align {}",
+                expected_layout.size(), expected_layout.align(), actual_layout.size(), actual_layout.align(), w = W,
             ),
             Self::NoAllocationsToPop => write!(
                 f, "attempted to pop scratch space but there were no allocations to pop"
