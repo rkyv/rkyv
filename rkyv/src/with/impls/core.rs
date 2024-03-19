@@ -1,6 +1,5 @@
 use core::{
     cell::{Cell, UnsafeCell},
-    convert::TryInto,
     hint::unreachable_unchecked,
     num::{NonZeroIsize, NonZeroUsize},
     ptr,

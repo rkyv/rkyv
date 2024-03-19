@@ -2,7 +2,6 @@
 
 use core::{
     cmp, hash,
-    iter::DoubleEndedIterator,
     mem,
     ops::{Deref, DerefMut},
     pin::Pin,

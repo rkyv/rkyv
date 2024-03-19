@@ -16,7 +16,6 @@ use crate::{
         index_map::Keys, ArchivedIndexMap, IndexMapResolver,
     },
     hash::FxHasher64,
-    out_field,
     ser::{Allocator, Writer},
     Portable, Serialize,
 };

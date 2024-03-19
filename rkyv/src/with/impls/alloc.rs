@@ -9,7 +9,6 @@ use core::marker::PhantomData;
 #[cfg(feature = "std")]
 use std::{
     borrow::Cow,
-    boxed::Box,
     collections::{BTreeMap, BTreeSet},
 };
 

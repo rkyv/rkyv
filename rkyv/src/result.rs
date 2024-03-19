@@ -1,7 +1,7 @@
 //! An archived version of `Result`.
 
 use core::{
-    cmp::{Ord, Ordering, PartialOrd},
+    cmp::Ordering,
     hash, mem,
     ops::{Deref, DerefMut},
 };
