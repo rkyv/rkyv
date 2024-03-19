@@ -3,6 +3,8 @@ use alloc::{
     borrow::Cow,
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
+    rc::Rc,
+    sync::Arc,
     vec::Vec,
 };
 use core::marker::PhantomData;

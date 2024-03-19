@@ -1,12 +1,6 @@
 //! A niched archived `Option<Box<T>>` that uses less space.
 
-use core::{
-    cmp,
-    fmt, hash,
-    hint::unreachable_unchecked,
-    ops::Deref,
-    pin::Pin,
-};
+use core::{cmp, fmt, hash, hint::unreachable_unchecked, ops::Deref, pin::Pin};
 
 use rancor::Fallible;
 

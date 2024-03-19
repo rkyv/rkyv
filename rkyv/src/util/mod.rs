@@ -107,12 +107,9 @@ pub unsafe fn access_pos_unchecked_mut<T: Portable>(
 /// A `RelPtr<T>` must be located at the given position in the byte
 /// slice.
 #[inline]
-pub unsafe fn access_pos_unsized_unchecked<T: Portable>(
-    bytes: &[u8],
-    pos: usize,
-) -> &T
+pub unsafe fn access_pos_unsized_unchecked<T>(bytes: &[u8], pos: usize) -> &T
 where
-    T: ?Sized + ArchivePointee,
+    T: ?Sized + ArchivePointee + Portable,
 {
     #[cfg(debug_assertions)]
     check_alignment::<RelPtr<T>>(bytes.as_ptr());
@@ -132,12 +129,12 @@ where
 /// A `RelPtr<T>` must be located at the given position in the byte
 /// slice.
 #[inline]
-pub unsafe fn access_pos_unsized_unchecked_mut<T: Portable>(
+pub unsafe fn access_pos_unsized_unchecked_mut<T>(
     bytes: &mut [u8],
     pos: usize,
 ) -> Pin<&mut T>
 where
-    T: ?Sized + ArchivePointee,
+    T: ?Sized + ArchivePointee + Portable,
 {
     #[cfg(debug_assertions)]
     check_alignment::<RelPtr<T>>(bytes.as_ptr());
@@ -202,9 +199,9 @@ pub unsafe fn access_unchecked_mut<T: Portable>(
 /// - The root of the object must be stored at the end of the slice (this is the
 ///   default behavior).
 #[inline]
-pub unsafe fn access_unsized_unchecked<T: Portable>(bytes: &[u8]) -> &T
+pub unsafe fn access_unsized_unchecked<T>(bytes: &[u8]) -> &T
 where
-    T: ?Sized + ArchivePointee,
+    T: ?Sized + ArchivePointee + Portable,
 {
     access_pos_unsized_unchecked::<T>(
         bytes,
@@ -227,11 +224,9 @@ where
 /// - The root of the object must be stored at the end of the slice (this is the
 ///   default behavior).
 #[inline]
-pub unsafe fn access_unsized_unchecked_mut<T: Portable>(
-    bytes: &mut [u8],
-) -> Pin<&mut T>
+pub unsafe fn access_unsized_unchecked_mut<T>(bytes: &mut [u8]) -> Pin<&mut T>
 where
-    T: ?Sized + ArchivePointee,
+    T: ?Sized + ArchivePointee + Portable,
 {
     let pos = bytes.len() - mem::size_of::<RelPtr<T>>();
     access_pos_unsized_unchecked_mut::<T>(bytes, pos)

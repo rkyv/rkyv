@@ -80,7 +80,6 @@ impl<UK, K: PartialEq<UK>, S: BuildHasher> PartialEq<IndexSet<UK, S>>
 mod tests {
     #[cfg(not(feature = "std"))]
     use alloc::string::String;
-
     use core::hash::BuildHasherDefault;
 
     use indexmap::IndexSet;
@@ -88,14 +87,13 @@ mod tests {
 
     use crate::{
         access_unchecked, collections::swiss_table::ArchivedIndexSet,
-        deserialize, string::ArchivedString, hash::FxHasher64,
+        deserialize, hash::FxHasher64, string::ArchivedString,
     };
 
     #[test]
     fn index_set() {
-        let mut value = IndexSet::with_hasher(
-            BuildHasherDefault::<FxHasher64>::default(),
-        );
+        let mut value =
+            IndexSet::with_hasher(BuildHasherDefault::<FxHasher64>::default());
         value.insert(String::from("foo"));
         value.insert(String::from("bar"));
         value.insert(String::from("baz"));
@@ -114,9 +112,12 @@ mod tests {
             assert_eq!(k, ak);
         }
 
-        let deserialized =
-            deserialize::<IndexSet<String, BuildHasherDefault<FxHasher64>>, _, Infallible>(archived, &mut ())
-                .unwrap();
+        let deserialized = deserialize::<
+            IndexSet<String, BuildHasherDefault<FxHasher64>>,
+            _,
+            Infallible,
+        >(archived, &mut ())
+        .unwrap();
         assert_eq!(value, deserialized);
     }
 
@@ -125,9 +126,8 @@ mod tests {
     fn validate_index_set() {
         use crate::access;
 
-        let mut value = IndexSet::with_hasher(
-            BuildHasherDefault::<FxHasher64>::default(),
-        );
+        let mut value =
+            IndexSet::with_hasher(BuildHasherDefault::<FxHasher64>::default());
         value.insert(String::from("foo"));
         value.insert(String::from("bar"));
         value.insert(String::from("baz"));

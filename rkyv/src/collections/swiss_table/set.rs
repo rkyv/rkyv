@@ -47,20 +47,20 @@ impl<K, H> ArchivedHashSet<K, H> {
 impl<K, H: Hasher + Default> ArchivedHashSet<K, H> {
     /// Gets the key corresponding to the given key in the hash set.
     #[inline]
-    pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&K>
+    pub fn get<Q>(&self, k: &Q) -> Option<&K>
     where
         K: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: Hash + Eq + ?Sized,
     {
         self.inner.get_key_value(k).map(|(k, _)| k)
     }
 
     /// Returns whether the given key is in the hash set.
     #[inline]
-    pub fn contains<Q: ?Sized>(&self, k: &Q) -> bool
+    pub fn contains<Q>(&self, k: &Q) -> bool
     where
         K: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: Hash + Eq + ?Sized,
     {
         self.inner.contains_key(k)
     }

@@ -92,21 +92,20 @@ where
 mod tests {
     #[cfg(not(feature = "std"))]
     use alloc::string::String;
-
     use core::hash::BuildHasherDefault;
 
     use indexmap::IndexMap;
     use rancor::{Failure, Infallible};
 
     use crate::{
-        access_unchecked, collections::swiss_table::ArchivedIndexMap, deserialize, hash::FxHasher64, string::ArchivedString, Archived
+        access_unchecked, collections::swiss_table::ArchivedIndexMap,
+        deserialize, hash::FxHasher64, string::ArchivedString, Archived,
     };
 
     #[test]
     fn index_map() {
-        let mut value = IndexMap::with_hasher(
-            BuildHasherDefault::<FxHasher64>::default(),
-        );
+        let mut value =
+            IndexMap::with_hasher(BuildHasherDefault::<FxHasher64>::default());
         value.insert(String::from("foo"), 10);
         value.insert(String::from("bar"), 20);
         value.insert(String::from("baz"), 40);
@@ -126,10 +125,11 @@ mod tests {
             assert_eq!(v, av);
         }
 
-        let deserialized = deserialize::<IndexMap<String, i32, BuildHasherDefault<FxHasher64>>, _, Infallible>(
-            archived,
-            &mut (),
-        )
+        let deserialized = deserialize::<
+            IndexMap<String, i32, BuildHasherDefault<FxHasher64>>,
+            _,
+            Infallible,
+        >(archived, &mut ())
         .unwrap();
         assert_eq!(value, deserialized);
     }
@@ -141,9 +141,8 @@ mod tests {
 
         use crate::access;
 
-        let mut value = IndexMap::with_hasher(
-            BuildHasherDefault::<FxHasher64>::default(),
-        );
+        let mut value =
+            IndexMap::with_hasher(BuildHasherDefault::<FxHasher64>::default());
         value.insert(String::from("foo"), 10);
         value.insert(String::from("bar"), 20);
         value.insert(String::from("baz"), 40);

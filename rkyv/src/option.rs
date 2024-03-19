@@ -1,8 +1,7 @@
 //! An archived version of `Option`.
 
 use core::{
-    cmp, hash,
-    mem,
+    cmp, hash, mem,
     ops::{Deref, DerefMut},
     pin::Pin,
 };

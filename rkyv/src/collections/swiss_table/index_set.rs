@@ -52,30 +52,30 @@ impl<K, H> ArchivedIndexSet<K, H> {
 impl<K, H: Default + Hasher> ArchivedIndexSet<K, H> {
     /// Returns whether a key is present in the hash set.
     #[inline]
-    pub fn contains<Q: ?Sized>(&self, k: &Q) -> bool
+    pub fn contains<Q>(&self, k: &Q) -> bool
     where
         K: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: Hash + Eq + ?Sized,
     {
         self.inner.contains_key(k)
     }
 
     /// Returns the value stored in the set, if any.
     #[inline]
-    pub fn get<Q: ?Sized>(&self, k: &Q) -> Option<&K>
+    pub fn get<Q>(&self, k: &Q) -> Option<&K>
     where
         K: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: Hash + Eq + ?Sized,
     {
         self.inner.get_full(k).map(|(_, k, _)| k)
     }
 
     /// Returns the item index and value stored in the set, if any.
     #[inline]
-    pub fn get_full<Q: ?Sized>(&self, k: &Q) -> Option<(usize, &K)>
+    pub fn get_full<Q>(&self, k: &Q) -> Option<(usize, &K)>
     where
         K: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: Hash + Eq + ?Sized,
     {
         self.inner.get_full(k).map(|(i, k, _)| (i, k))
     }
@@ -88,10 +88,10 @@ impl<K, H: Default + Hasher> ArchivedIndexSet<K, H> {
 
     /// Returns the index of a key if it exists in the set.
     #[inline]
-    pub fn get_index_of<Q: ?Sized>(&self, key: &Q) -> Option<usize>
+    pub fn get_index_of<Q>(&self, key: &Q) -> Option<usize>
     where
         K: Borrow<Q>,
-        Q: Hash + Eq,
+        Q: Hash + Eq + ?Sized,
     {
         self.inner.get_index_of(key)
     }
