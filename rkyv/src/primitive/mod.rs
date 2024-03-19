@@ -120,7 +120,7 @@ pub type FixedNonZeroIsize = match_pointer_width!(
 /// The archived version of `NonZeroIsize` chosen based on the currently-enabled
 /// `pointer_width_*` feature.
 pub type ArchivedNonZeroIsize = match_pointer_width!(
-    ArchviedNonZeroI16,
+    ArchivedNonZeroI16,
     ArchivedNonZeroI32,
     ArchivedNonZeroI64
 );
