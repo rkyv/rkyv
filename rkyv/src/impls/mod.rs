@@ -28,7 +28,11 @@ mod indexmap;
 mod smallvec;
 #[cfg(feature = "smol_str")]
 mod smolstr;
+#[cfg(feature = "thin-vec")]
+mod thin_vec;
 #[cfg(feature = "tinyvec")]
 mod tinyvec;
+#[cfg(feature = "triomphe")]
+mod triomphe;
 #[cfg(feature = "uuid")]
 mod uuid;

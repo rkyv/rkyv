@@ -191,11 +191,13 @@ where
 }
 
 unsafe impl<T: ?Sized> SharedPointer<T> for sync::Arc<T> {
+    #[inline]
     unsafe fn from_value(ptr: *mut T) -> *mut T {
         let arc = sync::Arc::<T>::from(unsafe { Box::from_raw(ptr) });
         sync::Arc::into_raw(arc).cast_mut()
     }
 
+    #[inline]
     unsafe fn drop(ptr: *mut T) {
         drop(unsafe { sync::Arc::from_raw(ptr) });
     }
