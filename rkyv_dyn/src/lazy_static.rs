@@ -73,6 +73,12 @@ impl<T> LazyStatic<T> {
     }
 }
 
+impl<T> Default for LazyStatic<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // SAFETY: `LazyStatic` ensures that access to the underlying value is safe with
 // multiple threads, so `LazyStatic<T>` is `Sync` as long as `T` is also `Sync`.
 unsafe impl<T: Sync> Sync for LazyStatic<T> {}

@@ -84,20 +84,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// The alignment of the vector
     pub const ALIGNMENT: usize = ALIGNMENT;
 
-    const ASSERT_ALIGNMENT_VALID: () = {
-        assert!(ALIGNMENT > 0, "ALIGNMENT must be 1 or more");
-        assert!(
-            ALIGNMENT.is_power_of_two(),
-            "ALIGNMENT must be a power of 2"
-        );
-        // As `ALIGNMENT` has to be a power of 2, this caps `ALIGNMENT`
-        // at max of `(isize::MAX + 1) / 2` (1 GiB on 32-bit systems)
-        assert!(
-            ALIGNMENT < isize::MAX as usize,
-            "ALIGNMENT must be less than isize::MAX"
-        );
-    };
-
     /// Maximum capacity of the vector.
     ///
     /// Dictated by the requirements of [`alloc::Layout`]. "`size`, when rounded
@@ -117,13 +103,7 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// ```
     #[inline]
     pub fn new() -> Self {
-        let _ = Self::ASSERT_ALIGNMENT_VALID;
-
-        Self {
-            ptr: NonNull::dangling(),
-            cap: 0,
-            len: 0,
-        }
+        Self::with_capacity(0)
     }
 
     /// Constructs a new, empty `AlignedVec` with the specified capacity.
@@ -155,15 +135,30 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// ```
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
-        let _ = Self::ASSERT_ALIGNMENT_VALID;
+        assert!(ALIGNMENT > 0, "ALIGNMENT must be 1 or more");
+        assert!(
+            ALIGNMENT.is_power_of_two(),
+            "ALIGNMENT must be a power of 2"
+        );
+        // As `ALIGNMENT` has to be a power of 2, this caps `ALIGNMENT` at a max
+        // of `(isize::MAX + 1) / 2` (1 GiB on 32-bit systems).
+        assert!(
+            ALIGNMENT < isize::MAX as usize,
+            "ALIGNMENT must be less than isize::MAX"
+        );
 
         if capacity == 0 {
-            Self::new()
+            Self {
+                ptr: NonNull::dangling(),
+                cap: 0,
+                len: 0,
+            }
         } else {
             assert!(
                 capacity <= Self::MAX_CAPACITY,
                 "`capacity` cannot exceed `Self::MAX_CAPACITY`"
             );
+
             let ptr = unsafe {
                 let layout = alloc::Layout::from_size_align_unchecked(
                     capacity,
@@ -175,6 +170,7 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
                 }
                 NonNull::new_unchecked(ptr)
             };
+
             Self {
                 ptr,
                 cap: capacity,

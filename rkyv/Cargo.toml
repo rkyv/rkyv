@@ -39,23 +39,7 @@ thin-vec = { version = "0.2.12", optional = true, default-features = false }
 triomphe = { version = "0.1", optional = true, default-features = false }
 
 [features]
-default = [
-    "little_endian",
-    "pointer_width_32",
-    "std",
-    "bytecheck",
-    # TODO: disable these optional dependencies
-    "bitvec",
-    "indexmap",
-    "smallvec",
-    "smol_str",
-    "arrayvec",
-    "tinyvec",
-    "triomphe",
-    "thin-vec",
-    "uuid",
-    "bytes",
-]
+default = ["little_endian", "pointer_width_32", "std", "bytecheck"]
 little_endian = []
 big_endian = []
 unaligned = []
@@ -72,8 +56,6 @@ extra_traits = []
 # External crate support
 indexmap = ["dep:indexmap", "alloc"]
 triomphe = ["dep:triomphe", "alloc"]
-
-# Crate support
 uuid = ["dep:uuid", "bytecheck?/uuid"]
 
 [package.metadata.docs.rs]
