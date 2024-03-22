@@ -23,6 +23,17 @@ use crate::{
 ///
 /// The alignment also applies to `ArchivedAlignedVec`, which is useful for
 /// aligning opaque bytes inside of an archived data type.
+/// A vector of bytes that aligns its memory to the specified alignment.
+///
+/// The alignment also applies to `ArchivedAlignedVec`, which is useful for
+/// aligning opaque bytes inside of an archived data type.
+///
+/// ```
+/// use rkyv::AlignedVec;
+///
+/// let bytes = AlignedVec::<4096>::with_capacity(1);
+/// assert_eq!(bytes.as_ptr() as usize % 4096, 0);
+/// ```
 ///
 /// ```
 /// # use rkyv::{archived_value, AlignedBytes, AlignedVec, Archive, Serialize};
@@ -46,17 +57,19 @@ use crate::{
 ///
 /// // Make sure we can recover the archived type with the expected alignment.
 /// let buf = serializer.into_serializer().into_inner();
-/// let archived = unsafe { archived_value::<HasAlignedBytes>(buf.as_ref(), pos) };
+/// let archived = unsafe {
+///     archived_value::<HasAlignedBytes>(buf.as_ref(), pos)
+/// };
 /// assert_eq!(archived.bytes.as_slice(), &[1, 2, 3]);
 /// assert_eq!(archived.bytes.as_ptr().align_offset(16), 0);
 /// ```
-pub struct AlignedVec {
+pub struct AlignedVec<const ALIGNMENT: usize = 16> {
     ptr: NonNull<u8>,
     cap: usize,
     len: usize,
 }
 
-impl Drop for AlignedVec {
+impl<const A: usize> Drop for AlignedVec<A> {
     #[inline]
     fn drop(&mut self) {
         if self.cap != 0 {
@@ -67,16 +80,29 @@ impl Drop for AlignedVec {
     }
 }
 
-impl AlignedVec {
+impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// The alignment of the vector
-    pub const ALIGNMENT: usize = 16;
+    pub const ALIGNMENT: usize = ALIGNMENT;
+
+    const ASSERT_ALIGNMENT_VALID: () = {
+        assert!(ALIGNMENT > 0, "ALIGNMENT must be 1 or more");
+        assert!(
+            ALIGNMENT.is_power_of_two(),
+            "ALIGNMENT must be a power of 2"
+        );
+        // As `ALIGNMENT` has to be a power of 2, this caps `ALIGNMENT`
+        // at max of `(isize::MAX + 1) / 2` (1 GiB on 32-bit systems)
+        assert!(
+            ALIGNMENT < isize::MAX as usize,
+            "ALIGNMENT must be less than isize::MAX"
+        );
+    };
 
     /// Maximum capacity of the vector.
-    /// Dictated by the requirements of
-    /// [`alloc::Layout`](https://doc.rust-lang.org/alloc/alloc/struct.Layout.html).
-    /// "`size`, when rounded up to the nearest multiple of `align`, must not
-    /// overflow `isize` (i.e. the rounded value must be less than or equal
-    /// to `isize::MAX`)".
+    ///
+    /// Dictated by the requirements of [`alloc::Layout`]. "`size`, when rounded
+    /// up to the nearest multiple of `align`, must not overflow `isize` (i.e.
+    /// the rounded value must be less than or equal to `isize::MAX`)".
     pub const MAX_CAPACITY: usize = isize::MAX as usize - (Self::ALIGNMENT - 1);
 
     /// Constructs a new, empty `AlignedVec`.
@@ -91,7 +117,9 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn new() -> Self {
-        AlignedVec {
+        let _ = Self::ASSERT_ALIGNMENT_VALID;
+
+        Self {
             ptr: NonNull::dangling(),
             cap: 0,
             len: 0,
@@ -127,12 +155,14 @@ impl AlignedVec {
     /// ```
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
+        let _ = Self::ASSERT_ALIGNMENT_VALID;
+
         if capacity == 0 {
             Self::new()
         } else {
             assert!(
                 capacity <= Self::MAX_CAPACITY,
-                "`capacity` cannot exceed isize::MAX - 15"
+                "`capacity` cannot exceed `Self::MAX_CAPACITY`"
             );
             let ptr = unsafe {
                 let layout = alloc::Layout::from_size_align_unchecked(
@@ -390,7 +420,7 @@ impl AlignedVec {
     ///
     /// # Panics
     ///
-    /// Panics if the new capacity exceeds `isize::MAX - 15` bytes.
+    /// Panics if the new capacity exceeds `Self::MAX_CAPACITY` bytes.
     ///
     /// # Examples
     /// ```
@@ -442,11 +472,11 @@ impl AlignedVec {
     /// required has already been performed, and you want to avoid doing it
     /// again.
     ///
-    /// Maximum capacity is `isize::MAX - 15` bytes.
+    /// Maximum capacity is `isize::MAX + 1 - Self::ALIGNMENT` bytes.
     ///
     /// # Panics
     ///
-    /// Panics if `new_cap` exceeds `isize::MAX - 15` bytes.
+    /// Panics if `new_cap` exceeds `Self::MAX_CAPACITY` bytes.
     ///
     /// # Safety
     ///
@@ -491,7 +521,7 @@ impl AlignedVec {
     ///
     /// # Panics
     ///
-    /// Panics if the new length exceeds `isize::MAX - 15` bytes.
+    /// Panics if the new length exceeds `Self::MAX_CAPACITY` bytes.
     ///
     /// # Examples
     /// ```
@@ -613,7 +643,7 @@ impl AlignedVec {
     ///
     /// # Panics
     ///
-    /// Panics if the new capacity exceeds `isize::MAX - 15` bytes.
+    /// Panics if the new capacity exceeds `Self::MAX_CAPACITY` bytes.
     ///
     /// # Examples
     /// ```
@@ -664,7 +694,7 @@ impl AlignedVec {
     ///
     /// # Panics
     ///
-    /// Panics if the new capacity overflows `isize::MAX - 15`.
+    /// Panics if the new capacity exceeds `Self::MAX_CAPACITY`.
     ///
     /// # Examples
     /// ```
@@ -784,7 +814,7 @@ impl AlignedVec {
 const _: () = {
     use std::io::{ErrorKind, Read};
 
-    impl AlignedVec {
+    impl<const A: usize> AlignedVec<A> {
         /// Reads all bytes until EOF from `r` and appends them to this
         /// `AlignedVec`.
         ///
@@ -890,14 +920,14 @@ const _: () = {
     }
 };
 
-impl From<AlignedVec> for Vec<u8> {
+impl<const A: usize> From<AlignedVec<A>> for Vec<u8> {
     #[inline]
-    fn from(aligned: AlignedVec) -> Self {
+    fn from(aligned: AlignedVec<A>) -> Self {
         aligned.to_vec()
     }
 }
 
-impl Archive for AlignedVec {
+impl<const A: usize> Archive for AlignedVec<A> {
     type Archived = ArchivedVec<u8>;
     type Resolver = VecResolver;
 
@@ -912,39 +942,39 @@ impl Archive for AlignedVec {
     }
 }
 
-impl AsMut<[u8]> for AlignedVec {
+impl<const A: usize> AsMut<[u8]> for AlignedVec<A> {
     #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
         self.as_mut_slice()
     }
 }
 
-impl AsRef<[u8]> for AlignedVec {
+impl<const A: usize> AsRef<[u8]> for AlignedVec<A> {
     #[inline]
     fn as_ref(&self) -> &[u8] {
         self.as_slice()
     }
 }
 
-impl Borrow<[u8]> for AlignedVec {
+impl<const A: usize> Borrow<[u8]> for AlignedVec<A> {
     #[inline]
     fn borrow(&self) -> &[u8] {
         self.as_slice()
     }
 }
 
-impl BorrowMut<[u8]> for AlignedVec {
+impl<const A: usize> BorrowMut<[u8]> for AlignedVec<A> {
     #[inline]
     fn borrow_mut(&mut self) -> &mut [u8] {
         self.as_mut_slice()
     }
 }
 
-impl Clone for AlignedVec {
+impl<const A: usize> Clone for AlignedVec<A> {
     #[inline]
     fn clone(&self) -> Self {
         unsafe {
-            let mut result = AlignedVec::with_capacity(self.len);
+            let mut result = Self::with_capacity(self.len);
             result.len = self.len;
             core::ptr::copy_nonoverlapping(
                 self.as_ptr(),
@@ -956,21 +986,21 @@ impl Clone for AlignedVec {
     }
 }
 
-impl fmt::Debug for AlignedVec {
+impl<const A: usize> fmt::Debug for AlignedVec<A> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_slice().fmt(f)
     }
 }
 
-impl Default for AlignedVec {
+impl<const A: usize> Default for AlignedVec<A> {
     #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Deref for AlignedVec {
+impl<const A: usize> Deref for AlignedVec<A> {
     type Target = [u8];
 
     #[inline]
@@ -979,14 +1009,14 @@ impl Deref for AlignedVec {
     }
 }
 
-impl DerefMut for AlignedVec {
+impl<const A: usize> DerefMut for AlignedVec<A> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }
 }
 
-impl<I: slice::SliceIndex<[u8]>> Index<I> for AlignedVec {
+impl<const A: usize, I: slice::SliceIndex<[u8]>> Index<I> for AlignedVec<A> {
     type Output = <I as slice::SliceIndex<[u8]>>::Output;
 
     #[inline]
@@ -995,7 +1025,7 @@ impl<I: slice::SliceIndex<[u8]>> Index<I> for AlignedVec {
     }
 }
 
-impl<I: slice::SliceIndex<[u8]>> IndexMut<I> for AlignedVec {
+impl<const A: usize, I: slice::SliceIndex<[u8]>> IndexMut<I> for AlignedVec<A> {
     #[inline]
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         &mut self.as_mut_slice()[index]
@@ -1003,7 +1033,7 @@ impl<I: slice::SliceIndex<[u8]>> IndexMut<I> for AlignedVec {
 }
 
 #[cfg(feature = "std")]
-impl io::Write for AlignedVec {
+impl<const A: usize> io::Write for AlignedVec<A> {
     #[inline]
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.extend_from_slice(buf);
@@ -1035,7 +1065,7 @@ impl io::Write for AlignedVec {
 }
 
 // SAFETY: AlignedVec is safe to send to another thread
-unsafe impl Send for AlignedVec {}
+unsafe impl<const A: usize> Send for AlignedVec<A> {}
 
 impl<S: Fallible + Allocator + Writer + ?Sized> Serialize<S> for AlignedVec {
     #[inline]
@@ -1052,6 +1082,6 @@ impl<S: Fallible + Allocator + Writer + ?Sized> Serialize<S> for AlignedVec {
 }
 
 // SAFETY: AlignedVec is safe to share between threads
-unsafe impl Sync for AlignedVec {}
+unsafe impl<const A: usize> Sync for AlignedVec<A> {}
 
-impl Unpin for AlignedVec {}
+impl<const A: usize> Unpin for AlignedVec<A> {}

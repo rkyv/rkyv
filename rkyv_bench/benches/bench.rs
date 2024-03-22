@@ -446,8 +446,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("rkyv");
     {
-        let mut serialize_buffer = AlignedVec::with_capacity(BUFFER_LEN);
-        let mut serialize_scratch = AlignedVec::with_capacity(SCRATCH_LEN);
+        let mut serialize_buffer = AlignedVec::<16>::with_capacity(BUFFER_LEN);
+        let mut serialize_scratch = AlignedVec::<16>::with_capacity(SCRATCH_LEN);
         unsafe {
             serialize_scratch.set_len(SCRATCH_LEN);
         }

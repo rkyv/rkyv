@@ -420,8 +420,8 @@ fn main() {
     const BUFFER_LEN: usize = 10_000_000;
     const SCRATCH_LEN: usize = 512_000;
 
-    let mut serialize_buffer = AlignedVec::with_capacity(BUFFER_LEN);
-    let mut serialize_scratch = AlignedVec::with_capacity(SCRATCH_LEN);
+    let mut serialize_buffer = AlignedVec::<16>::with_capacity(BUFFER_LEN);
+    let mut serialize_scratch = AlignedVec::<16>::with_capacity(SCRATCH_LEN);
     unsafe {
         serialize_scratch.set_len(SCRATCH_LEN);
     }
