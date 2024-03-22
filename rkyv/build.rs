@@ -11,7 +11,9 @@ fn main() {
         "arm-linux-androideabi"
         | "asmjs-unknown-emscripten"
         | "wasm32-unknown-emscripten"
-        | "wasm32-unknown-unknown" => has_atomic64 = false,
+        | "wasm32-unknown-unknown"
+        | "xtensa-esp32s3-none-elf"
+        | "xtensa-esp32-none-elf" => has_atomic64 = false,
         _ => {}
     }
 
