@@ -23,6 +23,17 @@ use crate::{
 ///
 /// The alignment also applies to `ArchivedAlignedVec`, which is useful for
 /// aligning opaque bytes inside of an archived data type.
+/// A vector of bytes that aligns its memory to the specified alignment.
+///
+/// The alignment also applies to `ArchivedAlignedVec`, which is useful for
+/// aligning opaque bytes inside of an archived data type.
+///
+/// ```
+/// use rkyv::AlignedVec;
+///
+/// let bytes = AlignedVec::<4096>::with_capacity(1);
+/// assert_eq!(bytes.as_ptr() as usize % 4096, 0);
+/// ```
 ///
 /// ```
 /// # use rkyv::{archived_value, AlignedBytes, AlignedVec, Archive, Serialize};
@@ -52,25 +63,13 @@ use crate::{
 /// assert_eq!(archived.bytes.as_slice(), &[1, 2, 3]);
 /// assert_eq!(archived.bytes.as_ptr().align_offset(16), 0);
 /// ```
-pub type AlignedVec = AlignedByteVec<16>;
-
-/// A vector of bytes that aligns its memory to specified alignment.
-///
-/// See `AlignedVec`.
-///
-/// ```
-/// use rkyv::AlignedByteVec;
-///
-/// let bytes = AlignedByteVec::<4096>::with_capacity(1);
-/// assert_eq!(bytes.as_ptr() as usize % 4096, 0);
-/// ```
-pub struct AlignedByteVec<const ALIGNMENT: usize = 16> {
+pub struct AlignedVec<const ALIGNMENT: usize = 16> {
     ptr: NonNull<u8>,
     cap: usize,
     len: usize,
 }
 
-impl<const A: usize> Drop for AlignedByteVec<A> {
+impl<const A: usize> Drop for AlignedVec<A> {
     #[inline]
     fn drop(&mut self) {
         if self.cap != 0 {
@@ -81,7 +80,7 @@ impl<const A: usize> Drop for AlignedByteVec<A> {
     }
 }
 
-impl<const ALIGNMENT: usize> AlignedByteVec<ALIGNMENT> {
+impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// The alignment of the vector
     pub const ALIGNMENT: usize = ALIGNMENT;
 
@@ -815,7 +814,7 @@ impl<const ALIGNMENT: usize> AlignedByteVec<ALIGNMENT> {
 const _: () = {
     use std::io::{ErrorKind, Read};
 
-    impl<const A: usize> AlignedByteVec<A> {
+    impl<const A: usize> AlignedVec<A> {
         /// Reads all bytes until EOF from `r` and appends them to this
         /// `AlignedVec`.
         ///
@@ -921,14 +920,14 @@ const _: () = {
     }
 };
 
-impl<const A: usize> From<AlignedByteVec<A>> for Vec<u8> {
+impl<const A: usize> From<AlignedVec<A>> for Vec<u8> {
     #[inline]
-    fn from(aligned: AlignedByteVec<A>) -> Self {
+    fn from(aligned: AlignedVec<A>) -> Self {
         aligned.to_vec()
     }
 }
 
-impl<const A: usize> Archive for AlignedByteVec<A> {
+impl<const A: usize> Archive for AlignedVec<A> {
     type Archived = ArchivedVec<u8>;
     type Resolver = VecResolver;
 
@@ -943,35 +942,35 @@ impl<const A: usize> Archive for AlignedByteVec<A> {
     }
 }
 
-impl<const A: usize> AsMut<[u8]> for AlignedByteVec<A> {
+impl<const A: usize> AsMut<[u8]> for AlignedVec<A> {
     #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
         self.as_mut_slice()
     }
 }
 
-impl<const A: usize> AsRef<[u8]> for AlignedByteVec<A> {
+impl<const A: usize> AsRef<[u8]> for AlignedVec<A> {
     #[inline]
     fn as_ref(&self) -> &[u8] {
         self.as_slice()
     }
 }
 
-impl<const A: usize> Borrow<[u8]> for AlignedByteVec<A> {
+impl<const A: usize> Borrow<[u8]> for AlignedVec<A> {
     #[inline]
     fn borrow(&self) -> &[u8] {
         self.as_slice()
     }
 }
 
-impl<const A: usize> BorrowMut<[u8]> for AlignedByteVec<A> {
+impl<const A: usize> BorrowMut<[u8]> for AlignedVec<A> {
     #[inline]
     fn borrow_mut(&mut self) -> &mut [u8] {
         self.as_mut_slice()
     }
 }
 
-impl<const A: usize> Clone for AlignedByteVec<A> {
+impl<const A: usize> Clone for AlignedVec<A> {
     #[inline]
     fn clone(&self) -> Self {
         unsafe {
@@ -987,21 +986,21 @@ impl<const A: usize> Clone for AlignedByteVec<A> {
     }
 }
 
-impl<const A: usize> fmt::Debug for AlignedByteVec<A> {
+impl<const A: usize> fmt::Debug for AlignedVec<A> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_slice().fmt(f)
     }
 }
 
-impl<const A: usize> Default for AlignedByteVec<A> {
+impl<const A: usize> Default for AlignedVec<A> {
     #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<const A: usize> Deref for AlignedByteVec<A> {
+impl<const A: usize> Deref for AlignedVec<A> {
     type Target = [u8];
 
     #[inline]
@@ -1010,17 +1009,14 @@ impl<const A: usize> Deref for AlignedByteVec<A> {
     }
 }
 
-impl<const A: usize> DerefMut for AlignedByteVec<A> {
+impl<const A: usize> DerefMut for AlignedVec<A> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }
 }
 
-impl<const A: usize, I> Index<I> for AlignedByteVec<A>
-where
-    I: slice::SliceIndex<[u8]>,
-{
+impl<const A: usize, I: slice::SliceIndex<[u8]>> Index<I> for AlignedVec<A> {
     type Output = <I as slice::SliceIndex<[u8]>>::Output;
 
     #[inline]
@@ -1029,10 +1025,7 @@ where
     }
 }
 
-impl<const A: usize, I> IndexMut<I> for AlignedByteVec<A>
-where
-    I: slice::SliceIndex<[u8]>,
-{
+impl<const A: usize, I: slice::SliceIndex<[u8]>> IndexMut<I> for AlignedVec<A> {
     #[inline]
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         &mut self.as_mut_slice()[index]
@@ -1040,7 +1033,7 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<const A: usize> io::Write for AlignedByteVec<A> {
+impl<const A: usize> io::Write for AlignedVec<A> {
     #[inline]
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.extend_from_slice(buf);
@@ -1072,7 +1065,7 @@ impl<const A: usize> io::Write for AlignedByteVec<A> {
 }
 
 // SAFETY: AlignedVec is safe to send to another thread
-unsafe impl<const A: usize> Send for AlignedByteVec<A> {}
+unsafe impl<const A: usize> Send for AlignedVec<A> {}
 
 impl<S: Fallible + Allocator + Writer + ?Sized> Serialize<S> for AlignedVec {
     #[inline]
@@ -1089,6 +1082,6 @@ impl<S: Fallible + Allocator + Writer + ?Sized> Serialize<S> for AlignedVec {
 }
 
 // SAFETY: AlignedVec is safe to share between threads
-unsafe impl<const A: usize> Sync for AlignedByteVec<A> {}
+unsafe impl<const A: usize> Sync for AlignedVec<A> {}
 
-impl<const A: usize> Unpin for AlignedByteVec<A> {}
+impl<const A: usize> Unpin for AlignedVec<A> {}
