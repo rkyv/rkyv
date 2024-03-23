@@ -19,7 +19,6 @@ quote.workspace = true
 
 [features]
 default = []
-copy = []
 bytecheck  = []
 
 [package.metadata.docs.rs]

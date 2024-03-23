@@ -253,25 +253,6 @@ fn derive_archive_impl(
                         }
                     }
 
-                    let copy_safe_impl = if cfg!(feature = "copy")
-                        && attributes.copy_safe.is_some()
-                    {
-                        let mut copy_safe_where = where_clause.clone();
-                        for field in fields.named.iter().filter(is_not_omitted)
-                        {
-                            let ty = with_ty(field).unwrap();
-                            copy_safe_where
-                                .predicates
-                                .push(parse_quote! { #ty: #rkyv_path::copy::ArchiveCopySafe });
-                        }
-
-                        Some(quote! {
-                            unsafe impl #impl_generics #rkyv_path::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
-                        })
-                    } else {
-                        None
-                    };
-
                     (
                         quote! {
                             #archived_def
@@ -297,7 +278,6 @@ fn derive_archive_impl(
 
                             #partial_eq_impl
                             #partial_ord_impl
-                            #copy_safe_impl
                         },
                     )
                 }
@@ -439,26 +419,6 @@ fn derive_archive_impl(
                         }
                     }
 
-                    let copy_safe_impl = if cfg!(feature = "copy")
-                        && attributes.copy_safe.is_some()
-                    {
-                        let mut copy_safe_where = where_clause.clone();
-                        for field in
-                            fields.unnamed.iter().filter(is_not_omitted)
-                        {
-                            let ty = with_ty(field).unwrap();
-                            copy_safe_where
-                                .predicates
-                                .push(parse_quote! { #ty: #rkyv_path::copy::ArchiveCopySafe });
-                        }
-
-                        Some(quote! {
-                            unsafe impl #impl_generics #rkyv_path::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
-                        })
-                    } else {
-                        None
-                    };
-
                     (
                         quote! {
                             #archived_def
@@ -482,7 +442,6 @@ fn derive_archive_impl(
 
                             #partial_eq_impl
                             #partial_ord_impl
-                            #copy_safe_impl
                         },
                     )
                 }
@@ -548,16 +507,6 @@ fn derive_archive_impl(
                         }
                     }
 
-                    let copy_safe_impl = if cfg!(feature = "copy")
-                        && attributes.copy_safe.is_some()
-                    {
-                        Some(quote! {
-                            unsafe impl #impl_generics #rkyv_path::copy::ArchiveCopySafe for #name #ty_generics #where_clause {}
-                        })
-                    } else {
-                        None
-                    };
-
                     (
                         quote! {
                             #archived_def
@@ -578,7 +527,6 @@ fn derive_archive_impl(
 
                             #partial_eq_impl
                             #partial_ord_impl
-                            #copy_safe_impl
                         },
                     )
                 }
@@ -1166,43 +1114,6 @@ fn derive_archive_impl(
                 }
             }
 
-            let copy_safe_impl = if cfg!(feature = "copy")
-                && attributes.copy_safe.is_some()
-            {
-                let mut copy_safe_where = where_clause.clone();
-                for variant in data.variants.iter() {
-                    match variant.fields {
-                        Fields::Named(ref fields) => {
-                            for field in
-                                fields.named.iter().filter(is_not_omitted)
-                            {
-                                let ty = with_ty(field).unwrap();
-                                copy_safe_where
-                                    .predicates
-                                    .push(parse_quote! { #ty: #rkyv_path::copy::ArchiveCopySafe });
-                            }
-                        }
-                        Fields::Unnamed(ref fields) => {
-                            for field in
-                                fields.unnamed.iter().filter(is_not_omitted)
-                            {
-                                let ty = with_ty(field).unwrap();
-                                copy_safe_where
-                                    .predicates
-                                    .push(parse_quote! { #ty: #rkyv_path::copy::ArchiveCopySafe });
-                            }
-                        }
-                        Fields::Unit => (),
-                    }
-                }
-
-                Some(quote! {
-                    unsafe impl #impl_generics #rkyv_path::copy::ArchiveCopySafe for #name #ty_generics #copy_safe_where {}
-                })
-            } else {
-                None
-            };
-
             (
                 quote! {
                     #archived_def
@@ -1237,7 +1148,6 @@ fn derive_archive_impl(
 
                     #partial_eq_impl
                     #partial_ord_impl
-                    #copy_safe_impl
                 },
             )
         }

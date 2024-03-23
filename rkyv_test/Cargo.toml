@@ -27,7 +27,5 @@ big_endian = ["rkyv/big_endian"]
 
 alloc = ["rkyv/alloc"]
 bytecheck = ["rkyv/bytecheck"]
-copy = ["rkyv/copy"]
-copy_unsafe = ["rkyv/copy_unsafe"]
 std = ["alloc", "rkyv/std"]
 wasm = ["wasm-bindgen-test"]

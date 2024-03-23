@@ -65,11 +65,6 @@
 //!   architectures.
 //! - `big_endian`: Forces archives into a big-endian format. This guarantees
 //!   cross-endian compatibility optimized for big-endian architectures.
-//! - `copy`: Enables copy optimizations for packed copyable data types.
-//!   Requires nightly.
-//! - `copy_unsafe`: Automatically opts all potentially copyable types into copy
-//!   optimization. This broadly improves performance but may cause
-//!   uninitialized bytes to be copied to the output. Requires nightly.
 //! - `size_16`: Archives integral `*size` types as 16-bit integers. This is
 //!   intended to be used only for small archives and may not handle large, more
 //!   general data.
@@ -119,13 +114,6 @@
     rustdoc::missing_crate_level_docs
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(
-    feature = "copy",
-    feature(auto_traits),
-    feature(min_specialization),
-    feature(negative_impls),
-    feature(rustc_attrs)
-)]
 #![doc(html_favicon_url = r#"
     data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'
     viewBox='0 0 26.458 26.458'%3E%3Cpath d='M0 0v26.458h26.458V0zm9.175 3.772l8.107 8.106
@@ -161,8 +149,6 @@ mod _macros;
 pub mod bitvec;
 pub mod boxed;
 pub mod collections;
-#[cfg(feature = "copy")]
-pub mod copy;
 pub mod de;
 // This is pretty unfortunate. CStr doesn't rely on the rest of std, but it's
 // not in core. If CStr ever gets moved into `core` then this module will no

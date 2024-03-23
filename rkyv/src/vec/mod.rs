@@ -128,17 +128,11 @@ impl<T> ArchivedVec<T> {
     #[inline]
     pub fn serialize_from_slice<
         U: Serialize<S, Archived = T>,
-        S: Fallible + Writer + ?Sized,
+        S: Fallible + Allocator + Writer + ?Sized,
     >(
         slice: &[U],
         serializer: &mut S,
-    ) -> Result<VecResolver, S::Error>
-    where
-        // This bound is necessary only in no-alloc, no-std situations
-        // SerializeUnsized is only implemented for U: Serialize<Resolver = ()> in
-        // that case
-        [U]: SerializeUnsized<S>,
-    {
+    ) -> Result<VecResolver, S::Error> {
         Ok(VecResolver {
             pos: slice.serialize_unsized(serializer)?,
         })

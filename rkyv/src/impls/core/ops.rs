@@ -9,7 +9,7 @@ use crate::{
         ArchivedRange, ArchivedRangeFrom, ArchivedRangeInclusive,
         ArchivedRangeTo, ArchivedRangeToInclusive,
     },
-    Archive, Archived, Deserialize, Portable, Serialize,
+    Archive, Archived, Deserialize, Portable, Serialize, CopyOptimization,
 };
 
 // RangeFull
@@ -19,6 +19,10 @@ use crate::{
 unsafe impl Portable for RangeFull {}
 
 impl Archive for RangeFull {
+    const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
+        CopyOptimization::enable()
+    };
+
     type Archived = Self;
     type Resolver = ();
 

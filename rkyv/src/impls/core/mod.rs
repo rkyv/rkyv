@@ -8,14 +8,12 @@ use core::{
 use ptr_meta::Pointee;
 use rancor::Fallible;
 
-#[cfg(feature = "copy")]
-use crate::copy::ArchiveCopyOptimize;
 use crate::{
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt as _},
     tuple::*,
     Archive, ArchivePointee, ArchiveUnsized, ArchivedMetadata, Deserialize,
-    DeserializeUnsized, Portable, Serialize, SerializeUnsized,
+    DeserializeUnsized, Portable, Serialize, SerializeUnsized, CopyOptimization,
 };
 
 mod ops;
@@ -162,6 +160,10 @@ impl_tuple!(
 );
 
 impl<T: Archive, const N: usize> Archive for [T; N] {
+    const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
+        CopyOptimization::enable_if(T::COPY_OPTIMIZATION.is_enabled())
+    };
+
     type Archived = [T::Archived; N];
     type Resolver = [T::Resolver; N];
 
@@ -249,56 +251,42 @@ where
     T: Serialize<S>,
     S: Fallible + Allocator + Writer + ?Sized,
 {
-    default! {
-        fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
+    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
+        if T::COPY_OPTIMIZATION.is_enabled() {
+            let result = serializer.align_for::<T::Archived>()?;
+            let as_bytes = unsafe {
+                core::slice::from_raw_parts(
+                    self.as_ptr().cast::<u8>(),
+                    core::mem::size_of::<T>() * self.len(),
+                )
+            };
+            serializer.write(as_bytes)?;
+
+            Ok(result)
+        } else {
             use crate::util::ScratchVec;
 
-            unsafe {
-                let mut resolvers = ScratchVec::new(serializer, self.len())?;
+            let mut resolvers = unsafe {
+                ScratchVec::new(serializer, self.len())?
+            };
 
-                for value in self.iter() {
-                    resolvers.push(value.serialize(serializer)?);
-                }
-                let result = serializer.align_for::<T::Archived>()?;
-                for (value, resolver) in self.iter().zip(resolvers.drain(..)) {
+            for value in self.iter() {
+                resolvers.push(value.serialize(serializer)?);
+            }
+            let result = serializer.align_for::<T::Archived>()?;
+            for (value, resolver) in self.iter().zip(resolvers.drain(..)) {
+                unsafe {
                     serializer.resolve_aligned(value, resolver)?;
                 }
+            }
 
+            unsafe {
                 resolvers.free(serializer)?;
-
-                Ok(result)
             }
-        }
-    }
-}
 
-#[cfg(feature = "copy")]
-impl<T, S> SerializeUnsized<S> for [T]
-where
-    T: Serialize<S> + crate::copy::ArchiveCopyOptimize,
-    S: Allocator + Writer + ?Sized,
-{
-    fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, E> {
-        unsafe {
-            let result = serializer.align_for::<T>()?;
-            if !self.is_empty() {
-                let bytes = core::slice::from_raw_parts(
-                    (self.as_ptr() as *const T).cast::<u8>(),
-                    self.len() * core::mem::size_of::<T>(),
-                );
-                serializer.write(bytes)?;
-            }
             Ok(result)
         }
     }
-
-    #[inline]
-    fn serialize_metadata(
-        &self,
-        _: &mut S,
-    ) -> Result<Self::MetadataResolver, E> {
-        Ok(())
-    }
 }
 
 impl<T, U, D> DeserializeUnsized<[U], D> for [T]
@@ -306,57 +294,21 @@ where
     T: Deserialize<U, D>,
     D: Fallible + ?Sized,
 {
-    default! {
-        unsafe fn deserialize_unsized(&self, deserializer: &mut D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error> {
-            if self.is_empty() || core::mem::size_of::<U>() == 0 {
-                Ok(ptr::NonNull::<U>::dangling().as_ptr().cast())
-            } else {
-                let result = alloc(Layout::array::<U>(self.len()).unwrap()).cast::<U>();
-                assert!(!result.is_null());
-                for (i, item) in self.iter().enumerate() {
-                    result.add(i).write(item.deserialize(deserializer)?);
-                }
-                Ok(result.cast())
-            }
-        }
-    }
-
-    default! {
-        #[inline]
-        fn deserialize_metadata(&self, _: &mut D) -> Result<<[U] as Pointee>::Metadata, D::Error> {
-            Ok(ptr_meta::metadata(self))
-        }
-    }
-}
-
-#[cfg(feature = "copy")]
-impl<T, U, D> DeserializeUnsized<[U], D> for [T]
-where
-    T: Deserialize<U, D>,
-    U: ArchiveCopyOptimize,
-    D: Fallible + ?Sized,
-{
-    unsafe fn deserialize_unsized(
-        &self,
-        _: &mut D,
-        mut alloc: impl FnMut(Layout) -> *mut u8,
-    ) -> Result<*mut (), E> {
-        if self.is_empty() || core::mem::size_of::<T>() == 0 {
+    unsafe fn deserialize_unsized(&self, deserializer: &mut D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error> {
+        if self.is_empty() || core::mem::size_of::<U>() == 0 {
             Ok(ptr::NonNull::<U>::dangling().as_ptr().cast())
         } else {
-            let result =
-                alloc(Layout::array::<T>(self.len()).unwrap()).cast::<T>();
+            let result = alloc(Layout::array::<U>(self.len()).unwrap()).cast::<U>();
             assert!(!result.is_null());
-            ptr::copy_nonoverlapping(self.as_ptr(), result, self.len());
+            for (i, item) in self.iter().enumerate() {
+                result.add(i).write(item.deserialize(deserializer)?);
+            }
             Ok(result.cast())
         }
     }
 
     #[inline]
-    fn deserialize_metadata(
-        &self,
-        _: &mut D,
-    ) -> Result<<[T] as Pointee>::Metadata, E> {
+    fn deserialize_metadata(&self, _: &mut D) -> Result<<[U] as Pointee>::Metadata, D::Error> {
         Ok(ptr_meta::metadata(self))
     }
 }
@@ -425,6 +377,10 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for str {
 unsafe impl<T: Portable> Portable for ManuallyDrop<T> {}
 
 impl<T: Archive> Archive for ManuallyDrop<T> {
+    const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
+        CopyOptimization::enable_if(T::COPY_OPTIMIZATION.is_enabled())
+    };
+
     type Archived = ManuallyDrop<T::Archived>;
     type Resolver = T::Resolver;
 

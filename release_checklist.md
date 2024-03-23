@@ -35,12 +35,6 @@ TODO: clean up and slim down this test matrix
   - [ ] `cargo test --no-default-features --features "size_16 archive_be std bytecheck"`
   - [ ] `cargo test --no-default-features --features "size_32 archive_be std bytecheck"`
   - [ ] `cargo test --no-default-features --features "size_64 archive_be std bytecheck"`
-  - [ ] `cargo +nightly test --no-default-features --features "size_32 copy"`
-  - [ ] `cargo +nightly test --no-default-features --features "size_32 copy alloc"`
-  - [ ] `cargo +nightly test --no-default-features --features "size_32 copy alloc bytecheck"`
-  - [ ] `cargo +nightly test --no-default-features --features "size_32 copy std"`
-  - [ ] `cargo +nightly test --no-default-features --features "size_32 copy std bytecheck"`
-  - [ ] `cargo +nightly test --no-default-features --features "size_32 copy std bytecheck stable_layout"`
 - Release tests:
   - [ ] `cargo test --release --no-default-features --features "size_32"`
   - [ ] `cargo test --release --no-default-features --features "size_32 alloc"`
@@ -54,12 +48,6 @@ TODO: clean up and slim down this test matrix
   - [ ] `cargo test --release --no-default-features --features "size_16 archive_be std bytecheck"`
   - [ ] `cargo test --release --no-default-features --features "size_32 archive_be std bytecheck"`
   - [ ] `cargo test --release --no-default-features --features "size_64 archive_be std bytecheck"`
-  - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy"`
-  - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy alloc"`
-  - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy alloc bytecheck"`
-  - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy std"`
-  - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy std bytecheck"`
-  - [ ] `cargo +nightly test --release --no-default-features --features "size_32 copy std bytecheck stable_layout"`
 - Miri tests:
   - [ ] `cargo +nightly miri test --no-default-features --features "size_32"`
   - [ ] `cargo +nightly miri test --no-default-features --features "size_32 alloc"`
@@ -73,12 +61,6 @@ TODO: clean up and slim down this test matrix
   - [ ] `cargo +nightly miri test --no-default-features --features "size_16 archive_be std bytecheck"`
   - [ ] `cargo +nightly miri test --no-default-features --features "size_32 archive_be std bytecheck"`
   - [ ] `cargo +nightly miri test --no-default-features --features "size_64 archive_be std bytecheck"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy alloc"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy alloc bytecheck"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy std"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy std bytecheck"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 copy std bytecheck stable_layout"`
 - Wasm-pack tests:
   - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32"`
   - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 alloc"`
@@ -112,12 +94,6 @@ cargo test --no-default-features --features "size_64 archive_le std bytecheck" >
 cargo test --no-default-features --features "size_16 archive_be std bytecheck" >> results.txt
 cargo test --no-default-features --features "size_32 archive_be std bytecheck" >> results.txt
 cargo test --no-default-features --features "size_64 archive_be std bytecheck" >> results.txt
-cargo +nightly test --no-default-features --features "size_32 copy" >> results.txt
-cargo +nightly test --no-default-features --features "size_32 copy alloc" >> results.txt
-cargo +nightly test --no-default-features --features "size_32 copy alloc bytecheck" >> results.txt
-cargo +nightly test --no-default-features --features "size_32 copy std" >> results.txt
-cargo +nightly test --no-default-features --features "size_32 copy std bytecheck" >> results.txt
-cargo +nightly test --no-default-features --features "size_32 copy std bytecheck stable_layout" >> results.txt
 cargo test --release --no-default-features --features "size_32" >> results.txt
 cargo test --release --no-default-features --features "size_32 alloc" >> results.txt
 cargo test --release --no-default-features --features "size_32 bytecheck" >> results.txt
@@ -130,12 +106,6 @@ cargo test --release --no-default-features --features "size_64 archive_le std by
 cargo test --release --no-default-features --features "size_16 archive_be std bytecheck" >> results.txt
 cargo test --release --no-default-features --features "size_32 archive_be std bytecheck" >> results.txt
 cargo test --release --no-default-features --features "size_64 archive_be std bytecheck" >> results.txt
-cargo +nightly test --release --no-default-features --features "size_32 copy" >> results.txt
-cargo +nightly test --release --no-default-features --features "size_32 copy alloc" >> results.txt
-cargo +nightly test --release --no-default-features --features "size_32 copy alloc bytecheck" >> results.txt
-cargo +nightly test --release --no-default-features --features "size_32 copy std" >> results.txt
-cargo +nightly test --release --no-default-features --features "size_32 copy std bytecheck" >> results.txt
-cargo +nightly test --release --no-default-features --features "size_32 copy std bytecheck stable_layout" >> results.txt
 cargo +nightly miri test --no-default-features --features "size_32" >> results.txt
 cargo +nightly miri test --no-default-features --features "size_32 alloc" >> results.txt
 cargo +nightly miri test --no-default-features --features "size_32 bytecheck" >> results.txt
@@ -148,12 +118,6 @@ cargo +nightly miri test --no-default-features --features "size_64 archive_le st
 cargo +nightly miri test --no-default-features --features "size_16 archive_be std bytecheck" >> results.txt
 cargo +nightly miri test --no-default-features --features "size_32 archive_be std bytecheck" >> results.txt
 cargo +nightly miri test --no-default-features --features "size_64 archive_be std bytecheck" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 copy" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 copy alloc" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 copy alloc bytecheck" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 copy std" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 copy std bytecheck" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 copy std bytecheck stable_layout" >> results.txt
 wasm-pack test --node -- --no-default-features --features "wasm size_32" >> results.txt
 wasm-pack test --node -- --no-default-features --features "wasm size_32 alloc" >> results.txt
 wasm-pack test --node -- --no-default-features --features "wasm size_32 bytecheck" >> results.txt

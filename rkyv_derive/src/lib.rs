@@ -69,9 +69,6 @@ pub fn derive_portable(
 ///   enable safe deserialization. Requires `validation` feature. Not compatible
 ///   with `as = "..."`. In that case, use `#[derive(CheckBytes)]` on the
 ///   archived type, and include a `use rkyv::bytecheck` statement.
-/// - `copy_safe`: States that the archived type is tightly packed with no
-///   padding bytes. This qualifies it for copy optimizations. (requires
-///   nightly)
 /// - `as = "..."`: Instead of generating a separate archived type, this type
 ///   will archive as the named type. This is useful for types which are generic
 ///   over their parameters.

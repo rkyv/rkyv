@@ -1,11 +1,15 @@
 use rancor::Fallible;
 use uuid::Uuid;
 
-use crate::{Archive, Deserialize, Portable, Serialize};
+use crate::{Archive, CopyOptimization, Deserialize, Portable, Serialize};
 
 unsafe impl Portable for Uuid {}
 
 impl Archive for Uuid {
+    const COPY_OPTIMIZATION: crate::CopyOptimization<Self> = unsafe {
+        CopyOptimization::enable()
+    };
+
     type Archived = Uuid;
     type Resolver = ();
 
@@ -19,10 +23,6 @@ impl Archive for Uuid {
         out.write(*self);
     }
 }
-
-// Safety: Uuid is portable and has no padding
-#[cfg(feature = "copy")]
-unsafe impl crate::copy::ArchiveCopySafe for Uuid {}
 
 impl<S: Fallible + ?Sized> Serialize<S> for Uuid {
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {

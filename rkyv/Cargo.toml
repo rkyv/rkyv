@@ -48,8 +48,6 @@ pointer_width_32 = []
 pointer_width_64 = []
 alloc = ["hashbrown", "bitvec?/alloc", "tinyvec?/alloc"]
 std = ["alloc", "bytecheck?/std", "bytes?/std", "indexmap?/std", "ptr_meta/std", "uuid?/std"]
-copy = ["rkyv_derive/copy"]
-copy_unsafe = []
 bytecheck = ["dep:bytecheck", "alloc", "rend/bytecheck", "rkyv_derive/bytecheck"]
 extra_traits = []
 

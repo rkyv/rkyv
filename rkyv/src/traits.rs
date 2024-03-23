@@ -1,6 +1,6 @@
 //! The core traits provided by rkyv.
 
-use core::{alloc::Layout, hash::Hash};
+use core::{alloc::Layout, hash::Hash, marker::PhantomData};
 
 use crate::{
     ptr_meta::Pointee,
@@ -20,6 +20,42 @@ use crate::{
 /// Additionally, all fields that the type may contain or produce relative
 /// pointers to must also be `Portable`.
 pub unsafe trait Portable {}
+
+/// An optimization hint about whether `T` is trivially copyable.
+pub struct CopyOptimization<T: ?Sized>(bool, PhantomData<T>);
+
+impl<T: ?Sized> CopyOptimization<T> {
+    /// Returns a `TriviallyCopyable` hint with the optimization enabled for
+    /// `T`.
+    ///
+    /// # Safety
+    ///
+    /// `T` must not have any uninit bytes (e.g. padding).
+    pub const unsafe fn enable() -> Self {
+        Self(true, PhantomData)
+    }
+
+    /// Returns a `TriviallyCopyable` hint with the optimization enabled for
+    /// `T` if `value` is `true`.
+    ///
+    /// # Safety
+    ///
+    /// `T` must not have any uninit bytes (e.g. padding) if `value` is true.
+    pub const unsafe fn enable_if(value: bool) -> Self {
+        Self(value, PhantomData)
+    }
+
+    /// Returns a `TriviallyCopyable` hint with the optimization disabled for
+    /// `T`.
+    pub const fn disable() -> Self {
+        Self(false, PhantomData)
+    }
+
+    /// Returns whether the optimization is enabled for `T`.
+    pub const fn is_enabled(&self) -> bool {
+        self.0
+    }
+}
 
 /// A type that can be used without deserializing.
 ///
@@ -206,6 +242,15 @@ pub unsafe trait Portable {}
 /// assert_eq!(archived.as_str(), STR_VAL);
 /// ```
 pub trait Archive {
+    /// An optimization flag that allows the bytes of this type to be copied
+    /// directly to a writer instead of calling `serialize`.
+    ///
+    /// This optimization is disabled by default. To enable this optimization,
+    /// you must unsafely attest that `Self` is trivially copyable using
+    /// [`CopyOptimization::enable`] or [`CopyOptimization::enable_if`].
+    const COPY_OPTIMIZATION: CopyOptimization<Self> =
+        CopyOptimization::disable();
+
     /// The archived representation of this type.
     ///
     /// In this form, the data can be used with zero-copy deserialization.

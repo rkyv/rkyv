@@ -32,7 +32,6 @@ pub struct Attributes {
     pub serialize_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
     pub deserialize_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
     pub check_bytes: Option<Path>,
-    pub copy_safe: Option<Path>,
     rkyv_path: Option<Path>,
 }
 
@@ -44,12 +43,6 @@ impl Attributes {
             }
 
             try_set_attribute(&mut self.check_bytes, meta.path, "check_bytes")
-        } else if meta.path.is_ident("copy_safe") {
-            if !meta.input.is_empty() && !meta.input.peek(Token![,]) {
-                return Err(meta.error("copy_safe argument must be a path"));
-            }
-
-            try_set_attribute(&mut self.copy_safe, meta.path, "copy_safe")
         } else if meta.path.is_ident("compare") {
             let traits;
             parenthesized!(traits in meta.input);

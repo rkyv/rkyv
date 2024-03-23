@@ -1,10 +1,14 @@
 use rancor::Fallible;
 
-use crate::{rend::*, Archive, Archived, Deserialize, Serialize};
+use crate::{rend::*, Archive, Archived, Deserialize, Serialize, CopyOptimization};
 
 macro_rules! impl_rend_primitive {
     ($type:ty) => {
         impl Archive for $type {
+            const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
+                CopyOptimization::enable()
+            };
+
             type Archived = Self;
             type Resolver = ();
 
@@ -18,11 +22,6 @@ macro_rules! impl_rend_primitive {
                 out.write(*self);
             }
         }
-
-        // Safety: rend primitives always have the same representation archived
-        // and unarchived and contain no padding
-        #[cfg(feature = "copy")]
-        unsafe impl crate::copy::ArchiveCopySafe for $type {}
 
         impl<S: Fallible + ?Sized> Serialize<S> for $type {
             #[inline]

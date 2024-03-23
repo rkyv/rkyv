@@ -1,18 +1,3 @@
-// TODO: remove specialization in favor of runtime switching like
-// if Self::IS_TRIVIALLY_COPYABLE { fast } else { slow }
-
-#[cfg(feature = "copy")]
-macro_rules! default {
-    (#[inline] $($fn:tt)*) => { #[inline] default $($fn)* };
-    ($($fn:tt)*) => { default $($fn)* };
-}
-
-#[cfg(not(feature = "copy"))]
-macro_rules! default {
-    (#[inline] $($fn:tt)*) => { #[inline] $($fn)* };
-    ($($fn:tt)*) => { $($fn)* };
-}
-
 /// Returns a tuple of `(field_pos, field_out)`, where `field_pos` is the
 /// "position", i.e. offset in bytes, of the field relative to the base address
 /// of the struct and `field_out` is a `*mut` that points to the field directly.

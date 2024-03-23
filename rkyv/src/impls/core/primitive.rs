@@ -18,7 +18,7 @@ use crate::{
         ArchivedNonZeroU32, ArchivedNonZeroU64, ArchivedNonZeroUsize,
         ArchivedU128, ArchivedU16, ArchivedU32, ArchivedU64, ArchivedUsize,
     },
-    Archive, Archived, Deserialize, Portable, Serialize,
+    Archive, Archived, Deserialize, Portable, Serialize, CopyOptimization,
 };
 
 macro_rules! unsafe_impl_portable {
@@ -91,6 +91,10 @@ macro_rules! impl_serialize_noop {
 macro_rules! impl_portable_primitive {
     ($type:ty) => {
         impl Archive for $type {
+            const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
+                CopyOptimization::enable()
+            };
+
             type Archived = Self;
             type Resolver = ();
 
@@ -133,9 +137,26 @@ impl_portable_primitives! {
     NonZeroU8;
 }
 
+#[cfg(any(
+    all(not(feature = "big_endian"), target_endian = "little"),
+    all(feature = "big_endian", target_endian = "big"),
+))]
+const MULTIBYTE_PRIMITIVES_ARE_TRIVIALLY_COPYABLE: bool = true;
+#[cfg(any(
+    all(feature = "big_endian", target_endian = "little"),
+    all(not(feature = "big_endian"), target_endian = "big"),
+))]
+const MULTIBYTE_PRIMITIVES_ARE_TRIVIALLY_COPYABLE: bool = false;
+
 macro_rules! impl_multibyte_primitive {
     ($archived:ident: $type:ty) => {
         impl Archive for $type {
+            const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
+                CopyOptimization::enable_if(
+                    MULTIBYTE_PRIMITIVES_ARE_TRIVIALLY_COPYABLE,
+                )
+            };
+
             type Archived = $archived;
             type Resolver = ();
 
@@ -196,6 +217,10 @@ impl_multibyte_primitives! {
 unsafe impl<T: ?Sized> Portable for PhantomData<T> {}
 
 impl<T: ?Sized> Archive for PhantomData<T> {
+    const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
+        CopyOptimization::enable()
+    };
+
     type Archived = PhantomData<T>;
     type Resolver = ();
 
@@ -230,6 +255,10 @@ impl<T: ?Sized, D: Fallible + ?Sized> Deserialize<PhantomData<T>, D>
 unsafe_impl_portable!(PhantomPinned);
 
 impl Archive for PhantomPinned {
+    const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
+        CopyOptimization::enable()
+    };
+
     type Archived = PhantomPinned;
     type Resolver = ();
 
@@ -259,7 +288,36 @@ impl<D: Fallible + ?Sized> Deserialize<PhantomPinned, D> for PhantomPinned {
 
 // usize
 
+#[cfg(any(
+    all(target_pointer_width = "16", feature = "pointer_width_16"),
+    all(
+        target_pointer_width = "32",
+        not(any(
+            feature = "pointer_width_16",
+            feature = "pointer_width_64"
+        )),
+    ),
+    all(target_pointer_width = "64", feature = "pointer_width_64"),
+))]
+const POINTER_WIDTH_EQUALS_ARCHIVED_POINTER_WIDTH: bool = true;
+#[cfg(not(any(
+    all(target_pointer_width = "16", feature = "pointer_width_16"),
+    all(
+        target_pointer_width = "32",
+        not(any(
+            feature = "pointer_width_16",
+            feature = "pointer_width_64"
+        )),
+    ),
+    all(target_pointer_width = "64", feature = "pointer_width_64"),
+)))]
+const POINTER_WIDTH_EQUALS_ARCHIVED_POINTER_WIDTH: bool = false;
+
 impl Archive for usize {
+    const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
+        CopyOptimization::enable_if(MULTIBYTE_PRIMITIVES_ARE_TRIVIALLY_COPYABLE && POINTER_WIDTH_EQUALS_ARCHIVED_POINTER_WIDTH)
+    };
+
     type Archived = ArchivedUsize;
     type Resolver = ();
 
@@ -291,6 +349,10 @@ impl<D: Fallible + ?Sized> Deserialize<usize, D> for ArchivedUsize {
 // isize
 
 impl Archive for isize {
+    const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
+        CopyOptimization::enable_if(MULTIBYTE_PRIMITIVES_ARE_TRIVIALLY_COPYABLE && POINTER_WIDTH_EQUALS_ARCHIVED_POINTER_WIDTH)
+    };
+
     type Archived = ArchivedIsize;
     type Resolver = ();
 
@@ -322,6 +384,10 @@ impl<D: Fallible + ?Sized> Deserialize<isize, D> for Archived<isize> {
 // NonZeroUsize
 
 impl Archive for NonZeroUsize {
+    const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
+        CopyOptimization::enable_if(MULTIBYTE_PRIMITIVES_ARE_TRIVIALLY_COPYABLE && POINTER_WIDTH_EQUALS_ARCHIVED_POINTER_WIDTH)
+    };
+
     type Archived = ArchivedNonZeroUsize;
     type Resolver = ();
 
@@ -355,6 +421,10 @@ impl<D: Fallible + ?Sized> Deserialize<NonZeroUsize, D>
 // NonZeroIsize
 
 impl Archive for NonZeroIsize {
+    const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
+        CopyOptimization::enable_if(MULTIBYTE_PRIMITIVES_ARE_TRIVIALLY_COPYABLE && POINTER_WIDTH_EQUALS_ARCHIVED_POINTER_WIDTH)
+    };
+
     type Archived = ArchivedNonZeroIsize;
     type Resolver = ();
 
