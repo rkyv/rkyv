@@ -21,8 +21,9 @@ mod tests {
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
 
-    use crate::util::core::test_archive_with;
-    use crate::util::core::{test_archive, test_archive_ref};
+    use crate::util::core::{
+        test_archive, test_archive_ref, test_archive_with,
+    };
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]

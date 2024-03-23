@@ -98,14 +98,12 @@ where
 ///
 /// # Examples
 /// ```
+/// use bytecheck::CheckBytes;
 /// use rkyv::{
 ///     check_archived_value,
-///     ser::{Serializer, serializers::AlignedSerializer},
-///     AlignedVec,
-///     Archive,
-///     Serialize,
+///     ser::{serializers::AlignedSerializer, Serializer},
+///     AlignedVec, Archive, Serialize,
 /// };
-/// use bytecheck::CheckBytes;
 ///
 /// #[derive(Archive, Serialize)]
 /// #[archive_attr(derive(CheckBytes))]
@@ -120,10 +118,12 @@ where
 /// };
 ///
 /// let mut serializer = AlignedSerializer::new(AlignedVec::new());
-/// let pos = serializer.serialize_value(&value)
+/// let pos = serializer
+///     .serialize_value(&value)
 ///     .expect("failed to archive test");
 /// let bytes = serializer.into_inner();
-/// let archived = check_archived_value::<Example>(bytes.as_ref(), pos).unwrap();
+/// let archived =
+///     check_archived_value::<Example>(bytes.as_ref(), pos).unwrap();
 /// ```
 #[inline]
 pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T, E>
@@ -258,8 +258,8 @@ where
 /// ```
 /// let value = vec![1, 2, 3, 4];
 ///
-/// let bytes = rkyv::to_bytes::<_, 1024>(&value)
-///     .expect("failed to serialize vec");
+/// let bytes =
+///     rkyv::to_bytes::<_, 1024>(&value).expect("failed to serialize vec");
 /// let deserialized = rkyv::from_bytes::<Vec<i32>>(&bytes)
 ///     .expect("failed to deserialize vec");
 ///

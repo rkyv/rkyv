@@ -30,7 +30,8 @@ impl fmt::Display for SharedError {
         match self {
             SharedError::TypeMismatch { previous, current } => write!(
                 f,
-                "the same memory region has been claimed as two different types ({:?} and {:?})",
+                "the same memory region has been claimed as two different \
+                 types ({:?} and {:?})",
                 previous, current
             ),
         }

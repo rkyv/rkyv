@@ -1,13 +1,14 @@
 use rancor::Fallible;
 
-use crate::{rend::*, Archive, Archived, Deserialize, Serialize, CopyOptimization};
+use crate::{
+    rend::*, Archive, Archived, CopyOptimization, Deserialize, Serialize,
+};
 
 macro_rules! impl_rend_primitive {
     ($type:ty) => {
         impl Archive for $type {
-            const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
-                CopyOptimization::enable()
-            };
+            const COPY_OPTIMIZATION: CopyOptimization<Self> =
+                unsafe { CopyOptimization::enable() };
 
             type Archived = Self;
             type Resolver = ();
@@ -93,8 +94,9 @@ mod tests {
     use rancor::{Failure, Strategy};
 
     use crate::{
-        access_unchecked, deserialize, ser::CoreSerializer,
-        ser::Positional as _, Deserialize, Serialize,
+        access_unchecked, deserialize,
+        ser::{CoreSerializer, Positional as _},
+        Deserialize, Serialize,
     };
 
     type DefaultSerializer = CoreSerializer<256, 256>;

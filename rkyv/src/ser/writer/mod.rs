@@ -97,8 +97,7 @@ pub trait WriterExt<E>: Writer<E> {
         let pos = self.pos();
         debug_assert_eq!(pos & (mem::align_of::<T::Archived>() - 1), 0);
 
-        let mut resolved = mem::MaybeUninit::<T::Archived>::uninit();
-        resolved.as_mut_ptr().write_bytes(0, 1);
+        let mut resolved = mem::MaybeUninit::<T::Archived>::zeroed();
         value.resolve(pos, resolver, resolved.as_mut_ptr());
 
         let data = resolved.as_ptr().cast::<u8>();
@@ -126,8 +125,7 @@ pub trait WriterExt<E>: Writer<E> {
             0
         );
 
-        let mut resolved = mem::MaybeUninit::<RelPtr<T::Archived>>::uninit();
-        resolved.as_mut_ptr().write_bytes(0, 1);
+        let mut resolved = mem::MaybeUninit::<RelPtr<T::Archived>>::zeroed();
         RelPtr::emplace_unsized(
             from,
             to,

@@ -1,15 +1,16 @@
 //! Archived hash set implementation using an archived SwissTable.
 
-use core::hash::Hasher;
-use core::{borrow::Borrow, fmt, hash::Hash};
+use core::{
+    borrow::Borrow,
+    fmt,
+    hash::{Hash, Hasher},
+};
 
 use rancor::{Error, Fallible};
 
-use crate::collections::swiss_table::map::{
-    ArchivedHashMap, HashMapResolver, Keys,
-};
-use crate::hash::FxHasher64;
 use crate::{
+    collections::swiss_table::map::{ArchivedHashMap, HashMapResolver, Keys},
+    hash::FxHasher64,
     ser::{Allocator, Writer},
     Portable, Serialize,
 };

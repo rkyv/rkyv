@@ -15,17 +15,29 @@ pub fn derive(mut input: DeriveInput) -> Result<TokenStream, Error> {
     match &input.data {
         Data::Struct(_) => {
             if !repr.is_struct_well_defined() {
-                return Err(Error::new_spanned(&input.ident, "struct must be `repr(C)` or `repr(transparent)` to implement `Portable`"));
+                return Err(Error::new_spanned(
+                    &input.ident,
+                    "struct must be `repr(C)` or `repr(transparent)` to \
+                     implement `Portable`",
+                ));
             }
         }
         Data::Enum(_) => {
             if !repr.is_enum_well_defined() {
-                return Err(Error::new_spanned(&input.ident, "enum must be `repr(u8/i8)` or `repr(C, u8/i8)` to implement `Portable`"));
+                return Err(Error::new_spanned(
+                    &input.ident,
+                    "enum must be `repr(u8/i8)` or `repr(C, u8/i8)` to \
+                     implement `Portable`",
+                ));
             }
         }
         Data::Union(_) => {
             if !repr.is_struct_well_defined() {
-                return Err(Error::new_spanned(&input.ident, "union must be `repr(C)` or `repr(transparent)` to implement `Portable`"));
+                return Err(Error::new_spanned(
+                    &input.ident,
+                    "union must be `repr(C)` or `repr(transparent)` to \
+                     implement `Portable`",
+                ));
             }
         }
     }

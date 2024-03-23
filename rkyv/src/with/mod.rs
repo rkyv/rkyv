@@ -91,21 +91,9 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 /// ```
 /// use rkyv::{
 ///     archived_root,
-///     ser::{
-///         serializers::AllocSerializer,
-///         Serializer,
-///     },
-///     with::{
-///         ArchiveWith,
-///         DeserializeWith,
-///         SerializeWith,
-///     },
-///     Archive,
-///     Archived,
-///     Deserialize,
-///     Fallible,
-///     Infallible,
-///     Resolver,
+///     ser::{serializers::AllocSerializer, Serializer},
+///     with::{ArchiveWith, DeserializeWith, SerializeWith},
+///     Archive, Archived, Deserialize, Fallible, Infallible, Resolver,
 ///     Serialize,
 /// };
 ///
@@ -115,7 +103,12 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 ///     type Archived = Archived<i32>;
 ///     type Resolver = Resolver<i32>;
 ///
-///     unsafe fn resolve_with(field: &i32, pos: usize, _: (), out: *mut Self::Archived) {
+///     unsafe fn resolve_with(
+///         field: &i32,
+///         pos: usize,
+///         _: (),
+///         out: *mut Self::Archived,
+///     ) {
 ///         let incremented = field + 1;
 ///         incremented.resolve(pos, (), out);
 ///     }
@@ -125,17 +118,24 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 /// where
 ///     i32: Serialize<S>,
 /// {
-///     fn serialize_with(field: &i32, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+///     fn serialize_with(
+///         field: &i32,
+///         serializer: &mut S,
+///     ) -> Result<Self::Resolver, S::Error> {
 ///         let incremented = field + 1;
 ///         incremented.serialize(serializer)
 ///     }
 /// }
 ///
-/// impl<D: Fallible + ?Sized> DeserializeWith<Archived<i32>, i32, D> for Incremented
+/// impl<D: Fallible + ?Sized> DeserializeWith<Archived<i32>, i32, D>
+///     for Incremented
 /// where
 ///     Archived<i32>: Deserialize<i32, D>,
 /// {
-///     fn deserialize_with(field: &Archived<i32>, deserializer: &mut D) -> Result<i32, E> {
+///     fn deserialize_with(
+///         field: &Archived<i32>,
+///         deserializer: &mut D,
+///     ) -> Result<i32, E> {
 ///         Ok(field.deserialize(deserializer)? - 1)
 ///     }
 /// }
@@ -148,10 +148,7 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 ///     b: i32,
 /// }
 ///
-/// let value = Example {
-///     a: 4,
-///     b: 9,
-/// };
+/// let value = Example { a: 4, b: 9 };
 ///
 /// let mut serializer = AllocSerializer::<4096>::default();
 /// serializer.serialize_value(&value).unwrap();
@@ -284,7 +281,10 @@ impl<T: ?Sized> Deref for Immutable<T> {
 /// # Example
 ///
 /// ```
-/// use rkyv::{Archive, with::{Map, BoxedInline}};
+/// use rkyv::{
+///     with::{BoxedInline, Map},
+///     Archive,
+/// };
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
@@ -321,7 +321,11 @@ pub struct SeqCst;
 /// ```
 /// # #[cfg(target_has_atomic = "32")]
 /// use core::sync::atomic::AtomicU32;
-/// use rkyv::{Archive, with::{AtomicLoad, Relaxed}};
+///
+/// use rkyv::{
+///     with::{AtomicLoad, Relaxed},
+///     Archive,
+/// };
 ///
 /// # #[cfg(target_has_atomic = "32")]
 /// #[derive(Archive)]
@@ -352,7 +356,11 @@ pub struct AtomicLoad<SO> {
 /// ```
 /// # #[cfg(target_has_atomic = "32")]
 /// use core::sync::atomic::AtomicU32;
-/// use rkyv::{Archive, with::{AsAtomic, Relaxed}};
+///
+/// use rkyv::{
+///     with::{AsAtomic, Relaxed},
+///     Archive,
+/// };
 ///
 /// # #[cfg(target_has_atomic = "32")]
 /// #[derive(Archive)]
@@ -374,7 +382,7 @@ pub struct AsAtomic<SO, DO> {
 /// # Example
 ///
 /// ```
-/// use rkyv::{Archive, with::Inline};
+/// use rkyv::{with::Inline, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
@@ -393,7 +401,7 @@ pub struct Inline;
 /// # Example
 ///
 /// ```
-/// use rkyv::{Archive, with::Boxed};
+/// use rkyv::{with::Boxed, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example {
@@ -416,7 +424,7 @@ pub struct Boxed;
 /// # Example
 ///
 /// ```
-/// use rkyv::{Archive, with::BoxedInline};
+/// use rkyv::{with::BoxedInline, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
@@ -443,7 +451,8 @@ pub struct BoxedInline;
 ///
 /// ```
 /// use std::{ffi::OsString, path::PathBuf};
-/// use rkyv::{Archive, with::AsString};
+///
+/// use rkyv::{with::AsString, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example {
@@ -494,7 +503,8 @@ impl ::std::error::Error for InvalidStr {}
 ///
 /// ```
 /// use std::sync::Mutex;
-/// use rkyv::{Archive, with::Lock};
+///
+/// use rkyv::{with::Lock, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example {
@@ -523,7 +533,8 @@ impl ::std::error::Error for Poisoned {}
 ///
 /// ```
 /// use std::borrow::Cow;
-/// use rkyv::{Archive, with::AsOwned};
+///
+/// use rkyv::{with::AsOwned, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
@@ -545,7 +556,8 @@ pub struct AsOwned;
 ///
 /// ```
 /// use std::collections::HashMap;
-/// use rkyv::{Archive, with::AsVec};
+///
+/// use rkyv::{with::AsVec, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example {
@@ -565,7 +577,8 @@ pub struct AsVec;
 ///
 /// ```
 /// use core::mem::size_of;
-/// use rkyv::{Archive, Archived, with::Niche};
+///
+/// use rkyv::{with::Niche, Archive, Archived};
 ///
 /// #[derive(Archive)]
 /// struct BasicExample {
@@ -578,7 +591,10 @@ pub struct AsVec;
 ///     value: Option<Box<str>>,
 /// }
 ///
-/// assert!(size_of::<Archived<BasicExample>>() > size_of::<Archived<NichedExample>>());
+/// assert!(
+///     size_of::<Archived<BasicExample>>()
+///         > size_of::<Archived<NichedExample>>()
+/// );
 /// ```
 #[derive(Debug)]
 pub struct Niche;
@@ -601,7 +617,7 @@ pub struct Niche;
 /// # Example
 ///
 /// ```
-/// use rkyv::{Archive, with::CopyOptimize};
+/// use rkyv::{with::CopyOptimize, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example {
@@ -679,7 +695,7 @@ impl ::std::error::Error for UnixTimestampError {}
 /// # Example
 ///
 /// ```
-/// use rkyv::{Archive, with::Raw};
+/// use rkyv::{with::Raw, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example {
@@ -711,8 +727,9 @@ pub struct Raw;
 /// # Example
 ///
 /// ```
-/// use rkyv::{Archive, with::Unsafe};
 /// use core::cell::{Cell, UnsafeCell};
+///
+/// use rkyv::{with::Unsafe, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example {
@@ -732,7 +749,7 @@ pub struct Unsafe;
 /// # Example
 ///
 /// ```
-/// use rkyv::{Archive, with::Skip};
+/// use rkyv::{with::Skip, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example {

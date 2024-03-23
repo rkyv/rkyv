@@ -142,18 +142,12 @@ impl<T: ?Sized> CopyOptimization<T> {
 ///
 /// ```
 /// use core::{slice, str};
+///
 /// use rkyv::{
-///     archived_root,
-///     ser::{Serializer, serializers::AlignedSerializer},
-///     out_field,
-///     AlignedVec,
-///     Archive,
-///     Archived,
-///     ArchiveUnsized,
-///     MetadataResolver,
-///     RelPtr,
-///     Serialize,
-///     SerializeUnsized,
+///     archived_root, out_field,
+///     ser::{serializers::AlignedSerializer, Serializer},
+///     AlignedVec, Archive, ArchiveUnsized, Archived, MetadataResolver,
+///     RelPtr, Serialize, SerializeUnsized,
 /// };
 ///
 /// struct OwnedStr {
@@ -219,14 +213,14 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// impl<S: Serializer + ?Sized> Serialize<S> for OwnedStr {
 ///     fn serialize(
 ///         &self,
-///         serializer: &mut S
+///         serializer: &mut S,
 ///     ) -> Result<Self::Resolver, S::Error> {
 ///         // This is where we want to write the bytes of our string and return
 ///         // a resolver that knows where those bytes were written.
 ///         // We also need to serialize the metadata for our str.
 ///         Ok(OwnedStrResolver {
 ///             pos: self.inner.serialize_unsized(serializer)?,
-///             metadata_resolver: self.inner.serialize_metadata(serializer)?
+///             metadata_resolver: self.inner.serialize_metadata(serializer)?,
 ///         })
 ///     }
 /// }
@@ -235,7 +229,9 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// const STR_VAL: &'static str = "I'm in an OwnedStr!";
 /// let value = OwnedStr { inner: STR_VAL };
 /// // It works!
-/// serializer.serialize_value(&value).expect("failed to archive test");
+/// serializer
+///     .serialize_value(&value)
+///     .expect("failed to archive test");
 /// let buf = serializer.into_inner();
 /// let archived = unsafe { archived_root::<OwnedStr>(buf.as_ref()) };
 /// // Let's make sure our data got written correctly
@@ -349,21 +345,18 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// correctly.
 ///
 /// ```
-/// use core::{mem::transmute, ops::{Deref, DerefMut}};
+/// use core::{
+///     mem::transmute,
+///     ops::{Deref, DerefMut},
+/// };
+///
 /// use ptr_meta::Pointee;
 /// use rkyv::{
 ///     archived_unsized_value,
-///     ser::{serializers::AlignedSerializer, Serializer},
-///     AlignedVec,
-///     Archive,
-///     Archived,
-///     ArchivedMetadata,
-///     ArchivePointee,
-///     ArchiveUnsized,
-///     RelPtr,
-///     Serialize,
-///     SerializeUnsized,
 ///     primitive::ArchivedUsize,
+///     ser::{serializers::AlignedSerializer, Serializer},
+///     AlignedVec, Archive, ArchivePointee, ArchiveUnsized, Archived,
+///     ArchivedMetadata, RelPtr, Serialize, SerializeUnsized,
 /// };
 ///
 /// // We're going to be dealing mostly with blocks that have a trailing slice
@@ -394,7 +387,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     // We need to be able to turn our archived metadata into regular
 ///     // metadata for our type
 ///     fn pointer_metadata(
-///         archived: &Self::ArchivedMetadata
+///         archived: &Self::ArchivedMetadata,
 ///     ) -> <Self as Pointee>::Metadata {
 ///         archived.len.to_native() as usize
 ///     }
@@ -431,15 +424,13 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// // The bounds we use on our serializer type indicate that we need basic
 /// // serializer capabilities, and then whatever capabilities our head and tail
 /// // types need to serialize themselves.
-/// impl<
-///     H: Serialize<S>,
-///     T: Serialize<S>,
-///     S: Serializer + ?Sized
-/// > SerializeUnsized<S> for Block<H, [T]> {
+/// impl<H: Serialize<S>, T: Serialize<S>, S: Serializer + ?Sized>
+///     SerializeUnsized<S> for Block<H, [T]>
+/// {
 ///     // This is where we construct our unsized type in the serializer
 ///     fn serialize_unsized(
 ///         &self,
-///         serializer: &mut S
+///         serializer: &mut S,
 ///     ) -> Result<usize, S::Error> {
 ///         // First, we archive the head and all the tails. This will make sure
 ///         // that when we finally build our block, we don't accidentally mess
@@ -469,7 +460,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     // we do all the work in resolve and don't need to do anything here.
 ///     fn serialize_metadata(
 ///         &self,
-///         serializer: &mut S
+///         serializer: &mut S,
 ///     ) -> Result<Self::MetadataResolver, S::Error> {
 ///         Ok(())
 ///     }
@@ -487,7 +478,8 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// };
 ///
 /// let mut serializer = AlignedSerializer::new(AlignedVec::new());
-/// let pos = serializer.serialize_unsized_value(unsized_value)
+/// let pos = serializer
+///     .serialize_unsized_value(unsized_value)
 ///     .expect("failed to archive block");
 /// let buf = serializer.into_inner();
 ///

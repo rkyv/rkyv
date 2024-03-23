@@ -6,9 +6,8 @@ use crate::{Archive, CopyOptimization, Deserialize, Portable, Serialize};
 unsafe impl Portable for Uuid {}
 
 impl Archive for Uuid {
-    const COPY_OPTIMIZATION: crate::CopyOptimization<Self> = unsafe {
-        CopyOptimization::enable()
-    };
+    const COPY_OPTIMIZATION: crate::CopyOptimization<Self> =
+        unsafe { CopyOptimization::enable() };
 
     type Archived = Uuid;
     type Resolver = ();

@@ -163,7 +163,10 @@ impl<T> ScratchVec<T> {
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
         if self.len + additional > self.cap {
-            panic!("reserve requested more capacity than the scratch vec has available");
+            panic!(
+                "reserve requested more capacity than the scratch vec has \
+                 available"
+            );
         }
     }
 

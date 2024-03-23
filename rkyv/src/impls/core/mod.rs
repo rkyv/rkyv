@@ -12,8 +12,9 @@ use crate::{
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt as _},
     tuple::*,
-    Archive, ArchivePointee, ArchiveUnsized, ArchivedMetadata, Deserialize,
-    DeserializeUnsized, Portable, Serialize, SerializeUnsized, CopyOptimization,
+    Archive, ArchivePointee, ArchiveUnsized, ArchivedMetadata,
+    CopyOptimization, Deserialize, DeserializeUnsized, Portable, Serialize,
+    SerializeUnsized,
 };
 
 mod ops;
@@ -257,7 +258,7 @@ where
             let as_bytes = unsafe {
                 core::slice::from_raw_parts(
                     self.as_ptr().cast::<u8>(),
-                    core::mem::size_of::<T>() * self.len(),
+                    core::mem::size_of_val(self),
                 )
             };
             serializer.write(as_bytes)?;
@@ -266,9 +267,8 @@ where
         } else {
             use crate::util::ScratchVec;
 
-            let mut resolvers = unsafe {
-                ScratchVec::new(serializer, self.len())?
-            };
+            let mut resolvers =
+                unsafe { ScratchVec::new(serializer, self.len())? };
 
             for value in self.iter() {
                 resolvers.push(value.serialize(serializer)?);
@@ -294,11 +294,16 @@ where
     T: Deserialize<U, D>,
     D: Fallible + ?Sized,
 {
-    unsafe fn deserialize_unsized(&self, deserializer: &mut D, mut alloc: impl FnMut(Layout) -> *mut u8) -> Result<*mut (), D::Error> {
+    unsafe fn deserialize_unsized(
+        &self,
+        deserializer: &mut D,
+        mut alloc: impl FnMut(Layout) -> *mut u8,
+    ) -> Result<*mut (), D::Error> {
         if self.is_empty() || core::mem::size_of::<U>() == 0 {
             Ok(ptr::NonNull::<U>::dangling().as_ptr().cast())
         } else {
-            let result = alloc(Layout::array::<U>(self.len()).unwrap()).cast::<U>();
+            let result =
+                alloc(Layout::array::<U>(self.len()).unwrap()).cast::<U>();
             assert!(!result.is_null());
             for (i, item) in self.iter().enumerate() {
                 result.add(i).write(item.deserialize(deserializer)?);
@@ -308,7 +313,10 @@ where
     }
 
     #[inline]
-    fn deserialize_metadata(&self, _: &mut D) -> Result<<[U] as Pointee>::Metadata, D::Error> {
+    fn deserialize_metadata(
+        &self,
+        _: &mut D,
+    ) -> Result<<[U] as Pointee>::Metadata, D::Error> {
         Ok(ptr_meta::metadata(self))
     }
 }

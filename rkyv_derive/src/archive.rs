@@ -55,16 +55,17 @@ fn derive_archive_impl(
     let with_ty = make_with_ty(&rkyv_path);
     let with_cast = make_with_cast(&rkyv_path);
 
-    let derive_check_bytes = if attributes.check_bytes.is_some() && cfg!(feature = "bytecheck") {
-        let path = quote!(#rkyv_path::bytecheck).to_string();
-        let path_lit_str = LitStr::new(&path, rkyv_path.span());
-        vec![
-            parse_quote! { #[derive(#rkyv_path::bytecheck::CheckBytes)] },
-            parse_quote! { #[check_bytes(crate = #path_lit_str)] },
-        ]
-    } else {
-        Vec::new()
-    };
+    let derive_check_bytes =
+        if attributes.check_bytes.is_some() && cfg!(feature = "bytecheck") {
+            let path = quote!(#rkyv_path::bytecheck).to_string();
+            let path_lit_str = LitStr::new(&path, rkyv_path.span());
+            vec![
+                parse_quote! { #[derive(#rkyv_path::bytecheck::CheckBytes)] },
+                parse_quote! { #[check_bytes(crate = #path_lit_str)] },
+            ]
+        } else {
+            Vec::new()
+        };
 
     let archive_attrs = derive_check_bytes.into_iter().chain(
         attributes
@@ -77,7 +78,8 @@ fn derive_archive_impl(
         if let Some(ref ident) = attributes.archived {
             return Err(Error::new_spanned(
                 ident,
-                "archived = \"...\" may not be used with as = \"...\" because no type is generated",
+                "archived = \"...\" may not be used with as = \"...\" because \
+                 no type is generated",
             ));
         }
         if let Some(first) = attributes.attrs.first() {
@@ -85,9 +87,9 @@ fn derive_archive_impl(
                 first,
                 format!(
                     "\
-                        archive_attr(...) may not be used with as = \"...\"\n\
-                        place any attributes on the archived type ({}) instead\
-                    ",
+                        archive_attr(...) may not be used with as = \
+                     \"...\"\nplace any attributes on the archived type ({}) \
+                     instead",
                     archive_as.value(),
                 ),
             ));
@@ -247,7 +249,8 @@ fn derive_archive_impl(
                             } else {
                                 return Err(Error::new_spanned(
                                     compare,
-                                    "unrecognized compare argument, supported compares are PartialEq and PartialOrd"
+                                    "unrecognized compare argument, supported \
+                                     compares are PartialEq and PartialOrd",
                                 ));
                             }
                         }
@@ -414,7 +417,11 @@ fn derive_archive_impl(
                                     }
                                 });
                             } else {
-                                return Err(Error::new_spanned(compare, "unrecognized compare argument, supported compares are PartialEq and PartialOrd"));
+                                return Err(Error::new_spanned(
+                                    compare,
+                                    "unrecognized compare argument, supported \
+                                     compares are PartialEq and PartialOrd",
+                                ));
                             }
                         }
                     }
@@ -501,7 +508,8 @@ fn derive_archive_impl(
                             } else {
                                 return Err(Error::new_spanned(
                                     compare,
-                                    "unrecognized compare argument, supported compares are PartialEq and PartialOrd",
+                                    "unrecognized compare argument, supported \
+                                     compares are PartialEq and PartialOrd",
                                 ));
                             }
                         }
@@ -1109,7 +1117,12 @@ fn derive_archive_impl(
                             }
                         });
                     } else {
-                        return Err(Error::new_spanned(compare, "unrecognized compare argument, supported compares are PartialEq (PartialOrd is not supported for enums)"));
+                        return Err(Error::new_spanned(
+                            compare,
+                            "unrecognized compare argument, supported \
+                             compares are PartialEq (PartialOrd is not \
+                             supported for enums)",
+                        ));
                     }
                 }
             }

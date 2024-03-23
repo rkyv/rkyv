@@ -206,9 +206,9 @@ pub use crate::{
 
 #[cfg(all(feature = "little_endian", feature = "big_endian"))]
 core::compiler_error!(
-    "\"little_endian\" and \"big_endian\" are mutually-exclusive features. You \
-    may need to set `default-features = false` or compile with \
-    `--no-default-features`."
+    "\"little_endian\" and \"big_endian\" are mutually-exclusive features. \
+     You may need to set `default-features = false` or compile with \
+     `--no-default-features`."
 );
 
 // Check pointer width feature flag settings
@@ -220,8 +220,8 @@ core::compiler_error!(
 ))]
 core::compile_error!(
     "\"pointer_width_16\" and \"pointer_width_32\" are mutually-exclusive \
-    features. You may need to set `default-features = false` or compile with \
-    `--no-default-features`."
+     features. You may need to set `default-features = false` or compile with \
+     `--no-default-features`."
 );
 #[cfg(all(
     feature = "pointer_width_16",
@@ -230,8 +230,8 @@ core::compile_error!(
 ))]
 core::compile_error!(
     "\"pointer_width_16\" and \"pointer_width_64\" are mutually-exclusive \
-    features. You may need to set `default-features = false` or compile with \
-    `--no-default-features`."
+     features. You may need to set `default-features = false` or compile with \
+     `--no-default-features`."
 );
 #[cfg(all(
     feature = "pointer_width_32",
@@ -240,8 +240,8 @@ core::compile_error!(
 ))]
 core::compile_error!(
     "\"pointer_width_32\" and \"pointer_width_64\" are mutually-exclusive \
-    features. You may need to set `default-features = false` or compile with \
-    `--no-default-features`."
+     features. You may need to set `default-features = false` or compile with \
+     `--no-default-features`."
 );
 #[cfg(all(
     feature = "pointer_width_16",
@@ -249,7 +249,7 @@ core::compile_error!(
     feature = "pointer_width_64"
 ))]
 core::compile_error!(
-    "\"pointer_width_16\", \"pointer_width_32\", and \"pointer_width_64\" are mutually-exclusive \
-    features. You may need to set `default-features = false` or compile with \
-    `--no-default-features`."
+    "\"pointer_width_16\", \"pointer_width_32\", and \"pointer_width_64\" are \
+     mutually-exclusive features. You may need to set `default-features = \
+     false` or compile with `--no-default-features`."
 );

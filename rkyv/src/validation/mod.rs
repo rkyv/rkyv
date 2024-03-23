@@ -3,7 +3,11 @@
 pub mod util;
 pub mod validators;
 
-use core::{alloc::Layout, alloc::LayoutError, any::TypeId, ops::Range};
+use core::{
+    alloc::{Layout, LayoutError},
+    any::TypeId,
+    ops::Range,
+};
 
 use bytecheck::rancor::{Error, Fallible, Strategy};
 use ptr_meta::Pointee;

@@ -37,12 +37,8 @@ const _: () = {
 /// ```
 /// use rkyv::{
 ///     archived_value,
-///     ser::{Serializer, serializers::BufferSerializer},
-///     AlignedBytes,
-///     AlignedVec,
-///     Archive,
-///     Archived,
-///     Serialize,
+///     ser::{serializers::BufferSerializer, Serializer},
+///     AlignedBytes, AlignedVec, Archive, Archived, Serialize,
 /// };
 ///
 /// #[derive(Archive, Serialize)]
@@ -53,7 +49,8 @@ const _: () = {
 /// }
 ///
 /// let mut serializer = BufferSerializer::new(AlignedBytes([0u8; 256]));
-/// let pos = serializer.serialize_value(&Event::Speak("Help me!".to_string()))
+/// let pos = serializer
+///     .serialize_value(&Event::Speak("Help me!".to_string()))
 ///     .expect("failed to archive event");
 /// let buf = serializer.into_inner();
 /// let archived = unsafe { archived_value::<Event>(buf.as_ref(), pos) };

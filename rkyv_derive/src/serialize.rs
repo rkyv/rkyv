@@ -50,7 +50,7 @@ fn derive_serialize_impl(
     };
 
     let name = &input.ident;
-    let (impl_generics, _, _) = impl_input_generics.split_for_impl();
+    let (impl_generics, ..) = impl_input_generics.split_for_impl();
     let (_, ty_generics, where_clause) = input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 

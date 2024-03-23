@@ -1,5 +1,5 @@
-use core::borrow::{Borrow, BorrowMut};
 use core::{
+    borrow::{Borrow, BorrowMut},
     fmt,
     ops::{Deref, DerefMut, Index, IndexMut},
     ptr::NonNull,
@@ -12,10 +12,9 @@ use std::{alloc, io};
 use ::alloc::{alloc, boxed::Box, vec::Vec};
 use rancor::Fallible;
 
-use crate::vec::VecResolver;
 use crate::{
     ser::{Allocator, Writer, WriterExt as _},
-    vec::ArchivedVec,
+    vec::{ArchivedVec, VecResolver},
     Archive, Archived, Serialize,
 };
 

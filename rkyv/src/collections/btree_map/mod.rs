@@ -106,7 +106,7 @@ fn combine_meta(is_inner: bool, len: usize) -> u16 {
 
 #[inline]
 fn split_meta(meta: u16) -> (bool, usize) {
-    (meta & 0x80_00 == 0x80_00, (meta & 0x7F_FF) as usize)
+    (meta & 0x80_00 == 0x80_00, (meta & 0x7f_ff) as usize)
 }
 
 #[repr(C)]

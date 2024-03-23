@@ -1,6 +1,8 @@
 use core::{alloc::Layout, ptr};
-use std::alloc;
-use std::ffi::{CStr, CString};
+use std::{
+    alloc,
+    ffi::{CStr, CString},
+};
 
 use ptr_meta::Pointee;
 use rancor::Fallible;

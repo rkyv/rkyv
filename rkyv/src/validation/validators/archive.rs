@@ -49,7 +49,8 @@ impl fmt::Display for ArchiveError {
         match self {
             ArchiveError::Unaligned { address, align } => write!(
                 f,
-                "unaligned pointer: ptr {address:#0w$x} unaligned for alignment {align}",
+                "unaligned pointer: ptr {address:#0w$x} unaligned for \
+                 alignment {align}",
                 w = W,
             ),
             ArchiveError::InvalidSubtreePointer {
@@ -58,16 +59,19 @@ impl fmt::Display for ArchiveError {
                 subtree_range,
             } => write!(
                 f,
-                "subtree pointer overran range: ptr {address:#0w$x} size {size} in range {:#0w$x}..{:#0w$x}",
-                subtree_range.start, subtree_range.end, w = W,
+                "subtree pointer overran range: ptr {address:#0w$x} size \
+                 {size} in range {:#0w$x}..{:#0w$x}",
+                subtree_range.start,
+                subtree_range.end,
+                w = W,
             ),
-            ArchiveError::RangePoppedTooManyTimes => write!(
-                f,
-                "subtree range popped too many times",
-            ),
+            ArchiveError::RangePoppedTooManyTimes => {
+                write!(f, "subtree range popped too many times",)
+            }
             ArchiveError::ExceededMaximumSubtreeDepth => write!(
                 f,
-                "pushed a subtree range that exceeded the maximum subtree depth",
+                "pushed a subtree range that exceeded the maximum subtree \
+                 depth",
             ),
             ArchiveError::LayoutError { layout_error } => {
                 write!(f, "a layout error occurred: {}", layout_error)

@@ -39,7 +39,7 @@
 /// ```
 #[macro_export]
 macro_rules! out_field {
-    ($out:ident.$field:tt) => {{
+    ($out:ident. $field:tt) => {{
         #[allow(unused_unsafe)]
         unsafe {
             let fo = ::core::ptr::addr_of_mut!((*$out).$field);

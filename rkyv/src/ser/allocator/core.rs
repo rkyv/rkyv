@@ -30,7 +30,8 @@ impl fmt::Display for BufferAllocError {
                 popped_size,
             } => write!(
                 f,
-                "allocation popped at {} with length {} runs past buffer allocator start {}",
+                "allocation popped at {} with length {} runs past buffer \
+                 allocator start {}",
                 popped_pos, popped_size, pos,
             ),
             Self::DoesNotContainAllocation => {

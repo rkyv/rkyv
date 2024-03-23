@@ -27,12 +27,11 @@ use rancor::Strategy;
 pub use self::aligned_vec::*;
 #[doc(inline)]
 pub use self::scratch_vec::*;
-use crate::Portable;
 #[cfg(feature = "alloc")]
 use crate::{de::pooling::Unify, ser::AllocSerializer};
 use crate::{
-    ser::Writer, Archive, ArchivePointee, Deserialize, RelPtr, Serialize,
-    SerializeUnsized,
+    ser::Writer, Archive, ArchivePointee, Deserialize, Portable, RelPtr,
+    Serialize, SerializeUnsized,
 };
 
 #[cfg(debug_assertions)]
@@ -45,8 +44,10 @@ fn check_alignment<T: Portable>(ptr: *const u8) {
         0,
         concat!(
             "unaligned buffer, expected alignment {} but found alignment {}\n",
-            "help: rkyv requires byte buffers to be aligned to access the data inside.\n",
-            "      Using an AlignedVec or manually aligning your data with #[align(...)]\n",
+            "help: rkyv requires byte buffers to be aligned to access the \
+             data inside.\n",
+            "      Using an AlignedVec or manually aligning your data with \
+             #[align(...)]\n",
             "      may resolve this issue.",
         ),
         expect_align,
@@ -238,6 +239,7 @@ where
 ///
 /// ```
 /// use core::mem;
+///
 /// use rkyv::AlignedBytes;
 ///
 /// assert_eq!(mem::align_of::<u8>(), 1);
@@ -301,7 +303,8 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 /// ```
 /// let value = vec![1, 2, 3, 4];
 ///
-/// let bytes = rkyv::to_bytes::<_, 1024>(&value).expect("failed to serialize vec");
+/// let bytes =
+///     rkyv::to_bytes::<_, 1024>(&value).expect("failed to serialize vec");
 /// // SAFETY:
 /// // - The byte slice represents an archived object
 /// // - The root of the object is stored at the end of the slice
@@ -390,7 +393,8 @@ where
 /// ```
 /// let value = vec![1, 2, 3, 4];
 ///
-/// let bytes = rkyv::to_bytes::<_, 1024>(&value).expect("failed to serialize vec");
+/// let bytes =
+///     rkyv::to_bytes::<_, 1024>(&value).expect("failed to serialize vec");
 /// // SAFETY:
 /// // - The byte slice represents an archived object
 /// // - The root of the object is stored at the end of the slice

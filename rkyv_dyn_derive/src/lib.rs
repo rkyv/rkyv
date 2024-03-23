@@ -94,9 +94,10 @@ impl Parse for Args {
                     deserialize = Some(None);
                 }
             } else {
-                return Err(
-                    input.error("expected serialize = \"...\" or deserialize = \"...\" parameters")
-                );
+                return Err(input.error(
+                    "expected serialize = \"...\" or deserialize = \"...\" \
+                     parameters",
+                ));
             }
 
             needs_punct = true;
@@ -137,7 +138,14 @@ pub fn archive_dyn(
     let input_impl = match input {
         Input::Impl(ref input) => {
             if !input.generics.params.is_empty() {
-                Error::new(input.generics.span(), "#[archive_dyn] can only register non-generic impls; call register_impl! with the concrete types to register and manually implement DeserializeDyn for archived types if necessary").to_compile_error()
+                Error::new(
+                    input.generics.span(),
+                    "#[archive_dyn] can only register non-generic impls; call \
+                     register_impl! with the concrete types to register and \
+                     manually implement DeserializeDyn for archived types if \
+                     necessary",
+                )
+                .to_compile_error()
             } else if let Some((_, ref trait_, _)) = input.trait_ {
                 let ty = &input.self_ty;
 

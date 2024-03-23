@@ -300,9 +300,8 @@ impl<T> ArchivedVec<T> {
     /// .expect("serialization failed");
     ///
     /// // Finalize the data by resolving it and writing it to the end of the serializer
-    /// let mut resolved = ::core::mem::MaybeUninit::<ArchivedVec<ArchivedExample>>::uninit();
+    /// let mut resolved = ::core::mem::MaybeUninit::<ArchivedVec<ArchivedExample>>::zeroed();
     /// unsafe {
-    ///     resolved.as_mut_ptr().write_bytes(0, 1);
     ///     ArchivedVec::<ArchivedExample>::resolve_from_len(
     ///         // We need to get the length from the iterator adapter if it is not known to us
     ///         // otherwise

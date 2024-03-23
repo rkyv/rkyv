@@ -199,8 +199,7 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn cycle_detection() {
-        use rkyv::rancor::Fallible;
-        use rkyv::{validation::ArchiveContext, Archived};
+        use rkyv::{rancor::Fallible, validation::ArchiveContext, Archived};
 
         #[derive(Archive)]
         #[archive_attr(derive(Debug))]

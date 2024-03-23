@@ -97,16 +97,8 @@ impl<E> AsDynSerializer<E> for dyn DynSerializer<E> {
 /// ```
 /// use rkyv::{
 ///     archived_value,
-///     ser::{
-///         serializers::AllocSerializer,
-///         Serializer,
-///     },
-///     AlignedVec,
-///     Archive,
-///     Archived,
-///     Deserialize,
-///     Infallible,
-///     Serialize,
+///     ser::{serializers::AllocSerializer, Serializer},
+///     AlignedVec, Archive, Archived, Deserialize, Infallible, Serialize,
 /// };
 /// use rkyv_dyn::archive_dyn;
 ///
@@ -151,9 +143,11 @@ impl<E> AsDynSerializer<E> for dyn DynSerializer<E> {
 /// let boxed_string = Box::new(StringStruct("hello world".to_string()))
 ///     as Box<dyn SerializeExampleTrait>;
 /// let mut serializer = AllocSerializer::<256>::default();
-/// let int_pos = serializer.serialize_value(&boxed_int)
+/// let int_pos = serializer
+///     .serialize_value(&boxed_int)
 ///     .expect("failed to archive boxed int");
-/// let str_pos = serializer.serialize_value(&boxed_string)
+/// let str_pos = serializer
+///     .serialize_value(&boxed_string)
 ///     .expect("failed to archive boxed string");
 /// let buf = serializer.into_serializer().into_inner();
 /// let archived_int = unsafe {
@@ -165,10 +159,10 @@ impl<E> AsDynSerializer<E> for dyn DynSerializer<E> {
 /// assert_eq!(archived_int.value(), "42");
 /// assert_eq!(archived_string.value(), "hello world");
 ///
-/// let deserialized_int: Box<dyn SerializeExampleTrait> = archived_int
-///     .deserialize(&mut Infallible).unwrap();
-/// let deserialized_string: Box<dyn SerializeExampleTrait> = archived_string
-///     .deserialize(&mut Infallible).unwrap();
+/// let deserialized_int: Box<dyn SerializeExampleTrait> =
+///     archived_int.deserialize(&mut Infallible).unwrap();
+/// let deserialized_string: Box<dyn SerializeExampleTrait> =
+///     archived_string.deserialize(&mut Infallible).unwrap();
 /// assert_eq!(deserialized_int.value(), "42");
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```

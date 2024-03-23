@@ -1,8 +1,7 @@
 use core::hash::{BuildHasher, Hash};
 
 use indexmap::IndexMap;
-use rancor::Error;
-use rancor::Fallible;
+use rancor::{Error, Fallible};
 
 use crate::{
     collections::swiss_table::{ArchivedIndexMap, IndexMapResolver},

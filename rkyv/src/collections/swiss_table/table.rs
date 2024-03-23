@@ -283,9 +283,9 @@ impl<T> ArchivedHashTable<T> {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 write!(
                     f,
-                    "iterator claimed that it contained {} elements, but yielded {} items during iteration",
-                    self.expected,
-                    self.actual,
+                    "iterator claimed that it contained {} elements, but \
+                     yielded {} items during iteration",
+                    self.expected, self.actual,
                 )
             }
         }
@@ -538,9 +538,9 @@ mod verify {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             write!(
                 f,
-                "hash table length must be strictly less than its capacity (length: {}, capacity: {})",
-                self.len,
-                self.cap,
+                "hash table length must be strictly less than its capacity \
+                 (length: {}, capacity: {})",
+                self.len, self.cap,
             )
         }
     }

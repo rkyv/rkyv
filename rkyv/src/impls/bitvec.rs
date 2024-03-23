@@ -3,11 +3,8 @@ use core::ops::Deref;
 use bitvec::{prelude::*, view::BitViewSized};
 use rancor::Fallible;
 
-use crate::bitvec::ArchivedBitArray;
-#[cfg(feature = "bitvec_alloc")]
-use crate::vec::{ArchivedVec, VecResolver};
 use crate::{
-    bitvec::ArchivedBitVec,
+    bitvec::{ArchivedBitArray, ArchivedBitVec},
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, Serialize,

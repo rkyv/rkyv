@@ -86,9 +86,13 @@ impl fmt::Display for GlobalAllocatorError {
         const W: usize = (usize::BITS / 4 + 2) as usize;
 
         match self {
-            Self::ExceededLimit { requested, remaining } => write!(
+            Self::ExceededLimit {
+                requested,
+                remaining,
+            } => write!(
                 f,
-                "exceeded the maximum limit of scratch space: requested {}, remaining {}",
+                "exceeded the maximum limit of scratch space: requested {}, \
+                 remaining {}",
                 requested, remaining
             ),
             Self::NotPoppedInReverseOrder {
@@ -98,11 +102,19 @@ impl fmt::Display for GlobalAllocatorError {
                 actual_layout,
             } => write!(
                 f,
-                "scratch space was not popped in reverse order: expected {expected:#0w$x} with size {} and align {}, found {actual:#0w$x} with size {} and align {}",
-                expected_layout.size(), expected_layout.align(), actual_layout.size(), actual_layout.align(), w = W,
+                "scratch space was not popped in reverse order: expected \
+                 {expected:#0w$x} with size {} and align {}, found \
+                 {actual:#0w$x} with size {} and align {}",
+                expected_layout.size(),
+                expected_layout.align(),
+                actual_layout.size(),
+                actual_layout.align(),
+                w = W,
             ),
             Self::NoAllocationsToPop => write!(
-                f, "attempted to pop scratch space but there were no allocations to pop"
+                f,
+                "attempted to pop scratch space but there were no allocations \
+                 to pop"
             ),
         }
     }
