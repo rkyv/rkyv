@@ -55,7 +55,7 @@ fn derive_archive_impl(
     let with_ty = make_with_ty(&rkyv_path);
     let with_cast = make_with_cast(&rkyv_path);
 
-    let derive_check_bytes = if attributes.check_bytes.is_some() {
+    let derive_check_bytes = if attributes.check_bytes.is_some() && cfg!(feature = "bytecheck") {
         let path = quote!(#rkyv_path::bytecheck).to_string();
         let path_lit_str = LitStr::new(&path, rkyv_path.span());
         vec![
