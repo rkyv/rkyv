@@ -22,7 +22,7 @@ use crate::{
 )]
 #[repr(transparent)]
 pub struct ArchivedBox<T: ArchivePointee + ?Sized> {
-    ptr: RelPtr<T>,
+    pub(crate) ptr: RelPtr<T>,
 }
 
 impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
