@@ -48,8 +48,9 @@ macro_rules! impl_noisyfloat_niche {
                 field: &$ar<C>,
                 _: &mut D,
             ) -> Result<Option<NoisyFloat<$f, C>>, D::Error> {
-                Ok(field.as_ref().and_then(|raw| {
+                Ok(field.as_ref().map(|raw| unsafe {
                     NoisyFloat::<$f, C>::try_new(raw.to_native())
+                        .unwrap_unchecked() // SAFETY: We know the value is valid
                 }))
             }
         }
