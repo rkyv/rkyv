@@ -147,6 +147,20 @@ macro_rules! impl_archived_option_float {
                 self.as_ref().partial_cmp(&other.as_ref())
             }
         }
+
+        #[cfg(feature = "bytecheck")]
+        const _: () = {
+            use bytecheck::CheckBytes;
+
+            unsafe impl<FC: FloatChecker<$f>, C> CheckBytes<C> for $ar<FC>
+                where C: rancor::Fallible + ?Sized
+            {
+                #[inline]
+                unsafe fn check_bytes(value: *const Self, context: &mut C) -> Result<(), C::Error> {
+                    Archived::<$f>::check_bytes(value.cast(), context)
+                }
+            }
+        };
     };
 }
 
