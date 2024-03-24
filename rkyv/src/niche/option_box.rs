@@ -15,6 +15,11 @@ use crate::{
 /// It uses less space by storing the `None` variant as a null pointer.
 #[derive(Portable)]
 #[archive(crate)]
+#[cfg_attr(
+    feature = "bytecheck",
+    derive(bytecheck::CheckBytes),
+    check_bytes(verify)
+)]
 #[repr(transparent)]
 pub struct ArchivedOptionBox<T: ArchivePointee + ?Sized> {
     inner: ArchivedBox<T>,
@@ -98,6 +103,29 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
         self.as_ref().map(|x| (*x).deref())
     }
 }
+
+#[cfg(feature = "bytecheck")]
+const _: () = {
+    use crate::validation::{ArchiveContext, LayoutRaw};
+    use bytecheck::{rancor::Error, CheckBytes, Verify};
+
+    unsafe impl<T, C> Verify<C> for ArchivedOptionBox<T>
+    where
+        T: ArchivePointee + CheckBytes<C> + LayoutRaw + ?Sized,
+        T::ArchivedMetadata: CheckBytes<C>,
+        C: Fallible + ArchiveContext + ?Sized,
+        C::Error: Error,
+    {
+        #[inline]
+        fn verify(&self, context: &mut C) -> Result<(), C::Error> {
+            if self.inner.is_null() {
+                return Ok(());
+            }
+
+            self.inner.verify(context)
+        }
+    }
+};
 
 impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T>
 where

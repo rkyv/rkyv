@@ -17,6 +17,7 @@ macro_rules! impl_archived_option_nonzero {
         #[derive(Portable)]
         #[archive(crate)]
         #[repr(transparent)]
+        #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
         pub struct $ar {
             inner: Archived<$ne>,
         }
