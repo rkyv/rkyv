@@ -40,11 +40,10 @@ const _: () = {
             value: *const Self,
             context: &mut C,
         ) -> Result<(), C::Error> {
-            // bypass `ArchivedBox::check_bytes` in favor of `RelPtr::check_bytes`
-            CheckBytes::check_bytes(
-                core::ptr::addr_of!((*value).inner.ptr),
-                context,
-            )?;
+            // bypass `ArchivedBox::check_bytes` in favor of `RelPtr::check_bytes`.
+            // both ArchivedOptionBox and ArchivedBox are transparent to the RelPtr,
+            // so casting to RelPtr is safe.
+            RelPtr::check_bytes(value.cast(), context)?;
 
             // verify with null check
             Verify::verify(unsafe { &*value }, context)
