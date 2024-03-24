@@ -36,6 +36,7 @@ macro_rules! impl_archived_option_nonzero {
             }
 
             #[doc = concat!("Converts to an `Option<&Archived<", stringify!($nz), ">>`")]
+            #[inline]
             pub fn as_ref(&self) -> Option<&Archived<$nz>> {
                 if self.inner != 0 {
                     let as_nonzero = unsafe {
@@ -50,6 +51,7 @@ macro_rules! impl_archived_option_nonzero {
             }
 
             #[doc = concat!("Converts to an `Option<&mut Archived<", stringify!($nz), ">>`")]
+            #[inline]
             pub fn as_mut(&mut self) -> Option<&mut Archived<$nz>> {
                 if self.inner != 0 {
                     let as_nonzero = unsafe {
@@ -58,6 +60,17 @@ macro_rules! impl_archived_option_nonzero {
                         &mut *(&mut self.inner as *mut _ as *mut Archived<$nz>)
                     };
                     Some(as_nonzero)
+                } else {
+                    None
+                }
+            }
+
+            /// Takes the value out of the option, leaving a `None` in its place.
+            #[inline]
+            pub fn take(&mut self) -> Option<Archived<$nz>> {
+                if self.inner != 0 {
+                    #[allow(clippy::transmute_int_to_non_zero)] // SAFETY: self.inner is nonzero
+                    Some(unsafe { core::mem::transmute(core::mem::replace(&mut self.inner, 0.into())) })
                 } else {
                     None
                 }
