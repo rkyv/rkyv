@@ -46,7 +46,7 @@ const _: () = {
             RelPtr::check_bytes(value.cast(), context)?;
 
             // verify with null check
-            Verify::verify(unsafe { &*value }, context)
+            Self::verify(unsafe { &*value }, context)
         }
     }
 
@@ -60,10 +60,10 @@ const _: () = {
         #[inline]
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {
             if self.inner.is_null() {
-                return Ok(());
+                Ok(()) // null pointer doesn't need to be checked
+            } else {
+                self.inner.verify(context)
             }
-
-            self.inner.verify(context)
         }
     }
 };
@@ -292,7 +292,7 @@ mod tests {
         for value in [Some(128.into()), None] {
             let test = Test { value };
             let bytes = crate::to_bytes::<Test, 256, Failure>(&test).unwrap();
-            assert_eq!(bytes.len(), 4 + test.value.is_some() as usize * 16);
+            assert_eq!(bytes.len(), 4 + test.value.is_some() as usize * 16); // ptr + value?
 
             let ar = match crate::access::<Archived<Test>, Failure>(&bytes) {
                 Ok(archived) => archived,
