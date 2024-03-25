@@ -24,6 +24,8 @@ mod bytes;
 mod hashbrown;
 #[cfg(feature = "indexmap")]
 mod indexmap;
+#[cfg(feature = "noisy_float")]
+mod noisy_float;
 #[cfg(feature = "smallvec")]
 mod smallvec;
 #[cfg(feature = "smol_str")]
