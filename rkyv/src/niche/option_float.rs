@@ -67,13 +67,13 @@ macro_rules! impl_archived_option_float {
                 if self.is_none() { None } else { Some(&mut self.inner) }
             }
 
-            #[doc = concat!("Converts from `Pin<&ArchivedOption", stringify!($f), ">` to `Option<Pin<&Archived<", stringify!($f), ">>>.")]
+            #[doc = concat!("Converts from `Pin<&", stringify!($ar), ">` to `Option<Pin<&Archived<", stringify!($f), ">>>.")]
             #[inline]
             pub fn as_pin_ref(self: Pin<&Self>) -> Option<Pin<&Archived<$f>>> {
                 unsafe { Pin::get_ref(self).as_ref().map(|x| Pin::new_unchecked(x)) }
             }
 
-            #[doc = concat!("Converts from `Pin<&mut ArchivedOption", stringify!($f), ">` to `Option<Pin<&mut Archived<", stringify!($f), ">>>`.")]
+            #[doc = concat!("Converts from `Pin<&mut ", stringify!($ar), ">` to `Option<Pin<&mut Archived<", stringify!($f), ">>>`.")]
             #[inline]
             pub fn as_pin_mut(self: Pin<&mut Self>) -> Option<Pin<&mut Archived<$f>>> {
                 unsafe { Pin::get_unchecked_mut(self).as_mut().map(|x| Pin::new_unchecked(x)) }
@@ -109,7 +109,7 @@ macro_rules! impl_archived_option_float {
                 &mut self.inner
             }
 
-            #[doc = concat!("Resolves an `ArchivedOption", stringify!($f), "` from an `Option<", stringify!($f), ">`.")]
+            #[doc = concat!("Resolves an `", stringify!($ar), "` from an `Option<", stringify!($f), ">`.")]
             ///
             /// # Safety
             ///
