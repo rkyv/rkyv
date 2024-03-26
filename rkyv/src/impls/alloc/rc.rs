@@ -1,10 +1,11 @@
 #[cfg(not(feature = "std"))]
 use alloc::{alloc::alloc, boxed::Box, rc, sync};
+use core::alloc::LayoutError;
 #[cfg(feature = "std")]
 use std::{alloc::alloc, rc, sync};
 
-use ptr_meta::Pointee;
-use rancor::Fallible;
+use ptr_meta::{from_raw_parts_mut, Pointee};
+use rancor::{Error, Fallible};
 
 use crate::{
     de::{Metadata, Pooling, PoolingExt as _, SharedPointer},
@@ -14,7 +15,7 @@ use crate::{
     },
     ser::{Sharing, Writer},
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized,
-    Serialize, SerializeUnsized,
+    LayoutRaw, Serialize, SerializeUnsized,
 };
 
 // Rc
@@ -51,12 +52,26 @@ where
     }
 }
 
-unsafe impl<T: ?Sized> SharedPointer<T> for rc::Rc<T> {
+unsafe impl<T: LayoutRaw + Pointee + ?Sized> SharedPointer<T> for rc::Rc<T> {
+    #[inline]
+    fn alloc(metadata: T::Metadata) -> Result<*mut T, LayoutError> {
+        let layout = T::layout_raw(metadata)?;
+        let data_address = if layout.size() > 0 {
+            unsafe { alloc(layout) }
+        } else {
+            layout.align() as *mut u8
+        };
+        let ptr = from_raw_parts_mut(data_address.cast(), metadata);
+        Ok(ptr)
+    }
+
+    #[inline]
     unsafe fn from_value(ptr: *mut T) -> *mut T {
         let rc = rc::Rc::<T>::from(unsafe { Box::from_raw(ptr) });
         rc::Rc::into_raw(rc).cast_mut()
     }
 
+    #[inline]
     unsafe fn drop(ptr: *mut T) {
         drop(unsafe { rc::Rc::from_raw(ptr) });
     }
@@ -64,21 +79,17 @@ unsafe impl<T: ?Sized> SharedPointer<T> for rc::Rc<T> {
 
 impl<T, D> Deserialize<rc::Rc<T>, D> for ArchivedRc<T::Archived, RcFlavor>
 where
-    T: ArchiveUnsized + Pointee + ?Sized + 'static,
+    T: ArchiveUnsized + LayoutRaw + Pointee + ?Sized + 'static,
     T::Archived: DeserializeUnsized<T, D>,
     T::Metadata: Into<Metadata>,
     Metadata: Into<T::Metadata>,
     D: Fallible + Pooling + ?Sized,
+    D::Error: Error,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<rc::Rc<T>, D::Error> {
-        let raw_shared_ptr = deserializer
-            .deserialize_shared::<_, rc::Rc<T>, _>(
-                self.get(),
-                // TODO: make sure that Rc<()> and Arc<()> won't alloc with
-                // zero size layouts
-                |layout| unsafe { alloc(layout) },
-            )?;
+        let raw_shared_ptr =
+            deserializer.deserialize_shared::<_, rc::Rc<T>>(self.get())?;
         unsafe {
             rc::Rc::<T>::increment_strong_count(raw_shared_ptr);
         }
@@ -134,13 +145,19 @@ where
     }
 }
 
-// Deserialize can only be implemented for sized types because weak pointers
-// don't have from/into raw functions.
 impl<T, D> Deserialize<rc::Weak<T>, D> for ArchivedRcWeak<T::Archived, RcFlavor>
 where
-    T: Archive + 'static,
+    // Deserialize can only be implemented for sized types because weak pointers
+    // to unsized types don't have `new` functions.
+    T: ArchiveUnsized
+        + LayoutRaw
+        + Pointee // + ?Sized
+        + 'static,
     T::Archived: DeserializeUnsized<T, D>,
+    T::Metadata: Into<Metadata>,
+    Metadata: Into<T::Metadata>,
     D: Fallible + Pooling + ?Sized,
+    D::Error: Error,
 {
     #[inline]
     fn deserialize(
@@ -190,7 +207,19 @@ where
     }
 }
 
-unsafe impl<T: ?Sized> SharedPointer<T> for sync::Arc<T> {
+unsafe impl<T: LayoutRaw + Pointee + ?Sized> SharedPointer<T> for sync::Arc<T> {
+    #[inline]
+    fn alloc(metadata: T::Metadata) -> Result<*mut T, LayoutError> {
+        let layout = T::layout_raw(metadata)?;
+        let data_address = if layout.size() > 0 {
+            unsafe { alloc(layout) }
+        } else {
+            layout.align() as *mut u8
+        };
+        let ptr = from_raw_parts_mut(data_address.cast(), metadata);
+        Ok(ptr)
+    }
+
     #[inline]
     unsafe fn from_value(ptr: *mut T) -> *mut T {
         let arc = sync::Arc::<T>::from(unsafe { Box::from_raw(ptr) });
@@ -205,24 +234,20 @@ unsafe impl<T: ?Sized> SharedPointer<T> for sync::Arc<T> {
 
 impl<T, D> Deserialize<sync::Arc<T>, D> for ArchivedRc<T::Archived, ArcFlavor>
 where
-    T: ArchiveUnsized + Pointee + ?Sized + 'static,
+    T: ArchiveUnsized + LayoutRaw + Pointee + ?Sized + 'static,
+    T::Archived: DeserializeUnsized<T, D>,
     T::Metadata: Into<Metadata>,
     Metadata: Into<T::Metadata>,
-    T::Archived: DeserializeUnsized<T, D>,
     D: Fallible + Pooling + ?Sized,
+    D::Error: Error,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
     ) -> Result<sync::Arc<T>, D::Error> {
-        let raw_shared_ptr = deserializer
-            .deserialize_shared::<_, sync::Arc<T>, _>(
-                self.get(),
-                // TODO: make sure that Rc<()> and Arc<()> won't alloc with
-                // zero size layouts
-                |layout| unsafe { alloc(layout) },
-            )?;
+        let raw_shared_ptr =
+            deserializer.deserialize_shared::<_, sync::Arc<T>>(self.get())?;
         unsafe {
             sync::Arc::<T>::increment_strong_count(raw_shared_ptr);
         }
@@ -285,9 +310,17 @@ where
 impl<T, D> Deserialize<sync::Weak<T>, D>
     for ArchivedRcWeak<T::Archived, ArcFlavor>
 where
-    T: Archive + 'static,
+    // Deserialize can only be implemented for sized types because weak pointers
+    // to unsized types don't have `new` functions.
+    T: ArchiveUnsized
+        + LayoutRaw
+        + Pointee // + ?Sized
+        + 'static,
     T::Archived: DeserializeUnsized<T, D>,
+    T::Metadata: Into<Metadata>,
+    Metadata: Into<T::Metadata>,
     D: Fallible + Pooling + ?Sized,
+    D::Error: Error,
 {
     #[inline]
     fn deserialize(

@@ -1,21 +1,34 @@
-use core::{alloc::Layout, ptr};
+use core::{
+    alloc::{Layout, LayoutError},
+    ptr,
+};
 use std::{
     alloc,
     ffi::{CStr, CString},
 };
 
 use ptr_meta::Pointee;
-use rancor::Fallible;
+use rancor::{Error, Fallible, ResultExt};
 
 use crate::{
     ffi::{ArchivedCString, CStringResolver},
     primitive::ArchivedUsize,
     ser::Writer,
     Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
-    Deserialize, DeserializeUnsized, Portable, Serialize, SerializeUnsized,
+    Deserialize, DeserializeUnsized, LayoutRaw, Portable, Serialize,
+    SerializeUnsized,
 };
 
 // CStr
+
+impl LayoutRaw for CStr {
+    #[inline]
+    fn layout_raw(
+        metadata: <Self as Pointee>::Metadata,
+    ) -> Result<Layout, LayoutError> {
+        Layout::array::<::std::os::raw::c_char>(metadata)
+    }
+}
 
 unsafe impl Portable for CStr {}
 
@@ -55,13 +68,11 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D>
     unsafe fn deserialize_unsized(
         &self,
         _: &mut D,
-        mut alloc: impl FnMut(Layout) -> *mut u8,
-    ) -> Result<*mut (), D::Error> {
+        out: *mut CStr,
+    ) -> Result<(), D::Error> {
         let slice = self.to_bytes_with_nul();
-        let bytes = alloc(Layout::array::<u8>(slice.len()).unwrap());
-        assert!(!bytes.is_null());
-        ptr::copy_nonoverlapping(slice.as_ptr(), bytes, slice.len());
-        Ok(bytes.cast())
+        ptr::copy_nonoverlapping(slice.as_ptr(), out.cast::<u8>(), slice.len());
+        Ok(())
     }
 
     #[inline]
@@ -119,22 +130,26 @@ impl<S: Fallible + Writer + ?Sized> Serialize<S> for CString {
     }
 }
 
-impl<D: Fallible + ?Sized> Deserialize<CString, D> for Archived<CString>
+impl<D> Deserialize<CString, D> for Archived<CString>
 where
+    D: Fallible + ?Sized,
+    D::Error: Error,
     CStr: DeserializeUnsized<CStr, D>,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<CString, D::Error> {
+        let metadata = self.as_c_str().deserialize_metadata(deserializer)?;
+        let layout = <CStr as LayoutRaw>::layout_raw(metadata).into_error()?;
+        let data_address = if layout.size() > 0 {
+            unsafe { alloc::alloc(layout) }
+        } else {
+            layout.align() as *mut u8
+        };
+        let out = ptr_meta::from_raw_parts_mut(data_address.cast(), metadata);
         unsafe {
-            let data_address = self
-                .as_c_str()
-                .deserialize_unsized(deserializer, |layout| {
-                    alloc::alloc(layout)
-                })?;
-            let metadata =
-                self.as_c_str().deserialize_metadata(deserializer)?;
-            let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
-            Ok(Box::<CStr>::from_raw(ptr).into())
+            self.as_c_str().deserialize_unsized(deserializer, out)?;
         }
+        let boxed = unsafe { Box::<CStr>::from_raw(out) };
+        Ok(CString::from(boxed))
     }
 }

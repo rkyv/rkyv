@@ -4,12 +4,12 @@ use core::cmp;
 use ::alloc::{alloc, boxed::Box};
 #[cfg(feature = "std")]
 use ::std::alloc;
-use rancor::Fallible;
+use rancor::{Error, Fallible, ResultExt as _};
 
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized,
-    Serialize, SerializeUnsized,
+    LayoutRaw, Serialize, SerializeUnsized,
 };
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
@@ -41,21 +41,27 @@ impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> Serialize<S>
 
 impl<T, D> Deserialize<Box<T>, D> for ArchivedBox<T::Archived>
 where
-    T: ArchiveUnsized + ?Sized,
+    T: ArchiveUnsized + LayoutRaw + ?Sized,
     T::Archived: DeserializeUnsized<T, D>,
     D: Fallible + ?Sized,
+    D::Error: Error,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {
+        let metadata = self.get().deserialize_metadata(deserializer)?;
+        let layout = T::layout_raw(metadata).into_error()?;
+        let data_address = if layout.size() > 0 {
+            unsafe { alloc::alloc(layout) }
+        } else {
+            layout.align() as *mut u8
+        };
+
+        let out = ptr_meta::from_raw_parts_mut(data_address.cast(), metadata);
+
         unsafe {
-            let data_address =
-                self.get().deserialize_unsized(deserializer, |layout| {
-                    alloc::alloc(layout)
-                })?;
-            let metadata = self.get().deserialize_metadata(deserializer)?;
-            let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
-            Ok(Box::from_raw(ptr))
+            self.get().deserialize_unsized(deserializer, out)?;
         }
+        unsafe { Ok(Box::from_raw(out)) }
     }
 }
 

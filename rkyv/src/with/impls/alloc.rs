@@ -16,7 +16,8 @@ use std::{
     sync::Arc,
 };
 
-use rancor::Fallible;
+use ptr_meta::Pointee;
+use rancor::{Error, Fallible};
 
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
@@ -30,7 +31,7 @@ use crate::{
         DeserializeWith, Map, Niche, SerializeWith, With,
     },
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
-    Serialize, SerializeUnsized,
+    LayoutRaw, Serialize, SerializeUnsized,
 };
 
 // Map for Vecs
@@ -197,6 +198,7 @@ where
     T: Archive + Clone,
     T::Archived: Deserialize<T, D>,
     D: Fallible + ?Sized,
+    D::Error: Error,
 {
     #[inline]
     fn deserialize_with(
@@ -248,6 +250,7 @@ where
     }
 }
 
+// TODO: Move this to the std module
 #[cfg(feature = "std")]
 const _: () = {
     use std::ffi::CStr;
@@ -281,8 +284,10 @@ const _: () = {
         }
     }
 
-    impl<'a, D: Fallible + ?Sized>
-        DeserializeWith<ArchivedCString, Cow<'a, CStr>, D> for AsOwned
+    impl<'a, D> DeserializeWith<ArchivedCString, Cow<'a, CStr>, D> for AsOwned
+    where
+        D: Fallible + ?Sized,
+        D::Error: Error,
     {
         #[inline]
         fn deserialize_with(
@@ -444,9 +449,10 @@ where
 impl<T, D> DeserializeWith<ArchivedOptionBox<T::Archived>, Option<Box<T>>, D>
     for Niche
 where
-    T: ArchiveUnsized + ?Sized,
+    T: ArchiveUnsized + LayoutRaw + Pointee + ?Sized,
     T::Archived: DeserializeUnsized<T, D>,
     D: Fallible + ?Sized,
+    D::Error: Error,
 {
     fn deserialize_with(
         field: &ArchivedOptionBox<T::Archived>,

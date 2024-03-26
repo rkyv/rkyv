@@ -250,8 +250,8 @@ mod verify {
 
     use crate::{
         boxed::ArchivedBox,
-        validation::{ArchiveContext, ArchiveContextExt, LayoutRaw},
-        ArchivePointee,
+        validation::{ArchiveContext, ArchiveContextExt},
+        ArchivePointee, LayoutRaw,
     };
 
     unsafe impl<T, C> Verify<C> for ArchivedBox<T>

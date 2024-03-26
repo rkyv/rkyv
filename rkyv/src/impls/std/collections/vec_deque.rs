@@ -1,11 +1,11 @@
 use std::{alloc, cmp, collections::VecDeque};
 
-use rancor::Fallible;
+use rancor::{Error, Fallible, ResultExt};
 
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Deserialize, DeserializeUnsized, Serialize,
+    Archive, Deserialize, DeserializeUnsized, LayoutRaw, Serialize,
 };
 
 impl<T: PartialEq<U>, U> PartialEq<VecDeque<U>> for ArchivedVec<T> {
@@ -77,24 +77,26 @@ where
     T: Archive,
     [T::Archived]: DeserializeUnsized<[T], D>,
     D: Fallible + ?Sized,
+    D::Error: Error,
 {
     #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
     ) -> Result<VecDeque<T>, D::Error> {
+        let metadata = self.as_slice().deserialize_metadata(deserializer)?;
+        let layout = <[T] as LayoutRaw>::layout_raw(metadata).into_error()?;
+        let data_address = if layout.size() > 0 {
+            unsafe { alloc::alloc(layout) }
+        } else {
+            layout.align() as *mut u8
+        };
+        let out = ptr_meta::from_raw_parts_mut(data_address.cast(), metadata);
         unsafe {
-            let data_address = self
-                .as_slice()
-                .deserialize_unsized(deserializer, |layout| {
-                    alloc::alloc(layout)
-                })?;
-            let metadata =
-                self.as_slice().deserialize_metadata(deserializer)?;
-            let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
-            let vec: Vec<T> = Box::<[T]>::from_raw(ptr).into();
-            Ok(vec.into())
+            self.as_slice().deserialize_unsized(deserializer, out)?;
         }
+        let boxed = unsafe { Box::<[T]>::from_raw(out) };
+        Ok(VecDeque::from(Vec::from(boxed)))
     }
 }
 
