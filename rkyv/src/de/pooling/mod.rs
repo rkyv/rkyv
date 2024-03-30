@@ -4,14 +4,14 @@
 mod alloc;
 mod core;
 
-use ::core::{alloc::Layout, fmt, mem::transmute};
+use ::core::{alloc::LayoutError, fmt, mem::transmute};
 use ptr_meta::{from_raw_parts_mut, metadata, DynMetadata, Pointee};
-use rancor::{Fallible, Strategy};
+use rancor::{Error, Fallible, ResultExt as _, Strategy};
 
 #[cfg(feature = "alloc")]
 pub use self::alloc::*;
 pub use self::core::*;
-use crate::{ArchiveUnsized, DeserializeUnsized};
+use crate::{ArchiveUnsized, DeserializeUnsized, LayoutRaw};
 
 /// Type-erased pointer metadata.
 #[derive(Clone, Copy)]
@@ -116,13 +116,16 @@ impl ErasedPtr {
 /// # Safety
 ///
 /// TODO
-pub unsafe trait SharedPointer<T: ?Sized> {
+pub unsafe trait SharedPointer<T: Pointee + ?Sized> {
+    /// Allocates space for a value with the given metadata.
+    fn alloc(metadata: T::Metadata) -> Result<*mut T, LayoutError>;
+
     /// Creates a new `Self` from a pointer to a valid `T`.
     ///
     /// # Safety
     ///
-    /// The returned pointer must be to the same value. The value may have been
-    /// moved.
+    /// `ptr` must have been allocated via `alloc`. `from_value` must not have
+    /// been called on `ptr` yet.
     unsafe fn from_value(ptr: *mut T) -> *mut T;
 
     /// Drops a pointer created by `from_value`.
@@ -181,19 +184,18 @@ pub trait PoolingExt<E>: Pooling<E> {
     /// the existing shared pointer to it, or deserializes it and converts
     /// it to a shared pointer with `to_shared`.
     #[inline]
-    fn deserialize_shared<T, P, A>(
+    fn deserialize_shared<T, P>(
         &mut self,
         value: &T::Archived,
-        alloc: A,
     ) -> Result<*mut T, Self::Error>
     where
-        T: ArchiveUnsized + Pointee + ?Sized,
+        T: ArchiveUnsized + Pointee + LayoutRaw + ?Sized,
         T::Metadata: Into<Metadata>,
         Metadata: Into<T::Metadata>,
         T::Archived: DeserializeUnsized<T, Self>,
         P: SharedPointer<T>,
-        A: FnMut(Layout) -> *mut u8,
         Self: Fallible<Error = E>,
+        E: Error,
     {
         unsafe fn drop_shared<T, P>(ptr: ErasedPtr)
         where
@@ -210,9 +212,9 @@ pub trait PoolingExt<E>: Pooling<E> {
         if let Some(shared_pointer) = self.get_shared_ptr(address) {
             Ok(from_raw_parts_mut(shared_pointer.data_address, metadata))
         } else {
-            let ptr = unsafe { value.deserialize_unsized(self, alloc)? };
-            let ptr = from_raw_parts_mut::<T>(ptr, metadata);
-            let ptr = unsafe { P::from_value(ptr) };
+            let out = P::alloc(metadata).into_error()?;
+            unsafe { value.deserialize_unsized(self, out)? };
+            let ptr = unsafe { P::from_value(out) };
 
             unsafe {
                 self.add_shared_ptr(

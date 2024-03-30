@@ -1,5 +1,5 @@
 use core::{
-    alloc::Layout,
+    alloc::{Layout, LayoutError},
     cell::{Cell, UnsafeCell},
     mem::ManuallyDrop,
     ptr, str,
@@ -13,8 +13,8 @@ use crate::{
     ser::{Allocator, Writer, WriterExt as _},
     tuple::*,
     Archive, ArchivePointee, ArchiveUnsized, ArchivedMetadata,
-    CopyOptimization, Deserialize, DeserializeUnsized, Portable, Serialize,
-    SerializeUnsized,
+    CopyOptimization, Deserialize, DeserializeUnsized, LayoutRaw, Portable,
+    Serialize, SerializeUnsized,
 };
 
 mod ops;
@@ -22,6 +22,33 @@ mod option;
 mod primitive;
 mod result;
 mod time;
+
+impl<T> LayoutRaw for T {
+    #[inline]
+    fn layout_raw(
+        _: <Self as Pointee>::Metadata,
+    ) -> Result<Layout, LayoutError> {
+        Ok(Layout::new::<T>())
+    }
+}
+
+impl<T> LayoutRaw for [T] {
+    #[inline]
+    fn layout_raw(
+        metadata: <Self as Pointee>::Metadata,
+    ) -> Result<Layout, LayoutError> {
+        Layout::array::<T>(metadata)
+    }
+}
+
+impl LayoutRaw for str {
+    #[inline]
+    fn layout_raw(
+        metadata: <Self as Pointee>::Metadata,
+    ) -> Result<Layout, LayoutError> {
+        Layout::array::<u8>(metadata)
+    }
+}
 
 impl<T> ArchivePointee for T {
     type ArchivedMetadata = ();
@@ -59,19 +86,10 @@ where
     unsafe fn deserialize_unsized(
         &self,
         deserializer: &mut D,
-        mut alloc: impl FnMut(Layout) -> *mut u8,
-    ) -> Result<*mut (), D::Error> {
-        let deserialized = self.deserialize(deserializer)?;
-
-        let layout = Layout::new::<T>();
-        if layout.size() == 0 {
-            Ok(ptr::NonNull::<T>::dangling().as_ptr().cast())
-        } else {
-            let ptr = alloc(layout).cast::<T>();
-            assert!(!ptr.is_null());
-            ptr.write(deserialized);
-            Ok(ptr.cast())
-        }
+        out: *mut T,
+    ) -> Result<(), D::Error> {
+        out.write(self.deserialize(deserializer)?);
+        Ok(())
     }
 
     #[inline]
@@ -297,19 +315,14 @@ where
     unsafe fn deserialize_unsized(
         &self,
         deserializer: &mut D,
-        mut alloc: impl FnMut(Layout) -> *mut u8,
-    ) -> Result<*mut (), D::Error> {
-        if self.is_empty() || core::mem::size_of::<U>() == 0 {
-            Ok(ptr::NonNull::<U>::dangling().as_ptr().cast())
-        } else {
-            let result =
-                alloc(Layout::array::<U>(self.len()).unwrap()).cast::<U>();
-            assert!(!result.is_null());
-            for (i, item) in self.iter().enumerate() {
-                result.add(i).write(item.deserialize(deserializer)?);
-            }
-            Ok(result.cast())
+        out: *mut [U],
+    ) -> Result<(), D::Error> {
+        for (i, item) in self.iter().enumerate() {
+            out.cast::<U>()
+                .add(i)
+                .write(item.deserialize(deserializer)?);
         }
+        Ok(())
     }
 
     #[inline]
@@ -359,16 +372,10 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for str {
     unsafe fn deserialize_unsized(
         &self,
         _: &mut D,
-        mut alloc: impl FnMut(Layout) -> *mut u8,
-    ) -> Result<*mut (), D::Error> {
-        if self.is_empty() {
-            Ok(ptr::NonNull::dangling().as_ptr())
-        } else {
-            let bytes = alloc(Layout::array::<u8>(self.len()).unwrap());
-            assert!(!bytes.is_null());
-            ptr::copy_nonoverlapping(self.as_ptr(), bytes, self.len());
-            Ok(bytes.cast())
-        }
+        out: *mut str,
+    ) -> Result<(), D::Error> {
+        ptr::copy_nonoverlapping(self.as_ptr(), out.cast::<u8>(), self.len());
+        Ok(())
     }
 
     #[inline]

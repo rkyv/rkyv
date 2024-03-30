@@ -1,6 +1,10 @@
 //! The core traits provided by rkyv.
 
-use core::{alloc::Layout, hash::Hash, marker::PhantomData};
+use core::{
+    alloc::{Layout, LayoutError},
+    hash::Hash,
+    marker::PhantomData,
+};
 
 use crate::{
     ptr_meta::Pointee,
@@ -20,6 +24,17 @@ use crate::{
 /// Additionally, all fields that the type may contain or produce relative
 /// pointers to must also be `Portable`.
 pub unsafe trait Portable {}
+
+/// Returns the layout of a type from its metadata.
+pub trait LayoutRaw
+where
+    Self: Pointee,
+{
+    /// Returns the layout of the type.
+    fn layout_raw(
+        metadata: <Self as Pointee>::Metadata,
+    ) -> Result<Layout, LayoutError>;
+}
 
 /// An optimization hint about whether `T` is trivially copyable.
 pub struct CopyOptimization<T: ?Sized>(bool, PhantomData<T>);
@@ -547,13 +562,13 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>:
     ///
     /// # Safety
     ///
-    /// `out` must point to memory with the layout returned by
-    /// `deserialized_layout`.
+    /// `out` must be non-null, properly-aligned, and valid for writes. It must
+    /// be allocated according to the layout of the deserialized metadata.
     unsafe fn deserialize_unsized(
         &self,
         deserializer: &mut D,
-        alloc: impl FnMut(Layout) -> *mut u8,
-    ) -> Result<*mut (), D::Error>;
+        out: *mut T,
+    ) -> Result<(), D::Error>;
 
     /// Deserializes the metadata for the given type.
     fn deserialize_metadata(

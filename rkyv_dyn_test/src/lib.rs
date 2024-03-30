@@ -26,8 +26,8 @@ mod tests {
                 deserialize,
                 rancor::{Failure, Fallible, Strategy},
                 to_bytes, Archive, ArchivePointee, ArchiveUnsized, Archived,
-                ArchivedMetadata, Deserialize, DeserializeUnsized, Portable,
-                Serialize, SerializeUnsized,
+                ArchivedMetadata, Deserialize, DeserializeUnsized, LayoutRaw,
+                Portable, Serialize, SerializeUnsized,
             };
             use rkyv_dyn::{
                 register_trait_impls, ArchivedDynMetadata, AsDynDeserializer,
@@ -61,6 +61,15 @@ mod tests {
 
                 fn archived_metadata(&self) -> ArchivedMetadata<Self> {
                     ArchivedDynMetadata::new(self.archived_impl_id())
+                }
+            }
+
+            impl<SE, DE> LayoutRaw for dyn SerializeTestTrait<SE, DE> {
+                fn layout_raw(
+                    metadata: <Self as Pointee>::Metadata,
+                ) -> Result<core::alloc::Layout, core::alloc::LayoutError>
+                {
+                    Ok(metadata.layout())
                 }
             }
 
@@ -112,11 +121,11 @@ mod tests {
                 unsafe fn deserialize_unsized(
                     &self,
                     deserializer: &mut D,
-                    mut alloc: impl FnMut(std::alloc::Layout) -> *mut u8,
-                ) -> Result<*mut (), <D as Fallible>::Error> {
+                    out: *mut dyn SerializeTestTrait<SE, D::Error>,
+                ) -> Result<(), <D as Fallible>::Error> {
                     self.deserialize_dyn(
                         deserializer.as_dyn_deserializer(),
-                        &mut alloc,
+                        out,
                     )
                 }
 
@@ -152,10 +161,10 @@ mod tests {
                 fn deserialize_dyn(
                     &self,
                     deserializer: &mut dyn DynDeserializer<DE>,
-                    alloc: &mut dyn FnMut(std::alloc::Layout) -> *mut u8,
-                ) -> Result<*mut (), DE> {
+                    out: *mut dyn SerializeTestTrait<SE, DE>,
+                ) -> Result<(), DE> {
                     unsafe {
-                        <Self as DeserializeUnsized<Test, _>>::deserialize_unsized(self, deserializer, alloc)
+                        <Self as DeserializeUnsized<Test, _>>::deserialize_unsized(self, deserializer, out.cast())
                     }
                 }
 

@@ -1,10 +1,10 @@
-#[cfg(not(feature = "std"))]
-use alloc::{alloc, boxed::Box};
-use core::mem::forget;
-#[cfg(feature = "std")]
-use std::alloc;
+use core::{
+    alloc::LayoutError,
+    mem::{forget, MaybeUninit},
+};
 
-use rancor::Fallible;
+use ptr_meta::Pointee;
+use rancor::{Error, Fallible};
 use triomphe::Arc;
 
 use crate::{
@@ -19,9 +19,15 @@ pub struct TriompheArcFlavor;
 
 unsafe impl<T> SharedPointer<T> for Arc<T> {
     #[inline]
+    fn alloc(_: <T as Pointee>::Metadata) -> Result<*mut T, LayoutError> {
+        Ok(Arc::into_raw(Arc::<MaybeUninit<T>>::new_uninit())
+            .cast::<T>()
+            .cast_mut())
+    }
+
+    #[inline]
     unsafe fn from_value(ptr: *mut T) -> *mut T {
-        let arc = Arc::<T>::from(unsafe { Box::from_raw(ptr) });
-        Arc::into_raw(arc).cast_mut()
+        ptr
     }
 
     #[inline]
@@ -69,14 +75,12 @@ where
     Metadata: Into<T::Metadata>,
     T::Archived: DeserializeUnsized<T, D>,
     D: Pooling + Fallible + ?Sized,
+    D::Error: Error,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Arc<T>, D::Error> {
-        let raw_shared_ptr = deserializer.deserialize_shared::<_, Arc<T>, _>(
-            self.get(),
-            // TODO: make sure that Arc<()> won't alloc with zero size layouts
-            |layout| unsafe { alloc::alloc(layout) },
-        )?;
+        let raw_shared_ptr =
+            deserializer.deserialize_shared::<_, Arc<T>>(self.get())?;
         let shared_ptr = unsafe { Arc::<T>::from_raw(raw_shared_ptr) };
         forget(shared_ptr.clone());
         Ok(shared_ptr)

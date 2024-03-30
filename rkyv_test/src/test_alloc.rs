@@ -578,6 +578,7 @@ mod tests {
         // The derive macros don't apply the right bounds from Box so we have to
         // manually specify what bounds to apply
         #[archive(serialize_bounds(__S: Writer))]
+        #[archive(deserialize_bounds(__D::Error: Error))]
         enum Node {
             Nil,
             Cons(#[omit_bounds] Box<Node>),
@@ -595,6 +596,7 @@ mod tests {
         // The derive macros don't apply the right bounds from Box so we have to
         // manually specify what bounds to apply
         #[archive(serialize_bounds(__S: Writer))]
+        #[archive(deserialize_bounds(__D::Error: Error))]
         pub enum LinkedList<T: Archive>
         where
             T::Archived: core::fmt::Debug,

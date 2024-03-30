@@ -18,7 +18,7 @@ mod lazy_static;
 // #[cfg(feature = "bytecheck")]
 // mod bytecheck;
 
-use core::{alloc::Layout, hash, marker::PhantomData};
+use core::{hash, marker::PhantomData};
 
 pub use lazy_static::LazyStatic;
 use ptr_meta::{DynMetadata, Pointee};
@@ -216,12 +216,12 @@ impl<E> AsDynDeserializer<E> for dyn DynDeserializer<E> {
 ///
 /// See [`SerializeDyn`] for more information.
 pub trait DeserializeDyn<T: Pointee + ?Sized, E> {
-    /// Deserializes this value and returns a pointer to it.
+    /// Deserializes this value into the given out pointer.
     fn deserialize_dyn(
         &self,
         deserializer: &mut dyn DynDeserializer<E>,
-        alloc: &mut dyn FnMut(Layout) -> *mut u8,
-    ) -> Result<*mut (), E>;
+        out: *mut T,
+    ) -> Result<(), E>;
 
     /// Returns the pointer metadata for the deserialized form of this type.
     fn deserialized_pointer_metadata(&self) -> DynMetadata<T>;

@@ -3,69 +3,13 @@
 pub mod util;
 pub mod validators;
 
-use core::{
-    alloc::{Layout, LayoutError},
-    any::TypeId,
-    ops::Range,
-};
+use core::{alloc::Layout, any::TypeId, ops::Range};
 
 use bytecheck::rancor::{Error, Fallible, Strategy};
 use ptr_meta::Pointee;
 use rancor::ResultExt as _;
 
-use crate::{ArchivePointee, RelPtr};
-
-// Replace this trait with core::mem::{align_of_val_raw, size_of_val_raw} when
-// they get stabilized.
-
-// TODO: Try to remove or fold into another trait
-/// Gets the layout of a type from its pointee type and metadata.
-pub trait LayoutRaw
-where
-    Self: Pointee,
-{
-    /// Gets the layout of the type.
-    fn layout_raw(
-        metadata: <Self as Pointee>::Metadata,
-    ) -> Result<Layout, LayoutError>;
-}
-
-impl<T> LayoutRaw for T {
-    #[inline]
-    fn layout_raw(
-        _: <Self as Pointee>::Metadata,
-    ) -> Result<Layout, LayoutError> {
-        Ok(Layout::new::<T>())
-    }
-}
-
-impl<T> LayoutRaw for [T] {
-    #[inline]
-    fn layout_raw(
-        metadata: <Self as Pointee>::Metadata,
-    ) -> Result<Layout, LayoutError> {
-        Layout::array::<T>(metadata)
-    }
-}
-
-impl LayoutRaw for str {
-    #[inline]
-    fn layout_raw(
-        metadata: <Self as Pointee>::Metadata,
-    ) -> Result<Layout, LayoutError> {
-        Layout::array::<u8>(metadata)
-    }
-}
-
-#[cfg(feature = "std")]
-impl LayoutRaw for ::std::ffi::CStr {
-    #[inline]
-    fn layout_raw(
-        metadata: <Self as Pointee>::Metadata,
-    ) -> Result<Layout, LayoutError> {
-        Layout::array::<::std::os::raw::c_char>(metadata)
-    }
-}
+use crate::{ArchivePointee, LayoutRaw, RelPtr};
 
 /// A context that can validate nonlocal archive memory.
 ///
