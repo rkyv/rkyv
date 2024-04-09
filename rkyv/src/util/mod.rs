@@ -304,8 +304,8 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 ///
 /// let value = vec![1, 2, 3, 4];
 ///
-/// let bytes = rkyv::to_bytes::<_, 1024, Failure>(&value)
-///     .expect("failed to serialize vec");
+/// let bytes =
+///     rkyv::to_bytes::<_, Failure>(&value).expect("failed to serialize vec");
 /// // SAFETY:
 /// // - The byte slice represents an archived object
 /// // - The root of the object is stored at the end of the slice
@@ -318,9 +318,9 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 /// ```
 #[cfg(feature = "alloc")]
 #[inline]
-pub fn to_bytes<T, const N: usize, E>(value: &T) -> Result<AlignedVec, E>
+pub fn to_bytes<T, E>(value: &T) -> Result<AlignedVec, E>
 where
-    T: Serialize<Strategy<AllocSerializer<N>, E>>,
+    T: Serialize<Strategy<AllocSerializer, E>>,
 {
     Ok(serialize_into(value, Default::default())?.into_writer())
 }
@@ -396,8 +396,8 @@ where
 ///
 /// let value = vec![1, 2, 3, 4];
 ///
-/// let bytes = rkyv::to_bytes::<_, 1024, Failure>(&value)
-///     .expect("failed to serialize vec");
+/// let bytes =
+///     rkyv::to_bytes::<_, Failure>(&value).expect("failed to serialize vec");
 /// // SAFETY:
 /// // - The byte slice represents an archived object
 /// // - The root of the object is stored at the end of the slice

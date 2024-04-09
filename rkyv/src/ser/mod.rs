@@ -20,10 +20,7 @@ use crate::{
 };
 #[cfg(feature = "alloc")]
 use crate::{
-    ser::{
-        allocator::{BackupAllocator, BumpAllocator, GlobalAllocator},
-        sharing::Unify,
-    },
+    ser::{allocator::GlobalAllocator, sharing::Unify},
     util::AlignedVec,
 };
 
@@ -123,16 +120,10 @@ pub type CoreSerializer<const W: usize, const A: usize> = Composite<
 
 /// A general-purpose serializer suitable for environments where allocations can
 /// be made.
-///
-/// `AllocSerializer` takes one argument: the amount of scratch space to
-/// allocate before spilling allocations over into heap memory. A large amount
-/// of scratch space may result in some of it not being used, but too little
-/// scratch space will result in many allocations and decreased performance. You
-/// should consider your use case carefully when determining how much scratch
-/// space to pre-allocate.
 #[cfg(feature = "alloc")]
-pub type AllocSerializer<const A: usize> = Composite<
+pub type AllocSerializer = Composite<
     AlignedVec,
-    BackupAllocator<BumpAllocator<A>, GlobalAllocator>,
+    // TODO(#491) Replace this with a good general-purpose allocator
+    GlobalAllocator,
     Unify,
 >;

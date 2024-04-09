@@ -54,25 +54,15 @@ mod tests {
     use smol_str::SmolStr;
 
     use crate::{
-        access_unchecked, deserialize, ser::Positional as _,
-        string::ArchivedString,
+        access_unchecked, deserialize, string::ArchivedString, to_bytes,
     };
 
     #[test]
     fn smolstr() {
-        use crate::ser::CoreSerializer;
-
         let value = SmolStr::new("smol_str");
 
-        let serializer = crate::util::serialize_into::<_, _, Failure>(
-            &value,
-            CoreSerializer::<256, 256>::default(),
-        )
-        .unwrap();
-        let end = serializer.pos();
-        let result = serializer.into_writer().into_inner();
-        let archived =
-            unsafe { access_unchecked::<ArchivedString>(&result[0..end]) };
+        let bytes = to_bytes::<_, Failure>(&value).unwrap();
+        let archived = unsafe { access_unchecked::<ArchivedString>(&bytes) };
         assert_eq!(archived, &value);
 
         let deserialized =

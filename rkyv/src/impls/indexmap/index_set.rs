@@ -98,7 +98,7 @@ mod tests {
         value.insert(String::from("baz"));
         value.insert(String::from("bat"));
 
-        let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
+        let result = crate::to_bytes::<_, Failure>(&value).unwrap();
         let archived = unsafe {
             access_unchecked::<ArchivedIndexSet<ArchivedString>>(
                 result.as_ref(),
@@ -132,7 +132,7 @@ mod tests {
         value.insert(String::from("baz"));
         value.insert(String::from("bat"));
 
-        let result = crate::to_bytes::<_, 4096, Failure>(&value).unwrap();
+        let result = crate::to_bytes::<_, Failure>(&value).unwrap();
         access::<ArchivedIndexSet<ArchivedString>, Failure>(result.as_ref())
             .expect("failed to validate archived index set");
     }

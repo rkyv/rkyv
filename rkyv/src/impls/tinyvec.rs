@@ -161,26 +161,16 @@ mod tests {
     use tinyvec::{array_vec, Array, ArrayVec, SliceVec};
 
     use crate::{
-        access_unchecked, deserialize, ser::Positional as _, vec::ArchivedVec,
-        Archived,
+        access_unchecked, deserialize, to_bytes, vec::ArchivedVec, Archived,
     };
 
     #[test]
     fn array_vec() {
-        use crate::ser::CoreSerializer;
-
         let value = array_vec!([i32; 10] => 10, 20, 40, 80);
 
-        let serializer = crate::util::serialize_into::<_, _, Failure>(
-            &value,
-            CoreSerializer::<256, 256>::default(),
-        )
-        .unwrap();
-        let end = serializer.pos();
-        let result = serializer.into_writer().into_inner();
-        let archived = unsafe {
-            access_unchecked::<ArchivedVec<Archived<i32>>>(&result[0..end])
-        };
+        let bytes = to_bytes::<_, Failure>(&value).unwrap();
+        let archived =
+            unsafe { access_unchecked::<ArchivedVec<Archived<i32>>>(&bytes) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
 
         let deserialized = deserialize::<ArrayVec<[i32; 10]>, _, Infallible>(
@@ -193,8 +183,6 @@ mod tests {
 
     #[test]
     fn slice_vec() {
-        use crate::ser::CoreSerializer;
-
         let mut backing = [0i32; 10];
         let mut value = SliceVec::from_slice_len(backing.as_slice_mut(), 0);
         value.push(10);
@@ -202,16 +190,9 @@ mod tests {
         value.push(40);
         value.push(80);
 
-        let serializer = crate::util::serialize_into::<_, _, Failure>(
-            &value,
-            CoreSerializer::<256, 256>::default(),
-        )
-        .unwrap();
-        let end = serializer.pos();
-        let result = serializer.into_writer().into_inner();
-        let archived = unsafe {
-            access_unchecked::<ArchivedVec<Archived<i32>>>(&result[0..end])
-        };
+        let bytes = to_bytes::<_, Failure>(&value).unwrap();
+        let archived =
+            unsafe { access_unchecked::<ArchivedVec<Archived<i32>>>(&bytes) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
     }
 
@@ -223,19 +204,11 @@ mod tests {
 
         use tinyvec::{tiny_vec, TinyVec};
 
-        use crate::ser::AllocSerializer;
-
         let value = tiny_vec!([i32; 10] => 10, 20, 40, 80);
 
-        let serializer = crate::util::serialize_into::<_, _, Failure>(
-            &value,
-            AllocSerializer::<256>::default(),
-        )
-        .unwrap();
-        let result = serializer.into_writer();
-        let archived = unsafe {
-            access_unchecked::<ArchivedVec<Archived<i32>>>(result.as_ref())
-        };
+        let bytes = to_bytes::<_, Failure>(&value).unwrap();
+        let archived =
+            unsafe { access_unchecked::<ArchivedVec<Archived<i32>>>(&bytes) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
 
         let deserialized: TinyVec<[i32; 10]> =

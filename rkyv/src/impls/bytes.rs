@@ -58,25 +58,14 @@ mod tests {
     use bytes::Bytes;
     use rancor::{Failure, Infallible};
 
-    use crate::{
-        access_unchecked, deserialize, ser::Positional as _, vec::ArchivedVec,
-    };
+    use crate::{access_unchecked, deserialize, to_bytes, vec::ArchivedVec};
 
     #[test]
     fn bytes() {
-        use crate::ser::CoreSerializer;
-
         let value = Bytes::from(vec![10, 20, 40, 80]);
 
-        let serializer = crate::util::serialize_into::<_, _, Failure>(
-            &value,
-            CoreSerializer::<256, 256>::default(),
-        )
-        .unwrap();
-        let end = serializer.pos();
-        let result = serializer.into_writer().into_inner();
-        let archived =
-            unsafe { access_unchecked::<ArchivedVec<u8>>(&result[0..end]) };
+        let bytes = to_bytes::<_, Failure>(&value).unwrap();
+        let archived = unsafe { access_unchecked::<ArchivedVec<u8>>(&bytes) };
         assert_eq!(archived, &value);
 
         let deserialized =

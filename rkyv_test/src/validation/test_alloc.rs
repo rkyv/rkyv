@@ -32,7 +32,7 @@ mod tests {
     fn basic_functionality() {
         // Regular serializing
         let value = Some("Hello world".to_string());
-        let buf = to_bytes::<_, 256, Failure>(&value).unwrap();
+        let buf = to_bytes::<_, Failure>(&value).unwrap();
 
         let result = access::<Archived<Option<String>>, Failure>(buf.as_ref());
         result.unwrap();

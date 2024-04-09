@@ -123,7 +123,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// };
 ///
 /// // Serializing is as easy as a single function call
-/// let bytes = rkyv::to_bytes::<_, 256, Failure>(&value).unwrap();
+/// let bytes = rkyv::to_bytes::<_, Failure>(&value).unwrap();
 ///
 /// // Or you can customize your serialization for better performance
 /// // and compatibility with #![no_std] environments
@@ -131,7 +131,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 ///
 /// let bytes = rkyv::util::serialize_into::<_, _, Failure>(
 ///     &value,
-///     AllocSerializer::<0>::default(),
+///     AllocSerializer::default(),
 /// ).unwrap().into_writer();
 ///
 /// // You can use the safe API with the `bytecheck` feature enabled,
@@ -246,8 +246,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// const STR_VAL: &'static str = "I'm in an OwnedStr!";
 /// let value = OwnedStr { inner: STR_VAL };
 /// // It works!
-/// let buf =
-///     to_bytes::<_, 1024, Failure>(&value).expect("failed to serialize");
+/// let buf = to_bytes::<_, Failure>(&value).expect("failed to serialize");
 /// let archived =
 ///     unsafe { access_unchecked::<ArchivedOwnedStr>(buf.as_ref()) };
 /// // Let's make sure our data got written correctly
@@ -472,7 +471,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///
 /// let buf = serialize_rel_ptr_into::<_, _, Failure>(
 ///     unsized_value,
-///     AllocSerializer::<256>::default(),
+///     AllocSerializer::default(),
 /// ).expect("failed to serialize block").into_writer();
 ///
 /// type ArchivedBlock = <Block<String, [i32]> as ArchiveUnsized>::Archived;

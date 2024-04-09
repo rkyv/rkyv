@@ -36,7 +36,7 @@ mod tests {
         hash_map.insert("foo".to_string(), "bar".to_string());
         hash_map.insert("baz".to_string(), "bat".to_string());
 
-        let buf = to_bytes::<_, 256, Failure>(&hash_map).unwrap();
+        let buf = to_bytes::<_, Failure>(&hash_map).unwrap();
         let archived_value = unsafe {
             access_unchecked::<Archived<HashMap<String, String>>>(buf.as_ref())
         };
@@ -71,7 +71,7 @@ mod tests {
             "wrong value".to_string(),
         );
 
-        let buf = to_bytes::<_, 256, Failure>(&hash_map).unwrap();
+        let buf = to_bytes::<_, Failure>(&hash_map).unwrap();
         let archived_value = unsafe {
             access_unchecked::<Archived<HashMap<Pair, String>>>(buf.as_ref())
         };
@@ -108,7 +108,7 @@ mod tests {
         hash_map.insert("foo".to_string(), "bar".to_string());
         hash_map.insert("baz".to_string(), "bat".to_string());
 
-        let buf = to_bytes::<_, 256, Failure>(&hash_map).unwrap();
+        let buf = to_bytes::<_, Failure>(&hash_map).unwrap();
         let archived_value = unsafe {
             access_unchecked::<
                 Archived<HashMap<String, String, ahash::RandomState>>,
@@ -136,7 +136,7 @@ mod tests {
         hash_set.insert("foo".to_string());
         hash_set.insert("baz".to_string());
 
-        let buf = to_bytes::<_, 256, Failure>(&hash_set).unwrap();
+        let buf = to_bytes::<_, Failure>(&hash_set).unwrap();
         let archived_value = unsafe {
             access_unchecked::<Archived<HashSet<String>>>(buf.as_ref())
         };
@@ -171,7 +171,7 @@ mod tests {
         hash_set.insert("foo".to_string());
         hash_set.insert("baz".to_string());
 
-        let buf = to_bytes::<_, 256, Failure>(&hash_set).unwrap();
+        let buf = to_bytes::<_, Failure>(&hash_set).unwrap();
         let archived_value = unsafe {
             access_unchecked::<Archived<HashSet<String, ahash::RandomState>>>(
                 buf.as_ref(),

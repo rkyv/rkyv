@@ -136,7 +136,7 @@ mod tests {
         value.insert(String::from("baz"), 40);
         value.insert(String::from("bat"), 80);
 
-        let result = to_bytes::<_, 256, Failure>(&value).unwrap();
+        let result = to_bytes::<_, Failure>(&value).unwrap();
         let archived = unsafe {
             access_unchecked::<ArchivedHashMap<ArchivedString, Archived<i32>>>(
                 result.as_ref(),
@@ -167,7 +167,7 @@ mod tests {
         value.insert(String::from("baz"), 40);
         value.insert(String::from("bat"), 80);
 
-        let bytes = to_bytes::<_, 256, Failure>(&value).unwrap();
+        let bytes = to_bytes::<_, Failure>(&value).unwrap();
         access::<
             ArchivedHashMap<ArchivedString, Archived<i32>>,
             crate::rancor::Panic,

@@ -153,7 +153,7 @@ mod tests {
             };
 
             // Serializing is as easy as a single function call
-            let bytes = rkyv::to_bytes::<_, 256, Failure>(&value).unwrap();
+            let bytes = rkyv::to_bytes::<_, Failure>(&value).unwrap();
 
             // Or you can customize your serialization for better performance
             // and compatibility with #![no_std] environments
@@ -161,7 +161,7 @@ mod tests {
 
             let serializer = serialize_into::<_, _, Failure>(
                 &value,
-                AllocSerializer::<0>::default(),
+                AllocSerializer::default(),
             )
             .unwrap();
             let bytes = serializer.into_writer();
@@ -433,7 +433,7 @@ mod tests {
         let value = Test(42);
 
         let buf =
-            to_bytes::<_, 0, Failure>(&value).expect("failed to archive value");
+            to_bytes::<_, Failure>(&value).expect("failed to archive value");
         let archived_value =
             unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
 
@@ -477,7 +477,7 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn basic_mutable_refs() {
-        let mut buf = to_bytes::<_, 0, Failure>(&42i32).unwrap();
+        let mut buf = to_bytes::<_, Failure>(&42i32).unwrap();
         let mut value =
             unsafe { access_unchecked_mut::<Archived<i32>>(buf.as_mut()) };
         assert_eq!(*value, 42);
@@ -509,7 +509,7 @@ mod tests {
             b: vec!["hello".to_string(), "world".to_string()],
         };
 
-        let mut buf = to_bytes::<_, 256, Failure>(&value).unwrap();
+        let mut buf = to_bytes::<_, Failure>(&value).unwrap();
         let mut value =
             unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
 
@@ -550,7 +550,7 @@ mod tests {
 
         let value = Test::A;
 
-        let mut buf = to_bytes::<_, 0, Failure>(&value).unwrap();
+        let mut buf = to_bytes::<_, Failure>(&value).unwrap();
         let mut value =
             unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
 
@@ -750,7 +750,7 @@ mod tests {
             b: shared.clone(),
         };
 
-        let mut buf = to_bytes::<_, 256, Failure>(&value).unwrap();
+        let mut buf = to_bytes::<_, Failure>(&value).unwrap();
 
         let archived =
             unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };

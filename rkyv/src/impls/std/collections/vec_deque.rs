@@ -105,16 +105,12 @@ mod tests {
     use std::collections::VecDeque;
 
     use crate::{
-        access_unchecked, deserialize, ser::Positional as _, vec::ArchivedVec,
-        Archived,
+        access_unchecked, deserialize, rancor::Failure, to_bytes,
+        vec::ArchivedVec, Archived,
     };
 
     #[test]
     fn vecdeque() {
-        use rancor::Failure;
-
-        use crate::ser::CoreSerializer;
-
         for n in 2..10 {
             for k in 1..n {
                 // Construct `deque` as containing `0..n` split across two
@@ -142,17 +138,9 @@ mod tests {
 
                 // Now serialize and deserialize and verify that the
                 // deserialized version contains `0..n`.
-                let serializer = crate::util::serialize_into::<_, _, Failure>(
-                    &deque,
-                    CoreSerializer::<256, 256>::default(),
-                )
-                .unwrap();
-                let end = serializer.pos();
-                let result = serializer.into_writer().into_inner();
+                let bytes = to_bytes::<_, Failure>(&deque).unwrap();
                 let archived = unsafe {
-                    access_unchecked::<ArchivedVec<Archived<i32>>>(
-                        &result[0..end],
-                    )
+                    access_unchecked::<ArchivedVec<Archived<i32>>>(&bytes)
                 };
                 assert!(archived.iter().copied().eq(0..n));
 

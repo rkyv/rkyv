@@ -85,9 +85,7 @@ pub mod alloc {
         Deserialize, Serialize,
     };
 
-    const SCRATCH_SIZE: usize = 256;
-
-    pub type DefaultSerializer = rkyv::ser::AllocSerializer<SCRATCH_SIZE>;
+    pub type DefaultSerializer = rkyv::ser::AllocSerializer;
     pub type DefaultDeserializer = rkyv::de::pooling::Unify;
 
     pub fn test_archive_with<T, C>(value: &T, cmp: C)

@@ -66,26 +66,16 @@ mod tests {
     use smallvec::{smallvec, SmallVec};
 
     use crate::{
-        access_unchecked, deserialize, ser::Positional as _, vec::ArchivedVec,
-        Archived,
+        access_unchecked, deserialize, to_bytes, vec::ArchivedVec, Archived,
     };
 
     #[test]
     fn small_vec() {
-        use crate::ser::CoreSerializer;
-
         let value: SmallVec<[i32; 10]> = smallvec![10, 20, 40, 80];
 
-        let serializer = crate::util::serialize_into::<_, _, Failure>(
-            &value,
-            CoreSerializer::<256, 256>::default(),
-        )
-        .unwrap();
-        let end = serializer.pos();
-        let result = serializer.into_writer().into_inner();
-        let archived = unsafe {
-            access_unchecked::<ArchivedVec<Archived<i32>>>(&result[0..end])
-        };
+        let bytes = to_bytes::<_, Failure>(&value).unwrap();
+        let archived =
+            unsafe { access_unchecked::<ArchivedVec<Archived<i32>>>(&bytes) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
 
         let deserialized = deserialize::<SmallVec<[i32; 10]>, _, Infallible>(

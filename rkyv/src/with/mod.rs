@@ -151,7 +151,7 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 ///
 /// let value = Example { a: 4, b: 9 };
 ///
-/// let buf = to_bytes::<_, 256, Failure>(&value).unwrap();
+/// let buf = to_bytes::<_, Failure>(&value).unwrap();
 ///
 /// let archived =
 ///     unsafe { access_unchecked::<Archived<Example>>(buf.as_ref()) };

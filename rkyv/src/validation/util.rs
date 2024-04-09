@@ -135,7 +135,7 @@ where
 ///     value: 31415926,
 /// };
 ///
-/// let bytes = to_bytes::<_, 256, Failure>(&value).unwrap();
+/// let bytes = to_bytes::<_, Failure>(&value).unwrap();
 /// let archived = access::<Archived<Example>, Failure>(&bytes).unwrap();
 ///
 /// assert_eq!(archived.name, "pi");
@@ -256,8 +256,8 @@ where
 ///
 /// let value = vec![1, 2, 3, 4];
 ///
-/// let bytes = rkyv::to_bytes::<_, 1024, Failure>(&value)
-///     .expect("failed to serialize vec");
+/// let bytes =
+///     rkyv::to_bytes::<_, Failure>(&value).expect("failed to serialize vec");
 /// let deserialized = rkyv::from_bytes::<Vec<i32>, Failure>(&bytes)
 ///     .expect("failed to deserialize vec");
 ///

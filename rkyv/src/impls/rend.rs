@@ -94,31 +94,21 @@ mod tests {
     use rancor::{Failure, Strategy};
 
     use crate::{
-        access_unchecked, deserialize,
-        ser::{CoreSerializer, Positional as _},
+        access_unchecked, deserialize, ser::AllocSerializer, to_bytes,
         Deserialize, Serialize,
     };
-
-    type DefaultSerializer = CoreSerializer<256, 256>;
 
     fn test_archive<T>(value: &T)
     where
         T: fmt::Debug
             + PartialEq
-            + Serialize<Strategy<DefaultSerializer, Failure>>,
+            + Serialize<Strategy<AllocSerializer, Failure>>,
         T::Archived:
             fmt::Debug + PartialEq<T> + Deserialize<T, Strategy<(), Failure>>,
     {
-        let serializer = crate::util::serialize_into::<_, _, Failure>(
-            value,
-            DefaultSerializer::default(),
-        )
-        .expect("failed to archive value");
-        let len = serializer.pos();
-        let buffer = serializer.into_writer().into_inner();
+        let bytes = to_bytes::<_, Failure>(value).unwrap();
 
-        let archived_value =
-            unsafe { access_unchecked::<T::Archived>(&buffer[0..len]) };
+        let archived_value = unsafe { access_unchecked::<T::Archived>(&bytes) };
         assert_eq!(archived_value, value);
         assert_eq!(
             &deserialize::<T, _, Failure>(archived_value, &mut ()).unwrap(),
@@ -168,26 +158,12 @@ mod tests {
 
         // Big endian
         let value = i32_be::from_native(0x12345678);
-
-        let serializer = crate::util::serialize_into::<_, _, Failure>(
-            &value,
-            DefaultSerializer::default(),
-        )
-        .unwrap();
-        let buf = serializer.into_writer().into_inner();
-
+        let buf = to_bytes::<_, Failure>(&value).unwrap();
         assert_eq!(&buf[0..4], &[0x12, 0x34, 0x56, 0x78]);
 
         // Little endian
         let value = i32_le::from_native(0x12345678i32);
-
-        let serializer = crate::util::serialize_into::<_, _, Failure>(
-            &value,
-            DefaultSerializer::default(),
-        )
-        .unwrap();
-        let buf = serializer.into_writer().into_inner();
-
+        let buf = to_bytes::<_, Failure>(&value).unwrap();
         assert_eq!(&buf[0..4], &[0x78, 0x56, 0x34, 0x12]);
     }
 
