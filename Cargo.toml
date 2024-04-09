@@ -1,13 +1,17 @@
 [workspace]
 members = [
-    "examples/backwards_compat",
-    "examples/json",
-    "examples/opcode",
+    "examples/*",
     "rkyv",
     "rkyv_derive",
     "rkyv_dyn",
     "rkyv_dyn_derive",
     "rkyv_dyn_test",
+    "rkyv_test",
+]
+default-members = [
+    "examples/*",
+    "rkyv",
+    "rkyv_derive",
     "rkyv_test",
 ]
 resolver = "2"
@@ -35,3 +39,6 @@ rkyv_dyn = { version = "=0.8.0-alpha.2", default-features = false, path = "rkyv_
 rkyv_dyn_derive = { version = "=0.8.0-alpha.2", default-features = false, path = "rkyv_dyn_derive" }
 syn = "2.0"
 wasm-bindgen-test = "0.3"
+
+[patch.crates-io]
+rancor = { git = "https://github.com/rkyv/rancor" }

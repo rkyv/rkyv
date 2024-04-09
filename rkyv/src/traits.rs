@@ -103,7 +103,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// [`Archive`](macro@crate::Archive) derive macro for more details.
 ///
 /// ```
-/// use rkyv::{Archive, Deserialize, Serialize};
+/// use rkyv::{Archive, Archived, Deserialize, Serialize, rancor::Failure};
 ///
 /// #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 /// // This will generate a PartialEq impl between our unarchived and archived types
@@ -123,23 +123,24 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// };
 ///
 /// // Serializing is as easy as a single function call
-/// let bytes = rkyv::to_bytes::<_, 256>(&value).unwrap();
+/// let bytes = rkyv::to_bytes::<_, 256, Failure>(&value).unwrap();
 ///
 /// // Or you can customize your serialization for better performance
 /// // and compatibility with #![no_std] environments
-/// use rkyv::ser::{Serializer, serializers::AllocSerializer};
+/// use rkyv::{ser::AllocSerializer, util::serialize_into};
 ///
-/// let mut serializer = AllocSerializer::<0>::default();
-/// serializer.serialize_value(&value).unwrap();
-/// let bytes = serializer.into_serializer().into_inner();
+/// let bytes = rkyv::util::serialize_into::<_, _, Failure>(
+///     &value,
+///     AllocSerializer::<0>::default(),
+/// ).unwrap().into_writer();
 ///
 /// // You can use the safe API with the `bytecheck` feature enabled,
 /// // or you can use the unsafe API (shown here) for maximum performance
-/// let archived = unsafe { rkyv::archived_root::<Test>(&bytes[..]) };
+/// let archived = unsafe { rkyv::access_unchecked::<Archived<Test>>(&bytes[..]) };
 /// assert_eq!(archived, &value);
 ///
 /// // And you can always deserialize back to the original type
-/// let deserialized: Test = archived.deserialize(&mut rkyv::Infallible).unwrap();
+/// let deserialized = rkyv::deserialize::<Test, _, Failure>(archived, &mut ()).unwrap();
 /// assert_eq!(deserialized, value);
 /// ```
 ///
@@ -159,16 +160,21 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// use core::{slice, str};
 ///
 /// use rkyv::{
-///     archived_root, out_field,
-///     ser::{serializers::AlignedSerializer, Serializer},
-///     AlignedVec, Archive, ArchiveUnsized, Archived, MetadataResolver,
-///     RelPtr, Serialize, SerializeUnsized,
+///     access_unchecked, out_field,
+///     rancor::{Failure, Fallible},
+///     ser::Writer,
+///     to_bytes,
+///     util::AlignedVec,
+///     Archive, ArchiveUnsized, Archived, Portable, RelPtr, Serialize,
+///     SerializeUnsized,
 /// };
 ///
 /// struct OwnedStr {
 ///     inner: &'static str,
 /// }
 ///
+/// #[derive(Portable)]
+/// #[repr(transparent)]
 /// struct ArchivedOwnedStr {
 ///     // This will be a relative pointer to our string
 ///     ptr: RelPtr<str>,
@@ -189,8 +195,6 @@ impl<T: ?Sized> CopyOptimization<T> {
 ///     // We'll use this to resolve the relative pointer of our
 ///     // ArchivedOwnedStr.
 ///     pos: usize,
-///     // The archived metadata for our str may also need a resolver.
-///     metadata_resolver: MetadataResolver<str>,
 /// }
 ///
 /// // The Archive implementation defines the archived version of our type and
@@ -213,19 +217,19 @@ impl<T: ?Sized> CopyOptimization<T> {
 ///         // otherwise we'll be using the position of the ArchivedOwnedStr
 ///         // instead of the position of the relative pointer.
 ///         let (fp, fo) = out_field!(out.ptr);
-///         self.inner.resolve_unsized(
+///         RelPtr::emplace_unsized(
 ///             pos + fp,
 ///             resolver.pos,
-///             resolver.metadata_resolver,
+///             self.inner.archived_metadata(),
 ///             fo,
 ///         );
 ///     }
 /// }
 ///
-/// // We restrict our serializer types with Serializer because we need its
-/// // capabilities to archive our type. For other types, we might need more or
-/// // less restrictive bounds on the type of S.
-/// impl<S: Serializer + ?Sized> Serialize<S> for OwnedStr {
+/// // We restrict our serializer types with Writer because we need its
+/// // capabilities to serialize the inner string. For other types, we might
+/// // need more or less restrictive bounds on the type of S.
+/// impl<S: Fallible + Writer + ?Sized> Serialize<S> for OwnedStr {
 ///     fn serialize(
 ///         &self,
 ///         serializer: &mut S,
@@ -235,20 +239,17 @@ impl<T: ?Sized> CopyOptimization<T> {
 ///         // We also need to serialize the metadata for our str.
 ///         Ok(OwnedStrResolver {
 ///             pos: self.inner.serialize_unsized(serializer)?,
-///             metadata_resolver: self.inner.serialize_metadata(serializer)?,
 ///         })
 ///     }
 /// }
 ///
-/// let mut serializer = AlignedSerializer::new(AlignedVec::new());
 /// const STR_VAL: &'static str = "I'm in an OwnedStr!";
 /// let value = OwnedStr { inner: STR_VAL };
 /// // It works!
-/// serializer
-///     .serialize_value(&value)
-///     .expect("failed to archive test");
-/// let buf = serializer.into_inner();
-/// let archived = unsafe { archived_root::<OwnedStr>(buf.as_ref()) };
+/// let buf =
+///     to_bytes::<_, 1024, Failure>(&value).expect("failed to serialize");
+/// let archived =
+///     unsafe { access_unchecked::<ArchivedOwnedStr>(buf.as_ref()) };
 /// // Let's make sure our data got written correctly
 /// assert_eq!(archived.as_str(), STR_VAL);
 /// ```
@@ -367,27 +368,23 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///
 /// use ptr_meta::Pointee;
 /// use rkyv::{
-///     archived_unsized_value,
 ///     primitive::ArchivedUsize,
-///     ser::{serializers::AlignedSerializer, Serializer},
-///     AlignedVec, Archive, ArchivePointee, ArchiveUnsized, Archived,
-///     ArchivedMetadata, RelPtr, Serialize, SerializeUnsized,
+///     ser::{AllocSerializer, Positional, Writer, WriterExt as _},
+///     util::{AlignedVec, access_unsized_unchecked, serialize_rel_ptr_into}, Archive, ArchivePointee, ArchiveUnsized, Archived,
+///     ArchivedMetadata, RelPtr, Serialize, SerializeUnsized, rancor::{Failure, Fallible},
+///     Portable,
 /// };
 ///
 /// // We're going to be dealing mostly with blocks that have a trailing slice
+/// #[derive(Portable)]
+/// #[repr(C)]
 /// pub struct Block<H, T: ?Sized> {
 ///     head: H,
 ///     tail: T,
 /// }
 ///
-/// impl<H, T> Pointee for Block<H, [T]> {
-///     type Metadata = usize;
-/// }
-///
-/// // For blocks with trailing slices, we need to store the length of the slice
-/// // in the metadata.
-/// pub struct BlockSliceMetadata {
-///     len: ArchivedUsize,
+/// unsafe impl<H, T> Pointee for Block<H, [T]> {
+///     type Metadata = <[T] as Pointee>::Metadata;
 /// }
 ///
 /// // ArchivePointee is automatically derived for sized types because pointers
@@ -397,14 +394,14 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// impl<H, T> ArchivePointee for Block<H, [T]> {
 ///     // This is the extra data that needs to get stored for blocks with
 ///     // trailing slices
-///     type ArchivedMetadata = BlockSliceMetadata;
+///     type ArchivedMetadata = <[T] as ArchivePointee>::ArchivedMetadata;
 ///
 ///     // We need to be able to turn our archived metadata into regular
 ///     // metadata for our type
 ///     fn pointer_metadata(
-///         archived: &Self::ArchivedMetadata,
+///         metadata: &Self::ArchivedMetadata,
 ///     ) -> <Self as Pointee>::Metadata {
-///         archived.len.to_native() as usize
+///         metadata.to_native() as usize
 ///     }
 /// }
 ///
@@ -414,40 +411,30 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     // We'll reuse our block type as our archived type.
 ///     type Archived = Block<Archived<H>, [Archived<T>]>;
 ///
-///     // This is where we'd put any resolve data for our metadata.
-///     // Most of the time, this can just be () because most metadata is Copy,
-///     // but the option is there if you need it.
-///     type MetadataResolver = ();
-///
-///     // Here's where we make the metadata for our pointer.
-///     // This also gets the position and resolver for the metadata, but we
-///     // don't need it in this case.
-///     unsafe fn resolve_metadata(
-///         &self,
-///         _: usize,
-///         _: Self::MetadataResolver,
-///         out: *mut ArchivedMetadata<Self>,
-///     ) {
-///         unsafe {
-///             out.write(BlockSliceMetadata {
-///                 len: ArchivedUsize::from_native(self.tail.len() as _),
-///             });
-///         }
+///     // Here's where we make the metadata for our archived type.
+///     fn archived_metadata(&self) -> ArchivedMetadata<Self> {
+///         // Because the metadata for our `ArchivedBlock` is the metadata of
+///         // the trailing slice, we just need to return that archived
+///         // metadata.
+///         self.tail.archived_metadata()
 ///     }
 /// }
 ///
 /// // The bounds we use on our serializer type indicate that we need basic
 /// // serializer capabilities, and then whatever capabilities our head and tail
 /// // types need to serialize themselves.
-/// impl<H: Serialize<S>, T: Serialize<S>, S: Serializer + ?Sized>
-///     SerializeUnsized<S> for Block<H, [T]>
+/// impl<H, T, S> SerializeUnsized<S> for Block<H, [T]>
+/// where
+///     H: Serialize<S>,
+///     T: Serialize<S>,
+///     S: Fallible + Writer + ?Sized,
 /// {
 ///     // This is where we construct our unsized type in the serializer
 ///     fn serialize_unsized(
 ///         &self,
 ///         serializer: &mut S,
 ///     ) -> Result<usize, S::Error> {
-///         // First, we archive the head and all the tails. This will make sure
+///         // First, we serialize the head and all the tails. This will make sure
 ///         // that when we finally build our block, we don't accidentally mess
 ///         // up the structure with serialized dependencies.
 ///         let head_resolver = self.head.serialize(serializer)?;
@@ -455,13 +442,13 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///         for tail in self.tail.iter() {
 ///             resolvers.push(tail.serialize(serializer)?);
 ///         }
-///         // Now we align our serializer for our archived type and write it.
+///         // Now we align our serializer for our archived type and resolve it.
 ///         // We can't align for unsized types so we treat the trailing slice
 ///         // like an array of 0 length for now.
-///         serializer.align_for::<Block<Archived<H>, [Archived<T>; 0]>>()?;
-///         let result = unsafe {
-///             serializer.resolve_aligned(&self.head, head_resolver)?
-///         };
+///         let result = serializer.align_for::<Block<Archived<H>, [Archived<T>; 0]>>()?;
+///         unsafe {
+///             serializer.resolve_aligned(&self.head, head_resolver)?;
+///         }
 ///         serializer.align_for::<Archived<T>>()?;
 ///         for (item, resolver) in self.tail.iter().zip(resolvers.drain(..)) {
 ///             unsafe {
@@ -469,15 +456,6 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///             }
 ///         }
 ///         Ok(result)
-///     }
-///
-///     // This is where we serialize the metadata for our type. In this case,
-///     // we do all the work in resolve and don't need to do anything here.
-///     fn serialize_metadata(
-///         &self,
-///         serializer: &mut S,
-///     ) -> Result<Self::MetadataResolver, S::Error> {
-///         Ok(())
 ///     }
 /// }
 ///
@@ -492,18 +470,18 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     &*transmute::<(*const (), usize), *const Block<String, [i32]>>((ptr, 4))
 /// };
 ///
-/// let mut serializer = AlignedSerializer::new(AlignedVec::new());
-/// let pos = serializer
-///     .serialize_unsized_value(unsized_value)
-///     .expect("failed to archive block");
-/// let buf = serializer.into_inner();
+/// let buf = serialize_rel_ptr_into::<_, _, Failure>(
+///     unsized_value,
+///     AllocSerializer::<256>::default(),
+/// ).expect("failed to serialize block").into_writer();
 ///
-/// let archived_ref = unsafe {
-///     archived_unsized_value::<Block<String, [i32]>>(buf.as_slice(), pos)
+/// type ArchivedBlock = <Block<String, [i32]> as ArchiveUnsized>::Archived;
+/// let archived = unsafe {
+///     access_unsized_unchecked::<ArchivedBlock>(&buf)
 /// };
-/// assert_eq!(archived_ref.head, "Numbers 1-4");
-/// assert_eq!(archived_ref.tail.len(), 4);
-/// assert_eq!(archived_ref.tail, [1, 2, 3, 4]);
+/// assert_eq!(archived.head, "Numbers 1-4");
+/// assert_eq!(archived.tail.len(), 4);
+/// assert_eq!(archived.tail, [1, 2, 3, 4]);
 /// ```
 pub trait ArchiveUnsized: Pointee {
     /// The archived counterpart of this type. Unlike `Archive`, it may be

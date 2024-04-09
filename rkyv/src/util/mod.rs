@@ -238,9 +238,8 @@ where
 /// # Examples
 ///
 /// ```
+/// # use rkyv::util::AlignedBytes;
 /// use core::mem;
-///
-/// use rkyv::AlignedBytes;
 ///
 /// assert_eq!(mem::align_of::<u8>(), 1);
 /// assert_eq!(mem::align_of::<AlignedBytes<256>>(), 16);
@@ -301,15 +300,17 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 ///
 /// # Examples
 /// ```
+/// use rkyv::rancor::Failure;
+///
 /// let value = vec![1, 2, 3, 4];
 ///
-/// let bytes =
-///     rkyv::to_bytes::<_, 1024>(&value).expect("failed to serialize vec");
+/// let bytes = rkyv::to_bytes::<_, 1024, Failure>(&value)
+///     .expect("failed to serialize vec");
 /// // SAFETY:
 /// // - The byte slice represents an archived object
 /// // - The root of the object is stored at the end of the slice
 /// let deserialized = unsafe {
-///     rkyv::from_bytes_unchecked::<Vec<i32>>(&bytes)
+///     rkyv::from_bytes_unchecked::<Vec<i32>, Failure>(&bytes)
 ///         .expect("failed to deserialize vec")
 /// };
 ///
@@ -391,15 +392,17 @@ where
 ///
 /// # Examples
 /// ```
+/// use rkyv::rancor::Failure;
+///
 /// let value = vec![1, 2, 3, 4];
 ///
-/// let bytes =
-///     rkyv::to_bytes::<_, 1024>(&value).expect("failed to serialize vec");
+/// let bytes = rkyv::to_bytes::<_, 1024, Failure>(&value)
+///     .expect("failed to serialize vec");
 /// // SAFETY:
 /// // - The byte slice represents an archived object
 /// // - The root of the object is stored at the end of the slice
 /// let deserialized = unsafe {
-///     rkyv::from_bytes_unchecked::<Vec<i32>>(&bytes)
+///     rkyv::from_bytes_unchecked::<Vec<i32>, Failure>(&bytes)
 ///         .expect("failed to deserialize vec")
 /// };
 ///

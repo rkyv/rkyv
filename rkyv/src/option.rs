@@ -257,7 +257,7 @@ impl<T> From<T> for ArchivedOption<T> {
     /// # use rkyv::option::ArchivedOption;
     /// let o: ArchivedOption<u8> = ArchivedOption::from(67);
     ///
-    /// assert_eq!(Some(67), o);
+    /// assert!(matches!(o, ArchivedOption::Some(67)));
     /// ```
     fn from(val: T) -> ArchivedOption<T> {
         ArchivedOption::Some(val)

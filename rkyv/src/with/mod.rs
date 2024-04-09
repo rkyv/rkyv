@@ -90,11 +90,11 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 ///
 /// ```
 /// use rkyv::{
-///     archived_root,
-///     ser::{serializers::AllocSerializer, Serializer},
+///     access_unchecked, deserialize,
+///     rancor::{Failure, Fallible, Infallible, ResultExt as _},
+///     to_bytes,
 ///     with::{ArchiveWith, DeserializeWith, SerializeWith},
-///     Archive, Archived, Deserialize, Fallible, Infallible, Resolver,
-///     Serialize,
+///     Archive, Archived, Deserialize, Resolver, Serialize,
 /// };
 ///
 /// struct Incremented;
@@ -114,8 +114,9 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 ///     }
 /// }
 ///
-/// impl<S: Fallible + ?Sized> SerializeWith<i32, S> for Incremented
+/// impl<S> SerializeWith<i32, S> for Incremented
 /// where
+///     S: Fallible + ?Sized,
 ///     i32: Serialize<S>,
 /// {
 ///     fn serialize_with(
@@ -127,15 +128,15 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 ///     }
 /// }
 ///
-/// impl<D: Fallible + ?Sized> DeserializeWith<Archived<i32>, i32, D>
-///     for Incremented
+/// impl<D> DeserializeWith<Archived<i32>, i32, D> for Incremented
 /// where
+///     D: Fallible + ?Sized,
 ///     Archived<i32>: Deserialize<i32, D>,
 /// {
 ///     fn deserialize_with(
 ///         field: &Archived<i32>,
 ///         deserializer: &mut D,
-///     ) -> Result<i32, E> {
+///     ) -> Result<i32, D::Error> {
 ///         Ok(field.deserialize(deserializer)? - 1)
 ///     }
 /// }
@@ -150,17 +151,17 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 ///
 /// let value = Example { a: 4, b: 9 };
 ///
-/// let mut serializer = AllocSerializer::<4096>::default();
-/// serializer.serialize_value(&value).unwrap();
-/// let buf = serializer.into_serializer().into_inner();
+/// let buf = to_bytes::<_, 256, Failure>(&value).unwrap();
 ///
-/// let archived = unsafe { archived_root::<Example>(buf.as_ref()) };
+/// let archived =
+///     unsafe { access_unchecked::<Archived<Example>>(buf.as_ref()) };
 /// // The wrapped field has been incremented
 /// assert_eq!(archived.a, 5);
 /// // ... and the unwrapped field has not
 /// assert_eq!(archived.b, 9);
 ///
-/// let deserialized: Example = archived.deserialize(&mut Infallible).unwrap();
+/// let deserialized =
+///     deserialize::<Example, _, Infallible>(archived, &mut ()).always_ok();
 /// // The wrapped field is back to normal
 /// assert_eq!(deserialized.a, 4);
 /// // ... and the unwrapped field is unchanged
@@ -599,35 +600,6 @@ pub struct AsVec;
 #[derive(Debug)]
 pub struct Niche;
 
-/// A wrapper that provides specialized, performant implementations of
-/// serialization and deserialization.
-///
-/// This wrapper can be used with containers like `Vec`, but care must be taken
-/// to ensure that they contain copy-safe types. Copy-safe types must be
-/// trivially copyable (have the same archived and unarchived representations)
-/// and contain no padding bytes. In situations where copying uninitialized
-/// bytes the output is acceptable, this wrapper may be used with containers of
-/// types that contain padding bytes.
-///
-/// # Safety
-///
-/// Using this wrapper with containers containing non-copy-safe types may result
-/// in undefined behavior.
-///
-/// # Example
-///
-/// ```
-/// use rkyv::{with::CopyOptimize, Archive};
-///
-/// #[derive(Archive)]
-/// struct Example {
-///     #[with(CopyOptimize)]
-///     bytes: Vec<u8>,
-/// }
-/// ```
-#[derive(Debug)]
-pub struct CopyOptimize;
-
 /// A wrapper that converts a [`SystemTime`](::std::time::SystemTime) to a
 /// [`Duration`](::std::time::Duration) since
 /// [`UNIX_EPOCH`](::std::time::UNIX_EPOCH).
@@ -671,42 +643,6 @@ impl fmt::Display for UnixTimestampError {
 
 #[cfg(feature = "std")]
 impl ::std::error::Error for UnixTimestampError {}
-
-/// A wrapper that provides an optimized bulk data array. This is primarily
-/// intended for large amounts of raw data, like bytes, floats, or integers.
-///
-/// This wrapper can be used with containers like `Vec`, but care must be taken
-/// to ensure that they contain copy-safe types. Copy-safe types must be
-/// trivially copyable (have the same archived and unarchived representations)
-/// and contain no padding bytes. In situations where copying uninitialized
-/// bytes the output is acceptable, this wrapper may be used with containers of
-/// types that contain padding bytes.
-///
-/// Unlike [`CopyOptimize`], this wrapper will also skip validation for its
-/// elements. If the elements of the container can have any invalid bit patterns
-/// (e.g. `char`, `bool`, complex containers, etc.), then using `Raw` in an
-/// insecure setting can lead to undefined behavior. Take great caution!
-///
-/// # Safety
-///
-/// Using this wrapper with containers containing non-copy-safe types or types
-/// that require validation may result in undefined behavior.
-///
-/// # Example
-///
-/// ```
-/// use rkyv::{with::Raw, Archive};
-///
-/// #[derive(Archive)]
-/// struct Example {
-///     #[with(Raw)]
-///     bytes: Vec<u8>,
-///     #[with(Raw)]
-///     vertices: Vec<[f32; 3]>,
-/// }
-/// ```
-#[derive(Debug)]
-pub struct Raw;
 
 /// A wrapper that allows serialize-unsafe types to be serialized.
 ///

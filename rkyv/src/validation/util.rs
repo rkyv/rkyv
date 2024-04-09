@@ -95,36 +95,6 @@ where
 /// after checking its validity.
 ///
 /// This is a safe alternative to [`access_pos_unchecked`].
-///
-/// # Examples
-/// ```
-/// use bytecheck::CheckBytes;
-/// use rkyv::{
-///     check_archived_value,
-///     ser::{serializers::AlignedSerializer, Serializer},
-///     AlignedVec, Archive, Serialize,
-/// };
-///
-/// #[derive(Archive, Serialize)]
-/// #[archive_attr(derive(CheckBytes))]
-/// struct Example {
-///     name: String,
-///     value: i32,
-/// }
-///
-/// let value = Example {
-///     name: "pi".to_string(),
-///     value: 31415926,
-/// };
-///
-/// let mut serializer = AlignedSerializer::new(AlignedVec::new());
-/// let pos = serializer
-///     .serialize_value(&value)
-///     .expect("failed to archive test");
-/// let bytes = serializer.into_inner();
-/// let archived =
-///     check_archived_value::<Example>(bytes.as_ref(), pos).unwrap();
-/// ```
 #[inline]
 pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T, E>
 where
@@ -145,6 +115,32 @@ where
 /// This is a safe alternative to [`access_unchecked`][unsafe_version].
 ///
 /// [unsafe_version]: crate::access_unchecked
+///
+/// # Examples
+/// ```
+/// use rkyv::{
+///     access, bytecheck::CheckBytes, rancor::Failure, to_bytes, Archive,
+///     Archived, Serialize,
+/// };
+///
+/// #[derive(Archive, Serialize)]
+/// #[archive_attr(derive(CheckBytes))]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// let bytes = to_bytes::<_, 256, Failure>(&value).unwrap();
+/// let archived = access::<Archived<Example>, Failure>(&bytes).unwrap();
+///
+/// assert_eq!(archived.name, "pi");
+/// assert_eq!(archived.value, 31415926);
+/// ```
 #[inline]
 pub fn access<T, E>(bytes: &[u8]) -> Result<&T, E>
 where
@@ -256,11 +252,13 @@ where
 ///
 /// # Examples
 /// ```
+/// use rkyv::rancor::Failure;
+///
 /// let value = vec![1, 2, 3, 4];
 ///
-/// let bytes =
-///     rkyv::to_bytes::<_, 1024>(&value).expect("failed to serialize vec");
-/// let deserialized = rkyv::from_bytes::<Vec<i32>>(&bytes)
+/// let bytes = rkyv::to_bytes::<_, 1024, Failure>(&value)
+///     .expect("failed to serialize vec");
+/// let deserialized = rkyv::from_bytes::<Vec<i32>, Failure>(&bytes)
 ///     .expect("failed to deserialize vec");
 ///
 /// assert_eq!(deserialized, value);

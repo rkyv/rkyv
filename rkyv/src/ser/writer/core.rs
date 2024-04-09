@@ -36,9 +36,10 @@ const _: () = {
 /// # Examples
 /// ```
 /// use rkyv::{
-///     archived_value,
-///     ser::{serializers::BufferSerializer, Serializer},
-///     AlignedBytes, AlignedVec, Archive, Archived, Serialize,
+///     rancor::{Failure, Strategy},
+///     ser::{writer::BufferWriter, Writer},
+///     util::{access_pos_unchecked, AlignedBytes},
+///     Archive, Archived, Serialize,
 /// };
 ///
 /// #[derive(Archive, Serialize)]
@@ -48,12 +49,15 @@ const _: () = {
 ///     Die,
 /// }
 ///
-/// let mut serializer = BufferSerializer::new(AlignedBytes([0u8; 256]));
-/// let pos = serializer
-///     .serialize_value(&Event::Speak("Help me!".to_string()))
+/// let event = Event::Speak("Help me!".to_string());
+/// let mut buffer_writer = BufferWriter::new(AlignedBytes([0u8; 256]));
+/// let serializer = Strategy::<_, Failure>::wrap(&mut buffer_writer);
+/// let pos = event
+///     .serialize_and_resolve(serializer)
 ///     .expect("failed to archive event");
-/// let buf = serializer.into_inner();
-/// let archived = unsafe { archived_value::<Event>(buf.as_ref(), pos) };
+/// let buf = buffer_writer.into_inner();
+/// let archived =
+///     unsafe { access_pos_unchecked::<Archived<Event>>(buf.as_ref(), pos) };
 /// if let Archived::<Event>::Speak(message) = archived {
 ///     assert_eq!(message.as_str(), "Help me!");
 /// } else {

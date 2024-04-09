@@ -10,13 +10,6 @@ use std::{alloc, io};
 
 #[cfg(not(feature = "std"))]
 use ::alloc::{alloc, boxed::Box, vec::Vec};
-use rancor::Fallible;
-
-use crate::{
-    ser::{Allocator, Writer, WriterExt as _},
-    vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Serialize,
-};
 
 /// A vector of bytes that aligns its memory to 16 bytes.
 ///
@@ -28,39 +21,9 @@ use crate::{
 /// aligning opaque bytes inside of an archived data type.
 ///
 /// ```
-/// use rkyv::AlignedVec;
-///
+/// # use rkyv::util::AlignedVec;
 /// let bytes = AlignedVec::<4096>::with_capacity(1);
 /// assert_eq!(bytes.as_ptr() as usize % 4096, 0);
-/// ```
-///
-/// ```
-/// # use rkyv::{archived_value, AlignedBytes, AlignedVec, Archive, Serialize};
-/// # use rkyv::ser::Serializer;
-/// # use rkyv::ser::serializers::CoreSerializer;
-/// #
-/// #[derive(Archive, Serialize)]
-/// struct HasAlignedBytes {
-///     pub bytes: AlignedVec,
-/// }
-///
-/// let mut serializer = CoreSerializer::<256, 0>::default();
-///
-/// // Write a single byte to force re-alignment.
-/// serializer.write(&[0]).unwrap();
-/// assert_eq!(serializer.pos(), 1);
-///
-/// let mut bytes = AlignedVec::new();
-/// bytes.extend_from_slice(&[1, 2, 3]);
-/// let pos = serializer.serialize_value(&HasAlignedBytes { bytes }).unwrap();
-///
-/// // Make sure we can recover the archived type with the expected alignment.
-/// let buf = serializer.into_serializer().into_inner();
-/// let archived = unsafe {
-///     archived_value::<HasAlignedBytes>(buf.as_ref(), pos)
-/// };
-/// assert_eq!(archived.bytes.as_slice(), &[1, 2, 3]);
-/// assert_eq!(archived.bytes.as_ptr().align_offset(16), 0);
 /// ```
 pub struct AlignedVec<const ALIGNMENT: usize = 16> {
     ptr: NonNull<u8>,
@@ -96,9 +59,8 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
-    ///
-    /// let mut vec = AlignedVec::new();
+    /// # use rkyv::util::AlignedVec;
+    /// let mut vec = AlignedVec::<16>::new();
     /// ```
     #[inline]
     pub fn new() -> Self {
@@ -112,9 +74,8 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
-    ///
-    /// let mut vec = AlignedVec::with_capacity(10);
+    /// # use rkyv::util::AlignedVec;
+    /// let mut vec = AlignedVec::<16>::with_capacity(10);
     ///
     /// // The vector contains no items, even though it has capacity for more
     /// assert_eq!(vec.len(), 0);
@@ -192,9 +153,8 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
-    ///
-    /// let mut v = AlignedVec::new();
+    /// # use rkyv::util::AlignedVec;
+    /// let mut v = AlignedVec::<16>::new();
     /// v.extend_from_slice(&[1, 2, 3, 4]);
     ///
     /// v.clear();
@@ -269,9 +229,8 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
-    ///
-    /// let mut vec = AlignedVec::with_capacity(10);
+    /// # use rkyv::util::AlignedVec;
+    /// let mut vec = AlignedVec::<16>::with_capacity(10);
     /// vec.extend_from_slice(&[1, 2, 3]);
     /// assert_eq!(vec.capacity(), 10);
     /// vec.shrink_to_fit();
@@ -298,11 +257,10 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
-    ///
-    /// // Allocate vector big enough for 4 bytes.
+    /// # use rkyv::util::AlignedVec;
+    /// // Allocate 1-aligned vector big enough for 4 bytes.
     /// let size = 4;
-    /// let mut x = AlignedVec::with_capacity(size);
+    /// let mut x = AlignedVec::<1>::with_capacity(size);
     /// let x_ptr = x.as_mut_ptr();
     ///
     /// // Initialize elements via raw pointer writes, then set length.
@@ -325,9 +283,8 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
-    ///
-    /// let mut vec = AlignedVec::new();
+    /// # use rkyv::util::AlignedVec;
+    /// let mut vec = AlignedVec::<16>::new();
     /// vec.extend_from_slice(&[1, 2, 3, 4, 5]);
     /// assert_eq!(vec.as_mut_slice().len(), 5);
     /// for i in 0..5 {
@@ -356,9 +313,8 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
-    ///
-    /// let mut x = AlignedVec::new();
+    /// # use rkyv::util::AlignedVec;
+    /// let mut x = AlignedVec::<16>::new();
     /// x.extend_from_slice(&[1, 2, 4]);
     /// let x_ptr = x.as_ptr();
     ///
@@ -379,9 +335,8 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
-    ///
-    /// let mut vec = AlignedVec::new();
+    /// # use rkyv::util::AlignedVec;
+    /// let mut vec = AlignedVec::<16>::new();
     /// vec.extend_from_slice(&[1, 2, 3, 4, 5]);
     /// assert_eq!(vec.as_slice().len(), 5);
     /// for i in 0..5 {
@@ -397,9 +352,8 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
-    ///
-    /// let vec = AlignedVec::with_capacity(10);
+    /// # use rkyv::util::AlignedVec;
+    /// let vec = AlignedVec::<16>::with_capacity(10);
     /// assert_eq!(vec.capacity(), 10);
     /// ```
     #[inline]
@@ -419,9 +373,9 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
+    /// # use rkyv::util::AlignedVec;
     ///
-    /// let mut vec = AlignedVec::new();
+    /// let mut vec = AlignedVec::<16>::new();
     /// vec.push(1);
     /// vec.reserve(10);
     /// assert!(vec.capacity() >= 11);
@@ -480,9 +434,9 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
+    /// # use rkyv::util::AlignedVec;
     ///
-    /// let mut vec = AlignedVec::new();
+    /// let mut vec = AlignedVec::<16>::new();
     /// vec.push(1);
     /// unsafe { vec.grow_capacity_to(50) };
     /// assert_eq!(vec.len(), 1);
@@ -520,14 +474,14 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
+    /// # use rkyv::util::AlignedVec;
     ///
-    /// let mut vec = AlignedVec::new();
+    /// let mut vec = AlignedVec::<16>::new();
     /// vec.push(3);
     /// vec.resize(3, 2);
     /// assert_eq!(vec.as_slice(), &[3, 2, 2]);
     ///
-    /// let mut vec = AlignedVec::new();
+    /// let mut vec = AlignedVec::<16>::new();
     /// vec.extend_from_slice(&[1, 2, 3, 4]);
     /// vec.resize(2, 0);
     /// assert_eq!(vec.as_slice(), &[1, 2]);
@@ -554,7 +508,7 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
+    /// # use rkyv::util::AlignedVec;
     ///
     /// let mut v = Vec::new();
     /// assert!(v.is_empty());
@@ -572,9 +526,9 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
+    /// # use rkyv::util::AlignedVec;
     ///
-    /// let mut a = AlignedVec::new();
+    /// let mut a = AlignedVec::<16>::new();
     /// a.extend_from_slice(&[1, 2, 3]);
     /// assert_eq!(a.len(), 3);
     /// ```
@@ -589,9 +543,9 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
+    /// # use rkyv::util::AlignedVec;
     ///
-    /// let mut vec = AlignedVec::new();
+    /// let mut vec = AlignedVec::<16>::new();
     /// vec.push(1);
     /// vec.extend_from_slice(&[2, 3, 4]);
     /// assert_eq!(vec.as_slice(), &[1, 2, 3, 4]);
@@ -616,9 +570,9 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
+    /// # use rkyv::util::AlignedVec;
     ///
-    /// let mut vec = AlignedVec::new();
+    /// let mut vec = AlignedVec::<16>::new();
     /// vec.extend_from_slice(&[1, 2, 3]);
     /// assert_eq!(vec.pop(), Some(3));
     /// assert_eq!(vec.as_slice(), &[1, 2]);
@@ -642,9 +596,9 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
+    /// # use rkyv::util::AlignedVec;
     ///
-    /// let mut vec = AlignedVec::new();
+    /// let mut vec = AlignedVec::<16>::new();
     /// vec.extend_from_slice(&[1, 2]);
     /// vec.push(3);
     /// assert_eq!(vec.as_slice(), &[1, 2, 3]);
@@ -693,9 +647,9 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
+    /// # use rkyv::util::AlignedVec;
     ///
-    /// let mut vec = AlignedVec::new();
+    /// let mut vec = AlignedVec::<16>::new();
     /// vec.push(1);
     /// vec.reserve_exact(10);
     /// assert!(vec.capacity() >= 11);
@@ -732,9 +686,8 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
-    ///
-    /// let mut vec = AlignedVec::with_capacity(3);
+    /// # use rkyv::util::AlignedVec;
+    /// let mut vec = AlignedVec::<16>::with_capacity(3);
     /// vec.extend_from_slice(&[1, 2, 3]);
     ///
     /// // SAFETY:
@@ -751,16 +704,15 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
         self.len = new_len;
     }
 
-    /// Converts the vector into `Box<[u8]>`.
+    /// Converts the vector into `Box<[u8]>`. The returned slice is 1-aligned.
     ///
     /// This method reallocates and copies the underlying bytes. Any excess
     /// capacity is dropped.
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
-    ///
-    /// let mut v = AlignedVec::new();
+    /// # use rkyv::util::AlignedVec;
+    /// let mut v = AlignedVec::<16>::new();
     /// v.extend_from_slice(&[1, 2, 3]);
     ///
     /// let slice = v.into_boxed_slice();
@@ -769,9 +721,8 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// Any excess capacity is removed:
     ///
     /// ```
-    /// use rkyv::AlignedVec;
-    ///
-    /// let mut vec = AlignedVec::with_capacity(10);
+    /// # use rkyv::util::AlignedVec;
+    /// let mut vec = AlignedVec::<16>::with_capacity(10);
     /// vec.extend_from_slice(&[1, 2, 3]);
     ///
     /// assert_eq!(vec.capacity(), 10);
@@ -790,9 +741,8 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// # Examples
     /// ```
-    /// use rkyv::AlignedVec;
-    ///
-    /// let mut v = AlignedVec::new();
+    /// # use rkyv::util::AlignedVec;
+    /// let mut v = AlignedVec::<16>::new();
     /// v.extend_from_slice(&[1, 2, 3]);
     ///
     /// let vec = v.into_vec();
@@ -818,10 +768,10 @@ const _: () = {
         ///
         /// # Examples
         /// ```
-        /// use rkyv::AlignedVec;
+        /// # use rkyv::util::AlignedVec;
         ///
         /// let source = (0..4096).map(|x| (x % 256) as u8).collect::<Vec<_>>();
-        /// let mut bytes = AlignedVec::new();
+        /// let mut bytes = AlignedVec::<16>::new();
         /// bytes.extend_from_reader(&mut source.as_slice()).unwrap();
         ///
         /// assert_eq!(bytes.len(), 4096);
@@ -919,21 +869,6 @@ impl<const A: usize> From<AlignedVec<A>> for Vec<u8> {
     #[inline]
     fn from(aligned: AlignedVec<A>) -> Self {
         aligned.to_vec()
-    }
-}
-
-impl<const A: usize> Archive for AlignedVec<A> {
-    type Archived = ArchivedVec<u8>;
-    type Resolver = VecResolver;
-
-    #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
-        ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
     }
 }
 
@@ -1061,20 +996,6 @@ impl<const A: usize> io::Write for AlignedVec<A> {
 
 // SAFETY: AlignedVec is safe to send to another thread
 unsafe impl<const A: usize> Send for AlignedVec<A> {}
-
-impl<S: Fallible + Allocator + Writer + ?Sized> Serialize<S> for AlignedVec {
-    #[inline]
-    fn serialize(
-        &self,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
-        serializer.align(Self::ALIGNMENT)?;
-        ArchivedVec::<Archived<u8>>::serialize_from_slice(
-            self.as_slice(),
-            serializer,
-        )
-    }
-}
 
 // SAFETY: AlignedVec is safe to share between threads
 unsafe impl<const A: usize> Sync for AlignedVec<A> {}

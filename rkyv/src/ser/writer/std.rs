@@ -9,13 +9,16 @@ use crate::ser::{Positional, Writer};
 ///
 /// # Examples
 /// ```
-/// use rkyv::ser::{serializers::IoWriter, Serializer};
-///
-/// let mut serializer = IoWriter::new(Vec::new());
-/// assert_eq!(serializer.pos(), 0);
-/// serializer.write(&[0u8, 1u8, 2u8, 3u8]);
-/// assert_eq!(serializer.pos(), 4);
-/// let buf = serializer.into_inner();
+/// # use rkyv::ser::{Writer, Positional, writer::IoWriter};
+/// use rkyv::rancor::{Failure, Strategy};
+/// let mut io_writer = IoWriter::new(Vec::new());
+/// // In most cases, calling a method like `serialize` will wrap the writer in
+/// // a Strategy for us.
+/// let mut writer = Strategy::<_, Failure>::wrap(&mut io_writer);
+/// assert_eq!(writer.pos(), 0);
+/// writer.write(&[0u8, 1u8, 2u8, 3u8]);
+/// assert_eq!(writer.pos(), 4);
+/// let buf = io_writer.into_inner();
 /// assert_eq!(buf.len(), 4);
 /// assert_eq!(buf, vec![0u8, 1u8, 2u8, 3u8]);
 /// ```

@@ -158,25 +158,26 @@ pub struct RawRelPtr<O> {
 /// # Examples
 ///
 /// ```
-/// use rkyv::rel_ptr::{signed_offset, OffsetError};
+/// # use rkyv::rel_ptr::signed_offset;
+/// # use rancor::Failure;
 ///
-/// assert_eq!(signed_offset(0, 1), Ok(1));
-/// assert_eq!(signed_offset(1, 0), Ok(-1));
-/// assert_eq!(signed_offset(0, isize::MAX as usize), Ok(isize::MAX));
-/// assert_eq!(signed_offset(isize::MAX as usize, 0), Ok(-isize::MAX));
+/// assert_eq!(signed_offset::<Failure>(0, 1), Ok(1));
+/// assert_eq!(signed_offset::<Failure>(1, 0), Ok(-1));
 /// assert_eq!(
-///     signed_offset(0, isize::MAX as usize + 1),
-///     Err(IsizeOverflow)
-/// );
-/// assert_eq!(signed_offset(isize::MAX as usize + 1, 0), Ok(isize::MIN));
-/// assert_eq!(
-///     signed_offset(0, isize::MAX as usize + 2),
-///     Err(IsizeOverflow)
+///     signed_offset::<Failure>(0, isize::MAX as usize),
+///     Ok(isize::MAX)
 /// );
 /// assert_eq!(
-///     signed_offset(isize::MAX as usize + 2, 0),
-///     Err(IsizeOverflow)
+///     signed_offset::<Failure>(isize::MAX as usize, 0),
+///     Ok(-isize::MAX)
 /// );
+/// assert!(signed_offset::<Failure>(0, isize::MAX as usize + 1).is_err());
+/// assert_eq!(
+///     signed_offset::<Failure>(isize::MAX as usize + 1, 0),
+///     Ok(isize::MIN)
+/// );
+/// assert!(signed_offset::<Failure>(0, isize::MAX as usize + 2).is_err());
+/// assert!(signed_offset::<Failure>(isize::MAX as usize + 2, 0).is_err());
 /// ```
 #[inline]
 pub fn signed_offset<E: Error>(from: usize, to: usize) -> Result<isize, E> {
