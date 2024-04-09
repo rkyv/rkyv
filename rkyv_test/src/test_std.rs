@@ -3,7 +3,7 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use rkyv::{
-        access_unchecked, rancor::Failure, ser::writer::IoWriter, serialize,
+        access_unchecked, rancor::Error, ser::writer::IoWriter, serialize,
         to_bytes, util::AlignedBytes, Archive, Archived, Deserialize,
         Serialize,
     };
@@ -24,7 +24,7 @@ mod tests {
         let mut buf = AlignedBytes([0u8; 3]);
         let mut ser = IoWriter::new(&mut buf[..]);
         let foo = Example { x: 100 };
-        serialize::<_, Failure>(&foo, &mut ser)
+        serialize::<_, Error>(&foo, &mut ser)
             .expect_err("serialized to an undersized buffer must fail");
     }
 
@@ -36,7 +36,7 @@ mod tests {
         hash_map.insert("foo".to_string(), "bar".to_string());
         hash_map.insert("baz".to_string(), "bat".to_string());
 
-        let buf = to_bytes::<Failure>(&hash_map).unwrap();
+        let buf = to_bytes::<Error>(&hash_map).unwrap();
         let archived_value = unsafe {
             access_unchecked::<Archived<HashMap<String, String>>>(buf.as_ref())
         };
@@ -71,7 +71,7 @@ mod tests {
             "wrong value".to_string(),
         );
 
-        let buf = to_bytes::<Failure>(&hash_map).unwrap();
+        let buf = to_bytes::<Error>(&hash_map).unwrap();
         let archived_value = unsafe {
             access_unchecked::<Archived<HashMap<Pair, String>>>(buf.as_ref())
         };
@@ -108,7 +108,7 @@ mod tests {
         hash_map.insert("foo".to_string(), "bar".to_string());
         hash_map.insert("baz".to_string(), "bat".to_string());
 
-        let buf = to_bytes::<Failure>(&hash_map).unwrap();
+        let buf = to_bytes::<Error>(&hash_map).unwrap();
         let archived_value = unsafe {
             access_unchecked::<
                 Archived<HashMap<String, String, ahash::RandomState>>,
@@ -136,7 +136,7 @@ mod tests {
         hash_set.insert("foo".to_string());
         hash_set.insert("baz".to_string());
 
-        let buf = to_bytes::<Failure>(&hash_set).unwrap();
+        let buf = to_bytes::<Error>(&hash_set).unwrap();
         let archived_value = unsafe {
             access_unchecked::<Archived<HashSet<String>>>(buf.as_ref())
         };
@@ -171,7 +171,7 @@ mod tests {
         hash_set.insert("foo".to_string());
         hash_set.insert("baz".to_string());
 
-        let buf = to_bytes::<Failure>(&hash_set).unwrap();
+        let buf = to_bytes::<Error>(&hash_set).unwrap();
         let archived_value = unsafe {
             access_unchecked::<Archived<HashSet<String, ahash::RandomState>>>(
                 buf.as_ref(),

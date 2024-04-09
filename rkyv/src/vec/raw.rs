@@ -216,7 +216,7 @@ const _: () = {
     where
         T: CheckBytes<C>,
         C: ArchiveContext + ?Sized,
-        C::Error: Error,
+        C::Error: Source,
     {
         type Error = CheckOwnedPointerError<[T], C>;
 

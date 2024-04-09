@@ -6,7 +6,7 @@ use std::collections::hash_map;
 
 #[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
-use rancor::{fail, Error};
+use rancor::{fail, Source};
 
 use super::{ErasedPtr, Pooling};
 
@@ -72,7 +72,7 @@ impl fmt::Debug for Unify {
     }
 }
 
-impl<E: Error> Pooling<E> for Unify {
+impl<E: Source> Pooling<E> for Unify {
     fn get_shared_ptr(&mut self, address: usize) -> Option<ErasedPtr> {
         self.shared_pointers.get(&address).map(|p| p.ptr)
     }

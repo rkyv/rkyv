@@ -7,8 +7,7 @@ use core::{
     ops::Range,
 };
 
-use bytecheck::rancor::Error;
-use rancor::{fail, OptionExt};
+use rancor::{fail, OptionExt, Source};
 
 use crate::validation::ArchiveContext;
 
@@ -125,7 +124,7 @@ impl ArchiveValidator {
     }
 }
 
-unsafe impl<E: Error> ArchiveContext<E> for ArchiveValidator {
+unsafe impl<E: Source> ArchiveContext<E> for ArchiveValidator {
     #[inline]
     fn check_subtree_ptr(
         &mut self,

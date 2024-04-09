@@ -5,7 +5,7 @@ pub mod validators;
 
 use core::{alloc::Layout, any::TypeId, ops::Range};
 
-use bytecheck::rancor::{Error, Fallible, Strategy};
+use bytecheck::rancor::{Fallible, Source, Strategy};
 use ptr_meta::Pointee;
 use rancor::ResultExt as _;
 
@@ -155,7 +155,7 @@ pub trait ArchiveContextExt<E>: ArchiveContext<E> {
     ) -> Result<Range<usize>, E>;
 }
 
-impl<C: ArchiveContext<E> + ?Sized, E: Error> ArchiveContextExt<E> for C {
+impl<C: ArchiveContext<E> + ?Sized, E: Source> ArchiveContextExt<E> for C {
     /// Checks that the given relative pointer to a subtree can be dereferenced.
     ///
     /// # Safety

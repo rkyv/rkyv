@@ -4,7 +4,7 @@ use core::{
 };
 
 use hashbrown::HashMap;
-use rancor::{Error, Fallible};
+use rancor::{Fallible, Source};
 
 use crate::{
     collections::swiss_table::map::{ArchivedHashMap, HashMapResolver},
@@ -42,7 +42,7 @@ where
     K::Archived: Hash + Eq,
     V: Serialize<S>,
     S: Fallible + Writer + Allocator + ?Sized,
-    S::Error: Error,
+    S::Error: Source,
 {
     #[inline]
     fn serialize(
@@ -121,7 +121,7 @@ mod tests {
     use alloc::string::String;
 
     use hashbrown::HashMap;
-    use rancor::Failure;
+    use rancor::Error;
 
     use crate::{
         access_unchecked, collections::swiss_table::ArchivedHashMap,
@@ -136,7 +136,7 @@ mod tests {
         value.insert(String::from("baz"), 40);
         value.insert(String::from("bat"), 80);
 
-        let result = to_bytes::<Failure>(&value).unwrap();
+        let result = to_bytes::<Error>(&value).unwrap();
         let archived = unsafe {
             access_unchecked::<ArchivedHashMap<ArchivedString, Archived<i32>>>(
                 result.as_ref(),
@@ -151,7 +151,7 @@ mod tests {
         }
 
         let deserialized =
-            deserialize::<HashMap<String, i32>, _, Failure>(archived, &mut ())
+            deserialize::<HashMap<String, i32>, _, Error>(archived, &mut ())
                 .unwrap();
         assert_eq!(value, deserialized);
     }
@@ -167,7 +167,7 @@ mod tests {
         value.insert(String::from("baz"), 40);
         value.insert(String::from("bat"), 80);
 
-        let bytes = to_bytes::<Failure>(&value).unwrap();
+        let bytes = to_bytes::<Error>(&value).unwrap();
         access::<
             ArchivedHashMap<ArchivedString, Archived<i32>>,
             crate::rancor::Panic,

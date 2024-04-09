@@ -56,7 +56,7 @@ mod tests {
     use alloc::vec;
 
     use bytes::Bytes;
-    use rancor::{Failure, Infallible};
+    use rancor::{Error, Infallible};
 
     use crate::{access_unchecked, deserialize, to_bytes, vec::ArchivedVec};
 
@@ -64,7 +64,7 @@ mod tests {
     fn bytes() {
         let value = Bytes::from(vec![10, 20, 40, 80]);
 
-        let bytes = to_bytes::<Failure>(&value).unwrap();
+        let bytes = to_bytes::<Error>(&value).unwrap();
         let archived = unsafe { access_unchecked::<ArchivedVec<u8>>(&bytes) };
         assert_eq!(archived, &value);
 

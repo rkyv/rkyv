@@ -4,7 +4,7 @@ use core::{
 };
 use std::collections::HashMap;
 
-use rancor::{Error, Fallible};
+use rancor::{Fallible, Source};
 
 use crate::{
     collections::swiss_table::map::{ArchivedHashMap, HashMapResolver},
@@ -42,7 +42,7 @@ where
     K::Archived: Hash + Eq,
     V: Serialize<S>,
     S: Fallible + Writer + Allocator + ?Sized,
-    S::Error: Error,
+    S::Error: Source,
 {
     #[inline]
     fn serialize(

@@ -182,7 +182,10 @@ pub struct CStringResolver {
 mod verify {
     use core::ffi::CStr;
 
-    use bytecheck::{rancor::Fallible, CheckBytes, Verify};
+    use bytecheck::{
+        rancor::{Fallible, Source},
+        CheckBytes, Verify,
+    };
 
     use crate::{
         ffi::ArchivedCString,
@@ -192,7 +195,7 @@ mod verify {
     unsafe impl<C> Verify<C> for ArchivedCString
     where
         C: Fallible + ArchiveContext + ?Sized,
-        C::Error: bytecheck::rancor::Error,
+        C::Error: Source,
     {
         #[inline]
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {

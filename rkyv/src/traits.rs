@@ -103,7 +103,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// [`Archive`](macro@crate::Archive) derive macro for more details.
 ///
 /// ```
-/// use rkyv::{Archive, Archived, Deserialize, Serialize, rancor::Failure};
+/// use rkyv::{Archive, Archived, Deserialize, Serialize, rancor::Error};
 ///
 /// #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 /// // This will generate a PartialEq impl between our unarchived and archived types
@@ -123,13 +123,13 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// };
 ///
 /// // Serializing is as easy as a single function call
-/// let bytes = rkyv::to_bytes::<Failure>(&value).unwrap();
+/// let bytes = rkyv::to_bytes::<Error>(&value).unwrap();
 ///
 /// // Or you can customize your serialization for better performance
 /// // and compatibility with #![no_std] environments
 /// use rkyv::{ser::AllocSerializer, util::serialize_into};
 ///
-/// let bytes = rkyv::util::serialize_into::<_, _, Failure>(
+/// let bytes = rkyv::util::serialize_into::<_, Error>(
 ///     &value,
 ///     AllocSerializer::default(),
 /// ).unwrap().into_writer();
@@ -140,7 +140,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// assert_eq!(archived, &value);
 ///
 /// // And you can always deserialize back to the original type
-/// let deserialized = rkyv::deserialize::<Test, _, Failure>(archived, &mut ()).unwrap();
+/// let deserialized = rkyv::deserialize::<Test, _, Error>(archived, &mut ()).unwrap();
 /// assert_eq!(deserialized, value);
 /// ```
 ///
@@ -161,7 +161,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 ///
 /// use rkyv::{
 ///     access_unchecked, out_field,
-///     rancor::{Failure, Fallible},
+///     rancor::{Error, Fallible},
 ///     ser::Writer,
 ///     to_bytes,
 ///     util::AlignedVec,
@@ -246,7 +246,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// const STR_VAL: &'static str = "I'm in an OwnedStr!";
 /// let value = OwnedStr { inner: STR_VAL };
 /// // It works!
-/// let buf = to_bytes::<Failure>(&value).expect("failed to serialize");
+/// let buf = to_bytes::<Error>(&value).expect("failed to serialize");
 /// let archived =
 ///     unsafe { access_unchecked::<ArchivedOwnedStr>(buf.as_ref()) };
 /// // Let's make sure our data got written correctly
@@ -370,7 +370,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     primitive::ArchivedUsize,
 ///     ser::{AllocSerializer, Positional, Writer, WriterExt as _},
 ///     util::{AlignedVec, access_unsized_unchecked, serialize_rel_ptr_into}, Archive, ArchivePointee, ArchiveUnsized, Archived,
-///     ArchivedMetadata, RelPtr, Serialize, SerializeUnsized, rancor::{Failure, Fallible},
+///     ArchivedMetadata, RelPtr, Serialize, SerializeUnsized, rancor::{Error, Fallible},
 ///     Portable,
 /// };
 ///
@@ -469,7 +469,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     &*transmute::<(*const (), usize), *const Block<String, [i32]>>((ptr, 4))
 /// };
 ///
-/// let buf = serialize_rel_ptr_into::<_, _, Failure>(
+/// let buf = serialize_rel_ptr_into::<_, Error>(
 ///     unsized_value,
 ///     AllocSerializer::default(),
 /// ).expect("failed to serialize block").into_writer();

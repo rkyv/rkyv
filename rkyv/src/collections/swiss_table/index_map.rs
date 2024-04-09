@@ -13,7 +13,7 @@ use core::{
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 
-use rancor::{Error, Fallible};
+use rancor::{Fallible, Source};
 
 use crate::{
     collections::swiss_table::{
@@ -343,7 +343,7 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
         UK: 'a + Serialize<S, Archived = K> + Hash + Eq,
         UV: 'a + Serialize<S, Archived = V>,
         S: Fallible + Writer + Allocator + ?Sized,
-        S::Error: Error,
+        S::Error: Source,
     {
         use crate::util::ScratchVec;
 
@@ -527,7 +527,7 @@ pub struct IndexMapResolver {
 #[cfg(feature = "bytecheck")]
 mod verify {
     use bytecheck::{CheckBytes, Verify};
-    use rancor::{Error, Fallible};
+    use rancor::{Fallible, Source};
 
     use super::ArchivedIndexMap;
     use crate::{
@@ -538,7 +538,7 @@ mod verify {
     unsafe impl<C, K, V, H> Verify<C> for ArchivedIndexMap<K, V, H>
     where
         C: Fallible + ArchiveContext + ?Sized,
-        C::Error: Error,
+        C::Error: Source,
         K: CheckBytes<C>,
         V: CheckBytes<C>,
     {

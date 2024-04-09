@@ -2,7 +2,7 @@
 mod tests {
     use std::collections::{HashMap, HashSet};
 
-    use rkyv::rancor::Failure;
+    use rkyv::rancor::Error;
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
 
@@ -17,7 +17,7 @@ mod tests {
         map.insert("foo".to_string(), 56);
         map.insert("bar".to_string(), 78);
         map.insert("baz".to_string(), 90);
-        serialize_and_check::<_, Failure>(&map);
+        serialize_and_check::<_, Error>(&map);
 
         let mut set = HashSet::new();
         set.insert("Hello".to_string());
@@ -25,6 +25,6 @@ mod tests {
         set.insert("foo".to_string());
         set.insert("bar".to_string());
         set.insert("baz".to_string());
-        serialize_and_check::<_, Failure>(&set);
+        serialize_and_check::<_, Error>(&set);
     }
 }

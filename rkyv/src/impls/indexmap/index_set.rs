@@ -1,7 +1,7 @@
 use core::hash::{BuildHasher, Hash};
 
 use indexmap::IndexSet;
-use rancor::{Error, Fallible};
+use rancor::{Fallible, Source};
 
 use crate::{
     collections::swiss_table::{ArchivedIndexSet, IndexSetResolver},
@@ -33,7 +33,7 @@ impl<K, S, RandomState> Serialize<S> for IndexSet<K, RandomState>
 where
     K: Hash + Eq + Serialize<S>,
     S: Fallible + Allocator + Writer + ?Sized,
-    S::Error: Error,
+    S::Error: Source,
 {
     fn serialize(
         &self,
@@ -82,7 +82,7 @@ mod tests {
     use core::hash::BuildHasherDefault;
 
     use indexmap::IndexSet;
-    use rancor::{Failure, Infallible};
+    use rancor::{Error, Infallible};
 
     use crate::{
         access_unchecked, collections::swiss_table::ArchivedIndexSet,
@@ -98,7 +98,7 @@ mod tests {
         value.insert(String::from("baz"));
         value.insert(String::from("bat"));
 
-        let result = crate::to_bytes::<Failure>(&value).unwrap();
+        let result = crate::to_bytes::<Error>(&value).unwrap();
         let archived = unsafe {
             access_unchecked::<ArchivedIndexSet<ArchivedString>>(
                 result.as_ref(),
@@ -132,8 +132,8 @@ mod tests {
         value.insert(String::from("baz"));
         value.insert(String::from("bat"));
 
-        let result = crate::to_bytes::<Failure>(&value).unwrap();
-        access::<ArchivedIndexSet<ArchivedString>, Failure>(result.as_ref())
+        let result = crate::to_bytes::<Error>(&value).unwrap();
+        access::<ArchivedIndexSet<ArchivedString>, Error>(result.as_ref())
             .expect("failed to validate archived index set");
     }
 }

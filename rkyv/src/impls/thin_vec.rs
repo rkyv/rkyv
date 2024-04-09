@@ -60,7 +60,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rancor::{Failure, Infallible};
+    use rancor::{Error, Infallible};
     use thin_vec::ThinVec;
 
     use crate::{access_unchecked, deserialize, to_bytes};
@@ -74,7 +74,7 @@ mod tests {
 
         let value = ThinVec::from_iter([10, 20, 40, 80]);
 
-        let result = to_bytes::<Failure>(&value).unwrap();
+        let result = to_bytes::<Error>(&value).unwrap();
         let archived = unsafe {
             access_unchecked::<Archived<ThinVec<i32>>>(result.as_ref())
         };

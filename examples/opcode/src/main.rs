@@ -1,6 +1,6 @@
 use rkyv::{
     access_unchecked, deserialize,
-    rancor::{Failure, Fallible},
+    rancor::{Error, Fallible},
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     with::{ArchiveWith, DeserializeWith, SerializeWith},
@@ -182,14 +182,14 @@ fn main() {
     };
     println!("opcodes: {:?}", program.opcodes);
 
-    let buf = rkyv::to_bytes::<Failure>(&program).unwrap();
+    let buf = rkyv::to_bytes::<Error>(&program).unwrap();
     let archived_program = unsafe { access_unchecked::<ArchivedProgram>(&buf) };
 
     println!("encoded: {:?}", archived_program.opcodes);
     assert_eq!(archived_program.opcodes.len(), 23);
 
     let deserialized_program: Program =
-        deserialize::<Program, _, Failure>(archived_program, &mut ()).unwrap();
+        deserialize::<Program, _, Error>(archived_program, &mut ()).unwrap();
 
     println!("deserialized opcodes: {:?}", deserialized_program.opcodes);
     assert_eq!(program, deserialized_program);

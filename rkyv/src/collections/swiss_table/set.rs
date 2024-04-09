@@ -6,7 +6,7 @@ use core::{
     hash::{Hash, Hasher},
 };
 
-use rancor::{Error, Fallible};
+use rancor::{Fallible, Source};
 
 use crate::{
     collections::swiss_table::map::{ArchivedHashMap, HashMapResolver, Keys},
@@ -99,7 +99,7 @@ impl<K, H: Hasher + Default> ArchivedHashSet<K, H> {
     where
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
         S: Fallible + Writer + Allocator + ?Sized,
-        S::Error: Error,
+        S::Error: Source,
         I: Clone + ExactSizeIterator<Item = &'a KU>,
     {
         Ok(HashSetResolver(

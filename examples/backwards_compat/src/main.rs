@@ -1,4 +1,4 @@
-use rkyv::{rancor::Failure, with::Boxed, Archive, Deserialize, Serialize};
+use rkyv::{rancor::Error, with::Boxed, Archive, Deserialize, Serialize};
 
 // This is the version used by the older client, which can read newer versions
 // from senders.
@@ -53,38 +53,32 @@ fn main() {
 
     // v1 is serialized into v1_bytes
     let v1_bytes =
-        rkyv::to_bytes::<Failure>(&v1).expect("failed to serialize v1");
+        rkyv::to_bytes::<Error>(&v1).expect("failed to serialize v1");
     // v2 is serialized into v2_bytes
     let v2_bytes =
-        rkyv::to_bytes::<Failure>(&v2).expect("failed to serialize v2");
+        rkyv::to_bytes::<Error>(&v2).expect("failed to serialize v2");
 
     // We can view a v1 as a v1
     let v1_as_v1 =
-        rkyv::access::<rkyv::Archived<Versioned<ExampleV1>>, Failure>(
-            &v1_bytes,
-        )
-        .unwrap();
+        rkyv::access::<rkyv::Archived<Versioned<ExampleV1>>, Error>(&v1_bytes)
+            .unwrap();
     print_v1(&v1_as_v1.0);
 
     // We can view a v2 as a v1
     let v2_as_v1 =
-        rkyv::access::<rkyv::Archived<Versioned<ExampleV1>>, Failure>(
-            &v2_bytes,
-        )
-        .unwrap();
+        rkyv::access::<rkyv::Archived<Versioned<ExampleV1>>, Error>(&v2_bytes)
+            .unwrap();
     print_v1(&v2_as_v1.0);
 
     // And we can view a v2 as a v2
     let v2_as_v2 =
-        rkyv::access::<rkyv::Archived<Versioned<ExampleV2>>, Failure>(
-            &v2_bytes,
-        )
-        .unwrap();
+        rkyv::access::<rkyv::Archived<Versioned<ExampleV2>>, Error>(&v2_bytes)
+            .unwrap();
     print_v2(&v2_as_v2.0);
 
     // But we can't view a v1 as a v2 because v1 is not forward-compatible with
     // v2
-    if rkyv::access::<rkyv::Archived<Versioned<ExampleV2>>, Failure>(&v1_bytes)
+    if rkyv::access::<rkyv::Archived<Versioned<ExampleV2>>, Error>(&v1_bytes)
         .is_ok()
     {
         panic!("v1 bytes should not validate as v2");

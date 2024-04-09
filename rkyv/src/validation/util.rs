@@ -4,7 +4,7 @@ use core::{mem::size_of, pin::Pin};
 
 use bytecheck::CheckBytes;
 use ptr_meta::Pointee;
-use rancor::{Error, ResultExt as _, Strategy};
+use rancor::{ResultExt as _, Source, Strategy};
 
 use crate::{
     de::pooling::Unify,
@@ -26,7 +26,7 @@ pub fn check_pos_with_context<T, C, E>(
 where
     T: CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
-    E: Error,
+    E: Source,
 {
     unsafe {
         let offset = pos.try_into().into_error()?;
@@ -62,7 +62,7 @@ pub fn access_pos_with_context<'a, T, C, E>(
 where
     T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
-    E: Error,
+    E: Source,
 {
     check_pos_with_context::<T, C, E>(bytes, pos, context)?;
     unsafe { Ok(access_pos_unchecked::<T>(bytes, pos)) }
@@ -82,7 +82,7 @@ pub fn access_with_context<'a, T, C, E>(
 where
     T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
-    E: Error,
+    E: Source,
 {
     access_pos_with_context::<T, C, E>(
         bytes,
@@ -99,7 +99,7 @@ where
 pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T, E>
 where
     T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
-    E: Error,
+    E: Source,
 {
     let mut validator = DefaultValidator::new(bytes);
     access_pos_with_context::<T, DefaultValidator, E>(
@@ -119,7 +119,7 @@ where
 /// # Examples
 /// ```
 /// use rkyv::{
-///     access, bytecheck::CheckBytes, rancor::Failure, to_bytes, Archive,
+///     access, bytecheck::CheckBytes, rancor::Error, to_bytes, Archive,
 ///     Archived, Serialize,
 /// };
 ///
@@ -135,8 +135,8 @@ where
 ///     value: 31415926,
 /// };
 ///
-/// let bytes = to_bytes::<Failure>(&value).unwrap();
-/// let archived = access::<Archived<Example>, Failure>(&bytes).unwrap();
+/// let bytes = to_bytes::<Error>(&value).unwrap();
+/// let archived = access::<Archived<Example>, Error>(&bytes).unwrap();
 ///
 /// assert_eq!(archived.name, "pi");
 /// assert_eq!(archived.value, 31415926);
@@ -145,7 +145,7 @@ where
 pub fn access<T, E>(bytes: &[u8]) -> Result<&T, E>
 where
     T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
-    E: Error,
+    E: Source,
 {
     let mut validator = DefaultValidator::new(bytes);
     access_with_context::<T, DefaultValidator, E>(bytes, &mut validator)
@@ -172,7 +172,7 @@ pub fn access_pos_with_context_mut<'a, T, C, E>(
 where
     T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
-    E: Error,
+    E: Source,
 {
     check_pos_with_context::<T, C, E>(bytes, pos, context)?;
     unsafe { Ok(access_pos_unchecked_mut::<T>(bytes, pos)) }
@@ -192,7 +192,7 @@ pub fn access_with_context_mut<'a, T, C, E>(
 where
     T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
-    E: Error,
+    E: Source,
 {
     access_pos_with_context_mut::<T, C, E>(
         bytes,
@@ -212,7 +212,7 @@ pub fn access_pos_mut<T, E>(
 ) -> Result<Pin<&mut T>, E>
 where
     T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
-    E: Error,
+    E: Source,
 {
     let mut validator = DefaultValidator::new(bytes);
     access_pos_with_context_mut::<T, DefaultValidator, E>(
@@ -232,7 +232,7 @@ where
 pub fn access_mut<T, E>(bytes: &mut [u8]) -> Result<Pin<&mut T>, E>
 where
     T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
-    E: Error,
+    E: Source,
 {
     let mut validator = DefaultValidator::new(bytes);
     access_with_context_mut::<T, DefaultValidator, E>(bytes, &mut validator)
@@ -252,13 +252,13 @@ where
 ///
 /// # Examples
 /// ```
-/// use rkyv::rancor::Failure;
+/// use rkyv::rancor::Error;
 ///
 /// let value = vec![1, 2, 3, 4];
 ///
 /// let bytes =
-///     rkyv::to_bytes::<Failure>(&value).expect("failed to serialize vec");
-/// let deserialized = rkyv::from_bytes::<Vec<i32>, Failure>(&bytes)
+///     rkyv::to_bytes::<Error>(&value).expect("failed to serialize vec");
+/// let deserialized = rkyv::from_bytes::<Vec<i32>, Error>(&bytes)
 ///     .expect("failed to deserialize vec");
 ///
 /// assert_eq!(deserialized, value);
@@ -269,7 +269,7 @@ where
     T: Archive,
     T::Archived: CheckBytes<Strategy<DefaultValidator, E>>
         + Deserialize<T, Strategy<Unify, E>>,
-    E: Error,
+    E: Source,
 {
     let mut deserializer = Unify::default();
     deserialize(access::<T::Archived, E>(bytes)?, &mut deserializer)

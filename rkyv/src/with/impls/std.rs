@@ -7,7 +7,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use rancor::{Error, Fallible, OptionExt, ResultExt};
+use rancor::{Fallible, OptionExt, ResultExt, Source};
 
 use crate::{
     collections::util::Entry,
@@ -48,7 +48,7 @@ impl ArchiveWith<OsString> for AsString {
 
 impl<S: Fallible + ?Sized> SerializeWith<OsString, S> for AsString
 where
-    S::Error: Error,
+    S::Error: Source,
     str: SerializeUnsized<S>,
 {
     #[inline]
@@ -99,7 +99,7 @@ impl ArchiveWith<PathBuf> for AsString {
 
 impl<S: Fallible + ?Sized> SerializeWith<PathBuf, S> for AsString
 where
-    S::Error: Error,
+    S::Error: Source,
     str: SerializeUnsized<S>,
 {
     #[inline]
@@ -157,7 +157,7 @@ impl<F, S> SerializeWith<Mutex<F>, S> for Lock
 where
     F: Serialize<S>,
     S: Fallible + ?Sized,
-    S::Error: Error,
+    S::Error: Source,
 {
     #[inline]
     fn serialize_with(
@@ -215,7 +215,7 @@ impl<F, S> SerializeWith<RwLock<F>, S> for Lock
 where
     F: Serialize<S>,
     S: Fallible + ?Sized,
-    S::Error: Error,
+    S::Error: Source,
 {
     #[inline]
     fn serialize_with(
@@ -375,7 +375,7 @@ impl ArchiveWith<SystemTime> for UnixTimestamp {
 impl<S> SerializeWith<SystemTime, S> for UnixTimestamp
 where
     S: Fallible + ?Sized,
-    S::Error: Error,
+    S::Error: Source,
 {
     fn serialize_with(
         field: &SystemTime,

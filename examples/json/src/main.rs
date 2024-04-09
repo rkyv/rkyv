@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt};
 
-use rkyv::{access, rancor::Failure, Archive, Deserialize, Serialize};
+use rkyv::{access, rancor::Error, Archive, Deserialize, Serialize};
 
 #[derive(Archive, Debug, Deserialize, Serialize)]
 // We have a recursive type, which requires some special handling
@@ -25,8 +25,8 @@ use rkyv::{access, rancor::Failure, Archive, Deserialize, Serialize};
 // the default generated bounds to prevent a recursive impl.
 // We can fix this by manually specifying the bounds required by HashMap and Vec
 // in an attribute, and then everything will compile:
-#[archive(serialize_bounds(__S: rkyv::ser::Writer + rkyv::ser::Allocator, __S::Error: rkyv::rancor::Error))]
-#[archive(deserialize_bounds(__D::Error: rkyv::rancor::Error))]
+#[archive(serialize_bounds(__S: rkyv::ser::Writer + rkyv::ser::Allocator, __S::Error: rkyv::rancor::Source))]
+#[archive(deserialize_bounds(__D::Error: rkyv::rancor::Source))]
 // We'll also add support for validating our archived type. Validation will
 // allow us to check an arbitrary buffer of bytes before accessing it so we can
 // avoid using any unsafe code.
@@ -140,8 +140,8 @@ fn main() {
     hash_map.insert("project".into(), JsonValue::Null);
     let value = JsonValue::Object(hash_map);
 
-    let buf = rkyv::to_bytes::<Failure>(&value).unwrap();
-    let archived_value = access::<ArchivedJsonValue, Failure>(&buf).unwrap();
+    let buf = rkyv::to_bytes::<Error>(&value).unwrap();
+    let archived_value = access::<ArchivedJsonValue, Error>(&buf).unwrap();
 
     println!("{}", archived_value);
 }

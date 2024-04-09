@@ -1,6 +1,6 @@
 use core::{fmt, ptr::copy_nonoverlapping};
 
-use rancor::{fail, Error};
+use rancor::{fail, Source};
 
 use crate::ser::{Positional, Writer};
 
@@ -36,7 +36,7 @@ const _: () = {
 /// # Examples
 /// ```
 /// use rkyv::{
-///     rancor::{Failure, Strategy},
+///     rancor::{Error, Strategy},
 ///     ser::{writer::BufferWriter, Writer},
 ///     util::{access_pos_unchecked, AlignedBytes},
 ///     Archive, Archived, Serialize,
@@ -51,7 +51,7 @@ const _: () = {
 ///
 /// let event = Event::Speak("Help me!".to_string());
 /// let mut buffer_writer = BufferWriter::new(AlignedBytes([0u8; 256]));
-/// let serializer = Strategy::<_, Failure>::wrap(&mut buffer_writer);
+/// let serializer = Strategy::<_, Error>::wrap(&mut buffer_writer);
 /// let pos = event
 ///     .serialize_and_resolve(serializer)
 ///     .expect("failed to archive event");
@@ -112,7 +112,7 @@ impl<T> Positional for BufferWriter<T> {
     }
 }
 
-impl<T: AsMut<[u8]>, E: Error> Writer<E> for BufferWriter<T> {
+impl<T: AsMut<[u8]>, E: Source> Writer<E> for BufferWriter<T> {
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         let end_pos = self.pos + bytes.len();
         let len = self.inner.as_mut().len();

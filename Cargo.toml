@@ -41,4 +41,5 @@ syn = "2.0"
 wasm-bindgen-test = "0.3"
 
 [patch.crates-io]
+bytecheck = { git = "https://github.com/rkyv/bytecheck" }
 rancor = { git = "https://github.com/rkyv/rancor" }

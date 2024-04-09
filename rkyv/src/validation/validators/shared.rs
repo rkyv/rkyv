@@ -5,10 +5,9 @@ use core::{any::TypeId, fmt};
 #[cfg(feature = "std")]
 use std::collections::HashMap;
 
-use bytecheck::rancor::Error;
 #[cfg(not(feature = "std"))]
 use hashbrown::HashMap;
-use rancor::fail;
+use rancor::{fail, Source};
 
 use crate::validation::SharedContext;
 
@@ -73,7 +72,7 @@ impl SharedValidator {
     }
 }
 
-impl<E: Error> SharedContext<E> for SharedValidator {
+impl<E: Source> SharedContext<E> for SharedValidator {
     #[inline]
     fn register_shared_ptr(
         &mut self,

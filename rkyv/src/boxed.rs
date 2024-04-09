@@ -244,7 +244,7 @@ impl BoxResolver {
 #[cfg(feature = "bytecheck")]
 mod verify {
     use bytecheck::{
-        rancor::{Error, Fallible},
+        rancor::{Fallible, Source},
         CheckBytes, Verify,
     };
 
@@ -259,7 +259,7 @@ mod verify {
         T: ArchivePointee + CheckBytes<C> + LayoutRaw + ?Sized,
         T::ArchivedMetadata: CheckBytes<C>,
         C: Fallible + ArchiveContext + ?Sized,
-        C::Error: Error,
+        C::Error: Source,
     {
         #[inline]
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {

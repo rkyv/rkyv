@@ -5,7 +5,7 @@ use core::alloc::LayoutError;
 use std::{alloc::alloc, rc, sync};
 
 use ptr_meta::{from_raw_parts_mut, Pointee};
-use rancor::{Error, Fallible};
+use rancor::{Fallible, Source};
 
 use crate::{
     de::{Metadata, Pooling, PoolingExt as _, SharedPointer},
@@ -84,7 +84,7 @@ where
     T::Metadata: Into<Metadata>,
     Metadata: Into<T::Metadata>,
     D: Fallible + Pooling + ?Sized,
-    D::Error: Error,
+    D::Error: Source,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<rc::Rc<T>, D::Error> {
@@ -157,7 +157,7 @@ where
     T::Metadata: Into<Metadata>,
     Metadata: Into<T::Metadata>,
     D: Fallible + Pooling + ?Sized,
-    D::Error: Error,
+    D::Error: Source,
 {
     #[inline]
     fn deserialize(
@@ -239,7 +239,7 @@ where
     T::Metadata: Into<Metadata>,
     Metadata: Into<T::Metadata>,
     D: Fallible + Pooling + ?Sized,
-    D::Error: Error,
+    D::Error: Source,
 {
     #[inline]
     fn deserialize(
@@ -320,7 +320,7 @@ where
     T::Metadata: Into<Metadata>,
     Metadata: Into<T::Metadata>,
     D: Fallible + Pooling + ?Sized,
-    D::Error: Error,
+    D::Error: Source,
 {
     #[inline]
     fn deserialize(

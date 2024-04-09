@@ -1,6 +1,6 @@
 use std::{alloc, cmp, collections::VecDeque};
 
-use rancor::{Error, Fallible, ResultExt};
+use rancor::{Fallible, ResultExt, Source};
 
 use crate::{
     ser::{Allocator, Writer},
@@ -77,7 +77,7 @@ where
     T: Archive,
     [T::Archived]: DeserializeUnsized<[T], D>,
     D: Fallible + ?Sized,
-    D::Error: Error,
+    D::Error: Source,
 {
     #[inline]
     fn deserialize(
@@ -105,7 +105,7 @@ mod tests {
     use std::collections::VecDeque;
 
     use crate::{
-        access_unchecked, deserialize, rancor::Failure, to_bytes,
+        access_unchecked, deserialize, rancor::Error, to_bytes,
         vec::ArchivedVec, Archived,
     };
 
@@ -138,14 +138,14 @@ mod tests {
 
                 // Now serialize and deserialize and verify that the
                 // deserialized version contains `0..n`.
-                let bytes = to_bytes::<Failure>(&deque).unwrap();
+                let bytes = to_bytes::<Error>(&deque).unwrap();
                 let archived = unsafe {
                     access_unchecked::<ArchivedVec<Archived<i32>>>(&bytes)
                 };
                 assert!(archived.iter().copied().eq(0..n));
 
                 let deserialized =
-                    deserialize::<VecDeque<i32>, _, Failure>(archived, &mut ())
+                    deserialize::<VecDeque<i32>, _, Error>(archived, &mut ())
                         .unwrap();
                 assert_eq!(deque, deserialized);
             }

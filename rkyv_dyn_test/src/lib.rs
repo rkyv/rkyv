@@ -24,7 +24,7 @@ mod tests {
                 access_unchecked,
                 de::pooling::Unify,
                 deserialize,
-                rancor::{Failure, Fallible, Strategy},
+                rancor::{Error, Fallible, Strategy},
                 to_bytes, Archive, ArchivePointee, ArchiveUnsized, Archived,
                 ArchivedMetadata, Deserialize, DeserializeUnsized, LayoutRaw,
                 Portable, Serialize, SerializeUnsized,
@@ -149,7 +149,7 @@ mod tests {
             }
 
             register_trait_impls! {
-                Archived<Test> as dyn DeserializeTestTrait<Failure, Failure>,
+                Archived<Test> as dyn DeserializeTestTrait<Error, Error>,
             }
 
             impl<SE, DE> DeserializeDyn<dyn SerializeTestTrait<SE, DE>, DE>
@@ -183,13 +183,13 @@ mod tests {
                 }
             }
 
-            let value: Box<dyn SerializeTestTrait<Failure, Failure>> =
+            let value: Box<dyn SerializeTestTrait<Error, Error>> =
                 Box::new(Test { id: 42 });
 
             let buf = to_bytes::<_>(&value).unwrap();
             let archived_value = unsafe {
                 access_unchecked::<
-                    Archived<Box<dyn SerializeTestTrait<Failure, Failure>>>,
+                    Archived<Box<dyn SerializeTestTrait<Error, Error>>>,
                 >(buf.as_ref())
             };
             assert_eq!(value.get_id(), archived_value.get_id());
@@ -199,11 +199,11 @@ mod tests {
             assert_eq!(value.get_id(), archived_value.get_id());
 
             let deserialized_value: Box<
-                dyn SerializeTestTrait<Failure, Failure>,
+                dyn SerializeTestTrait<Error, Error>,
             > = deserialize::<
-                Box<dyn SerializeTestTrait<Failure, Failure>>,
+                Box<dyn SerializeTestTrait<Error, Error>>,
                 _,
-                Failure,
+                Error,
             >(
                 archived_value, Strategy::wrap(&mut Unify::default())
             )

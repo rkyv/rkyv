@@ -15,7 +15,7 @@ mod tests {
     use rkyv::{
         access,
         bytecheck::CheckBytes,
-        rancor::{Error, Failure},
+        rancor::{Error, Source},
         ser::Writer,
         to_bytes,
         util::{serialize_into, AlignedBytes},
@@ -32,9 +32,9 @@ mod tests {
     fn basic_functionality() {
         // Regular serializing
         let value = Some("Hello world".to_string());
-        let buf = to_bytes::<Failure>(&value).unwrap();
+        let buf = to_bytes::<Error>(&value).unwrap();
 
-        let result = access::<Archived<Option<String>>, Failure>(buf.as_ref());
+        let result = access::<Archived<Option<String>>, Error>(buf.as_ref());
         result.unwrap();
 
         #[cfg(all(feature = "pointer_width_16", feature = "little_endian"))]
@@ -107,43 +107,43 @@ mod tests {
             11u8, // string is 11 characters long
         ]);
 
-        let result = access::<Archived<Option<Box<[u8]>>>, Failure>(
+        let result = access::<Archived<Option<Box<[u8]>>>, Error>(
             synthetic_buf.as_ref(),
         );
         result.unwrap();
 
         // Out of bounds
-        access_pos::<Archived<u32>, Failure>(
+        access_pos::<Archived<u32>, Error>(
             AlignedBytes([0, 1, 2, 3, 4]).as_ref(),
             8,
         )
         .expect_err("expected out of bounds error");
         // Overrun
-        access_pos::<Archived<u32>, Failure>(
+        access_pos::<Archived<u32>, Error>(
             AlignedBytes([0, 1, 2, 3, 4]).as_ref(),
             4,
         )
         .expect_err("expected overrun error");
         // Unaligned
-        access_pos::<Archived<u32>, Failure>(
+        access_pos::<Archived<u32>, Error>(
             AlignedBytes([0, 1, 2, 3, 4]).as_ref(),
             1,
         )
         .expect_err("expected unaligned error");
         // Underaligned
-        access_pos::<Archived<u32>, Failure>(
+        access_pos::<Archived<u32>, Error>(
             &AlignedBytes([0, 1, 2, 3, 4])[1..],
             0,
         )
         .expect_err("expected underaligned error");
         // Undersized
-        access::<Archived<u32>, Failure>(&AlignedBytes([]).as_ref())
+        access::<Archived<u32>, Error>(&AlignedBytes([]).as_ref())
             .expect_err("expected out of bounds error");
     }
 
     #[test]
     fn tuple_ordering() {
-        serialize_and_check::<_, Failure>(&(
+        serialize_and_check::<_, Error>(&(
             24,
             true,
             16f32,
@@ -165,7 +165,7 @@ mod tests {
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
         ]);
 
-        let result = access_pos::<Archived<Option<Box<[u8]>>>, Failure>(
+        let result = access_pos::<Archived<Option<Box<[u8]>>>, Error>(
             synthetic_buf.as_ref(),
             0,
         );
@@ -188,7 +188,7 @@ mod tests {
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
         ]);
 
-        access_pos::<Archived<[Box<[u8]>; 2]>, Failure>(
+        access_pos::<Archived<[Box<[u8]>; 2]>, Error>(
             synthetic_buf.as_ref(),
             0,
         )
@@ -230,7 +230,7 @@ mod tests {
         unsafe impl<C> CheckBytes<C> for ArchivedNode
         where
             C: Fallible + ArchiveContext + ?Sized,
-            C::Error: Error,
+            C::Error: Source,
         {
             unsafe fn check_bytes(
                 value: *const Self,
@@ -262,7 +262,7 @@ mod tests {
             244u8, 255u8, 255u8, 255u8, // Node is 12 bytes back
         ]);
 
-        access_pos::<ArchivedNode, Failure>(synthetic_buf.as_ref(), 0)
+        access_pos::<ArchivedNode, Error>(synthetic_buf.as_ref(), 0)
             .unwrap_err();
     }
 
@@ -273,7 +273,7 @@ mod tests {
         #[archive(check_bytes)]
         struct Test;
 
-        serialize_and_check::<_, Failure>(&Test);
+        serialize_and_check::<_, Error>(&Test);
     }
 
     #[test]
@@ -287,7 +287,7 @@ mod tests {
             c: Box<Vec<String>>,
         }
 
-        serialize_and_check::<_, Failure>(&Test {
+        serialize_and_check::<_, Error>(&Test {
             a: 42,
             b: "hello world".to_string(),
             c: Box::new(vec!["yes".to_string(), "no".to_string()]),
@@ -301,7 +301,7 @@ mod tests {
         #[archive(check_bytes)]
         struct Test(u32, String, Box<Vec<String>>);
 
-        serialize_and_check::<_, Failure>(&Test(
+        serialize_and_check::<_, Error>(&Test(
             42,
             "hello world".to_string(),
             Box::new(vec!["yes".to_string(), "no".to_string()]),
@@ -319,9 +319,9 @@ mod tests {
             C(Box<Vec<String>>),
         }
 
-        serialize_and_check::<_, Failure>(&Test::A(42));
-        serialize_and_check::<_, Failure>(&Test::B("hello world".to_string()));
-        serialize_and_check::<_, Failure>(&Test::C(Box::new(vec![
+        serialize_and_check::<_, Error>(&Test::A(42));
+        serialize_and_check::<_, Error>(&Test::B("hello world".to_string()));
+        serialize_and_check::<_, Error>(&Test::C(Box::new(vec![
             "yes".to_string(),
             "no".to_string(),
         ])));
@@ -350,7 +350,7 @@ mod tests {
             ),
         }
 
-        serialize_and_check::<_, Failure>(&Node::Cons(Box::new(Node::Cons(
+        serialize_and_check::<_, Error>(&Node::Cons(Box::new(Node::Cons(
             Box::new(Node::Nil),
         ))));
     }
@@ -372,11 +372,11 @@ mod tests {
         };
 
         let buf =
-            serialize_into::<_, Failure>(&value, DefaultSerializer::default())
+            serialize_into::<_, Error>(&value, DefaultSerializer::default())
                 .unwrap()
                 .into_writer();
 
-        access::<ArchivedTest, Failure>(buf.as_ref()).unwrap();
+        access::<ArchivedTest, Error>(buf.as_ref()).unwrap();
     }
 
     // TODO: re-enable after btreemap validation is fixed
@@ -393,7 +393,7 @@ mod tests {
     //     serializer.serialize_value(&value).unwrap();
     //     let buf = serializer.into_serializer().into_inner();
 
-    //     access::<BTreeMap<String, i32>, Failure>(buf.as_ref()).unwrap();
+    //     access::<BTreeMap<String, i32>, Error>(buf.as_ref()).unwrap();
     // }
 
     // #[test]
@@ -405,7 +405,7 @@ mod tests {
     //         220, 255, 255, 255, 4, 0, 0, 96, 0, 0, 0, 249, 232, 255, 255,
     // 255,     ]);
 
-    //     rkyv::from_bytes::<BTreeSet<u8>, Failure>(&data.0).unwrap_err();
+    //     rkyv::from_bytes::<BTreeSet<u8>, Error>(&data.0).unwrap_err();
 
     //     let data = AlignedBytes([
     //         1, 29, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 253, 0, 0, 116, 255, 255,
@@ -416,8 +416,8 @@ mod tests {
     // 0, 2, 142, 255, 255, 255, 3,         1, 255, 251, 0, 184, 255, 255,
     // 255,     ]);
 
-    //     rkyv::from_bytes::<BTreeSet<Box<u8>>, Failure>(&data.0).unwrap_err();
-    // }
+    //     rkyv::from_bytes::<BTreeSet<Box<u8>>,
+    // Error>(&data.0).unwrap_err(); }
 
     // #[test]
     // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
@@ -428,7 +428,7 @@ mod tests {
     //     serializer.serialize_value(&value).unwrap();
     //     let buf = serializer.into_serializer().into_inner();
 
-    //     access::<BTreeMap<u8, ()>, Failure>(buf.as_ref()).unwrap();
+    //     access::<BTreeMap<u8, ()>, Error>(buf.as_ref()).unwrap();
     // }
 
     // #[test]
@@ -446,7 +446,7 @@ mod tests {
     //     serializer.serialize_value(&value).unwrap();
     //     let buf = serializer.into_serializer().into_inner();
 
-    //     access::<BTreeMap<String, i32>, Failure>(buf.as_ref()).unwrap();
+    //     access::<BTreeMap<String, i32>, Error>(buf.as_ref()).unwrap();
     // }
 
     // #[test]
@@ -467,13 +467,13 @@ mod tests {
     //         .and_modify(|e| e.push(1.0))
     //         .or_insert_with(|| vec![2.0]);
 
-    //     let serializer = serialize_into::<_, _, Failure>(
+    //     let serializer = serialize_into::<_, _, Error>(
     //         &value,
     //         DefaultSerializer::default(),
     //     ).unwrap();
     //     let buf = serializer.into_serializer().into_inner();
 
-    //     let _ = from_bytes::<MyType, Failure>(&buf).unwrap();
+    //     let _ = from_bytes::<MyType, Error>(&buf).unwrap();
     // }
 
     // #[test]
@@ -481,7 +481,7 @@ mod tests {
     // fn check_valid_durations() {
     //     use core::time::Duration;
 
-    //     access::<Duration, Failure>(&[0xFF, 16]).unwrap_err();
+    //     access::<Duration, Error>(&[0xFF, 16]).unwrap_err();
     // }
 
     // #[test]
@@ -492,12 +492,12 @@ mod tests {
     //         0xf0, 0xff, 0xff, 0xff,
     //     ]);
     //     rkyv::from_bytes::<BTreeMap<u8, Box<u8>>,
-    // Failure>(&data.0).unwrap_err(); }
+    // Error>(&data.0).unwrap_err(); }
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_invalid_string() {
         let data = AlignedBytes([0x10; 16]);
-        rkyv::from_bytes::<String, Failure>(&data.0).unwrap_err();
+        rkyv::from_bytes::<String, Error>(&data.0).unwrap_err();
     }
 }

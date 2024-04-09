@@ -3,7 +3,7 @@ pub mod alloc {
     use rkyv::{
         access,
         bytecheck::CheckBytes,
-        rancor::{Error, Strategy},
+        rancor::{Source, Strategy},
         validation::validators::DefaultValidator,
         Serialize,
     };
@@ -14,7 +14,7 @@ pub mod alloc {
     where
         T: Serialize<Strategy<DefaultSerializer, E>>,
         T::Archived: for<'a> CheckBytes<Strategy<DefaultValidator, E>>,
-        E: Error,
+        E: Source,
     {
         let buf =
             rkyv::util::serialize_into(value, DefaultSerializer::default())

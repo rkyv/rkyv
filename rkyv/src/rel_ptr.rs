@@ -6,7 +6,7 @@ use core::{
     ptr::{self, addr_of_mut},
 };
 
-use rancor::{fail, Error, Panic, ResultExt as _};
+use rancor::{fail, Panic, ResultExt as _, Source};
 
 use crate::{
     primitive::{
@@ -46,7 +46,7 @@ impl std::error::Error for ExceedsStorageRange {}
 /// A offset that can be used with [`RawRelPtr`].
 pub trait Offset: Copy {
     /// Creates a new offset between a `from` position and a `to` position.
-    fn from_isize<E: Error>(value: isize) -> Result<Self, E>;
+    fn from_isize<E: Source>(value: isize) -> Result<Self, E>;
 
     /// Gets the offset as an `isize`.
     fn to_isize(self) -> isize;
@@ -56,7 +56,7 @@ macro_rules! impl_offset_single_byte {
     ($ty:ty) => {
         impl Offset for $ty {
             #[inline]
-            fn from_isize<E: Error>(value: isize) -> Result<Self, E> {
+            fn from_isize<E: Source>(value: isize) -> Result<Self, E> {
                 // `pointer::add`` and `pointer::offset` require that the
                 // computed offsets cannot overflow an isize, which is why we're
                 // using signed_offset instead of `checked_sub` for unsized
@@ -81,7 +81,7 @@ macro_rules! impl_offset_multi_byte {
     ($ty:ty, $archived:ty) => {
         impl Offset for $archived {
             #[inline]
-            fn from_isize<E: Error>(value: isize) -> Result<Self, E> {
+            fn from_isize<E: Source>(value: isize) -> Result<Self, E> {
                 // `pointer::add`` and `pointer::offset` require that the
                 // computed offsets cannot overflow an isize, which is why we're
                 // using signed_offset instead of `checked_sub` for unsized
@@ -159,28 +159,21 @@ pub struct RawRelPtr<O> {
 ///
 /// ```
 /// # use rkyv::rel_ptr::signed_offset;
-/// # use rancor::Failure;
-///
-/// assert_eq!(signed_offset::<Failure>(0, 1), Ok(1));
-/// assert_eq!(signed_offset::<Failure>(1, 0), Ok(-1));
-/// assert_eq!(
-///     signed_offset::<Failure>(0, isize::MAX as usize),
-///     Ok(isize::MAX)
-/// );
-/// assert_eq!(
-///     signed_offset::<Failure>(isize::MAX as usize, 0),
-///     Ok(-isize::MAX)
-/// );
-/// assert!(signed_offset::<Failure>(0, isize::MAX as usize + 1).is_err());
-/// assert_eq!(
-///     signed_offset::<Failure>(isize::MAX as usize + 1, 0),
-///     Ok(isize::MIN)
-/// );
-/// assert!(signed_offset::<Failure>(0, isize::MAX as usize + 2).is_err());
-/// assert!(signed_offset::<Failure>(isize::MAX as usize + 2, 0).is_err());
+/// # use rancor::Error;
+/// assert!(signed_offset::<Error>(0, 1).is_ok_and(|x| x == 1));
+/// assert!(signed_offset::<Error>(1, 0).is_ok_and(|x| x == -1));
+/// assert!(signed_offset::<Error>(0, isize::MAX as usize)
+///     .is_ok_and(|x| x == isize::MAX));
+/// assert!(signed_offset::<Error>(isize::MAX as usize, 0)
+///     .is_ok_and(|x| x == -isize::MAX));
+/// assert!(signed_offset::<Error>(0, isize::MAX as usize + 1).is_err());
+/// assert!(signed_offset::<Error>(isize::MAX as usize + 1, 0)
+///     .is_ok_and(|x| x == isize::MIN));
+/// assert!(signed_offset::<Error>(0, isize::MAX as usize + 2).is_err());
+/// assert!(signed_offset::<Error>(isize::MAX as usize + 2, 0).is_err());
 /// ```
 #[inline]
-pub fn signed_offset<E: Error>(from: usize, to: usize) -> Result<isize, E> {
+pub fn signed_offset<E: Source>(from: usize, to: usize) -> Result<isize, E> {
     let (result, overflow) = to.overflowing_sub(from);
     if (!overflow && result <= (isize::MAX as usize))
         || (overflow && result >= (isize::MIN as usize))
@@ -199,7 +192,7 @@ impl<O: Offset> RawRelPtr<O> {
     ///
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_emplace<E: Error>(
+    pub unsafe fn try_emplace<E: Source>(
         from: usize,
         to: usize,
         out: *mut Self,
@@ -331,7 +324,7 @@ impl<T, O: Offset> RelPtr<T, O> {
     ///
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_emplace<E: Error>(
+    pub unsafe fn try_emplace<E: Source>(
         from: usize,
         to: usize,
         out: *mut Self,
@@ -367,7 +360,7 @@ where
     ///
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_emplace_null<E: Error>(
+    pub unsafe fn try_emplace_null<E: Source>(
         pos: usize,
         out: *mut Self,
     ) -> Result<(), E> {
@@ -401,7 +394,7 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     ///
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_emplace_unsized<E: Error>(
+    pub unsafe fn try_emplace_unsized<E: Source>(
         from: usize,
         to: usize,
         metadata: T::ArchivedMetadata,

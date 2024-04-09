@@ -17,7 +17,7 @@ use std::{
 };
 
 use ptr_meta::Pointee;
-use rancor::{Error, Fallible};
+use rancor::{Fallible, Source};
 
 use crate::{
     collections::util::Entry,
@@ -197,7 +197,7 @@ where
     T: Archive + Clone,
     T::Archived: Deserialize<T, D>,
     D: Fallible + ?Sized,
-    D::Error: Error,
+    D::Error: Source,
 {
     #[inline]
     fn deserialize_with(
@@ -286,7 +286,7 @@ const _: () = {
     impl<'a, D> DeserializeWith<ArchivedCString, Cow<'a, CStr>, D> for AsOwned
     where
         D: Fallible + ?Sized,
-        D::Error: Error,
+        D::Error: Source,
     {
         #[inline]
         fn deserialize_with(
@@ -451,7 +451,7 @@ where
     T: ArchiveUnsized + LayoutRaw + Pointee + ?Sized,
     T::Archived: DeserializeUnsized<T, D>,
     D: Fallible + ?Sized,
-    D::Error: Error,
+    D::Error: Source,
 {
     fn deserialize_with(
         field: &ArchivedOptionBox<T::Archived>,

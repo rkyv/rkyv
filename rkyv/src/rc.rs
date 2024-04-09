@@ -315,7 +315,7 @@ mod verify {
     use core::any::TypeId;
 
     use bytecheck::{
-        rancor::{Error, Fallible},
+        rancor::{Fallible, Source},
         CheckBytes, Verify,
     };
 
@@ -331,7 +331,7 @@ mod verify {
         T::ArchivedMetadata: CheckBytes<C>,
         F: 'static,
         C: Fallible + ArchiveContext + SharedContext + ?Sized,
-        C::Error: Error,
+        C::Error: Source,
     {
         #[inline]
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {

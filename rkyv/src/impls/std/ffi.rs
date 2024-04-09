@@ -8,7 +8,7 @@ use std::{
 };
 
 use ptr_meta::Pointee;
-use rancor::{Error, Fallible, ResultExt};
+use rancor::{Fallible, ResultExt, Source};
 
 use crate::{
     ffi::{ArchivedCString, CStringResolver},
@@ -133,7 +133,7 @@ impl<S: Fallible + Writer + ?Sized> Serialize<S> for CString {
 impl<D> Deserialize<CString, D> for Archived<CString>
 where
     D: Fallible + ?Sized,
-    D::Error: Error,
+    D::Error: Source,
     CStr: DeserializeUnsized<CStr, D>,
 {
     #[inline]

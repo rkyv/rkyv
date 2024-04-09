@@ -62,7 +62,7 @@ where
 #[cfg(test)]
 mod tests {
     use arrayvec::ArrayVec;
-    use rancor::{Failure, Infallible};
+    use rancor::{Error, Infallible};
 
     use crate::{access_unchecked, deserialize, to_bytes, Archived};
 
@@ -70,7 +70,7 @@ mod tests {
     fn array_vec() {
         let value: ArrayVec<i32, 4> = ArrayVec::from([10, 20, 40, 80]);
 
-        let bytes = to_bytes::<Failure>(&value).unwrap();
+        let bytes = to_bytes::<Error>(&value).unwrap();
         let archived =
             unsafe { access_unchecked::<Archived<ArrayVec<i32, 4>>>(&bytes) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);

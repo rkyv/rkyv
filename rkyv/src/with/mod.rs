@@ -91,7 +91,7 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 /// ```
 /// use rkyv::{
 ///     access_unchecked, deserialize,
-///     rancor::{Failure, Fallible, Infallible, ResultExt as _},
+///     rancor::{Error, Fallible, Infallible, ResultExt as _},
 ///     to_bytes,
 ///     with::{ArchiveWith, DeserializeWith, SerializeWith},
 ///     Archive, Archived, Deserialize, Resolver, Serialize,
@@ -151,7 +151,7 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 ///
 /// let value = Example { a: 4, b: 9 };
 ///
-/// let buf = to_bytes::<Failure>(&value).unwrap();
+/// let buf = to_bytes::<Error>(&value).unwrap();
 ///
 /// let archived =
 ///     unsafe { access_unchecked::<Archived<Example>>(buf.as_ref()) };

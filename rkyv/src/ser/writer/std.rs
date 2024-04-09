@@ -1,6 +1,6 @@
 use std::io;
 
-use rancor::ResultExt as _;
+use rancor::{ResultExt as _, Source};
 
 use crate::ser::{Positional, Writer};
 
@@ -10,11 +10,11 @@ use crate::ser::{Positional, Writer};
 /// # Examples
 /// ```
 /// # use rkyv::ser::{Writer, Positional, writer::IoWriter};
-/// use rkyv::rancor::{Failure, Strategy};
+/// use rkyv::rancor::{Error, Strategy};
 /// let mut io_writer = IoWriter::new(Vec::new());
 /// // In most cases, calling a method like `serialize` will wrap the writer in
 /// // a Strategy for us.
-/// let mut writer = Strategy::<_, Failure>::wrap(&mut io_writer);
+/// let mut writer = Strategy::<_, Error>::wrap(&mut io_writer);
 /// assert_eq!(writer.pos(), 0);
 /// writer.write(&[0u8, 1u8, 2u8, 3u8]);
 /// assert_eq!(writer.pos(), 4);
@@ -57,7 +57,7 @@ impl<W> Positional for IoWriter<W> {
     }
 }
 
-impl<W: io::Write, E: rancor::Error> Writer<E> for IoWriter<W> {
+impl<W: io::Write, E: Source> Writer<E> for IoWriter<W> {
     #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         self.inner.write_all(bytes).into_error()?;

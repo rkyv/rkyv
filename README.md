@@ -51,7 +51,7 @@
 # Example
 
 ```rust
-use rkyv::{Archive, Deserialize, Serialize};
+use rkyv::{Archive, Deserialize, Serialize, rancor::Error};
 
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 #[archive(
@@ -77,7 +77,7 @@ let value = Test {
 };
 
 // Serializing is as easy as a single function call
-let bytes = rkyv::to_bytes::<Failure>(&value).unwrap();
+let bytes = rkyv::to_bytes::<Error>(&value).unwrap();
 
 // Or you can customize your serialization for better performance
 // and compatibility with #![no_std] environments

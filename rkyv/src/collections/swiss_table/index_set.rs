@@ -9,7 +9,7 @@ use core::{
     hash::{Hash, Hasher},
 };
 
-use rancor::{Error, Fallible};
+use rancor::{Fallible, Source};
 
 use crate::{
     collections::swiss_table::{
@@ -130,7 +130,7 @@ impl<K, H: Default + Hasher> ArchivedIndexSet<K, H> {
         I: Clone + ExactSizeIterator<Item = &'a UK>,
         UK: 'a + Serialize<S, Archived = K> + Hash + Eq,
         S: Fallible + Writer + Allocator + ?Sized,
-        S::Error: Error,
+        S::Error: Source,
     {
         Ok(IndexSetResolver(
             ArchivedIndexMap::<K, (), H>::serialize_from_iter(

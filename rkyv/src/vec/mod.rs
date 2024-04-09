@@ -357,7 +357,7 @@ pub struct VecResolver {
 #[cfg(feature = "bytecheck")]
 mod verify {
     use bytecheck::{
-        rancor::{Error, Fallible},
+        rancor::{Fallible, Source},
         CheckBytes, Verify,
     };
 
@@ -370,7 +370,7 @@ mod verify {
     where
         T: CheckBytes<C>,
         C: Fallible + ArchiveContext + ?Sized,
-        C::Error: Error,
+        C::Error: Source,
     {
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {
             let ptr = unsafe {

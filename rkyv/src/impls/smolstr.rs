@@ -50,7 +50,7 @@ impl PartialEq<SmolStr> for ArchivedString {
 
 #[cfg(test)]
 mod tests {
-    use rancor::{Failure, Infallible};
+    use rancor::{Error, Infallible};
     use smol_str::SmolStr;
 
     use crate::{
@@ -61,7 +61,7 @@ mod tests {
     fn smolstr() {
         let value = SmolStr::new("smol_str");
 
-        let bytes = to_bytes::<Failure>(&value).unwrap();
+        let bytes = to_bytes::<Error>(&value).unwrap();
         let archived = unsafe { access_unchecked::<ArchivedString>(&bytes) };
         assert_eq!(archived, &value);
 

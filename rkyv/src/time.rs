@@ -137,7 +137,7 @@ mod verify {
     use core::fmt;
 
     use bytecheck::{
-        rancor::{Error, Fallible},
+        rancor::{Fallible, Source},
         Verify,
     };
     use rancor::fail;
@@ -168,7 +168,7 @@ mod verify {
     unsafe impl<C> Verify<C> for ArchivedDuration
     where
         C: Fallible + ?Sized,
-        C::Error: Error,
+        C::Error: Source,
     {
         #[inline]
         fn verify(&self, _: &mut C) -> Result<(), C::Error> {

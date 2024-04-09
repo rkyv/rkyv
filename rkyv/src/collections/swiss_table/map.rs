@@ -10,7 +10,7 @@ use core::{
     pin::Pin,
 };
 
-use rancor::{Error, Fallible};
+use rancor::{Fallible, Source};
 
 use crate::{
     collections::swiss_table::{
@@ -226,7 +226,7 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
         KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
         VU: 'a + Serialize<S, Archived = V>,
         S: Fallible + Writer + Allocator + ?Sized,
-        S::Error: Error,
+        S::Error: Source,
     {
         ArchivedHashTable::<Entry<K, V>>::serialize_from_iter(
             iter.clone().map(|(key, value)| EntryAdapter { key, value }),

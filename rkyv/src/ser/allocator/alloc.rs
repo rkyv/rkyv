@@ -8,7 +8,7 @@ use core::{alloc::Layout, fmt, ptr::NonNull};
 #[cfg(feature = "std")]
 use std::alloc::{alloc, alloc_zeroed, dealloc};
 
-use rancor::{fail, Error};
+use rancor::{fail, Source};
 
 use crate::{
     ser::{allocator::BufferAllocator, Allocator},
@@ -47,7 +47,7 @@ impl<const N: usize> BumpAllocator<N> {
     }
 }
 
-impl<const N: usize, E: Error> Allocator<E> for BumpAllocator<N> {
+impl<const N: usize, E: Source> Allocator<E> for BumpAllocator<N> {
     #[inline]
     unsafe fn push_alloc(
         &mut self,
@@ -172,7 +172,7 @@ impl Drop for GlobalAllocator {
     }
 }
 
-impl<E: Error> Allocator<E> for GlobalAllocator {
+impl<E: Source> Allocator<E> for GlobalAllocator {
     #[inline]
     unsafe fn push_alloc(
         &mut self,

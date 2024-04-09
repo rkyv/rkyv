@@ -1,7 +1,7 @@
 use core::ops::Deref;
 
 use bitvec::{prelude::*, view::BitViewSized};
-use rancor::{Error, Fallible};
+use rancor::{Fallible, Source};
 
 use crate::{
     bitvec::{ArchivedBitArray, ArchivedBitVec},
@@ -69,7 +69,7 @@ where
     T: BitStore + Archive,
     O: BitOrder,
     D: Fallible + ?Sized,
-    D::Error: Error,
+    D::Error: Source,
     Archived<T>: Deserialize<T, D> + BitStore,
 {
     fn deserialize(

@@ -2,7 +2,7 @@
 
 use core::{marker::PhantomPinned, mem, ptr, slice, str};
 
-use rancor::{Error, Panic, ResultExt as _};
+use rancor::{Panic, ResultExt as _, Source};
 
 use crate::{
     primitive::{ArchivedUsize, FixedIsize},
@@ -164,7 +164,7 @@ impl ArchivedStringRepr {
     /// - The length of `str` must be greater than [`INLINE_CAPACITY`].
     /// - `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_emplace_out_of_line<E: Error>(
+    pub unsafe fn try_emplace_out_of_line<E: Source>(
         value: &str,
         pos: usize,
         target: usize,
@@ -234,7 +234,7 @@ const _: () = {
     unsafe impl<C> CheckBytes<C> for ArchivedStringRepr
     where
         C: Fallible + ?Sized,
-        C::Error: Error,
+        C::Error: Source,
     {
         #[inline]
         unsafe fn check_bytes(

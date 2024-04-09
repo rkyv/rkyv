@@ -27,7 +27,7 @@ use core::{
     slice,
 };
 
-use rancor::{fail, Error, Fallible, OptionExt, Panic, ResultExt as _};
+use rancor::{fail, Fallible, OptionExt, Panic, ResultExt as _, Source};
 
 use crate::{
     primitive::ArchivedUsize,
@@ -229,7 +229,7 @@ impl<T> ArchivedHashTable<T> {
     }
 
     #[inline]
-    fn capacity_from_len<E: Error>(
+    fn capacity_from_len<E: Source>(
         len: usize,
         load_factor: (usize, usize),
     ) -> Result<usize, E> {
@@ -242,13 +242,13 @@ impl<T> ArchivedHashTable<T> {
     }
 
     #[inline]
-    fn control_count<E: Error>(capacity: usize) -> Result<usize, E> {
+    fn control_count<E: Source>(capacity: usize) -> Result<usize, E> {
         capacity.checked_add(MAX_GROUP_WIDTH - 1).into_trace(
             "overflow while calculating buckets from adjusted capacity",
         )
     }
 
-    fn memory_layout<E: Error>(
+    fn memory_layout<E: Source>(
         capacity: usize,
         control_count: usize,
     ) -> Result<(Layout, usize), E> {
@@ -269,7 +269,7 @@ impl<T> ArchivedHashTable<T> {
         I::Item: Serialize<S, Archived = T>,
         H: ExactSizeIterator<Item = u64>,
         S: Fallible + Writer + Allocator + ?Sized,
-        S::Error: Error,
+        S::Error: Source,
     {
         // TODO: error if load_factor.0 is greater than load_factor.1
 
@@ -520,7 +520,7 @@ mod verify {
     use core::fmt;
 
     use bytecheck::{CheckBytes, Verify};
-    use rancor::{fail, Error, Fallible};
+    use rancor::{fail, Fallible, Source};
 
     use super::ArchivedHashTable;
     use crate::{
@@ -565,7 +565,7 @@ mod verify {
     unsafe impl<C, T> Verify<C> for ArchivedHashTable<T>
     where
         C: Fallible + ArchiveContext + ?Sized,
-        C::Error: Error,
+        C::Error: Source,
         T: CheckBytes<C>,
     {
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {

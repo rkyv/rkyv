@@ -4,7 +4,7 @@ use core::cmp;
 use ::alloc::{alloc, boxed::Box, vec::Vec};
 #[cfg(feature = "std")]
 use ::std::alloc;
-use rancor::{Error, Fallible, ResultExt as _};
+use rancor::{Fallible, ResultExt as _, Source};
 
 use crate::{
     ser::{Allocator, Writer},
@@ -82,7 +82,7 @@ where
     T: Archive,
     [T::Archived]: DeserializeUnsized<[T], D>,
     D: Fallible + ?Sized,
-    D::Error: Error,
+    D::Error: Source,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Vec<T>, D::Error> {

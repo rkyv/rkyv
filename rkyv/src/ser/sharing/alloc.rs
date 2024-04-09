@@ -4,7 +4,7 @@ use std::collections::hash_map;
 
 #[cfg(not(feature = "std"))]
 use hashbrown::hash_map;
-use rancor::{fail, Error};
+use rancor::{fail, Source};
 
 use crate::ser::Sharing;
 
@@ -52,7 +52,7 @@ impl Unify {
     }
 }
 
-impl<E: Error> Sharing<E> for Unify {
+impl<E: Source> Sharing<E> for Unify {
     fn get_shared_ptr(&self, address: usize) -> Option<usize> {
         self.shared_address_to_pos.get(&address).copied()
     }

@@ -4,7 +4,7 @@ use core::{
 };
 
 use ptr_meta::Pointee;
-use rancor::{Error, Fallible};
+use rancor::{Fallible, Source};
 use triomphe::Arc;
 
 use crate::{
@@ -75,7 +75,7 @@ where
     Metadata: Into<T::Metadata>,
     T::Archived: DeserializeUnsized<T, D>,
     D: Pooling + Fallible + ?Sized,
-    D::Error: Error,
+    D::Error: Source,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Arc<T>, D::Error> {

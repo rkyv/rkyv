@@ -1,6 +1,6 @@
 use core::{alloc::Layout, fmt, ops::DerefMut, ptr::NonNull};
 
-use rancor::{fail, Error};
+use rancor::{fail, Source};
 
 use crate::ser::Allocator;
 
@@ -76,7 +76,7 @@ impl<T> BufferAllocator<T> {
 impl<T: DerefMut, E> Allocator<E> for BufferAllocator<T>
 where
     T::Target: AsMut<[u8]>,
-    E: Error,
+    E: Source,
 {
     #[inline]
     unsafe fn push_alloc(

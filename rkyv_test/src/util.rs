@@ -6,7 +6,7 @@ pub mod core {
 
     use rkyv::{
         access_unchecked, deserialize,
-        rancor::{Failure, Strategy},
+        rancor::{Error, Strategy},
         ser::Positional as _,
         util::{
             access_unsized_unchecked, serialize_into, serialize_rel_ptr_into,
@@ -23,9 +23,9 @@ pub mod core {
 
     pub fn test_archive_with<T, C>(value: &T, cmp: C)
     where
-        T: Debug + PartialEq + Serialize<Strategy<DefaultSerializer, Failure>>,
+        T: Debug + PartialEq + Serialize<Strategy<DefaultSerializer, Error>>,
         T::Archived:
-            Debug + Deserialize<T, Strategy<DefaultDeserializer, Failure>>,
+            Debug + Deserialize<T, Strategy<DefaultDeserializer, Error>>,
         C: Fn(&T, &T::Archived) -> bool,
     {
         let serializer = serialize_into(value, DefaultSerializer::default())
@@ -39,17 +39,17 @@ pub mod core {
 
         let mut deserializer = DefaultDeserializer::default();
         let de_value =
-            deserialize::<T, _, Failure>(archived_value, &mut deserializer)
+            deserialize::<T, _, Error>(archived_value, &mut deserializer)
                 .unwrap();
         assert_eq!(&de_value, value);
     }
 
     pub fn test_archive<T>(value: &T)
     where
-        T: Debug + PartialEq + Serialize<Strategy<DefaultSerializer, Failure>>,
+        T: Debug + PartialEq + Serialize<Strategy<DefaultSerializer, Error>>,
         T::Archived: Debug
             + PartialEq<T>
-            + Deserialize<T, Strategy<DefaultDeserializer, Failure>>,
+            + Deserialize<T, Strategy<DefaultDeserializer, Error>>,
     {
         test_archive_with(value, |a, b| b == a);
     }
@@ -57,7 +57,7 @@ pub mod core {
     pub fn test_archive_ref<T>(value: &T)
     where
         T: Debug
-            + SerializeUnsized<Strategy<DefaultSerializer, Failure>>
+            + SerializeUnsized<Strategy<DefaultSerializer, Error>>
             + ?Sized,
         T::Archived: Debug + PartialEq<T>,
     {
@@ -79,7 +79,7 @@ pub mod alloc {
 
     use rkyv::{
         access_unchecked, deserialize,
-        rancor::{Failure, Strategy},
+        rancor::{Error, Strategy},
         ser::Positional as _,
         util::serialize_into,
         Deserialize, Serialize,
@@ -90,9 +90,9 @@ pub mod alloc {
 
     pub fn test_archive_with<T, C>(value: &T, cmp: C)
     where
-        T: Debug + PartialEq + Serialize<Strategy<DefaultSerializer, Failure>>,
+        T: Debug + PartialEq + Serialize<Strategy<DefaultSerializer, Error>>,
         T::Archived:
-            Debug + Deserialize<T, Strategy<DefaultDeserializer, Failure>>,
+            Debug + Deserialize<T, Strategy<DefaultDeserializer, Error>>,
         C: Fn(&T, &T::Archived) -> bool,
     {
         let serializer = serialize_into(value, DefaultSerializer::default())
@@ -106,17 +106,17 @@ pub mod alloc {
 
         let mut deserializer = DefaultDeserializer::default();
         let de_value =
-            deserialize::<T, _, Failure>(archived_value, &mut deserializer)
+            deserialize::<T, _, Error>(archived_value, &mut deserializer)
                 .unwrap();
         assert_eq!(&de_value, value);
     }
 
     pub fn test_archive<T>(value: &T)
     where
-        T: Debug + PartialEq + Serialize<Strategy<DefaultSerializer, Failure>>,
+        T: Debug + PartialEq + Serialize<Strategy<DefaultSerializer, Error>>,
         T::Archived: Debug
             + PartialEq<T>
-            + Deserialize<T, Strategy<DefaultDeserializer, Failure>>,
+            + Deserialize<T, Strategy<DefaultDeserializer, Error>>,
     {
         test_archive_with(value, |a, b| b == a);
     }

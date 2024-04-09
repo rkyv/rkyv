@@ -62,7 +62,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rancor::{Failure, Infallible};
+    use rancor::{Error, Infallible};
     use smallvec::{smallvec, SmallVec};
 
     use crate::{
@@ -73,7 +73,7 @@ mod tests {
     fn small_vec() {
         let value: SmallVec<[i32; 10]> = smallvec![10, 20, 40, 80];
 
-        let bytes = to_bytes::<Failure>(&value).unwrap();
+        let bytes = to_bytes::<Error>(&value).unwrap();
         let archived =
             unsafe { access_unchecked::<ArchivedVec<Archived<i32>>>(&bytes) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);

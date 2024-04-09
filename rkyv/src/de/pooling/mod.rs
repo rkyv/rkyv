@@ -6,7 +6,7 @@ mod core;
 
 use ::core::{alloc::LayoutError, fmt, mem::transmute};
 use ptr_meta::{from_raw_parts_mut, metadata, DynMetadata, Pointee};
-use rancor::{Error, Fallible, ResultExt as _, Strategy};
+use rancor::{Fallible, ResultExt as _, Source, Strategy};
 
 #[cfg(feature = "alloc")]
 pub use self::alloc::*;
@@ -195,7 +195,7 @@ pub trait PoolingExt<E>: Pooling<E> {
         T::Archived: DeserializeUnsized<T, Self>,
         P: SharedPointer<T>,
         Self: Fallible<Error = E>,
-        E: Error,
+        E: Source,
     {
         unsafe fn drop_shared<T, P>(ptr: ErasedPtr)
         where

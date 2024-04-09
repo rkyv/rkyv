@@ -4,7 +4,7 @@ use core::{
 };
 use std::collections::HashSet;
 
-use rancor::{Error, Fallible};
+use rancor::{Fallible, Source};
 
 use crate::{
     collections::swiss_table::set::{ArchivedHashSet, HashSetResolver},
@@ -41,7 +41,7 @@ where
     K::Archived: Hash + Eq,
     K: Serialize<S> + Hash + Eq,
     S: Fallible + Allocator + Writer + ?Sized,
-    S::Error: Error,
+    S::Error: Source,
 {
     #[inline]
     fn serialize(

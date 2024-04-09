@@ -2,7 +2,7 @@
 mod tests {
     use rkyv::{
         bytecheck::{check_bytes, CheckBytes},
-        rancor::Failure,
+        rancor::Error,
         Archive,
     };
 
@@ -73,13 +73,13 @@ mod tests {
     fn test() {
         let a = ArchivedTest::default();
         unsafe {
-            check_bytes::<_, Failure>(&a).unwrap();
+            check_bytes::<_, Error>(&a).unwrap();
         }
         unsafe {
             let a_bytes: *const u8 = &a as *const ArchivedTest as *const u8;
             let mut bytes = Aligned([*a_bytes.offset(0), *a_bytes.offset(1)]);
             bytes.0[1] = 5;
-            check_bytes::<_, Failure>(
+            check_bytes::<_, Error>(
                 &bytes.0 as *const [u8] as *const ArchivedTest,
             )
             .unwrap_err();

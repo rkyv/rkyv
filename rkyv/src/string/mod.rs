@@ -244,7 +244,7 @@ pub struct StringResolver {
 #[cfg(feature = "bytecheck")]
 mod verify {
     use bytecheck::{
-        rancor::{Error, Fallible},
+        rancor::{Fallible, Source},
         CheckBytes, Verify,
     };
 
@@ -256,7 +256,7 @@ mod verify {
     unsafe impl<C> Verify<C> for ArchivedString
     where
         C: Fallible + ArchiveContext + ?Sized,
-        C::Error: Error,
+        C::Error: Source,
     {
         #[inline]
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {

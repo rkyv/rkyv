@@ -1,7 +1,7 @@
 use core::hash::{BuildHasher, Hash};
 
 use indexmap::IndexMap;
-use rancor::{Error, Fallible};
+use rancor::{Fallible, Source};
 
 use crate::{
     collections::swiss_table::{ArchivedIndexMap, IndexMapResolver},
@@ -34,7 +34,7 @@ where
     K: Hash + Eq + Serialize<S>,
     V: Serialize<S>,
     S: Fallible + Allocator + Writer + ?Sized,
-    S::Error: Error,
+    S::Error: Source,
 {
     fn serialize(
         &self,
@@ -94,7 +94,7 @@ mod tests {
     use core::hash::BuildHasherDefault;
 
     use indexmap::IndexMap;
-    use rancor::{Failure, Infallible};
+    use rancor::{Error, Infallible};
 
     use crate::{
         access_unchecked, collections::swiss_table::ArchivedIndexMap,
@@ -110,7 +110,7 @@ mod tests {
         value.insert(String::from("baz"), 40);
         value.insert(String::from("bat"), 80);
 
-        let result = crate::to_bytes::<Failure>(&value).unwrap();
+        let result = crate::to_bytes::<Error>(&value).unwrap();
         let archived = unsafe {
             access_unchecked::<ArchivedIndexMap<ArchivedString, Archived<i32>>>(
                 result.as_ref(),
@@ -136,8 +136,6 @@ mod tests {
     #[cfg(feature = "bytecheck")]
     #[test]
     fn validate_index_map() {
-        use rancor::Failure;
-
         use crate::access;
 
         let mut value =
@@ -147,8 +145,8 @@ mod tests {
         value.insert(String::from("baz"), 40);
         value.insert(String::from("bat"), 80);
 
-        let result = crate::to_bytes::<Failure>(&value).unwrap();
-        access::<ArchivedIndexMap<ArchivedString, Archived<i32>>, Failure>(
+        let result = crate::to_bytes::<Error>(&value).unwrap();
+        access::<ArchivedIndexMap<ArchivedString, Archived<i32>>, Error>(
             result.as_ref(),
         )
         .expect("failed to validate archived index map");

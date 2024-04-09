@@ -35,7 +35,7 @@ unsafe impl<T, C> Verify<C> for ArchivedDynMetadata<T>
 where
     T: ?Sized,
     C: Fallible + ?Sized,
-    C::Error: Error,
+    C::Error: Source,
 {
     fn verify(&self, context: &mut C) -> Result<(), C::Error> {
         if let Some(_) = IMPL_REGISTRY.get::<T>(self.type_id.to_native()) {

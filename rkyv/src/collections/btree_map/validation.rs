@@ -147,9 +147,9 @@ const _: () = {
 
     impl<K, V, C> Error for ArchivedBTreeMapError<K, V, C>
     where
-        K: Error + 'static,
-        V: Error + 'static,
-        C: Error + 'static,
+        K: Source + 'static,
+        V: Source + 'static,
+        C: Source + 'static,
     {
         fn source(&self) -> Option<&(dyn Error + 'static)> {
             match self {
