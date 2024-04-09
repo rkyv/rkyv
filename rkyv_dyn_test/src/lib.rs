@@ -186,7 +186,7 @@ mod tests {
             let value: Box<dyn SerializeTestTrait<Failure, Failure>> =
                 Box::new(Test { id: 42 });
 
-            let buf = to_bytes::<_, _>(&value).unwrap();
+            let buf = to_bytes::<_>(&value).unwrap();
             let archived_value = unsafe {
                 access_unchecked::<
                     Archived<Box<dyn SerializeTestTrait<Failure, Failure>>>,

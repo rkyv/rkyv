@@ -53,10 +53,10 @@ fn main() {
 
     // v1 is serialized into v1_bytes
     let v1_bytes =
-        rkyv::to_bytes::<_, Failure>(&v1).expect("failed to serialize v1");
+        rkyv::to_bytes::<Failure>(&v1).expect("failed to serialize v1");
     // v2 is serialized into v2_bytes
     let v2_bytes =
-        rkyv::to_bytes::<_, Failure>(&v2).expect("failed to serialize v2");
+        rkyv::to_bytes::<Failure>(&v2).expect("failed to serialize v2");
 
     // We can view a v1 as a v1
     let v1_as_v1 =

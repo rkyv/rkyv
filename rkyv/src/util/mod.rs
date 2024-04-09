@@ -305,7 +305,7 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 /// let value = vec![1, 2, 3, 4];
 ///
 /// let bytes =
-///     rkyv::to_bytes::<_, Failure>(&value).expect("failed to serialize vec");
+///     rkyv::to_bytes::<Failure>(&value).expect("failed to serialize vec");
 /// // SAFETY:
 /// // - The byte slice represents an archived object
 /// // - The root of the object is stored at the end of the slice
@@ -318,19 +318,20 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 /// ```
 #[cfg(feature = "alloc")]
 #[inline]
-pub fn to_bytes<T, E>(value: &T) -> Result<AlignedVec, E>
-where
-    T: Serialize<Strategy<AllocSerializer, E>>,
-{
+pub fn to_bytes<E>(
+    value: &impl Serialize<Strategy<AllocSerializer, E>>,
+) -> Result<AlignedVec, E> {
     Ok(serialize_into(value, Default::default())?.into_writer())
 }
 
 /// Serializes the given value into the given serializer and then returns the
 /// serializer.
 #[inline]
-pub fn serialize_into<T, S, E>(value: &T, mut serializer: S) -> Result<S, E>
+pub fn serialize_into<S, E>(
+    value: &impl Serialize<Strategy<S, E>>,
+    mut serializer: S,
+) -> Result<S, E>
 where
-    T: Serialize<Strategy<S, E>>,
     S: Writer<E>,
 {
     serialize(value, &mut serializer)?;
@@ -340,12 +341,11 @@ where
 /// Serializes a [`RelPtr`] to the given unsized value into the given serializer
 /// and then returns the serializer.
 #[inline]
-pub fn serialize_rel_ptr_into<T, S, E>(
-    value: &T,
+pub fn serialize_rel_ptr_into<S, E>(
+    value: &(impl SerializeUnsized<Strategy<S, E>> + ?Sized),
     mut serializer: S,
 ) -> Result<S, E>
 where
-    T: SerializeUnsized<Strategy<S, E>> + ?Sized,
     S: Writer<E>,
 {
     serialize_rel_ptr(value, &mut serializer)?;
@@ -354,9 +354,11 @@ where
 
 /// Serializes the given value into the given serializer.
 #[inline]
-pub fn serialize<T, S, E>(value: &T, serializer: &mut S) -> Result<(), E>
+pub fn serialize<S, E>(
+    value: &impl Serialize<Strategy<S, E>>,
+    serializer: &mut S,
+) -> Result<(), E>
 where
-    T: Serialize<Strategy<S, E>>,
     S: Writer<E> + ?Sized,
 {
     value.serialize_and_resolve(Strategy::wrap(serializer))?;
@@ -366,12 +368,11 @@ where
 /// Serializes a [`RelPtr`] to the given unsized value into the given
 /// serializer.
 #[inline]
-pub fn serialize_rel_ptr<T, S, E>(
-    value: &T,
+pub fn serialize_rel_ptr<S, E>(
+    value: &(impl SerializeUnsized<Strategy<S, E>> + ?Sized),
     serializer: &mut S,
 ) -> Result<(), E>
 where
-    T: SerializeUnsized<Strategy<S, E>> + ?Sized,
     S: Writer<E> + ?Sized,
 {
     value.serialize_and_resolve_rel_ptr(Strategy::wrap(serializer))?;
@@ -397,7 +398,7 @@ where
 /// let value = vec![1, 2, 3, 4];
 ///
 /// let bytes =
-///     rkyv::to_bytes::<_, Failure>(&value).expect("failed to serialize vec");
+///     rkyv::to_bytes::<Failure>(&value).expect("failed to serialize vec");
 /// // SAFETY:
 /// // - The byte slice represents an archived object
 /// // - The root of the object is stored at the end of the slice

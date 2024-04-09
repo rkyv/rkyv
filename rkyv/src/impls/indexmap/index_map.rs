@@ -110,7 +110,7 @@ mod tests {
         value.insert(String::from("baz"), 40);
         value.insert(String::from("bat"), 80);
 
-        let result = crate::to_bytes::<_, Failure>(&value).unwrap();
+        let result = crate::to_bytes::<Failure>(&value).unwrap();
         let archived = unsafe {
             access_unchecked::<ArchivedIndexMap<ArchivedString, Archived<i32>>>(
                 result.as_ref(),
@@ -147,7 +147,7 @@ mod tests {
         value.insert(String::from("baz"), 40);
         value.insert(String::from("bat"), 80);
 
-        let result = crate::to_bytes::<_, Failure>(&value).unwrap();
+        let result = crate::to_bytes::<Failure>(&value).unwrap();
         access::<ArchivedIndexMap<ArchivedString, Archived<i32>>, Failure>(
             result.as_ref(),
         )

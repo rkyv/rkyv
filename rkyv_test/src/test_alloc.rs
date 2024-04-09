@@ -153,13 +153,13 @@ mod tests {
             };
 
             // Serializing is as easy as a single function call
-            let bytes = rkyv::to_bytes::<_, Failure>(&value).unwrap();
+            let bytes = rkyv::to_bytes::<Failure>(&value).unwrap();
 
             // Or you can customize your serialization for better performance
             // and compatibility with #![no_std] environments
             use rkyv::ser::AllocSerializer;
 
-            let serializer = serialize_into::<_, _, Failure>(
+            let serializer = serialize_into::<_, Failure>(
                 &value,
                 AllocSerializer::default(),
             )
@@ -432,8 +432,7 @@ mod tests {
 
         let value = Test(42);
 
-        let buf =
-            to_bytes::<_, Failure>(&value).expect("failed to archive value");
+        let buf = to_bytes::<Failure>(&value).expect("failed to archive value");
         let archived_value =
             unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
 
@@ -477,7 +476,7 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn basic_mutable_refs() {
-        let mut buf = to_bytes::<_, Failure>(&42i32).unwrap();
+        let mut buf = to_bytes::<Failure>(&42i32).unwrap();
         let mut value =
             unsafe { access_unchecked_mut::<Archived<i32>>(buf.as_mut()) };
         assert_eq!(*value, 42);
@@ -509,7 +508,7 @@ mod tests {
             b: vec!["hello".to_string(), "world".to_string()],
         };
 
-        let mut buf = to_bytes::<_, Failure>(&value).unwrap();
+        let mut buf = to_bytes::<Failure>(&value).unwrap();
         let mut value =
             unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
 
@@ -550,7 +549,7 @@ mod tests {
 
         let value = Test::A;
 
-        let mut buf = to_bytes::<_, Failure>(&value).unwrap();
+        let mut buf = to_bytes::<Failure>(&value).unwrap();
         let mut value =
             unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
 
@@ -750,7 +749,7 @@ mod tests {
             b: shared.clone(),
         };
 
-        let mut buf = to_bytes::<_, Failure>(&value).unwrap();
+        let mut buf = to_bytes::<Failure>(&value).unwrap();
 
         let archived =
             unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
@@ -878,11 +877,9 @@ mod tests {
             b: Rc::downgrade(&shared),
         };
 
-        let serializer = serialize_into::<_, _, Failure>(
-            &value,
-            DefaultSerializer::default(),
-        )
-        .unwrap();
+        let serializer =
+            serialize_into::<_, Failure>(&value, DefaultSerializer::default())
+                .unwrap();
         let mut buf = serializer.into_writer();
 
         let archived =
@@ -1083,7 +1080,7 @@ mod tests {
             a: u8,
             b: u64,
         }
-        let serializer = serialize_into::<_, _, Failure>(
+        let serializer = serialize_into::<_, Failure>(
             &PaddedExample { a: 0u8, b: 0u64 },
             BufferWriter::<[u8; 256]>::new([0xccu8; 256]),
         )
@@ -1379,7 +1376,7 @@ mod tests {
                 other: 10,
             };
             let result =
-                serialize_into::<_, _, Failure>(&value, AlignedVec::new())
+                serialize_into::<_, Failure>(&value, AlignedVec::new())
                     .unwrap();
             let archived =
                 unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
@@ -1401,7 +1398,7 @@ mod tests {
 
             let value = Test(10, 10);
             let result =
-                serialize_into::<_, _, Failure>(&value, AlignedVec::new())
+                serialize_into::<_, Failure>(&value, AlignedVec::new())
                     .unwrap();
             let archived =
                 unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
@@ -1433,7 +1430,7 @@ mod tests {
                 other: 10,
             };
             let result =
-                serialize_into::<_, _, Failure>(&value, AlignedVec::new())
+                serialize_into::<_, Failure>(&value, AlignedVec::new())
                     .unwrap();
             let archived =
                 unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
@@ -1456,7 +1453,7 @@ mod tests {
 
             let value = Test::B(10, 10);
             let result =
-                serialize_into::<_, _, Failure>(&value, AlignedVec::new())
+                serialize_into::<_, Failure>(&value, AlignedVec::new())
                     .unwrap();
             let archived =
                 unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
@@ -1529,7 +1526,7 @@ mod tests {
             value: AtomicU32::new(42),
         };
         let mut result =
-            serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
+            serialize_into::<_, Failure>(&value, AlignedVec::new()).unwrap();
         // NOTE: with(Atomic) is only sound if the backing memory is mutable,
         // use with caution!
         let archived = unsafe {
@@ -1553,7 +1550,7 @@ mod tests {
         let a = 42;
         let value = Test { value: &a };
         let result =
-            serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
+            serialize_into::<_, Failure>(&value, AlignedVec::new()).unwrap();
         let archived =
             unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
@@ -1573,7 +1570,7 @@ mod tests {
 
         let value = Test { value: 42 };
         let result =
-            serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
+            serialize_into::<_, Failure>(&value, AlignedVec::new()).unwrap();
         let archived =
             unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
@@ -1594,7 +1591,7 @@ mod tests {
         let a = "hello world";
         let value = Test { value: &a };
         let result =
-            serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
+            serialize_into::<_, Failure>(&value, AlignedVec::new()).unwrap();
         let archived =
             unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
@@ -1621,12 +1618,10 @@ mod tests {
             b: Cow::Borrowed(&[1, 2, 3, 4, 5, 6]),
             c: Cow::Borrowed("hello world"),
         };
-        let result = serialize_into::<_, _, Failure>(
-            &value,
-            DefaultSerializer::default(),
-        )
-        .unwrap()
-        .into_writer();
+        let result =
+            serialize_into::<_, Failure>(&value, DefaultSerializer::default())
+                .unwrap()
+                .into_writer();
         let archived =
             unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
@@ -1670,12 +1665,10 @@ mod tests {
 
         let value = Test { a, b, c };
 
-        let result = serialize_into::<_, _, Failure>(
-            &value,
-            DefaultSerializer::default(),
-        )
-        .unwrap()
-        .into_writer();
+        let result =
+            serialize_into::<_, Failure>(&value, DefaultSerializer::default())
+                .unwrap()
+                .into_writer();
         let archived =
             unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
@@ -1736,12 +1729,10 @@ mod tests {
         let value = Test {
             inner: Some(Box::new("hello world".to_string())),
         };
-        let result = serialize_into::<_, _, Failure>(
-            &value,
-            DefaultSerializer::default(),
-        )
-        .unwrap()
-        .into_writer();
+        let result =
+            serialize_into::<_, Failure>(&value, DefaultSerializer::default())
+                .unwrap()
+                .into_writer();
         let archived =
             unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
@@ -1750,12 +1741,10 @@ mod tests {
         assert_eq!(archived.inner, value.inner);
 
         let value = Test { inner: None };
-        let result = serialize_into::<_, _, Failure>(
-            &value,
-            DefaultSerializer::default(),
-        )
-        .unwrap()
-        .into_writer();
+        let result =
+            serialize_into::<_, Failure>(&value, DefaultSerializer::default())
+                .unwrap()
+                .into_writer();
         let archived =
             unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
@@ -1814,12 +1803,10 @@ mod tests {
             e: Some(NonZeroU32::new(10).unwrap()),
             f: Some(NonZeroUsize::new(10).unwrap()),
         };
-        let result = serialize_into::<_, _, Failure>(
-            &value,
-            DefaultSerializer::default(),
-        )
-        .unwrap()
-        .into_writer();
+        let result =
+            serialize_into::<_, Failure>(&value, DefaultSerializer::default())
+                .unwrap()
+                .into_writer();
         let archived =
             unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
@@ -1844,12 +1831,10 @@ mod tests {
             e: None,
             f: None,
         };
-        let result = serialize_into::<_, _, Failure>(
-            &value,
-            DefaultSerializer::default(),
-        )
-        .unwrap()
-        .into_writer();
+        let result =
+            serialize_into::<_, Failure>(&value, DefaultSerializer::default())
+                .unwrap()
+                .into_writer();
         let archived =
             unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
 
@@ -1881,12 +1866,10 @@ mod tests {
         let value = Test {
             inner: UnsafeCell::new(100),
         };
-        let mut result = serialize_into::<_, _, Failure>(
-            &value,
-            DefaultSerializer::default(),
-        )
-        .unwrap()
-        .into_writer();
+        let mut result =
+            serialize_into::<_, Failure>(&value, DefaultSerializer::default())
+                .unwrap()
+                .into_writer();
         let archived = unsafe {
             access_unchecked_mut::<ArchivedTest>(result.as_mut_slice())
         };
@@ -1933,7 +1916,7 @@ mod tests {
         value.insert("bat".to_string(), 80);
 
         let result =
-            serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
+            serialize_into::<_, Failure>(&value, AlignedVec::new()).unwrap();
         let archived = unsafe {
             access_unchecked::<Archived<BTreeMap<String, i32>>>(
                 result.as_slice(),
@@ -1962,7 +1945,7 @@ mod tests {
         let value: BTreeMap<String, i32> = BTreeMap::new();
 
         let result =
-            serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
+            serialize_into::<_, Failure>(&value, AlignedVec::new()).unwrap();
         let archived = unsafe {
             access_unchecked::<Archived<BTreeMap<String, i32>>>(
                 result.as_slice(),
@@ -1992,7 +1975,7 @@ mod tests {
         value.insert("bat".to_string());
 
         let result =
-            serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
+            serialize_into::<_, Failure>(&value, AlignedVec::new()).unwrap();
         let archived = unsafe {
             access_unchecked::<Archived<BTreeSet<String>>>(result.as_slice())
         };
@@ -2025,7 +2008,7 @@ mod tests {
         }
 
         let result =
-            serialize_into::<_, _, Failure>(&value, AlignedVec::new()).unwrap();
+            serialize_into::<_, Failure>(&value, AlignedVec::new()).unwrap();
         let archived = unsafe {
             access_unchecked::<Archived<BTreeMap<String, i32>>>(
                 result.as_slice(),
@@ -2158,7 +2141,7 @@ mod tests {
         ]);
 
         let result =
-            serialize_into::<_, _, Failure>(&vec, DefaultSerializer::default())
+            serialize_into::<_, Failure>(&vec, DefaultSerializer::default())
                 .unwrap()
                 .into_writer();
         let archived = unsafe {

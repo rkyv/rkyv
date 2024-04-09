@@ -138,7 +138,7 @@ mod tests {
 
                 // Now serialize and deserialize and verify that the
                 // deserialized version contains `0..n`.
-                let bytes = to_bytes::<_, Failure>(&deque).unwrap();
+                let bytes = to_bytes::<Failure>(&deque).unwrap();
                 let archived = unsafe {
                     access_unchecked::<ArchivedVec<Archived<i32>>>(&bytes)
                 };

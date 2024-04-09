@@ -123,7 +123,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// };
 ///
 /// // Serializing is as easy as a single function call
-/// let bytes = rkyv::to_bytes::<_, Failure>(&value).unwrap();
+/// let bytes = rkyv::to_bytes::<Failure>(&value).unwrap();
 ///
 /// // Or you can customize your serialization for better performance
 /// // and compatibility with #![no_std] environments
@@ -246,7 +246,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// const STR_VAL: &'static str = "I'm in an OwnedStr!";
 /// let value = OwnedStr { inner: STR_VAL };
 /// // It works!
-/// let buf = to_bytes::<_, Failure>(&value).expect("failed to serialize");
+/// let buf = to_bytes::<Failure>(&value).expect("failed to serialize");
 /// let archived =
 ///     unsafe { access_unchecked::<ArchivedOwnedStr>(buf.as_ref()) };
 /// // Let's make sure our data got written correctly

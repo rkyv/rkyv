@@ -64,7 +64,7 @@ mod tests {
     fn bytes() {
         let value = Bytes::from(vec![10, 20, 40, 80]);
 
-        let bytes = to_bytes::<_, Failure>(&value).unwrap();
+        let bytes = to_bytes::<Failure>(&value).unwrap();
         let archived = unsafe { access_unchecked::<ArchivedVec<u8>>(&bytes) };
         assert_eq!(archived, &value);
 

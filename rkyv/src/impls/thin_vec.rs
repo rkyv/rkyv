@@ -74,7 +74,7 @@ mod tests {
 
         let value = ThinVec::from_iter([10, 20, 40, 80]);
 
-        let result = to_bytes::<_, Failure>(&value).unwrap();
+        let result = to_bytes::<Failure>(&value).unwrap();
         let archived = unsafe {
             access_unchecked::<Archived<ThinVec<i32>>>(result.as_ref())
         };

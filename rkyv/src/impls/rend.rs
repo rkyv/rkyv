@@ -106,7 +106,7 @@ mod tests {
         T::Archived:
             fmt::Debug + PartialEq<T> + Deserialize<T, Strategy<(), Failure>>,
     {
-        let bytes = to_bytes::<_, Failure>(value).unwrap();
+        let bytes = to_bytes::<Failure>(value).unwrap();
 
         let archived_value = unsafe { access_unchecked::<T::Archived>(&bytes) };
         assert_eq!(archived_value, value);
@@ -158,12 +158,12 @@ mod tests {
 
         // Big endian
         let value = i32_be::from_native(0x12345678);
-        let buf = to_bytes::<_, Failure>(&value).unwrap();
+        let buf = to_bytes::<Failure>(&value).unwrap();
         assert_eq!(&buf[0..4], &[0x12, 0x34, 0x56, 0x78]);
 
         // Little endian
         let value = i32_le::from_native(0x12345678i32);
-        let buf = to_bytes::<_, Failure>(&value).unwrap();
+        let buf = to_bytes::<Failure>(&value).unwrap();
         assert_eq!(&buf[0..4], &[0x78, 0x56, 0x34, 0x12]);
     }
 

@@ -32,7 +32,7 @@ mod tests {
     fn basic_functionality() {
         // Regular serializing
         let value = Some("Hello world".to_string());
-        let buf = to_bytes::<_, Failure>(&value).unwrap();
+        let buf = to_bytes::<Failure>(&value).unwrap();
 
         let result = access::<Archived<Option<String>>, Failure>(buf.as_ref());
         result.unwrap();
@@ -371,12 +371,10 @@ mod tests {
             b: shared.clone(),
         };
 
-        let buf = serialize_into::<_, _, Failure>(
-            &value,
-            DefaultSerializer::default(),
-        )
-        .unwrap()
-        .into_writer();
+        let buf =
+            serialize_into::<_, Failure>(&value, DefaultSerializer::default())
+                .unwrap()
+                .into_writer();
 
         access::<ArchivedTest, Failure>(buf.as_ref()).unwrap();
     }

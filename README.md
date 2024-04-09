@@ -77,7 +77,7 @@ let value = Test {
 };
 
 // Serializing is as easy as a single function call
-let bytes = rkyv::to_bytes::<_, 256>(&value).unwrap();
+let bytes = rkyv::to_bytes::<Failure>(&value).unwrap();
 
 // Or you can customize your serialization for better performance
 // and compatibility with #![no_std] environments

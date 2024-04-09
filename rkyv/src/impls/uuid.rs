@@ -47,11 +47,9 @@ mod rkyv_tests {
         let uuid_str = "f9168c5e-ceb2-4faa-b6bf-329bf39fa1e4";
         let u = Uuid::parse_str(uuid_str).unwrap();
 
-        let buf = crate::util::serialize_into::<_, _, Infallible>(
-            &u,
-            AlignedVec::new(),
-        )
-        .expect("failed to archive uuid");
+        let buf =
+            crate::util::serialize_into::<_, Infallible>(&u, AlignedVec::new())
+                .expect("failed to archive uuid");
         let archived = unsafe { access_unchecked::<Uuid>(buf.as_ref()) };
 
         assert_eq!(&u, archived);

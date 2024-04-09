@@ -61,7 +61,7 @@ mod tests {
     fn smolstr() {
         let value = SmolStr::new("smol_str");
 
-        let bytes = to_bytes::<_, Failure>(&value).unwrap();
+        let bytes = to_bytes::<Failure>(&value).unwrap();
         let archived = unsafe { access_unchecked::<ArchivedString>(&bytes) };
         assert_eq!(archived, &value);
 

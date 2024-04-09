@@ -70,7 +70,7 @@ mod tests {
     fn array_vec() {
         let value: ArrayVec<i32, 4> = ArrayVec::from([10, 20, 40, 80]);
 
-        let bytes = to_bytes::<_, Failure>(&value).unwrap();
+        let bytes = to_bytes::<Failure>(&value).unwrap();
         let archived =
             unsafe { access_unchecked::<Archived<ArrayVec<i32, 4>>>(&bytes) };
         assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
