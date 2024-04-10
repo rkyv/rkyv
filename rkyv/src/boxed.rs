@@ -12,7 +12,7 @@ use crate::{
 
 /// An archived [`Box`].
 ///
-/// This is a thin wrapper around a [`RelPtr`] to the archived type.
+/// This is a thin `#[repr(transparent)]` wrapper around a [`RelPtr`] to the archived type.
 #[derive(Portable)]
 #[archive(crate)]
 #[cfg_attr(

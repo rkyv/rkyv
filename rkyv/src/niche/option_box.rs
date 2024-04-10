@@ -20,6 +20,54 @@ pub struct ArchivedOptionBox<T: ArchivePointee + ?Sized> {
     inner: ArchivedBox<T>,
 }
 
+#[cfg(feature = "bytecheck")]
+const _: () = {
+    use crate::{
+        bytecheck::{CheckBytes, Verify},
+        rancor::Error,
+        validation::{ArchiveContext, LayoutRaw},
+        RelPtr,
+    };
+
+    unsafe impl<T, C> CheckBytes<C> for ArchivedOptionBox<T>
+    where
+        T: ArchivePointee + ?Sized,
+        C: Fallible + ?Sized,
+        ArchivedOptionBox<T>: Verify<C>,
+        RelPtr<T>: CheckBytes<C>,
+    {
+        unsafe fn check_bytes(
+            value: *const Self,
+            context: &mut C,
+        ) -> Result<(), C::Error> {
+            // bypass `ArchivedBox::check_bytes` in favor of `RelPtr::check_bytes`.
+            // both ArchivedOptionBox and ArchivedBox are transparent to the RelPtr,
+            // so casting to RelPtr is safe.
+            RelPtr::check_bytes(value.cast(), context)?;
+
+            // verify with null check
+            Self::verify(unsafe { &*value }, context)
+        }
+    }
+
+    unsafe impl<T, C> Verify<C> for ArchivedOptionBox<T>
+    where
+        T: ArchivePointee + CheckBytes<C> + LayoutRaw + ?Sized,
+        T::ArchivedMetadata: CheckBytes<C>,
+        C: Fallible + ArchiveContext + ?Sized,
+        C::Error: Error,
+    {
+        #[inline]
+        fn verify(&self, context: &mut C) -> Result<(), C::Error> {
+            if self.inner.is_null() {
+                Ok(()) // null pointer doesn't need to be checked
+            } else {
+                self.inner.verify(context)
+            }
+        }
+    }
+};
+
 impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
     /// Returns `true` if the option box is a `None` value.
     #[inline]
@@ -226,4 +274,38 @@ pub enum OptionBoxResolver {
     None,
     /// The resolver for the `ArchivedBox`
     Some(BoxResolver),
+}
+
+#[cfg(all(test, feature = "bytecheck"))]
+mod tests {
+    use crate::{rancor::Failure, Archived};
+
+    #[test]
+    fn test_option_box() {
+        #[derive(Debug, crate::Archive, crate::Serialize)]
+        #[archive(check_bytes, crate)]
+        struct Test {
+            #[with(crate::with::Niche)]
+            value: Option<Box<u128>>,
+        }
+
+        for value in [Some(128.into()), None] {
+            let test = Test { value };
+            let bytes = crate::to_bytes::<Test, 256, Failure>(&test).unwrap();
+            assert_eq!(bytes.len(), 4 + test.value.is_some() as usize * 16); // ptr + value?
+
+            let ar = match crate::access::<Archived<Test>, Failure>(&bytes) {
+                Ok(archived) => archived,
+                Err(e) => panic!("{} {:?}", e, test),
+            };
+
+            match test.value {
+                Some(value) => assert_eq!(
+                    ar.value.as_ref().unwrap().as_ref(),
+                    value.as_ref()
+                ),
+                None => assert!(ar.value.is_none()),
+            }
+        }
+    }
 }
