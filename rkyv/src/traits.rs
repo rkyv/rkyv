@@ -369,9 +369,9 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// use rkyv::{
 ///     primitive::ArchivedUsize,
 ///     ser::{AllocSerializer, Positional, Writer, WriterExt as _},
-///     util::{AlignedVec, access_unsized_unchecked, serialize_rel_ptr_into}, Archive, ArchivePointee, ArchiveUnsized, Archived,
+///     util::AlignedVec, Archive, ArchivePointee, ArchiveUnsized, Archived,
 ///     ArchivedMetadata, RelPtr, Serialize, SerializeUnsized, rancor::{Error, Fallible},
-///     Portable,
+///     Portable, to_bytes, access_unchecked,
 /// };
 ///
 /// // We're going to be dealing mostly with blocks that have a trailing slice
@@ -458,25 +458,24 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     }
 /// }
 ///
-/// let value = Block {
+/// let value = Box::new(Block {
 ///     head: "Numbers 1-4".to_string(),
 ///     tail: [1, 2, 3, 4],
-/// };
-/// // We have a Block<String, [i32; 4]> but we want to it to be a
-/// // Block<String, [i32]>, so we need to do more pointer transmutation
-/// let ptr = (&value as *const Block<String, [i32; 4]>).cast::<()>();
-/// let unsized_value = unsafe {
-///     &*transmute::<(*const (), usize), *const Block<String, [i32]>>((ptr, 4))
-/// };
+/// });
 ///
-/// let buf = serialize_rel_ptr_into::<_, Error>(
-///     unsized_value,
-///     AllocSerializer::default(),
-/// ).expect("failed to serialize block").into_writer();
+/// // We have a Box<Block<String, [i32; 4]>> but we want to it to be a
+/// // Box<Block<String, [i32]>>, so we need manually "unsize" the pointer.
+/// let ptr = Box::into_raw(value);
+/// let unsized_ptr = ptr_meta::from_raw_parts_mut::<Block<String, [i32]>>(
+///     ptr.cast::<()>(),
+///     4,
+/// );
+/// let unsized_value = unsafe { Box::from_raw(unsized_ptr) };
 ///
-/// type ArchivedBlock = <Block<String, [i32]> as ArchiveUnsized>::Archived;
+/// let bytes = to_bytes::<Error>(&unsized_value).unwrap();
+///
 /// let archived = unsafe {
-///     access_unsized_unchecked::<ArchivedBlock>(&buf)
+///     access_unchecked::<Archived<Box<Block<String, [i32]>>>>(&bytes)
 /// };
 /// assert_eq!(archived.head, "Numbers 1-4");
 /// assert_eq!(archived.tail.len(), 4);

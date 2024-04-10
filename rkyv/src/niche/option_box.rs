@@ -24,9 +24,9 @@ pub struct ArchivedOptionBox<T: ArchivePointee + ?Sized> {
 const _: () = {
     use crate::{
         bytecheck::{CheckBytes, Verify},
-        rancor::Error,
-        validation::{ArchiveContext, LayoutRaw},
-        RelPtr,
+        rancor::Source,
+        validation::ArchiveContext,
+        LayoutRaw, RelPtr,
     };
 
     unsafe impl<T, C> CheckBytes<C> for ArchivedOptionBox<T>
@@ -40,9 +40,10 @@ const _: () = {
             value: *const Self,
             context: &mut C,
         ) -> Result<(), C::Error> {
-            // bypass `ArchivedBox::check_bytes` in favor of `RelPtr::check_bytes`.
-            // both ArchivedOptionBox and ArchivedBox are transparent to the RelPtr,
-            // so casting to RelPtr is safe.
+            // bypass `ArchivedBox::check_bytes` in favor of
+            // `RelPtr::check_bytes`. both ArchivedOptionBox and
+            // ArchivedBox are transparent to the RelPtr, so casting
+            // to RelPtr is safe.
             RelPtr::check_bytes(value.cast(), context)?;
 
             // verify with null check
@@ -55,7 +56,7 @@ const _: () = {
         T: ArchivePointee + CheckBytes<C> + LayoutRaw + ?Sized,
         T::ArchivedMetadata: CheckBytes<C>,
         C: Fallible + ArchiveContext + ?Sized,
-        C::Error: Error,
+        C::Error: Source,
     {
         #[inline]
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {
@@ -291,7 +292,7 @@ mod tests {
 
         for value in [Some(128.into()), None] {
             let test = Test { value };
-            let bytes = crate::to_bytes::<Test, 256, Failure>(&test).unwrap();
+            let bytes = crate::to_bytes::<Failure>(&test).unwrap();
             assert_eq!(bytes.len(), 4 + test.value.is_some() as usize * 16); // ptr + value?
 
             let ar = match crate::access::<Archived<Test>, Failure>(&bytes) {
