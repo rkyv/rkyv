@@ -8,10 +8,8 @@ pub mod core {
         access_unchecked, deserialize,
         rancor::{Error, Strategy},
         ser::Positional as _,
-        util::{
-            access_unsized_unchecked, serialize_into, serialize_rel_ptr_into,
-        },
-        Deserialize, Serialize, SerializeUnsized,
+        util::serialize_into,
+        Deserialize, Serialize,
     };
 
     const BUFFER_SIZE: usize = 256;
@@ -52,24 +50,6 @@ pub mod core {
             + Deserialize<T, Strategy<DefaultDeserializer, Error>>,
     {
         test_archive_with(value, |a, b| b == a);
-    }
-
-    pub fn test_archive_ref<T>(value: &T)
-    where
-        T: Debug
-            + SerializeUnsized<Strategy<DefaultSerializer, Error>>
-            + ?Sized,
-        T::Archived: Debug + PartialEq<T>,
-    {
-        let serializer =
-            serialize_rel_ptr_into(value, DefaultSerializer::default())
-                .expect("failed to serialize relative pointer");
-        let len = serializer.pos();
-        let buffer = serializer.writer.inner();
-
-        let archived_ref =
-            unsafe { access_unsized_unchecked::<T::Archived>(&buffer[0..len]) };
-        assert_eq!(archived_ref, value);
     }
 }
 

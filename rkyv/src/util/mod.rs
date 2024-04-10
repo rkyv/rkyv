@@ -29,10 +29,7 @@ pub use self::aligned_vec::*;
 pub use self::scratch_vec::*;
 #[cfg(feature = "alloc")]
 use crate::{de::pooling::Unify, ser::AllocSerializer};
-use crate::{
-    ser::Writer, Archive, ArchivePointee, Deserialize, Portable, RelPtr,
-    Serialize, SerializeUnsized,
-};
+use crate::{ser::Writer, Archive, Deserialize, Portable, Serialize};
 
 #[cfg(debug_assertions)]
 #[inline]
@@ -58,10 +55,8 @@ fn check_alignment<T: Portable>(ptr: *const u8) {
 /// Accesses an archived value from the given byte slice at the given position.
 ///
 /// This function does not check that the data at the given position is valid.
-/// Use [`access_pos`](crate::validation::util::access_pos)
-///
-/// This helps avoid situations where lifetimes get inappropriately assigned and
-/// allow buffer mutation after getting archived value references.
+/// Use [`access_pos`](crate::validation::util::access_pos) to validate the data
+/// instead.
 ///
 /// # Safety
 ///
@@ -80,8 +75,9 @@ pub unsafe fn access_pos_unchecked<T: Portable>(
 /// Accesses a mutable archived value from the given byte slice at the given
 /// position.
 ///
-/// This helps avoid situations where lifetimes get inappropriately assigned and
-/// allow buffer mutation after getting archived value references.
+/// This function does not check that the data at the given position is valid.
+/// Use [`access_pos_mut`](crate::validation::util::access_pos_mut) to validate
+/// the data instead.
 ///
 /// # Safety
 ///
@@ -95,53 +91,6 @@ pub unsafe fn access_pos_unchecked_mut<T: Portable>(
     check_alignment::<T>(bytes.as_ptr());
 
     Pin::new_unchecked(&mut *bytes.as_mut_ptr().add(pos).cast())
-}
-
-/// Accesses a [`RelPtr`] that points to an archived value from the given byte
-/// slice at the given position.
-///
-/// This helps avoid situations where lifetimes get inappropriately assigned and
-/// allow buffer mutation after getting archived value references.
-///
-/// # Safety
-///
-/// A `RelPtr<T>` must be located at the given position in the byte
-/// slice.
-#[inline]
-pub unsafe fn access_pos_unsized_unchecked<T>(bytes: &[u8], pos: usize) -> &T
-where
-    T: ?Sized + ArchivePointee + Portable,
-{
-    #[cfg(debug_assertions)]
-    check_alignment::<RelPtr<T>>(bytes.as_ptr());
-
-    let rel_ptr = &*bytes.as_ptr().add(pos).cast::<RelPtr<T>>();
-    &*rel_ptr.as_ptr()
-}
-
-/// Accesses a mutable [`RelPtr`] that points to an archived value from the
-/// given byte slice at the given position.
-///
-/// This helps avoid situations where lifetimes get inappropriately assigned and
-/// allow buffer mutation after getting archived value references.
-///
-/// # Safety
-///
-/// A `RelPtr<T>` must be located at the given position in the byte
-/// slice.
-#[inline]
-pub unsafe fn access_pos_unsized_unchecked_mut<T>(
-    bytes: &mut [u8],
-    pos: usize,
-) -> Pin<&mut T>
-where
-    T: ?Sized + ArchivePointee + Portable,
-{
-    #[cfg(debug_assertions)]
-    check_alignment::<RelPtr<T>>(bytes.as_ptr());
-
-    let rel_ptr = &mut *bytes.as_mut_ptr().add(pos).cast::<RelPtr<T>>();
-    Pin::new_unchecked(&mut *rel_ptr.as_ptr())
 }
 
 /// Accesses an archived value from the given byte slice by calculating the root
@@ -183,54 +132,6 @@ pub unsafe fn access_unchecked_mut<T: Portable>(
 ) -> Pin<&mut T> {
     let pos = bytes.len() - mem::size_of::<T>();
     access_pos_unchecked_mut::<T>(bytes, pos)
-}
-
-/// Accesses a [`RelPtr`] that points to an archived value from the given byte
-/// slice by calculating the root position.
-///
-/// This is a wrapper for [`access_unsized_unchecked`] that calculates the
-/// position of the root object using the length of the byte slice. If your byte
-/// slice is not guaranteed to end immediately after the root object, you may
-/// need to store the position of the root object returned from
-/// [`serialize_and_resolve_rel_ptr`](crate::SerializeUnsized::serialize_and_resolve_rel_ptr).
-///
-/// # Safety
-///
-/// - The byte slice must represent an archived object.
-/// - The root of the object must be stored at the end of the slice (this is the
-///   default behavior).
-#[inline]
-pub unsafe fn access_unsized_unchecked<T>(bytes: &[u8]) -> &T
-where
-    T: ?Sized + ArchivePointee + Portable,
-{
-    access_pos_unsized_unchecked::<T>(
-        bytes,
-        bytes.len() - mem::size_of::<RelPtr<T>>(),
-    )
-}
-
-/// Accesses a mutable [`RelPtr`] that points to an archived value from the
-/// given byte slice by calculating the root position.
-///
-/// This is a wrapper for [`access_unsized_unchecked_mut`] that calculates the
-/// position of the root object using the length of the byte slice. If your byte
-/// slice is not guaranteed to end immediately after the root object, you may
-/// need to store the position of the root object returned from
-/// [`serialize_and_resolve_rel_ptr`](crate::SerializeUnsized::serialize_and_resolve_rel_ptr).
-///
-/// # Safety
-///
-/// - The byte slice must represent an archived object.
-/// - The root of the object must be stored at the end of the slice (this is the
-///   default behavior).
-#[inline]
-pub unsafe fn access_unsized_unchecked_mut<T>(bytes: &mut [u8]) -> Pin<&mut T>
-where
-    T: ?Sized + ArchivePointee + Portable,
-{
-    let pos = bytes.len() - mem::size_of::<RelPtr<T>>();
-    access_pos_unsized_unchecked_mut::<T>(bytes, pos)
 }
 
 /// A buffer of bytes aligned to 16 bytes.
@@ -338,20 +239,6 @@ where
     Ok(serializer)
 }
 
-/// Serializes a [`RelPtr`] to the given unsized value into the given serializer
-/// and then returns the serializer.
-#[inline]
-pub fn serialize_rel_ptr_into<S, E>(
-    value: &(impl SerializeUnsized<Strategy<S, E>> + ?Sized),
-    mut serializer: S,
-) -> Result<S, E>
-where
-    S: Writer<E>,
-{
-    serialize_rel_ptr(value, &mut serializer)?;
-    Ok(serializer)
-}
-
 /// Serializes the given value into the given serializer.
 #[inline]
 pub fn serialize<S, E>(
@@ -362,20 +249,6 @@ where
     S: Writer<E> + ?Sized,
 {
     value.serialize_and_resolve(Strategy::wrap(serializer))?;
-    Ok(())
-}
-
-/// Serializes a [`RelPtr`] to the given unsized value into the given
-/// serializer.
-#[inline]
-pub fn serialize_rel_ptr<S, E>(
-    value: &(impl SerializeUnsized<Strategy<S, E>> + ?Sized),
-    serializer: &mut S,
-) -> Result<(), E>
-where
-    S: Writer<E> + ?Sized,
-{
-    value.serialize_and_resolve_rel_ptr(Strategy::wrap(serializer))?;
     Ok(())
 }
 

@@ -21,9 +21,7 @@ mod tests {
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
 
-    use crate::util::core::{
-        test_archive, test_archive_ref, test_archive_with,
-    };
+    use crate::util::core::{test_archive, test_archive_with};
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
@@ -57,25 +55,18 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn archive_refs() {
-        test_archive_ref::<[i32; 4]>(&[1, 2, 3, 4]);
-        test_archive_ref::<str>("hello world");
-        test_archive_ref::<[i32]>([1, 2, 3, 4].as_ref());
+    fn archive_unsized() {
+        test_archive::<Box<[i32; 4]>>(&Box::new([1, 2, 3, 4]));
+        test_archive::<Box<str>>(&String::from("hello world").into_boxed_str());
+        test_archive::<Box<[i32]>>(&Vec::from([1, 2, 3, 4]).into_boxed_slice());
     }
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn archive_slices() {
-        test_archive_ref::<str>("hello world");
-        test_archive_ref::<[i32]>([1, 2, 3, 4].as_ref());
-    }
-
-    #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn archive_empty_slice() {
-        test_archive_ref::<[i32; 0]>(&[]);
-        test_archive_ref::<[i32]>([].as_ref());
-        test_archive_ref::<str>("");
+    fn archive_empty_unsized() {
+        test_archive::<Box<[i32; 0]>>(&Box::new([]));
+        test_archive::<Box<str>>(&String::from("").into_boxed_str());
+        test_archive::<Box<[i32]>>(&Vec::from([]).into_boxed_slice());
     }
 
     #[test]
@@ -115,9 +106,11 @@ mod tests {
         struct MyZST;
 
         test_archive::<[MyZST; 0]>(&[]);
-        test_archive_ref::<[MyZST]>(&[]);
+        test_archive::<Box<[MyZST]>>(&Vec::from([]).into_boxed_slice());
         test_archive::<[MyZST; 4]>(&[MyZST, MyZST, MyZST, MyZST]);
-        test_archive_ref::<[MyZST]>(&[MyZST, MyZST, MyZST, MyZST]);
+        test_archive::<Box<[MyZST]>>(
+            &Vec::from([MyZST, MyZST, MyZST, MyZST]).into_boxed_slice(),
+        );
     }
 
     #[test]
