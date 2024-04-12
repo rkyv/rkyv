@@ -6,7 +6,7 @@ use crate::{attributes::Attributes, repr::Repr};
 
 pub fn derive(mut input: DeriveInput) -> Result<TokenStream, Error> {
     let attributes = Attributes::parse(&input)?;
-    let rkyv_path = attributes.rkyv_path();
+    let rkyv_path = attributes.crate_path();
 
     let where_clause = input.generics.make_where_clause();
 

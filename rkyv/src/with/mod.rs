@@ -5,75 +5,13 @@
 
 mod impls;
 
-use core::{fmt, marker::PhantomData, mem::transmute, ops::Deref};
+use core::{fmt, marker::PhantomData, ops::Deref};
 
 use rancor::Fallible;
 
-use crate::{Archive, Deserialize, Portable, Serialize};
+use crate::Portable;
 
 // TODO: Gate unsafe wrappers behind Unsafe.
-
-/// A transparent wrapper for archived fields.
-///
-/// This is used by the `#[with(...)]` attribute in the
-/// [`Archive`](macro@crate::Archive) macro to create transparent serialization
-/// wrappers. Those wrappers leverage [`ArchiveWith`] to change how the type is
-/// archived, serialized, and deserialized.
-///
-/// When a field is serialized, a reference to the field (i.e. `&T`) can be cast
-/// to a reference to a wrapping `With` (i.e. `With<T, Wrapper>`) and serialized
-/// instead. This is safe to do because `With` is a transparent wrapper and is
-/// shaped exactly the same as the underlying field.
-///
-/// # Example
-///
-/// ```
-/// use rkyv::{Archive, with::Inline};
-///
-/// #[derive(Archive)]
-/// struct Example<'a> {
-///     // This will archive as if it were With<&'a i32, Inline>. That will delegate the archival
-///     // to the ArchiveWith implementation of Inline for &T.
-///     #[with(Inline)]
-///     a: &'a i32,
-/// }
-/// ```
-#[repr(transparent)]
-#[derive(Debug)]
-pub struct With<F: ?Sized, W> {
-    _phantom: PhantomData<W>,
-    field: F,
-}
-
-impl<F: ?Sized, W> With<F, W> {
-    /// Casts a `With` reference from a reference to the underlying field.
-    ///
-    /// This is always safe to do because `With` is a transparent wrapper.
-    #[inline]
-    pub fn cast(field: &F) -> &'_ With<F, W> {
-        // Safety: transmuting from an unsized type reference to a reference to
-        // a transparent wrapper is safe because they both have the same
-        // data address and metadata
-        #[allow(clippy::transmute_ptr_to_ptr)]
-        unsafe {
-            transmute(field)
-        }
-    }
-}
-
-impl<F, W> With<F, W> {
-    /// Unwraps a `With` into the underlying field.
-    #[inline]
-    pub fn into_inner(self) -> F {
-        self.field
-    }
-}
-
-impl<F: ?Sized, W> AsRef<F> for With<F, W> {
-    fn as_ref(&self) -> &F {
-        &self.field
-    }
-}
 
 /// A variant of [`Archive`] that works with [`With`] wrappers.
 ///
@@ -168,9 +106,9 @@ impl<F: ?Sized, W> AsRef<F> for With<F, W> {
 /// assert_eq!(deserialized.b, 9);
 /// ```
 pub trait ArchiveWith<F: ?Sized> {
-    /// The archived type of a `With<F, Self>`.
+    /// The archived type of `Self` with `F`.
     type Archived: Portable;
-    /// The resolver of a `With<F, Self>`.
+    /// The resolver of a `Self` with `F`.
     type Resolver;
 
     /// Resolves the archived type using a reference to the field type `F`.
@@ -187,21 +125,6 @@ pub trait ArchiveWith<F: ?Sized> {
     );
 }
 
-impl<F: ?Sized, W: ArchiveWith<F>> Archive for With<F, W> {
-    type Archived = W::Archived;
-    type Resolver = W::Resolver;
-
-    #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
-        W::resolve_with(&self.field, pos, resolver, out.cast());
-    }
-}
-
 /// A variant of `Serialize` that works with `With` wrappers.
 pub trait SerializeWith<F: ?Sized, S: Fallible + ?Sized>:
     ArchiveWith<F>
@@ -213,44 +136,11 @@ pub trait SerializeWith<F: ?Sized, S: Fallible + ?Sized>:
     ) -> Result<Self::Resolver, S::Error>;
 }
 
-impl<F, W, S> Serialize<S> for With<F, W>
-where
-    F: ?Sized,
-    W: SerializeWith<F, S>,
-    S: Fallible + ?Sized,
-{
-    #[inline]
-    fn serialize(
-        &self,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
-        W::serialize_with(&self.field, serializer)
-    }
-}
-
 /// A variant of `Deserialize` that works with `With` wrappers.
 pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
     /// Deserializes the field type `F` using the given deserializer.
     fn deserialize_with(field: &F, deserializer: &mut D)
         -> Result<T, D::Error>;
-}
-
-impl<F, W, T, D> Deserialize<With<T, W>, D> for F
-where
-    F: ?Sized,
-    W: DeserializeWith<F, T, D>,
-    D: Fallible + ?Sized,
-{
-    #[inline]
-    fn deserialize(
-        &self,
-        deserializer: &mut D,
-    ) -> Result<With<T, W>, D::Error> {
-        Ok(With {
-            _phantom: PhantomData,
-            field: W::deserialize_with(self, deserializer)?,
-        })
-    }
 }
 
 /// A wrapper to make a type immutable.

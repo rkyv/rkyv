@@ -7,8 +7,7 @@ use syn::{
 
 use crate::{
     attributes::Attributes,
-    util::is_not_omitted,
-    with::{make_with_ty, with_inner},
+    util::{archive_bound, deserialize, deserialize_bound, is_not_omitted},
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -20,8 +19,7 @@ fn derive_deserialize_impl(
     mut input: DeriveInput,
     attributes: &Attributes,
 ) -> Result<TokenStream, Error> {
-    let rkyv_path = attributes.rkyv_path();
-    let with_ty = make_with_ty(&rkyv_path);
+    let rkyv_path = attributes.crate_path();
 
     let where_clause = input.generics.make_where_clause();
     if let Some(ref bounds) = attributes.archive_bounds {
@@ -58,30 +56,19 @@ fn derive_deserialize_impl(
             Fields::Named(ref fields) => {
                 let mut deserialize_where = where_clause.clone();
                 for field in fields.named.iter().filter(is_not_omitted) {
-                    let ty = with_ty(field)?;
                     deserialize_where
                         .predicates
-                        .push(parse_quote! { #ty: #rkyv_path::Archive });
-                    deserialize_where.predicates.push(
-                        parse_quote! { #rkyv_path::Archived<#ty>: #rkyv_path::Deserialize<#ty, __D> },
-                    );
+                        .push(archive_bound(&rkyv_path, field)?);
+                    deserialize_where
+                        .predicates
+                        .push(deserialize_bound(&rkyv_path, field)?);
                 }
 
-                let deserialize_fields = fields.named.iter().map(|f| {
-                    let name = &f.ident;
-                    let ty = with_ty(f).unwrap();
-                    let value = with_inner(
-                        f,
-                        parse_quote! {
-                            #rkyv_path::Deserialize::<#ty, __D>::deserialize(
-                                &self.#name,
-                                deserializer,
-                            )?
-                        },
-                    )
-                    .unwrap();
-                    quote! { #name: #value }
-                });
+                let deserialize_fields = fields.named.iter().map(|field| -> Result<TokenStream, Error> {
+                    let name = &field.ident;
+                    let deserialize = deserialize(&rkyv_path, field)?;
+                    Ok(quote! { #name: #deserialize(&self.#name, deserializer)? })
+                }).collect::<Result<Vec<_>, _>>()?;
 
                 quote! {
                     impl #impl_generics #rkyv_path::Deserialize<#name #ty_generics, __D> for #rkyv_path::Archived<#name #ty_generics> #deserialize_where {
@@ -97,31 +84,29 @@ fn derive_deserialize_impl(
             Fields::Unnamed(ref fields) => {
                 let mut deserialize_where = where_clause.clone();
                 for field in fields.unnamed.iter().filter(is_not_omitted) {
-                    let ty = with_ty(field)?;
                     deserialize_where
                         .predicates
-                        .push(parse_quote! { #ty: #rkyv_path::Archive });
-                    deserialize_where.predicates.push(
-                        parse_quote! { #rkyv_path::Archived<#ty>: #rkyv_path::Deserialize<#ty, __D> },
-                    );
+                        .push(archive_bound(&rkyv_path, field)?);
+                    deserialize_where
+                        .predicates
+                        .push(deserialize_bound(&rkyv_path, field)?);
                 }
 
-                let deserialize_fields =
-                    fields.unnamed.iter().enumerate().map(|(i, f)| {
+                let deserialize_fields = fields
+                    .unnamed
+                    .iter()
+                    .enumerate()
+                    .map(|(i, field)| -> Result<TokenStream, Error> {
                         let index = Index::from(i);
-                        let ty = with_ty(f).unwrap();
-                        let value = with_inner(
-                            f,
-                            parse_quote! {
-                                #rkyv_path::Deserialize::<#ty, __D>::deserialize(
-                                    &self.#index,
-                                    deserializer,
-                                )?
-                            },
-                        )
-                        .unwrap();
-                        quote! { #value }
-                    });
+                        let deserialize = deserialize(&rkyv_path, field)?;
+                        Ok(quote! {
+                            #deserialize(
+                                &self.#index,
+                                deserializer,
+                            )?
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
 
                 quote! {
                     impl #impl_generics #rkyv_path::Deserialize<#name #ty_generics, __D> for #rkyv_path::Archived<#name #ty_generics> #deserialize_where {
@@ -150,88 +135,76 @@ fn derive_deserialize_impl(
                     Fields::Named(ref fields) => {
                         for field in fields.named.iter().filter(is_not_omitted)
                         {
-                            let ty = with_ty(field)?;
-                            deserialize_where.predicates.push(
-                                parse_quote! { #ty: #rkyv_path::Archive },
-                            );
                             deserialize_where
                                 .predicates
-                                .push(parse_quote! { #rkyv_path::Archived<#ty>: #rkyv_path::Deserialize<#ty, __D> });
+                                .push(archive_bound(&rkyv_path, field)?);
+                            deserialize_where
+                                .predicates
+                                .push(deserialize_bound(&rkyv_path, field)?);
                         }
                     }
                     Fields::Unnamed(ref fields) => {
                         for field in
                             fields.unnamed.iter().filter(is_not_omitted)
                         {
-                            let ty = with_ty(field)?;
-                            deserialize_where.predicates.push(
-                                parse_quote! { #ty: #rkyv_path::Archive },
-                            );
                             deserialize_where
                                 .predicates
-                                .push(parse_quote! { #rkyv_path::Archived<#ty>: #rkyv_path::Deserialize<#ty, __D> });
+                                .push(archive_bound(&rkyv_path, field)?);
+                            deserialize_where
+                                .predicates
+                                .push(deserialize_bound(&rkyv_path, field)?);
                         }
                     }
                     Fields::Unit => (),
                 }
             }
 
-            let deserialize_variants = data.variants.iter().map(|v| {
+            let deserialize_variants = data.variants.iter().map(|v| -> Result<TokenStream, Error> {
                 let variant = &v.ident;
                 match v.fields {
                     Fields::Named(ref fields) => {
-                        let bindings = fields.named.iter().map(|f| {
-                            let name = &f.ident;
+                        let bindings = fields.named.iter().map(|field| {
+                            let name = &field.ident;
                             quote! { #name }
                         });
-                        let fields = fields.named.iter().map(|f| {
-                            let name = &f.ident;
-                            let ty = with_ty(f).unwrap();
-                            let value = with_inner(
-                                f,
-                                parse_quote! {
-                                    #rkyv_path::Deserialize::<#ty, __D>::deserialize(
-                                        #name,
-                                        deserializer,
-                                    )?
-                                },
-                            )
-                            .unwrap();
-                            quote! { #name: #value }
-                        });
-                        quote! {
+                        let fields = fields.named.iter().map(|field| -> Result<TokenStream, Error> {
+                            let name = &field.ident;
+                            let deserialize = deserialize(&rkyv_path, field)?;
+                            Ok(quote! {
+                                #name: #deserialize(
+                                    #name,
+                                    deserializer,
+                                )?
+                            })
+                        }).collect::<Result<Vec<_>, _>>()?;
+                        Ok(quote! {
                             Self::#variant { #(#bindings,)* } => #name::#variant { #(#fields,)* }
-                        }
+                        })
                     }
                     Fields::Unnamed(ref fields) => {
                         let bindings = fields.unnamed.iter().enumerate().map(|(i, f)| {
                             let name = Ident::new(&format!("_{}", i), f.span());
                             quote! { #name }
                         });
-                        let fields = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                            let binding = Ident::new(&format!("_{}", i), f.span());
-                            let ty = with_ty(f).unwrap();
-                            let value = with_inner(
-                                f,
-                                parse_quote! {
-                                    #rkyv_path::Deserialize::<#ty, __D>::deserialize(
-                                        #binding,
-                                        deserializer,
-                                    )?
-                                },
-                            )
-                            .unwrap();
-                            quote! { #value }
-                        });
-                        quote! {
+                        let fields = fields.unnamed.iter().enumerate().map(|(i, field)| -> Result<TokenStream, Error> {
+                            let binding = Ident::new(&format!("_{}", i), field.span());
+                            let deserialize = deserialize(&rkyv_path, field)?;
+                            Ok(quote! {
+                                #deserialize(
+                                    #binding,
+                                    deserializer,
+                                )?
+                            })
+                        }).collect::<Result<Vec<_>, _>>()?;
+                        Ok(quote! {
                             Self::#variant( #(#bindings,)* ) => #name::#variant(#(#fields,)*)
-                        }
+                        })
                     }
                     Fields::Unit => {
-                        quote! { Self::#variant => #name::#variant }
+                        Ok(quote! { Self::#variant => #name::#variant })
                     }
                 }
-            });
+            }).collect::<Result<Vec<_>, _>>()?;
 
             quote! {
                 impl #impl_generics #rkyv_path::Deserialize<#name #ty_generics, __D> for #rkyv_path::Archived<#name #ty_generics> #deserialize_where {

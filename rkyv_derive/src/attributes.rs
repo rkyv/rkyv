@@ -32,7 +32,7 @@ pub struct Attributes {
     pub serialize_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
     pub deserialize_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
     pub check_bytes: Option<Path>,
-    rkyv_path: Option<Path>,
+    pub crate_path: Option<Path>,
 }
 
 impl Attributes {
@@ -99,10 +99,10 @@ impl Attributes {
         } else if meta.path.is_ident("crate") {
             if meta.input.parse::<Token![=]>().is_ok() {
                 let path = meta.input.parse::<Path>()?;
-                try_set_attribute(&mut self.rkyv_path, path, "crate")
+                try_set_attribute(&mut self.crate_path, path, "crate")
             } else if meta.input.is_empty() {
                 try_set_attribute(
-                    &mut self.rkyv_path,
+                    &mut self.crate_path,
                     parse_quote! { crate },
                     "crate",
                 )
@@ -136,8 +136,8 @@ impl Attributes {
         Ok(result)
     }
 
-    pub fn rkyv_path(&self) -> Path {
-        self.rkyv_path
+    pub fn crate_path(&self) -> Path {
+        self.crate_path
             .clone()
             .unwrap_or_else(|| parse_quote! { ::rkyv })
     }

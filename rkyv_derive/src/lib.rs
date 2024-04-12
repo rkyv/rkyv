@@ -14,7 +14,6 @@ mod repr;
 mod serde;
 mod serialize;
 mod util;
-mod with;
 
 extern crate proc_macro;
 
@@ -108,7 +107,7 @@ pub fn derive_archive(
     let mut derive_input = parse_macro_input!(input as DeriveInput);
     serde::receiver::replace_receiver(&mut derive_input);
 
-    match archive::derive(derive_input) {
+    match archive::derive(&mut derive_input) {
         Ok(result) => result.into(),
         Err(e) => e.to_compile_error().into(),
     }
