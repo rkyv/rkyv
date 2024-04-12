@@ -49,7 +49,10 @@ macro_rules! define_multibyte_primitive {
 }
 
 macro_rules! define_multibyte_primitives {
-    ($($archived:ident: $name:ident, $le:ty, $ule:ty, $be:ty, $ube:ty);* $(;)?) => {
+    (
+        $($archived:ident: $name:ident, $le:ty, $ule:ty, $be:ty, $ube:ty);*
+        $(;)?
+    ) => {
         $(
             define_multibyte_primitive!($archived: $name, $le, $ule, $be, $ube);
         )*
@@ -95,14 +98,61 @@ pub type ArchivedUsize =
     match_pointer_width!(ArchivedU16, ArchivedU32, ArchivedU64);
 
 define_multibyte_primitives! {
-    ArchivedNonZeroI16: NonZeroI16, NonZeroI16_le, NonZeroI16_ule, NonZeroI16_be, NonZeroI16_ube;
-    ArchivedNonZeroI32: NonZeroI32, NonZeroI32_le, NonZeroI32_ule, NonZeroI32_be, NonZeroI32_ube;
-    ArchivedNonZeroI64: NonZeroI64, NonZeroI64_le, NonZeroI64_ule, NonZeroI64_be, NonZeroI64_ube;
-    ArchivedNonZeroI128: NonZeroI128, NonZeroI128_le, NonZeroI128_ule, NonZeroI128_be, NonZeroI128_ube;
-    ArchivedNonZeroU16: NonZeroU16, NonZeroU16_le, NonZeroU16_ule, NonZeroU16_be, NonZeroU16_ube;
-    ArchivedNonZeroU32: NonZeroU32, NonZeroU32_le, NonZeroU32_ule, NonZeroU32_be, NonZeroU32_ube;
-    ArchivedNonZeroU64: NonZeroU64, NonZeroU64_le, NonZeroU64_ule, NonZeroU64_be, NonZeroU64_ube;
-    ArchivedNonZeroU128: NonZeroU128, NonZeroU128_le, NonZeroU128_ule, NonZeroU128_be, NonZeroU128_ube;
+    ArchivedNonZeroI16:
+        NonZeroI16,
+        NonZeroI16_le,
+        NonZeroI16_ule,
+        NonZeroI16_be,
+        NonZeroI16_ube;
+
+    ArchivedNonZeroI32:
+        NonZeroI32,
+        NonZeroI32_le,
+        NonZeroI32_ule,
+        NonZeroI32_be,
+        NonZeroI32_ube;
+
+    ArchivedNonZeroI64:
+        NonZeroI64,
+        NonZeroI64_le,
+        NonZeroI64_ule,
+        NonZeroI64_be,
+        NonZeroI64_ube;
+
+    ArchivedNonZeroI128:
+        NonZeroI128,
+        NonZeroI128_le,
+        NonZeroI128_ule,
+        NonZeroI128_be,
+        NonZeroI128_ube;
+
+    ArchivedNonZeroU16:
+        NonZeroU16,
+        NonZeroU16_le,
+        NonZeroU16_ule,
+        NonZeroU16_be,
+        NonZeroU16_ube;
+
+    ArchivedNonZeroU32:
+        NonZeroU32,
+        NonZeroU32_le,
+        NonZeroU32_ule,
+        NonZeroU32_be,
+        NonZeroU32_ube;
+
+    ArchivedNonZeroU64:
+        NonZeroU64,
+        NonZeroU64_le,
+        NonZeroU64_ule,
+        NonZeroU64_be,
+        NonZeroU64_ube;
+
+    ArchivedNonZeroU128:
+        NonZeroU128,
+        NonZeroU128_le,
+        NonZeroU128_ule,
+        NonZeroU128_be,
+        NonZeroU128_ube;
 }
 
 /// The native type that `NonZeroIsize` is converted to for archiving.

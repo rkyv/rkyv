@@ -140,7 +140,8 @@ macro_rules! impl_tuple {
             }
         }
 
-        impl<$($type,)* D> Deserialize<($($type,)*), D> for $name<$($type::Archived,)*>
+        impl<$($type,)* D> Deserialize<($($type,)*), D>
+            for $name<$($type::Archived,)*>
         where
             D: Fallible + ?Sized,
             $($type: Archive,)*
@@ -167,15 +168,23 @@ impl_tuple!(ArchivedTuple5, T0 0, T1 1, T2 2, T3 3, T4 4);
 impl_tuple!(ArchivedTuple6, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5);
 impl_tuple!(ArchivedTuple7, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6);
 impl_tuple!(ArchivedTuple8, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7);
-impl_tuple!(ArchivedTuple9, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8);
-impl_tuple!(ArchivedTuple10, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9);
-impl_tuple!(ArchivedTuple11, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9, T10 10);
 impl_tuple!(
-    ArchivedTuple12, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9, T10 10, T11 11
+    ArchivedTuple9, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8
 );
 impl_tuple!(
-    ArchivedTuple13, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9, T10 10, T11 11,
-    T12 12
+    ArchivedTuple10, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9
+);
+impl_tuple!(
+    ArchivedTuple11, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9,
+    T10 10
+);
+impl_tuple!(
+    ArchivedTuple12, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9,
+    T10 10, T11 11
+);
+impl_tuple!(
+    ArchivedTuple13, T0 0, T1 1, T2 2, T3 3, T4 4, T5 5, T6 6, T7 7, T8 8, T9 9,
+    T10 10, T11 11, T12 12
 );
 
 impl<T: Archive, const N: usize> Archive for [T; N] {

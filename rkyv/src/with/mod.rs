@@ -1,7 +1,7 @@
 //! Wrapper type support and commonly used wrappers.
 //!
 //! Wrappers can be applied with the `#[with(...)]` attribute in the
-//! [`Archive`](macro@crate::Archive) macro. See [`With`] for examples.
+//! [`Archive`](macro@crate::Archive) macro.
 
 mod impls;
 
@@ -13,16 +13,15 @@ use crate::Portable;
 
 // TODO: Gate unsafe wrappers behind Unsafe.
 
-/// A variant of [`Archive`] that works with [`With`] wrappers.
+/// A variant of [`Archive`](crate::Archive) that works with wrappers.
 ///
 /// Creating a wrapper allows users to customize how fields are archived easily
 /// without changing the unarchived type.
 ///
 /// This trait allows wrapper types to transparently change the archive
-/// behaviors for struct fields. When a field is serialized, its reference may
-/// be converted to a [`With`] reference, and that reference may be serialized
-/// instead. `With` references look for implementations of `ArchiveWith`
-/// to determine how a wrapped field should be treated.
+/// behaviors for struct and enum fields. When a field is serialized, it may use
+/// the implementations for the wrapper type and the given field instead of the
+/// implementation for the type itself.
 ///
 /// # Example
 ///

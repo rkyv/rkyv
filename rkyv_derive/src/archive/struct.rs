@@ -1,15 +1,18 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse_quote, Data, DeriveInput, Error, Fields, FieldsNamed, FieldsUnnamed,
+    parse_quote, punctuated::Punctuated, Data, DeriveInput, Error, Fields,
+    FieldsNamed, FieldsUnnamed,
 };
 
 use crate::{
-    archive::{field_archive_attrs, printing::Printing},
+    archive::{
+        archived_doc, field_archive_attrs, printing::Printing, resolver_doc,
+        struct_field_doc,
+    },
     attributes::Attributes,
     util::{
-        archive_bound, archived, archived_doc, is_not_omitted, members,
-        resolve, resolver, resolver_doc,
+        archive_bound, archived, is_not_omitted, members, resolve, resolver,
     },
 };
 
@@ -18,14 +21,15 @@ pub fn impl_struct(
     attributes: &Attributes,
     printing: &Printing,
 ) -> Result<(TokenStream, TokenStream), Error> {
-    let rkyv_path = &printing.rkyv_path;
-
-    let where_clause = input.generics.make_where_clause();
-
     let fields = match &input.data {
         Data::Struct(data_struct) => &data_struct.fields,
         _ => unreachable!(),
     };
+
+    let rkyv_path = &printing.rkyv_path;
+
+    let where_clause = input.generics.make_where_clause();
+
     for field in fields.iter().filter(is_not_omitted) {
         where_clause
             .predicates
@@ -39,50 +43,36 @@ pub fn impl_struct(
     let archived_def = attributes
         .archive_as
         .is_none()
-        .then(|| -> Result<TokenStream, Error> {
-            let def = generate_archived_def(input, printing, fields)?;
-            let archived_name = &printing.archived_name;
-
-            Ok(quote! {
-                #def
-
-                // SAFETY: As long as the `Archive` impl holds, the archived type is
-                // guaranteed to be `Portable`.
-                unsafe impl #impl_generics #rkyv_path::Portable
-                    for #archived_name #ty_generics #where_clause {}
-            })
-        })
+        .then(|| generate_archived_def(input, printing, fields))
         .transpose()?;
 
     let resolver_def = generate_resolver_def(input, printing, fields)?;
 
     let resolve_statements = members(fields)
-        .map(|(member, field)| -> Result<TokenStream, Error> {
-            let resolve_fn = resolve(rkyv_path, field)?;
+        .map(|(member, field)| {
+            let resolves = resolve(rkyv_path, field)?;
             Ok(quote! {
                 let (fp, fo) = out_field!(out.#member);
-                #resolve_fn(&self.#member, pos + fp, resolver.#member, fo);
+                #resolves(&self.#member, pos + fp, resolver.#member, fo);
             })
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<Vec<_>, Error>>()?;
 
     let mut partial_eq_impl = None;
     let mut partial_ord_impl = None;
-    if let Some(ref compares) = attributes.compares {
-        for compare in compares {
-            if compare.is_ident("PartialEq") {
-                partial_eq_impl =
-                    Some(generate_partial_eq_impl(input, fields, printing)?);
-            } else if compare.is_ident("PartialOrd") {
-                partial_ord_impl =
-                    Some(generate_partial_ord_impl(input, fields, printing)?);
-            } else {
-                return Err(Error::new_spanned(
-                    compare,
-                    "unrecognized compare argument, supported compares are \
-                     PartialEq and PartialOrd",
-                ));
-            }
+    for compare in attributes.compares.iter().flat_map(Punctuated::iter) {
+        if compare.is_ident("PartialEq") {
+            partial_eq_impl =
+                Some(generate_partial_eq_impl(input, fields, printing)?);
+        } else if compare.is_ident("PartialOrd") {
+            partial_ord_impl =
+                Some(generate_partial_ord_impl(input, fields, printing)?);
+        } else {
+            return Err(Error::new_spanned(
+                compare,
+                "unrecognized compare argument, supported compares are \
+                 PartialEq and PartialOrd",
+            ));
         }
     }
 
@@ -96,14 +86,22 @@ pub fn impl_struct(
             #resolver_def
         },
         quote! {
-            impl #impl_generics #rkyv_path::Archive for #name #ty_generics #where_clause {
+            impl #impl_generics #rkyv_path::Archive for #name #ty_generics
+            #where_clause
+            {
                 type Archived = #archived_type;
                 type Resolver = #resolver_name #ty_generics;
 
-                // Some resolvers will be (), this allow is to prevent clippy from complaining
+                // Some resolvers will be (), this allow is to prevent clippy
+                // from complaining.
                 #[allow(clippy::unit_arg)]
                 #[inline]
-                unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
+                unsafe fn resolve(
+                    &self,
+                    pos: usize,
+                    resolver: Self::Resolver,
+                    out: *mut Self::Archived,
+                ) {
                     #(#resolve_statements)*
                 }
             }
@@ -119,15 +117,31 @@ fn generate_archived_def(
     printing: &Printing,
     fields: &Fields,
 ) -> Result<TokenStream, Error> {
-    match fields {
+    let archived_def = match fields {
         Fields::Named(fields) => {
-            generate_archived_def_named(input, printing, fields)
+            generate_archived_def_named(input, printing, fields)?
         }
         Fields::Unnamed(fields) => {
-            generate_archived_def_unnamed(input, printing, fields)
+            generate_archived_def_unnamed(input, printing, fields)?
         }
-        Fields::Unit => generate_archived_def_unit(input, printing),
-    }
+        Fields::Unit => generate_archived_def_unit(input, printing)?,
+    };
+
+    let rkyv_path = &printing.rkyv_path;
+    let archived_name = &printing.archived_name;
+    let (impl_generics, ty_generics, where_clause) =
+        input.generics.split_for_impl();
+
+    Ok(quote! {
+        #archived_def
+
+        // SAFETY: As long as the `Archive` impl holds, the archived
+        // type is guaranteed to be `Portable`.
+        unsafe impl #impl_generics #rkyv_path::Portable
+            for #archived_name #ty_generics
+        #where_clause
+        {}
+    })
 }
 
 fn generate_archived_def_named(
@@ -140,23 +154,20 @@ fn generate_archived_def_named(
     let archived_fields = fields
         .named
         .iter()
-        .map(|field| -> Result<TokenStream, Error> {
+        .map(|field| {
             let field_ty = archived(rkyv_path, field)?;
             let vis = &field.vis;
             let archive_attrs = field_archive_attrs(field);
 
             let field_name = field.ident.as_ref().unwrap();
-            let field_doc = format!(
-                "The archived counterpart of [`{}::{}`]",
-                &input.ident, field_name,
-            );
+            let field_doc = struct_field_doc(&input.ident, field_name);
             Ok(quote! {
                 #[doc = #field_doc]
                 #(#[#archive_attrs])*
                 #vis #field_name: #field_ty
             })
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<Vec<_>, Error>>()?;
 
     let archived_doc = archived_doc(&input.ident);
     let archive_attrs = &printing.archive_attrs;
@@ -187,11 +198,8 @@ fn generate_archived_def_unnamed(
         .unnamed
         .iter()
         .enumerate()
-        .map(|(i, field)| -> Result<TokenStream, Error> {
-            let field_doc = format!(
-                "The archived counterpart of [`{}::{}`]",
-                &input.ident, i,
-            );
+        .map(|(i, field)| {
+            let field_doc = struct_field_doc(&input.ident, &i);
             let archive_attrs = field_archive_attrs(field);
             let vis = &field.vis;
             let field_ty = archived(rkyv_path, field)?;
@@ -202,7 +210,7 @@ fn generate_archived_def_unnamed(
                 #vis #field_ty
             })
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<Vec<_>, Error>>()?;
 
     let archived_doc = archived_doc(&input.ident);
     let archive_attrs = &printing.archive_attrs;
@@ -273,13 +281,13 @@ fn generate_resolver_def_named(
     let resolver_fields = fields
         .named
         .iter()
-        .map(|field| -> Result<TokenStream, Error> {
+        .map(|field| {
             let field_name = &field.ident;
             let resolver_ty = resolver(rkyv_path, field)?;
 
             Ok(quote! { #field_name: #resolver_ty })
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<Vec<_>, Error>>()?;
 
     Ok(quote! {
         #[automatically_derived]
@@ -305,11 +313,11 @@ fn generate_resolver_def_unnamed(
     let resolver_fields = fields
         .unnamed
         .iter()
-        .map(|field| -> Result<TokenStream, Error> {
+        .map(|field| {
             let resolver_ty = resolver(rkyv_path, field)?;
             Ok(quote! { #resolver_ty })
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<Vec<_>, Error>>()?;
 
     Ok(quote! {
         #[automatically_derived]
@@ -360,14 +368,18 @@ fn generate_partial_eq_impl(
     let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
 
     Ok(quote! {
-        impl #impl_generics PartialEq<#archived_type> for #name #ty_generics #partial_eq_where {
+        impl #impl_generics PartialEq<#archived_type> for #name #ty_generics
+        #partial_eq_where
+        {
             #[inline]
             fn eq(&self, other: &#archived_type) -> bool {
                 true #(&& other.#members.eq(&self.#members))*
             }
         }
 
-        impl #impl_generics PartialEq<#name #ty_generics> for #archived_type #partial_eq_where {
+        impl #impl_generics PartialEq<#name #ty_generics> for #archived_type
+        #partial_eq_where
+        {
             #[inline]
             fn eq(&self, other: &#name #ty_generics) -> bool {
                 other.eq(self)
@@ -399,9 +411,14 @@ fn generate_partial_ord_impl(
     let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
 
     Ok(quote! {
-        impl #impl_generics PartialOrd<#archived_type> for #name #ty_generics #partial_ord_where {
+        impl #impl_generics PartialOrd<#archived_type> for #name #ty_generics
+        #partial_ord_where
+        {
             #[inline]
-            fn partial_cmp(&self, other: &#archived_type) -> Option<::core::cmp::Ordering> {
+            fn partial_cmp(
+                &self,
+                other: &#archived_type,
+            ) -> Option<::core::cmp::Ordering> {
                 #(
                     match other.#members.partial_cmp(&self.#members) {
                         Some(::core::cmp::Ordering::Equal) => (),
@@ -412,9 +429,14 @@ fn generate_partial_ord_impl(
             }
         }
 
-        impl #impl_generics PartialOrd<#name #ty_generics> for #archived_type #partial_ord_where {
+        impl #impl_generics PartialOrd<#name #ty_generics> for #archived_type
+        #partial_ord_where
+        {
             #[inline]
-            fn partial_cmp(&self, other: &#name #ty_generics) -> Option<::core::cmp::Ordering> {
+            fn partial_cmp(
+                &self,
+                other: &#name #ty_generics,
+            ) -> Option<::core::cmp::Ordering> {
                 other.partial_cmp(self)
             }
         }

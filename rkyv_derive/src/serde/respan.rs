@@ -1,4 +1,5 @@
-// Code in this file is taken whole or in part from serde: https://github.com/serde-rs/serde
+// Code in this file is taken whole or in part from serde:
+// https://github.com/serde-rs/serde
 // The original license for this code is included in LICENSE
 
 use proc_macro2::{Group, Span, TokenStream, TokenTree};

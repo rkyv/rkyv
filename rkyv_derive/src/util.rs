@@ -23,15 +23,22 @@ pub fn is_not_omitted(f: &&Field) -> bool {
     })
 }
 
-pub fn members(fields: &Fields) -> impl Iterator<Item = (Member, &Field)> {
-    fields.iter().enumerate().map(|(i, field)| {
+pub fn members_starting_at(
+    fields: &Fields,
+    start: usize,
+) -> impl Iterator<Item = (Member, &Field)> {
+    fields.iter().enumerate().map(move |(i, field)| {
         let member = if let Some(ident) = &field.ident {
             Member::Named(ident.clone())
         } else {
-            Member::Unnamed(Index::from(i))
+            Member::Unnamed(Index::from(i + start))
         };
         (member, field)
     })
+}
+
+pub fn members(fields: &Fields) -> impl Iterator<Item = (Member, &Field)> {
+    members_starting_at(fields, 0)
 }
 
 pub fn map_with_or_else<T>(
@@ -152,14 +159,6 @@ pub fn resolve(rkyv_path: &Path, field: &Field) -> Result<TokenStream, Error> {
     archive_item(rkyv_path, field, "resolve", "resolve_with")
 }
 
-pub fn archived_doc(name: &Ident) -> String {
-    format!("An archived [`{}`]", name)
-}
-
-pub fn resolver_doc(name: &Ident) -> String {
-    format!("The resolver for an archived [`{}`]", name)
-}
-
 pub fn serialize(
     rkyv_path: &Path,
     field: &Field,
@@ -170,7 +169,9 @@ pub fn serialize(
         field,
         |with_ty| {
             quote! {
-                <#with_ty as #rkyv_path::with::SerializeWith<#ty, __S>>::serialize_with
+                <
+                    #with_ty as #rkyv_path::with::SerializeWith<#ty, __S>
+                >::serialize_with
             }
         },
         || {
@@ -193,7 +194,13 @@ pub fn deserialize(
         field,
         |with_ty| {
             quote! {
-                <#with_ty as #rkyv_path::with::DeserializeWith<#archived, #ty, __D>>::deserialize_with
+                <
+                    #with_ty as #rkyv_path::with::DeserializeWith<
+                        #archived,
+                        #ty,
+                        __D,
+                    >
+                >::deserialize_with
             }
         },
         || {

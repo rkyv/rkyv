@@ -54,7 +54,9 @@ pub fn derive(mut input: DeriveInput) -> Result<TokenStream, Error> {
         input.generics.split_for_impl();
 
     Ok(quote! {
-        unsafe impl #impl_generics #rkyv_path::Portable for #name #ty_generics #where_clause {}
+        unsafe impl #impl_generics #rkyv_path::Portable for #name #ty_generics
+        #where_clause
+        {}
     })
 }
 

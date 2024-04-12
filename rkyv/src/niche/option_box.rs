@@ -293,7 +293,8 @@ mod tests {
         for value in [Some(128.into()), None] {
             let test = Test { value };
             let bytes = crate::to_bytes::<Failure>(&test).unwrap();
-            assert_eq!(bytes.len(), 4 + test.value.is_some() as usize * 16); // ptr + value?
+            // ptr + value?
+            assert_eq!(bytes.len(), 4 + test.value.is_some() as usize * 16);
 
             let ar = match crate::access::<Archived<Test>, Failure>(&bytes) {
                 Ok(archived) => archived,

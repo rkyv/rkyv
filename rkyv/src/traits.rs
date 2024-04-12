@@ -103,10 +103,11 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// [`Archive`](macro@crate::Archive) derive macro for more details.
 ///
 /// ```
-/// use rkyv::{Archive, Archived, Deserialize, Serialize, rancor::Error};
+/// use rkyv::{rancor::Error, Archive, Archived, Deserialize, Serialize};
 ///
 /// #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
-/// // This will generate a PartialEq impl between our unarchived and archived types
+/// // This will generate a PartialEq impl between our unarchived and archived
+/// // types
 /// #[archive(compare(PartialEq))]
 /// // We can pass attributes through to generated types with archive_attr
 /// #[archive_attr(derive(Debug))]
@@ -132,15 +133,19 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// let bytes = rkyv::util::serialize_into::<_, Error>(
 ///     &value,
 ///     AllocSerializer::default(),
-/// ).unwrap().into_writer();
+/// )
+/// .unwrap()
+/// .into_writer();
 ///
 /// // You can use the safe API with the `bytecheck` feature enabled,
 /// // or you can use the unsafe API (shown here) for maximum performance
-/// let archived = unsafe { rkyv::access_unchecked::<Archived<Test>>(&bytes[..]) };
+/// let archived =
+///     unsafe { rkyv::access_unchecked::<Archived<Test>>(&bytes[..]) };
 /// assert_eq!(archived, &value);
 ///
 /// // And you can always deserialize back to the original type
-/// let deserialized = rkyv::deserialize::<Test, _, Error>(archived, &mut ()).unwrap();
+/// let deserialized =
+///     rkyv::deserialize::<Test, _, Error>(archived, &mut ()).unwrap();
 /// assert_eq!(deserialized, value);
 /// ```
 ///
@@ -367,11 +372,14 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///
 /// use ptr_meta::Pointee;
 /// use rkyv::{
+///     access_unchecked,
 ///     primitive::ArchivedUsize,
+///     rancor::{Error, Fallible},
 ///     ser::{AllocSerializer, Positional, Writer, WriterExt as _},
-///     util::AlignedVec, Archive, ArchivePointee, ArchiveUnsized, Archived,
-///     ArchivedMetadata, RelPtr, Serialize, SerializeUnsized, rancor::{Error, Fallible},
-///     Portable, to_bytes, access_unchecked,
+///     to_bytes,
+///     util::AlignedVec,
+///     Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
+///     Portable, RelPtr, Serialize, SerializeUnsized,
 /// };
 ///
 /// // We're going to be dealing mostly with blocks that have a trailing slice
@@ -433,9 +441,9 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///         &self,
 ///         serializer: &mut S,
 ///     ) -> Result<usize, S::Error> {
-///         // First, we serialize the head and all the tails. This will make sure
-///         // that when we finally build our block, we don't accidentally mess
-///         // up the structure with serialized dependencies.
+///         // First, we serialize the head and all the tails. This will make
+///         // sure that when we finally build our block, we don't accidentally
+///         // mess up the structure with serialized dependencies.
 ///         let head_resolver = self.head.serialize(serializer)?;
 ///         let mut resolvers = Vec::new();
 ///         for tail in self.tail.iter() {
@@ -444,7 +452,8 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///         // Now we align our serializer for our archived type and resolve it.
 ///         // We can't align for unsized types so we treat the trailing slice
 ///         // like an array of 0 length for now.
-///         let result = serializer.align_for::<Block<Archived<H>, [Archived<T>; 0]>>()?;
+///         let result = serializer
+///             .align_for::<Block<Archived<H>, [Archived<T>; 0]>>()?;
 ///         unsafe {
 ///             serializer.resolve_aligned(&self.head, head_resolver)?;
 ///         }

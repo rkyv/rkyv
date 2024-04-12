@@ -3,20 +3,21 @@
 //! rkyv (*archive*) is a zero-copy deserialization framework for Rust.
 //!
 //! It's similar to other zero-copy deserialization frameworks such as
-//! [Cap'n Proto](https://capnproto.org) and [FlatBuffers](https://google.github.io/flatbuffers).
-//! However, while the former have external schemas and heavily restricted data
-//! types, rkyv allows all serialized types to be defined in code and can
-//! serialize a wide variety of types that the others cannot. Additionally, rkyv
-//! is designed to have little to no overhead, and in most cases will perform
-//! exactly the same as native types.
+//! [Cap'n Proto](https://capnproto.org) and
+//! [FlatBuffers](https://google.github.io/flatbuffers). However, while the
+//! former have external schemas and heavily restricted data types, rkyv allows
+//! all serialized types to be defined in code and can serialize a wide variety
+//! of types that the others cannot. Additionally, rkyv is designed to have
+//! little to no overhead, and in most cases will perform exactly the same as
+//! native types.
 //!
 //! ## Design
 //!
-//! Like [serde](https://serde.rs), rkyv uses Rust's powerful trait system to serialize data without
-//! the need for reflection. Despite having a wide array of features, you also
-//! only pay for what you use. If your data checks out, the serialization
-//! process can be as simple as a `memcpy`! Like serde, this allows rkyv to
-//! perform at speeds similar to handwritten serializers.
+//! Like [serde](https://serde.rs), rkyv uses Rust's powerful trait system to
+//! serialize data without the need for reflection. Despite having a wide array
+//! of features, you also only pay for what you use. If your data checks out,
+//! the serialization process can be as simple as a `memcpy`! Like serde, this
+//! allows rkyv to perform at speeds similar to handwritten serializers.
 //!
 //! Unlike serde, rkyv produces data that is guaranteed deserialization free. If
 //! you wrote your data to disk, you can just `mmap` your file into memory, cast
@@ -27,7 +28,8 @@
 //! can be truly deserialized with [`Deserialize`] if full mutation capabilities
 //! are needed.
 //!
-//! [The book](https://rkyv.org) has more details on the design and capabilities of rkyv.
+//! [The book](https://rkyv.org) has more details on the design and capabilities
+//! of rkyv.
 //!
 //! ## Type support
 //!
@@ -103,8 +105,8 @@
 //!   and manual implementation.
 //! - For more details on the derive macro and its capabilities, see
 //!   [`Archive`](macro@Archive).
-//! - Fully worked examples using rkyv are available in the [`examples` directory](https://github.com/rkyv/rkyv/tree/master/examples)
-//!   of the source repo.
+//! - Fully worked examples using rkyv are available in the source repository's
+//!   [`examples` directory](https://github.com/rkyv/rkyv/tree/master/examples).
 
 // Crate attributes
 
@@ -115,14 +117,16 @@
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![doc(html_favicon_url = r#"
-    data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'
-    viewBox='0 0 26.458 26.458'%3E%3Cpath d='M0 0v26.458h26.458V0zm9.175 3.772l8.107 8.106
-    2.702-2.702 2.702 13.512-13.512-2.702 2.703-2.702-8.107-8.107z'/%3E%3C/svg%3E
+    data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0
+    26.458 26.458'%3E%3Cpath d='M0 0v26.458h26.458V0zm9.175 3.772l8.107 8.106
+    2.702-2.702 2.702 13.512-13.512-2.702 2.703-2.702-8.107-8.107z'/%3E
+    %3C/svg%3E
 "#)]
 #![doc(html_logo_url = r#"
-    data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"
-    viewBox="0 0 26.458 26.458"%3E%3Cpath d="M0 0v26.458h26.458V0zm9.175 3.772l8.107 8.106
-    2.702-2.702 2.702 13.512-13.512-2.702 2.703-2.702-8.107-8.107z"/%3E%3C/svg%3E
+    data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100"
+    height="100" viewBox="0 0 26.458 26.458"%3E%3Cpath d="M0
+    0v26.458h26.458V0zm9.175 3.772l8.107 8.106 2.702-2.702 2.702
+    13.512-13.512-2.702 2.703-2.702-8.107-8.107z"/%3E%3C/svg%3E
 "#)]
 
 // Extern crates

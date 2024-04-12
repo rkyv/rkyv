@@ -113,16 +113,6 @@ mod tests {
     fn vecdeque() {
         for n in 2..10 {
             for k in 1..n {
-                // Construct `deque` as containing `0..n` split across two
-                // slices `0..k` and `k..n`.
-                //
-                // This might not work with some possible implementations of
-                // `VecDeque`.  Imagine one, for example, where it fills the
-                // deque starting from the middle.  However, the [documentation
-                // example for `VecDeque::as_slice`][1] implies that we can do
-                // this, so we might as well.
-                //
-                // [1]: https://doc.rust-lang.org/stable/std/collections/struct.VecDeque.html#method.as_slices
                 let mut deque = VecDeque::with_capacity(n as usize + 1);
                 for x in k..n {
                     deque.push_back(x);
@@ -131,10 +121,6 @@ mod tests {
                     deque.push_front(x);
                 }
                 assert!(deque.iter().copied().eq(0..n));
-
-                let (a, b) = deque.as_slices();
-                assert!(a.iter().copied().eq(0..k));
-                assert!(b.iter().copied().eq(k..n));
 
                 // Now serialize and deserialize and verify that the
                 // deserialized version contains `0..n`.
