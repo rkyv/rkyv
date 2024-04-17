@@ -2,20 +2,19 @@ use core::time::Duration;
 
 use rancor::Fallible;
 
-use crate::{time::ArchivedDuration, Archive, Deserialize, Serialize};
+use crate::{time::ArchivedDuration, Archive, Deserialize, Place, Serialize};
 
 impl Archive for Duration {
     type Archived = ArchivedDuration;
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        _: usize,
-        _: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
-        ArchivedDuration::emplace(self.as_secs(), self.subsec_nanos(), out);
+    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+        ArchivedDuration::emplace(
+            self.as_secs(),
+            self.subsec_nanos(),
+            out.ptr(),
+        );
     }
 }
 

@@ -2,12 +2,13 @@
 
 use core::{cmp, fmt, hash, hint::unreachable_unchecked, ops::Deref, pin::Pin};
 
+use munge::munge;
 use rancor::Fallible;
 
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     ser::Writer,
-    ArchivePointee, ArchiveUnsized, Portable, SerializeUnsized,
+    ArchivePointee, ArchiveUnsized, Place, Portable, SerializeUnsized,
 };
 
 /// A niched archived `Option<Box<T>>`.
@@ -163,11 +164,10 @@ where
         U: ArchiveUnsized<Archived = T> + ?Sized,
     >(
         field: Option<&U>,
-        pos: usize,
         resolver: OptionBoxResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        let (fp, fo) = out_field!(out.inner);
+        munge!(let Self { inner } = out);
         if let Some(value) = field {
             let resolver =
                 if let OptionBoxResolver::Some(metadata_resolver) = resolver {
@@ -176,9 +176,9 @@ where
                     unreachable_unchecked();
                 };
 
-            ArchivedBox::resolve_from_ref(value, pos + fp, resolver, fo)
+            ArchivedBox::resolve_from_ref(value, resolver, inner)
         } else {
-            ArchivedBox::emplace_null(pos + fp, fo);
+            ArchivedBox::emplace_null(inner);
         }
     }
 

@@ -8,7 +8,7 @@ use rancor::Fallible;
 use crate::{
     collections::btree_set::{ArchivedBTreeSet, BTreeSetResolver},
     ser::Writer,
-    Archive, Deserialize, Serialize,
+    Archive, Deserialize, Place, Serialize,
 };
 
 impl<K: Archive + Ord> Archive for BTreeSet<K>
@@ -21,13 +21,11 @@ where
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         ArchivedBTreeSet::<K::Archived>::resolve_from_len(
             self.len(),
-            pos,
             resolver,
             out,
         );

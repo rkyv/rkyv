@@ -14,11 +14,12 @@ use core::{
     ptr::NonNull,
 };
 
+use munge::munge;
 use ptr_meta::Pointee;
 
 use crate::{
     primitive::{ArchivedU16, ArchivedUsize},
-    Archive, ArchivePointee, Portable, RelPtr,
+    Archive, ArchivePointee, Place, Portable, RelPtr,
 };
 
 #[derive(Portable)]
@@ -46,14 +47,12 @@ impl<'a, UK: Archive, UV: Archive> Archive for LeafNodeEntry<&'a UK, &'a UV> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        let (fp, fo) = out_field!(out.key);
-        self.key.resolve(pos + fp, resolver.0, fo);
-        let (fp, fo) = out_field!(out.value);
-        self.value.resolve(pos + fp, resolver.1, fo);
+        munge!(let LeafNodeEntry { key, value } = out);
+        self.key.resolve(resolver.0, key);
+        self.value.resolve(resolver.1, value);
     }
 }
 
@@ -144,20 +143,15 @@ impl Archive for NodeHeaderData {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        _: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
-        let (fp, fo) = out_field!(out.meta);
-        self.meta.resolve(pos + fp, (), fo);
-
-        let (fp, fo) = out_field!(out.size);
-        self.size.resolve(pos + fp, (), fo);
-
-        let (fp, fo) = out_field!(out.ptr);
-        RelPtr::emplace(pos + fp, self.pos.unwrap_or(pos + fp), fo);
+    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+        munge!(let NodeHeader { meta, size, ptr } = out);
+        self.meta.resolve((), meta);
+        self.size.resolve((), size);
+        if let Some(target) = self.pos {
+            RelPtr::emplace(target, ptr);
+        } else {
+            RelPtr::emplace_null(ptr);
+        }
     }
 }
 
@@ -172,14 +166,12 @@ impl<'a, UK: Archive> Archive for InnerNodeEntryData<'a, UK> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        let (fp, fo) = out_field!(out.ptr);
-        RelPtr::emplace(pos + fp, resolver.0, fo);
-        let (fp, fo) = out_field!(out.key);
-        self.key.resolve(pos + fp, resolver.1, fo);
+        munge!(let InnerNodeEntry { ptr, key } = out);
+        RelPtr::emplace(resolver.0, ptr);
+        self.key.resolve(resolver.1, key);
     }
 }
 
@@ -393,20 +385,16 @@ impl<K, V> ArchivedBTreeMap<K, V> {
     /// # Safety
     ///
     /// - `len` must be the number of elements that were serialized
-    /// - `pos` must be the position of `out` within the archive
     /// - `resolver` must be the result of serializing a B-tree map
     #[inline]
     pub unsafe fn resolve_from_len(
         len: usize,
-        pos: usize,
         resolver: BTreeMapResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        let (fp, fo) = out_field!(out.len);
-        len.resolve(pos + fp, (), fo);
-
-        let (fp, fo) = out_field!(out.root);
-        RelPtr::emplace(pos + fp, resolver.root_pos, fo);
+        munge!(let ArchivedBTreeMap { len: out_len, root, _phantom: _ } = out);
+        len.resolve((), out_len);
+        RelPtr::emplace(resolver.root_pos, root);
     }
 }
 

@@ -9,7 +9,9 @@ use core::{
     pin::Pin,
 };
 
-use crate::{Archived, Portable};
+use munge::munge;
+
+use crate::{Archived, Place, Portable};
 
 macro_rules! impl_archived_option_nonzero {
     ($ar:ident, $nz:ty, $ne:ty) => {
@@ -176,13 +178,13 @@ macro_rules! impl_archived_option_nonzero {
             #[inline]
             pub unsafe fn resolve_from_option(
                 field: Option<$nz>,
-                out: *mut Self,
+                out: Place<Self>,
             ) {
-                let (_, fo) = out_field!(out.inner);
+                munge!(let Self { inner } = out);
                 if let Some(nz) = field {
-                    fo.write(nz.get().into());
+                    inner.write(nz.get().into());
                 } else {
-                    fo.write((0 as $ne).into());
+                    inner.write((0 as $ne).into());
                 }
             }
         }

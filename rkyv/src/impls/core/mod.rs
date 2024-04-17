@@ -2,7 +2,8 @@ use core::{
     alloc::{Layout, LayoutError},
     cell::{Cell, UnsafeCell},
     mem::ManuallyDrop,
-    ptr, str,
+    ptr::{self, addr_of_mut},
+    str,
 };
 
 use ptr_meta::Pointee;
@@ -13,8 +14,8 @@ use crate::{
     ser::{Allocator, Writer, WriterExt as _},
     tuple::*,
     Archive, ArchivePointee, ArchiveUnsized, ArchivedMetadata,
-    CopyOptimization, Deserialize, DeserializeUnsized, LayoutRaw, Portable,
-    Serialize, SerializeUnsized,
+    CopyOptimization, Deserialize, DeserializeUnsized, LayoutRaw, Place,
+    Portable, Serialize, SerializeUnsized,
 };
 
 mod ops;
@@ -113,13 +114,13 @@ macro_rules! impl_tuple {
             #[inline]
             unsafe fn resolve(
                 &self,
-                pos: usize,
                 resolver: Self::Resolver,
-                out: *mut Self::Archived,
+                out: Place<Self::Archived>,
             ) {
                 $(
-                    let (fp, fo) = out_field!(out.$index);
-                    self.$index.resolve(pos + fp, resolver.$index, fo);
+                    let ptr = addr_of_mut!((*out.ptr()).$index);
+                    let field_out = Place::from_field_unchecked(out, ptr);
+                    self.$index.resolve(resolver.$index, field_out);
                 )*
             }
         }
@@ -198,19 +199,13 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         let mut resolvers = core::mem::MaybeUninit::new(resolver);
         let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
-        let out_ptr = out.cast::<T::Archived>();
         for (i, value) in self.iter().enumerate() {
-            value.resolve(
-                pos + i * core::mem::size_of::<T::Archived>(),
-                resolvers_ptr.add(i).read(),
-                out_ptr.add(i),
-            );
+            value.resolve(resolvers_ptr.add(i).read(), out.index(i));
         }
     }
 }
@@ -411,11 +406,10 @@ impl<T: Archive> Archive for ManuallyDrop<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        T::resolve(self, pos, resolver, out.cast::<T::Archived>())
+        T::resolve(self, resolver, out.cast_unchecked::<T::Archived>())
     }
 }
 

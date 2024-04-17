@@ -10,7 +10,7 @@ use crate::{
     ptr_meta::Pointee,
     rancor::Fallible,
     ser::{Writer, WriterExt as _},
-    ArchivedMetadata, RelPtr,
+    ArchivedMetadata, Place, RelPtr,
 };
 
 /// A type with a stable, well-defined layout that is the same on all targets.
@@ -165,13 +165,13 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// use core::{slice, str};
 ///
 /// use rkyv::{
-///     access_unchecked, out_field,
+///     access_unchecked,
 ///     rancor::{Error, Fallible},
 ///     ser::Writer,
 ///     to_bytes,
 ///     util::AlignedVec,
 ///     Archive, ArchiveUnsized, Archived, Portable, RelPtr, Serialize,
-///     SerializeUnsized,
+///     SerializeUnsized, munge::munge, Place,
 /// };
 ///
 /// struct OwnedStr {
@@ -214,19 +214,14 @@ impl<T: ?Sized> CopyOptimization<T> {
 ///     // value at the given position.
 ///     unsafe fn resolve(
 ///         &self,
-///         pos: usize,
 ///         resolver: Self::Resolver,
-///         out: *mut Self::Archived,
+///         out: Place<Self::Archived>,
 ///     ) {
-///         // We have to be careful to add the offset of the ptr field,
-///         // otherwise we'll be using the position of the ArchivedOwnedStr
-///         // instead of the position of the relative pointer.
-///         let (fp, fo) = out_field!(out.ptr);
+///         munge!(let ArchivedOwnedStr { ptr } = out);
 ///         RelPtr::emplace_unsized(
-///             pos + fp,
 ///             resolver.pos,
 ///             self.inner.archived_metadata(),
-///             fo,
+///             ptr,
 ///         );
 ///     }
 /// }
@@ -288,13 +283,11 @@ pub trait Archive {
     ///
     /// # Safety
     ///
-    /// - `pos` must be the position of `out` within the archive
     /// - `resolver` must be the result of serializing this object
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     );
 }
 

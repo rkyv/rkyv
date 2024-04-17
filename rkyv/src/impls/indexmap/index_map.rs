@@ -6,7 +6,7 @@ use rancor::{Fallible, Source};
 use crate::{
     collections::swiss_table::{ArchivedIndexMap, IndexMapResolver},
     ser::{Allocator, Writer},
-    Archive, Deserialize, Serialize,
+    Archive, Deserialize, Place, Serialize,
 };
 
 impl<K: Archive, V: Archive, S> Archive for IndexMap<K, V, S> {
@@ -15,17 +15,10 @@ impl<K: Archive, V: Archive, S> Archive for IndexMap<K, V, S> {
 
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedIndexMap::resolve_from_len(
-            self.len(),
-            (7, 8),
-            pos,
-            resolver,
-            out,
-        );
+        ArchivedIndexMap::resolve_from_len(self.len(), (7, 8), resolver, out);
     }
 }
 

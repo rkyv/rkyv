@@ -4,7 +4,7 @@ use rancor::Fallible;
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Deserialize, Serialize,
+    Archive, Archived, Deserialize, Place, Serialize,
 };
 
 impl Archive for Bytes {
@@ -14,11 +14,10 @@ impl Archive for Bytes {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_slice(self, pos, resolver, out);
+        ArchivedVec::resolve_from_slice(self, resolver, out);
     }
 }
 

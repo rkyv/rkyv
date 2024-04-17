@@ -2,14 +2,14 @@
 
 use core::{
     borrow::Borrow, cmp, fmt, hash, marker::PhantomData, ops::Deref, pin::Pin,
-    ptr,
 };
 
+use munge::munge;
 use rancor::Fallible;
 
 use crate::{
     ser::{Sharing, SharingExt, Writer, WriterExt as _},
-    ArchivePointee, ArchiveUnsized, Portable, RelPtr, SerializeUnsized,
+    ArchivePointee, ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
 
 /// The flavor type for [`Rc`](std::rc::Rc).
@@ -63,17 +63,11 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     #[inline]
     pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: &U,
-        pos: usize,
         resolver: RcResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        let (fp, fo) = out_field!(out.ptr);
-        RelPtr::emplace_unsized(
-            pos + fp,
-            resolver.pos,
-            value.archived_metadata(),
-            fo,
-        );
+        munge!(let ArchivedRc { ptr, .. } = out);
+        RelPtr::emplace_unsized(resolver.pos, value.archived_metadata(), ptr);
     }
 
     /// Serializes an archived `Rc` from a given reference.
@@ -235,26 +229,22 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     #[inline]
     pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: Option<&U>,
-        pos: usize,
         resolver: RcWeakResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
         match resolver {
             RcWeakResolver::None => {
-                let out = out.cast::<ArchivedRcWeakVariantNone>();
-                ptr::addr_of_mut!((*out).0).write(ArchivedRcWeakTag::None);
+                let out = out.cast_unchecked::<ArchivedRcWeakVariantNone>();
+                munge!(let ArchivedRcWeakVariantNone(tag) = out);
+                tag.write(ArchivedRcWeakTag::None);
             }
             RcWeakResolver::Some(resolver) => {
-                let out = out.cast::<ArchivedRcWeakVariantSome<T, F>>();
-                ptr::addr_of_mut!((*out).0).write(ArchivedRcWeakTag::Some);
+                let out =
+                    out.cast_unchecked::<ArchivedRcWeakVariantSome<T, F>>();
+                munge!(let ArchivedRcWeakVariantSome(tag, rc) = out);
+                tag.write(ArchivedRcWeakTag::Some);
 
-                let (fp, fo) = out_field!(out.1);
-                ArchivedRc::resolve_from_ref(
-                    value.unwrap(),
-                    pos + fp,
-                    resolver,
-                    fo,
-                );
+                ArchivedRc::resolve_from_ref(value.unwrap(), resolver, rc);
             }
         }
     }

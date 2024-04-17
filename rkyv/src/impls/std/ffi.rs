@@ -15,7 +15,7 @@ use crate::{
     primitive::ArchivedUsize,
     ser::Writer,
     Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
-    Deserialize, DeserializeUnsized, LayoutRaw, Portable, Serialize,
+    Deserialize, DeserializeUnsized, LayoutRaw, Place, Portable, Serialize,
     SerializeUnsized,
 };
 
@@ -107,16 +107,10 @@ impl Archive for CString {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedCString::resolve_from_c_str(
-            self.as_c_str(),
-            pos,
-            resolver,
-            out,
-        );
+        ArchivedCString::resolve_from_c_str(self.as_c_str(), resolver, out);
     }
 }
 

@@ -8,9 +8,12 @@ use core::{
 };
 use std::ffi::CStr;
 
+use munge::munge;
 use rancor::Fallible;
 
-use crate::{ser::Writer, ArchiveUnsized, Portable, RelPtr, SerializeUnsized};
+use crate::{
+    ser::Writer, ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
+};
 
 /// An archived [`CString`](std::ffi::CString).
 ///
@@ -66,17 +69,11 @@ impl ArchivedCString {
     #[inline]
     pub unsafe fn resolve_from_c_str(
         c_str: &CStr,
-        pos: usize,
         resolver: CStringResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        let (fp, fo) = out_field!(out.ptr);
-        RelPtr::emplace_unsized(
-            pos + fp,
-            resolver.pos,
-            c_str.archived_metadata(),
-            fo,
-        );
+        munge!(let ArchivedCString { ptr } = out);
+        RelPtr::emplace_unsized(resolver.pos, c_str.archived_metadata(), ptr);
     }
 
     /// Serializes a C string.

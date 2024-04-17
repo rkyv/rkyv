@@ -2,11 +2,12 @@
 
 use core::{marker::PhantomPinned, mem, ptr, slice, str};
 
+use munge::munge;
 use rancor::{Panic, ResultExt as _, Source};
 
 use crate::{
     primitive::{ArchivedUsize, FixedIsize},
-    Portable,
+    Place, Portable,
 };
 
 const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
@@ -166,18 +167,16 @@ impl ArchivedStringRepr {
     #[inline]
     pub unsafe fn try_emplace_out_of_line<E: Source>(
         value: &str,
-        pos: usize,
         target: usize,
-        out: *mut Self,
+        out: Place<Self>,
     ) -> Result<(), E> {
-        let out_len = ptr::addr_of_mut!((*out).out_of_line.len);
-        out_len.write(ArchivedUsize::from_native(
+        munge!(let ArchivedStringRepr { out_of_line: OutOfLineRepr { len, offset, _phantom: _ } } = out);
+        len.write(ArchivedUsize::from_native(
             value.len().try_into().into_error()?,
         ));
 
-        let out_offset = ptr::addr_of_mut!((*out).out_of_line.offset);
-        let offset = crate::rel_ptr::signed_offset(pos, target)?;
-        *out_offset = (offset as FixedIsize).to_le_bytes();
+        let off = crate::rel_ptr::signed_offset(out.pos(), target)?;
+        offset.write((off as FixedIsize).to_le_bytes());
 
         Ok(())
     }
@@ -196,12 +195,10 @@ impl ArchivedStringRepr {
     #[inline]
     pub unsafe fn emplace_out_of_line(
         value: &str,
-        pos: usize,
         target: usize,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        Self::try_emplace_out_of_line::<Panic>(value, pos, target, out)
-            .always_ok()
+        Self::try_emplace_out_of_line::<Panic>(value, target, out).always_ok()
     }
 }
 

@@ -1,4 +1,4 @@
-use core::{cmp, ptr};
+use core::cmp;
 use std::{
     io,
     net::{
@@ -7,6 +7,7 @@ use std::{
     },
 };
 
+use munge::munge;
 use rancor::Fallible;
 
 use crate::{
@@ -14,7 +15,7 @@ use crate::{
         ArchivedIpAddr, ArchivedIpv4Addr, ArchivedIpv6Addr, ArchivedSocketAddr,
         ArchivedSocketAddrV4, ArchivedSocketAddrV6,
     },
-    Archive, Deserialize, Serialize,
+    Archive, Deserialize, Place, Serialize,
 };
 
 // Ipv4Addr
@@ -139,13 +140,8 @@ impl Archive for Ipv4Addr {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        _: usize,
-        _: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
-        out.cast::<[u8; 4]>().write(self.octets());
+    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+        out.cast_unchecked::<[u8; 4]>().write(self.octets());
     }
 }
 
@@ -258,13 +254,8 @@ impl Archive for Ipv6Addr {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        _: usize,
-        _: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
-        out.cast::<[u8; 16]>().write(self.octets());
+    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+        out.cast_unchecked::<[u8; 16]>().write(self.octets());
     }
 }
 
@@ -392,32 +383,19 @@ impl Archive for IpAddr {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        resolver: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
+    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
         match self {
             IpAddr::V4(ipv4_addr) => {
-                let out = out.cast::<ArchivedIpAddrVariantV4>();
-                ptr::addr_of_mut!((*out).0).write(ArchivedIpAddrTag::V4);
-
-                let (fp, fo) = out_field!(out.1);
-                // resolver is guaranteed to be (), but it's better to be
-                // explicit about it
-                #[allow(clippy::unit_arg)]
-                ipv4_addr.resolve(pos + fp, resolver, fo);
+                let out = out.cast_unchecked::<ArchivedIpAddrVariantV4>();
+                munge!(let ArchivedIpAddrVariantV4(tag, ipv4_addr_out) = out);
+                tag.write(ArchivedIpAddrTag::V4);
+                ipv4_addr.resolve((), ipv4_addr_out);
             }
             IpAddr::V6(ipv6_addr) => {
-                let out = out.cast::<ArchivedIpAddrVariantV6>();
-                ptr::addr_of_mut!((*out).0).write(ArchivedIpAddrTag::V6);
-
-                let (fp, fo) = out_field!(out.1);
-                // resolver is guaranteed to be (), but it's better to be
-                // explicit about it
-                #[allow(clippy::unit_arg)]
-                ipv6_addr.resolve(pos + fp, resolver, fo);
+                let out = out.cast_unchecked::<ArchivedIpAddrVariantV6>();
+                munge!(let ArchivedIpAddrVariantV6(tag, ipv6_addr_out) = out);
+                tag.write(ArchivedIpAddrTag::V6);
+                ipv6_addr.resolve((), ipv6_addr_out);
             }
         }
     }
@@ -504,16 +482,10 @@ impl Archive for SocketAddrV4 {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        _: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
-        let (fp, fo) = out_field!(out.ip);
-        self.ip().resolve(pos + fp, (), fo);
-        let (fp, fo) = out_field!(out.port);
-        self.port().resolve(pos + fp, (), fo);
+    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+        munge!(let ArchivedSocketAddrV4 { ip, port } = out);
+        self.ip().resolve((), ip);
+        self.port().resolve((), port);
     }
 }
 
@@ -597,20 +569,12 @@ impl Archive for SocketAddrV6 {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        pos: usize,
-        _: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
-        let (fp, fo) = out_field!(out.ip);
-        self.ip().resolve(pos + fp, (), fo);
-        let (fp, fo) = out_field!(out.port);
-        self.port().resolve(pos + fp, (), fo);
-        let (fp, fo) = out_field!(out.flowinfo);
-        self.flowinfo().resolve(pos + fp, (), fo);
-        let (fp, fo) = out_field!(out.scope_id);
-        self.scope_id().resolve(pos + fp, (), fo);
+    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+        munge!(let ArchivedSocketAddrV6 { ip, port, flowinfo, scope_id } = out);
+        self.ip().resolve((), ip);
+        self.port().resolve((), port);
+        self.flowinfo().resolve((), flowinfo);
+        self.scope_id().resolve((), scope_id);
     }
 }
 
@@ -721,30 +685,21 @@ impl Archive for SocketAddr {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         match self {
             SocketAddr::V4(socket_addr) => {
-                let out = out.cast::<ArchivedSocketAddrVariantV4>();
-                ptr::addr_of_mut!((*out).0).write(ArchivedSocketAddrTag::V4);
-
-                let (fp, fo) = out_field!(out.1);
-                // resolver is guaranteed to be (), but it's better to be
-                // explicit about it
-                #[allow(clippy::unit_arg)]
-                socket_addr.resolve(pos + fp, resolver, fo);
+                let out = out.cast_unchecked::<ArchivedSocketAddrVariantV4>();
+                munge!(let ArchivedSocketAddrVariantV4(tag, socket_addr_out) = out);
+                tag.write(ArchivedSocketAddrTag::V4);
+                socket_addr.resolve(resolver, socket_addr_out);
             }
             SocketAddr::V6(socket_addr) => {
-                let out = out.cast::<ArchivedSocketAddrVariantV6>();
-                ptr::addr_of_mut!((*out).0).write(ArchivedSocketAddrTag::V6);
-
-                let (fp, fo) = out_field!(out.1);
-                // resolver is guaranteed to be (), but it's better to be
-                // explicit about it
-                #[allow(clippy::unit_arg)]
-                socket_addr.resolve(pos + fp, resolver, fo);
+                let out = out.cast_unchecked::<ArchivedSocketAddrVariantV6>();
+                munge!(let ArchivedSocketAddrVariantV6(tag, socket_addr_out) = out);
+                tag.write(ArchivedSocketAddrTag::V6);
+                socket_addr.resolve(resolver, socket_addr_out);
             }
         }
     }

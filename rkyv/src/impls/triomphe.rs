@@ -11,7 +11,7 @@ use crate::{
     de::{Metadata, Pooling, PoolingExt, SharedPointer},
     rc::{ArchivedRc, RcResolver},
     ser::{Sharing, Writer},
-    Archive, ArchiveUnsized, Deserialize, DeserializeUnsized, Serialize,
+    Archive, ArchiveUnsized, Deserialize, DeserializeUnsized, Place, Serialize,
     SerializeUnsized,
 };
 
@@ -43,11 +43,10 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Arc<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedRc::resolve_from_ref(self.as_ref(), pos, resolver, out);
+        ArchivedRc::resolve_from_ref(self.as_ref(), resolver, out);
     }
 }
 

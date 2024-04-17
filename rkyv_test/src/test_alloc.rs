@@ -24,7 +24,7 @@ mod tests {
         ser::{writer::BufferWriter, Writer},
         to_bytes,
         util::{deserialize, serialize_into, AlignedBytes, AlignedVec},
-        Archive, Archived, Deserialize, Portable, Serialize,
+        Archive, Archived, Deserialize, Place, Portable, Serialize,
     };
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
@@ -636,9 +636,8 @@ mod tests {
 
             unsafe fn resolve(
                 &self,
-                _: usize,
                 _: Self::Resolver,
-                _: *mut Self::Archived,
+                _: Place<Self::Archived>,
             ) {
             }
         }
@@ -1312,7 +1311,7 @@ mod tests {
             ser::Writer,
             util::{serialize_into, AlignedVec},
             with::{ArchiveWith, DeserializeWith, SerializeWith},
-            Archive, Archived, Deserialize, Serialize,
+            Archive, Archived, Deserialize, Place, Serialize,
         };
         #[cfg(feature = "wasm")]
         use wasm_bindgen_test::*;
@@ -1325,11 +1324,10 @@ mod tests {
 
             unsafe fn resolve_with(
                 value: &T,
-                pos: usize,
                 resolver: Self::Resolver,
-                out: *mut Self::Archived,
+                out: Place<Self::Archived>,
             ) {
-                value.to_string().resolve(pos, resolver, out);
+                value.to_string().resolve(resolver, out);
             }
         }
 

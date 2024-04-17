@@ -14,6 +14,7 @@ use crate::{
         ArchivedOptionNonZeroU64, ArchivedOptionNonZeroU8,
     },
     with::{ArchiveWith, DeserializeWith, Niche, SerializeWith},
+    Place,
 };
 
 macro_rules! impl_nonzero_niche {
@@ -25,9 +26,8 @@ macro_rules! impl_nonzero_niche {
             #[inline]
             unsafe fn resolve_with(
                 field: &Option<$nz>,
-                _: usize,
                 _: Self::Resolver,
-                out: *mut Self::Archived,
+                out: Place<Self::Archived>,
             ) {
                 <$ar>::resolve_from_option(*field, out);
             }

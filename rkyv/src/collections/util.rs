@@ -1,8 +1,9 @@
 //! Utilities for archived collections.
 
+use munge::munge;
 use rancor::Fallible;
 
-use crate::{Archive, Portable, Serialize};
+use crate::{Archive, Place, Portable, Serialize};
 
 /// A simple key-value pair.
 ///
@@ -26,15 +27,12 @@ impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        let (fp, fo) = out_field!(out.key);
-        self.key.resolve(pos + fp, resolver.0, fo);
-
-        let (fp, fo) = out_field!(out.value);
-        self.value.resolve(pos + fp, resolver.1, fo);
+        munge!(let Entry { key, value } = out);
+        self.key.resolve(resolver.0, key);
+        self.value.resolve(resolver.1, value);
     }
 }
 

@@ -1,8 +1,9 @@
-use core::{hint::unreachable_unchecked, ptr};
+use core::hint::unreachable_unchecked;
 
+use munge::munge;
 use rancor::Fallible;
 
-use crate::{option::ArchivedOption, Archive, Deserialize, Serialize};
+use crate::{option::ArchivedOption, Archive, Deserialize, Place, Serialize};
 
 #[allow(dead_code)]
 #[repr(u8)]
@@ -24,18 +25,20 @@ impl<T: Archive> Archive for Option<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         match resolver {
             None => {
-                let out = out.cast::<ArchivedOptionVariantNone>();
-                ptr::addr_of_mut!((*out).0).write(ArchivedOptionTag::None);
+                let out = out.cast_unchecked::<ArchivedOptionVariantNone>();
+                munge!(let ArchivedOptionVariantNone(tag) = out);
+                tag.write(ArchivedOptionTag::None);
             }
             Some(resolver) => {
-                let out = out.cast::<ArchivedOptionVariantSome<T::Archived>>();
-                ptr::addr_of_mut!((*out).0).write(ArchivedOptionTag::Some);
+                let out = out
+                    .cast_unchecked::<ArchivedOptionVariantSome<T::Archived>>();
+                munge!(let ArchivedOptionVariantSome(tag, value_out) = out);
+                tag.write(ArchivedOptionTag::Some);
 
                 let value = if let Some(value) = self.as_ref() {
                     value
@@ -43,8 +46,7 @@ impl<T: Archive> Archive for Option<T> {
                     unreachable_unchecked();
                 };
 
-                let (fp, fo) = out_field!(out.1);
-                value.resolve(pos + fp, resolver, fo);
+                value.resolve(resolver, value_out);
             }
         }
     }

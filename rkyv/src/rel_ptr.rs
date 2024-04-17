@@ -3,9 +3,10 @@
 use core::{
     fmt,
     marker::{PhantomData, PhantomPinned},
-    ptr::{self, addr_of_mut},
+    ptr,
 };
 
+use munge::munge;
 use rancor::{fail, Panic, ResultExt as _, Source};
 
 use crate::{
@@ -13,7 +14,7 @@ use crate::{
         ArchivedI16, ArchivedI32, ArchivedI64, ArchivedU16, ArchivedU32,
         ArchivedU64,
     },
-    ArchivePointee, Portable,
+    ArchivePointee, Place, Portable,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -193,12 +194,11 @@ impl<O: Offset> RawRelPtr<O> {
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
     pub unsafe fn try_emplace<E: Source>(
-        from: usize,
         to: usize,
-        out: *mut Self,
+        out: Place<Self>,
     ) -> Result<(), E> {
-        let offset = O::from_isize(signed_offset(from, to)?)?;
-        ptr::addr_of_mut!((*out).offset).write(offset);
+        let offset = O::from_isize(signed_offset(out.pos(), to)?)?;
+        ptr::addr_of_mut!((*out.ptr()).offset).write(offset);
         Ok(())
     }
 
@@ -207,15 +207,15 @@ impl<O: Offset> RawRelPtr<O> {
     ///
     /// # Panics
     ///
-    /// - If the offset between `from` and `to` does not fit in an `isize`
-    /// - If the offset between `from` and `to` exceeds the offset storage
+    /// - If the offset between `out` and `to` does not fit in an `isize`
+    /// - If the offset between `out` and `to` exceeds the offset storage
     ///
     /// # Safety
     ///
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn emplace(from: usize, to: usize, out: *mut Self) {
-        Self::try_emplace::<Panic>(from, to, out).always_ok()
+    pub unsafe fn emplace(to: usize, out: Place<Self>) {
+        Self::try_emplace::<Panic>(to, out).always_ok()
     }
 
     /// Gets the base pointer for the relative pointer.
@@ -325,13 +325,12 @@ impl<T, O: Offset> RelPtr<T, O> {
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
     pub unsafe fn try_emplace<E: Source>(
-        from: usize,
         to: usize,
-        out: *mut Self,
+        out: Place<Self>,
     ) -> Result<(), E> {
-        let (fp, fo) = out_field!(out.raw_ptr);
+        munge!(let RelPtr { raw_ptr, metadata: _, _phantom: _ } = out);
         // Skip metadata since sized T is guaranteed to be ()
-        RawRelPtr::try_emplace(from + fp, to, fo)
+        RawRelPtr::try_emplace(to, raw_ptr)
     }
 
     /// Creates a relative pointer from one position to another.
@@ -345,8 +344,8 @@ impl<T, O: Offset> RelPtr<T, O> {
     ///
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn emplace(from: usize, to: usize, out: *mut Self) {
-        Self::try_emplace::<Panic>(from, to, out).always_ok()
+    pub unsafe fn emplace(to: usize, out: Place<Self>) {
+        Self::try_emplace::<Panic>(to, out).always_ok()
     }
 }
 
@@ -361,13 +360,11 @@ where
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
     pub unsafe fn try_emplace_null<E: Source>(
-        pos: usize,
-        out: *mut Self,
+        out: Place<Self>,
     ) -> Result<(), E> {
-        let (fp, fo) = out_field!(out.raw_ptr);
-        RawRelPtr::try_emplace(pos + fp, pos, fo)?;
-        let (_, fo) = out_field!(out.metadata);
-        fo.write(Default::default());
+        munge!(let RelPtr { raw_ptr, metadata, _phantom: _ } = out);
+        RawRelPtr::try_emplace(raw_ptr.pos(), raw_ptr)?;
+        metadata.write(Default::default());
         Ok(())
     }
 
@@ -382,8 +379,8 @@ where
     ///
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn emplace_null(pos: usize, out: *mut Self) {
-        Self::try_emplace_null::<Panic>(pos, out).always_ok()
+    pub unsafe fn emplace_null(out: Place<Self>) {
+        Self::try_emplace_null::<Panic>(out).always_ok()
     }
 }
 
@@ -395,14 +392,13 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
     pub unsafe fn try_emplace_unsized<E: Source>(
-        from: usize,
         to: usize,
         metadata: T::ArchivedMetadata,
-        out: *mut Self,
+        out: Place<Self>,
     ) -> Result<(), E> {
-        let (fp, fo) = out_field!(out.raw_ptr);
-        RawRelPtr::try_emplace(from + fp, to, fo)?;
-        addr_of_mut!((*out).metadata).write(metadata);
+        munge!(let RelPtr { raw_ptr, metadata: out_meta, _phantom: _ } = out);
+        RawRelPtr::try_emplace(to, raw_ptr)?;
+        out_meta.write(metadata);
         Ok(())
     }
 
@@ -418,12 +414,11 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
     pub unsafe fn emplace_unsized(
-        from: usize,
         to: usize,
         metadata: T::ArchivedMetadata,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        Self::try_emplace_unsized::<Panic>(from, to, metadata, out).always_ok()
+        Self::try_emplace_unsized::<Panic>(to, metadata, out).always_ok()
     }
 
     /// Gets the base pointer for the relative pointer.

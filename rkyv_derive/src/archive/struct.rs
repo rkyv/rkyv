@@ -52,8 +52,9 @@ pub fn impl_struct(
         .map(|(member, field)| {
             let resolves = resolve(rkyv_path, field)?;
             Ok(quote! {
-                let (fp, fo) = out_field!(out.#member);
-                #resolves(&self.#member, pos + fp, resolver.#member, fo);
+                let field_ptr = ::core::ptr::addr_of_mut!((*out.ptr()).#member);
+                let field_out = #rkyv_path::Place::from_field_unchecked(out, field_ptr);
+                #resolves(&self.#member, resolver.#member, field_out);
             })
         })
         .collect::<Result<Vec<_>, Error>>()?;
@@ -98,9 +99,8 @@ pub fn impl_struct(
                 #[inline]
                 unsafe fn resolve(
                     &self,
-                    pos: usize,
                     resolver: Self::Resolver,
-                    out: *mut Self::Archived,
+                    out: #rkyv_path::Place<Self::Archived>,
                 ) {
                     #(#resolve_statements)*
                 }

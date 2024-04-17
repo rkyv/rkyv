@@ -105,7 +105,7 @@ fn derive_archive_impl(
         #[automatically_derived]
         const _: () = {
             use core::marker::PhantomData;
-            use #rkyv_path::{out_field, Archive, Archived};
+            use #rkyv_path::{Archive, Archived};
 
             #archive_impls
         };

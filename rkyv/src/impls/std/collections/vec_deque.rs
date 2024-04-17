@@ -5,7 +5,7 @@ use rancor::{Fallible, ResultExt, Source};
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Deserialize, DeserializeUnsized, LayoutRaw, Serialize,
+    Archive, Deserialize, DeserializeUnsized, LayoutRaw, Place, Serialize,
 };
 
 impl<T: PartialEq<U>, U> PartialEq<VecDeque<U>> for ArchivedVec<T> {
@@ -40,11 +40,10 @@ impl<T: Archive> Archive for VecDeque<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_len(self.len(), pos, resolver, out);
+        ArchivedVec::resolve_from_len(self.len(), resolver, out);
     }
 }
 

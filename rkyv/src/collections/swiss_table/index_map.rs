@@ -13,6 +13,7 @@ use core::{
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 
+use munge::munge;
 use rancor::{Fallible, Source};
 
 use crate::{
@@ -23,7 +24,7 @@ use crate::{
     hash::{hash_value, FxHasher64},
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt as _},
-    Portable, RelPtr, Serialize,
+    Place, Portable, RelPtr, Serialize,
 };
 
 /// An archived `IndexMap`.
@@ -315,21 +316,17 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
     pub unsafe fn resolve_from_len(
         len: usize,
         load_factor: (usize, usize),
-        pos: usize,
         resolver: IndexMapResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        let (fp, fo) = out_field!(out.table);
+        munge!(let ArchivedIndexMap { table, entries, _phantom: _ } = out);
         ArchivedHashTable::resolve_from_len(
             len,
             load_factor,
-            pos + fp,
             resolver.table_resolver,
-            fo,
+            table,
         );
-
-        let (fp, fo) = out_field!(out.entries);
-        RelPtr::emplace(pos + fp, resolver.entries_pos, fo);
+        RelPtr::emplace(resolver.entries_pos, entries);
     }
 
     /// Serializes an iterator of key-value pairs as an index map.

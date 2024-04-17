@@ -15,7 +15,7 @@ use crate::{
     },
     ser::{Sharing, Writer},
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized,
-    LayoutRaw, Serialize, SerializeUnsized,
+    LayoutRaw, Place, Serialize, SerializeUnsized,
 };
 
 // Rc
@@ -27,11 +27,10 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedRc::resolve_from_ref(self.as_ref(), pos, resolver, out);
+        ArchivedRc::resolve_from_ref(self.as_ref(), resolver, out);
     }
 }
 
@@ -115,13 +114,11 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         ArchivedRcWeak::resolve_from_ref(
             self.upgrade().as_ref().map(|v| v.as_ref()),
-            pos,
             resolver,
             out,
         );
@@ -182,11 +179,10 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedRc::resolve_from_ref(self.as_ref(), pos, resolver, out);
+        ArchivedRc::resolve_from_ref(self.as_ref(), resolver, out);
     }
 }
 
@@ -275,13 +271,11 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         ArchivedRcWeak::resolve_from_ref(
             self.upgrade().as_ref().map(|v| v.as_ref()),
-            pos,
             resolver,
             out,
         );

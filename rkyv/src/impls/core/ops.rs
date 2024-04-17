@@ -2,6 +2,7 @@ use core::ops::{
     Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
 };
 
+use munge::munge;
 use rancor::Fallible;
 
 use crate::{
@@ -9,7 +10,8 @@ use crate::{
         ArchivedRange, ArchivedRangeFrom, ArchivedRangeInclusive,
         ArchivedRangeTo, ArchivedRangeToInclusive,
     },
-    Archive, Archived, CopyOptimization, Deserialize, Portable, Serialize,
+    Archive, Archived, CopyOptimization, Deserialize, Place, Portable,
+    Serialize,
 };
 
 // RangeFull
@@ -26,13 +28,7 @@ impl Archive for RangeFull {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        _: usize,
-        _: Self::Resolver,
-        _: *mut Self::Archived,
-    ) {
-    }
+    unsafe fn resolve(&self, _: Self::Resolver, _: Place<Self::Archived>) {}
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for RangeFull {
@@ -58,14 +54,12 @@ impl<T: Archive> Archive for Range<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        let (fp, fo) = out_field!(out.start);
-        self.start.resolve(pos + fp, resolver.start, fo);
-        let (fp, fo) = out_field!(out.end);
-        self.end.resolve(pos + fp, resolver.end, fo);
+        munge!(let ArchivedRange { start, end } = out);
+        self.start.resolve(resolver.start, start);
+        self.end.resolve(resolver.end, end);
     }
 }
 
@@ -112,14 +106,12 @@ impl<T: Archive> Archive for RangeInclusive<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        let (fp, fo) = out_field!(out.start);
-        self.start().resolve(pos + fp, resolver.start, fo);
-        let (fp, fo) = out_field!(out.end);
-        self.end().resolve(pos + fp, resolver.end, fo);
+        munge!(let ArchivedRangeInclusive { start, end } = out);
+        self.start().resolve(resolver.start, start);
+        self.end().resolve(resolver.end, end);
     }
 }
 
@@ -172,12 +164,11 @@ impl<T: Archive> Archive for RangeFrom<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        let (fp, fo) = out_field!(out.start);
-        self.start.resolve(pos + fp, resolver.start, fo);
+        munge!(let ArchivedRangeFrom { start } = out);
+        self.start.resolve(resolver.start, start);
     }
 }
 
@@ -226,12 +217,11 @@ impl<T: Archive> Archive for RangeTo<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        let (fp, fo) = out_field!(out.end);
-        self.end.resolve(pos + fp, resolver.end, fo);
+        munge!(let ArchivedRangeTo { end } = out);
+        self.end.resolve(resolver.end, end);
     }
 }
 
@@ -280,12 +270,11 @@ impl<T: Archive> Archive for RangeToInclusive<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        let (fp, fo) = out_field!(out.end);
-        self.end.resolve(pos + fp, resolver.end, fo);
+        munge!(let ArchivedRangeToInclusive { end } = out);
+        self.end.resolve(resolver.end, end);
     }
 }
 

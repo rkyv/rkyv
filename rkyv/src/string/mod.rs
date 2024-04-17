@@ -13,10 +13,11 @@ use core::{
     str,
 };
 
+use munge::munge;
 use rancor::Fallible;
 use repr::{ArchivedStringRepr, INLINE_CAPACITY};
 
-use crate::{Portable, SerializeUnsized};
+use crate::{Place, Portable, SerializeUnsized};
 
 /// An archived [`String`].
 ///
@@ -58,19 +59,14 @@ impl ArchivedString {
     #[inline]
     pub unsafe fn resolve_from_str(
         value: &str,
-        pos: usize,
         resolver: StringResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
+        munge!(let ArchivedString { repr } = out);
         if value.len() <= repr::INLINE_CAPACITY {
-            ArchivedStringRepr::emplace_inline(value, out.cast());
+            ArchivedStringRepr::emplace_inline(value, repr.ptr());
         } else {
-            ArchivedStringRepr::emplace_out_of_line(
-                value,
-                pos,
-                resolver.pos,
-                out.cast(),
-            );
+            ArchivedStringRepr::emplace_out_of_line(value, resolver.pos, repr);
         }
     }
 

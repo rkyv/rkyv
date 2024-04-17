@@ -2,9 +2,9 @@ use core::{
     cell::{Cell, UnsafeCell},
     hint::unreachable_unchecked,
     num::{NonZeroIsize, NonZeroUsize},
-    ptr,
 };
 
+use munge::munge;
 use rancor::Fallible;
 
 use crate::{
@@ -18,7 +18,7 @@ use crate::{
         ArchiveWith, Boxed, BoxedInline, DeserializeWith, Inline, Map, Niche,
         SerializeWith, Skip, Unsafe,
     },
-    Archive, ArchiveUnsized, Deserialize, Serialize, SerializeUnsized,
+    Archive, ArchiveUnsized, Deserialize, Place, Serialize, SerializeUnsized,
 };
 
 // Map for Options
@@ -33,21 +33,22 @@ where
 
     unsafe fn resolve_with(
         field: &Option<O>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         match resolver {
             None => {
-                let out = out.cast::<ArchivedOptionVariantNone>();
-                ptr::addr_of_mut!((*out).0).write(ArchivedOptionTag::None);
+                let out = out.cast_unchecked::<ArchivedOptionVariantNone>();
+                munge!(let ArchivedOptionVariantNone(tag) = out);
+                tag.write(ArchivedOptionTag::None);
             }
             Some(resolver) => {
                 let out =
-                    out.cast::<ArchivedOptionVariantSome<
+                    out.cast_unchecked::<ArchivedOptionVariantSome<
                         <A as ArchiveWith<O>>::Archived,
                     >>();
-                ptr::addr_of_mut!((*out).0).write(ArchivedOptionTag::Some);
+                munge!(let ArchivedOptionVariantSome(tag, value_out) = out);
+                tag.write(ArchivedOptionTag::Some);
 
                 let value = if let Some(value) = field.as_ref() {
                     value
@@ -55,8 +56,7 @@ where
                     unreachable_unchecked();
                 };
 
-                let (fp, fo) = out_field!(out.1);
-                A::resolve_with(value, pos + fp, resolver, fo);
+                A::resolve_with(value, resolver, value_out);
             }
         }
     }
@@ -122,11 +122,10 @@ impl<F: Archive> ArchiveWith<&F> for Inline {
     #[inline]
     unsafe fn resolve_with(
         field: &&F,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        field.resolve(pos, resolver, out);
+        field.resolve(resolver, out);
     }
 }
 
@@ -149,11 +148,10 @@ impl<F: ArchiveUnsized + ?Sized> ArchiveWith<&F> for BoxedInline {
     #[inline]
     unsafe fn resolve_with(
         field: &&F,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedBox::resolve_from_ref(*field, pos, resolver, out);
+        ArchivedBox::resolve_from_ref(*field, resolver, out);
     }
 }
 
@@ -178,11 +176,10 @@ impl<F: ArchiveUnsized + ?Sized> ArchiveWith<F> for Boxed {
     #[inline]
     unsafe fn resolve_with(
         field: &F,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedBox::resolve_from_ref(field, pos, resolver, out);
+        ArchivedBox::resolve_from_ref(field, resolver, out);
     }
 }
 
@@ -221,9 +218,8 @@ impl ArchiveWith<Option<NonZeroIsize>> for Niche {
     #[inline]
     unsafe fn resolve_with(
         field: &Option<NonZeroIsize>,
-        _: usize,
         _: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         let f = field.as_ref().map(|&x| x.try_into().unwrap());
         ArchivedOptionNonZeroIsize::resolve_from_option(f, out);
@@ -264,9 +260,8 @@ impl ArchiveWith<Option<NonZeroUsize>> for Niche {
     #[inline]
     unsafe fn resolve_with(
         field: &Option<NonZeroUsize>,
-        _: usize,
         _: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         let f = field.as_ref().map(|&x| x.try_into().unwrap());
         ArchivedOptionNonZeroUsize::resolve_from_option(f, out);
@@ -309,11 +304,10 @@ impl<F: Archive> ArchiveWith<UnsafeCell<F>> for Unsafe {
     #[inline]
     unsafe fn resolve_with(
         field: &UnsafeCell<F>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        F::resolve(&*field.get(), pos, resolver, out.cast());
+        F::resolve(&*field.get(), resolver, out.cast_unchecked());
     }
 }
 
@@ -354,11 +348,10 @@ impl<F: Archive> ArchiveWith<Cell<F>> for Unsafe {
     #[inline]
     unsafe fn resolve_with(
         field: &Cell<F>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        F::resolve(&*field.as_ptr(), pos, resolver, out.cast());
+        F::resolve(&*field.as_ptr(), resolver, out.cast_unchecked());
     }
 }
 
@@ -398,12 +391,7 @@ impl<F> ArchiveWith<F> for Skip {
     type Archived = ();
     type Resolver = ();
 
-    unsafe fn resolve_with(
-        _: &F,
-        _: usize,
-        _: Self::Resolver,
-        _: *mut Self::Archived,
-    ) {
+    unsafe fn resolve_with(_: &F, _: Self::Resolver, _: Place<Self::Archived>) {
     }
 }
 

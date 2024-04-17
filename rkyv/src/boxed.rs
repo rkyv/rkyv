@@ -2,11 +2,12 @@
 
 use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};
 
+use munge::munge;
 use rancor::Fallible;
 
 use crate::{
     ser::{Writer, WriterExt as _},
-    ArchivePointee, ArchiveUnsized, Portable, RelPtr, Serialize,
+    ArchivePointee, ArchiveUnsized, Place, Portable, RelPtr, Serialize,
     SerializeUnsized,
 };
 
@@ -48,16 +49,10 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     #[inline]
     pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: &U,
-        pos: usize,
         resolver: BoxResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        Self::resolve_from_raw_parts(
-            pos,
-            resolver,
-            value.archived_metadata(),
-            out,
-        )
+        Self::resolve_from_raw_parts(resolver, value.archived_metadata(), out)
     }
 
     /// Serializes an archived box from the given value and serializer.
@@ -82,13 +77,12 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     ///
     /// `out` must point to a `Self` that is valid for reads and writes.
     pub unsafe fn resolve_from_raw_parts(
-        pos: usize,
         resolver: BoxResolver,
         metadata: T::ArchivedMetadata,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        let (fp, fo) = out_field!(out.ptr);
-        RelPtr::emplace_unsized(pos + fp, resolver.pos, metadata, fo);
+        munge!(let ArchivedBox { ptr } = out);
+        RelPtr::emplace_unsized(resolver.pos, metadata, ptr);
     }
 
     #[doc(hidden)]
@@ -138,9 +132,9 @@ where
 {
     #[doc(hidden)]
     #[inline]
-    pub unsafe fn emplace_null(pos: usize, out: *mut Self) {
-        let (fp, fo) = out_field!(out.ptr);
-        RelPtr::emplace_null(pos + fp, fo);
+    pub unsafe fn emplace_null(out: Place<Self>) {
+        munge!(let ArchivedBox { ptr } = out);
+        RelPtr::emplace_null(ptr);
     }
 }
 

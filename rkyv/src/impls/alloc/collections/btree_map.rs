@@ -8,7 +8,7 @@ use rancor::Fallible;
 use crate::{
     collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver},
     ser::Writer,
-    Archive, Deserialize, Serialize,
+    Archive, Deserialize, Place, Serialize,
 };
 
 impl<K: Archive + Ord, V: Archive> Archive for BTreeMap<K, V>
@@ -21,11 +21,10 @@ where
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedBTreeMap::resolve_from_len(self.len(), pos, resolver, out);
+        ArchivedBTreeMap::resolve_from_len(self.len(), resolver, out);
     }
 }
 

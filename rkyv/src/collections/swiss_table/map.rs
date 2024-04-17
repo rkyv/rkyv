@@ -10,6 +10,7 @@ use core::{
     pin::Pin,
 };
 
+use munge::munge;
 use rancor::{Fallible, Source};
 
 use crate::{
@@ -19,7 +20,7 @@ use crate::{
     },
     hash::{hash_value, FxHasher64},
     ser::{Allocator, Writer},
-    Portable, Serialize,
+    Place, Portable, Serialize,
 };
 
 /// An archived SwissTable hash map.
@@ -245,16 +246,15 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
     pub unsafe fn resolve_from_len(
         len: usize,
         load_factor: (usize, usize),
-        pos: usize,
         resolver: HashMapResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
+        munge!(let ArchivedHashMap { table, _phantom: _ } = out);
         ArchivedHashTable::<Entry<K, V>>::resolve_from_len(
             len,
             load_factor,
-            pos,
             resolver.0,
-            out.cast(),
+            table,
         )
     }
 }

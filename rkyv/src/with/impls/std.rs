@@ -19,7 +19,7 @@ use crate::{
         ArchiveWith, AsString, AsVec, DeserializeWith, Immutable, InvalidStr,
         Lock, Poisoned, SerializeWith, UnixTimestamp,
     },
-    Archive, Deserialize, Serialize, SerializeUnsized,
+    Archive, Deserialize, Place, Serialize, SerializeUnsized,
 };
 
 // AsString
@@ -31,15 +31,13 @@ impl ArchiveWith<OsString> for AsString {
     #[inline]
     unsafe fn resolve_with(
         field: &OsString,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         // It's safe to unwrap here because if the OsString wasn't valid UTF-8
         // it would have failed to serialize
         ArchivedString::resolve_from_str(
             field.to_str().unwrap(),
-            pos,
             resolver,
             out,
         );
@@ -82,15 +80,13 @@ impl ArchiveWith<PathBuf> for AsString {
     #[inline]
     unsafe fn resolve_with(
         field: &PathBuf,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         // It's safe to unwrap here because if the OsString wasn't valid UTF-8
         // it would have failed to serialize
         ArchivedString::resolve_from_str(
             field.to_str().unwrap(),
-            pos,
             resolver,
             out,
         );
@@ -135,9 +131,8 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
     #[inline]
     unsafe fn resolve_with(
         field: &Mutex<F>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         // Unfortunately, we have to unwrap here because resolve must be
         // infallible
@@ -149,7 +144,10 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
         // Mutex are serialized before the first is resolved. The
         // compromise is, unfortunately, to just unwrap poison
         // errors here and document it.
-        field.lock().unwrap().resolve(pos, resolver, out.cast());
+        field
+            .lock()
+            .unwrap()
+            .resolve(resolver, out.cast_unchecked());
     }
 }
 
@@ -193,9 +191,8 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
     #[inline]
     unsafe fn resolve_with(
         field: &RwLock<F>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         // Unfortunately, we have to unwrap here because resolve must be
         // infallible
@@ -207,7 +204,10 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
         // same Mutex are serialized before the first is resolved. The
         // compromise is, unfortunately, to just unwrap poison errors
         // here and document it.
-        field.read().unwrap().resolve(pos, resolver, out.cast());
+        field
+            .read()
+            .unwrap()
+            .resolve(resolver, out.cast_unchecked());
     }
 }
 
@@ -252,11 +252,10 @@ impl<K: Archive, V: Archive> ArchiveWith<HashMap<K, V>> for AsVec {
 
     unsafe fn resolve_with(
         field: &HashMap<K, V>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_len(field.len(), pos, resolver, out);
+        ArchivedVec::resolve_from_len(field.len(), resolver, out);
     }
 }
 
@@ -311,11 +310,10 @@ impl<T: Archive> ArchiveWith<HashSet<T>> for AsVec {
 
     unsafe fn resolve_with(
         field: &HashSet<T>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_len(field.len(), pos, resolver, out);
+        ArchivedVec::resolve_from_len(field.len(), resolver, out);
     }
 }
 
@@ -362,13 +360,12 @@ impl ArchiveWith<SystemTime> for UnixTimestamp {
     #[inline]
     unsafe fn resolve_with(
         field: &SystemTime,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         // We already checked the duration during serialize_with
         let duration = field.duration_since(UNIX_EPOCH).unwrap();
-        Archive::resolve(&duration, pos, resolver, out);
+        Archive::resolve(&duration, resolver, out);
     }
 }
 

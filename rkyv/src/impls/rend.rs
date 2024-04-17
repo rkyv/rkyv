@@ -1,7 +1,7 @@
 use rancor::Fallible;
 
 use crate::{
-    rend::*, Archive, Archived, CopyOptimization, Deserialize, Serialize,
+    rend::*, Archive, Archived, CopyOptimization, Deserialize, Place, Serialize,
 };
 
 macro_rules! impl_rend_primitive {
@@ -16,9 +16,8 @@ macro_rules! impl_rend_primitive {
             #[inline]
             unsafe fn resolve(
                 &self,
-                _: usize,
                 _: Self::Resolver,
-                out: *mut Self::Archived,
+                out: Place<Self::Archived>,
             ) {
                 out.write(*self);
             }

@@ -6,7 +6,7 @@ use tinyvec::{Array, ArrayVec, SliceVec};
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Deserialize, Serialize,
+    Archive, Archived, Deserialize, Place, Serialize,
 };
 
 // ArrayVec
@@ -21,11 +21,10 @@ where
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
+        ArchivedVec::resolve_from_slice(self.as_slice(), resolver, out);
     }
 }
 
@@ -73,11 +72,10 @@ impl<'s, T: Archive> Archive for SliceVec<'s, T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
+        ArchivedVec::resolve_from_slice(self.as_slice(), resolver, out);
     }
 }
 
@@ -110,11 +108,10 @@ where
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
+        ArchivedVec::resolve_from_slice(self.as_slice(), resolver, out);
     }
 }
 

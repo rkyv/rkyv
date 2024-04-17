@@ -15,6 +15,7 @@ repository.workspace = true
 [dependencies]
 bytecheck = { workspace = true, optional = true }
 hashbrown = { workspace = true, optional = true }
+munge.workspace = true
 ptr_meta.workspace = true
 rancor.workspace = true
 rend.workspace = true

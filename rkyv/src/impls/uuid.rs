@@ -1,7 +1,9 @@
 use rancor::Fallible;
 use uuid::Uuid;
 
-use crate::{Archive, CopyOptimization, Deserialize, Portable, Serialize};
+use crate::{
+    Archive, CopyOptimization, Deserialize, Place, Portable, Serialize,
+};
 
 unsafe impl Portable for Uuid {}
 
@@ -12,12 +14,7 @@ impl Archive for Uuid {
     type Archived = Uuid;
     type Resolver = ();
 
-    unsafe fn resolve(
-        &self,
-        _: usize,
-        _: Self::Resolver,
-        out: *mut Self::Archived,
-    ) {
+    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
         // Safety: Uuid is portable and has no padding
         out.write(*self);
     }

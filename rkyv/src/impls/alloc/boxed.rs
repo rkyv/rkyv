@@ -9,7 +9,7 @@ use rancor::{Fallible, ResultExt as _, Source};
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized,
-    LayoutRaw, Serialize, SerializeUnsized,
+    LayoutRaw, Place, Serialize, SerializeUnsized,
 };
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
@@ -19,11 +19,10 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedBox::resolve_from_ref(self.as_ref(), pos, resolver, out);
+        ArchivedBox::resolve_from_ref(self.as_ref(), resolver, out);
     }
 }
 

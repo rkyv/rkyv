@@ -9,7 +9,7 @@ use rancor::{Fallible, ResultExt as _, Source};
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Deserialize, DeserializeUnsized, LayoutRaw, Serialize,
+    Archive, Deserialize, DeserializeUnsized, LayoutRaw, Place, Serialize,
 };
 
 impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
@@ -54,11 +54,10 @@ impl<T: Archive> Archive for Vec<T> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
+        ArchivedVec::resolve_from_slice(self.as_slice(), resolver, out);
     }
 }
 

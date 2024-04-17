@@ -9,6 +9,7 @@ use core::{
     hash::{Hash, Hasher},
 };
 
+use munge::munge;
 use rancor::{Fallible, Source};
 
 use crate::{
@@ -17,7 +18,7 @@ use crate::{
     },
     hash::FxHasher64,
     ser::{Allocator, Writer},
-    Portable, Serialize,
+    Place, Portable, Serialize,
 };
 
 /// An archived `IndexSet`.
@@ -105,18 +106,11 @@ impl<K, H: Default + Hasher> ArchivedIndexSet<K, H> {
     pub unsafe fn resolve_from_len(
         len: usize,
         load_factor: (usize, usize),
-        pos: usize,
         resolver: IndexSetResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        let (fp, fo) = out_field!(out.inner);
-        ArchivedIndexMap::resolve_from_len(
-            len,
-            load_factor,
-            pos + fp,
-            resolver.0,
-            fo,
-        );
+        munge!(let ArchivedIndexSet { inner } = out);
+        ArchivedIndexMap::resolve_from_len(len, load_factor, resolver.0, inner);
     }
 
     /// Serializes an iterator of keys as an index set.

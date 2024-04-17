@@ -1,13 +1,14 @@
 use core::ops::Deref;
 
 use bitvec::{prelude::*, view::BitViewSized};
+use munge::munge;
 use rancor::{Fallible, Source};
 
 use crate::{
     bitvec::{ArchivedBitArray, ArchivedBitVec},
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Deserialize, Serialize,
+    Archive, Archived, Deserialize, Place, Serialize,
 };
 
 impl<T: BitStore + Archive, O: BitOrder> ArchivedBitVec<T, O> {
@@ -27,19 +28,12 @@ where
 
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        let (fp, fo) = out_field!(out.inner);
-        ArchivedVec::resolve_from_slice(
-            self.as_raw_slice(),
-            pos + fp,
-            resolver,
-            fo,
-        );
-        let (fp, fo) = out_field!(out.bit_len);
-        usize::resolve(&self.len(), pos + fp, (), fo);
+        munge!(let ArchivedBitVec { inner, bit_len, _or: _ } = out);
+        ArchivedVec::resolve_from_slice(self.as_raw_slice(), resolver, inner);
+        usize::resolve(&self.len(), (), bit_len);
     }
 }
 
@@ -96,14 +90,13 @@ where
 
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         let arr_ref = self.as_raw_slice().try_into().ok().unwrap();
 
-        let (fp, fo) = out_field!(out.inner);
-        A::resolve(arr_ref, pos + fp, resolver, fo);
+        munge!(let ArchivedBitArray { inner, _or: _ } = out);
+        A::resolve(arr_ref, resolver, inner);
     }
 }
 

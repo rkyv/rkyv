@@ -6,13 +6,14 @@ use core::{
     hash::{Hash, Hasher},
 };
 
+use munge::munge;
 use rancor::{Fallible, Source};
 
 use crate::{
     collections::swiss_table::map::{ArchivedHashMap, HashMapResolver, Keys},
     hash::FxHasher64,
     ser::{Allocator, Writer},
-    Portable, Serialize,
+    Place, Portable, Serialize,
 };
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key
@@ -75,18 +76,11 @@ impl<K, H: Hasher + Default> ArchivedHashSet<K, H> {
     pub unsafe fn resolve_from_len(
         len: usize,
         load_factor: (usize, usize),
-        pos: usize,
         resolver: HashSetResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        let (fp, fo) = out_field!(out.inner);
-        ArchivedHashMap::resolve_from_len(
-            len,
-            load_factor,
-            pos + fp,
-            resolver.0,
-            fo,
-        );
+        munge!(let ArchivedHashSet { inner } = out);
+        ArchivedHashMap::resolve_from_len(len, load_factor, resolver.0, inner);
     }
 
     /// Serializes an iterator of keys as a hash set.

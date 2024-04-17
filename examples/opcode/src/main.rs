@@ -4,7 +4,7 @@ use rkyv::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     with::{ArchiveWith, DeserializeWith, SerializeWith},
-    Archive, Archived, Deserialize, Serialize,
+    Archive, Archived, Deserialize, Place, Serialize,
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -36,11 +36,10 @@ impl ArchiveWith<Vec<Opcode>> for EncodeOpcodes {
 
     unsafe fn resolve_with(
         _: &Vec<Opcode>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_len(resolver.len, pos, resolver.inner, out);
+        ArchivedVec::resolve_from_len(resolver.len, resolver.inner, out);
     }
 }
 

@@ -12,7 +12,7 @@ use rancor::{Fallible, Strategy};
 pub use self::core::*;
 #[cfg(feature = "std")]
 pub use self::std::*;
-use crate::{Archive, ArchiveUnsized, RelPtr};
+use crate::{Archive, ArchiveUnsized, Place, RelPtr};
 
 /// A writer that knows its current position.
 pub trait Positional {
@@ -98,7 +98,8 @@ pub trait WriterExt<E>: Writer<E> {
         debug_assert_eq!(pos & (mem::align_of::<T::Archived>() - 1), 0);
 
         let mut resolved = mem::MaybeUninit::<T::Archived>::zeroed();
-        value.resolve(pos, resolver, resolved.as_mut_ptr());
+        let out = Place::new_unchecked(pos, resolved.as_mut_ptr());
+        value.resolve(resolver, out);
 
         let data = resolved.as_ptr().cast::<u8>();
         let len = mem::size_of::<T::Archived>();
@@ -126,12 +127,8 @@ pub trait WriterExt<E>: Writer<E> {
         );
 
         let mut resolved = mem::MaybeUninit::<RelPtr<T::Archived>>::zeroed();
-        RelPtr::emplace_unsized(
-            from,
-            to,
-            value.archived_metadata(),
-            resolved.as_mut_ptr(),
-        );
+        let out = Place::new_unchecked(from, resolved.as_mut_ptr());
+        RelPtr::emplace_unsized(to, value.archived_metadata(), out);
 
         let data = resolved.as_ptr().cast::<u8>();
         let len = mem::size_of::<RelPtr<T::Archived>>();

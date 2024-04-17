@@ -120,9 +120,8 @@ pub fn impl_enum(
                 #[inline]
                 unsafe fn resolve(
                     &self,
-                    pos: usize,
                     resolver: <Self as Archive>::Resolver,
-                    out: *mut <Self as Archive>::Archived,
+                    out: #rkyv_path::Place<<Self as Archive>::Archived>,
                 ) {
                     match resolver {
                         #(#resolve_arms,)*
@@ -343,89 +342,111 @@ fn generate_resolve_arms(
     let resolver_name = &printing.resolver_name;
     let (_, ty_generics, _) = input.generics.split_for_impl();
 
-    data.variants.iter().map(|v| {
-        let variant = &v.ident;
-        let archived_variant_name = Ident::new(
-            &format!("ArchivedVariant{}", strip_raw(variant)),
-            v.span(),
-        );
+    data.variants
+        .iter()
+        .map(|v| {
+            let variant = &v.ident;
+            let archived_variant_name = Ident::new(
+                &format!("ArchivedVariant{}", strip_raw(variant)),
+                v.span(),
+            );
 
-        let members = members_starting_at(&v.fields, 1)
-            .map(|(m, _)| m)
-            .collect::<Vec<_>>();
+            let members = members_starting_at(&v.fields, 1)
+                .map(|(m, _)| m)
+                .collect::<Vec<_>>();
 
-        let (self_bindings, resolver_bindings) = v.fields
-            .iter()
-            .enumerate()
-            .map(|(i, field)| (
-                Ident::new(&format!("self_{}", i), field.span()),
-                Ident::new(&format!("resolver_{}", i), field.span()),
-            ))
-            .unzip::<_, _, Vec<_>, Vec<_>>();
+            let (self_bindings, resolver_bindings) = v
+                .fields
+                .iter()
+                .enumerate()
+                .map(|(i, field)| {
+                    (
+                        Ident::new(&format!("self_{}", i), field.span()),
+                        Ident::new(&format!("resolver_{}", i), field.span()),
+                    )
+                })
+                .unzip::<_, _, Vec<_>, Vec<_>>();
 
-        let resolves = v.fields
-            .iter()
-            .map(|f| resolve(rkyv_path, f))
-            .collect::<Result<Vec<_>, Error>>()?;
+            let resolves = v
+                .fields
+                .iter()
+                .map(|f| resolve(rkyv_path, f))
+                .collect::<Result<Vec<_>, Error>>()?;
 
-        match v.fields {
-            Fields::Named(_) => Ok(quote! {
-                #resolver_name::#variant {
-                    #(#members: #resolver_bindings,)*
-                } => {
-                    match self {
-                        #name::#variant {
-                            #(#members: #self_bindings,)*
-                        } => {
-                            let out = out
-                                .cast::<#archived_variant_name #ty_generics>();
-                            ::core::ptr::addr_of_mut!((*out).__tag)
-                                .write(ArchivedTag::#variant);
-                            #(
-                                let (fp, fo) = out_field!(out.#members);
-                                #resolves(
-                                    #self_bindings,
-                                    pos + fp,
-                                    #resolver_bindings,
-                                    fo,
-                                );
-                            )*
-                        },
-                        #[allow(unreachable_patterns)]
-                        _ => ::core::hint::unreachable_unchecked(),
+            match v.fields {
+                Fields::Named(_) => Ok(quote! {
+                    #resolver_name::#variant {
+                        #(#members: #resolver_bindings,)*
+                    } => {
+                        match self {
+                            #name::#variant {
+                                #(#members: #self_bindings,)*
+                            } => {
+                                let out = out.cast_unchecked::<
+                                    #archived_variant_name #ty_generics
+                                >();
+                                ::core::ptr::addr_of_mut!((*out.ptr()).__tag)
+                                    .write(ArchivedTag::#variant);
+                                #(
+                                    let field_ptr = ::core::ptr::addr_of_mut!(
+                                        (*out.ptr()).#members
+                                    );
+                                    let field_out =
+                                        #rkyv_path::Place::from_field_unchecked(
+                                            out,
+                                            field_ptr,
+                                        );
+                                    #resolves(
+                                        #self_bindings,
+                                        #resolver_bindings,
+                                        field_out,
+                                    );
+                                )*
+                            },
+                            #[allow(unreachable_patterns)]
+                            _ => ::core::hint::unreachable_unchecked(),
+                        }
                     }
-                }
-            }),
-            Fields::Unnamed(_) => Ok(quote! {
-                #resolver_name::#variant( #(#resolver_bindings,)* ) => {
-                    match self {
-                        #name::#variant(#(#self_bindings,)*) => {
-                            let out = out
-                                .cast::<#archived_variant_name #ty_generics>();
-                            ::core::ptr::addr_of_mut!((*out).0)
-                                .write(ArchivedTag::#variant);
-                            #(
-                                let (fp, fo) = out_field!(out.#members);
-                                #resolves(
-                                    #self_bindings,
-                                    pos + fp,
-                                    #resolver_bindings,
-                                    fo,
-                                );
-                            )*
-                        },
-                        #[allow(unreachable_patterns)]
-                        _ => ::core::hint::unreachable_unchecked(),
+                }),
+                Fields::Unnamed(_) => Ok(quote! {
+                    #resolver_name::#variant( #(#resolver_bindings,)* ) => {
+                        match self {
+                            #name::#variant(#(#self_bindings,)*) => {
+                                let out = out.cast_unchecked::<
+                                    #archived_variant_name #ty_generics
+                                >();
+                                ::core::ptr::addr_of_mut!((*out.ptr()).0)
+                                    .write(ArchivedTag::#variant);
+                                #(
+                                    let field_ptr = ::core::ptr::addr_of_mut!(
+                                        (*out.ptr()).#members
+                                    );
+                                    let field_out =
+                                        #rkyv_path::Place::from_field_unchecked(
+                                            out,
+                                            field_ptr,
+                                        );
+                                    #resolves(
+                                        #self_bindings,
+                                        #resolver_bindings,
+                                        field_out,
+                                    );
+                                )*
+                            },
+                            #[allow(unreachable_patterns)]
+                            _ => ::core::hint::unreachable_unchecked(),
+                        }
                     }
-                }
-            }),
-            Fields::Unit => Ok(quote! {
-                #resolver_name::#variant => {
-                    out.cast::<ArchivedTag>().write(ArchivedTag::#variant);
-                }
-            }),
-        }
-    }).collect()
+                }),
+                Fields::Unit => Ok(quote! {
+                    #resolver_name::#variant => {
+                        out.cast_unchecked::<ArchivedTag>()
+                            .write(ArchivedTag::#variant);
+                    }
+                }),
+            }
+        })
+        .collect()
 }
 
 fn generate_variant_structs(

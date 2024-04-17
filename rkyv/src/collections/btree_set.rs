@@ -2,9 +2,11 @@
 
 use core::{borrow::Borrow, fmt};
 
+use munge::munge;
+
 use crate::{
     collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver, Keys},
-    Portable,
+    Place, Portable,
 };
 
 /// An archived `BTreeSet`. This is a wrapper around a B-tree map with the same
@@ -65,17 +67,15 @@ impl<K> ArchivedBTreeSet<K> {
     /// # Safety
     ///
     /// - `len` must be the number of elements that were serialized
-    /// - `pos` must be the position of `out` within the archive
     /// - `resolver` must be the result of serializing a B-tree set
     #[inline]
     pub unsafe fn resolve_from_len(
         len: usize,
-        pos: usize,
         resolver: BTreeSetResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        let (fp, fo) = out_field!(out.0);
-        ArchivedBTreeMap::resolve_from_len(len, pos + fp, resolver.0, fo);
+        munge!(let ArchivedBTreeSet(inner) = out);
+        ArchivedBTreeMap::resolve_from_len(len, resolver.0, inner);
     }
 }
 

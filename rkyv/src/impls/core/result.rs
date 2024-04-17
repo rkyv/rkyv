@@ -1,8 +1,9 @@
-use core::{hint::unreachable_unchecked, ptr};
+use core::hint::unreachable_unchecked;
 
+use munge::munge;
 use rancor::Fallible;
 
-use crate::{result::ArchivedResult, Archive, Deserialize, Serialize};
+use crate::{result::ArchivedResult, Archive, Deserialize, Place, Serialize};
 
 #[allow(dead_code)]
 #[repr(u8)]
@@ -24,29 +25,30 @@ impl<T: Archive, U: Archive> Archive for Result<T, U> {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
         match resolver {
             Ok(resolver) => {
-                let out = out.cast::<ArchivedResultVariantOk<T::Archived>>();
-                ptr::addr_of_mut!((*out).0).write(ArchivedResultTag::Ok);
+                let out = out
+                    .cast_unchecked::<ArchivedResultVariantOk<T::Archived>>();
+                munge!(let ArchivedResultVariantOk(tag, value_out) = out);
+                tag.write(ArchivedResultTag::Ok);
 
-                let (fp, fo) = out_field!(out.1);
                 match self.as_ref() {
-                    Ok(value) => value.resolve(pos + fp, resolver, fo),
+                    Ok(value) => value.resolve(resolver, value_out),
                     Err(_) => unreachable_unchecked(),
                 }
             }
             Err(resolver) => {
-                let out = out.cast::<ArchivedResultVariantErr<U::Archived>>();
-                ptr::addr_of_mut!((*out).0).write(ArchivedResultTag::Err);
+                let out = out
+                    .cast_unchecked::<ArchivedResultVariantErr<U::Archived>>();
+                munge!(let ArchivedResultVariantErr(tag, err_out) = out);
+                tag.write(ArchivedResultTag::Err);
 
-                let (fp, fo) = out_field!(out.1);
                 match self.as_ref() {
                     Ok(_) => unreachable_unchecked(),
-                    Err(err) => err.resolve(pos + fp, resolver, fo),
+                    Err(err) => err.resolve(resolver, err_out),
                 }
             }
         }

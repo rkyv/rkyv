@@ -40,6 +40,7 @@ use crate::{
         impls::atomic::LoadOrdering, ArchiveWith, AsAtomic, AtomicLoad,
         DeserializeWith,
     },
+    Place,
 };
 
 macro_rules! impl_multi_byte_atomic {
@@ -51,9 +52,8 @@ macro_rules! impl_multi_byte_atomic {
             #[inline]
             unsafe fn resolve_with(
                 field: &$atomic,
-                _: usize,
                 _: Self::Resolver,
-                out: *mut Self::Archived,
+                out: Place<Self::Archived>,
             ) {
                 out.write(<$archived_non_atomic>::from_native(
                     field.load(SO::ORDERING),
@@ -71,9 +71,8 @@ macro_rules! impl_multi_byte_atomic {
             #[inline]
             unsafe fn resolve_with(
                 field: &$atomic,
-                _: usize,
                 _: Self::Resolver,
-                out: *mut Self::Archived,
+                out: Place<Self::Archived>,
             ) {
                 out.write(<$archived>::new(field.load(SO::ORDERING)))
             }
@@ -147,9 +146,8 @@ macro_rules! impl_atomic_size_type {
             #[inline]
             unsafe fn resolve_with(
                 field: &$atomic,
-                _: usize,
                 _: Self::Resolver,
-                out: *mut Self::Archived,
+                out: Place<Self::Archived>,
             ) {
                 out.write(<$archived_non_atomic>::from_native(
                     field.load(SO::ORDERING) as _,
@@ -167,9 +165,8 @@ macro_rules! impl_atomic_size_type {
             #[inline]
             unsafe fn resolve_with(
                 field: &$atomic,
-                _: usize,
                 _: Self::Resolver,
-                out: *mut Self::Archived,
+                out: Place<Self::Archived>,
             ) {
                 out.write(<$archived>::new(field.load(SO::ORDERING) as _));
             }

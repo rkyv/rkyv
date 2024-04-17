@@ -139,6 +139,7 @@ extern crate alloc;
 #[cfg(feature = "bytecheck")]
 #[cfg_attr(doc_cfg, doc(cfg(feature = "bytecheck")))]
 pub use ::bytecheck;
+pub use ::munge;
 pub use ::ptr_meta;
 pub use ::rancor;
 pub use ::rend;
@@ -165,6 +166,7 @@ pub mod net;
 pub mod niche;
 pub mod ops;
 pub mod option;
+mod place;
 pub mod primitive;
 pub mod rc;
 pub mod rel_ptr;
@@ -202,6 +204,7 @@ pub use validation::util::{access, access_mut};
 #[doc(inline)]
 pub use crate::{
     alias::*,
+    place::*,
     traits::*,
     util::{access_unchecked, access_unchecked_mut, deserialize, serialize},
 };

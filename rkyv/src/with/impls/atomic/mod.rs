@@ -9,9 +9,12 @@ use core::sync::atomic::{AtomicBool, AtomicI8, AtomicU8};
 
 use rancor::Fallible;
 
-use crate::with::{
-    Acquire, ArchiveWith, AsAtomic, AtomicLoad, DeserializeWith, Relaxed,
-    SeqCst,
+use crate::{
+    with::{
+        Acquire, ArchiveWith, AsAtomic, AtomicLoad, DeserializeWith, Relaxed,
+        SeqCst,
+    },
+    Place,
 };
 
 trait LoadOrdering {
@@ -39,9 +42,8 @@ macro_rules! impl_single_byte_atomic {
             #[inline]
             unsafe fn resolve_with(
                 field: &$atomic,
-                _: usize,
                 _: Self::Resolver,
-                out: *mut Self::Archived,
+                out: Place<Self::Archived>,
             ) {
                 out.write(field.load(SO::ORDERING));
             }
@@ -57,9 +59,8 @@ macro_rules! impl_single_byte_atomic {
             #[inline]
             unsafe fn resolve_with(
                 field: &$atomic,
-                _: usize,
                 _: Self::Resolver,
-                out: *mut Self::Archived,
+                out: Place<Self::Archived>,
             ) {
                 out.write(<$atomic>::new(field.load(SO::ORDERING)))
             }

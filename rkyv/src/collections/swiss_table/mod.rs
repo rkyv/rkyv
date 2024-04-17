@@ -9,11 +9,12 @@ pub mod table;
 pub use index_map::{ArchivedIndexMap, IndexMapResolver};
 pub use index_set::{ArchivedIndexSet, IndexSetResolver};
 pub use map::{ArchivedHashMap, HashMapResolver};
+use munge::munge;
 use rancor::Fallible;
 pub use set::{ArchivedHashSet, HashSetResolver};
 pub use table::{ArchivedHashTable, HashTableResolver};
 
-use crate::{Archive, Portable, Serialize};
+use crate::{Archive, Place, Portable, Serialize};
 
 struct EntryAdapter<'a, K, V> {
     key: &'a K,
@@ -31,14 +32,12 @@ impl<K: Archive, V: Archive> Archive for EntryAdapter<'_, K, V> {
 
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        let (fp, fo) = out_field!(out.key);
-        K::resolve(self.key, pos + fp, resolver.key, fo);
-        let (fp, fo) = out_field!(out.value);
-        V::resolve(self.value, pos + fp, resolver.value, fo);
+        munge!(let Entry { key, value } = out);
+        K::resolve(self.key, resolver.key, key);
+        V::resolve(self.value, resolver.value, value);
     }
 }
 

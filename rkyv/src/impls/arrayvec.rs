@@ -4,7 +4,7 @@ use rancor::Fallible;
 use crate::{
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Deserialize, Serialize,
+    Archive, Archived, Deserialize, Place, Serialize,
 };
 
 impl<T, const CAP: usize> Archive for ArrayVec<T, CAP>
@@ -17,11 +17,10 @@ where
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_slice(self.as_slice(), pos, resolver, out);
+        ArchivedVec::resolve_from_slice(self.as_slice(), resolver, out);
     }
 }
 

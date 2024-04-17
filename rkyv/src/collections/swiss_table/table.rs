@@ -27,6 +27,7 @@ use core::{
     slice,
 };
 
+use munge::munge;
 use rancor::{fail, Fallible, OptionExt, Panic, ResultExt as _, Source};
 
 use crate::{
@@ -34,7 +35,7 @@ use crate::{
     ser::{Allocator, Writer, WriterExt},
     simd::{Bitmask, Group, MAX_GROUP_WIDTH},
     util::ScratchVec,
-    Archive as _, Portable, RawRelPtr, Serialize,
+    Archive as _, Place, Portable, RawRelPtr, Serialize,
 };
 
 /// A low-level archived SwissTable hash table with explicit hashing.
@@ -372,10 +373,13 @@ impl<T> ArchivedHashTable<T> {
                         let entry_offset =
                             control_offset - (index + 1) * size_of::<T>();
                         let out = unsafe {
-                            alloc.as_ptr().add(entry_offset).cast::<T>()
+                            Place::new_unchecked(
+                                pos + entry_offset,
+                                alloc.as_ptr().add(entry_offset).cast::<T>(),
+                            )
                         };
                         unsafe {
-                            i.resolve(pos + entry_offset, resolver, out);
+                            i.resolve(resolver, out);
                         }
 
                         break 'insert;
@@ -419,20 +423,16 @@ impl<T> ArchivedHashTable<T> {
     pub unsafe fn resolve_from_len(
         len: usize,
         load_factor: (usize, usize),
-        pos: usize,
         resolver: HashTableResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        let (fp, fo) = out_field!(out.ptr);
-        RawRelPtr::emplace(pos + fp, resolver.pos, fo);
+        munge!(let Self { ptr, len: out_len, cap, _phantom: _ } = out);
+        RawRelPtr::emplace(resolver.pos, ptr);
+        len.resolve((), out_len);
 
-        let (fp, fo) = out_field!(out.len);
-        len.resolve(pos + fp, (), fo);
-
-        let (fp, fo) = out_field!(out.cap);
         let capacity =
             Self::capacity_from_len::<Panic>(len, load_factor).always_ok();
-        capacity.resolve(pos + fp, (), fo);
+        capacity.resolve((), cap);
 
         // PhantomData doesn't need to be initialized
     }

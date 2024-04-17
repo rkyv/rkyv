@@ -9,7 +9,7 @@ use core::{fmt, marker::PhantomData, ops::Deref};
 
 use rancor::Fallible;
 
-use crate::Portable;
+use crate::{Place, Portable};
 
 // TODO: Gate unsafe wrappers behind Unsafe.
 
@@ -31,7 +31,7 @@ use crate::Portable;
 ///     rancor::{Error, Fallible, Infallible, ResultExt as _},
 ///     to_bytes,
 ///     with::{ArchiveWith, DeserializeWith, SerializeWith},
-///     Archive, Archived, Deserialize, Resolver, Serialize,
+///     Archive, Archived, Deserialize, Place, Resolver, Serialize,
 /// };
 ///
 /// struct Incremented;
@@ -40,14 +40,9 @@ use crate::Portable;
 ///     type Archived = Archived<i32>;
 ///     type Resolver = Resolver<i32>;
 ///
-///     unsafe fn resolve_with(
-///         field: &i32,
-///         pos: usize,
-///         _: (),
-///         out: *mut Self::Archived,
-///     ) {
+///     unsafe fn resolve_with(field: &i32, _: (), out: Place<Self::Archived>) {
 ///         let incremented = field + 1;
-///         incremented.resolve(pos, (), out);
+///         incremented.resolve((), out);
 ///     }
 /// }
 ///
@@ -114,13 +109,11 @@ pub trait ArchiveWith<F: ?Sized> {
     ///
     /// # Safety
     ///
-    /// - `pos` must be the position of `out` within the archive
     /// - `resolver` must be the result of serializing `field`
     unsafe fn resolve_with(
         field: &F,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     );
 }
 

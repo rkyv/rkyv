@@ -30,7 +30,7 @@ use crate::{
         SerializeWith,
     },
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
-    LayoutRaw, Serialize, SerializeUnsized,
+    LayoutRaw, Place, Serialize, SerializeUnsized,
 };
 
 // Map for Vecs
@@ -44,11 +44,10 @@ where
 
     unsafe fn resolve_with(
         field: &Vec<O>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_len(field.len(), pos, resolver, out)
+        ArchivedVec::resolve_from_len(field.len(), resolver, out)
     }
 }
 
@@ -72,11 +71,10 @@ where
 
             unsafe fn resolve(
                 &self,
-                pos: usize,
                 resolver: Self::Resolver,
-                out: *mut Self::Archived,
+                out: Place<Self::Archived>,
             ) {
-                A::resolve_with(self.0, pos, resolver, out)
+                A::resolve_with(self.0, resolver, out)
             }
         }
 
@@ -125,11 +123,10 @@ impl<'a, F: Archive + Clone> ArchiveWith<Cow<'a, F>> for AsOwned {
     #[inline]
     unsafe fn resolve_with(
         field: &Cow<'a, F>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        field.resolve(pos, resolver, out);
+        field.resolve(resolver, out);
     }
 }
 
@@ -169,11 +166,10 @@ impl<'a, T: Archive + Clone> ArchiveWith<Cow<'a, [T]>> for AsOwned {
     #[inline]
     unsafe fn resolve_with(
         field: &Cow<'a, [T]>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_slice(field, pos, resolver, out);
+        ArchivedVec::resolve_from_slice(field, resolver, out);
     }
 }
 
@@ -215,11 +211,10 @@ impl<'a> ArchiveWith<Cow<'a, str>> for AsOwned {
     #[inline]
     unsafe fn resolve_with(
         field: &Cow<'a, str>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedString::resolve_from_str(field, pos, resolver, out);
+        ArchivedString::resolve_from_str(field, resolver, out);
     }
 }
 
@@ -263,11 +258,10 @@ const _: () = {
         #[inline]
         unsafe fn resolve_with(
             field: &Cow<'a, CStr>,
-            pos: usize,
             resolver: Self::Resolver,
-            out: *mut Self::Archived,
+            out: Place<Self::Archived>,
         ) {
-            ArchivedCString::resolve_from_c_str(field, pos, resolver, out);
+            ArchivedCString::resolve_from_c_str(field, resolver, out);
         }
     }
 
@@ -306,11 +300,10 @@ impl<K: Archive, V: Archive> ArchiveWith<BTreeMap<K, V>> for AsVec {
 
     unsafe fn resolve_with(
         field: &BTreeMap<K, V>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_len(field.len(), pos, resolver, out);
+        ArchivedVec::resolve_from_len(field.len(), resolver, out);
     }
 }
 
@@ -365,11 +358,10 @@ impl<T: Archive> ArchiveWith<BTreeSet<T>> for AsVec {
 
     unsafe fn resolve_with(
         field: &BTreeSet<T>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedVec::resolve_from_len(field.len(), pos, resolver, out);
+        ArchivedVec::resolve_from_len(field.len(), resolver, out);
     }
 }
 
@@ -418,16 +410,10 @@ where
 
     unsafe fn resolve_with(
         field: &Option<Box<T>>,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedOptionBox::resolve_from_option(
-            field.as_deref(),
-            pos,
-            resolver,
-            out,
-        );
+        ArchivedOptionBox::resolve_from_option(field.as_deref(), resolver, out);
     }
 }
 
@@ -473,11 +459,10 @@ impl<T: Archive> ArchiveWith<Arc<T>> for Cloned {
 
     unsafe fn resolve_with(
         x: &Arc<T>,
-        pos: usize,
         resolver: Self::Resolver,
-        archived: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        x.as_ref().resolve(pos, resolver, archived)
+        x.as_ref().resolve(resolver, out)
     }
 }
 
@@ -506,11 +491,10 @@ impl<T: Archive> ArchiveWith<Rc<T>> for Cloned {
 
     unsafe fn resolve_with(
         x: &Rc<T>,
-        pos: usize,
         resolver: Self::Resolver,
-        archived: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        x.as_ref().resolve(pos, resolver, archived)
+        x.as_ref().resolve(resolver, out)
     }
 }
 

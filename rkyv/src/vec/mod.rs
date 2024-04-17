@@ -10,12 +10,13 @@ use core::{
     slice::SliceIndex,
 };
 
+use munge::munge;
 use rancor::Fallible;
 
 use crate::{
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt as _},
-    Archive, Portable, RelPtr, Serialize, SerializeUnsized,
+    Archive, Place, Portable, RelPtr, Serialize, SerializeUnsized,
 };
 
 // pub use self::raw::*;
@@ -93,35 +94,30 @@ impl<T> ArchivedVec<T> {
     ///
     /// # Safety
     ///
-    /// - `pos` must be the position of `out` within the archive
     /// - `resolver` must be the result of serializing `value`
     #[inline]
     pub unsafe fn resolve_from_slice<U: Archive<Archived = T>>(
         slice: &[U],
-        pos: usize,
         resolver: VecResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        Self::resolve_from_len(slice.len(), pos, resolver, out);
+        Self::resolve_from_len(slice.len(), resolver, out);
     }
 
     /// Resolves an archived `Vec` from a given length.
     ///
     /// # Safety
     ///
-    /// - `pos` must be the position of `out` within the archive
     /// - `resolver` must bet he result of serializing `value`
     #[inline]
     pub unsafe fn resolve_from_len(
         len: usize,
-        pos: usize,
         resolver: VecResolver,
-        out: *mut Self,
+        out: Place<Self>,
     ) {
-        let (fp, fo) = out_field!(out.ptr);
-        RelPtr::emplace(pos + fp, resolver.pos, fo);
-        let (fp, fo) = out_field!(out.len);
-        usize::resolve(&len, pos + fp, (), fo);
+        munge!(let ArchivedVec { ptr, len: out_len } = out);
+        RelPtr::emplace(resolver.pos, ptr);
+        usize::resolve(&len, (), out_len);
     }
 
     /// Serializes an archived `Vec` from a given slice.

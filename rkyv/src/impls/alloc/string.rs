@@ -6,7 +6,8 @@ use rancor::Fallible;
 
 use crate::{
     string::{ArchivedString, StringResolver},
-    Archive, Deserialize, DeserializeUnsized, Serialize, SerializeUnsized,
+    Archive, Deserialize, DeserializeUnsized, Place, Serialize,
+    SerializeUnsized,
 };
 
 impl Archive for String {
@@ -16,11 +17,10 @@ impl Archive for String {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedString::resolve_from_str(self.as_str(), pos, resolver, out);
+        ArchivedString::resolve_from_str(self.as_str(), resolver, out);
     }
 }
 

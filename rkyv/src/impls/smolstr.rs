@@ -4,7 +4,7 @@ use smol_str::SmolStr;
 use crate::{
     ser::{Allocator, Writer},
     string::{ArchivedString, StringResolver},
-    Archive, Deserialize, Serialize,
+    Archive, Deserialize, Place, Serialize,
 };
 
 impl Archive for SmolStr {
@@ -14,11 +14,10 @@ impl Archive for SmolStr {
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedString::resolve_from_str(self, pos, resolver, out);
+        ArchivedString::resolve_from_str(self, resolver, out);
     }
 }
 

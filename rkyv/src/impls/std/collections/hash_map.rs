@@ -9,7 +9,7 @@ use rancor::{Fallible, Source};
 use crate::{
     collections::swiss_table::map::{ArchivedHashMap, HashMapResolver},
     ser::{Allocator, Writer},
-    Archive, Deserialize, Serialize,
+    Archive, Deserialize, Place, Serialize,
 };
 
 impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>
@@ -22,17 +22,10 @@ where
     #[inline]
     unsafe fn resolve(
         &self,
-        pos: usize,
         resolver: Self::Resolver,
-        out: *mut Self::Archived,
+        out: Place<Self::Archived>,
     ) {
-        ArchivedHashMap::resolve_from_len(
-            self.len(),
-            (7, 8),
-            pos,
-            resolver,
-            out,
-        );
+        ArchivedHashMap::resolve_from_len(self.len(), (7, 8), resolver, out);
     }
 }
 
