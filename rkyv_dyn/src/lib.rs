@@ -45,7 +45,7 @@ impl<E> Fallible for dyn DynSerializer<E> + '_ {
     type Error = E;
 }
 
-impl<S, E> DynSerializer<E> for S where S: Writer<E> + Allocator<E> + Sharing<E> {}
+impl<S: Writer<E> + Allocator<E> + Sharing<E>, E> DynSerializer<E> for S {}
 
 /// TODO
 pub trait AsDynSerializer<E> {
@@ -402,11 +402,15 @@ pub static TRAIT_IMPLS: LazyStatic<&'static [TraitImpl]> = LazyStatic::new();
 macro_rules! register_trait_impls {
     ($($type:ty as $trait:ty $(= $id:expr)?),* $(,)?) => {
         let _: () = {
-            $crate::register_trait_impls!(@register $($type as $trait $(= $id)?,)*);
+            $crate::register_trait_impls!(
+                @register $($type as $trait $(= $id)?,)*
+            );
             const TRAIT_IMPL_COUNT: usize = 0
                 $(+ { let _ = ::core::marker::PhantomData::<$type>; 1 })*;
-            static TRAIT_IMPLS: $crate::LazyStatic<[$crate::TraitImpl; TRAIT_IMPL_COUNT]> =
-                $crate::LazyStatic::new();
+            static TRAIT_IMPLS: $crate::LazyStatic<[
+                $crate::TraitImpl;
+                TRAIT_IMPL_COUNT
+            ]> = $crate::LazyStatic::new();
             let trait_impls = TRAIT_IMPLS.init([
                 $(
                     $crate::trait_impl!($type as $trait),
@@ -415,26 +419,52 @@ macro_rules! register_trait_impls {
             $crate::TRAIT_IMPLS.init(trait_impls).unwrap();
         };
     };
-    (@register $first_type:ty as $first_trait:ty $(= $first_id:expr)?, $($rest_type:ty as $rest_trait:ty $(= $rest_id:expr)?,)*) => {
+    (
+        @register
+        $first_type:ty as $first_trait:ty $(= $first_id:expr)?,
+        $($rest_type:ty as $rest_trait:ty $(= $rest_id:expr)?,)*
+    ) => {
         struct ImplIds;
 
         trait Registered<const ID: $crate::ImplId> {}
 
         unsafe impl $crate::RegisteredImpl<$first_trait> for $first_type {
-            const IMPL_ID: $crate::ImplId = $crate::register_trait_impls!(@choose_id 0, $($first_id)?);
+            const IMPL_ID: $crate::ImplId =
+                $crate::register_trait_impls!(@choose_id 0, $($first_id)?);
         }
-        impl Registered<{ <$first_type as $crate::RegisteredImpl<$first_trait>>::IMPL_ID }> for ImplIds {}
+        impl Registered<
+            { <$first_type as $crate::RegisteredImpl<$first_trait>>::IMPL_ID }
+        > for ImplIds {}
 
-        $crate::register_trait_impls!(@register_rest $first_type as $first_trait, $($rest_type:ty as $rest_trait:ty $(= $rest_id:expr)?,)*);
+        $crate::register_trait_impls!(
+            @register_rest $first_type as $first_trait,
+            $($rest_type:ty as $rest_trait:ty $(= $rest_id:expr)?,)*
+        );
     };
     (@register_rest $prev_type:ty as $prev_trait:ty,) => {};
-    (@register_rest $prev_type:ty as $prev_trait:ty, $type:ty as $trait:ty $(= $id:expr)?, $($rest_type:ty as $rest_trait:ty $(= $rest_id:expr)?,)*) => {
+    (
+        @register_rest
+        $prev_type:ty as $prev_trait:ty,
+        $type:ty as $trait:ty $(= $id:expr)?,
+        $($rest_type:ty as $rest_trait:ty $(= $rest_id:expr)?,)*
+    ) => {
         unsafe impl $crate::RegisteredImpl<$trait> for $type {
-            const IMPL_ID: $crate::ImplId = $crate::register_trait_impls!(@choose_id <$prev_type as $crate::RegisteredImpl<$prev_trait>>::IMPL_ID + 1, $($id)?);
+            const IMPL_ID: $crate::ImplId = $crate::register_trait_impls!(
+                @choose_id
+                <
+                    $prev_type as $crate::RegisteredImpl<$prev_trait>
+                >::IMPL_ID + 1,
+                $($id)?
+            );
         }
-        impl Registered<{ <$type as $crate::RegisteredImpl<$trait>>::IMPL_ID }> for ImplIds {}
+        impl Registered<{
+            <$type as $crate::RegisteredImpl<$trait>>::IMPL_ID
+        }> for ImplIds {}
 
-        $crate::register_trait_impls!(@register_rest $type as $trait, $($rest_type as $rest_trait $(= $rest_id)?,)*);
+        $crate::register_trait_impls!(
+            @register_rest $type as $trait,
+            $($rest_type as $rest_trait $(= $rest_id)?,)*
+        );
     };
     (@choose_id $default:expr, $explicit:expr) => { $explicit };
     (@choose_id $default:expr,) => { $default };

@@ -1222,7 +1222,10 @@ mod tests {
             value: T,
         }
 
-        impl<T: PartialEq<U>, U> PartialEq<ExampleStruct<U>> for ExampleStruct<T> {
+        impl<T, U> PartialEq<ExampleStruct<U>> for ExampleStruct<T>
+        where
+            T: PartialEq<U>,
+        {
             fn eq(&self, other: &ExampleStruct<U>) -> bool {
                 self.value.eq(&other.value)
             }

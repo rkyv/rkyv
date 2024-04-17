@@ -35,36 +35,34 @@ mod tests {
                 DynSerializer, ImplId, RegisteredImpl, SerializeDyn,
             };
 
-            pub trait TestTrait {
+            pub trait Id {
                 fn get_id(&self) -> i32;
             }
 
             #[ptr_meta::pointee]
-            pub trait SerializeTestTrait<SE, DE>:
-                TestTrait + SerializeDyn<SE>
-            {
+            pub trait SerializeId<SE, DE>: Id + SerializeDyn<SE> {
                 fn archived_impl_id(&self) -> ImplId;
             }
 
-            impl<T, SE, DE> SerializeTestTrait<SE, DE> for T
+            impl<T, SE, DE> SerializeId<SE, DE> for T
             where
-                T: TestTrait + for<'a> Serialize<dyn DynSerializer<SE> + 'a>,
-                T::Archived: RegisteredImpl<dyn DeserializeTestTrait<SE, DE>>,
+                T: Id + for<'a> Serialize<dyn DynSerializer<SE> + 'a>,
+                T::Archived: RegisteredImpl<dyn DeserializeId<SE, DE>>,
             {
                 fn archived_impl_id(&self) -> ImplId {
                     T::Archived::IMPL_ID
                 }
             }
 
-            impl<SE, DE> ArchiveUnsized for dyn SerializeTestTrait<SE, DE> {
-                type Archived = dyn DeserializeTestTrait<SE, DE>;
+            impl<SE, DE> ArchiveUnsized for dyn SerializeId<SE, DE> {
+                type Archived = dyn DeserializeId<SE, DE>;
 
                 fn archived_metadata(&self) -> ArchivedMetadata<Self> {
                     ArchivedDynMetadata::new(self.archived_impl_id())
                 }
             }
 
-            impl<SE, DE> LayoutRaw for dyn SerializeTestTrait<SE, DE> {
+            impl<SE, DE> LayoutRaw for dyn SerializeId<SE, DE> {
                 fn layout_raw(
                     metadata: <Self as Pointee>::Metadata,
                 ) -> Result<core::alloc::Layout, core::alloc::LayoutError>
@@ -73,7 +71,7 @@ mod tests {
                 }
             }
 
-            impl<S, DE> SerializeUnsized<S> for dyn SerializeTestTrait<S::Error, DE>
+            impl<S, DE> SerializeUnsized<S> for dyn SerializeId<S::Error, DE>
             where
                 S: Fallible + AsDynSerializer<S::Error> + ?Sized,
             {
@@ -88,14 +86,14 @@ mod tests {
             }
 
             #[ptr_meta::pointee]
-            pub trait DeserializeTestTrait<SE, DE>:
-                TestTrait
-                + DeserializeDyn<dyn SerializeTestTrait<SE, DE>, DE>
+            pub trait DeserializeId<SE, DE>:
+                Id
+                + DeserializeDyn<dyn SerializeId<SE, DE>, DE>
                 + Portable
             {
             }
 
-            impl<SE, DE> ArchivePointee for dyn DeserializeTestTrait<SE, DE> {
+            impl<SE, DE> ArchivePointee for dyn DeserializeId<SE, DE> {
                 type ArchivedMetadata = ArchivedDynMetadata<Self>;
 
                 fn pointer_metadata(
@@ -105,23 +103,20 @@ mod tests {
                 }
             }
 
-            impl<T, SE, DE> DeserializeTestTrait<SE, DE> for T where
-                T: TestTrait
-                    + DeserializeDyn<dyn SerializeTestTrait<SE, DE>, DE>
-                    + Portable
+            impl<T, SE, DE> DeserializeId<SE, DE> for T where
+                T: Id + DeserializeDyn<dyn SerializeId<SE, DE>, DE> + Portable
             {
             }
 
-            impl<SE, D>
-                DeserializeUnsized<dyn SerializeTestTrait<SE, D::Error>, D>
-                for dyn DeserializeTestTrait<SE, D::Error>
+            impl<SE, D> DeserializeUnsized<dyn SerializeId<SE, D::Error>, D>
+                for dyn DeserializeId<SE, D::Error>
             where
                 D: Fallible + AsDynDeserializer<D::Error> + ?Sized,
             {
                 unsafe fn deserialize_unsized(
                     &self,
                     deserializer: &mut D,
-                    out: *mut dyn SerializeTestTrait<SE, D::Error>,
+                    out: *mut dyn SerializeId<SE, D::Error>,
                 ) -> Result<(), <D as Fallible>::Error> {
                     self.deserialize_dyn(
                         deserializer.as_dyn_deserializer(),
@@ -132,7 +127,11 @@ mod tests {
                 fn deserialize_metadata(
                     &self,
                     _: &mut D,
-                ) -> Result<<dyn SerializeTestTrait<SE, D::Error> as ptr_meta::Pointee>::Metadata, <D as Fallible>::Error>{
+                ) -> Result<
+                    <dyn SerializeId<SE, D::Error> as ptr_meta::Pointee>
+                        ::Metadata,
+                    <D as Fallible>::Error,
+                >{
                     Ok(self.deserialized_pointer_metadata())
                 }
             }
@@ -142,72 +141,69 @@ mod tests {
                 id: i32,
             }
 
-            impl TestTrait for Test {
+            impl Id for Test {
                 fn get_id(&self) -> i32 {
                     self.id
                 }
             }
 
             register_trait_impls! {
-                Archived<Test> as dyn DeserializeTestTrait<Error, Error>,
+                Archived<Test> as dyn DeserializeId<Error, Error>,
             }
 
-            impl<SE, DE> DeserializeDyn<dyn SerializeTestTrait<SE, DE>, DE>
-                for Archived<Test>
+            // Hack to make rustfmt happy
+            type SId<SE, DE> = dyn SerializeId<SE, DE>;
+            impl<SE, DE> DeserializeDyn<SId<SE, DE>, DE> for Archived<Test>
             where
-                Archived<Test>: for<'a> Deserialize<Test, dyn DynDeserializer<DE> + 'a>
-                    + RegisteredImpl<dyn DeserializeTestTrait<SE, DE>>,
+                Archived<Test>:
+                    for<'a> Deserialize<Test, dyn DynDeserializer<DE> + 'a>,
+                Archived<Test>: RegisteredImpl<dyn DeserializeId<SE, DE>>,
             {
                 fn deserialize_dyn(
                     &self,
                     deserializer: &mut dyn DynDeserializer<DE>,
-                    out: *mut dyn SerializeTestTrait<SE, DE>,
+                    out: *mut dyn SerializeId<SE, DE>,
                 ) -> Result<(), DE> {
                     unsafe {
-                        <Self as DeserializeUnsized<Test, _>>::deserialize_unsized(self, deserializer, out.cast())
+                        <
+                            Self as DeserializeUnsized<Test, _>
+                        >::deserialize_unsized(self, deserializer, out.cast())
                     }
                 }
 
                 fn deserialized_pointer_metadata(
                     &self,
-                ) -> DynMetadata<dyn SerializeTestTrait<SE, DE>>
-                {
+                ) -> DynMetadata<dyn SerializeId<SE, DE>> {
                     ptr_meta::metadata(core::ptr::null::<Test>()
-                        as *const dyn SerializeTestTrait<SE, DE>)
+                        as *const dyn SerializeId<SE, DE>)
                 }
             }
 
-            impl TestTrait for Archived<Test> {
+            impl Id for Archived<Test> {
                 fn get_id(&self) -> i32 {
                     self.id.into()
                 }
             }
 
-            let value: Box<dyn SerializeTestTrait<Error, Error>> =
+            let value: Box<dyn SerializeId<Error, Error>> =
                 Box::new(Test { id: 42 });
 
             let buf = to_bytes::<_>(&value).unwrap();
-            let archived_value = unsafe {
-                access_unchecked::<
-                    Archived<Box<dyn SerializeTestTrait<Error, Error>>>,
-                >(buf.as_ref())
-            };
+            type ArchivedType = Archived<Box<dyn SerializeId<Error, Error>>>;
+            let archived_value =
+                unsafe { access_unchecked::<ArchivedType>(buf.as_ref()) };
             assert_eq!(value.get_id(), archived_value.get_id());
 
             // exercise vtable cache
             assert_eq!(value.get_id(), archived_value.get_id());
             assert_eq!(value.get_id(), archived_value.get_id());
 
-            let deserialized_value: Box<
-                dyn SerializeTestTrait<Error, Error>,
-            > = deserialize::<
-                Box<dyn SerializeTestTrait<Error, Error>>,
-                _,
-                Error,
-            >(
-                archived_value, Strategy::wrap(&mut Unify::default())
-            )
-            .unwrap();
+            let deserialized_value: Box<dyn SerializeId<Error, Error>> =
+                deserialize::<Box<dyn SerializeId<Error, Error>>, _, Error>(
+                    archived_value,
+                    Strategy::wrap(&mut Unify::default()),
+                )
+                .unwrap();
             assert_eq!(value.get_id(), deserialized_value.get_id());
         }
     }

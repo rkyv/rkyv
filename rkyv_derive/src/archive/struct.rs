@@ -53,7 +53,10 @@ pub fn impl_struct(
             let resolves = resolve(rkyv_path, field)?;
             Ok(quote! {
                 let field_ptr = ::core::ptr::addr_of_mut!((*out.ptr()).#member);
-                let field_out = #rkyv_path::Place::from_field_unchecked(out, field_ptr);
+                let field_out = #rkyv_path::Place::from_field_unchecked(
+                    out,
+                    field_ptr,
+                );
                 #resolves(&self.#member, resolver.#member, field_out);
             })
         })

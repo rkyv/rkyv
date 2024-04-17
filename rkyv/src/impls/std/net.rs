@@ -691,13 +691,17 @@ impl Archive for SocketAddr {
         match self {
             SocketAddr::V4(socket_addr) => {
                 let out = out.cast_unchecked::<ArchivedSocketAddrVariantV4>();
-                munge!(let ArchivedSocketAddrVariantV4(tag, socket_addr_out) = out);
+                munge! {
+                    let ArchivedSocketAddrVariantV4(tag, socket_addr_out) = out;
+                }
                 tag.write(ArchivedSocketAddrTag::V4);
                 socket_addr.resolve(resolver, socket_addr_out);
             }
             SocketAddr::V6(socket_addr) => {
                 let out = out.cast_unchecked::<ArchivedSocketAddrVariantV6>();
-                munge!(let ArchivedSocketAddrVariantV6(tag, socket_addr_out) = out);
+                munge! {
+                    let ArchivedSocketAddrVariantV6(tag, socket_addr_out) = out;
+                }
                 tag.write(ArchivedSocketAddrTag::V6);
                 socket_addr.resolve(resolver, socket_addr_out);
             }

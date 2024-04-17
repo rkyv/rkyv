@@ -170,7 +170,11 @@ impl ArchivedStringRepr {
         target: usize,
         out: Place<Self>,
     ) -> Result<(), E> {
-        munge!(let ArchivedStringRepr { out_of_line: OutOfLineRepr { len, offset, _phantom: _ } } = out);
+        munge! {
+            let ArchivedStringRepr {
+                out_of_line: OutOfLineRepr { len, offset, _phantom: _ }
+            } = out;
+        }
         len.write(ArchivedUsize::from_native(
             value.len().try_into().into_error()?,
         ));
