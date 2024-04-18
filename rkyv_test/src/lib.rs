@@ -136,4 +136,21 @@ mod tests {
         test_archive(&r#virtual { r#virtual: 42 });
         test_archive(&r#try::r#try { r#try: 42 });
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_enum_explicit_discriminants() {
+        use rkyv::{Archive, Deserialize, Serialize};
+
+        #[derive(Archive, Deserialize, Serialize)]
+        enum Foo {
+            A = 2,
+            B = 4,
+            C = 6,
+        }
+
+        assert_eq!(ArchivedFoo::A as usize, 2);
+        assert_eq!(ArchivedFoo::B as usize, 4);
+        assert_eq!(ArchivedFoo::C as usize, 6);
+    }
 }

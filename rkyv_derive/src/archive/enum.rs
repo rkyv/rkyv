@@ -1,4 +1,4 @@
-use proc_macro2::{Literal, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
     parse_quote, spanned::Spanned as _, Data, DataEnum, DeriveInput, Error,
@@ -63,12 +63,14 @@ pub fn impl_enum(
     let resolver_def = generate_resolver_def(input, printing, data)?;
     let resolve_arms = generate_resolve_arms(input, printing, data)?;
 
-    let archived_variant_tags =
-        data.variants.iter().enumerate().map(|(i, v)| {
-            let variant = &v.ident;
-            let discriminant = Literal::usize_unsuffixed(i);
-            quote! { #variant = #discriminant }
-        });
+    let archived_variant_tags = data.variants.iter().map(|v| {
+        let variant = &v.ident;
+        let discriminant = v
+            .discriminant
+            .as_ref()
+            .map(|(eq, expr)| quote! { #eq #expr });
+        quote! { #variant #discriminant }
+    });
 
     let archived_variant_structs =
         generate_variant_structs(input, printing, data)?;
@@ -103,6 +105,7 @@ pub fn impl_enum(
             #resolver_def
         },
         quote! {
+            #[derive(PartialEq, PartialOrd)]
             #[repr(u8)]
             enum ArchivedTag {
                 #(#archived_variant_tags,)*
@@ -146,10 +149,12 @@ fn generate_archived_def(
     let archived_variants = data
         .variants
         .iter()
-        .enumerate()
-        .map(|(i, v)| {
+        .map(|v| {
             let variant = &v.ident;
-            let discriminant = Literal::usize_unsuffixed(i);
+            let discriminant = v
+                .discriminant
+                .as_ref()
+                .map(|(eq, expr)| quote! { #eq #expr });
 
             let variant_doc = variant_doc(name, variant);
 
@@ -181,7 +186,7 @@ fn generate_archived_def(
                         #[allow(dead_code)]
                         #variant {
                             #(#fields,)*
-                        } = #discriminant
+                        } #discriminant
                     })
                 }
                 Fields::Unnamed(ref fields) => {
@@ -205,13 +210,13 @@ fn generate_archived_def(
                     Ok(quote! {
                         #[doc = #variant_doc]
                         #[allow(dead_code)]
-                        #variant(#(#fields,)*) = #discriminant
+                        #variant(#(#fields,)*) #discriminant
                     })
                 }
                 Fields::Unit => Ok(quote! {
                     #[doc = #variant_doc]
                     #[allow(dead_code)]
-                    #variant = #discriminant
+                    #variant #discriminant
                 }),
             }
         })
@@ -641,31 +646,31 @@ fn generate_partial_ord_impl(
     let name = &input.ident;
     let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
 
-    let self_disc = data.variants.iter().enumerate().map(|(i, v)| {
+    let self_disc = data.variants.iter().map(|v| {
         let variant = &v.ident;
         match v.fields {
             Fields::Named(_) => quote! {
-                #name::#variant { .. } => #i
+                #name::#variant { .. } => ArchivedTag::#variant
             },
             Fields::Unnamed(_) => quote! {
-                #name::#variant ( .. ) => #i
+                #name::#variant ( .. ) => ArchivedTag::#variant
             },
             Fields::Unit => quote! {
-                #name::#variant => #i
+                #name::#variant => ArchivedTag::#variant
             },
         }
     });
-    let other_disc = data.variants.iter().enumerate().map(|(i, v)| {
+    let other_disc = data.variants.iter().map(|v| {
         let variant = &v.ident;
         match v.fields {
             Fields::Named(_) => quote! {
-                #archived_name::#variant { .. } => #i
+                #archived_name::#variant { .. } => ArchivedTag::#variant
             },
             Fields::Unnamed(_) => quote! {
-                #archived_name::#variant ( .. ) => #i
+                #archived_name::#variant ( .. ) => ArchivedTag::#variant
             },
             Fields::Unit => quote! {
-                #archived_name::#variant => #i
+                #archived_name::#variant => ArchivedTag::#variant
             },
         }
     });
