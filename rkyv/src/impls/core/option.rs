@@ -64,18 +64,19 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Option<T> {
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<Option<T>, D>
-    for ArchivedOption<T::Archived>
+impl<T, D> Deserialize<Option<T>, D> for ArchivedOption<T::Archived>
 where
+    T: Archive,
     T::Archived: Deserialize<T, D>,
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Option<T>, D::Error> {
-        match self {
+        Ok(match self {
             ArchivedOption::Some(value) => {
-                Ok(Some(value.deserialize(deserializer)?))
+                Some(value.deserialize(deserializer)?)
             }
-            ArchivedOption::None => Ok(None),
-        }
+            ArchivedOption::None => None,
+        })
     }
 }

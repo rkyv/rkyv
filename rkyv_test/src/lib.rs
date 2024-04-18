@@ -133,7 +133,7 @@ mod tests {
             r#try { r#try: i32 },
         }
 
-        test_archive::<r#virtual>(&r#virtual { r#virtual: 42 });
-        test_archive::<r#try>(&r#try::r#try { r#try: 42 });
+        test_archive(&r#virtual { r#virtual: 42 });
+        test_archive(&r#try::r#try { r#try: 42 });
     }
 }

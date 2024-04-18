@@ -2150,4 +2150,14 @@ mod tests {
 
         drop(ManuallyDrop::into_inner(vec));
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_bound() {
+        use core::ops::Bound;
+
+        test_archive(&Bound::Included("hello world".to_string()));
+        test_archive(&Bound::Excluded("hello world".to_string()));
+        test_archive(&Bound::<String>::Unbounded);
+    }
 }

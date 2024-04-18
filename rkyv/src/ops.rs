@@ -63,8 +63,6 @@ impl<T> RangeBounds<T> for ArchivedRange<T> {
     }
 }
 
-// RangeInclusive
-
 /// An archived [`RangeInclusive`](::core::ops::RangeInclusive).
 #[derive(Clone, Default, PartialEq, Eq, Hash, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -243,5 +241,42 @@ impl<T> RangeBounds<T> for ArchivedRangeToInclusive<T> {
     #[inline]
     fn end_bound(&self) -> Bound<&T> {
         Bound::Included(&self.end)
+    }
+}
+
+/// An archived [`Bound`](::core::ops::Bound).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Portable)]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
+#[repr(u8)]
+#[archive(crate)]
+pub enum ArchivedBound<T> {
+    /// An inclusive bound.
+    Included(T),
+    /// An exclusive bound.
+    Excluded(T),
+    /// An infinite endpoint. Indicates that there is no bound in this
+    /// direction.
+    Unbounded,
+}
+
+impl<T> ArchivedBound<T> {
+    /// Converts from `&ArchivedBound<T>` to `Bound<&T>`.
+    #[inline]
+    pub fn as_ref(&self) -> Bound<&T> {
+        match self {
+            ArchivedBound::Included(x) => Bound::Included(x),
+            ArchivedBound::Excluded(x) => Bound::Excluded(x),
+            ArchivedBound::Unbounded => Bound::Unbounded,
+        }
+    }
+
+    /// Converts from `&mut ArchivedBound<T>` to `Bound<&mut T>`.
+    #[inline]
+    pub fn as_mut(&mut self) -> Bound<&mut T> {
+        match self {
+            ArchivedBound::Included(x) => Bound::Included(x),
+            ArchivedBound::Excluded(x) => Bound::Excluded(x),
+            ArchivedBound::Unbounded => Bound::Unbounded,
+        }
     }
 }

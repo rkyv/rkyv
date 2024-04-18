@@ -1,5 +1,9 @@
-use core::ops::{
-    Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive,
+use core::{
+    hint::unreachable_unchecked,
+    ops::{
+        Bound, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo,
+        RangeToInclusive,
+    },
 };
 
 use munge::munge;
@@ -7,8 +11,8 @@ use rancor::Fallible;
 
 use crate::{
     ops::{
-        ArchivedRange, ArchivedRangeFrom, ArchivedRangeInclusive,
-        ArchivedRangeTo, ArchivedRangeToInclusive,
+        ArchivedBound, ArchivedRange, ArchivedRangeFrom,
+        ArchivedRangeInclusive, ArchivedRangeTo, ArchivedRangeToInclusive,
     },
     Archive, Archived, CopyOptimization, Deserialize, Place, Portable,
     Serialize,
@@ -76,10 +80,11 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Range<T> {
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> Deserialize<Range<T>, D>
-    for Archived<Range<T>>
+impl<T, D> Deserialize<Range<T>, D> for Archived<Range<T>>
 where
+    T: Archive,
     T::Archived: Deserialize<T, D>,
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Range<T>, D::Error> {
@@ -146,8 +151,9 @@ where
     }
 }
 
-impl<T, U: PartialEq<T>> PartialEq<RangeInclusive<T>>
-    for ArchivedRangeInclusive<U>
+impl<T, U> PartialEq<RangeInclusive<T>> for ArchivedRangeInclusive<U>
+where
+    U: PartialEq<T>,
 {
     #[inline]
     fn eq(&self, other: &RangeInclusive<T>) -> bool {
@@ -278,8 +284,10 @@ impl<T: Archive> Archive for RangeToInclusive<T> {
     }
 }
 
-impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S>
-    for RangeToInclusive<T>
+impl<T, S> Serialize<S> for RangeToInclusive<T>
+where
+    T: Serialize<S>,
+    S: Fallible + ?Sized,
 {
     #[inline]
     fn serialize(
@@ -309,11 +317,135 @@ where
     }
 }
 
-impl<T, U: PartialEq<T>> PartialEq<RangeToInclusive<T>>
-    for ArchivedRangeToInclusive<U>
+impl<T, U> PartialEq<RangeToInclusive<T>> for ArchivedRangeToInclusive<U>
+where
+    U: PartialEq<T>,
 {
     #[inline]
     fn eq(&self, other: &RangeToInclusive<T>) -> bool {
         self.end.eq(&other.end)
+    }
+}
+
+// Bound
+
+#[allow(dead_code)]
+#[repr(u8)]
+enum ArchivedBoundTag {
+    Included,
+    Excluded,
+    Unbounded,
+}
+
+#[repr(C)]
+struct ArchivedBoundVariantIncluded<T>(ArchivedBoundTag, T);
+
+#[repr(C)]
+struct ArchivedBoundVariantExcluded<T>(ArchivedBoundTag, T);
+
+#[repr(C)]
+struct ArchivedBoundVariantUnbounded(ArchivedBoundTag);
+
+impl<T: Archive> Archive for Bound<T> {
+    type Archived = ArchivedBound<T::Archived>;
+    type Resolver = Bound<T::Resolver>;
+
+    #[inline]
+    unsafe fn resolve(
+        &self,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        match resolver {
+            Bound::Included(resolver) => {
+                let out = out.cast_unchecked::<
+                    ArchivedBoundVariantIncluded<T::Archived>
+                >();
+                munge!(let ArchivedBoundVariantIncluded(tag, value_out) = out);
+                tag.write(ArchivedBoundTag::Included);
+
+                let value = if let Bound::Included(value) = self.as_ref() {
+                    value
+                } else {
+                    unreachable_unchecked();
+                };
+
+                value.resolve(resolver, value_out);
+            }
+            Bound::Excluded(resolver) => {
+                let out = out.cast_unchecked::<
+                    ArchivedBoundVariantExcluded<T::Archived>
+                >();
+                munge!(let ArchivedBoundVariantExcluded(tag, value_out) = out);
+                tag.write(ArchivedBoundTag::Excluded);
+
+                let value = if let Bound::Excluded(value) = self.as_ref() {
+                    value
+                } else {
+                    unreachable_unchecked();
+                };
+
+                value.resolve(resolver, value_out);
+            }
+            Bound::Unbounded => {
+                let out = out.cast_unchecked::<ArchivedBoundVariantUnbounded>();
+                munge!(let ArchivedBoundVariantUnbounded(tag) = out);
+                tag.write(ArchivedBoundTag::Unbounded);
+            }
+        }
+    }
+}
+
+impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Bound<T> {
+    #[inline]
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        match self.as_ref() {
+            Bound::Included(x) => x.serialize(serializer).map(Bound::Included),
+            Bound::Excluded(x) => x.serialize(serializer).map(Bound::Excluded),
+            Bound::Unbounded => Ok(Bound::Unbounded),
+        }
+    }
+}
+
+impl<T, D> Deserialize<Bound<T>, D> for ArchivedBound<T::Archived>
+where
+    T: Archive,
+    T::Archived: Deserialize<T, D>,
+    D: Fallible + ?Sized,
+{
+    #[inline]
+    fn deserialize(
+        &self,
+        deserializer: &mut D,
+    ) -> Result<Bound<T>, <D as Fallible>::Error> {
+        Ok(match self {
+            ArchivedBound::Included(value) => {
+                Bound::Included(value.deserialize(deserializer)?)
+            }
+            ArchivedBound::Excluded(value) => {
+                Bound::Excluded(value.deserialize(deserializer)?)
+            }
+            ArchivedBound::Unbounded => Bound::Unbounded,
+        })
+    }
+}
+
+impl<T, U> PartialEq<Bound<T>> for ArchivedBound<U>
+where
+    U: PartialEq<T>,
+{
+    #[inline]
+    fn eq(&self, other: &Bound<T>) -> bool {
+        match (self, other) {
+            (ArchivedBound::Included(this), Bound::Included(other))
+            | (ArchivedBound::Excluded(this), Bound::Excluded(other)) => {
+                this.eq(other)
+            }
+            (ArchivedBound::Unbounded, Bound::Unbounded) => true,
+            _ => false,
+        }
     }
 }
