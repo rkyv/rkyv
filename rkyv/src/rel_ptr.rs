@@ -230,10 +230,10 @@ impl<O: Offset> RawRelPtr<O> {
         self.offset.to_isize()
     }
 
-    /// Gets whether the offset of the relative pointer is 0.
+    /// Gets whether the offset of the relative pointer is invalid.
     #[inline]
-    pub fn is_null(&self) -> bool {
-        self.offset() == 0
+    pub fn is_invalid(&self) -> bool {
+        self.offset() == 1
     }
 
     /// Calculates the memory address being pointed to by this relative pointer.
@@ -353,34 +353,34 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O>
 where
     T::ArchivedMetadata: Default,
 {
-    /// Attempts to create a null relative pointer with default metadata.
+    /// Attempts to create an invalid relative pointer with default metadata.
     ///
     /// # Safety
     ///
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_emplace_null<E: Source>(
+    pub unsafe fn try_emplace_invalid<E: Source>(
         out: Place<Self>,
     ) -> Result<(), E> {
         munge!(let RelPtr { raw_ptr, metadata, _phantom: _ } = out);
-        RawRelPtr::try_emplace(raw_ptr.pos(), raw_ptr)?;
+        RawRelPtr::try_emplace(raw_ptr.pos() + 1, raw_ptr)?;
         metadata.write(Default::default());
         Ok(())
     }
 
-    /// Creates a null relative pointer with default metadata.
+    /// Creates an invalid relative pointer with default metadata.
     ///
     /// # Panics
     ///
-    /// - If an offset of `0` does not fit in an `isize`
-    /// - If an offset of `0` exceeds the offset storage
+    /// - If an offset of `1` does not fit in an `isize`
+    /// - If an offset of `1` exceeds the offset storage
     ///
     /// # Safety
     ///
     /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn emplace_null(out: Place<Self>) {
-        Self::try_emplace_null::<Panic>(out).always_ok()
+    pub unsafe fn emplace_invalid(out: Place<Self>) {
+        Self::try_emplace_invalid::<Panic>(out).always_ok()
     }
 }
 
@@ -435,8 +435,8 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
 
     /// Gets whether the offset of the relative pointer is 0.
     #[inline]
-    pub fn is_null(&self) -> bool {
-        self.raw_ptr.is_null()
+    pub fn is_invalid(&self) -> bool {
+        self.raw_ptr.is_invalid()
     }
 
     /// Gets the metadata of the relative pointer.

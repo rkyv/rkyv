@@ -84,12 +84,6 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
         munge!(let ArchivedBox { ptr } = out);
         RelPtr::emplace_unsized(resolver.pos, metadata, ptr);
     }
-
-    #[doc(hidden)]
-    #[inline]
-    pub fn is_null(&self) -> bool {
-        self.ptr.is_null()
-    }
 }
 
 impl<T> ArchivedBox<[T]> {
@@ -123,18 +117,6 @@ impl<T> ArchivedBox<[T]> {
         serializer.write(bytes)?;
 
         Ok(BoxResolver { pos })
-    }
-}
-
-impl<T: ArchivePointee + ?Sized> ArchivedBox<T>
-where
-    T::ArchivedMetadata: Default,
-{
-    #[doc(hidden)]
-    #[inline]
-    pub unsafe fn emplace_null(out: Place<Self>) {
-        munge!(let ArchivedBox { ptr } = out);
-        RelPtr::emplace_null(ptr);
     }
 }
 

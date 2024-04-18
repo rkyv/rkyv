@@ -150,7 +150,7 @@ impl Archive for NodeHeaderData {
         if let Some(target) = self.pos {
             RelPtr::emplace(target, ptr);
         } else {
-            RelPtr::emplace_null(ptr);
+            RelPtr::emplace_invalid(ptr);
         }
     }
 }

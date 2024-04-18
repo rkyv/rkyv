@@ -2160,4 +2160,44 @@ mod tests {
         test_archive(&Bound::Excluded("hello world".to_string()));
         test_archive(&Bound::<String>::Unbounded);
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn ambiguous_niched_archived_box() {
+        use rkyv::{rancor::Failure, with::Niche};
+
+        #[derive(Archive, Deserialize, Serialize)]
+        struct HasNiche {
+            #[with(Niche)]
+            inner: Option<Box<[u32]>>,
+        }
+
+        let some_empty = HasNiche {
+            inner: Some(Box::<[u32]>::from([])),
+        };
+        let bytes = rkyv::to_bytes::<Failure>(&some_empty).unwrap();
+        eprintln!("some bytes: {:?}", bytes);
+        let archived =
+            unsafe { rkyv::access_unchecked::<ArchivedHasNiche>(&bytes) };
+        let deser =
+            deserialize::<HasNiche, _, Failure>(archived, &mut ()).unwrap();
+
+        assert!(archived.inner.is_some());
+        assert!(deser.inner.is_some());
+        assert_eq!(some_empty.inner, deser.inner);
+        assert_eq!(archived.inner.as_ref().unwrap().len(), 0);
+        assert_eq!(deser.inner.as_ref().unwrap().len(), 0);
+
+        let none = HasNiche { inner: None };
+        let bytes = rkyv::to_bytes::<Failure>(&none).unwrap();
+        eprintln!("none bytes: {:?}", bytes);
+        let archived =
+            unsafe { rkyv::access_unchecked::<ArchivedHasNiche>(&bytes) };
+        let deser =
+            deserialize::<HasNiche, _, Failure>(archived, &mut ()).unwrap();
+
+        assert!(archived.inner.is_none());
+        assert!(deser.inner.is_none());
+        assert_eq!(none.inner, deser.inner);
+    }
 }

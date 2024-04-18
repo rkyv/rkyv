@@ -1,6 +1,9 @@
 //! A niched archived `Option<Box<T>>` that uses less space.
 
-use core::{cmp, fmt, hash, hint::unreachable_unchecked, ops::Deref, pin::Pin};
+use core::{
+    cmp, fmt, hash, hint::unreachable_unchecked, mem::ManuallyDrop, ops::Deref,
+    pin::Pin,
+};
 
 use munge::munge;
 use rancor::Fallible;
@@ -8,7 +11,7 @@ use rancor::Fallible;
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     ser::Writer,
-    ArchivePointee, ArchiveUnsized, Place, Portable, SerializeUnsized,
+    ArchivePointee, ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
 
 /// A niched archived `Option<Box<T>>`.
@@ -16,9 +19,24 @@ use crate::{
 /// It uses less space by storing the `None` variant as a null pointer.
 #[derive(Portable)]
 #[archive(crate)]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct ArchivedOptionBox<T: ArchivePointee + ?Sized> {
-    inner: ArchivedBox<T>,
+    repr: Repr<T>,
+}
+
+#[derive(Portable)]
+#[archive(crate)]
+#[repr(C)]
+union Repr<T: ArchivePointee + ?Sized> {
+    boxed: ManuallyDrop<ArchivedBox<T>>,
+    ptr: ManuallyDrop<RelPtr<T>>,
+}
+
+impl<T: ArchivePointee + ?Sized> Repr<T> {
+    fn is_invalid(&self) -> bool {
+        unsafe { self.ptr.is_invalid() }
+    }
 }
 
 #[cfg(feature = "bytecheck")]
@@ -27,32 +45,28 @@ const _: () = {
         bytecheck::{CheckBytes, Verify},
         rancor::Source,
         validation::ArchiveContext,
-        LayoutRaw, RelPtr,
+        LayoutRaw,
     };
 
-    unsafe impl<T, C> CheckBytes<C> for ArchivedOptionBox<T>
+    unsafe impl<T, C> CheckBytes<C> for Repr<T>
     where
         T: ArchivePointee + ?Sized,
         C: Fallible + ?Sized,
-        ArchivedOptionBox<T>: Verify<C>,
         RelPtr<T>: CheckBytes<C>,
+        Self: Verify<C>,
     {
         unsafe fn check_bytes(
             value: *const Self,
             context: &mut C,
         ) -> Result<(), C::Error> {
-            // bypass `ArchivedBox::check_bytes` in favor of
-            // `RelPtr::check_bytes`. both ArchivedOptionBox and
-            // ArchivedBox are transparent to the RelPtr, so casting
-            // to RelPtr is safe.
-            RelPtr::check_bytes(value.cast(), context)?;
+            RelPtr::check_bytes(value.cast::<RelPtr<T>>(), context)?;
 
             // verify with null check
             Self::verify(unsafe { &*value }, context)
         }
     }
 
-    unsafe impl<T, C> Verify<C> for ArchivedOptionBox<T>
+    unsafe impl<T, C> Verify<C> for Repr<T>
     where
         T: ArchivePointee + CheckBytes<C> + LayoutRaw + ?Sized,
         T::ArchivedMetadata: CheckBytes<C>,
@@ -61,10 +75,12 @@ const _: () = {
     {
         #[inline]
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {
-            if self.inner.is_null() {
-                Ok(()) // null pointer doesn't need to be checked
+            let is_invalid = unsafe { self.ptr.is_invalid() };
+            if is_invalid {
+                // This is a `None` and doesn't need to be checked further
+                Ok(())
             } else {
-                self.inner.verify(context)
+                unsafe { self.boxed.verify(context) }
             }
         }
     }
@@ -86,20 +102,20 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
     /// Converts to an `Option<&ArchivedBox<T>>`.
     #[inline]
     pub fn as_ref(&self) -> Option<&ArchivedBox<T>> {
-        if self.inner.is_null() {
+        if self.repr.is_invalid() {
             None
         } else {
-            Some(&self.inner)
+            unsafe { Some(&self.repr.boxed) }
         }
     }
 
     /// Converts to an `Option<&mut ArchivedBox<T>>`.
     #[inline]
     pub fn as_mut(&mut self) -> Option<&mut ArchivedBox<T>> {
-        if self.inner.is_null() {
+        if self.repr.is_invalid() {
             None
         } else {
-            Some(&mut self.inner)
+            unsafe { Some(&mut self.repr.boxed) }
         }
     }
 
@@ -167,7 +183,7 @@ where
         resolver: OptionBoxResolver,
         out: Place<Self>,
     ) {
-        munge!(let Self { inner } = out);
+        munge!(let Self { repr } = out);
         if let Some(value) = field {
             let resolver =
                 if let OptionBoxResolver::Some(metadata_resolver) = resolver {
@@ -176,9 +192,11 @@ where
                     unreachable_unchecked();
                 };
 
-            ArchivedBox::resolve_from_ref(value, resolver, inner)
+            let out = unsafe { repr.cast_unchecked::<ArchivedBox<T>>() };
+            ArchivedBox::resolve_from_ref(value, resolver, out)
         } else {
-            ArchivedBox::emplace_null(inner);
+            let out = unsafe { repr.cast_unchecked::<RelPtr<T>>() };
+            RelPtr::emplace_invalid(out);
         }
     }
 
