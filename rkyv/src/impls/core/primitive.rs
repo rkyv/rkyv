@@ -18,8 +18,7 @@ use crate::{
         ArchivedNonZeroU32, ArchivedNonZeroU64, ArchivedNonZeroUsize,
         ArchivedU128, ArchivedU16, ArchivedU32, ArchivedU64, ArchivedUsize,
     },
-    Archive, Archived, CopyOptimization, Deserialize, Place, Portable,
-    Serialize,
+    Archive, CopyOptimization, Deserialize, Place, Portable, Serialize,
 };
 
 macro_rules! unsafe_impl_portable {
@@ -110,7 +109,7 @@ macro_rules! impl_portable_primitive {
 
         impl_serialize_noop!($type);
 
-        impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived<$type> {
+        impl<D: Fallible + ?Sized> Deserialize<$type, D> for $type {
             #[inline]
             fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
                 Ok(*self)
@@ -348,7 +347,7 @@ impl<S: Fallible + ?Sized> Serialize<S> for isize {
     }
 }
 
-impl<D: Fallible + ?Sized> Deserialize<isize, D> for Archived<isize> {
+impl<D: Fallible + ?Sized> Deserialize<isize, D> for ArchivedIsize {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<isize, D::Error> {
         Ok(self.to_native() as isize)
@@ -381,8 +380,9 @@ impl<S: Fallible + ?Sized> Serialize<S> for NonZeroUsize {
     }
 }
 
-impl<D: Fallible + ?Sized> Deserialize<NonZeroUsize, D>
-    for Archived<NonZeroUsize>
+impl<D> Deserialize<NonZeroUsize, D> for ArchivedNonZeroUsize
+where
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<NonZeroUsize, D::Error> {
@@ -416,8 +416,9 @@ impl<S: Fallible + ?Sized> Serialize<S> for NonZeroIsize {
     }
 }
 
-impl<D: Fallible + ?Sized> Deserialize<NonZeroIsize, D>
-    for Archived<NonZeroIsize>
+impl<D> Deserialize<NonZeroIsize, D> for ArchivedNonZeroIsize
+where
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize(&self, _: &mut D) -> Result<NonZeroIsize, D::Error> {

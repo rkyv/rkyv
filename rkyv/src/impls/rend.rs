@@ -1,7 +1,7 @@
 use rancor::Fallible;
 
 use crate::{
-    rend::*, Archive, Archived, CopyOptimization, Deserialize, Place, Serialize,
+    rend::*, Archive, CopyOptimization, Deserialize, Place, Serialize,
 };
 
 macro_rules! impl_rend_primitive {
@@ -30,7 +30,7 @@ macro_rules! impl_rend_primitive {
             }
         }
 
-        impl<D: Fallible + ?Sized> Deserialize<$type, D> for Archived<$type> {
+        impl<D: Fallible + ?Sized> Deserialize<$type, D> for $type {
             #[inline]
             fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
                 Ok(*self)

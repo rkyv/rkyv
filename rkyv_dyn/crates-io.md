@@ -58,7 +58,7 @@ impl ExampleTrait for StringStruct {
     }
 }
 
-impl ExampleTrait for Archived<StringStruct> {
+impl ExampleTrait for ArchivedStringStruct {
     fn value(&self) -> String {
         self.0.as_str().to_string()
     }
@@ -74,7 +74,7 @@ impl ExampleTrait for IntStruct {
     }
 }
 
-impl ExampleTrait for Archived<IntStruct> {
+impl ExampleTrait for ArchivedIntStruct {
     fn value(&self) -> String {
         format!("{}", self.0)
     }

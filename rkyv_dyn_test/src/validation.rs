@@ -45,7 +45,7 @@ mod tests {
             }
         }
 
-        impl TestTrait for Archived<Test> {
+        impl TestTrait for ArchivedTest {
             fn get_id(&self) -> i32 {
                 self.id.into()
             }
@@ -67,7 +67,7 @@ mod tests {
             }
         }
 
-        impl TestTrait for Archived<TestUnchecked> {
+        impl TestTrait for ArchivedTestUnchecked {
             fn get_id(&self) -> i32 {
                 self.id.into()
             }

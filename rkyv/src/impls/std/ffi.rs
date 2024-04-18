@@ -14,8 +14,8 @@ use crate::{
     ffi::{ArchivedCString, CStringResolver},
     primitive::ArchivedUsize,
     ser::Writer,
-    Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
-    Deserialize, DeserializeUnsized, LayoutRaw, Place, Portable, Serialize,
+    Archive, ArchivePointee, ArchiveUnsized, ArchivedMetadata, Deserialize,
+    DeserializeUnsized, LayoutRaw, Place, Portable, Serialize,
     SerializeUnsized,
 };
 
@@ -61,9 +61,7 @@ impl<S: Fallible + Writer + ?Sized> SerializeUnsized<S> for CStr {
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D>
-    for <CStr as ArchiveUnsized>::Archived
-{
+impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for CStr {
     #[inline]
     unsafe fn deserialize_unsized(
         &self,
@@ -124,7 +122,7 @@ impl<S: Fallible + Writer + ?Sized> Serialize<S> for CString {
     }
 }
 
-impl<D> Deserialize<CString, D> for Archived<CString>
+impl<D> Deserialize<CString, D> for ArchivedCString
 where
     D: Fallible + ?Sized,
     D::Error: Source,

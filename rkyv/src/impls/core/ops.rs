@@ -14,8 +14,7 @@ use crate::{
         ArchivedBound, ArchivedRange, ArchivedRangeFrom,
         ArchivedRangeInclusive, ArchivedRangeTo, ArchivedRangeToInclusive,
     },
-    Archive, Archived, CopyOptimization, Deserialize, Place, Portable,
-    Serialize,
+    Archive, CopyOptimization, Deserialize, Place, Portable, Serialize,
 };
 
 // RangeFull
@@ -80,7 +79,7 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Range<T> {
     }
 }
 
-impl<T, D> Deserialize<Range<T>, D> for Archived<Range<T>>
+impl<T, D> Deserialize<Range<T>, D> for ArchivedRange<T::Archived>
 where
     T: Archive,
     T::Archived: Deserialize<T, D>,
@@ -133,7 +132,8 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeInclusive<T> {
     }
 }
 
-impl<T, D> Deserialize<RangeInclusive<T>, D> for Archived<RangeInclusive<T>>
+impl<T, D> Deserialize<RangeInclusive<T>, D>
+    for ArchivedRangeInclusive<T::Archived>
 where
     T: Archive,
     T::Archived: Deserialize<T, D>,
@@ -190,7 +190,7 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeFrom<T> {
     }
 }
 
-impl<T, D> Deserialize<RangeFrom<T>, D> for Archived<RangeFrom<T>>
+impl<T, D> Deserialize<RangeFrom<T>, D> for ArchivedRangeFrom<T::Archived>
 where
     T: Archive,
     D: Fallible + ?Sized,
@@ -243,7 +243,7 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for RangeTo<T> {
     }
 }
 
-impl<T, D> Deserialize<RangeTo<T>, D> for Archived<RangeTo<T>>
+impl<T, D> Deserialize<RangeTo<T>, D> for ArchivedRangeTo<T::Archived>
 where
     T: Archive,
     D: Fallible + ?Sized,
@@ -300,7 +300,8 @@ where
     }
 }
 
-impl<T, D> Deserialize<RangeToInclusive<T>, D> for Archived<RangeToInclusive<T>>
+impl<T, D> Deserialize<RangeToInclusive<T>, D>
+    for ArchivedRangeToInclusive<T::Archived>
 where
     T: Archive,
     T::Archived: Deserialize<T, D>,

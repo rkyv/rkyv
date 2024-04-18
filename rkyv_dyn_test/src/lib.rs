@@ -153,7 +153,7 @@ mod tests {
 
             // Hack to make rustfmt happy
             type SId<SE, DE> = dyn SerializeId<SE, DE>;
-            impl<SE, DE> DeserializeDyn<SId<SE, DE>, DE> for Archived<Test>
+            impl<SE, DE> DeserializeDyn<SId<SE, DE>, DE> for ArchivedTest
             where
                 Archived<Test>:
                     for<'a> Deserialize<Test, dyn DynDeserializer<DE> + 'a>,
@@ -179,7 +179,7 @@ mod tests {
                 }
             }
 
-            impl Id for Archived<Test> {
+            impl Id for ArchivedTest {
                 fn get_id(&self) -> i32 {
                     self.id.into()
                 }
@@ -230,7 +230,7 @@ mod tests {
     //         }
     //     }
 
-    //     impl TestTrait for Archived<Test> {
+    //     impl TestTrait for ArchivedTest {
     //         fn get_id(&self) -> i32 {
     //             self.id.into()
     //         }
@@ -421,7 +421,7 @@ mod tests {
     //         }
     //     }
 
-    //     impl TestTrait for Archived<Test> {
+    //     impl TestTrait for ArchivedTest {
     //         fn value(&self) -> i32 {
     //             self.0.into()
     //         }

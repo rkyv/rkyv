@@ -652,7 +652,7 @@ mod tests {
             }
         }
 
-        impl<T, D> Deserialize<MyStruct<T>, D> for Archived<MyStruct<T>>
+        impl<T, D> Deserialize<MyStruct<T>, D> for MyStruct<T::Archived>
         where
             T: Archive + MyTrait,
             D: Fallible + MyTrait + ?Sized,
