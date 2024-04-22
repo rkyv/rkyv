@@ -636,12 +636,7 @@ mod tests {
             type Archived = MyStruct<T::Archived>;
             type Resolver = ();
 
-            unsafe fn resolve(
-                &self,
-                _: Self::Resolver,
-                _: Place<Self::Archived>,
-            ) {
-            }
+            fn resolve(&self, _: Self::Resolver, _: Place<Self::Archived>) {}
         }
 
         impl<T, S> Serialize<S> for MyStruct<T>
@@ -1331,7 +1326,7 @@ mod tests {
             type Archived = <String as Archive>::Archived;
             type Resolver = <String as Archive>::Resolver;
 
-            unsafe fn resolve_with(
+            fn resolve_with(
                 value: &T,
                 resolver: Self::Resolver,
                 out: Place<Self::Archived>,

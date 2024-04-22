@@ -50,7 +50,7 @@ macro_rules! impl_multi_byte_atomic {
             type Resolver = ();
 
             #[inline]
-            unsafe fn resolve_with(
+            fn resolve_with(
                 field: &$atomic,
                 _: Self::Resolver,
                 out: Place<Self::Archived>,
@@ -69,7 +69,7 @@ macro_rules! impl_multi_byte_atomic {
             type Resolver = ();
 
             #[inline]
-            unsafe fn resolve_with(
+            fn resolve_with(
                 field: &$atomic,
                 _: Self::Resolver,
                 out: Place<Self::Archived>,
@@ -144,7 +144,7 @@ macro_rules! impl_atomic_size_type {
             type Resolver = ();
 
             #[inline]
-            unsafe fn resolve_with(
+            fn resolve_with(
                 field: &$atomic,
                 _: Self::Resolver,
                 out: Place<Self::Archived>,
@@ -163,7 +163,7 @@ macro_rules! impl_atomic_size_type {
             type Resolver = ();
 
             #[inline]
-            unsafe fn resolve_with(
+            fn resolve_with(
                 field: &$atomic,
                 _: Self::Resolver,
                 out: Place<Self::Archived>,

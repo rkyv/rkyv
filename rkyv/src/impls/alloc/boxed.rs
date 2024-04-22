@@ -17,11 +17,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     type Resolver = BoxResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedBox::resolve_from_ref(self.as_ref(), resolver, out);
     }
 }

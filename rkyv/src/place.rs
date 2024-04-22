@@ -60,6 +60,7 @@ impl<T: ?Sized> Place<T> {
         self.ptr.as_ptr()
     }
 
+    // TODO: this should be unsafe since writing uninit bytes is illegal
     /// Writes the provided value to this place.
     #[inline]
     pub fn write(&self, value: T)

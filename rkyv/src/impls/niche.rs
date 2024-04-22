@@ -24,7 +24,7 @@ macro_rules! impl_nonzero_niche {
             type Resolver = ();
 
             #[inline]
-            unsafe fn resolve_with(
+            fn resolve_with(
                 field: &Option<$nz>,
                 _: Self::Resolver,
                 out: Place<Self::Archived>,

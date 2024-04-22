@@ -23,31 +23,30 @@ impl<T: Archive, U: Archive> Archive for Result<T, U> {
     type Resolver = Result<T::Resolver, U::Resolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         match resolver {
             Ok(resolver) => {
-                let out = out
-                    .cast_unchecked::<ArchivedResultVariantOk<T::Archived>>();
+                let out = unsafe {
+                    out.cast_unchecked::<ArchivedResultVariantOk<T::Archived>>()
+                };
                 munge!(let ArchivedResultVariantOk(tag, value_out) = out);
                 tag.write(ArchivedResultTag::Ok);
 
                 match self.as_ref() {
                     Ok(value) => value.resolve(resolver, value_out),
-                    Err(_) => unreachable_unchecked(),
+                    Err(_) => unsafe { unreachable_unchecked() },
                 }
             }
             Err(resolver) => {
-                let out = out
-                    .cast_unchecked::<ArchivedResultVariantErr<U::Archived>>();
+                let out = unsafe {
+                    out.cast_unchecked::<ArchivedResultVariantErr<U::Archived>>(
+                    )
+                };
                 munge!(let ArchivedResultVariantErr(tag, err_out) = out);
                 tag.write(ArchivedResultTag::Err);
 
                 match self.as_ref() {
-                    Ok(_) => unreachable_unchecked(),
+                    Ok(_) => unsafe { unreachable_unchecked() },
                     Err(err) => err.resolve(resolver, err_out),
                 }
             }

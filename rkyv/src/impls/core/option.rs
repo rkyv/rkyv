@@ -23,27 +23,29 @@ impl<T: Archive> Archive for Option<T> {
     type Resolver = Option<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         match resolver {
             None => {
-                let out = out.cast_unchecked::<ArchivedOptionVariantNone>();
+                let out = unsafe {
+                    out.cast_unchecked::<ArchivedOptionVariantNone>()
+                };
                 munge!(let ArchivedOptionVariantNone(tag) = out);
                 tag.write(ArchivedOptionTag::None);
             }
             Some(resolver) => {
-                let out = out
-                    .cast_unchecked::<ArchivedOptionVariantSome<T::Archived>>();
+                let out = unsafe {
+                    out
+                    .cast_unchecked::<ArchivedOptionVariantSome<T::Archived>>()
+                };
                 munge!(let ArchivedOptionVariantSome(tag, value_out) = out);
                 tag.write(ArchivedOptionTag::Some);
 
                 let value = if let Some(value) = self.as_ref() {
                     value
                 } else {
-                    unreachable_unchecked();
+                    unsafe {
+                        unreachable_unchecked();
+                    }
                 };
 
                 value.resolve(resolver, value_out);

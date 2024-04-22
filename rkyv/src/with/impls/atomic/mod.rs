@@ -40,7 +40,7 @@ macro_rules! impl_single_byte_atomic {
             type Resolver = ();
 
             #[inline]
-            unsafe fn resolve_with(
+            fn resolve_with(
                 field: &$atomic,
                 _: Self::Resolver,
                 out: Place<Self::Archived>,
@@ -57,7 +57,7 @@ macro_rules! impl_single_byte_atomic {
             type Resolver = ();
 
             #[inline]
-            unsafe fn resolve_with(
+            fn resolve_with(
                 field: &$atomic,
                 _: Self::Resolver,
                 out: Place<Self::Archived>,

@@ -9,12 +9,14 @@ impl Archive for Duration {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
-        ArchivedDuration::emplace(
-            self.as_secs(),
-            self.subsec_nanos(),
-            out.ptr(),
-        );
+    fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+        unsafe {
+            ArchivedDuration::emplace(
+                self.as_secs(),
+                self.subsec_nanos(),
+                out.ptr(),
+            );
+        }
     }
 }
 

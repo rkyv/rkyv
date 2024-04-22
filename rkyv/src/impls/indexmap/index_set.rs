@@ -13,11 +13,7 @@ impl<K: Archive, S> Archive for IndexSet<K, S> {
     type Archived = ArchivedIndexSet<K::Archived>;
     type Resolver = IndexSetResolver;
 
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedIndexSet::resolve_from_len(self.len(), (7, 8), resolver, out);
     }
 }

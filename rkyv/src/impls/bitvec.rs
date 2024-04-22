@@ -26,11 +26,7 @@ where
     type Archived = ArchivedBitVec<Archived<T>, O>;
     type Resolver = VecResolver;
 
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let ArchivedBitVec { inner, bit_len, _or: _ } = out);
         ArchivedVec::resolve_from_slice(self.as_raw_slice(), resolver, inner);
         usize::resolve(&self.len(), (), bit_len);
@@ -88,11 +84,7 @@ where
     type Archived = ArchivedBitArray<Archived<A>, O>;
     type Resolver = A::Resolver;
 
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         let arr_ref = self.as_raw_slice().try_into().ok().unwrap();
 
         munge!(let ArchivedBitArray { inner, _or: _ } = out);

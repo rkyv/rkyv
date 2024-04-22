@@ -212,7 +212,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 ///
 ///     // The resolve function consumes the resolver and produces the archived
 ///     // value at the given position.
-///     unsafe fn resolve(
+///     fn resolve(
 ///         &self,
 ///         resolver: Self::Resolver,
 ///         out: Place<Self::Archived>,
@@ -272,7 +272,6 @@ pub trait Archive {
     /// the normal type.
     type Resolver;
 
-    // TODO: resolve doesn't have to be unsafe any more because Place exists now
     /// Creates the archived version of this value at the given position and
     /// writes it to the given output.
     ///
@@ -285,11 +284,7 @@ pub trait Archive {
     /// # Safety
     ///
     /// None
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    );
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>);
 }
 
 /// Converts a type to its archived form.

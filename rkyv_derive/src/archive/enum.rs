@@ -121,7 +121,7 @@ pub fn impl_enum(
                 // from complaining
                 #[allow(clippy::unit_arg)]
                 #[inline]
-                unsafe fn resolve(
+                fn resolve(
                     &self,
                     resolver: <Self as Archive>::Resolver,
                     out: #rkyv_path::Place<<Self as Archive>::Archived>,
@@ -387,20 +387,31 @@ fn generate_resolve_arms(
                             #name::#variant {
                                 #(#members: #self_bindings,)*
                             } => {
-                                let out = out.cast_unchecked::<
-                                    #archived_variant_name #ty_generics
-                                >();
-                                ::core::ptr::addr_of_mut!((*out.ptr()).__tag)
-                                    .write(ArchivedTag::#variant);
+                                let out = unsafe {
+                                    out.cast_unchecked::<
+                                        #archived_variant_name #ty_generics
+                                    >()
+                                };
+                                let tag_ptr = unsafe {
+                                    ::core::ptr::addr_of_mut!(
+                                        (*out.ptr()).__tag
+                                    )
+                                };
+                                unsafe {
+                                    tag_ptr.write(ArchivedTag::#variant);
+                                }
                                 #(
-                                    let field_ptr = ::core::ptr::addr_of_mut!(
-                                        (*out.ptr()).#members
-                                    );
-                                    let field_out =
+                                    let field_ptr = unsafe {
+                                        ::core::ptr::addr_of_mut!(
+                                            (*out.ptr()).#members
+                                        )
+                                    };
+                                    let field_out = unsafe {
                                         #rkyv_path::Place::from_field_unchecked(
                                             out,
                                             field_ptr,
-                                        );
+                                        )
+                                    };
                                     #resolves(
                                         #self_bindings,
                                         #resolver_bindings,
@@ -409,7 +420,9 @@ fn generate_resolve_arms(
                                 )*
                             },
                             #[allow(unreachable_patterns)]
-                            _ => ::core::hint::unreachable_unchecked(),
+                            _ => unsafe {
+                                ::core::hint::unreachable_unchecked()
+                            },
                         }
                     }
                 }),
@@ -417,20 +430,29 @@ fn generate_resolve_arms(
                     #resolver_name::#variant( #(#resolver_bindings,)* ) => {
                         match self {
                             #name::#variant(#(#self_bindings,)*) => {
-                                let out = out.cast_unchecked::<
-                                    #archived_variant_name #ty_generics
-                                >();
-                                ::core::ptr::addr_of_mut!((*out.ptr()).0)
-                                    .write(ArchivedTag::#variant);
+                                let out = unsafe {
+                                    out.cast_unchecked::<
+                                        #archived_variant_name #ty_generics
+                                    >()
+                                };
+                                let tag_ptr = unsafe {
+                                    ::core::ptr::addr_of_mut!((*out.ptr()).0)
+                                };
+                                unsafe {
+                                    tag_ptr.write(ArchivedTag::#variant);
+                                }
                                 #(
-                                    let field_ptr = ::core::ptr::addr_of_mut!(
-                                        (*out.ptr()).#members
-                                    );
-                                    let field_out =
+                                    let field_ptr = unsafe {
+                                        ::core::ptr::addr_of_mut!(
+                                            (*out.ptr()).#members
+                                        )
+                                    };
+                                    let field_out = unsafe {
                                         #rkyv_path::Place::from_field_unchecked(
                                             out,
                                             field_ptr,
-                                        );
+                                        )
+                                    };
                                     #resolves(
                                         #self_bindings,
                                         #resolver_bindings,
@@ -439,14 +461,20 @@ fn generate_resolve_arms(
                                 )*
                             },
                             #[allow(unreachable_patterns)]
-                            _ => ::core::hint::unreachable_unchecked(),
+                            _ => unsafe {
+                                ::core::hint::unreachable_unchecked()
+                            },
                         }
                     }
                 }),
                 Fields::Unit => Ok(quote! {
                     #resolver_name::#variant => {
-                        out.cast_unchecked::<ArchivedTag>()
-                            .write(ArchivedTag::#variant);
+                        let out = unsafe {
+                            out.cast_unchecked::<ArchivedTag>()
+                        };
+                        unsafe {
+                            out.write(ArchivedTag::#variant);
+                        }
                     }
                 }),
             }

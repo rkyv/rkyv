@@ -98,11 +98,7 @@ macro_rules! impl_portable_primitive {
             type Resolver = ();
 
             #[inline]
-            unsafe fn resolve(
-                &self,
-                _: Self::Resolver,
-                out: Place<Self::Archived>,
-            ) {
+            fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
                 out.write(*self);
             }
         }
@@ -159,11 +155,7 @@ macro_rules! impl_multibyte_primitive {
             type Resolver = ();
 
             #[inline]
-            unsafe fn resolve(
-                &self,
-                _: Self::Resolver,
-                out: Place<Self::Archived>,
-            ) {
+            fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
                 out.write(<$archived>::from_native(*self));
             }
         }
@@ -221,7 +213,7 @@ impl<T: ?Sized> Archive for PhantomData<T> {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: Self::Resolver, _: Place<Self::Archived>) {}
+    fn resolve(&self, _: Self::Resolver, _: Place<Self::Archived>) {}
 }
 
 impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
@@ -252,7 +244,7 @@ impl Archive for PhantomPinned {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: Self::Resolver, _: Place<Self::Archived>) {}
+    fn resolve(&self, _: Self::Resolver, _: Place<Self::Archived>) {}
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for PhantomPinned {
@@ -302,7 +294,7 @@ impl Archive for usize {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+    fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
         out.write(ArchivedUsize::from_native(*self as _));
     }
 }
@@ -335,7 +327,7 @@ impl Archive for isize {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+    fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
         out.write(ArchivedIsize::from_native(*self as _));
     }
 }
@@ -368,8 +360,10 @@ impl Archive for NonZeroUsize {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
-        out.write(ArchivedNonZeroUsize::new_unchecked(self.get() as _));
+    fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+        let value =
+            unsafe { ArchivedNonZeroUsize::new_unchecked(self.get() as _) };
+        out.write(value);
     }
 }
 
@@ -404,8 +398,10 @@ impl Archive for NonZeroIsize {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
-        out.write(ArchivedNonZeroIsize::new_unchecked(self.get() as _));
+    fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+        let value =
+            unsafe { ArchivedNonZeroIsize::new_unchecked(self.get() as _) };
+        out.write(value);
     }
 }
 

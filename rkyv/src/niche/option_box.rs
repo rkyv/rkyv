@@ -170,15 +170,8 @@ where
     T::ArchivedMetadata: Default,
 {
     /// Resolves an `ArchivedOptionBox<T::Archived>` from an `Option<&T>`.
-    ///
-    /// # Safety
-    ///
-    /// - `pos` must be the position of `out` within the archive
-    /// - `resolver` must be the result of serializing `field`
     #[inline]
-    pub unsafe fn resolve_from_option<
-        U: ArchiveUnsized<Archived = T> + ?Sized,
-    >(
+    pub fn resolve_from_option<U: ArchiveUnsized<Archived = T> + ?Sized>(
         field: Option<&U>,
         resolver: OptionBoxResolver,
         out: Place<Self>,
@@ -189,7 +182,9 @@ where
                 if let OptionBoxResolver::Some(metadata_resolver) = resolver {
                     metadata_resolver
                 } else {
-                    unreachable_unchecked();
+                    unsafe {
+                        unreachable_unchecked();
+                    }
                 };
 
             let out = unsafe { repr.cast_unchecked::<ArchivedBox<T>>() };

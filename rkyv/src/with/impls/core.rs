@@ -31,29 +31,34 @@ where
     type Archived = ArchivedOption<<A as ArchiveWith<O>>::Archived>;
     type Resolver = Option<<A as ArchiveWith<O>>::Resolver>;
 
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &Option<O>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
         match resolver {
             None => {
-                let out = out.cast_unchecked::<ArchivedOptionVariantNone>();
+                let out = unsafe {
+                    out.cast_unchecked::<ArchivedOptionVariantNone>()
+                };
                 munge!(let ArchivedOptionVariantNone(tag) = out);
                 tag.write(ArchivedOptionTag::None);
             }
             Some(resolver) => {
-                let out =
+                let out = unsafe {
                     out.cast_unchecked::<ArchivedOptionVariantSome<
                         <A as ArchiveWith<O>>::Archived,
-                    >>();
+                    >>()
+                };
                 munge!(let ArchivedOptionVariantSome(tag, value_out) = out);
                 tag.write(ArchivedOptionTag::Some);
 
                 let value = if let Some(value) = field.as_ref() {
                     value
                 } else {
-                    unreachable_unchecked();
+                    unsafe {
+                        unreachable_unchecked();
+                    }
                 };
 
                 A::resolve_with(value, resolver, value_out);
@@ -120,7 +125,7 @@ impl<F: Archive> ArchiveWith<&F> for Inline {
     type Resolver = F::Resolver;
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &&F,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -146,7 +151,7 @@ impl<F: ArchiveUnsized + ?Sized> ArchiveWith<&F> for BoxedInline {
     type Resolver = BoxResolver;
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &&F,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -174,7 +179,7 @@ impl<F: ArchiveUnsized + ?Sized> ArchiveWith<F> for Boxed {
     type Resolver = BoxResolver;
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &F,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -216,7 +221,7 @@ impl ArchiveWith<Option<NonZeroIsize>> for Niche {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &Option<NonZeroIsize>,
         _: Self::Resolver,
         out: Place<Self::Archived>,
@@ -258,7 +263,7 @@ impl ArchiveWith<Option<NonZeroUsize>> for Niche {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &Option<NonZeroUsize>,
         _: Self::Resolver,
         out: Place<Self::Archived>,
@@ -302,12 +307,14 @@ impl<F: Archive> ArchiveWith<UnsafeCell<F>> for Unsafe {
     type Resolver = F::Resolver;
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &UnsafeCell<F>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
-        F::resolve(&*field.get(), resolver, out.cast_unchecked());
+        let value = unsafe { &*field.get() };
+        let out = unsafe { out.cast_unchecked() };
+        F::resolve(value, resolver, out);
     }
 }
 
@@ -346,12 +353,14 @@ impl<F: Archive> ArchiveWith<Cell<F>> for Unsafe {
     type Resolver = F::Resolver;
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &Cell<F>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
-        F::resolve(&*field.as_ptr(), resolver, out.cast_unchecked());
+        let value = unsafe { &*field.as_ptr() };
+        let out = unsafe { out.cast_unchecked() };
+        F::resolve(value, resolver, out);
     }
 }
 
@@ -391,8 +400,7 @@ impl<F> ArchiveWith<F> for Skip {
     type Archived = ();
     type Resolver = ();
 
-    unsafe fn resolve_with(_: &F, _: Self::Resolver, _: Place<Self::Archived>) {
-    }
+    fn resolve_with(_: &F, _: Self::Resolver, _: Place<Self::Archived>) {}
 }
 
 impl<F, S: Fallible + ?Sized> SerializeWith<F, S> for Skip {

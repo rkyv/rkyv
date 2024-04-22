@@ -112,14 +112,16 @@ macro_rules! impl_tuple {
             type Resolver = ($($type::Resolver,)*);
 
             #[inline]
-            unsafe fn resolve(
+            fn resolve(
                 &self,
                 resolver: Self::Resolver,
                 out: Place<Self::Archived>,
             ) {
                 $(
-                    let ptr = addr_of_mut!((*out.ptr()).$index);
-                    let field_out = Place::from_field_unchecked(out, ptr);
+                    let ptr = unsafe { addr_of_mut!((*out.ptr()).$index) };
+                    let field_out = unsafe {
+                        Place::from_field_unchecked(out, ptr)
+                    };
                     self.$index.resolve(resolver.$index, field_out);
                 )*
             }
@@ -197,15 +199,10 @@ impl<T: Archive, const N: usize> Archive for [T; N] {
     type Resolver = [T::Resolver; N];
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
-        let mut resolvers = core::mem::MaybeUninit::new(resolver);
-        let resolvers_ptr = resolvers.as_mut_ptr().cast::<T::Resolver>();
-        for (i, value) in self.iter().enumerate() {
-            value.resolve(resolvers_ptr.add(i).read(), out.index(i));
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
+        for (i, (value, resolver)) in self.iter().zip(resolver).enumerate() {
+            let out_i = unsafe { out.index(i) };
+            value.resolve(resolver, out_i);
         }
     }
 }
@@ -407,12 +404,9 @@ impl<T: Archive> Archive for ManuallyDrop<T> {
     type Resolver = T::Resolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
-        T::resolve(self, resolver, out.cast_unchecked::<T::Archived>())
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
+        let out_inner = unsafe { out.cast_unchecked::<T::Archived>() };
+        T::resolve(self, resolver, out_inner)
     }
 }
 

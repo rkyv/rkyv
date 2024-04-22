@@ -29,7 +29,7 @@ impl ArchiveWith<OsString> for AsString {
     type Resolver = StringResolver;
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &OsString,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -78,7 +78,7 @@ impl ArchiveWith<PathBuf> for AsString {
     type Resolver = StringResolver;
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &PathBuf,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -129,11 +129,12 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
     type Resolver = F::Resolver;
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &Mutex<F>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
+        let out = unsafe { out.cast_unchecked() };
         // Unfortunately, we have to unwrap here because resolve must be
         // infallible
         //
@@ -144,10 +145,7 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
         // Mutex are serialized before the first is resolved. The
         // compromise is, unfortunately, to just unwrap poison
         // errors here and document it.
-        field
-            .lock()
-            .unwrap()
-            .resolve(resolver, out.cast_unchecked());
+        field.lock().unwrap().resolve(resolver, out);
     }
 }
 
@@ -189,11 +187,12 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
     type Resolver = F::Resolver;
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &RwLock<F>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
+        let out = unsafe { out.cast_unchecked() };
         // Unfortunately, we have to unwrap here because resolve must be
         // infallible
         //
@@ -204,10 +203,7 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
         // same Mutex are serialized before the first is resolved. The
         // compromise is, unfortunately, to just unwrap poison errors
         // here and document it.
-        field
-            .read()
-            .unwrap()
-            .resolve(resolver, out.cast_unchecked());
+        field.read().unwrap().resolve(resolver, out);
     }
 }
 
@@ -250,7 +246,7 @@ impl<K: Archive, V: Archive> ArchiveWith<HashMap<K, V>> for AsVec {
     type Archived = ArchivedVec<Entry<K::Archived, V::Archived>>;
     type Resolver = VecResolver;
 
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &HashMap<K, V>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -308,7 +304,7 @@ impl<T: Archive> ArchiveWith<HashSet<T>> for AsVec {
     type Archived = ArchivedVec<T::Archived>;
     type Resolver = VecResolver;
 
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &HashSet<T>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -358,7 +354,7 @@ impl ArchiveWith<SystemTime> for UnixTimestamp {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &SystemTime,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,

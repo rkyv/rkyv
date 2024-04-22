@@ -13,11 +13,7 @@ impl<K: Archive, V: Archive, S> Archive for IndexMap<K, V, S> {
     type Archived = ArchivedIndexMap<K::Archived, V::Archived>;
     type Resolver = IndexMapResolver;
 
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedIndexMap::resolve_from_len(self.len(), (7, 8), resolver, out);
     }
 }

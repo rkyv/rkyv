@@ -15,11 +15,7 @@ where
     type Resolver = VecResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedVec::resolve_from_slice(self.as_slice(), resolver, out);
     }
 }

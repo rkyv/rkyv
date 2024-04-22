@@ -52,11 +52,12 @@ pub fn impl_struct(
         .map(|(member, field)| {
             let resolves = resolve(rkyv_path, field)?;
             Ok(quote! {
-                let field_ptr = ::core::ptr::addr_of_mut!((*out.ptr()).#member);
-                let field_out = #rkyv_path::Place::from_field_unchecked(
-                    out,
-                    field_ptr,
-                );
+                let field_ptr = unsafe {
+                    ::core::ptr::addr_of_mut!((*out.ptr()).#member)
+                };
+                let field_out = unsafe {
+                    #rkyv_path::Place::from_field_unchecked(out, field_ptr)
+                };
                 #resolves(&self.#member, resolver.#member, field_out);
             })
         })
@@ -100,7 +101,7 @@ pub fn impl_struct(
                 // from complaining.
                 #[allow(clippy::unit_arg)]
                 #[inline]
-                unsafe fn resolve(
+                fn resolve(
                     &self,
                     resolver: Self::Resolver,
                     out: #rkyv_path::Place<Self::Archived>,

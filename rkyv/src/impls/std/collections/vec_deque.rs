@@ -38,11 +38,7 @@ impl<T: Archive> Archive for VecDeque<T> {
     type Resolver = VecResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedVec::resolve_from_len(self.len(), resolver, out);
     }
 }

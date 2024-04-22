@@ -40,7 +40,7 @@ use crate::{Place, Portable};
 ///     type Archived = Archived<i32>;
 ///     type Resolver = Resolver<i32>;
 ///
-///     unsafe fn resolve_with(field: &i32, _: (), out: Place<Self::Archived>) {
+///     fn resolve_with(field: &i32, _: (), out: Place<Self::Archived>) {
 ///         let incremented = field + 1;
 ///         incremented.resolve((), out);
 ///     }
@@ -106,11 +106,7 @@ pub trait ArchiveWith<F: ?Sized> {
     type Resolver;
 
     /// Resolves the archived type using a reference to the field type `F`.
-    ///
-    /// # Safety
-    ///
-    /// - `resolver` must be the result of serializing `field`
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &F,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,

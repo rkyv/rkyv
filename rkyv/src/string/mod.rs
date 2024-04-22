@@ -51,22 +51,25 @@ impl ArchivedString {
     }
 
     /// Resolves an archived string from a given `str`.
-    ///
-    /// # Safety
-    ///
-    /// - `pos` must be the position of `out` within the archive
-    /// - `resolver` must be the result of serializing `value`
     #[inline]
-    pub unsafe fn resolve_from_str(
+    pub fn resolve_from_str(
         value: &str,
         resolver: StringResolver,
         out: Place<Self>,
     ) {
         munge!(let ArchivedString { repr } = out);
         if value.len() <= repr::INLINE_CAPACITY {
-            ArchivedStringRepr::emplace_inline(value, repr.ptr());
+            unsafe {
+                ArchivedStringRepr::emplace_inline(value, repr.ptr());
+            }
         } else {
-            ArchivedStringRepr::emplace_out_of_line(value, resolver.pos, repr);
+            unsafe {
+                ArchivedStringRepr::emplace_out_of_line(
+                    value,
+                    resolver.pos,
+                    repr,
+                );
+            }
         }
     }
 

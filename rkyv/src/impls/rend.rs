@@ -14,11 +14,7 @@ macro_rules! impl_rend_primitive {
             type Resolver = ();
 
             #[inline]
-            unsafe fn resolve(
-                &self,
-                _: Self::Resolver,
-                out: Place<Self::Archived>,
-            ) {
+            fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
                 out.write(*self);
             }
         }

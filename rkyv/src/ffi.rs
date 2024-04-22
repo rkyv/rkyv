@@ -62,12 +62,8 @@ impl ArchivedCString {
     }
 
     /// Resolves an archived C string from the given C string and parameters.
-    ///
-    /// # Safety
-    ///
-    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn resolve_from_c_str(
+    pub fn resolve_from_c_str(
         c_str: &CStr,
         resolver: CStringResolver,
         out: Place<Self>,

@@ -19,11 +19,7 @@ where
     type Resolver = VecResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedVec::resolve_from_slice(self.as_slice(), resolver, out);
     }
 }
@@ -70,11 +66,7 @@ impl<'s, T: Archive> Archive for SliceVec<'s, T> {
     type Resolver = VecResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedVec::resolve_from_slice(self.as_slice(), resolver, out);
     }
 }
@@ -106,11 +98,7 @@ where
     type Resolver = VecResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedVec::resolve_from_slice(self.as_slice(), resolver, out);
     }
 }

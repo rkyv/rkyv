@@ -41,11 +41,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Arc<T> {
     type Resolver = RcResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedRc::resolve_from_ref(self.as_ref(), resolver, out);
     }
 }

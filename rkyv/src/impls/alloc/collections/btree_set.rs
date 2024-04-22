@@ -20,11 +20,7 @@ where
     type Resolver = BTreeSetResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedBTreeSet::<K::Archived>::resolve_from_len(
             self.len(),
             resolver,

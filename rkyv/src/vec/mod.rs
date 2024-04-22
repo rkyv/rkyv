@@ -89,12 +89,8 @@ impl<T> ArchivedVec<T> {
     }
 
     /// Resolves an archived `Vec` from a given slice.
-    ///
-    /// # Safety
-    ///
-    /// - `resolver` must be the result of serializing `value`
     #[inline]
-    pub unsafe fn resolve_from_slice<U: Archive<Archived = T>>(
+    pub fn resolve_from_slice<U: Archive<Archived = T>>(
         slice: &[U],
         resolver: VecResolver,
         out: Place<Self>,
@@ -103,12 +99,8 @@ impl<T> ArchivedVec<T> {
     }
 
     /// Resolves an archived `Vec` from a given length.
-    ///
-    /// # Safety
-    ///
-    /// - `resolver` must bet he result of serializing `value`
     #[inline]
-    pub unsafe fn resolve_from_len(
+    pub fn resolve_from_len(
         len: usize,
         resolver: VecResolver,
         out: Place<Self>,

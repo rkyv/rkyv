@@ -103,11 +103,7 @@ impl Archive for CString {
     type Resolver = CStringResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedCString::resolve_from_c_str(self.as_c_str(), resolver, out);
     }
 }

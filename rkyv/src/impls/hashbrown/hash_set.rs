@@ -20,11 +20,7 @@ where
     type Resolver = HashSetResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedHashSet::<K::Archived>::resolve_from_len(
             self.len(),
             (7, 8),

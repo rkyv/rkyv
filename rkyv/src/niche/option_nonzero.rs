@@ -171,12 +171,8 @@ macro_rules! impl_archived_option_nonzero {
             }
 
             /// Resolves an `ArchivedOptionNonZero` from an `Option<NonZero>`.
-            ///
-            /// # Safety
-            ///
-            /// - `pos` must be the position of `out` within the archive
             #[inline]
-            pub unsafe fn resolve_from_option(
+            pub fn resolve_from_option(
                 field: Option<$nz>,
                 out: Place<Self>,
             ) {

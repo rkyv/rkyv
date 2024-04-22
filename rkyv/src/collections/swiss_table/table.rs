@@ -364,9 +364,7 @@ impl<T> ArchivedHashTable<T> {
                                         .cast::<T>(),
                                 )
                             };
-                            unsafe {
-                                i.resolve(resolver, out);
-                            }
+                            i.resolve(resolver, out);
 
                             break 'insert;
                         }
@@ -399,11 +397,7 @@ impl<T> ArchivedHashTable<T> {
     }
 
     /// Resolves an archived hash table from a given length and parameters.
-    ///
-    /// # Safety
-    ///
-    /// `out` must point to a `Self` that properly aligned and valid for writes.
-    pub unsafe fn resolve_from_len(
+    pub fn resolve_from_len(
         len: usize,
         load_factor: (usize, usize),
         resolver: HashTableResolver,

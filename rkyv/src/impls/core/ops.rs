@@ -31,7 +31,7 @@ impl Archive for RangeFull {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: Self::Resolver, _: Place<Self::Archived>) {}
+    fn resolve(&self, _: Self::Resolver, _: Place<Self::Archived>) {}
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for RangeFull {
@@ -55,11 +55,7 @@ impl<T: Archive> Archive for Range<T> {
     type Resolver = Range<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let ArchivedRange { start, end } = out);
         self.start.resolve(resolver.start, start);
         self.end.resolve(resolver.end, end);
@@ -108,11 +104,7 @@ impl<T: Archive> Archive for RangeInclusive<T> {
     type Resolver = Range<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let ArchivedRangeInclusive { start, end } = out);
         self.start().resolve(resolver.start, start);
         self.end().resolve(resolver.end, end);
@@ -168,11 +160,7 @@ impl<T: Archive> Archive for RangeFrom<T> {
     type Resolver = RangeFrom<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let ArchivedRangeFrom { start } = out);
         self.start.resolve(resolver.start, start);
     }
@@ -221,11 +209,7 @@ impl<T: Archive> Archive for RangeTo<T> {
     type Resolver = RangeTo<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let ArchivedRangeTo { end } = out);
         self.end.resolve(resolver.end, end);
     }
@@ -274,11 +258,7 @@ impl<T: Archive> Archive for RangeToInclusive<T> {
     type Resolver = RangeToInclusive<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let ArchivedRangeToInclusive { end } = out);
         self.end.resolve(resolver.end, end);
     }
@@ -352,44 +332,50 @@ impl<T: Archive> Archive for Bound<T> {
     type Resolver = Bound<T::Resolver>;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         match resolver {
             Bound::Included(resolver) => {
-                let out = out.cast_unchecked::<
+                let out = unsafe {
+                    out.cast_unchecked::<
                     ArchivedBoundVariantIncluded<T::Archived>
-                >();
+                >()
+                };
                 munge!(let ArchivedBoundVariantIncluded(tag, value_out) = out);
                 tag.write(ArchivedBoundTag::Included);
 
                 let value = if let Bound::Included(value) = self.as_ref() {
                     value
                 } else {
-                    unreachable_unchecked();
+                    unsafe {
+                        unreachable_unchecked();
+                    }
                 };
 
                 value.resolve(resolver, value_out);
             }
             Bound::Excluded(resolver) => {
-                let out = out.cast_unchecked::<
+                let out = unsafe {
+                    out.cast_unchecked::<
                     ArchivedBoundVariantExcluded<T::Archived>
-                >();
+                >()
+                };
                 munge!(let ArchivedBoundVariantExcluded(tag, value_out) = out);
                 tag.write(ArchivedBoundTag::Excluded);
 
                 let value = if let Bound::Excluded(value) = self.as_ref() {
                     value
                 } else {
-                    unreachable_unchecked();
+                    unsafe {
+                        unreachable_unchecked();
+                    }
                 };
 
                 value.resolve(resolver, value_out);
             }
             Bound::Unbounded => {
-                let out = out.cast_unchecked::<ArchivedBoundVariantUnbounded>();
+                let out = unsafe {
+                    out.cast_unchecked::<ArchivedBoundVariantUnbounded>()
+                };
                 munge!(let ArchivedBoundVariantUnbounded(tag) = out);
                 tag.write(ArchivedBoundTag::Unbounded);
             }

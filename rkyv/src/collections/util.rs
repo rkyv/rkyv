@@ -28,11 +28,7 @@ impl<K: Archive, V: Archive> Archive for EntryAdapter<'_, K, V> {
     type Archived = Entry<K::Archived, V::Archived>;
     type Resolver = EntryResolver<K::Resolver, V::Resolver>;
 
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let Entry { key, value } = out);
         K::resolve(self.key, resolver.key, key);
         V::resolve(self.value, resolver.value, value);

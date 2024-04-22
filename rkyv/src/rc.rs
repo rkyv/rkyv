@@ -56,12 +56,8 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     }
 
     /// Resolves an archived `Rc` from a given reference.
-    ///
-    /// # Safety
-    ///
-    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
+    pub fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: &U,
         resolver: RcResolver,
         out: Place<Self>,
@@ -221,26 +217,24 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     }
 
     /// Resolves an archived `Weak` from a given optional reference.
-    ///
-    /// # Safety
-    ///
-    /// - `pos` must be the position of `out` within the archive
-    /// - `resolver` must be the result of serializing `value`
     #[inline]
-    pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
+    pub fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: Option<&U>,
         resolver: RcWeakResolver,
         out: Place<Self>,
     ) {
         match resolver {
             RcWeakResolver::None => {
-                let out = out.cast_unchecked::<ArchivedRcWeakVariantNone>();
+                let out = unsafe {
+                    out.cast_unchecked::<ArchivedRcWeakVariantNone>()
+                };
                 munge!(let ArchivedRcWeakVariantNone(tag) = out);
                 tag.write(ArchivedRcWeakTag::None);
             }
             RcWeakResolver::Some(resolver) => {
-                let out =
-                    out.cast_unchecked::<ArchivedRcWeakVariantSome<T, F>>();
+                let out = unsafe {
+                    out.cast_unchecked::<ArchivedRcWeakVariantSome<T, F>>()
+                };
                 munge!(let ArchivedRcWeakVariantSome(tag, rc) = out);
                 tag.write(ArchivedRcWeakTag::Some);
 

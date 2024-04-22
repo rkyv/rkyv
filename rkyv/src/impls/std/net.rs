@@ -140,8 +140,9 @@ impl Archive for Ipv4Addr {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
-        out.cast_unchecked::<[u8; 4]>().write(self.octets());
+    fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+        let octets = unsafe { out.cast_unchecked::<[u8; 4]>() };
+        octets.write(self.octets());
     }
 }
 
@@ -254,8 +255,9 @@ impl Archive for Ipv6Addr {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
-        out.cast_unchecked::<[u8; 16]>().write(self.octets());
+    fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+        let octets = unsafe { out.cast_unchecked::<[u8; 16]>() };
+        octets.write(self.octets());
     }
 }
 
@@ -383,16 +385,18 @@ impl Archive for IpAddr {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+    fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
         match self {
             IpAddr::V4(ipv4_addr) => {
-                let out = out.cast_unchecked::<ArchivedIpAddrVariantV4>();
+                let out =
+                    unsafe { out.cast_unchecked::<ArchivedIpAddrVariantV4>() };
                 munge!(let ArchivedIpAddrVariantV4(tag, ipv4_addr_out) = out);
                 tag.write(ArchivedIpAddrTag::V4);
                 ipv4_addr.resolve((), ipv4_addr_out);
             }
             IpAddr::V6(ipv6_addr) => {
-                let out = out.cast_unchecked::<ArchivedIpAddrVariantV6>();
+                let out =
+                    unsafe { out.cast_unchecked::<ArchivedIpAddrVariantV6>() };
                 munge!(let ArchivedIpAddrVariantV6(tag, ipv6_addr_out) = out);
                 tag.write(ArchivedIpAddrTag::V6);
                 ipv6_addr.resolve((), ipv6_addr_out);
@@ -482,7 +486,7 @@ impl Archive for SocketAddrV4 {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+    fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let ArchivedSocketAddrV4 { ip, port } = out);
         self.ip().resolve((), ip);
         self.port().resolve((), port);
@@ -569,7 +573,7 @@ impl Archive for SocketAddrV6 {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+    fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let ArchivedSocketAddrV6 { ip, port, flowinfo, scope_id } = out);
         self.ip().resolve((), ip);
         self.port().resolve((), port);
@@ -683,14 +687,12 @@ impl Archive for SocketAddr {
     type Resolver = ();
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         match self {
             SocketAddr::V4(socket_addr) => {
-                let out = out.cast_unchecked::<ArchivedSocketAddrVariantV4>();
+                let out = unsafe {
+                    out.cast_unchecked::<ArchivedSocketAddrVariantV4>()
+                };
                 munge! {
                     let ArchivedSocketAddrVariantV4(tag, socket_addr_out) = out;
                 }
@@ -698,7 +700,9 @@ impl Archive for SocketAddr {
                 socket_addr.resolve(resolver, socket_addr_out);
             }
             SocketAddr::V6(socket_addr) => {
-                let out = out.cast_unchecked::<ArchivedSocketAddrVariantV6>();
+                let out = unsafe {
+                    out.cast_unchecked::<ArchivedSocketAddrVariantV6>()
+                };
                 munge! {
                     let ArchivedSocketAddrVariantV6(tag, socket_addr_out) = out;
                 }

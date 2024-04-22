@@ -98,12 +98,8 @@ impl<K, H: Default + Hasher> ArchivedIndexSet<K, H> {
     }
 
     /// Resolves an archived index map from a given length and parameters.
-    ///
-    /// # Safety
-    ///
-    /// `out` must point to a `Self` that properly aligned and valid for writes.
     #[inline]
-    pub unsafe fn resolve_from_len(
+    pub fn resolve_from_len(
         len: usize,
         load_factor: (usize, usize),
         resolver: IndexSetResolver,

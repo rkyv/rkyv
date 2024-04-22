@@ -34,7 +34,7 @@ impl ArchiveWith<Vec<Opcode>> for EncodeOpcodes {
     type Archived = ArchivedVec<u8>;
     type Resolver = OpcodesResolver;
 
-    unsafe fn resolve_with(
+    fn resolve_with(
         _: &Vec<Opcode>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,

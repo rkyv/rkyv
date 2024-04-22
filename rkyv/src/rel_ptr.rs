@@ -3,7 +3,6 @@
 use core::{
     fmt,
     marker::{PhantomData, PhantomPinned},
-    ptr,
 };
 
 use munge::munge;
@@ -188,7 +187,7 @@ pub fn signed_offset<E: Source>(from: usize, to: usize) -> Result<isize, E> {
 impl<O: Offset> RawRelPtr<O> {
     /// Attempts to create an invalid `RawRelPtr` in-place.
     pub fn try_emplace_invalid<E: Source>(out: Place<Self>) -> Result<(), E> {
-        unsafe { Self::try_emplace::<E>(out.pos() + 1, out) }
+        Self::try_emplace::<E>(out.pos() + 1, out)
     }
 
     /// Creates an invalid `RawRelPtr` in-place.
@@ -201,20 +200,18 @@ impl<O: Offset> RawRelPtr<O> {
         Self::try_emplace_invalid::<Panic>(out).always_ok();
     }
 
-    // TODO: this can be safe now since Place exists
     /// Attempts to create a new `RawRelPtr` in-place between the given `from`
     /// and `to` positions.
-    ///
-    /// # Safety
-    ///
-    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_emplace<E: Source>(
+    pub fn try_emplace<E: Source>(
         to: usize,
         out: Place<Self>,
     ) -> Result<(), E> {
         let offset = O::from_isize(signed_offset(out.pos(), to)?)?;
-        ptr::addr_of_mut!((*out.ptr()).offset).write(offset);
+        out.write(Self {
+            offset,
+            _phantom: PhantomPinned,
+        });
         Ok(())
     }
 
@@ -225,12 +222,8 @@ impl<O: Offset> RawRelPtr<O> {
     ///
     /// - If the offset between `out` and `to` does not fit in an `isize`
     /// - If the offset between `out` and `to` exceeds the offset storage
-    ///
-    /// # Safety
-    ///
-    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn emplace(to: usize, out: Place<Self>) {
+    pub fn emplace(to: usize, out: Place<Self>) {
         Self::try_emplace::<Panic>(to, out).always_ok()
     }
 
@@ -335,12 +328,8 @@ where
 
 impl<T, O: Offset> RelPtr<T, O> {
     /// Attempts to create a relative pointer from one position to another.
-    ///
-    /// # Safety
-    ///
-    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_emplace<E: Source>(
+    pub fn try_emplace<E: Source>(
         to: usize,
         out: Place<Self>,
     ) -> Result<(), E> {
@@ -355,12 +344,8 @@ impl<T, O: Offset> RelPtr<T, O> {
     ///
     /// - If the offset between `from` and `to` does not fit in an `isize`
     /// - If the offset between `from` and `to` exceeds the offset storage
-    ///
-    /// # Safety
-    ///
-    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn emplace(to: usize, out: Place<Self>) {
+    pub fn emplace(to: usize, out: Place<Self>) {
         Self::try_emplace::<Panic>(to, out).always_ok()
     }
 }
@@ -370,14 +355,8 @@ where
     T::ArchivedMetadata: Default,
 {
     /// Attempts to create an invalid relative pointer with default metadata.
-    ///
-    /// # Safety
-    ///
-    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_emplace_invalid<E: Source>(
-        out: Place<Self>,
-    ) -> Result<(), E> {
+    pub fn try_emplace_invalid<E: Source>(out: Place<Self>) -> Result<(), E> {
         munge!(let RelPtr { raw_ptr, metadata, _phantom: _ } = out);
         RawRelPtr::try_emplace_invalid(raw_ptr)?;
         metadata.write(Default::default());
@@ -390,24 +369,16 @@ where
     ///
     /// - If an offset of `1` does not fit in an `isize`
     /// - If an offset of `1` exceeds the offset storage
-    ///
-    /// # Safety
-    ///
-    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn emplace_invalid(out: Place<Self>) {
+    pub fn emplace_invalid(out: Place<Self>) {
         Self::try_emplace_invalid::<Panic>(out).always_ok()
     }
 }
 
 impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// Attempts to create a relative pointer from one position to another.
-    ///
-    /// # Safety
-    ///
-    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn try_emplace_unsized<E: Source>(
+    pub fn try_emplace_unsized<E: Source>(
         to: usize,
         metadata: T::ArchivedMetadata,
         out: Place<Self>,
@@ -424,12 +395,8 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     ///
     /// - If the offset between `from` and `to` does not fit in an `isize`
     /// - If the offset between `from` and `to` exceeds the offset storage
-    ///
-    /// # Safety
-    ///
-    /// `out` must point to a `Self` that is valid for reads and writes.
     #[inline]
-    pub unsafe fn emplace_unsized(
+    pub fn emplace_unsized(
         to: usize,
         metadata: T::ArchivedMetadata,
         out: Place<Self>,

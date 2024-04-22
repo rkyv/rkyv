@@ -255,9 +255,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         if len == 0 {
             RawRelPtr::emplace_invalid(root);
         } else {
-            unsafe {
-                RawRelPtr::emplace(resolver.root_node_pos, root);
-            }
+            RawRelPtr::emplace(resolver.root_node_pos, root);
         }
 
         len_out.write(ArchivedUsize::from_native(len as FixedUsize));
@@ -428,11 +426,9 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
             items.iter().zip(resolvers.drain(..)).enumerate()
         {
             let key_out = unsafe { keys.index(i).cast_unchecked() };
+            k.resolve(kr, key_out);
             let value_out = unsafe { values.index(i).cast_unchecked() };
-            unsafe {
-                k.resolve(kr, key_out);
-                v.resolve(vr, value_out);
-            }
+            v.resolve(vr, value_out);
         }
 
         let bytes = unsafe {
@@ -489,26 +485,21 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
             items.iter().zip(resolvers.drain(..)).enumerate()
         {
             let key_out = unsafe { keys.index(i).cast_unchecked() };
+            k.resolve(kr, key_out);
             let value_out = unsafe { values.index(i).cast_unchecked() };
-            unsafe {
-                k.resolve(kr, key_out);
-                v.resolve(vr, value_out);
-            }
+            v.resolve(vr, value_out);
+
             let lesser_node_out =
                 unsafe { lesser_nodes.index(i).cast_unchecked() };
             if let Some(lesser_node) = l {
-                unsafe {
-                    RawRelPtr::emplace(*lesser_node, lesser_node_out);
-                }
+                RawRelPtr::emplace(*lesser_node, lesser_node_out);
             } else {
                 RawRelPtr::emplace_invalid(lesser_node_out);
             }
         }
 
         if let Some(greater_node_pos) = greater_node_pos {
-            unsafe {
-                RawRelPtr::emplace(greater_node_pos, greater_node);
-            }
+            RawRelPtr::emplace(greater_node_pos, greater_node);
         } else {
             RawRelPtr::emplace_invalid(greater_node);
         }

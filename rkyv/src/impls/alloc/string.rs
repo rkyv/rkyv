@@ -15,11 +15,7 @@ impl Archive for String {
     type Resolver = StringResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedString::resolve_from_str(self.as_str(), resolver, out);
     }
 }

@@ -25,11 +25,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
     type Resolver = RcResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedRc::resolve_from_ref(self.as_ref(), resolver, out);
     }
 }
@@ -112,11 +108,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
     type Resolver = RcWeakResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedRcWeak::resolve_from_ref(
             self.upgrade().as_ref().map(|v| v.as_ref()),
             resolver,
@@ -177,11 +169,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     type Resolver = RcResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedRc::resolve_from_ref(self.as_ref(), resolver, out);
     }
 }
@@ -269,11 +257,7 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
     type Resolver = RcWeakResolver;
 
     #[inline]
-    unsafe fn resolve(
-        &self,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedRcWeak::resolve_from_ref(
             self.upgrade().as_ref().map(|v| v.as_ref()),
             resolver,

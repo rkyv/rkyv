@@ -42,7 +42,7 @@ where
     type Archived = ArchivedVec<<A as ArchiveWith<O>>::Archived>;
     type Resolver = VecResolver;
 
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &Vec<O>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -69,7 +69,7 @@ where
             type Archived = <A as ArchiveWith<O>>::Archived;
             type Resolver = <A as ArchiveWith<O>>::Resolver;
 
-            unsafe fn resolve(
+            fn resolve(
                 &self,
                 resolver: Self::Resolver,
                 out: Place<Self::Archived>,
@@ -121,7 +121,7 @@ impl<'a, F: Archive + Clone> ArchiveWith<Cow<'a, F>> for AsOwned {
     type Resolver = F::Resolver;
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &Cow<'a, F>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -164,7 +164,7 @@ impl<'a, T: Archive + Clone> ArchiveWith<Cow<'a, [T]>> for AsOwned {
     type Resolver = VecResolver;
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &Cow<'a, [T]>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -209,7 +209,7 @@ impl<'a> ArchiveWith<Cow<'a, str>> for AsOwned {
     type Resolver = StringResolver;
 
     #[inline]
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &Cow<'a, str>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -256,7 +256,7 @@ const _: () = {
         type Resolver = CStringResolver;
 
         #[inline]
-        unsafe fn resolve_with(
+        fn resolve_with(
             field: &Cow<'a, CStr>,
             resolver: Self::Resolver,
             out: Place<Self::Archived>,
@@ -298,7 +298,7 @@ impl<K: Archive, V: Archive> ArchiveWith<BTreeMap<K, V>> for AsVec {
     type Archived = ArchivedVec<Entry<K::Archived, V::Archived>>;
     type Resolver = VecResolver;
 
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &BTreeMap<K, V>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -356,7 +356,7 @@ impl<T: Archive> ArchiveWith<BTreeSet<T>> for AsVec {
     type Archived = ArchivedVec<T::Archived>;
     type Resolver = VecResolver;
 
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &BTreeSet<T>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -408,7 +408,7 @@ where
     type Archived = ArchivedOptionBox<T::Archived>;
     type Resolver = OptionBoxResolver;
 
-    unsafe fn resolve_with(
+    fn resolve_with(
         field: &Option<Box<T>>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -457,7 +457,7 @@ impl<T: Archive> ArchiveWith<Arc<T>> for Cloned {
     type Archived = T::Archived;
     type Resolver = T::Resolver;
 
-    unsafe fn resolve_with(
+    fn resolve_with(
         x: &Arc<T>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
@@ -489,7 +489,7 @@ impl<T: Archive> ArchiveWith<Rc<T>> for Cloned {
     type Archived = T::Archived;
     type Resolver = T::Resolver;
 
-    unsafe fn resolve_with(
+    fn resolve_with(
         x: &Rc<T>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,

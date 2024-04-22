@@ -41,13 +41,8 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     }
 
     /// Resolves an archived box from the given value and parameters.
-    ///
-    /// # Safety
-    ///
-    /// - `pos` must be the position of `out` within the archive
-    /// - `resolver` must be the result of serializing `value`
     #[inline]
-    pub unsafe fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
+    pub fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: &U,
         resolver: BoxResolver,
         out: Place<Self>,
@@ -72,11 +67,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
 
     /// Resolves an archived box from a [`BoxResolver`] and the raw metadata
     /// directly.
-    ///
-    /// # Safety
-    ///
-    /// `out` must point to a `Self` that is valid for reads and writes.
-    pub unsafe fn resolve_from_raw_parts(
+    pub fn resolve_from_raw_parts(
         resolver: BoxResolver,
         metadata: T::ArchivedMetadata,
         out: Place<Self>,

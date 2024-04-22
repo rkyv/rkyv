@@ -194,8 +194,7 @@ impl ArchivedStringRepr {
     ///
     /// # Safety
     ///
-    /// - The length of `str` must be greater than [`INLINE_CAPACITY`].
-    /// - `out` must point to a `Self` that is valid for reads and writes.
+    /// The length of `str` must be greater than [`INLINE_CAPACITY`].
     #[inline]
     pub unsafe fn emplace_out_of_line(
         value: &str,
