@@ -12,7 +12,8 @@
 
 #[cfg(feature = "alloc")]
 mod aligned_vec;
-mod scratch_vec;
+mod inline_vec;
+mod ser_vec;
 
 use core::{
     mem,
@@ -26,7 +27,7 @@ use rancor::Strategy;
 #[cfg(feature = "alloc")]
 pub use self::aligned_vec::*;
 #[doc(inline)]
-pub use self::scratch_vec::*;
+pub use self::{inline_vec::InlineVec, ser_vec::SerVec};
 #[cfg(feature = "alloc")]
 use crate::{de::pooling::Unify, ser::AllocSerializer};
 use crate::{ser::Writer, Archive, Deserialize, Portable, Serialize};

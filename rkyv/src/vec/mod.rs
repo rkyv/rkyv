@@ -1,7 +1,5 @@
 //! An archived version of `Vec`.
 
-// mod raw;
-
 use core::{
     borrow::Borrow,
     cmp, fmt, hash,
@@ -179,28 +177,31 @@ impl<T> ArchivedVec<T> {
     ) -> Result<VecResolver, S::Error>
     where
         U: Serialize<S, Archived = T>,
-        I: ExactSizeIterator,
+        I: ExactSizeIterator + Clone,
         I::Item: Borrow<U>,
         S: Fallible + Allocator + Writer + ?Sized,
     {
-        use crate::util::ScratchVec;
+        use crate::util::SerVec;
 
-        unsafe {
-            let mut resolvers = ScratchVec::new(serializer, iter.len())?;
+        SerVec::with_capacity(
+            serializer,
+            iter.len(),
+            |resolvers, serializer| {
+                for value in iter.clone() {
+                    let resolver = value.borrow().serialize(serializer)?;
+                    resolvers.push(resolver);
+                }
 
-            for value in iter {
-                let resolver = value.borrow().serialize(serializer)?;
-                resolvers.push((value, resolver));
-            }
-            let pos = serializer.align_for::<T>()?;
-            for (value, resolver) in resolvers.drain(..) {
-                serializer.resolve_aligned(value.borrow(), resolver)?;
-            }
+                let pos = serializer.align_for::<T>()?;
+                for (value, resolver) in iter.zip(resolvers.drain(..)) {
+                    unsafe {
+                        serializer.resolve_aligned(value.borrow(), resolver)?;
+                    }
+                }
 
-            resolvers.free(serializer)?;
-
-            Ok(VecResolver { pos })
-        }
+                Ok(VecResolver { pos })
+            },
+        )?
     }
 
     /// Serializes an archived `Vec` from a given iterator. Compared to
@@ -348,6 +349,14 @@ impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for [T] {
 /// The resolver for [`ArchivedVec`].
 pub struct VecResolver {
     pos: usize,
+}
+
+impl VecResolver {
+    /// Creates a new `VecResolver` from a position in the output buffer where
+    /// the elements of the archived vector are stored.
+    pub fn from_pos(pos: usize) -> Self {
+        Self { pos }
+    }
 }
 
 #[cfg(feature = "bytecheck")]

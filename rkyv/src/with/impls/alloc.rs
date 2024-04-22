@@ -20,7 +20,7 @@ use ptr_meta::Pointee;
 use rancor::{Fallible, Source};
 
 use crate::{
-    collections::util::Entry,
+    collections::util::{Entry, EntryAdapter},
     niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
     ser::{Allocator, Writer},
     string::{ArchivedString, StringResolver},
@@ -318,7 +318,7 @@ where
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
         ArchivedVec::serialize_from_iter(
-            field.iter().map(|(key, value)| Entry { key, value }),
+            field.iter().map(|(key, value)| EntryAdapter { key, value }),
             serializer,
         )
     }

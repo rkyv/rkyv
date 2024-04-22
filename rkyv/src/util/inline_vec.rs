@@ -1,110 +1,52 @@
 use core::{
-    alloc::Layout,
     borrow::{Borrow, BorrowMut},
     fmt,
     mem::MaybeUninit,
     ops,
-    ptr::NonNull,
+    ptr::{self, NonNull},
     slice,
 };
 
-use crate::ser::Allocator;
-
-/// A vector view into serializer scratch space.
-pub struct ScratchVec<T> {
-    ptr: NonNull<T>,
-    cap: usize,
+/// A vector that uses inline-allocated memory.
+pub struct InlineVec<T, const N: usize> {
+    elements: [MaybeUninit<T>; N],
     len: usize,
 }
 
-impl<T> Drop for ScratchVec<T> {
+impl<T, const N: usize> Drop for InlineVec<T, N> {
     fn drop(&mut self) {
-        for i in 0..self.len {
-            unsafe {
-                core::ptr::drop_in_place(self.ptr.as_ptr().add(i));
-            }
-        }
+        self.clear()
     }
 }
 
-// SAFETY: ScratchVec is safe to send to another thread is T is safe to send to
+// SAFETY: InlineVec is safe to send to another thread is T is safe to send to
 // another thread
-unsafe impl<T: Send> Send for ScratchVec<T> {}
+unsafe impl<T: Send, const N: usize> Send for InlineVec<T, N> {}
 
-// SAFETY: ScratchVec is safe to share between threads if T is safe to share
+// SAFETY: InlineVec is safe to share between threads if T is safe to share
 // between threads
-unsafe impl<T: Sync> Sync for ScratchVec<T> {}
+unsafe impl<T: Sync, const N: usize> Sync for InlineVec<T, N> {}
 
-impl<T> ScratchVec<T> {
-    /// Constructs a new, empty `ScratchVec` with the specified capacity.
+impl<T, const N: usize> InlineVec<T, N> {
+    /// Constructs a new, empty `InlineVec`.
     ///
-    /// The vector will be able to hold exactly `capacity` elements. If
-    /// `capacity` is 0, the vector will not allocate.
-    ///
-    /// # Safety
-    ///
-    /// - The vector must not outlive the given scratch space.
-    /// - Vectors must be dropped in the reverse order they are allocated.
+    /// The vector will be able to hold exactly `N` elements.
     #[inline]
-    pub unsafe fn new<S: Allocator<E> + ?Sized, E>(
-        scratch_space: &mut S,
-        capacity: usize,
-    ) -> Result<Self, E> {
-        let layout = Layout::array::<T>(capacity).unwrap();
-        if layout.size() == 0 {
-            Ok(Self {
-                ptr: NonNull::dangling(),
-                cap: capacity,
-                len: 0,
-            })
-        } else {
-            let ptr = scratch_space.push_alloc(layout)?;
-            Ok(Self {
-                ptr: ptr.cast(),
-                cap: capacity,
-                len: 0,
-            })
+    pub fn new() -> Self {
+        Self {
+            elements: unsafe { MaybeUninit::uninit().assume_init() },
+            len: 0,
         }
-    }
-
-    /// Frees the memory associated with the scratch vec and releases it back to
-    /// the scratch space.
-    ///
-    /// This must be called when serialization succeeds, but may be omitted when
-    /// serialization fails. In that case, the elements of the scratch vec
-    /// will be dropped but the memory will not be popped. It is the duty of
-    /// the scratch space in that case to ensure that memory resources
-    /// are properly cleaned up.
-    ///
-    /// # Safety
-    ///
-    /// The given scratch space must be the same one used to allocate the
-    /// scratch vec.
-    #[inline]
-    pub unsafe fn free<S: Allocator<E> + ?Sized, E>(
-        self,
-        scratch_space: &mut S,
-    ) -> Result<(), E> {
-        let layout = self.layout();
-        if layout.size() != 0 {
-            let ptr = self.ptr.cast();
-            core::mem::drop(self);
-            scratch_space.pop_alloc(ptr, layout)?;
-        }
-        Ok(())
-    }
-
-    #[inline]
-    fn layout(&self) -> Layout {
-        Layout::array::<T>(self.cap).unwrap()
     }
 
     /// Clears the vector, removing all values.
-    ///
-    /// Note that this method has no effect on the allocated capacity of the
-    /// vector.
     #[inline]
     pub fn clear(&mut self) {
+        for i in 0..self.len {
+            unsafe {
+                self.elements[i].as_mut_ptr().drop_in_place();
+            }
+        }
         self.len = 0;
     }
 
@@ -114,7 +56,7 @@ impl<T> ScratchVec<T> {
     /// function returns, or else it will end up pointing to garbage.
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut T {
-        self.ptr.as_ptr()
+        self.elements.as_mut_ptr().cast()
     }
 
     /// Extracts a mutable slice of the entire vector.
@@ -122,7 +64,7 @@ impl<T> ScratchVec<T> {
     /// Equivalent to `&mut s[..]`.
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
-        unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
+        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), self.len) }
     }
 
     /// Returns a raw pointer to the vector's buffer.
@@ -137,7 +79,7 @@ impl<T> ScratchVec<T> {
     /// [`as_mut_ptr`](ScratchVec::as_mut_ptr).
     #[inline]
     pub fn as_ptr(&self) -> *const T {
-        self.ptr.as_ptr()
+        self.elements.as_ptr().cast()
     }
 
     /// Extracts a slice containing the entire vector.
@@ -145,13 +87,13 @@ impl<T> ScratchVec<T> {
     /// Equivalent to `&s[..]`.
     #[inline]
     pub fn as_slice(&self) -> &[T] {
-        unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
+        unsafe { slice::from_raw_parts(self.as_ptr(), self.len) }
     }
 
     /// Returns the number of elements the vector can hole without reallocating.
     #[inline]
-    pub fn capacity(&self) -> usize {
-        self.cap
+    pub const fn capacity(&self) -> usize {
+        N
     }
 
     /// Ensures that there is capacity for at least `additional` more elements
@@ -162,7 +104,7 @@ impl<T> ScratchVec<T> {
     /// Panics if the required capacity exceeds the available capacity.
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
-        if self.len + additional > self.cap {
+        if self.len + additional > N {
             panic!(
                 "reserve requested more capacity than the scratch vec has \
                  available"
@@ -318,7 +260,7 @@ impl<T> ScratchVec<T> {
     pub fn drain<R: ops::RangeBounds<usize>>(
         &mut self,
         range: R,
-    ) -> Drain<'_, T> {
+    ) -> Drain<'_, T, N> {
         let len = self.len();
         let ops::Range { start, end } = Self::drain_range(range, ..len);
 
@@ -338,7 +280,7 @@ impl<T> ScratchVec<T> {
     }
 }
 
-impl<T> ScratchVec<MaybeUninit<T>> {
+impl<T, const N: usize> InlineVec<MaybeUninit<T>, N> {
     /// Assuming that all the elements are initialized, removes the
     /// `MaybeUninit` wrapper from the vector.
     ///
@@ -348,51 +290,66 @@ impl<T> ScratchVec<MaybeUninit<T>> {
     /// really are in an initialized state. Calling this when the content is
     /// not yet fully initialized causes undefined behavior.
     #[inline]
-    pub fn assume_init(self) -> ScratchVec<T> {
-        ScratchVec {
-            ptr: self.ptr.cast(),
-            cap: self.cap,
+    pub fn assume_init(self) -> InlineVec<T, N> {
+        let mut elements = unsafe {
+            MaybeUninit::<[MaybeUninit<T>; N]>::uninit().assume_init()
+        };
+        unsafe {
+            ptr::copy_nonoverlapping(
+                self.elements.as_ptr().cast(),
+                elements.as_mut_ptr(),
+                N,
+            );
+        }
+        InlineVec {
+            elements,
             len: self.len,
         }
     }
 }
 
-impl<T> AsMut<[T]> for ScratchVec<T> {
+impl<T, const N: usize> AsMut<[T]> for InlineVec<T, N> {
     #[inline]
     fn as_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 }
 
-impl<T> AsRef<[T]> for ScratchVec<T> {
+impl<T, const N: usize> AsRef<[T]> for InlineVec<T, N> {
     #[inline]
     fn as_ref(&self) -> &[T] {
         self.as_slice()
     }
 }
 
-impl<T> Borrow<[T]> for ScratchVec<T> {
+impl<T, const N: usize> Borrow<[T]> for InlineVec<T, N> {
     #[inline]
     fn borrow(&self) -> &[T] {
         self.as_slice()
     }
 }
 
-impl<T> BorrowMut<[T]> for ScratchVec<T> {
+impl<T, const N: usize> BorrowMut<[T]> for InlineVec<T, N> {
     #[inline]
     fn borrow_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for ScratchVec<T> {
+impl<T: fmt::Debug, const N: usize> fmt::Debug for InlineVec<T, N> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_slice().fmt(f)
     }
 }
 
-impl<T> ops::Deref for ScratchVec<T> {
+impl<T, const N: usize> Default for InlineVec<T, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T, const N: usize> ops::Deref for InlineVec<T, N> {
     type Target = [T];
 
     #[inline]
@@ -401,14 +358,16 @@ impl<T> ops::Deref for ScratchVec<T> {
     }
 }
 
-impl<T> ops::DerefMut for ScratchVec<T> {
+impl<T, const N: usize> ops::DerefMut for InlineVec<T, N> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }
 }
 
-impl<T, I: slice::SliceIndex<[T]>> ops::Index<I> for ScratchVec<T> {
+impl<T, I: slice::SliceIndex<[T]>, const N: usize> ops::Index<I>
+    for InlineVec<T, N>
+{
     type Output = <I as slice::SliceIndex<[T]>>::Output;
 
     #[inline]
@@ -417,7 +376,9 @@ impl<T, I: slice::SliceIndex<[T]>> ops::Index<I> for ScratchVec<T> {
     }
 }
 
-impl<T, I: slice::SliceIndex<[T]>> ops::IndexMut<I> for ScratchVec<T> {
+impl<T, I: slice::SliceIndex<[T]>, const N: usize> ops::IndexMut<I>
+    for InlineVec<T, N>
+{
     #[inline]
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         &mut self.as_mut_slice()[index]
@@ -428,21 +389,21 @@ impl<T, I: slice::SliceIndex<[T]>> ops::IndexMut<I> for ScratchVec<T> {
 ///
 /// This `struct` is created by [`ScratchVec::drain`]. See its documentation for
 /// more.
-pub struct Drain<'a, T: 'a> {
+pub struct Drain<'a, T: 'a, const N: usize> {
     tail_start: usize,
     tail_len: usize,
     iter: slice::Iter<'a, T>,
-    vec: NonNull<ScratchVec<T>>,
+    vec: NonNull<InlineVec<T, N>>,
 }
 
-impl<T: fmt::Debug> fmt::Debug for Drain<'_, T> {
+impl<T: fmt::Debug, const N: usize> fmt::Debug for Drain<'_, T, N> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Drain").field(&self.iter.as_slice()).finish()
     }
 }
 
-impl<T> Drain<'_, T> {
+impl<T, const N: usize> Drain<'_, T, N> {
     /// Returns the remaining items of this iterator as a slice.
     #[inline]
     pub fn as_slice(&self) -> &[T] {
@@ -450,13 +411,13 @@ impl<T> Drain<'_, T> {
     }
 }
 
-impl<T> AsRef<[T]> for Drain<'_, T> {
+impl<T, const N: usize> AsRef<[T]> for Drain<'_, T, N> {
     fn as_ref(&self) -> &[T] {
         self.as_slice()
     }
 }
 
-impl<T> Iterator for Drain<'_, T> {
+impl<T, const N: usize> Iterator for Drain<'_, T, N> {
     type Item = T;
 
     #[inline]
@@ -472,7 +433,7 @@ impl<T> Iterator for Drain<'_, T> {
     }
 }
 
-impl<T> DoubleEndedIterator for Drain<'_, T> {
+impl<T, const N: usize> DoubleEndedIterator for Drain<'_, T, N> {
     #[inline]
     fn next_back(&mut self) -> Option<T> {
         self.iter
@@ -481,14 +442,14 @@ impl<T> DoubleEndedIterator for Drain<'_, T> {
     }
 }
 
-impl<T> Drop for Drain<'_, T> {
+impl<T, const N: usize> Drop for Drain<'_, T, N> {
     fn drop(&mut self) {
         /// Continues dropping the remaining elements in the `Drain`, then moves
         /// back the un-`Drain`ed elements to restore the original
         /// `Vec`.
-        struct DropGuard<'r, 'a, T>(&'r mut Drain<'a, T>);
+        struct DropGuard<'r, 'a, T, const N: usize>(&'r mut Drain<'a, T, N>);
 
-        impl<'r, 'a, T> Drop for DropGuard<'r, 'a, T> {
+        impl<'r, 'a, T, const N: usize> Drop for DropGuard<'r, 'a, T, N> {
             fn drop(&mut self) {
                 // Continue the same loop we have below. If the loop already
                 // finished, this does nothing.
@@ -523,6 +484,6 @@ impl<T> Drop for Drain<'_, T> {
     }
 }
 
-impl<T> ExactSizeIterator for Drain<'_, T> {}
+impl<T, const N: usize> ExactSizeIterator for Drain<'_, T, N> {}
 
-impl<T> core::iter::FusedIterator for Drain<'_, T> {}
+impl<T, const N: usize> core::iter::FusedIterator for Drain<'_, T, N> {}

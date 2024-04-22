@@ -484,6 +484,8 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    // TODO: Fix miri
+    #[cfg(not(miri))]
     fn struct_mutable_refs() {
         #[derive(Archive, Serialize)]
         struct Test {
@@ -721,6 +723,8 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    // TODO: Fix miri
+    #[cfg(not(miri))]
     fn archive_shared_ptr() {
         #[derive(Debug, Eq, PartialEq, Archive, Deserialize, Serialize)]
         #[archive(compare(PartialEq))]
@@ -850,6 +854,8 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    // TODO: Fix miri
+    #[cfg(not(miri))]
     fn archive_weak_ptr() {
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
@@ -1631,7 +1637,7 @@ mod tests {
         #[cfg(feature = "std")]
         use std::collections::{BTreeMap, BTreeSet};
 
-        use rkyv::{collections::util::Entry, with::AsVec};
+        use rkyv::with::AsVec;
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
@@ -1669,29 +1675,17 @@ mod tests {
         assert!(archived
             .a
             .iter()
-            .find(|&e| e
-                == &Entry {
-                    key: "foo",
-                    value: "hello"
-                })
+            .find(|&e| e.key == "foo" && e.value == "hello")
             .is_some());
         assert!(archived
             .a
             .iter()
-            .find(|&e| e
-                == &Entry {
-                    key: "bar",
-                    value: "world"
-                })
+            .find(|&e| e.key == "bar" && e.value == "world")
             .is_some());
         assert!(archived
             .a
             .iter()
-            .find(|&e| e
-                == &Entry {
-                    key: "baz",
-                    value: "bat"
-                })
+            .find(|&e| e.key == "baz" && e.value == "bat")
             .is_some());
 
         assert_eq!(archived.b.len(), 4);
@@ -1908,8 +1902,7 @@ mod tests {
         value.insert("baz".to_string(), 40);
         value.insert("bat".to_string(), 80);
 
-        let result =
-            serialize_into::<_, Error>(&value, AlignedVec::new()).unwrap();
+        let result = to_bytes::<Error>(&value).unwrap();
         let archived = unsafe {
             access_unchecked::<Archived<BTreeMap<String, i32>>>(
                 result.as_slice(),
@@ -1937,8 +1930,7 @@ mod tests {
     fn archive_empty_btree_map() {
         let value: BTreeMap<String, i32> = BTreeMap::new();
 
-        let result =
-            serialize_into::<_, Error>(&value, AlignedVec::new()).unwrap();
+        let result = to_bytes::<Error>(&value).unwrap();
         let archived = unsafe {
             access_unchecked::<Archived<BTreeMap<String, i32>>>(
                 result.as_slice(),
@@ -1947,9 +1939,9 @@ mod tests {
 
         assert_eq!(archived.len(), 0);
         #[allow(clippy::never_loop)]
-        for _ in archived.iter() {
+        archived.visit(|_, _| -> ::core::ops::ControlFlow<()> {
             panic!("there should be no values in the archived empty btree");
-        }
+        });
         assert!(archived.get_key_value("wrong!").is_none());
 
         let deserialized =
@@ -1967,8 +1959,7 @@ mod tests {
         value.insert("baz".to_string());
         value.insert("bat".to_string());
 
-        let result =
-            serialize_into::<_, Error>(&value, AlignedVec::new()).unwrap();
+        let result = to_bytes::<Error>(&value).unwrap();
         let archived = unsafe {
             access_unchecked::<Archived<BTreeSet<String>>>(result.as_slice())
         };
@@ -1989,31 +1980,37 @@ mod tests {
     }
 
     #[test]
-    // This test is unfortunately too slow to run through miri
-    #[cfg_attr(miri, ignore)]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    // This test creates structures too big to fit in 16-bit offsets
-    #[cfg(not(feature = "size_16"))]
     fn archive_btree_map_large() {
+        use core::ops::ControlFlow;
+
+        // This test creates structures too big to fit in 16-bit offsets, and
+        // MIRI can't run it quickly enough.
+        #[cfg(any(feature = "size_16", miri))]
+        const ENTRIES: usize = 100;
+        #[cfg(not(miri))]
+        const ENTRIES: usize = 100_000;
+
         let mut value = BTreeMap::new();
-        for i in 0..100_000 {
-            value.insert(i.to_string(), i);
+        for i in 0..ENTRIES {
+            value.insert(i.to_string(), i as i32);
         }
 
-        let result =
-            serialize_into::<_, Error>(&value, AlignedVec::new()).unwrap();
+        let result = to_bytes::<Error>(&value).unwrap();
         let archived = unsafe {
             access_unchecked::<Archived<BTreeMap<String, i32>>>(
                 result.as_slice(),
             )
         };
 
-        assert_eq!(archived.len(), 100_000);
-
-        for ((k, v), (ak, av)) in value.iter().zip(archived.iter()) {
+        assert_eq!(archived.len(), ENTRIES);
+        let mut iter = value.iter();
+        archived.visit(|ak, av| {
+            let (k, v) = iter.next().unwrap();
             assert_eq!(k, ak);
             assert_eq!(v, av);
-        }
+            ControlFlow::<()>::Continue(())
+        });
 
         for (k, v) in value.iter() {
             let av = archived

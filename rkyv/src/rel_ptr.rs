@@ -186,6 +186,22 @@ pub fn signed_offset<E: Source>(from: usize, to: usize) -> Result<isize, E> {
 }
 
 impl<O: Offset> RawRelPtr<O> {
+    /// Attempts to create an invalid `RawRelPtr` in-place.
+    pub fn try_emplace_invalid<E: Source>(out: Place<Self>) -> Result<(), E> {
+        unsafe { Self::try_emplace::<E>(out.pos() + 1, out) }
+    }
+
+    /// Creates an invalid `RawRelPtr` in-place.
+    ///
+    /// # Panics
+    ///
+    /// - If an offset of `1` does not fit in an `isize`
+    /// - If an offset of `1` exceeds the offset storage
+    pub fn emplace_invalid(out: Place<Self>) {
+        Self::try_emplace_invalid::<Panic>(out).always_ok();
+    }
+
+    // TODO: this can be safe now since Place exists
     /// Attempts to create a new `RawRelPtr` in-place between the given `from`
     /// and `to` positions.
     ///
@@ -363,7 +379,7 @@ where
         out: Place<Self>,
     ) -> Result<(), E> {
         munge!(let RelPtr { raw_ptr, metadata, _phantom: _ } = out);
-        RawRelPtr::try_emplace(raw_ptr.pos() + 1, raw_ptr)?;
+        RawRelPtr::try_emplace_invalid(raw_ptr)?;
         metadata.write(Default::default());
         Ok(())
     }

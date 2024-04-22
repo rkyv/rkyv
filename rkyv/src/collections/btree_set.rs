@@ -1,23 +1,25 @@
 //! [`Archive`](crate::Archive) implementation for B-tree sets.
 
-use core::{borrow::Borrow, fmt};
+use core::{borrow::Borrow, fmt, ops::ControlFlow};
 
 use munge::munge;
+use rancor::{Fallible, Source};
 
 use crate::{
-    collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver, Keys},
-    Place, Portable,
+    collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver},
+    ser::{Allocator, Writer},
+    Place, Portable, Serialize,
 };
 
 /// An archived `BTreeSet`. This is a wrapper around a B-tree map with the same
 /// key and a value of `()`.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[derive(Eq, Hash, Ord, PartialEq, PartialOrd, Portable)]
+#[derive(Portable)]
 #[archive(crate)]
 #[repr(transparent)]
-pub struct ArchivedBTreeSet<K>(ArchivedBTreeMap<K, ()>);
+pub struct ArchivedBTreeSet<K, const E: usize = 5>(ArchivedBTreeMap<K, (), E>);
 
-impl<K> ArchivedBTreeSet<K> {
+impl<K, const E: usize> ArchivedBTreeSet<K, E> {
     /// Returns `true` if the set contains a value for the specified key.
     ///
     /// The key may be any borrowed form of the set's key type, but the ordering
@@ -30,7 +32,7 @@ impl<K> ArchivedBTreeSet<K> {
         self.0.contains_key(key)
     }
 
-    /// Returns a reference to the value int he set, if any, that is equal to
+    /// Returns a reference to the value in the set, if any, that is equal to
     /// the given value.
     ///
     /// The value may be any borrowed form of the set's value type, but the
@@ -50,12 +52,6 @@ impl<K> ArchivedBTreeSet<K> {
         self.0.is_empty()
     }
 
-    /// Gets an iterator over the keys of the set, in sorted order.
-    #[inline]
-    pub fn iter(&self) -> Keys<K, ()> {
-        self.0.keys()
-    }
-
     /// Returns the number of items in the archived B-tree set.
     #[inline]
     pub fn len(&self) -> usize {
@@ -63,66 +59,59 @@ impl<K> ArchivedBTreeSet<K> {
     }
 
     /// Resolves a B-tree set from its length.
-    ///
-    /// # Safety
-    ///
-    /// - `len` must be the number of elements that were serialized
-    /// - `resolver` must be the result of serializing a B-tree set
     #[inline]
-    pub unsafe fn resolve_from_len(
+    pub fn resolve_from_len(
         len: usize,
         resolver: BTreeSetResolver,
         out: Place<Self>,
     ) {
         munge!(let ArchivedBTreeSet(inner) = out);
-        ArchivedBTreeMap::resolve_from_len(len, resolver.0, inner);
+        ArchivedBTreeMap::<K, (), E>::resolve_from_len(len, resolver.0, inner);
+    }
+
+    /// Serializes an `ArchivedBTreeSet` from the given iterator and serializer.
+    #[inline]
+    pub fn serialize_from_ordered_iter<'a, I, UK, S>(
+        iter: I,
+        serializer: &mut S,
+    ) -> Result<BTreeSetResolver, S::Error>
+    where
+        I: ExactSizeIterator<Item = &'a UK>,
+        UK: 'a + Serialize<S, Archived = K>,
+        S: Fallible + Allocator + Writer + ?Sized,
+        S::Error: Source,
+    {
+        ArchivedBTreeMap::<K, (), E>::serialize_from_ordered_iter(
+            iter.map(|k| (k, &())),
+            serializer,
+        )
+        .map(BTreeSetResolver)
+    }
+
+    /// Visits every key in the B-tree with a function.
+    ///
+    /// If `f` returns `ControlFlow::Break`, `visit` will return `Some` with the
+    /// broken value. If `f` returns `Continue` for every key in the tree,
+    /// `visit` will return `None`.
+    pub fn visit<T>(
+        &self,
+        mut f: impl FnMut(&K) -> ControlFlow<T>,
+    ) -> Option<T> {
+        self.0.visit(|k, _| f(k))
     }
 }
 
-#[cfg(feature = "alloc")]
-const _: () = {
-    use rancor::Fallible;
-
-    use crate::{ser::Writer, Serialize};
-
-    impl<K> ArchivedBTreeSet<K> {
-        /// Serializes an ordered iterator of key-value pairs as a B-tree map.
-        ///
-        /// # Safety
-        ///
-        /// - Keys returned by the iterator must be unique
-        /// - Keys must be in reverse sorted order from last to first
-        pub unsafe fn serialize_from_reverse_iter<'a, UK, S, I>(
-            iter: I,
-            serializer: &mut S,
-        ) -> Result<BTreeSetResolver, S::Error>
-        where
-            UK: 'a + Serialize<S, Archived = K>,
-            S: Fallible + Writer + ?Sized,
-            I: ExactSizeIterator<Item = &'a UK>,
-        {
-            Ok(BTreeSetResolver(
-                ArchivedBTreeMap::serialize_from_reverse_iter(
-                    iter.map(|x| (x, &())),
-                    serializer,
-                )?,
-            ))
-        }
-    }
-};
-
-impl<K: fmt::Debug> fmt::Debug for ArchivedBTreeSet<K> {
+impl<K, const E: usize> fmt::Debug for ArchivedBTreeSet<K, E>
+where
+    K: fmt::Debug,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_set().entries(self.iter()).finish()
-    }
-}
-
-impl<'a, K> IntoIterator for &'a ArchivedBTreeSet<K> {
-    type Item = &'a K;
-    type IntoIter = Keys<'a, K, ()>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
+        let mut set = f.debug_set();
+        self.visit(|k| {
+            set.entry(k);
+            ControlFlow::<()>::Continue(())
+        });
+        set.finish()
     }
 }
 

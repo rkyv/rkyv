@@ -14,9 +14,9 @@ use munge::munge;
 use rancor::{Fallible, Source};
 
 use crate::{
-    collections::swiss_table::{
-        table::{ArchivedHashTable, HashTableResolver, RawIter},
-        Entry, EntryAdapter,
+    collections::{
+        swiss_table::table::{ArchivedHashTable, HashTableResolver, RawIter},
+        util::{Entry, EntryAdapter},
     },
     hash::{hash_value, FxHasher64},
     ser::{Allocator, Writer},

@@ -1,63 +1,93 @@
 //! Utilities for archived collections.
 
+use core::fmt;
+
 use munge::munge;
 use rancor::Fallible;
 
 use crate::{Archive, Place, Portable, Serialize};
 
-/// A simple key-value pair.
-///
-/// This is typically used by associative containers that store keys and values
-/// together.
-#[derive(Debug, Eq, Portable)]
-#[archive(crate)]
-#[repr(C)]
-#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-pub struct Entry<K, V> {
-    /// The key of the pair.
+// TODO: can this be replaced with custom resolve functions?
+/// An adapter which serializes and resolves its key and value references.
+pub struct EntryAdapter<'a, K, V> {
+    /// The key to serialize and resolve.
+    pub key: &'a K,
+    /// The value to serialize and resolve.
+    pub value: &'a V,
+}
+
+/// A resolver for a key-value pair.
+pub struct EntryResolver<K, V> {
+    /// The key resolver.
     pub key: K,
-    /// The value of the pair.
+    /// The value resolver.
     pub value: V,
 }
 
-impl<K: Archive, V: Archive> Archive for Entry<&'_ K, &'_ V> {
+impl<K: Archive, V: Archive> Archive for EntryAdapter<'_, K, V> {
     type Archived = Entry<K::Archived, V::Archived>;
-    type Resolver = (K::Resolver, V::Resolver);
+    type Resolver = EntryResolver<K::Resolver, V::Resolver>;
 
-    #[inline]
     unsafe fn resolve(
         &self,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
         munge!(let Entry { key, value } = out);
-        self.key.resolve(resolver.0, key);
-        self.value.resolve(resolver.1, value);
+        K::resolve(self.key, resolver.key, key);
+        V::resolve(self.value, resolver.value, value);
     }
 }
 
-impl<K: Serialize<S>, V: Serialize<S>, S: Fallible + ?Sized> Serialize<S>
-    for Entry<&'_ K, &'_ V>
+impl<S, K, V> Serialize<S> for EntryAdapter<'_, K, V>
+where
+    S: Fallible + ?Sized,
+    K: Serialize<S>,
+    V: Serialize<S>,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        Ok((
-            self.key.serialize(serializer)?,
-            self.value.serialize(serializer)?,
-        ))
+        Ok(EntryResolver {
+            key: self.key.serialize(serializer)?,
+            value: self.value.serialize(serializer)?,
+        })
     }
 }
 
-impl<K, V, UK, UV> PartialEq<Entry<UK, UV>> for Entry<K, V>
-where
-    K: PartialEq<UK>,
-    V: PartialEq<UV>,
-{
-    #[inline]
-    fn eq(&self, other: &Entry<UK, UV>) -> bool {
-        self.key.eq(&other.key) && self.value.eq(&other.value)
+/// A key-value entry.
+#[derive(Debug, Portable, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[archive(crate)]
+#[repr(C)]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
+pub struct Entry<K, V> {
+    /// The entry's key.
+    pub key: K,
+    /// The entry's value.
+    pub value: V,
+}
+
+/// An error describing that an iterator's length did not match the number of
+/// elements it yielded.
+#[derive(Debug)]
+pub struct IteratorLengthMismatch {
+    /// The number of expected elements.
+    pub expected: usize,
+    /// The actual number of elements.
+    pub actual: usize,
+}
+
+impl fmt::Display for IteratorLengthMismatch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "iterator claimed that it contained {} elements, but yielded {} \
+             items during iteration",
+            self.expected, self.actual,
+        )
     }
 }
+
+#[cfg(feature = "std")]
+impl std::error::Error for IteratorLengthMismatch {}

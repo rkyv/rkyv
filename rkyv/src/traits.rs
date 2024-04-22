@@ -272,6 +272,7 @@ pub trait Archive {
     /// the normal type.
     type Resolver;
 
+    // TODO: resolve doesn't have to be unsafe any more because Place exists now
     /// Creates the archived version of this value at the given position and
     /// writes it to the given output.
     ///
@@ -283,7 +284,7 @@ pub trait Archive {
     ///
     /// # Safety
     ///
-    /// - `resolver` must be the result of serializing this object
+    /// None
     unsafe fn resolve(
         &self,
         resolver: Self::Resolver,

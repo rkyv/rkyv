@@ -287,26 +287,29 @@ where
 
             Ok(result)
         } else {
-            use crate::util::ScratchVec;
+            use crate::util::SerVec;
 
-            let mut resolvers =
-                unsafe { ScratchVec::new(serializer, self.len())? };
+            SerVec::with_capacity(
+                serializer,
+                self.len(),
+                |resolvers, serializer| {
+                    for value in self.iter() {
+                        resolvers.push(value.serialize(serializer)?);
+                    }
 
-            for value in self.iter() {
-                resolvers.push(value.serialize(serializer)?);
-            }
-            let result = serializer.align_for::<T::Archived>()?;
-            for (value, resolver) in self.iter().zip(resolvers.drain(..)) {
-                unsafe {
-                    serializer.resolve_aligned(value, resolver)?;
-                }
-            }
+                    let result = serializer.align_for::<T::Archived>()?;
 
-            unsafe {
-                resolvers.free(serializer)?;
-            }
+                    for (value, resolver) in
+                        self.iter().zip(resolvers.drain(..))
+                    {
+                        unsafe {
+                            serializer.resolve_aligned(value, resolver)?;
+                        }
+                    }
 
-            Ok(result)
+                    Ok(result)
+                },
+            )?
         }
     }
 }

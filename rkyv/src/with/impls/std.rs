@@ -10,7 +10,7 @@ use std::{
 use rancor::{Fallible, OptionExt, ResultExt, Source};
 
 use crate::{
-    collections::util::Entry,
+    collections::util::{Entry, EntryAdapter},
     ser::{Allocator, Writer},
     string::{ArchivedString, StringResolver},
     time::ArchivedDuration,
@@ -270,7 +270,7 @@ where
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
         ArchivedVec::serialize_from_iter(
-            field.iter().map(|(key, value)| Entry { key, value }),
+            field.iter().map(|(key, value)| EntryAdapter { key, value }),
             serializer,
         )
     }

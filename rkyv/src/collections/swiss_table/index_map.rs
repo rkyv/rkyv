@@ -17,9 +17,9 @@ use munge::munge;
 use rancor::{Fallible, Source};
 
 use crate::{
-    collections::swiss_table::{
-        ArchivedHashTable, Entry, EntryAdapter, EntryResolver,
-        HashTableResolver,
+    collections::{
+        swiss_table::{ArchivedHashTable, HashTableResolver},
+        util::{Entry, EntryAdapter, EntryResolver},
     },
     hash::{hash_value, FxHasher64},
     primitive::ArchivedUsize,
@@ -342,7 +342,7 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
         S: Fallible + Writer + Allocator + ?Sized,
         S::Error: Source,
     {
-        use crate::util::ScratchVec;
+        use crate::util::SerVec;
 
         // Serialize hash table
         let table_resolver =
@@ -354,29 +354,35 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
             )?;
 
         // Serialize entries
-        let mut resolvers = unsafe { ScratchVec::new(serializer, iter.len())? };
-        for (key, value) in iter.clone() {
-            resolvers.push(EntryResolver {
-                key: key.serialize(serializer)?,
-                value: value.serialize(serializer)?,
-            });
-        }
+        SerVec::with_capacity(
+            serializer,
+            iter.len(),
+            |resolvers, serializer| {
+                for (key, value) in iter.clone() {
+                    resolvers.push(EntryResolver {
+                        key: key.serialize(serializer)?,
+                        value: value.serialize(serializer)?,
+                    });
+                }
 
-        let entries_pos = serializer.align_for::<Entry<K, V>>()?;
-        for ((key, value), resolver) in iter.clone().zip(resolvers.drain(..)) {
-            unsafe {
-                serializer
-                    .resolve_aligned(&EntryAdapter { key, value }, resolver)?;
-            }
-        }
-        unsafe {
-            resolvers.free(serializer)?;
-        }
+                let entries_pos = serializer.align_for::<Entry<K, V>>()?;
+                for ((key, value), resolver) in
+                    iter.clone().zip(resolvers.drain(..))
+                {
+                    unsafe {
+                        serializer.resolve_aligned(
+                            &EntryAdapter { key, value },
+                            resolver,
+                        )?;
+                    }
+                }
 
-        Ok(IndexMapResolver {
-            table_resolver,
-            entries_pos,
-        })
+                Ok(IndexMapResolver {
+                    table_resolver,
+                    entries_pos,
+                })
+            },
+        )?
     }
 }
 
@@ -528,7 +534,7 @@ mod verify {
 
     use super::ArchivedIndexMap;
     use crate::{
-        collections::swiss_table::Entry,
+        collections::util::Entry,
         validation::{ArchiveContext, ArchiveContextExt},
     };
 

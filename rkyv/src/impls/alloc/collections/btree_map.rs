@@ -1,13 +1,14 @@
 #[cfg(not(feature = "std"))]
 use alloc::collections::BTreeMap;
+use core::ops::ControlFlow;
 #[cfg(feature = "std")]
 use std::collections::BTreeMap;
 
-use rancor::Fallible;
+use rancor::{Fallible, Source};
 
 use crate::{
     collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver},
-    ser::Writer,
+    ser::{Allocator, Writer},
     Archive, Deserialize, Place, Serialize,
 };
 
@@ -24,7 +25,7 @@ where
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
-        ArchivedBTreeMap::resolve_from_len(self.len(), resolver, out);
+        Self::Archived::resolve_from_len(self.len(), resolver, out);
     }
 }
 
@@ -33,28 +34,26 @@ where
     K: Serialize<S> + Ord,
     K::Archived: Ord,
     V: Serialize<S>,
-    S: Fallible + Writer + ?Sized,
+    S: Allocator + Fallible + Writer + ?Sized,
+    S::Error: Source,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        unsafe {
-            ArchivedBTreeMap::serialize_from_reverse_iter(
-                self.iter().rev(),
-                serializer,
-            )
-        }
+        Self::Archived::serialize_from_ordered_iter(self.iter(), serializer)
     }
 }
 
-impl<K: Archive + Ord, V: Archive, D: Fallible + ?Sized>
-    Deserialize<BTreeMap<K, V>, D>
+impl<K, V, D> Deserialize<BTreeMap<K, V>, D>
     for ArchivedBTreeMap<K::Archived, V::Archived>
 where
+    K: Archive + Ord,
     K::Archived: Deserialize<K, D> + Ord,
+    V: Archive,
     V::Archived: Deserialize<V, D>,
+    D: Fallible + ?Sized,
 {
     #[inline]
     fn deserialize(
@@ -62,33 +61,54 @@ where
         deserializer: &mut D,
     ) -> Result<BTreeMap<K, V>, D::Error> {
         let mut result = BTreeMap::new();
-        for (key, value) in self.iter() {
-            result.insert(
-                key.deserialize(deserializer)?,
-                value.deserialize(deserializer)?,
-            );
+        let r = self.visit(|ak, av| {
+            let k = match ak.deserialize(deserializer) {
+                Ok(k) => k,
+                Err(e) => return ControlFlow::Break(e),
+            };
+            let v = match av.deserialize(deserializer) {
+                Ok(v) => v,
+                Err(e) => return ControlFlow::Break(e),
+            };
+            result.insert(k, v);
+            ControlFlow::Continue(())
+        });
+        match r {
+            Some(e) => Err(e),
+            None => Ok(result),
         }
-        Ok(result)
     }
 }
 
-impl<K, V, AK: PartialEq<K>, AV: PartialEq<V>> PartialEq<BTreeMap<K, V>>
-    for ArchivedBTreeMap<AK, AV>
+impl<K, V, AK, AV> PartialEq<BTreeMap<K, V>> for ArchivedBTreeMap<AK, AV>
+where
+    AK: PartialEq<K>,
+    AV: PartialEq<V>,
 {
     #[inline]
     fn eq(&self, other: &BTreeMap<K, V>) -> bool {
         if self.len() != other.len() {
             false
         } else {
-            self.iter()
-                .zip(other.iter())
-                .all(|(a, b)| a.0.eq(b.0) && a.1.eq(b.1))
+            let mut iter = other.iter();
+            self.visit(|ak, av| {
+                if let Some((k, v)) = iter.next() {
+                    if ak.eq(k) && av.eq(v) {
+                        return ControlFlow::Continue(());
+                    }
+                }
+                ControlFlow::Break(())
+            })
+            .is_none()
         }
     }
 }
 
-impl<K, V, AK: PartialEq<K>, AV: PartialEq<V>>
-    PartialEq<ArchivedBTreeMap<AK, AV>> for BTreeMap<K, V>
+#[cfg(feature = "extra_impls")]
+impl<K, V, AK, AV> PartialEq<ArchivedBTreeMap<AK, AV>> for BTreeMap<K, V>
+where
+    AK: PartialEq<K>,
+    AV: PartialEq<V>,
 {
     #[inline]
     fn eq(&self, other: &ArchivedBTreeMap<AK, AV>) -> bool {

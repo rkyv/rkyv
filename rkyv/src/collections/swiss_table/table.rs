@@ -19,7 +19,6 @@
 
 use core::{
     alloc::Layout,
-    fmt,
     marker::PhantomData,
     mem::size_of,
     pin::Pin,
@@ -31,10 +30,11 @@ use munge::munge;
 use rancor::{fail, Fallible, OptionExt, Panic, ResultExt as _, Source};
 
 use crate::{
+    collections::util::IteratorLengthMismatch,
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt},
     simd::{Bitmask, Group, MAX_GROUP_WIDTH},
-    util::ScratchVec,
+    util::SerVec,
     Archive as _, Place, Portable, RawRelPtr, Serialize,
 };
 
@@ -274,26 +274,6 @@ impl<T> ArchivedHashTable<T> {
     {
         // TODO: error if load_factor.0 is greater than load_factor.1
 
-        #[derive(Debug)]
-        struct IteratorLengthMismatch {
-            expected: usize,
-            actual: usize,
-        }
-
-        impl fmt::Display for IteratorLengthMismatch {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(
-                    f,
-                    "iterator claimed that it contained {} elements, but \
-                     yielded {} items during iteration",
-                    self.expected, self.actual,
-                )
-            }
-        }
-
-        #[cfg(feature = "std")]
-        impl std::error::Error for IteratorLengthMismatch {}
-
         let len = items.len();
 
         if len == 0 {
@@ -309,110 +289,113 @@ impl<T> ArchivedHashTable<T> {
         }
 
         // Serialize all items
-        let mut resolvers = unsafe { ScratchVec::new(serializer, len)? };
-        for i in items.clone() {
-            if resolvers.len() == len {
-                fail!(IteratorLengthMismatch {
-                    expected: len,
-                    actual: len + items.count(),
-                });
+        SerVec::with_capacity(serializer, len, |resolvers, serializer| {
+            for i in items.clone() {
+                if resolvers.len() == len {
+                    fail!(IteratorLengthMismatch {
+                        expected: len,
+                        actual: len + items.count(),
+                    });
+                }
+
+                resolvers.push(i.serialize(serializer)?);
             }
 
-            resolvers.push(i.serialize(serializer)?);
-        }
+            // Allocate scratch space for the hash table storage
+            let capacity = Self::capacity_from_len(len, load_factor)?;
+            let control_count = Self::control_count(capacity)?;
 
-        // Allocate scratch space for the hash table storage
-        let capacity = Self::capacity_from_len(len, load_factor)?;
-        let control_count = Self::control_count(capacity)?;
+            let (layout, control_offset) =
+                Self::memory_layout(capacity, control_count)?;
 
-        let (layout, control_offset) =
-            Self::memory_layout(capacity, control_count)?;
+            let alloc = unsafe { serializer.push_alloc(layout)?.cast::<u8>() };
 
-        let alloc = unsafe { serializer.push_alloc(layout)?.cast::<u8>() };
+            // Initialize all non-control bytes to zero
+            unsafe {
+                ptr::write_bytes(alloc.as_ptr(), 0, control_offset);
+            }
 
-        // Initialize all non-control bytes to zero
-        unsafe {
-            ptr::write_bytes(alloc.as_ptr(), 0, control_offset);
-        }
+            let ptr = unsafe { alloc.as_ptr().add(control_offset) };
 
-        let ptr = unsafe { alloc.as_ptr().add(control_offset) };
+            // Initialize all control bytes to EMPTY (0xFF)
+            unsafe {
+                ptr::write_bytes(ptr, 0xff, control_count);
+            }
 
-        // Initialize all control bytes to EMPTY (0xFF)
-        unsafe {
-            ptr::write_bytes(ptr, 0xff, control_count);
-        }
+            let bucket_mask = Self::bucket_mask(capacity);
 
-        let bucket_mask = Self::bucket_mask(capacity);
+            let pos = serializer.align(layout.align())?;
 
-        let pos = serializer.align(layout.align())?;
+            for ((i, resolver), hash) in
+                items.zip(resolvers.drain(..)).zip(hashes)
+            {
+                let h2_hash = h2(hash);
+                let mut probe_seq = Self::probe_seq(hash, capacity);
 
-        for ((i, resolver), hash) in items.zip(resolvers.drain(..)).zip(hashes)
-        {
-            let h2_hash = h2(hash);
-            let mut probe_seq = Self::probe_seq(hash, capacity);
+                'insert: loop {
+                    for _ in 0..MAX_GROUP_WIDTH / Group::WIDTH {
+                        let group =
+                            unsafe { Group::read(ptr.add(probe_seq.pos)) };
 
-            'insert: loop {
-                for _ in 0..MAX_GROUP_WIDTH / Group::WIDTH {
-                    let group = unsafe { Group::read(ptr.add(probe_seq.pos)) };
+                        if let Some(bit) = group.match_empty().lowest_set_bit()
+                        {
+                            let index = (probe_seq.pos + bit) % capacity;
 
-                    if let Some(bit) = group.match_empty().lowest_set_bit() {
-                        let index = (probe_seq.pos + bit) % capacity;
-
-                        // Update control byte
-                        unsafe {
-                            ptr.add(index).write(h2_hash);
-                        }
-                        // If it's near the end of the group, update the
-                        // wraparound control byte
-                        if index < control_count - capacity {
+                            // Update control byte
                             unsafe {
-                                ptr.add(capacity + index).write(h2_hash);
+                                ptr.add(index).write(h2_hash);
                             }
+                            // If it's near the end of the group, update the
+                            // wraparound control byte
+                            if index < control_count - capacity {
+                                unsafe {
+                                    ptr.add(capacity + index).write(h2_hash);
+                                }
+                            }
+
+                            let entry_offset =
+                                control_offset - (index + 1) * size_of::<T>();
+                            let out = unsafe {
+                                Place::new_unchecked(
+                                    pos + entry_offset,
+                                    alloc
+                                        .as_ptr()
+                                        .add(entry_offset)
+                                        .cast::<T>(),
+                                )
+                            };
+                            unsafe {
+                                i.resolve(resolver, out);
+                            }
+
+                            break 'insert;
                         }
 
-                        let entry_offset =
-                            control_offset - (index + 1) * size_of::<T>();
-                        let out = unsafe {
-                            Place::new_unchecked(
-                                pos + entry_offset,
-                                alloc.as_ptr().add(entry_offset).cast::<T>(),
-                            )
-                        };
-                        unsafe {
-                            i.resolve(resolver, out);
-                        }
-
-                        break 'insert;
+                        probe_seq.next_group();
                     }
 
-                    probe_seq.next_group();
-                }
-
-                loop {
-                    probe_seq.move_next(bucket_mask);
-                    if probe_seq.pos < capacity {
-                        break;
+                    loop {
+                        probe_seq.move_next(bucket_mask);
+                        if probe_seq.pos < capacity {
+                            break;
+                        }
                     }
                 }
             }
-        }
 
-        // Write out-of-line data
-        let slice =
-            unsafe { slice::from_raw_parts(alloc.as_ptr(), layout.size()) };
-        serializer.write(slice)?;
+            // Write out-of-line data
+            let slice =
+                unsafe { slice::from_raw_parts(alloc.as_ptr(), layout.size()) };
+            serializer.write(slice)?;
 
-        unsafe {
-            serializer.pop_alloc(alloc, layout)?;
-        }
+            unsafe {
+                serializer.pop_alloc(alloc, layout)?;
+            }
 
-        unsafe {
-            resolvers.free(serializer)?;
-        }
-
-        Ok(HashTableResolver {
-            pos: pos + control_offset,
-        })
+            Ok(HashTableResolver {
+                pos: pos + control_offset,
+            })
+        })?
     }
 
     /// Resolves an archived hash table from a given length and parameters.

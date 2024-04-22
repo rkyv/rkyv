@@ -1,13 +1,14 @@
 #[cfg(not(feature = "std"))]
 use alloc::collections::BTreeSet;
+use core::ops::ControlFlow;
 #[cfg(feature = "std")]
 use std::collections::BTreeSet;
 
-use rancor::Fallible;
+use rancor::{Fallible, Source};
 
 use crate::{
     collections::btree_set::{ArchivedBTreeSet, BTreeSetResolver},
-    ser::Writer,
+    ser::{Allocator, Writer},
     Archive, Deserialize, Place, Serialize,
 };
 
@@ -36,19 +37,15 @@ impl<K, S> Serialize<S> for BTreeSet<K>
 where
     K: Serialize<S> + Ord,
     K::Archived: Ord,
-    S: Fallible + Writer + ?Sized,
+    S: Fallible + Allocator + Writer + ?Sized,
+    S::Error: Source,
 {
     #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        unsafe {
-            ArchivedBTreeSet::serialize_from_reverse_iter(
-                self.iter().rev(),
-                serializer,
-            )
-        }
+        Self::Archived::serialize_from_ordered_iter(self.iter(), serializer)
     }
 }
 
@@ -64,10 +61,18 @@ where
         deserializer: &mut D,
     ) -> Result<BTreeSet<K>, D::Error> {
         let mut result = BTreeSet::new();
-        for k in self.iter() {
-            result.insert(k.deserialize(deserializer)?);
+        let r = self.visit(|ak| {
+            let k = match ak.deserialize(deserializer) {
+                Ok(k) => k,
+                Err(e) => return ControlFlow::Break(e),
+            };
+            result.insert(k);
+            ControlFlow::Continue(())
+        });
+        match r {
+            Some(e) => Err(e),
+            None => Ok(result),
         }
-        Ok(result)
     }
 }
 
@@ -77,7 +82,16 @@ impl<K, AK: PartialEq<K>> PartialEq<BTreeSet<K>> for ArchivedBTreeSet<AK> {
         if self.len() != other.len() {
             false
         } else {
-            self.iter().zip(other.iter()).all(|(a, b)| a.eq(b))
+            let mut iter = other.iter();
+            self.visit(|ak| {
+                if let Some(k) = iter.next() {
+                    if ak.eq(k) {
+                        return ControlFlow::Continue(());
+                    }
+                }
+                ControlFlow::Break(())
+            })
+            .is_none()
         }
     }
 }

@@ -135,6 +135,8 @@ pub trait WriterExt<E>: Writer<E> {
         self.write(slice::from_raw_parts(data, len))?;
         Ok(from)
     }
+
+    // TODO: helper function to write an object as bytes
 }
 
 impl<T, E> WriterExt<E> for T where T: Writer<E> + ?Sized {}
