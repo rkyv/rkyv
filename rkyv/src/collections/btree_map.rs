@@ -135,7 +135,7 @@ struct InnerNode<K, V, const E: usize> {
     greater_node: RawRelPtr,
 }
 
-/// An archived [`BTreeMap`](alloc::collections::BTreeMap).
+/// An archived [`BTreeMap`](std::collections::BTreeMap).
 #[derive(Portable)]
 #[archive(crate)]
 #[repr(C)]

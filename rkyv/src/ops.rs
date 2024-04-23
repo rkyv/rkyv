@@ -244,7 +244,7 @@ impl<T> RangeBounds<T> for ArchivedRangeToInclusive<T> {
     }
 }
 
-/// An archived [`Bound`](::core::ops::Bound).
+/// An archived [`Bound`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(u8)]

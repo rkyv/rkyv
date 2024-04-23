@@ -76,7 +76,7 @@ impl<T, const N: usize> InlineVec<T, N> {
     /// (non-transitively) points to is never written to (except inside an
     /// `UnsafeCell`) using this pointer or any pointer derived from it. If
     /// you need to mutate the contents of the slice, use
-    /// [`as_mut_ptr`](ScratchVec::as_mut_ptr).
+    /// [`as_mut_ptr`](Self::as_mut_ptr).
     #[inline]
     pub fn as_ptr(&self) -> *const T {
         self.elements.as_ptr().cast()
@@ -188,8 +188,7 @@ impl<T, const N: usize> InlineVec<T, N> {
     ///
     /// # Safety
     ///
-    /// - `new_len` must be less than or equal to
-    ///   [`capacity()`](ScratchVec::capacity)
+    /// - `new_len` must be less than or equal to [`capacity()`](Self::capacity)
     /// - The elements at `old_len..new_len` must be initialized
     #[inline]
     pub unsafe fn set_len(&mut self, new_len: usize) {
