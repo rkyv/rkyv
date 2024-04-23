@@ -35,28 +35,10 @@ pub unsafe trait ArchiveContext<E = <Self as Fallible>::Error> {
     /// # Safety
     ///
     /// `root` and `end` must be located inside the archive.
-    unsafe fn push_prefix_subtree_range(
+    unsafe fn push_subtree_range(
         &mut self,
         root: *const u8,
         end: *const u8,
-    ) -> Result<Range<usize>, E>;
-
-    // TODO: try to remove suffix subtree ranges
-
-    /// Pushes a new subtree range onto the validator and starts validating it.
-    ///
-    /// After calling `push_prefix_subtree_range`, the validator will have a
-    /// subtree range starting at `start` and ending at `root`. After
-    /// popping the returned range, the validator will have a subtree range
-    /// starting at the original start and ending at `start`.
-    ///
-    /// # Safety
-    ///
-    /// `start` and `root` must be located inside the archive.
-    unsafe fn push_suffix_subtree_range(
-        &mut self,
-        start: *const u8,
-        root: *const u8,
     ) -> Result<Range<usize>, E>;
 
     /// Pops the given range, restoring the original state with the pushed range
@@ -87,20 +69,12 @@ where
         T::check_subtree_ptr(self, ptr, layout)
     }
 
-    unsafe fn push_prefix_subtree_range(
+    unsafe fn push_subtree_range(
         &mut self,
         root: *const u8,
         end: *const u8,
     ) -> Result<Range<usize>, E> {
-        T::push_prefix_subtree_range(self, root, end)
-    }
-
-    unsafe fn push_suffix_subtree_range(
-        &mut self,
-        start: *const u8,
-        root: *const u8,
-    ) -> Result<Range<usize>, E> {
-        T::push_suffix_subtree_range(self, start, root)
+        T::push_subtree_range(self, root, end)
     }
 
     unsafe fn pop_subtree_range(
@@ -211,7 +185,7 @@ impl<C: ArchiveContext<E> + ?Sized, E: Source> ArchiveContextExt<E> for C {
         root: *const T,
     ) -> Result<Range<usize>, E> {
         let layout = T::layout_raw(ptr_meta::metadata(root)).into_error()?;
-        self.push_prefix_subtree_range(
+        self.push_subtree_range(
             root as *const u8,
             (root as *const u8).add(layout.size()),
         )

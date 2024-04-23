@@ -244,54 +244,6 @@ where
     }
 }
 
-// TODO: Move this to the std module
-#[cfg(feature = "std")]
-const _: () = {
-    use std::ffi::CStr;
-
-    use crate::ffi::{ArchivedCString, CStringResolver};
-
-    impl<'a> ArchiveWith<Cow<'a, CStr>> for AsOwned {
-        type Archived = ArchivedCString;
-        type Resolver = CStringResolver;
-
-        #[inline]
-        fn resolve_with(
-            field: &Cow<'a, CStr>,
-            resolver: Self::Resolver,
-            out: Place<Self::Archived>,
-        ) {
-            ArchivedCString::resolve_from_c_str(field, resolver, out);
-        }
-    }
-
-    impl<'a, S: Fallible + Writer + ?Sized> SerializeWith<Cow<'a, CStr>, S>
-        for AsOwned
-    {
-        #[inline]
-        fn serialize_with(
-            field: &Cow<'a, CStr>,
-            serializer: &mut S,
-        ) -> Result<Self::Resolver, S::Error> {
-            ArchivedCString::serialize_from_c_str(field, serializer)
-        }
-    }
-
-    impl<'a, D> DeserializeWith<ArchivedCString, Cow<'a, CStr>, D> for AsOwned
-    where
-        D: Fallible + ?Sized,
-        D::Error: Source,
-    {
-        #[inline]
-        fn deserialize_with(
-            field: &ArchivedCString,
-            deserializer: &mut D,
-        ) -> Result<Cow<'a, CStr>, D::Error> {
-            Ok(Cow::Owned(field.deserialize(deserializer)?))
-        }
-    }
-};
-
 // AsVec
 
 impl<K: Archive, V: Archive> ArchiveWith<BTreeMap<K, V>> for AsVec {

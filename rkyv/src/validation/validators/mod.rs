@@ -51,21 +51,12 @@ where
     }
 
     #[inline]
-    unsafe fn push_prefix_subtree_range(
+    unsafe fn push_subtree_range(
         &mut self,
         root: *const u8,
         end: *const u8,
     ) -> Result<Range<usize>, E> {
-        self.archive.push_prefix_subtree_range(root, end)
-    }
-
-    #[inline]
-    unsafe fn push_suffix_subtree_range(
-        &mut self,
-        start: *const u8,
-        root: *const u8,
-    ) -> Result<Range<usize>, E> {
-        self.archive.push_suffix_subtree_range(start, root)
+        self.archive.push_subtree_range(root, end)
     }
 
     #[inline]

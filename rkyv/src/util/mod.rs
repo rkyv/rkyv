@@ -146,7 +146,6 @@ pub unsafe fn access_unchecked_mut<T: Portable>(
 /// assert_eq!(mem::align_of::<u8>(), 1);
 /// assert_eq!(mem::align_of::<AlignedBytes<256>>(), 16);
 /// ```
-// TODO: re-enable archive derives
 #[derive(Archive, Clone, Copy, Debug, Deserialize, Portable, Serialize)]
 #[archive(crate)]
 #[repr(C, align(16))]

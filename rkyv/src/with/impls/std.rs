@@ -1,8 +1,10 @@
-use core::{hash::Hash, str::FromStr};
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
-    ffi::OsString,
+    ffi::{CStr, OsString},
+    hash::Hash,
     path::{Path, PathBuf},
+    str::FromStr,
     sync::{Mutex, RwLock},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -11,13 +13,14 @@ use rancor::{Fallible, OptionExt, ResultExt, Source};
 
 use crate::{
     collections::util::{Entry, EntryAdapter},
+    ffi::{ArchivedCString, CStringResolver},
     ser::{Allocator, Writer},
     string::{ArchivedString, StringResolver},
     time::ArchivedDuration,
     vec::{ArchivedVec, VecResolver},
     with::{
-        ArchiveWith, AsString, AsVec, DeserializeWith, Immutable, InvalidStr,
-        Lock, Poisoned, SerializeWith, UnixTimestamp,
+        ArchiveWith, AsOwned, AsString, AsVec, DeserializeWith, Immutable,
+        InvalidStr, Lock, Poisoned, SerializeWith, UnixTimestamp,
     },
     Archive, Deserialize, Place, Serialize, SerializeUnsized,
 };
@@ -387,5 +390,47 @@ impl<D: Fallible + ?Sized> DeserializeWith<ArchivedDuration, SystemTime, D>
         _: &mut D,
     ) -> Result<SystemTime, D::Error> {
         Ok(UNIX_EPOCH + (*field).into())
+    }
+}
+
+// AsOwned
+
+impl<'a> ArchiveWith<Cow<'a, CStr>> for AsOwned {
+    type Archived = ArchivedCString;
+    type Resolver = CStringResolver;
+
+    #[inline]
+    fn resolve_with(
+        field: &Cow<'a, CStr>,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        ArchivedCString::resolve_from_c_str(field, resolver, out);
+    }
+}
+
+impl<'a, S: Fallible + Writer + ?Sized> SerializeWith<Cow<'a, CStr>, S>
+    for AsOwned
+{
+    #[inline]
+    fn serialize_with(
+        field: &Cow<'a, CStr>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedCString::serialize_from_c_str(field, serializer)
+    }
+}
+
+impl<'a, D> DeserializeWith<ArchivedCString, Cow<'a, CStr>, D> for AsOwned
+where
+    D: Fallible + ?Sized,
+    D::Error: Source,
+{
+    #[inline]
+    fn deserialize_with(
+        field: &ArchivedCString,
+        deserializer: &mut D,
+    ) -> Result<Cow<'a, CStr>, D::Error> {
+        Ok(Cow::Owned(field.deserialize(deserializer)?))
     }
 }

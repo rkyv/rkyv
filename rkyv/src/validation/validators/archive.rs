@@ -150,7 +150,7 @@ unsafe impl<E: Source> ArchiveContext<E> for ArchiveValidator {
     }
 
     #[inline]
-    unsafe fn push_prefix_subtree_range(
+    unsafe fn push_subtree_range(
         &mut self,
         root: *const u8,
         end: *const u8,
@@ -164,26 +164,6 @@ unsafe impl<E: Source> ArchiveContext<E> for ArchiveValidator {
             start: end as usize,
             end: self.subtree_range.end,
         };
-        self.subtree_range.end = root as usize;
-        Ok(result)
-    }
-
-    #[inline]
-    unsafe fn push_suffix_subtree_range(
-        &mut self,
-        start: *const u8,
-        root: *const u8,
-    ) -> Result<Range<usize>, E> {
-        if let Some(max_subtree_depth) = &mut self.max_subtree_depth {
-            *max_subtree_depth = NonZeroUsize::new(max_subtree_depth.get() - 1)
-                .into_trace(ArchiveError::ExceededMaximumSubtreeDepth)?;
-        }
-
-        let result = Range {
-            start: self.subtree_range.start,
-            end: start as usize,
-        };
-        self.subtree_range.start = start as usize;
         self.subtree_range.end = root as usize;
         Ok(result)
     }
