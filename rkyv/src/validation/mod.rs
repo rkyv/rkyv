@@ -171,6 +171,9 @@ impl<C: ArchiveContext<E> + ?Sized, E: Source> ArchiveContextExt<E> for C {
         )
     }
 
+    // TODO: push_prefix_subtree should accept a closure and encapsulate the
+    // push / check / pop behavior in a single call.
+
     /// Pushes a new subtree range onto the validator and starts validating it.
     ///
     /// The claimed range spans from the end of `start` to the end of the
