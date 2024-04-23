@@ -1,7 +1,5 @@
-//! Archived index map implementation.
-//!
-//! During archiving, hashmaps are built into minimal perfect hashmaps using
-//! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
+//! An archived index map implementation based on Google's high-performance
+//! SwissTable hash map.
 
 use core::{
     borrow::Borrow,

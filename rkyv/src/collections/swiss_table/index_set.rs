@@ -1,7 +1,5 @@
-//! Archived index set implementation.
-//!
-//! During archiving, index sets are built into minimal perfect index sets using
-//! [compress, hash and displace](http://cmph.sourceforge.net/papers/esa09.pdf).
+//! An archived index set implementation based on Google's high-performance
+//! SwissTable hash map.
 
 use core::{
     borrow::Borrow,
