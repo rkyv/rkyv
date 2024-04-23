@@ -117,8 +117,17 @@ macro_rules! impl_tuple {
                 resolver: Self::Resolver,
                 out: Place<Self::Archived>,
             ) {
+                // SAFETY: This pointer will only be used to manually project
+                // to each of the fields to wrap them in a `Place` again.
+                let out_ptr = unsafe { out.ptr() };
                 $(
-                    let ptr = unsafe { addr_of_mut!((*out.ptr()).$index) };
+                    // SAFETY: `out_ptr` is guaranteed to be properly aligned
+                    // and dereferenceable.
+                    let ptr = unsafe { addr_of_mut!((*out_ptr).$index) };
+                    // SAFETY:
+                    // - `ptr` points to the `$index` field of `out`
+                    // - `ptr` is properly aligned, dereferenceable, and all of
+                    //   its bytes are initialized
                     let field_out = unsafe {
                         Place::from_field_unchecked(out, ptr)
                     };

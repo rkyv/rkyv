@@ -23,8 +23,8 @@ impl<T: ?Sized> Place<T> {
     ///
     /// # Safety
     ///
-    /// `ptr` must be non-null, properly-aligned, valid for writes, and all of
-    /// its bytes must be initialized.
+    /// `ptr` must be properly aligned, dereferenceable, and all of its bytes
+    /// must be initialized.
     #[inline]
     pub unsafe fn new_unchecked(pos: usize, ptr: *mut T) -> Self {
         unsafe {
@@ -40,8 +40,9 @@ impl<T: ?Sized> Place<T> {
     ///
     /// # Safety
     ///
-    /// `ptr` must point to a field of `parent`, and `ptr` must be non-null,
-    /// properly-aligned, and valid for writes.
+    /// - `ptr` must point to a field of `parent`
+    /// - `ptr` must be properly aligned, dereferenceable, and all of its bytes
+    ///   must be initialized
     #[inline]
     pub unsafe fn from_field_unchecked<U: ?Sized>(
         parent: Place<U>,
@@ -58,8 +59,12 @@ impl<T: ?Sized> Place<T> {
     }
 
     /// Returns the pointer associated with this place.
+    ///
+    /// # Safety
+    ///
+    /// Uninitialized bytes must not be written to the returned pointer.
     #[inline]
-    pub fn ptr(&self) -> *mut T {
+    pub unsafe fn ptr(&self) -> *mut T {
         self.ptr.as_ptr()
     }
 

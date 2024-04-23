@@ -140,6 +140,9 @@ impl ArchivedStringRepr {
 
     /// Emplaces a new inline representation for the given `str`.
     ///
+    /// This function is guaranteed not to write any uninitialized bytes to
+    /// `out`.
+    ///
     /// # Safety
     ///
     /// - The length of `str` must be less than or equal to [`INLINE_CAPACITY`].

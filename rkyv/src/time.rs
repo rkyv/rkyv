@@ -120,6 +120,9 @@ impl ArchivedDuration {
 
     /// Constructs an archived duration at the given position.
     ///
+    /// This function is guaranteed not to write any uninitialized bytes to
+    /// `out`.
+    ///
     /// # Safety
     ///
     /// `out` must point to memory suitable for holding an `ArchivedDuration`.
