@@ -25,6 +25,7 @@ use ptr_meta::{DynMetadata, Pointee};
 use rancor::Fallible;
 use rkyv::{
     de::Pooling,
+    place::Initialized,
     primitive::FixedUsize,
     ser::{Allocator, Sharing, Writer},
     Archived, Portable, Serialize,
@@ -238,6 +239,14 @@ pub trait DeserializeDyn<T: Pointee + ?Sized, E> {
 pub struct ArchivedDynMetadata<T: ?Sized> {
     impl_id: Archived<ImplId>,
     phantom: PhantomData<T>,
+}
+
+// SAFETY: `ArchivedDynMetadata<T>` is a transparent wrapper around an archived
+// `ImplId`, so if that archived type is initialized then so is
+// `ArchivedDynMetadata<T>`.
+unsafe impl<T: ?Sized> Initialized for ArchivedDynMetadata<T> where
+    Archived<ImplId>: Initialized
+{
 }
 
 impl<T: ?Sized> Copy for ArchivedDynMetadata<T> {}

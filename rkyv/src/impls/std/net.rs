@@ -15,6 +15,7 @@ use crate::{
         ArchivedIpAddr, ArchivedIpv4Addr, ArchivedIpv6Addr, ArchivedSocketAddr,
         ArchivedSocketAddrV4, ArchivedSocketAddrV6,
     },
+    place::Initialized,
     Archive, Deserialize, Place, Serialize,
 };
 
@@ -374,6 +375,9 @@ enum ArchivedIpAddrTag {
     V6,
 }
 
+// SAFETY: `ArchivedIpAddrTag` is `repr(u8)` and so is always initialized.
+unsafe impl Initialized for ArchivedIpAddrTag {}
+
 #[repr(C)]
 struct ArchivedIpAddrVariantV4(ArchivedIpAddrTag, ArchivedIpv4Addr);
 
@@ -675,6 +679,9 @@ enum ArchivedSocketAddrTag {
     V4,
     V6,
 }
+
+// SAFETY: `ArchivedSocketAddrTag` is `repr(u8)` and so is always initialized.
+unsafe impl Initialized for ArchivedSocketAddrTag {}
 
 #[repr(C)]
 struct ArchivedSocketAddrVariantV4(ArchivedSocketAddrTag, ArchivedSocketAddrV4);

@@ -15,6 +15,7 @@ use rancor::{fail, Fallible, Source};
 
 use crate::{
     collections::util::IteratorLengthMismatch,
+    place::Initialized,
     primitive::{ArchivedUsize, FixedUsize},
     ser::{Allocator, Writer, WriterExt as _},
     util::{InlineVec, SerVec},
@@ -111,6 +112,9 @@ enum NodeKind {
     Leaf,
     Inner,
 }
+
+// SAFETY: `NodeKind` is `repr(u8)` and so is always initialized.
+unsafe impl Initialized for NodeKind {}
 
 #[derive(Portable)]
 #[archive(crate)]

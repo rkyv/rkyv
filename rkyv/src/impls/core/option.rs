@@ -3,7 +3,10 @@ use core::hint::unreachable_unchecked;
 use munge::munge;
 use rancor::Fallible;
 
-use crate::{option::ArchivedOption, Archive, Deserialize, Place, Serialize};
+use crate::{
+    option::ArchivedOption, place::Initialized, Archive, Deserialize, Place,
+    Serialize,
+};
 
 #[allow(dead_code)]
 #[repr(u8)]
@@ -11,6 +14,9 @@ enum ArchivedOptionTag {
     None,
     Some,
 }
+
+// SAFETY: `ArchivedOptionTag` is `repr(u8)` and so is always initialized.
+unsafe impl Initialized for ArchivedOptionTag {}
 
 #[repr(C)]
 struct ArchivedOptionVariantNone(ArchivedOptionTag);

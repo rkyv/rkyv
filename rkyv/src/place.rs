@@ -1,3 +1,5 @@
+//! An initialized, writeable location in memory.
+
 use core::{mem::size_of, ptr::NonNull};
 
 use munge::{Borrow, Destructure, Restructure};
@@ -21,7 +23,8 @@ impl<T: ?Sized> Place<T> {
     ///
     /// # Safety
     ///
-    /// `ptr` must be non-null, properly-aligned, and valid for writes.
+    /// `ptr` must be non-null, properly-aligned, valid for writes, and all of
+    /// its bytes must be initialized.
     #[inline]
     pub unsafe fn new_unchecked(pos: usize, ptr: *mut T) -> Self {
         unsafe {
@@ -60,15 +63,29 @@ impl<T: ?Sized> Place<T> {
         self.ptr.as_ptr()
     }
 
-    // TODO: this should be unsafe since writing uninit bytes is illegal
     /// Writes the provided value to this place.
+    ///
+    /// # Safety
+    ///
+    /// `value` must not have any uninitialized bytes (e.g. padding).
     #[inline]
-    pub fn write(&self, value: T)
+    pub unsafe fn write_unchecked(&self, value: T)
     where
         T: Sized,
     {
         unsafe {
             self.ptr().write(value);
+        }
+    }
+
+    /// Writes the provided value to this place.
+    #[inline]
+    pub fn write(&self, value: T)
+    where
+        T: Initialized + Sized,
+    {
+        unsafe {
+            self.write_unchecked(value);
         }
     }
 
@@ -133,3 +150,19 @@ unsafe impl<T: ?Sized, U: ?Sized> Restructure<U> for Place<T> {
         Place::from_field_unchecked(*self, ptr)
     }
 }
+
+/// A marker trait which indicates that all of the bytes of a type are
+/// fully-initialized.
+///
+/// As a result, `Initialized` types may not contain padding.
+///
+/// # Safety
+///
+/// The bytes of types implementing `Initialized` must always be
+/// fully-initialized. Among other things, this means they may not contain
+/// padding.
+pub unsafe trait Initialized {}
+
+// SAFETY: An array of values which are all fully-initialized is also
+// fully-initalized.
+unsafe impl<T: Initialized, const N: usize> Initialized for [T; N] {}

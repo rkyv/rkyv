@@ -472,8 +472,10 @@ fn generate_resolve_arms(
                         let out = unsafe {
                             out.cast_unchecked::<ArchivedTag>()
                         };
+                        // SAFETY: `ArchivedTag` is `repr(u8)` and so is always
+                        // initialized.
                         unsafe {
-                            out.write(ArchivedTag::#variant);
+                            out.write_unchecked(ArchivedTag::#variant);
                         }
                     }
                 }),

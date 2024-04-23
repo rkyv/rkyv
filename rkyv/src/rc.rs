@@ -8,6 +8,7 @@ use munge::munge;
 use rancor::Fallible;
 
 use crate::{
+    place::Initialized,
     ser::{Sharing, SharingExt, Writer, WriterExt as _},
     ArchivePointee, ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
@@ -284,6 +285,9 @@ enum ArchivedRcWeakTag {
     None,
     Some,
 }
+
+// SAFETY: `ArchivedRcWeakTag` is `repr(u8)` and so is always initialized.
+unsafe impl Initialized for ArchivedRcWeakTag {}
 
 #[repr(C)]
 struct ArchivedRcWeakVariantNone(ArchivedRcWeakTag);

@@ -9,6 +9,7 @@ use munge::munge;
 use rancor::{fail, Panic, ResultExt as _, Source};
 
 use crate::{
+    place::Initialized,
     primitive::{
         ArchivedI16, ArchivedI32, ArchivedI64, ArchivedU16, ArchivedU32,
         ArchivedU64,
@@ -44,7 +45,7 @@ impl fmt::Display for ExceedsStorageRange {
 impl std::error::Error for ExceedsStorageRange {}
 
 /// A offset that can be used with [`RawRelPtr`].
-pub trait Offset: Copy {
+pub trait Offset: Copy + Initialized {
     /// Creates a new offset between a `from` position and a `to` position.
     fn from_isize<E: Source>(value: isize) -> Result<Self, E>;
 
@@ -208,10 +209,8 @@ impl<O: Offset> RawRelPtr<O> {
         out: Place<Self>,
     ) -> Result<(), E> {
         let offset = O::from_isize(signed_offset(out.pos(), to)?)?;
-        out.write(Self {
-            offset,
-            _phantom: PhantomPinned,
-        });
+        munge!(let Self { offset: offset_out, _phantom: _ } = out);
+        offset_out.write(offset);
         Ok(())
     }
 

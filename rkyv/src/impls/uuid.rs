@@ -15,8 +15,11 @@ impl Archive for Uuid {
     type Resolver = ();
 
     fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
-        // Safety: Uuid is portable and has no padding
-        out.write(*self);
+        // SAFETY: `Uuid` is guaranteed to have the same ABI as `[u8; 16]`,
+        // which is always fully-initialized.
+        unsafe {
+            out.write_unchecked(*self);
+        }
     }
 }
 

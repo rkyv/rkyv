@@ -166,7 +166,7 @@ pub mod net;
 pub mod niche;
 pub mod ops;
 pub mod option;
-mod place;
+pub mod place;
 pub mod primitive;
 pub mod rc;
 pub mod rel_ptr;
@@ -204,7 +204,7 @@ pub use validation::util::{access, access_mut};
 #[doc(inline)]
 pub use crate::{
     alias::*,
-    place::*,
+    place::Place,
     traits::*,
     util::{access_unchecked, access_unchecked_mut, deserialize, serialize},
 };

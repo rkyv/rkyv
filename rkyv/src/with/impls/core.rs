@@ -13,6 +13,7 @@ use crate::{
         ArchivedOptionNonZeroIsize, ArchivedOptionNonZeroUsize,
     },
     option::ArchivedOption,
+    place::Initialized,
     primitive::{FixedNonZeroIsize, FixedNonZeroUsize},
     with::{
         ArchiveWith, Boxed, BoxedInline, DeserializeWith, Inline, Map, Niche,
@@ -111,6 +112,9 @@ enum ArchivedOptionTag {
     None,
     Some,
 }
+
+// SAFETY: `ArchivedOptionTag` is `repr(u8)` and so is always initialized.
+unsafe impl Initialized for ArchivedOptionTag {}
 
 #[repr(C)]
 struct ArchivedOptionVariantNone(ArchivedOptionTag);

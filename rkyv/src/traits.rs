@@ -7,6 +7,7 @@ use core::{
 };
 
 use crate::{
+    place::Initialized,
     ptr_meta::Pointee,
     rancor::Fallible,
     ser::{Writer, WriterExt as _},
@@ -497,7 +498,14 @@ pub trait ArchiveUnsized: Pointee {
 /// is implemented for all sized types by default.
 pub trait ArchivePointee: Pointee {
     /// The archived version of the pointer metadata for this type.
-    type ArchivedMetadata: Copy + Send + Sync + Ord + Hash + Unpin + Portable;
+    type ArchivedMetadata: Copy
+        + Send
+        + Sync
+        + Ord
+        + Hash
+        + Unpin
+        + Portable
+        + Initialized;
 
     /// Converts some archived metadata to the pointer metadata for itself.
     fn pointer_metadata(

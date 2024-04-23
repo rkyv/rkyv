@@ -14,6 +14,7 @@ use crate::{
         ArchivedBound, ArchivedRange, ArchivedRangeFrom,
         ArchivedRangeInclusive, ArchivedRangeTo, ArchivedRangeToInclusive,
     },
+    place::Initialized,
     Archive, CopyOptimization, Deserialize, Place, Portable, Serialize,
 };
 
@@ -317,6 +318,9 @@ enum ArchivedBoundTag {
     Excluded,
     Unbounded,
 }
+
+// SAFETY: `ArchivedBoundTag` is `repr(u8)` and so is always initialized.
+unsafe impl Initialized for ArchivedBoundTag {}
 
 #[repr(C)]
 struct ArchivedBoundVariantIncluded<T>(ArchivedBoundTag, T);

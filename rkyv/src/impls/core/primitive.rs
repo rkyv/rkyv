@@ -10,6 +10,7 @@ use core::{
 use rancor::Fallible;
 
 use crate::{
+    place::Initialized,
     primitive::{
         ArchivedChar, ArchivedF32, ArchivedF64, ArchivedI128, ArchivedI16,
         ArchivedI32, ArchivedI64, ArchivedIsize, ArchivedNonZeroI128,
@@ -21,13 +22,16 @@ use crate::{
     Archive, CopyOptimization, Deserialize, Place, Portable, Serialize,
 };
 
-macro_rules! unsafe_impl_portable {
+macro_rules! unsafe_impl_initialized_and_portable {
     ($($ty:ty),* $(,)?) => {
-        $(unsafe impl Portable for $ty {})*
+        $(
+            unsafe impl Initialized for $ty {}
+            unsafe impl Portable for $ty {}
+        )*
     };
 }
 
-unsafe_impl_portable! {
+unsafe_impl_initialized_and_portable! {
     (),
     bool,
     i8,
@@ -88,7 +92,7 @@ macro_rules! impl_serialize_noop {
     };
 }
 
-macro_rules! impl_portable_primitive {
+macro_rules! impl_archive_self_primitive {
     ($type:ty) => {
         impl Archive for $type {
             const COPY_OPTIMIZATION: CopyOptimization<Self> =
@@ -114,15 +118,15 @@ macro_rules! impl_portable_primitive {
     };
 }
 
-macro_rules! impl_portable_primitives {
+macro_rules! impl_archive_self_primitives {
     ($($type:ty;)*) => {
         $(
-            impl_portable_primitive!($type);
+            impl_archive_self_primitive!($type);
         )*
     }
 }
 
-impl_portable_primitives! {
+impl_archive_self_primitives! {
     ();
     bool;
     i8;
@@ -234,7 +238,7 @@ impl<T: ?Sized, D: Fallible + ?Sized> Deserialize<PhantomData<T>, D>
 
 // PhantomPinned
 
-unsafe_impl_portable!(PhantomPinned);
+unsafe_impl_initialized_and_portable!(PhantomPinned);
 
 impl Archive for PhantomPinned {
     const COPY_OPTIMIZATION: CopyOptimization<Self> =
@@ -425,14 +429,14 @@ where
 // Atomics
 
 #[cfg(target_has_atomic = "8")]
-unsafe_impl_portable!(
+unsafe_impl_initialized_and_portable!(
     core::sync::atomic::AtomicBool,
     core::sync::atomic::AtomicI8,
     core::sync::atomic::AtomicU8,
 );
 
 #[cfg(target_has_atomic = "16")]
-unsafe_impl_portable!(
+unsafe_impl_initialized_and_portable!(
     rend::AtomicI16_be,
     rend::AtomicI16_le,
     rend::AtomicU16_be,
@@ -440,7 +444,7 @@ unsafe_impl_portable!(
 );
 
 #[cfg(target_has_atomic = "32")]
-unsafe_impl_portable!(
+unsafe_impl_initialized_and_portable!(
     rend::AtomicI32_be,
     rend::AtomicI32_le,
     rend::AtomicU32_be,
@@ -448,7 +452,7 @@ unsafe_impl_portable!(
 );
 
 #[cfg(target_has_atomic = "64")]
-unsafe_impl_portable!(
+unsafe_impl_initialized_and_portable!(
     rend::AtomicI64_be,
     rend::AtomicI64_le,
     rend::AtomicU64_be,

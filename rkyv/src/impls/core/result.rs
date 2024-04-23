@@ -3,7 +3,10 @@ use core::hint::unreachable_unchecked;
 use munge::munge;
 use rancor::Fallible;
 
-use crate::{result::ArchivedResult, Archive, Deserialize, Place, Serialize};
+use crate::{
+    place::Initialized, result::ArchivedResult, Archive, Deserialize, Place,
+    Serialize,
+};
 
 #[allow(dead_code)]
 #[repr(u8)]
@@ -11,6 +14,9 @@ enum ArchivedResultTag {
     Ok,
     Err,
 }
+
+// SAFETY: `ArchivedResultTag` is `repr(u8)` and so is always initialized.
+unsafe impl Initialized for ArchivedResultTag {}
 
 #[repr(C)]
 struct ArchivedResultVariantOk<T>(ArchivedResultTag, T);
