@@ -502,7 +502,7 @@ mod verify {
     use super::ArchivedHashTable;
     use crate::{
         simd::Group,
-        validation::{ArchiveContext, ArchiveContextExt},
+        validation::{ArchiveContext, ArchiveContextExt as _},
     };
 
     #[derive(Debug)]

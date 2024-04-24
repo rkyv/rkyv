@@ -106,6 +106,7 @@ const fn ll_entries<const E: usize>(height: u32, n: usize) -> usize {
 }
 
 #[derive(Portable)]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[archive(crate)]
 #[repr(u8)]
 enum NodeKind {
@@ -127,6 +128,7 @@ struct Node<K, V, const E: usize> {
 }
 
 #[derive(Portable)]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[archive(crate)]
 #[repr(C)]
 struct InnerNode<K, V, const E: usize> {
@@ -137,6 +139,11 @@ struct InnerNode<K, V, const E: usize> {
 
 /// An archived [`BTreeMap`](std::collections::BTreeMap).
 #[derive(Portable)]
+#[cfg_attr(
+    feature = "bytecheck",
+    derive(bytecheck::CheckBytes),
+    check_bytes(verify)
+)]
 #[archive(crate)]
 #[repr(C)]
 pub struct ArchivedBTreeMap<K, V, const E: usize = 5> {
@@ -604,4 +611,171 @@ pub struct BTreeMapResolver {
     root_node_pos: usize,
 }
 
-// TODO: add bytecheck support
+#[cfg(feature = "bytecheck")]
+mod verify {
+    use core::{alloc::Layout, ptr::addr_of};
+
+    use bytecheck::{CheckBytes, Verify};
+    use rancor::{Fallible, Source};
+
+    use super::{ArchivedBTreeMap, InnerNode, Node};
+    use crate::{
+        collections::btree_map::NodeKind,
+        validation::{ArchiveContext, ArchiveContextExt as _},
+        RawRelPtr,
+    };
+
+    unsafe impl<C, K, V, const E: usize> Verify<C> for ArchivedBTreeMap<K, V, E>
+    where
+        C: Fallible + ArchiveContext + ?Sized,
+        C::Error: Source,
+        K: CheckBytes<C>,
+        V: CheckBytes<C>,
+    {
+        fn verify(&self, context: &mut C) -> Result<(), C::Error> {
+            let len = self.len();
+
+            if len == 0 {
+                return Ok(());
+            }
+
+            unsafe { check_node_rel_ptr::<C, K, V, E>(&self.root, context) }
+        }
+    }
+
+    unsafe fn check_node_rel_ptr<C, K, V, const E: usize>(
+        node_rel_ptr: &RawRelPtr,
+        context: &mut C,
+    ) -> Result<(), C::Error>
+    where
+        C: Fallible + ArchiveContext + ?Sized,
+        C::Error: Source,
+        K: CheckBytes<C>,
+        V: CheckBytes<C>,
+    {
+        let node_ptr = node_rel_ptr.as_ptr_wrapping().cast::<Node<K, V, E>>();
+        context.check_subtree_ptr(
+            node_ptr.cast::<u8>(),
+            &Layout::new::<Node<K, V, E>>(),
+        )?;
+
+        let kind_ptr = addr_of!((*node_ptr).kind);
+        unsafe {
+            CheckBytes::check_bytes(kind_ptr, context)?;
+        }
+        let kind = unsafe { kind_ptr.read() };
+
+        let len_ptr = addr_of!((*node_ptr).len);
+        unsafe {
+            CheckBytes::check_bytes(len_ptr, context)?;
+        }
+        let len = unsafe { &*len_ptr };
+
+        match kind {
+            NodeKind::Leaf => check_leaf_node::<C, K, V, E>(
+                node_ptr,
+                len.to_native() as usize,
+                context,
+            )?,
+            NodeKind::Inner => check_inner_node::<C, K, V, E>(
+                node_ptr.cast(),
+                len.to_native() as usize,
+                context,
+            )?,
+        }
+
+        Ok(())
+    }
+
+    unsafe fn check_leaf_node<C, K, V, const E: usize>(
+        node_ptr: *const Node<K, V, E>,
+        len: usize,
+        context: &mut C,
+    ) -> Result<(), C::Error>
+    where
+        C: Fallible + ArchiveContext + ?Sized,
+        C::Error: Source,
+        K: CheckBytes<C>,
+        V: CheckBytes<C>,
+    {
+        context.check_subtree_ptr(
+            node_ptr.cast::<u8>(),
+            &Layout::new::<Node<K, V, E>>(),
+        )?;
+        let range = unsafe { context.push_prefix_subtree(node_ptr)? };
+
+        check_node_entries(node_ptr, len, context)?;
+
+        unsafe {
+            context.pop_subtree_range(range)?;
+        }
+        Ok(())
+    }
+
+    unsafe fn check_node_entries<C, K, V, const E: usize>(
+        node_ptr: *const Node<K, V, E>,
+        len: usize,
+        context: &mut C,
+    ) -> Result<(), C::Error>
+    where
+        C: Fallible + ArchiveContext + ?Sized,
+        C::Error: Source,
+        K: CheckBytes<C>,
+        V: CheckBytes<C>,
+    {
+        for i in 0..len {
+            let key_ptr = addr_of!((*node_ptr).keys).cast::<K>().add(i);
+            K::check_bytes(key_ptr, context)?;
+            let value_ptr = addr_of!((*node_ptr).values).cast::<V>().add(i);
+            V::check_bytes(value_ptr, context)?;
+        }
+
+        Ok(())
+    }
+
+    unsafe fn check_inner_node<C, K, V, const E: usize>(
+        node_ptr: *const InnerNode<K, V, E>,
+        len: usize,
+        context: &mut C,
+    ) -> Result<(), C::Error>
+    where
+        C: Fallible + ArchiveContext + ?Sized,
+        C::Error: Source,
+        K: CheckBytes<C>,
+        V: CheckBytes<C>,
+    {
+        let inner_node_ptr = node_ptr.cast::<InnerNode<K, V, E>>();
+        context.check_subtree_ptr(
+            inner_node_ptr.cast::<u8>(),
+            &Layout::new::<InnerNode<K, V, E>>(),
+        )?;
+        let range = unsafe { context.push_prefix_subtree(inner_node_ptr)? };
+
+        for i in 0..len {
+            let lesser_node_ptr = addr_of!((*node_ptr).lesser_nodes)
+                .cast::<RawRelPtr>()
+                .add(i);
+            RawRelPtr::check_bytes(lesser_node_ptr, context)?;
+            let lesser_node = unsafe { &*lesser_node_ptr };
+            if !lesser_node.is_invalid() {
+                check_node_rel_ptr::<C, K, V, E>(lesser_node, context)?;
+            }
+        }
+        let greater_node_ptr = addr_of!((*node_ptr).greater_node);
+        RawRelPtr::check_bytes(greater_node_ptr, context)?;
+        let greater_node = unsafe { &*greater_node_ptr };
+        if !greater_node.is_invalid() {
+            check_node_rel_ptr::<C, K, V, E>(greater_node, context)?;
+        }
+
+        let node_ptr = unsafe { addr_of!((*node_ptr).node) };
+        unsafe {
+            check_node_entries::<C, K, V, E>(node_ptr, len, context)?;
+        }
+
+        unsafe {
+            context.pop_subtree_range(range)?;
+        }
+        Ok(())
+    }
+}

@@ -10,17 +10,21 @@ mod tests {
         vec::Vec,
     };
     #[cfg(feature = "std")]
-    use std::rc::Rc;
+    use std::{
+        collections::{BTreeMap, BTreeSet},
+        rc::Rc,
+    };
 
     use rkyv::{
         access,
         bytecheck::CheckBytes,
-        rancor::{Error, Source},
+        from_bytes,
+        rancor::{Error, Failure, Source},
         ser::Writer,
         to_bytes,
         util::{serialize_into, AlignedBytes},
         validation::util::access_pos,
-        Archive, Archived, Serialize,
+        Archive, Archived, Deserialize, Serialize,
     };
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
@@ -379,120 +383,105 @@ mod tests {
         access::<ArchivedTest, Error>(buf.as_ref()).unwrap();
     }
 
-    // TODO: re-enable after btreemap validation is fixed
-    // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    // fn check_b_tree() {
-    //     let mut value = BTreeMap::new();
-    //     value.insert("foo".to_string(), 10);
-    //     value.insert("bar".to_string(), 20);
-    //     value.insert("baz".to_string(), 40);
-    //     value.insert("bat".to_string(), 80);
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_b_tree() {
+        let mut value = BTreeMap::new();
+        value.insert("foo".to_string(), 10);
+        value.insert("bar".to_string(), 20);
+        value.insert("baz".to_string(), 40);
+        value.insert("bat".to_string(), 80);
 
-    //     let mut serializer = DefaultSerializer::default();
-    //     serializer.serialize_value(&value).unwrap();
-    //     let buf = serializer.into_serializer().into_inner();
+        let buf = to_bytes::<Failure>(&value).unwrap();
+        access::<Archived<BTreeMap<String, i32>>, Error>(buf.as_ref()).unwrap();
+    }
 
-    //     access::<BTreeMap<String, i32>, Error>(buf.as_ref()).unwrap();
-    // }
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_invalid_b_tree_set() {
+        let data = AlignedBytes([
+            0, 0, 0, 0, 253, 6, 239, 6, 255, 255, 255, 252, 0, 0, 0, 0, 0, 0,
+            0, 0, 1, 0, 0, 5, 0, 0, 0, 0, 240, 255, 255, 255, 1, 128, 0, 249,
+            220, 255, 255, 255, 4, 0, 0, 96, 0, 0, 0, 249, 232, 255, 255, 255,
+        ]);
 
-    // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    // fn check_invalid_b_tree_set() {
-    //     let data = AlignedBytes([
-    //         0, 0, 0, 0, 253, 6, 239, 6, 255, 255, 255, 252, 0, 0, 0, 0, 0, 0,
-    //         0, 0, 1, 0, 0, 5, 0, 0, 0, 0, 240, 255, 255, 255, 1, 128, 0, 249,
-    //         220, 255, 255, 255, 4, 0, 0, 96, 0, 0, 0, 249, 232, 255, 255,
-    // 255,     ]);
+        rkyv::from_bytes::<BTreeSet<u8>, Error>(&data.0).unwrap_err();
 
-    //     rkyv::from_bytes::<BTreeSet<u8>, Error>(&data.0).unwrap_err();
+        let data = AlignedBytes([
+            1, 29, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 253, 0, 0, 116, 255, 255, 40,
+            0, 8, 0, 0, 0, 236, 255, 255, 255, 1, 128, 72, 0, 220, 255, 255,
+            255, 236, 255, 255, 255, 0, 0, 0, 0, 32, 0, 255, 254, 255, 0, 94,
+            2, 33, 0, 0, 0, 0, 0, 0, 0, 61, 1, 38, 0, 0, 32, 0, 255, 255, 1, 0,
+            1, 255, 255, 0, 184, 4, 0, 28, 0, 8, 0, 2, 142, 255, 255, 255, 3,
+            1, 255, 251, 0, 184, 255, 255, 255,
+        ]);
 
-    //     let data = AlignedBytes([
-    //         1, 29, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 253, 0, 0, 116, 255, 255,
-    // 40,         0, 8, 0, 0, 0, 236, 255, 255, 255, 1, 128, 72, 0, 220,
-    // 255, 255,         255, 236, 255, 255, 255, 0, 0, 0, 0, 32, 0, 255,
-    // 254, 255, 0, 94,         2, 33, 0, 0, 0, 0, 0, 0, 0, 61, 1, 38, 0, 0,
-    // 32, 0, 255, 255, 1, 0,         1, 255, 255, 0, 184, 4, 0, 28, 0, 8,
-    // 0, 2, 142, 255, 255, 255, 3,         1, 255, 251, 0, 184, 255, 255,
-    // 255,     ]);
+        rkyv::from_bytes::<BTreeSet<Box<u8>>, Error>(&data.0).unwrap_err();
+    }
 
-    //     rkyv::from_bytes::<BTreeSet<Box<u8>>,
-    // Error>(&data.0).unwrap_err(); }
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_empty_b_tree() {
+        let value = BTreeMap::<u8, ()>::new();
 
-    // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    // fn check_empty_b_tree() {
-    //     let value = BTreeMap::<u8, ()>::new();
+        let buf = to_bytes::<Failure>(&value).unwrap();
+        access::<Archived<BTreeMap<u8, ()>>, Error>(buf.as_ref()).unwrap();
+    }
 
-    //     let mut serializer = DefaultSerializer::default();
-    //     serializer.serialize_value(&value).unwrap();
-    //     let buf = serializer.into_serializer().into_inner();
+    #[test]
+    // This test is unfortunately too slow to run through miri
+    #[cfg_attr(miri, ignore)]
+    // This test creates structures too big to fit in 16-bit offsets
+    #[cfg(not(feature = "pointer_width_16"))]
+    fn check_b_tree_large() {
+        let mut value = BTreeMap::new();
+        for i in 0..100_000 {
+            value.insert(i.to_string(), i);
+        }
 
-    //     access::<BTreeMap<u8, ()>, Error>(buf.as_ref()).unwrap();
-    // }
+        let buf = to_bytes::<Failure>(&value).unwrap();
+        access::<Archived<BTreeMap<String, i32>>, Error>(buf.as_ref()).unwrap();
+    }
 
-    // #[test]
-    // // This test is unfortunately too slow to run through miri
-    // #[cfg_attr(miri, ignore)]
-    // // This test creates structures too big to fit in 16-bit offsets
-    // #[cfg(not(feature = "pointer_width_16"))]
-    // fn check_b_tree_large() {
-    //     let mut value = BTreeMap::new();
-    //     for i in 0..100_000 {
-    //         value.insert(i.to_string(), i);
-    //     }
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn b_tree_struct_member() {
+        #[derive(Archive, Serialize, Deserialize, Debug, Default)]
+        #[archive(check_bytes)]
+        pub struct MyType {
+            pub some_list: BTreeMap<String, Vec<f32>>,
+            pub values: Vec<f32>,
+        }
 
-    //     let mut serializer = DefaultSerializer::default();
-    //     serializer.serialize_value(&value).unwrap();
-    //     let buf = serializer.into_serializer().into_inner();
+        let mut value = MyType::default();
 
-    //     access::<BTreeMap<String, i32>, Error>(buf.as_ref()).unwrap();
-    // }
+        value
+            .some_list
+            .entry("Asdf".to_string())
+            .and_modify(|e| e.push(1.0))
+            .or_insert_with(|| vec![2.0]);
 
-    // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    // fn b_tree_struct_member() {
-    //     #[derive(Archive, Serialize, Deserialize, Debug, Default)]
-    //     #[archive(check_bytes)]
-    //     pub struct MyType {
-    //         pub some_list: BTreeMap<String, Vec<f32>>,
-    //         pub values: Vec<f32>,
-    //     }
+        let buf = to_bytes::<Failure>(&value).unwrap();
+        let _ = from_bytes::<MyType, Error>(&buf).unwrap();
+    }
 
-    //     let mut value = MyType::default();
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_valid_durations() {
+        use rkyv::time::ArchivedDuration;
 
-    //     value
-    //         .some_list
-    //         .entry("Asdf".to_string())
-    //         .and_modify(|e| e.push(1.0))
-    //         .or_insert_with(|| vec![2.0]);
+        access::<ArchivedDuration, Error>(&[0xff, 16]).unwrap_err();
+    }
 
-    //     let serializer = serialize_into::<_, _, Error>(
-    //         &value,
-    //         DefaultSerializer::default(),
-    //     ).unwrap();
-    //     let buf = serializer.into_serializer().into_inner();
-
-    //     let _ = from_bytes::<MyType, Error>(&buf).unwrap();
-    // }
-
-    // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    // fn check_valid_durations() {
-    //     use core::time::Duration;
-
-    //     access::<Duration, Error>(&[0xFF, 16]).unwrap_err();
-    // }
-
-    // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    // fn check_invalid_btreemap() {
-    //     let data = AlignedBytes([
-    //         0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0, 0x00, 0x00, 0x00, 0x0c, 0xa5,
-    //         0xf0, 0xff, 0xff, 0xff,
-    //     ]);
-    //     rkyv::from_bytes::<BTreeMap<u8, Box<u8>>,
-    // Error>(&data.0).unwrap_err(); }
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_invalid_btreemap() {
+        let data = AlignedBytes([
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0, 0x00, 0x00, 0x00, 0x0c, 0xa5,
+            0xf0, 0xff, 0xff, 0xff,
+        ]);
+        rkyv::from_bytes::<BTreeMap<u8, Box<u8>>, Error>(&data.0).unwrap_err();
+    }
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
