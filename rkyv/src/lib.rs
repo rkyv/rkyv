@@ -128,6 +128,7 @@
     0v26.458h26.458V0zm9.175 3.772l8.107 8.106 2.702-2.702 2.702
     13.512-13.512-2.702 2.703-2.702-8.107-8.107z"/%3E%3C/svg%3E
 "#)]
+#![cfg_attr(miri, feature(alloc_layout_extra))]
 
 // Extern crates
 
@@ -167,6 +168,7 @@ pub mod niche;
 pub mod ops;
 pub mod option;
 pub mod place;
+mod polyfill;
 pub mod primitive;
 pub mod rc;
 pub mod rel_ptr;

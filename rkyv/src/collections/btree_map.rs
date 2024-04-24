@@ -548,7 +548,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
     }
 
     fn visit_inner<T>(
-        current: *mut Node<K, V, E>,
+        current: *const Node<K, V, E>,
         f: &mut impl FnMut(&K, &V) -> ControlFlow<T>,
     ) -> ControlFlow<T> {
         let node = unsafe { &*current };

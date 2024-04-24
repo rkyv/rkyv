@@ -47,10 +47,9 @@ impl<K, V, H> ArchivedIndexMap<K, V, H> {
 
     fn entries_mut(self: Pin<&mut Self>) -> Pin<&mut [Entry<K, V>]> {
         let len = self.len();
+        let entries = unsafe { self.map_unchecked_mut(|s| &mut s.entries) };
         unsafe {
-            Pin::map_unchecked_mut(self, |s| {
-                from_raw_parts_mut(s.entries.as_ptr(), len)
-            })
+            Pin::new_unchecked(from_raw_parts_mut(entries.as_mut_ptr(), len))
         }
     }
 

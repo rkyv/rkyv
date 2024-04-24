@@ -64,8 +64,9 @@ impl<K, V, H> ArchivedHashMap<K, V, H> {
     /// Returns an iterator over the mutable key-value entries in the hash map.
     #[inline]
     pub fn iter_mut(self: Pin<&mut Self>) -> IterMut<'_, K, V, H> {
+        let table = unsafe { self.map_unchecked_mut(|s| &mut s.table) };
         IterMut {
-            raw: self.table.raw_iter(),
+            raw: table.raw_iter_mut(),
             _phantom: PhantomData,
         }
     }
@@ -91,8 +92,9 @@ impl<K, V, H> ArchivedHashMap<K, V, H> {
     /// Returns an iterator over the mutable values in the hash map.
     #[inline]
     pub fn values_mut(self: Pin<&mut Self>) -> ValuesMut<'_, K, V, H> {
+        let table = unsafe { self.map_unchecked_mut(|s| &mut s.table) };
         ValuesMut {
-            raw: self.table.raw_iter(),
+            raw: table.raw_iter_mut(),
             _phantom: PhantomData,
         }
     }

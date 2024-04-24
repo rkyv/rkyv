@@ -53,7 +53,8 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     /// dereferenced for the duration of the returned borrow.
     #[inline]
     pub unsafe fn get_pin_mut_unchecked(self: Pin<&mut Self>) -> Pin<&mut T> {
-        self.map_unchecked_mut(|s| &mut *s.ptr.as_ptr())
+        let ptr = unsafe { self.map_unchecked_mut(|s| &mut s.ptr) };
+        unsafe { Pin::new_unchecked(&mut *ptr.as_mut_ptr()) }
     }
 
     /// Resolves an archived `Rc` from a given reference.

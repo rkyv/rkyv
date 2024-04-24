@@ -58,7 +58,8 @@ impl ArchivedCString {
     /// Extracts a pinned mutable `CStr` slice containing the entire string.
     #[inline]
     pub fn pin_mut_c_str(self: Pin<&mut Self>) -> Pin<&mut CStr> {
-        unsafe { self.map_unchecked_mut(|s| &mut *s.ptr.as_ptr()) }
+        let ptr = unsafe { self.map_unchecked_mut(|s| &mut s.ptr) };
+        unsafe { Pin::new_unchecked(&mut *ptr.as_mut_ptr()) }
     }
 
     /// Resolves an archived C string from the given C string and parameters.

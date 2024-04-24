@@ -534,8 +534,14 @@ mod tests {
             JsonValue::Object(hash_map)
         }
 
-        for n in 0..=67 {
-            println!("{n}");
+        #[cfg(not(miri))]
+        const LOWER_BOUND: usize = 0;
+        #[cfg(miri)]
+        const LOWER_BOUND: usize = 67;
+
+        const UPPER_BOUND: usize = 67;
+
+        for n in LOWER_BOUND..=UPPER_BOUND {
             let value = get_obj(n);
 
             let buf = to_bytes::<Failure>(&value).unwrap();

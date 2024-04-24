@@ -54,7 +54,7 @@ unsafe impl<T: LayoutRaw + Pointee + ?Sized> SharedPointer<T> for rc::Rc<T> {
         let data_address = if layout.size() > 0 {
             unsafe { alloc(layout) }
         } else {
-            layout.align() as *mut u8
+            crate::polyfill::dangling(&layout).as_ptr()
         };
         let ptr = from_raw_parts_mut(data_address.cast(), metadata);
         Ok(ptr)
@@ -198,7 +198,7 @@ unsafe impl<T: LayoutRaw + Pointee + ?Sized> SharedPointer<T> for sync::Arc<T> {
         let data_address = if layout.size() > 0 {
             unsafe { alloc(layout) }
         } else {
-            layout.align() as *mut u8
+            crate::polyfill::dangling(&layout).as_ptr()
         };
         let ptr = from_raw_parts_mut(data_address.cast(), metadata);
         Ok(ptr)

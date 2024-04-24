@@ -41,7 +41,7 @@ impl<T> ArchivedVec<T> {
     /// Returns a pointer to the first element of the archived vec.
     #[inline]
     pub fn as_ptr(&self) -> *const T {
-        unsafe { self.ptr.as_ptr().cast_const() }
+        unsafe { self.ptr.as_ptr() }
     }
 
     /// Returns the number of elements in the archived vec.
@@ -65,10 +65,13 @@ impl<T> ArchivedVec<T> {
     /// Gets the elements of the archived vec as a pinned mutable slice.
     #[inline]
     pub fn pin_mut_slice(self: Pin<&mut Self>) -> Pin<&mut [T]> {
+        let len = self.len();
+        let ptr = unsafe { self.map_unchecked_mut(|s| &mut s.ptr) };
         unsafe {
-            self.map_unchecked_mut(|s| {
-                core::slice::from_raw_parts_mut(s.ptr.as_ptr(), s.len())
-            })
+            Pin::new_unchecked(core::slice::from_raw_parts_mut(
+                ptr.as_mut_ptr(),
+                len,
+            ))
         }
     }
 

@@ -94,14 +94,16 @@ impl<T> ArchivedHashTable<T> {
     }
 
     #[inline]
-    unsafe fn control(&self, index: usize) -> *mut u8 {
+    unsafe fn control(&self, index: usize) -> *const u8 {
         self.ptr.as_ptr().cast::<u8>().add(index)
     }
 
     #[inline]
     unsafe fn bucket(&self, index: usize) -> NonNull<T> {
         unsafe {
-            NonNull::new_unchecked(self.ptr.as_ptr().cast::<T>().sub(index + 1))
+            NonNull::new_unchecked(
+                self.ptr.as_ptr().cast::<T>().sub(index + 1).cast_mut(),
+            )
         }
     }
 
@@ -213,18 +215,33 @@ impl<T> ArchivedHashTable<T> {
     /// Returns an iterator over the entry pointers in the hash table.
     pub fn raw_iter(&self) -> RawIter<T> {
         if self.is_empty() {
-            RawIter {
-                controls: ControlIter::none(),
-                entries: NonNull::dangling(),
-                items_left: 0,
-            }
+            RawIter::empty()
         } else {
             RawIter {
                 controls: self.control_iter(),
                 entries: unsafe {
-                    NonNull::new_unchecked(self.ptr.as_ptr().cast())
+                    NonNull::new_unchecked(self.ptr.as_ptr().cast_mut().cast())
                 },
                 items_left: self.len(),
+            }
+        }
+    }
+
+    /// Returns a mutable iterator over the entry pointers in the hash table.
+    pub fn raw_iter_mut(mut self: Pin<&mut Self>) -> RawIter<T> {
+        if self.is_empty() {
+            RawIter::empty()
+        } else {
+            let controls = self.control_iter();
+            let items_left = self.len();
+            let ptr =
+                unsafe { self.as_mut().map_unchecked_mut(|s| &mut s.ptr) };
+            RawIter {
+                controls,
+                entries: unsafe {
+                    NonNull::new_unchecked(ptr.as_mut_ptr().cast())
+                },
+                items_left,
             }
         }
     }
@@ -456,6 +473,17 @@ pub struct RawIter<T> {
     controls: ControlIter,
     entries: NonNull<T>,
     items_left: usize,
+}
+
+impl<T> RawIter<T> {
+    /// Returns a raw iterator which yields no elements.
+    pub fn empty() -> Self {
+        Self {
+            controls: ControlIter::none(),
+            entries: NonNull::dangling(),
+            items_left: 0,
+        }
+    }
 }
 
 impl<T> Iterator for RawIter<T> {

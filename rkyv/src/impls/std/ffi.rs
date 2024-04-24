@@ -131,7 +131,7 @@ where
         let data_address = if layout.size() > 0 {
             unsafe { alloc::alloc(layout) }
         } else {
-            layout.align() as *mut u8
+            crate::polyfill::dangling(&layout).as_ptr()
         };
         let out = ptr_meta::from_raw_parts_mut(data_address.cast(), metadata);
         unsafe {
