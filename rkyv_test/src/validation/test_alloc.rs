@@ -489,4 +489,57 @@ mod tests {
         let data = AlignedBytes([0x10; 16]);
         rkyv::from_bytes::<String, Error>(&data.0).unwrap_err();
     }
+
+    #[test]
+    fn rc_btreemap() {
+        use rkyv::{Archive, Deserialize, Serialize};
+
+        type Map = std::collections::BTreeMap<Rc<str>, JsonValue>;
+
+        #[derive(Archive, Debug, Deserialize, Serialize)]
+        #[archive(
+            serialize_bounds(
+                __S: rkyv::ser::Allocator
+                    + rkyv::ser::Writer
+                    + rkyv::ser::Sharing,
+                __S::Error: rkyv::rancor::Source,
+            ),
+            deserialize_bounds(
+                __D: rkyv::de::Pooling,
+                __D::Error: rkyv::rancor::Source,
+            ),
+        )]
+        #[archive(check_bytes)]
+        #[archive_attr(check_bytes(bounds(
+            __C: rkyv::validation::ArchiveContext
+                + rkyv::validation::SharedContext,
+        )))]
+        pub enum JsonValue {
+            String(String),
+            Object(
+                #[omit_bounds]
+                #[archive_attr(omit_bounds)]
+                Map,
+            ),
+        }
+
+        fn get_obj(n: usize) -> JsonValue {
+            if n == 0 {
+                return JsonValue::String("".into());
+            }
+            let mut hash_map = Map::new();
+            hash_map.insert("name".into(), JsonValue::String("ferris".into()));
+            hash_map.insert("nested".into(), get_obj(n - 1));
+
+            JsonValue::Object(hash_map)
+        }
+
+        for n in 0..=67 {
+            println!("{n}");
+            let value = get_obj(n);
+
+            let buf = to_bytes::<Failure>(&value).unwrap();
+            let _ = access::<ArchivedJsonValue, Failure>(&buf).unwrap();
+        }
+    }
 }
