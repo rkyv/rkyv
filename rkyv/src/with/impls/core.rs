@@ -51,7 +51,7 @@ where
                         <A as ArchiveWith<O>>::Archived,
                     >>()
                 };
-                munge!(let ArchivedOptionVariantSome(tag, value_out) = out);
+                munge!(let ArchivedOptionVariantSome(tag, out_value) = out);
                 tag.write(ArchivedOptionTag::Some);
 
                 let value = if let Some(value) = field.as_ref() {
@@ -62,7 +62,7 @@ where
                     }
                 };
 
-                A::resolve_with(value, resolver, value_out);
+                A::resolve_with(value, resolver, out_value);
             }
         }
     }

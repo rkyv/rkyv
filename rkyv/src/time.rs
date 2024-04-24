@@ -130,8 +130,14 @@ impl ArchivedDuration {
     pub unsafe fn emplace(secs: u64, nanos: u32, out: *mut ArchivedDuration) {
         use core::ptr::addr_of_mut;
 
-        addr_of_mut!((*out).secs).write(ArchivedU64::from_native(secs));
-        addr_of_mut!((*out).nanos).write(ArchivedU32::from_native(nanos));
+        let out_secs = unsafe { addr_of_mut!((*out).secs) };
+        unsafe {
+            out_secs.write(ArchivedU64::from_native(secs));
+        }
+        let out_nanos = unsafe { addr_of_mut!((*out).nanos) };
+        unsafe {
+            out_nanos.write(ArchivedU32::from_native(nanos));
+        }
     }
 }
 

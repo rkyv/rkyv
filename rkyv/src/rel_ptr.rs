@@ -209,8 +209,8 @@ impl<O: Offset> RawRelPtr<O> {
         out: Place<Self>,
     ) -> Result<(), E> {
         let offset = O::from_isize(signed_offset(out.pos(), to)?)?;
-        munge!(let Self { offset: offset_out, _phantom: _ } = out);
-        offset_out.write(offset);
+        munge!(let Self { offset: out_offset, _phantom: _ } = out);
+        out_offset.write(offset);
         Ok(())
     }
 

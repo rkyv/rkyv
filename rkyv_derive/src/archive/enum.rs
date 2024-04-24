@@ -406,7 +406,7 @@ fn generate_resolve_arms(
                                             (*out.ptr()).#members
                                         )
                                     };
-                                    let field_out = unsafe {
+                                    let out_field = unsafe {
                                         #rkyv_path::Place::from_field_unchecked(
                                             out,
                                             field_ptr,
@@ -415,7 +415,7 @@ fn generate_resolve_arms(
                                     #resolves(
                                         #self_bindings,
                                         #resolver_bindings,
-                                        field_out,
+                                        out_field,
                                     );
                                 )*
                             },
@@ -447,7 +447,7 @@ fn generate_resolve_arms(
                                             (*out.ptr()).#members
                                         )
                                     };
-                                    let field_out = unsafe {
+                                    let out_field = unsafe {
                                         #rkyv_path::Place::from_field_unchecked(
                                             out,
                                             field_ptr,
@@ -456,7 +456,7 @@ fn generate_resolve_arms(
                                     #resolves(
                                         #self_bindings,
                                         #resolver_bindings,
-                                        field_out,
+                                        out_field,
                                     );
                                 )*
                             },

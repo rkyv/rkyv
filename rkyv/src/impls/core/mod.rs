@@ -128,10 +128,10 @@ macro_rules! impl_tuple {
                     // - `ptr` points to the `$index` field of `out`
                     // - `ptr` is properly aligned, dereferenceable, and all of
                     //   its bytes are initialized
-                    let field_out = unsafe {
+                    let out_field = unsafe {
                         Place::from_field_unchecked(out, ptr)
                     };
-                    self.$index.resolve(resolver.$index, field_out);
+                    self.$index.resolve(resolver.$index, out_field);
                 )*
             }
         }

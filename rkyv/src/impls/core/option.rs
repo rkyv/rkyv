@@ -43,7 +43,7 @@ impl<T: Archive> Archive for Option<T> {
                     out
                     .cast_unchecked::<ArchivedOptionVariantSome<T::Archived>>()
                 };
-                munge!(let ArchivedOptionVariantSome(tag, value_out) = out);
+                munge!(let ArchivedOptionVariantSome(tag, out_value) = out);
                 tag.write(ArchivedOptionTag::Some);
 
                 let value = if let Some(value) = self.as_ref() {
@@ -54,7 +54,7 @@ impl<T: Archive> Archive for Option<T> {
                     }
                 };
 
-                value.resolve(resolver, value_out);
+                value.resolve(resolver, out_value);
             }
         }
     }

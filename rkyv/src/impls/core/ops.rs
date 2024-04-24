@@ -344,7 +344,7 @@ impl<T: Archive> Archive for Bound<T> {
                     ArchivedBoundVariantIncluded<T::Archived>
                 >()
                 };
-                munge!(let ArchivedBoundVariantIncluded(tag, value_out) = out);
+                munge!(let ArchivedBoundVariantIncluded(tag, out_value) = out);
                 tag.write(ArchivedBoundTag::Included);
 
                 let value = if let Bound::Included(value) = self.as_ref() {
@@ -355,7 +355,7 @@ impl<T: Archive> Archive for Bound<T> {
                     }
                 };
 
-                value.resolve(resolver, value_out);
+                value.resolve(resolver, out_value);
             }
             Bound::Excluded(resolver) => {
                 let out = unsafe {
@@ -363,7 +363,7 @@ impl<T: Archive> Archive for Bound<T> {
                     ArchivedBoundVariantExcluded<T::Archived>
                 >()
                 };
-                munge!(let ArchivedBoundVariantExcluded(tag, value_out) = out);
+                munge!(let ArchivedBoundVariantExcluded(tag, out_value) = out);
                 tag.write(ArchivedBoundTag::Excluded);
 
                 let value = if let Bound::Excluded(value) = self.as_ref() {
@@ -374,7 +374,7 @@ impl<T: Archive> Archive for Bound<T> {
                     }
                 };
 
-                value.resolve(resolver, value_out);
+                value.resolve(resolver, out_value);
             }
             Bound::Unbounded => {
                 let out = unsafe {

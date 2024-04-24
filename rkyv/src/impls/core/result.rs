@@ -35,11 +35,11 @@ impl<T: Archive, U: Archive> Archive for Result<T, U> {
                 let out = unsafe {
                     out.cast_unchecked::<ArchivedResultVariantOk<T::Archived>>()
                 };
-                munge!(let ArchivedResultVariantOk(tag, value_out) = out);
+                munge!(let ArchivedResultVariantOk(tag, out_value) = out);
                 tag.write(ArchivedResultTag::Ok);
 
                 match self.as_ref() {
-                    Ok(value) => value.resolve(resolver, value_out),
+                    Ok(value) => value.resolve(resolver, out_value),
                     Err(_) => unsafe { unreachable_unchecked() },
                 }
             }
@@ -48,12 +48,12 @@ impl<T: Archive, U: Archive> Archive for Result<T, U> {
                     out.cast_unchecked::<ArchivedResultVariantErr<U::Archived>>(
                     )
                 };
-                munge!(let ArchivedResultVariantErr(tag, err_out) = out);
+                munge!(let ArchivedResultVariantErr(tag, out_err) = out);
                 tag.write(ArchivedResultTag::Err);
 
                 match self.as_ref() {
                     Ok(_) => unsafe { unreachable_unchecked() },
-                    Err(err) => err.resolve(resolver, err_out),
+                    Err(err) => err.resolve(resolver, out_err),
                 }
             }
         }

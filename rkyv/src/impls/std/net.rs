@@ -394,16 +394,16 @@ impl Archive for IpAddr {
             IpAddr::V4(ipv4_addr) => {
                 let out =
                     unsafe { out.cast_unchecked::<ArchivedIpAddrVariantV4>() };
-                munge!(let ArchivedIpAddrVariantV4(tag, ipv4_addr_out) = out);
+                munge!(let ArchivedIpAddrVariantV4(tag, out_ipv4_addr) = out);
                 tag.write(ArchivedIpAddrTag::V4);
-                ipv4_addr.resolve((), ipv4_addr_out);
+                ipv4_addr.resolve((), out_ipv4_addr);
             }
             IpAddr::V6(ipv6_addr) => {
                 let out =
                     unsafe { out.cast_unchecked::<ArchivedIpAddrVariantV6>() };
-                munge!(let ArchivedIpAddrVariantV6(tag, ipv6_addr_out) = out);
+                munge!(let ArchivedIpAddrVariantV6(tag, out_ipv6_addr) = out);
                 tag.write(ArchivedIpAddrTag::V6);
-                ipv6_addr.resolve((), ipv6_addr_out);
+                ipv6_addr.resolve((), out_ipv6_addr);
             }
         }
     }
@@ -701,20 +701,20 @@ impl Archive for SocketAddr {
                     out.cast_unchecked::<ArchivedSocketAddrVariantV4>()
                 };
                 munge! {
-                    let ArchivedSocketAddrVariantV4(tag, socket_addr_out) = out;
+                    let ArchivedSocketAddrVariantV4(tag, out_socket_addr) = out;
                 }
                 tag.write(ArchivedSocketAddrTag::V4);
-                socket_addr.resolve(resolver, socket_addr_out);
+                socket_addr.resolve(resolver, out_socket_addr);
             }
             SocketAddr::V6(socket_addr) => {
                 let out = unsafe {
                     out.cast_unchecked::<ArchivedSocketAddrVariantV6>()
                 };
                 munge! {
-                    let ArchivedSocketAddrVariantV6(tag, socket_addr_out) = out;
+                    let ArchivedSocketAddrVariantV6(tag, out_socket_addr) = out;
                 }
                 tag.write(ArchivedSocketAddrTag::V6);
-                socket_addr.resolve(resolver, socket_addr_out);
+                socket_addr.resolve(resolver, out_socket_addr);
             }
         }
     }

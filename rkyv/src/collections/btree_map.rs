@@ -254,7 +254,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         resolver: BTreeMapResolver,
         out: Place<Self>,
     ) {
-        munge!(let ArchivedBTreeMap { root, len: len_out, _phantom: _ } = out);
+        munge!(let ArchivedBTreeMap { root, len: out_len, _phantom: _ } = out);
 
         if len == 0 {
             RawRelPtr::emplace_invalid(root);
@@ -262,7 +262,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
             RawRelPtr::emplace(resolver.root_node_pos, root);
         }
 
-        len_out.write(ArchivedUsize::from_native(len as FixedUsize));
+        out_len.write(ArchivedUsize::from_native(len as FixedUsize));
     }
 
     /// Serializes an `ArchivedBTreeMap` from the given iterator and serializer.
@@ -429,10 +429,10 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         for (i, ((k, v), (kr, vr))) in
             items.iter().zip(resolvers.drain(..)).enumerate()
         {
-            let key_out = unsafe { keys.index(i).cast_unchecked() };
-            k.resolve(kr, key_out);
-            let value_out = unsafe { values.index(i).cast_unchecked() };
-            v.resolve(vr, value_out);
+            let out_key = unsafe { keys.index(i).cast_unchecked() };
+            k.resolve(kr, out_key);
+            let out_value = unsafe { values.index(i).cast_unchecked() };
+            v.resolve(vr, out_value);
         }
 
         let bytes = unsafe {
@@ -488,17 +488,17 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         for (i, ((k, v, l), (kr, vr))) in
             items.iter().zip(resolvers.drain(..)).enumerate()
         {
-            let key_out = unsafe { keys.index(i).cast_unchecked() };
-            k.resolve(kr, key_out);
-            let value_out = unsafe { values.index(i).cast_unchecked() };
-            v.resolve(vr, value_out);
+            let out_key = unsafe { keys.index(i).cast_unchecked() };
+            k.resolve(kr, out_key);
+            let out_value = unsafe { values.index(i).cast_unchecked() };
+            v.resolve(vr, out_value);
 
-            let lesser_node_out =
+            let out_lesser_node =
                 unsafe { lesser_nodes.index(i).cast_unchecked() };
             if let Some(lesser_node) = l {
-                RawRelPtr::emplace(*lesser_node, lesser_node_out);
+                RawRelPtr::emplace(*lesser_node, out_lesser_node);
             } else {
-                RawRelPtr::emplace_invalid(lesser_node_out);
+                RawRelPtr::emplace_invalid(out_lesser_node);
             }
         }
 

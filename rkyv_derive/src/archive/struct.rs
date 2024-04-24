@@ -55,10 +55,10 @@ pub fn impl_struct(
                 let field_ptr = unsafe {
                     ::core::ptr::addr_of_mut!((*out.ptr()).#member)
                 };
-                let field_out = unsafe {
+                let out_field = unsafe {
                     #rkyv_path::Place::from_field_unchecked(out, field_ptr)
                 };
-                #resolves(&self.#member, resolver.#member, field_out);
+                #resolves(&self.#member, resolver.#member, out_field);
             })
         })
         .collect::<Result<Vec<_>, Error>>()?;
