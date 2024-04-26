@@ -48,8 +48,13 @@ impl<T: ?Sized> Place<T> {
         parent: Place<U>,
         ptr: *mut T,
     ) -> Self {
-        let offset = ptr as *mut () as usize - parent.ptr() as *mut () as usize;
-        Self::new_unchecked(parent.pos() + offset, ptr)
+        // SAFETY: We won't write anything to the parent pointer, so we
+        // definitely won't write any uninitialized bytes.
+        let parent_ptr = unsafe { parent.ptr() };
+        let offset = ptr as *mut () as usize - parent_ptr as *mut () as usize;
+        // SAFETY: The caller has guaranteed that `ptr` is properly aligned,
+        // dereferenceable, and all of its bytes are initialized.
+        unsafe { Self::new_unchecked(parent.pos() + offset, ptr) }
     }
 
     /// Returns the position of the place.
@@ -119,9 +124,12 @@ impl<T> Place<[T]> {
     /// `i` must be in-bounds for the slice pointed to by this place.
     #[inline]
     pub unsafe fn index(&self, i: usize) -> Place<T> {
-        Place::new_unchecked(self.pos() + i * size_of::<T>(), unsafe {
-            self.ptr().cast::<T>().add(i)
-        })
+        // SAFETY: The caller has guaranteed that `i` is in-bounds for the slice
+        // pointed to by this place.
+        let ptr = unsafe { self.ptr().cast::<T>().add(i) };
+        // SAFETY: `ptr` is an element of `self`, and so is also properly
+        // aligned, dereferenceable, and all of its bytes are initialized.
+        unsafe { Place::new_unchecked(self.pos() + i * size_of::<T>(), ptr) }
     }
 }
 
@@ -133,9 +141,12 @@ impl<T, const N: usize> Place<[T; N]> {
     /// `i` must be in-bounds for the array pointed to by this place.
     #[inline]
     pub unsafe fn index(&self, i: usize) -> Place<T> {
-        Place::new_unchecked(self.pos() + i * size_of::<T>(), unsafe {
-            self.ptr().cast::<T>().add(i)
-        })
+        // SAFETY: The caller has guaranteed that `i` is in-bounds for the array
+        // pointed to by this place.
+        let ptr = unsafe { self.ptr().cast::<T>().add(i) };
+        // SAFETY: `ptr` is an element of `self`, and so is also properly
+        // aligned, dereferenceable, and all of its bytes are initialized.
+        unsafe { Place::new_unchecked(self.pos() + i * size_of::<T>(), ptr) }
     }
 }
 
@@ -152,7 +163,10 @@ unsafe impl<T: ?Sized, U: ?Sized> Restructure<U> for Place<T> {
     type Restructured = Place<U>;
 
     unsafe fn restructure(&self, ptr: *mut U) -> Self::Restructured {
-        Place::from_field_unchecked(*self, ptr)
+        // SAFETY: `ptr` is a pointer to a subfield of the underlying pointer,
+        // and so is also properly aligned, dereferenceable, and all of its
+        // bytes are initialized.
+        unsafe { Place::from_field_unchecked(*self, ptr) }
     }
 }
 

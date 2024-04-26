@@ -69,7 +69,20 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for CStr {
         out: *mut CStr,
     ) -> Result<(), D::Error> {
         let slice = self.to_bytes_with_nul();
-        ptr::copy_nonoverlapping(slice.as_ptr(), out.cast::<u8>(), slice.len());
+        // SAFETY: The caller has guaranteed that `out` is non-null, properly
+        // aligned, valid for writes, and points to memory allocated according
+        // to the layout for the metadata returned from `deserialize_metadata`.
+        // Therefore, `out` points to at least `self.len()` bytes.
+        // `self.as_ptr()` is valid for reads and points to the bytes of `self`
+        // which are also at least `self.len()` bytes. Note here that the length
+        // of the `CStr` contains the null terminator.
+        unsafe {
+            ptr::copy_nonoverlapping(
+                slice.as_ptr(),
+                out.cast::<u8>(),
+                slice.len(),
+            );
+        }
         Ok(())
     }
 

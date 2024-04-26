@@ -93,9 +93,22 @@ impl<T> ArchivedHashTable<T> {
         }
     }
 
+    /// # Safety
+    ///
+    /// `index` must be less than `len()`.
     #[inline]
     unsafe fn control(&self, index: usize) -> *const u8 {
-        self.ptr.as_ptr().cast::<u8>().add(index)
+        debug_assert!(!self.is_empty());
+
+        // SAFETY: As an invariant of `ArchivedHashTable`, if `self` is not
+        // empty then `self.ptr` is a valid relative pointer. Since `index` is
+        // at least 0 and strictly less than `len()`, this table must not be
+        // empty.
+        let ptr = unsafe { self.ptr.as_ptr() };
+        // SAFETY: The caller has guaranteed that `index` is less than `len()`,
+        // and the first `len()` bytes following `ptr` are the control bytes of
+        // the hash table.
+        unsafe { ptr.cast::<u8>().add(index) }
     }
 
     #[inline]
@@ -205,7 +218,10 @@ impl<T> ArchivedHashTable<T> {
         self.cap.to_native() as usize
     }
 
-    fn control_iter(&self) -> ControlIter {
+    /// # Safety
+    ///
+    /// This hash table must not be empty.
+    unsafe fn control_iter(&self) -> ControlIter {
         ControlIter {
             current_mask: unsafe { Group::read(self.control(0)).match_full() },
             next_group: unsafe { self.control(Group::WIDTH) },
@@ -218,7 +234,8 @@ impl<T> ArchivedHashTable<T> {
             RawIter::empty()
         } else {
             RawIter {
-                controls: self.control_iter(),
+                // SAFETY: We have checked that `self` is not empty.
+                controls: unsafe { self.control_iter() },
                 entries: unsafe {
                     NonNull::new_unchecked(self.ptr.as_ptr().cast_mut().cast())
                 },
@@ -232,7 +249,8 @@ impl<T> ArchivedHashTable<T> {
         if self.is_empty() {
             RawIter::empty()
         } else {
-            let controls = self.control_iter();
+            // SAFETY: We have checked that `self` is not empty.
+            let controls = unsafe { self.control_iter() };
             let items_left = self.len();
             let ptr =
                 unsafe { self.as_mut().map_unchecked_mut(|s| &mut s.ptr) };
@@ -599,7 +617,9 @@ mod verify {
             let range = unsafe { context.push_prefix_subtree(ptr)? };
 
             // Check each non-empty bucket
-            let mut controls = self.control_iter();
+
+            // SAFETY: We have checked that `self` is not empty.
+            let mut controls = unsafe { self.control_iter() };
             let mut base_index = 0;
             'outer: while base_index < cap {
                 while let Some(bit) = controls.next_full() {

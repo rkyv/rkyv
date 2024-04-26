@@ -448,7 +448,9 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     #[inline]
     pub unsafe fn as_ptr(&self) -> *const T {
         ptr_meta::from_raw_parts(
-            self.raw_ptr.as_ptr(),
+            // SAFETY: The safety requirements for `RawRelPtr::as_ptr` are the
+            // same as those for `RelPtr::as_ptr``.
+            unsafe { self.raw_ptr.as_ptr() },
             T::pointer_metadata(&self.metadata),
         )
     }
@@ -463,8 +465,15 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     #[inline]
     pub unsafe fn as_mut_ptr(self: Pin<&mut Self>) -> *mut T {
         let metadata = T::pointer_metadata(&self.metadata);
+        // SAFETY: `s.raw_ptr` will not move as long as `s` does not move
+        // because it is one of its fields.
         let raw_ptr = unsafe { self.map_unchecked_mut(|s| &mut s.raw_ptr) };
-        ptr_meta::from_raw_parts_mut(raw_ptr.as_mut_ptr(), metadata)
+        ptr_meta::from_raw_parts_mut(
+            // SAFETY: The safety requirements for `RawRelPtr::as_mut_ptr` are
+            // the same as those for `RelPtr::as_mut_ptr``.
+            unsafe { raw_ptr.as_mut_ptr() },
+            metadata,
+        )
     }
 
     /// Calculates the memory address being pointed to by this relative pointer

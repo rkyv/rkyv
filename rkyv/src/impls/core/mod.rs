@@ -89,7 +89,12 @@ where
         deserializer: &mut D,
         out: *mut T,
     ) -> Result<(), D::Error> {
-        out.write(self.deserialize(deserializer)?);
+        // SAFETY: The caller has guaranteed that `out` is non-null, properly
+        // aligned, valid for writes, and allocated according to the layout of
+        // the deserialized metadata (the unit type for sized types).
+        unsafe {
+            out.write(self.deserialize(deserializer)?);
+        }
         Ok(())
     }
 
@@ -331,9 +336,17 @@ where
         out: *mut [U],
     ) -> Result<(), D::Error> {
         for (i, item) in self.iter().enumerate() {
-            out.cast::<U>()
-                .add(i)
-                .write(item.deserialize(deserializer)?);
+            // SAFETY: The caller has guaranteed that `out` points to a slice
+            // with a length guaranteed to match the length of `self`. Since `i`
+            // is less than the length of the slice, the result of the pointer
+            // add is always in-bounds.
+            let out_ptr = unsafe { out.cast::<U>().add(i) };
+            // SAFETY: `out_ptr` points to an element of `out` and so is
+            // guaranteed to be non-null, properly aligned, and valid for
+            // writes.
+            unsafe {
+                out_ptr.write(item.deserialize(deserializer)?);
+            }
         }
         Ok(())
     }
@@ -387,7 +400,19 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for str {
         _: &mut D,
         out: *mut str,
     ) -> Result<(), D::Error> {
-        ptr::copy_nonoverlapping(self.as_ptr(), out.cast::<u8>(), self.len());
+        // SAFETY: The caller has guaranteed that `out` is non-null, properly
+        // aligned, valid for writes, and points to memory allocated according
+        // to the layout for the metadata returned from `deserialize_metadata`.
+        // Therefore, `out` points to at least `self.len()` bytes.
+        // `self.as_ptr()` is valid for reads and points to the bytes of `self`
+        // which are also at least `self.len()` bytes.
+        unsafe {
+            ptr::copy_nonoverlapping(
+                self.as_ptr(),
+                out.cast::<u8>(),
+                self.len(),
+            );
+        }
         Ok(())
     }
 

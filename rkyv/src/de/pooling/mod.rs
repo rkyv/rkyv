@@ -174,7 +174,9 @@ where
         ptr: ErasedPtr,
         drop: unsafe fn(ErasedPtr),
     ) -> Result<(), E> {
-        T::add_shared_ptr(self, address, ptr, drop)
+        // SAFETY: The safety requirements for `add_shared_ptr` are the same as
+        // the requirements for calling this function.
+        unsafe { T::add_shared_ptr(self, address, ptr, drop) }
     }
 }
 

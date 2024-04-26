@@ -82,7 +82,9 @@ impl<W, A: Allocator<E>, S, E> Allocator<E> for Composite<W, A, S> {
         &mut self,
         layout: Layout,
     ) -> Result<NonNull<[u8]>, E> {
-        self.allocator.push_alloc(layout)
+        // SAFETY: The safety requirements for `A::push_alloc()` are the same as
+        // the safety requirements for `push_alloc()`.
+        unsafe { self.allocator.push_alloc(layout) }
     }
 
     #[inline]
@@ -91,7 +93,9 @@ impl<W, A: Allocator<E>, S, E> Allocator<E> for Composite<W, A, S> {
         ptr: NonNull<u8>,
         layout: Layout,
     ) -> Result<(), E> {
-        self.allocator.pop_alloc(ptr, layout)
+        // SAFETY: The safety requirements for `A::pop_alloc()` are the same as
+        // the safety requirements for `pop_alloc()`.
+        unsafe { self.allocator.pop_alloc(ptr, layout) }
     }
 }
 

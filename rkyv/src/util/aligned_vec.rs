@@ -190,32 +190,60 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
 
         if new_cap > 0 {
             let new_ptr = if self.cap > 0 {
-                let new_ptr =
-                    alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap);
+                // TODO: also verify that `new_cap` does not overflow `isize`
+                // when rounded up to the nearest multiple of `ALIGNMENT`.
+                // SAFETY:
+                // - `self.ptr` is currently allocated because `self.cap` is
+                //   greater than zero.
+                // - `self.layout()` always matches the layout used to allocate
+                //   the current block of memory.
+                // - We checked that `new_cap` is greater than zero.
+                let new_ptr = unsafe {
+                    alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap)
+                };
                 if new_ptr.is_null() {
-                    alloc::handle_alloc_error(
+                    // SAFETY:
+                    // - `ALIGNMENT` is always guaranteed to be a nonzero power
+                    //   of two.
+                    // - We checked that `new_cap` doesn't overflow `isize` when
+                    //   rounded up to the nearest power of two.
+                    let layout = unsafe {
                         alloc::Layout::from_size_align_unchecked(
                             new_cap,
                             Self::ALIGNMENT,
-                        ),
-                    );
+                        )
+                    };
+                    alloc::handle_alloc_error(layout);
                 }
                 new_ptr
             } else {
-                let layout = alloc::Layout::from_size_align_unchecked(
-                    new_cap,
-                    Self::ALIGNMENT,
-                );
-                let new_ptr = alloc::alloc(layout);
+                // SAFETY:
+                // - `ALIGNMENT` is always guaranteed to be a nonzero power of
+                //   two.
+                // - We checked that `new_cap` doesn't overflow `isize` when
+                //   rounded up to the nearest power of two.
+                let layout = unsafe {
+                    alloc::Layout::from_size_align_unchecked(
+                        new_cap,
+                        Self::ALIGNMENT,
+                    )
+                };
+                // SAFETY: We checked that `new_cap` has non-zero size.
+                let new_ptr = unsafe { alloc::alloc(layout) };
                 if new_ptr.is_null() {
                     alloc::handle_alloc_error(layout);
                 }
                 new_ptr
             };
-            self.ptr = NonNull::new_unchecked(new_ptr);
+            // SAFETY: We checked that `new_ptr` is non-null in each of the
+            // branches.
+            self.ptr = unsafe { NonNull::new_unchecked(new_ptr) };
             self.cap = new_cap;
         } else if self.cap > 0 {
-            alloc::dealloc(self.ptr.as_ptr(), self.layout());
+            //
+            unsafe {
+                alloc::dealloc(self.ptr.as_ptr(), self.layout());
+            }
             self.ptr = NonNull::dangling();
             self.cap = 0;
         }
@@ -459,7 +487,11 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
             // Cannot overflow due to check above
             new_cap.next_power_of_two()
         };
-        self.change_capacity(new_cap);
+        // SAFETY: We just checked that `new_cap` is greater than or equal to
+        // `len` and less than or equal to `MAX_CAPACITY`.
+        unsafe {
+            self.change_capacity(new_cap);
+        }
     }
 
     /// Resizes the Vec in-place so that len is equal to new_len.

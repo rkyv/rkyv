@@ -59,7 +59,12 @@ const _: () = {
             value: *const Self,
             context: &mut C,
         ) -> Result<(), C::Error> {
-            RelPtr::check_bytes(value.cast::<RelPtr<T>>(), context)?;
+            // SAFETY: `Repr<T>` is a `#[repr(C)]` union of an `ArchivedBox<T>`
+            // and a `RelPtr<T>`, and so is guaranteed to be aligned and point
+            // to enough bytes for a `RelPtr<T>`.
+            unsafe {
+                RelPtr::check_bytes(value.cast::<RelPtr<T>>(), context)?;
+            }
 
             // verify with null check
             Self::verify(unsafe { &*value }, context)

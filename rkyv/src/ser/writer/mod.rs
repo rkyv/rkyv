@@ -98,12 +98,20 @@ pub trait WriterExt<E>: Writer<E> {
         debug_assert_eq!(pos & (mem::align_of::<T::Archived>() - 1), 0);
 
         let mut resolved = mem::MaybeUninit::<T::Archived>::zeroed();
-        let out = Place::new_unchecked(pos, resolved.as_mut_ptr());
+        // SAFETY: `resolved.as_mut_ptr()` points to a local zeroed
+        // `MaybeUninit`, and so is properly aligned, dereferenceable, and all
+        // of its bytes are initialized.
+        let out = unsafe { Place::new_unchecked(pos, resolved.as_mut_ptr()) };
         value.resolve(resolver, out);
 
         let data = resolved.as_ptr().cast::<u8>();
         let len = mem::size_of::<T::Archived>();
-        self.write(slice::from_raw_parts(data, len))?;
+        // TODO: this can be a method on Place (fn as_slice(&self) -> &[u8])
+        // SAFETY: `data` points to the local `MaybeUninit`, and so points to
+        // enough bytes for a `T::Archived`. Because it was put in a `Place`, we
+        // know that its bytes have remained properly initialized.
+        let slice = unsafe { slice::from_raw_parts(data, len) };
+        self.write(slice)?;
         Ok(pos)
     }
 
@@ -127,16 +135,22 @@ pub trait WriterExt<E>: Writer<E> {
         );
 
         let mut resolved = mem::MaybeUninit::<RelPtr<T::Archived>>::zeroed();
-        let out = Place::new_unchecked(from, resolved.as_mut_ptr());
+        // SAFETY: `resolved.as_mut_ptr()` points to a local zeroed
+        // `MaybeUninit`, and so is properly aligned, dereferenceable, and all
+        // of its bytes are initialized.
+        let out = unsafe { Place::new_unchecked(from, resolved.as_mut_ptr()) };
         RelPtr::emplace_unsized(to, value.archived_metadata(), out);
 
         let data = resolved.as_ptr().cast::<u8>();
         let len = mem::size_of::<RelPtr<T::Archived>>();
-        self.write(slice::from_raw_parts(data, len))?;
+        // TODO: this can be a method on Place (fn as_slice(&self) -> &[u8])
+        // SAFETY: `data` points to the local `MaybeUninit`, and so points to
+        // enough bytes for a `T::Archived`. Because it was put in a `Place`, we
+        // know that its bytes have remained properly initialized.
+        let slice = unsafe { slice::from_raw_parts(data, len) };
+        self.write(slice)?;
         Ok(from)
     }
-
-    // TODO: helper function to write an object as bytes
 }
 
 impl<T, E> WriterExt<E> for T where T: Writer<E> + ?Sized {}

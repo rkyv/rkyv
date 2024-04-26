@@ -61,7 +61,7 @@ fn check_alignment<T: Portable>(ptr: *const u8) {
 ///
 /// # Safety
 ///
-/// A `T` must be located at the given position in the byte slice.
+/// A valid `T` must be located at the given position in the byte slice.
 #[inline]
 pub unsafe fn access_pos_unchecked<T: Portable>(
     bytes: &[u8],
@@ -70,7 +70,9 @@ pub unsafe fn access_pos_unchecked<T: Portable>(
     #[cfg(debug_assertions)]
     check_alignment::<T>(bytes.as_ptr());
 
-    &*bytes.as_ptr().add(pos).cast()
+    // SAFETY: The caller has guaranteed that a valid `T` is located at `pos` in
+    // the byte slice.
+    unsafe { &*bytes.as_ptr().add(pos).cast() }
 }
 
 /// Accesses a mutable archived value from the given byte slice at the given
@@ -91,7 +93,11 @@ pub unsafe fn access_pos_unchecked_mut<T: Portable>(
     #[cfg(debug_assertions)]
     check_alignment::<T>(bytes.as_ptr());
 
-    Pin::new_unchecked(&mut *bytes.as_mut_ptr().add(pos).cast())
+    // SAFETY: The caller has guaranteed that a valid `T` is located at `pos` in
+    // the byte slice. WARNING: This is a technically incorrect use of the
+    // pinning API because we do not guarantee that the destructor for `T` will
+    // run before the backing memory is reused!
+    unsafe { Pin::new_unchecked(&mut *bytes.as_mut_ptr().add(pos).cast()) }
 }
 
 /// Accesses an archived value from the given byte slice by calculating the root
@@ -110,7 +116,11 @@ pub unsafe fn access_pos_unchecked_mut<T: Portable>(
 ///   default behavior).
 #[inline]
 pub unsafe fn access_unchecked<T: Portable>(bytes: &[u8]) -> &T {
-    access_pos_unchecked::<T>(bytes, bytes.len() - mem::size_of::<T>())
+    // SAFETY: The caller has guaranteed that a valid `T` is located at the root
+    // position in the byte slice.
+    unsafe {
+        access_pos_unchecked::<T>(bytes, bytes.len() - mem::size_of::<T>())
+    }
 }
 
 /// Accesses a mutable archived value from the given byte slice by calculating
@@ -132,7 +142,9 @@ pub unsafe fn access_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
 ) -> Pin<&mut T> {
     let pos = bytes.len() - mem::size_of::<T>();
-    access_pos_unchecked_mut::<T>(bytes, pos)
+    // SAFETY: The caller has guaranteed that a valid `T` is located at the root
+    // position in the byte slice.
+    unsafe { access_pos_unchecked_mut::<T>(bytes, pos) }
 }
 
 /// A buffer of bytes aligned to 16 bytes.
@@ -289,13 +301,14 @@ where
     T: Archive,
     T::Archived: Deserialize<T, Strategy<Unify, E>>,
 {
-    deserialize(
-        access_unchecked::<T::Archived>(bytes),
-        &mut Unify::default(),
-    )
+    // SAFETY: The caller has guaranteed that a valid `T` is located at the root
+    // position in the byte slice.
+    let archived = unsafe { access_unchecked::<T::Archived>(bytes) };
+    deserialize(archived, &mut Unify::default())
 }
 
-/// TODO: document
+/// Deserailizes a value from the given archived value using the provided
+/// deserializer.
 #[inline]
 pub fn deserialize<T, D, E>(
     value: &T::Archived,

@@ -56,7 +56,9 @@ where
         root: *const u8,
         end: *const u8,
     ) -> Result<Range<usize>, E> {
-        self.archive.push_subtree_range(root, end)
+        // SAFETY: This just forwards the call to the underlying
+        // `ArchiveValidator`, which has the same safety requirements.
+        unsafe { self.archive.push_subtree_range(root, end) }
     }
 
     #[inline]
@@ -64,6 +66,8 @@ where
         &mut self,
         range: Range<usize>,
     ) -> Result<(), E> {
+        // SAFETY: This just forwards the call to the underlying
+        // `ArchiveValidator`, which has the same safety requirements.
         unsafe { self.archive.pop_subtree_range(range) }
     }
 }

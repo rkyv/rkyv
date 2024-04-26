@@ -113,7 +113,8 @@
 #![deny(
     rustdoc::broken_intra_doc_links,
     missing_docs,
-    rustdoc::missing_crate_level_docs
+    rustdoc::missing_crate_level_docs,
+    unsafe_op_in_unsafe_fn
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![doc(html_favicon_url = r#"
@@ -156,6 +157,7 @@ pub mod bitvec;
 pub mod boxed;
 pub mod collections;
 pub mod de;
+mod fmt;
 // This is pretty unfortunate. CStr doesn't rely on the rest of std, but it's
 // not in core. If CStr ever gets moved into `core` then this module will no
 // longer need cfg(feature = "std")

@@ -83,17 +83,23 @@ where
         &mut self,
         layout: Layout,
     ) -> Result<NonNull<[u8]>, E> {
+        // TODO: This `as_mut()` re-aliases the entire byte slice as exclusive,
+        // which invalidates all other outstanding borrows. This needs to only
+        // use pointers.
         let bytes = self.buffer.as_mut();
 
         let pos = bytes.as_ptr() as usize + self.pos;
         let pad = 0usize.wrapping_sub(pos) % layout.align();
         if pad + layout.size() <= bytes.len() - self.pos {
             self.pos += pad;
-            let result_slice = ptr_meta::from_raw_parts_mut(
-                bytes.as_mut_ptr().add(self.pos).cast(),
-                layout.size(),
-            );
-            let result = NonNull::new_unchecked(result_slice);
+            // SAFETY: We checked that `self.pos` is less than the length of
+            // `bytes`.
+            let result_ptr = unsafe { bytes.as_mut_ptr().add(self.pos).cast() };
+            let result_slice =
+                ptr_meta::from_raw_parts_mut(result_ptr, layout.size());
+            // SAFETY: `result_size` is guaranteed not to be null because it is
+            // offset from `bytes` which cannot be null.
+            let result = unsafe { NonNull::new_unchecked(result_slice) };
             self.pos += layout.size();
             Ok(result)
         } else {
@@ -111,7 +117,10 @@ where
         let ptr = ptr.as_ptr();
 
         if bytes.as_mut_ptr_range().contains(&ptr) {
-            let popped_pos = ptr.offset_from(bytes.as_mut_ptr()) as usize;
+            // SAFETY: We checked that the pointer range for `bytes` contains
+            // `ptr`.
+            let popped_pos =
+                unsafe { ptr.offset_from(bytes.as_mut_ptr()) as usize };
             if popped_pos + layout.size() <= self.pos {
                 self.pos = popped_pos;
                 Ok(())

@@ -6,9 +6,7 @@ use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    ser::{Writer, WriterExt as _},
-    ArchivePointee, ArchiveUnsized, Place, Portable, RelPtr, Serialize,
-    SerializeUnsized,
+    ArchivePointee, ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
 
 /// An archived [`Box`].
@@ -75,40 +73,6 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     ) {
         munge!(let ArchivedBox { ptr } = out);
         RelPtr::emplace_unsized(resolver.pos, metadata, ptr);
-    }
-}
-
-impl<T> ArchivedBox<[T]> {
-    /// Serializes an archived `Box` from a given slice by directly copying
-    /// bytes.
-    ///
-    /// # Safety
-    ///
-    /// The type being serialized must be copy-safe. Copy-safe types must be
-    /// trivially copyable (have the same archived and unarchived
-    /// representations) and contain no padding bytes. In situations where
-    /// copying uninitialized bytes the output is acceptable, this function may
-    /// be used with types that contain padding bytes.
-    #[inline]
-    pub unsafe fn serialize_copy_from_slice<U, S>(
-        slice: &[U],
-        serializer: &mut S,
-    ) -> Result<BoxResolver, S::Error>
-    where
-        U: Serialize<S, Archived = T>,
-        S: Fallible + Writer + ?Sized,
-    {
-        use core::{mem::size_of, slice::from_raw_parts};
-
-        let pos = serializer.align_for::<T>()?;
-
-        let bytes = from_raw_parts(
-            slice.as_ptr().cast::<u8>(),
-            size_of::<T>() * slice.len(),
-        );
-        serializer.write(bytes)?;
-
-        Ok(BoxResolver { pos })
     }
 }
 
@@ -203,8 +167,7 @@ impl BoxResolver {
     /// Creates a new [`BoxResolver`] from the position of a serialized value.
     ///
     /// In most cases, you won't need to create a [`BoxResolver`] yourself and
-    /// can instead obtain it through [`ArchivedBox::serialize_from_ref`] or
-    /// [`ArchivedBox::serialize_copy_from_slice`].
+    /// can instead obtain it through [`ArchivedBox::serialize_from_ref`].
     pub fn from_pos(pos: usize) -> Self {
         Self { pos }
     }

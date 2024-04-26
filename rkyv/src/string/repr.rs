@@ -58,7 +58,11 @@ impl ArchivedStringRepr {
     /// The internal representation must be out-of-line.
     #[inline]
     pub unsafe fn out_of_line_offset(&self) -> isize {
-        FixedIsize::from_le_bytes(self.out_of_line.offset) as isize
+        // SAFETY: It is always sound to reinterpret the bytes of
+        // `ArchivedStringRepr` as `out_of_line` because the two fields of
+        // `ArchviedStringRepr` are the same size and every bit pattern of
+        // `out_of_line` is valid for it.
+        unsafe { FixedIsize::from_le_bytes(self.out_of_line.offset) as isize }
     }
 
     /// Returns a pointer to the bytes of the string.
@@ -145,28 +149,43 @@ impl ArchivedStringRepr {
     ///
     /// # Safety
     ///
-    /// - The length of `str` must be less than or equal to [`INLINE_CAPACITY`].
+    /// - The length of `value` must be less than or equal to
+    ///   [`INLINE_CAPACITY`].
     /// - `out` must point to a valid location to write the inline
     ///   representation.
     #[inline]
     pub unsafe fn emplace_inline(value: &str, out: *mut Self) {
-        let out_bytes = ptr::addr_of_mut!((*out).inline.bytes);
-        ptr::copy_nonoverlapping(
-            value.as_bytes().as_ptr(),
-            out_bytes.cast(),
-            value.len(),
-        );
+        // SAFETY: The caller has guaranteed that `out` points to a
+        // dereferenceable location.
+        let out_bytes = unsafe { ptr::addr_of_mut!((*out).inline.bytes) };
+        // SAFETY: The caller has guaranteed that the length of `value` is less
+        // than or equal to `INLINE_CAPACITY`. We know that `out_bytes` is a
+        // valid pointer to bytes because it is a subfield of `out` which the
+        // caller has guaranteed points to a valid location.
+        unsafe {
+            ptr::copy_nonoverlapping(
+                value.as_bytes().as_ptr(),
+                out_bytes.cast(),
+                value.len(),
+            );
+        }
 
-        let out_len = ptr::addr_of_mut!((*out).inline.len);
-        *out_len = value.len() as u8;
+        // SAFETY: The caller has guaranteed that `out` points to a
+        // dereferenceable location.
+        let out_len = unsafe { ptr::addr_of_mut!((*out).inline.len) };
+        // SAFETY: `out_len` is properly aligned and valid for writes because it
+        // is a pointer to a subfield of `out`, which is also properly aligned
+        // and valid for writes.
+        unsafe {
+            out_len.write(value.len() as u8);
+        }
     }
 
     /// Emplaces a new out-of-line representation for the given `str`.
     ///
     /// # Safety
     ///
-    /// - The length of `str` must be greater than [`INLINE_CAPACITY`].
-    /// - `out` must point to a `Self` that is valid for reads and writes.
+    /// The length of `str` must be greater than [`INLINE_CAPACITY`].
     #[inline]
     pub unsafe fn try_emplace_out_of_line<E: Source>(
         value: &str,
@@ -204,7 +223,12 @@ impl ArchivedStringRepr {
         target: usize,
         out: Place<Self>,
     ) {
-        Self::try_emplace_out_of_line::<Panic>(value, target, out).always_ok()
+        // SAFETY: The safety conditions for `emplace_out_of_line()` are the
+        // same as the safety conditions for `try_emplace_out_of_line()`.
+        unsafe {
+            Self::try_emplace_out_of_line::<Panic>(value, target, out)
+                .always_ok()
+        }
     }
 }
 
@@ -244,8 +268,9 @@ const _: () = {
             value: *const Self,
             _: &mut C,
         ) -> Result<(), C::Error> {
-            // The fields of `ArchivedStringRepr` are always valid
-            let repr = &*value;
+            // SAFETY: The fields of `ArchivedStringRepr` are always valid for
+            // every bit pattern.
+            let repr = unsafe { &*value };
 
             if repr.is_inline() && repr.len() > INLINE_CAPACITY {
                 fail!(CheckStringReprError);

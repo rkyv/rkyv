@@ -27,10 +27,10 @@ pub unsafe trait ArchiveContext<E = <Self as Fallible>::Error> {
 
     /// Pushes a new subtree range onto the validator and starts validating it.
     ///
-    /// After calling `push_subtree_claim_to`, the validator will have a subtree
-    /// range starting at the original start and ending at `root`. After
-    /// popping the returned range, the validator will have a subtree range
-    /// starting at `end` and ending at the original end.
+    /// After calling `push_subtree_range`, the validator will have a subtree
+    /// range starting at the original start and ending at `root`. After popping
+    /// the returned range, the validator will have a subtree range starting at
+    /// `end` and ending at the original end.
     ///
     /// # Safety
     ///
@@ -48,9 +48,7 @@ pub unsafe trait ArchiveContext<E = <Self as Fallible>::Error> {
     ///
     /// # Safety
     ///
-    /// - `range` must be a range returned from this validator.
-    /// - Ranges pushed after `range` must not be popped after calling
-    ///   `pop_prefix_range`.
+    /// `range` must be a range returned from this validator.
     unsafe fn pop_subtree_range(
         &mut self,
         range: Range<usize>,
@@ -74,14 +72,18 @@ where
         root: *const u8,
         end: *const u8,
     ) -> Result<Range<usize>, E> {
-        T::push_subtree_range(self, root, end)
+        // SAFETY: This just forwards the call to the underlying context, which
+        // has the same safety requirements.
+        unsafe { T::push_subtree_range(self, root, end) }
     }
 
     unsafe fn pop_subtree_range(
         &mut self,
         range: Range<usize>,
     ) -> Result<(), E> {
-        T::pop_subtree_range(self, range)
+        // SAFETY: This just forwards the call to the underlying context, which
+        // has the same safety requirements.
+        unsafe { T::pop_subtree_range(self, range) }
     }
 }
 
@@ -134,7 +136,7 @@ impl<C: ArchiveContext<E> + ?Sized, E: Source> ArchiveContextExt<E> for C {
     ///
     /// # Safety
     ///
-    /// - `base` must be inside the archive this validator was created for.
+    /// - `base` must be inside the buffer this validator was created for.
     /// - `metadata` must be the metadata for the pointer defined by `base` and
     ///   `offset`.
     #[inline]
@@ -156,7 +158,7 @@ impl<C: ArchiveContext<E> + ?Sized, E: Source> ArchiveContextExt<E> for C {
     ///
     /// # Safety
     ///
-    /// - `rel_ptr` must be inside the archive this validator was created for.
+    /// - `rel_ptr` must be inside the buffer this validator was created for.
     #[inline]
     unsafe fn bounds_check_subtree_rel_ptr<
         T: ArchivePointee + LayoutRaw + ?Sized,
@@ -164,11 +166,17 @@ impl<C: ArchiveContext<E> + ?Sized, E: Source> ArchiveContextExt<E> for C {
         &mut self,
         rel_ptr: &RelPtr<T>,
     ) -> Result<*const T, E> {
-        self.bounds_check_subtree_base_offset(
-            rel_ptr.base(),
-            rel_ptr.offset(),
-            T::pointer_metadata(rel_ptr.metadata()),
-        )
+        // SAFETY:
+        // - The caller has guaranteed that `rel_ptr` is inside the buffer.
+        // - The metadata of the relative pointer corresponds to the pointer it
+        //   holds as an invariant of `RelPtr`.
+        unsafe {
+            self.bounds_check_subtree_base_offset(
+                rel_ptr.base(),
+                rel_ptr.offset(),
+                T::pointer_metadata(rel_ptr.metadata()),
+            )
+        }
     }
 
     // TODO: push_prefix_subtree should accept a closure and encapsulate the
@@ -181,17 +189,17 @@ impl<C: ArchiveContext<E> + ?Sized, E: Source> ArchiveContextExt<E> for C {
     ///
     /// # Safety
     ///
-    /// `root` must be located inside the archive.
+    /// The value that `root` points to must be located inside the buffer.
     #[inline]
     unsafe fn push_prefix_subtree<T: LayoutRaw + ?Sized>(
         &mut self,
         root: *const T,
     ) -> Result<Range<usize>, E> {
         let layout = T::layout_raw(ptr_meta::metadata(root)).into_error()?;
-        self.push_subtree_range(
-            root as *const u8,
-            (root as *const u8).add(layout.size()),
-        )
+        let root = root as *const u8;
+        // SAFETY: The caller has guaranteed that the entire range from `root`
+        // to `root + layout.size()` is located within the buffer.
+        unsafe { self.push_subtree_range(root, root.add(layout.size())) }
     }
 }
 

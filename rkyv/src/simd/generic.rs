@@ -66,9 +66,14 @@ impl Group {
         Word::from_ne_bytes([byte; Self::WIDTH])
     }
 
+    /// # Safety
+    ///
+    /// `ptr` must be valid for reads and point to enough bytes for a `Word`.
     #[inline]
     pub unsafe fn read(ptr: *const u8) -> Self {
-        Self(core::ptr::read_unaligned(ptr.cast()))
+        // SAFETY: The caller has guaranteed that `ptr` is valid for reads and
+        // points to enough bytes for a `Word`.
+        unsafe { Self(core::ptr::read_unaligned(ptr.cast())) }
     }
 
     #[inline]

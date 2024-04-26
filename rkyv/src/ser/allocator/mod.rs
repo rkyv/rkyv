@@ -40,7 +40,9 @@ impl<T: Allocator<E>, E> Allocator<E> for Strategy<T, E> {
         &mut self,
         layout: Layout,
     ) -> Result<NonNull<[u8]>, E> {
-        T::push_alloc(self, layout)
+        // SAFETY: The safety requirements for `push_alloc()` are the same as
+        // the requirements for `T::push_alloc`.
+        unsafe { T::push_alloc(self, layout) }
     }
 
     unsafe fn pop_alloc(
@@ -48,9 +50,14 @@ impl<T: Allocator<E>, E> Allocator<E> for Strategy<T, E> {
         ptr: NonNull<u8>,
         layout: Layout,
     ) -> Result<(), E> {
-        T::pop_alloc(self, ptr, layout)
+        // SAFETY: The safety requirements for `pop_alloc()` are the same as
+        // the requirements for `T::pop_alloc`.
+        unsafe { T::pop_alloc(self, ptr, layout) }
     }
 }
+
+// TODO: This whole thing is dubiously sound because it "tries" to deallocate
+// and relies on that failing to try the "correct" thing to do.
 
 /// Allocates space with a primary and backup allocator.
 #[derive(Debug, Default)]
@@ -76,9 +83,12 @@ where
         &mut self,
         layout: Layout,
     ) -> Result<NonNull<[u8]>, E> {
-        self.primary
-            .push_alloc(layout)
-            .or_else(|_| self.backup.push_alloc(layout))
+        // dubious soundness
+        unsafe {
+            self.primary
+                .push_alloc(layout)
+                .or_else(|_| self.backup.push_alloc(layout))
+        }
     }
 
     #[inline]
@@ -87,9 +97,12 @@ where
         ptr: NonNull<u8>,
         layout: Layout,
     ) -> Result<(), E> {
-        self.primary
-            .pop_alloc(ptr, layout)
-            .or_else(|_| self.backup.pop_alloc(ptr, layout))
+        // dubious soundness
+        unsafe {
+            self.primary
+                .pop_alloc(ptr, layout)
+                .or_else(|_| self.backup.pop_alloc(ptr, layout))
+        }
     }
 }
 
@@ -154,7 +167,9 @@ impl<T: Allocator<E>, E> Allocator<E> for AllocationTracker<T> {
         &mut self,
         layout: Layout,
     ) -> Result<NonNull<[u8]>, E> {
-        let result = self.inner.push_alloc(layout)?;
+        // SAFETY: The safety requirements for `push_alloc` are the same as the
+        // requirements for `inner.push_alloc`.
+        let result = unsafe { self.inner.push_alloc(layout)? };
 
         self.bytes_allocated += layout.size();
         self.allocations += 1;
@@ -173,7 +188,11 @@ impl<T: Allocator<E>, E> Allocator<E> for AllocationTracker<T> {
         ptr: NonNull<u8>,
         layout: Layout,
     ) -> Result<(), E> {
-        self.inner.pop_alloc(ptr, layout)?;
+        // SAFETY: The safety requirements for `pop_alloc` are the same as the
+        // requirements for `inner.pop_alloc`.
+        unsafe {
+            self.inner.pop_alloc(ptr, layout)?;
+        }
 
         self.bytes_allocated -= layout.size();
         self.allocations -= 1;

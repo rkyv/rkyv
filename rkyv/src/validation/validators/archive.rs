@@ -1,86 +1,92 @@
 //! The provided implementation for `ArchiveContext`.
 
-use core::{
-    alloc::{Layout, LayoutError},
-    fmt,
-    num::NonZeroUsize,
-    ops::Range,
-};
+use core::{alloc::Layout, fmt, num::NonZeroUsize, ops::Range};
 
 use rancor::{fail, OptionExt, Source};
 
-use crate::validation::ArchiveContext;
+use crate::{fmt::Pointer, validation::ArchiveContext};
 
-/// Errors that can occur when checking archive memory.
 #[derive(Debug)]
-pub enum ArchiveError {
-    /// The pointer wasn't aligned properly for the desired type
-    Unaligned {
-        /// The pointer to the type
-        address: usize,
-        /// The required alignment of the type
-        align: usize,
-    },
-    /// The pointer wasn't within the subtree range
-    InvalidSubtreePointer {
-        /// The address of the subtree pointer
-        address: usize,
-        /// The desired size of the subtree value
-        size: usize,
-        /// The subtree range
-        subtree_range: Range<usize>,
-    },
-    /// A subtree range was popped too many times.
-    RangePoppedTooManyTimes,
-    /// The maximum subtree depth was reached or exceeded.
-    ExceededMaximumSubtreeDepth,
-    /// A layout error occurred
-    LayoutError {
-        /// A layout error
-        layout_error: LayoutError,
-    },
+struct UnalignedPointer {
+    address: usize,
+    align: usize,
 }
 
-impl fmt::Display for ArchiveError {
+impl fmt::Display for UnalignedPointer {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        const W: usize = (usize::BITS / 4 + 2) as usize;
-
-        match self {
-            ArchiveError::Unaligned { address, align } => write!(
-                f,
-                "unaligned pointer: ptr {address:#0w$x} unaligned for \
-                 alignment {align}",
-                w = W,
-            ),
-            ArchiveError::InvalidSubtreePointer {
-                address,
-                size,
-                subtree_range,
-            } => write!(
-                f,
-                "subtree pointer overran range: ptr {address:#0w$x} size \
-                 {size} in range {:#0w$x}..{:#0w$x}",
-                subtree_range.start,
-                subtree_range.end,
-                w = W,
-            ),
-            ArchiveError::RangePoppedTooManyTimes => {
-                write!(f, "subtree range popped too many times",)
-            }
-            ArchiveError::ExceededMaximumSubtreeDepth => write!(
-                f,
-                "pushed a subtree range that exceeded the maximum subtree \
-                 depth",
-            ),
-            ArchiveError::LayoutError { layout_error } => {
-                write!(f, "a layout error occurred: {}", layout_error)
-            }
-        }
+        write!(
+            f,
+            "unaligned pointer: ptr {} unaligned for alignment {}",
+            Pointer(self.address),
+            self.align,
+        )
     }
 }
 
 #[cfg(feature = "std")]
-impl std::error::Error for ArchiveError {}
+impl std::error::Error for UnalignedPointer {}
+
+#[derive(Debug)]
+struct InvalidSubtreePointer {
+    address: usize,
+    size: usize,
+    subtree_range: Range<usize>,
+}
+
+impl fmt::Display for InvalidSubtreePointer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "subtree pointer overran range: ptr {} size {} in range {}..{}",
+            Pointer(self.address),
+            self.size,
+            Pointer(self.subtree_range.start),
+            Pointer(self.subtree_range.end),
+        )
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for InvalidSubtreePointer {}
+
+#[derive(Debug)]
+struct ExceededMaximumSubtreeDepth;
+
+impl fmt::Display for ExceededMaximumSubtreeDepth {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "pushed a subtree range that exceeded the maximum subtree depth",
+        )
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for ExceededMaximumSubtreeDepth {}
+
+#[derive(Debug)]
+struct RangePoppedTooManyTimes;
+
+impl fmt::Display for RangePoppedTooManyTimes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "subtree range popped too many times")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for RangePoppedTooManyTimes {}
+
+#[derive(Debug)]
+struct RangePoppedOutOfOrder;
+
+impl fmt::Display for RangePoppedOutOfOrder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "subtree range popped out of order")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for RangePoppedOutOfOrder {}
 
 /// A validator that can verify archives with nonlocal memory.
 #[derive(Debug)]
@@ -134,13 +140,13 @@ unsafe impl<E: Source> ArchiveContext<E> for ArchiveValidator {
         let start = ptr as usize;
         let end = ptr.wrapping_add(layout.size()) as usize;
         if start < self.subtree_range.start || end > self.subtree_range.end {
-            fail!(ArchiveError::InvalidSubtreePointer {
+            fail!(InvalidSubtreePointer {
                 address: start,
                 size: layout.size(),
                 subtree_range: self.subtree_range.clone(),
             });
         } else if start & (layout.align() - 1) != 0 {
-            fail!(ArchiveError::Unaligned {
+            fail!(UnalignedPointer {
                 address: ptr as usize,
                 align: layout.align(),
             });
@@ -157,7 +163,7 @@ unsafe impl<E: Source> ArchiveContext<E> for ArchiveValidator {
     ) -> Result<Range<usize>, E> {
         if let Some(max_subtree_depth) = &mut self.max_subtree_depth {
             *max_subtree_depth = NonZeroUsize::new(max_subtree_depth.get() - 1)
-                .into_trace(ArchiveError::ExceededMaximumSubtreeDepth)?;
+                .into_trace(ExceededMaximumSubtreeDepth)?;
         }
 
         let result = Range {
@@ -173,11 +179,14 @@ unsafe impl<E: Source> ArchiveContext<E> for ArchiveValidator {
         &mut self,
         range: Range<usize>,
     ) -> Result<(), E> {
+        if range.start < self.subtree_range.end {
+            fail!(RangePoppedOutOfOrder);
+        }
         self.subtree_range = range;
         if let Some(max_subtree_depth) = &mut self.max_subtree_depth {
             *max_subtree_depth = max_subtree_depth
                 .checked_add(1)
-                .into_trace(ArchiveError::RangePoppedTooManyTimes)?;
+                .into_trace(RangePoppedTooManyTimes)?;
         }
         Ok(())
     }

@@ -11,6 +11,7 @@ use std::alloc::{alloc, alloc_zeroed, dealloc};
 use rancor::{fail, Source};
 
 use crate::{
+    fmt::Pointer,
     ser::{allocator::BufferAllocator, Allocator},
     util::AlignedBytes,
 };
@@ -53,7 +54,9 @@ impl<const N: usize, E: Source> Allocator<E> for BumpAllocator<N> {
         &mut self,
         layout: Layout,
     ) -> Result<NonNull<[u8]>, E> {
-        self.inner.push_alloc(layout)
+        // SAFETY: The safety requirements for `inner.push_alloc()` are the same
+        // as the safety conditions for `push_alloc()`.
+        unsafe { self.inner.push_alloc(layout) }
     }
 
     #[inline]
@@ -62,70 +65,74 @@ impl<const N: usize, E: Source> Allocator<E> for BumpAllocator<N> {
         ptr: NonNull<u8>,
         layout: Layout,
     ) -> Result<(), E> {
-        self.inner.pop_alloc(ptr, layout)
+        // SAFETY: The safety requirements for `inner.pop_alloc()` are the same
+        // as the safety conditions for `pop_alloc()`.
+        unsafe { self.inner.pop_alloc(ptr, layout) }
     }
 }
 
 #[derive(Debug)]
-enum GlobalAllocatorError {
-    ExceededLimit {
-        requested: usize,
-        remaining: usize,
-    },
-    NotPoppedInReverseOrder {
-        expected: usize,
-        expected_layout: Layout,
-        actual: usize,
-        actual_layout: Layout,
-    },
-    NoAllocationsToPop,
+struct ExceededLimit {
+    requested: usize,
+    remaining: usize,
 }
 
-impl fmt::Display for GlobalAllocatorError {
+impl fmt::Display for ExceededLimit {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        const W: usize = (usize::BITS / 4 + 2) as usize;
-
-        match self {
-            Self::ExceededLimit {
-                requested,
-                remaining,
-            } => write!(
-                f,
-                "exceeded the maximum limit of scratch space: requested {}, \
-                 remaining {}",
-                requested, remaining
-            ),
-            Self::NotPoppedInReverseOrder {
-                expected,
-                expected_layout,
-                actual,
-                actual_layout,
-            } => write!(
-                f,
-                "scratch space was not popped in reverse order: expected \
-                 {expected:#0w$x} with size {} and align {}, found \
-                 {actual:#0w$x} with size {} and align {}",
-                expected_layout.size(),
-                expected_layout.align(),
-                actual_layout.size(),
-                actual_layout.align(),
-                w = W,
-            ),
-            Self::NoAllocationsToPop => write!(
-                f,
-                "attempted to pop scratch space but there were no allocations \
-                 to pop"
-            ),
-        }
+        write!(
+            f,
+            "exceeded the maximum limit of scratch space: requested {}, \
+             remaining {}",
+            self.requested, self.remaining
+        )
     }
 }
 
 #[cfg(feature = "std")]
-const _: () = {
-    use std::error::Error;
+impl std::error::Error for ExceededLimit {}
 
-    impl Error for GlobalAllocatorError {}
-};
+#[derive(Debug)]
+struct NotPoppedInReverseOrder {
+    expected: usize,
+    expected_layout: Layout,
+    actual: usize,
+    actual_layout: Layout,
+}
+
+impl fmt::Display for NotPoppedInReverseOrder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "scratch space was not popped in reverse order: expected {} with \
+             size {} and align {}, found {} with size {} and align {}",
+            Pointer(self.expected),
+            self.expected_layout.size(),
+            self.expected_layout.align(),
+            Pointer(self.actual),
+            self.actual_layout.size(),
+            self.actual_layout.align(),
+        )
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for NotPoppedInReverseOrder {}
+
+#[derive(Debug)]
+struct NoAllocationsToPop;
+
+impl fmt::Display for NoAllocationsToPop {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "attempted to pop scratch space but there were no allocations to \
+             pop"
+        )
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for NoAllocationsToPop {}
 
 /// Scratch space that always uses the global allocator.
 ///
@@ -180,18 +187,20 @@ impl<E: Source> Allocator<E> for GlobalAllocator {
     ) -> Result<NonNull<[u8]>, E> {
         if let Some(remaining) = self.remaining {
             if remaining < layout.size() {
-                fail!(GlobalAllocatorError::ExceededLimit {
+                fail!(ExceededLimit {
                     requested: layout.size(),
                     remaining,
                 });
             }
         }
-        let result_ptr = alloc(layout);
+        // SAFETY: The caller has guaranteed that `layout` has non-zero size.
+        let result_ptr = unsafe { alloc(layout) };
         assert!(!result_ptr.is_null());
         self.allocations.push((result_ptr, layout));
         let result_slice =
             ptr_meta::from_raw_parts_mut(result_ptr.cast(), layout.size());
-        let result = NonNull::new_unchecked(result_slice);
+        // SAFETY: We asserted that `result_ptr` was not null.
+        let result = unsafe { NonNull::new_unchecked(result_slice) };
         Ok(result)
     }
 
@@ -203,11 +212,13 @@ impl<E: Source> Allocator<E> for GlobalAllocator {
     ) -> Result<(), E> {
         if let Some(&(last_ptr, last_layout)) = self.allocations.last() {
             if ptr.as_ptr() == last_ptr && layout == last_layout {
-                dealloc(ptr.as_ptr(), layout);
+                // SAFETY: `ptr` and `alloc` correspond to a valid call to
+                // `alloc` because they were on the allocation stack.
+                unsafe { dealloc(ptr.as_ptr(), layout) };
                 self.allocations.pop();
                 Ok(())
             } else {
-                fail!(GlobalAllocatorError::NotPoppedInReverseOrder {
+                fail!(NotPoppedInReverseOrder {
                     expected: last_ptr as usize,
                     expected_layout: last_layout,
                     actual: ptr.as_ptr() as usize,
@@ -215,7 +226,7 @@ impl<E: Source> Allocator<E> for GlobalAllocator {
                 });
             }
         } else {
-            fail!(GlobalAllocatorError::NoAllocationsToPop);
+            fail!(NoAllocationsToPop);
         }
     }
 }
