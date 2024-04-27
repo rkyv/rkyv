@@ -4,6 +4,8 @@ use core::{mem::size_of, ptr::NonNull};
 
 use munge::{Borrow, Destructure, Restructure};
 
+use crate::LayoutRaw;
+
 /// A place to write a `T` paired with its position in the output buffer.
 pub struct Place<T: ?Sized> {
     pos: usize,
@@ -113,6 +115,20 @@ impl<T: ?Sized> Place<T> {
             pos: self.pos,
             ptr: self.ptr.cast(),
         }
+    }
+
+    /// Returns a slice of the bytes this place points to.
+    #[inline]
+    pub fn as_slice(&self) -> &[u8]
+    where
+        T: LayoutRaw,
+    {
+        let ptr = self.ptr.as_ptr();
+        let len = T::layout_raw(ptr_meta::metadata(ptr)).unwrap().size();
+        // SAFETY: The pointers of places are always properly aligned and
+        // dereferenceable. All of the bytes this place points to are guaranteed
+        // to be initialized at all times.
+        unsafe { core::slice::from_raw_parts(ptr.cast::<u8>(), len) }
     }
 }
 

@@ -6,7 +6,7 @@ mod core;
 #[cfg(feature = "std")]
 mod std;
 
-use ::core::{mem, slice};
+use ::core::mem;
 use rancor::{Fallible, Strategy};
 
 pub use self::core::*;
@@ -103,15 +103,7 @@ pub trait WriterExt<E>: Writer<E> {
         // of its bytes are initialized.
         let out = unsafe { Place::new_unchecked(pos, resolved.as_mut_ptr()) };
         value.resolve(resolver, out);
-
-        let data = resolved.as_ptr().cast::<u8>();
-        let len = mem::size_of::<T::Archived>();
-        // TODO: this can be a method on Place (fn as_slice(&self) -> &[u8])
-        // SAFETY: `data` points to the local `MaybeUninit`, and so points to
-        // enough bytes for a `T::Archived`. Because it was put in a `Place`, we
-        // know that its bytes have remained properly initialized.
-        let slice = unsafe { slice::from_raw_parts(data, len) };
-        self.write(slice)?;
+        self.write(out.as_slice())?;
         Ok(pos)
     }
 
@@ -141,14 +133,7 @@ pub trait WriterExt<E>: Writer<E> {
         let out = unsafe { Place::new_unchecked(from, resolved.as_mut_ptr()) };
         RelPtr::emplace_unsized(to, value.archived_metadata(), out);
 
-        let data = resolved.as_ptr().cast::<u8>();
-        let len = mem::size_of::<RelPtr<T::Archived>>();
-        // TODO: this can be a method on Place (fn as_slice(&self) -> &[u8])
-        // SAFETY: `data` points to the local `MaybeUninit`, and so points to
-        // enough bytes for a `T::Archived`. Because it was put in a `Place`, we
-        // know that its bytes have remained properly initialized.
-        let slice = unsafe { slice::from_raw_parts(data, len) };
-        self.write(slice)?;
+        self.write(out.as_slice())?;
         Ok(from)
     }
 }
