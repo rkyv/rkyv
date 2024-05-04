@@ -264,23 +264,20 @@ mod verify {
                     str::check_bytes(self.repr.as_str_ptr(), context)?;
                 }
             } else {
-                let base = (&self.repr as *const ArchivedStringRepr).cast();
+                let base =
+                    (&self.repr as *const ArchivedStringRepr).cast::<u8>();
                 let offset = unsafe { self.repr.out_of_line_offset() };
                 let metadata = self.repr.len();
 
-                let ptr = unsafe {
-                    context.bounds_check_subtree_base_offset::<str>(
-                        base, offset, metadata,
-                    )?
-                };
+                let address = base.wrapping_offset(offset).cast::<()>();
+                let ptr = ptr_meta::from_raw_parts(address, metadata);
 
-                let range = unsafe { context.push_prefix_subtree(ptr)? };
-                unsafe {
-                    str::check_bytes(ptr, context)?;
-                }
-                unsafe {
-                    context.pop_subtree_range(range)?;
-                }
+                context.in_subtree(ptr, |context| {
+                    // SAFETY: `in_subtree` has guaranteed that `ptr` is
+                    // properly aligned and points to enough bytes to represent
+                    // the pointed-to `str`.
+                    unsafe { str::check_bytes(ptr, context) }
+                })?;
             }
 
             Ok(())

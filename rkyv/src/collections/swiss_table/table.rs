@@ -612,45 +612,43 @@ mod verify {
                 .as_ptr_wrapping()
                 .cast::<u8>()
                 .wrapping_sub(control_offset);
-            context.check_subtree_ptr(ptr, &layout)?;
 
-            let range = unsafe { context.push_prefix_subtree(ptr)? };
+            context.in_subtree_raw(ptr, layout, |context| {
+                // Check each non-empty bucket
 
-            // Check each non-empty bucket
+                // SAFETY: We have checked that `self` is not empty.
+                let mut controls = unsafe { self.control_iter() };
+                let mut base_index = 0;
+                'outer: while base_index < cap {
+                    while let Some(bit) = controls.next_full() {
+                        let index = base_index + bit;
+                        if index >= cap {
+                            break 'outer;
+                        }
 
-            // SAFETY: We have checked that `self` is not empty.
-            let mut controls = unsafe { self.control_iter() };
-            let mut base_index = 0;
-            'outer: while base_index < cap {
-                while let Some(bit) = controls.next_full() {
-                    let index = base_index + bit;
-                    if index >= cap {
-                        break 'outer;
+                        unsafe {
+                            T::check_bytes(
+                                self.bucket(index).as_ptr(),
+                                context,
+                            )?;
+                        }
                     }
 
-                    unsafe {
-                        T::check_bytes(self.bucket(index).as_ptr(), context)?;
+                    controls.move_next();
+                    base_index += Group::WIDTH;
+                }
+
+                // Verify that wrapped bytes are set correctly
+                for i in cap..usize::min(2 * cap, control_count) {
+                    let byte = unsafe { *self.control(i) };
+                    let wrapped = unsafe { *self.control(i % cap) };
+                    if wrapped != byte {
+                        fail!(UnwrappedControlByte { index: i })
                     }
                 }
 
-                controls.move_next();
-                base_index += Group::WIDTH;
-            }
-
-            // Verify that wrapped bytes are set correctly
-            for i in cap..usize::min(2 * cap, control_count) {
-                let byte = unsafe { *self.control(i) };
-                let wrapped = unsafe { *self.control(i % cap) };
-                if wrapped != byte {
-                    fail!(UnwrappedControlByte { index: i })
-                }
-            }
-
-            unsafe {
-                context.pop_subtree_range(range)?;
-            }
-
-            Ok(())
+                Ok(())
+            })
         }
     }
 }

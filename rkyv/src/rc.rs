@@ -327,21 +327,14 @@ mod verify {
             let ptr = self.ptr.as_ptr_wrapping();
             let type_id = TypeId::of::<ArchivedRc<T, F>>();
 
-            if context
-                .register_shared_ptr(ptr as *const u8 as usize, type_id)?
-            {
-                unsafe {
-                    context.bounds_check_subtree_rel_ptr(&self.ptr)?;
-                }
-
-                let range = unsafe { context.push_prefix_subtree(ptr)? };
-                unsafe {
-                    T::check_bytes(ptr, context)?;
-                }
-                unsafe {
-                    context.pop_subtree_range(range)?;
-                }
+            let is_new = context
+                .register_shared_ptr(ptr as *const u8 as usize, type_id)?;
+            if is_new {
+                context.in_subtree(ptr, |context| unsafe {
+                    T::check_bytes(ptr, context)
+                })?
             }
+
             Ok(())
         }
     }

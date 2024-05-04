@@ -711,8 +711,9 @@ mod verify {
         match kind {
             NodeKind::Leaf => {
                 // SAFETY:
-                // - We checked to make sure that `node_ptr` is properly aligned
-                //   and dereferenceable.
+                // - We checked to make sure that `node_ptr` is properly
+                //   aligned, dereferenceable, and contained entirely within
+                //   `context`'s buffer by calling `check_subtree_ptr`.
                 // - `len` is less than or equal to `E`.
                 unsafe {
                     check_leaf_node::<C, K, V, E>(node_ptr, len, context)?
@@ -738,7 +739,8 @@ mod verify {
 
     /// # Safety
     ///
-    /// - `node_ptr` must be properly aligned and dereferenceable.
+    /// - `node_ptr` must be properly aligned, dereferenceable, and contained
+    ///   within `context`'s buffer.
     /// - `len` must be less than or equal to `E`.
     unsafe fn check_leaf_node<C, K, V, const E: usize>(
         node_ptr: *const Node<K, V, E>,
@@ -751,13 +753,17 @@ mod verify {
         K: CheckBytes<C>,
         V: CheckBytes<C>,
     {
-        context.check_subtree_ptr(
-            node_ptr.cast::<u8>(),
-            &Layout::new::<Node<K, V, E>>(),
-        )?;
-        // SAFETY: We checked that `node_ptr` is located inside the buffer by
-        // calling `check_subtree_ptr`.
-        let range = unsafe { context.push_prefix_subtree(node_ptr)? };
+        // We don't call `in_subtree` here because the caller has already
+        // checked that `node_ptr` points to a `Node<K, V, E>` that is contained
+        // entirely within the buffer. So now, we can just manually push and pop
+        // the subtree ranges.
+        let root = node_ptr as *const u8;
+        let size = core::mem::size_of::<Node<K, V, E>>();
+        let end = root.wrapping_add(size);
+
+        // SAFETY: The caller has guaranteed that `node_ptr` is located inside
+        // the buffer.
+        let range = unsafe { context.push_subtree_range(root, end)? };
 
         // SAFETY: The safety requirements for `check_node_entries` are the same
         // as the safety requirements for `check_leaf_node`.
@@ -769,6 +775,7 @@ mod verify {
         unsafe {
             context.pop_subtree_range(range)?;
         }
+
         Ok(())
     }
 
@@ -830,64 +837,55 @@ mod verify {
         K: CheckBytes<C>,
         V: CheckBytes<C>,
     {
-        let inner_node_ptr = node_ptr.cast::<InnerNode<K, V, E>>();
-        context.check_subtree_ptr(
-            inner_node_ptr.cast::<u8>(),
-            &Layout::new::<InnerNode<K, V, E>>(),
-        )?;
-        // SAFETY: We checked that `inner_node_ptr` is located inside the
-        // buffer by calling `check_subtree_ptr`.
-        let range = unsafe { context.push_prefix_subtree(inner_node_ptr)? };
-
-        // SAFETY: We checked that `node_ptr` is properly aligned and
-        // dereferenceable.
-        let lesser_nodes =
-            unsafe { addr_of!((*node_ptr).lesser_nodes).cast::<RawRelPtr>() };
-        for i in 0..len {
-            // SAFETY: `lesser_nodes` points to the first element of an array of
-            // length `E`, and the caller has guaranteed that `len` is less than
-            // `E`.
-            let lesser_node_ptr = unsafe { lesser_nodes.add(i) };
-            // SAFETY: `lesser_node_ptr` is a subfield of an inner node, and so
-            // is guaranteed to be properly aligned and point to enough bytes
-            // for a `RawRelPtr`.
+        context.in_subtree(node_ptr, |context| {
+            // SAFETY: `in_subtree` guarantees that `node_ptr` is properly
+            // aligned and dereferenceable.
+            let lesser_nodes = unsafe {
+                addr_of!((*node_ptr).lesser_nodes).cast::<RawRelPtr>()
+            };
+            for i in 0..len {
+                // SAFETY: `lesser_nodes` points to the first element of an
+                // array of length `E`, and the caller has
+                // guaranteed that `len` is less than `E`.
+                let lesser_node_ptr = unsafe { lesser_nodes.add(i) };
+                // SAFETY: `lesser_node_ptr` is a subfield of an inner node, and
+                // so is guaranteed to be properly aligned and
+                // point to enough bytes for a `RawRelPtr`.
+                unsafe {
+                    RawRelPtr::check_bytes(lesser_node_ptr, context)?;
+                }
+                // SAFETY: We just checked the `lesser_node_ptr` and it
+                // succeeded, so it's safe to dereference.
+                let lesser_node = unsafe { &*lesser_node_ptr };
+                if !lesser_node.is_invalid() {
+                    check_node_rel_ptr::<C, K, V, E>(lesser_node, context)?;
+                }
+            }
+            // SAFETY: We checked that `node_ptr` is properly aligned and
+            // dereferenceable.
+            let greater_node_ptr =
+                unsafe { addr_of!((*node_ptr).greater_node) };
+            // SAFETY: `greater_node_ptr` is a subfield of an inner node, and so
+            // is guaranteed to be properly aligned and point to
+            // enough bytes for a `RawRelPtr`.
             unsafe {
-                RawRelPtr::check_bytes(lesser_node_ptr, context)?;
+                RawRelPtr::check_bytes(greater_node_ptr, context)?;
             }
-            // SAFETY: We just checked the `lesser_node_ptr` and it succeeded,
+            // SAFETY: We just checked the `greater_node_ptr` and it succeeded,
             // so it's safe to dereference.
-            let lesser_node = unsafe { &*lesser_node_ptr };
-            if !lesser_node.is_invalid() {
-                check_node_rel_ptr::<C, K, V, E>(lesser_node, context)?;
+            let greater_node = unsafe { &*greater_node_ptr };
+            if !greater_node.is_invalid() {
+                check_node_rel_ptr::<C, K, V, E>(greater_node, context)?;
             }
-        }
-        // SAFETY: We checked that `node_ptr` is properly aligned and
-        // dereferenceable.
-        let greater_node_ptr = unsafe { addr_of!((*node_ptr).greater_node) };
-        // SAFETY: `greater_node_ptr` is a subfield of an inner node, and so is
-        // guaranteed to be properly aligned and point to enough bytes for a
-        // `RawRelPtr`.
-        unsafe {
-            RawRelPtr::check_bytes(greater_node_ptr, context)?;
-        }
-        // SAFETY: We just checked the `greater_node_ptr` and it succeeded,
-        // so it's safe to dereference.
-        let greater_node = unsafe { &*greater_node_ptr };
-        if !greater_node.is_invalid() {
-            check_node_rel_ptr::<C, K, V, E>(greater_node, context)?;
-        }
 
-        // SAFETY: We checked that `node_ptr` is properly aligned and
-        // dereferenceable.
-        let node_ptr = unsafe { addr_of!((*node_ptr).node) };
-        unsafe {
-            check_node_entries::<C, K, V, E>(node_ptr, len, context)?;
-        }
+            // SAFETY: We checked that `node_ptr` is properly aligned and
+            // dereferenceable.
+            let node_ptr = unsafe { addr_of!((*node_ptr).node) };
+            unsafe {
+                check_node_entries::<C, K, V, E>(node_ptr, len, context)?;
+            }
 
-        // SAFETY: `range` was returned from `push_prefix_subtree`.
-        unsafe {
-            context.pop_subtree_range(range)?;
-        }
-        Ok(())
+            Ok(())
+        })
     }
 }

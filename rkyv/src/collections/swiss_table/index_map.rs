@@ -542,23 +542,16 @@ mod verify {
             &self,
             context: &mut C,
         ) -> Result<(), <C as Fallible>::Error> {
-            let ptr = unsafe {
-                context.bounds_check_subtree_base_offset::<[Entry<K, V>]>(
-                    self.entries.base(),
-                    self.entries.offset(),
-                    self.table.len(),
-                )?
-            };
+            let ptr = core::ptr::slice_from_raw_parts(
+                self.entries.as_ptr_wrapping(),
+                self.table.len(),
+            );
 
-            let range = unsafe { context.push_prefix_subtree(ptr)? };
-            unsafe {
-                <[Entry<K, V>]>::check_bytes(ptr, context)?;
-            }
-            unsafe {
-                context.pop_subtree_range(range)?;
-            }
-
-            Ok(())
+            context.in_subtree(ptr, |context| {
+                // SAFETY: `in_subtree` has checked that `ptr` is aligned and
+                // points to enough bytes to represent its slice.
+                unsafe { <[Entry<K, V>]>::check_bytes(ptr, context) }
+            })
         }
     }
 }

@@ -195,18 +195,10 @@ mod verify {
     {
         #[inline]
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {
-            let ptr =
-                unsafe { context.bounds_check_subtree_rel_ptr(&self.ptr)? };
-
-            let range = unsafe { context.push_prefix_subtree(ptr)? };
-            unsafe {
-                T::check_bytes(ptr, context)?;
-            }
-            unsafe {
-                context.pop_subtree_range(range)?;
-            }
-
-            Ok(())
+            let ptr = self.ptr.as_ptr_wrapping();
+            context.in_subtree(ptr, |context| unsafe {
+                T::check_bytes(ptr, context)
+            })
         }
     }
 }

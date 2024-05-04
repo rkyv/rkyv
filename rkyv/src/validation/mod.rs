@@ -6,10 +6,9 @@ pub mod validators;
 use core::{alloc::Layout, any::TypeId, ops::Range};
 
 use bytecheck::rancor::{Fallible, Source, Strategy};
-use ptr_meta::Pointee;
 use rancor::ResultExt as _;
 
-use crate::{ArchivePointee, LayoutRaw, RelPtr};
+use crate::LayoutRaw;
 
 /// A context that can validate nonlocal archive memory.
 ///
@@ -57,7 +56,7 @@ pub unsafe trait ArchiveContext<E = <Self as Fallible>::Error> {
 
 unsafe impl<T, E> ArchiveContext<E> for Strategy<T, E>
 where
-    T: ArchiveContext<E>,
+    T: ArchiveContext<E> + ?Sized,
 {
     fn check_subtree_ptr(
         &mut self,
@@ -89,117 +88,63 @@ where
 
 /// Helper methods for `ArchiveContext`s.
 pub trait ArchiveContextExt<E>: ArchiveContext<E> {
-    /// Checks that the given relative pointer to a subtree can be dereferenced.
-    ///
-    /// # Safety
-    ///
-    /// - `base` must be inside the archive this validator was created for.
-    /// - `metadata` must be the metadata for the pointer defined by `base` and
-    ///   `offset`.
-    unsafe fn bounds_check_subtree_base_offset<
-        T: LayoutRaw + Pointee + ?Sized,
-    >(
+    /// Checks that the given pointer and layout are within the current subtree
+    /// range of the context, then pushes a new subtree range onto the validator
+    /// for it and calls the given function.
+    fn in_subtree_raw<R>(
         &mut self,
-        base: *const u8,
-        offset: isize,
-        metadata: T::Metadata,
-    ) -> Result<*const T, E>;
+        ptr: *const u8,
+        layout: Layout,
+        f: impl FnOnce(&mut Self) -> Result<R, E>,
+    ) -> Result<R, E>;
 
-    /// Checks that the given `RelPtr` to a subtree can be dereferenced.
-    ///
-    /// # Safety
-    ///
-    /// - `rel_ptr` must be inside the archive this validator was created for.
-    unsafe fn bounds_check_subtree_rel_ptr<
-        T: ArchivePointee + LayoutRaw + ?Sized,
-    >(
+    /// Checks that the value the given pointer points to is within the current
+    /// subtree range of the context, then pushes a new subtree range onto the
+    /// validator for it and calls the given function.
+    fn in_subtree<T: LayoutRaw + ?Sized, R>(
         &mut self,
-        rel_ptr: &RelPtr<T>,
-    ) -> Result<*const T, E>;
-
-    /// Pushes a new subtree range onto the validator and starts validating it.
-    ///
-    /// The claimed range spans from the end of `start` to the end of the
-    /// current subobject range.
-    ///
-    /// # Safety
-    ///
-    /// `root` must be located inside the archive.
-    unsafe fn push_prefix_subtree<T: LayoutRaw + ?Sized>(
-        &mut self,
-        root: *const T,
-    ) -> Result<Range<usize>, E>;
+        ptr: *const T,
+        f: impl FnOnce(&mut Self) -> Result<R, E>,
+    ) -> Result<R, E>;
 }
 
 impl<C: ArchiveContext<E> + ?Sized, E: Source> ArchiveContextExt<E> for C {
-    /// Checks that the given relative pointer to a subtree can be dereferenced.
-    ///
-    /// # Safety
-    ///
-    /// - `base` must be inside the buffer this validator was created for.
-    /// - `metadata` must be the metadata for the pointer defined by `base` and
-    ///   `offset`.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     #[inline]
-    unsafe fn bounds_check_subtree_base_offset<
-        T: LayoutRaw + Pointee + ?Sized,
-    >(
+    fn in_subtree_raw<R>(
         &mut self,
-        base: *const u8,
-        offset: isize,
-        metadata: T::Metadata,
-    ) -> Result<*const T, E> {
-        let ptr = base.wrapping_offset(offset);
-        let layout = T::layout_raw(metadata).into_error()?;
+        ptr: *const u8,
+        layout: Layout,
+        f: impl FnOnce(&mut Self) -> Result<R, E>,
+    ) -> Result<R, E> {
         self.check_subtree_ptr(ptr, &layout)?;
-        Ok(ptr_meta::from_raw_parts(ptr.cast(), metadata))
-    }
 
-    /// Checks that the given `RelPtr` to a subtree can be dereferenced.
-    ///
-    /// # Safety
-    ///
-    /// - `rel_ptr` must be inside the buffer this validator was created for.
-    #[inline]
-    unsafe fn bounds_check_subtree_rel_ptr<
-        T: ArchivePointee + LayoutRaw + ?Sized,
-    >(
-        &mut self,
-        rel_ptr: &RelPtr<T>,
-    ) -> Result<*const T, E> {
-        // SAFETY:
-        // - The caller has guaranteed that `rel_ptr` is inside the buffer.
-        // - The metadata of the relative pointer corresponds to the pointer it
-        //   holds as an invariant of `RelPtr`.
+        // SAFETY: We checked that the entire range from `ptr` to
+        // `ptr + layout.size()` is located within the buffer.
+        let range =
+            unsafe { self.push_subtree_range(ptr, ptr.add(layout.size()))? };
+
+        let result = f(self)?;
+
+        // SAFETY: `range` was returned from `push_subtree_range`.
         unsafe {
-            self.bounds_check_subtree_base_offset(
-                rel_ptr.base(),
-                rel_ptr.offset(),
-                T::pointer_metadata(rel_ptr.metadata()),
-            )
+            self.pop_subtree_range(range)?;
         }
+
+        Ok(result)
     }
 
-    // TODO: push_prefix_subtree should accept a closure and encapsulate the
-    // push / check / pop behavior in a single call.
-
-    /// Pushes a new subtree range onto the validator and starts validating it.
-    ///
-    /// The claimed range spans from the end of `start` to the end of the
-    /// current subobject range.
-    ///
-    /// # Safety
-    ///
-    /// The value that `root` points to must be located inside the buffer.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     #[inline]
-    unsafe fn push_prefix_subtree<T: LayoutRaw + ?Sized>(
+    fn in_subtree<T: LayoutRaw + ?Sized, R>(
         &mut self,
-        root: *const T,
-    ) -> Result<Range<usize>, E> {
-        let layout = T::layout_raw(ptr_meta::metadata(root)).into_error()?;
-        let root = root as *const u8;
-        // SAFETY: The caller has guaranteed that the entire range from `root`
-        // to `root + layout.size()` is located within the buffer.
-        unsafe { self.push_subtree_range(root, root.add(layout.size())) }
+        ptr: *const T,
+        f: impl FnOnce(&mut Self) -> Result<R, E>,
+    ) -> Result<R, E> {
+        let layout = T::layout_raw(ptr_meta::metadata(ptr)).into_error()?;
+        let root = ptr as *const u8;
+
+        self.in_subtree_raw(root, layout, f)
     }
 }
 

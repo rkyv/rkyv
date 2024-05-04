@@ -4,14 +4,14 @@ use core::{mem::size_of, pin::Pin};
 
 use bytecheck::CheckBytes;
 use ptr_meta::Pointee;
-use rancor::{ResultExt as _, Source, Strategy};
+use rancor::{Source, Strategy};
 
 use crate::{
     de::pooling::Unify,
     deserialize,
     util::{access_pos_unchecked, access_pos_unchecked_mut},
     validation::{
-        validators::DefaultValidator, ArchiveContext, ArchiveContextExt as _,
+        validators::DefaultValidator, ArchiveContext, ArchiveContextExt,
     },
     Archive, Deserialize, Portable,
 };
@@ -28,21 +28,13 @@ where
     C: ArchiveContext<E> + ?Sized,
     E: Source,
 {
-    unsafe {
-        let offset = pos.try_into().into_error()?;
-
-        let ptr = context.bounds_check_subtree_base_offset::<T>(
-            bytes.as_ptr(),
-            offset,
-            (),
-        )?;
-
-        let range = context.push_prefix_subtree(ptr)?;
-        CheckBytes::check_bytes(ptr, Strategy::wrap(context))?;
-        context.pop_subtree_range(range)?;
-
-        Ok(())
-    }
+    let context = Strategy::<C, E>::wrap(context);
+    let ptr = bytes.as_ptr().wrapping_add(pos).cast::<T>();
+    context.in_subtree(ptr, |context| {
+        // SAFETY: `in_subtree` has guaranteed that `ptr` is properly aligned
+        // and points to enough bytes for a `T`.
+        unsafe { T::check_bytes(ptr, context) }
+    })
 }
 
 // TODO: Either this should be unsafe or there must be some invariant that

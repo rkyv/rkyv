@@ -341,23 +341,14 @@ mod verify {
         C::Error: Source,
     {
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {
-            let ptr = unsafe {
-                context.bounds_check_subtree_base_offset::<[T]>(
-                    self.ptr.base(),
-                    self.ptr.offset(),
-                    self.len.to_native() as usize,
-                )?
-            };
+            let ptr = core::ptr::slice_from_raw_parts(
+                self.ptr.as_ptr_wrapping(),
+                self.len.to_native() as usize,
+            );
 
-            let range = unsafe { context.push_prefix_subtree(ptr)? };
-            unsafe {
-                <[T]>::check_bytes(ptr, context)?;
-            }
-            unsafe {
-                context.pop_subtree_range(range)?;
-            }
-
-            Ok(())
+            context.in_subtree(ptr, |context| unsafe {
+                <[T]>::check_bytes(ptr, context)
+            })
         }
     }
 }
