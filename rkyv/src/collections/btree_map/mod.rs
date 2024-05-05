@@ -418,7 +418,7 @@ impl<K, V> ArchivedBTreeMap<K, V> {
     }
 
     /// Constructs a double-ended iterator over a sub-range of elements in the map.
-    /// #[inline]
+    #[inline]
     pub fn range<R>(&self, range: R) -> Iter<'_, K, V>
     where
         K: Ord,
@@ -987,8 +987,7 @@ where K: Ord {
     }
 }
 
-impl<'a, K, V> FusedIterator for RawIter<'a, K, V>
-where K: Ord {}
+impl<'a, K, V> FusedIterator for RawIter<'a, K, V> {}
 
 /// An iterator over the key-value pairs of an archived B-tree map.
 pub struct Iter<'a, K, V> {
