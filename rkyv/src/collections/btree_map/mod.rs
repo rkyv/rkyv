@@ -934,7 +934,7 @@ impl<'a, K, V> Iterator for RawIter<'a, K, V> {
         match &self.run {
             RawIterRun::RunningExact { remaining, .. } => (*remaining, Some(*remaining)),
             RawIterRun::Running { .. } | RawIterRun::RunningInit { .. } => (0, None),
-            RawIterRun::LastOne { .. } => (1, Some(1)),
+            RawIterRun::LastOne { .. } => (0, Some(1)),
             RawIterRun::Finished => (0, Some(0)),
         }
     }
