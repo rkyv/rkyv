@@ -2000,17 +2000,108 @@ mod tests {
         let archived = unsafe { archived_root::<BTreeMap<String, i32>>(result.as_slice()) };
 
         assert_eq!(archived.len(), 4);
+        assert_eq!(archived.iter().count(), 4);
+        assert_eq!(archived.keys().count(), 4);
+        assert_eq!(archived.values().count(), 4);
+        assert_eq!(archived.iter().rev().count(), 4);
+        assert_eq!(archived.keys().rev().count(), 4);
+        assert_eq!(archived.values().rev().count(), 4);
+
         for (k, v) in value.iter() {
             let (ak, av) = archived
                 .get_key_value(k.as_str())
-                .expect("failed to find key in archived B-tree map");
+                .expect("failed to find key in archived B-tree map - phase 1");
             assert_eq!(k, ak);
             assert_eq!(v, av);
         }
         assert!(archived.get_key_value("wrong!").is_none());
 
+        for (k, v) in archived.iter().rev() {
+            let (ak, av) = value
+                .get_key_value(k.as_str())
+                .expect("failed to find key in archived B-tree map - phase 3");
+            assert_eq!(k, ak);
+            assert_eq!(v, av);
+        }
+
+        assert_eq!(value.first_key_value().map(|(k, v)| (k.as_str(), v)), archived.first_key_value().map(|(k, v)| (k.as_str(), v)));
+        assert_eq!(value.last_key_value().map(|(k, v)| (k.as_str(), v)), archived.last_key_value().map(|(k, v)| (k.as_str(), v)));
+
+        let mut key_value = archived.first_key_value();
+        for (k, v) in archived.iter() {
+            assert_eq!((k, v), key_value.unwrap());
+            key_value = archived.next_key_value(key_value.unwrap().0);
+        }
+        assert_eq!(key_value.map(|(k, v)| (k.as_str(), v)), None);
+
+        let mut key_value = archived.last_key_value();
+        for (k, v) in archived.iter().rev() {
+            assert_eq!((k, v), key_value.unwrap());
+            key_value = archived.prev_key_value(key_value.unwrap().0);
+        }
+        assert_eq!(key_value.map(|(k, v)| (k.as_str(), v)), None);
+
         let deserialized: BTreeMap<_, _> = archived.deserialize(&mut Infallible).unwrap();
         assert_eq!(value, deserialized);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn range_btree_map() {
+        let mut value = BTreeMap::new();
+        for n in 1000..8000 {
+            value.insert(n, n);
+        }
+
+        let mut serializer = AlignedSerializer::new(AlignedVec::new());
+        serializer.serialize_value(&value).unwrap();
+        let result = serializer.into_inner();
+        let archived = unsafe { archived_root::<BTreeMap<i32, i32>>(result.as_slice()) };
+
+        assert_eq!(archived.len(), value.len());
+        assert_eq!(archived.iter().count(), value.len());
+        assert_eq!(archived.keys().count(), value.len());
+        assert_eq!(archived.values().count(), value.len());
+        assert_eq!(archived.iter().rev().count(), value.len());
+        assert_eq!(archived.keys().rev().count(), value.len());
+        assert_eq!(archived.values().rev().count(), value.len());
+
+        assert_eq!(value.first_key_value(), archived.first_key_value());
+        assert_eq!(value.last_key_value(), archived.last_key_value());
+
+        let mut iter = archived.iter();
+        for n in 1000..8000 {
+            assert_eq!(iter.next(), Some((&n, &n)));
+        }
+        assert_eq!(iter.next(), None);
+
+        let mut iter = archived.iter().rev();
+        for n in (1000..8000).rev() {
+            assert_eq!(iter.next(), Some((&n, &n)));
+        }
+        assert_eq!(iter.next(), None);
+
+        let mut iter = archived.range(2000..4000);
+        for n in 2000..4000 {
+            assert_eq!(iter.next(), Some((&n, &n)));
+        }
+        assert_eq!(iter.next(), None);
+
+        let mut iter = archived.range(2000..=4000);
+        for n in 2000..=4000 {
+            assert_eq!(iter.next(), Some((&n, &n)));
+        }
+        assert_eq!(iter.next(), None);
+
+        let mut iter = archived.range(2000..4000).rev();
+        for n in (2000..4000).rev() {
+            assert_eq!(iter.next(), Some((&n, &n)));
+        }
+        let mut iter = archived.range(2000..=4000).rev();
+        for n in (2000..=4000).rev() {
+            assert_eq!(iter.next(), Some((&n, &n)));
+        }
+        assert_eq!(iter.next(), None);
     }
 
     #[test]
