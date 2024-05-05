@@ -11,7 +11,7 @@ use core::{
     hash::{Hash, Hasher},
     iter::FusedIterator,
     marker::PhantomData,
-    ops::Index,
+    ops::{Bound, Index, RangeBounds},
     ptr::NonNull,
 };
 use ptr_meta::Pointee;
@@ -218,22 +218,41 @@ impl<K, V> ArchivedBTreeMap<K, V> {
     }
 
     #[inline]
-    fn first(&self) -> NonNull<NodeHeader> {
-        if let Some(mut node) = self.root() {
-            while let ClassifiedNode::Inner(inner) = node {
-                let next = unsafe { &*inner.header.ptr.as_ptr() };
-                node = next.classify();
-            }
-            match node {
-                ClassifiedNode::Leaf(leaf) => unsafe {
-                    let node = (leaf as *const LeafNode<K, V> as *mut LeafNode<K, V>).cast();
-                    NonNull::new_unchecked(node)
-                },
-                ClassifiedNode::Inner(_) => unsafe { core::hint::unreachable_unchecked() },
-            }
-        } else {
-            NonNull::dangling()
+    fn first(&self) -> Option<(&Node<[LeafNodeEntry<K, V>]>, usize)> {
+        let mut node = self.root()?;
+        while let ClassifiedNode::Inner(inner) = node {
+            let next = unsafe { &*inner.header.ptr.as_ptr() };
+            node = next.classify();
         }
+        match node {
+            ClassifiedNode::Leaf(leaf) => Some((leaf, 0)),
+            ClassifiedNode::Inner(_) => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+
+    /// Returns the first key and value in the map.
+    #[inline]
+    pub fn first_key_value(&self) -> Option<(&K, &V)> {
+        self.first().map(key_value_of_node)
+    }
+
+    #[inline]
+    fn last(&self) -> Option<(&Node<[LeafNodeEntry<K, V>]>, usize)> {
+        let mut node = self.root()?;
+        while let ClassifiedNode::Inner(inner) = node {
+            let next = unsafe { &*inner.tail.last()?.ptr.as_ptr() };
+            node = next.classify();
+        }
+        match node {
+            ClassifiedNode::Leaf(leaf) => Some((leaf, leaf.tail.len() - 1)),
+            ClassifiedNode::Inner(_) => unsafe { core::hint::unreachable_unchecked() },
+        }
+    }
+
+    /// Returns the last key and value in the map.
+    #[inline]
+    pub fn last_key_value(&self) -> Option<(&K, &V)> {
+        self.last().map(key_value_of_node)
     }
 
     /// Returns `true` if the map contains a value for the specified key.
@@ -268,42 +287,119 @@ impl<K, V> ArchivedBTreeMap<K, V> {
     where
         K: Borrow<Q> + Ord,
     {
-        if let Some(mut current) = self.root() {
-            loop {
-                match current {
-                    ClassifiedNode::Inner(node) => {
-                        // Binary search for the next node layer
-                        let next = match node
-                            .tail
-                            .binary_search_by(|probe| probe.key.borrow().cmp(k))
-                        {
-                            Ok(i) => unsafe { &*node.tail[i].ptr.as_ptr() },
-                            Err(i) => {
-                                if i == 0 {
-                                    unsafe { &*node.header.ptr.as_ptr() }
-                                } else {
-                                    unsafe { &*node.tail[i - 1].ptr.as_ptr() }
-                                }
-                            }
-                        };
-                        current = next.classify();
-                    }
-                    ClassifiedNode::Leaf(node) => {
-                        // Binary search for the value
-                        if let Ok(i) = node
-                            .tail
-                            .binary_search_by(|probe| probe.key.borrow().cmp(k))
-                        {
-                            let entry = &node.tail[i];
-                            break Some((&entry.key, &entry.value));
-                        } else {
-                            break None;
-                        }
+        self.get_node(k).map(key_value_of_node)
+    }
+
+    fn get_node<Q: Ord + ?Sized>(&self, k: &Q) -> Option<(&Node<[LeafNodeEntry<K, V>]>, usize)>
+    where
+        K: Borrow<Q> + Ord,
+    {
+        let mut current = self.root()?;
+        loop {
+            match current {
+                ClassifiedNode::Inner(inner) => {
+                    // Binary search for the next node layer
+                    let next = match inner
+                        .tail
+                        .binary_search_by(|probe| probe.key.borrow().cmp(k))
+                    {
+                        Ok(i) => unsafe { &*inner.tail[i].ptr.as_ptr() },
+                        Err(0) => unsafe { &*inner.header.ptr.as_ptr() },
+                        Err(i) => unsafe { &*inner.tail[i - 1].ptr.as_ptr() }
+                    };
+                    current = next.classify();
+                }
+                ClassifiedNode::Leaf(left) => {
+                    // Binary search for the value
+                    if let Ok(i) = left
+                        .tail
+                        .binary_search_by(|probe| probe.key.borrow().cmp(k))
+                    {
+                        break Some((left, i));
+                    } else {
+                        break None;
                     }
                 }
             }
-        } else {
-            None
+        }
+    }
+
+    /// Returns the next key value pair after the supplied key
+    pub fn next_key_value<Q: Ord + ?Sized>(&self, k: &Q) -> Option<(&K, &V)>
+    where
+        K: Borrow<Q> + Ord,
+    {
+        self.get_next_node(k).map(key_value_of_node)
+    }
+
+    fn get_next_node<'a, Q: Ord + ?Sized>(&'a self, k: &Q) -> Option<(&Node<[LeafNodeEntry<K, V>]>, usize)>
+    where
+        K: Borrow<Q> + Ord,
+    {
+        let mut current = self.root()?;
+        loop {
+            match current {
+                ClassifiedNode::Inner(inner) => {
+                    // Binary search for the next node layer
+                    let next = match inner
+                        .tail
+                        .binary_search_by(|probe| probe.key.borrow().cmp(k))
+                    {
+                        Ok(i) => unsafe { &*inner.tail[i].ptr.as_ptr() },
+                        Err(0) => unsafe { &*inner.header.ptr.as_ptr() },
+                        Err(i) => unsafe { &*inner.tail[i - 1].ptr.as_ptr() }
+                    };
+                    current = next.classify();
+                }
+                ClassifiedNode::Leaf(leaf) => {
+                    let i = leaf
+                        .tail
+                        .binary_search_by(|probe| probe.key.borrow().cmp(k))
+                        .unwrap_or_else(|a| a)
+                        .min(leaf.tail.len() - 1);
+                    return next_node((leaf, i));
+                }
+            }
+        }
+    }
+
+    /// Returns the prev key value pair after the supplied key
+    pub fn prev_key_value<Q: Ord + ?Sized>(&self, k: &Q) -> Option<(&K, &V)>
+    where
+        K: Borrow<Q> + Ord,
+    {
+        self.get_prev_node(k).map(key_value_of_node)
+    }
+
+    fn get_prev_node<'a, Q: Ord + ?Sized>(&'a self, k: &Q) -> Option<(&Node<[LeafNodeEntry<K, V>]>, usize)>
+    where
+        K: Borrow<Q> + Ord,
+    {
+        let mut current = self.root()?;
+        loop {
+            match current {
+                ClassifiedNode::Inner(inner) => {
+                    // Binary search for the next node layer
+                    let next = match inner
+                        .tail
+                        .binary_search_by(|probe| probe.key.borrow().cmp(k))
+                    {
+                        Ok(i) => unsafe { &*inner.tail[i].ptr.as_ptr() },
+                        Err(0) => unsafe { &*inner.header.ptr.as_ptr() },
+                        Err(i) => unsafe { &*inner.tail[i - 1].ptr.as_ptr() }
+                    };
+                    current = next.classify();
+                }
+                ClassifiedNode::Leaf(leaf) => {
+                    return match leaf
+                        .tail
+                        .binary_search_by(|probe| probe.key.borrow().cmp(k)) {
+                        Ok(i) => prev_node(self, (leaf, i)),
+                        Err(0) => prev_node(self, (leaf, 0)),
+                        Err(i) => Some((leaf, i - 1)),
+                    };
+                }
+            }
         }
     }
 
@@ -317,7 +413,20 @@ impl<K, V> ArchivedBTreeMap<K, V> {
     #[inline]
     pub fn iter(&self) -> Iter<'_, K, V> {
         Iter {
-            inner: RawIter::new(self.first(), 0, self.len()),
+            inner: RawIter::new_exact(self),
+        }
+    }
+
+    /// Constructs a double-ended iterator over a sub-range of elements in the map.
+    /// #[inline]
+    pub fn range<R>(&self, range: R) -> Iter<'_, K, V>
+    where
+        K: Ord,
+        K: Borrow<K> + Ord,
+        R: RangeBounds<K>,
+    {
+        Iter {
+            inner: RawIter::new_from_range(self, range),
         }
     }
 
@@ -325,7 +434,7 @@ impl<K, V> ArchivedBTreeMap<K, V> {
     #[inline]
     pub fn keys(&self) -> Keys<'_, K, V> {
         Keys {
-            inner: RawIter::new(self.first(), 0, self.len()),
+            inner: self.iter().inner,
         }
     }
 
@@ -339,7 +448,7 @@ impl<K, V> ArchivedBTreeMap<K, V> {
     #[inline]
     pub fn values(&self) -> Values<'_, K, V> {
         Values {
-            inner: RawIter::new(self.first(), 0, self.len()),
+            inner: self.iter().inner,
         }
     }
 
@@ -362,6 +471,77 @@ impl<K, V> ArchivedBTreeMap<K, V> {
 
         let (fp, fo) = out_field!(out.root);
         RelPtr::emplace(pos + fp, resolver.root_pos, fo);
+    }
+}
+
+#[inline]
+fn key_value_of_node<K, V>(node: (&Node<[LeafNodeEntry<K, V>]>, usize)) -> (&K, &V) {
+    let entry = &node.0.tail[node.1];
+    (&entry.key, &entry.value)
+}
+
+#[inline]
+fn next_node<'a, K, V>(cur: (&'a Node<[LeafNodeEntry<K, V>]>, usize)) -> Option<(&'a Node<[LeafNodeEntry<K, V>]>, usize)> {
+    let mut index = cur.1 + 1;
+    let mut leaf = cur.0;
+    if index == leaf.tail.len() {
+        if leaf.header.ptr.is_null() {
+            return None;
+        }
+        index = 0;
+        leaf = unsafe {
+            let new_leaf: NonNull<NodeHeader> = NonNull::new_unchecked(leaf.header.ptr.as_ptr() as *mut _);
+            new_leaf.as_ref().classify_leaf::<K, V>()
+        };
+    }
+    Some((leaf, index))
+}
+
+#[inline]
+fn prev_node<'a, K, V>(tree: &'a ArchivedBTreeMap<K, V>, cur: (&'a Node<[LeafNodeEntry<K, V>]>, usize)) -> Option<(&'a Node<[LeafNodeEntry<K, V>]>, usize)>
+where K: Ord {
+    if cur.1 > 0 {
+        return Some((cur.0, cur.1 - 1));
+    }
+
+    let k = key_value_of_node(cur).0;
+
+    let mut current = tree.root()?;
+    loop {
+        match current {
+            ClassifiedNode::Inner(inner) => {
+                let scan = inner
+                    .tail
+                    .binary_search_by(|probe| probe.key.borrow().cmp(k));
+
+                let mut next = match scan {
+                    Ok(i) => unsafe { &*inner.tail[i].ptr.as_ptr() },
+                    Err(0) => unsafe { &*inner.header.ptr.as_ptr() },
+                    Err(i) => unsafe { &*inner.tail[i - 1].ptr.as_ptr() }
+                };
+
+                let mut next_classified: ClassifiedNode<'a, K, V> = next.classify();
+                if let ClassifiedNode::Leaf(leaf) = next_classified {
+                    if std::ptr::addr_eq(leaf, cur.0) {
+                        next = match scan {
+                            Ok(0) => unsafe { &*inner.header.ptr.as_ptr() },
+                            Ok(i) => unsafe { &*inner.tail[i - 1].ptr.as_ptr() },
+                            Err(0) => unsafe { &*inner.header.ptr.as_ptr() },
+                            Err(i) => unsafe { &*inner.tail[i - 1].ptr.as_ptr() }
+                        };
+                        next_classified = next.classify();
+                    }
+                }
+
+                current = next_classified;
+            }
+            ClassifiedNode::Leaf(leaf) => {
+                if std::ptr::addr_eq(leaf, cur.0) {
+                    return None;
+                }
+                return Some((leaf, leaf.tail.len() - 1));
+            }
+        }
     }
 }
 
@@ -617,22 +797,86 @@ impl<K: PartialOrd, V: PartialOrd> PartialOrd for ArchivedBTreeMap<K, V> {
     }
 }
 
-// RawIter
+enum RawIterRun<'a, K, V> {
+    RunningExact {
+        cur: (&'a Node<[LeafNodeEntry<K, V>]>, usize),
+        remaining: usize
+    },
+    Running {
+        first: (&'a Node<[LeafNodeEntry<K, V>]>, usize),
+        cur: (&'a Node<[LeafNodeEntry<K, V>]>, usize),
+        last: (&'a Node<[LeafNodeEntry<K, V>]>, usize),
+    },
+    RunningInit {
+        first: (&'a Node<[LeafNodeEntry<K, V>]>, usize),
+        last: (&'a Node<[LeafNodeEntry<K, V>]>, usize),
+    },
+    LastOne {
+        cur: (&'a Node<[LeafNodeEntry<K, V>]>, usize),
+    },
+    Finished
+}
 
 struct RawIter<'a, K, V> {
-    leaf: NonNull<NodeHeader>,
-    index: usize,
-    remaining: usize,
-    _phantom: PhantomData<(&'a K, &'a V)>,
+    run: RawIterRun<'a, K, V>,
+    tree: &'a ArchivedBTreeMap<K, V>,
 }
 
 impl<'a, K, V> RawIter<'a, K, V> {
-    fn new(leaf: NonNull<NodeHeader>, index: usize, remaining: usize) -> Self {
+    fn new_exact(tree: &'a ArchivedBTreeMap<K, V>) -> Self {
+        let first = match tree.first() {
+            Some(a) => a,
+            None => return Self {
+                run: RawIterRun::Finished,
+                tree,
+            }
+        };
         Self {
-            leaf,
-            index,
-            remaining,
-            _phantom: PhantomData,
+            run: RawIterRun::RunningExact { cur: first, remaining: tree.len() },
+            tree,
+        }
+    }
+
+    fn new_from_range<R>(tree: &'a ArchivedBTreeMap<K, V>, range: R) -> Self
+    where R: RangeBounds<K>,
+          K: Ord {
+        let start = match range.start_bound() {
+            Bound::Included(start) => tree.get_node(start).or_else(|| tree.get_next_node(start)),
+            Bound::Excluded(start) => tree.get_next_node(start),
+            Bound::Unbounded => tree.first(),
+        };
+        let end = match range.end_bound() {
+            Bound::Included(end) => tree.get_node(end).or_else(|| tree.get_prev_node(end)),
+            Bound::Excluded(end) => tree.get_prev_node(end),
+            Bound::Unbounded => tree.last(),
+        };
+
+        // if either the start or end is null then its already at the end
+        let start = match start {
+            Some(start) => start,
+            None => return Self {
+                run: RawIterRun::Finished,
+                tree,
+            }
+        };
+        let end = match end {
+            Some(end) => end,
+            None => return Self {
+                run: RawIterRun::Finished,
+                tree,
+            }
+        };
+        if key_value_of_node(start).0 > key_value_of_node(end).0 {
+            return Self {
+                run: RawIterRun::Finished,
+                tree,
+            };
+        }
+
+        // Return the iterator
+        Self {
+            run: RawIterRun::RunningInit { first: start, last: end },
+            tree,
         }
     }
 }
@@ -642,34 +886,109 @@ impl<'a, K, V> Iterator for RawIter<'a, K, V> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.remaining == 0 {
-            None
-        } else {
-            unsafe {
-                // SAFETY: self.leaf is valid when self.remaining > 0
-                // SAFETY: self.leaf always points to a leaf node header
-                let leaf = self.leaf.as_ref().classify_leaf::<K, V>();
-                if self.index == leaf.tail.len() {
-                    self.index = 0;
-                    // SAFETY: when self.remaining > 0 this is guaranteed to point to a leaf node
-                    self.leaf = NonNull::new_unchecked(leaf.header.ptr.as_ptr() as *mut _);
-                }
-                let result = &self.leaf.as_ref().classify_leaf().tail[self.index];
-                self.index += 1;
-                self.remaining -= 1;
-                Some((&result.key, &result.value))
-            }
+        loop {
+            return match &mut self.run {
+                RawIterRun::RunningExact { cur, remaining } => {
+                    let ret = key_value_of_node(*cur);
+                    *remaining -= 1;
+                    if *remaining == 0 {
+                        self.run = RawIterRun::Finished;
+                        return Some(ret);
+                    }
+                    *cur = match next_node(*cur) {
+                        Some(a) => a,
+                        None => {
+                            self.run = RawIterRun::Finished;
+                            return Some(ret);
+                        }
+                    };
+                    Some(ret)
+                },
+                RawIterRun::Running { cur, first, last } => {
+                    let ret = key_value_of_node(*cur);
+                    *cur = match next_node(*cur) {
+                        Some(a) => a,
+                        None => *first,
+                    };
+                    if std::ptr::addr_eq(cur.0, last.0) && cur.1 == last.1 {
+                        self.run = RawIterRun::LastOne { cur: *cur };
+                    }
+                    Some(ret)
+                },
+                RawIterRun::RunningInit { first, last } => {
+                    self.run = RawIterRun::Running { first: *first, cur: *first, last: *last };
+                    continue;
+                },
+                RawIterRun::LastOne { cur } => {
+                    let ret = key_value_of_node(*cur);
+                    self.run = RawIterRun::Finished;
+                    Some(ret)
+                },
+                RawIterRun::Finished => None,
+            };
         }
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.remaining, Some(self.remaining))
+        match &self.run {
+            RawIterRun::RunningExact { remaining, .. } => (*remaining, Some(*remaining)),
+            RawIterRun::Running { .. } | RawIterRun::RunningInit { .. } => (0, None),
+            RawIterRun::LastOne { .. } => (1, Some(1)),
+            RawIterRun::Finished => (0, Some(0)),
+        }
     }
 }
 
-impl<'a, K, V> ExactSizeIterator for RawIter<'a, K, V> {}
-impl<'a, K, V> FusedIterator for RawIter<'a, K, V> {}
+impl<'a, K, V> DoubleEndedIterator for RawIter<'a, K, V>
+where K: Ord {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        loop {
+            return match &mut self.run {
+                RawIterRun::RunningExact { cur, .. } => {
+                    match (self.tree.first(), self.tree.last()) {
+                        (Some(first), Some(last)) if std::ptr::addr_eq(cur.0, first.0) && cur.1 == first.1 => {
+                            self.run = RawIterRun::Running { first, cur: last, last };
+                            continue;
+                        },
+                        (Some(first), Some(last)) => {
+                            self.run = RawIterRun::Running { first, cur: *cur, last };
+                            continue;
+                        },
+                        _ => {
+                            self.run = RawIterRun::Finished;
+                            None
+                        },
+                    }
+                },
+                RawIterRun::Running { cur, first, last } => {
+                    let ret = key_value_of_node(*cur);
+                    *cur = match prev_node(self.tree, *cur) {
+                        Some(a) => a,
+                        None => *last,
+                    };
+                    if std::ptr::addr_eq(cur.0, first.0) && cur.1 == first.1 {
+                        self.run = RawIterRun::LastOne { cur: *cur };
+                    }
+                    Some(ret)
+                },
+                RawIterRun::RunningInit { first, last } => {
+                    self.run = RawIterRun::Running { first: *first, cur: *last, last: *last };
+                    continue;
+                },
+                RawIterRun::LastOne { cur } => {
+                    let ret = key_value_of_node(*cur);
+                    self.run = RawIterRun::Finished;
+                    Some(ret)
+                },
+                RawIterRun::Finished => None,
+            };
+        }
+    }
+}
+
+impl<'a, K, V> FusedIterator for RawIter<'a, K, V>
+where K: Ord {}
 
 /// An iterator over the key-value pairs of an archived B-tree map.
 pub struct Iter<'a, K, V> {
@@ -690,7 +1009,15 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
     }
 }
 
-impl<'a, K, V> ExactSizeIterator for Iter<'a, K, V> {}
+
+impl<'a, K, V> DoubleEndedIterator for Iter<'a, K, V>
+where K: Ord {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.inner.next_back()
+    }
+}
+
 impl<'a, K, V> FusedIterator for Iter<'a, K, V> {}
 
 /// An iterator over the keys of an archived B-tree map.
@@ -712,7 +1039,14 @@ impl<'a, K, V> Iterator for Keys<'a, K, V> {
     }
 }
 
-impl<'a, K, V> ExactSizeIterator for Keys<'a, K, V> {}
+impl<'a, K, V> DoubleEndedIterator for Keys<'a, K, V>
+where K: Ord {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.inner.next_back().map(|(k, _)| k)
+    }
+}
+
 impl<'a, K, V> FusedIterator for Keys<'a, K, V> {}
 
 /// An iterator over the values of an archived B-tree map.
@@ -734,5 +1068,12 @@ impl<'a, K, V> Iterator for Values<'a, K, V> {
     }
 }
 
-impl<'a, K, V> ExactSizeIterator for Values<'a, K, V> {}
+impl<'a, K, V> DoubleEndedIterator for Values<'a, K, V>
+where K: Ord {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.inner.next_back().map(|(_, v)| v)
+    }
+}
+
 impl<'a, K, V> FusedIterator for Values<'a, K, V> {}
