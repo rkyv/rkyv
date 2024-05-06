@@ -16,6 +16,11 @@ use crate::{
     Archive, Deserialize, Portable,
 };
 
+#[inline]
+fn root_position<T: Portable>(bytes: &[u8]) -> usize {
+    bytes.len().saturating_sub(size_of::<T>())
+}
+
 /// Checks a byte slice for a valid instance of the given archived type at the
 /// given position with the given context.
 pub fn check_pos_with_context<T, C, E>(
@@ -78,7 +83,7 @@ where
 {
     access_pos_with_context::<T, C, E>(
         bytes,
-        bytes.len().saturating_sub(size_of::<T>()),
+        root_position::<T>(bytes),
         context,
     )
 }
@@ -90,7 +95,7 @@ where
 #[inline]
 pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T, E>
 where
-    T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
+    T: Portable + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>,
     E: Source,
 {
     let mut validator = DefaultValidator::new(bytes);
@@ -136,7 +141,7 @@ where
 #[inline]
 pub fn access<T, E>(bytes: &[u8]) -> Result<&T, E>
 where
-    T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
+    T: Portable + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>,
     E: Source,
 {
     let mut validator = DefaultValidator::new(bytes);
@@ -188,7 +193,7 @@ where
 {
     access_pos_with_context_mut::<T, C, E>(
         bytes,
-        bytes.len().saturating_sub(size_of::<T>()),
+        root_position::<T>(bytes),
         context,
     )
 }
@@ -203,15 +208,12 @@ pub fn access_pos_mut<T, E>(
     pos: usize,
 ) -> Result<Pin<&mut T>, E>
 where
-    T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
+    T: Portable + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>,
     E: Source,
 {
-    let mut validator = DefaultValidator::new(bytes);
-    access_pos_with_context_mut::<T, DefaultValidator, E>(
-        bytes,
-        pos,
-        &mut validator,
-    )
+    let mut context = DefaultValidator::new(bytes);
+    check_pos_with_context::<T, _, E>(bytes, pos, &mut context)?;
+    unsafe { Ok(access_pos_unchecked_mut::<T>(bytes, pos)) }
 }
 
 /// Mutably accesses an archived value from the given byte slice by calculating
@@ -223,11 +225,13 @@ where
 #[inline]
 pub fn access_mut<T, E>(bytes: &mut [u8]) -> Result<Pin<&mut T>, E>
 where
-    T: Portable + CheckBytes<Strategy<DefaultValidator, E>>,
+    T: Portable + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>,
     E: Source,
 {
-    let mut validator = DefaultValidator::new(bytes);
-    access_with_context_mut::<T, DefaultValidator, E>(bytes, &mut validator)
+    let mut context = DefaultValidator::new(bytes);
+    let pos = root_position::<T>(bytes);
+    check_pos_with_context::<T, _, E>(bytes, pos, &mut context)?;
+    unsafe { Ok(access_pos_unchecked_mut::<T>(bytes, pos)) }
 }
 
 /// Checks and deserializes a value from the given bytes.
@@ -259,7 +263,7 @@ where
 pub fn from_bytes<T, E>(bytes: &[u8]) -> Result<T, E>
 where
     T: Archive,
-    T::Archived: CheckBytes<Strategy<DefaultValidator, E>>
+    T::Archived: for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>
         + Deserialize<T, Strategy<Unify, E>>,
     E: Source,
 {

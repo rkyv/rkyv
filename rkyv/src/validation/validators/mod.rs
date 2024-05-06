@@ -12,15 +12,15 @@ use crate::validation::{ArchiveContext, SharedContext};
 
 /// The default validator.
 #[derive(Debug)]
-pub struct DefaultValidator {
-    archive: ArchiveValidator,
+pub struct DefaultValidator<'a> {
+    archive: ArchiveValidator<'a>,
     shared: SharedValidator,
 }
 
-impl DefaultValidator {
+impl<'a> DefaultValidator<'a> {
     /// Creates a new validator from a byte range.
     #[inline]
-    pub fn new(bytes: &[u8]) -> Self {
+    pub fn new(bytes: &'a [u8]) -> Self {
         Self {
             archive: ArchiveValidator::new(bytes),
             shared: SharedValidator::new(),
@@ -29,7 +29,7 @@ impl DefaultValidator {
 
     /// Create a new validator from a byte range with specific capacity.
     #[inline]
-    pub fn with_capacity(bytes: &[u8], capacity: usize) -> Self {
+    pub fn with_capacity(bytes: &'a [u8], capacity: usize) -> Self {
         Self {
             archive: ArchiveValidator::new(bytes),
             shared: SharedValidator::with_capacity(capacity),
@@ -37,9 +37,9 @@ impl DefaultValidator {
     }
 }
 
-unsafe impl<E> ArchiveContext<E> for DefaultValidator
+unsafe impl<'a, E> ArchiveContext<E> for DefaultValidator<'a>
 where
-    ArchiveValidator: ArchiveContext<E>,
+    ArchiveValidator<'a>: ArchiveContext<E>,
 {
     #[inline]
     fn check_subtree_ptr(
@@ -72,7 +72,7 @@ where
     }
 }
 
-impl<E> SharedContext<E> for DefaultValidator
+impl<E> SharedContext<E> for DefaultValidator<'_>
 where
     SharedValidator: SharedContext<E>,
 {

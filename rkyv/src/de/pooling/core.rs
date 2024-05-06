@@ -6,10 +6,12 @@ use super::{ErasedPtr, Pooling};
 pub struct Duplicate;
 
 impl<E> Pooling<E> for Duplicate {
+    #[inline]
     fn get_shared_ptr(&mut self, _: usize) -> Option<ErasedPtr> {
         None
     }
 
+    #[inline]
     unsafe fn add_shared_ptr(
         &mut self,
         _: usize,

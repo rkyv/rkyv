@@ -13,7 +13,7 @@ pub mod alloc {
     pub fn serialize_and_check<T, E>(value: &T)
     where
         T: Serialize<Strategy<DefaultSerializer, E>>,
-        T::Archived: for<'a> CheckBytes<Strategy<DefaultValidator, E>>,
+        T::Archived: for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>,
         E: Source,
     {
         let buf =

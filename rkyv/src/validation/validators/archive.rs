@@ -1,6 +1,8 @@
 //! The provided implementation for `ArchiveContext`.
 
-use core::{alloc::Layout, fmt, num::NonZeroUsize, ops::Range};
+use core::{
+    alloc::Layout, fmt, marker::PhantomData, num::NonZeroUsize, ops::Range,
+};
 
 use rancor::{fail, OptionExt, Source};
 
@@ -90,25 +92,26 @@ impl std::error::Error for RangePoppedOutOfOrder {}
 
 /// A validator that can verify archives with nonlocal memory.
 #[derive(Debug)]
-pub struct ArchiveValidator {
+pub struct ArchiveValidator<'a> {
     subtree_range: Range<usize>,
     max_subtree_depth: Option<NonZeroUsize>,
+    _phantom: PhantomData<&'a [u8]>,
 }
 
 // SAFETY: `ArchiveValidator` is safe to send between threads because the
 // pointers it contains are only ever used to compare addresses, never to
 // dereference.
-unsafe impl Send for ArchiveValidator {}
+unsafe impl Send for ArchiveValidator<'_> {}
 
 // SAFETY: `ArchiveValidator` is safe to share between threads because the
 // pointers it contains are only ever used to compare addresses, never to
 // dereference.
-unsafe impl Sync for ArchiveValidator {}
+unsafe impl Sync for ArchiveValidator<'_> {}
 
-impl ArchiveValidator {
+impl<'a> ArchiveValidator<'a> {
     /// Creates a new bounds validator for the given bytes.
     #[inline]
-    pub fn new(bytes: &[u8]) -> Self {
+    pub fn new(bytes: &'a [u8]) -> Self {
         Self::with_max_depth(bytes, None)
     }
 
@@ -116,7 +119,7 @@ impl ArchiveValidator {
     /// validation depth.
     #[inline]
     pub fn with_max_depth(
-        bytes: &[u8],
+        bytes: &'a [u8],
         max_subtree_depth: Option<NonZeroUsize>,
     ) -> Self {
         let Range { start, end } = bytes.as_ptr_range();
@@ -126,11 +129,12 @@ impl ArchiveValidator {
                 end: end as usize,
             },
             max_subtree_depth,
+            _phantom: PhantomData,
         }
     }
 }
 
-unsafe impl<E: Source> ArchiveContext<E> for ArchiveValidator {
+unsafe impl<E: Source> ArchiveContext<E> for ArchiveValidator<'_> {
     #[inline]
     fn check_subtree_ptr(
         &mut self,
