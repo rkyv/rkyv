@@ -36,8 +36,8 @@ where
 ///
 /// It's important that the memory for archived objects is properly aligned
 /// before attempting to read objects out of it; use an
-/// [`AlignedVec`](crate::util::AlignedVec) or the
-/// [`AlignedBytes`](crate::util::AlignedBytes) wrappers as appropriate.
+/// [`AlignedVec`](crate::util::AlignedVec) or the [`Align`](crate::util::Align)
+/// wrapper as appropriate.
 pub trait Writer<E = <Self as Fallible>::Error>: Positional {
     /// Attempts to write the given bytes to the serializer.
     fn write(&mut self, bytes: &[u8]) -> Result<(), E>;

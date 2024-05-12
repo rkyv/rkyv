@@ -108,7 +108,7 @@ pub fn with_arena<T>(f: impl FnOnce(&mut Arena) -> T) -> T {
     arena::with_arena(f)
 }
 
-/// Clears the global arena allocator.
+/// Clears the builtin arena allocator.
 ///
 /// When the `std` feature is enabled, this only clears the allocator for the
 /// current thread.
