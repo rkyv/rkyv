@@ -7,7 +7,7 @@ use alloc::{
 use core::{
     alloc::Layout,
     marker::PhantomData,
-    mem::{align_of, size_of},
+    mem::{align_of, size_of, ManuallyDrop},
     ptr::{slice_from_raw_parts_mut, NonNull},
 };
 use std::alloc::handle_alloc_error;
@@ -77,14 +77,14 @@ impl Block {
 /// global allocations, which can save a considerable amount of time.
 pub struct Arena {
     head_ptr: NonNull<Block>,
-    head_size: usize,
 }
 
 impl Drop for Arena {
     fn drop(&mut self) {
         self.shrink();
+        let head_size = unsafe { self.head_ptr.as_ref().next_size };
         unsafe {
-            Block::dealloc(self.head_ptr, self.head_size);
+            Block::dealloc(self.head_ptr, head_size);
         }
     }
 }
@@ -102,34 +102,63 @@ impl Arena {
     pub fn with_capacity(cap: usize) -> Self {
         let head_size = (cap + size_of::<Block>()).next_power_of_two();
         let head_ptr = Block::alloc(head_size);
-        Self {
-            head_ptr,
-            head_size,
-        }
+        Self { head_ptr }
     }
 
     /// Cleans up allocated blocks which are no longer in use.
     ///
     /// The arena is automatically shrunk by [`acquire`](Self::acquire).
     pub fn shrink(&mut self) -> usize {
-        let start_ptr = self.head_ptr;
+        let (mut current_ptr, mut current_size) = {
+            let head = unsafe { self.head_ptr.as_ref() };
+            (head.next_ptr, head.next_size)
+        };
+
         loop {
-            let head = unsafe { self.head_ptr.as_mut() };
-            if head.next_ptr == start_ptr {
-                head.next_ptr = self.head_ptr;
-                head.next_size = self.head_size;
-                break self.head_size - size_of::<Block>();
+            let current = unsafe { current_ptr.as_mut() };
+
+            if current.next_ptr == current_ptr {
+                // There was only one block in the loop. No deallocating needed.
+                break;
             }
 
-            let next_ptr = head.next_ptr;
-            let next_size = head.next_size;
-            let _ = head;
+            let next_ptr = current.next_ptr;
+            let next_size = current.next_size;
+
+            if next_ptr == self.head_ptr {
+                // End of the loop. Free the head block.
+                unsafe {
+                    Block::dealloc(next_ptr, next_size);
+                }
+
+                // Loop the head back on itself.
+                current.next_ptr = current_ptr;
+                current.next_size = current_size;
+                self.head_ptr = current_ptr;
+
+                break;
+            }
 
             unsafe {
-                Block::dealloc(self.head_ptr, self.head_size);
+                Block::dealloc(current_ptr, current_size);
             }
-            self.head_ptr = next_ptr;
-            self.head_size = next_size;
+
+            current_ptr = next_ptr;
+            current_size = next_size;
+        }
+
+        current_size - size_of::<Block>()
+    }
+
+    /// Returns the available capacity of the arena.
+    pub fn capacity(&self) -> usize {
+        let mut current_ptr = self.head_ptr;
+        loop {
+            let current = unsafe { current_ptr.as_ref() };
+            if current.next_ptr == self.head_ptr {
+                break current.next_size - size_of::<Block>();
+            }
+            current_ptr = current.next_ptr;
         }
     }
 
@@ -141,9 +170,28 @@ impl Arena {
 
         ArenaHandle {
             tail_ptr: self.head_ptr,
-            tail_size: self.head_size,
+            tail_size: unsafe { self.head_ptr.as_ref().next_size },
             used: size_of::<Block>(),
             _phantom: PhantomData,
+        }
+    }
+
+    /// Consumes the `Arena`, returning a raw pointer.
+    pub fn into_raw(self) -> NonNull<()> {
+        let this = ManuallyDrop::new(self);
+        this.head_ptr.cast()
+    }
+
+    /// Constructs an arena from a raw pointer.
+    ///
+    /// # Safety
+    ///
+    /// `raw` must have been returned from `into_raw`. `from_raw` takes
+    /// ownership over the pointer, and so `from_raw` must not be called on the
+    /// same pointer more than once.
+    pub unsafe fn from_raw(raw: NonNull<()>) -> Self {
+        Self {
+            head_ptr: raw.cast(),
         }
     }
 }

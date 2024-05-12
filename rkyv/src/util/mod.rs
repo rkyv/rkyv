@@ -11,7 +11,7 @@
 //! accessing and deserializing data.
 
 #[cfg(feature = "alloc")]
-mod aligned_vec;
+mod alloc;
 mod inline_vec;
 mod ser_vec;
 
@@ -25,11 +25,9 @@ use rancor::Strategy;
 
 #[doc(inline)]
 #[cfg(feature = "alloc")]
-pub use self::aligned_vec::*;
+pub use self::alloc::*;
 #[doc(inline)]
 pub use self::{inline_vec::InlineVec, ser_vec::SerVec};
-#[cfg(feature = "alloc")]
-use crate::{de::pooling::Pool, ser::DefaultSerializer};
 use crate::{ser::Writer, Archive, Deserialize, Portable, Serialize};
 
 #[cfg(debug_assertions)]
@@ -169,50 +167,6 @@ impl<T> DerefMut for Align<T> {
     }
 }
 
-/// Serializes the given value and returns the resulting bytes.
-///
-/// The const generic parameter `N` specifies the number of bytes to
-/// pre-allocate as scratch space. Choosing a good default value for your data
-/// can be difficult without any data, so consider using an
-/// [`AllocationTracker`](crate::ser::allocator::AllocationTracker) to determine
-/// how much scratch space is typically used.
-///
-/// This function is only available with the `alloc` feature because it uses a
-/// general-purpose serializer. In no-alloc and high-performance environments,
-/// the serializer should be customized for the specific situation.
-///
-/// # Examples
-/// ```
-/// use rkyv::rancor::Error;
-///
-/// let value = vec![1, 2, 3, 4];
-///
-/// let bytes =
-///     rkyv::to_bytes::<Error>(&value).expect("failed to serialize vec");
-/// // SAFETY:
-/// // - The byte slice represents an archived object
-/// // - The root of the object is stored at the end of the slice
-/// let deserialized = unsafe {
-///     rkyv::from_bytes_unchecked::<Vec<i32>, Error>(&bytes)
-///         .expect("failed to deserialize vec")
-/// };
-///
-/// assert_eq!(deserialized, value);
-/// ```
-#[cfg(feature = "alloc")]
-#[inline]
-pub fn to_bytes<E: rancor::Source>(
-    value: &impl for<'a> Serialize<DefaultSerializer<'a, E>>,
-) -> Result<AlignedVec, E> {
-    use crate::ser::{allocator::Arena, sharing::Share, Serializer};
-
-    // TODO: move this into a thread-local
-    let mut arena = Arena::new();
-    let serializer =
-        Serializer::new(AlignedVec::new(), arena.acquire(), Share::new());
-    Ok(serialize_into(value, serializer)?.into_writer())
-}
-
 /// Serializes the given value into the given serializer and then returns the
 /// serializer.
 #[inline]
@@ -238,49 +192,6 @@ where
 {
     value.serialize_and_resolve(Strategy::wrap(serializer))?;
     Ok(())
-}
-
-/// Deserializes a value from the given bytes.
-///
-/// This function is only available with the `alloc` feature because it uses a
-/// general-purpose deserializer. In no-alloc and high-performance environments,
-/// the deserializer should be customized for the specific situation.
-///
-/// # Safety
-///
-/// - The byte slice must represent an archived object.
-/// - The root of the object must be stored at the end of the slice (this is the
-///   default behavior).
-///
-/// # Examples
-/// ```
-/// use rkyv::rancor::Error;
-///
-/// let value = vec![1, 2, 3, 4];
-///
-/// let bytes =
-///     rkyv::to_bytes::<Error>(&value).expect("failed to serialize vec");
-/// // SAFETY:
-/// // - The byte slice represents an archived object
-/// // - The root of the object is stored at the end of the slice
-/// let deserialized = unsafe {
-///     rkyv::from_bytes_unchecked::<Vec<i32>, Error>(&bytes)
-///         .expect("failed to deserialize vec")
-/// };
-///
-/// assert_eq!(deserialized, value);
-/// ```
-#[cfg(feature = "alloc")]
-#[inline]
-pub unsafe fn from_bytes_unchecked<T, E>(bytes: &[u8]) -> Result<T, E>
-where
-    T: Archive,
-    T::Archived: Deserialize<T, Strategy<Pool, E>>,
-{
-    // SAFETY: The caller has guaranteed that a valid `T` is located at the root
-    // position in the byte slice.
-    let archived = unsafe { access_unchecked::<T::Archived>(bytes) };
-    deserialize(archived, &mut Pool::new())
 }
 
 /// Deserailizes a value from the given archived value using the provided
