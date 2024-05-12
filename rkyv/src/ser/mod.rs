@@ -22,36 +22,35 @@ use crate::ser::{
 
 /// A serializer built from composeable pieces.
 #[derive(Debug, Default)]
-pub struct Serializer<W = (), A = (), S = ()> {
-    /// The writer of the `Composite` serializer.
+pub struct Serializer<W, A, S> {
+    /// The writer of the serializer.
     pub writer: W,
-    /// The allocator of the `Composite` serializer.
+    /// The allocator of the serializer.
     pub allocator: A,
-    /// The shared pointer strategy of the `Composite` serializer.
-    pub share: S,
+    /// The pointer sharing of the serializer.
+    pub sharing: S,
 }
 
 impl<W, A, S> Serializer<W, A, S> {
-    /// Creates a new composite serializer from serializer, scratch, and shared
-    /// pointer strategy.
+    /// Creates a new serializer from a writer, allocator, and pointer sharing.
     #[inline]
-    pub fn new(writer: W, allocator: A, share: S) -> Self {
+    pub fn new(writer: W, allocator: A, sharing: S) -> Self {
         Self {
             writer,
             allocator,
-            share,
+            sharing,
         }
     }
 
-    /// Consumes the composite serializer and returns the components.
+    /// Consumes the serializer and returns the components.
     #[inline]
     pub fn into_raw_parts(self) -> (W, A, S) {
-        (self.writer, self.allocator, self.share)
+        (self.writer, self.allocator, self.sharing)
     }
 
-    /// Consumes the composite serializer and returns the serializer.
+    /// Consumes the serializer and returns the writer.
     ///
-    /// The allocator and shared pointer strategies are discarded.
+    /// The allocator and pointer sharing are discarded.
     #[inline]
     pub fn into_writer(self) -> W {
         self.writer
@@ -98,12 +97,12 @@ unsafe impl<W, A: Allocator<E>, S, E> Allocator<E> for Serializer<W, A, S> {
 impl<W, A, S: Sharing<E>, E> Sharing<E> for Serializer<W, A, S> {
     #[inline]
     fn get_shared_ptr(&self, address: usize) -> Option<usize> {
-        self.share.get_shared_ptr(address)
+        self.sharing.get_shared_ptr(address)
     }
 
     #[inline]
     fn add_shared_ptr(&mut self, address: usize, pos: usize) -> Result<(), E> {
-        self.share.add_shared_ptr(address, pos)
+        self.sharing.add_shared_ptr(address, pos)
     }
 }
 
