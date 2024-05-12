@@ -4,8 +4,7 @@ mod tests {
 
     use rkyv::{
         access_unchecked, rancor::Error, ser::writer::IoWriter, serialize,
-        to_bytes, util::AlignedBytes, Archive, Archived, Deserialize,
-        Serialize,
+        to_bytes, util::Align, Archive, Archived, Deserialize, Serialize,
     };
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
@@ -21,7 +20,7 @@ mod tests {
             x: i32,
         }
 
-        let mut buf = AlignedBytes([0u8; 3]);
+        let mut buf = Align([0u8; 3]);
         let mut ser = IoWriter::new(&mut buf[..]);
         let foo = Example { x: 100 };
         serialize::<_, Error>(&foo, &mut ser)

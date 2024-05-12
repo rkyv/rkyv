@@ -27,14 +27,14 @@ impl fmt::Display for DuplicateSharedPointer {
 #[cfg(feature = "std")]
 impl std::error::Error for DuplicateSharedPointer {}
 
-/// A shared pointer strategy that unifies serializations of the same shared
+/// A shared pointer strategy that shares serializations of the same shared
 /// pointer.
 #[derive(Debug, Default)]
-pub struct Unify {
+pub struct Share {
     shared_address_to_pos: hash_map::HashMap<usize, usize>,
 }
 
-impl Unify {
+impl Share {
     /// Creates a new shared pointer unifier.
     #[inline]
     pub fn new() -> Self {
@@ -52,7 +52,7 @@ impl Unify {
     }
 }
 
-impl<E: Source> Sharing<E> for Unify {
+impl<E: Source> Sharing<E> for Share {
     fn get_shared_ptr(&self, address: usize) -> Option<usize> {
         self.shared_address_to_pos.get(&address).copied()
     }

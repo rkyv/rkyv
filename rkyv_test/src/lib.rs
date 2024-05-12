@@ -17,7 +17,12 @@ pub mod validation;
 
 #[cfg(test)]
 mod tests {
-    use rkyv::tuple::ArchivedTuple3;
+    use core::mem::MaybeUninit;
+
+    use rkyv::{
+        rancor::Error, ser::writer::Buffer, tuple::ArchivedTuple3,
+        util::serialize_into, Archived,
+    };
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
 
@@ -152,5 +157,29 @@ mod tests {
         assert_eq!(ArchivedFoo::A as usize, 2);
         assert_eq!(ArchivedFoo::B as usize, 4);
         assert_eq!(ArchivedFoo::C as usize, 6);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn buffer_serializer_zeroes_padding() {
+        use core::mem::size_of;
+
+        use rkyv::{Archive, Serialize};
+
+        #[derive(Archive, Serialize)]
+        pub struct PaddedExample {
+            a: u8,
+            b: u64,
+        }
+
+        let mut bytes = [MaybeUninit::new(0xccu8); 256];
+        let buffer = serialize_into::<_, Error>(
+            &PaddedExample { a: 0u8, b: 0u64 },
+            Buffer::from(&mut bytes),
+        )
+        .unwrap();
+        assert!(&buffer[0..size_of::<Archived<PaddedExample>>()]
+            .iter()
+            .all(|&b| b == 0));
     }
 }

@@ -89,13 +89,15 @@ mod tests {
     use rancor::{Error, Strategy};
 
     use crate::{
-        access_unchecked, deserialize, ser::AllocSerializer, to_bytes,
+        access_unchecked, deserialize, ser::DefaultSerializer, to_bytes,
         Deserialize, Serialize,
     };
 
     fn test_archive<T>(value: &T)
     where
-        T: fmt::Debug + PartialEq + Serialize<Strategy<AllocSerializer, Error>>,
+        T: fmt::Debug
+            + PartialEq
+            + for<'a> Serialize<DefaultSerializer<'a, Error>>,
         T::Archived:
             fmt::Debug + PartialEq<T> + Deserialize<T, Strategy<(), Error>>,
     {

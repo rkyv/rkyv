@@ -22,7 +22,7 @@ mod tests {
             use ptr_meta::{DynMetadata, Pointee};
             use rkyv::{
                 access_unchecked,
-                de::pooling::Unify,
+                de::pooling::Pool,
                 deserialize,
                 rancor::{Error, Fallible, Strategy},
                 to_bytes, Archive, ArchivePointee, ArchiveUnsized, Archived,
@@ -201,7 +201,7 @@ mod tests {
             let deserialized_value: Box<dyn SerializeId<Error, Error>> =
                 deserialize::<Box<dyn SerializeId<Error, Error>>, _, Error>(
                     archived_value,
-                    Strategy::wrap(&mut Unify::default()),
+                    Strategy::wrap(&mut Pool::new()),
                 )
                 .unwrap();
             assert_eq!(value.get_id(), deserialized_value.get_id());

@@ -4,6 +4,7 @@ pub mod alloc {
         access,
         bytecheck::CheckBytes,
         rancor::{Source, Strategy},
+        to_bytes,
         validation::validators::DefaultValidator,
         Serialize,
     };
@@ -12,14 +13,11 @@ pub mod alloc {
 
     pub fn serialize_and_check<T, E>(value: &T)
     where
-        T: Serialize<Strategy<DefaultSerializer, E>>,
+        T: for<'a> Serialize<DefaultSerializer<'a, E>>,
         T::Archived: for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>,
         E: Source,
     {
-        let buf =
-            rkyv::util::serialize_into(value, DefaultSerializer::default())
-                .expect("failed to archive value")
-                .into_writer();
+        let buf = to_bytes::<E>(value).expect("failed to archive value");
 
         access::<T::Archived, E>(buf.as_ref()).unwrap();
     }

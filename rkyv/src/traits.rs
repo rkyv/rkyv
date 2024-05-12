@@ -129,14 +129,18 @@ impl<T: ?Sized> CopyOptimization<T> {
 ///
 /// // Or you can customize your serialization for better performance
 /// // and compatibility with #![no_std] environments
-/// use rkyv::{ser::AllocSerializer, util::serialize_into};
+/// use rkyv::{
+///     ser::{allocator::Arena, sharing::Share, Serializer},
+///     util::{serialize_into, AlignedVec},
+/// };
 ///
-/// let bytes = rkyv::util::serialize_into::<_, Error>(
+/// let mut arena = Arena::new();
+/// let serializer = serialize_into::<_, Error>(
 ///     &value,
-///     AllocSerializer::default(),
+///     Serializer::new(AlignedVec::new(), arena.acquire(), Share::new()),
 /// )
-/// .unwrap()
-/// .into_writer();
+/// .unwrap();
+/// let bytes = serializer.into_writer();
 ///
 /// // You can use the safe API with the `bytecheck` feature enabled,
 /// // or you can use the unsafe API (shown here) for maximum performance
@@ -365,7 +369,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     access_unchecked,
 ///     primitive::ArchivedUsize,
 ///     rancor::{Error, Fallible},
-///     ser::{AllocSerializer, Positional, Writer, WriterExt as _},
+///     ser::{Positional, Writer, WriterExt as _},
 ///     to_bytes,
 ///     util::AlignedVec,
 ///     Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,

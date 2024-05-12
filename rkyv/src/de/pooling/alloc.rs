@@ -43,14 +43,14 @@ impl Drop for SharedPointer {
     }
 }
 
-/// A shared pointer strategy that unifies deserializations of the same shared
-/// pointer.
+/// A shared pointer strategy that pools together deserializations of the same
+/// shared pointer.
 #[derive(Default)]
-pub struct Unify {
+pub struct Pool {
     shared_pointers: hash_map::HashMap<usize, SharedPointer>,
 }
 
-impl Unify {
+impl Pool {
     /// Creates a new shared pointer unifier.
     #[inline]
     pub fn new() -> Self {
@@ -66,13 +66,13 @@ impl Unify {
     }
 }
 
-impl fmt::Debug for Unify {
+impl fmt::Debug for Pool {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_map().entries(self.shared_pointers.iter()).finish()
     }
 }
 
-impl<E: Source> Pooling<E> for Unify {
+impl<E: Source> Pooling<E> for Pool {
     fn get_shared_ptr(&mut self, address: usize) -> Option<ErasedPtr> {
         self.shared_pointers.get(&address).map(|p| p.ptr)
     }

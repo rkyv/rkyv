@@ -29,7 +29,7 @@ pub use self::aligned_vec::*;
 #[doc(inline)]
 pub use self::{inline_vec::InlineVec, ser_vec::SerVec};
 #[cfg(feature = "alloc")]
-use crate::{de::pooling::Unify, ser::AllocSerializer};
+use crate::{de::pooling::Pool, ser::DefaultSerializer};
 use crate::{ser::Writer, Archive, Deserialize, Portable, Serialize};
 
 #[cfg(debug_assertions)]
@@ -147,55 +147,25 @@ pub unsafe fn access_unchecked_mut<T: Portable>(
     unsafe { access_pos_unchecked_mut::<T>(bytes, pos) }
 }
 
-/// A buffer of bytes aligned to 16 bytes.
-///
-/// # Examples
-///
-/// ```
-/// # use rkyv::util::AlignedBytes;
-/// use core::mem;
-///
-/// assert_eq!(mem::align_of::<u8>(), 1);
-/// assert_eq!(mem::align_of::<AlignedBytes<256>>(), 16);
-/// ```
-#[derive(Archive, Clone, Copy, Debug, Deserialize, Portable, Serialize)]
-#[archive(crate)]
+/// A wrapper which aligns its inner value to 16 bytes.
+#[derive(Clone, Copy, Debug)]
 #[repr(C, align(16))]
-pub struct AlignedBytes<const N: usize>(pub [u8; N]);
+pub struct Align<T>(
+    /// The inner value.
+    pub T,
+);
 
-impl<const N: usize> Default for AlignedBytes<N> {
-    fn default() -> Self {
-        Self([0; N])
-    }
-}
+impl<T> Deref for Align<T> {
+    type Target = T;
 
-impl<const N: usize> Deref for AlignedBytes<N> {
-    type Target = [u8; N];
-
-    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<const N: usize> DerefMut for AlignedBytes<N> {
-    #[inline]
+impl<T> DerefMut for Align<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
-    }
-}
-
-impl<const N: usize> AsRef<[u8]> for AlignedBytes<N> {
-    #[inline]
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_ref()
-    }
-}
-
-impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
-    #[inline]
-    fn as_mut(&mut self) -> &mut [u8] {
-        self.0.as_mut()
     }
 }
 
@@ -231,10 +201,16 @@ impl<const N: usize> AsMut<[u8]> for AlignedBytes<N> {
 /// ```
 #[cfg(feature = "alloc")]
 #[inline]
-pub fn to_bytes<E>(
-    value: &impl Serialize<Strategy<AllocSerializer, E>>,
+pub fn to_bytes<E: rancor::Source>(
+    value: &impl for<'a> Serialize<DefaultSerializer<'a, E>>,
 ) -> Result<AlignedVec, E> {
-    Ok(serialize_into(value, Default::default())?.into_writer())
+    use crate::ser::{allocator::Arena, sharing::Share, Serializer};
+
+    // TODO: move this into a thread-local
+    let mut arena = Arena::new();
+    let serializer =
+        Serializer::new(AlignedVec::new(), arena.acquire(), Share::new());
+    Ok(serialize_into(value, serializer)?.into_writer())
 }
 
 /// Serializes the given value into the given serializer and then returns the
@@ -299,12 +275,12 @@ where
 pub unsafe fn from_bytes_unchecked<T, E>(bytes: &[u8]) -> Result<T, E>
 where
     T: Archive,
-    T::Archived: Deserialize<T, Strategy<Unify, E>>,
+    T::Archived: Deserialize<T, Strategy<Pool, E>>,
 {
     // SAFETY: The caller has guaranteed that a valid `T` is located at the root
     // position in the byte slice.
     let archived = unsafe { access_unchecked::<T::Archived>(bytes) };
-    deserialize(archived, &mut Unify::default())
+    deserialize(archived, &mut Pool::new())
 }
 
 /// Deserailizes a value from the given archived value using the provided

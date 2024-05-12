@@ -20,10 +20,15 @@ mod tests {
 
     use rkyv::{
         access_unchecked, access_unchecked_mut,
+        de::Pool,
         rancor::{Error, Fallible, Source, Strategy},
-        ser::{writer::BufferWriter, Writer},
+        ser::{
+            allocator::{AllocationStats, Arena},
+            sharing::Share,
+            Serializer, Writer,
+        },
         to_bytes,
-        util::{deserialize, serialize_into, AlignedBytes, AlignedVec},
+        util::{deserialize, serialize_into, AlignedVec},
         Archive, Archived, Deserialize, Place, Portable, Serialize,
     };
     #[cfg(feature = "wasm")]
@@ -157,11 +162,21 @@ mod tests {
 
             // Or you can customize your serialization for better performance
             // and compatibility with #![no_std] environments
-            use rkyv::ser::AllocSerializer;
+            use rkyv::{
+                ser::{allocator::Arena, sharing::Share, Serializer},
+                util::AlignedVec,
+            };
 
-            let serializer =
-                serialize_into::<_, Error>(&value, AllocSerializer::default())
-                    .unwrap();
+            let mut arena = Arena::new();
+            let serializer = serialize_into::<_, Error>(
+                &value,
+                Serializer::new(
+                    AlignedVec::new(),
+                    arena.acquire(),
+                    Share::new(),
+                ),
+            )
+            .unwrap();
             let bytes = serializer.into_writer();
 
             // You can use the safe API for fast zero-copy deserialization
@@ -771,7 +786,7 @@ mod tests {
         assert_eq!(*archived.a, 17);
         assert_eq!(*archived.b, 17);
 
-        let mut deserializer = DefaultDeserializer::default();
+        let mut deserializer = Pool::new();
         let deserialized =
             deserialize::<Test, _, Error>(archived, &mut deserializer).unwrap();
 
@@ -868,10 +883,7 @@ mod tests {
             b: Rc::downgrade(&shared),
         };
 
-        let serializer =
-            serialize_into::<_, Error>(&value, DefaultSerializer::default())
-                .unwrap();
-        let mut buf = serializer.into_writer();
+        let mut buf = to_bytes::<Error>(&value).unwrap();
 
         let archived =
             unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
@@ -909,7 +921,7 @@ mod tests {
         assert!(archived.b.upgrade().is_some());
         assert_eq!(**archived.b.upgrade().unwrap(), 17);
 
-        let mut deserializer = DefaultDeserializer::default();
+        let mut deserializer = Pool::new();
         let deserialized =
             deserialize::<Test, _, Error>(archived, &mut deserializer).unwrap();
 
@@ -1045,40 +1057,6 @@ mod tests {
             #[allow(dead_code)]
             T(T),
         }
-    }
-
-    #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn check_util_bounds() {
-        fn check<T: Writer<E>, E>() {}
-
-        check::<BufferWriter<[u8; 256]>, Error>();
-        check::<BufferWriter<&mut [u8; 256]>, Error>();
-        check::<BufferWriter<&mut [u8]>, Error>();
-        check::<BufferWriter<AlignedBytes<256>>, Error>();
-        check::<BufferWriter<&mut AlignedBytes<256>>, Error>();
-        check::<AlignedVec, Error>();
-    }
-
-    #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn buffer_serializer_zeroes_padding() {
-        use core::mem::size_of;
-
-        #[derive(Archive, Serialize)]
-        pub struct PaddedExample {
-            a: u8,
-            b: u64,
-        }
-        let serializer = serialize_into::<_, Error>(
-            &PaddedExample { a: 0u8, b: 0u64 },
-            BufferWriter::<[u8; 256]>::new([0xccu8; 256]),
-        )
-        .unwrap();
-        let bytes = serializer.into_inner();
-        assert!(bytes[0..size_of::<Archived<PaddedExample>>()]
-            .iter()
-            .all(|&b| b == 0));
     }
 
     #[test]
@@ -1544,12 +1522,8 @@ mod tests {
             b: Cow::Borrowed(&[1, 2, 3, 4, 5, 6]),
             c: Cow::Borrowed("hello world"),
         };
-        let result =
-            serialize_into::<_, Error>(&value, DefaultSerializer::default())
-                .unwrap()
-                .into_writer();
-        let archived =
-            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
 
         assert_eq!(archived.a, 100);
         assert_eq!(archived.b, [1, 2, 3, 4, 5, 6]);
@@ -1591,12 +1565,8 @@ mod tests {
 
         let value = Test { a, b, c };
 
-        let result =
-            serialize_into::<_, Error>(&value, DefaultSerializer::default())
-                .unwrap()
-                .into_writer();
-        let archived =
-            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
 
         assert_eq!(archived.a.len(), 3);
         assert!(archived
@@ -1643,24 +1613,16 @@ mod tests {
         let value = Test {
             inner: Some(Box::new("hello world".to_string())),
         };
-        let result =
-            serialize_into::<_, Error>(&value, DefaultSerializer::default())
-                .unwrap()
-                .into_writer();
-        let archived =
-            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
 
         assert!(archived.inner.is_some());
         assert_eq!(&**archived.inner.as_ref().unwrap(), "hello world");
         assert_eq!(archived.inner, value.inner);
 
         let value = Test { inner: None };
-        let result =
-            serialize_into::<_, Error>(&value, DefaultSerializer::default())
-                .unwrap()
-                .into_writer();
-        let archived =
-            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
 
         assert!(archived.inner.is_none());
         assert_eq!(archived.inner, value.inner);
@@ -1717,12 +1679,8 @@ mod tests {
             e: Some(NonZeroU32::new(10).unwrap()),
             f: Some(NonZeroUsize::new(10).unwrap()),
         };
-        let result =
-            serialize_into::<_, Error>(&value, DefaultSerializer::default())
-                .unwrap()
-                .into_writer();
-        let archived =
-            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
 
         assert!(archived.a.is_some());
         assert_eq!(archived.a.as_ref().unwrap().get(), 10);
@@ -1745,12 +1703,8 @@ mod tests {
             e: None,
             f: None,
         };
-        let result =
-            serialize_into::<_, Error>(&value, DefaultSerializer::default())
-                .unwrap()
-                .into_writer();
-        let archived =
-            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
 
         assert!(archived.a.is_none());
         assert!(archived.b.is_none());
@@ -1780,13 +1734,9 @@ mod tests {
         let value = Test {
             inner: UnsafeCell::new(100),
         };
-        let mut result =
-            serialize_into::<_, Error>(&value, DefaultSerializer::default())
-                .unwrap()
-                .into_writer();
-        let archived = unsafe {
-            access_unchecked_mut::<ArchivedTest>(result.as_mut_slice())
-        };
+        let mut bytes = to_bytes::<Error>(&value).unwrap();
+        let archived =
+            unsafe { access_unchecked_mut::<ArchivedTest>(&mut bytes) };
 
         unsafe {
             assert_eq!(*archived.inner.get(), 100);
@@ -1794,11 +1744,9 @@ mod tests {
             assert_eq!(*archived.inner.get(), 42);
         }
 
-        let deserialized = deserialize::<Test, _, Error>(
-            &*archived,
-            &mut DefaultDeserializer::default(),
-        )
-        .unwrap();
+        let deserialized =
+            deserialize::<Test, _, Error>(&*archived, &mut Pool::new())
+                .unwrap();
         unsafe {
             assert_eq!(*deserialized.inner.get(), 42);
             *deserialized.inner.get() = 88;
@@ -2005,46 +1953,51 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn scratch_tracker() {
         use rkyv::ser::{
-            allocator::{AllocationTracker, GlobalAllocator},
-            Composite,
+            allocator::{AllocationTracker, Arena, ArenaHandle},
+            Serializer,
         };
 
-        type TrackerSerializer =
-            Composite<AlignedVec, AllocationTracker<GlobalAllocator>, ()>;
-        fn track_serialize<T>(value: &T) -> AllocationTracker<GlobalAllocator>
+        type TrackerSerializer<'a, E> = Strategy<
+            Serializer<AlignedVec, AllocationTracker<ArenaHandle<'a>>, ()>,
+            E,
+        >;
+
+        fn track_serialize<T>(value: &T) -> AllocationStats
         where
-            T: Serialize<Strategy<TrackerSerializer, Error>>,
+            T: for<'a> Serialize<TrackerSerializer<'a, Error>>,
         {
+            let mut arena = Arena::new();
+
             let serializer = serialize_into(
                 value,
-                Composite::new(
-                    AlignedVec::default(),
-                    AllocationTracker::new(GlobalAllocator::default()),
+                Serializer::new(
+                    AlignedVec::new(),
+                    AllocationTracker::new(arena.acquire()),
                     (),
                 ),
             )
             .unwrap();
-            serializer.into_raw_parts().1
+            serializer.into_raw_parts().1.into_stats()
         }
 
-        let tracker = track_serialize(&42);
-        assert_eq!(tracker.max_bytes_allocated(), 0);
-        assert_eq!(tracker.max_allocations(), 0);
-        assert_eq!(tracker.max_alignment(), 1);
-        assert_eq!(tracker.min_buffer_size(), 0);
-        assert_eq!(tracker.min_buffer_size_max_error(), 0);
+        let stats = track_serialize(&42);
+        assert_eq!(stats.max_bytes_allocated, 0);
+        assert_eq!(stats.max_allocations, 0);
+        assert_eq!(stats.max_alignment, 1);
+        assert_eq!(stats.min_arena_capacity(), 0);
+        assert_eq!(stats.min_arena_capacity_max_error(), 0);
 
-        let tracker = track_serialize(&vec![1, 2, 3, 4]);
-        assert_eq!(tracker.max_bytes_allocated(), 0);
-        assert_eq!(tracker.max_allocations(), 0);
-        assert_eq!(tracker.max_alignment(), 1);
-        assert_eq!(tracker.min_buffer_size(), 0);
-        assert_eq!(tracker.min_buffer_size_max_error(), 0);
+        let stats = track_serialize(&vec![1, 2, 3, 4]);
+        assert_eq!(stats.max_bytes_allocated, 0);
+        assert_eq!(stats.max_allocations, 0);
+        assert_eq!(stats.max_alignment, 1);
+        assert_eq!(stats.min_arena_capacity(), 0);
+        assert_eq!(stats.min_arena_capacity_max_error(), 0);
 
-        let tracker = track_serialize(&vec![vec![1, 2], vec![3, 4]]);
-        assert_ne!(tracker.max_bytes_allocated(), 0);
-        assert_eq!(tracker.max_allocations(), 1);
-        assert_ne!(tracker.min_buffer_size(), 0);
+        let stats = track_serialize(&vec![vec![1, 2], vec![3, 4]]);
+        assert_ne!(stats.max_bytes_allocated, 0);
+        assert_eq!(stats.max_allocations, 1);
+        assert_ne!(stats.min_arena_capacity(), 0);
     }
 
     #[test]
@@ -2057,14 +2010,9 @@ mod tests {
             "me too!".to_string(),
         ]);
 
-        let result =
-            serialize_into::<_, Error>(&vec, DefaultSerializer::default())
-                .unwrap()
-                .into_writer();
+        let bytes = to_bytes::<Error>(&vec).unwrap();
         let archived = unsafe {
-            access_unchecked::<Archived<ManuallyDrop<Vec<String>>>>(
-                result.as_slice(),
-            )
+            access_unchecked::<Archived<ManuallyDrop<Vec<String>>>>(&bytes)
         };
 
         assert_eq!(archived.len(), vec.len());
@@ -2123,5 +2071,31 @@ mod tests {
         assert!(archived.inner.is_none());
         assert!(deser.inner.is_none());
         assert_eq!(none.inner, deser.inner);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn reuse_arena() {
+        let mut bytes = AlignedVec::with_capacity(1024);
+        let mut arena = Arena::with_capacity(2);
+
+        let value = vec![
+            "hello".to_string(),
+            "world".to_string(),
+            "foo".to_string(),
+            "bar".to_string(),
+            "baz".to_string(),
+        ];
+
+        for _ in 0..10 {
+            let mut buffer = core::mem::take(&mut bytes);
+            buffer.clear();
+
+            serialize_into::<_, Error>(
+                &value,
+                Serializer::new(buffer, arena.acquire(), Share::new()),
+            )
+            .unwrap();
+        }
     }
 }

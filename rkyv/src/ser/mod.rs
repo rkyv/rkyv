@@ -5,6 +5,7 @@ pub mod sharing;
 pub mod writer;
 
 use ::core::{alloc::Layout, ptr::NonNull};
+use rancor::Strategy;
 
 #[doc(inline)]
 pub use self::{
@@ -12,21 +13,17 @@ pub use self::{
     sharing::{Sharing, SharingExt},
     writer::{Positional, Writer, WriterExt},
 };
-use crate::{
-    ser::{
-        allocator::BufferAllocator, sharing::Duplicate, writer::BufferWriter,
-    },
-    util::AlignedBytes,
+use crate::ser::{
+    allocator::{ArenaHandle, SubAllocator},
+    sharing::Unshare,
+    writer::Buffer,
 };
 #[cfg(feature = "alloc")]
-use crate::{
-    ser::{allocator::GlobalAllocator, sharing::Unify},
-    util::AlignedVec,
-};
+use crate::{ser::sharing::Share, util::AlignedVec};
 
 /// A serializer built from composeable pieces.
 #[derive(Debug, Default)]
-pub struct Composite<W = (), A = (), S = ()> {
+pub struct Serializer<W = (), A = (), S = ()> {
     /// The writer of the `Composite` serializer.
     pub writer: W,
     /// The allocator of the `Composite` serializer.
@@ -35,7 +32,7 @@ pub struct Composite<W = (), A = (), S = ()> {
     pub share: S,
 }
 
-impl<W, A, S> Composite<W, A, S> {
+impl<W, A, S> Serializer<W, A, S> {
     /// Creates a new composite serializer from serializer, scratch, and shared
     /// pointer strategy.
     #[inline]
@@ -62,21 +59,21 @@ impl<W, A, S> Composite<W, A, S> {
     }
 }
 
-impl<W: Positional, A, S> Positional for Composite<W, A, S> {
+impl<W: Positional, A, S> Positional for Serializer<W, A, S> {
     #[inline]
     fn pos(&self) -> usize {
         self.writer.pos()
     }
 }
 
-impl<W: Writer<E>, A, S, E> Writer<E> for Composite<W, A, S> {
+impl<W: Writer<E>, A, S, E> Writer<E> for Serializer<W, A, S> {
     #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         self.writer.write(bytes)
     }
 }
 
-impl<W, A: Allocator<E>, S, E> Allocator<E> for Composite<W, A, S> {
+unsafe impl<W, A: Allocator<E>, S, E> Allocator<E> for Serializer<W, A, S> {
     #[inline]
     unsafe fn push_alloc(
         &mut self,
@@ -99,7 +96,7 @@ impl<W, A: Allocator<E>, S, E> Allocator<E> for Composite<W, A, S> {
     }
 }
 
-impl<W, A, S: Sharing<E>, E> Sharing<E> for Composite<W, A, S> {
+impl<W, A, S: Sharing<E>, E> Sharing<E> for Serializer<W, A, S> {
     #[inline]
     fn get_shared_ptr(&self, address: usize) -> Option<usize> {
         self.share.get_shared_ptr(address)
@@ -112,22 +109,11 @@ impl<W, A, S: Sharing<E>, E> Sharing<E> for Composite<W, A, S> {
 }
 
 /// A serializer suitable for environments where allocations cannot be made.
-///
-/// `CoreSerializer` takes two arguments: the amount of serialization memory to
-/// allocate and the amount of scratch space to allocate. If you run out of
-/// either while serializing, the serializer will return an error.
-pub type CoreSerializer<const W: usize, const A: usize> = Composite<
-    BufferWriter<AlignedBytes<W>>,
-    BufferAllocator<AlignedBytes<A>>,
-    Duplicate,
->;
+pub type CoreSerializer<'a, E> =
+    Strategy<Serializer<Buffer<'a>, SubAllocator<'a>, Unshare>, E>;
 
 /// A general-purpose serializer suitable for environments where allocations can
 /// be made.
 #[cfg(feature = "alloc")]
-pub type AllocSerializer = Composite<
-    AlignedVec,
-    // TODO(#491) Replace this with a good general-purpose allocator
-    GlobalAllocator,
-    Unify,
->;
+pub type DefaultSerializer<'a, E> =
+    Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, E>;

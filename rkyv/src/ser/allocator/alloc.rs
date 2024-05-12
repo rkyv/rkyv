@@ -4,229 +4,210 @@ use alloc::{
     boxed::Box,
     vec::Vec,
 };
-use core::{alloc::Layout, fmt, ptr::NonNull};
-#[cfg(feature = "std")]
-use std::alloc::{alloc, alloc_zeroed, dealloc};
-
-use rancor::{fail, Source};
-
-use crate::{
-    fmt::Pointer,
-    ser::{allocator::BufferAllocator, Allocator},
-    util::AlignedBytes,
+use core::{
+    alloc::Layout,
+    marker::PhantomData,
+    mem::{align_of, size_of},
+    ptr::{slice_from_raw_parts_mut, NonNull},
 };
+use std::alloc::handle_alloc_error;
+#[cfg(feature = "std")]
+use std::alloc::{alloc, dealloc};
 
-/// Fixed-size scratch space allocated on the heap.
-#[derive(Debug, Default)]
-pub struct BumpAllocator<const N: usize> {
-    inner: BufferAllocator<Box<AlignedBytes<N>>>,
+use crate::ser::Allocator;
+
+struct Block {
+    next_ptr: NonNull<Block>,
+    next_size: usize,
 }
 
-impl<const N: usize> BumpAllocator<N> {
-    /// Creates a new heap scratch space.
-    pub fn new() -> Self {
-        if N != 0 {
-            unsafe {
-                let layout = Layout::new::<AlignedBytes<N>>();
-                let ptr = alloc_zeroed(layout).cast::<AlignedBytes<N>>();
-                assert!(!ptr.is_null());
-                let buf = Box::from_raw(ptr);
-                Self {
-                    inner: BufferAllocator::new(buf),
-                }
-            }
-        } else {
-            Self {
-                inner: BufferAllocator::new(Box::default()),
-            }
+impl Block {
+    fn alloc(size: usize) -> NonNull<Self> {
+        debug_assert!(size >= size_of::<Self>());
+        let layout = Layout::from_size_align(size, align_of::<Self>()).unwrap();
+        let ptr = unsafe { alloc(layout).cast::<Self>() };
+        let Some(ptr) = NonNull::new(ptr) else {
+            handle_alloc_error(layout)
+        };
+
+        unsafe {
+            ptr.as_ptr().write(Self {
+                next_ptr: ptr,
+                next_size: layout.size(),
+            });
+        }
+
+        ptr
+    }
+
+    unsafe fn dealloc(ptr: NonNull<Self>, size: usize) {
+        let layout = unsafe {
+            Layout::from_size_align(size, align_of::<Self>()).unwrap_unchecked()
+        };
+        unsafe {
+            dealloc(ptr.as_ptr().cast(), layout);
         }
     }
 
-    /// Gets the memory layout of the heap-allocated space.
-    pub fn layout() -> Layout {
-        unsafe { Layout::from_size_align_unchecked(N, 1) }
+    /// # Safety
+    ///
+    /// `tail_ptr` and `new_ptr` must point to valid `Block`s and `new_ptr` must
+    /// be the only block in its loop.
+    unsafe fn push_next(
+        mut tail_ptr: NonNull<Self>,
+        mut new_ptr: NonNull<Self>,
+    ) {
+        let tail = unsafe { tail_ptr.as_mut() };
+        let new = unsafe { new_ptr.as_mut() };
+
+        debug_assert!(new.next_ptr == new_ptr);
+
+        let head = tail.next_ptr;
+        let head_cap = tail.next_size;
+        tail.next_ptr = new_ptr;
+        tail.next_size = new.next_size;
+        new.next_ptr = head;
+        new.next_size = head_cap;
     }
 }
 
-impl<const N: usize, E: Source> Allocator<E> for BumpAllocator<N> {
-    #[inline]
-    unsafe fn push_alloc(
-        &mut self,
-        layout: Layout,
-    ) -> Result<NonNull<[u8]>, E> {
-        // SAFETY: The safety requirements for `inner.push_alloc()` are the same
-        // as the safety conditions for `push_alloc()`.
-        unsafe { self.inner.push_alloc(layout) }
-    }
-
-    #[inline]
-    unsafe fn pop_alloc(
-        &mut self,
-        ptr: NonNull<u8>,
-        layout: Layout,
-    ) -> Result<(), E> {
-        // SAFETY: The safety requirements for `inner.pop_alloc()` are the same
-        // as the safety conditions for `pop_alloc()`.
-        unsafe { self.inner.pop_alloc(ptr, layout) }
-    }
-}
-
-#[derive(Debug)]
-struct ExceededLimit {
-    requested: usize,
-    remaining: usize,
-}
-
-impl fmt::Display for ExceededLimit {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "exceeded the maximum limit of scratch space: requested {}, \
-             remaining {}",
-            self.requested, self.remaining
-        )
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for ExceededLimit {}
-
-#[derive(Debug)]
-struct NotPoppedInReverseOrder {
-    expected: usize,
-    expected_layout: Layout,
-    actual: usize,
-    actual_layout: Layout,
-}
-
-impl fmt::Display for NotPoppedInReverseOrder {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "scratch space was not popped in reverse order: expected {} with \
-             size {} and align {}, found {} with size {} and align {}",
-            Pointer(self.expected),
-            self.expected_layout.size(),
-            self.expected_layout.align(),
-            Pointer(self.actual),
-            self.actual_layout.size(),
-            self.actual_layout.align(),
-        )
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for NotPoppedInReverseOrder {}
-
-#[derive(Debug)]
-struct NoAllocationsToPop;
-
-impl fmt::Display for NoAllocationsToPop {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "attempted to pop scratch space but there were no allocations to \
-             pop"
-        )
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for NoAllocationsToPop {}
-
-/// Scratch space that always uses the global allocator.
+/// An arena allocator for allocations.
 ///
-/// This allocator will panic if scratch is popped that it did not allocate. For
-/// this reason, it should only ever be used as a fallback allocator.
-#[derive(Debug, Default)]
-pub struct GlobalAllocator {
-    remaining: Option<usize>,
-    allocations: Vec<(*mut u8, Layout)>,
+/// Reusing the same arena for multiple serializations will reduce the number of
+/// global allocations, which can save a considerable amount of time.
+pub struct Arena {
+    head_ptr: NonNull<Block>,
+    head_size: usize,
 }
 
-// SAFETY: AllocScratch is safe to send to another thread
-// This trait is not automatically implemented because the struct contains a
-// pointer
-unsafe impl Send for GlobalAllocator {}
-
-// SAFETY: AllocScratch is safe to share between threads
-// This trait is not automatically implemented because the struct contains a
-// pointer
-unsafe impl Sync for GlobalAllocator {}
-
-impl GlobalAllocator {
-    /// Creates a new scratch allocator with no allocation limit.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Creates a new scratch allocator with the given allocation limit.
-    pub fn with_limit(limit: usize) -> Self {
-        Self {
-            remaining: Some(limit),
-            allocations: Vec::new(),
-        }
-    }
-}
-
-impl Drop for GlobalAllocator {
+impl Drop for Arena {
     fn drop(&mut self) {
-        for (ptr, layout) in self.allocations.drain(..).rev() {
-            unsafe {
-                dealloc(ptr, layout);
-            }
+        self.shrink();
+        unsafe {
+            Block::dealloc(self.head_ptr, self.head_size);
         }
     }
 }
 
-impl<E: Source> Allocator<E> for GlobalAllocator {
-    #[inline]
+impl Arena {
+    /// The default capacity for arenas.
+    pub const DEFAULT_CAPACITY: usize = 1024;
+
+    /// Creates a new `Arena` with the default capacity.
+    pub fn new() -> Self {
+        Self::with_capacity(Self::DEFAULT_CAPACITY)
+    }
+
+    /// Creates a new `Arena` with at least the requested capacity.
+    pub fn with_capacity(cap: usize) -> Self {
+        let head_size = (cap + size_of::<Block>()).next_power_of_two();
+        let head_ptr = Block::alloc(head_size);
+        Self {
+            head_ptr,
+            head_size,
+        }
+    }
+
+    /// Cleans up allocated blocks which are no longer in use.
+    ///
+    /// The arena is automatically shrunk by [`acquire`](Self::acquire).
+    pub fn shrink(&mut self) -> usize {
+        let start_ptr = self.head_ptr;
+        loop {
+            let head = unsafe { self.head_ptr.as_mut() };
+            if head.next_ptr == start_ptr {
+                head.next_ptr = self.head_ptr;
+                head.next_size = self.head_size;
+                break self.head_size - size_of::<Block>();
+            }
+
+            let next_ptr = head.next_ptr;
+            let next_size = head.next_size;
+            let _ = head;
+
+            unsafe {
+                Block::dealloc(self.head_ptr, self.head_size);
+            }
+            self.head_ptr = next_ptr;
+            self.head_size = next_size;
+        }
+    }
+
+    /// Acquires a handle to the arena.
+    ///
+    /// The returned handle has exclusive allocation rights in the arena.
+    pub fn acquire(&mut self) -> ArenaHandle<'_> {
+        self.shrink();
+
+        ArenaHandle {
+            tail_ptr: self.head_ptr,
+            tail_size: self.head_size,
+            used: size_of::<Block>(),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl Default for Arena {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// A handle which can allocate within an arena.
+pub struct ArenaHandle<'a> {
+    tail_ptr: NonNull<Block>,
+    tail_size: usize,
+    used: usize,
+    _phantom: PhantomData<&'a mut Arena>,
+}
+
+unsafe impl<E> Allocator<E> for ArenaHandle<'_> {
     unsafe fn push_alloc(
         &mut self,
         layout: Layout,
     ) -> Result<NonNull<[u8]>, E> {
-        if let Some(remaining) = self.remaining {
-            if remaining < layout.size() {
-                fail!(ExceededLimit {
-                    requested: layout.size(),
-                    remaining,
-                });
+        let pos = self.tail_ptr.as_ptr() as usize + self.used;
+        let pad = 0usize.wrapping_sub(pos) % layout.align();
+        if pad + layout.size() <= self.tail_size - self.used {
+            self.used += pad;
+        } else {
+            // Allocation request is too large, allocate a new block
+            let size = usize::max(
+                2 * self.tail_size,
+                (size_of::<Block>() + layout.size() + layout.align())
+                    .next_power_of_two(),
+            );
+            let next = Block::alloc(size);
+            unsafe {
+                Block::push_next(self.tail_ptr, next);
             }
+            self.tail_ptr = next;
+            self.tail_size = size;
+            let pos = self.tail_ptr.as_ptr() as usize + size_of::<Block>();
+            let pad = 0usize.wrapping_sub(pos) % layout.align();
+            self.used = size_of::<Block>() + pad;
         }
-        // SAFETY: The caller has guaranteed that `layout` has non-zero size.
-        let result_ptr = unsafe { alloc(layout) };
-        assert!(!result_ptr.is_null());
-        self.allocations.push((result_ptr, layout));
-        let result_slice =
-            ptr_meta::from_raw_parts_mut(result_ptr.cast(), layout.size());
-        // SAFETY: We asserted that `result_ptr` was not null.
-        let result = unsafe { NonNull::new_unchecked(result_slice) };
+
+        // SAFETY: `self.used` is always less than the length of the allocated
+        // block that `tail_ptr` points to.
+        let ptr = unsafe { self.tail_ptr.as_ptr().cast::<u8>().add(self.used) };
+        let slice_ptr = slice_from_raw_parts_mut(ptr, layout.size());
+        // SAFETY: `slice_ptr` is guaranteed not to be null because it is offset
+        // from `self.tail_ptr` which is always non-null.
+        let result = unsafe { NonNull::new_unchecked(slice_ptr) };
+        self.used += layout.size();
         Ok(result)
     }
 
-    #[inline]
     unsafe fn pop_alloc(
         &mut self,
         ptr: NonNull<u8>,
-        layout: Layout,
+        _: Layout,
     ) -> Result<(), E> {
-        if let Some(&(last_ptr, last_layout)) = self.allocations.last() {
-            if ptr.as_ptr() == last_ptr && layout == last_layout {
-                // SAFETY: `ptr` and `alloc` correspond to a valid call to
-                // `alloc` because they were on the allocation stack.
-                unsafe { dealloc(ptr.as_ptr(), layout) };
-                self.allocations.pop();
-                Ok(())
-            } else {
-                fail!(NotPoppedInReverseOrder {
-                    expected: last_ptr as usize,
-                    expected_layout: last_layout,
-                    actual: ptr.as_ptr() as usize,
-                    actual_layout: layout,
-                });
-            }
-        } else {
-            fail!(NoAllocationsToPop);
-        }
+        let bytes = self.tail_ptr.as_ptr().cast::<u8>();
+        self.used = ptr.as_ptr() as usize - bytes as usize;
+
+        Ok(())
     }
 }

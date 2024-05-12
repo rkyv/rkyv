@@ -22,14 +22,14 @@ mod tests {
         rancor::{Error, Failure, Source},
         ser::Writer,
         to_bytes,
-        util::{serialize_into, AlignedBytes},
+        util::Align,
         validation::util::access_pos,
         Archive, Archived, Deserialize, Serialize,
     };
     #[cfg(feature = "wasm")]
     use wasm_bindgen_test::*;
 
-    use crate::{util::alloc::*, validation::util::alloc::serialize_and_check};
+    use crate::validation::util::alloc::serialize_and_check;
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
@@ -43,7 +43,7 @@ mod tests {
 
         #[cfg(all(feature = "pointer_width_16", feature = "little_endian"))]
         // Synthetic archive (correct)
-        let synthetic_buf = AlignedBytes([
+        let synthetic_buf = Align([
             // "Hello world"
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
             0u8, // padding to 2-alignment
@@ -54,7 +54,7 @@ mod tests {
 
         #[cfg(all(feature = "pointer_width_16", feature = "big_endian"))]
         // Synthetic archive (correct)
-        let synthetic_buf = AlignedBytes([
+        let synthetic_buf = Align([
             // "Hello world"
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
             0u8, // padding to 2-alignment
@@ -65,7 +65,7 @@ mod tests {
 
         #[cfg(all(feature = "pointer_width_32", feature = "little_endian"))]
         // Synthetic archive (correct)
-        let synthetic_buf = AlignedBytes([
+        let synthetic_buf = Align([
             // "Hello world"
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
             0u8, // padding to 4-alignment
@@ -76,7 +76,7 @@ mod tests {
 
         #[cfg(all(feature = "pointer_width_32", feature = "big_endian"))]
         // Synthetic archive (correct)
-        let synthetic_buf = AlignedBytes([
+        let synthetic_buf = Align([
             // "Hello world"
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
             0u8, // padding to 4-alignment
@@ -87,7 +87,7 @@ mod tests {
 
         #[cfg(all(feature = "pointer_width_64", feature = "little_endian"))]
         // Synthetic archive (correct)
-        let synthetic_buf = AlignedBytes([
+        let synthetic_buf = Align([
             // "Hello world"
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
             0u8, 0u8, 0u8, 0u8, 0u8, // padding to 8-alignment
@@ -100,7 +100,7 @@ mod tests {
 
         #[cfg(all(feature = "pointer_width_64", feature = "big_endian"))]
         // Synthetic archive (correct)
-        let synthetic_buf = AlignedBytes([
+        let synthetic_buf = Align([
             // "Hello world!!!!!" because otherwise the string will get inlined
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
             0x21, 0x21, 0x21, 0x21, 0x21, 1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
@@ -111,37 +111,24 @@ mod tests {
             11u8, // string is 11 characters long
         ]);
 
-        let result = access::<Archived<Option<Box<[u8]>>>, Error>(
-            synthetic_buf.as_ref(),
-        );
+        let result =
+            access::<Archived<Option<Box<[u8]>>>, Error>(&*synthetic_buf);
         result.unwrap();
 
         // Out of bounds
-        access_pos::<Archived<u32>, Error>(
-            AlignedBytes([0, 1, 2, 3, 4]).as_ref(),
-            8,
-        )
-        .expect_err("expected out of bounds error");
+        access_pos::<Archived<u32>, Error>(&*Align([0, 1, 2, 3, 4]), 8)
+            .expect_err("expected out of bounds error");
         // Overrun
-        access_pos::<Archived<u32>, Error>(
-            AlignedBytes([0, 1, 2, 3, 4]).as_ref(),
-            4,
-        )
-        .expect_err("expected overrun error");
+        access_pos::<Archived<u32>, Error>(&*Align([0, 1, 2, 3, 4]), 4)
+            .expect_err("expected overrun error");
         // Unaligned
-        access_pos::<Archived<u32>, Error>(
-            AlignedBytes([0, 1, 2, 3, 4]).as_ref(),
-            1,
-        )
-        .expect_err("expected unaligned error");
+        access_pos::<Archived<u32>, Error>(&*Align([0, 1, 2, 3, 4]), 1)
+            .expect_err("expected unaligned error");
         // Underaligned
-        access_pos::<Archived<u32>, Error>(
-            &AlignedBytes([0, 1, 2, 3, 4])[1..],
-            0,
-        )
-        .expect_err("expected underaligned error");
+        access_pos::<Archived<u32>, Error>(&Align([0, 1, 2, 3, 4])[1..], 0)
+            .expect_err("expected underaligned error");
         // Undersized
-        access::<Archived<u32>, Error>(&AlignedBytes([]).as_ref())
+        access::<Archived<u32>, Error>(&*Align([]))
             .expect_err("expected out of bounds error");
     }
 
@@ -161,7 +148,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn invalid_tags() {
         // Invalid archive (invalid tag)
-        let synthetic_buf = AlignedBytes([
+        let synthetic_buf = Align([
             2u8, 0u8, 0u8, 0u8, // invalid tag + padding
             8u8, 0u8, 0u8, 0u8, // points 8 bytes forward
             11u8, 0u8, 0u8, 0u8, // string is 11 characters long
@@ -170,7 +157,7 @@ mod tests {
         ]);
 
         let result = access_pos::<Archived<Option<Box<[u8]>>>, Error>(
-            synthetic_buf.as_ref(),
+            &*synthetic_buf,
             0,
         );
         result.unwrap_err();
@@ -181,7 +168,7 @@ mod tests {
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn overlapping_claims() {
         // Invalid archive (overlapping claims)
-        let synthetic_buf = AlignedBytes([
+        let synthetic_buf = Align([
             // First string
             16u8, 0u8, 0u8, 0u8, // points 16 bytes forward
             11u8, 0u8, 0u8, 0u8, // string is 11 characters long
@@ -192,11 +179,8 @@ mod tests {
             0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
         ]);
 
-        access_pos::<Archived<[Box<[u8]>; 2]>, Error>(
-            synthetic_buf.as_ref(),
-            0,
-        )
-        .unwrap_err();
+        access_pos::<Archived<[Box<[u8]>; 2]>, Error>(&*synthetic_buf, 0)
+            .unwrap_err();
     }
 
     #[cfg(feature = "pointer_width_32")]
@@ -257,7 +241,7 @@ mod tests {
         }
 
         // Invalid archive (cyclic claims)
-        let synthetic_buf = AlignedBytes([
+        let synthetic_buf = Align([
             // First node
             1u8, 0u8, 0u8, 0u8, // Cons
             4u8, 0u8, 0u8, 0u8, // Node is 4 bytes forward
@@ -266,8 +250,7 @@ mod tests {
             244u8, 255u8, 255u8, 255u8, // Node is 12 bytes back
         ]);
 
-        access_pos::<ArchivedNode, Error>(synthetic_buf.as_ref(), 0)
-            .unwrap_err();
+        access_pos::<ArchivedNode, Error>(&*synthetic_buf, 0).unwrap_err();
     }
 
     #[test]
@@ -375,10 +358,7 @@ mod tests {
             b: shared.clone(),
         };
 
-        let buf =
-            serialize_into::<_, Error>(&value, DefaultSerializer::default())
-                .unwrap()
-                .into_writer();
+        let buf = to_bytes::<Failure>(&value).unwrap();
 
         access::<ArchivedTest, Error>(buf.as_ref()).unwrap();
     }
@@ -399,15 +379,15 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_invalid_b_tree_set() {
-        let data = AlignedBytes([
+        let data = Align([
             0, 0, 0, 0, 253, 6, 239, 6, 255, 255, 255, 252, 0, 0, 0, 0, 0, 0,
             0, 0, 1, 0, 0, 5, 0, 0, 0, 0, 240, 255, 255, 255, 1, 128, 0, 249,
             220, 255, 255, 255, 4, 0, 0, 96, 0, 0, 0, 249, 232, 255, 255, 255,
         ]);
 
-        rkyv::from_bytes::<BTreeSet<u8>, Error>(&data.0).unwrap_err();
+        rkyv::from_bytes::<BTreeSet<u8>, Error>(&*data).unwrap_err();
 
-        let data = AlignedBytes([
+        let data = Align([
             1, 29, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 253, 0, 0, 116, 255, 255, 40,
             0, 8, 0, 0, 0, 236, 255, 255, 255, 1, 128, 72, 0, 220, 255, 255,
             255, 236, 255, 255, 255, 0, 0, 0, 0, 32, 0, 255, 254, 255, 0, 94,
@@ -416,7 +396,7 @@ mod tests {
             1, 255, 251, 0, 184, 255, 255, 255,
         ]);
 
-        rkyv::from_bytes::<BTreeSet<Box<u8>>, Error>(&data.0).unwrap_err();
+        rkyv::from_bytes::<BTreeSet<Box<u8>>, Error>(&*data).unwrap_err();
     }
 
     #[test]
@@ -476,18 +456,18 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_invalid_btreemap() {
-        let data = AlignedBytes([
+        let data = Align([
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0, 0x00, 0x00, 0x00, 0x0c, 0xa5,
             0xf0, 0xff, 0xff, 0xff,
         ]);
-        rkyv::from_bytes::<BTreeMap<u8, Box<u8>>, Error>(&data.0).unwrap_err();
+        rkyv::from_bytes::<BTreeMap<u8, Box<u8>>, Error>(&*data).unwrap_err();
     }
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_invalid_string() {
-        let data = AlignedBytes([0x10; 16]);
-        rkyv::from_bytes::<String, Error>(&data.0).unwrap_err();
+        let data = Align([0x10; 16]);
+        rkyv::from_bytes::<String, Error>(&*data).unwrap_err();
     }
 
     #[test]

@@ -3,9 +3,9 @@ use crate::ser::Sharing;
 /// A shared pointer strategy that duplicates serializations of the same shared
 /// pointer.
 #[derive(Debug, Default)]
-pub struct Duplicate;
+pub struct Unshare;
 
-impl<E> Sharing<E> for Duplicate {
+impl<E> Sharing<E> for Unshare {
     fn get_shared_ptr(&self, _: usize) -> Option<usize> {
         None
     }
