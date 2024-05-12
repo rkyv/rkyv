@@ -27,7 +27,7 @@ mod tests {
             sharing::Share,
             Serializer, Writer,
         },
-        to_bytes,
+        to_bytes, to_bytes_in,
         util::{deserialize, serialize_into, AlignedVec},
         Archive, Archived, Deserialize, Place, Portable, Serialize,
     };
@@ -2097,5 +2097,13 @@ mod tests {
             )
             .unwrap();
         }
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn serialize_into_vec() {
+        let value = "hello world".to_string();
+        let bytes = to_bytes_in::<_, Error>(&value, Vec::new()).unwrap();
+        assert!(!bytes.is_empty());
     }
 }
