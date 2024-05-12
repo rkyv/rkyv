@@ -90,14 +90,14 @@ mod tests {
 
     use crate::{
         access_unchecked, deserialize, ser::DefaultSerializer, to_bytes,
-        Deserialize, Serialize,
+        util::AlignedVec, Deserialize, Serialize,
     };
 
     fn test_archive<T>(value: &T)
     where
         T: fmt::Debug
             + PartialEq
-            + for<'a> Serialize<DefaultSerializer<'a, Error>>,
+            + for<'a> Serialize<DefaultSerializer<'a, AlignedVec, Error>>,
         T::Archived:
             fmt::Debug + PartialEq<T> + Deserialize<T, Strategy<(), Error>>,
     {

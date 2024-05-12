@@ -17,7 +17,7 @@ pub mod core {
         Deserialize, Serialize,
     };
 
-    pub type DefaultSerializer<'a, E> = CoreSerializer<'a, E>;
+    pub type DefaultSerializer<'a, E> = CoreSerializer<'a, Buffer<'a>, E>;
     pub type DefaultDeserializer<E> = Strategy<Unpool, E>;
 
     pub fn test_archive_with<T, C>(value: &T, cmp: C)
@@ -68,10 +68,13 @@ pub mod alloc {
         de::pooling::Pool,
         deserialize,
         rancor::{Error, Strategy},
-        to_bytes, Deserialize, Serialize,
+        to_bytes,
+        util::AlignedVec,
+        Deserialize, Serialize,
     };
 
-    pub type DefaultSerializer<'a, E> = rkyv::ser::DefaultSerializer<'a, E>;
+    pub type DefaultSerializer<'a, E> =
+        rkyv::ser::DefaultSerializer<'a, AlignedVec, E>;
     pub type DefaultDeserializer<E> = Strategy<Pool, E>;
 
     pub fn test_archive_with<T, C>(value: &T, cmp: C)

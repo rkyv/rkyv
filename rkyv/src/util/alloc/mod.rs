@@ -7,7 +7,9 @@ use crate::{
     access_unchecked,
     de::pooling::Pool,
     deserialize,
-    ser::{allocator::Arena, sharing::Share, DefaultSerializer, Serializer},
+    ser::{
+        allocator::Arena, sharing::Share, DefaultSerializer, Serializer, Writer,
+    },
     util::serialize_into,
     Archive, Deserialize, Serialize,
 };
@@ -117,17 +119,8 @@ pub fn clear_arena() {
     arena::clear_arena()
 }
 
-/// Serializes the given value and returns the resulting bytes.
-///
-/// The const generic parameter `N` specifies the number of bytes to
-/// pre-allocate as scratch space. Choosing a good default value for your data
-/// can be difficult without any data, so consider using an
-/// [`AllocationTracker`](crate::ser::allocator::AllocationTracker) to determine
-/// how much scratch space is typically used.
-///
-/// This function is only available with the `alloc` feature because it uses a
-/// general-purpose serializer. In no-alloc and high-performance environments,
-/// the serializer should be customized for the specific situation.
+/// Serializes the given value and returns the resulting bytes in an
+/// [`AlignedVec`].
 ///
 /// # Examples
 /// ```
@@ -148,13 +141,29 @@ pub fn clear_arena() {
 /// assert_eq!(deserialized, value);
 /// ```
 #[inline]
-pub fn to_bytes<E: rancor::Source>(
-    value: &impl for<'a> Serialize<DefaultSerializer<'a, E>>,
-) -> Result<AlignedVec, E> {
+pub fn to_bytes<E>(
+    value: &impl for<'a> Serialize<DefaultSerializer<'a, AlignedVec, E>>,
+) -> Result<AlignedVec, E>
+where
+    E: rancor::Source,
+{
+    to_bytes_in(value, AlignedVec::new())
+}
+
+/// Serializes the given value and writes the bytes to the given `writer`.
+#[inline]
+pub fn to_bytes_in<W, E>(
+    value: &impl for<'a> Serialize<DefaultSerializer<'a, W, E>>,
+    writer: W,
+) -> Result<W, E>
+where
+    W: Writer<E>,
+    E: rancor::Source,
+{
     with_arena(|arena| {
         Ok(serialize_into(
             value,
-            Serializer::new(AlignedVec::new(), arena.acquire(), Share::new()),
+            Serializer::new(writer, arena.acquire(), Share::new()),
         )?
         .into_writer())
     })

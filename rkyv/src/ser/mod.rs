@@ -13,13 +13,12 @@ pub use self::{
     sharing::{Sharing, SharingExt},
     writer::{Positional, Writer, WriterExt},
 };
+#[cfg(feature = "alloc")]
+use crate::ser::sharing::Share;
 use crate::ser::{
     allocator::{ArenaHandle, SubAllocator},
     sharing::Unshare,
-    writer::Buffer,
 };
-#[cfg(feature = "alloc")]
-use crate::{ser::sharing::Share, util::AlignedVec};
 
 /// A serializer built from composeable pieces.
 #[derive(Debug, Default)]
@@ -109,11 +108,11 @@ impl<W, A, S: Sharing<E>, E> Sharing<E> for Serializer<W, A, S> {
 }
 
 /// A serializer suitable for environments where allocations cannot be made.
-pub type CoreSerializer<'a, E> =
-    Strategy<Serializer<Buffer<'a>, SubAllocator<'a>, Unshare>, E>;
+pub type CoreSerializer<'a, W, E> =
+    Strategy<Serializer<W, SubAllocator<'a>, Unshare>, E>;
 
 /// A general-purpose serializer suitable for environments where allocations can
 /// be made.
 #[cfg(feature = "alloc")]
-pub type DefaultSerializer<'a, E> =
-    Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, E>;
+pub type DefaultSerializer<'a, W, E> =
+    Strategy<Serializer<W, ArenaHandle<'a>, Share>, E>;

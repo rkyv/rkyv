@@ -192,7 +192,7 @@ pub mod with;
 #[cfg(feature = "alloc")]
 #[cfg_attr(doc_cfg, doc(cfg(feature = "alloc")))]
 #[doc(inline)]
-pub use util::{from_bytes_unchecked, to_bytes};
+pub use util::{from_bytes_unchecked, to_bytes, to_bytes_in};
 #[cfg(all(feature = "bytecheck", feature = "alloc"))]
 #[cfg_attr(
     doc_cfg,
