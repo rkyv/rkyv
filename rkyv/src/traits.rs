@@ -137,7 +137,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// let mut arena = Arena::new();
 /// let serializer = serialize_into::<_, Error>(
 ///     &value,
-///     Serializer::new(AlignedVec::new(), arena.acquire(), Share::new()),
+///     Serializer::new(AlignedVec::<16>::new(), arena.acquire(), Share::new()),
 /// )
 /// .unwrap();
 /// let bytes = serializer.into_writer();
@@ -174,7 +174,6 @@ impl<T: ?Sized> CopyOptimization<T> {
 ///     rancor::{Error, Fallible},
 ///     ser::Writer,
 ///     to_bytes,
-///     util::AlignedVec,
 ///     Archive, ArchiveUnsized, Archived, Portable, RelPtr, Serialize,
 ///     SerializeUnsized, munge::munge, Place,
 /// };
@@ -369,10 +368,8 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     primitive::ArchivedUsize,
 ///     rancor::{Error, Fallible},
 ///     ser::{Positional, Writer, WriterExt as _},
-///     to_bytes,
-///     util::AlignedVec,
-///     Archive, ArchivePointee, ArchiveUnsized, Archived, ArchivedMetadata,
-///     Portable, RelPtr, Serialize, SerializeUnsized,
+///     to_bytes, Archive, ArchivePointee, ArchiveUnsized, Archived,
+///     ArchivedMetadata, Portable, RelPtr, Serialize, SerializeUnsized,
 /// };
 ///
 /// // We're going to be dealing mostly with blocks that have a trailing slice

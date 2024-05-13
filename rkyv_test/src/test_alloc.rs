@@ -171,7 +171,7 @@ mod tests {
             let serializer = serialize_into::<_, Error>(
                 &value,
                 Serializer::new(
-                    AlignedVec::new(),
+                    AlignedVec::<16>::new(),
                     arena.acquire(),
                     Share::new(),
                 ),
@@ -1223,7 +1223,7 @@ mod tests {
             access_unchecked, deserialize,
             rancor::{Error, Fallible},
             ser::Writer,
-            util::{serialize_into, AlignedVec},
+            to_bytes,
             with::{ArchiveWith, DeserializeWith, SerializeWith},
             Archive, Archived, Deserialize, Place, Serialize,
         };
@@ -1283,10 +1283,8 @@ mod tests {
                 value: 10,
                 other: 10,
             };
-            let result =
-                serialize_into::<_, Error>(&value, AlignedVec::new()).unwrap();
-            let archived =
-                unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
+            let bytes = to_bytes::<Error>(&value).unwrap();
+            let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
 
             assert_eq!(archived.value, "10");
             assert_eq!(archived.other, 10);
@@ -1304,10 +1302,8 @@ mod tests {
             struct Test(#[with(ConvertToString)] i32, i32);
 
             let value = Test(10, 10);
-            let result =
-                serialize_into::<_, Error>(&value, AlignedVec::new()).unwrap();
-            let archived =
-                unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
+            let bytes = to_bytes::<Error>(&value).unwrap();
+            let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
 
             assert_eq!(archived.0, "10");
             assert_eq!(archived.1, 10);
@@ -1335,10 +1331,8 @@ mod tests {
                 value: 10,
                 other: 10,
             };
-            let result =
-                serialize_into::<_, Error>(&value, AlignedVec::new()).unwrap();
-            let archived =
-                unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
+            let bytes = to_bytes::<Error>(&value).unwrap();
+            let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
 
             if let ArchivedTest::A { value, other } = archived {
                 assert_eq!(*value, "10");
@@ -1357,10 +1351,8 @@ mod tests {
             };
 
             let value = Test::B(10, 10);
-            let result =
-                serialize_into::<_, Error>(&value, AlignedVec::new()).unwrap();
-            let archived =
-                unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
+            let bytes = to_bytes::<Error>(&value).unwrap();
+            let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
 
             if let ArchivedTest::B(value, other) = archived {
                 assert_eq!(*value, "10");
@@ -1429,13 +1421,11 @@ mod tests {
         let value = Test {
             value: AtomicU32::new(42),
         };
-        let mut result =
-            serialize_into::<_, Error>(&value, AlignedVec::new()).unwrap();
+        let mut bytes = to_bytes::<Error>(&value).unwrap();
         // NOTE: with(Atomic) is only sound if the backing memory is mutable,
         // use with caution!
-        let archived = unsafe {
-            access_unchecked_mut::<ArchivedTest>(result.as_mut_slice())
-        };
+        let archived =
+            unsafe { access_unchecked_mut::<ArchivedTest>(&mut bytes) };
 
         assert_eq!(archived.value.load(Ordering::Relaxed), 42);
     }
@@ -1453,10 +1443,8 @@ mod tests {
 
         let a = 42;
         let value = Test { value: &a };
-        let result =
-            serialize_into::<_, Error>(&value, AlignedVec::new()).unwrap();
-        let archived =
-            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
 
         assert_eq!(archived.value, 42);
     }
@@ -1473,10 +1461,8 @@ mod tests {
         }
 
         let value = Test { value: 42 };
-        let result =
-            serialize_into::<_, Error>(&value, AlignedVec::new()).unwrap();
-        let archived =
-            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
 
         assert_eq!(archived.value.get(), &42);
     }
@@ -1494,10 +1480,8 @@ mod tests {
 
         let a = "hello world";
         let value = Test { value: &a };
-        let result =
-            serialize_into::<_, Error>(&value, AlignedVec::new()).unwrap();
-        let archived =
-            unsafe { access_unchecked::<ArchivedTest>(result.as_slice()) };
+        let bytes = to_bytes::<Error>(&value).unwrap();
+        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
 
         assert_eq!(archived.value.as_ref(), "hello world");
     }
@@ -2076,7 +2060,7 @@ mod tests {
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn reuse_arena() {
-        let mut bytes = AlignedVec::with_capacity(1024);
+        let mut bytes = AlignedVec::<16>::with_capacity(1024);
         let mut arena = Arena::with_capacity(2);
 
         let value = vec![
@@ -2101,7 +2085,7 @@ mod tests {
 
     #[test]
     #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn serialize_into_vec() {
+    fn to_bytes_in_vec() {
         let value = "hello world".to_string();
         let bytes = to_bytes_in::<_, Error>(&value, Vec::new()).unwrap();
         assert!(!bytes.is_empty());
