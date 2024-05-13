@@ -9,25 +9,21 @@ use crate::{
 };
 
 impl<T: PartialEq<U>, U> PartialEq<VecDeque<U>> for ArchivedVec<T> {
-    #[inline]
     fn eq(&self, other: &VecDeque<U>) -> bool {
         self.len() == other.len() && self.iter().eq(other.iter())
     }
 }
 impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for VecDeque<T> {
-    #[inline]
     fn eq(&self, other: &ArchivedVec<U>) -> bool {
         self.len() == other.len() && self.iter().eq(other.iter())
     }
 }
 impl<T: PartialOrd> PartialOrd<VecDeque<T>> for ArchivedVec<T> {
-    #[inline]
     fn partial_cmp(&self, other: &VecDeque<T>) -> Option<cmp::Ordering> {
         self.iter().partial_cmp(other.iter())
     }
 }
 impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for VecDeque<T> {
-    #[inline]
     fn partial_cmp(&self, other: &ArchivedVec<T>) -> Option<cmp::Ordering> {
         self.iter().partial_cmp(other.iter())
     }
@@ -37,7 +33,6 @@ impl<T: Archive> Archive for VecDeque<T> {
     type Archived = ArchivedVec<T::Archived>;
     type Resolver = VecResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedVec::resolve_from_len(self.len(), resolver, out);
     }
@@ -48,7 +43,6 @@ where
     T: Serialize<S>,
     S: Fallible + Allocator + Writer + ?Sized,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -74,7 +68,6 @@ where
     D: Fallible + ?Sized,
     D::Error: Source,
 {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,

@@ -32,7 +32,6 @@ pub struct AlignedVec<const ALIGNMENT: usize = 16> {
 }
 
 impl<const A: usize> Drop for AlignedVec<A> {
-    #[inline]
     fn drop(&mut self) {
         if self.cap != 0 {
             unsafe {
@@ -62,7 +61,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// # use rkyv::util::AlignedVec;
     /// let mut vec = AlignedVec::<16>::new();
     /// ```
-    #[inline]
     pub fn new() -> Self {
         Self::with_capacity(0)
     }
@@ -93,7 +91,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// assert_eq!(vec.len(), 11);
     /// assert!(vec.capacity() >= 11);
     /// ```
-    #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         assert!(ALIGNMENT > 0, "ALIGNMENT must be 1 or more");
         assert!(
@@ -139,7 +136,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
         }
     }
 
-    #[inline]
     fn layout(&self) -> alloc::Layout {
         unsafe {
             alloc::Layout::from_size_align_unchecked(self.cap, Self::ALIGNMENT)
@@ -161,7 +157,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///
     /// assert!(v.is_empty());
     /// ```
-    #[inline]
     pub fn clear(&mut self) {
         self.len = 0;
     }
@@ -183,7 +178,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// - `new_cap` must be less than or equal to
     ///   [`MAX_CAPACITY`](AlignedVec::MAX_CAPACITY)
     /// - `new_cap` must be greater than or equal to [`len()`](AlignedVec::len)
-    #[inline]
     pub unsafe fn change_capacity(&mut self, new_cap: usize) {
         debug_assert!(new_cap <= Self::MAX_CAPACITY);
         debug_assert!(new_cap >= self.len);
@@ -268,7 +262,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// vec.shrink_to_fit();
     /// assert!(vec.capacity() == 0);
     /// ```
-    #[inline]
     pub fn shrink_to_fit(&mut self) {
         if self.cap != self.len {
             // New capacity cannot exceed max as it's shrinking
@@ -300,7 +293,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// }
     /// assert_eq!(&*x, &[0, 1, 2, 3]);
     /// ```
-    #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut u8 {
         self.ptr.as_ptr()
     }
@@ -321,7 +313,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///     assert_eq!(vec.as_mut_slice()[i], i as u8);
     /// }
     /// ```
-    #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [u8] {
         unsafe { slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
     }
@@ -352,7 +343,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///     }
     /// }
     /// ```
-    #[inline]
     pub fn as_ptr(&self) -> *const u8 {
         self.ptr.as_ptr()
     }
@@ -371,7 +361,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///     assert_eq!(vec.as_slice()[i], i as u8 + 1);
     /// }
     /// ```
-    #[inline]
     pub fn as_slice(&self) -> &[u8] {
         unsafe { slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
@@ -384,7 +373,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// let vec = AlignedVec::<16>::with_capacity(10);
     /// assert_eq!(vec.capacity(), 10);
     /// ```
-    #[inline]
     pub fn capacity(&self) -> usize {
         self.cap
     }
@@ -408,7 +396,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// vec.reserve(10);
     /// assert!(vec.capacity() >= 11);
     /// ```
-    #[inline]
     pub fn reserve(&mut self, additional: usize) {
         // Cannot wrap because capacity always exceeds len,
         // but avoids having to handle potential overflow here
@@ -470,7 +457,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// assert_eq!(vec.len(), 1);
     /// assert_eq!(vec.capacity(), 64);
     /// ```
-    #[inline]
     pub unsafe fn grow_capacity_to(&mut self, new_cap: usize) {
         debug_assert!(new_cap > self.cap);
 
@@ -518,7 +504,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// vec.resize(2, 0);
     /// assert_eq!(vec.as_slice(), &[1, 2]);
     /// ```
-    #[inline]
     pub fn resize(&mut self, new_len: usize, value: u8) {
         if new_len > self.len {
             let additional = new_len - self.len;
@@ -548,7 +533,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// v.push(1);
     /// assert!(!v.is_empty());
     /// ```
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
@@ -564,7 +548,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// a.extend_from_slice(&[1, 2, 3]);
     /// assert_eq!(a.len(), 3);
     /// ```
-    #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
@@ -582,7 +565,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// vec.extend_from_slice(&[2, 3, 4]);
     /// assert_eq!(vec.as_slice(), &[1, 2, 3, 4]);
     /// ```
-    #[inline]
     pub fn extend_from_slice(&mut self, other: &[u8]) {
         if !other.is_empty() {
             self.reserve(other.len());
@@ -609,7 +591,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// assert_eq!(vec.pop(), Some(3));
     /// assert_eq!(vec.as_slice(), &[1, 2]);
     /// ```
-    #[inline]
     pub fn pop(&mut self) -> Option<u8> {
         if self.len == 0 {
             None
@@ -635,7 +616,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// vec.push(3);
     /// assert_eq!(vec.as_slice(), &[1, 2, 3]);
     /// ```
-    #[inline]
     pub fn push(&mut self, value: u8) {
         if self.len == self.cap {
             self.reserve_for_push();
@@ -686,7 +666,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// vec.reserve_exact(10);
     /// assert!(vec.capacity() >= 11);
     /// ```
-    #[inline]
     pub fn reserve_exact(&mut self, additional: usize) {
         // This function does not use the hot/cold paths trick that `reserve`
         // and `push` do, on assumption that user probably knows this will
@@ -729,7 +708,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     ///     vec.set_len(0);
     /// }
     /// ```
-    #[inline]
     pub unsafe fn set_len(&mut self, new_len: usize) {
         debug_assert!(new_len <= self.capacity());
 
@@ -761,7 +739,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// let slice = vec.into_boxed_slice();
     /// assert_eq!(slice.len(), 3);
     /// ```
-    #[inline]
     pub fn into_boxed_slice(self) -> Box<[u8]> {
         self.into_vec().into_boxed_slice()
     }
@@ -781,7 +758,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// assert_eq!(vec.len(), 3);
     /// assert_eq!(vec.as_slice(), &[1, 2, 3]);
     /// ```
-    #[inline]
     pub fn into_vec(self) -> Vec<u8> {
         Vec::from(self.as_ref())
     }
@@ -898,42 +874,36 @@ const _: () = {
 };
 
 impl<const A: usize> From<AlignedVec<A>> for Vec<u8> {
-    #[inline]
     fn from(aligned: AlignedVec<A>) -> Self {
         aligned.to_vec()
     }
 }
 
 impl<const A: usize> AsMut<[u8]> for AlignedVec<A> {
-    #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
         self.as_mut_slice()
     }
 }
 
 impl<const A: usize> AsRef<[u8]> for AlignedVec<A> {
-    #[inline]
     fn as_ref(&self) -> &[u8] {
         self.as_slice()
     }
 }
 
 impl<const A: usize> Borrow<[u8]> for AlignedVec<A> {
-    #[inline]
     fn borrow(&self) -> &[u8] {
         self.as_slice()
     }
 }
 
 impl<const A: usize> BorrowMut<[u8]> for AlignedVec<A> {
-    #[inline]
     fn borrow_mut(&mut self) -> &mut [u8] {
         self.as_mut_slice()
     }
 }
 
 impl<const A: usize> Clone for AlignedVec<A> {
-    #[inline]
     fn clone(&self) -> Self {
         unsafe {
             let mut result = Self::with_capacity(self.len);
@@ -949,14 +919,12 @@ impl<const A: usize> Clone for AlignedVec<A> {
 }
 
 impl<const A: usize> fmt::Debug for AlignedVec<A> {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_slice().fmt(f)
     }
 }
 
 impl<const A: usize> Default for AlignedVec<A> {
-    #[inline]
     fn default() -> Self {
         Self::new()
     }
@@ -965,14 +933,12 @@ impl<const A: usize> Default for AlignedVec<A> {
 impl<const A: usize> Deref for AlignedVec<A> {
     type Target = [u8];
 
-    #[inline]
     fn deref(&self) -> &Self::Target {
         self.as_slice()
     }
 }
 
 impl<const A: usize> DerefMut for AlignedVec<A> {
-    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }
@@ -981,14 +947,12 @@ impl<const A: usize> DerefMut for AlignedVec<A> {
 impl<const A: usize, I: slice::SliceIndex<[u8]>> Index<I> for AlignedVec<A> {
     type Output = <I as slice::SliceIndex<[u8]>>::Output;
 
-    #[inline]
     fn index(&self, index: I) -> &Self::Output {
         &self.as_slice()[index]
     }
 }
 
 impl<const A: usize, I: slice::SliceIndex<[u8]>> IndexMut<I> for AlignedVec<A> {
-    #[inline]
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         &mut self.as_mut_slice()[index]
     }
@@ -996,13 +960,11 @@ impl<const A: usize, I: slice::SliceIndex<[u8]>> IndexMut<I> for AlignedVec<A> {
 
 #[cfg(feature = "std")]
 impl<const A: usize> io::Write for AlignedVec<A> {
-    #[inline]
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.extend_from_slice(buf);
         Ok(buf.len())
     }
 
-    #[inline]
     fn write_vectored(
         &mut self,
         bufs: &[io::IoSlice<'_>],
@@ -1015,7 +977,6 @@ impl<const A: usize> io::Write for AlignedVec<A> {
         Ok(len)
     }
 
-    #[inline]
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
         self.extend_from_slice(buf);
         Ok(())

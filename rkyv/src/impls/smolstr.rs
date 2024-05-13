@@ -21,7 +21,6 @@ impl<S> Serialize<S> for SmolStr
 where
     S: Fallible + Allocator + Writer + ?Sized,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -31,7 +30,6 @@ where
 }
 
 impl<D: Fallible + ?Sized> Deserialize<SmolStr, D> for ArchivedString {
-    #[inline]
     fn deserialize(&self, _deserializer: &mut D) -> Result<SmolStr, D::Error> {
         Ok(SmolStr::new(self.as_str()))
     }

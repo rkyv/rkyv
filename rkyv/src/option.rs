@@ -56,7 +56,6 @@ impl<T> ArchivedOption<T> {
         }
     }
     /// Returns `true` if the option is a `None` value.
-    #[inline]
     pub fn is_none(&self) -> bool {
         match self {
             ArchivedOption::None => true,
@@ -65,7 +64,6 @@ impl<T> ArchivedOption<T> {
     }
 
     /// Returns `true` if the option is a `Some` value.
-    #[inline]
     pub fn is_some(&self) -> bool {
         match self {
             ArchivedOption::None => false,
@@ -74,7 +72,6 @@ impl<T> ArchivedOption<T> {
     }
 
     /// Converts to an `Option<&T>`.
-    #[inline]
     pub const fn as_ref(&self) -> Option<&T> {
         match self {
             ArchivedOption::None => None,
@@ -83,7 +80,6 @@ impl<T> ArchivedOption<T> {
     }
 
     /// Converts to an `Option<&mut T>`.
-    #[inline]
     pub fn as_mut(&mut self) -> Option<&mut T> {
         match self {
             ArchivedOption::None => None,
@@ -92,13 +88,11 @@ impl<T> ArchivedOption<T> {
     }
 
     /// Converts from `Pin<&ArchivedOption<T>>` to `Option<Pin<&T>>`.
-    #[inline]
     pub fn as_pin_ref(self: Pin<&Self>) -> Option<Pin<&T>> {
         unsafe { Pin::get_ref(self).as_ref().map(|x| Pin::new_unchecked(x)) }
     }
 
     /// Converts from `Pin<&mut ArchivedOption<T>>` to `Option<Pin<&mut T>>`.
-    #[inline]
     pub fn as_pin_mut(self: Pin<&mut Self>) -> Option<Pin<&mut T>> {
         unsafe {
             Pin::get_unchecked_mut(self)
@@ -108,7 +102,6 @@ impl<T> ArchivedOption<T> {
     }
 
     /// Returns an iterator over the possibly contained value.
-    #[inline]
     pub const fn iter(&self) -> Iter<'_, T> {
         Iter {
             inner: self.as_ref(),
@@ -116,7 +109,6 @@ impl<T> ArchivedOption<T> {
     }
 
     /// Returns a mutable iterator over the possibly contained value.
-    #[inline]
     pub fn iter_mut(&mut self) -> IterMut<'_, T> {
         IterMut {
             inner: self.as_mut(),
@@ -125,14 +117,12 @@ impl<T> ArchivedOption<T> {
 
     /// Inserts `v` into the option if it is `None`, then returns a mutable
     /// reference to the contained value.
-    #[inline]
     pub fn get_or_insert(&mut self, v: T) -> &mut T {
         self.get_or_insert_with(move || v)
     }
 
     /// Inserts a value computed from `f` into the option if it is `None`, then
     /// returns a mutable reference to the contained value.
-    #[inline]
     pub fn get_or_insert_with<F: FnOnce() -> T>(&mut self, f: F) -> &mut T {
         if let ArchivedOption::Some(ref mut value) = self {
             value
@@ -149,7 +139,6 @@ impl<T: Deref> ArchivedOption<T> {
     /// Leaves the original `ArchivedOption` in-place, creating a new one with a
     /// reference to the original one, additionally coercing the contents
     /// via `Deref`.
-    #[inline]
     pub fn as_deref(&self) -> Option<&<T as Deref>::Target> {
         self.as_ref().map(|x| x.deref())
     }
@@ -160,7 +149,6 @@ impl<T: DerefMut> ArchivedOption<T> {
     ///
     /// Leaves the original `ArchivedOption` in-place, creating a new `Option`
     /// with a mutable reference to the inner type's `Deref::Target` type.
-    #[inline]
     pub fn as_deref_mut(&mut self) -> Option<&mut <T as Deref>::Target> {
         self.as_mut().map(|x| x.deref_mut())
     }
@@ -169,35 +157,30 @@ impl<T: DerefMut> ArchivedOption<T> {
 impl<T: Eq> Eq for ArchivedOption<T> {}
 
 impl<T: hash::Hash> hash::Hash for ArchivedOption<T> {
-    #[inline]
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.as_ref().hash(state)
     }
 }
 
 impl<T: Ord> Ord for ArchivedOption<T> {
-    #[inline]
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.as_ref().cmp(&other.as_ref())
     }
 }
 
 impl<T: PartialEq> PartialEq for ArchivedOption<T> {
-    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_ref().eq(&other.as_ref())
     }
 }
 
 impl<T: PartialOrd> PartialOrd for ArchivedOption<T> {
-    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.as_ref().partial_cmp(&other.as_ref())
     }
 }
 
 impl<T, U: PartialOrd<T>> PartialOrd<Option<T>> for ArchivedOption<U> {
-    #[inline]
     fn partial_cmp(&self, other: &Option<T>) -> Option<cmp::Ordering> {
         match (self, other) {
             (ArchivedOption::None, None) => Some(cmp::Ordering::Equal),
@@ -212,7 +195,6 @@ impl<T, U: PartialOrd<T>> PartialOrd<Option<T>> for ArchivedOption<U> {
 
 #[cfg(feature = "extra_traits")]
 impl<T: PartialOrd<U>, U> PartialOrd<ArchivedOption<T>> for Option<U> {
-    #[inline]
     fn partial_cmp(&self, other: &ArchivedOption<T>) -> Option<cmp::Ordering> {
         match (self, other) {
             (None, ArchivedOption::None) => Some(cmp::Ordering::Equal),
@@ -226,7 +208,6 @@ impl<T: PartialOrd<U>, U> PartialOrd<ArchivedOption<T>> for Option<U> {
 }
 
 impl<T, U: PartialEq<T>> PartialEq<Option<T>> for ArchivedOption<U> {
-    #[inline]
     fn eq(&self, other: &Option<T>) -> bool {
         if let ArchivedOption::Some(self_value) = self {
             if let Some(other_value) = other {
@@ -242,7 +223,6 @@ impl<T, U: PartialEq<T>> PartialEq<Option<T>> for ArchivedOption<U> {
 
 #[cfg(feature = "extra_traits")]
 impl<T: PartialEq<U>, U> PartialEq<ArchivedOption<T>> for Option<U> {
-    #[inline]
     fn eq(&self, other: &ArchivedOption<T>) -> bool {
         other.eq(self)
     }
@@ -321,7 +301,6 @@ impl<'a, T> IntoIterator for &'a ArchivedOption<T> {
     type Item = &'a T;
     type IntoIter = Iter<'a, T>;
 
-    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
@@ -331,7 +310,6 @@ impl<'a, T> IntoIterator for &'a mut ArchivedOption<T> {
     type Item = &'a mut T;
     type IntoIter = IterMut<'a, T>;
 
-    #[inline]
     fn into_iter(self) -> Self::IntoIter {
         self.iter_mut()
     }

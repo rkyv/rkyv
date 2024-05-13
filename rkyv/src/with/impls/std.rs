@@ -52,7 +52,6 @@ where
     S::Error: Source,
     str: SerializeUnsized<S>,
 {
-    #[inline]
     fn serialize_with(
         field: &OsString,
         serializer: &mut S,
@@ -67,7 +66,6 @@ where
 impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, OsString, D>
     for AsString
 {
-    #[inline]
     fn deserialize_with(
         field: &ArchivedString,
         _: &mut D,
@@ -101,7 +99,6 @@ where
     S::Error: Source,
     str: SerializeUnsized<S>,
 {
-    #[inline]
     fn serialize_with(
         field: &PathBuf,
         serializer: &mut S,
@@ -116,7 +113,6 @@ where
 impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, PathBuf, D>
     for AsString
 {
-    #[inline]
     fn deserialize_with(
         field: &ArchivedString,
         _: &mut D,
@@ -131,7 +127,6 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
     type Archived = Immutable<F::Archived>;
     type Resolver = F::Resolver;
 
-    #[inline]
     fn resolve_with(
         field: &Mutex<F>,
         resolver: Self::Resolver,
@@ -158,7 +153,6 @@ where
     S: Fallible + ?Sized,
     S::Error: Source,
 {
-    #[inline]
     fn serialize_with(
         field: &Mutex<F>,
         serializer: &mut S,
@@ -176,7 +170,6 @@ where
     F: Deserialize<T, D>,
     D: Fallible + ?Sized,
 {
-    #[inline]
     fn deserialize_with(
         field: &Immutable<F>,
         deserializer: &mut D,
@@ -189,7 +182,6 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
     type Archived = Immutable<F::Archived>;
     type Resolver = F::Resolver;
 
-    #[inline]
     fn resolve_with(
         field: &RwLock<F>,
         resolver: Self::Resolver,
@@ -216,7 +208,6 @@ where
     S: Fallible + ?Sized,
     S::Error: Source,
 {
-    #[inline]
     fn serialize_with(
         field: &RwLock<F>,
         serializer: &mut S,
@@ -234,7 +225,6 @@ where
     F: Deserialize<T, D>,
     D: Fallible + ?Sized,
 {
-    #[inline]
     fn deserialize_with(
         field: &Immutable<F>,
         deserializer: &mut D,
@@ -412,7 +402,6 @@ impl<'a> ArchiveWith<Cow<'a, CStr>> for AsOwned {
 impl<'a, S: Fallible + Writer + ?Sized> SerializeWith<Cow<'a, CStr>, S>
     for AsOwned
 {
-    #[inline]
     fn serialize_with(
         field: &Cow<'a, CStr>,
         serializer: &mut S,
@@ -426,7 +415,6 @@ where
     D: Fallible + ?Sized,
     D::Error: Source,
 {
-    #[inline]
     fn deserialize_with(
         field: &ArchivedCString,
         deserializer: &mut D,

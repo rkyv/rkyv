@@ -82,7 +82,6 @@ fn derive_deserialize_impl(
                         for #rkyv_path::Archived<#name #ty_generics>
                     #deserialize_where
                     {
-                        #[inline]
                         fn deserialize(
                             &self,
                             deserializer: &mut __D,
@@ -130,7 +129,6 @@ fn derive_deserialize_impl(
                         for #rkyv_path::Archived<#name #ty_generics>
                     #deserialize_where
                     {
-                        #[inline]
                         fn deserialize(
                             &self,
                             deserializer: &mut __D,
@@ -151,7 +149,6 @@ fn derive_deserialize_impl(
                     for #rkyv_path::Archived<#name #ty_generics>
                 #where_clause
                 {
-                    #[inline]
                     fn deserialize(
                         &self,
                         _: &mut __D,
@@ -272,7 +269,6 @@ fn derive_deserialize_impl(
                     for #rkyv_path::Archived<#name #ty_generics>
                 #deserialize_where
                 {
-                    #[inline]
                     fn deserialize(
                         &self,
                         deserializer: &mut __D,

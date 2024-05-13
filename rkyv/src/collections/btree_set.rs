@@ -24,7 +24,6 @@ impl<K, const E: usize> ArchivedBTreeSet<K, E> {
     ///
     /// The key may be any borrowed form of the set's key type, but the ordering
     /// on the borrowed form _must_ match the ordering on the key type.
-    #[inline]
     pub fn contains_key<Q: Ord + ?Sized>(&self, key: &Q) -> bool
     where
         K: Borrow<Q> + Ord,
@@ -38,7 +37,6 @@ impl<K, const E: usize> ArchivedBTreeSet<K, E> {
     /// The value may be any borrowed form of the set's value type, but the
     /// ordering on the borrowed form _must_ match the ordering on the value
     /// type.
-    #[inline]
     pub fn get<Q: Ord + ?Sized>(&self, value: &Q) -> Option<&K>
     where
         K: Borrow<Q> + Ord,
@@ -47,19 +45,16 @@ impl<K, const E: usize> ArchivedBTreeSet<K, E> {
     }
 
     /// Returns `true` if the set contains no elements.
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
     /// Returns the number of items in the archived B-tree set.
-    #[inline]
     pub fn len(&self) -> usize {
         self.0.len()
     }
 
     /// Resolves a B-tree set from its length.
-    #[inline]
     pub fn resolve_from_len(
         len: usize,
         resolver: BTreeSetResolver,
@@ -70,7 +65,6 @@ impl<K, const E: usize> ArchivedBTreeSet<K, E> {
     }
 
     /// Serializes an `ArchivedBTreeSet` from the given iterator and serializer.
-    #[inline]
     pub fn serialize_from_ordered_iter<'a, I, UK, S>(
         iter: I,
         serializer: &mut S,

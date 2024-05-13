@@ -148,14 +148,12 @@ impl Archive for Ipv4Addr {
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for Ipv4Addr {
-    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
 impl<D: Fallible + ?Sized> Deserialize<Ipv4Addr, D> for ArchivedIpv4Addr {
-    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<Ipv4Addr, D::Error> {
         Ok(self.as_ipv4())
     }
@@ -263,14 +261,12 @@ impl Archive for Ipv6Addr {
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for Ipv6Addr {
-    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
 impl<D: Fallible + ?Sized> Deserialize<Ipv6Addr, D> for ArchivedIpv6Addr {
-    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<Ipv6Addr, D::Error> {
         Ok(self.as_ipv6())
     }
@@ -410,7 +406,6 @@ impl Archive for IpAddr {
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for IpAddr {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -423,7 +418,6 @@ impl<S: Fallible + ?Sized> Serialize<S> for IpAddr {
 }
 
 impl<D: Fallible + ?Sized> Deserialize<IpAddr, D> for ArchivedIpAddr {
-    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<IpAddr, D::Error> {
         match self {
             ArchivedIpAddr::V4(ipv4_addr) => {
@@ -498,7 +492,6 @@ impl Archive for SocketAddrV4 {
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for SocketAddrV4 {
-    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
@@ -508,7 +501,6 @@ impl<D> Deserialize<SocketAddrV4, D> for ArchivedSocketAddrV4
 where
     D: Fallible + ?Sized,
 {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
@@ -587,7 +579,6 @@ impl Archive for SocketAddrV6 {
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for SocketAddrV6 {
-    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
@@ -596,7 +587,6 @@ impl<S: Fallible + ?Sized> Serialize<S> for SocketAddrV6 {
 impl<D: Fallible + ?Sized> Deserialize<SocketAddrV6, D>
     for ArchivedSocketAddrV6
 {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
@@ -721,7 +711,6 @@ impl Archive for SocketAddr {
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for SocketAddr {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -734,7 +723,6 @@ impl<S: Fallible + ?Sized> Serialize<S> for SocketAddr {
 }
 
 impl<D: Fallible + ?Sized> Deserialize<SocketAddr, D> for ArchivedSocketAddr {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,

@@ -162,12 +162,10 @@ impl<T, E> Pooling<E> for Strategy<T, E>
 where
     T: Pooling<E>,
 {
-    #[inline]
     fn get_shared_ptr(&mut self, address: usize) -> Option<ErasedPtr> {
         T::get_shared_ptr(self, address)
     }
 
-    #[inline]
     unsafe fn add_shared_ptr(
         &mut self,
         address: usize,
@@ -185,7 +183,6 @@ pub trait PoolingExt<E>: Pooling<E> {
     /// Checks whether the given reference has been deserialized and either uses
     /// the existing shared pointer to it, or deserializes it and converts
     /// it to a shared pointer with `to_shared`.
-    #[inline]
     fn deserialize_shared<T, P>(
         &mut self,
         value: &T::Archived,

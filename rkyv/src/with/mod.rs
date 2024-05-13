@@ -140,7 +140,6 @@ pub struct Immutable<T: ?Sized>(T);
 
 impl<T: ?Sized> Immutable<T> {
     /// Gets the underlying immutable value.
-    #[inline]
     pub fn value(&self) -> &T {
         &self.0
     }
@@ -149,7 +148,6 @@ impl<T: ?Sized> Immutable<T> {
 impl<T: ?Sized> Deref for Immutable<T> {
     type Target = T;
 
-    #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
     }

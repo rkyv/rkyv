@@ -74,7 +74,6 @@ impl ArchivedString {
     }
 
     /// Serializes an archived string from a given `str`.
-    #[inline]
     pub fn serialize_from_str<S: Fallible + ?Sized>(
         value: &str,
         serializer: &mut S,
@@ -132,7 +131,6 @@ impl fmt::Display for ArchivedString {
 impl Eq for ArchivedString {}
 
 impl hash::Hash for ArchivedString {
-    #[inline]
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.as_str().hash(state)
     }
@@ -257,7 +255,6 @@ mod verify {
         C: Fallible + ArchiveContext + ?Sized,
         C::Error: Source,
     {
-        #[inline]
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {
             if self.repr.is_inline() {
                 unsafe {

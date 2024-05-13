@@ -128,7 +128,6 @@ impl<F: Archive> ArchiveWith<&F> for Inline {
     type Archived = F::Archived;
     type Resolver = F::Resolver;
 
-    #[inline]
     fn resolve_with(
         field: &&F,
         resolver: Self::Resolver,
@@ -139,7 +138,6 @@ impl<F: Archive> ArchiveWith<&F> for Inline {
 }
 
 impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<&F, S> for Inline {
-    #[inline]
     fn serialize_with(
         field: &&F,
         serializer: &mut S,
@@ -154,7 +152,6 @@ impl<F: ArchiveUnsized + ?Sized> ArchiveWith<&F> for BoxedInline {
     type Archived = ArchivedBox<F::Archived>;
     type Resolver = BoxResolver;
 
-    #[inline]
     fn resolve_with(
         field: &&F,
         resolver: Self::Resolver,
@@ -167,7 +164,6 @@ impl<F: ArchiveUnsized + ?Sized> ArchiveWith<&F> for BoxedInline {
 impl<F: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> SerializeWith<&F, S>
     for BoxedInline
 {
-    #[inline]
     fn serialize_with(
         field: &&F,
         serializer: &mut S,
@@ -182,7 +178,6 @@ impl<F: ArchiveUnsized + ?Sized> ArchiveWith<F> for Boxed {
     type Archived = ArchivedBox<F::Archived>;
     type Resolver = BoxResolver;
 
-    #[inline]
     fn resolve_with(
         field: &F,
         resolver: Self::Resolver,
@@ -195,7 +190,6 @@ impl<F: ArchiveUnsized + ?Sized> ArchiveWith<F> for Boxed {
 impl<F: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> SerializeWith<F, S>
     for Boxed
 {
-    #[inline]
     fn serialize_with(
         field: &F,
         serializer: &mut S,
@@ -209,7 +203,6 @@ impl<F: Archive, D: Fallible + ?Sized>
 where
     F::Archived: Deserialize<F, D>,
 {
-    #[inline]
     fn deserialize_with(
         field: &ArchivedBox<F::Archived>,
         deserializer: &mut D,
@@ -236,7 +229,6 @@ impl ArchiveWith<Option<NonZeroIsize>> for Niche {
 }
 
 impl<S: Fallible + ?Sized> SerializeWith<Option<NonZeroIsize>, S> for Niche {
-    #[inline]
     fn serialize_with(
         _: &Option<NonZeroIsize>,
         _: &mut S,
@@ -249,7 +241,6 @@ impl<D: Fallible + ?Sized>
     DeserializeWith<ArchivedOptionNonZeroIsize, Option<NonZeroIsize>, D>
     for Niche
 {
-    #[inline]
     fn deserialize_with(
         field: &ArchivedOptionNonZeroIsize,
         _: &mut D,
@@ -278,7 +269,6 @@ impl ArchiveWith<Option<NonZeroUsize>> for Niche {
 }
 
 impl<S: Fallible + ?Sized> SerializeWith<Option<NonZeroUsize>, S> for Niche {
-    #[inline]
     fn serialize_with(
         _: &Option<NonZeroUsize>,
         _: &mut S,
@@ -291,7 +281,6 @@ impl<D: Fallible + ?Sized>
     DeserializeWith<ArchivedOptionNonZeroUsize, Option<NonZeroUsize>, D>
     for Niche
 {
-    #[inline]
     fn deserialize_with(
         field: &ArchivedOptionNonZeroUsize,
         _: &mut D,
@@ -310,7 +299,6 @@ impl<F: Archive> ArchiveWith<UnsafeCell<F>> for Unsafe {
     type Archived = UnsafeCell<F::Archived>;
     type Resolver = F::Resolver;
 
-    #[inline]
     fn resolve_with(
         field: &UnsafeCell<F>,
         resolver: Self::Resolver,
@@ -325,7 +313,6 @@ impl<F: Archive> ArchiveWith<UnsafeCell<F>> for Unsafe {
 impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<UnsafeCell<F>, S>
     for Unsafe
 {
-    #[inline]
     fn serialize_with(
         field: &UnsafeCell<F>,
         serializer: &mut S,
@@ -339,7 +326,6 @@ impl<F: Archive, D: Fallible + ?Sized>
 where
     F::Archived: Deserialize<F, D>,
 {
-    #[inline]
     fn deserialize_with(
         field: &UnsafeCell<F::Archived>,
         deserializer: &mut D,
@@ -356,7 +342,6 @@ impl<F: Archive> ArchiveWith<Cell<F>> for Unsafe {
     type Archived = Cell<F::Archived>;
     type Resolver = F::Resolver;
 
-    #[inline]
     fn resolve_with(
         field: &Cell<F>,
         resolver: Self::Resolver,
@@ -371,7 +356,6 @@ impl<F: Archive> ArchiveWith<Cell<F>> for Unsafe {
 impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Cell<F>, S>
     for Unsafe
 {
-    #[inline]
     fn serialize_with(
         field: &Cell<F>,
         serializer: &mut S,
@@ -385,7 +369,6 @@ impl<F: Archive, D: Fallible + ?Sized>
 where
     F::Archived: Deserialize<F, D>,
 {
-    #[inline]
     fn deserialize_with(
         field: &Cell<F::Archived>,
         deserializer: &mut D,

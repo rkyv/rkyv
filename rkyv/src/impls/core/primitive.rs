@@ -84,7 +84,6 @@ unsafe impl<T: Portable> Portable for [T] {}
 macro_rules! impl_serialize_noop {
     ($type:ty) => {
         impl<S: Fallible + ?Sized> Serialize<S> for $type {
-            #[inline]
             fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
                 Ok(())
             }
@@ -110,7 +109,6 @@ macro_rules! impl_archive_self_primitive {
         impl_serialize_noop!($type);
 
         impl<D: Fallible + ?Sized> Deserialize<$type, D> for $type {
-            #[inline]
             fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
                 Ok(*self)
             }
@@ -167,7 +165,6 @@ macro_rules! impl_multibyte_primitive {
         impl_serialize_noop!($type);
 
         impl<D: Fallible + ?Sized> Deserialize<$type, D> for $archived {
-            #[inline]
             fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
                 Ok(self.to_native())
             }
@@ -216,12 +213,10 @@ impl<T: ?Sized> Archive for PhantomData<T> {
     type Archived = PhantomData<T>;
     type Resolver = ();
 
-    #[inline]
     fn resolve(&self, _: Self::Resolver, _: Place<Self::Archived>) {}
 }
 
 impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
-    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
@@ -230,7 +225,6 @@ impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
 impl<T: ?Sized, D: Fallible + ?Sized> Deserialize<PhantomData<T>, D>
     for PhantomData<T>
 {
-    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<PhantomData<T>, D::Error> {
         Ok(PhantomData)
     }
@@ -252,14 +246,12 @@ impl Archive for PhantomPinned {
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for PhantomPinned {
-    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
 impl<D: Fallible + ?Sized> Deserialize<PhantomPinned, D> for PhantomPinned {
-    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<PhantomPinned, D::Error> {
         Ok(PhantomPinned)
     }
@@ -304,14 +296,12 @@ impl Archive for usize {
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for usize {
-    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
 impl<D: Fallible + ?Sized> Deserialize<usize, D> for ArchivedUsize {
-    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<usize, D::Error> {
         Ok(self.to_native() as usize)
     }
@@ -337,14 +327,12 @@ impl Archive for isize {
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for isize {
-    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
 impl<D: Fallible + ?Sized> Deserialize<isize, D> for ArchivedIsize {
-    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<isize, D::Error> {
         Ok(self.to_native() as isize)
     }
@@ -372,7 +360,6 @@ impl Archive for NonZeroUsize {
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for NonZeroUsize {
-    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
@@ -382,7 +369,6 @@ impl<D> Deserialize<NonZeroUsize, D> for ArchivedNonZeroUsize
 where
     D: Fallible + ?Sized,
 {
-    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<NonZeroUsize, D::Error> {
         Ok(unsafe { NonZeroUsize::new_unchecked(self.get() as usize) })
     }
@@ -410,7 +396,6 @@ impl Archive for NonZeroIsize {
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for NonZeroIsize {
-    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
@@ -420,7 +405,6 @@ impl<D> Deserialize<NonZeroIsize, D> for ArchivedNonZeroIsize
 where
     D: Fallible + ?Sized,
 {
-    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<NonZeroIsize, D::Error> {
         Ok(unsafe { NonZeroIsize::new_unchecked(self.get() as isize) })
     }

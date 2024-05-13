@@ -33,7 +33,6 @@ pub struct Serializer<W, A, S> {
 
 impl<W, A, S> Serializer<W, A, S> {
     /// Creates a new serializer from a writer, allocator, and pointer sharing.
-    #[inline]
     pub fn new(writer: W, allocator: A, sharing: S) -> Self {
         Self {
             writer,
@@ -43,7 +42,6 @@ impl<W, A, S> Serializer<W, A, S> {
     }
 
     /// Consumes the serializer and returns the components.
-    #[inline]
     pub fn into_raw_parts(self) -> (W, A, S) {
         (self.writer, self.allocator, self.sharing)
     }
@@ -51,28 +49,24 @@ impl<W, A, S> Serializer<W, A, S> {
     /// Consumes the serializer and returns the writer.
     ///
     /// The allocator and pointer sharing are discarded.
-    #[inline]
     pub fn into_writer(self) -> W {
         self.writer
     }
 }
 
 impl<W: Positional, A, S> Positional for Serializer<W, A, S> {
-    #[inline]
     fn pos(&self) -> usize {
         self.writer.pos()
     }
 }
 
 impl<W: Writer<E>, A, S, E> Writer<E> for Serializer<W, A, S> {
-    #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         self.writer.write(bytes)
     }
 }
 
 unsafe impl<W, A: Allocator<E>, S, E> Allocator<E> for Serializer<W, A, S> {
-    #[inline]
     unsafe fn push_alloc(
         &mut self,
         layout: Layout,
@@ -82,7 +76,6 @@ unsafe impl<W, A: Allocator<E>, S, E> Allocator<E> for Serializer<W, A, S> {
         unsafe { self.allocator.push_alloc(layout) }
     }
 
-    #[inline]
     unsafe fn pop_alloc(
         &mut self,
         ptr: NonNull<u8>,
@@ -95,12 +88,10 @@ unsafe impl<W, A: Allocator<E>, S, E> Allocator<E> for Serializer<W, A, S> {
 }
 
 impl<W, A, S: Sharing<E>, E> Sharing<E> for Serializer<W, A, S> {
-    #[inline]
     fn get_shared_ptr(&self, address: usize) -> Option<usize> {
         self.sharing.get_shared_ptr(address)
     }
 
-    #[inline]
     fn add_shared_ptr(&mut self, address: usize, pos: usize) -> Result<(), E> {
         self.sharing.add_shared_ptr(address, pos)
     }

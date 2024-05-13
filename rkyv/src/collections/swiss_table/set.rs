@@ -28,19 +28,16 @@ pub struct ArchivedHashSet<K, H = FxHasher64> {
 
 impl<K, H> ArchivedHashSet<K, H> {
     /// Gets the number of items in the hash set.
-    #[inline]
     pub const fn len(&self) -> usize {
         self.inner.len()
     }
 
     /// Returns whether there are no items in the hash set.
-    #[inline]
     pub const fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 
     /// Gets an iterator over the keys of the underlying hash map.
-    #[inline]
     pub fn iter(&self) -> Keys<K, (), H> {
         self.inner.keys()
     }
@@ -48,7 +45,6 @@ impl<K, H> ArchivedHashSet<K, H> {
 
 impl<K, H: Hasher + Default> ArchivedHashSet<K, H> {
     /// Gets the key corresponding to the given key in the hash set.
-    #[inline]
     pub fn get<Q>(&self, k: &Q) -> Option<&K>
     where
         K: Borrow<Q>,
@@ -58,7 +54,6 @@ impl<K, H: Hasher + Default> ArchivedHashSet<K, H> {
     }
 
     /// Returns whether the given key is in the hash set.
-    #[inline]
     pub fn contains<Q>(&self, k: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -68,7 +63,6 @@ impl<K, H: Hasher + Default> ArchivedHashSet<K, H> {
     }
 
     /// Resolves an archived hash set from the given length and parameters.
-    #[inline]
     pub fn resolve_from_len(
         len: usize,
         load_factor: (usize, usize),
@@ -80,7 +74,6 @@ impl<K, H: Hasher + Default> ArchivedHashSet<K, H> {
     }
 
     /// Serializes an iterator of keys as a hash set.
-    #[inline]
     pub fn serialize_from_iter<'a, KU, S, I>(
         iter: I,
         load_factor: (usize, usize),
@@ -109,7 +102,6 @@ impl<K: fmt::Debug, H> fmt::Debug for ArchivedHashSet<K, H> {
 }
 
 impl<K: Hash + Eq, H: Hasher + Default> PartialEq for ArchivedHashSet<K, H> {
-    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.inner == other.inner
     }

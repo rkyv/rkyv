@@ -50,20 +50,17 @@ impl<T, E> ArchivedResult<T, E> {
         }
     }
     /// Returns `true` if the result is [`Ok`](ArchivedResult::Ok).
-    #[inline]
     pub const fn is_ok(&self) -> bool {
         matches!(self, ArchivedResult::Ok(_))
     }
 
     /// Returns `true` if the result is [`Err`](ArchivedResult::Err).
-    #[inline]
     pub const fn is_err(&self) -> bool {
         matches!(self, ArchivedResult::Err(_))
     }
 
     /// Returns a `Result` containing the success and error values of this
     /// `ArchivedResult`.
-    #[inline]
     pub fn as_ref(&self) -> Result<&T, &E> {
         match self {
             ArchivedResult::Ok(value) => Ok(value),
@@ -72,7 +69,6 @@ impl<T, E> ArchivedResult<T, E> {
     }
 
     /// Converts from `&mut ArchivedResult<T, E>` to `Result<&mut T, &mut E>`.
-    #[inline]
     pub fn as_mut(&mut self) -> Result<&mut T, &mut E> {
         match self {
             ArchivedResult::Ok(value) => Ok(value),
@@ -84,7 +80,6 @@ impl<T, E> ArchivedResult<T, E> {
     ///
     /// The iterator yields one value if the result is `ArchivedResult::Ok`,
     /// otherwise none.
-    #[inline]
     pub fn iter(&self) -> Iter<'_, T> {
         Iter {
             inner: self.as_ref().ok(),
@@ -95,7 +90,6 @@ impl<T, E> ArchivedResult<T, E> {
     ///
     /// The iterator yields one value if the result is `ArchivedResult::Ok`,
     /// otherwise none.
-    #[inline]
     pub fn iter_mut(&mut self) -> IterMut<'_, T> {
         IterMut {
             inner: self.as_mut().ok(),
@@ -109,7 +103,6 @@ impl<T: Deref, E> ArchivedResult<T, E> {
     ///
     /// Coerces the `Ok` variant of the original `ArchivedResult` via `Deref`
     /// and returns the new `Result`.
-    #[inline]
     pub fn as_deref(&self) -> Result<&<T as Deref>::Target, &E> {
         match self {
             ArchivedResult::Ok(value) => Ok(value.deref()),
@@ -124,7 +117,6 @@ impl<T: DerefMut, E> ArchivedResult<T, E> {
     ///
     /// Coerces the `Ok` variant of the original `ArchivedResult` via `DerefMut`
     /// and returns the new `Result`.
-    #[inline]
     pub fn as_deref_mut(
         &mut self,
     ) -> Result<&mut <T as Deref>::Target, &mut E> {
@@ -189,28 +181,24 @@ impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
 impl<T: Eq, E: Eq> Eq for ArchivedResult<T, E> {}
 
 impl<T: hash::Hash, E: hash::Hash> hash::Hash for ArchivedResult<T, E> {
-    #[inline]
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.as_ref().hash(state)
     }
 }
 
 impl<T: Ord, E: Ord> Ord for ArchivedResult<T, E> {
-    #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         self.as_ref().cmp(&other.as_ref())
     }
 }
 
 impl<T: PartialEq, E: PartialEq> PartialEq for ArchivedResult<T, E> {
-    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_ref().eq(&other.as_ref())
     }
 }
 
 impl<T: PartialOrd, E: PartialOrd> PartialOrd for ArchivedResult<T, E> {
-    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.as_ref().partial_cmp(&other.as_ref())
     }
@@ -219,7 +207,6 @@ impl<T: PartialOrd, E: PartialOrd> PartialOrd for ArchivedResult<T, E> {
 impl<T, U: PartialEq<T>, E, F: PartialEq<E>> PartialEq<Result<T, E>>
     for ArchivedResult<U, F>
 {
-    #[inline]
     fn eq(&self, other: &Result<T, E>) -> bool {
         match self {
             ArchivedResult::Ok(self_value) => {
@@ -246,7 +233,6 @@ where
     T: PartialEq<U>,
     E: PartialEq<F>,
 {
-    #[inline]
     fn eq(&self, other: &ArchivedResult<T, E>) -> bool {
         other.eq(self)
     }

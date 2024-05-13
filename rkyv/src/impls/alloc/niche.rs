@@ -8,7 +8,6 @@ where
     T: ?Sized,
     U: ArchivePointee + PartialEq<T> + ?Sized,
 {
-    #[inline]
     fn eq(&self, other: &Option<Box<T>>) -> bool {
         match (self.as_deref(), other.as_deref()) {
             (Some(self_value), Some(other_value)) => self_value.eq(other_value),
@@ -24,7 +23,6 @@ where
     T: ArchivePointee + PartialEq<U> + ?Sized,
     U: ?Sized,
 {
-    #[inline]
     fn eq(&self, other: &ArchivedOptionBox<T>) -> bool {
         other.eq(self)
     }

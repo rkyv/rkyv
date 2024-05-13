@@ -30,19 +30,16 @@ pub struct ArchivedIndexSet<K, H = FxHasher64> {
 
 impl<K, H> ArchivedIndexSet<K, H> {
     /// Returns whether the index set contains no values.
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 
     /// Returns an iterator over the keys of the index set in order.
-    #[inline]
     pub fn iter(&self) -> Keys<K, ()> {
         self.inner.keys()
     }
 
     /// Returns the number of elements in the index set.
-    #[inline]
     pub fn len(&self) -> usize {
         self.inner.len()
     }
@@ -50,7 +47,6 @@ impl<K, H> ArchivedIndexSet<K, H> {
 
 impl<K, H: Default + Hasher> ArchivedIndexSet<K, H> {
     /// Returns whether a key is present in the hash set.
-    #[inline]
     pub fn contains<Q>(&self, k: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -60,7 +56,6 @@ impl<K, H: Default + Hasher> ArchivedIndexSet<K, H> {
     }
 
     /// Returns the value stored in the set, if any.
-    #[inline]
     pub fn get<Q>(&self, k: &Q) -> Option<&K>
     where
         K: Borrow<Q>,
@@ -70,7 +65,6 @@ impl<K, H: Default + Hasher> ArchivedIndexSet<K, H> {
     }
 
     /// Returns the item index and value stored in the set, if any.
-    #[inline]
     pub fn get_full<Q>(&self, k: &Q) -> Option<(usize, &K)>
     where
         K: Borrow<Q>,
@@ -80,13 +74,11 @@ impl<K, H: Default + Hasher> ArchivedIndexSet<K, H> {
     }
 
     /// Gets a key by index.
-    #[inline]
     pub fn get_index(&self, index: usize) -> Option<&K> {
         self.inner.get_index(index).map(|(k, _)| k)
     }
 
     /// Returns the index of a key if it exists in the set.
-    #[inline]
     pub fn get_index_of<Q>(&self, key: &Q) -> Option<usize>
     where
         K: Borrow<Q>,
@@ -96,7 +88,6 @@ impl<K, H: Default + Hasher> ArchivedIndexSet<K, H> {
     }
 
     /// Resolves an archived index map from a given length and parameters.
-    #[inline]
     pub fn resolve_from_len(
         len: usize,
         load_factor: (usize, usize),
@@ -108,7 +99,6 @@ impl<K, H: Default + Hasher> ArchivedIndexSet<K, H> {
     }
 
     /// Serializes an iterator of keys as an index set.
-    #[inline]
     pub fn serialize_from_iter<'a, I, UK, S>(
         iter: I,
         load_factor: (usize, usize),

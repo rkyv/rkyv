@@ -40,7 +40,6 @@ pub struct ArchivedRc<T: ArchivePointee + ?Sized, F> {
 
 impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     /// Gets the value of the `ArchivedRc`.
-    #[inline]
     pub fn get(&self) -> &T {
         unsafe { &*self.ptr.as_ptr() }
     }
@@ -51,14 +50,12 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     ///
     /// Any other `ArchivedRc` pointers to the same value must not be
     /// dereferenced for the duration of the returned borrow.
-    #[inline]
     pub unsafe fn get_pin_mut_unchecked(self: Pin<&mut Self>) -> Pin<&mut T> {
         let ptr = unsafe { self.map_unchecked_mut(|s| &mut s.ptr) };
         unsafe { Pin::new_unchecked(&mut *ptr.as_mut_ptr()) }
     }
 
     /// Resolves an archived `Rc` from a given reference.
-    #[inline]
     pub fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: &U,
         resolver: RcResolver,
@@ -69,7 +66,6 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     }
 
     /// Serializes an archived `Rc` from a given reference.
-    #[inline]
     pub fn serialize_from_ref<U, S>(
         value: &U,
         serializer: &mut S,
@@ -92,14 +88,12 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
 }
 
 impl<T: ArchivePointee + ?Sized, F> AsRef<T> for ArchivedRc<T, F> {
-    #[inline]
     fn as_ref(&self) -> &T {
         self.get()
     }
 }
 
 impl<T: ArchivePointee + ?Sized, F> Borrow<T> for ArchivedRc<T, F> {
-    #[inline]
     fn borrow(&self) -> &T {
         self.get()
     }
@@ -108,7 +102,6 @@ impl<T: ArchivePointee + ?Sized, F> Borrow<T> for ArchivedRc<T, F> {
 impl<T: ArchivePointee + fmt::Debug + ?Sized, F> fmt::Debug
     for ArchivedRc<T, F>
 {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.get().fmt(f)
     }
@@ -116,8 +109,6 @@ impl<T: ArchivePointee + fmt::Debug + ?Sized, F> fmt::Debug
 
 impl<T: ArchivePointee + ?Sized, F> Deref for ArchivedRc<T, F> {
     type Target = T;
-
-    #[inline]
     fn deref(&self) -> &Self::Target {
         self.get()
     }
@@ -126,7 +117,6 @@ impl<T: ArchivePointee + ?Sized, F> Deref for ArchivedRc<T, F> {
 impl<T: ArchivePointee + fmt::Display + ?Sized, F> fmt::Display
     for ArchivedRc<T, F>
 {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.get().fmt(f)
     }
@@ -197,7 +187,6 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     /// Attempts to upgrade the weak pointer to an `ArchivedArc`.
     ///
     /// Returns `None` if a null weak pointer was serialized.
-    #[inline]
     pub fn upgrade(&self) -> Option<&ArchivedRc<T, F>> {
         match self {
             ArchivedRcWeak::None => None,
@@ -206,7 +195,6 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     }
 
     /// Attempts to upgrade a pinned mutable weak pointer.
-    #[inline]
     pub fn upgrade_pin_mut(
         self: Pin<&mut Self>,
     ) -> Option<Pin<&mut ArchivedRc<T, F>>> {
@@ -219,7 +207,6 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     }
 
     /// Resolves an archived `Weak` from a given optional reference.
-    #[inline]
     pub fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: Option<&U>,
         resolver: RcWeakResolver,
@@ -246,7 +233,6 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     }
 
     /// Serializes an archived `Weak` from a given optional reference.
-    #[inline]
     pub fn serialize_from_ref<U, S>(
         value: Option<&U>,
         serializer: &mut S,
@@ -322,7 +308,6 @@ mod verify {
         C: Fallible + ArchiveContext + SharedContext + ?Sized,
         C::Error: Source,
     {
-        #[inline]
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {
             let ptr = self.ptr.as_ptr_wrapping();
             let type_id = TypeId::of::<ArchivedRc<T, F>>();

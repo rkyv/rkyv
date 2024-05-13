@@ -30,7 +30,6 @@ impl<T: fmt::Debug> fmt::Debug for ArchivedRange<T> {
 
 impl<T: PartialOrd<T>> ArchivedRange<T> {
     /// Returns `true` if `item` is contained in the range.
-    #[inline]
     pub fn contains<U>(&self, item: &U) -> bool
     where
         T: PartialOrd<U>,
@@ -40,7 +39,6 @@ impl<T: PartialOrd<T>> ArchivedRange<T> {
     }
 
     /// Returns `true` if the range contains no items.
-    #[inline]
     pub fn is_empty(&self) -> bool {
         match self.start.partial_cmp(&self.end) {
             None
@@ -52,12 +50,10 @@ impl<T: PartialOrd<T>> ArchivedRange<T> {
 }
 
 impl<T> RangeBounds<T> for ArchivedRange<T> {
-    #[inline]
     fn start_bound(&self) -> Bound<&T> {
         Bound::Included(&self.start)
     }
 
-    #[inline]
     fn end_bound(&self) -> Bound<&T> {
         Bound::Excluded(&self.end)
     }
@@ -76,7 +72,6 @@ pub struct ArchivedRangeInclusive<T> {
 }
 
 impl<T: fmt::Debug> fmt::Debug for ArchivedRangeInclusive<T> {
-    #[inline]
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.start.fmt(fmt)?;
         write!(fmt, "..=")?;
@@ -87,7 +82,6 @@ impl<T: fmt::Debug> fmt::Debug for ArchivedRangeInclusive<T> {
 
 impl<T: PartialOrd<T>> ArchivedRangeInclusive<T> {
     /// Returns `true` if `item` is contained in the range.
-    #[inline]
     pub fn contains<U>(&self, item: &U) -> bool
     where
         T: PartialOrd<U>,
@@ -97,7 +91,6 @@ impl<T: PartialOrd<T>> ArchivedRangeInclusive<T> {
     }
 
     /// Returns `true` if the range contains no items.
-    #[inline]
     pub fn is_empty(&self) -> bool {
         match self.start.partial_cmp(&self.end) {
             None | Some(cmp::Ordering::Greater) => true,
@@ -107,12 +100,10 @@ impl<T: PartialOrd<T>> ArchivedRangeInclusive<T> {
 }
 
 impl<T> RangeBounds<T> for ArchivedRangeInclusive<T> {
-    #[inline]
     fn start_bound(&self) -> Bound<&T> {
         Bound::Included(&self.start)
     }
 
-    #[inline]
     fn end_bound(&self) -> Bound<&T> {
         Bound::Included(&self.end)
     }
@@ -138,7 +129,6 @@ impl<T: fmt::Debug> fmt::Debug for ArchivedRangeFrom<T> {
 
 impl<T: PartialOrd<T>> ArchivedRangeFrom<T> {
     /// Returns `true` if `item` is contained in the range.
-    #[inline]
     pub fn contains<U>(&self, item: &U) -> bool
     where
         T: PartialOrd<U>,
@@ -149,12 +139,10 @@ impl<T: PartialOrd<T>> ArchivedRangeFrom<T> {
 }
 
 impl<T> RangeBounds<T> for ArchivedRangeFrom<T> {
-    #[inline]
     fn start_bound(&self) -> Bound<&T> {
         Bound::Included(&self.start)
     }
 
-    #[inline]
     fn end_bound(&self) -> Bound<&T> {
         Bound::Unbounded
     }
@@ -180,7 +168,6 @@ impl<T: fmt::Debug> fmt::Debug for ArchivedRangeTo<T> {
 
 impl<T: PartialOrd<T>> ArchivedRangeTo<T> {
     /// Returns `true` if `item` is contained in the range.
-    #[inline]
     pub fn contains<U>(&self, item: &U) -> bool
     where
         T: PartialOrd<U>,
@@ -191,12 +178,10 @@ impl<T: PartialOrd<T>> ArchivedRangeTo<T> {
 }
 
 impl<T> RangeBounds<T> for ArchivedRangeTo<T> {
-    #[inline]
     fn start_bound(&self) -> Bound<&T> {
         Bound::Unbounded
     }
 
-    #[inline]
     fn end_bound(&self) -> Bound<&T> {
         Bound::Excluded(&self.end)
     }
@@ -222,7 +207,6 @@ impl<T: fmt::Debug> fmt::Debug for ArchivedRangeToInclusive<T> {
 
 impl<T: PartialOrd<T>> ArchivedRangeToInclusive<T> {
     /// Returns `true` if `item` is contained in the range.
-    #[inline]
     pub fn contains<U>(&self, item: &U) -> bool
     where
         T: PartialOrd<U>,
@@ -233,12 +217,10 @@ impl<T: PartialOrd<T>> ArchivedRangeToInclusive<T> {
 }
 
 impl<T> RangeBounds<T> for ArchivedRangeToInclusive<T> {
-    #[inline]
     fn start_bound(&self) -> Bound<&T> {
         Bound::Unbounded
     }
 
-    #[inline]
     fn end_bound(&self) -> Bound<&T> {
         Bound::Included(&self.end)
     }
@@ -261,7 +243,6 @@ pub enum ArchivedBound<T> {
 
 impl<T> ArchivedBound<T> {
     /// Converts from `&ArchivedBound<T>` to `Bound<&T>`.
-    #[inline]
     pub fn as_ref(&self) -> Bound<&T> {
         match self {
             ArchivedBound::Included(x) => Bound::Included(x),
@@ -271,7 +252,6 @@ impl<T> ArchivedBound<T> {
     }
 
     /// Converts from `&mut ArchivedBound<T>` to `Bound<&mut T>`.
-    #[inline]
     pub fn as_mut(&mut self) -> Bound<&mut T> {
         match self {
             ArchivedBound::Included(x) => Bound::Included(x),

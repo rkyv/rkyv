@@ -27,20 +27,17 @@ pub struct ArchivedBox<T: ArchivePointee + ?Sized> {
 
 impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     /// Returns a reference to the value of this archived box.
-    #[inline]
     pub fn get(&self) -> &T {
         unsafe { &*self.ptr.as_ptr() }
     }
 
     /// Returns a pinned mutable reference to the value of this archived box
-    #[inline]
     pub fn get_pin_mut(self: Pin<&mut Self>) -> Pin<&mut T> {
         let ptr = unsafe { self.map_unchecked_mut(|s| &mut s.ptr) };
         unsafe { Pin::new_unchecked(&mut *ptr.as_mut_ptr()) }
     }
 
     /// Resolves an archived box from the given value and parameters.
-    #[inline]
     pub fn resolve_from_ref<U: ArchiveUnsized<Archived = T> + ?Sized>(
         value: &U,
         resolver: BoxResolver,
@@ -50,7 +47,6 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     }
 
     /// Serializes an archived box from the given value and serializer.
-    #[inline]
     pub fn serialize_from_ref<U, S>(
         value: &U,
         serializer: &mut S,
@@ -77,14 +73,12 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
 }
 
 impl<T: ArchivePointee + ?Sized> AsRef<T> for ArchivedBox<T> {
-    #[inline]
     fn as_ref(&self) -> &T {
         self.get()
     }
 }
 
 impl<T: ArchivePointee + ?Sized> Borrow<T> for ArchivedBox<T> {
-    #[inline]
     fn borrow(&self) -> &T {
         self.get()
     }
@@ -94,7 +88,6 @@ impl<T: ArchivePointee + ?Sized> fmt::Debug for ArchivedBox<T>
 where
     T::ArchivedMetadata: fmt::Debug,
 {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("ArchivedBox").field(&self.ptr).finish()
     }
@@ -103,7 +96,6 @@ where
 impl<T: ArchivePointee + ?Sized> Deref for ArchivedBox<T> {
     type Target = T;
 
-    #[inline]
     fn deref(&self) -> &Self::Target {
         self.get()
     }
@@ -112,7 +104,6 @@ impl<T: ArchivePointee + ?Sized> Deref for ArchivedBox<T> {
 impl<T: ArchivePointee + fmt::Display + ?Sized> fmt::Display
     for ArchivedBox<T>
 {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.get().fmt(f)
     }
@@ -121,14 +112,12 @@ impl<T: ArchivePointee + fmt::Display + ?Sized> fmt::Display
 impl<T: ArchivePointee + Eq + ?Sized> Eq for ArchivedBox<T> {}
 
 impl<T: ArchivePointee + hash::Hash + ?Sized> hash::Hash for ArchivedBox<T> {
-    #[inline]
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.get().hash(state);
     }
 }
 
 impl<T: ArchivePointee + Ord + ?Sized> Ord for ArchivedBox<T> {
-    #[inline]
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.as_ref().cmp(other.as_ref())
     }
@@ -137,21 +126,18 @@ impl<T: ArchivePointee + Ord + ?Sized> Ord for ArchivedBox<T> {
 impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ArchivePointee + ?Sized>
     PartialEq<ArchivedBox<U>> for ArchivedBox<T>
 {
-    #[inline]
     fn eq(&self, other: &ArchivedBox<U>) -> bool {
         self.get().eq(other.get())
     }
 }
 
 impl<T: ArchivePointee + PartialOrd + ?Sized> PartialOrd for ArchivedBox<T> {
-    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.get().partial_cmp(other.get())
     }
 }
 
 impl<T: ArchivePointee + ?Sized> fmt::Pointer for ArchivedBox<T> {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let ptr = self.get() as *const T;
         fmt::Pointer::fmt(&ptr, f)
@@ -193,7 +179,6 @@ mod verify {
         C: Fallible + ArchiveContext + ?Sized,
         C::Error: Source,
     {
-        #[inline]
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {
             let ptr = self.ptr.as_ptr_wrapping();
             context.in_subtree(ptr, |context| unsafe {

@@ -53,7 +53,6 @@ impl ArchivePointee for CStr {
 }
 
 impl<S: Fallible + Writer + ?Sized> SerializeUnsized<S> for CStr {
-    #[inline]
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         let result = serializer.pos();
         serializer.write(self.to_bytes_with_nul())?;
@@ -62,7 +61,6 @@ impl<S: Fallible + Writer + ?Sized> SerializeUnsized<S> for CStr {
 }
 
 impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for CStr {
-    #[inline]
     unsafe fn deserialize_unsized(
         &self,
         _: &mut D,
@@ -86,7 +84,6 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for CStr {
         Ok(())
     }
 
-    #[inline]
     fn deserialize_metadata(
         &self,
         _: &mut D,
@@ -122,7 +119,6 @@ impl Archive for CString {
 }
 
 impl<S: Fallible + Writer + ?Sized> Serialize<S> for CString {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -137,7 +133,6 @@ where
     D::Error: Source,
     CStr: DeserializeUnsized<CStr, D>,
 {
-    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<CString, D::Error> {
         let metadata = self.as_c_str().deserialize_metadata(deserializer)?;
         let layout = <CStr as LayoutRaw>::layout_raw(metadata).into_error()?;

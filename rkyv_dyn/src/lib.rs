@@ -55,14 +55,12 @@ pub trait AsDynSerializer<E> {
 }
 
 impl<S: DynSerializer<E>, E> AsDynSerializer<E> for S {
-    #[inline]
     fn as_dyn_serializer(&mut self) -> &mut dyn DynSerializer<E> {
         self as &mut dyn DynSerializer<E>
     }
 }
 
 impl<E> AsDynSerializer<E> for dyn DynSerializer<E> {
-    #[inline]
     fn as_dyn_serializer(&mut self) -> &mut dyn DynSerializer<E> {
         self
     }
@@ -200,14 +198,12 @@ pub trait AsDynDeserializer<E> {
 }
 
 impl<S: DynDeserializer<E>, E> AsDynDeserializer<E> for S {
-    #[inline]
     fn as_dyn_deserializer(&mut self) -> &mut dyn DynDeserializer<E> {
         self as &mut dyn DynDeserializer<E>
     }
 }
 
 impl<E> AsDynDeserializer<E> for dyn DynDeserializer<E> {
-    #[inline]
     fn as_dyn_deserializer(&mut self) -> &mut dyn DynDeserializer<E> {
         self
     }
@@ -286,21 +282,18 @@ impl<T: ?Sized> ArchivedDynMetadata<T> {
 }
 
 impl<T: ?Sized> Clone for ArchivedDynMetadata<T> {
-    #[inline]
     fn clone(&self) -> Self {
         *self
     }
 }
 
 impl<T: ?Sized> hash::Hash for ArchivedDynMetadata<T> {
-    #[inline]
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.impl_id.hash(state);
     }
 }
 
 impl<T: ?Sized> PartialEq for ArchivedDynMetadata<T> {
-    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.impl_id.eq(&other.impl_id)
     }
@@ -309,14 +302,12 @@ impl<T: ?Sized> PartialEq for ArchivedDynMetadata<T> {
 impl<T: ?Sized> Eq for ArchivedDynMetadata<T> {}
 
 impl<T: ?Sized> PartialOrd for ArchivedDynMetadata<T> {
-    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl<T: ?Sized> Ord for ArchivedDynMetadata<T> {
-    #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.impl_id.cmp(&other.impl_id)
     }

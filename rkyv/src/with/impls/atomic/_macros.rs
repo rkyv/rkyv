@@ -6,7 +6,6 @@ macro_rules! impl_serialize_with_atomic {
             S: $crate::rancor::Fallible + ?Sized,
             SO: $crate::with::impls::atomic::LoadOrdering,
         {
-            #[inline]
             fn serialize_with(
                 _: &$atomic,
                 _: &mut S,
@@ -21,7 +20,6 @@ macro_rules! impl_serialize_with_atomic {
             S: $crate::rancor::Fallible + ?Sized,
             SO: $crate::with::impls::atomic::LoadOrdering,
         {
-            #[inline]
             fn serialize_with(
                 _: &$atomic,
                 _: &mut S,

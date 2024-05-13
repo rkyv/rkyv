@@ -19,7 +19,6 @@ where
     type Archived = ArchivedHashMap<K::Archived, V::Archived>;
     type Resolver = HashMapResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedHashMap::resolve_from_len(self.len(), (7, 8), resolver, out);
     }
@@ -33,7 +32,6 @@ where
     S: Fallible + Writer + Allocator + ?Sized,
     S::Error: Source,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -56,7 +54,6 @@ where
     D: Fallible + ?Sized,
     S: Default + BuildHasher,
 {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
@@ -80,7 +77,6 @@ where
     AV: PartialEq<V>,
     S: BuildHasher,
 {
-    #[inline]
     fn eq(&self, other: &HashMap<K, V, S>) -> bool {
         if self.len() != other.len() {
             false
@@ -98,7 +94,6 @@ where
     AK: Hash + Eq,
     AV: PartialEq<V>,
 {
-    #[inline]
     fn eq(&self, other: &ArchivedHashMap<AK, AV>) -> bool {
         other.eq(self)
     }

@@ -19,7 +19,6 @@ where
     type Archived = ArchivedBTreeMap<K::Archived, V::Archived>;
     type Resolver = BTreeMapResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         Self::Archived::resolve_from_len(self.len(), resolver, out);
     }
@@ -33,7 +32,6 @@ where
     S: Allocator + Fallible + Writer + ?Sized,
     S::Error: Source,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -51,7 +49,6 @@ where
     V::Archived: Deserialize<V, D>,
     D: Fallible + ?Sized,
 {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
@@ -81,7 +78,6 @@ where
     AK: PartialEq<K>,
     AV: PartialEq<V>,
 {
-    #[inline]
     fn eq(&self, other: &BTreeMap<K, V>) -> bool {
         if self.len() != other.len() {
             false
@@ -106,7 +102,6 @@ where
     AK: PartialEq<K>,
     AV: PartialEq<V>,
 {
-    #[inline]
     fn eq(&self, other: &ArchivedBTreeMap<AK, AV>) -> bool {
         other.eq(self)
     }

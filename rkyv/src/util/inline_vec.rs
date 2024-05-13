@@ -31,7 +31,6 @@ impl<T, const N: usize> InlineVec<T, N> {
     /// Constructs a new, empty `InlineVec`.
     ///
     /// The vector will be able to hold exactly `N` elements.
-    #[inline]
     pub fn new() -> Self {
         Self {
             elements: unsafe { MaybeUninit::uninit().assume_init() },
@@ -40,7 +39,6 @@ impl<T, const N: usize> InlineVec<T, N> {
     }
 
     /// Clears the vector, removing all values.
-    #[inline]
     pub fn clear(&mut self) {
         for i in 0..self.len {
             unsafe {
@@ -54,7 +52,6 @@ impl<T, const N: usize> InlineVec<T, N> {
     ///
     /// The caller must ensure that the vector outlives the pointer this
     /// function returns, or else it will end up pointing to garbage.
-    #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut T {
         self.elements.as_mut_ptr().cast()
     }
@@ -62,7 +59,6 @@ impl<T, const N: usize> InlineVec<T, N> {
     /// Extracts a mutable slice of the entire vector.
     ///
     /// Equivalent to `&mut s[..]`.
-    #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), self.len) }
     }
@@ -77,7 +73,6 @@ impl<T, const N: usize> InlineVec<T, N> {
     /// `UnsafeCell`) using this pointer or any pointer derived from it. If
     /// you need to mutate the contents of the slice, use
     /// [`as_mut_ptr`](Self::as_mut_ptr).
-    #[inline]
     pub fn as_ptr(&self) -> *const T {
         self.elements.as_ptr().cast()
     }
@@ -85,13 +80,11 @@ impl<T, const N: usize> InlineVec<T, N> {
     /// Extracts a slice containing the entire vector.
     ///
     /// Equivalent to `&s[..]`.
-    #[inline]
     pub fn as_slice(&self) -> &[T] {
         unsafe { slice::from_raw_parts(self.as_ptr(), self.len) }
     }
 
     /// Returns the number of elements the vector can hole without reallocating.
-    #[inline]
     pub const fn capacity(&self) -> usize {
         N
     }
@@ -102,7 +95,6 @@ impl<T, const N: usize> InlineVec<T, N> {
     /// # Panics
     ///
     /// Panics if the required capacity exceeds the available capacity.
-    #[inline]
     pub fn reserve(&mut self, additional: usize) {
         if self.len + additional > N {
             panic!(
@@ -113,14 +105,12 @@ impl<T, const N: usize> InlineVec<T, N> {
     }
 
     /// Returns `true` if the vector contains no elements.
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     /// Returns the number of elements in the vector, also referred to as its
     /// `length`.
-    #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
@@ -128,7 +118,6 @@ impl<T, const N: usize> InlineVec<T, N> {
     /// Copies and appends all elements in a slice to the `ScratchVec`.
     ///
     /// The elements of the slice are appended in-order.
-    #[inline]
     pub fn extend_from_slice(&mut self, other: &[T]) {
         if !other.is_empty() {
             self.reserve(other.len());
@@ -145,7 +134,6 @@ impl<T, const N: usize> InlineVec<T, N> {
 
     /// Removes the last element from a vector and returns it, or `None` if it
     /// is empty.
-    #[inline]
     pub fn pop(&mut self) -> Option<T> {
         if self.len == 0 {
             None
@@ -158,7 +146,6 @@ impl<T, const N: usize> InlineVec<T, N> {
     }
 
     /// Appends an element to the back of a collection.
-    #[inline]
     pub fn push(&mut self, value: T) {
         unsafe {
             self.reserve(1);
@@ -176,7 +163,6 @@ impl<T, const N: usize> InlineVec<T, N> {
     /// # Panics
     ///
     /// Panics if the required capacity exceeds the available capacity.
-    #[inline]
     pub fn reserve_exact(&mut self, additional: usize) {
         self.reserve(additional);
     }
@@ -190,7 +176,6 @@ impl<T, const N: usize> InlineVec<T, N> {
     ///
     /// - `new_len` must be less than or equal to [`capacity()`](Self::capacity)
     /// - The elements at `old_len..new_len` must be initialized
-    #[inline]
     pub unsafe fn set_len(&mut self, new_len: usize) {
         debug_assert!(new_len <= self.capacity());
 
@@ -198,7 +183,6 @@ impl<T, const N: usize> InlineVec<T, N> {
     }
 
     // This is taken from `slice::range`, which is not yet stable.
-    #[inline]
     fn drain_range<R>(
         range: R,
         bounds: ops::RangeTo<usize>,
@@ -255,7 +239,6 @@ impl<T, const N: usize> InlineVec<T, N> {
     ///
     /// Panics if the starting point is greater than the end point or if the end
     /// point is greater than the length of the vector.
-    #[inline]
     pub fn drain<R: ops::RangeBounds<usize>>(
         &mut self,
         range: R,
@@ -288,7 +271,6 @@ impl<T, const N: usize> InlineVec<MaybeUninit<T>, N> {
     /// It is up to the caller to guarantee that the `MaybeUninit<T>` elements
     /// really are in an initialized state. Calling this when the content is
     /// not yet fully initialized causes undefined behavior.
-    #[inline]
     pub fn assume_init(self) -> InlineVec<T, N> {
         let mut elements = unsafe {
             MaybeUninit::<[MaybeUninit<T>; N]>::uninit().assume_init()
@@ -308,35 +290,30 @@ impl<T, const N: usize> InlineVec<MaybeUninit<T>, N> {
 }
 
 impl<T, const N: usize> AsMut<[T]> for InlineVec<T, N> {
-    #[inline]
     fn as_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 }
 
 impl<T, const N: usize> AsRef<[T]> for InlineVec<T, N> {
-    #[inline]
     fn as_ref(&self) -> &[T] {
         self.as_slice()
     }
 }
 
 impl<T, const N: usize> Borrow<[T]> for InlineVec<T, N> {
-    #[inline]
     fn borrow(&self) -> &[T] {
         self.as_slice()
     }
 }
 
 impl<T, const N: usize> BorrowMut<[T]> for InlineVec<T, N> {
-    #[inline]
     fn borrow_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 }
 
 impl<T: fmt::Debug, const N: usize> fmt::Debug for InlineVec<T, N> {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_slice().fmt(f)
     }
@@ -351,14 +328,12 @@ impl<T, const N: usize> Default for InlineVec<T, N> {
 impl<T, const N: usize> ops::Deref for InlineVec<T, N> {
     type Target = [T];
 
-    #[inline]
     fn deref(&self) -> &Self::Target {
         self.as_slice()
     }
 }
 
 impl<T, const N: usize> ops::DerefMut for InlineVec<T, N> {
-    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }
@@ -369,7 +344,6 @@ impl<T, I: slice::SliceIndex<[T]>, const N: usize> ops::Index<I>
 {
     type Output = <I as slice::SliceIndex<[T]>>::Output;
 
-    #[inline]
     fn index(&self, index: I) -> &Self::Output {
         &self.as_slice()[index]
     }
@@ -378,7 +352,6 @@ impl<T, I: slice::SliceIndex<[T]>, const N: usize> ops::Index<I>
 impl<T, I: slice::SliceIndex<[T]>, const N: usize> ops::IndexMut<I>
     for InlineVec<T, N>
 {
-    #[inline]
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         &mut self.as_mut_slice()[index]
     }
@@ -396,7 +369,6 @@ pub struct Drain<'a, T: 'a, const N: usize> {
 }
 
 impl<T: fmt::Debug, const N: usize> fmt::Debug for Drain<'_, T, N> {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Drain").field(&self.iter.as_slice()).finish()
     }
@@ -404,7 +376,6 @@ impl<T: fmt::Debug, const N: usize> fmt::Debug for Drain<'_, T, N> {
 
 impl<T, const N: usize> Drain<'_, T, N> {
     /// Returns the remaining items of this iterator as a slice.
-    #[inline]
     pub fn as_slice(&self) -> &[T] {
         self.iter.as_slice()
     }
@@ -419,21 +390,18 @@ impl<T, const N: usize> AsRef<[T]> for Drain<'_, T, N> {
 impl<T, const N: usize> Iterator for Drain<'_, T, N> {
     type Item = T;
 
-    #[inline]
     fn next(&mut self) -> Option<T> {
         self.iter
             .next()
             .map(|elt| unsafe { core::ptr::read(elt as *const _) })
     }
 
-    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }
 }
 
 impl<T, const N: usize> DoubleEndedIterator for Drain<'_, T, N> {
-    #[inline]
     fn next_back(&mut self) -> Option<T> {
         self.iter
             .next_back()

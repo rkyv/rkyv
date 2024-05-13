@@ -100,7 +100,6 @@ pub fn impl_struct(
                 // Some resolvers will be (), this allow is to prevent clippy
                 // from complaining.
                 #[allow(clippy::unit_arg)]
-                #[inline]
                 fn resolve(
                     &self,
                     resolver: Self::Resolver,
@@ -375,7 +374,6 @@ fn generate_partial_eq_impl(
         impl #impl_generics PartialEq<#archived_type> for #name #ty_generics
         #partial_eq_where
         {
-            #[inline]
             fn eq(&self, other: &#archived_type) -> bool {
                 true #(&& other.#members.eq(&self.#members))*
             }
@@ -384,7 +382,6 @@ fn generate_partial_eq_impl(
         impl #impl_generics PartialEq<#name #ty_generics> for #archived_type
         #partial_eq_where
         {
-            #[inline]
             fn eq(&self, other: &#name #ty_generics) -> bool {
                 other.eq(self)
             }
@@ -418,7 +415,6 @@ fn generate_partial_ord_impl(
         impl #impl_generics PartialOrd<#archived_type> for #name #ty_generics
         #partial_ord_where
         {
-            #[inline]
             fn partial_cmp(
                 &self,
                 other: &#archived_type,
@@ -436,7 +432,6 @@ fn generate_partial_ord_impl(
         impl #impl_generics PartialOrd<#name #ty_generics> for #archived_type
         #partial_ord_where
         {
-            #[inline]
             fn partial_cmp(
                 &self,
                 other: &#name #ty_generics,

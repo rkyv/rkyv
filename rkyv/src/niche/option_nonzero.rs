@@ -156,7 +156,6 @@ macro_rules! impl_archived_option_nonzero {
 
             /// Inserts a value computed from `f` into the option if it is
             /// `None`, then returns a mutable reference to the contained value.
-            #[inline]
             pub fn get_or_insert_with<F>(&mut self, f: F) -> &mut Archived<$nz>
             where
                 F: FnOnce() -> $nz,
@@ -198,7 +197,6 @@ macro_rules! impl_archived_option_nonzero {
         impl Eq for $ar {}
 
         impl hash::Hash for $ar {
-            #[inline]
             fn hash<H: hash::Hasher>(&self, state: &mut H) {
                 self.as_ref().hash(state)
             }

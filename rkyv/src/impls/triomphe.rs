@@ -18,19 +18,16 @@ use crate::{
 pub struct TriompheArcFlavor;
 
 unsafe impl<T> SharedPointer<T> for Arc<T> {
-    #[inline]
     fn alloc(_: <T as Pointee>::Metadata) -> Result<*mut T, LayoutError> {
         Ok(Arc::into_raw(Arc::<MaybeUninit<T>>::new_uninit())
             .cast::<T>()
             .cast_mut())
     }
 
-    #[inline]
     unsafe fn from_value(ptr: *mut T) -> *mut T {
         ptr
     }
 
-    #[inline]
     unsafe fn drop(ptr: *mut T) {
         drop(unsafe { Arc::from_raw(ptr) })
     }
@@ -40,7 +37,6 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Arc<T> {
     type Archived = ArchivedRc<T::Archived, TriompheArcFlavor>;
     type Resolver = RcResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedRc::resolve_from_ref(self.as_ref(), resolver, out);
     }
@@ -51,7 +47,6 @@ where
     T: SerializeUnsized<S> + ?Sized + 'static,
     S: Writer + Sharing + Fallible + ?Sized,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -72,7 +67,6 @@ where
     D: Pooling + Fallible + ?Sized,
     D::Error: Source,
 {
-    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Arc<T>, D::Error> {
         let raw_shared_ptr =
             deserializer.deserialize_shared::<_, Arc<T>>(self.get())?;

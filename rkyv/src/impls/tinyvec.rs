@@ -18,7 +18,6 @@ where
     type Archived = ArchivedVec<Archived<A::Item>>;
     type Resolver = VecResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedVec::resolve_from_slice(self.as_slice(), resolver, out);
     }
@@ -30,7 +29,6 @@ where
     A::Item: Serialize<S>,
     S: Fallible + Allocator + Writer + ?Sized,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -46,7 +44,6 @@ where
     Archived<A::Item>: Deserialize<A::Item, D>,
     D: Fallible + ?Sized,
 {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
@@ -65,7 +62,6 @@ impl<'s, T: Archive> Archive for SliceVec<'s, T> {
     type Archived = ArchivedVec<T::Archived>;
     type Resolver = VecResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedVec::resolve_from_slice(self.as_slice(), resolver, out);
     }
@@ -76,7 +72,6 @@ where
     T: Serialize<S>,
     S: Fallible + Allocator + Writer + ?Sized,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -97,7 +92,6 @@ where
     type Archived = ArchivedVec<Archived<A::Item>>;
     type Resolver = VecResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedVec::resolve_from_slice(self.as_slice(), resolver, out);
     }
@@ -110,7 +104,6 @@ where
     A::Item: Serialize<S>,
     S: Fallible + Allocator + Writer + ?Sized,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -127,7 +120,6 @@ where
     Archived<A::Item>: Deserialize<A::Item, D>,
     D: Fallible + ?Sized,
 {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,

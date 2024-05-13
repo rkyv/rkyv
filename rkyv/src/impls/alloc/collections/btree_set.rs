@@ -19,7 +19,6 @@ where
     type Archived = ArchivedBTreeSet<K::Archived>;
     type Resolver = BTreeSetResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedBTreeSet::<K::Archived>::resolve_from_len(
             self.len(),
@@ -36,7 +35,6 @@ where
     S: Fallible + Allocator + Writer + ?Sized,
     S::Error: Source,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -51,7 +49,6 @@ where
     K::Archived: Deserialize<K, D> + Ord,
     D: Fallible + ?Sized,
 {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
@@ -73,7 +70,6 @@ where
 }
 
 impl<K, AK: PartialEq<K>> PartialEq<BTreeSet<K>> for ArchivedBTreeSet<AK> {
-    #[inline]
     fn eq(&self, other: &BTreeSet<K>) -> bool {
         if self.len() != other.len() {
             false
@@ -93,7 +89,6 @@ impl<K, AK: PartialEq<K>> PartialEq<BTreeSet<K>> for ArchivedBTreeSet<AK> {
 }
 
 impl<K, AK: PartialEq<K>> PartialEq<ArchivedBTreeSet<AK>> for BTreeSet<K> {
-    #[inline]
     fn eq(&self, other: &ArchivedBTreeSet<AK>) -> bool {
         other.eq(self)
     }

@@ -20,14 +20,12 @@ macro_rules! impl_rend_primitive {
         }
 
         impl<S: Fallible + ?Sized> Serialize<S> for $type {
-            #[inline]
             fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
                 Ok(())
             }
         }
 
         impl<D: Fallible + ?Sized> Deserialize<$type, D> for $type {
-            #[inline]
             fn deserialize(&self, _: &mut D) -> Result<$type, D::Error> {
                 Ok(*self)
             }

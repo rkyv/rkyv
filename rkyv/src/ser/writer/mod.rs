@@ -55,7 +55,6 @@ where
 /// TODO: Document
 pub trait WriterExt<E>: Writer<E> {
     /// Advances the given number of bytes as padding.
-    #[inline]
     fn pad(&mut self, padding: usize) -> Result<(), E> {
         const MAX_ZEROES: usize = 32;
         const ZEROES: [u8; MAX_ZEROES] = [0; MAX_ZEROES];
@@ -65,7 +64,6 @@ pub trait WriterExt<E>: Writer<E> {
     }
 
     /// Aligns the position of the serializer to the given alignment.
-    #[inline]
     fn align(&mut self, align: usize) -> Result<usize, E> {
         let mask = align - 1;
         debug_assert_eq!(align & mask, 0);
@@ -76,7 +74,6 @@ pub trait WriterExt<E>: Writer<E> {
 
     /// Aligns the position of the serializer to be suitable to write the given
     /// type.
-    #[inline]
     fn align_for<T>(&mut self) -> Result<usize, E> {
         self.align(mem::align_of::<T>())
     }

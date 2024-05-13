@@ -74,7 +74,6 @@ impl ArchivedCString {
     }
 
     /// Serializes a C string.
-    #[inline]
     pub fn serialize_from_c_str<S: Fallible + Writer + ?Sized>(
         c_str: &CStr,
         serializer: &mut S,
@@ -117,7 +116,6 @@ impl Deref for ArchivedCString {
 impl Eq for ArchivedCString {}
 
 impl hash::Hash for ArchivedCString {
-    #[inline]
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.as_bytes_with_nul().hash(state);
     }
@@ -191,7 +189,6 @@ mod verify {
         C: Fallible + ArchiveContext + ?Sized,
         C::Error: Source,
     {
-        #[inline]
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {
             let ptr = self.ptr.as_ptr_wrapping();
             context.in_subtree(ptr, |context| unsafe {

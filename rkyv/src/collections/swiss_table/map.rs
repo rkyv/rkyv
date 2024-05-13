@@ -35,25 +35,21 @@ pub struct ArchivedHashMap<K, V, H = FxHasher64> {
 
 impl<K, V, H> ArchivedHashMap<K, V, H> {
     /// Returns whether the hash map is empty.
-    #[inline]
     pub const fn is_empty(&self) -> bool {
         self.table.is_empty()
     }
 
     /// Returns the number of elements in the hash map.
-    #[inline]
     pub const fn len(&self) -> usize {
         self.table.len()
     }
 
     /// Returns the total capacity of the hash map.
-    #[inline]
     pub fn capacity(&self) -> usize {
         self.table.capacity()
     }
 
     /// Returns an iterator over the key-value entries in the hash map.
-    #[inline]
     pub fn iter(&self) -> Iter<'_, K, V, H> {
         Iter {
             raw: self.table.raw_iter(),
@@ -62,7 +58,6 @@ impl<K, V, H> ArchivedHashMap<K, V, H> {
     }
 
     /// Returns an iterator over the mutable key-value entries in the hash map.
-    #[inline]
     pub fn iter_mut(self: Pin<&mut Self>) -> IterMut<'_, K, V, H> {
         let table = unsafe { self.map_unchecked_mut(|s| &mut s.table) };
         IterMut {
@@ -72,7 +67,6 @@ impl<K, V, H> ArchivedHashMap<K, V, H> {
     }
 
     /// Returns an iterator over the keys in the hash map.
-    #[inline]
     pub fn keys(&self) -> Keys<'_, K, V, H> {
         Keys {
             raw: self.table.raw_iter(),
@@ -81,7 +75,6 @@ impl<K, V, H> ArchivedHashMap<K, V, H> {
     }
 
     /// Returns an iterator over the values in the hash map.
-    #[inline]
     pub fn values(&self) -> Values<'_, K, V, H> {
         Values {
             raw: self.table.raw_iter(),
@@ -90,7 +83,6 @@ impl<K, V, H> ArchivedHashMap<K, V, H> {
     }
 
     /// Returns an iterator over the mutable values in the hash map.
-    #[inline]
     pub fn values_mut(self: Pin<&mut Self>) -> ValuesMut<'_, K, V, H> {
         let table = unsafe { self.map_unchecked_mut(|s| &mut s.table) };
         ValuesMut {
@@ -103,7 +95,6 @@ impl<K, V, H> ArchivedHashMap<K, V, H> {
 impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
     /// Returns the key-value pair corresponding to the supplied key using the
     /// given comparison function.
-    #[inline]
     pub fn get_key_value_with<Q, C>(&self, key: &Q, cmp: C) -> Option<(&K, &V)>
     where
         Q: Hash + Eq + ?Sized,
@@ -116,7 +107,6 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
     }
 
     /// Returns the key-value pair corresponding to the supplied key.
-    #[inline]
     pub fn get_key_value<Q>(&self, key: &Q) -> Option<(&K, &V)>
     where
         K: Borrow<Q>,
@@ -127,7 +117,6 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
 
     /// Returns a reference to the value corresponding to the supplied key using
     /// the given comparison function.
-    #[inline]
     pub fn get_with<Q, C>(&self, key: &Q, cmp: C) -> Option<&V>
     where
         Q: Hash + Eq + ?Sized,
@@ -137,7 +126,6 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
     }
 
     /// Returns a reference to the value corresponding to the supplied key.
-    #[inline]
     pub fn get<Q>(&self, key: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
@@ -148,7 +136,6 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
 
     /// Returns the mutable key-value pair corresponding to the supplied key
     /// using the given comparison function.
-    #[inline]
     pub fn get_key_value_mut_with<Q, C>(
         self: Pin<&mut Self>,
         key: &Q,
@@ -169,7 +156,6 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
     }
 
     /// Returns the mutable key-value pair corresponding to the supplied key.
-    #[inline]
     pub fn get_key_value_mut<Q>(
         self: Pin<&mut Self>,
         key: &Q,
@@ -183,7 +169,6 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
 
     /// Returns a mutable reference to the value corresponding to the supplied
     /// key using the given comparison function.
-    #[inline]
     pub fn get_mut_with<Q, C>(
         self: Pin<&mut Self>,
         key: &Q,
@@ -199,7 +184,6 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
 
     /// Returns a mutable reference to the value corresponding to the supplied
     /// key.
-    #[inline]
     pub fn get_mut<Q>(self: Pin<&mut Self>, key: &Q) -> Option<Pin<&mut V>>
     where
         K: Borrow<Q>,
@@ -209,7 +193,6 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
     }
 
     /// Returns whether the hash map contains the given key.
-    #[inline]
     pub fn contains_key<Q>(&self, key: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -262,7 +245,6 @@ where
     K: fmt::Debug,
     V: fmt::Debug,
 {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_map().entries(self.iter()).finish()
     }
@@ -282,7 +264,6 @@ where
     V: PartialEq,
     H: Default + Hasher,
 {
-    #[inline]
     fn eq(&self, other: &Self) -> bool {
         if self.len() != other.len() {
             false
@@ -302,7 +283,6 @@ where
 {
     type Output = V;
 
-    #[inline]
     fn index(&self, key: &Q) -> &V {
         self.get(key).unwrap()
     }
@@ -320,7 +300,6 @@ pub struct Iter<'a, K, V, H> {
 impl<'a, K, V, H> Iterator for Iter<'a, K, V, H> {
     type Item = (&'a K, &'a V);
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.raw.next().map(|entry| {
             let entry = unsafe { entry.as_ref() };
@@ -330,7 +309,6 @@ impl<'a, K, V, H> Iterator for Iter<'a, K, V, H> {
 }
 
 impl<K, V, H> ExactSizeIterator for Iter<'_, K, V, H> {
-    #[inline]
     fn len(&self) -> usize {
         self.raw.len()
     }
@@ -347,7 +325,6 @@ pub struct IterMut<'a, K, V, H> {
 impl<'a, K, V, H> Iterator for IterMut<'a, K, V, H> {
     type Item = (&'a K, Pin<&'a mut V>);
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.raw.next().map(|mut entry| {
             let entry = unsafe { entry.as_mut() };
@@ -374,7 +351,6 @@ pub struct Keys<'a, K, V, H> {
 impl<'a, K, V, H> Iterator for Keys<'a, K, V, H> {
     type Item = &'a K;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.raw.next().map(|entry| {
             let entry = unsafe { entry.as_ref() };
@@ -400,7 +376,6 @@ pub struct Values<'a, K, V, H> {
 impl<'a, K, V, H> Iterator for Values<'a, K, V, H> {
     type Item = &'a V;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.raw.next().map(|entry| {
             let entry = unsafe { entry.as_ref() };
@@ -426,7 +401,6 @@ pub struct ValuesMut<'a, K, V, H> {
 impl<'a, K, V, H> Iterator for ValuesMut<'a, K, V, H> {
     type Item = Pin<&'a mut V>;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.raw.next().map(|mut entry| {
             let entry = unsafe { entry.as_mut() };

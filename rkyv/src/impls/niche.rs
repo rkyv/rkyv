@@ -34,7 +34,6 @@ macro_rules! impl_nonzero_niche {
         }
 
         impl<S: Fallible + ?Sized> SerializeWith<Option<$nz>, S> for Niche {
-            #[inline]
             fn serialize_with(
                 _: &Option<$nz>,
                 _: &mut S,
@@ -47,7 +46,6 @@ macro_rules! impl_nonzero_niche {
         where
             D: Fallible + ?Sized,
         {
-            #[inline]
             fn deserialize_with(
                 field: &$ar,
                 _: &mut D,

@@ -21,14 +21,12 @@ impl Archive for Duration {
 }
 
 impl<S: Fallible + ?Sized> Serialize<S> for Duration {
-    #[inline]
     fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
         Ok(())
     }
 }
 
 impl<D: Fallible + ?Sized> Deserialize<Duration, D> for ArchivedDuration {
-    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<Duration, D::Error> {
         Ok(Duration::new(self.as_secs(), self.subsec_nanos()))
     }

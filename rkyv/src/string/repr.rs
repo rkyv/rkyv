@@ -112,7 +112,6 @@ impl ArchivedStringRepr {
     }
 
     /// Returns a pointer to the string as a `str`.
-    #[cfg(feature = "bytecheck")]
     #[inline]
     pub fn as_str_ptr(&self) -> *const str {
         ptr_meta::from_raw_parts(self.as_ptr().cast(), self.len())
@@ -186,7 +185,6 @@ impl ArchivedStringRepr {
     /// # Safety
     ///
     /// The length of `str` must be greater than [`INLINE_CAPACITY`].
-    #[inline]
     pub unsafe fn try_emplace_out_of_line<E: Source>(
         value: &str,
         target: usize,
@@ -263,7 +261,6 @@ const _: () = {
         C: Fallible + ?Sized,
         C::Error: Source,
     {
-        #[inline]
         unsafe fn check_bytes(
             value: *const Self,
             _: &mut C,

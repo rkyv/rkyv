@@ -78,7 +78,6 @@ fn derive_serialize_impl(
                             for #name #ty_generics
                         #serialize_where
                         {
-                            #[inline]
                             fn serialize(
                                 &self,
                                 serializer: &mut __S
@@ -117,7 +116,6 @@ fn derive_serialize_impl(
                             for #name #ty_generics
                         #serialize_where
                         {
-                            #[inline]
                             fn serialize(
                                 &self,
                                 serializer: &mut __S,
@@ -138,7 +136,6 @@ fn derive_serialize_impl(
                             for #name #ty_generics
                         #where_clause
                         {
-                            #[inline]
                             fn serialize(
                                 &self,
                                 serializer: &mut __S,
@@ -237,7 +234,6 @@ fn derive_serialize_impl(
                         for #name #ty_generics
                     #serialize_where
                     {
-                        #[inline]
                         fn serialize(
                             &self,
                             serializer: &mut __S,

@@ -78,7 +78,6 @@ const _: () = {
         C: Fallible + ArchiveContext + ?Sized,
         C::Error: Source,
     {
-        #[inline]
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {
             let is_invalid = unsafe { self.ptr.is_invalid() };
             if is_invalid {
@@ -93,19 +92,16 @@ const _: () = {
 
 impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
     /// Returns `true` if the option box is a `None` value.
-    #[inline]
     pub fn is_none(&self) -> bool {
         self.as_ref().is_none()
     }
 
     /// Returns `true` if the option box is a `Some` value.
-    #[inline]
     pub fn is_some(&self) -> bool {
         self.as_ref().is_some()
     }
 
     /// Converts to an `Option<&ArchivedBox<T>>`.
-    #[inline]
     pub fn as_ref(&self) -> Option<&ArchivedBox<T>> {
         if self.repr.is_invalid() {
             None
@@ -115,7 +111,6 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
     }
 
     /// Converts to an `Option<&mut ArchivedBox<T>>`.
-    #[inline]
     pub fn as_mut(&mut self) -> Option<&mut ArchivedBox<T>> {
         if self.repr.is_invalid() {
             None
@@ -126,14 +121,12 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
 
     /// Converts from `Pin<&ArchivedOptionBox<T>>` to
     /// `Option<Pin<&ArchivedBox<T>>>`.
-    #[inline]
     pub fn as_pin_ref(self: Pin<&Self>) -> Option<Pin<&ArchivedBox<T>>> {
         unsafe { Pin::get_ref(self).as_ref().map(|x| Pin::new_unchecked(x)) }
     }
 
     /// Converts from `Pin<&mut ArchivedOption<T>>` to `Option<Pin<&mut
     /// ArchivedBox<T>>>`.
-    #[inline]
     pub fn as_pin_mut(
         self: Pin<&mut Self>,
     ) -> Option<Pin<&mut ArchivedBox<T>>> {
@@ -145,7 +138,6 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
     }
 
     /// Returns an iterator over the possibly contained value.
-    #[inline]
     pub fn iter(&self) -> Iter<'_, ArchivedBox<T>> {
         Iter {
             inner: self.as_ref(),
@@ -153,7 +145,6 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
     }
 
     /// Returns a mutable iterator over the possibly contained value.
-    #[inline]
     pub fn iter_mut(&mut self) -> IterMut<'_, ArchivedBox<T>> {
         IterMut {
             inner: self.as_mut(),
@@ -164,7 +155,6 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
     ///
     /// Leaves the original `ArchivedOptionBox` in-place, creating a new one
     /// with a reference to the original one.
-    #[inline]
     pub fn as_deref(&self) -> Option<&T> {
         self.as_ref().map(|x| (*x).deref())
     }
@@ -175,7 +165,6 @@ where
     T::ArchivedMetadata: Default,
 {
     /// Resolves an `ArchivedOptionBox<T::Archived>` from an `Option<&T>`.
-    #[inline]
     pub fn resolve_from_option<U: ArchiveUnsized<Archived = T> + ?Sized>(
         field: Option<&U>,
         resolver: OptionBoxResolver,
@@ -201,7 +190,6 @@ where
     }
 
     /// Serializes an `ArchivedOptionBox<T::Archived>` from an `Option<&T>`.
-    #[inline]
     pub fn serialize_from_option<U, S>(
         field: Option<&U>,
         serializer: &mut S,
@@ -224,7 +212,6 @@ impl<T: ArchivePointee + ?Sized> fmt::Debug for ArchivedOptionBox<T>
 where
     T::ArchivedMetadata: fmt::Debug,
 {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.as_ref() {
             Some(inner) => inner.fmt(f),
@@ -238,14 +225,12 @@ impl<T: ArchivePointee + Eq + ?Sized> Eq for ArchivedOptionBox<T> {}
 impl<T: ArchivePointee + hash::Hash + ?Sized> hash::Hash
     for ArchivedOptionBox<T>
 {
-    #[inline]
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.as_ref().hash(state)
     }
 }
 
 impl<T: ArchivePointee + Ord + ?Sized> Ord for ArchivedOptionBox<T> {
-    #[inline]
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.as_ref().cmp(&other.as_ref())
     }
@@ -254,7 +239,6 @@ impl<T: ArchivePointee + Ord + ?Sized> Ord for ArchivedOptionBox<T> {
 impl<T: ArchivePointee + PartialEq + ?Sized> PartialEq
     for ArchivedOptionBox<T>
 {
-    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_ref().eq(&other.as_ref())
     }
@@ -263,7 +247,6 @@ impl<T: ArchivePointee + PartialEq + ?Sized> PartialEq
 impl<T: ArchivePointee + PartialOrd + ?Sized> PartialOrd
     for ArchivedOptionBox<T>
 {
-    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.as_ref().partial_cmp(&other.as_ref())
     }

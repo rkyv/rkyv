@@ -31,7 +31,6 @@ use crate::{
 // declare `branches: [RawRelPtr; N]` and then add another `last: RawRelPtr`
 // field. When the branching factor B is needed, it will be calculated as E + 1.
 
-#[inline]
 const fn nodes_in_level<const E: usize>(i: u32) -> usize {
     // The root of the tree has one node, and each level down has B times as
     // many nodes at the last. Therefore, the number of nodes in the I-th level
@@ -40,7 +39,6 @@ const fn nodes_in_level<const E: usize>(i: u32) -> usize {
     (E + 1).pow(i)
 }
 
-#[inline]
 const fn entries_in_full_tree<const E: usize>(h: u32) -> usize {
     // The number of nodes in each layer I of a B-tree is equal to B^I. At layer
     // I = 0, the number of nodes is exactly one. At layer I = 1, the number of
@@ -57,7 +55,6 @@ const fn entries_in_full_tree<const E: usize>(h: u32) -> usize {
     nodes_in_level::<E>(h) - 1
 }
 
-#[inline]
 const fn entries_to_height<const E: usize>(n: usize) -> u32 {
     // Solving B^H - 1 = N for H yields H = log_B(N + 1). However, we'll be
     // using an integer logarithm, and so the value of H will be rounded down
@@ -96,7 +93,6 @@ const fn entries_to_height<const E: usize>(n: usize) -> u32 {
     ((E + 1) * n).ilog(E + 1)
 }
 
-#[inline]
 const fn ll_entries<const E: usize>(height: u32, n: usize) -> usize {
     // The number of entries not in the last level is equal to the number of
     // entries in a full B-tree of height H - 1. The number of entries in
@@ -159,7 +155,6 @@ pub struct ArchivedBTreeMap<K, V, const E: usize = 5> {
 
 impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
     /// Returns whether the B-tree map contains the given key.
-    #[inline]
     pub fn contains_key<Q>(&self, key: &Q) -> bool
     where
         Q: Ord + ?Sized,
@@ -170,7 +165,6 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
 
     /// Returns the value associated with the given key, or `None` if the key is
     /// not present in the B-tree map.
-    #[inline]
     pub fn get<Q>(&self, key: &Q) -> Option<&V>
     where
         Q: Ord + ?Sized,
@@ -180,13 +174,11 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
     }
 
     /// Returns true if the B-tree map contains no entries.
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Returns the number of entries in the B-tree map.
-    #[inline]
     pub fn len(&self) -> usize {
         self.len.to_native() as usize
     }

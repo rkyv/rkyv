@@ -24,7 +24,6 @@ impl<S: Fallible + ?Sized> Serialize<S> for String
 where
     str: SerializeUnsized<S>,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -37,7 +36,6 @@ impl<D: Fallible + ?Sized> Deserialize<String, D> for ArchivedString
 where
     str: DeserializeUnsized<str, D>,
 {
-    #[inline]
     fn deserialize(&self, _: &mut D) -> Result<String, D::Error> {
         Ok(self.as_str().to_string())
     }

@@ -16,7 +16,6 @@ use crate::{
     Archive, Deserialize, Portable,
 };
 
-#[inline]
 fn root_position<T: Portable>(bytes: &[u8]) -> usize {
     bytes.len().saturating_sub(size_of::<T>())
 }
@@ -50,7 +49,6 @@ where
 /// after checking its validity with the given context.
 ///
 /// This is a safe alternative to [`access_pos_unchecked`].
-#[inline]
 pub fn access_pos_with_context<'a, T, C, E>(
     bytes: &'a [u8],
     pos: usize,
@@ -71,7 +69,6 @@ where
 /// This is a safe alternative to [`access_unchecked`][unsafe_version].
 ///
 /// [unsafe_version]: crate::access_unchecked
-#[inline]
 pub fn access_with_context<'a, T, C, E>(
     bytes: &'a [u8],
     context: &mut C,
@@ -92,7 +89,6 @@ where
 /// after checking its validity.
 ///
 /// This is a safe alternative to [`access_pos_unchecked`].
-#[inline]
 pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T, E>
 where
     T: Portable + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>,
@@ -138,7 +134,6 @@ where
 /// assert_eq!(archived.name, "pi");
 /// assert_eq!(archived.value, 31415926);
 /// ```
-#[inline]
 pub fn access<T, E>(bytes: &[u8]) -> Result<&T, E>
 where
     T: Portable + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>,
@@ -160,7 +155,6 @@ where
 /// position after checking its validity with the given context.
 ///
 /// This is a safe alternative to [`access_pos_unchecked_mut`].
-#[inline]
 pub fn access_pos_with_context_mut<'a, T, C, E>(
     bytes: &'a mut [u8],
     pos: usize,
@@ -181,7 +175,6 @@ where
 /// This is a safe alternative to [`access_unchecked_mut`][unsafe_version].
 ///
 /// [unsafe_version]: crate::access_unchecked_mut
-#[inline]
 pub fn access_with_context_mut<'a, T, C, E>(
     bytes: &'a mut [u8],
     context: &mut C,
@@ -202,7 +195,6 @@ where
 /// position after checking its validity.
 ///
 /// This is a safe alternative to [`access_pos_unchecked`].
-#[inline]
 pub fn access_pos_mut<T, E>(
     bytes: &mut [u8],
     pos: usize,
@@ -222,7 +214,6 @@ where
 /// This is a safe alternative to [`access_unchecked`][unsafe_version].
 ///
 /// [unsafe_version]: crate::access_unchecked
-#[inline]
 pub fn access_mut<T, E>(bytes: &mut [u8]) -> Result<Pin<&mut T>, E>
 where
     T: Portable + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>,
@@ -259,7 +250,6 @@ where
 ///
 /// assert_eq!(deserialized, value);
 /// ```
-#[inline]
 pub fn from_bytes<T, E>(bytes: &[u8]) -> Result<T, E>
 where
     T: Archive,

@@ -64,7 +64,6 @@ unsafe impl<E> Allocator<E> for SubAllocator<'_>
 where
     E: Source,
 {
-    #[inline]
     unsafe fn push_alloc(
         &mut self,
         layout: Layout,
@@ -88,7 +87,6 @@ where
         Ok(result)
     }
 
-    #[inline]
     unsafe fn pop_alloc(
         &mut self,
         ptr: NonNull<u8>,

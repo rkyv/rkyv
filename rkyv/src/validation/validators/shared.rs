@@ -24,7 +24,6 @@ pub enum SharedError {
 }
 
 impl fmt::Display for SharedError {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             SharedError::TypeMismatch { previous, current } => write!(
@@ -71,7 +70,6 @@ impl SharedValidator {
 }
 
 impl<E: Source> SharedContext<E> for SharedValidator {
-    #[inline]
     fn register_shared_ptr(
         &mut self,
         address: usize,

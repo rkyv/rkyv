@@ -39,7 +39,6 @@ macro_rules! impl_single_byte_atomic {
             type Archived = $non_atomic;
             type Resolver = ();
 
-            #[inline]
             fn resolve_with(
                 field: &$atomic,
                 _: Self::Resolver,
@@ -56,7 +55,6 @@ macro_rules! impl_single_byte_atomic {
             type Archived = $atomic;
             type Resolver = ();
 
-            #[inline]
             fn resolve_with(
                 field: &$atomic,
                 _: Self::Resolver,
@@ -72,7 +70,6 @@ macro_rules! impl_single_byte_atomic {
         where
             D: Fallible + ?Sized,
         {
-            #[inline]
             fn deserialize_with(
                 field: &$non_atomic,
                 _: &mut D,
@@ -87,7 +84,6 @@ macro_rules! impl_single_byte_atomic {
             D: Fallible + ?Sized,
             DO: LoadOrdering,
         {
-            #[inline]
             fn deserialize_with(
                 field: &$atomic,
                 _: &mut D,

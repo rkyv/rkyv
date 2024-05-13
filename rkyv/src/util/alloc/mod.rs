@@ -42,6 +42,7 @@ mod arena {
         })
     }
 
+    #[inline]
     pub fn clear_arena() {
         THREAD_ARENA.take();
     }
@@ -89,6 +90,7 @@ mod arena {
         result
     }
 
+    #[inline]
     pub fn clear_arena() {
         let ptr = GLOBAL_ARENA.swap(ptr::null_mut(), Ordering::AcqRel);
 
@@ -105,7 +107,6 @@ mod arena {
 /// When the `std` feature is enabled, the builtin arena allocator is a
 /// thread-local variable, with one allocator per thread. Otherwise, it is a
 /// global static and all threads share the same arena.
-#[inline]
 pub fn with_arena<T>(f: impl FnOnce(&mut Arena) -> T) -> T {
     arena::with_arena(f)
 }
@@ -140,7 +141,6 @@ pub fn clear_arena() {
 ///
 /// assert_eq!(deserialized, value);
 /// ```
-#[inline]
 pub fn to_bytes<E>(
     value: &impl for<'a> Serialize<DefaultSerializer<'a, AlignedVec, E>>,
 ) -> Result<AlignedVec, E>
@@ -151,7 +151,6 @@ where
 }
 
 /// Serializes the given value and writes the bytes to the given `writer`.
-#[inline]
 pub fn to_bytes_in<W, E>(
     value: &impl for<'a> Serialize<DefaultSerializer<'a, W, E>>,
     writer: W,
@@ -199,7 +198,6 @@ where
 ///
 /// assert_eq!(deserialized, value);
 /// ```
-#[inline]
 pub unsafe fn from_bytes_unchecked<T, E>(bytes: &[u8]) -> Result<T, E>
 where
     T: Archive,

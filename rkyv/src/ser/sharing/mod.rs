@@ -42,13 +42,11 @@ pub trait SharingExt<E>: Sharing<E> {
     /// Gets the position of a previously-added shared value.
     ///
     /// Returns `None` if the value has not yet been added.
-    #[inline]
     fn get_shared<T: ?Sized>(&self, value: &T) -> Option<usize> {
         self.get_shared_ptr(value as *const T as *const () as usize)
     }
 
     /// Adds the position of a shared value to the registry.
-    #[inline]
     fn add_shared<T: ?Sized>(
         &mut self,
         value: &T,
@@ -60,7 +58,6 @@ pub trait SharingExt<E>: Sharing<E> {
     /// Archives the given shared value and returns its position. If the value
     /// has already been added then it returns the position of the
     /// previously added value.
-    #[inline]
     fn serialize_shared<T: SerializeUnsized<Self> + ?Sized>(
         &mut self,
         value: &T,

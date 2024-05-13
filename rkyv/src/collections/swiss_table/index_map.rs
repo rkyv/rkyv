@@ -54,18 +54,15 @@ impl<K, V, H> ArchivedIndexMap<K, V, H> {
     }
 
     /// Returns `true` if the map contains no elements.
-    #[inline]
     pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    #[inline]
     unsafe fn raw_iter(&self) -> RawIter<K, V> {
         unsafe { RawIter::new(self.entries.as_ptr().cast(), self.len()) }
     }
 
     /// Returns an iterator over the key-value pairs of the map in order
-    #[inline]
     pub fn iter(&self) -> Iter<K, V> {
         Iter {
             inner: unsafe { self.raw_iter() },
@@ -73,7 +70,6 @@ impl<K, V, H> ArchivedIndexMap<K, V, H> {
     }
 
     /// Returns an iterator over the keys of the map in order
-    #[inline]
     pub fn keys(&self) -> Keys<K, V> {
         Keys {
             inner: unsafe { self.raw_iter() },
@@ -81,13 +77,11 @@ impl<K, V, H> ArchivedIndexMap<K, V, H> {
     }
 
     /// Gets the number of items in the index map.
-    #[inline]
     pub const fn len(&self) -> usize {
         self.table.len()
     }
 
     /// Returns an iterator over the values of the map in order.
-    #[inline]
     pub fn values(&self) -> Values<K, V> {
         Values {
             inner: unsafe { self.raw_iter() },
@@ -98,7 +92,6 @@ impl<K, V, H> ArchivedIndexMap<K, V, H> {
 impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
     /// Gets the index, key, and value corresponding to the supplied key using
     /// the given comparison function.
-    #[inline]
     pub fn get_full_with<Q, C>(
         &self,
         key: &Q,
@@ -115,7 +108,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
     }
 
     /// Gets the index, key, and value corresponding to the supplied key.
-    #[inline]
     pub fn get_full<Q>(&self, key: &Q) -> Option<(usize, &K, &V)>
     where
         K: Borrow<Q>,
@@ -126,7 +118,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
 
     /// Returns the key-value pair corresponding to the supplied key using the
     /// given comparison function.
-    #[inline]
     pub fn get_key_value_with<Q, C>(&self, key: &Q, cmp: C) -> Option<(&K, &V)>
     where
         Q: Hash + Eq + ?Sized,
@@ -137,7 +128,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
     }
 
     /// Returns the key-value pair corresponding to the supplied key.
-    #[inline]
     pub fn get_key_value<Q>(&self, key: &Q) -> Option<(&K, &V)>
     where
         K: Borrow<Q>,
@@ -149,7 +139,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
 
     /// Returns a reference to the value corresponding to the supplied key using
     /// the given comparison function.
-    #[inline]
     pub fn get_with<Q, C>(&self, key: &Q, cmp: C) -> Option<&V>
     where
         Q: Hash + Eq + ?Sized,
@@ -159,7 +148,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
     }
 
     /// Returns a reference to the value corresponding to the supplied key.
-    #[inline]
     pub fn get<Q>(&self, key: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
@@ -170,7 +158,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
 
     /// Gets the mutable index, key, and value corresponding to the supplied key
     /// using the given comparison function.
-    #[inline]
     pub fn get_full_with_mut<Q, C>(
         self: Pin<&mut Self>,
         key: &Q,
@@ -189,7 +176,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
 
     /// Gets the mutable index, key, and value corresponding to the supplied
     /// key.
-    #[inline]
     pub fn get_full_mut<Q>(
         self: Pin<&mut Self>,
         key: &Q,
@@ -203,7 +189,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
 
     /// Returns the mutable key-value pair corresponding to the supplied key
     /// using the given comparison function.
-    #[inline]
     pub fn get_key_value_mut_with<Q, C>(
         self: Pin<&mut Self>,
         key: &Q,
@@ -219,7 +204,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
     }
 
     /// Returns the mutable key-value pair corresponding to the supplied key.
-    #[inline]
     pub fn get_key_value_mut<Q>(
         self: Pin<&mut Self>,
         key: &Q,
@@ -234,7 +218,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
 
     /// Returns a mutable reference to the value corresponding to the supplied
     /// key using the given comparison function.
-    #[inline]
     pub fn get_mut_with<Q, C>(
         self: Pin<&mut Self>,
         key: &Q,
@@ -250,7 +233,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
 
     /// Returns a mutable reference to the value corresponding to the supplied
     /// key.
-    #[inline]
     pub fn get_mut<Q>(self: Pin<&mut Self>, key: &Q) -> Option<Pin<&mut V>>
     where
         K: Borrow<Q>,
@@ -260,7 +242,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
     }
 
     /// Returns whether a key is present in the hash map.
-    #[inline]
     pub fn contains_key<Q>(&self, key: &Q) -> bool
     where
         K: Borrow<Q>,
@@ -270,7 +251,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
     }
 
     /// Gets a key-value pair by index.
-    #[inline]
     pub fn get_index(&self, index: usize) -> Option<(&K, &V)> {
         if index < self.len() {
             let entry = &self.entries()[index];
@@ -282,7 +262,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
 
     /// Gets the index of a key if it exists in the map using the given
     /// comparison function.
-    #[inline]
     pub fn get_index_of_with<Q, C>(&self, key: &Q, cmp: C) -> Option<usize>
     where
         Q: Hash + Eq + ?Sized,
@@ -296,7 +275,6 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
     }
 
     /// Gets the index of a key if it exists in the map.
-    #[inline]
     pub fn get_index_of<Q>(&self, key: &Q) -> Option<usize>
     where
         K: Borrow<Q>,
@@ -408,7 +386,6 @@ struct RawIter<'a, K, V> {
 }
 
 impl<'a, K, V> RawIter<'a, K, V> {
-    #[inline]
     fn new(pairs: *const Entry<K, V>, len: usize) -> Self {
         Self {
             current: pairs,
@@ -421,7 +398,6 @@ impl<'a, K, V> RawIter<'a, K, V> {
 impl<'a, K, V> Iterator for RawIter<'a, K, V> {
     type Item = (&'a K, &'a V);
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         unsafe {
             if self.remaining == 0 {
@@ -436,7 +412,6 @@ impl<'a, K, V> Iterator for RawIter<'a, K, V> {
         }
     }
 
-    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         (self.remaining, Some(self.remaining))
     }
@@ -454,12 +429,10 @@ pub struct Iter<'a, K, V> {
 impl<'a, K, V> Iterator for Iter<'a, K, V> {
     type Item = (&'a K, &'a V);
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next()
     }
 
-    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.inner.size_hint()
     }
@@ -477,12 +450,10 @@ pub struct Keys<'a, K, V> {
 impl<'a, K, V> Iterator for Keys<'a, K, V> {
     type Item = &'a K;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|(k, _)| k)
     }
 
-    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.inner.size_hint()
     }
@@ -500,12 +471,10 @@ pub struct Values<'a, K, V> {
 impl<'a, K, V> Iterator for Values<'a, K, V> {
     type Item = &'a V;
 
-    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|(_, v)| v)
     }
 
-    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.inner.size_hint()
     }

@@ -28,7 +28,6 @@ impl<T: Archive, U: Archive> Archive for Result<T, U> {
     type Archived = ArchivedResult<T::Archived, U::Archived>;
     type Resolver = Result<T::Resolver, U::Resolver>;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         match resolver {
             Ok(resolver) => {
@@ -63,7 +62,6 @@ impl<T: Archive, U: Archive> Archive for Result<T, U> {
 impl<T: Serialize<S>, U: Serialize<S>, S: Fallible + ?Sized> Serialize<S>
     for Result<T, U>
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -84,7 +82,6 @@ where
     T::Archived: Deserialize<T, D>,
     U::Archived: Deserialize<U, D>,
 {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,

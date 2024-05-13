@@ -31,7 +31,6 @@ pub use self::{inline_vec::InlineVec, ser_vec::SerVec};
 use crate::{ser::Writer, Archive, Deserialize, Portable, Serialize};
 
 #[cfg(debug_assertions)]
-#[inline]
 fn check_alignment<T: Portable>(ptr: *const u8) {
     let expect_align = core::mem::align_of::<T>();
     let actual_align = (ptr as usize) & (expect_align - 1);
@@ -60,7 +59,6 @@ fn check_alignment<T: Portable>(ptr: *const u8) {
 /// # Safety
 ///
 /// A valid `T` must be located at the given position in the byte slice.
-#[inline]
 pub unsafe fn access_pos_unchecked<T: Portable>(
     bytes: &[u8],
     pos: usize,
@@ -83,7 +81,6 @@ pub unsafe fn access_pos_unchecked<T: Portable>(
 /// # Safety
 ///
 /// A `T` must be located at the given position in the byte slice.
-#[inline]
 pub unsafe fn access_pos_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
     pos: usize,
@@ -112,7 +109,6 @@ pub unsafe fn access_pos_unchecked_mut<T: Portable>(
 /// - The byte slice must represent an archived object.
 /// - The root of the object must be stored at the end of the slice (this is the
 ///   default behavior).
-#[inline]
 pub unsafe fn access_unchecked<T: Portable>(bytes: &[u8]) -> &T {
     // SAFETY: The caller has guaranteed that a valid `T` is located at the root
     // position in the byte slice.
@@ -135,7 +131,6 @@ pub unsafe fn access_unchecked<T: Portable>(bytes: &[u8]) -> &T {
 /// - The byte slice must represent an archived object.
 /// - The root of the object must be stored at the end of the slice (this is the
 ///   default behavior).
-#[inline]
 pub unsafe fn access_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
 ) -> Pin<&mut T> {
@@ -169,7 +164,6 @@ impl<T> DerefMut for Align<T> {
 
 /// Serializes the given value into the given serializer and then returns the
 /// serializer.
-#[inline]
 pub fn serialize_into<S, E>(
     value: &impl Serialize<Strategy<S, E>>,
     mut serializer: S,
@@ -182,7 +176,6 @@ where
 }
 
 /// Serializes the given value into the given serializer.
-#[inline]
 pub fn serialize<S, E>(
     value: &impl Serialize<Strategy<S, E>>,
     serializer: &mut S,
@@ -196,7 +189,6 @@ where
 
 /// Deserailizes a value from the given archived value using the provided
 /// deserializer.
-#[inline]
 pub fn deserialize<T, D, E>(
     value: &T::Archived,
     deserializer: &mut D,

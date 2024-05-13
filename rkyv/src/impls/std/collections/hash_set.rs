@@ -19,7 +19,6 @@ where
     type Archived = ArchivedHashSet<K::Archived>;
     type Resolver = HashSetResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedHashSet::<K::Archived>::resolve_from_len(
             self.len(),
@@ -37,7 +36,6 @@ where
     S: Fallible + Allocator + Writer + ?Sized,
     S::Error: Source,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -57,7 +55,6 @@ where
     D: Fallible + ?Sized,
     S: Default + BuildHasher,
 {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
@@ -73,7 +70,6 @@ where
 impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
     PartialEq<HashSet<K, S>> for ArchivedHashSet<AK>
 {
-    #[inline]
     fn eq(&self, other: &HashSet<K, S>) -> bool {
         if self.len() != other.len() {
             false
@@ -86,7 +82,6 @@ impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
 impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
     PartialEq<ArchivedHashSet<AK>> for HashSet<K, S>
 {
-    #[inline]
     fn eq(&self, other: &ArchivedHashSet<AK>) -> bool {
         other.eq(self)
     }

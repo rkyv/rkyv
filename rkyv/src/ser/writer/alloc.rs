@@ -14,7 +14,6 @@ impl Positional for Vec<u8> {
 }
 
 impl<E> Writer<E> for Vec<u8> {
-    #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         self.extend_from_slice(bytes);
         Ok(())
@@ -29,7 +28,6 @@ impl Positional for AlignedVec {
 }
 
 impl<E> Writer<E> for AlignedVec {
-    #[inline]
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         self.extend_from_slice(bytes);
         Ok(())
@@ -38,7 +36,6 @@ impl<E> Writer<E> for AlignedVec {
     // TODO: check whether moving this into an extension trait resulted in a
     // benchmark regression from additional memory copying.
 
-    // #[inline]
     // unsafe fn resolve_aligned<T: Archive + ?Sized>(
     //     &mut self,
     //     value: &T,
@@ -58,7 +55,6 @@ impl<E> Writer<E> for AlignedVec {
     //     Ok(pos)
     // }
 
-    // #[inline]
     // unsafe fn resolve_unsized_aligned<T: ArchiveUnsized + ?Sized>(
     //     &mut self,
     //     value: &T,

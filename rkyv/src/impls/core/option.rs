@@ -28,7 +28,6 @@ impl<T: Archive> Archive for Option<T> {
     type Archived = ArchivedOption<T::Archived>;
     type Resolver = Option<T::Resolver>;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         match resolver {
             None => {
@@ -61,7 +60,6 @@ impl<T: Archive> Archive for Option<T> {
 }
 
 impl<T: Serialize<S>, S: Fallible + ?Sized> Serialize<S> for Option<T> {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -78,7 +76,6 @@ where
     T::Archived: Deserialize<T, D>,
     D: Fallible + ?Sized,
 {
-    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Option<T>, D::Error> {
         Ok(match self {
             ArchivedOption::Some(value) => {

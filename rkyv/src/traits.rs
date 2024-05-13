@@ -309,7 +309,6 @@ pub trait Serialize<S: Fallible + ?Sized>: Archive {
         -> Result<Self::Resolver, S::Error>;
 
     /// Archives the given object and returns the position it was archived at.
-    #[inline]
     fn serialize_and_resolve(
         &self,
         serializer: &mut S,
@@ -526,7 +525,6 @@ pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
 
     /// Archives a reference to the given object and returns the position it was
     /// archived at.
-    #[inline]
     fn serialize_and_resolve_rel_ptr(
         &self,
         serializer: &mut S,

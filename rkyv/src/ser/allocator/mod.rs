@@ -144,7 +144,6 @@ impl<T> AllocationTracker<T> {
 }
 
 unsafe impl<T: Allocator<E>, E> Allocator<E> for AllocationTracker<T> {
-    #[inline]
     unsafe fn push_alloc(
         &mut self,
         layout: Layout,
@@ -155,7 +154,6 @@ unsafe impl<T: Allocator<E>, E> Allocator<E> for AllocationTracker<T> {
         unsafe { self.inner.push_alloc(layout) }
     }
 
-    #[inline]
     unsafe fn pop_alloc(
         &mut self,
         ptr: NonNull<u8>,

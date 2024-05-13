@@ -18,7 +18,6 @@ impl Archive for Bytes {
 }
 
 impl<S: Fallible + Allocator + Writer + ?Sized> Serialize<S> for Bytes {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -28,7 +27,6 @@ impl<S: Fallible + Allocator + Writer + ?Sized> Serialize<S> for Bytes {
 }
 
 impl<D: Fallible + ?Sized> Deserialize<Bytes, D> for ArchivedVec<Archived<u8>> {
-    #[inline]
     fn deserialize(&self, _deserializer: &mut D) -> Result<Bytes, D::Error> {
         let mut result = BytesMut::new();
         result.extend_from_slice(self.as_slice());

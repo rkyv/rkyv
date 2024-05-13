@@ -120,7 +120,6 @@ impl<'a, F: Archive + Clone> ArchiveWith<Cow<'a, F>> for AsOwned {
     type Archived = F::Archived;
     type Resolver = F::Resolver;
 
-    #[inline]
     fn resolve_with(
         field: &Cow<'a, F>,
         resolver: Self::Resolver,
@@ -135,7 +134,6 @@ where
     F: Serialize<S> + Clone,
     S: Fallible + ?Sized,
 {
-    #[inline]
     fn serialize_with(
         field: &Cow<'a, F>,
         serializer: &mut S,
@@ -150,7 +148,6 @@ where
     T::Archived: Deserialize<T, D>,
     D: Fallible + ?Sized,
 {
-    #[inline]
     fn deserialize_with(
         field: &T::Archived,
         deserializer: &mut D,
@@ -163,7 +160,6 @@ impl<'a, T: Archive + Clone> ArchiveWith<Cow<'a, [T]>> for AsOwned {
     type Archived = ArchivedVec<T::Archived>;
     type Resolver = VecResolver;
 
-    #[inline]
     fn resolve_with(
         field: &Cow<'a, [T]>,
         resolver: Self::Resolver,
@@ -178,7 +174,6 @@ where
     T: Serialize<S> + Clone,
     S: Fallible + Allocator + Writer + ?Sized,
 {
-    #[inline]
     fn serialize_with(
         field: &Cow<'a, [T]>,
         serializer: &mut S,
@@ -195,7 +190,6 @@ where
     D: Fallible + ?Sized,
     D::Error: Source,
 {
-    #[inline]
     fn deserialize_with(
         field: &ArchivedVec<T::Archived>,
         deserializer: &mut D,
@@ -208,7 +202,6 @@ impl<'a> ArchiveWith<Cow<'a, str>> for AsOwned {
     type Archived = ArchivedString;
     type Resolver = StringResolver;
 
-    #[inline]
     fn resolve_with(
         field: &Cow<'a, str>,
         resolver: Self::Resolver,
@@ -222,7 +215,6 @@ impl<'a, S> SerializeWith<Cow<'a, str>, S> for AsOwned
 where
     S: Fallible + Writer + ?Sized,
 {
-    #[inline]
     fn serialize_with(
         field: &Cow<'a, str>,
         serializer: &mut S,
@@ -235,7 +227,6 @@ impl<'a, D> DeserializeWith<ArchivedString, Cow<'a, str>, D> for AsOwned
 where
     D: Fallible + ?Sized,
 {
-    #[inline]
     fn deserialize_with(
         field: &ArchivedString,
         deserializer: &mut D,

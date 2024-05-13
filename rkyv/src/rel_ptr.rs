@@ -42,7 +42,6 @@ pub trait Offset: Copy + Initialized {
 macro_rules! impl_offset_single_byte {
     ($ty:ty) => {
         impl Offset for $ty {
-            #[inline]
             fn from_isize<E: Source>(value: isize) -> Result<Self, E> {
                 // `pointer::add`` and `pointer::offset` require that the
                 // computed offsets cannot overflow an isize, which is why we're
@@ -67,7 +66,6 @@ impl_offset_single_byte!(u8);
 macro_rules! impl_offset_multi_byte {
     ($ty:ty, $archived:ty) => {
         impl Offset for $archived {
-            #[inline]
             fn from_isize<E: Source>(value: isize) -> Result<Self, E> {
                 // `pointer::add`` and `pointer::offset` require that the
                 // computed offsets cannot overflow an isize, which is why we're
@@ -148,7 +146,6 @@ pub struct RawRelPtr<O> {
 /// assert!(signed_offset::<Error>(0, isize::MAX as usize + 2).is_err());
 /// assert!(signed_offset::<Error>(isize::MAX as usize + 2, 0).is_err());
 /// ```
-#[inline]
 pub fn signed_offset<E: Source>(from: usize, to: usize) -> Result<isize, E> {
     let (result, overflow) = to.overflowing_sub(from);
     if (!overflow && result <= (isize::MAX as usize))
@@ -178,7 +175,6 @@ impl<O: Offset> RawRelPtr<O> {
 
     /// Attempts to create a new `RawRelPtr` in-place between the given `from`
     /// and `to` positions.
-    #[inline]
     pub fn try_emplace<E: Source>(
         to: usize,
         out: Place<Self>,
@@ -196,32 +192,27 @@ impl<O: Offset> RawRelPtr<O> {
     ///
     /// - If the offset between `out` and `to` does not fit in an `isize`
     /// - If the offset between `out` and `to` exceeds the offset storage
-    #[inline]
     pub fn emplace(to: usize, out: Place<Self>) {
         Self::try_emplace::<Panic>(to, out).always_ok()
     }
 
     /// Gets the base pointer for the relative pointer.
-    #[inline]
     pub fn base(&self) -> *const u8 {
         (self as *const Self).cast::<u8>()
     }
 
     /// Gets the mutable base pointer for the relative pointer.
-    #[inline]
     pub fn base_mut(self: Pin<&mut Self>) -> *mut u8 {
         let s = unsafe { Pin::into_inner_unchecked(self) };
         (s as *mut Self).cast::<u8>()
     }
 
     /// Gets the offset of the relative pointer from its base.
-    #[inline]
     pub fn offset(&self) -> isize {
         self.offset.to_isize()
     }
 
     /// Gets whether the offset of the relative pointer is invalid.
-    #[inline]
     pub fn is_invalid(&self) -> bool {
         self.offset() == 1
     }
@@ -232,7 +223,6 @@ impl<O: Offset> RawRelPtr<O> {
     ///
     /// The offset of this relative pointer, when added to its base, must be
     /// located in the same allocated object as it.
-    #[inline]
     pub unsafe fn as_ptr(&self) -> *const () {
         unsafe { self.base().offset(self.offset()).cast() }
     }
@@ -244,7 +234,6 @@ impl<O: Offset> RawRelPtr<O> {
     ///
     /// The offset of this relative pointer, when added to its base, must be
     /// located in the same allocated object as it.
-    #[inline]
     pub unsafe fn as_mut_ptr(self: Pin<&mut Self>) -> *mut () {
         let off = self.offset();
         unsafe { self.base_mut().offset(off).cast() }
@@ -254,7 +243,6 @@ impl<O: Offset> RawRelPtr<O> {
     /// using wrapping methods.
     ///
     /// This method is a safer but potentially slower version of `as_ptr`.
-    #[inline]
     pub fn as_ptr_wrapping(&self) -> *const () {
         self.base().wrapping_offset(self.offset()).cast()
     }
@@ -263,7 +251,6 @@ impl<O: Offset> RawRelPtr<O> {
     /// pointer using wrapping methods.
     ///
     /// This method is a safer but potentially slower version of `as_mut_ptr`.
-    #[inline]
     pub fn as_mut_ptr_wrapping(self: Pin<&mut Self>) -> *mut () {
         let off = self.offset();
         self.base_mut().wrapping_offset(off).cast()
@@ -332,7 +319,6 @@ where
 
 impl<T, O: Offset> RelPtr<T, O> {
     /// Attempts to create a relative pointer from one position to another.
-    #[inline]
     pub fn try_emplace<E: Source>(
         to: usize,
         out: Place<Self>,
@@ -348,7 +334,6 @@ impl<T, O: Offset> RelPtr<T, O> {
     ///
     /// - If the offset between `from` and `to` does not fit in an `isize`
     /// - If the offset between `from` and `to` exceeds the offset storage
-    #[inline]
     pub fn emplace(to: usize, out: Place<Self>) {
         Self::try_emplace::<Panic>(to, out).always_ok()
     }
@@ -359,7 +344,6 @@ where
     T::ArchivedMetadata: Default,
 {
     /// Attempts to create an invalid relative pointer with default metadata.
-    #[inline]
     pub fn try_emplace_invalid<E: Source>(out: Place<Self>) -> Result<(), E> {
         munge!(let RelPtr { raw_ptr, metadata, _phantom: _ } = out);
         RawRelPtr::try_emplace_invalid(raw_ptr)?;
@@ -373,7 +357,6 @@ where
     ///
     /// - If an offset of `1` does not fit in an `isize`
     /// - If an offset of `1` exceeds the offset storage
-    #[inline]
     pub fn emplace_invalid(out: Place<Self>) {
         Self::try_emplace_invalid::<Panic>(out).always_ok()
     }
@@ -381,7 +364,6 @@ where
 
 impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// Attempts to create a relative pointer from one position to another.
-    #[inline]
     pub fn try_emplace_unsized<E: Source>(
         to: usize,
         metadata: T::ArchivedMetadata,
@@ -399,7 +381,6 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     ///
     /// - If the offset between `from` and `to` does not fit in an `isize`
     /// - If the offset between `from` and `to` exceeds the offset storage
-    #[inline]
     pub fn emplace_unsized(
         to: usize,
         metadata: T::ArchivedMetadata,
@@ -409,32 +390,27 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     }
 
     /// Gets the base pointer for the relative pointer.
-    #[inline]
     pub fn base(&self) -> *const u8 {
         self.raw_ptr.base()
     }
 
     /// Gets the mutable base pointer for this relative pointer.
-    #[inline]
     pub fn base_mut(self: Pin<&mut Self>) -> *mut u8 {
         let raw_ptr = unsafe { self.map_unchecked_mut(|s| &mut s.raw_ptr) };
         raw_ptr.base_mut()
     }
 
     /// Gets the offset of the relative pointer from its base.
-    #[inline]
     pub fn offset(&self) -> isize {
         self.raw_ptr.offset()
     }
 
     /// Gets whether the offset of the relative pointer is 0.
-    #[inline]
     pub fn is_invalid(&self) -> bool {
         self.raw_ptr.is_invalid()
     }
 
     /// Gets the metadata of the relative pointer.
-    #[inline]
     pub fn metadata(&self) -> &T::ArchivedMetadata {
         &self.metadata
     }
@@ -445,7 +421,6 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     ///
     /// The offset of this relative pointer, when added to its base, must be
     /// located in the same allocated object as it.
-    #[inline]
     pub unsafe fn as_ptr(&self) -> *const T {
         ptr_meta::from_raw_parts(
             // SAFETY: The safety requirements for `RawRelPtr::as_ptr` are the
@@ -462,7 +437,6 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     ///
     /// The offset of this relative pointer, when added to its base, must be
     /// located in the same allocated object as it.
-    #[inline]
     pub unsafe fn as_mut_ptr(self: Pin<&mut Self>) -> *mut T {
         let metadata = T::pointer_metadata(&self.metadata);
         // SAFETY: `s.raw_ptr` will not move as long as `s` does not move
@@ -480,7 +454,6 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// using wrapping methods.
     ///
     /// This method is a safer but potentially slower version of `as_ptr`.
-    #[inline]
     pub fn as_ptr_wrapping(&self) -> *const T {
         ptr_meta::from_raw_parts(
             self.raw_ptr.as_ptr_wrapping(),
@@ -492,7 +465,6 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// pointer using wrapping methods.
     ///
     /// This method is a safer but potentially slower version of `as_ptr`.
-    #[inline]
     pub fn as_mut_ptr_wrapping(self: Pin<&mut Self>) -> *const T {
         let metadata = T::pointer_metadata(&self.metadata);
         let raw_ptr = unsafe { self.map_unchecked_mut(|s| &mut s.raw_ptr) };

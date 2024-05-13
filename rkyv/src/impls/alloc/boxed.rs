@@ -16,7 +16,6 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     type Archived = ArchivedBox<T::Archived>;
     type Resolver = BoxResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedBox::resolve_from_ref(self.as_ref(), resolver, out);
     }
@@ -25,7 +24,6 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
 impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> Serialize<S>
     for Box<T>
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -41,7 +39,6 @@ where
     D: Fallible + ?Sized,
     D::Error: Source,
 {
-    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {
         let metadata = self.get().deserialize_metadata(deserializer)?;
         let layout = T::layout_raw(metadata).into_error()?;
@@ -63,7 +60,6 @@ where
 impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Box<U>>
     for ArchivedBox<T>
 {
-    #[inline]
     fn eq(&self, other: &Box<U>) -> bool {
         self.get().eq(other.as_ref())
     }
@@ -72,7 +68,6 @@ impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Box<U>>
 impl<T: ArchivePointee + PartialOrd<U> + ?Sized, U: ?Sized> PartialOrd<Box<U>>
     for ArchivedBox<T>
 {
-    #[inline]
     fn partial_cmp(&self, other: &Box<U>) -> Option<cmp::Ordering> {
         self.get().partial_cmp(other.as_ref())
     }

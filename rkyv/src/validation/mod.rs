@@ -110,7 +110,6 @@ pub trait ArchiveContextExt<E>: ArchiveContext<E> {
 
 impl<C: ArchiveContext<E> + ?Sized, E: Source> ArchiveContextExt<E> for C {
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
-    #[inline]
     fn in_subtree_raw<R>(
         &mut self,
         ptr: *const u8,
@@ -135,7 +134,6 @@ impl<C: ArchiveContext<E> + ?Sized, E: Source> ArchiveContextExt<E> for C {
     }
 
     #[allow(clippy::not_unsafe_ptr_arg_deref)]
-    #[inline]
     fn in_subtree<T: LayoutRaw + ?Sized, R>(
         &mut self,
         ptr: *const T,

@@ -402,7 +402,6 @@ fn generate_traits(input: &ItemTrait, args: &Args) -> Result<TokenStream> {
         {
             type Error = CheckDynError;
 
-            #[inline]
             unsafe fn check_bytes<'a>(
                 value: *const Self,
                 context: &mut (dyn DynContext + '_),
@@ -424,7 +423,6 @@ fn generate_traits(input: &ItemTrait, args: &Args) -> Result<TokenStream> {
         {
             type Error = CheckDynError;
 
-            #[inline]
             unsafe fn check_bytes<'a>(
                 value: *const Self,
                 context: &mut __C,

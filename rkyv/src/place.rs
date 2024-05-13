@@ -27,7 +27,6 @@ impl<T: ?Sized> Place<T> {
     ///
     /// `ptr` must be properly aligned, dereferenceable, and all of its bytes
     /// must be initialized.
-    #[inline]
     pub unsafe fn new_unchecked(pos: usize, ptr: *mut T) -> Self {
         unsafe {
             Self {
@@ -45,7 +44,6 @@ impl<T: ?Sized> Place<T> {
     /// - `ptr` must point to a field of `parent`
     /// - `ptr` must be properly aligned, dereferenceable, and all of its bytes
     ///   must be initialized
-    #[inline]
     pub unsafe fn from_field_unchecked<U: ?Sized>(
         parent: Place<U>,
         ptr: *mut T,
@@ -60,7 +58,6 @@ impl<T: ?Sized> Place<T> {
     }
 
     /// Returns the position of the place.
-    #[inline]
     pub fn pos(&self) -> usize {
         self.pos
     }
@@ -70,7 +67,6 @@ impl<T: ?Sized> Place<T> {
     /// # Safety
     ///
     /// Uninitialized bytes must not be written to the returned pointer.
-    #[inline]
     pub unsafe fn ptr(&self) -> *mut T {
         self.ptr.as_ptr()
     }
@@ -80,7 +76,6 @@ impl<T: ?Sized> Place<T> {
     /// # Safety
     ///
     /// `value` must not have any uninitialized bytes (e.g. padding).
-    #[inline]
     pub unsafe fn write_unchecked(&self, value: T)
     where
         T: Sized,
@@ -91,7 +86,6 @@ impl<T: ?Sized> Place<T> {
     }
 
     /// Writes the provided value to this place.
-    #[inline]
     pub fn write(&self, value: T)
     where
         T: Initialized + Sized,
@@ -106,7 +100,6 @@ impl<T: ?Sized> Place<T> {
     /// # Safety
     ///
     /// This place must point to a valid `U`.
-    #[inline]
     pub unsafe fn cast_unchecked<U>(&self) -> Place<U>
     where
         T: Sized,
@@ -118,7 +111,6 @@ impl<T: ?Sized> Place<T> {
     }
 
     /// Returns a slice of the bytes this place points to.
-    #[inline]
     pub fn as_slice(&self) -> &[u8]
     where
         T: LayoutRaw,
@@ -138,7 +130,6 @@ impl<T> Place<[T]> {
     /// # Safety
     ///
     /// `i` must be in-bounds for the slice pointed to by this place.
-    #[inline]
     pub unsafe fn index(&self, i: usize) -> Place<T> {
         // SAFETY: The caller has guaranteed that `i` is in-bounds for the slice
         // pointed to by this place.
@@ -155,7 +146,6 @@ impl<T, const N: usize> Place<[T; N]> {
     /// # Safety
     ///
     /// `i` must be in-bounds for the array pointed to by this place.
-    #[inline]
     pub unsafe fn index(&self, i: usize) -> Place<T> {
         // SAFETY: The caller has guaranteed that `i` is in-bounds for the array
         // pointed to by this place.

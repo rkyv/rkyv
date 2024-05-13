@@ -41,7 +41,6 @@ unsafe impl<'a, E> ArchiveContext<E> for DefaultValidator<'a>
 where
     ArchiveValidator<'a>: ArchiveContext<E>,
 {
-    #[inline]
     fn check_subtree_ptr(
         &mut self,
         ptr: *const u8,
@@ -50,7 +49,6 @@ where
         self.archive.check_subtree_ptr(ptr, layout)
     }
 
-    #[inline]
     unsafe fn push_subtree_range(
         &mut self,
         root: *const u8,
@@ -61,7 +59,6 @@ where
         unsafe { self.archive.push_subtree_range(root, end) }
     }
 
-    #[inline]
     unsafe fn pop_subtree_range(
         &mut self,
         range: Range<usize>,
@@ -76,7 +73,6 @@ impl<E> SharedContext<E> for DefaultValidator<'_>
 where
     SharedValidator: SharedContext<E>,
 {
-    #[inline]
     fn register_shared_ptr(
         &mut self,
         address: usize,

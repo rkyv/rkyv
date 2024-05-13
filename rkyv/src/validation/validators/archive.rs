@@ -135,7 +135,6 @@ impl<'a> ArchiveValidator<'a> {
 }
 
 unsafe impl<E: Source> ArchiveContext<E> for ArchiveValidator<'_> {
-    #[inline]
     fn check_subtree_ptr(
         &mut self,
         ptr: *const u8,
@@ -159,7 +158,6 @@ unsafe impl<E: Source> ArchiveContext<E> for ArchiveValidator<'_> {
         }
     }
 
-    #[inline]
     unsafe fn push_subtree_range(
         &mut self,
         root: *const u8,
@@ -178,7 +176,6 @@ unsafe impl<E: Source> ArchiveContext<E> for ArchiveValidator<'_> {
         Ok(result)
     }
 
-    #[inline]
     unsafe fn pop_subtree_range(
         &mut self,
         range: Range<usize>,

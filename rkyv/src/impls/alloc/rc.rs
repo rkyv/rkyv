@@ -24,7 +24,6 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Rc<T> {
     type Archived = ArchivedRc<T::Archived, RcFlavor>;
     type Resolver = RcResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedRc::resolve_from_ref(self.as_ref(), resolver, out);
     }
@@ -35,7 +34,6 @@ where
     T: SerializeUnsized<S> + ?Sized + 'static,
     S: Fallible + Writer + Sharing + ?Sized,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -48,7 +46,6 @@ where
 }
 
 unsafe impl<T: LayoutRaw + Pointee + ?Sized> SharedPointer<T> for rc::Rc<T> {
-    #[inline]
     fn alloc(metadata: T::Metadata) -> Result<*mut T, LayoutError> {
         let layout = T::layout_raw(metadata)?;
         let data_address = if layout.size() > 0 {
@@ -60,13 +57,11 @@ unsafe impl<T: LayoutRaw + Pointee + ?Sized> SharedPointer<T> for rc::Rc<T> {
         Ok(ptr)
     }
 
-    #[inline]
     unsafe fn from_value(ptr: *mut T) -> *mut T {
         let rc = rc::Rc::<T>::from(unsafe { Box::from_raw(ptr) });
         rc::Rc::into_raw(rc).cast_mut()
     }
 
-    #[inline]
     unsafe fn drop(ptr: *mut T) {
         drop(unsafe { rc::Rc::from_raw(ptr) });
     }
@@ -81,7 +76,6 @@ where
     D: Fallible + Pooling + ?Sized,
     D::Error: Source,
 {
-    #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<rc::Rc<T>, D::Error> {
         let raw_shared_ptr =
             deserializer.deserialize_shared::<_, rc::Rc<T>>(self.get())?;
@@ -95,7 +89,6 @@ where
 impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<rc::Rc<U>>
     for ArchivedRc<T, RcFlavor>
 {
-    #[inline]
     fn eq(&self, other: &rc::Rc<U>) -> bool {
         self.get().eq(other.as_ref())
     }
@@ -107,7 +100,6 @@ impl<T: ArchiveUnsized + ?Sized> Archive for rc::Weak<T> {
     type Archived = ArchivedRcWeak<T::Archived, RcFlavor>;
     type Resolver = RcWeakResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedRcWeak::resolve_from_ref(
             self.upgrade().as_ref().map(|v| v.as_ref()),
@@ -122,7 +114,6 @@ where
     T: SerializeUnsized<S> + ?Sized + 'static,
     S: Fallible + Writer + Sharing + ?Sized,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -148,7 +139,6 @@ where
     D: Fallible + Pooling + ?Sized,
     D::Error: Source,
 {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
@@ -168,7 +158,6 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Arc<T> {
     type Archived = ArchivedRc<T::Archived, ArcFlavor>;
     type Resolver = RcResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedRc::resolve_from_ref(self.as_ref(), resolver, out);
     }
@@ -179,7 +168,6 @@ where
     T: SerializeUnsized<S> + ?Sized + 'static,
     S: Fallible + Writer + Sharing + ?Sized,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -192,7 +180,6 @@ where
 }
 
 unsafe impl<T: LayoutRaw + Pointee + ?Sized> SharedPointer<T> for sync::Arc<T> {
-    #[inline]
     fn alloc(metadata: T::Metadata) -> Result<*mut T, LayoutError> {
         let layout = T::layout_raw(metadata)?;
         let data_address = if layout.size() > 0 {
@@ -204,13 +191,11 @@ unsafe impl<T: LayoutRaw + Pointee + ?Sized> SharedPointer<T> for sync::Arc<T> {
         Ok(ptr)
     }
 
-    #[inline]
     unsafe fn from_value(ptr: *mut T) -> *mut T {
         let arc = sync::Arc::<T>::from(unsafe { Box::from_raw(ptr) });
         sync::Arc::into_raw(arc).cast_mut()
     }
 
-    #[inline]
     unsafe fn drop(ptr: *mut T) {
         drop(unsafe { sync::Arc::from_raw(ptr) });
     }
@@ -225,7 +210,6 @@ where
     D: Fallible + Pooling + ?Sized,
     D::Error: Source,
 {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,
@@ -244,7 +228,6 @@ where
     T: ArchivePointee + PartialEq<U> + ?Sized,
     U: ?Sized,
 {
-    #[inline]
     fn eq(&self, other: &sync::Arc<U>) -> bool {
         self.get().eq(other.as_ref())
     }
@@ -256,7 +239,6 @@ impl<T: ArchiveUnsized + ?Sized> Archive for sync::Weak<T> {
     type Archived = ArchivedRcWeak<T::Archived, ArcFlavor>;
     type Resolver = RcWeakResolver;
 
-    #[inline]
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         ArchivedRcWeak::resolve_from_ref(
             self.upgrade().as_ref().map(|v| v.as_ref()),
@@ -271,7 +253,6 @@ where
     T: SerializeUnsized<S> + ?Sized + 'static,
     S: Fallible + Writer + Sharing + ?Sized,
 {
-    #[inline]
     fn serialize(
         &self,
         serializer: &mut S,
@@ -300,7 +281,6 @@ where
     D: Fallible + Pooling + ?Sized,
     D::Error: Source,
 {
-    #[inline]
     fn deserialize(
         &self,
         deserializer: &mut D,

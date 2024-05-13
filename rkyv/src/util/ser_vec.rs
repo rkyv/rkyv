@@ -32,7 +32,6 @@ impl<T> SerVec<T> {
     ///
     /// The vector will be able to hold exactly `capacity` elements. If
     /// `capacity` is 0, the vector will not allocate.
-    #[inline]
     pub fn with_capacity<S, R>(
         serializer: &mut S,
         cap: usize,
@@ -70,7 +69,6 @@ impl<T> SerVec<T> {
     ///
     /// Note that this method has no effect on the allocated capacity of the
     /// vector.
-    #[inline]
     pub fn clear(&mut self) {
         for i in 0..self.len {
             unsafe {
@@ -84,7 +82,6 @@ impl<T> SerVec<T> {
     ///
     /// The caller must ensure that the vector outlives the pointer this
     /// function returns, or else it will end up pointing to garbage.
-    #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut T {
         self.ptr.as_ptr()
     }
@@ -92,7 +89,6 @@ impl<T> SerVec<T> {
     /// Extracts a mutable slice of the entire vector.
     ///
     /// Equivalent to `&mut s[..]`.
-    #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), self.len) }
     }
@@ -107,7 +103,6 @@ impl<T> SerVec<T> {
     /// `UnsafeCell`) using this pointer or any pointer derived from it. If
     /// you need to mutate the contents of the slice, use
     /// [`as_mut_ptr`](Self::as_mut_ptr).
-    #[inline]
     pub fn as_ptr(&self) -> *const T {
         self.ptr.as_ptr()
     }
@@ -115,13 +110,11 @@ impl<T> SerVec<T> {
     /// Extracts a slice containing the entire vector.
     ///
     /// Equivalent to `&s[..]`.
-    #[inline]
     pub fn as_slice(&self) -> &[T] {
         unsafe { slice::from_raw_parts(self.as_ptr(), self.len) }
     }
 
     /// Returns the number of elements the vector can hole without reallocating.
-    #[inline]
     pub fn capacity(&self) -> usize {
         self.cap
     }
@@ -132,7 +125,6 @@ impl<T> SerVec<T> {
     /// # Panics
     ///
     /// Panics if the required capacity exceeds the available capacity.
-    #[inline]
     pub fn reserve(&mut self, additional: usize) {
         if self.len + additional > self.cap {
             panic!(
@@ -143,14 +135,12 @@ impl<T> SerVec<T> {
     }
 
     /// Returns `true` if the vector contains no elements.
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     /// Returns the number of elements in the vector, also referred to as its
     /// `length`.
-    #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
@@ -158,7 +148,6 @@ impl<T> SerVec<T> {
     /// Copies and appends all elements in a slice to the `ScratchVec`.
     ///
     /// The elements of the slice are appended in-order.
-    #[inline]
     pub fn extend_from_slice(&mut self, other: &[T]) {
         if !other.is_empty() {
             self.reserve(other.len());
@@ -175,7 +164,6 @@ impl<T> SerVec<T> {
 
     /// Removes the last element from a vector and returns it, or `None` if it
     /// is empty.
-    #[inline]
     pub fn pop(&mut self) -> Option<T> {
         if self.len == 0 {
             None
@@ -188,7 +176,6 @@ impl<T> SerVec<T> {
     }
 
     /// Appends an element to the back of a collection.
-    #[inline]
     pub fn push(&mut self, value: T) {
         unsafe {
             self.reserve(1);
@@ -206,7 +193,6 @@ impl<T> SerVec<T> {
     /// # Panics
     ///
     /// Panics if the required capacity exceeds the available capacity.
-    #[inline]
     pub fn reserve_exact(&mut self, additional: usize) {
         self.reserve(additional);
     }
@@ -220,7 +206,6 @@ impl<T> SerVec<T> {
     ///
     /// - `new_len` must be less than or equal to [`capacity()`](Self::capacity)
     /// - The elements at `old_len..new_len` must be initialized
-    #[inline]
     pub unsafe fn set_len(&mut self, new_len: usize) {
         debug_assert!(new_len <= self.capacity());
 
@@ -228,7 +213,6 @@ impl<T> SerVec<T> {
     }
 
     // This is taken from `slice::range`, which is not yet stable.
-    #[inline]
     fn drain_range<R>(
         range: R,
         bounds: ops::RangeTo<usize>,
@@ -285,7 +269,6 @@ impl<T> SerVec<T> {
     ///
     /// Panics if the starting point is greater than the end point or if the end
     /// point is greater than the length of the vector.
-    #[inline]
     pub fn drain<R: ops::RangeBounds<usize>>(
         &mut self,
         range: R,
@@ -318,7 +301,6 @@ impl<T> SerVec<MaybeUninit<T>> {
     /// It is up to the caller to guarantee that the `MaybeUninit<T>` elements
     /// really are in an initialized state. Calling this when the content is
     /// not yet fully initialized causes undefined behavior.
-    #[inline]
     pub fn assume_init(self) -> SerVec<T> {
         SerVec {
             ptr: self.ptr.cast(),
@@ -329,35 +311,30 @@ impl<T> SerVec<MaybeUninit<T>> {
 }
 
 impl<T> AsMut<[T]> for SerVec<T> {
-    #[inline]
     fn as_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 }
 
 impl<T> AsRef<[T]> for SerVec<T> {
-    #[inline]
     fn as_ref(&self) -> &[T] {
         self.as_slice()
     }
 }
 
 impl<T> Borrow<[T]> for SerVec<T> {
-    #[inline]
     fn borrow(&self) -> &[T] {
         self.as_slice()
     }
 }
 
 impl<T> BorrowMut<[T]> for SerVec<T> {
-    #[inline]
     fn borrow_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 }
 
 impl<T: fmt::Debug> fmt::Debug for SerVec<T> {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_slice().fmt(f)
     }
@@ -366,14 +343,12 @@ impl<T: fmt::Debug> fmt::Debug for SerVec<T> {
 impl<T> ops::Deref for SerVec<T> {
     type Target = [T];
 
-    #[inline]
     fn deref(&self) -> &Self::Target {
         self.as_slice()
     }
 }
 
 impl<T> ops::DerefMut for SerVec<T> {
-    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut_slice()
     }
@@ -382,14 +357,12 @@ impl<T> ops::DerefMut for SerVec<T> {
 impl<T, I: slice::SliceIndex<[T]>> ops::Index<I> for SerVec<T> {
     type Output = <I as slice::SliceIndex<[T]>>::Output;
 
-    #[inline]
     fn index(&self, index: I) -> &Self::Output {
         &self.as_slice()[index]
     }
 }
 
 impl<T, I: slice::SliceIndex<[T]>> ops::IndexMut<I> for SerVec<T> {
-    #[inline]
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         &mut self.as_mut_slice()[index]
     }
@@ -407,7 +380,6 @@ pub struct Drain<'a, T: 'a> {
 }
 
 impl<T: fmt::Debug> fmt::Debug for Drain<'_, T> {
-    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Drain").field(&self.iter.as_slice()).finish()
     }
@@ -415,7 +387,6 @@ impl<T: fmt::Debug> fmt::Debug for Drain<'_, T> {
 
 impl<T> Drain<'_, T> {
     /// Returns the remaining items of this iterator as a slice.
-    #[inline]
     pub fn as_slice(&self) -> &[T] {
         self.iter.as_slice()
     }
@@ -430,21 +401,18 @@ impl<T> AsRef<[T]> for Drain<'_, T> {
 impl<T> Iterator for Drain<'_, T> {
     type Item = T;
 
-    #[inline]
     fn next(&mut self) -> Option<T> {
         self.iter
             .next()
             .map(|elt| unsafe { core::ptr::read(elt as *const _) })
     }
 
-    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }
 }
 
 impl<T> DoubleEndedIterator for Drain<'_, T> {
-    #[inline]
     fn next_back(&mut self) -> Option<T> {
         self.iter
             .next_back()

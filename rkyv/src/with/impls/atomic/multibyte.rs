@@ -49,7 +49,6 @@ macro_rules! impl_multi_byte_atomic {
             type Archived = $archived_non_atomic;
             type Resolver = ();
 
-            #[inline]
             fn resolve_with(
                 field: &$atomic,
                 _: Self::Resolver,
@@ -68,7 +67,6 @@ macro_rules! impl_multi_byte_atomic {
             type Archived = $archived;
             type Resolver = ();
 
-            #[inline]
             fn resolve_with(
                 field: &$atomic,
                 _: Self::Resolver,
@@ -85,7 +83,6 @@ macro_rules! impl_multi_byte_atomic {
         where
             D: Fallible + ?Sized,
         {
-            #[inline]
             fn deserialize_with(
                 field: &$archived_non_atomic,
                 _: &mut D,
@@ -100,7 +97,6 @@ macro_rules! impl_multi_byte_atomic {
             D: Fallible + ?Sized,
             DO: LoadOrdering,
         {
-            #[inline]
             fn deserialize_with(
                 field: &$archived,
                 _: &mut D,
@@ -143,7 +139,6 @@ macro_rules! impl_atomic_size_type {
             type Archived = $archived_non_atomic;
             type Resolver = ();
 
-            #[inline]
             fn resolve_with(
                 field: &$atomic,
                 _: Self::Resolver,
@@ -162,7 +157,6 @@ macro_rules! impl_atomic_size_type {
             type Archived = $archived;
             type Resolver = ();
 
-            #[inline]
             fn resolve_with(
                 field: &$atomic,
                 _: Self::Resolver,
@@ -179,7 +173,6 @@ macro_rules! impl_atomic_size_type {
         where
             D: Fallible + ?Sized,
         {
-            #[inline]
             fn deserialize_with(
                 field: &$archived_non_atomic,
                 _: &mut D,
@@ -194,7 +187,6 @@ macro_rules! impl_atomic_size_type {
             D: Fallible + ?Sized,
             DO: LoadOrdering,
         {
-            #[inline]
             fn deserialize_with(
                 field: &$archived,
                 _: &mut D,

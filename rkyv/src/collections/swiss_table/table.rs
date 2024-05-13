@@ -96,7 +96,6 @@ impl<T> ArchivedHashTable<T> {
     /// # Safety
     ///
     /// `index` must be less than `len()`.
-    #[inline]
     unsafe fn control(&self, index: usize) -> *const u8 {
         debug_assert!(!self.is_empty());
 
@@ -111,7 +110,6 @@ impl<T> ArchivedHashTable<T> {
         unsafe { ptr.cast::<u8>().add(index) }
     }
 
-    #[inline]
     unsafe fn bucket(&self, index: usize) -> NonNull<T> {
         unsafe {
             NonNull::new_unchecked(
@@ -120,12 +118,10 @@ impl<T> ArchivedHashTable<T> {
         }
     }
 
-    #[inline]
     fn bucket_mask(capacity: usize) -> usize {
         capacity.checked_next_power_of_two().unwrap() - 1
     }
 
-    #[inline(always)]
     fn get_entry<C>(&self, hash: u64, cmp: C) -> Option<NonNull<T>>
     where
         C: Fn(&T) -> bool,
@@ -177,7 +173,6 @@ impl<T> ArchivedHashTable<T> {
     }
 
     /// Returns the key-value pair corresponding to the supplied key.
-    #[inline]
     pub fn get_with<C>(&self, hash: u64, cmp: C) -> Option<&T>
     where
         C: Fn(&T) -> bool,
@@ -187,7 +182,6 @@ impl<T> ArchivedHashTable<T> {
     }
 
     /// Returns the mutable key-value pair corresponding to the supplied key.
-    #[inline]
     pub fn get_with_mut<C>(
         self: Pin<&mut Self>,
         hash: u64,
@@ -201,19 +195,16 @@ impl<T> ArchivedHashTable<T> {
     }
 
     /// Returns whether the hash table is empty.
-    #[inline]
     pub const fn is_empty(&self) -> bool {
         self.len.to_native() == 0
     }
 
     /// Returns the number of elements in the hash table.
-    #[inline]
     pub const fn len(&self) -> usize {
         self.len.to_native() as usize
     }
 
     /// Returns the total capacity of the hash table.
-    #[inline]
     pub fn capacity(&self) -> usize {
         self.cap.to_native() as usize
     }
@@ -264,7 +255,6 @@ impl<T> ArchivedHashTable<T> {
         }
     }
 
-    #[inline]
     fn capacity_from_len<E: Source>(
         len: usize,
         load_factor: (usize, usize),
@@ -277,7 +267,6 @@ impl<T> ArchivedHashTable<T> {
         ))
     }
 
-    #[inline]
     fn control_count<E: Source>(capacity: usize) -> Result<usize, E> {
         capacity.checked_add(MAX_GROUP_WIDTH - 1).into_trace(
             "overflow while calculating buckets from adjusted capacity",
@@ -532,7 +521,6 @@ impl<T> Iterator for RawIter<T> {
 }
 
 impl<T> ExactSizeIterator for RawIter<T> {
-    #[inline]
     fn len(&self) -> usize {
         self.items_left
     }

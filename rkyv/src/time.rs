@@ -179,7 +179,6 @@ mod verify {
         C: Fallible + ?Sized,
         C::Error: Source,
     {
-        #[inline]
         fn verify(&self, _: &mut C) -> Result<(), C::Error> {
             let nanos = self.nanos.to_native();
             if nanos > 1_000_000_000 {
