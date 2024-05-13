@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "benchlib",
     "examples/*",
     "rkyv",
     "rkyv_derive",
@@ -26,7 +27,9 @@ documentation = "https://docs.rs/rkyv"
 repository = "https://github.com/rkyv/rkyv"
 
 [workspace.dependencies]
+benchlib = { version = "=0.8.0-alpha.2", path = "benchlib" }
 bytecheck = { version = "=0.8.0-alpha.9", default-features = false, features = ["simdutf8"] }
+divan = "0.1"
 hashbrown = "0.14"
 munge = "0.4"
 proc-macro2 = "1.0"
@@ -44,3 +47,6 @@ wasm-bindgen-test = "0.3"
 [patch.crates-io]
 bytecheck = { git = "https://github.com/rkyv/bytecheck" }
 rancor = { git = "https://github.com/rkyv/rancor" }
+
+[profile.bench]
+debug = true

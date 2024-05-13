@@ -1,5 +1,6 @@
 use core::{alloc::Layout, ptr::NonNull};
 
+#[cfg(feature = "alloc")]
 pub fn dangling(layout: &Layout) -> NonNull<u8> {
     #[cfg(miri)]
     {

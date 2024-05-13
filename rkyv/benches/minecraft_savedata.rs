@@ -1,98 +1,7 @@
-use core::mem::MaybeUninit;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rand::Rng;
-use rand_pcg::Lcg64Xsh32;
-use rkyv::{
-    archived_root, check_archived_root,
-    ser::{
-        serializers::{AlignedSerializer, BufferScratch, CompositeSerializer},
-        Serializer,
-    },
-    AlignedVec, Archive, Deserialize, Infallible, Serialize,
-};
-use std::collections::HashMap;
+use benchlib::{bench_dataset, generate_vec, Generate, Rng};
+use rkyv::{Archive, Deserialize, Serialize};
 
-trait Generate {
-    fn generate<R: Rng>(rng: &mut R) -> Self;
-}
-
-impl Generate for () {
-    fn generate<R: Rng>(_: &mut R) -> Self {
-        ()
-    }
-}
-
-impl Generate for bool {
-    fn generate<R: Rng>(rng: &mut R) -> Self {
-        rng.gen_bool(0.5)
-    }
-}
-
-impl Generate for u32 {
-    fn generate<R: Rng>(rng: &mut R) -> Self {
-        rng.gen()
-    }
-}
-
-impl Generate for f32 {
-    fn generate<R: Rng>(rng: &mut R) -> Self {
-        rng.gen()
-    }
-}
-
-impl Generate for f64 {
-    fn generate<R: Rng>(rng: &mut R) -> Self {
-        rng.gen()
-    }
-}
-
-impl<T: Generate, const N: usize> Generate for [T; N] {
-    fn generate<R: Rng>(rng: &mut R) -> Self {
-        let mut result = MaybeUninit::<[T; N]>::uninit();
-        for i in 0..N {
-            unsafe {
-                result
-                    .as_mut_ptr()
-                    .cast::<T>()
-                    .add(i)
-                    .write(T::generate(rng));
-            }
-        }
-        unsafe { result.assume_init() }
-    }
-}
-
-impl<T: Generate> Generate for Option<T> {
-    fn generate<R: Rng>(rng: &mut R) -> Self {
-        if rng.gen_bool(0.5) {
-            Some(T::generate(rng))
-        } else {
-            None
-        }
-    }
-}
-
-fn generate_vec<R: Rng, T: Generate>(
-    rng: &mut R,
-    range: core::ops::Range<usize>,
-) -> Vec<T> {
-    let len = rng.gen_range(range);
-    let mut result = Vec::with_capacity(len);
-    for _ in 0..len {
-        result.push(T::generate(rng));
-    }
-    result
-}
-
-#[derive(
-    Archive,
-    Serialize,
-    Clone,
-    Copy,
-    Deserialize,
-    serde::Deserialize,
-    serde::Serialize,
-)]
+#[derive(Archive, Serialize, Deserialize, Clone, Copy, Debug)]
 #[archive(check_bytes)]
 #[repr(u8)]
 pub enum GameType {
@@ -114,9 +23,7 @@ impl Generate for GameType {
     }
 }
 
-#[derive(
-    Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize,
-)]
+#[derive(Archive, Serialize, Deserialize, Debug)]
 #[archive(check_bytes)]
 pub struct Item {
     count: i8,
@@ -126,7 +33,7 @@ pub struct Item {
 
 impl Generate for Item {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const IDS: [&'static str; 8] = [
+        const IDS: [&str; 8] = [
             "dirt",
             "stone",
             "pickaxe",
@@ -144,15 +51,7 @@ impl Generate for Item {
     }
 }
 
-#[derive(
-    Archive,
-    Serialize,
-    Clone,
-    Copy,
-    Deserialize,
-    serde::Serialize,
-    serde::Deserialize,
-)]
+#[derive(Archive, Serialize, Clone, Copy, Deserialize, Debug)]
 #[archive(check_bytes)]
 pub struct Abilities {
     walk_speed: f32,
@@ -178,9 +77,7 @@ impl Generate for Abilities {
     }
 }
 
-#[derive(
-    Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize,
-)]
+#[derive(Archive, Serialize, Deserialize, Debug)]
 #[archive(check_bytes)]
 pub struct Entity {
     id: String,
@@ -203,11 +100,11 @@ pub struct Entity {
 
 impl Generate for Entity {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const IDS: [&'static str; 8] = [
+        const IDS: [&str; 8] = [
             "cow", "sheep", "zombie", "skeleton", "spider", "creeper",
             "parrot", "bee",
         ];
-        const CUSTOM_NAMES: [&'static str; 8] = [
+        const CUSTOM_NAMES: [&str; 8] = [
             "rainbow", "princess", "steve", "johnny", "missy", "coward",
             "fairy", "howard",
         ];
@@ -235,9 +132,7 @@ impl Generate for Entity {
     }
 }
 
-#[derive(
-    Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize,
-)]
+#[derive(Archive, Serialize, Deserialize, Debug)]
 #[archive(check_bytes)]
 pub struct RecipeBook {
     recipes: Vec<String>,
@@ -254,7 +149,7 @@ pub struct RecipeBook {
 
 impl Generate for RecipeBook {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const RECIPES: [&'static str; 8] = [
+        const RECIPES: [&str; 8] = [
             "pickaxe",
             "torch",
             "bow",
@@ -290,9 +185,7 @@ impl Generate for RecipeBook {
     }
 }
 
-#[derive(
-    Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize,
-)]
+#[derive(Archive, Serialize, Deserialize, Debug)]
 #[archive(check_bytes)]
 pub struct RootVehicle {
     attach: [u32; 4],
@@ -308,9 +201,7 @@ impl Generate for RootVehicle {
     }
 }
 
-#[derive(
-    Archive, Serialize, Deserialize, serde::Deserialize, serde::Serialize,
-)]
+#[derive(Archive, Serialize, Deserialize, Debug)]
 #[archive(check_bytes)]
 pub struct Player {
     game_type: GameType,
@@ -343,9 +234,15 @@ pub struct Player {
     recipe_book: RecipeBook,
 }
 
+#[derive(Archive, Serialize, Deserialize, Debug)]
+#[archive(check_bytes)]
+pub struct Players {
+    pub players: Vec<Player>,
+}
+
 impl Generate for Player {
     fn generate<R: Rng>(rng: &mut R) -> Self {
-        const DIMENSIONS: [&'static str; 3] = ["overworld", "nether", "end"];
+        const DIMENSIONS: [&str; 3] = ["overworld", "nether", "end"];
         const MAX_ITEMS: usize = 40;
         const MAX_ENDER_ITEMS: usize = 27;
         Self {
@@ -386,131 +283,13 @@ impl Generate for Player {
     }
 }
 
-fn generate_player_name<R: Rng>(rng: &mut R) -> String {
-    const LEGAL_CHARS: &'static [u8] =
-        b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_";
+pub fn generate_players() -> Players {
+    let mut rng = benchlib::rng();
 
-    let len = rng.gen_range(10..40);
-    let mut result = String::new();
-
-    for _ in 0..len {
-        result.push(LEGAL_CHARS[rng.gen_range(0..LEGAL_CHARS.len())] as char);
-    }
-
-    result
-}
-
-pub fn criterion_benchmark(c: &mut Criterion) {
     const PLAYERS: usize = 500;
-    const STATE: u64 = 3141592653;
-    const STREAM: u64 = 5897932384;
-
-    type Players = HashMap<String, Player>;
-    let mut players: Players = HashMap::with_capacity(PLAYERS);
-    let mut rng = Lcg64Xsh32::new(STATE, STREAM);
-    for _ in 0..PLAYERS {
-        let mut name = generate_player_name(&mut rng);
-        while players.contains_key(&name) {
-            name = generate_player_name(&mut rng);
-        }
-        players.insert(name, Player::generate(&mut rng));
+    Players {
+        players: generate_vec::<_, Player>(&mut rng, PLAYERS..PLAYERS + 1),
     }
-
-    const BUFFER_LEN: usize = 10_000_000;
-    const SCRATCH_LEN: usize = 512_000;
-
-    let mut group = c.benchmark_group("bincode");
-    {
-        let mut serialize_buffer = vec![0; BUFFER_LEN];
-        group.bench_function("serialize", |b| {
-            b.iter(|| {
-                bincode::serialize_into(
-                    black_box(serialize_buffer.as_mut_slice()),
-                    black_box(&players),
-                )
-                .unwrap();
-            })
-        });
-
-        let mut buffer = Vec::new();
-        bincode::serialize_into(&mut buffer, &players).unwrap();
-
-        group.bench_function("deserialize", |b| {
-            b.iter(|| {
-                bincode::deserialize::<'_, Players>(black_box(&buffer))
-                    .unwrap();
-            })
-        });
-    }
-    group.finish();
-
-    let mut group = c.benchmark_group("rkyv");
-    {
-        let mut serialize_buffer = AlignedVec::<16>::with_capacity(BUFFER_LEN);
-        let mut serialize_scratch = AlignedVec::<16>::with_capacity(SCRATCH_LEN);
-        unsafe {
-            serialize_scratch.set_len(SCRATCH_LEN);
-        }
-
-        group.bench_function("serialize", |b| {
-            b.iter(|| {
-                serialize_buffer.clear();
-
-                let mut serializer = CompositeSerializer::new(
-                    AlignedSerializer::new(black_box(&mut serialize_buffer)),
-                    BufferScratch::new(black_box(&mut serialize_scratch)),
-                    Infallible,
-                );
-                black_box(
-                    serializer.serialize_value(black_box(&players)).unwrap(),
-                );
-            });
-        });
-
-        let mut buffer = AlignedVec::new();
-        let mut serializer = CompositeSerializer::new(
-            AlignedSerializer::new(black_box(&mut buffer)),
-            BufferScratch::new(black_box(&mut serialize_scratch)),
-            Infallible,
-        );
-        serializer.serialize_value(&players).unwrap();
-
-        group.bench_function("access", |b| {
-            b.iter(|| {
-                black_box(unsafe {
-                    archived_root::<Players>(black_box(buffer.as_ref()))
-                });
-            })
-        });
-        group.bench_function("validate", |b| {
-            b.iter(|| {
-                check_archived_root::<Players>(black_box(buffer.as_ref()))
-                    .unwrap();
-            })
-        });
-        group.bench_function("deserialize", |b| {
-            b.iter(|| {
-                let value = unsafe {
-                    archived_root::<Players>(black_box(buffer.as_ref()))
-                };
-                let deserialized: Players =
-                    value.deserialize(&mut Infallible).unwrap();
-                black_box(deserialized);
-            })
-        });
-        group.bench_function("deserialize with validate", |b| {
-            b.iter(|| {
-                let value =
-                    check_archived_root::<Players>(black_box(buffer.as_ref()))
-                        .unwrap();
-                let deserialize: Players =
-                    value.deserialize(&mut Infallible).unwrap();
-                black_box(deserialize);
-            })
-        });
-    }
-    group.finish();
 }
 
-criterion_group!(benches, criterion_benchmark);
-criterion_main!(benches);
+bench_dataset!(Players = generate_players());

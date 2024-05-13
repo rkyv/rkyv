@@ -14,11 +14,8 @@ pub use self::{
     writer::{Positional, Writer, WriterExt},
 };
 #[cfg(feature = "alloc")]
-use crate::ser::sharing::Share;
-use crate::ser::{
-    allocator::{ArenaHandle, SubAllocator},
-    sharing::Unshare,
-};
+use crate::ser::{allocator::ArenaHandle, sharing::Share};
+use crate::ser::{allocator::SubAllocator, sharing::Unshare};
 
 /// A serializer built from composeable pieces.
 #[derive(Debug, Default)]
