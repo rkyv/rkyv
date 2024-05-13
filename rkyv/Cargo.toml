@@ -67,5 +67,13 @@ rkyv = { workspace = true, default-features = true }
 rkyv_derive.workspace = true
 
 [[bench]]
+name = "log"
+harness = false
+
+[[bench]]
+name = "mesh"
+harness = false
+
+[[bench]]
 name = "minecraft_savedata"
 harness = false
