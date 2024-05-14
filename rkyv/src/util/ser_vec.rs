@@ -128,11 +128,13 @@ impl<T> SerVec<T> {
     /// Panics if the required capacity exceeds the available capacity.
     pub fn reserve(&mut self, additional: usize) {
         if self.cap - self.len < additional {
-            panic!(
-                "reserve requested more capacity than the scratch vec has \
-                 available"
-            );
+            Self::out_of_space();
         }
+    }
+
+    #[cold]
+    fn out_of_space() -> ! {
+        panic!("reserve requested more capacity than the SerVec has available");
     }
 
     /// Returns `true` if the vector contains no elements.
@@ -194,9 +196,12 @@ impl<T> SerVec<T> {
 
     /// Appends an element to the back of a collection.
     pub fn push(&mut self, value: T) {
-        self.reserve(1);
-        unsafe {
-            self.push_unchecked(value);
+        if self.len == self.cap {
+            Self::out_of_space()
+        } else {
+            unsafe {
+                self.push_unchecked(value);
+            }
         }
     }
 

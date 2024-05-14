@@ -97,12 +97,16 @@ impl<T, const N: usize> InlineVec<T, N> {
     ///
     /// Panics if the required capacity exceeds the available capacity.
     pub fn reserve(&mut self, additional: usize) {
-        if self.len + additional > N {
-            panic!(
-                "reserve requested more capacity than the scratch vec has \
-                 available"
-            );
+        if N - self.len < additional {
+            Self::out_of_space();
         }
+    }
+
+    #[cold]
+    fn out_of_space() -> ! {
+        panic!(
+            "reserve requested more capacity than the InlineVec has available"
+        );
     }
 
     /// Returns `true` if the vector contains no elements.
@@ -161,9 +165,12 @@ impl<T, const N: usize> InlineVec<T, N> {
 
     /// Appends an element to the back of a collection.
     pub fn push(&mut self, value: T) {
-        self.reserve(1);
-        unsafe {
-            self.push_unchecked(value);
+        if self.len == N {
+            Self::out_of_space()
+        } else {
+            unsafe {
+                self.push_unchecked(value);
+            }
         }
     }
 
