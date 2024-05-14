@@ -182,4 +182,30 @@ mod tests {
             .iter()
             .all(|&b| b == 0));
     }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn derive_partial_ord() {
+        use rkyv::{Archive, Deserialize, Serialize};
+
+        #[derive(
+            Archive, Deserialize, Serialize, Debug, PartialEq, PartialOrd,
+        )]
+        #[archive(compare(PartialEq, PartialOrd))]
+        #[archive_attr(derive(Debug))]
+        pub struct Foo {
+            a: i32,
+        }
+
+        let small = Foo { a: 0 };
+        let big = Foo { a: 1 };
+        assert!(small < big);
+
+        let big_bytes =
+            rkyv::to_bytes::<Error>(&big).expect("failed to serialize value");
+        let big_archived =
+            unsafe { rkyv::access_unchecked::<ArchivedFoo>(&big_bytes) };
+
+        assert!((&small as &dyn PartialOrd<ArchivedFoo>) < big_archived);
+    }
 }
