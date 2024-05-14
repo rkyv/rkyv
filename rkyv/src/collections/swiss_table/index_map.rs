@@ -338,7 +338,7 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
 
                 let entries_pos = serializer.align_for::<Entry<K, V>>()?;
                 for ((key, value), resolver) in
-                    iter.clone().zip(resolvers.drain(..))
+                    iter.clone().zip(resolvers.drain())
                 {
                     unsafe {
                         serializer.resolve_aligned(

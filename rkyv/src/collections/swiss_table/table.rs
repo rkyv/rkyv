@@ -351,7 +351,7 @@ impl<T> ArchivedHashTable<T> {
             let pos = serializer.align(layout.align())?;
 
             for ((i, resolver), hash) in
-                items.zip(resolvers.drain(..)).zip(hashes)
+                items.zip(resolvers.drain()).zip(hashes)
             {
                 let h2_hash = h2(hash);
                 let mut probe_seq = Self::probe_seq(hash, capacity);

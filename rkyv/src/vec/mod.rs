@@ -146,7 +146,7 @@ impl<T> ArchivedVec<T> {
                 }
 
                 let pos = serializer.align_for::<T>()?;
-                for (value, resolver) in iter.zip(resolvers.drain(..)) {
+                for (value, resolver) in iter.zip(resolvers.drain()) {
                     unsafe {
                         serializer.resolve_aligned(value.borrow(), resolver)?;
                     }

@@ -426,7 +426,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         kind.write(NodeKind::Leaf);
         len.write(ArchivedUsize::from_native(items.len() as FixedUsize));
         for (i, ((k, v), (kr, vr))) in
-            items.iter().zip(resolvers.drain(..)).enumerate()
+            items.iter().zip(resolvers.drain()).enumerate()
         {
             let out_key = unsafe { keys.index(i).cast_unchecked() };
             k.resolve(kr, out_key);
@@ -485,7 +485,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         kind.write(NodeKind::Inner);
         len.write(ArchivedUsize::from_native(items.len() as FixedUsize));
         for (i, ((k, v, l), (kr, vr))) in
-            items.iter().zip(resolvers.drain(..)).enumerate()
+            items.iter().zip(resolvers.drain()).enumerate()
         {
             let out_key = unsafe { keys.index(i).cast_unchecked() };
             k.resolve(kr, out_key);

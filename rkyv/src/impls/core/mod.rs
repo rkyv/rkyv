@@ -291,13 +291,15 @@ where
                 self.len(),
                 |resolvers, serializer| {
                     for value in self.iter() {
-                        resolvers.push(value.serialize(serializer)?);
+                        unsafe {
+                            resolvers
+                                .push_unchecked(value.serialize(serializer)?);
+                        }
                     }
 
                     let result = serializer.align_for::<T::Archived>()?;
 
-                    for (value, resolver) in
-                        self.iter().zip(resolvers.drain(..))
+                    for (value, resolver) in self.iter().zip(resolvers.drain())
                     {
                         unsafe {
                             serializer.resolve_aligned(value, resolver)?;

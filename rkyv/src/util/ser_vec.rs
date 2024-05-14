@@ -2,10 +2,11 @@ use core::{
     alloc::Layout,
     borrow::{Borrow, BorrowMut},
     fmt,
+    marker::PhantomData,
     mem::MaybeUninit,
     ops,
     ptr::NonNull,
-    slice,
+    slice::{self, from_raw_parts_mut},
 };
 
 use rancor::Fallible;
@@ -126,7 +127,7 @@ impl<T> SerVec<T> {
     ///
     /// Panics if the required capacity exceeds the available capacity.
     pub fn reserve(&mut self, additional: usize) {
-        if self.len + additional > self.cap {
+        if self.cap - self.len < additional {
             panic!(
                 "reserve requested more capacity than the scratch vec has \
                  available"
@@ -148,7 +149,10 @@ impl<T> SerVec<T> {
     /// Copies and appends all elements in a slice to the `ScratchVec`.
     ///
     /// The elements of the slice are appended in-order.
-    pub fn extend_from_slice(&mut self, other: &[T]) {
+    pub fn extend_from_slice(&mut self, other: &[T])
+    where
+        T: Copy,
+    {
         if !other.is_empty() {
             self.reserve(other.len());
             unsafe {
@@ -175,12 +179,24 @@ impl<T> SerVec<T> {
         }
     }
 
+    /// Appends an element to the back of a collection without performing bounds
+    /// checking.
+    ///
+    /// # Safety
+    ///
+    /// The vector must have enough space reserved for the pushed element.
+    pub unsafe fn push_unchecked(&mut self, value: T) {
+        unsafe {
+            self.as_mut_ptr().add(self.len).write(value);
+        }
+        self.len += 1;
+    }
+
     /// Appends an element to the back of a collection.
     pub fn push(&mut self, value: T) {
+        self.reserve(1);
         unsafe {
-            self.reserve(1);
-            self.as_mut_ptr().add(self.len).write(value);
-            self.len += 1;
+            self.push_unchecked(value);
         }
     }
 
@@ -212,82 +228,18 @@ impl<T> SerVec<T> {
         self.len = new_len;
     }
 
-    // This is taken from `slice::range`, which is not yet stable.
-    fn drain_range<R>(
-        range: R,
-        bounds: ops::RangeTo<usize>,
-    ) -> ops::Range<usize>
-    where
-        R: ops::RangeBounds<usize>,
-    {
-        let len = bounds.end;
-
-        let start: ops::Bound<&usize> = range.start_bound();
-        let start = match start {
-            ops::Bound::Included(&start) => start,
-            ops::Bound::Excluded(start) => {
-                start.checked_add(1).unwrap_or_else(|| {
-                    panic!("attempted to index slice from after maximum usize")
-                })
-            }
-            ops::Bound::Unbounded => 0,
-        };
-
-        let end: ops::Bound<&usize> = range.end_bound();
-        let end = match end {
-            ops::Bound::Included(end) => {
-                end.checked_add(1).unwrap_or_else(|| {
-                    panic!("attempted to index slice up to maximum usize")
-                })
-            }
-            ops::Bound::Excluded(&end) => end,
-            ops::Bound::Unbounded => len,
-        };
-
-        if start > end {
-            panic!("slice index starts at {} but ends at {}", start, end);
-        }
-        if end > len {
-            panic!(
-                "range start index {} out of range for slice of length {}",
-                end, len
-            );
-        }
-
-        ops::Range { start, end }
-    }
-
-    /// Creates a draining iterator that removes the specified range in the
-    /// vector and yields the removed items.
-    ///
-    /// When the iterator **is** dropped, all elements in the range are removed
-    /// from the vector, even if the iterator was not fully consumed. If the
-    /// iterator **is not** dropped (with `mem::forget` for example), it is
-    /// unspecified how many elements are removed.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the starting point is greater than the end point or if the end
-    /// point is greater than the length of the vector.
-    pub fn drain<R: ops::RangeBounds<usize>>(
-        &mut self,
-        range: R,
-    ) -> Drain<'_, T> {
-        let len = self.len();
-        let ops::Range { start, end } = Self::drain_range(range, ..len);
-
+    /// Creates a draining iterator that removes all of the elements from the
+    /// vector.
+    pub fn drain(&mut self) -> Drain<'_, T> {
+        let remaining = self.len();
         unsafe {
-            self.set_len(start);
-            let range_slice = slice::from_raw_parts_mut(
-                self.as_mut_ptr().add(start),
-                end - start,
-            );
-            Drain {
-                tail_start: end,
-                tail_len: len - end,
-                iter: range_slice.iter(),
-                vec: NonNull::from(self),
-            }
+            self.set_len(0);
+        }
+
+        Drain {
+            current: self.ptr,
+            remaining,
+            _phantom: PhantomData,
         }
     }
 }
@@ -368,27 +320,26 @@ impl<T, I: slice::SliceIndex<[T]>> ops::IndexMut<I> for SerVec<T> {
     }
 }
 
-/// A draining iterator for `ScratchVec<T>`.
+/// A draining iterator for `SerVec<T>`.
 ///
-/// This `struct` is created by [`ScratchVec::drain`]. See its documentation for
+/// This `struct` is created by [`SerVec::drain`]. See its documentation for
 /// more.
 pub struct Drain<'a, T: 'a> {
-    tail_start: usize,
-    tail_len: usize,
-    iter: slice::Iter<'a, T>,
-    vec: NonNull<SerVec<T>>,
+    current: NonNull<T>,
+    remaining: usize,
+    _phantom: PhantomData<&'a mut SerVec<T>>,
 }
 
 impl<T: fmt::Debug> fmt::Debug for Drain<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("Drain").field(&self.iter.as_slice()).finish()
+        f.debug_tuple("Drain").field(&self.as_slice()).finish()
     }
 }
 
 impl<T> Drain<'_, T> {
     /// Returns the remaining items of this iterator as a slice.
     pub fn as_slice(&self) -> &[T] {
-        self.iter.as_slice()
+        unsafe { from_raw_parts_mut(self.current.as_ptr(), self.remaining) }
     }
 }
 
@@ -402,63 +353,40 @@ impl<T> Iterator for Drain<'_, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<T> {
-        self.iter
-            .next()
-            .map(|elt| unsafe { core::ptr::read(elt as *const _) })
+        if self.remaining > 0 {
+            self.remaining -= 1;
+            let result = unsafe { self.current.as_ptr().read() };
+            self.current =
+                unsafe { NonNull::new_unchecked(self.current.as_ptr().add(1)) };
+            Some(result)
+        } else {
+            None
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
+        (self.remaining, Some(self.remaining))
     }
 }
 
 impl<T> DoubleEndedIterator for Drain<'_, T> {
     fn next_back(&mut self) -> Option<T> {
-        self.iter
-            .next_back()
-            .map(|elt| unsafe { core::ptr::read(elt as *const _) })
+        if self.remaining > 0 {
+            self.remaining -= 1;
+            unsafe { Some(self.current.as_ptr().add(self.remaining).read()) }
+        } else {
+            None
+        }
     }
 }
 
 impl<T> Drop for Drain<'_, T> {
     fn drop(&mut self) {
-        /// Continues dropping the remaining elements in the `Drain`, then moves
-        /// back the un-`Drain`ed elements to restore the original
-        /// `Vec`.
-        struct DropGuard<'r, 'a, T>(&'r mut Drain<'a, T>);
-
-        impl<'r, 'a, T> Drop for DropGuard<'r, 'a, T> {
-            fn drop(&mut self) {
-                // Continue the same loop we have below. If the loop already
-                // finished, this does nothing.
-                self.0.for_each(drop);
-
-                if self.0.tail_len > 0 {
-                    unsafe {
-                        let source_vec = self.0.vec.as_mut();
-                        // memmove back untouched tail, update to new length
-                        let start = source_vec.len();
-                        let tail = self.0.tail_start;
-                        if tail != start {
-                            let src = source_vec.as_ptr().add(tail);
-                            let dst = source_vec.as_mut_ptr().add(start);
-                            core::ptr::copy(src, dst, self.0.tail_len);
-                        }
-                        source_vec.set_len(start + self.0.tail_len);
-                    }
-                }
+        for i in 0..self.remaining {
+            unsafe {
+                self.current.as_ptr().add(i).drop_in_place();
             }
         }
-
-        // exhaust self first
-        while let Some(item) = self.next() {
-            let guard = DropGuard(self);
-            drop(item);
-            core::mem::forget(guard);
-        }
-
-        // Drop a `DropGuard` to move back the non-drained tail of `self`.
-        DropGuard(self);
     }
 }
 
