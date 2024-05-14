@@ -436,7 +436,7 @@ fn generate_partial_ord_impl(
                 &self,
                 other: &#name #ty_generics,
             ) -> Option<::core::cmp::Ordering> {
-                other.partial_cmp(self).map(|o| o.reverse())
+                other.partial_cmp(self).map(::core::cmp::Ordering::reverse)
             }
         }
     })
