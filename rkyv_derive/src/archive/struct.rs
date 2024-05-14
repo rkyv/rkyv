@@ -422,7 +422,7 @@ fn generate_partial_ord_impl(
                 #(
                     match other.#members.partial_cmp(&self.#members) {
                         Some(::core::cmp::Ordering::Equal) => (),
-                        x => return x,
+                        x => return x.map(::core::cmp::Ordering::reverse),
                     }
                 )*
                 Some(::core::cmp::Ordering::Equal)
@@ -436,7 +436,7 @@ fn generate_partial_ord_impl(
                 &self,
                 other: &#name #ty_generics,
             ) -> Option<::core::cmp::Ordering> {
-                other.partial_cmp(self)
+                other.partial_cmp(self).map(::core::cmp::Ordering::reverse)
             }
         }
     })
