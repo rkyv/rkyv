@@ -11,7 +11,7 @@ use crate::{
     ptr_meta::Pointee,
     rancor::Fallible,
     ser::{Writer, WriterExt as _},
-    ArchivedMetadata, Place, RelPtr,
+    ArchivedMetadata, Place,
 };
 
 /// A type with a stable, well-defined layout that is the same on all targets.
@@ -519,20 +519,6 @@ pub trait ArchivePointee: Pointee {
 pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
     /// Writes the object and returns the position of the archived type.
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error>;
-
-    /// Archives a reference to the given object and returns the position it was
-    /// archived at.
-    fn serialize_and_resolve_rel_ptr(
-        &self,
-        serializer: &mut S,
-    ) -> Result<usize, S::Error>
-    where
-        S: Writer,
-    {
-        let to = self.serialize_unsized(serializer)?;
-        serializer.align_for::<RelPtr<Self::Archived>>()?;
-        unsafe { serializer.resolve_unsized_aligned(self, to) }
-    }
 }
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
