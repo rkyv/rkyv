@@ -448,3 +448,46 @@ unsafe impl<T: Portable + ?Sized> Portable for Cell<T> {}
 // `UnsafeCell`
 
 unsafe impl<T: Portable + ?Sized> Portable for UnsafeCell<T> {}
+
+#[cfg(test)]
+mod tests {
+    use core::mem::ManuallyDrop;
+
+    use crate::{
+        test::{roundtrip, roundtrip_with},
+        tuple::ArchivedTuple3,
+    };
+
+    #[test]
+    fn roundtrip_tuple() {
+        roundtrip_with(
+            &(24, true, 16f32),
+            |(a, b, c), ArchivedTuple3(d, e, f)| a == d && b == e && c == f,
+        );
+    }
+
+    #[test]
+    fn roundtrip_array() {
+        roundtrip(&[1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn roundtrip_boxed_array() {
+        roundtrip(&Box::new([1, 2, 3, 4]));
+    }
+
+    #[test]
+    fn roundtrip_slice() {
+        roundtrip(&Vec::from([1, 2, 3, 4]).into_boxed_slice());
+    }
+
+    #[test]
+    fn roundtrip_str() {
+        roundtrip(&String::from("hello world").into_boxed_str());
+    }
+
+    #[test]
+    fn roundtrip_manually_drop() {
+        roundtrip(&ManuallyDrop::new(123i8));
+    }
+}

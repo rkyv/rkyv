@@ -178,6 +178,8 @@ pub mod result;
 pub mod ser;
 mod simd;
 pub mod string;
+#[cfg(test)]
+mod test;
 pub mod time;
 pub mod traits;
 pub mod tuple;

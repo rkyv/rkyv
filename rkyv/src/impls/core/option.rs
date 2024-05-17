@@ -85,3 +85,14 @@ where
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::test::roundtrip;
+
+    #[test]
+    fn roundtrip_option() {
+        roundtrip(&Option::<()>::None);
+        roundtrip(&Some(42));
+    }
+}

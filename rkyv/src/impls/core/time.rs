@@ -38,3 +38,15 @@ impl From<ArchivedDuration> for Duration {
         Self::new(duration.as_secs(), duration.subsec_nanos())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::time::Duration;
+
+    use crate::test::roundtrip;
+
+    #[test]
+    fn roundtrip_duration() {
+        roundtrip(&Duration::new(1234, 5678));
+    }
+}

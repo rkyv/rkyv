@@ -414,3 +414,27 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::ops::Bound;
+
+    use crate::test::roundtrip;
+
+    #[test]
+    fn roundtrip_ranges() {
+        roundtrip(&..);
+        roundtrip(&(0u8..100u8));
+        roundtrip(&(0u8..=100u8));
+        roundtrip(&(0u8..));
+        roundtrip(&(..100u8));
+        roundtrip(&(..=100u8));
+    }
+
+    #[test]
+    fn roundtrip_bound() {
+        roundtrip(&Bound::Included(100u8));
+        roundtrip(&Bound::Excluded(100u8));
+        roundtrip(&Bound::<u8>::Unbounded);
+    }
+}

@@ -166,3 +166,36 @@ impl<E: Source> Writer<E> for Buffer<'_> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::mem::MaybeUninit;
+
+    use rancor::Panic;
+
+    use crate::{ser::writer::Buffer, to_bytes_in};
+
+    #[test]
+    fn zeroes_padding() {
+        use core::mem::size_of;
+
+        use crate::{Archive, Serialize};
+
+        #[derive(Archive, Serialize)]
+        #[archive(crate)]
+        pub struct PaddedExample {
+            a: u8,
+            b: u64,
+        }
+
+        let mut bytes = [MaybeUninit::new(0xccu8); 256];
+        let buffer = to_bytes_in::<_, Panic>(
+            &PaddedExample { a: 0u8, b: 0u64 },
+            Buffer::from(&mut bytes),
+        )
+        .unwrap();
+        assert!(&buffer[0..size_of::<ArchivedPaddedExample>()]
+            .iter()
+            .all(|&b| b == 0));
+    }
+}

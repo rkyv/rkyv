@@ -480,3 +480,83 @@ unsafe_impl_initialized_and_portable!(
     rend::AtomicU64_be,
     rend::AtomicU64_le,
 );
+
+#[cfg(test)]
+mod tests {
+    use core::{
+        marker::{PhantomData, PhantomPinned},
+        num::{
+            NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
+            NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
+            NonZeroU8, NonZeroUsize,
+        },
+    };
+
+    use crate::test::{roundtrip, roundtrip_with};
+
+    #[test]
+    fn roundtrip_portable_primitives() {
+        roundtrip(&());
+        roundtrip(&true);
+        roundtrip(&false);
+        roundtrip(&123i8);
+        roundtrip(&123u8);
+        roundtrip(&NonZeroI8::new(123i8).unwrap());
+        roundtrip(&NonZeroU8::new(123u8).unwrap());
+    }
+
+    #[test]
+    fn roundtrip_multibyte_primitives() {
+        roundtrip(&12345i16);
+        roundtrip(&1234567890i32);
+        roundtrip(&1234567890123456789i64);
+        roundtrip(&123456789012345678901234567890123456789i128);
+        roundtrip(&12345u16);
+        roundtrip(&1234567890u32);
+        roundtrip(&12345678901234567890u64);
+        roundtrip(&123456789012345678901234567890123456789u128);
+
+        roundtrip(&1234567f32);
+        roundtrip(&12345678901234f64);
+
+        roundtrip(&'x');
+        roundtrip(&'🥺');
+
+        roundtrip(&NonZeroI16::new(12345i16).unwrap());
+        roundtrip(&NonZeroI32::new(1234567890i32).unwrap());
+        roundtrip(&NonZeroI64::new(1234567890123456789i64).unwrap());
+        roundtrip(
+            &NonZeroI128::new(123456789012345678901234567890123456789i128)
+                .unwrap(),
+        );
+        roundtrip(&NonZeroU16::new(12345u16).unwrap());
+        roundtrip(&NonZeroU32::new(1234567890u32).unwrap());
+        roundtrip(&NonZeroU64::new(12345678901234567890u64).unwrap());
+        roundtrip(
+            &NonZeroU128::new(123456789012345678901234567890123456789u128)
+                .unwrap(),
+        );
+    }
+
+    #[test]
+    fn roundtrip_phantoms() {
+        roundtrip(&PhantomData::<&'static u8>);
+        roundtrip(&PhantomPinned);
+    }
+
+    #[test]
+    fn roundtrip_sizes() {
+        roundtrip_with(&12345isize, |a, b| {
+            *a == b.to_native().try_into().unwrap()
+        });
+        roundtrip_with(&12345usize, |a, b| {
+            *a == b.to_native().try_into().unwrap()
+        });
+        roundtrip_with(&NonZeroIsize::new(12345isize).unwrap(), |a, b| {
+            *a == b.to_native().try_into().unwrap()
+        });
+        roundtrip_with(&NonZeroUsize::new(12345usize).unwrap(), |a, b| {
+            *a == b.to_native().try_into().unwrap()
+        });
+    }
+}

@@ -94,3 +94,14 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::test::roundtrip;
+
+    #[test]
+    fn roundtrip_result() {
+        roundtrip(&Result::<i32, u32>::Ok(12345i32));
+        roundtrip(&Result::<i32, u32>::Err(12345u32));
+    }
+}
