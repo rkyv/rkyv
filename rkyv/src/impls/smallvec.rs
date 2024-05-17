@@ -54,27 +54,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rancor::{Error, Infallible};
     use smallvec::{smallvec, SmallVec};
 
-    use crate::{
-        access_unchecked, deserialize, to_bytes, vec::ArchivedVec, Archived,
-    };
+    use crate::test::roundtrip_with;
 
     #[test]
-    fn small_vec() {
-        let value: SmallVec<[i32; 10]> = smallvec![10, 20, 40, 80];
-
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived =
-            unsafe { access_unchecked::<ArchivedVec<Archived<i32>>>(&bytes) };
-        assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
-
-        let deserialized = deserialize::<SmallVec<[i32; 10]>, _, Infallible>(
-            archived,
-            &mut (),
-        )
-        .unwrap();
-        assert_eq!(value, deserialized);
+    fn roundtrip_small_vec() {
+        let value: SmallVec<[i32; 4]> = smallvec![10, 20, 40, 80];
+        roundtrip_with(&value, |a, b| assert_eq!(**a, **b));
     }
 }

@@ -75,3 +75,15 @@ where
         Ok(shared_ptr)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use triomphe::Arc;
+
+    use crate::test::roundtrip_with;
+
+    #[test]
+    fn roundtrip_arc() {
+        roundtrip_with(&Arc::new(100u8), |a, b| assert_eq!(**a, **b));
+    }
+}

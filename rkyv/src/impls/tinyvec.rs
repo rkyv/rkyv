@@ -134,32 +134,25 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rancor::{Error, Infallible};
-    use tinyvec::{array_vec, Array, ArrayVec, SliceVec};
+    use rancor::Panic;
+    use tinyvec::{array_vec, Array, SliceVec};
 
     use crate::{
-        access_unchecked, deserialize, to_bytes, vec::ArchivedVec, Archived,
+        access_unchecked,
+        primitive::ArchivedI32,
+        test::{roundtrip_with, to_bytes},
+        vec::ArchivedVec,
     };
 
     #[test]
-    fn array_vec() {
-        let value = array_vec!([i32; 10] => 10, 20, 40, 80);
-
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived =
-            unsafe { access_unchecked::<ArchivedVec<Archived<i32>>>(&bytes) };
-        assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
-
-        let deserialized = deserialize::<ArrayVec<[i32; 10]>, _, Infallible>(
-            archived,
-            &mut (),
-        )
-        .unwrap();
-        assert_eq!(value, deserialized);
+    fn roundtrip_array_vec() {
+        roundtrip_with(&array_vec!([i32; 10] => 10, 20, 40, 80), |a, b| {
+            assert_eq!(**a, **b)
+        });
     }
 
     #[test]
-    fn slice_vec() {
+    fn serialize_slice_vec() {
         let mut backing = [0i32; 10];
         let mut value = SliceVec::from_slice_len(backing.as_slice_mut(), 0);
         value.push(10);
@@ -167,29 +160,20 @@ mod tests {
         value.push(40);
         value.push(80);
 
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived =
-            unsafe { access_unchecked::<ArchivedVec<Archived<i32>>>(&bytes) };
-        assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
+        to_bytes::<_, Panic>(&value, |bytes| {
+            let archived =
+                unsafe { access_unchecked::<ArchivedVec<ArchivedI32>>(&bytes) };
+            assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
+        });
     }
 
     #[cfg(all(feature = "tinyvec", feature = "alloc"))]
     #[test]
-    fn tiny_vec() {
-        #[cfg(not(feature = "std"))]
-        use alloc::vec;
+    fn roundtrip_tiny_vec() {
+        use tinyvec::tiny_vec;
 
-        use tinyvec::{tiny_vec, TinyVec};
-
-        let value = tiny_vec!([i32; 10] => 10, 20, 40, 80);
-
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived =
-            unsafe { access_unchecked::<ArchivedVec<Archived<i32>>>(&bytes) };
-        assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
-
-        let deserialized: TinyVec<[i32; 10]> =
-            deserialize::<_, _, Error>(archived, &mut ()).unwrap();
-        assert_eq!(value, deserialized);
+        roundtrip_with(&tiny_vec!([i32; 10] => 10, 20, 40, 80), |a, b| {
+            assert_eq!(**a, **b)
+        });
     }
 }

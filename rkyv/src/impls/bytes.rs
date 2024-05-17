@@ -49,20 +49,11 @@ mod tests {
     use alloc::vec;
 
     use bytes::Bytes;
-    use rancor::{Error, Infallible};
 
-    use crate::{access_unchecked, deserialize, to_bytes, vec::ArchivedVec};
+    use crate::test::roundtrip;
 
     #[test]
-    fn bytes() {
-        let value = Bytes::from(vec![10, 20, 40, 80]);
-
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedVec<u8>>(&bytes) };
-        assert_eq!(archived, &value);
-
-        let deserialized =
-            deserialize::<Bytes, _, Infallible>(archived, &mut ()).unwrap();
-        assert_eq!(value, deserialized);
+    fn roundtrip_bytes() {
+        roundtrip(&Bytes::from(vec![10, 20, 40, 80]));
     }
 }

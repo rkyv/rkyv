@@ -547,16 +547,16 @@ mod tests {
     #[test]
     fn roundtrip_sizes() {
         roundtrip_with(&12345isize, |a, b| {
-            *a == b.to_native().try_into().unwrap()
+            assert_eq!(*a, b.to_native().try_into().unwrap())
         });
         roundtrip_with(&12345usize, |a, b| {
-            *a == b.to_native().try_into().unwrap()
+            assert_eq!(*a, b.to_native().try_into().unwrap())
         });
         roundtrip_with(&NonZeroIsize::new(12345isize).unwrap(), |a, b| {
-            *a == b.to_native().try_into().unwrap()
+            assert_eq!(*a, b.to_native().try_into().unwrap())
         });
         roundtrip_with(&NonZeroUsize::new(12345usize).unwrap(), |a, b| {
-            *a == b.to_native().try_into().unwrap()
+            assert_eq!(*a, b.to_native().try_into().unwrap())
         });
     }
 }

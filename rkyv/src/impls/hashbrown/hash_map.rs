@@ -105,12 +105,8 @@ mod tests {
     use alloc::string::String;
 
     use hashbrown::HashMap;
-    use rancor::Error;
 
-    use crate::{
-        access_unchecked, collections::swiss_table::ArchivedHashMap,
-        deserialize, string::ArchivedString, to_bytes, Archived,
-    };
+    use crate::test::roundtrip_with;
 
     #[test]
     fn index_map() {
@@ -120,30 +116,25 @@ mod tests {
         value.insert(String::from("baz"), 40);
         value.insert(String::from("bat"), 80);
 
-        let result = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe {
-            access_unchecked::<ArchivedHashMap<ArchivedString, Archived<i32>>>(
-                result.as_ref(),
-            )
-        };
-
-        assert_eq!(value.len(), archived.len());
-        for (k, v) in value.iter() {
-            let (ak, av) = archived.get_key_value(k.as_str()).unwrap();
-            assert_eq!(k, ak);
-            assert_eq!(v, av);
-        }
-
-        let deserialized =
-            deserialize::<HashMap<String, i32>, _, Error>(archived, &mut ())
-                .unwrap();
-        assert_eq!(value, deserialized);
+        roundtrip_with(&value, |a, b| {
+            assert_eq!(a.len(), b.len());
+            for (k, v) in a.iter() {
+                let (ak, av) = b.get_key_value(k.as_str()).unwrap();
+                assert_eq!(k, ak);
+                assert_eq!(v, av);
+            }
+        });
     }
 
     #[cfg(feature = "bytecheck")]
     #[test]
     fn validate_index_map() {
-        use crate::access;
+        use rancor::Panic;
+
+        use crate::{
+            access, collections::swiss_table::ArchivedHashMap,
+            primitive::ArchivedI32, string::ArchivedString, to_bytes,
+        };
 
         let mut value = HashMap::new();
         value.insert(String::from("foo"), 10);
@@ -151,11 +142,10 @@ mod tests {
         value.insert(String::from("baz"), 40);
         value.insert(String::from("bat"), 80);
 
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        access::<
-            ArchivedHashMap<ArchivedString, Archived<i32>>,
-            crate::rancor::Panic,
-        >(bytes.as_ref())
+        let bytes = to_bytes::<Panic>(&value).unwrap();
+        access::<ArchivedHashMap<ArchivedString, ArchivedI32>, Panic>(
+            bytes.as_ref(),
+        )
         .expect("failed to validate archived index map");
     }
 }

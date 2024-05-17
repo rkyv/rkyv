@@ -71,12 +71,8 @@ mod tests {
     use core::hash::BuildHasherDefault;
 
     use indexmap::IndexSet;
-    use rancor::{Error, Infallible};
 
-    use crate::{
-        access_unchecked, collections::swiss_table::ArchivedIndexSet,
-        deserialize, hash::FxHasher64, string::ArchivedString,
-    };
+    use crate::{hash::FxHasher64, test::roundtrip_with};
 
     #[test]
     fn index_set() {
@@ -87,32 +83,24 @@ mod tests {
         value.insert(String::from("baz"));
         value.insert(String::from("bat"));
 
-        let result = crate::to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe {
-            access_unchecked::<ArchivedIndexSet<ArchivedString>>(
-                result.as_ref(),
-            )
-        };
-
-        assert_eq!(value.len(), archived.len());
-        for k in value.iter() {
-            let ak = archived.get(k.as_str()).unwrap();
-            assert_eq!(k, ak);
-        }
-
-        let deserialized = deserialize::<
-            IndexSet<String, BuildHasherDefault<FxHasher64>>,
-            _,
-            Infallible,
-        >(archived, &mut ())
-        .unwrap();
-        assert_eq!(value, deserialized);
+        roundtrip_with(&value, |a, b| {
+            assert_eq!(a.len(), b.len());
+            for k in a.iter() {
+                let ak = b.get(k.as_str()).unwrap();
+                assert_eq!(k, ak);
+            }
+        });
     }
 
     #[cfg(feature = "bytecheck")]
     #[test]
     fn validate_index_set() {
-        use crate::access;
+        use rancor::Panic;
+
+        use crate::{
+            access, collections::swiss_table::ArchivedIndexSet,
+            hash::FxHasher64, string::ArchivedString,
+        };
 
         let mut value =
             IndexSet::with_hasher(BuildHasherDefault::<FxHasher64>::default());
@@ -121,8 +109,8 @@ mod tests {
         value.insert(String::from("baz"));
         value.insert(String::from("bat"));
 
-        let result = crate::to_bytes::<Error>(&value).unwrap();
-        access::<ArchivedIndexSet<ArchivedString>, Error>(result.as_ref())
+        let result = crate::to_bytes::<Panic>(&value).unwrap();
+        access::<ArchivedIndexSet<ArchivedString>, Panic>(result.as_ref())
             .expect("failed to validate archived index set");
     }
 }

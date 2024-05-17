@@ -37,29 +37,14 @@ impl<D: Fallible + ?Sized> Deserialize<Uuid, D> for Uuid {
 
 #[cfg(test)]
 mod rkyv_tests {
-    use rancor::Infallible;
     use uuid::Uuid;
 
-    use crate::{access_unchecked, deserialize, util::AlignedVec};
+    use crate::test::roundtrip;
 
     #[test]
-    fn test_serialize_deserialize() {
-        let uuid_str = "f9168c5e-ceb2-4faa-b6bf-329bf39fa1e4";
-        let u = Uuid::parse_str(uuid_str).unwrap();
-
-        let buf = crate::util::serialize_into::<_, Infallible>(
-            &u,
-            AlignedVec::<16>::new(),
+    fn roundtrip_uuid() {
+        roundtrip(
+            &Uuid::parse_str("f9168c5e-ceb2-4faa-b6bf-329bf39fa1e4").unwrap(),
         )
-        .expect("failed to archive uuid");
-        let archived = unsafe { access_unchecked::<Uuid>(buf.as_ref()) };
-
-        assert_eq!(&u, archived);
-
-        let deserialized =
-            deserialize::<Uuid, _, Infallible>(archived, &mut ())
-                .expect("failed to deserialize uuid");
-
-        assert_eq!(u, deserialized);
     }
 }

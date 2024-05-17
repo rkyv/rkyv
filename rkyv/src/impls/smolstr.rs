@@ -43,23 +43,12 @@ impl PartialEq<SmolStr> for ArchivedString {
 
 #[cfg(test)]
 mod tests {
-    use rancor::{Error, Infallible};
     use smol_str::SmolStr;
 
-    use crate::{
-        access_unchecked, deserialize, string::ArchivedString, to_bytes,
-    };
+    use crate::test::roundtrip;
 
     #[test]
-    fn smolstr() {
-        let value = SmolStr::new("smol_str");
-
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedString>(&bytes) };
-        assert_eq!(archived, &value);
-
-        let deserialized =
-            deserialize::<SmolStr, _, Infallible>(archived, &mut ()).unwrap();
-        assert_eq!(value, deserialized);
+    fn roundtrip_smol_str() {
+        roundtrip(&SmolStr::new("smol_str"));
     }
 }

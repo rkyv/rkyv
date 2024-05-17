@@ -52,29 +52,15 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rancor::{Error, Infallible};
     use thin_vec::ThinVec;
 
-    use crate::{access_unchecked, deserialize, to_bytes};
+    use crate::test::roundtrip_with;
 
     #[test]
-    fn thin_vec() {
-        #[cfg(not(feature = "std"))]
-        use alloc::vec;
-
-        use crate::Archived;
-
-        let value = ThinVec::from_iter([10, 20, 40, 80]);
-
-        let result = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe {
-            access_unchecked::<Archived<ThinVec<i32>>>(result.as_ref())
-        };
-        assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
-
-        let deserialized =
-            deserialize::<ThinVec<i32>, _, Infallible>(archived, &mut ())
-                .unwrap();
-        assert_eq!(value, deserialized);
+    fn roundtrip_thin_vec() {
+        roundtrip_with(
+            &ThinVec::<i32>::from_iter([10, 20, 40, 80].into_iter()),
+            |a, b| assert_eq!(**a, **b),
+        );
     }
 }

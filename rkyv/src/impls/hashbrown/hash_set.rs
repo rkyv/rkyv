@@ -93,12 +93,8 @@ mod tests {
     use alloc::string::String;
 
     use hashbrown::HashSet;
-    use rancor::Error;
 
-    use crate::{
-        access_unchecked, collections::swiss_table::ArchivedHashSet,
-        deserialize, string::ArchivedString, to_bytes,
-    };
+    use crate::test::roundtrip_with;
 
     #[test]
     fn index_set() {
@@ -108,27 +104,24 @@ mod tests {
         value.insert(String::from("baz"));
         value.insert(String::from("bat"));
 
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe {
-            access_unchecked::<ArchivedHashSet<ArchivedString>>(bytes.as_ref())
-        };
-
-        assert_eq!(value.len(), archived.len());
-        for k in value.iter() {
-            let ak = archived.get(k.as_str()).unwrap();
-            assert_eq!(k, ak);
-        }
-
-        let deserialized =
-            deserialize::<HashSet<String>, _, Error>(archived, &mut ())
-                .unwrap();
-        assert_eq!(value, deserialized);
+        roundtrip_with(&value, |a, b| {
+            assert_eq!(a.len(), b.len());
+            for k in a.iter() {
+                let ak = b.get(k.as_str()).unwrap();
+                assert_eq!(k, ak);
+            }
+        });
     }
 
     #[cfg(feature = "bytecheck")]
     #[test]
     fn validate_index_set() {
-        use crate::access;
+        use rancor::Panic;
+
+        use crate::{
+            access, collections::swiss_table::ArchivedHashSet,
+            string::ArchivedString, to_bytes,
+        };
 
         let mut value = HashSet::new();
         value.insert(String::from("foo"));
@@ -136,7 +129,7 @@ mod tests {
         value.insert(String::from("baz"));
         value.insert(String::from("bat"));
 
-        let bytes = to_bytes::<Error>(&value).unwrap();
+        let bytes = to_bytes::<Panic>(&value).unwrap();
         access::<ArchivedHashSet<ArchivedString>, rancor::Panic>(
             bytes.as_ref(),
         )

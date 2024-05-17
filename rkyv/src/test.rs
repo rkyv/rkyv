@@ -89,14 +89,14 @@ use rancor::Panic;
 
 use crate::{access_unchecked, Deserialize, Serialize};
 
-pub fn roundtrip_with<T>(value: &T, cmp: impl Fn(&T, &T::Archived) -> bool)
+pub fn roundtrip_with<T>(value: &T, cmp: impl Fn(&T, &T::Archived))
 where
     T: Debug + PartialEq + for<'a> Serialize<TestSerializer<'a, Panic>>,
     T::Archived: Debug + Deserialize<T, TestDeserializer<Panic>>,
 {
     to_bytes(value, |bytes| {
         let archived_value = unsafe { access_unchecked(bytes) };
-        assert!(cmp(value, archived_value));
+        cmp(value, archived_value);
         let deserialized = deserialize::<T, Panic>(archived_value);
         assert_eq!(value, &deserialized);
     })
@@ -107,5 +107,5 @@ where
     T: Debug + PartialEq + for<'a> Serialize<TestSerializer<'a, Panic>>,
     T::Archived: Debug + PartialEq<T> + Deserialize<T, TestDeserializer<Panic>>,
 {
-    roundtrip_with(value, |a, b| b == a);
+    roundtrip_with(value, |a, b| assert_eq!(b, a));
 }

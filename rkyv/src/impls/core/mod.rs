@@ -462,7 +462,11 @@ mod tests {
     fn roundtrip_tuple() {
         roundtrip_with(
             &(24, true, 16f32),
-            |(a, b, c), ArchivedTuple3(d, e, f)| a == d && b == e && c == f,
+            |(a, b, c), ArchivedTuple3(d, e, f)| {
+                assert_eq!(a, d);
+                assert_eq!(b, e);
+                assert_eq!(c, f);
+            },
         );
     }
 

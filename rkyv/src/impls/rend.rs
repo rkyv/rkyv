@@ -82,73 +82,93 @@ impl_rend_primitives!(
 
 #[cfg(test)]
 mod tests {
-    use core::fmt;
+    use rancor::Error;
+    use rend::*;
 
-    use rancor::{Error, Strategy};
+    use crate::{test::roundtrip, to_bytes};
 
-    use crate::{
-        access_unchecked, deserialize, ser::DefaultSerializer, to_bytes,
-        util::AlignedVec, Deserialize, Serialize,
-    };
+    #[test]
+    fn roundtrip_integers() {
+        roundtrip(&i16_be::from_native(12345i16));
+        roundtrip(&i32_be::from_native(1234567890i32));
+        roundtrip(&i64_be::from_native(1234567890123456789i64));
+        roundtrip(&i128_be::from_native(
+            123456789012345678901234567890123456789i128,
+        ));
+        roundtrip(&u16_be::from_native(12345u16));
+        roundtrip(&u32_be::from_native(1234567890u32));
+        roundtrip(&u64_be::from_native(12345678901234567890u64));
+        roundtrip(&u128_be::from_native(
+            123456789012345678901234567890123456789u128,
+        ));
 
-    fn test_archive<T>(value: &T)
-    where
-        T: fmt::Debug
-            + PartialEq
-            + for<'a> Serialize<DefaultSerializer<'a, AlignedVec, Error>>,
-        T::Archived:
-            fmt::Debug + PartialEq<T> + Deserialize<T, Strategy<(), Error>>,
-    {
-        let bytes = to_bytes::<Error>(value).unwrap();
+        roundtrip(&i16_le::from_native(12345i16));
+        roundtrip(&i32_le::from_native(1234567890i32));
+        roundtrip(&i64_le::from_native(1234567890123456789i64));
+        roundtrip(&i128_le::from_native(
+            123456789012345678901234567890123456789i128,
+        ));
+        roundtrip(&u16_le::from_native(12345u16));
+        roundtrip(&u32_le::from_native(1234567890u32));
+        roundtrip(&u64_le::from_native(12345678901234567890u64));
+        roundtrip(&u128_le::from_native(
+            123456789012345678901234567890123456789u128,
+        ));
+    }
 
-        let archived_value = unsafe { access_unchecked::<T::Archived>(&bytes) };
-        assert_eq!(archived_value, value);
-        assert_eq!(
-            &deserialize::<T, _, Error>(archived_value, &mut ()).unwrap(),
-            value
+    #[test]
+    fn roundtrip_floats() {
+        roundtrip(&f32_be::from_native(1234567f32));
+        roundtrip(&f64_be::from_native(12345678901234f64));
+
+        roundtrip(&f32_le::from_native(1234567f32));
+        roundtrip(&f64_le::from_native(12345678901234f64));
+    }
+
+    #[test]
+    fn roundtrip_chars() {
+        roundtrip(&char_be::from_native('x'));
+        roundtrip(&char_be::from_native('🥺'));
+
+        roundtrip(&char_le::from_native('x'));
+        roundtrip(&char_le::from_native('🥺'));
+    }
+
+    #[test]
+    fn roundtrip_nonzero() {
+        roundtrip(&NonZeroI16_be::new(12345).unwrap());
+        roundtrip(&NonZeroI32_be::new(1234567890).unwrap());
+        roundtrip(&NonZeroI64_be::new(1234567890123456789).unwrap());
+        roundtrip(
+            &NonZeroI128_be::new(123456789012345678901234567890123456789)
+                .unwrap(),
+        );
+        roundtrip(&NonZeroU16_be::new(12345).unwrap());
+        roundtrip(&NonZeroU32_be::new(1234567890).unwrap());
+        roundtrip(&NonZeroU64_be::new(1234567890123456789).unwrap());
+        roundtrip(
+            &NonZeroU128_be::new(123456789012345678901234567890123456789)
+                .unwrap(),
+        );
+
+        roundtrip(&NonZeroI16_le::new(12345).unwrap());
+        roundtrip(&NonZeroI32_le::new(1234567890).unwrap());
+        roundtrip(&NonZeroI64_le::new(1234567890123456789).unwrap());
+        roundtrip(
+            &NonZeroI128_le::new(123456789012345678901234567890123456789)
+                .unwrap(),
+        );
+        roundtrip(&NonZeroU16_le::new(12345).unwrap());
+        roundtrip(&NonZeroU32_le::new(1234567890).unwrap());
+        roundtrip(&NonZeroU64_le::new(1234567890123456789).unwrap());
+        roundtrip(
+            &NonZeroU128_le::new(123456789012345678901234567890123456789)
+                .unwrap(),
         );
     }
 
     #[test]
-    fn archive_rend() {
-        use crate::rend::*;
-
-        test_archive(&f32_be::from_native(1234567f32));
-        test_archive(&f64_be::from_native(12345678901234f64));
-        test_archive(&i16_be::from_native(12345i16));
-        test_archive(&i32_be::from_native(1234567890i32));
-        test_archive(&i64_be::from_native(1234567890123456789i64));
-        test_archive(&i128_be::from_native(
-            123456789012345678901234567890123456789i128,
-        ));
-        test_archive(&u16_be::from_native(12345u16));
-        test_archive(&u32_be::from_native(1234567890u32));
-        test_archive(&u64_be::from_native(12345678901234567890u64));
-        test_archive(&u128_be::from_native(
-            123456789012345678901234567890123456789u128,
-        ));
-
-        test_archive(&f32_le::from_native(1234567f32));
-        test_archive(&f64_le::from_native(12345678901234f64));
-        test_archive(&i16_le::from_native(12345i16));
-        test_archive(&i32_le::from_native(1234567890i32));
-        test_archive(&i64_le::from_native(1234567890123456789i64));
-        test_archive(&i128_le::from_native(
-            123456789012345678901234567890123456789i128,
-        ));
-        test_archive(&u16_le::from_native(12345u16));
-        test_archive(&u32_le::from_native(1234567890u32));
-        test_archive(&u64_le::from_native(12345678901234567890u64));
-        test_archive(&u128_le::from_native(
-            123456789012345678901234567890123456789u128,
-        ));
-    }
-
-    #[test]
-    fn archive_rend_endianness() {
-        // Check representations to make sure endianness is preserved
-        use crate::rend::{i32_be, i32_le};
-
+    fn verify_endianness() {
         // Big endian
         let value = i32_be::from_native(0x12345678);
         let buf = to_bytes::<Error>(&value).unwrap();
@@ -158,38 +178,5 @@ mod tests {
         let value = i32_le::from_native(0x12345678i32);
         let buf = to_bytes::<Error>(&value).unwrap();
         assert_eq!(&buf[0..4], &[0x78, 0x56, 0x34, 0x12]);
-    }
-
-    #[test]
-    fn archive_rend_nonzero() {
-        use crate::rend::*;
-
-        unsafe {
-            test_archive(&NonZeroI16_be::new_unchecked(12345));
-            test_archive(&NonZeroI32_be::new_unchecked(1234567890));
-            test_archive(&NonZeroI64_be::new_unchecked(1234567890123456789));
-            test_archive(&NonZeroI128_be::new_unchecked(
-                123456789012345678901234567890123456789,
-            ));
-            test_archive(&NonZeroU16_be::new_unchecked(12345));
-            test_archive(&NonZeroU32_be::new_unchecked(1234567890));
-            test_archive(&NonZeroU64_be::new_unchecked(1234567890123456789));
-            test_archive(&NonZeroU128_be::new_unchecked(
-                123456789012345678901234567890123456789,
-            ));
-
-            test_archive(&NonZeroI16_le::new_unchecked(12345));
-            test_archive(&NonZeroI32_le::new_unchecked(1234567890));
-            test_archive(&NonZeroI64_le::new_unchecked(1234567890123456789));
-            test_archive(&NonZeroI128_le::new_unchecked(
-                123456789012345678901234567890123456789,
-            ));
-            test_archive(&NonZeroU16_le::new_unchecked(12345));
-            test_archive(&NonZeroU32_le::new_unchecked(1234567890));
-            test_archive(&NonZeroU64_le::new_unchecked(1234567890123456789));
-            test_archive(&NonZeroU128_le::new_unchecked(
-                123456789012345678901234567890123456789,
-            ));
-        }
     }
 }
