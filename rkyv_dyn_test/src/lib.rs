@@ -79,9 +79,7 @@ mod tests {
                     &self,
                     serializer: &mut S,
                 ) -> Result<usize, S::Error> {
-                    self.serialize_and_resolve_dyn(
-                        serializer.as_dyn_serializer(),
-                    )
+                    self.serialize_dyn(serializer.as_dyn_serializer())
                 }
             }
 
@@ -124,15 +122,10 @@ mod tests {
                     )
                 }
 
-                fn deserialize_metadata(
-                    &self,
-                    _: &mut D,
-                ) -> Result<
-                    <dyn SerializeId<SE, D::Error> as ptr_meta::Pointee>
-                        ::Metadata,
-                    <D as Fallible>::Error,
-                >{
-                    Ok(self.deserialized_pointer_metadata())
+                fn deserialize_metadata(&self) -> <
+                    dyn SerializeId<SE, D::Error> as ptr_meta::Pointee
+                >::Metadata{
+                    self.deserialized_pointer_metadata()
                 }
             }
 

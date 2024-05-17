@@ -28,7 +28,7 @@ use rkyv::{
     place::Initialized,
     primitive::FixedUsize,
     ser::{Allocator, Sharing, Writer},
-    Archived, Portable, Serialize,
+    Archived, Portable, Serialize, SerializeUnsized,
 };
 pub use rkyv_dyn_derive::archive_dyn;
 
@@ -165,20 +165,21 @@ impl<E> AsDynSerializer<E> for dyn DynSerializer<E> {
 /// assert_eq!(deserialized_int.value(), "42");
 /// assert_eq!(deserialized_string.value(), "hello world");
 /// ```
+// TODO: This is just `for<'a> SerializeUnsized<dyn DynSerializer<E>> + 'a`
 pub trait SerializeDyn<E> {
     /// Serializes this value and returns the position it is located at.
-    fn serialize_and_resolve_dyn(
+    fn serialize_dyn(
         &self,
         serializer: &mut dyn DynSerializer<E>,
     ) -> Result<usize, E>;
 }
 
 impl<T: for<'a> Serialize<dyn DynSerializer<E> + 'a>, E> SerializeDyn<E> for T {
-    fn serialize_and_resolve_dyn(
+    fn serialize_dyn(
         &self,
         serializer: &mut dyn DynSerializer<E>,
     ) -> Result<usize, E> {
-        self.serialize_and_resolve(serializer)
+        self.serialize_unsized(serializer)
     }
 }
 

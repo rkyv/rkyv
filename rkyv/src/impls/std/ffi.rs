@@ -84,11 +84,8 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for CStr {
         Ok(())
     }
 
-    fn deserialize_metadata(
-        &self,
-        _: &mut D,
-    ) -> Result<<CStr as Pointee>::Metadata, D::Error> {
-        Ok(ptr_meta::metadata(self))
+    fn deserialize_metadata(&self) -> <CStr as Pointee>::Metadata {
+        ptr_meta::metadata(self)
     }
 }
 
@@ -134,7 +131,7 @@ where
     CStr: DeserializeUnsized<CStr, D>,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<CString, D::Error> {
-        let metadata = self.as_c_str().deserialize_metadata(deserializer)?;
+        let metadata = self.as_c_str().deserialize_metadata();
         let layout = <CStr as LayoutRaw>::layout_raw(metadata).into_error()?;
         let data_address = if layout.size() > 0 {
             unsafe { alloc::alloc(layout) }

@@ -206,7 +206,7 @@ pub trait PoolingExt<E>: Pooling<E> {
         }
 
         let address = value as *const T::Archived as *const () as usize;
-        let metadata = T::Archived::deserialize_metadata(value, self)?;
+        let metadata = T::Archived::deserialize_metadata(value);
 
         if let Some(shared_pointer) = self.get_shared_ptr(address) {
             Ok(from_raw_parts_mut(shared_pointer.data_address, metadata))

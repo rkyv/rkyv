@@ -732,7 +732,9 @@ fn generate_partial_ord_impl(
                             #(
                                 match #other_fields.partial_cmp(#self_fields) {
                                     Some(::core::cmp::Ordering::Equal) => (),
-                                    cmp => return cmp.map(::core::cmp::Ordering::reverse),
+                                    cmp => return cmp.map(
+                                        ::core::cmp::Ordering::reverse
+                                    ),
                                 }
                             )*
                             Some(::core::cmp::Ordering::Equal)
@@ -749,7 +751,9 @@ fn generate_partial_ord_impl(
                             #(
                                 match #other_fields.partial_cmp(#self_fields) {
                                     Some(::core::cmp::Ordering::Equal) => (),
-                                    cmp => return cmp.map(::core::cmp::Ordering::reverse),
+                                    cmp => return cmp.map(
+                                        ::core::cmp::Ordering::reverse
+                                    ),
                                 }
                             )*
                             Some(::core::cmp::Ordering::Equal)

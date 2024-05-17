@@ -28,7 +28,7 @@ use rancor::Strategy;
 pub use self::alloc::*;
 #[doc(inline)]
 pub use self::{inline_vec::InlineVec, ser_vec::SerVec};
-use crate::{ser::Writer, Archive, Deserialize, Portable, Serialize};
+use crate::{ser::Writer, Archive, Deserialize, Portable, SerializeUnsized};
 
 #[cfg(debug_assertions)]
 fn check_alignment<T: Portable>(ptr: *const u8) {
@@ -165,7 +165,7 @@ impl<T> DerefMut for Align<T> {
 /// Serializes the given value into the given serializer and then returns the
 /// serializer.
 pub fn serialize_into<S, E>(
-    value: &impl Serialize<Strategy<S, E>>,
+    value: &impl SerializeUnsized<Strategy<S, E>>,
     mut serializer: S,
 ) -> Result<S, E>
 where
@@ -177,17 +177,16 @@ where
 
 /// Serializes the given value into the given serializer.
 pub fn serialize<S, E>(
-    value: &impl Serialize<Strategy<S, E>>,
+    value: &impl SerializeUnsized<Strategy<S, E>>,
     serializer: &mut S,
-) -> Result<(), E>
+) -> Result<usize, E>
 where
     S: Writer<E> + ?Sized,
 {
-    value.serialize_and_resolve(Strategy::wrap(serializer))?;
-    Ok(())
+    value.serialize_unsized(Strategy::wrap(serializer))
 }
 
-/// Deserailizes a value from the given archived value using the provided
+/// Deserializes a value from the given archived value using the provided
 /// deserializer.
 pub fn deserialize<T, D, E>(
     value: &T::Archived,

@@ -40,7 +40,7 @@ where
     D::Error: Source,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {
-        let metadata = self.get().deserialize_metadata(deserializer)?;
+        let metadata = self.get().deserialize_metadata();
         let layout = T::layout_raw(metadata).into_error()?;
         let data_address = if layout.size() > 0 {
             unsafe { alloc::alloc(layout) }

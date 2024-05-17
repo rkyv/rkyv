@@ -74,7 +74,7 @@ where
     D::Error: Source,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<Vec<T>, D::Error> {
-        let metadata = self.as_slice().deserialize_metadata(deserializer)?;
+        let metadata = self.as_slice().deserialize_metadata();
         let layout = <[T] as LayoutRaw>::layout_raw(metadata).into_error()?;
         let data_address = if layout.size() > 0 {
             unsafe { alloc::alloc(layout) }

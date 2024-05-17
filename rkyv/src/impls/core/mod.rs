@@ -70,7 +70,9 @@ where
     S: Fallible + Writer + ?Sized,
 {
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
-        self.serialize_and_resolve(serializer)
+        let resolver = self.serialize(serializer)?;
+        serializer.align_for::<T::Archived>()?;
+        unsafe { serializer.resolve_aligned(self, resolver) }
     }
 }
 
@@ -92,12 +94,7 @@ where
         Ok(())
     }
 
-    fn deserialize_metadata(
-        &self,
-        _: &mut D,
-    ) -> Result<<T as Pointee>::Metadata, D::Error> {
-        Ok(())
-    }
+    fn deserialize_metadata(&self) -> <T as Pointee>::Metadata {}
 }
 
 macro_rules! impl_tuple {
@@ -339,11 +336,8 @@ where
         Ok(())
     }
 
-    fn deserialize_metadata(
-        &self,
-        _: &mut D,
-    ) -> Result<<[U] as Pointee>::Metadata, D::Error> {
-        Ok(ptr_meta::metadata(self))
+    fn deserialize_metadata(&self) -> <[U] as Pointee>::Metadata {
+        ptr_meta::metadata(self)
     }
 }
 
@@ -401,11 +395,8 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for str {
         Ok(())
     }
 
-    fn deserialize_metadata(
-        &self,
-        _: &mut D,
-    ) -> Result<<str as Pointee>::Metadata, D::Error> {
-        Ok(ptr_meta::metadata(self))
+    fn deserialize_metadata(&self) -> <str as Pointee>::Metadata {
+        ptr_meta::metadata(self)
     }
 }
 

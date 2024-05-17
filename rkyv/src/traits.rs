@@ -7,11 +7,8 @@ use core::{
 };
 
 use crate::{
-    place::Initialized,
-    ptr_meta::Pointee,
-    rancor::Fallible,
-    ser::{Writer, WriterExt as _},
-    ArchivedMetadata, Place,
+    place::Initialized, ptr_meta::Pointee, rancor::Fallible, ArchivedMetadata,
+    Place,
 };
 
 /// A type with a stable, well-defined layout that is the same on all targets.
@@ -306,19 +303,6 @@ pub trait Serialize<S: Fallible + ?Sized>: Archive {
     /// create the archived type.
     fn serialize(&self, serializer: &mut S)
         -> Result<Self::Resolver, S::Error>;
-
-    /// Archives the given object and returns the position it was archived at.
-    fn serialize_and_resolve(
-        &self,
-        serializer: &mut S,
-    ) -> Result<usize, S::Error>
-    where
-        S: Writer,
-    {
-        let resolver = self.serialize(serializer)?;
-        serializer.align_for::<Self::Archived>()?;
-        unsafe { serializer.resolve_aligned(self, resolver) }
-    }
 }
 
 /// Converts a type back from its archived form.
@@ -538,8 +522,5 @@ pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>:
     ) -> Result<(), D::Error>;
 
     /// Deserializes the metadata for the given type.
-    fn deserialize_metadata(
-        &self,
-        deserializer: &mut D,
-    ) -> Result<T::Metadata, D::Error>;
+    fn deserialize_metadata(&self) -> T::Metadata;
 }
