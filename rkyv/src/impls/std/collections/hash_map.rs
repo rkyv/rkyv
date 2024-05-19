@@ -96,3 +96,112 @@ impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>>
         other.eq(self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::hash::BuildHasher;
+    use std::collections::HashMap;
+
+    use ahash::RandomState;
+    use rancor::Panic;
+
+    use crate::{
+        access_unchecked,
+        test::{roundtrip, roundtrip_with, to_bytes},
+        Archive, Archived, Deserialize, Serialize,
+    };
+
+    fn assert_equal<S: BuildHasher>(
+        a: &HashMap<String, String, S>,
+        b: &Archived<HashMap<String, String, S>>,
+    ) {
+        assert_eq!(a.len(), b.len());
+
+        for (key, value) in a.iter() {
+            assert!(b.contains_key(key.as_str()));
+            assert_eq!(&b[key.as_str()], value);
+        }
+
+        for (key, value) in b.iter() {
+            assert!(a.contains_key(key.as_str()));
+            assert_eq!(&a[key.as_str()], value);
+        }
+    }
+
+    #[test]
+    fn roundtrip_hash_map() {
+        let mut hash_map = HashMap::new();
+        hash_map.insert("hello".to_string(), "world".to_string());
+        hash_map.insert("foo".to_string(), "bar".to_string());
+        hash_map.insert("baz".to_string(), "bat".to_string());
+
+        roundtrip_with(&hash_map, assert_equal);
+    }
+
+    #[test]
+    fn roundtrip_hash_map_zsts() {
+        let mut value = HashMap::new();
+        value.insert((), 10);
+        roundtrip(&value);
+
+        let mut value = HashMap::new();
+        value.insert((), ());
+        roundtrip(&value);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    #[allow(deprecated)]
+    fn roundtrip_hash_map_with_custom_hasher() {
+        use std::collections::HashMap;
+
+        roundtrip(&HashMap::<i8, i32, RandomState>::default());
+
+        let mut hash_map: HashMap<i8, _, RandomState> = HashMap::default();
+        hash_map.insert(1, 2);
+        hash_map.insert(3, 4);
+        hash_map.insert(5, 6);
+        hash_map.insert(7, 8);
+
+        roundtrip(&hash_map);
+
+        let mut hash_map: HashMap<_, _, RandomState> = HashMap::default();
+        hash_map.insert("hello".to_string(), "world".to_string());
+        hash_map.insert("foo".to_string(), "bar".to_string());
+        hash_map.insert("baz".to_string(), "bat".to_string());
+
+        roundtrip_with(&hash_map, assert_equal);
+    }
+
+    #[test]
+    fn get_with() {
+        #[derive(Archive, Serialize, Deserialize, Eq, Hash, PartialEq)]
+        #[archive(crate)]
+        #[archive_attr(derive(Eq, Hash, PartialEq))]
+        pub struct Pair(String, String);
+
+        let mut hash_map = HashMap::new();
+        hash_map.insert(
+            Pair("my".to_string(), "key".to_string()),
+            "value".to_string(),
+        );
+        hash_map.insert(
+            Pair("wrong".to_string(), "key".to_string()),
+            "wrong value".to_string(),
+        );
+
+        to_bytes::<_, Panic>(&hash_map, |bytes| {
+            let archived_value = unsafe {
+                access_unchecked::<Archived<HashMap<Pair, String>>>(&bytes)
+            };
+
+            let get_with = archived_value
+                .get_with(&("my", "key"), |input_key, key| {
+                    &(key.0.as_str(), key.1.as_str()) == input_key
+                })
+                .unwrap();
+
+            assert_eq!(get_with.as_str(), "value");
+        });
+    }
+}

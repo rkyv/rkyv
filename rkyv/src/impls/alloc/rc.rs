@@ -293,3 +293,261 @@ where
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::pin::Pin;
+
+    use rancor::Panic;
+
+    use super::rc::{Rc, Weak};
+    use crate::{
+        access_unchecked, access_unchecked_mut, de::Pool, deserialize,
+        test::roundtrip, to_bytes, Archive, Archived, Deserialize, Serialize,
+    };
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn roundtrip_rc() {
+        #[derive(Debug, Eq, PartialEq, Archive, Deserialize, Serialize)]
+        #[archive(crate)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        struct Test {
+            a: Rc<u32>,
+            b: Rc<u32>,
+        }
+
+        impl ArchivedTest {
+            fn a(self: Pin<&mut Self>) -> Pin<&mut Archived<Rc<u32>>> {
+                unsafe { self.map_unchecked_mut(|s| &mut s.a) }
+            }
+
+            fn b(self: Pin<&mut Self>) -> Pin<&mut Archived<Rc<u32>>> {
+                unsafe { self.map_unchecked_mut(|s| &mut s.b) }
+            }
+        }
+
+        let shared = Rc::new(10);
+        let value = Test {
+            a: shared.clone(),
+            b: shared.clone(),
+        };
+
+        let mut buf = to_bytes::<Panic>(&value).unwrap();
+
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
+        assert_eq!(archived, &value);
+
+        let mut mutable_archived =
+            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
+        unsafe {
+            *mutable_archived.as_mut().a().get_pin_mut_unchecked() =
+                42u32.into();
+        }
+
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
+        assert_eq!(*archived.a, 42);
+        assert_eq!(*archived.b, 42);
+
+        let mut mutable_archived =
+            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
+        unsafe {
+            *mutable_archived.as_mut().b().get_pin_mut_unchecked() =
+                17u32.into();
+        }
+
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
+        assert_eq!(*archived.a, 17);
+        assert_eq!(*archived.b, 17);
+
+        let mut deserializer = Pool::new();
+        let deserialized =
+            deserialize::<Test, _, Panic>(archived, &mut deserializer).unwrap();
+
+        assert_eq!(*deserialized.a, 17);
+        assert_eq!(*deserialized.b, 17);
+        assert_eq!(
+            &*deserialized.a as *const u32,
+            &*deserialized.b as *const u32
+        );
+        assert_eq!(Rc::strong_count(&deserialized.a), 3);
+        assert_eq!(Rc::strong_count(&deserialized.b), 3);
+        assert_eq!(Rc::weak_count(&deserialized.a), 0);
+        assert_eq!(Rc::weak_count(&deserialized.b), 0);
+
+        core::mem::drop(deserializer);
+
+        assert_eq!(*deserialized.a, 17);
+        assert_eq!(*deserialized.b, 17);
+        assert_eq!(
+            &*deserialized.a as *const u32,
+            &*deserialized.b as *const u32
+        );
+        assert_eq!(Rc::strong_count(&deserialized.a), 2);
+        assert_eq!(Rc::strong_count(&deserialized.b), 2);
+        assert_eq!(Rc::weak_count(&deserialized.a), 0);
+        assert_eq!(Rc::weak_count(&deserialized.b), 0);
+    }
+
+    #[test]
+    fn roundtrip_rc_zst() {
+        #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
+        #[archive(crate)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        struct TestRcZST {
+            a: Rc<()>,
+            b: Rc<()>,
+        }
+
+        let rc_zst = Rc::new(());
+        roundtrip(&TestRcZST {
+            a: rc_zst.clone(),
+            b: rc_zst.clone(),
+        });
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_unsized_shared_ptr() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[archive(crate)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        struct Test {
+            a: Rc<[String]>,
+            b: Rc<[String]>,
+        }
+
+        let rc_slice = Rc::<[String]>::from(
+            vec!["hello".to_string(), "world".to_string()].into_boxed_slice(),
+        );
+        let value = Test {
+            a: rc_slice.clone(),
+            b: rc_slice,
+        };
+
+        roundtrip(&value);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_unsized_shared_ptr_empty() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[archive(crate)]
+        #[archive(compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        struct Test {
+            a: Rc<[u32]>,
+            b: Rc<[u32]>,
+        }
+
+        let a_rc_slice = Rc::<[u32]>::from(vec![].into_boxed_slice());
+        let b_rc_slice = Rc::<[u32]>::from(vec![100].into_boxed_slice());
+        let value = Test {
+            a: a_rc_slice,
+            b: b_rc_slice.clone(),
+        };
+
+        roundtrip(&value);
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn archive_weak_ptr() {
+        #[derive(Archive, Serialize, Deserialize)]
+        #[archive(crate)]
+        struct Test {
+            a: Rc<u32>,
+            b: Weak<u32>,
+        }
+
+        impl ArchivedTest {
+            fn a(self: Pin<&mut Self>) -> Pin<&mut Archived<Rc<u32>>> {
+                unsafe { self.map_unchecked_mut(|s| &mut s.a) }
+            }
+
+            fn b(self: Pin<&mut Self>) -> Pin<&mut Archived<Weak<u32>>> {
+                unsafe { self.map_unchecked_mut(|s| &mut s.b) }
+            }
+        }
+
+        let shared = Rc::new(10);
+        let value = Test {
+            a: shared.clone(),
+            b: Rc::downgrade(&shared),
+        };
+
+        let mut buf = to_bytes::<Panic>(&value).unwrap();
+
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
+        assert_eq!(*archived.a, 10);
+        assert!(archived.b.upgrade().is_some());
+        assert_eq!(**archived.b.upgrade().unwrap(), 10);
+
+        let mut mutable_archived =
+            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
+        unsafe {
+            *mutable_archived.as_mut().a().get_pin_mut_unchecked() =
+                42u32.into();
+        }
+
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
+        assert_eq!(*archived.a, 42);
+        assert!(archived.b.upgrade().is_some());
+        assert_eq!(**archived.b.upgrade().unwrap(), 42);
+
+        let mut mutable_archived =
+            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
+        unsafe {
+            *mutable_archived
+                .as_mut()
+                .b()
+                .upgrade_pin_mut()
+                .unwrap()
+                .get_pin_mut_unchecked() = 17u32.into();
+        }
+
+        let archived =
+            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
+        assert_eq!(*archived.a, 17);
+        assert!(archived.b.upgrade().is_some());
+        assert_eq!(**archived.b.upgrade().unwrap(), 17);
+
+        let mut deserializer = Pool::new();
+        let deserialized =
+            deserialize::<Test, _, Panic>(archived, &mut deserializer).unwrap();
+
+        assert_eq!(*deserialized.a, 17);
+        assert!(deserialized.b.upgrade().is_some());
+        assert_eq!(*deserialized.b.upgrade().unwrap(), 17);
+        assert_eq!(
+            &*deserialized.a as *const u32,
+            &*deserialized.b.upgrade().unwrap() as *const u32
+        );
+        assert_eq!(Rc::strong_count(&deserialized.a), 2);
+        assert_eq!(Weak::strong_count(&deserialized.b), 2);
+        assert_eq!(Rc::weak_count(&deserialized.a), 1);
+        assert_eq!(Weak::weak_count(&deserialized.b), 1);
+
+        core::mem::drop(deserializer);
+
+        assert_eq!(*deserialized.a, 17);
+        assert!(deserialized.b.upgrade().is_some());
+        assert_eq!(*deserialized.b.upgrade().unwrap(), 17);
+        assert_eq!(
+            &*deserialized.a as *const u32,
+            &*deserialized.b.upgrade().unwrap() as *const u32
+        );
+        assert_eq!(Rc::strong_count(&deserialized.a), 1);
+        assert_eq!(Weak::strong_count(&deserialized.b), 1);
+        assert_eq!(Rc::weak_count(&deserialized.a), 1);
+        assert_eq!(Weak::weak_count(&deserialized.b), 1);
+    }
+}

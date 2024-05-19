@@ -68,3 +68,29 @@ impl PartialOrd<String> for ArchivedString {
         self.as_str().partial_cmp(other.as_str())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::test::roundtrip;
+
+    #[test]
+    fn roundtrip_string() {
+        roundtrip(&"".to_string());
+        roundtrip(&"hello world".to_string());
+    }
+
+    #[test]
+    fn roundtrip_option_string() {
+        roundtrip(&Some("".to_string()));
+        roundtrip(&Some("hello world".to_string()));
+    }
+
+    #[test]
+    fn roundtrip_result_string() {
+        roundtrip(&Ok::<_, ()>("".to_string()));
+        roundtrip(&Ok::<_, ()>("hello world".to_string()));
+
+        roundtrip(&Err::<(), _>("".to_string()));
+        roundtrip(&Err::<(), _>("hello world".to_string()));
+    }
+}

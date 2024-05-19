@@ -106,3 +106,58 @@ where
         other.eq(self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::BTreeMap;
+    use crate::test::roundtrip;
+
+    #[test]
+    fn roundtrip_btree_map() {
+        let mut value = BTreeMap::new();
+        value.insert("foo".to_string(), 10);
+        value.insert("bar".to_string(), 20);
+        value.insert("baz".to_string(), 40);
+        value.insert("bat".to_string(), 80);
+
+        roundtrip(&value);
+    }
+
+    #[test]
+    fn roundtrip_empty_btree_map() {
+        roundtrip(&BTreeMap::<String, i32>::new());
+    }
+
+    #[test]
+    fn roundtrip_btree_map_zst() {
+        let mut value = BTreeMap::new();
+        value.insert(0, ());
+        value.insert(1, ());
+        roundtrip(&value);
+
+        let mut value = BTreeMap::new();
+        value.insert((), 10);
+        roundtrip(&value);
+
+        let mut value = BTreeMap::new();
+        value.insert((), ());
+        roundtrip(&value);
+    }
+
+    #[test]
+    fn roundtrip_large_btree_map() {
+        // This test creates structures too big to fit in 16-bit offsets, and
+        // MIRI can't run it quickly enough.
+        #[cfg(any(feature = "size_16", miri))]
+        const ENTRIES: usize = 100;
+        #[cfg(not(miri))]
+        const ENTRIES: usize = 100_000;
+
+        let mut value = BTreeMap::new();
+        for i in 0..ENTRIES {
+            value.insert(i.to_string(), i as i32);
+        }
+
+        roundtrip(&value);
+    }
+}

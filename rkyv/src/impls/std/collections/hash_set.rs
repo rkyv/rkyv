@@ -86,3 +86,37 @@ impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
         other.eq(self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use crate::test::{roundtrip, roundtrip_with};
+
+    #[test]
+    fn roundtrip_hash_set() {
+        let mut hash_set = HashSet::new();
+        hash_set.insert("hello".to_string());
+        hash_set.insert("foo".to_string());
+        hash_set.insert("baz".to_string());
+
+        roundtrip_with(&hash_set, |a, b| {
+            assert_eq!(a.len(), b.len());
+
+            for key in a.iter() {
+                assert!(b.contains(key.as_str()));
+            }
+
+            for key in b.iter() {
+                assert!(a.contains(key.as_str()));
+            }
+        });
+    }
+
+    #[test]
+    fn roundtrip_hash_set_zst() {
+        let mut value = HashSet::new();
+        value.insert(());
+        roundtrip(&value);
+    }
+}

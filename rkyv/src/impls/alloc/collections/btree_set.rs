@@ -93,3 +93,28 @@ impl<K, AK: PartialEq<K>> PartialEq<ArchivedBTreeSet<AK>> for BTreeSet<K> {
         other.eq(self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::BTreeSet;
+    use crate::test::roundtrip;
+
+    #[test]
+    fn roundtrip_btree_set() {
+        let mut value = BTreeSet::new();
+        value.insert("foo".to_string());
+        value.insert("bar".to_string());
+        value.insert("baz".to_string());
+        value.insert("bat".to_string());
+
+        roundtrip(&value);
+    }
+
+    #[test]
+    fn roundtrip_btree_set_zst() {
+        let mut value = BTreeSet::new();
+        value.insert(());
+
+        roundtrip(&value);
+    }
+}

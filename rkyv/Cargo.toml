@@ -61,6 +61,7 @@ uuid = ["dep:uuid", "bytecheck?/uuid"]
 features = ["bytecheck"]
 
 [dev-dependencies]
+ahash = "0.8"
 benchlib.workspace = true
 divan.workspace = true
 rkyv = { workspace = true, default-features = true }

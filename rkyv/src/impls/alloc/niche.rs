@@ -27,3 +27,27 @@ where
         other.eq(self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        test::roundtrip, with::Niche, Archive, Deserialize, Serialize,
+    };
+
+    #[test]
+    fn ambiguous_niched_archived_box() {
+        #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
+        #[archive_attr(derive(Debug))]
+        #[archive(crate)]
+        #[archive(compare(PartialEq))]
+        struct HasNiche {
+            #[with(Niche)]
+            inner: Option<Box<[u32]>>,
+        }
+
+        roundtrip(&HasNiche {
+            inner: Some(Box::<[u32]>::from([])),
+        });
+        roundtrip(&HasNiche { inner: None });
+    }
+}

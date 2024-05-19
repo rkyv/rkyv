@@ -18,6 +18,7 @@ use crate::{
     Portable, Serialize, SerializeUnsized,
 };
 
+mod net;
 mod ops;
 mod option;
 mod primitive;
@@ -473,21 +474,6 @@ mod tests {
     #[test]
     fn roundtrip_array() {
         roundtrip(&[1, 2, 3, 4, 5, 6]);
-    }
-
-    #[test]
-    fn roundtrip_boxed_array() {
-        roundtrip(&Box::new([1, 2, 3, 4]));
-    }
-
-    #[test]
-    fn roundtrip_slice() {
-        roundtrip(&Vec::from([1, 2, 3, 4]).into_boxed_slice());
-    }
-
-    #[test]
-    fn roundtrip_str() {
-        roundtrip(&String::from("hello world").into_boxed_str());
     }
 
     #[test]

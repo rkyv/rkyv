@@ -72,3 +72,78 @@ impl<T: ArchivePointee + PartialOrd<U> + ?Sized, U: ?Sized> PartialOrd<Box<U>>
         self.get().partial_cmp(other.as_ref())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::test::roundtrip;
+
+    #[test]
+    fn roundtrip_box() {
+        roundtrip(&Box::new(42));
+        roundtrip(&Box::new([1, 2, 3, 4, 5, 6]));
+    }
+
+    #[test]
+    fn roundtrip_boxed_str() {
+        roundtrip(&"".to_string().into_boxed_str());
+        roundtrip(&"hello world".to_string().into_boxed_str());
+    }
+
+    #[test]
+    fn roundtrip_boxed_slice() {
+        roundtrip(&Vec::<i32>::new().into_boxed_slice());
+        roundtrip(&vec![1, 2, 3, 4].into_boxed_slice());
+    }
+
+    #[test]
+    fn roundtrip_box_zsts() {
+        roundtrip(&Box::new(()));
+        roundtrip(&Vec::<()>::new().into_boxed_slice());
+        roundtrip(&vec![(), (), (), ()].into_boxed_slice());
+    }
+
+    #[test]
+    fn roundtrip_option_box() {
+        roundtrip(&Some(Box::new(42)));
+        roundtrip(&Some(Box::new([1, 2, 3, 4, 5, 6])));
+    }
+
+    #[test]
+    fn roundtrip_option_box_str() {
+        roundtrip(&Some("".to_string().into_boxed_str()));
+        roundtrip(&Some("hello world".to_string().into_boxed_str()));
+    }
+
+    #[test]
+    fn roundtrip_option_box_slice() {
+        roundtrip(&Some(Vec::<i32>::new().into_boxed_slice()));
+        roundtrip(&Some(vec![1, 2, 3, 4].into_boxed_slice()));
+    }
+
+    #[test]
+    fn roundtrip_result_box() {
+        roundtrip(&Ok::<_, ()>(Box::new(42)));
+        roundtrip(&Ok::<_, ()>(Box::new([1, 2, 3, 4, 5, 6])));
+
+        roundtrip(&Err::<(), _>(Box::new(42)));
+        roundtrip(&Err::<(), _>(Box::new([1, 2, 3, 4, 5, 6])));
+    }
+
+    #[test]
+    fn roundtrip_result_box_str() {
+        roundtrip(&Ok::<_, ()>("".to_string().into_boxed_str()));
+        roundtrip(&Ok::<_, ()>("hello world".to_string().into_boxed_str()));
+
+        roundtrip(&Err::<(), _>("".to_string().into_boxed_str()));
+        roundtrip(&Err::<(), _>("hello world".to_string().into_boxed_str()));
+    }
+
+    #[test]
+    fn roundtrip_result_box_slice() {
+        roundtrip(&Ok::<_, ()>(Vec::<i32>::new().into_boxed_slice()));
+        roundtrip(&Ok::<_, ()>(vec![1, 2, 3, 4].into_boxed_slice()));
+
+        roundtrip(&Err::<(), _>(Vec::<i32>::new().into_boxed_slice()));
+        roundtrip(&Err::<(), _>(vec![1, 2, 3, 4].into_boxed_slice()));
+    }
+}

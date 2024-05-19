@@ -88,3 +88,35 @@ where
         unsafe { Ok(Box::<[T]>::from_raw(out).into()) }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::test::roundtrip;
+
+    #[test]
+    fn roundtrip_vec() {
+        roundtrip(&Vec::<i32>::new());
+        roundtrip(&vec![1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn roundtrip_vec_zst() {
+        roundtrip(&Vec::<()>::new());
+        roundtrip(&vec![(), (), (), ()]);
+    }
+
+    #[test]
+    fn roundtrip_option_vec() {
+        roundtrip(&Some(Vec::<i32>::new()));
+        roundtrip(&Some(vec![1, 2, 3, 4]));
+    }
+
+    #[test]
+    fn roundtrip_result_vec() {
+        roundtrip(&Ok::<_, ()>(Vec::<i32>::new()));
+        roundtrip(&Ok::<_, ()>(vec![1, 2, 3, 4]));
+
+        roundtrip(&Err::<(), _>(Vec::<i32>::new()));
+        roundtrip(&Err::<(), _>(vec![1, 2, 3, 4]));
+    }
+}

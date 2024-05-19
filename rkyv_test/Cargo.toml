@@ -13,7 +13,6 @@ license.workspace = true
 ptr_meta.workspace = true
 rkyv.workspace = true
 wasm-bindgen-test = { workspace = true, optional = true }
-ahash = { version = "0.7" }
 
 [features]
 default = ["pointer_width_32", "little_endian", "std", "bytecheck"]

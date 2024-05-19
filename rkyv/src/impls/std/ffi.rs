@@ -146,3 +146,18 @@ where
         Ok(CString::from(boxed))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::CString;
+
+    use crate::test::roundtrip;
+
+    #[test]
+    fn roundtrip_c_string() {
+        let value = unsafe {
+            CString::from_vec_unchecked("hello world".to_string().into_bytes())
+        };
+        roundtrip(&value);
+    }
+}
