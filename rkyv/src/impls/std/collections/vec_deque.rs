@@ -8,27 +8,6 @@ use crate::{
     Archive, Deserialize, DeserializeUnsized, LayoutRaw, Place, Serialize,
 };
 
-impl<T: PartialEq<U>, U> PartialEq<VecDeque<U>> for ArchivedVec<T> {
-    fn eq(&self, other: &VecDeque<U>) -> bool {
-        self.len() == other.len() && self.iter().eq(other.iter())
-    }
-}
-impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for VecDeque<T> {
-    fn eq(&self, other: &ArchivedVec<U>) -> bool {
-        self.len() == other.len() && self.iter().eq(other.iter())
-    }
-}
-impl<T: PartialOrd> PartialOrd<VecDeque<T>> for ArchivedVec<T> {
-    fn partial_cmp(&self, other: &VecDeque<T>) -> Option<cmp::Ordering> {
-        self.iter().partial_cmp(other.iter())
-    }
-}
-impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for VecDeque<T> {
-    fn partial_cmp(&self, other: &ArchivedVec<T>) -> Option<cmp::Ordering> {
-        self.iter().partial_cmp(other.iter())
-    }
-}
-
 impl<T: Archive> Archive for VecDeque<T> {
     type Archived = ArchivedVec<T::Archived>;
     type Resolver = VecResolver;
@@ -85,6 +64,18 @@ where
         }
         let boxed = unsafe { Box::<[T]>::from_raw(out) };
         Ok(VecDeque::from(Vec::from(boxed)))
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<VecDeque<U>> for ArchivedVec<T> {
+    fn eq(&self, other: &VecDeque<U>) -> bool {
+        self.len() == other.len() && self.iter().eq(other.iter())
+    }
+}
+
+impl<T: PartialOrd> PartialOrd<VecDeque<T>> for ArchivedVec<T> {
+    fn partial_cmp(&self, other: &VecDeque<T>) -> Option<cmp::Ordering> {
+        self.iter().partial_cmp(other.iter())
     }
 }
 

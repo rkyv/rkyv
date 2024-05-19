@@ -86,8 +86,10 @@ where
     }
 }
 
-impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<rc::Rc<U>>
-    for ArchivedRc<T, RcFlavor>
+impl<T, U> PartialEq<rc::Rc<U>> for ArchivedRc<T, RcFlavor>
+where
+    T: ArchivePointee + PartialEq<U> + ?Sized,
+    U: ?Sized,
 {
     fn eq(&self, other: &rc::Rc<U>) -> bool {
         self.get().eq(other.as_ref())

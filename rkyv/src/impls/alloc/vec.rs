@@ -12,37 +12,6 @@ use crate::{
     Archive, Deserialize, DeserializeUnsized, LayoutRaw, Place, Serialize,
 };
 
-impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
-    fn eq(&self, other: &Vec<U>) -> bool {
-        self.as_slice().eq(other.as_slice())
-    }
-}
-
-impl<T: PartialEq<U>, U> PartialEq<ArchivedVec<U>> for Vec<T> {
-    fn eq(&self, other: &ArchivedVec<U>) -> bool {
-        self.as_slice().eq(other.as_slice())
-    }
-}
-
-impl<T: PartialOrd<U>, U> PartialOrd<Vec<U>> for ArchivedVec<T> {
-    fn partial_cmp(&self, other: &Vec<U>) -> Option<cmp::Ordering> {
-        let min_len = self.len().min(other.len());
-        for i in 0..min_len {
-            match self[i].partial_cmp(&other[i]) {
-                Some(cmp::Ordering::Equal) => continue,
-                result => return result,
-            }
-        }
-        self.len().partial_cmp(&other.len())
-    }
-}
-
-impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for Vec<T> {
-    fn partial_cmp(&self, other: &ArchivedVec<T>) -> Option<cmp::Ordering> {
-        self.as_slice().partial_cmp(other.as_slice())
-    }
-}
-
 impl<T: Archive> Archive for Vec<T> {
     type Archived = ArchivedVec<T::Archived>;
     type Resolver = VecResolver;
@@ -86,6 +55,25 @@ where
             self.as_slice().deserialize_unsized(deserializer, out)?;
         }
         unsafe { Ok(Box::<[T]>::from_raw(out).into()) }
+    }
+}
+
+impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
+    fn eq(&self, other: &Vec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T: PartialOrd<U>, U> PartialOrd<Vec<U>> for ArchivedVec<T> {
+    fn partial_cmp(&self, other: &Vec<U>) -> Option<cmp::Ordering> {
+        let min_len = self.len().min(other.len());
+        for i in 0..min_len {
+            match self[i].partial_cmp(&other[i]) {
+                Some(cmp::Ordering::Equal) => continue,
+                result => return result,
+            }
+        }
+        self.len().partial_cmp(&other.len())
     }
 }
 

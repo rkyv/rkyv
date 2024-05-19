@@ -12,8 +12,9 @@ use crate::{
     Archive, Deserialize, Place, Serialize,
 };
 
-impl<K: Archive + Hash + Eq, S> Archive for HashSet<K, S>
+impl<K, S> Archive for HashSet<K, S>
 where
+    K: Archive + Hash + Eq,
     K::Archived: Hash + Eq,
 {
     type Archived = ArchivedHashSet<K::Archived>;

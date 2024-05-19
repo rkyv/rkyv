@@ -91,20 +91,6 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for CStr {
 
 // CString
 
-impl PartialEq<CString> for ArchivedCString {
-    #[inline]
-    fn eq(&self, other: &CString) -> bool {
-        PartialEq::eq(self.as_c_str(), other.as_c_str())
-    }
-}
-
-impl PartialEq<ArchivedCString> for CString {
-    #[inline]
-    fn eq(&self, other: &ArchivedCString) -> bool {
-        PartialEq::eq(other.as_c_str(), self.as_c_str())
-    }
-}
-
 impl Archive for CString {
     type Archived = ArchivedCString;
     type Resolver = CStringResolver;
@@ -144,6 +130,20 @@ where
         }
         let boxed = unsafe { Box::<CStr>::from_raw(out) };
         Ok(CString::from(boxed))
+    }
+}
+
+impl PartialEq<CString> for ArchivedCString {
+    #[inline]
+    fn eq(&self, other: &CString) -> bool {
+        PartialEq::eq(self.as_c_str(), other.as_c_str())
+    }
+}
+
+impl PartialEq<ArchivedCString> for CString {
+    #[inline]
+    fn eq(&self, other: &ArchivedCString) -> bool {
+        PartialEq::eq(other.as_c_str(), self.as_c_str())
     }
 }
 

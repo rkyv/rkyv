@@ -77,8 +77,10 @@ where
     }
 }
 
-impl<T: Archive, D: Fallible + ?Sized> DeserializeUnsized<T, D> for T::Archived
+impl<T, D> DeserializeUnsized<T, D> for T::Archived
 where
+    T: Archive,
+    D: Fallible + ?Sized,
     T::Archived: Deserialize<T, D>,
 {
     unsafe fn deserialize_unsized(

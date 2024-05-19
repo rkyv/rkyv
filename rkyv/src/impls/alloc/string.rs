@@ -55,16 +55,16 @@ impl PartialEq<ArchivedString> for String {
     }
 }
 
-impl PartialOrd<ArchivedString> for String {
+impl PartialOrd<String> for ArchivedString {
     #[inline]
-    fn partial_cmp(&self, other: &ArchivedString) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &String) -> Option<Ordering> {
         self.as_str().partial_cmp(other.as_str())
     }
 }
 
-impl PartialOrd<String> for ArchivedString {
+impl PartialOrd<ArchivedString> for String {
     #[inline]
-    fn partial_cmp(&self, other: &String) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &ArchivedString) -> Option<Ordering> {
         self.as_str().partial_cmp(other.as_str())
     }
 }

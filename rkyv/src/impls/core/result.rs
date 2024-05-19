@@ -59,8 +59,11 @@ impl<T: Archive, U: Archive> Archive for Result<T, U> {
     }
 }
 
-impl<T: Serialize<S>, U: Serialize<S>, S: Fallible + ?Sized> Serialize<S>
-    for Result<T, U>
+impl<T, U, S> Serialize<S> for Result<T, U>
+where
+    T: Serialize<S>,
+    U: Serialize<S>,
+    S: Fallible + ?Sized,
 {
     fn serialize(
         &self,

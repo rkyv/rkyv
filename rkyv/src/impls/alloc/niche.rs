@@ -17,17 +17,6 @@ where
     }
 }
 
-#[cfg(feature = "extra_traits")]
-impl<T, U> PartialEq<ArchivedOptionBox<T>> for Option<Box<U>>
-where
-    T: ArchivePointee + PartialEq<U> + ?Sized,
-    U: ?Sized,
-{
-    fn eq(&self, other: &ArchivedOptionBox<T>) -> bool {
-        other.eq(self)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{

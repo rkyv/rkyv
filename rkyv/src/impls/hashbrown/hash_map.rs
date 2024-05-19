@@ -12,8 +12,9 @@ use crate::{
     Archive, Deserialize, Place, Serialize,
 };
 
-impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>
+impl<K, V: Archive, S> Archive for HashMap<K, V, S>
 where
+    K: Archive + Hash + Eq,
     K::Archived: Hash + Eq,
 {
     type Archived = ArchivedHashMap<K::Archived, V::Archived>;

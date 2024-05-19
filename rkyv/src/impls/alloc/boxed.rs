@@ -21,8 +21,10 @@ impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {
     }
 }
 
-impl<T: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> Serialize<S>
-    for Box<T>
+impl<T, S> Serialize<S> for Box<T>
+where
+    T: SerializeUnsized<S> + ?Sized,
+    S: Fallible + ?Sized,
 {
     fn serialize(
         &self,
@@ -57,16 +59,20 @@ where
     }
 }
 
-impl<T: ArchivePointee + PartialEq<U> + ?Sized, U: ?Sized> PartialEq<Box<U>>
-    for ArchivedBox<T>
+impl<T, U> PartialEq<Box<U>> for ArchivedBox<T>
+where
+    T: ArchivePointee + PartialEq<U> + ?Sized,
+    U: ?Sized,
 {
     fn eq(&self, other: &Box<U>) -> bool {
         self.get().eq(other.as_ref())
     }
 }
 
-impl<T: ArchivePointee + PartialOrd<U> + ?Sized, U: ?Sized> PartialOrd<Box<U>>
-    for ArchivedBox<T>
+impl<T, U> PartialOrd<Box<U>> for ArchivedBox<T>
+where
+    T: ArchivePointee + PartialOrd<U> + ?Sized,
+    U: ?Sized,
 {
     fn partial_cmp(&self, other: &Box<U>) -> Option<cmp::Ordering> {
         self.get().partial_cmp(other.as_ref())

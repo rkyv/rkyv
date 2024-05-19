@@ -88,12 +88,6 @@ impl<K, AK: PartialEq<K>> PartialEq<BTreeSet<K>> for ArchivedBTreeSet<AK> {
     }
 }
 
-impl<K, AK: PartialEq<K>> PartialEq<ArchivedBTreeSet<AK>> for BTreeSet<K> {
-    fn eq(&self, other: &ArchivedBTreeSet<AK>) -> bool {
-        other.eq(self)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::BTreeSet;

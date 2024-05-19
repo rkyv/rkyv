@@ -96,17 +96,6 @@ where
     }
 }
 
-#[cfg(feature = "extra_impls")]
-impl<K, V, AK, AV> PartialEq<ArchivedBTreeMap<AK, AV>> for BTreeMap<K, V>
-where
-    AK: PartialEq<K>,
-    AV: PartialEq<V>,
-{
-    fn eq(&self, other: &ArchivedBTreeMap<AK, AV>) -> bool {
-        other.eq(self)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::BTreeMap;

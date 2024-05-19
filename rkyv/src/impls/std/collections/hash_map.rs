@@ -12,8 +12,9 @@ use crate::{
     Archive, Deserialize, Place, Serialize,
 };
 
-impl<K: Archive + Hash + Eq, V: Archive, S> Archive for HashMap<K, V, S>
+impl<K, V: Archive, S> Archive for HashMap<K, V, S>
 where
+    K: Archive + Hash + Eq,
     K::Archived: Hash + Eq,
 {
     type Archived = ArchivedHashMap<K::Archived, V::Archived>;
@@ -70,13 +71,12 @@ where
     }
 }
 
-impl<
-        K: Hash + Eq + Borrow<AK>,
-        V,
-        AK: Hash + Eq,
-        AV: PartialEq<V>,
-        S: BuildHasher,
-    > PartialEq<HashMap<K, V, S>> for ArchivedHashMap<AK, AV>
+impl<K, V, AK, AV, S> PartialEq<HashMap<K, V, S>> for ArchivedHashMap<AK, AV>
+where
+    K: Hash + Eq + Borrow<AK>,
+    AK: Hash + Eq,
+    AV: PartialEq<V>,
+    S: BuildHasher,
 {
     fn eq(&self, other: &HashMap<K, V, S>) -> bool {
         if self.len() != other.len() {
@@ -89,8 +89,11 @@ impl<
     }
 }
 
-impl<K: Hash + Eq + Borrow<AK>, V, AK: Hash + Eq, AV: PartialEq<V>>
-    PartialEq<ArchivedHashMap<AK, AV>> for HashMap<K, V>
+impl<K, V, AK, AV> PartialEq<ArchivedHashMap<AK, AV>> for HashMap<K, V>
+where
+    K: Hash + Eq + Borrow<AK>,
+    AK: Hash + Eq,
+    AV: PartialEq<V>,
 {
     fn eq(&self, other: &ArchivedHashMap<AK, AV>) -> bool {
         other.eq(self)
