@@ -7,7 +7,6 @@ use rancor::Fallible;
 
 use crate::{Archive, Place, Portable, Serialize};
 
-// TODO: can this be replaced with custom resolve functions?
 /// An adapter which serializes and resolves its key and value references.
 pub struct EntryAdapter<'a, K, V> {
     /// The key to serialize and resolve.

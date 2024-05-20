@@ -113,8 +113,6 @@ impl_offset_multi_byte!(u64, ArchivedU64);
 /// with the **pointee** without invalidating the pointer. However, if either
 /// the **pointer** or the **pointee** move independently, the pointer will be
 /// invalidated.
-// TODO: should RawRelPtr not implement Portable? We're missing a check that the
-// type it gets a pointer to is Portable.
 #[derive(Portable)]
 #[archive(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]

@@ -14,7 +14,8 @@ use crate::LayoutRaw;
 ///
 /// # Safety
 ///
-/// TODO
+/// `check_subtree_ptr` must only return true if `ptr` is located entirely
+/// within the subtree range and is safe to dereference.
 pub unsafe trait ArchiveContext<E = <Self as Fallible>::Error> {
     /// Checks that the given data address and layout is located completely
     /// within the subtree range.
@@ -86,7 +87,7 @@ where
     }
 }
 
-/// Helper methods for `ArchiveContext`s.
+/// Helper methods for [`ArchiveContext`].
 pub trait ArchiveContextExt<E>: ArchiveContext<E> {
     /// Checks that the given pointer and layout are within the current subtree
     /// range of the context, then pushes a new subtree range onto the validator

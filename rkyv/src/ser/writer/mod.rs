@@ -52,7 +52,7 @@ where
     }
 }
 
-/// TODO: Document
+/// Helper methods for [`Writer`].
 pub trait WriterExt<E>: Writer<E> {
     /// Advances the given number of bytes as padding.
     fn pad(&mut self, padding: usize) -> Result<(), E> {

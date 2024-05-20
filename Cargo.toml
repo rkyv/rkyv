@@ -18,7 +18,7 @@ default-members = [
 resolver = "2"
 
 [workspace.package]
-# STOP! RESOLVE ALL TODOS IN CODE AND TODO.md BEFORE PUBLISHING 0.8.0!
+# STOP! RESOLVE ALL TODOS BEFORE PUBLISHING 0.8.0!
 version = "0.8.0-alpha.2"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2021"

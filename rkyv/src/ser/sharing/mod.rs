@@ -37,7 +37,7 @@ where
     }
 }
 
-/// TODO: Document this
+/// Helper methods for [`Sharing`].
 pub trait SharingExt<E>: Sharing<E> {
     /// Gets the position of a previously-added shared value.
     ///

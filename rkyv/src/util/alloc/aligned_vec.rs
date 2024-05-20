@@ -184,8 +184,6 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
 
         if new_cap > 0 {
             let new_ptr = if self.cap > 0 {
-                // TODO: also verify that `new_cap` does not overflow `isize`
-                // when rounded up to the nearest multiple of `ALIGNMENT`.
                 // SAFETY:
                 // - `self.ptr` is currently allocated because `self.cap` is
                 //   greater than zero.

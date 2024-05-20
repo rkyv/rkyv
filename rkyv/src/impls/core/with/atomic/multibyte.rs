@@ -4,6 +4,7 @@ use {
         ArchivedAtomicI16, ArchivedAtomicU16, ArchivedI16, ArchivedU16,
     },
     core::sync::atomic::{AtomicI16, AtomicU16},
+    rend::{AtomicI16_be, AtomicI16_le, AtomicU16_be, AtomicU16_le},
 };
 #[cfg(target_has_atomic = "32")]
 use {
@@ -11,6 +12,7 @@ use {
         ArchivedAtomicI32, ArchivedAtomicU32, ArchivedI32, ArchivedU32,
     },
     core::sync::atomic::{AtomicI32, AtomicU32},
+    rend::{AtomicI32_be, AtomicI32_le, AtomicU32_be, AtomicU32_le},
 };
 #[cfg(target_has_atomic = "64")]
 use {
@@ -18,6 +20,7 @@ use {
         ArchivedAtomicI64, ArchivedAtomicU64, ArchivedI64, ArchivedU64,
     },
     core::sync::atomic::{AtomicI64, AtomicU64},
+    rend::{AtomicI64_be, AtomicI64_le, AtomicU64_be, AtomicU64_le},
 };
 #[cfg(any(
     all(target_has_atomic = "16", feature = "pointer_width_16"),
@@ -117,16 +120,28 @@ macro_rules! impl_multi_byte_atomics {
 impl_multi_byte_atomics! {
     AtomicI16, ArchivedAtomicI16, ArchivedI16;
     AtomicU16, ArchivedAtomicU16, ArchivedU16;
+    AtomicI16_le, AtomicI16_le, ArchivedI16;
+    AtomicI16_be, AtomicI16_be, ArchivedI16;
+    AtomicU16_le, AtomicU16_le, ArchivedU16;
+    AtomicU16_be, AtomicU16_be, ArchivedU16;
 }
 #[cfg(target_has_atomic = "32")]
 impl_multi_byte_atomics! {
     AtomicI32, ArchivedAtomicI32, ArchivedI32;
     AtomicU32, ArchivedAtomicU32, ArchivedU32;
+    AtomicI32_le, AtomicI32_le, ArchivedI32;
+    AtomicI32_be, AtomicI32_be, ArchivedI32;
+    AtomicU32_le, AtomicU32_le, ArchivedU32;
+    AtomicU32_be, AtomicU32_be, ArchivedU32;
 }
 #[cfg(target_has_atomic = "64")]
 impl_multi_byte_atomics! {
     AtomicI64, ArchivedAtomicI64, ArchivedI64;
     AtomicU64, ArchivedAtomicU64, ArchivedU64;
+    AtomicI64_le, AtomicI64_le, ArchivedI64;
+    AtomicI64_be, AtomicI64_be, ArchivedI64;
+    AtomicU64_le, AtomicU64_le, ArchivedU64;
+    AtomicU64_be, AtomicU64_be, ArchivedU64;
 }
 
 // AtomicUsize
@@ -215,5 +230,3 @@ impl_atomic_size_types! {
     AtomicIsize, ArchivedAtomicIsize, ArchivedIsize;
     AtomicUsize, ArchivedAtomicUsize, ArchivedUsize;
 }
-
-// TODO: provide impls for rend atomics

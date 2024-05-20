@@ -19,6 +19,7 @@
 
 use core::{
     alloc::Layout,
+    fmt,
     marker::PhantomData,
     mem::size_of,
     pin::Pin,
@@ -147,13 +148,13 @@ impl<T> ArchivedHashTable<T> {
                     let bucket_ptr = unsafe { self.bucket(index) };
                     let bucket = unsafe { bucket_ptr.as_ref() };
 
-                    // TODO: likely
+                    // Opt: These can be marked as likely true on nightly.
                     if cmp(bucket) {
                         return Some(bucket_ptr);
                     }
                 }
 
-                // TODO: likely
+                // Opt: These can be marked as likely true on nightly.
                 any_empty = any_empty || group.match_empty().any_bit_set();
 
                 probe_seq.next_group();
@@ -296,7 +297,35 @@ impl<T> ArchivedHashTable<T> {
         S: Fallible + Writer + Allocator + ?Sized,
         S::Error: Source,
     {
-        // TODO: error if load_factor.0 is greater than load_factor.1
+        #[derive(Debug)]
+        struct InvalidLoadFactor {
+            numerator: usize,
+            denominator: usize,
+        }
+
+        impl fmt::Display for InvalidLoadFactor {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(
+                    f,
+                    "invalid load factor {} / {}, load factor must be a \
+                     fraction in the range (0, 1]",
+                    self.numerator, self.denominator
+                )
+            }
+        }
+
+        #[cfg(feature = "std")]
+        impl std::error::Error for InvalidLoadFactor {}
+
+        if load_factor.0 == 0
+            || load_factor.1 == 0
+            || load_factor.0 > load_factor.1
+        {
+            fail!(InvalidLoadFactor {
+                numerator: load_factor.0,
+                denominator: load_factor.1,
+            });
+        }
 
         let len = items.len();
 

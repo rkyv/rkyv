@@ -7,6 +7,20 @@ use core::{
 
 use crate::Portable;
 
+/// An archived [`RangeFull`](::core::ops::RangeFull).
+#[derive(Clone, Copy, Default, PartialEq, Eq, Hash, Portable)]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
+#[repr(C)]
+#[archive(crate)]
+pub struct ArchivedRangeFull;
+
+impl fmt::Debug for ArchivedRangeFull {
+    #[inline]
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(fmt, "..")
+    }
+}
+
 /// An archived [`Range`](::core::ops::Range).
 #[derive(Clone, Default, PartialEq, Eq, Hash, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]

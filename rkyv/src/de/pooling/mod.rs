@@ -115,7 +115,8 @@ impl ErasedPtr {
 ///
 /// # Safety
 ///
-/// TODO
+/// `alloc` and `from_value` must return pointerw which are non-null, writeable,
+/// and properly aligned for `T`.
 pub unsafe trait SharedPointer<T: Pointee + ?Sized> {
     /// Allocates space for a value with the given metadata.
     fn alloc(metadata: T::Metadata) -> Result<*mut T, LayoutError>;
@@ -178,7 +179,7 @@ where
     }
 }
 
-/// Helper methods for `SharedDeserializeRegistry`.
+/// Helper methods for [`Pooling`].
 pub trait PoolingExt<E>: Pooling<E> {
     /// Checks whether the given reference has been deserialized and either uses
     /// the existing shared pointer to it, or deserializes it and converts

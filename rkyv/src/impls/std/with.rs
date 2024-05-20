@@ -453,3 +453,116 @@ where
         Ok(Cow::Owned(field.deserialize(deserializer)?))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        ffi::OsString,
+        path::PathBuf,
+        sync::{Mutex, RwLock},
+    };
+
+    use crate::{
+        test::roundtrip_with,
+        with::{AsString, Lock, Unsafe},
+        Archive, Deserialize, Serialize,
+    };
+
+    #[test]
+    fn roundtrip_mutex() {
+        #[derive(Archive, Serialize, Deserialize, Debug)]
+        #[archive(crate)]
+        #[archive_attr(derive(Debug, PartialEq))]
+        struct Test {
+            #[with(Lock<Unsafe>)]
+            value: Mutex<i32>,
+        }
+
+        impl PartialEq for Test {
+            fn eq(&self, other: &Self) -> bool {
+                let self_value = self.value.lock().unwrap();
+                let other_value = other.value.lock().unwrap();
+                *self_value == *other_value
+            }
+        }
+
+        roundtrip_with(
+            &Test {
+                value: Mutex::new(10),
+            },
+            |a, b| {
+                let a_value = a.value.lock().unwrap();
+                assert_eq!(b.value, *a_value);
+            },
+        );
+    }
+
+    #[test]
+    fn roundtrip_rwlock() {
+        #[derive(Archive, Serialize, Deserialize, Debug)]
+        #[archive(crate)]
+        #[archive_attr(derive(Debug, PartialEq))]
+        struct Test {
+            #[with(Lock<Unsafe>)]
+            value: RwLock<i32>,
+        }
+
+        impl PartialEq for Test {
+            fn eq(&self, other: &Self) -> bool {
+                let self_value = self.value.try_read().unwrap();
+                let other_value = other.value.try_read().unwrap();
+                *self_value == *other_value
+            }
+        }
+
+        roundtrip_with(
+            &Test {
+                value: RwLock::new(10),
+            },
+            |a, b| {
+                let a_value = a.value.try_read().unwrap();
+                assert_eq!(b.value, *a_value);
+            },
+        );
+    }
+
+    #[test]
+    fn roundtrip_os_string() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[archive(crate)]
+        #[archive_attr(derive(Debug, PartialEq))]
+        struct Test {
+            #[with(AsString)]
+            value: OsString,
+        }
+
+        roundtrip_with(
+            &Test {
+                value: OsString::from("hello world"),
+            },
+            |a, b| {
+                assert_eq!(a.value.as_os_str().to_str().unwrap(), b.value);
+            },
+        );
+    }
+
+    #[test]
+    fn roundtrip_path_buf() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[archive(crate)]
+        #[archive_attr(derive(Debug, PartialEq))]
+        struct Test {
+            #[with(AsString)]
+            value: PathBuf,
+        }
+
+        roundtrip_with(
+            &Test {
+                value: PathBuf::from("hello world"),
+            },
+            |a, b| {
+                assert_eq!(a.value.as_os_str().to_str().unwrap(), b.value);
+            },
+        );
+    }
+}

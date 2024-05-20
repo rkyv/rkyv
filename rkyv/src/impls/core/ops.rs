@@ -11,24 +11,20 @@ use rancor::Fallible;
 
 use crate::{
     ops::{
-        ArchivedBound, ArchivedRange, ArchivedRangeFrom,
+        ArchivedBound, ArchivedRange, ArchivedRangeFrom, ArchivedRangeFull,
         ArchivedRangeInclusive, ArchivedRangeTo, ArchivedRangeToInclusive,
     },
     place::Initialized,
-    Archive, CopyOptimization, Deserialize, Place, Portable, Serialize,
+    Archive, CopyOptimization, Deserialize, Place, Serialize,
 };
 
 // RangeFull
-
-// TODO: Technically ZSTs do not need to have a defined alignment, so this impl
-// is technically incorrect. We should replace it.
-unsafe impl Portable for RangeFull {}
 
 impl Archive for RangeFull {
     const COPY_OPTIMIZATION: CopyOptimization<Self> =
         unsafe { CopyOptimization::enable() };
 
-    type Archived = Self;
+    type Archived = ArchivedRangeFull;
     type Resolver = ();
 
     #[inline]
@@ -41,9 +37,15 @@ impl<S: Fallible + ?Sized> Serialize<S> for RangeFull {
     }
 }
 
-impl<D: Fallible + ?Sized> Deserialize<RangeFull, D> for RangeFull {
-    fn deserialize(&self, _: &mut D) -> Result<Self, D::Error> {
+impl<D: Fallible + ?Sized> Deserialize<RangeFull, D> for ArchivedRangeFull {
+    fn deserialize(&self, _: &mut D) -> Result<RangeFull, D::Error> {
         Ok(RangeFull)
+    }
+}
+
+impl PartialEq<RangeFull> for ArchivedRangeFull {
+    fn eq(&self, _: &RangeFull) -> bool {
+        true
     }
 }
 
