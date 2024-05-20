@@ -8,6 +8,7 @@ use rancor::{Fallible, ResultExt as _, Source};
 
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
+    niche::option_box::ArchivedOptionBox,
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized,
     LayoutRaw, Place, Serialize, SerializeUnsized,
 };
@@ -76,6 +77,20 @@ where
 {
     fn partial_cmp(&self, other: &Box<U>) -> Option<cmp::Ordering> {
         self.get().partial_cmp(other.as_ref())
+    }
+}
+
+impl<T, U> PartialEq<Option<Box<T>>> for ArchivedOptionBox<U>
+where
+    T: ?Sized,
+    U: ArchivePointee + PartialEq<T> + ?Sized,
+{
+    fn eq(&self, other: &Option<Box<T>>) -> bool {
+        match (self.as_deref(), other.as_deref()) {
+            (Some(self_value), Some(other_value)) => self_value.eq(other_value),
+            (None, None) => true,
+            _ => false,
+        }
     }
 }
 

@@ -35,11 +35,9 @@ use {
 };
 
 use crate::{
+    impls::core::with::atomic::LoadOrdering,
     rancor::Fallible,
-    with::{
-        impls::atomic::LoadOrdering, ArchiveWith, AsAtomic, AtomicLoad,
-        DeserializeWith,
-    },
+    with::{ArchiveWith, AsAtomic, AtomicLoad, DeserializeWith},
     Place,
 };
 

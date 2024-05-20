@@ -1,4 +1,4 @@
-use rkyv::{rancor::Error, with::Boxed, Archive, Deserialize, Serialize};
+use rkyv::{rancor::Error, with::AsBox, Archive, Deserialize, Serialize};
 
 // This is the version used by the older client, which can read newer versions
 // from senders.
@@ -28,7 +28,7 @@ struct ExampleV2 {
 #[derive(Archive, Deserialize, Serialize)]
 #[repr(transparent)]
 #[archive(check_bytes)]
-struct Versioned<T>(#[with(Boxed)] pub T);
+struct Versioned<T>(#[with(AsBox)] pub T);
 
 // This is some code running on the older client. It accepts the older version
 // of the struct and prints out the `a` and `b` fields.

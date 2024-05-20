@@ -24,6 +24,7 @@ mod option;
 mod primitive;
 mod result;
 mod time;
+mod with;
 
 impl<T> LayoutRaw for T {
     fn layout_raw(

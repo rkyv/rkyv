@@ -1,3 +1,5 @@
+mod atomic;
+
 use core::{
     cell::{Cell, UnsafeCell},
     hint::unreachable_unchecked,
@@ -8,7 +10,6 @@ use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    boxed::{ArchivedBox, BoxResolver},
     niche::option_nonzero::{
         ArchivedOptionNonZeroIsize, ArchivedOptionNonZeroUsize,
     },
@@ -16,13 +17,13 @@ use crate::{
     place::Initialized,
     primitive::{FixedNonZeroIsize, FixedNonZeroUsize},
     with::{
-        ArchiveWith, Boxed, BoxedInline, DeserializeWith, Inline, Map, Niche,
-        SerializeWith, Skip, Unsafe,
+        ArchiveWith, DeserializeWith, Inline, Map, Niche, SerializeWith, Skip,
+        Unsafe,
     },
-    Archive, ArchiveUnsized, Deserialize, Place, Serialize, SerializeUnsized,
+    Archive, Deserialize, Place, Serialize,
 };
 
-// Map for Options
+// Map
 
 // Copy-paste from Option's impls for the most part
 impl<A, O> ArchiveWith<Option<O>> for Map<A>
@@ -122,96 +123,9 @@ struct ArchivedOptionVariantNone(ArchivedOptionTag);
 #[repr(C)]
 struct ArchivedOptionVariantSome<T>(ArchivedOptionTag, T);
 
-// Inline
-
-impl<F: Archive> ArchiveWith<&F> for Inline {
-    type Archived = F::Archived;
-    type Resolver = F::Resolver;
-
-    fn resolve_with(
-        field: &&F,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
-        field.resolve(resolver, out);
-    }
-}
-
-impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<&F, S> for Inline {
-    fn serialize_with(
-        field: &&F,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
-        field.serialize(serializer)
-    }
-}
-
-// BoxedInline
-
-impl<F: ArchiveUnsized + ?Sized> ArchiveWith<&F> for BoxedInline {
-    type Archived = ArchivedBox<F::Archived>;
-    type Resolver = BoxResolver;
-
-    fn resolve_with(
-        field: &&F,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
-        ArchivedBox::resolve_from_ref(*field, resolver, out);
-    }
-}
-
-impl<F: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> SerializeWith<&F, S>
-    for BoxedInline
-{
-    fn serialize_with(
-        field: &&F,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
-        ArchivedBox::serialize_from_ref(*field, serializer)
-    }
-}
-
-// Boxed
-
-impl<F: ArchiveUnsized + ?Sized> ArchiveWith<F> for Boxed {
-    type Archived = ArchivedBox<F::Archived>;
-    type Resolver = BoxResolver;
-
-    fn resolve_with(
-        field: &F,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
-        ArchivedBox::resolve_from_ref(field, resolver, out);
-    }
-}
-
-impl<F: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> SerializeWith<F, S>
-    for Boxed
-{
-    fn serialize_with(
-        field: &F,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
-        ArchivedBox::serialize_from_ref(field, serializer)
-    }
-}
-
-impl<F: Archive, D: Fallible + ?Sized>
-    DeserializeWith<ArchivedBox<F::Archived>, F, D> for Boxed
-where
-    F::Archived: Deserialize<F, D>,
-{
-    fn deserialize_with(
-        field: &ArchivedBox<F::Archived>,
-        deserializer: &mut D,
-    ) -> Result<F, D::Error> {
-        field.get().deserialize(deserializer)
-    }
-}
-
 // Niche
+
+// TODO: implement niching for the other nonzero option types and add partialeq
 
 impl ArchiveWith<Option<NonZeroIsize>> for Niche {
     type Archived = ArchivedOptionNonZeroIsize;
@@ -237,9 +151,10 @@ impl<S: Fallible + ?Sized> SerializeWith<Option<NonZeroIsize>, S> for Niche {
     }
 }
 
-impl<D: Fallible + ?Sized>
-    DeserializeWith<ArchivedOptionNonZeroIsize, Option<NonZeroIsize>, D>
+impl<D> DeserializeWith<ArchivedOptionNonZeroIsize, Option<NonZeroIsize>, D>
     for Niche
+where
+    D: Fallible + ?Sized,
 {
     fn deserialize_with(
         field: &ArchivedOptionNonZeroIsize,
@@ -277,9 +192,10 @@ impl<S: Fallible + ?Sized> SerializeWith<Option<NonZeroUsize>, S> for Niche {
     }
 }
 
-impl<D: Fallible + ?Sized>
-    DeserializeWith<ArchivedOptionNonZeroUsize, Option<NonZeroUsize>, D>
+impl<D> DeserializeWith<ArchivedOptionNonZeroUsize, Option<NonZeroUsize>, D>
     for Niche
+where
+    D: Fallible + ?Sized,
 {
     fn deserialize_with(
         field: &ArchivedOptionNonZeroUsize,
@@ -290,6 +206,30 @@ impl<D: Fallible + ?Sized>
         Ok(field
             .as_ref()
             .map(|x| FixedNonZeroUsize::from(*x).try_into().unwrap()))
+    }
+}
+
+// Inline
+
+impl<F: Archive> ArchiveWith<&F> for Inline {
+    type Archived = F::Archived;
+    type Resolver = F::Resolver;
+
+    fn resolve_with(
+        field: &&F,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        field.resolve(resolver, out);
+    }
+}
+
+impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<&F, S> for Inline {
+    fn serialize_with(
+        field: &&F,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        field.serialize(serializer)
     }
 }
 
@@ -310,8 +250,10 @@ impl<F: Archive> ArchiveWith<UnsafeCell<F>> for Unsafe {
     }
 }
 
-impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<UnsafeCell<F>, S>
-    for Unsafe
+impl<F, S> SerializeWith<UnsafeCell<F>, S> for Unsafe
+where
+    F: Serialize<S>,
+    S: Fallible + ?Sized,
 {
     fn serialize_with(
         field: &UnsafeCell<F>,
@@ -321,10 +263,11 @@ impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<UnsafeCell<F>, S>
     }
 }
 
-impl<F: Archive, D: Fallible + ?Sized>
-    DeserializeWith<UnsafeCell<F::Archived>, UnsafeCell<F>, D> for Unsafe
+impl<F, D> DeserializeWith<UnsafeCell<F::Archived>, UnsafeCell<F>, D> for Unsafe
 where
+    F: Archive,
     F::Archived: Deserialize<F, D>,
+    D: Fallible + ?Sized,
 {
     fn deserialize_with(
         field: &UnsafeCell<F::Archived>,
@@ -353,8 +296,10 @@ impl<F: Archive> ArchiveWith<Cell<F>> for Unsafe {
     }
 }
 
-impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Cell<F>, S>
-    for Unsafe
+impl<F, S> SerializeWith<Cell<F>, S> for Unsafe
+where
+    F: Serialize<S>,
+    S: Fallible + ?Sized,
 {
     fn serialize_with(
         field: &Cell<F>,
@@ -364,10 +309,11 @@ impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Cell<F>, S>
     }
 }
 
-impl<F: Archive, D: Fallible + ?Sized>
-    DeserializeWith<Cell<F::Archived>, Cell<F>, D> for Unsafe
+impl<F, D> DeserializeWith<Cell<F::Archived>, Cell<F>, D> for Unsafe
 where
+    F: Archive,
     F::Archived: Deserialize<F, D>,
+    D: Fallible + ?Sized,
 {
     fn deserialize_with(
         field: &Cell<F::Archived>,

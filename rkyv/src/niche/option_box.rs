@@ -277,38 +277,3 @@ pub enum OptionBoxResolver {
     /// The resolver for the `ArchivedBox`
     Some(BoxResolver),
 }
-
-#[cfg(all(test, feature = "bytecheck"))]
-mod tests {
-    use crate::{rancor::Failure, Archived};
-
-    #[test]
-    fn test_option_box() {
-        #[derive(Debug, crate::Archive, crate::Serialize)]
-        #[archive(check_bytes, crate)]
-        struct Test {
-            #[with(crate::with::Niche)]
-            value: Option<Box<u128>>,
-        }
-
-        for value in [Some(128.into()), None] {
-            let test = Test { value };
-            let bytes = crate::to_bytes::<Failure>(&test).unwrap();
-            // ptr + value?
-            assert_eq!(bytes.len(), 4 + test.value.is_some() as usize * 16);
-
-            let ar = match crate::access::<Archived<Test>, Failure>(&bytes) {
-                Ok(archived) => archived,
-                Err(e) => panic!("{} {:?}", e, test),
-            };
-
-            match test.value {
-                Some(value) => assert_eq!(
-                    ar.value.as_ref().unwrap().as_ref(),
-                    value.as_ref()
-                ),
-                None => assert!(ar.value.is_none()),
-            }
-        }
-    }
-}

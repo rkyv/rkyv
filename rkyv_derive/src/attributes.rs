@@ -100,7 +100,7 @@ impl Attributes {
             if meta.input.parse::<Token![=]>().is_ok() {
                 let path = meta.input.parse::<Path>()?;
                 try_set_attribute(&mut self.crate_path, path, "crate")
-            } else if meta.input.is_empty() {
+            } else if meta.input.is_empty() || meta.input.peek(Token![,]) {
                 try_set_attribute(
                     &mut self.crate_path,
                     parse_quote! { crate },

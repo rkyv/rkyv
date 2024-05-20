@@ -1069,11 +1069,11 @@ mod tests {
 
     #[test]
     fn with_boxed() {
-        use rkyv::with::Boxed;
+        use rkyv::with::AsBox;
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test {
-            #[with(Boxed)]
+            #[with(AsBox)]
             value: i32,
         }
 
@@ -1086,11 +1086,11 @@ mod tests {
 
     #[test]
     fn with_boxed_inline() {
-        use rkyv::with::BoxedInline;
+        use rkyv::with::InlineAsBox;
 
         #[derive(Archive, Serialize, Deserialize)]
         struct Test<'a> {
-            #[with(BoxedInline)]
+            #[with(InlineAsBox)]
             value: &'a str,
         }
 
@@ -1356,7 +1356,7 @@ mod tests {
         #[derive(Archive, Deserialize, Serialize)]
         #[archive(crate = alt_path)]
         struct Test<'a> {
-            #[with(alt_path::with::BoxedInline)]
+            #[with(alt_path::with::InlineAsBox)]
             value: &'a str,
             other: i32,
         }

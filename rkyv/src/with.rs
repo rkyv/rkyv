@@ -3,15 +3,13 @@
 //! Wrappers can be applied with the `#[with(...)]` attribute in the
 //! [`Archive`](macro@crate::Archive) macro.
 
-mod impls;
+// mod impls;
 
-use core::{fmt, marker::PhantomData, ops::Deref};
+use core::marker::PhantomData;
 
 use rancor::Fallible;
 
 use crate::{Place, Portable};
-
-// TODO: Gate unsafe wrappers behind Unsafe.
 
 /// A variant of [`Archive`](crate::Archive) that works with wrappers.
 ///
@@ -131,49 +129,32 @@ pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
         -> Result<T, D::Error>;
 }
 
-/// A wrapper to make a type immutable.
-#[derive(Debug, Portable)]
-#[archive(crate)]
-#[repr(transparent)]
-#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-pub struct Immutable<T: ?Sized>(T);
-
-impl<T: ?Sized> Immutable<T> {
-    /// Gets the underlying immutable value.
-    pub fn value(&self) -> &T {
-        &self.0
-    }
-}
-
-impl<T: ?Sized> Deref for Immutable<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 /// A generic wrapper that allows wrapping an `Option<T>`.
 ///
 /// # Example
 ///
 /// ```
 /// use rkyv::{
-///     with::{BoxedInline, Map},
+///     with::{InlineAsBox, Map},
 ///     Archive,
 /// };
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
-///     #[with(Map<BoxedInline>)]
+///     #[with(Map<InlineAsBox>)]
 ///     option: Option<&'a i32>,
-///     #[with(Map<BoxedInline>)]
+///     #[with(Map<InlineAsBox>)]
 ///     vec: Vec<&'a i32>,
 /// }
 /// ```
-#[derive(Debug)]
-pub struct Map<Archivable> {
-    _type: PhantomData<Archivable>,
+pub struct Map<T> {
+    _phantom: PhantomData<T>,
+}
+
+/// A generic wrapper that allows wrapping a `HashMap<K, V>` or
+/// `BTreeMap<K, V>`.
+pub struct MapKV<K, V> {
+    _phantom: PhantomData<(K, V)>,
 }
 
 /// A type indicating relaxed atomic loads.
@@ -272,57 +253,53 @@ pub struct Inline;
 
 /// A wrapper that serializes a field into a box.
 ///
-/// This functions similarly to [`BoxedInline`], but is for regular fields
+/// This functions similarly to [`AsInlineBox`], but is for regular fields
 /// instead of references.
 ///
 /// # Example
 ///
 /// ```
-/// use rkyv::{with::Boxed, Archive};
+/// use rkyv::{with::AsBox, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example {
-///     #[with(Boxed)]
+///     #[with(AsBox)]
 ///     a: i32,
-///     #[with(Boxed)]
+///     #[with(AsBox)]
 ///     b: str,
 /// }
 /// ```
 #[derive(Debug)]
-pub struct Boxed;
+pub struct AsBox;
 
 /// A wrapper that serializes a reference as if it were boxed.
 ///
-/// Unlike [`Inline`], unsized references can be serialized with `BoxedInline`.
+/// Unlike [`Inline`], unsized references can be serialized with `InlineAsBox`.
 ///
-/// References serialized with `BoxedInline` cannot be deserialized because the
+/// References serialized with `InlineAsBox` cannot be deserialized because the
 /// struct cannot own the deserialized value.
 ///
 /// # Example
 ///
 /// ```
-/// use rkyv::{with::BoxedInline, Archive};
+/// use rkyv::{with::InlineAsBox, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
-///     #[with(BoxedInline)]
+///     #[with(InlineAsBox)]
 ///     a: &'a i32,
-///     #[with(BoxedInline)]
+///     #[with(InlineAsBox)]
 ///     b: &'a str,
 /// }
 /// ```
 #[derive(Debug)]
-pub struct BoxedInline;
+pub struct InlineAsBox;
 
 /// A wrapper that attempts to convert a type to and from UTF-8.
 ///
 /// Types like `OsString` and `PathBuf` aren't guaranteed to be encoded as
 /// UTF-8, but they usually are anyway. Using this wrapper will archive them as
 /// if they were regular `String`s.
-///
-/// Regular serializers don't support the custom error handling needed for this
-/// type by default. To use this wrapper, a custom serializer with an error type
-/// satisfying `<S as Fallible>::Error: From<AsStringError>` must be provided.
 ///
 /// # Example
 ///
@@ -342,18 +319,6 @@ pub struct BoxedInline;
 #[derive(Debug)]
 pub struct AsString;
 
-#[derive(Debug)]
-struct InvalidStr;
-
-impl fmt::Display for InvalidStr {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "invalid UTF-8")
-    }
-}
-
-#[cfg(feature = "std")]
-impl ::std::error::Error for InvalidStr {}
-
 /// A wrapper that locks a lock and serializes the value immutably.
 ///
 /// This wrapper can panic under very specific circumstances when:
@@ -367,42 +332,26 @@ impl ::std::error::Error for InvalidStr {}
 /// absolutely must not panic under any circumstances, it's recommended that you
 /// lock your values and then serialize them while locked.
 ///
-/// Additionally, mutating the data protected by a mutex between the serialize
-/// and resolve steps may cause undefined behavior in the resolve step. **Uses
-/// of this wrapper should be considered unsafe** with the requirement that the
-/// data not be mutated between these two steps.
-///
-/// Regular serializers don't support the custom error handling needed for this
-/// type by default. To use this wrapper, a custom serializer with an error type
-/// satisfying `<S as Fallible>::Error: From<LockError>` must be provided.
-///
 /// # Example
 ///
 /// ```
 /// use std::sync::Mutex;
 ///
-/// use rkyv::{with::Lock, Archive};
+/// use rkyv::{
+///     with::{Lock, Unsafe},
+///     Archive,
+/// };
 ///
 /// #[derive(Archive)]
 /// struct Example {
-///     #[with(Lock)]
+///     #[with(Lock<Unsafe>)]
 ///     a: Mutex<i32>,
 /// }
 /// ```
 #[derive(Debug)]
-pub struct Lock;
-
-#[derive(Debug)]
-struct Poisoned;
-
-impl fmt::Display for Poisoned {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "lock poisoned")
-    }
+pub struct Lock<T> {
+    _phantom: PhantomData<T>,
 }
-
-#[cfg(feature = "std")]
-impl ::std::error::Error for Poisoned {}
 
 /// A wrapper that serializes a `Cow` as if it were owned.
 ///
@@ -485,40 +434,19 @@ pub struct Niche;
 /// [`ArchivedDuration`](crate::time::ArchivedDuration) relative to the UNIX
 /// epoch.
 ///
-/// Regular serializers don't support the custom error handling needed for this
-/// type by default. To use this wrapper, a custom serializer with an error type
-/// satisfying `<S as Fallible>::Error: From<UnixTimestampError>` must be
-/// provided.
-///
 /// # Example
 ///
 /// ```
-/// use rkyv::{Archive, with::UnixTimestamp};
+/// use rkyv::{Archive, with::AsUnixTime};
 /// use std::time::SystemTime;
 ///
 /// #[derive(Archive)]
 /// struct Example {
-///     #[with(UnixTimestamp)]
+///     #[with(AsUnixTime)]
 ///     time: SystemTime,
 /// }
 #[derive(Debug)]
-pub struct UnixTimestamp;
-
-/// Errors that can occur when serializing a [`UnixTimestamp`] wrapper.
-#[derive(Debug)]
-pub enum UnixTimestampError {
-    /// The `SystemTime` occurred prior to the UNIX epoch.
-    TimeBeforeUnixEpoch,
-}
-
-impl fmt::Display for UnixTimestampError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "time occurred before the UNIX epoch")
-    }
-}
-
-#[cfg(feature = "std")]
-impl ::std::error::Error for UnixTimestampError {}
+pub struct AsUnixTime;
 
 /// A wrapper that allows serialize-unsafe types to be serialized.
 ///
@@ -574,4 +502,4 @@ pub struct Skip;
 
 /// A wrapper that clones the contents of `Arc` and `Rc` pointers.
 #[derive(Debug)]
-pub struct Cloned;
+pub struct Unshare;

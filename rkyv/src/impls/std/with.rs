@@ -1,3 +1,4 @@
+use core::fmt;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -19,13 +20,25 @@ use crate::{
     time::ArchivedDuration,
     vec::{ArchivedVec, VecResolver},
     with::{
-        ArchiveWith, AsOwned, AsString, AsVec, DeserializeWith, Immutable,
-        InvalidStr, Lock, Poisoned, SerializeWith, UnixTimestamp,
+        ArchiveWith, AsOwned, AsString, AsUnixTime, AsVec, DeserializeWith,
+        Lock, SerializeWith, Unsafe,
     },
     Archive, Deserialize, Place, Serialize, SerializeUnsized,
 };
 
 // AsString
+
+#[derive(Debug)]
+struct InvalidUtf8;
+
+impl fmt::Display for InvalidUtf8 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "invalid UTF-8")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for InvalidUtf8 {}
 
 impl ArchiveWith<OsString> for AsString {
     type Archived = ArchivedString;
@@ -47,8 +60,9 @@ impl ArchiveWith<OsString> for AsString {
     }
 }
 
-impl<S: Fallible + ?Sized> SerializeWith<OsString, S> for AsString
+impl<S> SerializeWith<OsString, S> for AsString
 where
+    S: Fallible + ?Sized,
     S::Error: Source,
     str: SerializeUnsized<S>,
 {
@@ -57,14 +71,15 @@ where
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
         ArchivedString::serialize_from_str(
-            field.to_str().into_trace(InvalidStr)?,
+            field.to_str().into_trace(InvalidUtf8)?,
             serializer,
         )
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, OsString, D>
-    for AsString
+impl<D> DeserializeWith<ArchivedString, OsString, D> for AsString
+where
+    D: Fallible + ?Sized,
 {
     fn deserialize_with(
         field: &ArchivedString,
@@ -94,8 +109,9 @@ impl ArchiveWith<PathBuf> for AsString {
     }
 }
 
-impl<S: Fallible + ?Sized> SerializeWith<PathBuf, S> for AsString
+impl<S> SerializeWith<PathBuf, S> for AsString
 where
+    S: Fallible + ?Sized,
     S::Error: Source,
     str: SerializeUnsized<S>,
 {
@@ -104,14 +120,15 @@ where
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
         ArchivedString::serialize_from_str(
-            field.to_str().into_trace(InvalidStr)?,
+            field.to_str().into_trace(InvalidUtf8)?,
             serializer,
         )
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, PathBuf, D>
-    for AsString
+impl<D> DeserializeWith<ArchivedString, PathBuf, D> for AsString
+where
+    D: Fallible + ?Sized,
 {
     fn deserialize_with(
         field: &ArchivedString,
@@ -123,8 +140,20 @@ impl<D: Fallible + ?Sized> DeserializeWith<ArchivedString, PathBuf, D>
 
 // Lock
 
-impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
-    type Archived = Immutable<F::Archived>;
+#[derive(Debug)]
+struct LockPoisoned;
+
+impl fmt::Display for LockPoisoned {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "lock poisoned")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for LockPoisoned {}
+
+impl<F: Archive> ArchiveWith<Mutex<F>> for Lock<Unsafe> {
+    type Archived = F::Archived;
     type Resolver = F::Resolver;
 
     fn resolve_with(
@@ -147,7 +176,7 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
     }
 }
 
-impl<F, S> SerializeWith<Mutex<F>, S> for Lock
+impl<F, S> SerializeWith<Mutex<F>, S> for Lock<Unsafe>
 where
     F: Serialize<S>,
     S: Fallible + ?Sized,
@@ -160,26 +189,26 @@ where
         field
             .lock()
             .ok()
-            .into_trace(Poisoned)?
+            .into_trace(LockPoisoned)?
             .serialize(serializer)
     }
 }
 
-impl<F, T, D> DeserializeWith<Immutable<F>, Mutex<T>, D> for Lock
+impl<F, T, D> DeserializeWith<F, Mutex<T>, D> for Lock<Unsafe>
 where
     F: Deserialize<T, D>,
     D: Fallible + ?Sized,
 {
     fn deserialize_with(
-        field: &Immutable<F>,
+        field: &F,
         deserializer: &mut D,
     ) -> Result<Mutex<T>, D::Error> {
-        Ok(Mutex::new(field.value().deserialize(deserializer)?))
+        Ok(Mutex::new(field.deserialize(deserializer)?))
     }
 }
 
-impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
-    type Archived = Immutable<F::Archived>;
+impl<F: Archive> ArchiveWith<RwLock<F>> for Lock<Unsafe> {
+    type Archived = F::Archived;
     type Resolver = F::Resolver;
 
     fn resolve_with(
@@ -202,7 +231,7 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
     }
 }
 
-impl<F, S> SerializeWith<RwLock<F>, S> for Lock
+impl<F, S> SerializeWith<RwLock<F>, S> for Lock<Unsafe>
 where
     F: Serialize<S>,
     S: Fallible + ?Sized,
@@ -215,21 +244,21 @@ where
         field
             .read()
             .ok()
-            .into_trace(Poisoned)?
+            .into_trace(LockPoisoned)?
             .serialize(serializer)
     }
 }
 
-impl<F, T, D> DeserializeWith<Immutable<F>, RwLock<T>, D> for Lock
+impl<F, T, D> DeserializeWith<F, RwLock<T>, D> for Lock<Unsafe>
 where
     F: Deserialize<T, D>,
     D: Fallible + ?Sized,
 {
     fn deserialize_with(
-        field: &Immutable<F>,
+        field: &F,
         deserializer: &mut D,
     ) -> Result<RwLock<T>, D::Error> {
-        Ok(RwLock::new(field.value().deserialize(deserializer)?))
+        Ok(RwLock::new(field.deserialize(deserializer)?))
     }
 }
 
@@ -342,7 +371,7 @@ where
 
 // UnixTimestamp
 
-impl ArchiveWith<SystemTime> for UnixTimestamp {
+impl ArchiveWith<SystemTime> for AsUnixTime {
     type Archived = ArchivedDuration;
     type Resolver = ();
 
@@ -358,7 +387,7 @@ impl ArchiveWith<SystemTime> for UnixTimestamp {
     }
 }
 
-impl<S> SerializeWith<SystemTime, S> for UnixTimestamp
+impl<S> SerializeWith<SystemTime, S> for AsUnixTime
 where
     S: Fallible + ?Sized,
     S::Error: Source,
@@ -372,8 +401,9 @@ where
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeWith<ArchivedDuration, SystemTime, D>
-    for UnixTimestamp
+impl<D> DeserializeWith<ArchivedDuration, SystemTime, D> for AsUnixTime
+where
+    D: Fallible + ?Sized,
 {
     fn deserialize_with(
         field: &ArchivedDuration,
@@ -399,8 +429,9 @@ impl<'a> ArchiveWith<Cow<'a, CStr>> for AsOwned {
     }
 }
 
-impl<'a, S: Fallible + Writer + ?Sized> SerializeWith<Cow<'a, CStr>, S>
-    for AsOwned
+impl<'a, S> SerializeWith<Cow<'a, CStr>, S> for AsOwned
+where
+    S: Fallible + Writer + ?Sized,
 {
     fn serialize_with(
         field: &Cow<'a, CStr>,

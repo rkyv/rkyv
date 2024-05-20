@@ -20,20 +20,89 @@ use ptr_meta::Pointee;
 use rancor::{Fallible, Source};
 
 use crate::{
+    boxed::{ArchivedBox, BoxResolver},
     collections::util::{Entry, EntryAdapter},
     niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
     ser::{Allocator, Writer},
     string::{ArchivedString, StringResolver},
     vec::{ArchivedVec, VecResolver},
     with::{
-        ArchiveWith, AsOwned, AsVec, Cloned, DeserializeWith, Map, Niche,
-        SerializeWith,
+        ArchiveWith, AsBox, AsOwned, AsVec, DeserializeWith, InlineAsBox, Map,
+        Niche, SerializeWith, Unshare,
     },
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
     LayoutRaw, Place, Serialize, SerializeUnsized,
 };
 
-// Map for Vecs
+// BoxedInline
+
+impl<F: ArchiveUnsized + ?Sized> ArchiveWith<&F> for InlineAsBox {
+    type Archived = ArchivedBox<F::Archived>;
+    type Resolver = BoxResolver;
+
+    fn resolve_with(
+        field: &&F,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        ArchivedBox::resolve_from_ref(*field, resolver, out);
+    }
+}
+
+impl<F, S> SerializeWith<&F, S> for InlineAsBox
+where
+    F: SerializeUnsized<S> + ?Sized,
+    S: Fallible + ?Sized,
+{
+    fn serialize_with(
+        field: &&F,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedBox::serialize_from_ref(*field, serializer)
+    }
+}
+
+// Boxed
+
+impl<F: ArchiveUnsized + ?Sized> ArchiveWith<F> for AsBox {
+    type Archived = ArchivedBox<F::Archived>;
+    type Resolver = BoxResolver;
+
+    fn resolve_with(
+        field: &F,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        ArchivedBox::resolve_from_ref(field, resolver, out);
+    }
+}
+
+impl<F: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> SerializeWith<F, S>
+    for AsBox
+{
+    fn serialize_with(
+        field: &F,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedBox::serialize_from_ref(field, serializer)
+    }
+}
+
+impl<F, D> DeserializeWith<ArchivedBox<F::Archived>, F, D> for AsBox
+where
+    F: Archive,
+    F::Archived: Deserialize<F, D>,
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(
+        field: &ArchivedBox<F::Archived>,
+        deserializer: &mut D,
+    ) -> Result<F, D::Error> {
+        field.get().deserialize(deserializer)
+    }
+}
+
+// Map
 
 impl<A, O> ArchiveWith<Vec<O>> for Map<A>
 where
@@ -344,8 +413,9 @@ where
 
 // Niche
 
-impl<T: ArchiveUnsized + ?Sized> ArchiveWith<Option<Box<T>>> for Niche
+impl<T> ArchiveWith<Option<Box<T>>> for Niche
 where
+    T: ArchiveUnsized + ?Sized,
     ArchivedMetadata<T>: Default,
 {
     type Archived = ArchivedOptionBox<T::Archived>;
@@ -394,9 +464,9 @@ where
     }
 }
 
-// Cloned
+// Unshare
 
-impl<T: Archive> ArchiveWith<Arc<T>> for Cloned {
+impl<T: Archive> ArchiveWith<Arc<T>> for Unshare {
     type Archived = T::Archived;
     type Resolver = T::Resolver;
 
@@ -409,8 +479,10 @@ impl<T: Archive> ArchiveWith<Arc<T>> for Cloned {
     }
 }
 
-impl<T: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Arc<T>, S>
-    for Cloned
+impl<T, S> SerializeWith<Arc<T>, S> for Unshare
+where
+    T: Serialize<S>,
+    S: Fallible + ?Sized,
 {
     fn serialize_with(
         x: &Arc<T>,
@@ -420,15 +492,17 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Arc<T>, S>
     }
 }
 
-impl<A: Deserialize<T, D>, T, D: Fallible + ?Sized>
-    DeserializeWith<A, Arc<T>, D> for Cloned
+impl<A, T, D> DeserializeWith<A, Arc<T>, D> for Unshare
+where
+    A: Deserialize<T, D>,
+    D: Fallible + ?Sized,
 {
     fn deserialize_with(x: &A, d: &mut D) -> Result<Arc<T>, D::Error> {
         Ok(Arc::new(A::deserialize(x, d)?))
     }
 }
 
-impl<T: Archive> ArchiveWith<Rc<T>> for Cloned {
+impl<T: Archive> ArchiveWith<Rc<T>> for Unshare {
     type Archived = T::Archived;
     type Resolver = T::Resolver;
 
@@ -441,7 +515,9 @@ impl<T: Archive> ArchiveWith<Rc<T>> for Cloned {
     }
 }
 
-impl<T: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Rc<T>, S> for Cloned {
+impl<T: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Rc<T>, S>
+    for Unshare
+{
     fn serialize_with(
         x: &Rc<T>,
         s: &mut S,
@@ -450,10 +526,54 @@ impl<T: Serialize<S>, S: Fallible + ?Sized> SerializeWith<Rc<T>, S> for Cloned {
     }
 }
 
-impl<A: Deserialize<T, D>, T, D: Fallible + ?Sized> DeserializeWith<A, Rc<T>, D>
-    for Cloned
+impl<A, T, D> DeserializeWith<A, Rc<T>, D> for Unshare
+where
+    A: Deserialize<T, D>,
+    D: Fallible + ?Sized,
 {
     fn deserialize_with(x: &A, d: &mut D) -> Result<Rc<T>, D::Error> {
         Ok(Rc::new(A::deserialize(x, d)?))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        test::roundtrip, with::Niche, Archive, Deserialize, Serialize,
+    };
+
+    #[derive(Debug, Archive, Deserialize, Serialize, PartialEq)]
+    #[archive(crate, compare(PartialEq))]
+    #[archive_attr(derive(Debug))]
+    struct Test {
+        value: Option<Box<u128>>,
+    }
+
+    #[test]
+    fn roundtrip_niche_none() {
+        roundtrip(&Test { value: None });
+    }
+
+    #[test]
+    fn roundtrip_niche_some() {
+        roundtrip(&Test {
+            value: Some(Box::new(128)),
+        });
+    }
+
+    #[test]
+    fn ambiguous_niched_archived_box() {
+        #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
+        #[archive_attr(derive(Debug))]
+        #[archive(crate, compare(PartialEq))]
+        struct HasNiche {
+            #[with(Niche)]
+            inner: Option<Box<[u32]>>,
+        }
+
+        roundtrip(&HasNiche {
+            inner: Some(Box::<[u32]>::from([])),
+        });
+        roundtrip(&HasNiche { inner: None });
     }
 }
