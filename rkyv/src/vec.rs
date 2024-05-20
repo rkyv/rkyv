@@ -17,8 +17,6 @@ use crate::{
     Archive, Place, Portable, RelPtr, Serialize, SerializeUnsized,
 };
 
-// pub use self::raw::*;
-
 /// An archived [`Vec`].
 ///
 /// This uses a [`RelPtr`] to a `[T]` under the hood. Unlike
