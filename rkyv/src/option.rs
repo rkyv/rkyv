@@ -251,7 +251,14 @@ impl<T> From<T> for ArchivedOption<T> {
 ///
 /// This `struct` is created by the [`ArchivedOption::iter`] function.
 pub struct Iter<'a, T> {
-    pub(crate) inner: Option<&'a T>,
+    inner: Option<&'a T>,
+}
+
+impl<'a, T> Iter<'a, T> {
+    /// Creates a new `Iter` from the given option.
+    pub fn new(option: Option<&'a T>) -> Self {
+        Self { inner: option }
+    }
 }
 
 impl<'a, T> Iterator for Iter<'a, T> {
@@ -278,7 +285,14 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
 ///
 /// This `struct` is created by the [`ArchivedOption::iter_mut`] function.
 pub struct IterMut<'a, T> {
-    pub(crate) inner: Option<&'a mut T>,
+    inner: Option<&'a mut T>,
+}
+
+impl<'a, T> IterMut<'a, T> {
+    /// Creates a new `IterMut` from the given option.
+    pub fn new(option: Option<&'a mut T>) -> Self {
+        Self { inner: option }
+    }
 }
 
 impl<'a, T> Iterator for IterMut<'a, T> {

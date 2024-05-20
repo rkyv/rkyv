@@ -4,9 +4,11 @@ use core::net::{
     IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6,
 };
 
+use munge::munge;
+
 use crate::{
     primitive::{ArchivedU16, ArchivedU32},
-    Portable,
+    Archive, Place, Portable,
 };
 
 /// An archived [`Ipv4Addr`](std::net::Ipv4Addr).
@@ -110,6 +112,14 @@ impl ArchivedIpv4Addr {
     pub const fn to_ipv6_mapped(&self) -> Ipv6Addr {
         self.as_ipv4().to_ipv6_mapped()
     }
+
+    /// Emplaces an `ArchivedIpv4Addr` with the given octets into a place.
+    #[inline]
+    pub fn emplace(octets: [u8; 4], out: Place<Self>) {
+        unsafe {
+            out.cast_unchecked::<[u8; 4]>().write(octets);
+        }
+    }
 }
 
 /// An archived [`Ipv6Addr`](std::net::Ipv6Addr).
@@ -195,6 +205,14 @@ impl ArchivedIpv6Addr {
     pub const fn to_ipv4(&self) -> Option<Ipv4Addr> {
         self.as_ipv6().to_ipv4()
     }
+
+    /// Emplaces an `ArchivedIpv6Addr` with the given octets into a place.
+    #[inline]
+    pub fn emplace(octets: [u8; 16], out: Place<Self>) {
+        unsafe {
+            out.cast_unchecked::<[u8; 16]>().write(octets);
+        }
+    }
 }
 
 /// An archived [`IpAddr`](std::net::IpAddr).
@@ -278,8 +296,8 @@ impl ArchivedIpAddr {
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(C)]
 pub struct ArchivedSocketAddrV4 {
-    pub(crate) ip: ArchivedIpv4Addr,
-    pub(crate) port: ArchivedU16,
+    ip: ArchivedIpv4Addr,
+    port: ArchivedU16,
 }
 
 impl ArchivedSocketAddrV4 {
@@ -300,6 +318,14 @@ impl ArchivedSocketAddrV4 {
     pub fn as_socket_addr_v4(&self) -> SocketAddrV4 {
         SocketAddrV4::new(self.ip().as_ipv4(), self.port())
     }
+
+    /// Emplaces an `ArchivedSocketAddrV4` of the given `value` into a place.
+    #[inline]
+    pub fn emplace(value: &SocketAddrV4, out: Place<Self>) {
+        munge!(let ArchivedSocketAddrV4 { ip, port } = out);
+        value.ip().resolve((), ip);
+        value.port().resolve((), port);
+    }
 }
 
 /// An archived [`SocketAddrV6`](std::net::SocketAddrV6).
@@ -309,10 +335,10 @@ impl ArchivedSocketAddrV4 {
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(C)]
 pub struct ArchivedSocketAddrV6 {
-    pub(crate) ip: ArchivedIpv6Addr,
-    pub(crate) port: ArchivedU16,
-    pub(crate) flowinfo: ArchivedU32,
-    pub(crate) scope_id: ArchivedU32,
+    ip: ArchivedIpv6Addr,
+    port: ArchivedU16,
+    flowinfo: ArchivedU32,
+    scope_id: ArchivedU32,
 }
 
 impl ArchivedSocketAddrV6 {
@@ -355,6 +381,16 @@ impl ArchivedSocketAddrV6 {
             self.flowinfo(),
             self.scope_id(),
         )
+    }
+
+    /// Emplaces an `ArchivedSocketAddrV6` of the given `value` into a place.
+    #[inline]
+    pub fn emplace(value: &SocketAddrV6, out: Place<Self>) {
+        munge!(let ArchivedSocketAddrV6 { ip, port, flowinfo, scope_id } = out);
+        value.ip().resolve((), ip);
+        value.port().resolve((), port);
+        value.flowinfo().resolve((), flowinfo);
+        value.scope_id().resolve((), scope_id);
     }
 }
 

@@ -23,8 +23,7 @@ impl Archive for Ipv4Addr {
 
     #[inline]
     fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
-        let octets = unsafe { out.cast_unchecked::<[u8; 4]>() };
-        octets.write(self.octets());
+        ArchivedIpv4Addr::emplace(self.octets(), out);
     }
 }
 
@@ -76,8 +75,7 @@ impl Archive for Ipv6Addr {
 
     #[inline]
     fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
-        let octets = unsafe { out.cast_unchecked::<[u8; 16]>() };
-        octets.write(self.octets());
+        ArchivedIpv6Addr::emplace(self.octets(), out);
     }
 }
 
@@ -151,14 +149,14 @@ impl Archive for IpAddr {
                     unsafe { out.cast_unchecked::<ArchivedIpAddrVariantV4>() };
                 munge!(let ArchivedIpAddrVariantV4(tag, out_ipv4_addr) = out);
                 tag.write(ArchivedIpAddrTag::V4);
-                ipv4_addr.resolve((), out_ipv4_addr);
+                ArchivedIpv4Addr::emplace(ipv4_addr.octets(), out_ipv4_addr);
             }
             IpAddr::V6(ipv6_addr) => {
                 let out =
                     unsafe { out.cast_unchecked::<ArchivedIpAddrVariantV6>() };
                 munge!(let ArchivedIpAddrVariantV6(tag, out_ipv6_addr) = out);
                 tag.write(ArchivedIpAddrTag::V6);
-                ipv6_addr.resolve((), out_ipv6_addr);
+                ArchivedIpv6Addr::emplace(ipv6_addr.octets(), out_ipv6_addr);
             }
         }
     }
@@ -240,9 +238,7 @@ impl Archive for SocketAddrV4 {
 
     #[inline]
     fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
-        munge!(let ArchivedSocketAddrV4 { ip, port } = out);
-        self.ip().resolve((), ip);
-        self.port().resolve((), port);
+        ArchivedSocketAddrV4::emplace(self, out);
     }
 }
 
@@ -304,11 +300,7 @@ impl Archive for SocketAddrV6 {
 
     #[inline]
     fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
-        munge!(let ArchivedSocketAddrV6 { ip, port, flowinfo, scope_id } = out);
-        self.ip().resolve((), ip);
-        self.port().resolve((), port);
-        self.flowinfo().resolve((), flowinfo);
-        self.scope_id().resolve((), scope_id);
+        ArchivedSocketAddrV6::emplace(self, out);
     }
 }
 

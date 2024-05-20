@@ -139,16 +139,12 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
 
     /// Returns an iterator over the possibly contained value.
     pub fn iter(&self) -> Iter<'_, ArchivedBox<T>> {
-        Iter {
-            inner: self.as_ref(),
-        }
+        Iter::new(self.as_ref())
     }
 
     /// Returns a mutable iterator over the possibly contained value.
     pub fn iter_mut(&mut self) -> IterMut<'_, ArchivedBox<T>> {
-        IterMut {
-            inner: self.as_mut(),
-        }
+        IterMut::new(self.as_mut())
     }
 
     /// Converts from `&ArchivedOptionBox<T>` to `Option<&T>`.

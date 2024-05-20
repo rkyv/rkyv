@@ -134,17 +134,13 @@ macro_rules! impl_archived_option_nonzero {
             /// Returns an iterator over the possibly contained value.
             #[inline]
             pub fn iter(&self) -> Iter<'_, Archived<$nz>> {
-                Iter {
-                    inner: self.as_ref(),
-                }
+                Iter::new(self.as_ref())
             }
 
             /// Returns a mutable iterator over the possibly contained value.
             #[inline]
             pub fn iter_mut(&mut self) -> IterMut<'_, Archived<$nz>> {
-                IterMut {
-                    inner: self.as_mut(),
-                }
+                IterMut::new(self.as_mut())
             }
 
             /// Inserts `v` into the option if it is `None`, then returns a
