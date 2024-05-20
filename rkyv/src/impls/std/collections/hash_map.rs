@@ -106,11 +106,9 @@ mod tests {
     use std::collections::HashMap;
 
     use ahash::RandomState;
-    use rancor::Panic;
 
     use crate::{
-        access_unchecked,
-        test::{roundtrip, roundtrip_with, to_bytes},
+        test::{roundtrip, roundtrip_with, to_archived},
         Archive, Archived, Deserialize, Serialize,
     };
 
@@ -193,12 +191,8 @@ mod tests {
             "wrong value".to_string(),
         );
 
-        to_bytes::<_, Panic>(&hash_map, |bytes| {
-            let archived_value = unsafe {
-                access_unchecked::<Archived<HashMap<Pair, String>>>(&bytes)
-            };
-
-            let get_with = archived_value
+        to_archived(&hash_map, |archived| {
+            let get_with = archived
                 .get_with(&("my", "key"), |input_key, key| {
                     &(key.0.as_str(), key.1.as_str()) == input_key
                 })

@@ -134,15 +134,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rancor::Panic;
     use tinyvec::{array_vec, Array, SliceVec};
 
-    use crate::{
-        access_unchecked,
-        primitive::ArchivedI32,
-        test::{roundtrip_with, to_bytes},
-        vec::ArchivedVec,
-    };
+    use crate::test::{roundtrip_with, to_archived};
 
     #[test]
     fn roundtrip_array_vec() {
@@ -160,9 +154,7 @@ mod tests {
         value.push(40);
         value.push(80);
 
-        to_bytes::<_, Panic>(&value, |bytes| {
-            let archived =
-                unsafe { access_unchecked::<ArchivedVec<ArchivedI32>>(&bytes) };
+        to_archived(&value, |archived| {
             assert_eq!(archived.as_slice(), &[10, 20, 40, 80]);
         });
     }

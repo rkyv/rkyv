@@ -2,7 +2,7 @@
 mod detail {
     use core::mem::MaybeUninit;
 
-    use rancor::Source;
+    use rancor::Panic;
 
     use crate::{
         de::{CoreDeserializer, Unpool},
@@ -13,13 +13,12 @@ mod detail {
         util::{serialize_into, Align},
     };
 
-    pub type TestSerializer<'a, E> = CoreSerializer<'a, Buffer<'a>, E>;
-    pub type TestDeserializer<E> = CoreDeserializer<E>;
+    pub type TestSerializer<'a> = CoreSerializer<'a, Buffer<'a>, Panic>;
+    pub type TestDeserializer = CoreDeserializer<Panic>;
 
-    pub fn to_bytes<T, E>(value: &T, f: impl FnOnce(&[u8]))
+    pub fn to_bytes<T>(value: &T, f: impl FnOnce(&[u8]))
     where
-        T: for<'a> Serialize<TestSerializer<'a, E>>,
-        E: Source,
+        T: for<'a> Serialize<TestSerializer<'a>>,
     {
         let mut output = Align([MaybeUninit::<u8>::uninit(); 256]);
         let mut scratch = [MaybeUninit::<u8>::uninit(); 256];
@@ -38,20 +37,19 @@ mod detail {
         f(&buffer);
     }
 
-    pub fn deserialize<T, E>(value: &T::Archived) -> T
+    pub fn deserialize<T>(value: &T::Archived) -> T
     where
         T: Archive,
-        T::Archived: Deserialize<T, TestDeserializer<E>>,
-        E: Source,
+        T::Archived: Deserialize<T, TestDeserializer>,
     {
-        crate::deserialize::<T, _, E>(value, &mut Unpool)
+        crate::deserialize::<T, _, Panic>(value, &mut Unpool)
             .expect("failed to deserialize value")
     }
 }
 
 #[cfg(feature = "alloc")]
 mod detail {
-    use rancor::Source;
+    use rancor::Panic;
 
     use crate::{
         de::{DefaultDeserializer, Pool},
@@ -60,52 +58,57 @@ mod detail {
         Archive, Deserialize, Serialize,
     };
 
-    pub type TestSerializer<'a, E> = DefaultSerializer<'a, AlignedVec, E>;
-    pub type TestDeserializer<E> = DefaultDeserializer<E>;
+    pub type TestSerializer<'a> = DefaultSerializer<'a, AlignedVec, Panic>;
+    pub type TestDeserializer = DefaultDeserializer<Panic>;
 
-    pub fn to_bytes<T, E>(value: &T, f: impl FnOnce(&[u8]))
+    pub fn to_bytes<T>(value: &T, f: impl FnOnce(&[u8]))
     where
-        T: for<'a> Serialize<TestSerializer<'a, E>>,
-        E: Source,
+        T: for<'a> Serialize<TestSerializer<'a>>,
     {
         f(&crate::to_bytes(value).expect("failed to serialize value"));
     }
 
-    pub fn deserialize<T, E>(value: &T::Archived) -> T
+    pub fn deserialize<T>(value: &T::Archived) -> T
     where
         T: Archive,
-        T::Archived: Deserialize<T, TestDeserializer<E>>,
-        E: Source,
+        T::Archived: Deserialize<T, TestDeserializer>,
     {
-        crate::deserialize::<T, _, E>(value, &mut Pool::new())
+        crate::deserialize::<T, _, Panic>(value, &mut Pool::new())
             .expect("failed to deserialize value")
     }
 }
 
 use core::fmt::Debug;
 
-pub use detail::{deserialize, to_bytes, TestDeserializer, TestSerializer};
-use rancor::Panic;
-
+use self::detail::{deserialize, to_bytes, TestDeserializer, TestSerializer};
 use crate::{access_unchecked, Deserialize, Serialize};
 
-pub fn roundtrip_with<T>(value: &T, cmp: impl Fn(&T, &T::Archived))
+pub fn to_archived<T>(value: &T, f: impl FnOnce(&T::Archived))
 where
-    T: Debug + PartialEq + for<'a> Serialize<TestSerializer<'a, Panic>>,
-    T::Archived: Debug + Deserialize<T, TestDeserializer<Panic>>,
+    T: for<'a> Serialize<TestSerializer<'a>>,
 {
     to_bytes(value, |bytes| {
         let archived_value = unsafe { access_unchecked(bytes) };
+        f(archived_value);
+    });
+}
+
+pub fn roundtrip_with<T>(value: &T, cmp: impl Fn(&T, &T::Archived))
+where
+    T: Debug + PartialEq + for<'a> Serialize<TestSerializer<'a>>,
+    T::Archived: Debug + Deserialize<T, TestDeserializer>,
+{
+    to_archived(value, |archived_value| {
         cmp(value, archived_value);
-        let deserialized = deserialize::<T, Panic>(archived_value);
+        let deserialized = deserialize::<T>(archived_value);
         assert_eq!(value, &deserialized);
-    })
+    });
 }
 
 pub fn roundtrip<T>(value: &T)
 where
-    T: Debug + PartialEq + for<'a> Serialize<TestSerializer<'a, Panic>>,
-    T::Archived: Debug + PartialEq<T> + Deserialize<T, TestDeserializer<Panic>>,
+    T: Debug + PartialEq + for<'a> Serialize<TestSerializer<'a>>,
+    T::Archived: Debug + PartialEq<T> + Deserialize<T, TestDeserializer>,
 {
     roundtrip_with(value, |a, b| assert_eq!(b, a));
 }
