@@ -32,7 +32,6 @@ mod tests {
     use crate::validation::util::alloc::serialize_and_check;
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn basic_functionality() {
         // Regular serializing
         let value = Some("Hello world".to_string());
@@ -145,7 +144,6 @@ mod tests {
 
     #[cfg(feature = "pointer_width_32")]
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn invalid_tags() {
         // Invalid archive (invalid tag)
         let synthetic_buf = Align([
@@ -165,7 +163,6 @@ mod tests {
 
     #[cfg(feature = "pointer_width_32")]
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn overlapping_claims() {
         // Invalid archive (overlapping claims)
         let synthetic_buf = Align([
@@ -185,7 +182,6 @@ mod tests {
 
     #[cfg(feature = "pointer_width_32")]
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn cycle_detection() {
         use rkyv::{rancor::Fallible, validation::ArchiveContext, Archived};
 
@@ -254,7 +250,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn derive_unit_struct() {
         #[derive(Archive, Serialize)]
         #[archive(check_bytes)]
@@ -264,7 +259,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn derive_struct() {
         #[derive(Archive, Serialize)]
         #[archive(check_bytes)]
@@ -282,7 +276,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn derive_tuple_struct() {
         #[derive(Archive, Serialize)]
         #[archive(check_bytes)]
@@ -296,7 +289,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn derive_enum() {
         #[derive(Archive, Serialize)]
         #[archive(check_bytes)]
@@ -315,7 +307,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn recursive_type() {
         #[derive(Archive, Serialize)]
         // The derive macros don't apply the right bounds from Box so we have to
@@ -343,7 +334,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_shared_ptr() {
         #[derive(Archive, Serialize, Eq, PartialEq)]
         #[archive(check_bytes)]
@@ -364,7 +354,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_b_tree() {
         let mut value = BTreeMap::new();
         value.insert("foo".to_string(), 10);
@@ -377,7 +366,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_invalid_b_tree_set() {
         let data = Align([
             0, 0, 0, 0, 253, 6, 239, 6, 255, 255, 255, 252, 0, 0, 0, 0, 0, 0,
@@ -400,7 +388,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_empty_b_tree() {
         let value = BTreeMap::<u8, ()>::new();
 
@@ -424,7 +411,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn b_tree_struct_member() {
         #[derive(Archive, Serialize, Deserialize, Debug, Default)]
         #[archive(check_bytes)]
@@ -446,7 +432,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_valid_durations() {
         use rkyv::time::ArchivedDuration;
 
@@ -454,7 +439,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_invalid_btreemap() {
         let data = Align([
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0, 0x00, 0x00, 0x00, 0x0c, 0xa5,
@@ -464,7 +448,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn check_invalid_string() {
         let data = Align([0x10; 16]);
         rkyv::from_bytes::<String, Error>(&*data).unwrap_err();

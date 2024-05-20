@@ -8,7 +8,6 @@ mod tests {
     use wasm_bindgen_test::*;
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn write_serializer() {
         #[derive(Archive, Serialize)]
         #[archive_attr(repr(C))]
@@ -26,7 +25,6 @@ mod tests {
     // TODO: figure out errors
 
     // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     // fn mutex() {
     //     use rkyv::with::Lock;
     //     use std::sync::Mutex;
@@ -54,7 +52,6 @@ mod tests {
     // }
 
     // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     // fn rwlock() {
     //     use rkyv::with::Lock;
     //     use std::sync::RwLock;
@@ -82,7 +79,6 @@ mod tests {
     // }
 
     // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     // fn os_string() {
     //     use rkyv::with::ToString;
     //     use core::str::FromStr;
@@ -111,7 +107,6 @@ mod tests {
     // }
 
     // #[test]
-    // #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     // fn path_buf() {
     //     use rkyv::with::ToString;
     //     use core::str::FromStr;

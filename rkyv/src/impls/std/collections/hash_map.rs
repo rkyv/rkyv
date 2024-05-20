@@ -151,7 +151,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     #[allow(deprecated)]
     fn roundtrip_hash_map_with_custom_hasher() {
         use std::collections::HashMap;

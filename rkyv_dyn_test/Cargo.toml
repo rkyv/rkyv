@@ -14,9 +14,7 @@ bytecheck = { workspace = true, features = ["std"], optional = true }
 ptr_meta.workspace = true
 rkyv.workspace = true
 rkyv_dyn = { path = "../rkyv_dyn", default-features = false }
-wasm-bindgen-test = { workspace = true, optional = true }
 
 [features]
 default = ["rkyv/std", "bytecheck"]
 bytecheck = ["dep:bytecheck", "rkyv_dyn/bytecheck"]
-wasm = ["wasm-bindgen-test"]

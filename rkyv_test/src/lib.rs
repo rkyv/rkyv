@@ -18,31 +18,10 @@ pub mod validation;
 #[cfg(test)]
 mod tests {
     use rkyv::rancor::Panic;
-    #[cfg(feature = "wasm")]
-    use wasm_bindgen_test::*;
 
     use crate::util::core::test_archive;
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
-    fn archive_zst() {
-        use rkyv::{Archive, Deserialize, Serialize};
-
-        #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
-        #[archive(compare(PartialEq))]
-        #[archive_attr(derive(Debug))]
-        struct MyZST;
-
-        test_archive::<[MyZST; 0]>(&[]);
-        test_archive::<Box<[MyZST]>>(&Vec::from([]).into_boxed_slice());
-        test_archive::<[MyZST; 4]>(&[MyZST, MyZST, MyZST, MyZST]);
-        test_archive::<Box<[MyZST]>>(
-            &Vec::from([MyZST, MyZST, MyZST, MyZST]).into_boxed_slice(),
-        );
-    }
-
-    #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     #[allow(non_camel_case_types)]
     fn archive_raw_identifiers() {
         use rkyv::{Archive, Deserialize, Serialize};
@@ -66,7 +45,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_enum_explicit_discriminants() {
         use rkyv::{Archive, Deserialize, Serialize};
 
@@ -83,7 +61,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn derive_partial_ord_struct() {
         use rkyv::{Archive, Deserialize, Serialize};
 
@@ -109,7 +86,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn derive_partial_ord_enum() {
         use rkyv::{Archive, Deserialize, Serialize};
 

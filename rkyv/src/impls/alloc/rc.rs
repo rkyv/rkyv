@@ -309,7 +309,6 @@ mod tests {
     };
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn roundtrip_rc() {
         #[derive(Debug, Eq, PartialEq, Archive, Deserialize, Serialize)]
         #[archive(crate)]
@@ -414,7 +413,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_unsized_shared_ptr() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(crate)]
@@ -437,7 +435,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_unsized_shared_ptr_empty() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(crate)]
@@ -459,7 +456,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_weak_ptr() {
         #[derive(Archive, Serialize, Deserialize)]
         #[archive(crate)]

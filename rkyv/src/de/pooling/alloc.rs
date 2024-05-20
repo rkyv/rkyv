@@ -1,11 +1,8 @@
 //! Adapters wrap deserializers and add support for deserializer traits.
 
 use core::{fmt, mem::size_of};
-#[cfg(feature = "std")]
-use std::collections::hash_map;
 
-#[cfg(not(feature = "std"))]
-use hashbrown::hash_map;
+use hashbrown::hash_map::{Entry, HashMap};
 use rancor::{fail, Source};
 
 use super::{ErasedPtr, Pooling};
@@ -47,7 +44,7 @@ impl Drop for SharedPointer {
 /// shared pointer.
 #[derive(Default)]
 pub struct Pool {
-    shared_pointers: hash_map::HashMap<usize, SharedPointer>,
+    shared_pointers: HashMap<usize, SharedPointer>,
 }
 
 impl Pool {
@@ -61,7 +58,7 @@ impl Pool {
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            shared_pointers: hash_map::HashMap::with_capacity(capacity),
+            shared_pointers: HashMap::with_capacity(capacity),
         }
     }
 }
@@ -84,10 +81,10 @@ impl<E: Source> Pooling<E> for Pool {
         drop: unsafe fn(ErasedPtr),
     ) -> Result<(), E> {
         match self.shared_pointers.entry(address) {
-            hash_map::Entry::Occupied(_) => {
+            Entry::Occupied(_) => {
                 fail!(DuplicateSharedPointer { address });
             }
-            hash_map::Entry::Vacant(e) => {
+            Entry::Vacant(e) => {
                 e.insert(SharedPointer { ptr, drop });
                 Ok(())
             }

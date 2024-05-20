@@ -12,7 +12,6 @@ license.workspace = true
 [dependencies]
 ptr_meta.workspace = true
 rkyv.workspace = true
-wasm-bindgen-test = { workspace = true, optional = true }
 
 [features]
 default = ["pointer_width_32", "little_endian", "std", "bytecheck"]
@@ -27,4 +26,3 @@ big_endian = ["rkyv/big_endian"]
 alloc = ["rkyv/alloc"]
 bytecheck = ["rkyv/bytecheck"]
 std = ["alloc", "rkyv/std"]
-wasm = ["wasm-bindgen-test"]

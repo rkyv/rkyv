@@ -4,8 +4,6 @@ mod tests {
     use alloc::{
         borrow::Cow,
         boxed::Box,
-        collections::{BTreeMap, BTreeSet},
-        rc::{Rc, Weak},
         string::{String, ToString},
         vec,
         vec::Vec,
@@ -27,19 +25,13 @@ mod tests {
         util::{deserialize, serialize_into, AlignedVec},
         Archive, Archived, Deserialize, Place, Portable, Serialize,
     };
-    #[cfg(feature = "wasm")]
-    use wasm_bindgen_test::*;
 
     use crate::util::alloc::*;
 
     #[cfg(all(feature = "std", feature = "bytecheck"))]
     mod isolate {
-        #[cfg(feature = "wasm")]
-        use wasm_bindgen_test::*;
-
         #[test]
         #[allow(unused_variables)]
-        #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
         fn archive_example() {
             use rkyv::{
                 deserialize, rancor::Error, util::serialize_into, Archive,
@@ -110,7 +102,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_unit_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
@@ -122,7 +113,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_tuple_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
@@ -133,7 +123,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_simple_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
@@ -168,7 +157,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_generic_struct() {
         use core::fmt;
 
@@ -241,7 +229,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_enum() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
@@ -269,7 +256,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_generic_enum() {
         use core::fmt;
 
@@ -350,7 +336,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_derives() {
         #[derive(Archive, Serialize, Clone)]
         #[archive_attr(derive(Clone, Debug, PartialEq))]
@@ -366,7 +351,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn derive_visibility() {
         mod inner {
             #[derive(super::Archive, super::Serialize)]
@@ -400,7 +384,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn basic_mutable_refs() {
         let mut buf = to_bytes::<Error>(&42i32).unwrap();
         let mut value =
@@ -411,7 +394,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn struct_mutable_refs() {
         #[derive(Archive, Serialize)]
         struct Test {
@@ -463,7 +445,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn enum_mutable_ref() {
         #[allow(dead_code)]
         #[derive(Archive, Serialize)]
@@ -495,7 +476,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn recursive_structures() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
@@ -513,7 +493,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn recursive_self_types() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
@@ -544,7 +523,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn complex_bounds() {
         use core::marker::PhantomData;
 
@@ -606,7 +584,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn derive_attributes() {
         #[derive(Archive, Debug, PartialEq)]
         #[archive(archived = ATest, resolver = RTest, compare(PartialEq))]
@@ -670,7 +647,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn compare() {
         #[derive(Archive, Serialize, Deserialize)]
         #[archive(compare(PartialEq, PartialOrd))]
@@ -695,7 +671,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn default_type_parameters() {
         #[derive(Archive, Serialize, Deserialize)]
         pub struct TupleFoo<T = i32>(T);
@@ -713,7 +688,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn const_generics() {
         #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
         #[archive(compare(PartialEq))]
@@ -729,7 +703,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn repr_c_packed() {
         #[derive(Archive)]
         #[archive_attr(repr(C, packed))]
@@ -754,7 +727,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn repr_c_align() {
         #[derive(Archive)]
         #[archive_attr(repr(C, align(8)))]
@@ -775,7 +747,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_as() {
         // Struct
 
@@ -923,7 +894,6 @@ mod tests {
         }
 
         #[test]
-        #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
         fn with_struct() {
             #[derive(Archive, Serialize, Deserialize)]
             struct Test {
@@ -949,7 +919,6 @@ mod tests {
         }
 
         #[test]
-        #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
         fn with_tuple_struct() {
             #[derive(Archive, Serialize, Deserialize)]
             struct Test(#[with(ConvertToString)] i32, i32);
@@ -968,7 +937,6 @@ mod tests {
         }
 
         #[test]
-        #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
         fn with_enum() {
             #[derive(Archive, Serialize, Deserialize)]
             enum Test {
@@ -1026,7 +994,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_atomic_load() {
         use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -1059,7 +1026,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_as_atomic() {
         use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -1084,7 +1050,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_inline() {
         use rkyv::with::Inline;
 
@@ -1103,7 +1068,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_boxed() {
         use rkyv::with::Boxed;
 
@@ -1121,7 +1085,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_boxed_inline() {
         use rkyv::with::BoxedInline;
 
@@ -1140,7 +1103,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_as_owned() {
         use rkyv::with::AsOwned;
 
@@ -1168,7 +1130,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_as_vec() {
         #[cfg(not(feature = "std"))]
         use alloc::collections::{BTreeMap, BTreeSet};
@@ -1230,7 +1191,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_niche() {
         use core::mem::size_of;
 
@@ -1270,7 +1230,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_niche_nonzero() {
         use core::{
             mem::size_of,
@@ -1356,7 +1315,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn with_unsafe() {
         use core::cell::UnsafeCell;
 
@@ -1392,7 +1350,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_crate_path() {
         use rkyv as alt_path;
 
@@ -1406,7 +1363,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn scratch_tracker() {
         use rkyv::ser::{
             allocator::{AllocationTracker, Arena, ArenaHandle},
@@ -1457,7 +1413,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn archive_bound() {
         use core::ops::Bound;
 
@@ -1467,7 +1422,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn reuse_arena() {
         let mut bytes = AlignedVec::<16>::with_capacity(1024);
         let mut arena = Arena::with_capacity(2);
@@ -1493,7 +1447,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
     fn to_bytes_in_vec() {
         let value = "hello world".to_string();
         let bytes = to_bytes_in::<_, Error>(&value, Vec::new()).unwrap();
