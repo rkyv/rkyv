@@ -471,7 +471,7 @@ mod tests {
     #[test]
     fn roundtrip_mutex() {
         #[derive(Archive, Serialize, Deserialize, Debug)]
-        #[archive(crate)]
+        #[archive(crate, check_bytes)]
         #[archive_attr(derive(Debug, PartialEq))]
         struct Test {
             #[with(Lock<Unsafe>)]
@@ -500,7 +500,7 @@ mod tests {
     #[test]
     fn roundtrip_rwlock() {
         #[derive(Archive, Serialize, Deserialize, Debug)]
-        #[archive(crate)]
+        #[archive(crate, check_bytes)]
         #[archive_attr(derive(Debug, PartialEq))]
         struct Test {
             #[with(Lock<Unsafe>)]
@@ -529,7 +529,7 @@ mod tests {
     #[test]
     fn roundtrip_os_string() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[archive(crate)]
+        #[archive(crate, check_bytes)]
         #[archive_attr(derive(Debug, PartialEq))]
         struct Test {
             #[with(AsString)]
@@ -549,7 +549,7 @@ mod tests {
     #[test]
     fn roundtrip_path_buf() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[archive(crate)]
+        #[archive(crate, check_bytes)]
         #[archive_attr(derive(Debug, PartialEq))]
         struct Test {
             #[with(AsString)]

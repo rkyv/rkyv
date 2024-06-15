@@ -57,10 +57,18 @@ impl From<ArchivedDuration> for Duration {
 mod tests {
     use core::time::Duration;
 
-    use crate::test::roundtrip;
+    use rancor::Failure;
+
+    use crate::{from_bytes, test::roundtrip, util::Align};
 
     #[test]
     fn roundtrip_duration() {
         roundtrip(&Duration::new(1234, 5678));
+    }
+
+    #[test]
+    fn check_valid_durations() {
+        let data = Align([0xff, 0x10]);
+        from_bytes::<Duration, Failure>(&*data).unwrap_err();
     }
 }

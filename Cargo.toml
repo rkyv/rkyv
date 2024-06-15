@@ -6,7 +6,6 @@ members = [
     # "rkyv_dyn",
     # "rkyv_dyn_derive",
     # "rkyv_dyn_test",
-    "rkyv_test",
 ]
 resolver = "2"
 
@@ -35,6 +34,7 @@ rkyv_derive = { version = "=0.8.0-alpha.2", default-features = false, path = "rk
 rkyv_dyn = { version = "=0.8.0-alpha.2", default-features = false, path = "rkyv_dyn" }
 rkyv_dyn_derive = { version = "=0.8.0-alpha.2", default-features = false, path = "rkyv_dyn_derive" }
 syn = "2.0"
+trybuild = "1.0"
 
 [patch.crates-io]
 bytecheck = { git = "https://github.com/rkyv/bytecheck" }

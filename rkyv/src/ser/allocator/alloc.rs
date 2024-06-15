@@ -259,3 +259,38 @@ unsafe impl<E> Allocator<E> for ArenaHandle<'_> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rancor::Panic;
+
+    use crate::{
+        ser::{allocator::Arena, sharing::Share, Serializer},
+        util::{serialize_into, AlignedVec},
+    };
+
+    #[test]
+    fn reuse_arena() {
+        let mut bytes = AlignedVec::<16>::with_capacity(1024);
+        let mut arena = Arena::with_capacity(2);
+
+        let value = vec![
+            "hello".to_string(),
+            "world".to_string(),
+            "foo".to_string(),
+            "bar".to_string(),
+            "baz".to_string(),
+        ];
+
+        for _ in 0..10 {
+            let mut buffer = core::mem::take(&mut bytes);
+            buffer.clear();
+
+            serialize_into::<_, Panic>(
+                &value,
+                Serializer::new(buffer, arena.acquire(), Share::new()),
+            )
+            .unwrap();
+        }
+    }
+}

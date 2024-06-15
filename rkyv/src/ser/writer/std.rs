@@ -60,3 +60,28 @@ impl<W: io::Write, E: Source> Writer<E> for IoWriter<W> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rancor::Failure;
+
+    use crate::{
+        ser::writer::IoWriter, serialize, util::Align, Archive, Serialize,
+    };
+
+    #[test]
+    fn write_serializer() {
+        #[derive(Archive, Serialize)]
+        #[archive(crate)]
+        #[archive_attr(repr(C))]
+        struct Example {
+            x: i32,
+        }
+
+        let mut buf = Align([0u8; 3]);
+        let mut ser = IoWriter::new(&mut buf[..]);
+        let foo = Example { x: 100 };
+        serialize::<_, Failure>(&foo, &mut ser)
+            .expect_err("serialized to an undersized buffer must fail");
+    }
+}

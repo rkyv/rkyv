@@ -84,14 +84,12 @@ macro_rules! impl_archived_option_nonzero {
             #[inline]
             pub fn take(&mut self) -> Option<Archived<$nz>> {
                 if self.inner != 0 {
-                    let nonzero_value = core::mem::replace(
-                        &mut self.inner,
-                        0.into(),
-                    );
                     // SAFETY: self.inner is nonzero
-                    Some(unsafe {
-                        Archived::<$nz>::new_unchecked(nonzero_value.into())
-                    })
+                    let result = unsafe {
+                        Archived::<$nz>::new_unchecked(self.inner.into())
+                    };
+                    self.inner = 0.into();
+                    Some(result)
                 } else {
                     None
                 }

@@ -171,3 +171,64 @@ impl<T> From<T> for AllocationTracker<T> {
         Self::new(inner)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rancor::{Panic, Strategy};
+
+    use crate::{
+        ser::allocator::AllocationStats,
+        util::{serialize_into, AlignedVec},
+        Serialize,
+    };
+
+    #[test]
+    fn allocation_tracker() {
+        use crate::ser::{
+            allocator::{AllocationTracker, Arena, ArenaHandle},
+            Serializer,
+        };
+
+        type TrackerSerializer<'a, E> = Strategy<
+            Serializer<AlignedVec, AllocationTracker<ArenaHandle<'a>>, ()>,
+            E,
+        >;
+
+        fn track_serialize<T>(value: &T) -> AllocationStats
+        where
+            T: for<'a> Serialize<TrackerSerializer<'a, Panic>>,
+        {
+            let mut arena = Arena::new();
+
+            let serializer = serialize_into(
+                value,
+                Serializer::new(
+                    AlignedVec::new(),
+                    AllocationTracker::new(arena.acquire()),
+                    (),
+                ),
+            )
+            .unwrap();
+            serializer.into_raw_parts().1.into_stats()
+        }
+
+        let stats = track_serialize(&42);
+        assert_eq!(stats.max_bytes_allocated, 0);
+        assert_eq!(stats.max_allocations, 0);
+        assert_eq!(stats.max_alignment, 1);
+        assert_eq!(stats.min_arena_capacity(), 0);
+        assert_eq!(stats.min_arena_capacity_max_error(), 0);
+
+        let stats = track_serialize(&vec![1, 2, 3, 4]);
+        assert_eq!(stats.max_bytes_allocated, 0);
+        assert_eq!(stats.max_allocations, 0);
+        assert_eq!(stats.max_alignment, 1);
+        assert_eq!(stats.min_arena_capacity(), 0);
+        assert_eq!(stats.min_arena_capacity_max_error(), 0);
+
+        let stats = track_serialize(&vec![vec![1, 2], vec![3, 4]]);
+        assert_ne!(stats.max_bytes_allocated, 0);
+        assert_eq!(stats.max_allocations, 1);
+        assert_ne!(stats.min_arena_capacity(), 0);
+    }
+}

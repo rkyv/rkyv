@@ -102,7 +102,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use core::hash::BuildHasher;
+    use core::{fmt::Debug, hash::BuildHasher};
     use std::collections::HashMap;
 
     use ahash::RandomState;
@@ -112,10 +112,13 @@ mod tests {
         Archive, Archived, Deserialize, Serialize,
     };
 
-    fn assert_equal<S: BuildHasher>(
-        a: &HashMap<String, String, S>,
-        b: &Archived<HashMap<String, String, S>>,
-    ) {
+    fn assert_equal<V, S: BuildHasher>(
+        a: &HashMap<String, V, S>,
+        b: &Archived<HashMap<String, V, S>>,
+    ) where
+        V: Archive + Debug + PartialEq<V::Archived>,
+        V::Archived: Debug + PartialEq<V>,
+    {
         assert_eq!(a.len(), b.len());
 
         for (key, value) in a.iter() {
@@ -130,7 +133,23 @@ mod tests {
     }
 
     #[test]
-    fn roundtrip_hash_map() {
+    fn roundtrip_empty_hash_map() {
+        roundtrip(&HashMap::<i8, i32>::default());
+    }
+
+    #[test]
+    fn roundtrip_hash_map_string_int() {
+        let mut map = HashMap::new();
+        map.insert("Hello".to_string(), 12);
+        map.insert("world".to_string(), 34);
+        map.insert("foo".to_string(), 56);
+        map.insert("bar".to_string(), 78);
+        map.insert("baz".to_string(), 90);
+        roundtrip_with(&map, assert_equal);
+    }
+
+    #[test]
+    fn roundtrip_hash_map_string_string() {
         let mut hash_map = HashMap::new();
         hash_map.insert("hello".to_string(), "world".to_string());
         hash_map.insert("foo".to_string(), "bar".to_string());
@@ -151,12 +170,12 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
-    fn roundtrip_hash_map_with_custom_hasher() {
-        use std::collections::HashMap;
-
+    fn roundtrip_hash_map_with_custom_hasher_empty() {
         roundtrip(&HashMap::<i8, i32, RandomState>::default());
+    }
 
+    #[test]
+    fn roundtrip_hash_map_with_custom_hasher() {
         let mut hash_map: HashMap<i8, _, RandomState> = HashMap::default();
         hash_map.insert(1, 2);
         hash_map.insert(3, 4);
@@ -164,7 +183,10 @@ mod tests {
         hash_map.insert(7, 8);
 
         roundtrip(&hash_map);
+    }
 
+    #[test]
+    fn roundtrip_hash_map_with_custom_hasher_strings() {
         let mut hash_map: HashMap<_, _, RandomState> = HashMap::default();
         hash_map.insert("hello".to_string(), "world".to_string());
         hash_map.insert("foo".to_string(), "bar".to_string());
@@ -176,7 +198,7 @@ mod tests {
     #[test]
     fn get_with() {
         #[derive(Archive, Serialize, Deserialize, Eq, Hash, PartialEq)]
-        #[archive(crate)]
+        #[archive(crate, check_bytes)]
         #[archive_attr(derive(Eq, Hash, PartialEq))]
         pub struct Pair(String, String);
 

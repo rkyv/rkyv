@@ -36,7 +36,7 @@ impl<D: Fallible + ?Sized> Deserialize<Uuid, D> for Uuid {
 }
 
 #[cfg(test)]
-mod rkyv_tests {
+mod tests {
     use uuid::Uuid;
 
     use crate::test::roundtrip;

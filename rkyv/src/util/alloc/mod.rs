@@ -208,3 +208,17 @@ where
     let archived = unsafe { access_unchecked::<T::Archived>(bytes) };
     deserialize(archived, &mut Pool::new())
 }
+
+#[cfg(test)]
+mod tests {
+    use rancor::Panic;
+
+    use crate::to_bytes_in;
+
+    #[test]
+    fn to_bytes_in_vec() {
+        let value = "hello world".to_string();
+        let bytes = to_bytes_in::<_, Panic>(&value, Vec::new()).unwrap();
+        assert!(!bytes.is_empty());
+    }
+}

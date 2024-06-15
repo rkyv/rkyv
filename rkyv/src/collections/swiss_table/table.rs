@@ -127,7 +127,7 @@ impl<T> ArchivedHashTable<T> {
     where
         C: Fn(&T) -> bool,
     {
-        if self.len.to_native() == 0 {
+        if self.is_empty() {
             return None;
         }
 
@@ -260,12 +260,16 @@ impl<T> ArchivedHashTable<T> {
         len: usize,
         load_factor: (usize, usize),
     ) -> Result<usize, E> {
-        Ok(usize::max(
-            len.checked_mul(load_factor.1)
-                .into_trace("overflow while adjusting capacity")?
-                / load_factor.0,
-            len + 1,
-        ))
+        if len == 0 {
+            Ok(0)
+        } else {
+            Ok(usize::max(
+                len.checked_mul(load_factor.1)
+                    .into_trace("overflow while adjusting capacity")?
+                    / load_factor.0,
+                len + 1,
+            ))
+        }
     }
 
     fn control_count<E: Source>(capacity: usize) -> Result<usize, E> {
@@ -457,7 +461,13 @@ impl<T> ArchivedHashTable<T> {
         out: Place<Self>,
     ) {
         munge!(let Self { ptr, len: out_len, cap, _phantom: _ } = out);
-        RawRelPtr::emplace(resolver.pos, ptr);
+
+        if len == 0 {
+            RawRelPtr::emplace_invalid(ptr);
+        } else {
+            RawRelPtr::emplace(resolver.pos, ptr);
+        }
+
         len.resolve((), out_len);
 
         let capacity =
@@ -616,7 +626,7 @@ mod verify {
                 return Ok(());
             }
 
-            if self.len() >= cap {
+            if len >= cap {
                 fail!(InvalidLength { len, cap });
             }
 

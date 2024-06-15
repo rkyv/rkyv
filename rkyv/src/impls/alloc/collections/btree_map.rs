@@ -98,8 +98,13 @@ where
 
 #[cfg(test)]
 mod tests {
+    use rancor::Failure;
+
     use super::BTreeMap;
-    use crate::test::roundtrip;
+    use crate::{
+        access, test::roundtrip, util::Align, Archive, Archived, Deserialize,
+        Serialize,
+    };
 
     #[test]
     fn roundtrip_btree_map() {
@@ -148,5 +153,37 @@ mod tests {
         }
 
         roundtrip(&value);
+    }
+
+    #[test]
+    fn roundtrip_btree_map_with_struct_member() {
+        #[derive(
+            Archive, Serialize, Deserialize, Debug, Default, PartialEq,
+        )]
+        #[archive(crate, check_bytes, compare(PartialEq))]
+        #[archive_attr(derive(Debug))]
+        pub struct MyType {
+            pub some_list: BTreeMap<String, Vec<f32>>,
+            pub values: Vec<f32>,
+        }
+
+        let mut value = MyType::default();
+
+        value
+            .some_list
+            .entry("Asdf".to_string())
+            .and_modify(|e| e.push(1.0))
+            .or_insert_with(|| vec![2.0]);
+
+        roundtrip(&value);
+    }
+
+    #[test]
+    fn check_invalid_btreemap() {
+        let data = Align([
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0, 0x00, 0x00, 0x00, 0x0c, 0xa5,
+            0xf0, 0xff, 0xff, 0xff,
+        ]);
+        access::<Archived<BTreeMap<u8, Box<u8>>>, Failure>(&*data).unwrap_err();
     }
 }

@@ -80,15 +80,21 @@ mod detail {
 
 use core::fmt::Debug;
 
+use bytecheck::CheckBytes;
+use rancor::{Panic, Strategy};
+
 use self::detail::{deserialize, to_bytes, TestDeserializer, TestSerializer};
-use crate::{access_unchecked, Deserialize, Serialize};
+use crate::{
+    access, validation::validators::DefaultValidator, Deserialize, Serialize,
+};
 
 pub fn to_archived<T>(value: &T, f: impl FnOnce(&T::Archived))
 where
     T: for<'a> Serialize<TestSerializer<'a>>,
+    T::Archived: for<'a> CheckBytes<Strategy<DefaultValidator<'a>, Panic>>,
 {
     to_bytes(value, |bytes| {
-        let archived_value = unsafe { access_unchecked(bytes) };
+        let archived_value = access::<T::Archived, Panic>(bytes).unwrap();
         f(archived_value);
     });
 }
@@ -96,7 +102,9 @@ where
 pub fn roundtrip_with<T>(value: &T, cmp: impl Fn(&T, &T::Archived))
 where
     T: Debug + PartialEq + for<'a> Serialize<TestSerializer<'a>>,
-    T::Archived: Debug + Deserialize<T, TestDeserializer>,
+    T::Archived: Debug
+        + Deserialize<T, TestDeserializer>
+        + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, Panic>>,
 {
     to_archived(value, |archived_value| {
         cmp(value, archived_value);
@@ -108,7 +116,10 @@ where
 pub fn roundtrip<T>(value: &T)
 where
     T: Debug + PartialEq + for<'a> Serialize<TestSerializer<'a>>,
-    T::Archived: Debug + PartialEq<T> + Deserialize<T, TestDeserializer>,
+    T::Archived: Debug
+        + PartialEq<T>
+        + Deserialize<T, TestDeserializer>
+        + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, Panic>>,
 {
     roundtrip_with(value, |a, b| assert_eq!(b, a));
 }

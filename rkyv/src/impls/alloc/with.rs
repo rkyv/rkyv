@@ -543,7 +543,7 @@ mod tests {
     };
 
     #[derive(Debug, Archive, Deserialize, Serialize, PartialEq)]
-    #[archive(crate, compare(PartialEq))]
+    #[archive(crate, check_bytes, compare(PartialEq))]
     #[archive_attr(derive(Debug))]
     struct Test {
         value: Option<Box<u128>>,
@@ -565,7 +565,7 @@ mod tests {
     fn ambiguous_niched_archived_box() {
         #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
         #[archive_attr(derive(Debug))]
-        #[archive(crate, compare(PartialEq))]
+        #[archive(crate, check_bytes, compare(PartialEq))]
         struct HasNiche {
             #[with(Niche)]
             inner: Option<Box<[u32]>>,

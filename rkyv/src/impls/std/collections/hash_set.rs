@@ -98,7 +98,9 @@ mod tests {
     fn roundtrip_hash_set() {
         let mut hash_set = HashSet::new();
         hash_set.insert("hello".to_string());
+        hash_set.insert("world".to_string());
         hash_set.insert("foo".to_string());
+        hash_set.insert("bar".to_string());
         hash_set.insert("baz".to_string());
 
         roundtrip_with(&hash_set, |a, b| {
