@@ -1,18 +1,11 @@
 [workspace]
 members = [
     "benchlib",
-    "examples/*",
     "rkyv",
     "rkyv_derive",
-    "rkyv_dyn",
-    "rkyv_dyn_derive",
-    "rkyv_dyn_test",
-    "rkyv_test",
-]
-default-members = [
-    "examples/*",
-    "rkyv",
-    "rkyv_derive",
+    # "rkyv_dyn",
+    # "rkyv_dyn_derive",
+    # "rkyv_dyn_test",
     "rkyv_test",
 ]
 resolver = "2"

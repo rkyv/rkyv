@@ -13,4 +13,3 @@ license.workspace = true
 divan.workspace = true
 rand = "0.8"
 rand_pcg = "0.3"
-rkyv.workspace = true

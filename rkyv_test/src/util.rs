@@ -1,6 +1,3 @@
-#[cfg(feature = "wasm")]
-wasm_bindgen_test::wasm_bindgen_test_configure!();
-
 pub mod core {
     use core::{fmt::Debug, mem::MaybeUninit};
 

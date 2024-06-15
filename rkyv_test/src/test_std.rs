@@ -4,8 +4,6 @@ mod tests {
         rancor::Error, ser::writer::IoWriter, serialize, util::Align, Archive,
         Deserialize, Serialize,
     };
-    #[cfg(feature = "wasm")]
-    use wasm_bindgen_test::*;
 
     #[test]
     fn write_serializer() {
