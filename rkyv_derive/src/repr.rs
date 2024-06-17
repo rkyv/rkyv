@@ -49,8 +49,8 @@ impl Primitive {
 }
 
 pub enum Modifier {
-    Packed(usize),
-    Align(usize),
+    Packed(#[allow(dead_code)] usize),
+    Align(#[allow(dead_code)] usize),
 }
 
 pub enum Repr {
@@ -58,9 +58,11 @@ pub enum Repr {
     Primitive(Primitive),
     C {
         primitive: Option<Primitive>,
+        #[allow(dead_code)]
         modifier: Option<Modifier>,
     },
     Rust {
+        #[allow(dead_code)]
         modifier: Option<Modifier>,
     },
 }

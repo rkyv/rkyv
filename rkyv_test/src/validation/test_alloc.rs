@@ -26,8 +26,6 @@ mod tests {
         validation::util::access_pos,
         Archive, Archived, Deserialize, Serialize,
     };
-    #[cfg(feature = "wasm")]
-    use wasm_bindgen_test::*;
 
     use crate::validation::util::alloc::serialize_and_check;
 

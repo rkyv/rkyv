@@ -137,7 +137,7 @@ mod tests {
     fn roundtrip_large_btree_map() {
         // This test creates structures too big to fit in 16-bit offsets, and
         // MIRI can't run it quickly enough.
-        #[cfg(any(feature = "size_16", miri))]
+        #[cfg(any(feature = "pointer_width_16", miri))]
         const ENTRIES: usize = 100;
         #[cfg(not(miri))]
         const ENTRIES: usize = 100_000;

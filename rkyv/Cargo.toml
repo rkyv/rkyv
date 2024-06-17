@@ -64,8 +64,6 @@ features = ["bytecheck"]
 ahash = "0.8"
 benchlib.workspace = true
 divan.workspace = true
-rkyv = { workspace = true, default-features = true }
-rkyv_derive.workspace = true
 
 [[bench]]
 name = "log"

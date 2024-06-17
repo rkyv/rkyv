@@ -3,8 +3,6 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use rkyv::rancor::Error;
-    #[cfg(feature = "wasm")]
-    use wasm_bindgen_test::*;
 
     use crate::validation::util::alloc::serialize_and_check;
 

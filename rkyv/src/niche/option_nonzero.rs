@@ -84,13 +84,13 @@ macro_rules! impl_archived_option_nonzero {
             #[inline]
             pub fn take(&mut self) -> Option<Archived<$nz>> {
                 if self.inner != 0 {
-                    #[allow(clippy::transmute_int_to_non_zero)]
+                    let nonzero_value = core::mem::replace(
+                        &mut self.inner,
+                        0.into(),
+                    );
                     // SAFETY: self.inner is nonzero
                     Some(unsafe {
-                        core::mem::transmute(core::mem::replace(
-                            &mut self.inner,
-                            0.into(),
-                        ))
+                        Archived::<$nz>::new_unchecked(nonzero_value.into())
                     })
                 } else {
                     None

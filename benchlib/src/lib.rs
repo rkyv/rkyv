@@ -3,7 +3,6 @@ mod generate;
 pub use divan;
 pub use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
-pub use rkyv;
 
 pub use self::generate::*;
 

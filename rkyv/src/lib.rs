@@ -117,6 +117,7 @@
     unsafe_op_in_unsafe_fn
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(html_favicon_url = r#"
     data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0
     26.458 26.458'%3E%3Cpath d='M0 0v26.458h26.458V0zm9.175 3.772l8.107 8.106
@@ -139,7 +140,7 @@ extern crate alloc;
 // Re-exports
 
 #[cfg(feature = "bytecheck")]
-#[cfg_attr(doc_cfg, doc(cfg(feature = "bytecheck")))]
+#[cfg_attr(docsrs, doc(cfg(feature = "bytecheck")))]
 pub use ::bytecheck;
 pub use ::munge;
 pub use ::ptr_meta;
@@ -153,6 +154,7 @@ mod alias;
 #[macro_use]
 mod _macros;
 #[cfg(feature = "bitvec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "bitvec")))]
 pub mod bitvec;
 pub mod boxed;
 pub mod collections;
@@ -162,6 +164,7 @@ mod fmt;
 // not in core. If CStr ever gets moved into `core` then this module will no
 // longer need cfg(feature = "std")
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 pub mod ffi;
 pub mod hash;
 mod impls;
@@ -185,6 +188,7 @@ pub mod traits;
 pub mod tuple;
 pub mod util;
 #[cfg(feature = "bytecheck")]
+#[cfg_attr(docsrs, doc(cfg(feature = "bytecheck")))]
 pub mod validation;
 pub mod vec;
 pub mod with;
@@ -192,18 +196,12 @@ pub mod with;
 // Exports
 
 #[cfg(feature = "alloc")]
-#[cfg_attr(doc_cfg, doc(cfg(feature = "alloc")))]
 #[doc(inline)]
 pub use util::{from_bytes_unchecked, to_bytes, to_bytes_in};
 #[cfg(all(feature = "bytecheck", feature = "alloc"))]
-#[cfg_attr(
-    doc_cfg,
-    doc(cfg(all(feature = "bytecheck", feature = "alloc")))
-)]
 #[doc(inline)]
 pub use validation::util::from_bytes;
 #[cfg(feature = "bytecheck")]
-#[cfg_attr(doc_cfg, doc(cfg(feature = "bytecheck")))]
 #[doc(inline)]
 pub use validation::util::{access, access_mut};
 

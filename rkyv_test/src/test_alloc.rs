@@ -851,8 +851,6 @@ mod tests {
             with::{ArchiveWith, DeserializeWith, SerializeWith},
             Archive, Archived, Deserialize, Place, Serialize,
         };
-        #[cfg(feature = "wasm")]
-        use wasm_bindgen_test::*;
 
         struct ConvertToString;
 
