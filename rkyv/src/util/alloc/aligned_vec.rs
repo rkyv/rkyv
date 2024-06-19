@@ -10,6 +10,14 @@ use std::{alloc, io};
 
 #[cfg(not(feature = "std"))]
 use ::alloc::{alloc, boxed::Box, vec::Vec};
+use rancor::Fallible;
+
+use crate::{
+    ser::{Allocator, Writer},
+    vec::{ArchivedVec, VecResolver},
+    with::{ArchiveWith, AsVec, DeserializeWith, SerializeWith},
+    Place,
+};
 
 /// A vector of bytes that aligns its memory to 16 bytes.
 ///
@@ -992,3 +1000,43 @@ unsafe impl<const A: usize> Send for AlignedVec<A> {}
 unsafe impl<const A: usize> Sync for AlignedVec<A> {}
 
 impl<const A: usize> Unpin for AlignedVec<A> {}
+
+impl<const A: usize> ArchiveWith<AlignedVec<A>> for AsVec {
+    type Archived = ArchivedVec<u8>;
+    type Resolver = VecResolver;
+
+    fn resolve_with(
+        field: &AlignedVec<A>,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        ArchivedVec::resolve_from_len(field.len(), resolver, out)
+    }
+}
+
+impl<S, const A: usize> SerializeWith<AlignedVec<A>, S> for AsVec
+where
+    S: Allocator + Fallible + Writer + ?Sized,
+{
+    fn serialize_with(
+        field: &AlignedVec<A>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedVec::serialize_from_slice(field.as_slice(), serializer)
+    }
+}
+
+impl<D, const A: usize> DeserializeWith<ArchivedVec<u8>, AlignedVec<A>, D>
+    for AsVec
+where
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(
+        field: &ArchivedVec<u8>,
+        _: &mut D,
+    ) -> Result<AlignedVec<A>, D::Error> {
+        let mut result = AlignedVec::with_capacity(field.len());
+        result.extend_from_slice(field.as_slice());
+        Ok(result)
+    }
+}
