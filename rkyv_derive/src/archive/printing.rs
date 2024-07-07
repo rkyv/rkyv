@@ -1,7 +1,7 @@
 use quote::quote;
 use syn::{
     parse_quote, spanned::Spanned as _, Attribute, DeriveInput, Error, Ident,
-    LitStr, Path, Type,
+    LitStr, Meta, Path, Type,
 };
 
 use crate::{attributes::Attributes, util::strip_raw};
@@ -71,10 +71,18 @@ impl Printing {
         {
             let path = quote!(#rkyv_path::bytecheck).to_string();
             let path_lit_str = LitStr::new(&path, rkyv_path.span());
-            vec![
+            let mut result = vec![
                 parse_quote! { #[derive(#rkyv_path::bytecheck::CheckBytes)] },
                 parse_quote! { #[check_bytes(crate = #path_lit_str)] },
-            ]
+            ];
+
+            if let Meta::List(check_bytes) =
+                attributes.check_bytes.as_ref().unwrap()
+            {
+                result.push(parse_quote! { #[#check_bytes] });
+            }
+
+            result
         } else {
             Vec::new()
         };

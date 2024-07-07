@@ -394,9 +394,12 @@ mod tests {
     #[test]
     fn recursive_structures() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq))]
+        #[rkyv(
+            crate,
+            check_bytes(bounds(__C: ArchiveContext)),
+            compare(PartialEq),
+        )]
         #[rkyv_derive(Debug)]
-        #[rkyv_attr(check_bytes(bounds(__C: ArchiveContext)))]
         // The derive macros don't apply the right bounds from Box so we have to
         // manually specify what bounds to apply
         #[rkyv(serialize_bounds(__S: Writer))]
@@ -412,9 +415,12 @@ mod tests {
     #[test]
     fn recursive_self_types() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq))]
+        #[rkyv(
+            crate,
+            check_bytes(bounds(__C: ArchiveContext)),
+            compare(PartialEq),
+        )]
         #[rkyv_derive(Debug)]
-        #[rkyv_attr(check_bytes(bounds(__C: ArchiveContext)))]
         // The derive macros don't apply the right bounds from Box so we have to
         // manually specify what bounds to apply
         #[rkyv(serialize_bounds(__S: Writer))]

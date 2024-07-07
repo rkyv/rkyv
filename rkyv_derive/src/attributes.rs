@@ -1,8 +1,9 @@
+use proc_macro2::TokenTree;
 use quote::ToTokens;
 use syn::{
     meta::ParseNestedMeta, parenthesized, parse::Parse, parse_quote,
-    punctuated::Punctuated, AttrStyle, DeriveInput, Error, Ident, LitStr, Meta,
-    Path, Token, WherePredicate,
+    punctuated::Punctuated, token, AttrStyle, DeriveInput, Error, Ident,
+    LitStr, MacroDelimiter, Meta, MetaList, Path, Token, WherePredicate,
 };
 
 fn try_set_attribute<T: ToTokens>(
@@ -31,18 +32,41 @@ pub struct Attributes {
     pub archive_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
     pub serialize_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
     pub deserialize_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
-    pub check_bytes: Option<Path>,
+    pub check_bytes: Option<Meta>,
     pub crate_path: Option<Path>,
 }
 
 impl Attributes {
     fn parse_meta(&mut self, meta: ParseNestedMeta<'_>) -> Result<(), Error> {
         if meta.path.is_ident("check_bytes") {
-            if !meta.input.is_empty() && !meta.input.peek(Token![,]) {
-                return Err(meta.error("check_bytes argument must be a path"));
-            }
+            let meta = if meta.input.peek(token::Paren) {
+                let (delimiter, tokens) = meta.input.step(|cursor| {
+                    if let Some((TokenTree::Group(g), rest)) =
+                        cursor.token_tree()
+                    {
+                        Ok((
+                            (
+                                MacroDelimiter::Paren(token::Paren(
+                                    g.delim_span(),
+                                )),
+                                g.stream(),
+                            ),
+                            rest,
+                        ))
+                    } else {
+                        Err(cursor.error("expected delimiter"))
+                    }
+                })?;
+                Meta::List(MetaList {
+                    path: meta.path,
+                    delimiter,
+                    tokens,
+                })
+            } else {
+                Meta::Path(meta.path)
+            };
 
-            try_set_attribute(&mut self.check_bytes, meta.path, "check_bytes")
+            try_set_attribute(&mut self.check_bytes, meta, "check_bytes")
         } else if meta.path.is_ident("compare") {
             let traits;
             parenthesized!(traits in meta.input);

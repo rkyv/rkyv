@@ -14,7 +14,7 @@ proc-macro = true
 
 [dependencies]
 proc-macro2.workspace = true
-syn = { workspace = true, features = ["printing"] }
+syn.workspace = true
 quote.workspace = true
 
 [features]

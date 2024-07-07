@@ -46,8 +46,7 @@ use rkyv::{access, rancor::Error, Archive, Deserialize, Serialize};
 //
 // With those two changes, our recursive type can be validated with
 // `check_archived_root`!
-#[rkyv(check_bytes)]
-#[rkyv_attr(check_bytes(
+#[rkyv(check_bytes(
     bounds(
         __C: rkyv::validation::ArchiveContext,
     )
