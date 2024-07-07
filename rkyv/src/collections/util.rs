@@ -53,7 +53,7 @@ where
 
 /// A key-value entry.
 #[derive(Debug, Portable, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(C)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 pub struct Entry<K, V> {

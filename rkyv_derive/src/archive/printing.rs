@@ -39,7 +39,7 @@ impl Printing {
                     first,
                     format!(
                         "\
-                            archive_attr(...) may not be used with as = \
+                            rkyv_attr(...) may not be used with as = \
                          \"...\"\nplace any attributes on the archived type \
                          ({}) instead",
                         archive_as.value(),

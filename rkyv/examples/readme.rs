@@ -4,7 +4,7 @@ use rkyv::{
 };
 
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
-#[archive(
+#[rkyv(
     // This will generate a PartialEq impl between our unarchived
     // and archived types
     compare(PartialEq),
@@ -14,7 +14,7 @@ use rkyv::{
     check_bytes,
 )]
 // Derives can be passed through to the generated type:
-#[archive_attr(derive(Debug))]
+#[rkyv_attr(derive(Debug))]
 struct Test {
     int: u8,
     string: String,

@@ -2,7 +2,7 @@ use benchlib::{bench_dataset, generate_vec, Generate, Rng};
 use rkyv::{Archive, Deserialize, Serialize};
 
 #[derive(Archive, Serialize, Deserialize, Clone, Copy, Debug)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 #[repr(u8)]
 pub enum GameType {
     Survival,
@@ -24,7 +24,7 @@ impl Generate for GameType {
 }
 
 #[derive(Archive, Serialize, Deserialize, Debug)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 pub struct Item {
     count: i8,
     slot: u8,
@@ -52,7 +52,7 @@ impl Generate for Item {
 }
 
 #[derive(Archive, Serialize, Clone, Copy, Deserialize, Debug)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 pub struct Abilities {
     walk_speed: f32,
     fly_speed: f32,
@@ -78,7 +78,7 @@ impl Generate for Abilities {
 }
 
 #[derive(Archive, Serialize, Deserialize, Debug)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 pub struct Entity {
     id: String,
     pos: [f64; 3],
@@ -133,7 +133,7 @@ impl Generate for Entity {
 }
 
 #[derive(Archive, Serialize, Deserialize, Debug)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 pub struct RecipeBook {
     recipes: Vec<String>,
     to_be_displayed: Vec<String>,
@@ -186,7 +186,7 @@ impl Generate for RecipeBook {
 }
 
 #[derive(Archive, Serialize, Deserialize, Debug)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 pub struct RootVehicle {
     attach: [u32; 4],
     entity: Entity,
@@ -202,7 +202,7 @@ impl Generate for RootVehicle {
 }
 
 #[derive(Archive, Serialize, Deserialize, Debug)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 pub struct Player {
     game_type: GameType,
     previous_game_type: GameType,
@@ -235,7 +235,7 @@ pub struct Player {
 }
 
 #[derive(Archive, Serialize, Deserialize, Debug)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 pub struct Players {
     pub players: Vec<Player>,
 }

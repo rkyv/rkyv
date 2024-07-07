@@ -568,7 +568,7 @@ mod tests {
     #[test]
     fn with_struct() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct Test {
             #[with(ConvertToString)]
             value: i32,
@@ -594,7 +594,7 @@ mod tests {
     #[test]
     fn with_tuple_struct() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct Test(#[with(ConvertToString)] i32, i32);
 
         let value = Test(10, 10);
@@ -613,7 +613,7 @@ mod tests {
     #[test]
     fn with_enum() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         enum Test {
             A {
                 #[with(ConvertToString)]
@@ -672,8 +672,8 @@ mod tests {
         use core::sync::atomic::{AtomicU32, Ordering};
 
         #[derive(Archive, Debug, Deserialize, Serialize)]
-        #[archive(crate, check_bytes)]
-        #[archive_attr(derive(Debug))]
+        #[rkyv(crate, check_bytes)]
+        #[rkyv_attr(derive(Debug))]
         struct Test {
             #[with(AtomicLoad<Relaxed>)]
             a: AtomicU32,
@@ -703,7 +703,7 @@ mod tests {
         use core::sync::atomic::{AtomicU32, Ordering};
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct Test {
             #[with(AsAtomic<Relaxed, Relaxed>)]
             value: AtomicU32,
@@ -724,7 +724,7 @@ mod tests {
     #[test]
     fn with_inline() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct Test<'a> {
             #[with(Inline)]
             value: &'a i32,
@@ -741,7 +741,7 @@ mod tests {
     #[test]
     fn with_boxed() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct Test {
             #[with(AsBox)]
             value: i32,
@@ -757,7 +757,7 @@ mod tests {
     #[test]
     fn with_boxed_inline() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct Test<'a> {
             #[with(InlineAsBox)]
             value: &'a str,
@@ -774,7 +774,7 @@ mod tests {
     #[test]
     fn with_as_owned() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct Test<'a> {
             #[with(AsOwned)]
             a: Cow<'a, u32>,
@@ -805,7 +805,7 @@ mod tests {
         use std::collections::{BTreeMap, BTreeSet};
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct Test {
             #[with(AsVec)]
             a: BTreeMap<String, String>,
@@ -862,14 +862,14 @@ mod tests {
         use core::mem::size_of;
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct Test {
             #[with(Niche)]
             inner: Option<Box<String>>,
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct TestNoNiching {
             inner: Option<Box<String>>,
         }
@@ -907,7 +907,7 @@ mod tests {
         };
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct Test {
             #[with(Niche)]
             a: Option<NonZeroI8>,
@@ -924,7 +924,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct TestNoNiching {
             a: Option<NonZeroI8>,
             b: Option<NonZeroI32>,
@@ -986,7 +986,7 @@ mod tests {
         use core::cell::UnsafeCell;
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct Test {
             #[with(Unsafe)]
             inner: UnsafeCell<u32>,

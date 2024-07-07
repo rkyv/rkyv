@@ -60,8 +60,8 @@ mod tests {
     #[test]
     fn roundtrip_unit_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[archive(crate, check_bytes, compare(PartialEq))]
-        #[archive_attr(derive(Debug))]
+        #[rkyv(crate, check_bytes, compare(PartialEq))]
+        #[rkyv_attr(derive(Debug))]
         struct Test;
 
         roundtrip(&Test);
@@ -71,8 +71,8 @@ mod tests {
     #[test]
     fn roundtrip_tuple_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[archive(crate, check_bytes, compare(PartialEq))]
-        #[archive_attr(derive(Debug))]
+        #[rkyv(crate, check_bytes, compare(PartialEq))]
+        #[rkyv_attr(derive(Debug))]
         struct Test((), i32, String, Option<i32>);
 
         roundtrip(&Test((), 42, "hello world".to_string(), Some(42)));
@@ -85,8 +85,8 @@ mod tests {
     #[test]
     fn roundtrip_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[archive(crate, check_bytes, compare(PartialEq))]
-        #[archive_attr(derive(Debug))]
+        #[rkyv(crate, check_bytes, compare(PartialEq))]
+        #[rkyv_attr(derive(Debug))]
         struct Test {
             a: (),
             b: i32,
@@ -129,7 +129,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
-        #[archive(crate, check_bytes, compare(PartialEq))]
+        #[rkyv(crate, check_bytes, compare(PartialEq))]
         struct Test<T: TestTrait> {
             a: (),
             b: <T as TestTrait>::Associated,
@@ -191,8 +191,8 @@ mod tests {
     #[test]
     fn roundtrip_enum() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[archive(crate, check_bytes, compare(PartialEq))]
-        #[archive_attr(derive(Debug))]
+        #[rkyv(crate, check_bytes, compare(PartialEq))]
+        #[rkyv_attr(derive(Debug))]
         enum Test {
             A,
             B(String),
@@ -228,7 +228,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
-        #[archive(crate, check_bytes, compare(PartialEq))]
+        #[rkyv(crate, check_bytes, compare(PartialEq))]
         enum Test<T: TestTrait> {
             A,
             B(String),
@@ -308,7 +308,7 @@ mod tests {
     #[test]
     fn struct_mutable_refs() {
         #[derive(Archive, Serialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         struct Test {
             a: Box<i32>,
             b: Vec<String>,
@@ -363,7 +363,7 @@ mod tests {
     fn enum_mutable_ref() {
         #[allow(dead_code)]
         #[derive(Archive, Serialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         enum Test {
             A,
             B(char),
@@ -394,12 +394,12 @@ mod tests {
     #[test]
     fn recursive_structures() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[archive(crate, check_bytes, compare(PartialEq))]
-        #[archive_attr(derive(Debug), check_bytes(bounds(__C: ArchiveContext)))]
+        #[rkyv(crate, check_bytes, compare(PartialEq))]
+        #[rkyv_attr(derive(Debug), check_bytes(bounds(__C: ArchiveContext)))]
         // The derive macros don't apply the right bounds from Box so we have to
         // manually specify what bounds to apply
-        #[archive(serialize_bounds(__S: Writer))]
-        #[archive(deserialize_bounds(__D::Error: Source))]
+        #[rkyv(serialize_bounds(__S: Writer))]
+        #[rkyv(deserialize_bounds(__D::Error: Source))]
         enum Node {
             Nil,
             Cons(#[omit_bounds] Box<Node>),
@@ -411,12 +411,12 @@ mod tests {
     #[test]
     fn recursive_self_types() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[archive(crate, check_bytes, compare(PartialEq))]
-        #[archive_attr(derive(Debug), check_bytes(bounds(__C: ArchiveContext)))]
+        #[rkyv(crate, check_bytes, compare(PartialEq))]
+        #[rkyv_attr(derive(Debug), check_bytes(bounds(__C: ArchiveContext)))]
         // The derive macros don't apply the right bounds from Box so we have to
         // manually specify what bounds to apply
-        #[archive(serialize_bounds(__S: Writer))]
-        #[archive(deserialize_bounds(__D::Error: Source))]
+        #[rkyv(serialize_bounds(__S: Writer))]
+        #[rkyv(deserialize_bounds(__D::Error: Source))]
         pub enum LinkedList<T: Archive>
         where
             T::Archived: core::fmt::Debug,
@@ -447,7 +447,7 @@ mod tests {
         impl MyTrait for i32 {}
 
         #[derive(Portable)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         #[repr(transparent)]
         struct MyStruct<T> {
             _phantom: PhantomData<T>,
@@ -483,7 +483,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(
+        #[rkyv(
             crate,
             archive_bounds(T: MyTrait),
             serialize_bounds(__S: MyTrait),
@@ -504,14 +504,14 @@ mod tests {
     #[test]
     fn derive_attributes() {
         #[derive(Archive, Debug, PartialEq)]
-        #[archive(
+        #[rkyv(
             crate,
             archived = ATest,
             resolver = RTest,
             check_bytes,
             compare(PartialEq),
         )]
-        #[archive_attr(derive(Debug))]
+        #[rkyv_attr(derive(Debug))]
         struct Test {
             a: i32,
             b: Option<u32>,
@@ -573,21 +573,21 @@ mod tests {
     #[test]
     fn compare() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate, compare(PartialEq, PartialOrd))]
+        #[rkyv(crate, compare(PartialEq, PartialOrd))]
         pub struct UnitFoo;
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate, compare(PartialEq, PartialOrd))]
+        #[rkyv(crate, compare(PartialEq, PartialOrd))]
         pub struct TupleFoo(i32);
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate, compare(PartialEq, PartialOrd))]
+        #[rkyv(crate, compare(PartialEq, PartialOrd))]
         pub struct StructFoo {
             t: i32,
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate, compare(PartialEq, PartialOrd))]
+        #[rkyv(crate, compare(PartialEq, PartialOrd))]
         pub enum EnumFoo {
             #[allow(dead_code)]
             Foo(i32),
@@ -597,17 +597,17 @@ mod tests {
     #[test]
     fn default_type_parameters() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         pub struct TupleFoo<T = i32>(T);
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         pub struct StructFoo<T = i32> {
             t: T,
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         pub enum EnumFoo<T = i32> {
             #[allow(dead_code)]
             T(T),
@@ -617,8 +617,8 @@ mod tests {
     #[test]
     fn const_generics() {
         #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
-        #[archive(crate, check_bytes, compare(PartialEq))]
-        #[archive_attr(derive(Debug))]
+        #[rkyv(crate, check_bytes, compare(PartialEq))]
+        #[rkyv_attr(derive(Debug))]
         pub struct Const<const N: usize>;
 
         roundtrip(&Const::<1>);
@@ -626,15 +626,15 @@ mod tests {
         roundtrip(&Const::<3>);
 
         #[derive(Archive, Deserialize, Serialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         pub struct Array<T, const N: usize>([T; N]);
     }
 
     #[test]
     fn repr_c_packed() {
         #[derive(Archive)]
-        #[archive(crate)]
-        #[archive_attr(repr(C, packed))]
+        #[rkyv(crate)]
+        #[rkyv_attr(repr(C, packed))]
         #[allow(dead_code)]
         struct CPackedRepr {
             a: u8,
@@ -645,8 +645,8 @@ mod tests {
         assert_eq!(core::mem::size_of::<ArchivedCPackedRepr>(), 6);
 
         #[derive(Archive)]
-        #[archive(crate)]
-        #[archive_attr(repr(C), repr(packed))]
+        #[rkyv(crate)]
+        #[rkyv_attr(repr(C), repr(packed))]
         #[allow(dead_code)]
         struct CPackedRepr2 {
             a: u8,
@@ -660,8 +660,8 @@ mod tests {
     #[test]
     fn repr_c_align() {
         #[derive(Archive)]
-        #[archive(crate)]
-        #[archive_attr(repr(C, align(8)))]
+        #[rkyv(crate)]
+        #[rkyv_attr(repr(C, align(8)))]
         #[allow(dead_code)]
         struct CAlignRepr {
             a: u8,
@@ -670,8 +670,8 @@ mod tests {
         assert_eq!(core::mem::align_of::<ArchivedCAlignRepr>(), 8);
 
         #[derive(Archive)]
-        #[archive(crate)]
-        #[archive_attr(repr(C), repr(align(8)))]
+        #[rkyv(crate)]
+        #[rkyv_attr(repr(C), repr(align(8)))]
         #[allow(dead_code)]
         struct CAlignRepr2 {
             a: u8,
@@ -687,7 +687,7 @@ mod tests {
         #[derive(
             Archive, Serialize, Deserialize, Debug, Portable, CheckBytes,
         )]
-        #[archive(crate, as = "ExampleStruct<T::Archived>")]
+        #[rkyv(crate, as = "ExampleStruct<T::Archived>")]
         #[repr(transparent)]
         struct ExampleStruct<T> {
             value: T,
@@ -713,7 +713,7 @@ mod tests {
         #[derive(
             Archive, Serialize, Deserialize, Portable, Debug, CheckBytes,
         )]
-        #[archive(crate, as = "ExampleTupleStruct<T::Archived>")]
+        #[rkyv(crate, as = "ExampleTupleStruct<T::Archived>")]
         #[repr(transparent)]
         struct ExampleTupleStruct<T>(T);
 
@@ -740,7 +740,7 @@ mod tests {
             PartialEq,
             CheckBytes,
         )]
-        #[archive(crate, as = "ExampleUnitStruct")]
+        #[rkyv(crate, as = "ExampleUnitStruct")]
         #[repr(C)]
         struct ExampleUnitStruct;
 
@@ -751,7 +751,7 @@ mod tests {
         #[derive(
             Archive, Serialize, Deserialize, Portable, Debug, CheckBytes,
         )]
-        #[archive(crate, as = "ExampleEnum<T::Archived>")]
+        #[rkyv(crate, as = "ExampleEnum<T::Archived>")]
         #[repr(u8)]
         enum ExampleEnum<T> {
             A(T),
@@ -789,7 +789,7 @@ mod tests {
         use crate as alt_path;
 
         #[derive(Archive, Deserialize, Serialize)]
-        #[archive(crate = alt_path)]
+        #[rkyv(crate = alt_path)]
         struct Test<'a> {
             #[with(alt_path::with::InlineAsBox)]
             value: &'a str,
@@ -811,8 +811,8 @@ mod tests {
         #[derive(
             Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize,
         )]
-        #[archive(crate, compare(PartialEq))]
-        #[archive_attr(derive(Clone, Copy, Debug))]
+        #[rkyv(crate, compare(PartialEq))]
+        #[rkyv_attr(derive(Clone, Copy, Debug))]
         enum ExampleEnum {
             Foo,
             Bar(u64),
@@ -821,8 +821,8 @@ mod tests {
         #[derive(
             Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize,
         )]
-        #[archive(crate, compare(PartialEq))]
-        #[archive_attr(derive(Clone, Copy, Debug))]
+        #[rkyv(crate, compare(PartialEq))]
+        #[rkyv_attr(derive(Clone, Copy, Debug))]
         struct Example {
             x: i32,
             y: Option<ExampleEnum>,

@@ -27,7 +27,7 @@ use crate::{
 
 /// An archived `IndexMap`.
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(C)]
 #[cfg_attr(
     feature = "bytecheck",

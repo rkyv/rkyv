@@ -182,7 +182,7 @@ mod tests {
         use crate::{Archive, Serialize};
 
         #[derive(Archive, Serialize)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         pub struct PaddedExample {
             a: u8,
             b: u64,

@@ -23,7 +23,7 @@ use crate::{
 /// [`ArchivedString`](crate::string::ArchivedString), it does not have an
 /// inline representation.
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(C)]
 #[cfg_attr(
     feature = "bytecheck",

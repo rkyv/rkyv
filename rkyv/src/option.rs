@@ -15,7 +15,7 @@ use crate::Portable;
 #[derive(Clone, Copy, Debug, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(u8)]
-#[archive(crate)]
+#[rkyv(crate)]
 pub enum ArchivedOption<T> {
     /// No value
     None,

@@ -8,7 +8,7 @@ macro_rules! impl_tuple {
         #[derive(Debug, Portable)]
         #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
         #[repr(C)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         pub struct $name<$($type),*>($(pub $type),*);
     };
 }

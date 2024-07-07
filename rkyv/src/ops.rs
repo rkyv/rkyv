@@ -11,7 +11,7 @@ use crate::Portable;
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
-#[archive(crate)]
+#[rkyv(crate)]
 pub struct ArchivedRangeFull;
 
 impl fmt::Debug for ArchivedRangeFull {
@@ -25,7 +25,7 @@ impl fmt::Debug for ArchivedRangeFull {
 #[derive(Clone, Default, PartialEq, Eq, Hash, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
-#[archive(crate)]
+#[rkyv(crate)]
 pub struct ArchivedRange<T> {
     /// The lower bound of the range (inclusive).
     pub start: T,
@@ -77,7 +77,7 @@ impl<T> RangeBounds<T> for ArchivedRange<T> {
 #[derive(Clone, Default, PartialEq, Eq, Hash, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
-#[archive(crate)]
+#[rkyv(crate)]
 pub struct ArchivedRangeInclusive<T> {
     /// The lower bound of the range (inclusive).
     pub start: T,
@@ -127,7 +127,7 @@ impl<T> RangeBounds<T> for ArchivedRangeInclusive<T> {
 #[derive(Clone, Default, PartialEq, Eq, Hash, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
-#[archive(crate)]
+#[rkyv(crate)]
 pub struct ArchivedRangeFrom<T> {
     /// The lower bound of the range (inclusive).
     pub start: T,
@@ -166,7 +166,7 @@ impl<T> RangeBounds<T> for ArchivedRangeFrom<T> {
 #[derive(Clone, Default, PartialEq, Eq, Hash, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
-#[archive(crate)]
+#[rkyv(crate)]
 pub struct ArchivedRangeTo<T> {
     /// The upper bound of the range (exclusive).
     pub end: T,
@@ -205,7 +205,7 @@ impl<T> RangeBounds<T> for ArchivedRangeTo<T> {
 #[derive(Clone, Default, PartialEq, Eq, Hash, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
-#[archive(crate)]
+#[rkyv(crate)]
 pub struct ArchivedRangeToInclusive<T> {
     /// The upper bound of the range (inclusive).
     pub end: T,
@@ -244,7 +244,7 @@ impl<T> RangeBounds<T> for ArchivedRangeToInclusive<T> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(u8)]
-#[archive(crate)]
+#[rkyv(crate)]
 pub enum ArchivedBound<T> {
     /// An inclusive bound.
     Included(T),

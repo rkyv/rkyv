@@ -25,18 +25,18 @@ use rkyv::{access, rancor::Error, Archive, Deserialize, Serialize};
 // the default generated bounds to prevent a recursive impl.
 // We can fix this by manually specifying the bounds required by HashMap and Vec
 // in an attribute, and then everything will compile:
-#[archive(serialize_bounds(
+#[rkyv(serialize_bounds(
     __S: rkyv::ser::Writer + rkyv::ser::Allocator,
     __S::Error: rkyv::rancor::Source,
 ))]
-#[archive(deserialize_bounds(__D::Error: rkyv::rancor::Source))]
+#[rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source))]
 // We'll also add support for validating our archived type. Validation will
 // allow us to check an arbitrary buffer of bytes before accessing it so we can
 // avoid using any unsafe code.
 //
 // To validate our archived type, we also need to derive `CheckBytes` on it. To
 // derive `CheckBytes` for our archived type, we simply add
-// `#[archive(check_bytes)]` to our type.
+// `#[rkyv(check_bytes)]` to our type.
 //
 // We also need to manually add the appropriate non-recursive bounds to our
 // type. In our case, we need to bound `__C: rkyv::validation::ArchiveContext`.
@@ -46,8 +46,8 @@ use rkyv::{access, rancor::Error, Archive, Deserialize, Serialize};
 //
 // With those two changes, our recursive type can be validated with
 // `check_archived_root`!
-#[archive(check_bytes)]
-#[archive_attr(check_bytes(
+#[rkyv(check_bytes)]
+#[rkyv_attr(check_bytes(
     bounds(
         __C: rkyv::validation::ArchiveContext,
     )
@@ -94,7 +94,7 @@ impl fmt::Display for ArchivedJsonValue {
 }
 
 #[derive(Archive, Debug, Deserialize, Serialize)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 pub enum JsonNumber {
     PosInt(u64),
     NegInt(i64),

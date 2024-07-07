@@ -2,7 +2,7 @@ use benchlib::{bench_dataset, generate_vec, Generate, Rng};
 use rkyv::{Archive, Deserialize, Serialize};
 
 #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 pub struct Address {
     pub x0: u8,
     pub x1: u8,
@@ -22,7 +22,7 @@ impl Generate for Address {
 }
 
 #[derive(Archive, Serialize, Deserialize, Clone, PartialEq)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 pub struct Log {
     pub address: Address,
     pub identity: String,
@@ -97,7 +97,7 @@ impl Generate for Log {
 }
 
 #[derive(Archive, Serialize, Deserialize, Clone, PartialEq)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 pub struct Logs {
     pub logs: Vec<Log>,
 }

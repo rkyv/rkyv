@@ -21,7 +21,7 @@ use crate::{
 
 /// An archived `IndexSet`.
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct ArchivedIndexSet<K, H = FxHasher64> {

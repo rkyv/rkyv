@@ -41,7 +41,7 @@ use crate::{
 
 /// A low-level archived SwissTable hash table with explicit hashing.
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(C)]
 #[cfg_attr(
     feature = "bytecheck",

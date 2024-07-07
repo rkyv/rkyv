@@ -15,7 +15,7 @@ use crate::{
 /// key and a value of `()`.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(transparent)]
 pub struct ArchivedBTreeSet<K, const E: usize = 5>(ArchivedBTreeMap<K, (), E>);
 

@@ -324,8 +324,8 @@ mod tests {
 
         #[allow(dead_code)]
         #[derive(Archive)]
-        #[archive(crate)]
-        #[archive_attr(derive(Debug))]
+        #[rkyv(crate)]
+        #[rkyv_attr(derive(Debug))]
         enum Node {
             Nil,
             Cons(#[omit_bounds] Box<Node>),

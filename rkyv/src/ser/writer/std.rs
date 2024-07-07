@@ -72,8 +72,8 @@ mod tests {
     #[test]
     fn write_serializer() {
         #[derive(Archive, Serialize)]
-        #[archive(crate)]
-        #[archive_attr(repr(C))]
+        #[rkyv(crate)]
+        #[rkyv_attr(repr(C))]
         struct Example {
             x: i32,
         }

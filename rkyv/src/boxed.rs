@@ -14,7 +14,7 @@ use crate::{
 /// This is a thin `#[repr(transparent)]` wrapper around a [`RelPtr`] to the
 /// archived type.
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),

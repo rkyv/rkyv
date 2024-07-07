@@ -19,7 +19,7 @@ use crate::{
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key
 /// and unit value.
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct ArchivedHashSet<K, H = FxHasher64> {

@@ -25,7 +25,7 @@ use crate::{
 
 /// An archived SwissTable hash map.
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(transparent)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 pub struct ArchivedHashMap<K, V, H = FxHasher64> {

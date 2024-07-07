@@ -31,7 +31,7 @@ use crate::{Place, Portable, SerializeUnsized};
     check_bytes(verify)
 )]
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 pub struct ArchivedString {
     repr: repr::ArchivedStringRepr,
 }

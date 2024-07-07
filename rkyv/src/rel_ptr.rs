@@ -114,7 +114,7 @@ impl_offset_multi_byte!(u64, ArchivedU64);
 /// the **pointer** or the **pointee** move independently, the pointer will be
 /// invalidated.
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct RawRelPtr<O> {

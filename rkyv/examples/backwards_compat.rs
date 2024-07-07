@@ -3,7 +3,7 @@ use rkyv::{rancor::Error, with::AsBox, Archive, Deserialize, Serialize};
 // This is the version used by the older client, which can read newer versions
 // from senders.
 #[derive(Archive, Deserialize, Serialize)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 struct ExampleV1 {
     a: i32,
     b: u32,
@@ -12,7 +12,7 @@ struct ExampleV1 {
 // This is the version used by the newer client, which can send newer versions
 // to receivers.
 #[derive(Archive, Deserialize, Serialize)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 struct ExampleV2 {
     a: i32,
     b: i32,
@@ -27,7 +27,7 @@ struct ExampleV2 {
 // buffer.
 #[derive(Archive, Deserialize, Serialize)]
 #[repr(transparent)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 struct Versioned<T>(#[with(AsBox)] pub T);
 
 // This is some code running on the older client. It accepts the older version

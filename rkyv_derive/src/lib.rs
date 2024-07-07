@@ -23,7 +23,7 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// This macro also supports the `#[omit_bounds]` attribute. See [`Archive`] for
 /// more information.
-#[proc_macro_derive(Portable, attributes(archive, omit_bounds))]
+#[proc_macro_derive(Portable, attributes(archive, rkyv, omit_bounds))]
 pub fn derive_portable(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
@@ -40,10 +40,10 @@ pub fn derive_portable(
 ///
 /// # Attributes
 ///
-/// Additional arguments can be specified using the `#[archive(...)]` and
-/// `#[archive_attr(...)]` attributes.
+/// Additional arguments can be specified using the `#[rkyv(...)]` and
+/// `#[rkyv_attr(...)]` attributes.
 ///
-/// `#[archive(...)]` takes the following arguments:
+/// `#[rkyv(...)]` takes the following arguments:
 ///
 /// - `archived = "..."`: Changes the name of the generated archived type to the
 ///   given value. By default, archived types are named "Archived" + `the name
@@ -51,13 +51,13 @@ pub fn derive_portable(
 /// - `resolver = "..."`: Changes the name of the generated resolver type to the
 ///   given value. By default, resolver types are named `the name of the type` +
 ///   "Resolver".
-/// - `repr(...)`: *Deprecated, use `#[archive_attr(repr(...))]` instead.* Sets
-///   the representation for the archived type to the given representation.
+/// - `repr(...)`: *Deprecated, use `#[rkyv_attr(repr(...))]` instead.* Sets the
+///   representation for the archived type to the given representation.
 ///   Available representation options may vary depending on features and type
 ///   layout.
 /// - `compare(...)`: Implements common comparison operators between the
 ///   original and archived types. Supported comparisons are `PartialEq` and
-///   `PartialOrd` (i.e. `#[archive(compare(PartialEq, PartialOrd))]`).
+///   `PartialOrd` (i.e. `#[rkyv(compare(PartialEq, PartialOrd))]`).
 /// - `bound(...)`: Adds additional bounds to trait implementations. This can be
 ///   especially useful when dealing with recursive structures, where bounds may
 ///   need to be omitted to prevent recursive type definitions. Use `archive =
@@ -73,7 +73,7 @@ pub fn derive_portable(
 ///   over their parameters.
 /// - `crate = "..."`: Chooses an alternative crate path to import rkyv from.
 ///
-/// `#[archive_attr(...)]` adds the attributes passed as arguments as attributes
+/// `#[rkyv_attr(...)]` adds the attributes passed as arguments as attributes
 /// to the generated type. This is commonly used with attributes like
 /// `derive(...)` to derive trait implementations for the archived type.
 ///
@@ -99,7 +99,7 @@ pub fn derive_portable(
 /// `With<With<With<MyType, C>, B, A>`).
 #[proc_macro_derive(
     Archive,
-    attributes(archive, archive_attr, omit_bounds, with)
+    attributes(archive, rkyv, archive_attr, rkyv_attr, omit_bounds, with)
 )]
 pub fn derive_archive(
     input: proc_macro::TokenStream,
@@ -117,7 +117,7 @@ pub fn derive_archive(
 ///
 /// This macro also supports the `#[archive]`, `#[omit_bounds]`, and `#[with]`
 /// attributes. See [`Archive`] for more information.
-#[proc_macro_derive(Serialize, attributes(archive, omit_bounds, with))]
+#[proc_macro_derive(Serialize, attributes(archive, rkyv, omit_bounds, with))]
 pub fn derive_serialize(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
@@ -134,7 +134,7 @@ pub fn derive_serialize(
 ///
 /// This macro also supports the `#[archive]`, `#[omit_bounds]`, and `#[with]`
 /// attributes. See [`Archive`] for more information.
-#[proc_macro_derive(Deserialize, attributes(archive, omit_bounds, with))]
+#[proc_macro_derive(Deserialize, attributes(archive, rkyv, omit_bounds, with))]
 pub fn derive_deserialize(
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {

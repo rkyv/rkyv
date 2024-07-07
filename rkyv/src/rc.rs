@@ -26,7 +26,7 @@ pub struct ArcFlavor;
 /// they may not be used together, the flavor helps check that memory is not
 /// being shared incorrectly during validation.
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(transparent)]
 #[cfg_attr(
     feature = "bytecheck",
@@ -173,7 +173,7 @@ pub struct RcResolver {
 ///
 /// This is essentially just an optional [`ArchivedRc`].
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(u8)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 pub enum ArchivedRcWeak<T: ArchivePointee + ?Sized, F> {

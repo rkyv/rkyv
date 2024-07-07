@@ -121,9 +121,11 @@ impl Attributes {
                 continue;
             }
 
-            if attr.path().is_ident("archive") {
+            if attr.path().is_ident("archive") || attr.path().is_ident("rkyv") {
                 attr.parse_nested_meta(|meta| result.parse_meta(meta))?;
-            } else if attr.path().is_ident("archive_attr") {
+            } else if attr.path().is_ident("archive_attr")
+                || attr.path().is_ident("rkyv_attr")
+            {
                 result.attrs.extend(
                     attr.parse_args_with(
                         Punctuated::<Meta, Token![,]>::parse_terminated,

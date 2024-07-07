@@ -19,7 +19,7 @@ use crate::{
 ///
 /// Uses a [`RelPtr`] to a `CStr` under the hood.
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),

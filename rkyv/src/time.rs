@@ -9,7 +9,7 @@ use crate::{
 #[derive(
     Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd, Portable,
 )]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(C)]
 #[cfg_attr(
     feature = "bytecheck",

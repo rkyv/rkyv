@@ -18,7 +18,7 @@ use crate::{
 ///
 /// It uses less space by storing the `None` variant as a null pointer.
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct ArchivedOptionBox<T: ArchivePointee + ?Sized> {
@@ -26,7 +26,7 @@ pub struct ArchivedOptionBox<T: ArchivePointee + ?Sized> {
 }
 
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(C)]
 union Repr<T: ArchivePointee + ?Sized> {
     boxed: ManuallyDrop<ArchivedBox<T>>,

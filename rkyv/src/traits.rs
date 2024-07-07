@@ -96,7 +96,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// # Examples
 ///
 /// Most of the time, `#[derive(Archive)]` will create an acceptable
-/// implementation. You can use the `#[archive(...)]` and `#[archive_attr(...)]`
+/// implementation. You can use the `#[rkyv(...)]` and `#[rkyv_attr(...)]`
 /// attributes to control how the implementation is generated. See the
 /// [`Archive`](macro@crate::Archive) derive macro for more details.
 ///
@@ -106,9 +106,9 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 /// // This will generate a PartialEq impl between our unarchived and archived
 /// // types
-/// #[archive(compare(PartialEq))]
+/// #[rkyv(compare(PartialEq))]
 /// // We can pass attributes through to generated types with archive_attr
-/// #[archive_attr(derive(Debug))]
+/// #[rkyv_attr(derive(Debug))]
 /// struct Test {
 ///     int: u8,
 ///     string: String,

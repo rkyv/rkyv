@@ -198,8 +198,8 @@ mod tests {
     #[test]
     fn get_with() {
         #[derive(Archive, Serialize, Deserialize, Eq, Hash, PartialEq)]
-        #[archive(crate, check_bytes)]
-        #[archive_attr(derive(Eq, Hash, PartialEq))]
+        #[rkyv(crate, check_bytes)]
+        #[rkyv_attr(derive(Eq, Hash, PartialEq))]
         pub struct Pair(String, String);
 
         let mut hash_map = HashMap::new();

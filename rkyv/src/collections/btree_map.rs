@@ -103,7 +103,7 @@ const fn ll_entries<const E: usize>(height: u32, n: usize) -> usize {
 
 #[derive(Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(u8)]
 enum NodeKind {
     Leaf,
@@ -114,7 +114,7 @@ enum NodeKind {
 unsafe impl Initialized for NodeKind {}
 
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(C)]
 struct Node<K, V, const E: usize> {
     kind: NodeKind,
@@ -125,7 +125,7 @@ struct Node<K, V, const E: usize> {
 
 #[derive(Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(C)]
 struct InnerNode<K, V, const E: usize> {
     node: Node<K, V, E>,
@@ -140,7 +140,7 @@ struct InnerNode<K, V, const E: usize> {
     derive(bytecheck::CheckBytes),
     check_bytes(verify)
 )]
-#[archive(crate)]
+#[rkyv(crate)]
 #[repr(C)]
 pub struct ArchivedBTreeMap<K, V, const E: usize = 5> {
     // The type of the root node is determined at runtime because it may point

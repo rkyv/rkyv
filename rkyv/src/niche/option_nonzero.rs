@@ -17,7 +17,7 @@ macro_rules! impl_archived_option_nonzero {
     ($ar:ident, $nz:ty, $ne:ty) => {
         #[doc = concat!("A niched archived `Option<", stringify!($nz), ">`")]
         #[derive(Portable)]
-        #[archive(crate)]
+        #[rkyv(crate)]
         #[repr(transparent)]
         #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
         pub struct $ar {

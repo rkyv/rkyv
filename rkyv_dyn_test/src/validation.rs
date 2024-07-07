@@ -33,7 +33,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize)]
-        #[archive_attr(derive(CheckBytes))]
+        #[rkyv_attr(derive(CheckBytes))]
         pub struct Test {
             id: i32,
         }

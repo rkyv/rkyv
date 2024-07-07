@@ -160,8 +160,8 @@ mod tests {
         #[derive(
             Archive, Serialize, Deserialize, Debug, Default, PartialEq,
         )]
-        #[archive(crate, check_bytes, compare(PartialEq))]
-        #[archive_attr(derive(Debug))]
+        #[rkyv(crate, check_bytes, compare(PartialEq))]
+        #[rkyv_attr(derive(Debug))]
         pub struct MyType {
             pub some_list: BTreeMap<String, Vec<f32>>,
             pub values: Vec<f32>,

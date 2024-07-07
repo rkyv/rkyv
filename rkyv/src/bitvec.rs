@@ -18,7 +18,7 @@ use crate::{primitive::ArchivedUsize, vec::ArchivedVec, Portable};
 //
 // TODO: verify that bit_len matches the archived vector len in a verify meta
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
 #[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -38,7 +38,7 @@ impl<T: BitStore, O: BitOrder> Deref for ArchivedBitVec<T, O> {
 
 /// An archived `BitArray`.
 #[derive(Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]

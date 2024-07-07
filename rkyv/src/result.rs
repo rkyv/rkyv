@@ -11,7 +11,7 @@ use crate::Portable;
 /// An archived [`Result`] that represents either success
 /// ([`Ok`](ArchivedResult::Ok)) or failure ([`Err`](ArchivedResult::Err)).
 #[derive(Debug, Portable)]
-#[archive(crate)]
+#[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(u8)]
 pub enum ArchivedResult<T, E> {

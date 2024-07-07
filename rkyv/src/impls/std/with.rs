@@ -471,8 +471,8 @@ mod tests {
     #[test]
     fn roundtrip_mutex() {
         #[derive(Archive, Serialize, Deserialize, Debug)]
-        #[archive(crate, check_bytes)]
-        #[archive_attr(derive(Debug, PartialEq))]
+        #[rkyv(crate, check_bytes)]
+        #[rkyv_attr(derive(Debug, PartialEq))]
         struct Test {
             #[with(Lock<Unsafe>)]
             value: Mutex<i32>,
@@ -500,8 +500,8 @@ mod tests {
     #[test]
     fn roundtrip_rwlock() {
         #[derive(Archive, Serialize, Deserialize, Debug)]
-        #[archive(crate, check_bytes)]
-        #[archive_attr(derive(Debug, PartialEq))]
+        #[rkyv(crate, check_bytes)]
+        #[rkyv_attr(derive(Debug, PartialEq))]
         struct Test {
             #[with(Lock<Unsafe>)]
             value: RwLock<i32>,
@@ -529,8 +529,8 @@ mod tests {
     #[test]
     fn roundtrip_os_string() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[archive(crate, check_bytes)]
-        #[archive_attr(derive(Debug, PartialEq))]
+        #[rkyv(crate, check_bytes)]
+        #[rkyv_attr(derive(Debug, PartialEq))]
         struct Test {
             #[with(AsString)]
             value: OsString,
@@ -549,8 +549,8 @@ mod tests {
     #[test]
     fn roundtrip_path_buf() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[archive(crate, check_bytes)]
-        #[archive_attr(derive(Debug, PartialEq))]
+        #[rkyv(crate, check_bytes)]
+        #[rkyv_attr(derive(Debug, PartialEq))]
         struct Test {
             #[with(AsString)]
             value: PathBuf,
