@@ -4,14 +4,14 @@ use rkyv::{Archive, Deserialize, Serialize};
 
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 #[rkyv(compare(PartialEq))]
-#[rkyv_attr(derive(Debug))]
+#[rkyv_derive(Debug)]
 struct r#virtual {
     r#virtual: i32,
 }
 
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 #[rkyv(compare(PartialEq))]
-#[rkyv_attr(derive(Debug))]
+#[rkyv_derive(Debug)]
 enum r#try {
     r#try { r#try: i32 },
 }

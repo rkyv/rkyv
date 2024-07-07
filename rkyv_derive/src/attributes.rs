@@ -132,6 +132,14 @@ impl Attributes {
                     )?
                     .into_iter(),
                 );
+            } else if attr.path().is_ident("rkyv_derive") {
+                result.attrs.extend(
+                    attr.parse_args_with(
+                        Punctuated::<Meta, Token![,]>::parse_terminated,
+                    )?
+                    .into_iter()
+                    .map(|meta| parse_quote! { derive(#meta) }),
+                );
             }
         }
 

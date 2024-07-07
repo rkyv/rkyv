@@ -117,7 +117,7 @@ where
 /// };
 ///
 /// #[derive(Archive, Serialize)]
-/// #[rkyv_attr(derive(CheckBytes))]
+/// #[rkyv_derive(CheckBytes)]
 /// struct Example {
 ///     name: String,
 ///     value: i32,

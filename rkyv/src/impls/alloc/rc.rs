@@ -312,7 +312,7 @@ mod tests {
     fn roundtrip_rc() {
         #[derive(Debug, Eq, PartialEq, Archive, Deserialize, Serialize)]
         #[rkyv(crate, compare(PartialEq))]
-        #[rkyv_attr(derive(Debug))]
+        #[rkyv_derive(Debug)]
         struct Test {
             a: Rc<u32>,
             b: Rc<u32>,
@@ -397,7 +397,7 @@ mod tests {
     fn roundtrip_rc_zst() {
         #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
         #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_attr(derive(Debug))]
+        #[rkyv_derive(Debug)]
         struct TestRcZST {
             a: Rc<()>,
             b: Rc<()>,
@@ -414,7 +414,7 @@ mod tests {
     fn archive_unsized_shared_ptr() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_attr(derive(Debug))]
+        #[rkyv_derive(Debug)]
         struct Test {
             a: Rc<[String]>,
             b: Rc<[String]>,
@@ -435,7 +435,7 @@ mod tests {
     fn archive_unsized_shared_ptr_empty() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_attr(derive(Debug))]
+        #[rkyv_derive(Debug)]
         struct Test {
             a: Rc<[u32]>,
             b: Rc<[u32]>,

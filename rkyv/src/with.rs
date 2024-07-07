@@ -673,7 +673,7 @@ mod tests {
 
         #[derive(Archive, Debug, Deserialize, Serialize)]
         #[rkyv(crate, check_bytes)]
-        #[rkyv_attr(derive(Debug))]
+        #[rkyv_derive(Debug)]
         struct Test {
             #[with(AtomicLoad<Relaxed>)]
             a: AtomicU32,

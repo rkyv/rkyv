@@ -108,7 +108,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// // types
 /// #[rkyv(compare(PartialEq))]
 /// // We can pass attributes through to generated types with archive_attr
-/// #[rkyv_attr(derive(Debug))]
+/// #[rkyv_derive(Debug)]
 /// struct Test {
 ///     int: u8,
 ///     string: String,

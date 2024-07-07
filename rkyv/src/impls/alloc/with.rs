@@ -544,7 +544,7 @@ mod tests {
 
     #[derive(Debug, Archive, Deserialize, Serialize, PartialEq)]
     #[rkyv(crate, check_bytes, compare(PartialEq))]
-    #[rkyv_attr(derive(Debug))]
+    #[rkyv_derive(Debug)]
     struct Test {
         value: Option<Box<u128>>,
     }
@@ -564,7 +564,7 @@ mod tests {
     #[test]
     fn ambiguous_niched_archived_box() {
         #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
-        #[rkyv_attr(derive(Debug))]
+        #[rkyv_derive(Debug)]
         #[rkyv(crate, check_bytes, compare(PartialEq))]
         struct HasNiche {
             #[with(Niche)]

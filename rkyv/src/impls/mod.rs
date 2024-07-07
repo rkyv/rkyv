@@ -61,7 +61,7 @@ mod tests {
     fn roundtrip_unit_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_attr(derive(Debug))]
+        #[rkyv_derive(Debug)]
         struct Test;
 
         roundtrip(&Test);
@@ -72,7 +72,7 @@ mod tests {
     fn roundtrip_tuple_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_attr(derive(Debug))]
+        #[rkyv_derive(Debug)]
         struct Test((), i32, String, Option<i32>);
 
         roundtrip(&Test((), 42, "hello world".to_string(), Some(42)));
@@ -86,7 +86,7 @@ mod tests {
     fn roundtrip_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_attr(derive(Debug))]
+        #[rkyv_derive(Debug)]
         struct Test {
             a: (),
             b: i32,
@@ -192,7 +192,7 @@ mod tests {
     fn roundtrip_enum() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_attr(derive(Debug))]
+        #[rkyv_derive(Debug)]
         enum Test {
             A,
             B(String),
@@ -395,7 +395,8 @@ mod tests {
     fn recursive_structures() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_attr(derive(Debug), check_bytes(bounds(__C: ArchiveContext)))]
+        #[rkyv_derive(Debug)]
+        #[rkyv_attr(check_bytes(bounds(__C: ArchiveContext)))]
         // The derive macros don't apply the right bounds from Box so we have to
         // manually specify what bounds to apply
         #[rkyv(serialize_bounds(__S: Writer))]
@@ -412,7 +413,8 @@ mod tests {
     fn recursive_self_types() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_attr(derive(Debug), check_bytes(bounds(__C: ArchiveContext)))]
+        #[rkyv_derive(Debug)]
+        #[rkyv_attr(check_bytes(bounds(__C: ArchiveContext)))]
         // The derive macros don't apply the right bounds from Box so we have to
         // manually specify what bounds to apply
         #[rkyv(serialize_bounds(__S: Writer))]
@@ -511,7 +513,7 @@ mod tests {
             check_bytes,
             compare(PartialEq),
         )]
-        #[rkyv_attr(derive(Debug))]
+        #[rkyv_derive(Debug)]
         struct Test {
             a: i32,
             b: Option<u32>,
@@ -618,7 +620,7 @@ mod tests {
     fn const_generics() {
         #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
         #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_attr(derive(Debug))]
+        #[rkyv_derive(Debug)]
         pub struct Const<const N: usize>;
 
         roundtrip(&Const::<1>);
@@ -812,7 +814,7 @@ mod tests {
             Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize,
         )]
         #[rkyv(crate, compare(PartialEq))]
-        #[rkyv_attr(derive(Clone, Copy, Debug))]
+        #[rkyv_derive(Clone, Copy, Debug)]
         enum ExampleEnum {
             Foo,
             Bar(u64),
@@ -822,7 +824,7 @@ mod tests {
             Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize,
         )]
         #[rkyv(crate, compare(PartialEq))]
-        #[rkyv_attr(derive(Clone, Copy, Debug))]
+        #[rkyv_derive(Clone, Copy, Debug)]
         struct Example {
             x: i32,
             y: Option<ExampleEnum>,

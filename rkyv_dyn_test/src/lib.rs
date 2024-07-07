@@ -211,7 +211,7 @@ mod tests {
     //     }
 
     //     #[derive(Archive, Serialize, Deserialize)]
-    //     #[rkyv_attr(derive(TypeName))]
+    //     #[rkyv_derive(TypeName)]
     //     pub struct Test {
     //         id: i32,
     //     }
@@ -267,7 +267,7 @@ mod tests {
     //     }
 
     //     #[derive(Archive, Serialize, Deserialize)]
-    //     #[rkyv_attr(derive(TypeName))]
+    //     #[rkyv_derive(TypeName)]
     //     pub struct Test<T> {
     //         value: T,
     //     }
@@ -398,7 +398,7 @@ mod tests {
     //     }
 
     //     #[derive(Archive, Serialize)]
-    //     #[rkyv_attr(derive(TypeName))]
+    //     #[rkyv_derive(TypeName)]
     //     struct Test(i32);
 
     //     #[archive_dyn]

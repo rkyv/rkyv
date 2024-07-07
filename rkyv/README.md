@@ -63,7 +63,7 @@ use rkyv::{Archive, Deserialize, Serialize};
     check_bytes,
 )]
 // Derives can be passed through to the generated type:
-#[rkyv_attr(derive(Debug))]
+#[rkyv_derive(Debug)]
 struct Test {
     int: u8,
     string: String,

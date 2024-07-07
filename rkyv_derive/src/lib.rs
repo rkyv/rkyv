@@ -70,8 +70,11 @@ pub fn derive_portable(
 /// - `crate = "..."`: Chooses an alternative crate path to import rkyv from.
 ///
 /// `#[rkyv_attr(...)]` adds the attributes passed as arguments as attributes
-/// to the generated type. This is commonly used with attributes like
-/// `derive(...)` to derive trait implementations for the archived type.
+/// to the generated type.
+///
+/// `#[rkyv_derive(...)]` adds the following derives passed as argument as
+/// derives to the generated type. This is shorthand for
+/// `#[rkyv_attr(derive(...))]`.
 ///
 /// # Recursive types
 ///
@@ -95,7 +98,15 @@ pub fn derive_portable(
 /// `With<With<With<MyType, C>, B, A>`).
 #[proc_macro_derive(
     Archive,
-    attributes(archive, rkyv, archive_attr, rkyv_attr, omit_bounds, with)
+    attributes(
+        archive,
+        rkyv,
+        archive_attr,
+        rkyv_attr,
+        rkyv_derive,
+        omit_bounds,
+        with
+    )
 )]
 pub fn derive_archive(
     input: proc_macro::TokenStream,

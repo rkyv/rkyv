@@ -6,7 +6,7 @@ fn main() {
 
     #[derive(Archive, Deserialize, Serialize, Debug, PartialEq, PartialOrd)]
     #[rkyv(compare(PartialEq, PartialOrd))]
-    #[rkyv_attr(derive(Debug))]
+    #[rkyv_derive(Debug)]
     pub enum Struct {
         A { a: i32 },
     }
@@ -26,7 +26,7 @@ fn main() {
 
     #[derive(Archive, Deserialize, Serialize, Debug, PartialEq, PartialOrd)]
     #[rkyv(compare(PartialEq, PartialOrd))]
-    #[rkyv_attr(derive(Debug))]
+    #[rkyv_derive(Debug)]
     pub struct Enum {
         a: i32,
     }
