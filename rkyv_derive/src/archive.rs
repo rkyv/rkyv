@@ -5,7 +5,7 @@ mod r#struct;
 use core::fmt::Display;
 
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::{Data, DeriveInput, Error, Field, Ident, Meta};
 
 use crate::attributes::Attributes;
@@ -15,19 +15,27 @@ pub fn derive(input: &mut DeriveInput) -> Result<TokenStream, Error> {
     derive_archive_impl(input, &attributes)
 }
 
-fn field_archive_attrs(
-    field: &Field,
-) -> impl '_ + Iterator<Item = &TokenStream> {
-    field.attrs.iter().filter_map(|attr| {
-        if let Meta::List(list) = &attr.meta {
-            if list.path.is_ident("archive_attr") {
-                Some(&list.tokens)
+fn field_archive_attrs<'a>(
+    attributes: &'a Attributes,
+    field: &'a Field,
+) -> impl 'a + Iterator<Item = &'a dyn ToTokens> {
+    field.attrs.iter().filter_map(|attr| match &attr.meta {
+        Meta::Path(path) => {
+            if path.is_ident("omit_bounds") && attributes.check_bytes.is_some()
+            {
+                Some(path as _)
             } else {
                 None
             }
-        } else {
-            None
         }
+        Meta::List(list) => {
+            if list.path.is_ident("archive_attr") {
+                Some(&list.tokens as _)
+            } else {
+                None
+            }
+        }
+        Meta::NameValue(_) => None,
     })
 }
 

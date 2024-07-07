@@ -43,7 +43,7 @@ pub fn impl_struct(
     let archived_def = attributes
         .archive_as
         .is_none()
-        .then(|| generate_archived_def(input, printing, fields))
+        .then(|| generate_archived_def(input, attributes, printing, fields))
         .transpose()?;
 
     let resolver_def = generate_resolver_def(input, printing, fields)?;
@@ -117,15 +117,16 @@ pub fn impl_struct(
 
 fn generate_archived_def(
     input: &DeriveInput,
+    attributes: &Attributes,
     printing: &Printing,
     fields: &Fields,
 ) -> Result<TokenStream, Error> {
     let archived_def = match fields {
         Fields::Named(fields) => {
-            generate_archived_def_named(input, printing, fields)?
+            generate_archived_def_named(input, attributes, printing, fields)?
         }
         Fields::Unnamed(fields) => {
-            generate_archived_def_unnamed(input, printing, fields)?
+            generate_archived_def_unnamed(input, attributes, printing, fields)?
         }
         Fields::Unit => generate_archived_def_unit(input, printing)?,
     };
@@ -149,6 +150,7 @@ fn generate_archived_def(
 
 fn generate_archived_def_named(
     input: &DeriveInput,
+    attributes: &Attributes,
     printing: &Printing,
     fields: &FieldsNamed,
 ) -> Result<TokenStream, Error> {
@@ -160,7 +162,7 @@ fn generate_archived_def_named(
         .map(|field| {
             let field_ty = archived(rkyv_path, field)?;
             let vis = &field.vis;
-            let archive_attrs = field_archive_attrs(field);
+            let archive_attrs = field_archive_attrs(attributes, field);
 
             let field_name = field.ident.as_ref().unwrap();
             let field_doc = struct_field_doc(&input.ident, field_name);
@@ -192,6 +194,7 @@ fn generate_archived_def_named(
 
 fn generate_archived_def_unnamed(
     input: &DeriveInput,
+    attributes: &Attributes,
     printing: &Printing,
     fields: &FieldsUnnamed,
 ) -> Result<TokenStream, Error> {
@@ -203,7 +206,7 @@ fn generate_archived_def_unnamed(
         .enumerate()
         .map(|(i, field)| {
             let field_doc = struct_field_doc(&input.ident, &i);
-            let archive_attrs = field_archive_attrs(field);
+            let archive_attrs = field_archive_attrs(attributes, field);
             let vis = &field.vis;
             let field_ty = archived(rkyv_path, field)?;
 

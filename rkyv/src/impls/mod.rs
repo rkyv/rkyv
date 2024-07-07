@@ -402,11 +402,7 @@ mod tests {
         #[archive(deserialize_bounds(__D::Error: Source))]
         enum Node {
             Nil,
-            Cons(
-                #[omit_bounds]
-                #[archive_attr(omit_bounds)]
-                Box<Node>,
-            ),
+            Cons(#[omit_bounds] Box<Node>),
         }
 
         roundtrip(&Node::Cons(Box::new(Node::Cons(Box::new(Node::Nil)))));
@@ -429,7 +425,6 @@ mod tests {
             Node {
                 val: T,
                 #[omit_bounds]
-                #[archive_attr(omit_bounds)]
                 next: Box<Self>,
             },
         }

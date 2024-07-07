@@ -57,7 +57,7 @@ pub fn impl_enum(
     let archived_def = attributes
         .archive_as
         .is_none()
-        .then(|| generate_archived_def(input, printing, data))
+        .then(|| generate_archived_def(input, attributes, printing, data))
         .transpose()?;
 
     let resolver_def = generate_resolver_def(input, printing, data)?;
@@ -139,6 +139,7 @@ pub fn impl_enum(
 
 fn generate_archived_def(
     input: &DeriveInput,
+    attributes: &Attributes,
     printing: &Printing,
     data: &DataEnum,
 ) -> Result<TokenStream, Error> {
@@ -170,7 +171,8 @@ fn generate_archived_def(
                                 variant,
                                 field_name.unwrap(),
                             );
-                            let archive_attrs = field_archive_attrs(f);
+                            let archive_attrs =
+                                field_archive_attrs(attributes, f);
                             let archived = archived(rkyv_path, f)?;
                             Ok(quote! {
                                 #[doc = #field_doc]
@@ -196,7 +198,8 @@ fn generate_archived_def(
                         .map(|(i, f)| {
                             let vis = &f.vis;
                             let field_doc = enum_field_doc(name, variant, &i);
-                            let archive_attrs = field_archive_attrs(f);
+                            let archive_attrs =
+                                field_archive_attrs(attributes, f);
                             let archived = archived(rkyv_path, f)?;
                             Ok(quote! {
                                 #[doc = #field_doc]

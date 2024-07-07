@@ -34,31 +34,15 @@ use rkyv::{access, rancor::Error, Archive, Deserialize, Serialize};
 // allow us to check an arbitrary buffer of bytes before accessing it so we can
 // avoid using any unsafe code.
 //
-// To validate our archived type, we also need to derive `CheckBytes` on it. We
-// can use the `#[archive_attr(..)]` attribute to pass any attributes through to
-// the generated type. So to derive `CheckBytes` for our archived type, we
-// simply add `#[archive(check_bytes)]` to our type.
+// To validate our archived type, we also need to derive `CheckBytes` on it. To
+// derive `CheckBytes` for our archived type, we simply add
+// `#[archive(check_bytes)]` to our type.
 //
-// This has the same issues as our `Archive` derive, so we need to follow a
-// similar process:
-//
-// First, we need to add the same `omit_bounds` attribute to our fields.
-// However, this time the attribute needs to be on the fields of the archived
-// type. Luckily, we can pass through this attribute in the same way, using
-// `#[archive_attr(omit_bounds)]`.
-//
-// Next, we need to manually add the appropriate non-recursive bounds to our
-// type. In our case, we need to bound:
-//
-// `__C: rkyv::validation::ArchiveContext`: This will make sure that our `Vec`
-// and `HashMap` have the `ArchiveContext` trait implemented on the validator.
-// This is a necessary requirement for containers to check their bytes.
-//
-// `<__C as rkyv::Fallible>::Error: std::error::Error`: This bounds our
-// validation context so that we know its error type implements `Error`. This is
-// necessary when deriving `CheckBytes` since the error type for structs is a
-// `bytecheck::StructCheckError` which contains the inner error as a
-// `Box<dyn Error>`.
+// We also need to manually add the appropriate non-recursive bounds to our
+// type. In our case, we need to bound `__C: rkyv::validation::ArchiveContext`.
+// This will make sure that our `Vec` and `HashMap` have the `ArchiveContext`
+// trait implemented on the validator. This is a necessary requirement for
+// containers to check their bytes.
 //
 // With those two changes, our recursive type can be validated with
 // `check_archived_root`!
@@ -73,16 +57,8 @@ pub enum JsonValue {
     Bool(bool),
     Number(JsonNumber),
     String(String),
-    Array(
-        #[omit_bounds]
-        #[archive_attr(omit_bounds)]
-        Vec<JsonValue>,
-    ),
-    Object(
-        #[omit_bounds]
-        #[archive_attr(omit_bounds)]
-        HashMap<String, JsonValue>,
-    ),
+    Array(#[omit_bounds] Vec<JsonValue>),
+    Object(#[omit_bounds] HashMap<String, JsonValue>),
 }
 
 impl fmt::Display for ArchivedJsonValue {
