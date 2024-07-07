@@ -51,10 +51,6 @@ pub fn derive_portable(
 /// - `resolver = "..."`: Changes the name of the generated resolver type to the
 ///   given value. By default, resolver types are named `the name of the type` +
 ///   "Resolver".
-/// - `repr(...)`: *Deprecated, use `#[rkyv_attr(repr(...))]` instead.* Sets the
-///   representation for the archived type to the given representation.
-///   Available representation options may vary depending on features and type
-///   layout.
 /// - `compare(...)`: Implements common comparison operators between the
 ///   original and archived types. Supported comparisons are `PartialEq` and
 ///   `PartialOrd` (i.e. `#[rkyv(compare(PartialEq, PartialOrd))]`).
