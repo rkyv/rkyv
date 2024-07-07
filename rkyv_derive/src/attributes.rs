@@ -133,7 +133,15 @@ impl Attributes {
             }
         }
 
-        Ok(result)
+        if result.archive_as.is_some() && result.check_bytes.is_some() {
+            Err(Error::new_spanned(
+                result.check_bytes.unwrap(),
+                "cannot generate a `CheckBytes` impl because `as = \"..\"` \
+                 does not generate an archived type",
+            ))
+        } else {
+            Ok(result)
+        }
     }
 
     pub fn crate_path(&self) -> Path {
