@@ -40,8 +40,7 @@ pub fn derive_portable(
 ///
 /// # Attributes
 ///
-/// Additional arguments can be specified using the `#[rkyv(...)]` and
-/// `#[rkyv_attr(...)]` attributes.
+/// Additional arguments can be specified using attributes.
 ///
 /// `#[rkyv(...)]` takes the following arguments:
 ///
@@ -51,6 +50,7 @@ pub fn derive_portable(
 /// - `resolver = "..."`: Changes the name of the generated resolver type to the
 ///   given value. By default, resolver types are named `the name of the type` +
 ///   "Resolver".
+/// - `derive(...)`: Adds the derives passed as arguments to the generated type.
 /// - `compare(...)`: Implements common comparison operators between the
 ///   original and archived types. Supported comparisons are `PartialEq` and
 ///   `PartialOrd` (i.e. `#[rkyv(compare(PartialEq, PartialOrd))]`).
@@ -69,12 +69,10 @@ pub fn derive_portable(
 ///   over their parameters.
 /// - `crate = "..."`: Chooses an alternative crate path to import rkyv from.
 ///
-/// `#[rkyv_attr(...)]` adds the attributes passed as arguments as attributes
-/// to the generated type.
+/// There are also shorthand attributes:
 ///
-/// `#[rkyv_derive(...)]` adds the following derives passed as argument as
-/// derives to the generated type. This is shorthand for
-/// `#[rkyv_attr(derive(...))]`.
+/// - `#[rkyv_attr(...)]` is shorthand for `#[rkyv(attr(...))]`.
+/// - `#[rkyv_derive(...)]` is shorthand for `#[rkyv(derive(...))]`.
 ///
 /// # Recursive types
 ///

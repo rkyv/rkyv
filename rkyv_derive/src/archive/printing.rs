@@ -38,10 +38,8 @@ impl Printing {
                 return Err(Error::new_spanned(
                     first,
                     format!(
-                        "\
-                            rkyv_attr(...) may not be used with as = \
-                         \"...\"\nplace any attributes on the archived type \
-                         ({}) instead",
+                        "attributes may not be used with as = \"...\"\nplace \
+                         any attributes on the archived type ({}) instead",
                         archive_as.value(),
                     ),
                 ));

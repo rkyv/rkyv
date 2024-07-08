@@ -29,7 +29,9 @@ fn field_archive_attrs<'a>(
             }
         }
         Meta::List(list) => {
-            if list.path.is_ident("archive_attr") {
+            if list.path.is_ident("archive_attr")
+                || list.path.is_ident("rkyv_attr")
+            {
                 Some(&list.tokens as _)
             } else {
                 None

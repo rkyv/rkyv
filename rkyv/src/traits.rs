@@ -96,9 +96,9 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// # Examples
 ///
 /// Most of the time, `#[derive(Archive)]` will create an acceptable
-/// implementation. You can use the `#[rkyv(...)]` and `#[rkyv_attr(...)]`
-/// attributes to control how the implementation is generated. See the
-/// [`Archive`](macro@crate::Archive) derive macro for more details.
+/// implementation. You can use the `#[rkyv(...)]` attribute to control how the
+/// implementation is generated. See the [`Archive`](macro@crate::Archive)
+/// derive macro for more details.
 ///
 /// ```
 /// use rkyv::{rancor::Error, Archive, Archived, Deserialize, Serialize};
@@ -106,9 +106,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 /// // This will generate a PartialEq impl between our unarchived and archived
 /// // types
-/// #[rkyv(compare(PartialEq))]
-/// // We can pass attributes through to generated types with archive_attr
-/// #[rkyv_derive(Debug)]
+/// #[rkyv(compare(PartialEq), derive(Debug))]
 /// struct Test {
 ///     int: u8,
 ///     string: String,

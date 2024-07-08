@@ -12,9 +12,9 @@ use rkyv::{
     // use the safe API, you have to derive CheckBytes for the
     // archived type
     check_bytes,
+    // Derives can be passed through to the generated type:
+    derive(Debug),
 )]
-// Derives can be passed through to the generated type:
-#[rkyv_derive(Debug)]
 struct Test {
     int: u8,
     string: String,

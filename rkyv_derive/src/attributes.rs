@@ -133,6 +133,22 @@ impl Attributes {
             } else {
                 Err(meta.error("expected `crate` or `crate = ...`"))
             }
+        } else if meta.path.is_ident("derive") {
+            let metas;
+            parenthesized!(metas in meta.input);
+            self.attrs.extend(
+                metas
+                    .parse_terminated(Meta::parse, Token![,])?
+                    .into_iter()
+                    .map(|meta| parse_quote! { derive(#meta) }),
+            );
+            Ok(())
+        } else if meta.path.is_ident("attr") {
+            let metas;
+            parenthesized!(metas in meta.input);
+            self.attrs
+                .extend(metas.parse_terminated(Meta::parse, Token![,])?);
+            Ok(())
         } else {
             Err(meta.error("unrecognized archive argument"))
         }

@@ -60,8 +60,7 @@ mod tests {
     #[test]
     fn roundtrip_unit_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_derive(Debug)]
+        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
         struct Test;
 
         roundtrip(&Test);
@@ -71,8 +70,7 @@ mod tests {
     #[test]
     fn roundtrip_tuple_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_derive(Debug)]
+        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
         struct Test((), i32, String, Option<i32>);
 
         roundtrip(&Test((), 42, "hello world".to_string(), Some(42)));
@@ -85,8 +83,7 @@ mod tests {
     #[test]
     fn roundtrip_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_derive(Debug)]
+        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
         struct Test {
             a: (),
             b: i32,
@@ -191,8 +188,7 @@ mod tests {
     #[test]
     fn roundtrip_enum() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_derive(Debug)]
+        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
         enum Test {
             A,
             B(String),
@@ -398,8 +394,8 @@ mod tests {
             crate,
             check_bytes(bounds(__C: ArchiveContext)),
             compare(PartialEq),
+            derive(Debug),
         )]
-        #[rkyv_derive(Debug)]
         // The derive macros don't apply the right bounds from Box so we have to
         // manually specify what bounds to apply
         #[rkyv(serialize_bounds(__S: Writer))]
@@ -419,8 +415,8 @@ mod tests {
             crate,
             check_bytes(bounds(__C: ArchiveContext)),
             compare(PartialEq),
+            derive(Debug),
         )]
-        #[rkyv_derive(Debug)]
         // The derive macros don't apply the right bounds from Box so we have to
         // manually specify what bounds to apply
         #[rkyv(serialize_bounds(__S: Writer))]
@@ -518,8 +514,8 @@ mod tests {
             resolver = RTest,
             check_bytes,
             compare(PartialEq),
+            derive(Debug),
         )]
-        #[rkyv_derive(Debug)]
         struct Test {
             a: i32,
             b: Option<u32>,
@@ -625,8 +621,7 @@ mod tests {
     #[test]
     fn const_generics() {
         #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq))]
-        #[rkyv_derive(Debug)]
+        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
         pub struct Const<const N: usize>;
 
         roundtrip(&Const::<1>);
@@ -641,8 +636,7 @@ mod tests {
     #[test]
     fn repr_c_packed() {
         #[derive(Archive)]
-        #[rkyv(crate)]
-        #[rkyv_attr(repr(C, packed))]
+        #[rkyv(crate, attr(repr(C, packed)))]
         #[allow(dead_code)]
         struct CPackedRepr {
             a: u8,
@@ -653,8 +647,7 @@ mod tests {
         assert_eq!(core::mem::size_of::<ArchivedCPackedRepr>(), 6);
 
         #[derive(Archive)]
-        #[rkyv(crate)]
-        #[rkyv_attr(repr(C), repr(packed))]
+        #[rkyv(crate, attr(repr(C), repr(packed)))]
         #[allow(dead_code)]
         struct CPackedRepr2 {
             a: u8,
@@ -668,8 +661,7 @@ mod tests {
     #[test]
     fn repr_c_align() {
         #[derive(Archive)]
-        #[rkyv(crate)]
-        #[rkyv_attr(repr(C, align(8)))]
+        #[rkyv(crate, attr(repr(C, align(8))))]
         #[allow(dead_code)]
         struct CAlignRepr {
             a: u8,
@@ -678,8 +670,7 @@ mod tests {
         assert_eq!(core::mem::align_of::<ArchivedCAlignRepr>(), 8);
 
         #[derive(Archive)]
-        #[rkyv(crate)]
-        #[rkyv_attr(repr(C), repr(align(8)))]
+        #[rkyv(crate, attr(repr(C), repr(align(8))))]
         #[allow(dead_code)]
         struct CAlignRepr2 {
             a: u8,
@@ -819,8 +810,7 @@ mod tests {
         #[derive(
             Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize,
         )]
-        #[rkyv(crate, compare(PartialEq))]
-        #[rkyv_derive(Clone, Copy, Debug)]
+        #[rkyv(crate, compare(PartialEq), derive(Clone, Copy, Debug))]
         enum ExampleEnum {
             Foo,
             Bar(u64),
@@ -829,8 +819,7 @@ mod tests {
         #[derive(
             Clone, Copy, Debug, PartialEq, Archive, Serialize, Deserialize,
         )]
-        #[rkyv(crate, compare(PartialEq))]
-        #[rkyv_derive(Clone, Copy, Debug)]
+        #[rkyv(crate, compare(PartialEq), derive(Clone, Copy, Debug))]
         struct Example {
             x: i32,
             y: Option<ExampleEnum>,

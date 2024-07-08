@@ -672,8 +672,7 @@ mod tests {
         use core::sync::atomic::{AtomicU32, Ordering};
 
         #[derive(Archive, Debug, Deserialize, Serialize)]
-        #[rkyv(crate, check_bytes)]
-        #[rkyv_derive(Debug)]
+        #[rkyv(crate, check_bytes, derive(Debug))]
         struct Test {
             #[with(AtomicLoad<Relaxed>)]
             a: AtomicU32,
