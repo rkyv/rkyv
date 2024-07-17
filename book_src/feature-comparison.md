@@ -1,6 +1,6 @@
 # Feature Comparison
 
-This is a best-effort feaure comparison between rkyv, FlatBuffers, and Cap'n Proto. This is by no
+This is a best-effort feature comparison between rkyv, FlatBuffers, and Cap'n Proto. This is by no
 means completely comprehensive, and pull requests that improve this are welcomed.
 
 ## Feature matrix
