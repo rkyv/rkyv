@@ -522,7 +522,7 @@ where K: Ord {
 
                 let mut next_classified: ClassifiedNode<'a, K, V> = next.classify();
                 if let ClassifiedNode::Leaf(leaf) = next_classified {
-                    if std::ptr::addr_eq(leaf, cur.0) {
+                    if addr_eq(leaf, cur.0) {
                         next = match scan {
                             Ok(0) => unsafe { &*inner.header.ptr.as_ptr() },
                             Ok(i) => unsafe { &*inner.tail[i - 1].ptr.as_ptr() },
@@ -536,13 +536,18 @@ where K: Ord {
                 current = next_classified;
             }
             ClassifiedNode::Leaf(leaf) => {
-                if std::ptr::addr_eq(leaf, cur.0) {
+                if addr_eq(leaf, cur.0) {
                     return None;
                 }
                 return Some((leaf, leaf.tail.len() - 1));
             }
         }
     }
+}
+
+#[inline(always)]
+fn addr_eq<T: ?Sized, U: ?Sized>(p: *const T, q: *const U) -> bool {
+    (p as *const ()) == (q as *const ())
 }
 
 #[cfg(feature = "alloc")]
@@ -910,7 +915,7 @@ impl<'a, K, V> Iterator for RawIter<'a, K, V> {
                         Some(a) => a,
                         None => *first,
                     };
-                    if std::ptr::addr_eq(cur.0, last.0) && cur.1 == last.1 {
+                    if addr_eq(cur.0, last.0) && cur.1 == last.1 {
                         self.run = RawIterRun::LastOne { cur: *cur };
                     }
                     Some(ret)
@@ -947,7 +952,7 @@ where K: Ord {
             return match &mut self.run {
                 RawIterRun::RunningExact { cur, .. } => {
                     match (self.tree.first(), self.tree.last()) {
-                        (Some(first), Some(last)) if std::ptr::addr_eq(cur.0, first.0) && cur.1 == first.1 => {
+                        (Some(first), Some(last)) if addr_eq(cur.0, first.0) && cur.1 == first.1 => {
                             self.run = RawIterRun::Running { first, cur: last, last };
                             continue;
                         },
@@ -967,7 +972,7 @@ where K: Ord {
                         Some(a) => a,
                         None => *last,
                     };
-                    if std::ptr::addr_eq(cur.0, first.0) && cur.1 == first.1 {
+                    if addr_eq(cur.0, first.0) && cur.1 == first.1 {
                         self.run = RawIterRun::LastOne { cur: *cur };
                     }
                     Some(ret)
