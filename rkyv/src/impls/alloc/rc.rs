@@ -342,8 +342,7 @@ mod tests {
         let mut mutable_archived =
             unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
         unsafe {
-            *mutable_archived.as_mut().a().get_pin_mut_unchecked() =
-                42u32.into();
+            *mutable_archived.as_mut().a().get_pin_unchecked() = 42u32.into();
         }
 
         let archived =
@@ -354,8 +353,7 @@ mod tests {
         let mut mutable_archived =
             unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
         unsafe {
-            *mutable_archived.as_mut().b().get_pin_mut_unchecked() =
-                17u32.into();
+            *mutable_archived.as_mut().b().get_pin_unchecked() = 17u32.into();
         }
 
         let archived =
@@ -483,8 +481,7 @@ mod tests {
         let mut mutable_archived =
             unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
         unsafe {
-            *mutable_archived.as_mut().a().get_pin_mut_unchecked() =
-                42u32.into();
+            *mutable_archived.as_mut().a().get_pin_unchecked() = 42u32.into();
         }
 
         let archived =
@@ -499,9 +496,9 @@ mod tests {
             *mutable_archived
                 .as_mut()
                 .b()
-                .upgrade_pin_mut()
+                .upgrade_pin()
                 .unwrap()
-                .get_pin_mut_unchecked() = 17u32.into();
+                .get_pin_unchecked() = 17u32.into();
         }
 
         let archived =

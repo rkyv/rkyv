@@ -57,7 +57,7 @@ impl<T> ArchivedVec<T> {
     }
 
     /// Gets the elements of the archived vec as a pinned mutable slice.
-    pub fn pin_mut_slice(self: Pin<&mut Self>) -> Pin<&mut [T]> {
+    pub fn as_slice_pin(self: Pin<&mut Self>) -> Pin<&mut [T]> {
         let len = self.len();
         let ptr = unsafe { self.map_unchecked_mut(|s| &mut s.ptr) };
         unsafe {
@@ -80,7 +80,7 @@ impl<T> ArchivedVec<T> {
     where
         [T]: IndexMut<I>,
     {
-        unsafe { self.pin_mut_slice().map_unchecked_mut(|s| &mut s[index]) }
+        unsafe { self.as_slice_pin().map_unchecked_mut(|s| &mut s[index]) }
     }
 
     /// Resolves an archived `Vec` from a given slice.

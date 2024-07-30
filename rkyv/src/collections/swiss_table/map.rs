@@ -58,10 +58,10 @@ impl<K, V, H> ArchivedHashMap<K, V, H> {
     }
 
     /// Returns an iterator over the mutable key-value entries in the hash map.
-    pub fn iter_mut(self: Pin<&mut Self>) -> IterMut<'_, K, V, H> {
+    pub fn iter_pin(self: Pin<&mut Self>) -> IterMut<'_, K, V, H> {
         let table = unsafe { self.map_unchecked_mut(|s| &mut s.table) };
         IterMut {
-            raw: table.raw_iter_mut(),
+            raw: table.raw_iter_pin(),
             _phantom: PhantomData,
         }
     }
@@ -83,10 +83,10 @@ impl<K, V, H> ArchivedHashMap<K, V, H> {
     }
 
     /// Returns an iterator over the mutable values in the hash map.
-    pub fn values_mut(self: Pin<&mut Self>) -> ValuesMut<'_, K, V, H> {
+    pub fn values_pin(self: Pin<&mut Self>) -> ValuesMut<'_, K, V, H> {
         let table = unsafe { self.map_unchecked_mut(|s| &mut s.table) };
         ValuesMut {
-            raw: table.raw_iter_mut(),
+            raw: table.raw_iter_pin(),
             _phantom: PhantomData,
         }
     }
@@ -136,7 +136,7 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
 
     /// Returns the mutable key-value pair corresponding to the supplied key
     /// using the given comparison function.
-    pub fn get_key_value_mut_with<Q, C>(
+    pub fn get_key_value_pin_with<Q, C>(
         self: Pin<&mut Self>,
         key: &Q,
         cmp: C,
@@ -148,7 +148,7 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
     {
         let table = unsafe { Pin::map_unchecked_mut(self, |s| &mut s.table) };
         let entry = table
-            .get_with_mut(hash_value::<Q, H>(key), |e| cmp(key, &e.key))?;
+            .get_pin_with(hash_value::<Q, H>(key), |e| cmp(key, &e.key))?;
         let entry = unsafe { Pin::into_inner_unchecked(entry) };
         let key = &entry.key;
         let value = unsafe { Pin::new_unchecked(&mut entry.value) };
@@ -156,7 +156,7 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
     }
 
     /// Returns the mutable key-value pair corresponding to the supplied key.
-    pub fn get_key_value_mut<Q>(
+    pub fn get_key_value_pin<Q>(
         self: Pin<&mut Self>,
         key: &Q,
     ) -> Option<(&K, Pin<&mut V>)>
@@ -164,12 +164,12 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        self.get_key_value_mut_with(key, |q, k| q == k.borrow())
+        self.get_key_value_pin_with(key, |q, k| q == k.borrow())
     }
 
     /// Returns a mutable reference to the value corresponding to the supplied
     /// key using the given comparison function.
-    pub fn get_mut_with<Q, C>(
+    pub fn get_pin_with<Q, C>(
         self: Pin<&mut Self>,
         key: &Q,
         cmp: C,
@@ -179,17 +179,17 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
         Q: Hash + Eq + ?Sized,
         C: Fn(&Q, &K) -> bool,
     {
-        Some(self.get_key_value_mut_with(key, cmp)?.1)
+        Some(self.get_key_value_pin_with(key, cmp)?.1)
     }
 
     /// Returns a mutable reference to the value corresponding to the supplied
     /// key.
-    pub fn get_mut<Q>(self: Pin<&mut Self>, key: &Q) -> Option<Pin<&mut V>>
+    pub fn get_pin<Q>(self: Pin<&mut Self>, key: &Q) -> Option<Pin<&mut V>>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        Some(self.get_key_value_mut(key)?.1)
+        Some(self.get_key_value_pin(key)?.1)
     }
 
     /// Returns whether the hash map contains the given key.

@@ -183,7 +183,7 @@ impl<T> ArchivedHashTable<T> {
     }
 
     /// Returns the mutable key-value pair corresponding to the supplied key.
-    pub fn get_with_mut<C>(
+    pub fn get_pin_with<C>(
         self: Pin<&mut Self>,
         hash: u64,
         cmp: C,
@@ -237,7 +237,7 @@ impl<T> ArchivedHashTable<T> {
     }
 
     /// Returns a mutable iterator over the entry pointers in the hash table.
-    pub fn raw_iter_mut(mut self: Pin<&mut Self>) -> RawIter<T> {
+    pub fn raw_iter_pin(mut self: Pin<&mut Self>) -> RawIter<T> {
         if self.is_empty() {
             RawIter::empty()
         } else {

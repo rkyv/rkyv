@@ -79,6 +79,25 @@ macro_rules! impl_archived_option_nonzero {
                 }
             }
 
+            #[rustfmt::skip]
+            #[doc = concat!(
+                "Converts from `Pin<&mut ArchivedOption",
+                stringify!($nz),
+                ">` to `Option<Pin<&mut Archived<",
+                stringify!($nz),
+                ">>>`.",
+            )]
+            #[inline]
+            pub fn as_pin(
+                self: Pin<&mut Self>,
+            ) -> Option<Pin<&mut Archived<$nz>>> {
+                unsafe {
+                    Pin::get_unchecked_mut(self)
+                        .as_mut()
+                        .map(|x| Pin::new_unchecked(x))
+                }
+            }
+
             /// Takes the value out of the option, leaving a `None` in its
             /// place.
             #[inline]
@@ -95,40 +114,6 @@ macro_rules! impl_archived_option_nonzero {
                 }
             }
 
-            #[rustfmt::skip]
-            #[doc = concat!(
-                "Converts from `Pin<&ArchivedOption",
-                stringify!($nz),
-                ">` to `Option<Pin<&Archived<",
-                stringify!($nz),
-                ">>>`.",
-            )]
-            #[inline]
-            pub fn as_pin_ref(self: Pin<&Self>) -> Option<Pin<&Archived<$nz>>> {
-                unsafe {
-                    Pin::get_ref(self).as_ref().map(|x| Pin::new_unchecked(x))
-                }
-            }
-
-            #[rustfmt::skip]
-            #[doc = concat!(
-                "Converts from `Pin<&mut ArchivedOption",
-                stringify!($nz),
-                ">` to `Option<Pin<&mut Archived<",
-                stringify!($nz),
-                ">>>`.",
-            )]
-            #[inline]
-            pub fn as_pin_mut(
-                self: Pin<&mut Self>,
-            ) -> Option<Pin<&mut Archived<$nz>>> {
-                unsafe {
-                    Pin::get_unchecked_mut(self)
-                        .as_mut()
-                        .map(|x| Pin::new_unchecked(x))
-                }
-            }
-
             /// Returns an iterator over the possibly contained value.
             #[inline]
             pub fn iter(&self) -> Iter<'_, Archived<$nz>> {
@@ -140,6 +125,8 @@ macro_rules! impl_archived_option_nonzero {
             pub fn iter_mut(&mut self) -> IterMut<'_, Archived<$nz>> {
                 IterMut::new(self.as_mut())
             }
+
+            // TODO: iter_pin
 
             /// Inserts `v` into the option if it is `None`, then returns a
             /// mutable reference to the contained value.

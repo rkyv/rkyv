@@ -76,6 +76,8 @@ impl<T, E> ArchivedResult<T, E> {
         }
     }
 
+    // TODO: as_pin
+
     /// Returns an iterator over the possibly contained value.
     ///
     /// The iterator yields one value if the result is `ArchivedResult::Ok`,
@@ -95,6 +97,8 @@ impl<T, E> ArchivedResult<T, E> {
             inner: self.as_mut().ok(),
         }
     }
+
+    // TODO: iter_pin
 }
 
 impl<T: Deref, E> ArchivedResult<T, E> {

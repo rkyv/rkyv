@@ -4,7 +4,6 @@ use core::{
     borrow::Borrow,
     cmp, fmt, hash,
     ops::{Deref, Index, RangeFull},
-    pin::Pin,
 };
 use std::ffi::CStr;
 
@@ -53,13 +52,6 @@ impl ArchivedCString {
     #[inline]
     pub fn as_c_str(&self) -> &CStr {
         unsafe { &*self.ptr.as_ptr() }
-    }
-
-    /// Extracts a pinned mutable `CStr` slice containing the entire string.
-    #[inline]
-    pub fn pin_mut_c_str(self: Pin<&mut Self>) -> Pin<&mut CStr> {
-        let ptr = unsafe { self.map_unchecked_mut(|s| &mut s.ptr) };
-        unsafe { Pin::new_unchecked(&mut *ptr.as_mut_ptr()) }
     }
 
     /// Resolves an archived C string from the given C string and parameters.

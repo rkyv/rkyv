@@ -4,6 +4,7 @@ use core::{
     fmt,
     marker::{PhantomData, PhantomPinned},
     pin::Pin,
+    ptr::addr_of_mut,
 };
 
 use munge::munge;
@@ -194,25 +195,93 @@ impl<O: Offset> RawRelPtr<O> {
         Self::try_emplace::<Panic>(to, out).always_ok()
     }
 
+    /// Gets the base pointer for the pointed-to relative pointer.
+    pub fn base_raw(this: *mut Self) -> *mut u8 {
+        this.cast()
+    }
+
+    /// Gets the offset of the pointed-to relative pointer from its base.
+    ///
+    /// # Safety
+    ///
+    /// `this` must be non-null, properly-aligned, and point to a valid
+    /// `RawRelPtr`.
+    pub unsafe fn offset_raw(this: *mut Self) -> isize {
+        // SAFETY: The caller has guaranteed that `this` is safe to dereference
+        unsafe { addr_of_mut!((*this).offset).read().to_isize() }
+    }
+
+    /// Calculates the memory address being pointed to by the pointed-to
+    /// relative pointer.
+    ///
+    /// # Safety
+    ///
+    /// - `this` must be non-null, properly-aligned, and point to a valid
+    ///   `RawRelPtr`.
+    /// - The offset of this relative pointer, when added to its base, must be
+    ///   located in the same allocated object as it.
+    pub unsafe fn as_ptr_raw(this: *mut Self) -> *mut () {
+        // SAFETY:
+        // - The caller has guaranteed that `this` is safe to dereference.
+        // - The caller has guaranteed that offsetting the base pointer by its
+        //   offset will yield a pointer in the same allocated object.
+        unsafe { Self::base_raw(this).offset(Self::offset_raw(this)).cast() }
+    }
+
+    /// Calculates the memory address being pointed to by the pointed-to
+    /// relative pointer using wrapping methods.
+    ///
+    /// This method is a safer but potentially slower version of `as_ptr_raw`.
+    ///
+    /// # Safety
+    ///
+    /// `this` must be non-null, properly-aligned, and point to a valid
+    /// `RawRelPtr`.
+    pub unsafe fn as_ptr_wrapping_raw(this: *mut Self) -> *mut () {
+        // SAFETY: The safety requirements of `offset_raw` are the same as the
+        // safety requirements for `as_ptr_wrapping_raw`.
+        let offset = unsafe { Self::offset_raw(this) };
+        Self::base_raw(this).wrapping_offset(offset).cast()
+    }
+
+    /// Gets whether the offset of the pointed-to relative pointer is invalid.
+    ///
+    /// # Safety
+    ///
+    /// `this` must be non-null, properly-aligned, and point to a valid
+    /// `RawRelPtr`.
+    pub unsafe fn is_invalid_raw(this: *mut Self) -> bool {
+        // SAFETY: The safety requirements of `offset_raw` are the same as the
+        // safety requirements for `is_invalid_raw`.
+        unsafe { Self::offset_raw(this) == 1 }
+    }
+
     /// Gets the base pointer for the relative pointer.
     pub fn base(&self) -> *const u8 {
-        (self as *const Self).cast::<u8>()
+        Self::base_raw((self as *const Self).cast_mut()).cast_const()
     }
 
     /// Gets the mutable base pointer for the relative pointer.
     pub fn base_mut(self: Pin<&mut Self>) -> *mut u8 {
-        let s = unsafe { Pin::into_inner_unchecked(self) };
-        (s as *mut Self).cast::<u8>()
+        // SAFETY: The value pointed to by `self` is not moved.
+        let this = unsafe { Pin::into_inner_unchecked(self) };
+        Self::base_raw(this as *mut Self)
     }
 
     /// Gets the offset of the relative pointer from its base.
     pub fn offset(&self) -> isize {
-        self.offset.to_isize()
+        let this = self as *const Self;
+        // SAFETY: `self` is a reference, so it's guaranteed to be non-null,
+        // properly-aligned, and point to a valid `RawRelPtr`.
+        unsafe { Self::offset_raw(this.cast_mut()) }
     }
 
     /// Gets whether the offset of the relative pointer is invalid.
     pub fn is_invalid(&self) -> bool {
-        self.offset() == 1
+        let this = self as *const Self;
+        // SAFETY: `self` is a reference, so it's guaranteed to be non-null,
+        // properly-aligned, and point to a valid `RawRelPtr`.
+        unsafe { Self::is_invalid_raw(this.cast_mut()) }
     }
 
     /// Calculates the memory address being pointed to by this relative pointer.
@@ -222,7 +291,14 @@ impl<O: Offset> RawRelPtr<O> {
     /// The offset of this relative pointer, when added to its base, must be
     /// located in the same allocated object as it.
     pub unsafe fn as_ptr(&self) -> *const () {
-        unsafe { self.base().offset(self.offset()).cast() }
+        let this = self as *const Self;
+        // SAFETY:
+        // - `self` is a reference, so it's guaranteed to be non-null,
+        //   properly-aligned, and point to a valid `RawRelPtr`.
+        // - The caller has guaranteed that the offset of this relative pointer,
+        //   when added to its base, is located in the same allocated object as
+        //   it.
+        unsafe { Self::as_ptr_raw(this.cast_mut()).cast_const() }
     }
 
     /// Calculates the mutable memory address being pointed to by this relative
@@ -233,8 +309,15 @@ impl<O: Offset> RawRelPtr<O> {
     /// The offset of this relative pointer, when added to its base, must be
     /// located in the same allocated object as it.
     pub unsafe fn as_mut_ptr(self: Pin<&mut Self>) -> *mut () {
-        let off = self.offset();
-        unsafe { self.base_mut().offset(off).cast() }
+        // SAFETY: The value pointed to by `self` is not moved.
+        let this = unsafe { Pin::into_inner_unchecked(self) };
+        // SAFETY:
+        // - `this` is a reference, so it's guaranteed to be non-null,
+        //   properly-aligned, and point to a valid `RawRelPtr`.
+        // - The caller has guaranteed that the offset of this relative pointer,
+        //   when added to its base, is located in the same allocated object as
+        //   it.
+        unsafe { Self::as_ptr_raw(this as *mut Self) }
     }
 
     /// Calculates the memory address being pointed to by this relative pointer
@@ -242,7 +325,10 @@ impl<O: Offset> RawRelPtr<O> {
     ///
     /// This method is a safer but potentially slower version of `as_ptr`.
     pub fn as_ptr_wrapping(&self) -> *const () {
-        self.base().wrapping_offset(self.offset()).cast()
+        let this = self as *const Self;
+        // SAFETY: `self` is a reference, so it's guaranteed to be non-null,
+        // properly-aligned, and point to a valid `RawRelPtr`.
+        unsafe { Self::as_ptr_wrapping_raw(this.cast_mut()).cast_const() }
     }
 
     /// Calculates the mutable memory address being pointed to by this relative
@@ -250,8 +336,11 @@ impl<O: Offset> RawRelPtr<O> {
     ///
     /// This method is a safer but potentially slower version of `as_mut_ptr`.
     pub fn as_mut_ptr_wrapping(self: Pin<&mut Self>) -> *mut () {
-        let off = self.offset();
-        self.base_mut().wrapping_offset(off).cast()
+        // SAFETY: The value pointed to by `self` is not moved.
+        let this = unsafe { Pin::into_inner_unchecked(self) };
+        // SAFETY: `this` is a reference, so it's guaranteed to be non-null,
+        // properly-aligned, and point to a valid `RawRelPtr`.
+        unsafe { Self::as_ptr_wrapping_raw(this as *mut Self) }
     }
 }
 
@@ -385,6 +474,80 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
         out: Place<Self>,
     ) {
         Self::try_emplace_unsized::<Panic>(to, metadata, out).always_ok()
+    }
+
+    /// Gets the base pointer for the pointed-to relative pointer.
+    pub fn base_raw(this: *mut Self) -> *mut u8 {
+        RawRelPtr::<O>::base_raw(this.cast())
+    }
+
+    /// Gets the offset of the pointed-to relative pointer from its base.
+    ///
+    /// # Safety
+    ///
+    /// `this` must be non-null, properly-aligned, and point to a valid
+    /// `RelPtr`.
+    pub unsafe fn offset_raw(this: *mut Self) -> isize {
+        // SAFETY: `RelPtr` is `#[repr(C)]`, so the `RawRelPtr` member of the
+        // `RelPtr` will have the same address as the `RelPtr`. Because `this`
+        // is non-null, properly-aligned, and points to a valid `RelPtr`, a
+        // pointer to its first field will also be non-null, properly-aligned,
+        // and point to a valid `RawRelPtr`.
+        unsafe { RawRelPtr::<O>::offset_raw(this.cast()) }
+    }
+
+    /// Calculates the memory address being pointed to by the pointed-to
+    /// relative pointer.
+    ///
+    /// # Safety
+    ///
+    /// - `this` must be non-null, properly-aligned, and point to a valid
+    ///   `RawRelPtr`.
+    /// - The offset of this relative pointer, when added to its base, must be
+    ///   located in the same allocated object as it.
+    pub unsafe fn as_ptr_raw(this: *mut Self) -> *mut () {
+        // SAFETY:
+        // - `RelPtr` is `#[repr(C)]`, so the `RawRelPtr` member of the `RelPtr`
+        //   will have the same address as the `RelPtr`. Because `this` is
+        //   non-null, properly-aligned, and points to a valid `RelPtr`, a
+        //   pointer to its first field will also be non-null, properly-aligned,
+        //   and point to a valid `RawRelPtr`.
+        // - The base and offset of the `RawRelPtr` are guaranteed to be the
+        //   same as the base and offset of the `RelPtr`.
+        unsafe { RawRelPtr::<O>::as_ptr_raw(this.cast()) }
+    }
+
+    /// Calculates the memory address being pointed to by the pointed-to
+    /// relative pointer using wrapping methods.
+    ///
+    /// This method is a safer but potentially slower version of `as_ptr_raw`.
+    ///
+    /// # Safety
+    ///
+    /// `this` must be non-null, properly-aligned, and point to a valid
+    /// `RawRelPtr`.
+    pub unsafe fn as_ptr_wrapping_raw(this: *mut Self) -> *mut () {
+        // SAFETY: `RelPtr` is `#[repr(C)]`, so the `RawRelPtr` member of the
+        // `RelPtr` will have the same address as the `RelPtr`. Because `this`
+        // is non-null, properly-aligned, and points to a valid `RelPtr`, a
+        // pointer to its first field will also be non-null, properly-aligned,
+        // and point to a valid `RawRelPtr`.
+        unsafe { RawRelPtr::<O>::as_ptr_wrapping_raw(this.cast()) }
+    }
+
+    /// Gets whether the offset of the pointed-to relative pointer is invalid.
+    ///
+    /// # Safety
+    ///
+    /// `this` must be non-null, properly-aligned, and point to a valid
+    /// `RawRelPtr`.
+    pub unsafe fn is_invalid_raw(this: *mut Self) -> bool {
+        // SAFETY: `RelPtr` is `#[repr(C)]`, so the `RawRelPtr` member of the
+        // `RelPtr` will have the same address as the `RelPtr`. Because `this`
+        // is non-null, properly-aligned, and points to a valid `RelPtr`, a
+        // pointer to its first field will also be non-null, properly-aligned,
+        // and point to a valid `RawRelPtr`.
+        unsafe { RawRelPtr::<O>::is_invalid_raw(this.cast()) }
     }
 
     /// Gets the base pointer for the relative pointer.

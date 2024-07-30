@@ -45,7 +45,7 @@ impl<K, V, H> ArchivedIndexMap<K, V, H> {
         unsafe { from_raw_parts(self.entries.as_ptr(), self.len()) }
     }
 
-    fn entries_mut(self: Pin<&mut Self>) -> Pin<&mut [Entry<K, V>]> {
+    fn entries_pin(self: Pin<&mut Self>) -> Pin<&mut [Entry<K, V>]> {
         let len = self.len();
         let entries = unsafe { self.map_unchecked_mut(|s| &mut s.entries) };
         unsafe {
@@ -158,7 +158,7 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
 
     /// Gets the mutable index, key, and value corresponding to the supplied key
     /// using the given comparison function.
-    pub fn get_full_with_mut<Q, C>(
+    pub fn get_full_pin_with<Q, C>(
         self: Pin<&mut Self>,
         key: &Q,
         cmp: C,
@@ -168,7 +168,7 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
         C: Fn(&Q, &K) -> bool,
     {
         let index = self.get_index_of_with(key, cmp)?;
-        let entries = unsafe { Pin::into_inner_unchecked(self.entries_mut()) };
+        let entries = unsafe { Pin::into_inner_unchecked(self.entries_pin()) };
         let entry = &mut entries[index];
         let value = unsafe { Pin::new_unchecked(&mut entry.value) };
         Some((index, &entry.key, value))
@@ -176,7 +176,7 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
 
     /// Gets the mutable index, key, and value corresponding to the supplied
     /// key.
-    pub fn get_full_mut<Q>(
+    pub fn get_full_pin<Q>(
         self: Pin<&mut Self>,
         key: &Q,
     ) -> Option<(usize, &K, Pin<&mut V>)>
@@ -184,12 +184,12 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        self.get_full_with_mut(key, |q, k| q == k.borrow())
+        self.get_full_pin_with(key, |q, k| q == k.borrow())
     }
 
     /// Returns the mutable key-value pair corresponding to the supplied key
     /// using the given comparison function.
-    pub fn get_key_value_mut_with<Q, C>(
+    pub fn get_key_value_pin_with<Q, C>(
         self: Pin<&mut Self>,
         key: &Q,
         cmp: C,
@@ -199,12 +199,12 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
         Q: Hash + Eq + ?Sized,
         C: Fn(&Q, &K) -> bool,
     {
-        let (_, k, v) = self.get_full_with_mut(key, cmp)?;
+        let (_, k, v) = self.get_full_pin_with(key, cmp)?;
         Some((k, v))
     }
 
     /// Returns the mutable key-value pair corresponding to the supplied key.
-    pub fn get_key_value_mut<Q>(
+    pub fn get_key_value_pin<Q>(
         self: Pin<&mut Self>,
         key: &Q,
     ) -> Option<(&K, Pin<&mut V>)>
@@ -212,13 +212,13 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        let (_, k, v) = self.get_full_mut(key)?;
+        let (_, k, v) = self.get_full_pin(key)?;
         Some((k, v))
     }
 
     /// Returns a mutable reference to the value corresponding to the supplied
     /// key using the given comparison function.
-    pub fn get_mut_with<Q, C>(
+    pub fn get_pin_with<Q, C>(
         self: Pin<&mut Self>,
         key: &Q,
         cmp: C,
@@ -228,17 +228,17 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
         Q: Hash + Eq + ?Sized,
         C: Fn(&Q, &K) -> bool,
     {
-        Some(self.get_full_with_mut(key, cmp)?.2)
+        Some(self.get_full_pin_with(key, cmp)?.2)
     }
 
     /// Returns a mutable reference to the value corresponding to the supplied
     /// key.
-    pub fn get_mut<Q>(self: Pin<&mut Self>, key: &Q) -> Option<Pin<&mut V>>
+    pub fn get_pin<Q>(self: Pin<&mut Self>, key: &Q) -> Option<Pin<&mut V>>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        Some(self.get_full_mut(key)?.2)
+        Some(self.get_full_pin(key)?.2)
     }
 
     /// Returns whether a key is present in the hash map.

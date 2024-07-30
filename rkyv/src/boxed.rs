@@ -32,7 +32,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
     }
 
     /// Returns a pinned mutable reference to the value of this archived box
-    pub fn get_pin_mut(self: Pin<&mut Self>) -> Pin<&mut T> {
+    pub fn get_pin(self: Pin<&mut Self>) -> Pin<&mut T> {
         let ptr = unsafe { self.map_unchecked_mut(|s| &mut s.ptr) };
         unsafe { Pin::new_unchecked(&mut *ptr.as_mut_ptr()) }
     }

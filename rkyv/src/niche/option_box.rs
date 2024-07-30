@@ -119,17 +119,9 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
         }
     }
 
-    /// Converts from `Pin<&ArchivedOptionBox<T>>` to
-    /// `Option<Pin<&ArchivedBox<T>>>`.
-    pub fn as_pin_ref(self: Pin<&Self>) -> Option<Pin<&ArchivedBox<T>>> {
-        unsafe { Pin::get_ref(self).as_ref().map(|x| Pin::new_unchecked(x)) }
-    }
-
     /// Converts from `Pin<&mut ArchivedOption<T>>` to `Option<Pin<&mut
     /// ArchivedBox<T>>>`.
-    pub fn as_pin_mut(
-        self: Pin<&mut Self>,
-    ) -> Option<Pin<&mut ArchivedBox<T>>> {
+    pub fn as_pin(self: Pin<&mut Self>) -> Option<Pin<&mut ArchivedBox<T>>> {
         unsafe {
             Pin::get_unchecked_mut(self)
                 .as_mut()
@@ -146,6 +138,8 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
     pub fn iter_mut(&mut self) -> IterMut<'_, ArchivedBox<T>> {
         IterMut::new(self.as_mut())
     }
+
+    // TODO: iter_pin
 
     /// Converts from `&ArchivedOptionBox<T>` to `Option<&T>`.
     ///

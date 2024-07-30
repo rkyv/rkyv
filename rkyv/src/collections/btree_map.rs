@@ -7,6 +7,8 @@ use core::{
     marker::PhantomData,
     mem::{size_of, MaybeUninit},
     ops::ControlFlow,
+    pin::Pin,
+    ptr::addr_of_mut,
     slice,
 };
 
@@ -530,9 +532,34 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         if self.is_empty() {
             None
         } else {
-            let root_ptr =
-                unsafe { self.root.as_ptr().cast::<Node<K, V, E>>() };
-            match Self::visit_inner(root_ptr, &mut f) {
+            let root = &self.root;
+            let root_ptr = unsafe { root.as_ptr().cast::<Node<K, V, E>>() };
+            let mut call_inner = |k: *mut K, v: *mut V| unsafe { f(&*k, &*v) };
+            match Self::visit_inner(root_ptr.cast_mut(), &mut call_inner) {
+                ControlFlow::Continue(()) => None,
+                ControlFlow::Break(x) => Some(x),
+            }
+        }
+    }
+
+    /// Visits every mutable key-value pair in the B-tree with a function.
+    ///
+    /// If `f` returns `ControlFlow::Break`, `visit` will return `Some` with the
+    /// broken value. If `f` returns `Continue` for every pair in the tree,
+    /// `visit` will return `None`.
+    pub fn visit_mut<T>(
+        self: Pin<&mut Self>,
+        mut f: impl FnMut(&K, Pin<&mut V>) -> ControlFlow<T>,
+    ) -> Option<T> {
+        if self.is_empty() {
+            None
+        } else {
+            let root = unsafe { Pin::map_unchecked_mut(self, |s| &mut s.root) };
+            let root_ptr = unsafe { root.as_mut_ptr().cast::<Node<K, V, E>>() };
+            let mut call_inner = |k: *mut K, v: *mut V| unsafe {
+                f(&*k, Pin::new_unchecked(&mut *v))
+            };
+            match Self::visit_inner(root_ptr, &mut call_inner) {
                 ControlFlow::Continue(()) => None,
                 ControlFlow::Break(x) => Some(x),
             }
@@ -540,37 +567,50 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
     }
 
     fn visit_inner<T>(
-        current: *const Node<K, V, E>,
-        f: &mut impl FnMut(&K, &V) -> ControlFlow<T>,
+        current: *mut Node<K, V, E>,
+        f: &mut impl FnMut(*mut K, *mut V) -> ControlFlow<T>,
     ) -> ControlFlow<T> {
-        let node = unsafe { &*current };
-        for i in 0..node.len.to_native() as usize {
-            let key = unsafe { node.keys[i].assume_init_ref() };
-            let value = unsafe { node.values[i].assume_init_ref() };
-            match node.kind {
+        let len = unsafe { addr_of_mut!((*current).len).read() };
+        let kind = unsafe { addr_of_mut!((*current).kind).read() };
+
+        for i in 0..len.to_native() as usize {
+            let key_ptr =
+                unsafe { addr_of_mut!((*current).keys).cast::<K>().add(i) };
+            let value_ptr =
+                unsafe { addr_of_mut!((*current).values).cast::<V>().add(i) };
+            match kind {
                 NodeKind::Leaf => (),
                 NodeKind::Inner => {
-                    let inner =
-                        unsafe { &*current.cast::<InnerNode<K, V, E>>() };
-                    let lesser =
-                        unsafe { inner.lesser_nodes[i].assume_init_ref() };
-                    if !lesser.is_invalid() {
-                        let lesser_ptr =
-                            unsafe { lesser.as_ptr().cast::<Node<K, V, E>>() };
+                    let inner = current.cast::<InnerNode<K, V, E>>();
+                    let lesser = unsafe {
+                        addr_of_mut!((*inner).lesser_nodes)
+                            .cast::<RawRelPtr>()
+                            .add(i)
+                    };
+                    let lesser_is_invalid =
+                        unsafe { RawRelPtr::is_invalid_raw(lesser) };
+                    if !lesser_is_invalid {
+                        let lesser_ptr = unsafe {
+                            RawRelPtr::as_ptr_raw(lesser)
+                                .cast::<Node<K, V, E>>()
+                        };
                         Self::visit_inner(lesser_ptr, f)?;
                     }
                 }
             }
-            f(key, value)?;
+            f(key_ptr, value_ptr)?;
         }
 
-        match node.kind {
+        match kind {
             NodeKind::Leaf => (),
             NodeKind::Inner => {
-                let inner = unsafe { &*current.cast::<InnerNode<K, V, E>>() };
-                if !inner.greater_node.is_invalid() {
+                let inner = current.cast::<InnerNode<K, V, E>>();
+                let greater = unsafe { addr_of_mut!((*inner).greater_node) };
+                let greater_is_invalid =
+                    unsafe { RawRelPtr::is_invalid_raw(greater) };
+                if !greater_is_invalid {
                     let greater_ptr = unsafe {
-                        inner.greater_node.as_ptr().cast::<Node<K, V, E>>()
+                        RawRelPtr::as_ptr_raw(greater).cast::<Node<K, V, E>>()
                     };
                     Self::visit_inner(greater_ptr, f)?;
                 }
@@ -580,7 +620,30 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         ControlFlow::Continue(())
     }
 
-    // TODO: add entries iterator if alloc feature is enabled
+    // #[cfg(feature = "alloc")]
+    // pub fn iter(&self) -> Iter<'_, K, V, E> {
+    //     todo!()
+    // }
+
+    // #[cfg(feature = "alloc")]
+    // pub fn iter_mut(&mut self) -> IterMut<'_, K, V, E> {
+    //     todo!()
+    // }
+
+    // #[cfg(feature = "alloc")]
+    // pub fn keys(&self) -> Keys<'_, K, V, E> {
+    //     todo!()
+    // }
+
+    // #[cfg(feature = "alloc")]
+    // pub fn values(&self) -> Values<'_, K, V, E> {
+    //     todo!()
+    // }
+
+    // #[cfg(feature = "alloc")]
+    // pub fn values_mut(self: Pin<&mut Self>) -> ValuesMut<'_, K, V, E> {
+    //     todo!()
+    // }
 }
 
 impl<K, V, const E: usize> fmt::Debug for ArchivedBTreeMap<K, V, E>
@@ -602,6 +665,18 @@ where
 pub struct BTreeMapResolver {
     root_node_pos: usize,
 }
+
+// #[cfg(feature = "alloc")]
+// pub struct RawIter<'a, K, V, const E: usize> {
+//     stack: Vec<(*const Node<K, V, E>, usize)>,
+//     _phantom: PhantomData<&'a ArchivedBTreeMap<K, V, E>>,
+// }
+
+// impl<'a, K, V, const E: usize> RawIter<'a, K, V, E> {
+//     fn from_root(_root: *const Node<K, V, E>) -> Self {
+//         todo!()
+//     }
+// }
 
 #[cfg(feature = "bytecheck")]
 mod verify {

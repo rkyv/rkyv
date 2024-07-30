@@ -87,13 +87,8 @@ impl<T> ArchivedOption<T> {
         }
     }
 
-    /// Converts from `Pin<&ArchivedOption<T>>` to `Option<Pin<&T>>`.
-    pub fn as_pin_ref(self: Pin<&Self>) -> Option<Pin<&T>> {
-        unsafe { Pin::get_ref(self).as_ref().map(|x| Pin::new_unchecked(x)) }
-    }
-
     /// Converts from `Pin<&mut ArchivedOption<T>>` to `Option<Pin<&mut T>>`.
-    pub fn as_pin_mut(self: Pin<&mut Self>) -> Option<Pin<&mut T>> {
+    pub fn as_pin(self: Pin<&mut Self>) -> Option<Pin<&mut T>> {
         unsafe {
             Pin::get_unchecked_mut(self)
                 .as_mut()
@@ -114,6 +109,8 @@ impl<T> ArchivedOption<T> {
             inner: self.as_mut(),
         }
     }
+
+    // TODO: iter_pin
 
     /// Inserts `v` into the option if it is `None`, then returns a mutable
     /// reference to the contained value.

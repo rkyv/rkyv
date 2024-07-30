@@ -50,7 +50,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     ///
     /// Any other `ArchivedRc` pointers to the same value must not be
     /// dereferenced for the duration of the returned borrow.
-    pub unsafe fn get_pin_mut_unchecked(self: Pin<&mut Self>) -> Pin<&mut T> {
+    pub unsafe fn get_pin_unchecked(self: Pin<&mut Self>) -> Pin<&mut T> {
         let ptr = unsafe { self.map_unchecked_mut(|s| &mut s.ptr) };
         unsafe { Pin::new_unchecked(&mut *ptr.as_mut_ptr()) }
     }
@@ -195,7 +195,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     }
 
     /// Attempts to upgrade a pinned mutable weak pointer.
-    pub fn upgrade_pin_mut(
+    pub fn upgrade_pin(
         self: Pin<&mut Self>,
     ) -> Option<Pin<&mut ArchivedRc<T, F>>> {
         unsafe {

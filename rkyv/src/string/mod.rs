@@ -46,7 +46,7 @@ impl ArchivedString {
     /// Extracts a pinned mutable string slice containing the entire
     /// `ArchivedString`.
     #[inline]
-    pub fn pin_mut_str(self: Pin<&mut Self>) -> Pin<&mut str> {
+    pub fn as_pin_str(self: Pin<&mut Self>) -> Pin<&mut str> {
         unsafe { self.map_unchecked_mut(|s| s.repr.as_mut_str()) }
     }
 
