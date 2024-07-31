@@ -139,12 +139,31 @@ mod tests {
     }
 
     #[test]
+    fn roundtrip_btree_map_increasing_sizes() {
+        // These sizes are chosen based on a branching factor of 6.
+        // 0-5: Leaf root node, variably-filled
+        // 6: Inner root node and one leaf node with one element
+        // 17: Inner root node, two filled leaf nodes, and one with two elements
+        // 35: Two full levels
+        // 36: Two full levels and one additional element
+        // 112: Two full levels and a third level half-filled
+        // 215: Three full levels
+        const SIZES: &[usize] = &[0, 1, 2, 3, 4, 5, 6, 17, 35, 36, 112, 215];
+        for &size in SIZES {
+            let mut value = BTreeMap::new();
+            for i in 0..size {
+                value.insert(i.to_string(), i as i32);
+            }
+
+            roundtrip(&value);
+        }
+    }
+
+    // This test creates structures too big to fit in 16-bit offsets, and MIRI
+    // can't run it quickly enough.
+    #[cfg(not(any(feature = "pointer_width_16", miri)))]
+    #[test]
     fn roundtrip_large_btree_map() {
-        // This test creates structures too big to fit in 16-bit offsets, and
-        // MIRI can't run it quickly enough.
-        #[cfg(any(feature = "pointer_width_16", miri))]
-        const ENTRIES: usize = 100;
-        #[cfg(not(miri))]
         const ENTRIES: usize = 100_000;
 
         let mut value = BTreeMap::new();

@@ -30,7 +30,7 @@ use crate::{
 // easier to add an additional node pointer to each inner node than it is to
 // store one less entry per inner node. Because generic const exprs are not
 // stable, we can't declare a field `entries: [Entry; { B - 1 }]`. But we can
-// declare `branches: [RawRelPtr; N]` and then add another `last: RawRelPtr`
+// declare `branches: [RawRelPtr; E]` and then add another `last: RawRelPtr`
 // field. When the branching factor B is needed, it will be calculated as E + 1.
 
 const fn nodes_in_level<const E: usize>(i: u32) -> usize {
@@ -103,7 +103,7 @@ const fn ll_entries<const E: usize>(height: u32, n: usize) -> usize {
     n - entries_in_full_tree::<E>(height - 1)
 }
 
-#[derive(Portable)]
+#[derive(Clone, Copy, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[rkyv(crate)]
 #[repr(u8)]
@@ -131,7 +131,7 @@ struct Node<K, V, const E: usize> {
 #[repr(C)]
 struct InnerNode<K, V, const E: usize> {
     node: Node<K, V, E>,
-    lesser_nodes: [MaybeUninit<RawRelPtr>; E],
+    lesser_nodes: [RawRelPtr; E],
     greater_node: RawRelPtr,
 }
 
@@ -211,9 +211,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
                             let inner_node = unsafe {
                                 &*current.cast::<InnerNode<K, V, E>>()
                             };
-                            let lesser_node = unsafe {
-                                inner_node.lesser_nodes[i].assume_init_ref()
-                            };
+                            let lesser_node = &inner_node.lesser_nodes[i];
                             if !lesser_node.is_invalid() {
                                 current = unsafe {
                                     lesser_node.as_ptr().cast::<Node<K, V, E>>()
@@ -357,12 +355,11 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
                                 let (key, value) = iter.next().unwrap();
                                 last_inner.push((key, value, child_node_pos));
                                 child_node_pos = None;
+                                for _ in 0..popped {
+                                    open_inners.push(InlineVec::default());
+                                }
                                 break;
                             }
-                        }
-
-                        for _ in 0..popped {
-                            open_inners.push(InlineVec::default());
                         }
                     }
                 }
@@ -457,6 +454,8 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         UV: Serialize<S, Archived = V>,
         S: Writer + Fallible + ?Sized,
     {
+        debug_assert_eq!(items.len(), E);
+
         let mut resolvers = InlineVec::<(UK::Resolver, UV::Resolver), E>::new();
         for (key, value, _) in items {
             resolvers.push((
@@ -494,8 +493,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
             let out_value = unsafe { values.index(i).cast_unchecked() };
             v.resolve(vr, out_value);
 
-            let out_lesser_node =
-                unsafe { lesser_nodes.index(i).cast_unchecked() };
+            let out_lesser_node = unsafe { lesser_nodes.index(i) };
             if let Some(lesser_node) = l {
                 RawRelPtr::emplace(*lesser_node, out_lesser_node);
             } else {
@@ -570,8 +568,8 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         current: *mut Node<K, V, E>,
         f: &mut impl FnMut(*mut K, *mut V) -> ControlFlow<T>,
     ) -> ControlFlow<T> {
-        let len = unsafe { addr_of_mut!((*current).len).read() };
-        let kind = unsafe { addr_of_mut!((*current).kind).read() };
+        let len = unsafe { (*current).len };
+        let kind = unsafe { (*current).kind };
 
         for i in 0..len.to_native() as usize {
             let key_ptr =
@@ -619,31 +617,6 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
 
         ControlFlow::Continue(())
     }
-
-    // #[cfg(feature = "alloc")]
-    // pub fn iter(&self) -> Iter<'_, K, V, E> {
-    //     todo!()
-    // }
-
-    // #[cfg(feature = "alloc")]
-    // pub fn iter_mut(&mut self) -> IterMut<'_, K, V, E> {
-    //     todo!()
-    // }
-
-    // #[cfg(feature = "alloc")]
-    // pub fn keys(&self) -> Keys<'_, K, V, E> {
-    //     todo!()
-    // }
-
-    // #[cfg(feature = "alloc")]
-    // pub fn values(&self) -> Values<'_, K, V, E> {
-    //     todo!()
-    // }
-
-    // #[cfg(feature = "alloc")]
-    // pub fn values_mut(self: Pin<&mut Self>) -> ValuesMut<'_, K, V, E> {
-    //     todo!()
-    // }
 }
 
 impl<K, V, const E: usize> fmt::Debug for ArchivedBTreeMap<K, V, E>
@@ -665,18 +638,6 @@ where
 pub struct BTreeMapResolver {
     root_node_pos: usize,
 }
-
-// #[cfg(feature = "alloc")]
-// pub struct RawIter<'a, K, V, const E: usize> {
-//     stack: Vec<(*const Node<K, V, E>, usize)>,
-//     _phantom: PhantomData<&'a ArchivedBTreeMap<K, V, E>>,
-// }
-
-// impl<'a, K, V, const E: usize> RawIter<'a, K, V, E> {
-//     fn from_root(_root: *const Node<K, V, E>) -> Self {
-//         todo!()
-//     }
-// }
 
 #[cfg(feature = "bytecheck")]
 mod verify {
