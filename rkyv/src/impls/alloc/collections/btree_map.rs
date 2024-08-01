@@ -98,12 +98,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rancor::Failure;
+    use std::ops::ControlFlow;
+
+    use rancor::{Failure, Panic};
 
     use super::BTreeMap;
     use crate::{
-        access, test::roundtrip, util::Align, Archive, Archived, Deserialize,
-        Serialize,
+        access, access_mut, primitive::ArchivedI32, test::roundtrip, to_bytes,
+        util::Align, Archive, Archived, Deserialize, Serialize,
     };
 
     #[test]
@@ -197,11 +199,33 @@ mod tests {
     }
 
     #[test]
-    fn check_invalid_btreemap() {
+    fn check_invalid_btree_map() {
         let data = Align([
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0, 0x00, 0x00, 0x00, 0x0c, 0xa5,
             0xf0, 0xff, 0xff, 0xff,
         ]);
         access::<Archived<BTreeMap<u8, Box<u8>>>, Failure>(&*data).unwrap_err();
+    }
+
+    #[test]
+    fn mutable_btree_map() {
+        let mut value = BTreeMap::new();
+        value.insert("foo".to_string(), 10);
+        value.insert("bar".to_string(), 20);
+        value.insert("baz".to_string(), 40);
+        value.insert("bat".to_string(), 80);
+
+        let mut buf = to_bytes::<Panic>(&value).unwrap();
+        let mut archived =
+            access_mut::<Archived<BTreeMap<String, i32>>, Panic>(&mut buf)
+                .unwrap();
+        archived.as_mut().visit_mut(|_, mut v| {
+            *v = ArchivedI32::from_native(v.to_native() + 10);
+            ControlFlow::<(), ()>::Continue(())
+        });
+        assert_eq!(archived.get("foo").map(|x| x.to_native()), Some(20));
+        assert_eq!(archived.get("bar").map(|x| x.to_native()), Some(30));
+        assert_eq!(archived.get("baz").map(|x| x.to_native()), Some(50));
+        assert_eq!(archived.get("bat").map(|x| x.to_native()), Some(90));
     }
 }
