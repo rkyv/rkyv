@@ -190,20 +190,6 @@ impl<T, U: PartialOrd<T>> PartialOrd<Option<T>> for ArchivedOption<U> {
     }
 }
 
-#[cfg(feature = "extra_traits")]
-impl<T: PartialOrd<U>, U> PartialOrd<ArchivedOption<T>> for Option<U> {
-    fn partial_cmp(&self, other: &ArchivedOption<T>) -> Option<cmp::Ordering> {
-        match (self, other) {
-            (None, ArchivedOption::None) => Some(cmp::Ordering::Equal),
-            (None, ArchivedOption::Some(_)) => Some(cmp::Ordering::Less),
-            (Some(_), ArchivedOption::None) => Some(cmp::Ordering::Greater),
-            (Some(self_value), ArchivedOption::Some(other_value)) => {
-                other_value.partial_cmp(self_value).map(|ord| ord.reverse())
-            }
-        }
-    }
-}
-
 impl<T, U: PartialEq<T>> PartialEq<Option<T>> for ArchivedOption<U> {
     fn eq(&self, other: &Option<T>) -> bool {
         if let ArchivedOption::Some(self_value) = self {
@@ -215,13 +201,6 @@ impl<T, U: PartialEq<T>> PartialEq<Option<T>> for ArchivedOption<U> {
         } else {
             other.is_none()
         }
-    }
-}
-
-#[cfg(feature = "extra_traits")]
-impl<T: PartialEq<U>, U> PartialEq<ArchivedOption<T>> for Option<U> {
-    fn eq(&self, other: &ArchivedOption<T>) -> bool {
-        other.eq(self)
     }
 }
 
@@ -339,20 +318,14 @@ mod tests {
         let a: ArchivedOption<u8> = ArchivedOption::Some(42);
         let b = Some(42);
         assert_eq!(Some(Ordering::Equal), a.partial_cmp(&b));
-        #[cfg(feature = "extra_traits")]
-        assert_eq!(Some(Ordering::Equal), b.partial_cmp(&a));
 
         let a: ArchivedOption<u8> = ArchivedOption::Some(1);
         let b = Some(2);
         assert_eq!(Some(Ordering::Less), a.partial_cmp(&b));
-        #[cfg(feature = "extra_traits")]
-        assert_eq!(Some(Ordering::Greater), b.partial_cmp(&a));
 
         let a: ArchivedOption<u8> = ArchivedOption::Some(2);
         let b = Some(1);
         assert_eq!(Some(Ordering::Greater), a.partial_cmp(&b));
-        #[cfg(feature = "extra_traits")]
-        assert_eq!(Some(Ordering::Less), b.partial_cmp(&a));
     }
 
     #[test]

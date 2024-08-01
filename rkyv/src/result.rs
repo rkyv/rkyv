@@ -208,8 +208,10 @@ impl<T: PartialOrd, E: PartialOrd> PartialOrd for ArchivedResult<T, E> {
     }
 }
 
-impl<T, U: PartialEq<T>, E, F: PartialEq<E>> PartialEq<Result<T, E>>
-    for ArchivedResult<U, F>
+impl<T, U, E, F> PartialEq<Result<T, E>> for ArchivedResult<U, F>
+where
+    U: PartialEq<T>,
+    F: PartialEq<E>,
 {
     fn eq(&self, other: &Result<T, E>) -> bool {
         match self {
@@ -228,16 +230,5 @@ impl<T, U: PartialEq<T>, E, F: PartialEq<E>> PartialEq<Result<T, E>>
                 }
             }
         }
-    }
-}
-
-#[cfg(feature = "extra_traits")]
-impl<T, U, E, F> PartialEq<ArchivedResult<T, E>> for Result<U, F>
-where
-    T: PartialEq<U>,
-    E: PartialEq<F>,
-{
-    fn eq(&self, other: &ArchivedResult<T, E>) -> bool {
-        other.eq(self)
     }
 }

@@ -104,8 +104,12 @@ mod tests {
 
     use super::BTreeMap;
     use crate::{
-        access, access_mut, primitive::ArchivedI32, test::roundtrip, to_bytes,
-        util::Align, Archive, Archived, Deserialize, Serialize,
+        access, access_mut,
+        primitive::ArchivedI32,
+        test::{roundtrip, to_archived},
+        to_bytes,
+        util::Align,
+        Archive, Archived, Deserialize, Serialize,
     };
 
     #[test]
@@ -219,7 +223,7 @@ mod tests {
         let mut archived =
             access_mut::<Archived<BTreeMap<String, i32>>, Panic>(&mut buf)
                 .unwrap();
-        archived.as_mut().visit_mut(|_, mut v| {
+        archived.as_mut().visit_pin(|_, mut v| {
             *v = ArchivedI32::from_native(v.to_native() + 10);
             ControlFlow::<(), ()>::Continue(())
         });
@@ -227,5 +231,32 @@ mod tests {
         assert_eq!(archived.get("bar").map(|x| x.to_native()), Some(30));
         assert_eq!(archived.get("baz").map(|x| x.to_native()), Some(50));
         assert_eq!(archived.get("bat").map(|x| x.to_native()), Some(90));
+
+        *archived.as_mut().get_pin("foo").unwrap() =
+            ArchivedI32::from_native(123);
+        *archived.as_mut().get_pin("bat").unwrap() =
+            ArchivedI32::from_native(456);
+
+        assert_eq!(archived.get("foo").map(|x| x.to_native()), Some(123));
+        assert_eq!(archived.get("bat").map(|x| x.to_native()), Some(456));
+    }
+
+    #[test]
+    fn btree_map_iter() {
+        let mut value = BTreeMap::<String, i32>::new();
+        value.insert("foo".to_string(), 10);
+        value.insert("bar".to_string(), 20);
+        value.insert("baz".to_string(), 40);
+        value.insert("bat".to_string(), 80);
+
+        to_archived(&value, |archived| {
+            let mut i =
+                archived.iter().map(|(k, v)| (k.as_str(), v.to_native()));
+            assert_eq!(i.next(), Some(("bar", 20)));
+            assert_eq!(i.next(), Some(("bat", 80)));
+            assert_eq!(i.next(), Some(("baz", 40)));
+            assert_eq!(i.next(), Some(("foo", 10)));
+            assert_eq!(i.next(), None);
+        });
     }
 }
