@@ -3,6 +3,7 @@
 use core::{
     cmp, fmt,
     ops::{Bound, RangeBounds},
+    pin::Pin,
 };
 
 use crate::Portable;
@@ -270,6 +271,20 @@ impl<T> ArchivedBound<T> {
         match self {
             ArchivedBound::Included(x) => Bound::Included(x),
             ArchivedBound::Excluded(x) => Bound::Excluded(x),
+            ArchivedBound::Unbounded => Bound::Unbounded,
+        }
+    }
+
+    /// Converts from `Pin<&mut ArchivedBound<T>>` to `Bound<Pin<&mut T>>`.
+    pub fn as_pin(self: Pin<&mut Self>) -> Bound<Pin<&mut T>> {
+        let this = unsafe { Pin::into_inner_unchecked(self) };
+        match this {
+            ArchivedBound::Included(x) => {
+                Bound::Included(unsafe { Pin::new_unchecked(x) })
+            }
+            ArchivedBound::Excluded(x) => {
+                Bound::Excluded(unsafe { Pin::new_unchecked(x) })
+            }
             ArchivedBound::Unbounded => Bound::Unbounded,
         }
     }
