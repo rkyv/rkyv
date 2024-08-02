@@ -129,17 +129,20 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
         }
     }
 
-    /// Returns an iterator over the possibly contained value.
+    /// Returns an iterator over the possibly-contained value.
     pub fn iter(&self) -> Iter<'_, ArchivedBox<T>> {
         Iter::new(self.as_ref())
     }
 
-    /// Returns a mutable iterator over the possibly contained value.
+    /// Returns an iterator over the mutable possibly-contained value.
     pub fn iter_mut(&mut self) -> IterMut<'_, ArchivedBox<T>> {
         IterMut::new(self.as_mut())
     }
 
-    // TODO: iter_pin
+    /// Returns an iterator over the pinned mutable possibly-contained value.
+    pub fn iter_pin(self: Pin<&mut Self>) -> IterPin<'_, ArchivedBox<T>> {
+        IterPin::new(self.as_pin())
+    }
 
     /// Converts from `&ArchivedOptionBox<T>` to `Option<&T>`.
     ///
@@ -259,6 +262,15 @@ pub type Iter<'a, T> = crate::option::Iter<'a, T>;
 ///
 /// This `struct` is created by the [`ArchivedOptionBox::iter_mut`] function.
 pub type IterMut<'a, T> = crate::option::IterMut<'a, T>;
+
+/// An iterator over a pinned mutable reference to the `Some` variant of an
+/// `ArchivedOptionBox`.
+///
+/// This iterator yields one value if the `ArchivedOptionBox` is a `Some`,
+/// otherwise none.
+///
+/// This `struct` is created by the [`ArchivedOptionBox::iter_pin`] function.
+pub type IterPin<'a, T> = crate::option::IterPin<'a, T>;
 
 /// The resolver for [`ArchivedOptionBox`].
 pub enum OptionBoxResolver {

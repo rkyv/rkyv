@@ -4,6 +4,7 @@ use core::{
     cmp::Ordering,
     hash, mem,
     ops::{Deref, DerefMut},
+    pin::Pin,
 };
 
 use crate::Portable;
@@ -76,9 +77,19 @@ impl<T, E> ArchivedResult<T, E> {
         }
     }
 
-    // TODO: as_pin
+    /// Converts from `Pin<&mut ArchivedResult<T, E>>` to
+    /// `Result<Pin<&mut T>, Pin<&mut E>>`.
+    pub fn as_pin(self: Pin<&mut Self>) -> Result<Pin<&mut T>, Pin<&mut E>> {
+        let this = unsafe { Pin::into_inner_unchecked(self) };
+        match this {
+            ArchivedResult::Ok(value) => {
+                Ok(unsafe { Pin::new_unchecked(value) })
+            }
+            ArchivedResult::Err(err) => Err(unsafe { Pin::new_unchecked(err) }),
+        }
+    }
 
-    /// Returns an iterator over the possibly contained value.
+    /// Returns an iterator over the possibly-contained value.
     ///
     /// The iterator yields one value if the result is `ArchivedResult::Ok`,
     /// otherwise none.
@@ -88,7 +99,7 @@ impl<T, E> ArchivedResult<T, E> {
         }
     }
 
-    /// Returns a mutable iterator over the possibly contained value.
+    /// Returns an iterator over the mutable possibly-contained value.
     ///
     /// The iterator yields one value if the result is `ArchivedResult::Ok`,
     /// otherwise none.
@@ -98,7 +109,15 @@ impl<T, E> ArchivedResult<T, E> {
         }
     }
 
-    // TODO: iter_pin
+    /// Returns an iterator over the pinned mutable possibly-contained value.
+    ///
+    /// The iterator yields one value if the result is `ArchivedResult::Ok`,
+    /// otherwise none.
+    pub fn iter_pin(self: Pin<&mut Self>) -> IterPin<'_, T> {
+        IterPin {
+            inner: self.as_pin().ok(),
+        }
+    }
 }
 
 impl<T: Deref, E> ArchivedResult<T, E> {
@@ -177,6 +196,32 @@ impl<'a, T> Iterator for IterMut<'a, T> {
 }
 
 impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.next()
+    }
+}
+
+/// An iterator over a pinned mutable reference to the `Ok` variant of an
+/// [`ArchivedResult`].
+///
+/// The iterator yields one value if the result is `Ok`, otherwise none.
+///
+/// Created by [`ArchivedResult::iter_pin`].
+pub struct IterPin<'a, T> {
+    inner: Option<Pin<&'a mut T>>,
+}
+
+impl<'a, T> Iterator for IterPin<'a, T> {
+    type Item = Pin<&'a mut T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut result = None;
+        mem::swap(&mut self.inner, &mut result);
+        result
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for IterPin<'a, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.next()
     }

@@ -114,19 +114,26 @@ macro_rules! impl_archived_option_nonzero {
                 }
             }
 
-            /// Returns an iterator over the possibly contained value.
+            /// Returns an iterator over the possibly-contained value.
             #[inline]
             pub fn iter(&self) -> Iter<'_, Archived<$nz>> {
                 Iter::new(self.as_ref())
             }
 
-            /// Returns a mutable iterator over the possibly contained value.
+            /// Returns an iterator over the mutable possibly-contained value.
             #[inline]
             pub fn iter_mut(&mut self) -> IterMut<'_, Archived<$nz>> {
                 IterMut::new(self.as_mut())
             }
 
-            // TODO: iter_pin
+            /// Returns an iterator over the pinned mutable possibly-contained
+            /// value.
+            #[inline]
+            pub fn iter_pin(
+                self: Pin<&mut Self>,
+            ) -> IterPin<'_, Archived<$nz>> {
+                IterPin::new(self.as_pin())
+            }
 
             /// Inserts `v` into the option if it is `None`, then returns a
             /// mutable reference to the contained value.
@@ -245,3 +252,10 @@ pub type Iter<'a, T> = crate::option::Iter<'a, T>;
 /// This iterator yields one value if the `ArchivedOptionNonZero` integer is a
 /// `Some`, otherwise none.
 pub type IterMut<'a, T> = crate::option::IterMut<'a, T>;
+
+/// An iterator over a pinned mutable reference to the `Some` variant of an
+/// `ArchivedOptionNonZero` integer.
+///
+/// This iterator yields one value if the `ArchivedOptionNonZero` integer is a
+/// `Some`, otherwise none.
+pub type IterPin<'a, T> = crate::option::IterPin<'a, T>;

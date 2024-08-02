@@ -96,21 +96,26 @@ impl<T> ArchivedOption<T> {
         }
     }
 
-    /// Returns an iterator over the possibly contained value.
+    /// Returns an iterator over the possibly-contained value.
     pub const fn iter(&self) -> Iter<'_, T> {
         Iter {
             inner: self.as_ref(),
         }
     }
 
-    /// Returns a mutable iterator over the possibly contained value.
+    /// Returns an iterator over the mutable possibly-contained value.
     pub fn iter_mut(&mut self) -> IterMut<'_, T> {
         IterMut {
             inner: self.as_mut(),
         }
     }
 
-    // TODO: iter_pin
+    /// Returns an iterator over the pinned mutable possibly-contained value.
+    pub fn iter_pin(self: Pin<&mut Self>) -> IterPin<'_, T> {
+        IterPin {
+            inner: self.as_pin(),
+        }
+    }
 
     /// Inserts `v` into the option if it is `None`, then returns a mutable
     /// reference to the contained value.
@@ -253,6 +258,15 @@ impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     }
 }
 
+impl<'a, T> IntoIterator for &'a ArchivedOption<T> {
+    type Item = &'a T;
+    type IntoIter = Iter<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 /// An iterator over a mutable reference to the `Some` variant of an
 /// `ArchivedOption`.
 ///
@@ -287,21 +301,55 @@ impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
     }
 }
 
-impl<'a, T> IntoIterator for &'a ArchivedOption<T> {
-    type Item = &'a T;
-    type IntoIter = Iter<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.iter()
-    }
-}
-
 impl<'a, T> IntoIterator for &'a mut ArchivedOption<T> {
     type Item = &'a mut T;
     type IntoIter = IterMut<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter_mut()
+    }
+}
+
+/// An iterator over a pinned mutable reference to the `Some` variant of an
+/// `ArchivedOption`.
+///
+/// This iterator yields one value if the `ArchivedOption` is a `Some`,
+/// otherwise none.
+///
+/// This `struct` is created by the [`ArchivedOption::iter_pin`] function.
+pub struct IterPin<'a, T> {
+    inner: Option<Pin<&'a mut T>>,
+}
+
+impl<'a, T> IterPin<'a, T> {
+    /// Creates a new `IterPin` from the given option.
+    pub fn new(option: Option<Pin<&'a mut T>>) -> Self {
+        Self { inner: option }
+    }
+}
+
+impl<'a, T> Iterator for IterPin<'a, T> {
+    type Item = Pin<&'a mut T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut result = None;
+        mem::swap(&mut self.inner, &mut result);
+        result
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for IterPin<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.next()
+    }
+}
+
+impl<'a, T> IntoIterator for Pin<&'a mut ArchivedOption<T>> {
+    type Item = Pin<&'a mut T>;
+    type IntoIter = IterPin<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter_pin()
     }
 }
 
