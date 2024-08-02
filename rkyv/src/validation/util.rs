@@ -143,9 +143,9 @@ where
     access_with_context::<T, DefaultValidator, E>(bytes, &mut validator)
 }
 
-// TODO: `Pin` is not technically correct for the return type. `Pin` requires
-// the pinned value to be dropped before its memory can be reused, but archived
-// types explicitly do not require that. It just wants immovable types.
+// TODO(#516): `Pin` is not technically correct for the return type. `Pin`
+// requires the pinned value to be dropped before its memory can be reused, but
+// archived types explicitly do not require that. It just wants immovable types.
 
 // TODO: `bytes` may no longer be a fully-initialized `[u8]` after mutable
 // operations. We really need some kind of opaque byte container for these
