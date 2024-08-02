@@ -2,7 +2,8 @@ use core::{marker::PhantomData, pin::Pin, ptr::addr_of_mut};
 
 use crate::{
     collections::btree_map::{
-        entries_to_height, ArchivedBTreeMap, InnerNode, Node, NodeKind,
+        entries_to_height, ArchivedBTreeMap, InnerNode, LeafNode, Node,
+        NodeKind,
     },
     RawRelPtr,
 };
@@ -234,7 +235,8 @@ impl<K, V, const E: usize> Iterator for RawIter<K, V, E> {
                 }
             }
             NodeKind::Leaf => {
-                let len = unsafe { (*current).len.to_native() as usize };
+                let leaf = current.cast::<LeafNode<K, V, E>>();
+                let len = unsafe { (*leaf).len.to_native() as usize };
                 if next_i < len {
                     self.stack.push((current, next_i));
                 }

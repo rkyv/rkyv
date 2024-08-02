@@ -126,11 +126,16 @@ unsafe impl Initialized for NodeKind {}
 #[repr(C)]
 struct Node<K, V, const E: usize> {
     kind: NodeKind,
-    // TODO: len can be omitted for inner nodes since they are guaranteed to
-    // always be full
-    len: ArchivedUsize,
     keys: [MaybeUninit<K>; E],
     values: [MaybeUninit<V>; E],
+}
+
+#[derive(Portable)]
+#[rkyv(crate)]
+#[repr(C)]
+struct LeafNode<K, V, const E: usize> {
+    node: Node<K, V, E>,
+    len: ArchivedUsize,
 }
 
 #[derive(Portable)]
@@ -248,48 +253,76 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         let mut current =
             unsafe { RawRelPtr::as_ptr_raw(root_ptr).cast::<Node<K, V, E>>() };
         'outer: loop {
-            let len = unsafe { (*current).len };
             let kind = unsafe { (*current).kind };
 
-            for i in 0..len.to_native() as usize {
-                let k =
-                    unsafe { addr_of_mut!((*current).keys).cast::<K>().add(i) };
-                let ordering = key.cmp(unsafe { (*k).borrow() });
-
-                match ordering {
-                    Ordering::Equal => {
-                        let v = unsafe {
-                            addr_of_mut!((*current).values).cast::<V>().add(i)
-                        };
-                        return Some((k, v));
-                    }
-                    Ordering::Less => match kind {
-                        NodeKind::Inner => {
-                            let inner = current.cast::<InnerNode<K, V, E>>();
-                            let lesser = unsafe {
-                                addr_of_mut!((*inner).lesser_nodes)
-                                    .cast::<RawRelPtr>()
-                                    .add(i)
-                            };
-                            let lesser_is_invalid =
-                                unsafe { RawRelPtr::is_invalid_raw(lesser) };
-                            if !lesser_is_invalid {
-                                current = unsafe {
-                                    RawRelPtr::as_ptr_raw(lesser)
-                                        .cast::<Node<K, V, E>>()
-                                };
-                                continue 'outer;
-                            } else {
-                                return None;
-                            }
-                        }
-                        NodeKind::Leaf => return None,
-                    },
-                    Ordering::Greater => (),
-                }
-            }
             match kind {
+                NodeKind::Leaf => {
+                    let leaf = current.cast::<LeafNode<K, V, E>>();
+                    let len = unsafe { (*leaf).len };
+
+                    for i in 0..len.to_native() as usize {
+                        let k = unsafe {
+                            addr_of_mut!((*current).keys).cast::<K>().add(i)
+                        };
+                        let ordering = key.cmp(unsafe { (*k).borrow() });
+
+                        match ordering {
+                            Ordering::Equal => {
+                                let v = unsafe {
+                                    addr_of_mut!((*current).values)
+                                        .cast::<V>()
+                                        .add(i)
+                                };
+                                return Some((k, v));
+                            }
+                            Ordering::Less => return None,
+                            Ordering::Greater => (),
+                        }
+                    }
+
+                    return None;
+                }
                 NodeKind::Inner => {
+                    let inner = current.cast::<InnerNode<K, V, E>>();
+
+                    for i in 0..E {
+                        let k = unsafe {
+                            addr_of_mut!((*current).keys).cast::<K>().add(i)
+                        };
+                        let ordering = key.cmp(unsafe { (*k).borrow() });
+
+                        match ordering {
+                            Ordering::Equal => {
+                                let v = unsafe {
+                                    addr_of_mut!((*current).values)
+                                        .cast::<V>()
+                                        .add(i)
+                                };
+                                return Some((k, v));
+                            }
+                            Ordering::Less => {
+                                let lesser = unsafe {
+                                    addr_of_mut!((*inner).lesser_nodes)
+                                        .cast::<RawRelPtr>()
+                                        .add(i)
+                                };
+                                let lesser_is_invalid = unsafe {
+                                    RawRelPtr::is_invalid_raw(lesser)
+                                };
+                                if !lesser_is_invalid {
+                                    current = unsafe {
+                                        RawRelPtr::as_ptr_raw(lesser)
+                                            .cast::<Node<K, V, E>>()
+                                    };
+                                    continue 'outer;
+                                } else {
+                                    return None;
+                                }
+                            }
+                            Ordering::Greater => (),
+                        }
+                    }
+
                     let inner = current.cast::<InnerNode<K, V, E>>();
                     let greater =
                         unsafe { addr_of_mut!((*inner).greater_node) };
@@ -304,7 +337,6 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
                         return None;
                     }
                 }
-                NodeKind::Leaf => return None,
             }
         }
     }
@@ -478,13 +510,22 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
             ));
         }
 
-        let pos = serializer.align_for::<Node<K, V, E>>()?;
-        let mut node = MaybeUninit::<Node<K, V, E>>::zeroed();
+        let pos = serializer.align_for::<LeafNode<K, V, E>>()?;
+        let mut node = MaybeUninit::<LeafNode<K, V, E>>::zeroed();
 
         let node_place =
             unsafe { Place::new_unchecked(pos, node.as_mut_ptr()) };
 
-        munge!(let Node { kind, len, keys, values } = node_place);
+        munge! {
+            let LeafNode {
+                node: Node {
+                    kind,
+                    keys,
+                    values,
+                },
+                len,
+            } = node_place;
+        }
         kind.write(NodeKind::Leaf);
         len.write(ArchivedUsize::from_native(items.len() as FixedUsize));
         for (i, ((k, v), (kr, vr))) in
@@ -499,7 +540,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         let bytes = unsafe {
             slice::from_raw_parts(
                 node.as_ptr().cast::<u8>(),
-                size_of::<Node<K, V, E>>(),
+                size_of::<LeafNode<K, V, E>>(),
             )
         };
         serializer.write(bytes)?;
@@ -537,7 +578,6 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
             let InnerNode {
                 node: Node {
                     kind,
-                    len,
                     keys,
                     values,
                 },
@@ -547,7 +587,6 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         }
 
         kind.write(NodeKind::Inner);
-        len.write(ArchivedUsize::from_native(items.len() as FixedUsize));
         for (i, ((k, v, l), (kr, vr))) in
             items.iter().zip(resolvers.drain()).enumerate()
         {
@@ -631,14 +670,21 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         current: *mut Node<K, V, E>,
         f: &mut impl FnMut(*mut K, *mut V) -> ControlFlow<T>,
     ) -> ControlFlow<T> {
-        let len = unsafe { (*current).len };
         let kind = unsafe { (*current).kind };
 
-        for i in 0..len.to_native() as usize {
-            match kind {
-                NodeKind::Leaf => (),
-                NodeKind::Inner => {
-                    let inner = current.cast::<InnerNode<K, V, E>>();
+        match kind {
+            NodeKind::Leaf => {
+                let leaf = current.cast::<LeafNode<K, V, E>>();
+                let len = unsafe { (*leaf).len };
+                for i in 0..len.to_native() as usize {
+                    Self::visit_key_value_raw(current, i, f)?;
+                }
+            }
+            NodeKind::Inner => {
+                let inner = current.cast::<InnerNode<K, V, E>>();
+
+                // Visit lesser nodes and key-value pairs
+                for i in 0..E {
                     let lesser = unsafe {
                         addr_of_mut!((*inner).lesser_nodes)
                             .cast::<RawRelPtr>()
@@ -653,20 +699,10 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
                         };
                         Self::visit_raw(lesser_ptr, f)?;
                     }
+                    Self::visit_key_value_raw(current, i, f)?;
                 }
-            }
 
-            let key_ptr =
-                unsafe { addr_of_mut!((*current).keys).cast::<K>().add(i) };
-            let value_ptr =
-                unsafe { addr_of_mut!((*current).values).cast::<V>().add(i) };
-            f(key_ptr, value_ptr)?;
-        }
-
-        match kind {
-            NodeKind::Leaf => (),
-            NodeKind::Inner => {
-                let inner = current.cast::<InnerNode<K, V, E>>();
+                // Visit greater node
                 let greater = unsafe { addr_of_mut!((*inner).greater_node) };
                 let greater_is_invalid =
                     unsafe { RawRelPtr::is_invalid_raw(greater) };
@@ -680,6 +716,18 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         }
 
         ControlFlow::Continue(())
+    }
+
+    fn visit_key_value_raw<T>(
+        current: *mut Node<K, V, E>,
+        i: usize,
+        f: &mut impl FnMut(*mut K, *mut V) -> ControlFlow<T>,
+    ) -> ControlFlow<T> {
+        let key_ptr =
+            unsafe { addr_of_mut!((*current).keys).cast::<K>().add(i) };
+        let value_ptr =
+            unsafe { addr_of_mut!((*current).values).cast::<V>().add(i) };
+        f(key_ptr, value_ptr)
     }
 }
 
@@ -754,7 +802,7 @@ mod verify {
 
     use super::{ArchivedBTreeMap, InnerNode, Node};
     use crate::{
-        collections::btree_map::NodeKind,
+        collections::btree_map::{LeafNode, NodeKind},
         validation::{ArchiveContext, ArchiveContextExt as _},
         RawRelPtr,
     };
@@ -821,49 +869,26 @@ mod verify {
         unsafe {
             CheckBytes::check_bytes(kind_ptr, context)?;
         }
-        // SAFETY: `kind_ptr` was alwaqys properly aligned and dereferenceable,
+        // SAFETY: `kind_ptr` was always properly aligned and dereferenceable,
         // and we just checked to make sure it pointed to a valid `NodeKind`.
         let kind = unsafe { kind_ptr.read() };
-
-        // SAFETY: We checked to make sure that `node_ptr` is properly aligned
-        // and dereferenceable by calling `check_subtree_ptr`.
-        let len_ptr = unsafe { addr_of!((*node_ptr).len) };
-        // SAFETY: `len_ptr` is a pointer to a subfield of `node_ptr` and so is
-        // also properly aligned and dereferenceable.
-        unsafe {
-            CheckBytes::check_bytes(len_ptr, context)?;
-        }
-        // SAFETY: `len_ptr` was always properly aligned and dereferenceable,
-        // and we just checked to make sure it pointed to a valid
-        // `ArchivedUsize`.
-        let len = unsafe { &*len_ptr };
-        let len = len.to_native() as usize;
-        if len > E {
-            fail!(InvalidLength { len, maximum: E });
-        }
 
         match kind {
             NodeKind::Leaf => {
                 // SAFETY:
-                // - We checked to make sure that `node_ptr` is properly
-                //   aligned, dereferenceable, and contained entirely within
-                //   `context`'s buffer by calling `check_subtree_ptr`.
-                // - `len` is less than or equal to `E`.
+                // We checked to make sure that `node_ptr` is properly aligned,
+                // dereferenceable, and contained entirely within `context`'s
+                // buffer by calling `check_subtree_ptr`.
                 unsafe {
-                    check_leaf_node::<C, K, V, E>(node_ptr, len, context)?
+                    check_leaf_node::<C, K, V, E>(node_ptr.cast(), context)?
                 }
             }
             NodeKind::Inner => {
                 // SAFETY:
-                // - We checked to make sure that `node_ptr` is properly aligned
-                //   and dereferenceable.
-                // - `len` is less than or equal to `E`.
+                // We checked to make sure that `node_ptr` is properly aligned
+                // and dereferenceable.
                 unsafe {
-                    check_inner_node::<C, K, V, E>(
-                        node_ptr.cast(),
-                        len,
-                        context,
-                    )?
+                    check_inner_node::<C, K, V, E>(node_ptr.cast(), context)?
                 }
             }
         }
@@ -873,12 +898,10 @@ mod verify {
 
     /// # Safety
     ///
-    /// - `node_ptr` must be properly aligned, dereferenceable, and contained
-    ///   within `context`'s buffer.
-    /// - `len` must be less than or equal to `E`.
+    /// `node_ptr` must be properly aligned, dereferenceable, and contained
+    /// within `context`'s buffer.
     unsafe fn check_leaf_node<C, K, V, const E: usize>(
-        node_ptr: *const Node<K, V, E>,
-        len: usize,
+        node_ptr: *const LeafNode<K, V, E>,
         context: &mut C,
     ) -> Result<(), C::Error>
     where
@@ -887,30 +910,38 @@ mod verify {
         K: CheckBytes<C>,
         V: CheckBytes<C>,
     {
-        // We don't call `in_subtree` here because the caller has already
-        // checked that `node_ptr` points to a `Node<K, V, E>` that is contained
-        // entirely within the buffer. So now, we can just manually push and pop
-        // the subtree ranges.
-        let root = node_ptr as *const u8;
-        let size = core::mem::size_of::<Node<K, V, E>>();
-        let end = root.wrapping_add(size);
+        context.in_subtree(node_ptr, |context| {
+            // SAFETY: We checked to make sure that `node_ptr` is properly
+            // aligned and dereferenceable by calling
+            // `check_subtree_ptr`.
+            let len_ptr = unsafe { addr_of!((*node_ptr).len) };
+            // SAFETY: `len_ptr` is a pointer to a subfield of `node_ptr` and so
+            // is also properly aligned and dereferenceable.
+            unsafe {
+                CheckBytes::check_bytes(len_ptr, context)?;
+            }
+            // SAFETY: `len_ptr` was always properly aligned and
+            // dereferenceable, and we just checked to make sure it
+            // pointed to a valid `ArchivedUsize`.
+            let len = unsafe { &*len_ptr };
+            let len = len.to_native() as usize;
+            if len > E {
+                fail!(InvalidLength { len, maximum: E });
+            }
 
-        // SAFETY: The caller has guaranteed that `node_ptr` is located inside
-        // the buffer.
-        let range = unsafe { context.push_subtree_range(root, end)? };
+            // SAFETY: We checked that `node_ptr` is properly-aligned and
+            // dereferenceable.
+            let node_ptr = unsafe { addr_of!((*node_ptr).node) };
+            // SAFETY:
+            // - We checked that `node_ptr` is properly aligned and
+            //   dereferenceable.
+            // - We checked that `len` is less than or equal to `E`.
+            unsafe {
+                check_node_entries(node_ptr, len, context)?;
+            }
 
-        // SAFETY: The safety requirements for `check_node_entries` are the same
-        // as the safety requirements for `check_leaf_node`.
-        unsafe {
-            check_node_entries(node_ptr, len, context)?;
-        }
-
-        // SAFETY: `range` was returned from `push_prefix_subtree`.
-        unsafe {
-            context.pop_subtree_range(range)?;
-        }
-
-        Ok(())
+            Ok(())
+        })
     }
 
     /// # Safety
@@ -962,7 +993,6 @@ mod verify {
     /// - `len` must be less than or equal to `E`.
     unsafe fn check_inner_node<C, K, V, const E: usize>(
         node_ptr: *const InnerNode<K, V, E>,
-        len: usize,
         context: &mut C,
     ) -> Result<(), C::Error>
     where
@@ -977,7 +1007,7 @@ mod verify {
             let lesser_nodes = unsafe {
                 addr_of!((*node_ptr).lesser_nodes).cast::<RawRelPtr>()
             };
-            for i in 0..len {
+            for i in 0..E {
                 // SAFETY: `lesser_nodes` points to the first element of an
                 // array of length `E`, and the caller has
                 // guaranteed that `len` is less than `E`.
@@ -1015,8 +1045,13 @@ mod verify {
             // SAFETY: We checked that `node_ptr` is properly aligned and
             // dereferenceable.
             let node_ptr = unsafe { addr_of!((*node_ptr).node) };
+            // SAFETY:
+            // - The caller has guaranteed that `node_ptr` points to a valid
+            //   `Node<K, V, E>`.
+            // - All inner nodes have `E` items, and `E` is less than or equal
+            //   to `E`.
             unsafe {
-                check_node_entries::<C, K, V, E>(node_ptr, len, context)?;
+                check_node_entries::<C, K, V, E>(node_ptr, E, context)?;
             }
 
             Ok(())
