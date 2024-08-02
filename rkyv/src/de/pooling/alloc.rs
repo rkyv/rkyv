@@ -1,11 +1,12 @@
-//! Adapters wrap deserializers and add support for deserializer traits.
-
-use core::{fmt, mem::size_of};
+use core::{fmt, hash::BuildHasherDefault, mem::size_of};
 
 use hashbrown::hash_map::{Entry, HashMap};
 use rancor::{fail, Source};
 
-use super::{ErasedPtr, Pooling};
+use crate::{
+    de::pooling::{ErasedPtr, Pooling},
+    hash::FxHasher64,
+};
 
 #[derive(Debug)]
 struct DuplicateSharedPointer {
@@ -44,7 +45,8 @@ impl Drop for SharedPointer {
 /// shared pointer.
 #[derive(Default)]
 pub struct Pool {
-    shared_pointers: HashMap<usize, SharedPointer>,
+    shared_pointers:
+        HashMap<usize, SharedPointer, BuildHasherDefault<FxHasher64>>,
 }
 
 impl Pool {
@@ -58,7 +60,10 @@ impl Pool {
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            shared_pointers: HashMap::with_capacity(capacity),
+            shared_pointers: HashMap::with_capacity_and_hasher(
+                capacity,
+                Default::default(),
+            ),
         }
     }
 }

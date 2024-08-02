@@ -91,26 +91,4 @@ mod tests {
             }
         });
     }
-
-    #[cfg(feature = "bytecheck")]
-    #[test]
-    fn validate_index_set() {
-        use rancor::Panic;
-
-        use crate::{
-            access, collections::swiss_table::ArchivedIndexSet,
-            hash::FxHasher64, string::ArchivedString,
-        };
-
-        let mut value =
-            IndexSet::with_hasher(BuildHasherDefault::<FxHasher64>::default());
-        value.insert(String::from("foo"));
-        value.insert(String::from("bar"));
-        value.insert(String::from("baz"));
-        value.insert(String::from("bat"));
-
-        let result = crate::to_bytes::<Panic>(&value).unwrap();
-        access::<ArchivedIndexSet<ArchivedString>, Panic>(result.as_ref())
-            .expect("failed to validate archived index set");
-    }
 }

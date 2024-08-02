@@ -1,12 +1,9 @@
-use core::{fmt, mem::size_of};
-#[cfg(feature = "std")]
-use std::collections::hash_map;
+use core::{fmt, hash::BuildHasherDefault, mem::size_of};
 
-#[cfg(not(feature = "std"))]
-use hashbrown::hash_map;
+use hashbrown::hash_map::{Entry, HashMap};
 use rancor::{fail, Source};
 
-use crate::ser::Sharing;
+use crate::{hash::FxHasher64, ser::Sharing};
 
 #[derive(Debug)]
 struct DuplicateSharedPointer {
@@ -31,23 +28,25 @@ impl std::error::Error for DuplicateSharedPointer {}
 /// pointer.
 #[derive(Debug, Default)]
 pub struct Share {
-    shared_address_to_pos: hash_map::HashMap<usize, usize>,
+    shared_address_to_pos:
+        HashMap<usize, usize, BuildHasherDefault<FxHasher64>>,
 }
 
 impl Share {
     /// Creates a new shared pointer unifier.
     #[inline]
     pub fn new() -> Self {
-        Self {
-            shared_address_to_pos: hash_map::HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Creates a new shared pointer unifier with initial capacity.
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            shared_address_to_pos: hash_map::HashMap::with_capacity(capacity),
+            shared_address_to_pos: HashMap::with_capacity_and_hasher(
+                capacity,
+                Default::default(),
+            ),
         }
     }
 }
@@ -59,10 +58,10 @@ impl<E: Source> Sharing<E> for Share {
 
     fn add_shared_ptr(&mut self, address: usize, pos: usize) -> Result<(), E> {
         match self.shared_address_to_pos.entry(address) {
-            hash_map::Entry::Occupied(_) => {
+            Entry::Occupied(_) => {
                 fail!(DuplicateSharedPointer { address });
             }
-            hash_map::Entry::Vacant(e) => {
+            Entry::Vacant(e) => {
                 e.insert(pos);
                 Ok(())
             }

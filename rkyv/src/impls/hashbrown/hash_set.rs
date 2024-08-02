@@ -92,14 +92,16 @@ impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
 mod tests {
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::string::String;
+    use core::hash::BuildHasherDefault;
 
     use hashbrown::HashSet;
 
-    use crate::test::roundtrip_with;
+    use crate::{hash::FxHasher64, test::roundtrip_with};
 
     #[test]
     fn index_set() {
-        let mut value = HashSet::new();
+        let mut value =
+            HashSet::with_hasher(BuildHasherDefault::<FxHasher64>::default());
         value.insert(String::from("foo"));
         value.insert(String::from("bar"));
         value.insert(String::from("baz"));
@@ -112,28 +114,5 @@ mod tests {
                 assert_eq!(k, ak);
             }
         });
-    }
-
-    #[cfg(feature = "bytecheck")]
-    #[test]
-    fn validate_index_set() {
-        use rancor::Panic;
-
-        use crate::{
-            access, collections::swiss_table::ArchivedHashSet,
-            string::ArchivedString, to_bytes,
-        };
-
-        let mut value = HashSet::new();
-        value.insert(String::from("foo"));
-        value.insert(String::from("bar"));
-        value.insert(String::from("baz"));
-        value.insert(String::from("bat"));
-
-        let bytes = to_bytes::<Panic>(&value).unwrap();
-        access::<ArchivedHashSet<ArchivedString>, rancor::Panic>(
-            bytes.as_ref(),
-        )
-        .expect("failed to validate archived index set");
     }
 }

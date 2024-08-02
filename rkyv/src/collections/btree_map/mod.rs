@@ -25,6 +25,10 @@ use crate::{
     Place, Portable, RawRelPtr, Serialize,
 };
 
+// TODO(#515): Get Iterator APIs working without the `alloc` feature enabled
+#[cfg(feature = "alloc")]
+mod iter;
+
 // B-trees are typically characterized as having a branching factor of B.
 // However, in this implementation our B-trees are characterized as having a
 // number of entries per node E where E = B - 1. This is done because it's
@@ -676,139 +680,6 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         }
 
         ControlFlow::Continue(())
-    }
-
-    /// Gets an iterator over the entries of the map, sorted by key.
-    pub fn iter(&self) -> Iter<'_, K, V, E> {
-        let this = (self as *const Self).cast_mut();
-        Iter {
-            inner: unsafe { RawIter::new(this) },
-            _phantom: PhantomData,
-        }
-    }
-}
-
-#[cfg(feature = "alloc")]
-/// An iterator over the entires of a `BTreeMap`.
-///
-/// This struct is created by the [`iter`](ArchivedBTreeMap::iter) method on
-/// [`ArchivedBTreeMap`]. See its documentation for more.
-pub struct Iter<'a, K, V, const E: usize> {
-    inner: RawIter<K, V, E>,
-    _phantom: PhantomData<&'a ArchivedBTreeMap<K, V, E>>,
-}
-
-#[cfg(feature = "alloc")]
-impl<'a, K, V, const E: usize> Iterator for Iter<'a, K, V, E> {
-    type Item = (&'a K, &'a V);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.inner
-            .next()
-            .map(|(k, v)| (unsafe { &*k }, unsafe { &*v }))
-    }
-}
-
-#[cfg(feature = "alloc")]
-struct RawIter<K, V, const E: usize> {
-    remaining: usize,
-    stack: Vec<(*mut Node<K, V, E>, usize)>,
-}
-
-#[cfg(feature = "alloc")]
-impl<K, V, const E: usize> RawIter<K, V, E> {
-    unsafe fn new(map: *mut ArchivedBTreeMap<K, V, E>) -> Self {
-        let remaining = unsafe { (*map).len.to_native() as usize };
-        let mut stack = Vec::new();
-        if remaining != 0 {
-            stack.reserve(entries_to_height::<E>(remaining) as usize);
-            let mut current = unsafe {
-                RawRelPtr::as_ptr_raw(addr_of_mut!((*map).root))
-                    .cast::<Node<K, V, E>>()
-            };
-            loop {
-                stack.push((current, 0));
-                let kind = unsafe { (*current).kind };
-                match kind {
-                    NodeKind::Inner => {
-                        let inner = current.cast::<InnerNode<K, V, E>>();
-                        let lesser =
-                            unsafe { addr_of_mut!((*inner).lesser_nodes) };
-                        current = unsafe {
-                            RawRelPtr::as_ptr_raw(lesser.cast()).cast()
-                        };
-                    }
-                    NodeKind::Leaf => break,
-                }
-            }
-        }
-
-        Self { remaining, stack }
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl<K, V, const E: usize> Iterator for RawIter<K, V, E> {
-    type Item = (*mut K, *mut V);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let (current, i) = self.stack.pop()?;
-        self.remaining -= 1;
-
-        let k = unsafe { addr_of_mut!((*current).keys).cast::<K>().add(i) };
-        let v = unsafe { addr_of_mut!((*current).values).cast::<V>().add(i) };
-        let next_i = i + 1;
-
-        // Advance to the next item
-        let kind = unsafe { (*current).kind };
-        match kind {
-            NodeKind::Inner => {
-                let inner = current.cast::<InnerNode<K, V, E>>();
-                if next_i < E {
-                    // More values in the current node
-                    self.stack.push((current, next_i));
-
-                    // Recurse to a lesser if valid
-                    let next_lesser = unsafe {
-                        addr_of_mut!((*inner).lesser_nodes)
-                            .cast::<RawRelPtr>()
-                            .add(next_i)
-                    };
-                    let next_lesser_is_invalid =
-                        unsafe { RawRelPtr::is_invalid_raw(next_lesser) };
-                    if !next_lesser_is_invalid {
-                        self.stack.push((
-                            unsafe {
-                                RawRelPtr::as_ptr_raw(next_lesser).cast()
-                            },
-                            0,
-                        ));
-                    }
-                } else {
-                    // Recurse to a greater if valid
-                    let next_greater =
-                        unsafe { addr_of_mut!((*inner).greater_node) };
-                    let next_greater_is_invalid =
-                        unsafe { RawRelPtr::is_invalid_raw(next_greater) };
-                    if !next_greater_is_invalid {
-                        self.stack.push((
-                            unsafe {
-                                RawRelPtr::as_ptr_raw(next_greater).cast()
-                            },
-                            0,
-                        ));
-                    }
-                }
-            }
-            NodeKind::Leaf => {
-                let len = unsafe { (*current).len.to_native() as usize };
-                if next_i < len {
-                    self.stack.push((current, next_i));
-                }
-            }
-        }
-
-        Some((k, v))
     }
 }
 

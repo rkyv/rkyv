@@ -506,18 +506,16 @@ pub struct Unshare;
 
 #[cfg(test)]
 mod tests {
-    use core::{convert::Infallible, str::FromStr};
+    use core::str::FromStr;
     use std::borrow::Cow;
 
     use crate::{
-        access_unchecked, access_unchecked_mut,
         de::Pool,
         deserialize,
         primitive::ArchivedU32,
         rancor::{Error, Fallible},
         ser::Writer,
-        test::roundtrip,
-        to_bytes,
+        test::{roundtrip, roundtrip_with, to_archived},
         with::{
             ArchiveWith, AsAtomic, AsBox, AsOwned, AsVec, AtomicLoad,
             DeserializeWith, Inline, InlineAsBox, Niche, Relaxed,
@@ -567,8 +565,8 @@ mod tests {
 
     #[test]
     fn with_struct() {
-        #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, check_bytes, derive(Debug))]
         struct Test {
             #[with(ConvertToString)]
             value: i32,
@@ -579,41 +577,29 @@ mod tests {
             value: 10,
             other: 10,
         };
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
-
-        assert_eq!(archived.value, "10");
-        assert_eq!(archived.other, 10);
-
-        let deserialized =
-            deserialize::<Test, _, Infallible>(archived, &mut ()).unwrap();
-        assert_eq!(deserialized.value, 10);
-        assert_eq!(deserialized.other, 10);
+        roundtrip_with(&value, |_, archived| {
+            assert_eq!(archived.value, "10");
+            assert_eq!(archived.other, 10);
+        });
     }
 
     #[test]
     fn with_tuple_struct() {
-        #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, check_bytes, derive(Debug))]
         struct Test(#[with(ConvertToString)] i32, i32);
 
         let value = Test(10, 10);
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
-
-        assert_eq!(archived.0, "10");
-        assert_eq!(archived.1, 10);
-
-        let deserialized =
-            deserialize::<Test, _, Infallible>(archived, &mut ()).unwrap();
-        assert_eq!(deserialized.0, 10);
-        assert_eq!(deserialized.1, 10);
+        roundtrip_with(&value, |_, archived| {
+            assert_eq!(archived.0, "10");
+            assert_eq!(archived.1, 10);
+        });
     }
 
     #[test]
     fn with_enum() {
-        #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, check_bytes, derive(Debug))]
         enum Test {
             A {
                 #[with(ConvertToString)]
@@ -627,44 +613,24 @@ mod tests {
             value: 10,
             other: 10,
         };
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
-
-        if let ArchivedTest::A { value, other } = archived {
-            assert_eq!(*value, "10");
-            assert_eq!(*other, 10);
-        } else {
-            panic!("expected variant A");
-        };
-
-        let deserialized =
-            deserialize::<Test, _, Infallible>(archived, &mut ()).unwrap();
-        if let Test::A { value, other } = &deserialized {
-            assert_eq!(*value, 10);
-            assert_eq!(*other, 10);
-        } else {
-            panic!("expected variant A");
-        };
+        roundtrip_with(&value, |_, archived| {
+            if let ArchivedTest::A { value, other } = archived {
+                assert_eq!(*value, "10");
+                assert_eq!(*other, 10);
+            } else {
+                panic!("expected variant A");
+            }
+        });
 
         let value = Test::B(10, 10);
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
-
-        if let ArchivedTest::B(value, other) = archived {
-            assert_eq!(*value, "10");
-            assert_eq!(*other, 10);
-        } else {
-            panic!("expected variant B");
-        };
-
-        let deserialized =
-            deserialize::<Test, _, Infallible>(archived, &mut ()).unwrap();
-        if let Test::B(value, other) = &deserialized {
-            assert_eq!(*value, 10);
-            assert_eq!(*other, 10);
-        } else {
-            panic!("expected variant B");
-        };
+        roundtrip_with(&value, |_, archived| {
+            if let ArchivedTest::B(value, other) = archived {
+                assert_eq!(*value, "10");
+                assert_eq!(*other, 10);
+            } else {
+                panic!("expected variant B");
+            }
+        });
     }
 
     #[test]
@@ -701,8 +667,8 @@ mod tests {
     fn with_as_atomic() {
         use core::sync::atomic::{AtomicU32, Ordering};
 
-        #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[derive(Archive, Debug, Deserialize, Serialize)]
+        #[rkyv(crate, check_bytes)]
         struct Test {
             #[with(AsAtomic<Relaxed, Relaxed>)]
             value: AtomicU32,
@@ -711,19 +677,15 @@ mod tests {
         let value = Test {
             value: AtomicU32::new(42),
         };
-        let mut bytes = to_bytes::<Error>(&value).unwrap();
-        // NOTE: with(Atomic) is only sound if the backing memory is mutable,
-        // use with caution!
-        let archived =
-            unsafe { access_unchecked_mut::<ArchivedTest>(&mut bytes) };
-
-        assert_eq!(archived.value.load(Ordering::Relaxed), 42);
+        to_archived(&value, |archived| {
+            assert_eq!(archived.value.load(Ordering::Relaxed), 42);
+        });
     }
 
     #[test]
     fn with_inline() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[rkyv(crate, check_bytes)]
         struct Test<'a> {
             #[with(Inline)]
             value: &'a i32,
@@ -731,32 +693,30 @@ mod tests {
 
         let a = 42;
         let value = Test { value: &a };
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
-
-        assert_eq!(archived.value, 42);
+        to_archived(&value, |archived| {
+            assert_eq!(archived.value, 42);
+        });
     }
 
     #[test]
     fn with_boxed() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[rkyv(crate, check_bytes)]
         struct Test {
             #[with(AsBox)]
             value: i32,
         }
 
         let value = Test { value: 42 };
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
-
-        assert_eq!(archived.value.get(), &42);
+        to_archived(&value, |archived| {
+            assert_eq!(archived.value.get(), &42);
+        });
     }
 
     #[test]
     fn with_boxed_inline() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[rkyv(crate, check_bytes)]
         struct Test<'a> {
             #[with(InlineAsBox)]
             value: &'a str,
@@ -764,16 +724,15 @@ mod tests {
 
         let a = "hello world";
         let value = Test { value: &a };
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
-
-        assert_eq!(archived.value.as_ref(), "hello world");
+        to_archived(&value, |archived| {
+            assert_eq!(archived.value.as_ref(), "hello world");
+        });
     }
 
     #[test]
     fn with_as_owned() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[rkyv(crate, check_bytes)]
         struct Test<'a> {
             #[with(AsOwned)]
             a: Cow<'a, u32>,
@@ -788,12 +747,11 @@ mod tests {
             b: Cow::Borrowed(&[1, 2, 3, 4, 5, 6]),
             c: Cow::Borrowed("hello world"),
         };
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
-
-        assert_eq!(archived.a, 100);
-        assert_eq!(archived.b, [1, 2, 3, 4, 5, 6]);
-        assert_eq!(archived.c, "hello world");
+        to_archived(&value, |archived| {
+            assert_eq!(archived.a, 100);
+            assert_eq!(archived.b, [1, 2, 3, 4, 5, 6]);
+            assert_eq!(archived.c, "hello world");
+        });
     }
 
     #[test]
@@ -804,7 +762,7 @@ mod tests {
         use std::collections::{BTreeMap, BTreeSet};
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[rkyv(crate, check_bytes)]
         struct Test {
             #[with(AsVec)]
             a: BTreeMap<String, String>,
@@ -829,31 +787,30 @@ mod tests {
 
         let value = Test { a, b, c };
 
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
+        to_archived(&value, |archived| {
+            assert_eq!(archived.a.len(), 3);
+            assert!(archived
+                .a
+                .iter()
+                .find(|&e| e.key == "foo" && e.value == "hello")
+                .is_some());
+            assert!(archived
+                .a
+                .iter()
+                .find(|&e| e.key == "bar" && e.value == "world")
+                .is_some());
+            assert!(archived
+                .a
+                .iter()
+                .find(|&e| e.key == "baz" && e.value == "bat")
+                .is_some());
 
-        assert_eq!(archived.a.len(), 3);
-        assert!(archived
-            .a
-            .iter()
-            .find(|&e| e.key == "foo" && e.value == "hello")
-            .is_some());
-        assert!(archived
-            .a
-            .iter()
-            .find(|&e| e.key == "bar" && e.value == "world")
-            .is_some());
-        assert!(archived
-            .a
-            .iter()
-            .find(|&e| e.key == "baz" && e.value == "bat")
-            .is_some());
-
-        assert_eq!(archived.b.len(), 4);
-        assert!(archived.b.iter().find(|&e| e == "foo").is_some());
-        assert!(archived.b.iter().find(|&e| e == "hello world!").is_some());
-        assert!(archived.b.iter().find(|&e| e == "bar").is_some());
-        assert!(archived.b.iter().find(|&e| e == "fizzbuzz").is_some());
+            assert_eq!(archived.b.len(), 4);
+            assert!(archived.b.iter().find(|&e| e == "foo").is_some());
+            assert!(archived.b.iter().find(|&e| e == "hello world!").is_some());
+            assert!(archived.b.iter().find(|&e| e == "bar").is_some());
+            assert!(archived.b.iter().find(|&e| e == "fizzbuzz").is_some());
+        });
     }
 
     #[test]
@@ -861,14 +818,14 @@ mod tests {
         use core::mem::size_of;
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[rkyv(crate, check_bytes)]
         struct Test {
             #[with(Niche)]
             inner: Option<Box<String>>,
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[rkyv(crate, check_bytes)]
         struct TestNoNiching {
             inner: Option<Box<String>>,
         }
@@ -876,20 +833,17 @@ mod tests {
         let value = Test {
             inner: Some(Box::new("hello world".to_string())),
         };
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
-
-        assert!(archived.inner.is_some());
-        assert_eq!(&**archived.inner.as_ref().unwrap(), "hello world");
-        assert_eq!(archived.inner, value.inner);
+        to_archived(&value, |archived| {
+            assert!(archived.inner.is_some());
+            assert_eq!(&**archived.inner.as_ref().unwrap(), "hello world");
+            assert_eq!(archived.inner, value.inner);
+        });
 
         let value = Test { inner: None };
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
-
-        assert!(archived.inner.is_none());
-        assert_eq!(archived.inner, value.inner);
-
+        to_archived(&value, |archived| {
+            assert!(archived.inner.is_none());
+            assert_eq!(archived.inner, value.inner);
+        });
         assert!(
             size_of::<Archived<Test>>() < size_of::<Archived<TestNoNiching>>()
         );
@@ -906,7 +860,7 @@ mod tests {
         };
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[rkyv(crate, check_bytes)]
         struct Test {
             #[with(Niche)]
             a: Option<NonZeroI8>,
@@ -923,7 +877,7 @@ mod tests {
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[rkyv(crate, check_bytes)]
         struct TestNoNiching {
             a: Option<NonZeroI8>,
             b: Option<NonZeroI32>,
@@ -941,21 +895,20 @@ mod tests {
             e: Some(NonZeroU32::new(10).unwrap()),
             f: Some(NonZeroUsize::new(10).unwrap()),
         };
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
-
-        assert!(archived.a.is_some());
-        assert_eq!(archived.a.as_ref().unwrap().get(), 10);
-        assert!(archived.b.is_some());
-        assert_eq!(archived.b.as_ref().unwrap().get(), 10);
-        assert!(archived.c.is_some());
-        assert_eq!(archived.c.as_ref().unwrap().get(), 10);
-        assert!(archived.d.is_some());
-        assert_eq!(archived.d.as_ref().unwrap().get(), 10);
-        assert!(archived.e.is_some());
-        assert_eq!(archived.e.as_ref().unwrap().get(), 10);
-        assert!(archived.f.is_some());
-        assert_eq!(archived.f.as_ref().unwrap().get(), 10);
+        to_archived(&value, |archived| {
+            assert!(archived.a.is_some());
+            assert_eq!(archived.a.as_ref().unwrap().get(), 10);
+            assert!(archived.b.is_some());
+            assert_eq!(archived.b.as_ref().unwrap().get(), 10);
+            assert!(archived.c.is_some());
+            assert_eq!(archived.c.as_ref().unwrap().get(), 10);
+            assert!(archived.d.is_some());
+            assert_eq!(archived.d.as_ref().unwrap().get(), 10);
+            assert!(archived.e.is_some());
+            assert_eq!(archived.e.as_ref().unwrap().get(), 10);
+            assert!(archived.f.is_some());
+            assert_eq!(archived.f.as_ref().unwrap().get(), 10);
+        });
 
         let value = Test {
             a: None,
@@ -965,15 +918,14 @@ mod tests {
             e: None,
             f: None,
         };
-        let bytes = to_bytes::<Error>(&value).unwrap();
-        let archived = unsafe { access_unchecked::<ArchivedTest>(&bytes) };
-
-        assert!(archived.a.is_none());
-        assert!(archived.b.is_none());
-        assert!(archived.c.is_none());
-        assert!(archived.d.is_none());
-        assert!(archived.e.is_none());
-        assert!(archived.f.is_none());
+        to_archived(&value, |archived| {
+            assert!(archived.a.is_none());
+            assert!(archived.b.is_none());
+            assert!(archived.c.is_none());
+            assert!(archived.d.is_none());
+            assert!(archived.e.is_none());
+            assert!(archived.f.is_none());
+        });
 
         assert!(
             size_of::<Archived<Test>>() < size_of::<Archived<TestNoNiching>>()
@@ -985,7 +937,7 @@ mod tests {
         use core::cell::UnsafeCell;
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate)]
+        #[rkyv(crate, check_bytes)]
         struct Test {
             #[with(Unsafe)]
             inner: UnsafeCell<u32>,
@@ -994,24 +946,22 @@ mod tests {
         let value = Test {
             inner: UnsafeCell::new(100),
         };
-        let mut bytes = to_bytes::<Error>(&value).unwrap();
-        let archived =
-            unsafe { access_unchecked_mut::<ArchivedTest>(&mut bytes) };
+        to_archived(&value, |archived| {
+            unsafe {
+                assert_eq!(*archived.inner.get(), 100);
+                *archived.inner.get() = ArchivedU32::from_native(42u32);
+                assert_eq!(*archived.inner.get(), 42);
+            }
 
-        unsafe {
-            assert_eq!(*archived.inner.get(), 100);
-            *archived.inner.get() = ArchivedU32::from_native(42u32);
-            assert_eq!(*archived.inner.get(), 42);
-        }
+            let deserialized =
+                deserialize::<Test, _, Error>(&*archived, &mut Pool::new())
+                    .unwrap();
 
-        let deserialized =
-            deserialize::<Test, _, Error>(&*archived, &mut Pool::new())
-                .unwrap();
-
-        unsafe {
-            assert_eq!(*deserialized.inner.get(), 42);
-            *deserialized.inner.get() = 88;
-            assert_eq!(*deserialized.inner.get(), 88);
-        }
+            unsafe {
+                assert_eq!(*deserialized.inner.get(), 42);
+                *deserialized.inner.get() = 88;
+                assert_eq!(*deserialized.inner.get(), 88);
+            }
+        });
     }
 }

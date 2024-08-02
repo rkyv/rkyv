@@ -304,14 +304,17 @@ mod tests {
 
     use super::rc::{Rc, Weak};
     use crate::{
-        access_unchecked, access_unchecked_mut, de::Pool, deserialize,
-        test::roundtrip, to_bytes, Archive, Archived, Deserialize, Serialize,
+        access_unchecked, access_unchecked_mut,
+        de::Pool,
+        deserialize,
+        test::{roundtrip, to_archived},
+        to_bytes, Archive, Archived, Deserialize, Serialize,
     };
 
     #[test]
     fn roundtrip_rc() {
         #[derive(Debug, Eq, PartialEq, Archive, Deserialize, Serialize)]
-        #[rkyv(crate, compare(PartialEq), derive(Debug))]
+        #[rkyv(crate, compare(PartialEq), derive(Debug), check_bytes)]
         struct Test {
             a: Rc<u32>,
             b: Rc<u32>,
@@ -333,61 +336,52 @@ mod tests {
             b: shared.clone(),
         };
 
-        let mut buf = to_bytes::<Panic>(&value).unwrap();
+        to_archived(&value, |mut archived| {
+            assert_eq!(*archived, value);
 
-        let archived =
-            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
-        assert_eq!(archived, &value);
+            unsafe {
+                *archived.as_mut().a().get_pin_unchecked() = 42u32.into();
+            }
 
-        let mut mutable_archived =
-            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
-        unsafe {
-            *mutable_archived.as_mut().a().get_pin_unchecked() = 42u32.into();
-        }
+            assert_eq!(*archived.a, 42);
+            assert_eq!(*archived.b, 42);
 
-        let archived =
-            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
-        assert_eq!(*archived.a, 42);
-        assert_eq!(*archived.b, 42);
+            unsafe {
+                *archived.as_mut().b().get_pin_unchecked() = 17u32.into();
+            }
 
-        let mut mutable_archived =
-            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
-        unsafe {
-            *mutable_archived.as_mut().b().get_pin_unchecked() = 17u32.into();
-        }
+            assert_eq!(*archived.a, 17);
+            assert_eq!(*archived.b, 17);
 
-        let archived =
-            unsafe { access_unchecked::<ArchivedTest>(buf.as_ref()) };
-        assert_eq!(*archived.a, 17);
-        assert_eq!(*archived.b, 17);
+            let mut deserializer = Pool::new();
+            let deserialized =
+                deserialize::<Test, _, Panic>(&*archived, &mut deserializer)
+                    .unwrap();
 
-        let mut deserializer = Pool::new();
-        let deserialized =
-            deserialize::<Test, _, Panic>(archived, &mut deserializer).unwrap();
+            assert_eq!(*deserialized.a, 17);
+            assert_eq!(*deserialized.b, 17);
+            assert_eq!(
+                &*deserialized.a as *const u32,
+                &*deserialized.b as *const u32
+            );
+            assert_eq!(Rc::strong_count(&deserialized.a), 3);
+            assert_eq!(Rc::strong_count(&deserialized.b), 3);
+            assert_eq!(Rc::weak_count(&deserialized.a), 0);
+            assert_eq!(Rc::weak_count(&deserialized.b), 0);
 
-        assert_eq!(*deserialized.a, 17);
-        assert_eq!(*deserialized.b, 17);
-        assert_eq!(
-            &*deserialized.a as *const u32,
-            &*deserialized.b as *const u32
-        );
-        assert_eq!(Rc::strong_count(&deserialized.a), 3);
-        assert_eq!(Rc::strong_count(&deserialized.b), 3);
-        assert_eq!(Rc::weak_count(&deserialized.a), 0);
-        assert_eq!(Rc::weak_count(&deserialized.b), 0);
+            core::mem::drop(deserializer);
 
-        core::mem::drop(deserializer);
-
-        assert_eq!(*deserialized.a, 17);
-        assert_eq!(*deserialized.b, 17);
-        assert_eq!(
-            &*deserialized.a as *const u32,
-            &*deserialized.b as *const u32
-        );
-        assert_eq!(Rc::strong_count(&deserialized.a), 2);
-        assert_eq!(Rc::strong_count(&deserialized.b), 2);
-        assert_eq!(Rc::weak_count(&deserialized.a), 0);
-        assert_eq!(Rc::weak_count(&deserialized.b), 0);
+            assert_eq!(*deserialized.a, 17);
+            assert_eq!(*deserialized.b, 17);
+            assert_eq!(
+                &*deserialized.a as *const u32,
+                &*deserialized.b as *const u32
+            );
+            assert_eq!(Rc::strong_count(&deserialized.a), 2);
+            assert_eq!(Rc::strong_count(&deserialized.b), 2);
+            assert_eq!(Rc::weak_count(&deserialized.a), 0);
+            assert_eq!(Rc::weak_count(&deserialized.b), 0);
+        });
     }
 
     #[test]

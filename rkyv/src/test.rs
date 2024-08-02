@@ -16,14 +16,14 @@ mod detail {
     pub type TestSerializer<'a> = CoreSerializer<'a, Buffer<'a>, Panic>;
     pub type TestDeserializer = CoreDeserializer<Panic>;
 
-    pub fn to_bytes<T>(value: &T, f: impl FnOnce(&[u8]))
+    pub fn to_bytes<T>(value: &T, f: impl FnOnce(&mut [u8]))
     where
         T: for<'a> Serialize<TestSerializer<'a>>,
     {
         let mut output = Align([MaybeUninit::<u8>::uninit(); 256]);
         let mut scratch = [MaybeUninit::<u8>::uninit(); 256];
 
-        let buffer = serialize_into(
+        let mut buffer = serialize_into(
             value,
             Serializer::new(
                 Buffer::from(&mut *output),
@@ -34,7 +34,7 @@ mod detail {
         .expect("failed to serialize value")
         .into_writer();
 
-        f(&buffer);
+        f(&mut buffer);
     }
 
     pub fn deserialize<T>(value: &T::Archived) -> T
@@ -61,11 +61,11 @@ mod detail {
     pub type TestSerializer<'a> = DefaultSerializer<'a, AlignedVec, Panic>;
     pub type TestDeserializer = DefaultDeserializer<Panic>;
 
-    pub fn to_bytes<T>(value: &T, f: impl FnOnce(&[u8]))
+    pub fn to_bytes<T>(value: &T, f: impl FnOnce(&mut [u8]))
     where
         T: for<'a> Serialize<TestSerializer<'a>>,
     {
-        f(&crate::to_bytes(value).expect("failed to serialize value"));
+        f(&mut crate::to_bytes(value).expect("failed to serialize value"));
     }
 
     pub fn deserialize<T>(value: &T::Archived) -> T
@@ -79,22 +79,24 @@ mod detail {
 }
 
 use core::fmt::Debug;
+use std::pin::Pin;
 
 use bytecheck::CheckBytes;
 use rancor::{Panic, Strategy};
 
 use self::detail::{deserialize, to_bytes, TestDeserializer, TestSerializer};
 use crate::{
-    access, validation::validators::DefaultValidator, Deserialize, Serialize,
+    access_mut, validation::validators::DefaultValidator, Deserialize,
+    Serialize,
 };
 
-pub fn to_archived<T>(value: &T, f: impl FnOnce(&T::Archived))
+pub fn to_archived<T>(value: &T, f: impl FnOnce(Pin<&mut T::Archived>))
 where
     T: for<'a> Serialize<TestSerializer<'a>>,
     T::Archived: for<'a> CheckBytes<Strategy<DefaultValidator<'a>, Panic>>,
 {
     to_bytes(value, |bytes| {
-        let archived_value = access::<T::Archived, Panic>(bytes).unwrap();
+        let archived_value = access_mut::<T::Archived, Panic>(bytes).unwrap();
         f(archived_value);
     });
 }
@@ -107,8 +109,8 @@ where
         + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, Panic>>,
 {
     to_archived(value, |archived_value| {
-        cmp(value, archived_value);
-        let deserialized = deserialize::<T>(archived_value);
+        cmp(value, &*archived_value);
+        let deserialized = deserialize::<T>(&*archived_value);
         assert_eq!(value, &deserialized);
     });
 }

@@ -104,28 +104,4 @@ mod tests {
             }
         });
     }
-
-    #[cfg(feature = "bytecheck")]
-    #[test]
-    fn validate_index_map() {
-        use rancor::Panic;
-
-        use crate::{
-            access, collections::swiss_table::ArchivedIndexMap,
-            primitive::ArchivedI32, string::ArchivedString,
-        };
-
-        let mut value =
-            IndexMap::with_hasher(BuildHasherDefault::<FxHasher64>::default());
-        value.insert(String::from("foo"), 10);
-        value.insert(String::from("bar"), 20);
-        value.insert(String::from("baz"), 40);
-        value.insert(String::from("bat"), 80);
-
-        let result = crate::to_bytes::<Panic>(&value).unwrap();
-        access::<ArchivedIndexMap<ArchivedString, ArchivedI32>, Panic>(
-            result.as_ref(),
-        )
-        .expect("failed to validate archived index map");
-    }
 }

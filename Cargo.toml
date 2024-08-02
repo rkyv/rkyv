@@ -22,7 +22,7 @@ repository = "https://github.com/rkyv/rkyv"
 benchlib = { version = "=0.8.0-alpha.2", path = "benchlib" }
 bytecheck = { version = "=0.8.0-alpha.9", default-features = false, features = ["simdutf8"] }
 divan = "0.1"
-hashbrown = "0.14"
+hashbrown = { version = "0.14", default-features = false }
 munge = "0.4"
 proc-macro2 = "1.0"
 ptr_meta = { version = "=0.3.0-alpha.2", default-features = false }

@@ -89,29 +89,20 @@ where
     }
 }
 
-impl<K, V, AK, AV> PartialEq<ArchivedHashMap<AK, AV>> for HashMap<K, V>
-where
-    K: Hash + Eq + Borrow<AK>,
-    AK: Hash + Eq,
-    AV: PartialEq<V>,
-{
-    fn eq(&self, other: &ArchivedHashMap<AK, AV>) -> bool {
-        other.eq(self)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::string::String;
+    use core::hash::BuildHasherDefault;
 
     use hashbrown::HashMap;
 
-    use crate::test::roundtrip_with;
+    use crate::{hash::FxHasher64, test::roundtrip_with};
 
     #[test]
     fn index_map() {
-        let mut value = HashMap::new();
+        let mut value =
+            HashMap::with_hasher(BuildHasherDefault::<FxHasher64>::default());
         value.insert(String::from("foo"), 10);
         value.insert(String::from("bar"), 20);
         value.insert(String::from("baz"), 40);
@@ -125,28 +116,5 @@ mod tests {
                 assert_eq!(v, av);
             }
         });
-    }
-
-    #[cfg(feature = "bytecheck")]
-    #[test]
-    fn validate_index_map() {
-        use rancor::Panic;
-
-        use crate::{
-            access, collections::swiss_table::ArchivedHashMap,
-            primitive::ArchivedI32, string::ArchivedString, to_bytes,
-        };
-
-        let mut value = HashMap::new();
-        value.insert(String::from("foo"), 10);
-        value.insert(String::from("bar"), 20);
-        value.insert(String::from("baz"), 40);
-        value.insert(String::from("bat"), 80);
-
-        let bytes = to_bytes::<Panic>(&value).unwrap();
-        access::<ArchivedHashMap<ArchivedString, ArchivedI32>, Panic>(
-            bytes.as_ref(),
-        )
-        .expect("failed to validate archived index map");
     }
 }
