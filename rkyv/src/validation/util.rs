@@ -41,10 +41,6 @@ where
     })
 }
 
-// TODO: Either this should be unsafe or there must be some invariant that
-// `check_pos_with_context` verifies that the position is dereferenceable
-// regardless of what context was used to verify it.
-
 /// Accesses an archived value from the given byte slice at the given position
 /// after checking its validity with the given context.
 ///
