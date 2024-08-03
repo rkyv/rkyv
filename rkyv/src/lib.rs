@@ -197,10 +197,7 @@ pub mod with;
 pub use buffer::{from_bytes_unchecked, to_bytes};
 #[cfg(all(feature = "bytecheck", feature = "alloc"))]
 #[doc(inline)]
-pub use validation::buffer::from_bytes;
-#[cfg(feature = "bytecheck")]
-#[doc(inline)]
-pub use validation::buffer::{access, access_mut};
+pub use validation::buffer::{access, access_mut, from_bytes};
 
 #[doc(inline)]
 pub use crate::{

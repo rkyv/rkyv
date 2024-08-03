@@ -1,52 +1,156 @@
 //! Validators that can check archived types.
 
-mod archive;
-mod shared;
+#[cfg(feature = "alloc")]
+mod alloc;
 
-use core::{any::TypeId, ops::Range};
+use core::{
+    alloc::Layout, fmt, marker::PhantomData, num::NonZeroUsize, ops::Range,
+};
 
-pub use archive::*;
-pub use shared::*;
+use rancor::{fail, OptionExt, Source};
 
-use crate::validation::{ArchiveContext, SharedContext};
+#[cfg(feature = "alloc")]
+pub use self::alloc::*;
+use crate::{fmt::Pointer, validation::ArchiveContext};
 
-/// The default validator.
 #[derive(Debug)]
-pub struct DefaultValidator<'a> {
-    archive: ArchiveValidator<'a>,
-    shared: SharedValidator,
+struct UnalignedPointer {
+    address: usize,
+    align: usize,
 }
 
-impl<'a> DefaultValidator<'a> {
-    /// Creates a new validator from a byte range.
+impl fmt::Display for UnalignedPointer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "unaligned pointer: ptr {} unaligned for alignment {}",
+            Pointer(self.address),
+            self.align,
+        )
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for UnalignedPointer {}
+
+#[derive(Debug)]
+struct InvalidSubtreePointer {
+    address: usize,
+    size: usize,
+    subtree_range: Range<usize>,
+}
+
+impl fmt::Display for InvalidSubtreePointer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "subtree pointer overran range: ptr {} size {} in range {}..{}",
+            Pointer(self.address),
+            self.size,
+            Pointer(self.subtree_range.start),
+            Pointer(self.subtree_range.end),
+        )
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for InvalidSubtreePointer {}
+
+#[derive(Debug)]
+struct ExceededMaximumSubtreeDepth;
+
+impl fmt::Display for ExceededMaximumSubtreeDepth {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "pushed a subtree range that exceeded the maximum subtree depth",
+        )
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for ExceededMaximumSubtreeDepth {}
+
+#[derive(Debug)]
+struct RangePoppedTooManyTimes;
+
+impl fmt::Display for RangePoppedTooManyTimes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "subtree range popped too many times")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for RangePoppedTooManyTimes {}
+
+#[derive(Debug)]
+struct RangePoppedOutOfOrder;
+
+impl fmt::Display for RangePoppedOutOfOrder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "subtree range popped out of order")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for RangePoppedOutOfOrder {}
+
+/// A validator that can verify archives with nonlocal memory.
+#[derive(Debug)]
+pub struct CoreValidator<'a> {
+    subtree_range: Range<usize>,
+    max_subtree_depth: Option<NonZeroUsize>,
+    _phantom: PhantomData<&'a [u8]>,
+}
+
+impl<'a> CoreValidator<'a> {
+    /// Creates a new bounds validator for the given bytes.
     #[inline]
     pub fn new(bytes: &'a [u8]) -> Self {
-        Self {
-            archive: ArchiveValidator::new(bytes),
-            shared: SharedValidator::new(),
-        }
+        Self::with_max_depth(bytes, None)
     }
 
-    /// Create a new validator from a byte range with specific capacity.
+    /// Crates a new bounds validator for the given bytes with a maximum
+    /// validation depth.
     #[inline]
-    pub fn with_capacity(bytes: &'a [u8], capacity: usize) -> Self {
+    pub fn with_max_depth(
+        bytes: &'a [u8],
+        max_subtree_depth: Option<NonZeroUsize>,
+    ) -> Self {
+        let Range { start, end } = bytes.as_ptr_range();
         Self {
-            archive: ArchiveValidator::new(bytes),
-            shared: SharedValidator::with_capacity(capacity),
+            subtree_range: Range {
+                start: start as usize,
+                end: end as usize,
+            },
+            max_subtree_depth,
+            _phantom: PhantomData,
         }
     }
 }
 
-unsafe impl<'a, E> ArchiveContext<E> for DefaultValidator<'a>
-where
-    ArchiveValidator<'a>: ArchiveContext<E>,
-{
+unsafe impl<E: Source> ArchiveContext<E> for CoreValidator<'_> {
     fn check_subtree_ptr(
         &mut self,
         ptr: *const u8,
-        layout: &core::alloc::Layout,
+        layout: &Layout,
     ) -> Result<(), E> {
-        self.archive.check_subtree_ptr(ptr, layout)
+        let start = ptr as usize;
+        let end = ptr.wrapping_add(layout.size()) as usize;
+        if start < self.subtree_range.start || end > self.subtree_range.end {
+            fail!(InvalidSubtreePointer {
+                address: start,
+                size: layout.size(),
+                subtree_range: self.subtree_range.clone(),
+            });
+        } else if start & (layout.align() - 1) != 0 {
+            fail!(UnalignedPointer {
+                address: ptr as usize,
+                align: layout.align(),
+            });
+        } else {
+            Ok(())
+        }
     }
 
     unsafe fn push_subtree_range(
@@ -54,30 +158,32 @@ where
         root: *const u8,
         end: *const u8,
     ) -> Result<Range<usize>, E> {
-        // SAFETY: This just forwards the call to the underlying
-        // `ArchiveValidator`, which has the same safety requirements.
-        unsafe { self.archive.push_subtree_range(root, end) }
+        if let Some(max_subtree_depth) = &mut self.max_subtree_depth {
+            *max_subtree_depth = NonZeroUsize::new(max_subtree_depth.get() - 1)
+                .into_trace(ExceededMaximumSubtreeDepth)?;
+        }
+
+        let result = Range {
+            start: end as usize,
+            end: self.subtree_range.end,
+        };
+        self.subtree_range.end = root as usize;
+        Ok(result)
     }
 
     unsafe fn pop_subtree_range(
         &mut self,
         range: Range<usize>,
     ) -> Result<(), E> {
-        // SAFETY: This just forwards the call to the underlying
-        // `ArchiveValidator`, which has the same safety requirements.
-        unsafe { self.archive.pop_subtree_range(range) }
-    }
-}
-
-impl<E> SharedContext<E> for DefaultValidator<'_>
-where
-    SharedValidator: SharedContext<E>,
-{
-    fn register_shared_ptr(
-        &mut self,
-        address: usize,
-        type_id: TypeId,
-    ) -> Result<bool, E> {
-        self.shared.register_shared_ptr(address, type_id)
+        if range.start < self.subtree_range.end {
+            fail!(RangePoppedOutOfOrder);
+        }
+        self.subtree_range = range;
+        if let Some(max_subtree_depth) = &mut self.max_subtree_depth {
+            *max_subtree_depth = max_subtree_depth
+                .checked_add(1)
+                .into_trace(RangePoppedTooManyTimes)?;
+        }
+        Ok(())
     }
 }
