@@ -253,8 +253,14 @@ unsafe impl<E> Allocator<E> for ArenaHandle<'_> {
         ptr: NonNull<u8>,
         _: Layout,
     ) -> Result<(), E> {
-        let bytes = self.tail_ptr.as_ptr().cast::<u8>();
-        self.used = ptr.as_ptr() as usize - bytes as usize;
+        // If the popped allocation was in the current tail block, then we can
+        // reduce the amount of used space.
+        let start = self.tail_ptr.as_ptr() as usize;
+        let end = start + self.tail_size;
+        let pos = ptr.as_ptr() as usize;
+        if (start..end).contains(&pos) {
+            self.used = pos - start;
+        }
 
         Ok(())
     }
@@ -262,10 +268,12 @@ unsafe impl<E> Allocator<E> for ArenaHandle<'_> {
 
 #[cfg(test)]
 mod tests {
-    use rancor::Panic;
+    use core::alloc::Layout;
+
+    use rancor::{Panic, ResultExt};
 
     use crate::{
-        ser::{allocator::Arena, sharing::Share, Serializer},
+        ser::{allocator::Arena, sharing::Share, Allocator, Serializer},
         util::{serialize_into, AlignedVec},
     };
 
@@ -291,6 +299,26 @@ mod tests {
                 Serializer::new(buffer, arena.acquire(), Share::new()),
             )
             .unwrap();
+        }
+    }
+
+    #[test]
+    fn pop_non_tail() {
+        let mut arena = Arena::new();
+        let mut handle = arena.acquire();
+
+        let layout =
+            Layout::from_size_align(Arena::DEFAULT_CAPACITY, 1).unwrap();
+
+        unsafe {
+            let a =
+                Allocator::<Panic>::push_alloc(&mut handle, layout).always_ok();
+            let b =
+                Allocator::<Panic>::push_alloc(&mut handle, layout).always_ok();
+            Allocator::<Panic>::pop_alloc(&mut handle, b.cast(), layout)
+                .always_ok();
+            Allocator::<Panic>::pop_alloc(&mut handle, a.cast(), layout)
+                .always_ok();
         }
     }
 }
