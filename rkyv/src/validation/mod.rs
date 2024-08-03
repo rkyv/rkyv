@@ -1,6 +1,6 @@
 //! Validation implementations and helper types.
 
-pub mod util;
+pub mod buffer;
 pub mod validators;
 
 use core::{alloc::Layout, any::TypeId, ops::Range};
@@ -179,7 +179,9 @@ where
 mod tests {
     use rancor::Failure;
 
-    use crate::{access, util::Align, validation::util::access_pos, Archived};
+    use crate::{
+        access, util::Align, validation::buffer::access_pos, Archived,
+    };
 
     #[test]
     fn basic_functionality() {

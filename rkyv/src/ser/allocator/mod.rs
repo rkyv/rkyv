@@ -177,9 +177,8 @@ mod tests {
     use rancor::{Panic, Strategy};
 
     use crate::{
-        ser::allocator::AllocationStats,
-        util::{serialize_into, AlignedVec},
-        Serialize,
+        buffer::serialize_into, ser::allocator::AllocationStats,
+        util::AlignedVec, Serialize,
     };
 
     #[test]

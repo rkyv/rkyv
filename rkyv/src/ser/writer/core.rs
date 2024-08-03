@@ -173,7 +173,7 @@ mod tests {
 
     use rancor::Panic;
 
-    use crate::{ser::writer::Buffer, to_bytes_in};
+    use crate::{buffer::to_bytes_in, ser::writer::Buffer};
 
     #[test]
     fn zeroes_padding() {

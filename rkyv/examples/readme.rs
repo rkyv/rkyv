@@ -1,5 +1,5 @@
 use rkyv::{
-    deserialize, rancor::Error, util::serialize_into, Archive, Deserialize,
+    buffer::serialize_into, deserialize, rancor::Error, Archive, Deserialize,
     Serialize,
 };
 

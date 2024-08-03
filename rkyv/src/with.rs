@@ -253,7 +253,7 @@ pub struct Inline;
 
 /// A wrapper that serializes a field into a box.
 ///
-/// This functions similarly to [`AsInlineBox`], but is for regular fields
+/// This functions similarly to [`InlineAsBox`], but is for regular fields
 /// instead of references.
 ///
 /// # Example

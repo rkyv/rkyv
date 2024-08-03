@@ -1,18 +1,13 @@
 #[cfg(not(feature = "std"))]
-use alloc::{
-    alloc::{alloc, alloc_zeroed, dealloc},
-    boxed::Box,
-    vec::Vec,
-};
+use alloc::alloc::{alloc, dealloc, handle_alloc_error};
 use core::{
     alloc::Layout,
     marker::PhantomData,
     mem::{align_of, size_of, ManuallyDrop},
     ptr::{slice_from_raw_parts_mut, NonNull},
 };
-use std::alloc::handle_alloc_error;
 #[cfg(feature = "std")]
-use std::alloc::{alloc, dealloc};
+use std::alloc::{alloc, dealloc, handle_alloc_error};
 
 use crate::ser::Allocator;
 
@@ -273,8 +268,9 @@ mod tests {
     use rancor::{Panic, ResultExt};
 
     use crate::{
+        buffer::serialize_into,
         ser::{allocator::Arena, sharing::Share, Allocator, Serializer},
-        util::{serialize_into, AlignedVec},
+        util::AlignedVec,
     };
 
     #[test]

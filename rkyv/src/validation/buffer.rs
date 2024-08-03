@@ -1,4 +1,4 @@
-//! Utility methods for accessing and deserializing safely.
+//! Functions for accessing and deserializing buffers safely.
 
 use core::{mem::size_of, pin::Pin};
 
@@ -7,9 +7,9 @@ use ptr_meta::Pointee;
 use rancor::{Source, Strategy};
 
 use crate::{
+    buffer::{access_pos_unchecked, access_pos_unchecked_mut},
     de::pooling::Pool,
     deserialize,
-    util::{access_pos_unchecked, access_pos_unchecked_mut},
     validation::{
         validators::DefaultValidator, ArchiveContext, ArchiveContextExt,
     },

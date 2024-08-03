@@ -291,9 +291,10 @@ pub trait Archive {
 /// Objects perform any supportive serialization during
 /// [`serialize`](Serialize::serialize). For types that reference nonlocal
 /// (pointed-to) data, this is when that data must be serialized to the output.
-/// These types will need to bound `S` to implement [`Writer`] and
-/// any other required traits (e.g. [`Sharing`](crate::ser::Sharing)). They
-/// should then serialize their dependencies during `serialize`.
+/// These types will need to bound `S` to implement
+/// [`Writer`](crate::ser::Writer) and any other required traits (e.g.
+/// [`Sharing`](crate::ser::Sharing)). They should then serialize their
+/// dependencies during `serialize`.
 ///
 /// See [`Archive`] for examples of implementing `Serialize`.
 pub trait Serialize<S: Fallible + ?Sized>: Archive {

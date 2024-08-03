@@ -1,7 +1,7 @@
 //! Validators add validation capabilities by wrapping and extending basic
 //! validators.
 
-use core::{any::TypeId, fmt};
+use core::{any::TypeId, fmt, hash::BuildHasherDefault};
 #[cfg(feature = "std")]
 use std::collections::HashMap;
 
@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use hashbrown::HashMap;
 use rancor::{fail, Source};
 
-use crate::validation::SharedContext;
+use crate::{hash::FxHasher64, validation::SharedContext};
 
 /// Errors that can occur when checking shared memory.
 #[derive(Debug)]
@@ -45,26 +45,27 @@ impl std::error::Error for SharedError {
     }
 }
 
-/// A validator that can verify shared memory.
+/// A validator that can verify shared pointers.
 #[derive(Debug, Default)]
 pub struct SharedValidator {
-    shared: HashMap<usize, TypeId>,
+    shared: HashMap<usize, TypeId, BuildHasherDefault<FxHasher64>>,
 }
 
 impl SharedValidator {
-    /// Wraps the given context and adds shared memory validation.
+    /// Creates a new shared pointer validator.
     #[inline]
     pub fn new() -> Self {
-        Self {
-            shared: HashMap::new(),
-        }
+        Self::default()
     }
 
-    /// Shared memory validator with specific capacity.
+    /// Creates a new shared pointer validator with specific capacity.
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            shared: HashMap::with_capacity(capacity),
+            shared: HashMap::with_capacity_and_hasher(
+                capacity,
+                Default::default(),
+            ),
         }
     }
 }

@@ -2,7 +2,7 @@
 use core::arch::x86;
 #[cfg(target_arch = "x86_64")]
 use core::arch::x86_64 as x86;
-use core::num::NonZeroU16;
+use core::{mem::size_of, num::NonZeroU16};
 
 type Word = x86::__m128i;
 

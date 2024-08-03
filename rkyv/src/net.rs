@@ -11,7 +11,7 @@ use crate::{
     Archive, Place, Portable,
 };
 
-/// An archived [`Ipv4Addr`](std::net::Ipv4Addr).
+/// An archived [`Ipv4Addr`].
 #[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -122,7 +122,7 @@ impl ArchivedIpv4Addr {
     }
 }
 
-/// An archived [`Ipv6Addr`](std::net::Ipv6Addr).
+/// An archived [`Ipv6Addr`].
 #[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -215,7 +215,7 @@ impl ArchivedIpv6Addr {
     }
 }
 
-/// An archived [`IpAddr`](std::net::IpAddr).
+/// An archived [`IpAddr`].
 #[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -289,7 +289,7 @@ impl ArchivedIpAddr {
     }
 }
 
-/// An archived [`SocketAddrV4`](std::net::SocketAddrV4).
+/// An archived [`SocketAddrV4`].
 #[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -328,7 +328,7 @@ impl ArchivedSocketAddrV4 {
     }
 }
 
-/// An archived [`SocketAddrV6`](std::net::SocketAddrV6).
+/// An archived [`SocketAddrV6`].
 #[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -394,7 +394,7 @@ impl ArchivedSocketAddrV6 {
     }
 }
 
-/// An archived [`SocketAddr`](std::net::SocketAddr).
+/// An archived [`SocketAddr`].
 #[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]

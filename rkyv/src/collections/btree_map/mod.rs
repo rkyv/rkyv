@@ -6,12 +6,11 @@ use core::{
     fmt,
     marker::PhantomData,
     mem::{size_of, MaybeUninit},
-    ops::ControlFlow,
+    ops::{ControlFlow, Index},
     pin::Pin,
     ptr::addr_of_mut,
     slice,
 };
-use std::ops::Index;
 
 use munge::munge;
 use rancor::{fail, Fallible, Source};
@@ -746,6 +745,8 @@ where
     }
 }
 
+// TODO(#515): ungate this impl
+#[cfg(feature = "alloc")]
 impl<K, V, const E: usize> Eq for ArchivedBTreeMap<K, V, E>
 where
     K: PartialEq,
@@ -765,6 +766,8 @@ where
     }
 }
 
+// TODO(#515): ungate this impl
+#[cfg(feature = "alloc")]
 impl<K, V, const E1: usize, const E2: usize>
     PartialEq<ArchivedBTreeMap<K, V, E2>> for ArchivedBTreeMap<K, V, E1>
 where

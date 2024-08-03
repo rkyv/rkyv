@@ -1,3 +1,4 @@
+#[cfg(feature = "alloc")]
 use core::{alloc::Layout, ptr::NonNull};
 
 #[cfg(feature = "alloc")]
