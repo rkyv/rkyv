@@ -37,23 +37,15 @@ mod triomphe;
 mod uuid;
 
 #[cfg(test)]
-mod tests {
+mod core_tests {
     use core::pin::Pin;
 
-    use bytecheck::CheckBytes;
-    use rancor::{Fallible, Panic, Source};
+    use rancor::{Fallible, Source};
 
     use crate::{
-        access_unchecked_mut,
-        boxed::ArchivedBox,
         option::ArchivedOption,
         primitive::{ArchivedI32, ArchivedU32},
-        ser::Writer,
-        string::ArchivedString,
-        test::roundtrip,
-        to_bytes,
-        validation::ArchiveContext,
-        vec::ArchivedVec,
+        test::{roundtrip, to_archived},
         Archive, Deserialize, Place, Portable, Serialize,
     };
 
@@ -64,20 +56,17 @@ mod tests {
         struct Test;
 
         roundtrip(&Test);
-        roundtrip(&vec![Test, Test]);
+        roundtrip(&[Test, Test]);
     }
 
     #[test]
     fn roundtrip_tuple_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
-        struct Test((), i32, String, Option<i32>);
+        struct Test((), i32, Option<i32>);
 
-        roundtrip(&Test((), 42, "hello world".to_string(), Some(42)));
-        roundtrip(&vec![
-            Test((), 42, "hello world".to_string(), Some(42)),
-            Test((), 42, "hello world".to_string(), Some(42)),
-        ]);
+        roundtrip(&Test((), 42, Some(42)));
+        roundtrip(&[Test((), 42, Some(42)), Test((), 42, Some(42))]);
     }
 
     #[test]
@@ -87,28 +76,24 @@ mod tests {
         struct Test {
             a: (),
             b: i32,
-            c: String,
-            d: Option<i32>,
+            c: Option<i32>,
         }
 
         roundtrip(&Test {
             a: (),
             b: 42,
-            c: "hello world".to_string(),
-            d: Some(42),
+            c: Some(42),
         });
-        roundtrip(&vec![
+        roundtrip(&[
             Test {
                 a: (),
                 b: 42,
-                c: "hello world".to_string(),
-                d: Some(42),
+                c: Some(42),
             },
             Test {
                 a: (),
                 b: 42,
-                c: "hello world".to_string(),
-                d: Some(42),
+                c: Some(42),
             },
         ]);
     }
@@ -130,8 +115,7 @@ mod tests {
         struct Test<T: TestTrait> {
             a: (),
             b: <T as TestTrait>::Associated,
-            c: String,
-            d: Option<i32>,
+            c: Option<i32>,
         }
 
         impl<T: TestTrait> fmt::Debug for Test<T>
@@ -143,7 +127,6 @@ mod tests {
                     .field("a", &self.a)
                     .field("b", &self.b)
                     .field("c", &self.c)
-                    .field("d", &self.d)
                     .finish()
             }
         }
@@ -158,7 +141,6 @@ mod tests {
                     .field("a", &self.a)
                     .field("b", &self.b)
                     .field("c", &self.c)
-                    .field("d", &self.d)
                     .finish()
             }
         }
@@ -166,21 +148,18 @@ mod tests {
         roundtrip(&Test::<()> {
             a: (),
             b: 42,
-            c: "hello world".to_string(),
-            d: Some(42),
+            c: Some(42),
         });
-        roundtrip(&vec![
+        roundtrip(&[
             Test::<()> {
                 a: (),
                 b: 42,
-                c: "hello world".to_string(),
-                d: Some(42),
+                c: Some(42),
             },
             Test::<()> {
                 a: (),
                 b: 42,
-                c: "hello world".to_string(),
-                d: Some(42),
+                c: Some(42),
             },
         ]);
     }
@@ -191,24 +170,14 @@ mod tests {
         #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
         enum Test {
             A,
-            B(String),
-            C { a: i32, b: String },
+            B(i32),
+            C { inner: i32 },
         }
 
         roundtrip(&Test::A);
-        roundtrip(&Test::B("hello_world".to_string()));
-        roundtrip(&Test::C {
-            a: 42,
-            b: "hello world".to_string(),
-        });
-        roundtrip(&vec![
-            Test::A,
-            Test::B("hello world".to_string()),
-            Test::C {
-                a: 42,
-                b: "hello world".to_string(),
-            },
-        ]);
+        roundtrip(&Test::B(42));
+        roundtrip(&Test::C { inner: 42 });
+        roundtrip(&[Test::A, Test::B(42), Test::C { inner: 42 }]);
     }
 
     #[test]
@@ -227,11 +196,8 @@ mod tests {
         #[rkyv(crate, check_bytes, compare(PartialEq))]
         enum Test<T: TestTrait> {
             A,
-            B(String),
-            C {
-                a: <T as TestTrait>::Associated,
-                b: String,
-            },
+            B(<T as TestTrait>::Associated),
+            C { inner: <T as TestTrait>::Associated },
         }
 
         impl<T: TestTrait> fmt::Debug for Test<T>
@@ -244,11 +210,9 @@ mod tests {
                     Test::B(value) => {
                         f.debug_tuple("Test::B").field(value).finish()
                     }
-                    Test::C { a, b } => f
-                        .debug_struct("Test::C")
-                        .field("a", a)
-                        .field("b", b)
-                        .finish(),
+                    Test::C { inner } => {
+                        f.debug_struct("Test::C").field("inner", inner).finish()
+                    }
                 }
             }
         }
@@ -266,100 +230,76 @@ mod tests {
                     ArchivedTest::B(value) => {
                         f.debug_tuple("ArchivedTest::B").field(value).finish()
                     }
-                    ArchivedTest::C { a, b } => f
+                    ArchivedTest::C { inner } => f
                         .debug_struct("ArchivedTest::C")
-                        .field("a", a)
-                        .field("b", b)
+                        .field("inner", inner)
                         .finish(),
                 }
             }
         }
 
         roundtrip(&Test::<()>::A);
-        roundtrip(&Test::<()>::B("hello_world".to_string()));
-        roundtrip(&Test::<()>::C {
-            a: 42,
-            b: "hello world".to_string(),
-        });
-        roundtrip(&vec![
+        roundtrip(&Test::<()>::B(42));
+        roundtrip(&Test::<()>::C { inner: 42 });
+        roundtrip(&[
             Test::<()>::A,
-            Test::<()>::B("hello world".to_string()),
-            Test::<()>::C {
-                a: 42,
-                b: "hello world".to_string(),
-            },
+            Test::<()>::B(42),
+            Test::<()>::C { inner: 42 },
         ]);
     }
 
     #[test]
     fn basic_mutable_refs() {
-        let mut buf = to_bytes::<Panic>(&42i32).unwrap();
-        let mut value =
-            unsafe { access_unchecked_mut::<ArchivedI32>(buf.as_mut()) };
-        assert_eq!(*value, 42);
-        *value = 11.into();
-        assert_eq!(*value, 11);
+        to_archived(&42i32, |mut archived| {
+            assert_eq!(*archived, 42);
+            *archived = 11.into();
+            assert_eq!(*archived, 11);
+        });
     }
 
     #[test]
     fn struct_mutable_refs() {
         #[derive(Archive, Serialize)]
-        #[rkyv(crate)]
+        #[rkyv(crate, check_bytes)]
+        struct Opaque(i32);
+
+        impl ArchivedOpaque {
+            fn get(&self) -> i32 {
+                self.0.into()
+            }
+
+            fn set(mut self: Pin<&mut Self>, value: i32) {
+                (*self).0 = value.into();
+            }
+        }
+
+        #[derive(Archive, Serialize)]
+        #[rkyv(crate, check_bytes)]
         struct Test {
-            a: Box<i32>,
-            b: Vec<String>,
+            a: Opaque,
         }
 
         impl ArchivedTest {
-            fn a(self: Pin<&mut Self>) -> Pin<&mut ArchivedBox<ArchivedI32>> {
+            fn a(self: Pin<&mut Self>) -> Pin<&mut ArchivedOpaque> {
                 unsafe { self.map_unchecked_mut(|s| &mut s.a) }
-            }
-
-            fn b(
-                self: Pin<&mut Self>,
-            ) -> Pin<&mut ArchivedVec<ArchivedString>> {
-                unsafe { self.map_unchecked_mut(|s| &mut s.b) }
             }
         }
 
-        let value = Test {
-            a: Box::new(10),
-            b: vec!["hello".to_string(), "world".to_string()],
-        };
+        let value = Test { a: Opaque(10) };
 
-        let mut buf = to_bytes::<Panic>(&value).unwrap();
-        let mut value =
-            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
+        to_archived(&value, |mut archived| {
+            assert_eq!(archived.a.get(), 10);
 
-        assert_eq!(*value.a, 10);
-        assert_eq!(value.b.len(), 2);
-        assert_eq!(value.b[0], "hello");
-        assert_eq!(value.b[1], "world");
-
-        *value.as_mut().a().get_pin() = 50.into();
-        assert_eq!(*value.a, 50);
-
-        value
-            .as_mut()
-            .b()
-            .index_pin(0)
-            .as_pin_str()
-            .make_ascii_uppercase();
-        value
-            .as_mut()
-            .b()
-            .index_pin(1)
-            .as_pin_str()
-            .make_ascii_uppercase();
-        assert_eq!(value.b[0], "HELLO");
-        assert_eq!(value.b[1], "WORLD");
+            archived.as_mut().a().set(50);
+            assert_eq!(archived.a.get(), 50);
+        })
     }
 
     #[test]
     fn enum_mutable_ref() {
         #[allow(dead_code)]
         #[derive(Archive, Serialize)]
-        #[rkyv(crate)]
+        #[rkyv(crate, check_bytes)]
         enum Test {
             A,
             B(char),
@@ -368,77 +308,20 @@ mod tests {
 
         let value = Test::A;
 
-        let mut buf = to_bytes::<Panic>(&value).unwrap();
-        let mut value =
-            unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
+        to_archived(&value, |mut archived| {
+            if let ArchivedTest::A = *archived {
+                ()
+            } else {
+                panic!("incorrect enum after archiving");
+            }
 
-        if let ArchivedTest::A = *value {
-            ()
-        } else {
-            panic!("incorrect enum after archiving");
-        }
+            *archived = ArchivedTest::C(42.into());
 
-        *value = ArchivedTest::C(42.into());
-
-        if let ArchivedTest::C(i) = *value {
-            assert_eq!(i, 42);
-        } else {
-            panic!("incorrect enum after mutation");
-        }
-    }
-
-    #[test]
-    fn recursive_structures() {
-        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(
-            crate,
-            check_bytes(bounds(__C: ArchiveContext)),
-            compare(PartialEq),
-            derive(Debug),
-        )]
-        // The derive macros don't apply the right bounds from Box so we have to
-        // manually specify what bounds to apply
-        #[rkyv(serialize_bounds(__S: Writer))]
-        #[rkyv(deserialize_bounds(__D::Error: Source))]
-        enum Node {
-            Nil,
-            Cons(#[omit_bounds] Box<Node>),
-        }
-
-        roundtrip(&Node::Cons(Box::new(Node::Cons(Box::new(Node::Nil)))));
-    }
-
-    #[test]
-    fn recursive_self_types() {
-        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(
-            crate,
-            check_bytes(bounds(__C: ArchiveContext)),
-            compare(PartialEq),
-            derive(Debug),
-        )]
-        // The derive macros don't apply the right bounds from Box so we have to
-        // manually specify what bounds to apply
-        #[rkyv(serialize_bounds(__S: Writer))]
-        #[rkyv(deserialize_bounds(__D::Error: Source))]
-        pub enum LinkedList<T: Archive>
-        where
-            T::Archived: core::fmt::Debug,
-        {
-            Empty,
-            Node {
-                val: T,
-                #[omit_bounds]
-                next: Box<Self>,
-            },
-        }
-
-        roundtrip(&LinkedList::Node {
-            val: 42i32,
-            next: Box::new(LinkedList::Node {
-                val: 100i32,
-                next: Box::new(LinkedList::Empty),
-            }),
+            if let ArchivedTest::C(i) = *archived {
+                assert_eq!(i, 42);
+            } else {
+                panic!("incorrect enum after mutation");
+            }
         });
     }
 
@@ -519,8 +402,6 @@ mod tests {
         struct Test {
             a: i32,
             b: Option<u32>,
-            c: String,
-            d: Vec<i32>,
         }
 
         impl<S> Serialize<S> for Test
@@ -529,15 +410,11 @@ mod tests {
             S::Error: Source,
             i32: Serialize<S>,
             Option<u32>: Serialize<S>,
-            String: Serialize<S>,
-            Vec<i32>: Serialize<S>,
         {
             fn serialize(&self, serializer: &mut S) -> Result<RTest, S::Error> {
                 Ok(RTest {
                     a: self.a.serialize(serializer)?,
                     b: self.b.serialize(serializer)?,
-                    c: self.c.serialize(serializer)?,
-                    d: self.d.serialize(serializer)?,
                 })
             }
         }
@@ -548,8 +425,6 @@ mod tests {
             D::Error: Source,
             ArchivedI32: Deserialize<i32, D>,
             ArchivedOption<ArchivedU32>: Deserialize<Option<u32>, D>,
-            ArchivedString: Deserialize<String, D>,
-            ArchivedVec<ArchivedI32>: Deserialize<Vec<i32>, D>,
         {
             fn deserialize(
                 &self,
@@ -558,18 +433,11 @@ mod tests {
                 Ok(Test {
                     a: self.a.deserialize(deserializer)?,
                     b: self.b.deserialize(deserializer)?,
-                    c: self.c.deserialize(deserializer)?,
-                    d: self.d.deserialize(deserializer)?,
                 })
             }
         }
 
-        let value = Test {
-            a: 42,
-            b: Some(12),
-            c: "hello world".to_string(),
-            d: vec![1, 2, 3, 4],
-        };
+        let value = Test { a: 42, b: Some(12) };
 
         roundtrip(&value);
     }
@@ -680,12 +548,41 @@ mod tests {
     }
 
     #[test]
-    fn archive_as() {
-        // Struct
-
+    fn archive_as_unit_struct() {
         #[derive(
-            Archive, Serialize, Deserialize, Debug, Portable, CheckBytes,
+            Archive, Serialize, Deserialize, Debug, Portable, PartialEq,
         )]
+        #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
+        #[rkyv(crate, as = "ExampleUnitStruct")]
+        #[repr(C)]
+        struct ExampleUnitStruct;
+
+        roundtrip(&ExampleUnitStruct);
+    }
+
+    #[test]
+    fn archive_as_tuple_struct() {
+        #[derive(Archive, Serialize, Deserialize, Debug, Portable)]
+        #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
+        #[rkyv(crate, as = "ExampleTupleStruct<T::Archived>")]
+        #[repr(transparent)]
+        struct ExampleTupleStruct<T>(T);
+
+        impl<T: PartialEq<U>, U> PartialEq<ExampleTupleStruct<U>>
+            for ExampleTupleStruct<T>
+        {
+            fn eq(&self, other: &ExampleTupleStruct<U>) -> bool {
+                self.0.eq(&other.0)
+            }
+        }
+
+        roundtrip(&ExampleTupleStruct(42i32));
+    }
+
+    #[test]
+    fn archive_as_struct() {
+        #[derive(Archive, Serialize, Deserialize, Debug, Portable)]
+        #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
         #[rkyv(crate, as = "ExampleStruct<T::Archived>")]
         #[repr(transparent)]
         struct ExampleStruct<T> {
@@ -701,55 +598,13 @@ mod tests {
             }
         }
 
-        let value = ExampleStruct {
-            value: "hello world".to_string(),
-        };
+        roundtrip(&ExampleStruct { value: 42i32 });
+    }
 
-        roundtrip(&value);
-
-        // Tuple struct
-
-        #[derive(
-            Archive, Serialize, Deserialize, Portable, Debug, CheckBytes,
-        )]
-        #[rkyv(crate, as = "ExampleTupleStruct<T::Archived>")]
-        #[repr(transparent)]
-        struct ExampleTupleStruct<T>(T);
-
-        impl<T: PartialEq<U>, U> PartialEq<ExampleTupleStruct<U>>
-            for ExampleTupleStruct<T>
-        {
-            fn eq(&self, other: &ExampleTupleStruct<U>) -> bool {
-                self.0.eq(&other.0)
-            }
-        }
-
-        let value = ExampleTupleStruct("hello world".to_string());
-
-        roundtrip(&value);
-
-        // Unit struct
-
-        #[derive(
-            Archive,
-            Serialize,
-            Deserialize,
-            Debug,
-            Portable,
-            PartialEq,
-            CheckBytes,
-        )]
-        #[rkyv(crate, as = "ExampleUnitStruct")]
-        #[repr(C)]
-        struct ExampleUnitStruct;
-
-        roundtrip(&ExampleUnitStruct);
-
-        // Enum
-
-        #[derive(
-            Archive, Serialize, Deserialize, Portable, Debug, CheckBytes,
-        )]
+    #[test]
+    fn archive_as_enum() {
+        #[derive(Archive, Serialize, Deserialize, Debug, Portable)]
+        #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
         #[rkyv(crate, as = "ExampleEnum<T::Archived>")]
         #[repr(u8)]
         enum ExampleEnum<T> {
@@ -778,9 +633,7 @@ mod tests {
             }
         }
 
-        let value = ExampleEnum::A("hello world".to_string());
-
-        roundtrip(&value);
+        roundtrip(&ExampleEnum::A(42i32));
     }
 
     #[test]
@@ -794,15 +647,6 @@ mod tests {
             value: &'a str,
             other: i32,
         }
-    }
-
-    #[test]
-    fn archive_bound() {
-        use core::ops::Bound;
-
-        roundtrip(&Bound::Included("hello world".to_string()));
-        roundtrip(&Bound::Excluded("hello world".to_string()));
-        roundtrip(&Bound::<String>::Unbounded);
     }
 
     #[test]
@@ -829,5 +673,134 @@ mod tests {
             x: 0,
             y: Some(ExampleEnum::Bar(0)),
         };
+    }
+}
+
+#[cfg(all(test, feature = "alloc"))]
+mod alloc_tests {
+    use core::pin::Pin;
+
+    use rancor::Source;
+
+    use crate::{
+        alloc::{
+            boxed::Box,
+            string::{String, ToString},
+            vec,
+            vec::Vec,
+        },
+        primitive::ArchivedI32,
+        ser::Writer,
+        test::{roundtrip, to_archived},
+        Archive, Deserialize, Serialize,
+    };
+
+    #[test]
+    fn struct_container_mutable_refs() {
+        use crate::{
+            boxed::ArchivedBox, string::ArchivedString, vec::ArchivedVec,
+        };
+
+        #[derive(Archive, Serialize)]
+        #[rkyv(crate, check_bytes)]
+        struct Test {
+            a: Box<i32>,
+            b: Vec<String>,
+        }
+
+        impl ArchivedTest {
+            fn a(self: Pin<&mut Self>) -> Pin<&mut ArchivedBox<ArchivedI32>> {
+                unsafe { self.map_unchecked_mut(|s| &mut s.a) }
+            }
+
+            fn b(
+                self: Pin<&mut Self>,
+            ) -> Pin<&mut ArchivedVec<ArchivedString>> {
+                unsafe { self.map_unchecked_mut(|s| &mut s.b) }
+            }
+        }
+
+        let value = Test {
+            a: Box::new(10),
+            b: vec!["hello".to_string(), "world".to_string()],
+        };
+
+        to_archived(&value, |mut archived| {
+            assert_eq!(*archived.a, 10);
+            assert_eq!(archived.b.len(), 2);
+            assert_eq!(archived.b[0], "hello");
+            assert_eq!(archived.b[1], "world");
+
+            *archived.as_mut().a().get_pin() = 50.into();
+            assert_eq!(*archived.a, 50);
+
+            archived
+                .as_mut()
+                .b()
+                .index_pin(0)
+                .as_pin_str()
+                .make_ascii_uppercase();
+            archived
+                .as_mut()
+                .b()
+                .index_pin(1)
+                .as_pin_str()
+                .make_ascii_uppercase();
+            assert_eq!(archived.b[0], "HELLO");
+            assert_eq!(archived.b[1], "WORLD");
+        });
+    }
+
+    #[test]
+    fn recursive_structures() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(
+            crate,
+            check_bytes(bounds(__C: crate::validation::ArchiveContext)),
+            // The derive macros don't apply the right bounds from Box so we
+            // have to manually specify what bounds to apply
+            serialize_bounds(__S: Writer),
+            deserialize_bounds(__D::Error: Source),
+            compare(PartialEq),
+            derive(Debug),
+        )]
+        enum Node {
+            Nil,
+            Cons(#[omit_bounds] Box<Node>),
+        }
+
+        roundtrip(&Node::Cons(Box::new(Node::Cons(Box::new(Node::Nil)))));
+    }
+
+    #[test]
+    fn recursive_self_types() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(
+            crate,
+            check_bytes(bounds(__C: crate::validation::ArchiveContext)),
+            archive_bounds(T::Archived: core::fmt::Debug),
+            // The derive macros don't apply the right bounds from Box so we
+            // have to manually specify what bounds to apply
+            serialize_bounds(__S: Writer),
+            deserialize_bounds(__D::Error: Source),
+            compare(PartialEq),
+            derive(Debug),
+        )]
+        pub enum LinkedList<T: Archive> {
+            Empty,
+            Node {
+                val: T,
+                #[omit_bounds]
+                next: Box<Self>,
+            },
+        }
+
+        roundtrip(&LinkedList::Node {
+            val: 42i32,
+            next: Box::new(LinkedList::Node {
+                val: 100i32,
+                next: Box::new(LinkedList::Empty),
+            }),
+        });
     }
 }

@@ -82,10 +82,9 @@ impl_rend_primitives!(
 
 #[cfg(test)]
 mod tests {
-    use rancor::Error;
     use rend::*;
 
-    use crate::{test::roundtrip, to_bytes};
+    use crate::test::{roundtrip, to_bytes};
 
     #[test]
     fn roundtrip_integers() {
@@ -171,12 +170,14 @@ mod tests {
     fn verify_endianness() {
         // Big endian
         let value = i32_be::from_native(0x12345678);
-        let buf = to_bytes::<Error>(&value).unwrap();
-        assert_eq!(&buf[0..4], &[0x12, 0x34, 0x56, 0x78]);
+        to_bytes(&value, |buf| {
+            assert_eq!(&buf[0..4], &[0x12, 0x34, 0x56, 0x78]);
+        });
 
         // Little endian
         let value = i32_le::from_native(0x12345678i32);
-        let buf = to_bytes::<Error>(&value).unwrap();
-        assert_eq!(&buf[0..4], &[0x78, 0x56, 0x34, 0x12]);
+        to_bytes(&value, |buf| {
+            assert_eq!(&buf[0..4], &[0x78, 0x56, 0x34, 0x12]);
+        });
     }
 }

@@ -91,13 +91,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    #[cfg(all(feature = "alloc", not(feature = "std")))]
-    use alloc::string::String;
     use core::hash::BuildHasherDefault;
 
     use hashbrown::HashMap;
 
-    use crate::{hash::FxHasher64, test::roundtrip_with};
+    use crate::{
+        alloc::string::String, hash::FxHasher64, test::roundtrip_with,
+    };
 
     #[test]
     fn index_map() {

@@ -126,7 +126,8 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// // and compatibility with #![no_std] environments
 /// use rkyv::{
 ///     ser::{allocator::Arena, sharing::Share, Serializer},
-///     util::{serialize_into, AlignedVec},
+///     util::AlignedVec,
+///     buffer::serialize_into,
 /// };
 ///
 /// let mut arena = Arena::new();

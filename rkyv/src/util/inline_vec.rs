@@ -394,13 +394,12 @@ mod tests {
     #[test]
     fn drain() {
         let mut vec = InlineVec::<_, 8>::new();
-        let mut out = Vec::new();
 
         for i in 0..100 {
             vec.push(i);
             if vec.len() == vec.capacity() {
                 for j in vec.drain() {
-                    out.push(j);
+                    let _ = j;
                 }
             }
         }

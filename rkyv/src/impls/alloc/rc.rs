@@ -1,13 +1,10 @@
-#[cfg(not(feature = "std"))]
-use alloc::{alloc::alloc, boxed::Box, rc, sync};
 use core::alloc::LayoutError;
-#[cfg(feature = "std")]
-use std::{alloc::alloc, rc, sync};
 
 use ptr_meta::{from_raw_parts_mut, Pointee};
 use rancor::{Fallible, Source};
 
 use crate::{
+    alloc::{alloc::alloc, boxed::Box, rc, sync},
     de::{Metadata, Pooling, PoolingExt as _, SharedPointer},
     rc::{
         ArcFlavor, ArchivedRc, ArchivedRcWeak, RcFlavor, RcResolver,
@@ -302,9 +299,13 @@ mod tests {
 
     use rancor::Panic;
 
-    use super::rc::{Rc, Weak};
     use crate::{
         access_unchecked, access_unchecked_mut,
+        alloc::{
+            rc::{Rc, Weak},
+            string::{String, ToString},
+            vec,
+        },
         de::Pool,
         deserialize,
         test::{roundtrip, to_archived},

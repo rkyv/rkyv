@@ -1,106 +1,29 @@
-#[cfg(not(feature = "std"))]
-use alloc::{
-    borrow::Cow,
-    boxed::Box,
-    collections::{BTreeMap, BTreeSet},
-    rc::Rc,
-    sync::Arc,
-    vec::Vec,
-};
 use core::marker::PhantomData;
-#[cfg(feature = "std")]
-use std::{
-    borrow::Cow,
-    collections::{BTreeMap, BTreeSet},
-    rc::Rc,
-    sync::Arc,
-};
 
 use ptr_meta::Pointee;
 use rancor::{Fallible, Source};
 
 use crate::{
-    boxed::{ArchivedBox, BoxResolver},
+    alloc::{
+        borrow::Cow,
+        boxed::Box,
+        collections::{BTreeMap, BTreeSet},
+        rc::Rc,
+        sync::Arc,
+        vec::Vec,
+    },
     collections::util::{Entry, EntryAdapter},
     niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
     ser::{Allocator, Writer},
     string::{ArchivedString, StringResolver},
     vec::{ArchivedVec, VecResolver},
     with::{
-        ArchiveWith, AsBox, AsOwned, AsVec, DeserializeWith, InlineAsBox, Map,
-        Niche, SerializeWith, Unshare,
+        ArchiveWith, AsOwned, AsVec, DeserializeWith, Map, Niche,
+        SerializeWith, Unshare,
     },
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
     LayoutRaw, Place, Serialize, SerializeUnsized,
 };
-
-// BoxedInline
-
-impl<F: ArchiveUnsized + ?Sized> ArchiveWith<&F> for InlineAsBox {
-    type Archived = ArchivedBox<F::Archived>;
-    type Resolver = BoxResolver;
-
-    fn resolve_with(
-        field: &&F,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
-        ArchivedBox::resolve_from_ref(*field, resolver, out);
-    }
-}
-
-impl<F, S> SerializeWith<&F, S> for InlineAsBox
-where
-    F: SerializeUnsized<S> + ?Sized,
-    S: Fallible + ?Sized,
-{
-    fn serialize_with(
-        field: &&F,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
-        ArchivedBox::serialize_from_ref(*field, serializer)
-    }
-}
-
-// Boxed
-
-impl<F: ArchiveUnsized + ?Sized> ArchiveWith<F> for AsBox {
-    type Archived = ArchivedBox<F::Archived>;
-    type Resolver = BoxResolver;
-
-    fn resolve_with(
-        field: &F,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
-        ArchivedBox::resolve_from_ref(field, resolver, out);
-    }
-}
-
-impl<F: SerializeUnsized<S> + ?Sized, S: Fallible + ?Sized> SerializeWith<F, S>
-    for AsBox
-{
-    fn serialize_with(
-        field: &F,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, S::Error> {
-        ArchivedBox::serialize_from_ref(field, serializer)
-    }
-}
-
-impl<F, D> DeserializeWith<ArchivedBox<F::Archived>, F, D> for AsBox
-where
-    F: Archive,
-    F::Archived: Deserialize<F, D>,
-    D: Fallible + ?Sized,
-{
-    fn deserialize_with(
-        field: &ArchivedBox<F::Archived>,
-        deserializer: &mut D,
-    ) -> Result<F, D::Error> {
-        field.get().deserialize(deserializer)
-    }
-}
 
 // Map
 
@@ -538,8 +461,18 @@ where
 
 #[cfg(test)]
 mod tests {
+    use core::mem::size_of;
+
     use crate::{
-        test::roundtrip, with::Niche, Archive, Deserialize, Serialize,
+        alloc::{
+            borrow::Cow,
+            boxed::Box,
+            collections::{BTreeMap, BTreeSet},
+            string::{String, ToString},
+        },
+        test::{roundtrip, to_archived},
+        with::{AsOwned, AsVec, Niche},
+        Archive, Deserialize, Serialize,
     };
 
     #[derive(Debug, Archive, Deserialize, Serialize, PartialEq)]
@@ -573,5 +506,117 @@ mod tests {
             inner: Some(Box::<[u32]>::from([])),
         });
         roundtrip(&HasNiche { inner: None });
+    }
+
+    #[test]
+    fn with_as_owned() {
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate, check_bytes)]
+        struct Test<'a> {
+            #[with(AsOwned)]
+            a: Cow<'a, u32>,
+            #[with(AsOwned)]
+            b: Cow<'a, [u32]>,
+            #[with(AsOwned)]
+            c: Cow<'a, str>,
+        }
+
+        let value = Test {
+            a: Cow::Borrowed(&100),
+            b: Cow::Borrowed(&[1, 2, 3, 4, 5, 6]),
+            c: Cow::Borrowed("hello world"),
+        };
+        to_archived(&value, |archived| {
+            assert_eq!(archived.a, 100);
+            assert_eq!(archived.b, [1, 2, 3, 4, 5, 6]);
+            assert_eq!(archived.c, "hello world");
+        });
+    }
+
+    #[test]
+    fn with_as_vec() {
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate, check_bytes)]
+        struct Test {
+            #[with(AsVec)]
+            a: BTreeMap<String, String>,
+            #[with(AsVec)]
+            b: BTreeSet<String>,
+            #[with(AsVec)]
+            c: BTreeMap<String, String>,
+        }
+
+        let mut a = BTreeMap::new();
+        a.insert("foo".to_string(), "hello".to_string());
+        a.insert("bar".to_string(), "world".to_string());
+        a.insert("baz".to_string(), "bat".to_string());
+
+        let mut b = BTreeSet::new();
+        b.insert("foo".to_string());
+        b.insert("hello world!".to_string());
+        b.insert("bar".to_string());
+        b.insert("fizzbuzz".to_string());
+
+        let c = BTreeMap::new();
+
+        let value = Test { a, b, c };
+
+        to_archived(&value, |archived| {
+            assert_eq!(archived.a.len(), 3);
+            assert!(archived
+                .a
+                .iter()
+                .find(|&e| e.key == "foo" && e.value == "hello")
+                .is_some());
+            assert!(archived
+                .a
+                .iter()
+                .find(|&e| e.key == "bar" && e.value == "world")
+                .is_some());
+            assert!(archived
+                .a
+                .iter()
+                .find(|&e| e.key == "baz" && e.value == "bat")
+                .is_some());
+
+            assert_eq!(archived.b.len(), 4);
+            assert!(archived.b.iter().find(|&e| e == "foo").is_some());
+            assert!(archived.b.iter().find(|&e| e == "hello world!").is_some());
+            assert!(archived.b.iter().find(|&e| e == "bar").is_some());
+            assert!(archived.b.iter().find(|&e| e == "fizzbuzz").is_some());
+        });
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn with_niche_box() {
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate, check_bytes)]
+        struct Test {
+            #[with(Niche)]
+            inner: Option<Box<String>>,
+        }
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate, check_bytes)]
+        struct TestNoNiching {
+            inner: Option<Box<String>>,
+        }
+
+        let value = Test {
+            inner: Some(Box::new("hello world".to_string())),
+        };
+        to_archived(&value, |archived| {
+            assert!(archived.inner.is_some());
+            assert_eq!(&**archived.inner.as_ref().unwrap(), "hello world");
+            assert_eq!(archived.inner, value.inner);
+        });
+
+        let value = Test { inner: None };
+        to_archived(&value, |archived| {
+            assert!(archived.inner.is_none());
+            assert_eq!(archived.inner, value.inner);
+        });
+        assert!(size_of::<ArchivedTest>() < size_of::<ArchivedTestNoNiching>());
     }
 }

@@ -90,13 +90,13 @@ impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
 
 #[cfg(test)]
 mod tests {
-    #[cfg(all(feature = "alloc", not(feature = "std")))]
-    use alloc::string::String;
     use core::hash::BuildHasherDefault;
 
     use hashbrown::HashSet;
 
-    use crate::{hash::FxHasher64, test::roundtrip_with};
+    use crate::{
+        alloc::string::String, hash::FxHasher64, test::roundtrip_with,
+    };
 
     #[test]
     fn index_set() {

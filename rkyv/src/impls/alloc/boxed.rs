@@ -1,12 +1,9 @@
 use core::cmp;
 
-#[cfg(not(feature = "std"))]
-use ::alloc::{alloc, boxed::Box};
-#[cfg(feature = "std")]
-use ::std::alloc;
 use rancor::{Fallible, ResultExt as _, Source};
 
 use crate::{
+    alloc::{alloc::alloc, boxed::Box},
     boxed::{ArchivedBox, BoxResolver},
     niche::option_box::ArchivedOptionBox,
     Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized,
@@ -46,7 +43,7 @@ where
         let metadata = self.get().deserialize_metadata();
         let layout = T::layout_raw(metadata).into_error()?;
         let data_address = if layout.size() > 0 {
-            unsafe { alloc::alloc(layout) }
+            unsafe { alloc(layout) }
         } else {
             crate::polyfill::dangling(&layout).as_ptr()
         };
@@ -96,7 +93,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::test::roundtrip;
+    use crate::{
+        alloc::{boxed::Box, string::ToString, vec, vec::Vec},
+        test::roundtrip,
+    };
 
     #[test]
     fn roundtrip_box() {

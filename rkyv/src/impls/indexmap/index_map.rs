@@ -78,13 +78,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    #[cfg(not(feature = "std"))]
-    use alloc::string::String;
     use core::hash::BuildHasherDefault;
 
     use indexmap::IndexMap;
 
-    use crate::{hash::FxHasher64, test::roundtrip_with};
+    use crate::{
+        alloc::string::String, hash::FxHasher64, test::roundtrip_with,
+    };
 
     #[test]
     fn index_map() {

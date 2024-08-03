@@ -174,49 +174,60 @@ impl<T> From<T> for AllocationTracker<T> {
 
 #[cfg(test)]
 mod tests {
+    use core::mem::MaybeUninit;
+
     use rancor::{Panic, Strategy};
 
     use crate::{
-        buffer::serialize_into, ser::allocator::AllocationStats,
-        util::AlignedVec, Serialize,
+        buffer::serialize_into,
+        ser::{
+            allocator::{AllocationStats, AllocationTracker, SubAllocator},
+            sharing::Unshare,
+            writer::Buffer,
+            Serializer,
+        },
+        util::Align,
+        Serialize,
     };
 
+    type TrackerSerializer<'a> = Strategy<
+        Serializer<Buffer<'a>, AllocationTracker<SubAllocator<'a>>, Unshare>,
+        Panic,
+    >;
+
+    fn track_serialize<T>(value: &T) -> AllocationStats
+    where
+        T: for<'a> Serialize<TrackerSerializer<'a>>,
+    {
+        let mut output = Align([MaybeUninit::<u8>::uninit(); 256]);
+        let mut scratch = [MaybeUninit::<u8>::uninit(); 256];
+
+        let serializer = serialize_into(
+            value,
+            Serializer::new(
+                Buffer::from(&mut *output),
+                AllocationTracker::new(SubAllocator::new(&mut scratch)),
+                Unshare,
+            ),
+        )
+        .unwrap();
+        serializer.into_raw_parts().1.into_stats()
+    }
+
     #[test]
-    fn allocation_tracker() {
-        use crate::ser::{
-            allocator::{AllocationTracker, Arena, ArenaHandle},
-            Serializer,
-        };
-
-        type TrackerSerializer<'a, E> = Strategy<
-            Serializer<AlignedVec, AllocationTracker<ArenaHandle<'a>>, ()>,
-            E,
-        >;
-
-        fn track_serialize<T>(value: &T) -> AllocationStats
-        where
-            T: for<'a> Serialize<TrackerSerializer<'a, Panic>>,
-        {
-            let mut arena = Arena::new();
-
-            let serializer = serialize_into(
-                value,
-                Serializer::new(
-                    AlignedVec::new(),
-                    AllocationTracker::new(arena.acquire()),
-                    (),
-                ),
-            )
-            .unwrap();
-            serializer.into_raw_parts().1.into_stats()
-        }
-
+    fn simple() {
         let stats = track_serialize(&42);
         assert_eq!(stats.max_bytes_allocated, 0);
         assert_eq!(stats.max_allocations, 0);
         assert_eq!(stats.max_alignment, 1);
         assert_eq!(stats.min_arena_capacity(), 0);
         assert_eq!(stats.min_arena_capacity_max_error(), 0);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn nested() {
+        use crate::alloc::vec;
 
         let stats = track_serialize(&vec![1, 2, 3, 4]);
         assert_eq!(stats.max_bytes_allocated, 0);
@@ -224,6 +235,12 @@ mod tests {
         assert_eq!(stats.max_alignment, 1);
         assert_eq!(stats.min_arena_capacity(), 0);
         assert_eq!(stats.min_arena_capacity_max_error(), 0);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn doubly_nested() {
+        use crate::alloc::vec;
 
         let stats = track_serialize(&vec![vec![1, 2], vec![3, 4]]);
         assert_ne!(stats.max_bytes_allocated, 0);

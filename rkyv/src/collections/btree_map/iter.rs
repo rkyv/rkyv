@@ -1,8 +1,7 @@
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
 use core::{marker::PhantomData, pin::Pin, ptr::addr_of_mut};
 
 use crate::{
+    alloc::vec::Vec,
     collections::btree_map::{
         entries_to_height, ArchivedBTreeMap, InnerNode, LeafNode, Node,
         NodeKind,

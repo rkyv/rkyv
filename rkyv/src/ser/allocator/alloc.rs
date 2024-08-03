@@ -1,15 +1,14 @@
-#[cfg(not(feature = "std"))]
-use alloc::alloc::{alloc, dealloc, handle_alloc_error};
 use core::{
     alloc::Layout,
     marker::PhantomData,
     mem::{align_of, size_of, ManuallyDrop},
     ptr::{slice_from_raw_parts_mut, NonNull},
 };
-#[cfg(feature = "std")]
-use std::alloc::{alloc, dealloc, handle_alloc_error};
 
-use crate::ser::Allocator;
+use crate::{
+    alloc::alloc::{alloc, dealloc, handle_alloc_error},
+    ser::Allocator,
+};
 
 struct Block {
     next_ptr: NonNull<Block>,
@@ -268,6 +267,7 @@ mod tests {
     use rancor::{Panic, ResultExt};
 
     use crate::{
+        alloc::{string::ToString, vec},
         buffer::serialize_into,
         ser::{allocator::Arena, sharing::Share, Allocator, Serializer},
         util::AlignedVec,

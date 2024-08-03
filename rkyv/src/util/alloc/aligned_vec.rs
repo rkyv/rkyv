@@ -1,18 +1,20 @@
 use core::{
+    alloc::Layout,
     borrow::{Borrow, BorrowMut},
     fmt,
     ops::{Deref, DerefMut, Index, IndexMut},
     ptr::NonNull,
     slice,
 };
-#[cfg(feature = "std")]
-use std::{alloc, io};
 
-#[cfg(not(feature = "std"))]
-use ::alloc::{alloc, boxed::Box, vec::Vec};
 use rancor::Fallible;
 
 use crate::{
+    alloc::{
+        alloc::{alloc, dealloc, handle_alloc_error, realloc},
+        boxed::Box,
+        vec::Vec,
+    },
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     with::{ArchiveWith, AsVec, DeserializeWith, SerializeWith},
@@ -43,7 +45,7 @@ impl<const A: usize> Drop for AlignedVec<A> {
     fn drop(&mut self) {
         if self.cap != 0 {
             unsafe {
-                alloc::dealloc(self.ptr.as_ptr(), self.layout());
+                dealloc(self.ptr.as_ptr(), self.layout());
             }
         }
     }
@@ -55,9 +57,9 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
 
     /// Maximum capacity of the vector.
     ///
-    /// Dictated by the requirements of [`alloc::Layout`]. "`size`, when rounded
-    /// up to the nearest multiple of `align`, must not overflow `isize` (i.e.
-    /// the rounded value must be less than or equal to `isize::MAX`)".
+    /// Dictated by the requirements of [`Layout`]. "`size`, when rounded up to
+    /// the nearest multiple of `align`, must not overflow `isize` (i.e. the
+    /// rounded value must be less than or equal to `isize::MAX`)".
     pub const MAX_CAPACITY: usize = isize::MAX as usize - (Self::ALIGNMENT - 1);
 
     /// Constructs a new, empty `AlignedVec`.
@@ -125,13 +127,13 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
             );
 
             let ptr = unsafe {
-                let layout = alloc::Layout::from_size_align_unchecked(
+                let layout = Layout::from_size_align_unchecked(
                     capacity,
                     Self::ALIGNMENT,
                 );
-                let ptr = alloc::alloc(layout);
+                let ptr = alloc(layout);
                 if ptr.is_null() {
-                    alloc::handle_alloc_error(layout);
+                    handle_alloc_error(layout);
                 }
                 NonNull::new_unchecked(ptr)
             };
@@ -144,10 +146,8 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
         }
     }
 
-    fn layout(&self) -> alloc::Layout {
-        unsafe {
-            alloc::Layout::from_size_align_unchecked(self.cap, Self::ALIGNMENT)
-        }
+    fn layout(&self) -> Layout {
+        unsafe { Layout::from_size_align_unchecked(self.cap, Self::ALIGNMENT) }
     }
 
     /// Clears the vector, removing all values.
@@ -199,7 +199,7 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
                 //   the current block of memory.
                 // - We checked that `new_cap` is greater than zero.
                 let new_ptr = unsafe {
-                    alloc::realloc(self.ptr.as_ptr(), self.layout(), new_cap)
+                    realloc(self.ptr.as_ptr(), self.layout(), new_cap)
                 };
                 if new_ptr.is_null() {
                     // SAFETY:
@@ -208,12 +208,12 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
                     // - We checked that `new_cap` doesn't overflow `isize` when
                     //   rounded up to the nearest power of two.
                     let layout = unsafe {
-                        alloc::Layout::from_size_align_unchecked(
+                        Layout::from_size_align_unchecked(
                             new_cap,
                             Self::ALIGNMENT,
                         )
                     };
-                    alloc::handle_alloc_error(layout);
+                    handle_alloc_error(layout);
                 }
                 new_ptr
             } else {
@@ -223,15 +223,12 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
                 // - We checked that `new_cap` doesn't overflow `isize` when
                 //   rounded up to the nearest power of two.
                 let layout = unsafe {
-                    alloc::Layout::from_size_align_unchecked(
-                        new_cap,
-                        Self::ALIGNMENT,
-                    )
+                    Layout::from_size_align_unchecked(new_cap, Self::ALIGNMENT)
                 };
                 // SAFETY: We checked that `new_cap` has non-zero size.
-                let new_ptr = unsafe { alloc::alloc(layout) };
+                let new_ptr = unsafe { alloc(layout) };
                 if new_ptr.is_null() {
-                    alloc::handle_alloc_error(layout);
+                    handle_alloc_error(layout);
                 }
                 new_ptr
             };
@@ -240,9 +237,11 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
             self.ptr = unsafe { NonNull::new_unchecked(new_ptr) };
             self.cap = new_cap;
         } else if self.cap > 0 {
-            //
+            // SAFETY: Because the capacity is nonzero, `self.ptr` points to a
+            // currently-allocated memory block. All memory blocks are allocated
+            // with a layout of `self.layout()`.
             unsafe {
-                alloc::dealloc(self.ptr.as_ptr(), self.layout());
+                dealloc(self.ptr.as_ptr(), self.layout());
             }
             self.ptr = NonNull::dangling();
             self.cap = 0;
@@ -771,7 +770,7 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
 
 #[cfg(feature = "std")]
 const _: () = {
-    use std::io::{ErrorKind, Read};
+    use std::io;
 
     impl<const A: usize> AlignedVec<A> {
         /// Reads all bytes until EOF from `r` and appends them to this
@@ -793,10 +792,10 @@ const _: () = {
         /// assert_eq!(bytes[100], 100);
         /// assert_eq!(bytes[2945], 129);
         /// ```
-        pub fn extend_from_reader<R: Read + ?Sized>(
+        pub fn extend_from_reader<R: io::Read + ?Sized>(
             &mut self,
             r: &mut R,
-        ) -> std::io::Result<usize> {
+        ) -> io::Result<usize> {
             let start_len = self.len();
             let start_cap = self.capacity();
 
@@ -844,7 +843,9 @@ const _: () = {
                             return Ok(self.len() - start_len);
                         }
                     }
-                    Err(e) if e.kind() == ErrorKind::Interrupted => continue,
+                    Err(e) if e.kind() == io::ErrorKind::Interrupted => {
+                        continue
+                    }
                     Err(e) => return Err(e),
                 }
 
@@ -866,7 +867,7 @@ const _: () = {
                                 break;
                             }
                             Err(ref e)
-                                if e.kind() == ErrorKind::Interrupted =>
+                                if e.kind() == io::ErrorKind::Interrupted =>
                             {
                                 continue
                             }
@@ -875,6 +876,34 @@ const _: () = {
                     }
                 }
             }
+        }
+    }
+
+    impl<const A: usize> io::Write for AlignedVec<A> {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            self.extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn write_vectored(
+            &mut self,
+            bufs: &[io::IoSlice<'_>],
+        ) -> io::Result<usize> {
+            let len = bufs.iter().map(|b| b.len()).sum();
+            self.reserve(len);
+            for buf in bufs {
+                self.extend_from_slice(buf);
+            }
+            Ok(len)
+        }
+
+        fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+            self.extend_from_slice(buf);
+            Ok(())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
         }
     }
 };
@@ -961,35 +990,6 @@ impl<const A: usize, I: slice::SliceIndex<[u8]>> Index<I> for AlignedVec<A> {
 impl<const A: usize, I: slice::SliceIndex<[u8]>> IndexMut<I> for AlignedVec<A> {
     fn index_mut(&mut self, index: I) -> &mut Self::Output {
         &mut self.as_mut_slice()[index]
-    }
-}
-
-#[cfg(feature = "std")]
-impl<const A: usize> io::Write for AlignedVec<A> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.extend_from_slice(buf);
-        Ok(buf.len())
-    }
-
-    fn write_vectored(
-        &mut self,
-        bufs: &[io::IoSlice<'_>],
-    ) -> io::Result<usize> {
-        let len = bufs.iter().map(|b| b.len()).sum();
-        self.reserve(len);
-        for buf in bufs {
-            self.extend_from_slice(buf);
-        }
-        Ok(len)
-    }
-
-    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.extend_from_slice(buf);
-        Ok(())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
     }
 }
 

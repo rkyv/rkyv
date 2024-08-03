@@ -1,11 +1,10 @@
 # Release checklist
 
-- [ ] Run `cargo clippy` and `cargo fmt` on all crates
-- [ ] Generate documentation with `cargo doc --open` and make sure:
-  - [ ] Every public item is documented
-  - [ ] Every link is correct
+- [ ] Run `cargo clippy` and `cargo +nightly fmt` on all crates
+- [ ] Generate documentation with `cargo +nightly doc --open` and make sure every public item is documented
 - [ ] Make sure that `crates-io.md` and `README.md` are up to date with the most recent examples
-- [ ] Run all tests with all combinations of features in debug and release
+- [ ] Build using all supported feature combinations
+- [ ] Test using all supported feature combinations
 - [ ] Bump version numbers and check that all crates have their dependencies updated to match
 - [ ] Commit with the name `"Release X.X.X"` and push
 - [ ] Merge development branch into `master`
@@ -18,114 +17,76 @@
   - [ ] `/r/rust`
   - [ ] Twitter
 
-# All tests cheatsheet
+# Check matrices
 
-TODO: clean up and slim down this test matrix
+For each matrix, select one feature from each group to enable and run a check
+build.
 
-- Regular tests:
-  - [ ] `cargo test --no-default-features --features "size_32"`
-  - [ ] `cargo test --no-default-features --features "size_32 alloc"`
-  - [ ] `cargo test --no-default-features --features "size_32 bytecheck"`
-  - [ ] `cargo test --no-default-features --features "size_32 std"`
-  - [ ] `cargo test --no-default-features --features "size_32 std bytecheck"`
-  - [ ] `cargo test --no-default-features --features "size_32 std bytecheck stable_layout"`
-  - [ ] `cargo test --no-default-features --features "size_16 archive_le std bytecheck"`
-  - [ ] `cargo test --no-default-features --features "size_32 archive_le std bytecheck"`
-  - [ ] `cargo test --no-default-features --features "size_64 archive_le std bytecheck"`
-  - [ ] `cargo test --no-default-features --features "size_16 archive_be std bytecheck"`
-  - [ ] `cargo test --no-default-features --features "size_32 archive_be std bytecheck"`
-  - [ ] `cargo test --no-default-features --features "size_64 archive_be std bytecheck"`
-- Release tests:
-  - [ ] `cargo test --release --no-default-features --features "size_32"`
-  - [ ] `cargo test --release --no-default-features --features "size_32 alloc"`
-  - [ ] `cargo test --release --no-default-features --features "size_32 bytecheck"`
-  - [ ] `cargo test --release --no-default-features --features "size_32 std"`
-  - [ ] `cargo test --release --no-default-features --features "size_32 std bytecheck"`
-  - [ ] `cargo test --release --no-default-features --features "size_32 std bytecheck stable_layout"`
-  - [ ] `cargo test --release --no-default-features --features "size_16 archive_le std bytecheck"`
-  - [ ] `cargo test --release --no-default-features --features "size_32 archive_le std bytecheck"`
-  - [ ] `cargo test --release --no-default-features --features "size_64 archive_le std bytecheck"`
-  - [ ] `cargo test --release --no-default-features --features "size_16 archive_be std bytecheck"`
-  - [ ] `cargo test --release --no-default-features --features "size_32 archive_be std bytecheck"`
-  - [ ] `cargo test --release --no-default-features --features "size_64 archive_be std bytecheck"`
-- Miri tests:
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 alloc"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 bytecheck"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 std"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 std bytecheck"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 std bytecheck stable_layout"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_16 archive_le std bytecheck"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 archive_le std bytecheck"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_64 archive_le std bytecheck"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_16 archive_be std bytecheck"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_32 archive_be std bytecheck"`
-  - [ ] `cargo +nightly miri test --no-default-features --features "size_64 archive_be std bytecheck"`
-- Wasm-pack tests:
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 alloc"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 bytecheck"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 std"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 std bytecheck"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 std bytecheck stable_layout"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_le std bytecheck"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_le std bytecheck"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_be std bytecheck"`
-  - [ ] `wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_be std bytecheck"`
+## Primitives
 
-# Copy-paste version
+- `little_endian`, `big_endian`
+- none, `unaligned`
+- `pointer_width_16`, `pointer_width_32`, `pointer_width_64`
 
-Remember to use tree borrows instead of stacked borrows:
+Builds:
+
+```sh
+cargo test --tests --no-default-features --features "little_endian pointer_width_16"
+cargo test --tests --no-default-features --features "big_endian pointer_width_16"
+cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_16"
+cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_16"
+cargo test --tests --no-default-features --features "little_endian pointer_width_32"
+cargo test --tests --no-default-features --features "big_endian pointer_width_32"
+cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_32"
+cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_32"
+cargo test --tests --no-default-features --features "little_endian pointer_width_64"
+cargo test --tests --no-default-features --features "big_endian pointer_width_64"
+cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_64"
+cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_64"
+```
+
+## Features
+
+- none, `alloc`, `std`
+- none, `bytecheck`
+- none, all external crates
+  - `bitvec`
+  - `hashbrown`
+  - `indexmap`
+  - `smallvec`
+  - `smol_str`
+  - `arrayvec`
+  - `tinyvec`
+  - `uuid`
+  - `bytes`
+  - `thin-vec`
+  - `triomphe`
+
+Builds:
+
+```sh
+cargo test --tests --no-default-features
+cargo test --tests --no-default-features --features "alloc"
+cargo test --tests --no-default-features --features "std"
+cargo test --tests --no-default-features --features "bytecheck"
+cargo test --tests --no-default-features --features "bytecheck alloc"
+cargo test --tests --no-default-features --features "bytecheck std"
+cargo test --tests --no-default-features --features "bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe"
+cargo test --tests --no-default-features --features "alloc bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe"
+cargo test --tests --no-default-features --features "std bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe"
+cargo test --tests --no-default-features --features "bytecheck bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe"
+cargo test --tests --no-default-features --features "bytecheck alloc bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe"
+cargo test --tests --no-default-features --features "bytecheck std bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe"
+```
+
+# 
+
+# Testing through MIRI
+
+MIRI's default aliasing model is stacked borrows, which doesn't support relative
+pointers even though Rust's memory model does. The experimental tree borrows
+aliasing model supports relative pointers, so we use that instead:
 
 ```sh
 $env:MIRIFLAGS="-Zmiri-disable-stacked-borrows -Zmiri-tree-borrows"
-```
-
-```sh
-cargo test --no-default-features --features "size_32" >> results.txt
-cargo test --no-default-features --features "size_32 alloc" >> results.txt
-cargo test --no-default-features --features "size_32 bytecheck" >> results.txt
-cargo test --no-default-features --features "size_32 std" >> results.txt
-cargo test --no-default-features --features "size_32 std bytecheck" >> results.txt
-cargo test --no-default-features --features "size_32 std bytecheck stable_layout" >> results.txt
-cargo test --no-default-features --features "size_16 archive_le std bytecheck" >> results.txt
-cargo test --no-default-features --features "size_32 archive_le std bytecheck" >> results.txt
-cargo test --no-default-features --features "size_64 archive_le std bytecheck" >> results.txt
-cargo test --no-default-features --features "size_16 archive_be std bytecheck" >> results.txt
-cargo test --no-default-features --features "size_32 archive_be std bytecheck" >> results.txt
-cargo test --no-default-features --features "size_64 archive_be std bytecheck" >> results.txt
-cargo test --release --no-default-features --features "size_32" >> results.txt
-cargo test --release --no-default-features --features "size_32 alloc" >> results.txt
-cargo test --release --no-default-features --features "size_32 bytecheck" >> results.txt
-cargo test --release --no-default-features --features "size_32 std" >> results.txt
-cargo test --release --no-default-features --features "size_32 std bytecheck" >> results.txt
-cargo test --release --no-default-features --features "size_32 std bytecheck stable_layout" >> results.txt
-cargo test --release --no-default-features --features "size_16 archive_le std bytecheck" >> results.txt
-cargo test --release --no-default-features --features "size_32 archive_le std bytecheck" >> results.txt
-cargo test --release --no-default-features --features "size_64 archive_le std bytecheck" >> results.txt
-cargo test --release --no-default-features --features "size_16 archive_be std bytecheck" >> results.txt
-cargo test --release --no-default-features --features "size_32 archive_be std bytecheck" >> results.txt
-cargo test --release --no-default-features --features "size_64 archive_be std bytecheck" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 alloc" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 bytecheck" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 std" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 std bytecheck" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 std bytecheck stable_layout" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_16 archive_le std bytecheck" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 archive_le std bytecheck" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_64 archive_le std bytecheck" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_16 archive_be std bytecheck" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_32 archive_be std bytecheck" >> results.txt
-cargo +nightly miri test --no-default-features --features "size_64 archive_be std bytecheck" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_32" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_32 alloc" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_32 bytecheck" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_32 std" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_32 std bytecheck" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_32 std bytecheck stable_layout" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_le std bytecheck" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_le std bytecheck" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_16 archive_be std bytecheck" >> results.txt
-wasm-pack test --node -- --no-default-features --features "wasm size_32 archive_be std bytecheck" >> results.txt
 ```

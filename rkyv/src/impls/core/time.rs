@@ -66,8 +66,9 @@ mod tests {
         roundtrip(&Duration::new(1234, 5678));
     }
 
+    // TODO: this should test we catch cases where nanos > 1_000_000_000
     #[test]
-    fn check_valid_durations() {
+    fn invalid_duration() {
         let data = Align([0xff, 0x10]);
         from_bytes::<Duration, Failure>(&*data).unwrap_err();
     }

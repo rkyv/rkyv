@@ -1,12 +1,9 @@
 use core::cmp;
 
-#[cfg(not(feature = "std"))]
-use ::alloc::{alloc, boxed::Box, vec::Vec};
-#[cfg(feature = "std")]
-use ::std::alloc;
 use rancor::{Fallible, ResultExt as _, Source};
 
 use crate::{
+    alloc::{alloc::alloc, boxed::Box, vec::Vec},
     ser::{Allocator, Writer},
     vec::{ArchivedVec, VecResolver},
     Archive, Deserialize, DeserializeUnsized, LayoutRaw, Place, Serialize,
@@ -46,7 +43,7 @@ where
         let metadata = self.as_slice().deserialize_metadata();
         let layout = <[T] as LayoutRaw>::layout_raw(metadata).into_error()?;
         let data_address = if layout.size() > 0 {
-            unsafe { alloc::alloc(layout) }
+            unsafe { alloc(layout) }
         } else {
             crate::polyfill::dangling(&layout).as_ptr()
         };
@@ -79,7 +76,10 @@ impl<T: PartialOrd<U>, U> PartialOrd<Vec<U>> for ArchivedVec<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::test::roundtrip;
+    use crate::{
+        alloc::{vec, vec::Vec},
+        test::roundtrip,
+    };
 
     #[test]
     fn roundtrip_vec() {

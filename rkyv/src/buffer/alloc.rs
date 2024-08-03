@@ -103,7 +103,10 @@ where
 mod tests {
     use rancor::Panic;
 
-    use super::to_bytes_in;
+    use crate::{
+        alloc::{string::ToString, vec::Vec},
+        buffer::to_bytes_in,
+    };
 
     #[test]
     fn to_bytes_in_vec() {

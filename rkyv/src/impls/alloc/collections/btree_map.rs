@@ -1,12 +1,9 @@
-#[cfg(not(feature = "std"))]
-use alloc::collections::BTreeMap;
 use core::ops::ControlFlow;
-#[cfg(feature = "std")]
-use std::collections::BTreeMap;
 
 use rancor::{Fallible, Source};
 
 use crate::{
+    alloc::collections::BTreeMap,
     collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Place, Serialize,
@@ -98,17 +95,18 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::{ops::ControlFlow, pin::Pin};
+    use core::{ops::ControlFlow, pin::Pin};
 
-    use rancor::Failure;
-
-    use super::BTreeMap;
     use crate::{
-        access,
+        alloc::{
+            collections::BTreeMap,
+            string::{String, ToString},
+            vec,
+            vec::Vec,
+        },
         primitive::ArchivedI32,
         test::{roundtrip, to_archived},
-        util::Align,
-        Archive, Archived, Deserialize, Serialize,
+        Archive, Deserialize, Serialize,
     };
 
     #[test]
@@ -199,15 +197,6 @@ mod tests {
             .or_insert_with(|| vec![2.0]);
 
         roundtrip(&value);
-    }
-
-    #[test]
-    fn check_invalid_btree_map() {
-        let data = Align([
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0x30, 0, 0x00, 0x00, 0x00, 0x0c, 0xa5,
-            0xf0, 0xff, 0xff, 0xff,
-        ]);
-        access::<Archived<BTreeMap<u8, Box<u8>>>, Failure>(&*data).unwrap_err();
     }
 
     #[test]

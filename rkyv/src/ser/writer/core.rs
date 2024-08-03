@@ -48,7 +48,8 @@ const _: () = {
 /// use rkyv::{
 ///     rancor::{Error, Strategy},
 ///     ser::{writer::Buffer, Writer},
-///     util::{access_unchecked, serialize_into, Align},
+///     util::Align,
+///     buffer::{access_unchecked, serialize_into},
 ///     Archive, Archived, Serialize,
 /// };
 ///
@@ -173,7 +174,10 @@ mod tests {
 
     use rancor::Panic;
 
-    use crate::{buffer::to_bytes_in, ser::writer::Buffer};
+    use crate::{
+        buffer::serialize_into,
+        ser::{writer::Buffer, Serializer},
+    };
 
     #[test]
     fn zeroes_padding() {
@@ -188,12 +192,13 @@ mod tests {
             b: u64,
         }
 
-        let mut bytes = [MaybeUninit::new(0xccu8); 256];
-        let buffer = to_bytes_in::<_, Panic>(
+        let mut bytes = [MaybeUninit::<u8>::new(0xcc); 256];
+        let buffer = serialize_into::<_, Panic>(
             &PaddedExample { a: 0u8, b: 0u64 },
-            Buffer::from(&mut bytes),
+            Serializer::new(Buffer::from(&mut bytes), (), ()),
         )
-        .unwrap();
+        .unwrap()
+        .into_writer();
         assert!(&buffer[0..size_of::<ArchivedPaddedExample>()]
             .iter()
             .all(|&b| b == 0));

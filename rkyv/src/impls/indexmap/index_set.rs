@@ -66,13 +66,13 @@ impl<UK, K: PartialEq<UK>, S: BuildHasher> PartialEq<IndexSet<UK, S>>
 
 #[cfg(test)]
 mod tests {
-    #[cfg(not(feature = "std"))]
-    use alloc::string::String;
     use core::hash::BuildHasherDefault;
 
     use indexmap::IndexSet;
 
-    use crate::{hash::FxHasher64, test::roundtrip_with};
+    use crate::{
+        alloc::string::String, hash::FxHasher64, test::roundtrip_with,
+    };
 
     #[test]
     fn index_set() {

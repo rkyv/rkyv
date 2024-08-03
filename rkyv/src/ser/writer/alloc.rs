@@ -1,7 +1,5 @@
-#[cfg(not(feature = "std"))]
-use alloc::vec::Vec;
-
 use crate::{
+    alloc::vec::Vec,
     ser::{Positional, Writer},
     util::AlignedVec,
 };

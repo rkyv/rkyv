@@ -183,7 +183,7 @@ impl Attributes {
             }
         }
 
-        if result.archive_as.is_some() && result.check_bytes.is_some() {
+        if result.archive_as.is_some() && result.bytecheck_enabled() {
             Err(Error::new_spanned(
                 result.check_bytes.unwrap(),
                 "cannot generate a `CheckBytes` impl because `as = \"..\"` \
@@ -198,5 +198,9 @@ impl Attributes {
         self.crate_path
             .clone()
             .unwrap_or_else(|| parse_quote! { ::rkyv })
+    }
+
+    pub fn bytecheck_enabled(&self) -> bool {
+        cfg!(feature = "bytecheck") && self.check_bytes.is_some()
     }
 }

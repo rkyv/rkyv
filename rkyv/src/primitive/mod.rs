@@ -6,7 +6,6 @@ mod _macros;
 #[cfg(not(feature = "unaligned"))]
 mod atomic;
 
-// Aligned little-endian
 #[cfg(not(feature = "unaligned"))]
 pub use self::atomic::*;
 // Unaligned big-endian
@@ -32,6 +31,7 @@ use crate::rend::{
     u32_be, u64_be, NonZeroI128_be, NonZeroI16_be, NonZeroI32_be,
     NonZeroI64_be, NonZeroU128_be, NonZeroU16_be, NonZeroU32_be, NonZeroU64_be,
 };
+// Aligned little-endian
 #[cfg(all(not(feature = "unaligned"), not(feature = "big_endian")))]
 use crate::rend::{
     char_le, f32_le, f64_le, i128_le, i16_le, i32_le, i64_le, u128_le, u16_le,

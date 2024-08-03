@@ -1,10 +1,9 @@
-#[cfg(not(feature = "std"))]
-use alloc::string::{String, ToString};
 use core::cmp::Ordering;
 
 use rancor::Fallible;
 
 use crate::{
+    alloc::string::{String, ToString},
     string::{ArchivedString, StringResolver},
     Archive, Deserialize, DeserializeUnsized, Place, Serialize,
     SerializeUnsized,
@@ -73,7 +72,9 @@ impl PartialOrd<ArchivedString> for String {
 mod tests {
     use rancor::Failure;
 
-    use crate::{from_bytes, test::roundtrip, util::Align};
+    use crate::{
+        alloc::string::ToString, from_bytes, test::roundtrip, util::Align,
+    };
 
     #[test]
     fn roundtrip_string() {

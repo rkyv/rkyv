@@ -1,12 +1,9 @@
-#[cfg(not(feature = "std"))]
-use alloc::collections::BTreeSet;
 use core::ops::ControlFlow;
-#[cfg(feature = "std")]
-use std::collections::BTreeSet;
 
 use rancor::{Fallible, Source};
 
 use crate::{
+    alloc::collections::BTreeSet,
     collections::btree_set::{ArchivedBTreeSet, BTreeSetResolver},
     ser::{Allocator, Writer},
     Archive, Deserialize, Place, Serialize,
@@ -90,8 +87,10 @@ impl<K, AK: PartialEq<K>> PartialEq<BTreeSet<K>> for ArchivedBTreeSet<AK> {
 
 #[cfg(test)]
 mod tests {
-    use super::BTreeSet;
-    use crate::test::roundtrip;
+    use crate::{
+        alloc::{collections::BTreeSet, string::ToString},
+        test::roundtrip,
+    };
 
     #[test]
     fn roundtrip_btree_set() {

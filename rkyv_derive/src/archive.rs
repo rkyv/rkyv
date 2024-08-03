@@ -21,8 +21,7 @@ fn field_archive_attrs<'a>(
 ) -> impl 'a + Iterator<Item = &'a dyn ToTokens> {
     field.attrs.iter().filter_map(|attr| match &attr.meta {
         Meta::Path(path) => {
-            if path.is_ident("omit_bounds") && attributes.check_bytes.is_some()
-            {
+            if attributes.bytecheck_enabled() && path.is_ident("omit_bounds") {
                 Some(path as _)
             } else {
                 None

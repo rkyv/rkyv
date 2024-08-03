@@ -3,10 +3,10 @@
 
 use core::{any::TypeId, fmt, hash::BuildHasherDefault};
 #[cfg(feature = "std")]
-use std::collections::HashMap;
+use std::collections::hash_map;
 
 #[cfg(not(feature = "std"))]
-use hashbrown::HashMap;
+use hashbrown::hash_map;
 use rancor::{fail, Source};
 
 use crate::{hash::FxHasher64, validation::SharedContext};
@@ -48,7 +48,7 @@ impl std::error::Error for SharedError {
 /// A validator that can verify shared pointers.
 #[derive(Debug, Default)]
 pub struct SharedValidator {
-    shared: HashMap<usize, TypeId, BuildHasherDefault<FxHasher64>>,
+    shared: hash_map::HashMap<usize, TypeId, BuildHasherDefault<FxHasher64>>,
 }
 
 impl SharedValidator {
@@ -62,7 +62,7 @@ impl SharedValidator {
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
-            shared: HashMap::with_capacity_and_hasher(
+            shared: hash_map::HashMap::with_capacity_and_hasher(
                 capacity,
                 Default::default(),
             ),
@@ -77,13 +77,8 @@ impl<E: Source> SharedContext<E> for SharedValidator {
         type_id: TypeId,
     ) -> Result<bool, E> {
         #[cfg(feature = "std")]
-        use std::collections::hash_map::Entry;
-
-        #[cfg(not(feature = "std"))]
-        use hashbrown::hash_map::Entry;
-
         match self.shared.entry(address) {
-            Entry::Occupied(previous_type_entry) => {
+            hash_map::Entry::Occupied(previous_type_entry) => {
                 let previous_type_id = previous_type_entry.get();
                 if previous_type_id != &type_id {
                     fail!(SharedError::TypeMismatch {
@@ -94,7 +89,7 @@ impl<E: Source> SharedContext<E> for SharedValidator {
                     Ok(false)
                 }
             }
-            Entry::Vacant(ent) => {
+            hash_map::Entry::Vacant(ent) => {
                 ent.insert(type_id);
                 Ok(true)
             }

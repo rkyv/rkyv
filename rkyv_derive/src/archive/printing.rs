@@ -64,9 +64,7 @@ impl Printing {
             |lit| lit.parse::<Type>(),
         )?;
 
-        let derive_check_bytes = if attributes.check_bytes.is_some()
-            && cfg!(feature = "bytecheck")
-        {
+        let derive_check_bytes = if attributes.bytecheck_enabled() {
             let path = quote!(#rkyv_path::bytecheck).to_string();
             let path_lit_str = LitStr::new(&path, rkyv_path.span());
             let mut result = vec![

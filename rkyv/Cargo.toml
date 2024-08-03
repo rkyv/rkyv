@@ -47,11 +47,12 @@ unaligned = []
 pointer_width_16 = []
 pointer_width_32 = []
 pointer_width_64 = []
-alloc = ["hashbrown", "bitvec?/alloc", "tinyvec?/alloc"]
+alloc = ["dep:hashbrown", "bitvec?/alloc", "tinyvec?/alloc"]
 std = ["alloc", "bytecheck?/std", "bytes?/std", "indexmap?/std", "ptr_meta/std", "uuid?/std"]
 bytecheck = ["dep:bytecheck", "rend/bytecheck", "rkyv_derive/bytecheck"]
 
 # External crate support
+hashbrown = ["dep:hashbrown"]
 indexmap = ["dep:indexmap", "alloc"]
 triomphe = ["dep:triomphe", "alloc"]
 uuid = ["dep:uuid", "bytecheck?/uuid"]
