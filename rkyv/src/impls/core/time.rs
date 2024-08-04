@@ -57,19 +57,27 @@ impl From<ArchivedDuration> for Duration {
 mod tests {
     use core::time::Duration;
 
-    use rancor::Failure;
-
-    use crate::{api::test::roundtrip, from_bytes, util::Align};
+    use crate::api::test::roundtrip;
 
     #[test]
     fn roundtrip_duration() {
         roundtrip(&Duration::new(1234, 5678));
     }
 
-    // TODO: this should test we catch cases where nanos > 1_000_000_000
+    #[cfg(feature = "bytecheck")]
     #[test]
     fn invalid_duration() {
-        let data = Align([0xff, 0x10]);
+        use rancor::Failure;
+
+        use crate::{api::low::from_bytes, util::Align};
+
+        let data = Align([
+            // secs = 0u64
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            // nanos = 1_000_000_000u32 (nanos may not be 1 billion or more)
+            0x3b, 0x9a, 0xca, 0x00, // padding
+            0x00, 0x00, 0x00, 0x00,
+        ]);
         from_bytes::<Duration, Failure>(&*data).unwrap_err();
     }
 }

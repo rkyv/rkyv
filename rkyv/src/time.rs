@@ -181,7 +181,7 @@ mod verify {
     {
         fn verify(&self, _: &mut C) -> Result<(), C::Error> {
             let nanos = self.nanos.to_native();
-            if nanos > 1_000_000_000 {
+            if nanos >= 1_000_000_000 {
                 fail!(DurationError { nanos });
             } else {
                 Ok(())

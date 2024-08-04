@@ -31,18 +31,18 @@ build.
 Builds:
 
 ```sh
-cargo test --tests --no-default-features --features "little_endian pointer_width_16"
-cargo test --tests --no-default-features --features "big_endian pointer_width_16"
-cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_16"
-cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_16"
-cargo test --tests --no-default-features --features "little_endian pointer_width_32"
-cargo test --tests --no-default-features --features "big_endian pointer_width_32"
-cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_32"
-cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_32"
-cargo test --tests --no-default-features --features "little_endian pointer_width_64"
-cargo test --tests --no-default-features --features "big_endian pointer_width_64"
-cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_64"
-cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_64"
+cargo test --tests --no-default-features --features "little_endian pointer_width_16" >> results.txt
+cargo test --tests --no-default-features --features "big_endian pointer_width_16" >> results.txt
+cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_16" >> results.txt
+cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_16" >> results.txt
+cargo test --tests --no-default-features --features "little_endian pointer_width_32" >> results.txt
+cargo test --tests --no-default-features --features "big_endian pointer_width_32" >> results.txt
+cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_32" >> results.txt
+cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_32" >> results.txt
+cargo test --tests --no-default-features --features "little_endian pointer_width_64" >> results.txt
+cargo test --tests --no-default-features --features "big_endian pointer_width_64" >> results.txt
+cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_64" >> results.txt
+cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_64" >> results.txt
 ```
 
 ## Features
