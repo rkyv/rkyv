@@ -479,6 +479,8 @@ impl<F: Default, D: Fallible + ?Sized> DeserializeWith<(), F, D> for Skip {
 
 #[cfg(test)]
 mod tests {
+    use core::sync::atomic::{AtomicU32, AtomicU8, Ordering};
+
     use crate::{
         api::test::{deserialize, roundtrip, roundtrip_with, to_archived},
         primitive::ArchivedU32,
@@ -602,8 +604,6 @@ mod tests {
 
     #[test]
     fn with_atomic_load() {
-        use core::sync::atomic::{AtomicU32, Ordering};
-
         #[derive(Archive, Debug, Deserialize, Serialize)]
         #[rkyv(crate, check_bytes, derive(Debug))]
         struct Test {
@@ -632,17 +632,15 @@ mod tests {
 
     #[test]
     fn with_as_atomic() {
-        use core::sync::atomic::{AtomicU32, Ordering};
-
         #[derive(Archive, Debug, Deserialize, Serialize)]
         #[rkyv(crate, check_bytes)]
         struct Test {
             #[with(AsAtomic<Relaxed, Relaxed>)]
-            value: AtomicU32,
+            value: AtomicU8,
         }
 
         let value = Test {
-            value: AtomicU32::new(42),
+            value: AtomicU8::new(42),
         };
         to_archived(&value, |archived| {
             assert_eq!(archived.value.load(Ordering::Relaxed), 42);

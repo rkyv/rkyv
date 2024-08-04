@@ -1,4 +1,4 @@
-macro_rules! impl_serialize_with_atomic {
+macro_rules! impl_serialize_with_atomic_load {
     ($atomic:ty) => {
         impl<S, SO> $crate::with::SerializeWith<$atomic, S>
             for $crate::with::AtomicLoad<SO>
@@ -13,7 +13,11 @@ macro_rules! impl_serialize_with_atomic {
                 Ok(())
             }
         }
+    };
+}
 
+macro_rules! impl_serialize_with_as_atomic {
+    ($atomic:ty) => {
         impl<S, SO, DO> $crate::with::SerializeWith<$atomic, S>
             for $crate::with::AsAtomic<SO, DO>
         where

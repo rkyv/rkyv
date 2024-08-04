@@ -3,10 +3,11 @@
 #[cfg(feature = "alloc")]
 mod validator;
 
-use std::any::TypeId;
+use core::any::TypeId;
 
 use rancor::{Fallible, Strategy};
 
+#[cfg(feature = "alloc")]
 pub use self::validator::*;
 
 /// A context that can validate shared archive memory.

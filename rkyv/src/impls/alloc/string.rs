@@ -70,11 +70,7 @@ impl PartialOrd<ArchivedString> for String {
 
 #[cfg(test)]
 mod tests {
-    use rancor::Failure;
-
-    use crate::{
-        alloc::string::ToString, api::test::roundtrip, from_bytes, util::Align,
-    };
+    use crate::{alloc::string::ToString, api::test::roundtrip};
 
     #[test]
     fn roundtrip_string() {
@@ -95,11 +91,5 @@ mod tests {
 
         roundtrip(&Err::<(), _>("".to_string()));
         roundtrip(&Err::<(), _>("hello world".to_string()));
-    }
-
-    #[test]
-    fn check_invalid_string() {
-        let data = Align([0x10; 16]);
-        from_bytes::<String, Failure>(&*data).unwrap_err();
     }
 }

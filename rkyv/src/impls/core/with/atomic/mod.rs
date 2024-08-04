@@ -1,6 +1,5 @@
 #[macro_use]
 mod _macros;
-#[cfg(not(feature = "unaligned"))]
 mod multibyte;
 
 use core::sync::atomic::Ordering;
@@ -64,7 +63,8 @@ macro_rules! impl_single_byte_atomic {
             }
         }
 
-        impl_serialize_with_atomic!($atomic);
+        impl_serialize_with_atomic_load!($atomic);
+        impl_serialize_with_as_atomic!($atomic);
 
         impl<D, SO> DeserializeWith<$non_atomic, $atomic, D> for AtomicLoad<SO>
         where

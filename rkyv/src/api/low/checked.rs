@@ -12,7 +12,7 @@ use crate::{
         access_pos_unchecked_mut, access_pos_with_context, access_with_context,
         check_pos_with_context, deserialize_with, root_position,
     },
-    de::pooling::Pool,
+    de::pooling::Unpool,
     validation::{archive::ArchiveValidator, Validator},
     Archive, Deserialize, Portable,
 };
@@ -107,9 +107,8 @@ pub fn from_bytes<T, E>(bytes: &[u8]) -> Result<T, E>
 where
     T: Archive,
     T::Archived: for<'a> CheckBytes<LowValidator<'a, E>>
-        + Deserialize<T, Strategy<Pool, E>>,
+        + Deserialize<T, Strategy<Unpool, E>>,
     E: Source,
 {
-    let mut deserializer = Pool::default();
-    deserialize_with(access::<T::Archived, E>(bytes)?, &mut deserializer)
+    deserialize_with(access::<T::Archived, E>(bytes)?, &mut Unpool)
 }

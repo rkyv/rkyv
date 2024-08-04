@@ -76,7 +76,6 @@ impl<E: Source> SharedContext<E> for SharedValidator {
         address: usize,
         type_id: TypeId,
     ) -> Result<bool, E> {
-        #[cfg(feature = "std")]
         match self.shared.entry(address) {
             hash_map::Entry::Occupied(previous_type_entry) => {
                 let previous_type_id = previous_type_entry.get();

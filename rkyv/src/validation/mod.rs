@@ -74,11 +74,17 @@ where
 mod tests {
     use rancor::Failure;
 
-    use crate::{access, api::high::access_pos, util::Align, Archived};
+    use crate::{
+        api::low::{access, access_pos},
+        boxed::ArchivedBox,
+        option::ArchivedOption,
+        util::Align,
+        Archived,
+    };
 
     #[test]
     fn basic_functionality() {
-        #[cfg(all(feature = "pointer_width_16", feature = "little_endian"))]
+        #[cfg(all(feature = "pointer_width_16", not(feature = "big_endian")))]
         // Synthetic archive (correct)
         let synthetic_buf = Align([
             // "Hello world"
@@ -100,7 +106,13 @@ mod tests {
             0u8, 11u8, // string is 11 characters long
         ]);
 
-        #[cfg(all(feature = "pointer_width_32", feature = "little_endian"))]
+        #[cfg(all(
+            not(any(
+                feature = "pointer_width_16",
+                feature = "pointer_width_64",
+            )),
+            not(feature = "big_endian"),
+        ))]
         // Synthetic archive (correct)
         let synthetic_buf = Align([
             // "Hello world"
@@ -111,7 +123,13 @@ mod tests {
             11u8, 0u8, 0u8, 0u8, // string is 11 characters long
         ]);
 
-        #[cfg(all(feature = "pointer_width_32", feature = "big_endian"))]
+        #[cfg(all(
+            not(any(
+                feature = "pointer_width_16",
+                feature = "pointer_width_64",
+            )),
+            feature = "big_endian",
+        ))]
         // Synthetic archive (correct)
         let synthetic_buf = Align([
             // "Hello world"
@@ -122,7 +140,7 @@ mod tests {
             0u8, 0u8, 0u8, 11u8, // string is 11 characters long
         ]);
 
-        #[cfg(all(feature = "pointer_width_64", feature = "little_endian"))]
+        #[cfg(all(feature = "pointer_width_64", not(feature = "big_endian")))]
         // Synthetic archive (correct)
         let synthetic_buf = Align([
             // "Hello world"
@@ -148,8 +166,9 @@ mod tests {
             11u8, // string is 11 characters long
         ]);
 
-        let result =
-            access::<Archived<Option<Box<[u8]>>>, Failure>(&*synthetic_buf);
+        let result = access::<ArchivedOption<ArchivedBox<[u8]>>, Failure>(
+            &*synthetic_buf,
+        );
         result.unwrap();
 
         // Out of bounds

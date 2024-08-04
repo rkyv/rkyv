@@ -64,19 +64,25 @@ mod tests {
         roundtrip(&Duration::new(1234, 5678));
     }
 
-    #[cfg(feature = "bytecheck")]
+    // Synthetic buffer is for 32-bit little-endian
+    #[cfg(all(
+        not(feature = "pointer_width_16"),
+        not(feature = "pointer_width_64"),
+        not(feature = "big_endian"),
+        feature = "bytecheck",
+    ))]
     #[test]
     fn invalid_duration() {
         use rancor::Failure;
 
         use crate::{api::low::from_bytes, util::Align};
 
+        // This buffer is invalid because `nanos` is equal to 1 billion (nanos
+        // may not be one billion or more)
         let data = Align([
-            // secs = 0u64
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            // nanos = 1_000_000_000u32 (nanos may not be 1 billion or more)
-            0x3b, 0x9a, 0xca, 0x00, // padding
-            0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // secs
+            0x00, 0xca, 0x9a, 0x3b, // nanos
+            0x00, 0x00, 0x00, 0x00, // padding
         ]);
         from_bytes::<Duration, Failure>(&*data).unwrap_err();
     }

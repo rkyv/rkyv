@@ -164,6 +164,8 @@ mod tests {
     fn roundtrip_tiny_vec() {
         use tinyvec::tiny_vec;
 
+        use crate::alloc::vec;
+
         roundtrip_with(&tiny_vec!([i32; 10] => 10, 20, 40, 80), |a, b| {
             assert_eq!(**a, **b)
         });

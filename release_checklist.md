@@ -17,7 +17,7 @@
   - [ ] `/r/rust`
   - [ ] Twitter
 
-# Check matrices
+# Test matrices
 
 For each matrix, select one feature from each group to enable and run a check
 build.
@@ -65,21 +65,19 @@ cargo test --tests --no-default-features --features "big_endian unaligned pointe
 Builds:
 
 ```sh
-cargo test --tests --no-default-features
-cargo test --tests --no-default-features --features "alloc"
-cargo test --tests --no-default-features --features "std"
-cargo test --tests --no-default-features --features "bytecheck"
-cargo test --tests --no-default-features --features "bytecheck alloc"
-cargo test --tests --no-default-features --features "bytecheck std"
-cargo test --tests --no-default-features --features "bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe"
-cargo test --tests --no-default-features --features "alloc bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe"
-cargo test --tests --no-default-features --features "std bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe"
-cargo test --tests --no-default-features --features "bytecheck bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe"
-cargo test --tests --no-default-features --features "bytecheck alloc bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe"
-cargo test --tests --no-default-features --features "bytecheck std bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe"
+cargo test --tests --no-default-features >> results.txt
+cargo test --tests --no-default-features --features "alloc" >> results.txt
+cargo test --tests --no-default-features --features "std" >> results.txt
+cargo test --tests --no-default-features --features "bytecheck" >> results.txt
+cargo test --tests --no-default-features --features "bytecheck alloc" >> results.txt
+cargo test --tests --no-default-features --features "bytecheck std" >> results.txt
+cargo test --tests --no-default-features --features "bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt
+cargo test --tests --no-default-features --features "alloc bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt
+cargo test --tests --no-default-features --features "std bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt
+cargo test --tests --no-default-features --features "bytecheck bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt
+cargo test --tests --no-default-features --features "bytecheck alloc bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt
+cargo test --tests --no-default-features --features "bytecheck std bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt
 ```
-
-# 
 
 # Testing through MIRI
 
