@@ -88,7 +88,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::test::roundtrip;
+    use crate::api::test::roundtrip;
 
     #[test]
     fn roundtrip_option() {

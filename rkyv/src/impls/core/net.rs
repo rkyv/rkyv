@@ -469,7 +469,7 @@ mod tests {
         IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6,
     };
 
-    use crate::test::roundtrip;
+    use crate::api::test::roundtrip;
 
     #[test]
     fn roundtrip_ipv4_addr() {

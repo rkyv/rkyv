@@ -480,12 +480,10 @@ impl<F: Default, D: Fallible + ?Sized> DeserializeWith<(), F, D> for Skip {
 #[cfg(test)]
 mod tests {
     use crate::{
-        de::Unpool,
-        deserialize,
+        api::test::{deserialize, roundtrip, roundtrip_with, to_archived},
         primitive::ArchivedU32,
-        rancor::{Error, Fallible},
+        rancor::Fallible,
         ser::Writer,
-        test::{roundtrip, roundtrip_with, to_archived},
         with::{
             ArchiveWith, AsAtomic, AsBox, AtomicLoad, DeserializeWith, Inline,
             InlineAsBox, Niche, Relaxed, SerializeWith, Unsafe,
@@ -802,8 +800,7 @@ mod tests {
                 assert_eq!(*archived.inner.get(), 42);
             }
 
-            let deserialized =
-                deserialize::<Test, _, Error>(&*archived, &mut Unpool).unwrap();
+            let deserialized = deserialize::<Test>(&*archived);
 
             unsafe {
                 assert_eq!(*deserialized.inner.get(), 42);

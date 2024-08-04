@@ -39,7 +39,7 @@ impl<D: Fallible + ?Sized> Deserialize<Uuid, D> for Uuid {
 mod tests {
     use uuid::Uuid;
 
-    use crate::test::roundtrip;
+    use crate::api::test::roundtrip;
 
     #[test]
     fn roundtrip_uuid() {

@@ -78,7 +78,7 @@ impl<T: PartialOrd<U>, U> PartialOrd<Vec<U>> for ArchivedVec<T> {
 mod tests {
     use crate::{
         alloc::{vec, vec::Vec},
-        test::roundtrip,
+        api::test::roundtrip,
     };
 
     #[test]

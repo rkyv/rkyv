@@ -153,10 +153,10 @@ pub use ::rkyv_derive::{Archive, Deserialize, Portable, Serialize};
 mod alias;
 #[macro_use]
 mod _macros;
+pub mod api;
 #[cfg(feature = "bitvec")]
 pub mod bitvec;
 pub mod boxed;
-pub mod buffer;
 pub mod collections;
 pub mod de;
 mod fmt;
@@ -180,8 +180,6 @@ pub mod result;
 pub mod ser;
 mod simd;
 pub mod string;
-#[cfg(test)]
-mod test;
 pub mod time;
 pub mod traits;
 pub mod tuple;
@@ -193,17 +191,17 @@ pub mod with;
 
 // Exports
 
-#[cfg(feature = "alloc")]
-#[doc(inline)]
-pub use buffer::{from_bytes_unchecked, to_bytes};
 #[cfg(all(feature = "bytecheck", feature = "alloc"))]
 #[doc(inline)]
-pub use validation::buffer::{access, access_mut, from_bytes};
+pub use api::high::{access, access_mut, from_bytes};
+#[cfg(feature = "alloc")]
+#[doc(inline)]
+pub use api::high::{deserialize, from_bytes_unchecked, to_bytes};
 
 #[doc(inline)]
 pub use crate::{
     alias::*,
-    buffer::{access_unchecked, access_unchecked_mut, deserialize, serialize},
+    api::{access_unchecked, access_unchecked_mut},
     place::Place,
     traits::*,
 };

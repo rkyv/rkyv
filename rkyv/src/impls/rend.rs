@@ -84,7 +84,7 @@ impl_rend_primitives!(
 mod tests {
     use rend::*;
 
-    use crate::test::{roundtrip, to_bytes};
+    use crate::api::test::{roundtrip, to_bytes};
 
     #[test]
     fn roundtrip_integers() {

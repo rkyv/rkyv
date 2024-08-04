@@ -179,7 +179,7 @@ mod tests {
     use rancor::{Panic, Strategy};
 
     use crate::{
-        buffer::serialize_into,
+        api::serialize_with,
         ser::{
             allocator::{AllocationStats, AllocationTracker, SubAllocator},
             sharing::Unshare,
@@ -202,15 +202,12 @@ mod tests {
         let mut output = Align([MaybeUninit::<u8>::uninit(); 256]);
         let mut scratch = [MaybeUninit::<u8>::uninit(); 256];
 
-        let serializer = serialize_into(
-            value,
-            Serializer::new(
-                Buffer::from(&mut *output),
-                AllocationTracker::new(SubAllocator::new(&mut scratch)),
-                Unshare,
-            ),
-        )
-        .unwrap();
+        let mut serializer = Serializer::new(
+            Buffer::from(&mut *output),
+            AllocationTracker::new(SubAllocator::new(&mut scratch)),
+            Unshare,
+        );
+        serialize_with(value, &mut serializer).unwrap();
         serializer.into_raw_parts().1.into_stats()
     }
 

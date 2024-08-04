@@ -59,7 +59,7 @@ mod tests {
 
     use rancor::Failure;
 
-    use crate::{from_bytes, test::roundtrip, util::Align};
+    use crate::{api::test::roundtrip, from_bytes, util::Align};
 
     #[test]
     fn roundtrip_duration() {

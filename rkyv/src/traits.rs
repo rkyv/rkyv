@@ -99,57 +99,7 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// implementation. You can use the `#[rkyv(...)]` attribute to control how the
 /// implementation is generated. See the [`Archive`](macro@crate::Archive)
 /// derive macro for more details.
-///
-/// ```
-/// use rkyv::{rancor::Error, Archive, Archived, Deserialize, Serialize};
-///
-/// #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
-/// // This will generate a PartialEq impl between our unarchived and archived
-/// // types
-/// #[rkyv(compare(PartialEq), derive(Debug))]
-/// struct Test {
-///     int: u8,
-///     string: String,
-///     option: Option<Vec<i32>>,
-/// }
-///
-/// let value = Test {
-///     int: 42,
-///     string: "hello world".to_string(),
-///     option: Some(vec![1, 2, 3, 4]),
-/// };
-///
-/// // Serializing is as easy as a single function call
-/// let bytes = rkyv::to_bytes::<Error>(&value).unwrap();
-///
-/// // Or you can customize your serialization for better performance
-/// // and compatibility with #![no_std] environments
-/// use rkyv::{
-///     ser::{allocator::Arena, sharing::Share, Serializer},
-///     util::AlignedVec,
-///     buffer::serialize_into,
-/// };
-///
-/// let mut arena = Arena::new();
-/// let serializer = serialize_into::<_, Error>(
-///     &value,
-///     Serializer::new(AlignedVec::<16>::new(), arena.acquire(), Share::new()),
-/// )
-/// .unwrap();
-/// let bytes = serializer.into_writer();
-///
-/// // You can use the safe API with the `bytecheck` feature enabled,
-/// // or you can use the unsafe API (shown here) for maximum performance
-/// let archived =
-///     unsafe { rkyv::access_unchecked::<Archived<Test>>(&bytes[..]) };
-/// assert_eq!(archived, &value);
-///
-/// // And you can always deserialize back to the original type
-/// let deserialized =
-///     rkyv::deserialize::<Test, _, Error>(archived, &mut ()).unwrap();
-/// assert_eq!(deserialized, value);
-/// ```
-///
+#[doc = concat!("```\n", include_str!("../examples/readme.rs"), "```\n")]
 /// _Note: the safe API requires the `bytecheck` feature._
 ///
 /// Many of the core and standard library types already have `Archive`
@@ -161,7 +111,6 @@ impl<T: ?Sized> CopyOptimization<T> {
 /// do most of the work, or use the [`Inline`](crate::with::Inline) to do
 /// exactly this. This example does everything to demonstrate how to implement
 /// `Archive` for your own types.
-///
 /// ```
 /// use core::{slice, str};
 ///

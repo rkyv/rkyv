@@ -5,7 +5,6 @@ pub mod sharing;
 pub mod writer;
 
 use ::core::{alloc::Layout, ptr::NonNull};
-use rancor::Strategy;
 
 #[doc(inline)]
 pub use self::{
@@ -13,9 +12,6 @@ pub use self::{
     sharing::{Sharing, SharingExt},
     writer::{Positional, Writer, WriterExt},
 };
-#[cfg(feature = "alloc")]
-use crate::ser::{allocator::ArenaHandle, sharing::Share};
-use crate::ser::{allocator::SubAllocator, sharing::Unshare};
 
 /// A serializer built from composeable pieces.
 #[derive(Debug, Default)]
@@ -93,13 +89,3 @@ impl<W, A, S: Sharing<E>, E> Sharing<E> for Serializer<W, A, S> {
         self.sharing.add_shared_ptr(address, pos)
     }
 }
-
-/// A serializer suitable for environments where allocations cannot be made.
-pub type CoreSerializer<'a, W, E> =
-    Strategy<Serializer<W, SubAllocator<'a>, Unshare>, E>;
-
-/// A general-purpose serializer suitable for environments where allocations can
-/// be made.
-#[cfg(feature = "alloc")]
-pub type DefaultSerializer<'a, W, E> =
-    Strategy<Serializer<W, ArenaHandle<'a>, Share>, E>;

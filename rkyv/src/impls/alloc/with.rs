@@ -470,7 +470,7 @@ mod tests {
             collections::{BTreeMap, BTreeSet},
             string::{String, ToString},
         },
-        test::{roundtrip, to_archived},
+        api::test::{roundtrip, to_archived},
         with::{AsOwned, AsVec, Niche},
         Archive, Deserialize, Serialize,
     };

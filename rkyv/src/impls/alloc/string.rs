@@ -73,7 +73,7 @@ mod tests {
     use rancor::Failure;
 
     use crate::{
-        alloc::string::ToString, from_bytes, test::roundtrip, util::Align,
+        alloc::string::ToString, api::test::roundtrip, from_bytes, util::Align,
     };
 
     #[test]

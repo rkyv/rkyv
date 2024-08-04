@@ -42,14 +42,16 @@ const _: () = {
 /// small objects without allocating.
 ///
 /// # Examples
+///
 /// ```
 /// use core::mem::MaybeUninit;
 ///
 /// use rkyv::{
+///     access_unchecked,
+///     api::high::to_bytes_in,
 ///     rancor::{Error, Strategy},
 ///     ser::{writer::Buffer, Writer},
 ///     util::Align,
-///     buffer::{access_unchecked, serialize_into},
 ///     Archive, Archived, Serialize,
 /// };
 ///
@@ -62,7 +64,7 @@ const _: () = {
 ///
 /// let event = Event::Speak("Help me!".to_string());
 /// let mut bytes = Align([MaybeUninit::uninit(); 256]);
-/// let buffer = serialize_into::<_, Error>(&event, Buffer::from(&mut *bytes))
+/// let buffer = to_bytes_in::<_, Error>(&event, Buffer::from(&mut *bytes))
 ///     .expect("failed to serialize event");
 /// let archived = unsafe { access_unchecked::<Archived<Event>>(&buffer) };
 /// if let Archived::<Event>::Speak(message) = archived {
@@ -175,7 +177,7 @@ mod tests {
     use rancor::Panic;
 
     use crate::{
-        buffer::serialize_into,
+        api::serialize_with,
         ser::{writer::Buffer, Serializer},
     };
 
@@ -193,12 +195,13 @@ mod tests {
         }
 
         let mut bytes = [MaybeUninit::<u8>::new(0xcc); 256];
-        let buffer = serialize_into::<_, Panic>(
+        let mut serializer = Serializer::new(Buffer::from(&mut bytes), (), ());
+        serialize_with::<_, Panic>(
             &PaddedExample { a: 0u8, b: 0u64 },
-            Serializer::new(Buffer::from(&mut bytes), (), ()),
+            &mut serializer,
         )
-        .unwrap()
-        .into_writer();
+        .unwrap();
+        let buffer = serializer.into_writer();
         assert!(&buffer[0..size_of::<ArchivedPaddedExample>()]
             .iter()
             .all(|&b| b == 0));

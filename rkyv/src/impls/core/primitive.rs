@@ -492,7 +492,7 @@ mod tests {
         },
     };
 
-    use crate::test::{roundtrip, roundtrip_with};
+    use crate::api::test::{roundtrip, roundtrip_with};
 
     #[test]
     fn roundtrip_portable_primitives() {
@@ -547,16 +547,16 @@ mod tests {
     #[test]
     fn roundtrip_sizes() {
         roundtrip_with(&12345isize, |a, b| {
-            assert_eq!(*a, b.to_native().try_into().unwrap())
+            assert_eq!(*a, isize::try_from(b.to_native()).unwrap())
         });
         roundtrip_with(&12345usize, |a, b| {
-            assert_eq!(*a, b.to_native().try_into().unwrap())
+            assert_eq!(*a, usize::try_from(b.to_native()).unwrap())
         });
         roundtrip_with(&NonZeroIsize::new(12345isize).unwrap(), |a, b| {
-            assert_eq!(*a, b.to_native().try_into().unwrap())
+            assert_eq!(*a, NonZeroIsize::try_from(b.to_native()).unwrap())
         });
         roundtrip_with(&NonZeroUsize::new(12345usize).unwrap(), |a, b| {
-            assert_eq!(*a, b.to_native().try_into().unwrap())
+            assert_eq!(*a, NonZeroUsize::try_from(b.to_native()).unwrap())
         });
     }
 }

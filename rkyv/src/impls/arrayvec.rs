@@ -55,7 +55,7 @@ where
 mod tests {
     use arrayvec::ArrayVec;
 
-    use crate::test::roundtrip_with;
+    use crate::api::test::roundtrip_with;
 
     #[test]
     fn roundtrip_array_vec() {

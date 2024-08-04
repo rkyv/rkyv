@@ -90,8 +90,7 @@ use crate::{Place, Portable};
 /// // ... and the unwrapped field has not
 /// assert_eq!(archived.b, 9);
 ///
-/// let deserialized =
-///     deserialize::<Example, _, Infallible>(archived, &mut ()).always_ok();
+/// let deserialized = deserialize::<Example, Infallible>(archived).always_ok();
 /// // The wrapped field is back to normal
 /// assert_eq!(deserialized.a, 4);
 /// // ... and the unwrapped field is unchanged

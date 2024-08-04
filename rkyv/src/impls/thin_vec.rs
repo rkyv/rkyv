@@ -54,7 +54,7 @@ where
 mod tests {
     use thin_vec::ThinVec;
 
-    use crate::test::roundtrip_with;
+    use crate::api::test::roundtrip_with;
 
     #[test]
     fn roundtrip_thin_vec() {

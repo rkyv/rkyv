@@ -268,14 +268,13 @@ mod tests {
 
     use crate::{
         alloc::{string::ToString, vec},
-        buffer::serialize_into,
-        ser::{allocator::Arena, sharing::Share, Allocator, Serializer},
+        api::high::to_bytes_in_with_alloc,
+        ser::{allocator::Arena, Allocator},
         util::AlignedVec,
     };
 
     #[test]
     fn reuse_arena() {
-        let mut bytes = AlignedVec::<16>::with_capacity(1024);
         let mut arena = Arena::with_capacity(2);
 
         let value = vec![
@@ -287,12 +286,10 @@ mod tests {
         ];
 
         for _ in 0..10 {
-            let mut buffer = core::mem::take(&mut bytes);
-            buffer.clear();
-
-            serialize_into::<_, Panic>(
+            to_bytes_in_with_alloc::<_, _, Panic>(
                 &value,
-                Serializer::new(buffer, arena.acquire(), Share::new()),
+                AlignedVec::<16>::new(),
+                arena.acquire(),
             )
             .unwrap();
         }

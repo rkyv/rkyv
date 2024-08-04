@@ -80,7 +80,7 @@ where
 mod tests {
     use triomphe::Arc;
 
-    use crate::test::roundtrip_with;
+    use crate::api::test::roundtrip_with;
 
     #[test]
     fn roundtrip_arc() {

@@ -1,20 +1,39 @@
-//! Functions for serializing, accessing, and deserializing buffers.
+//! APIs for producing and using archived data.
 
+#[cfg(feature = "bytecheck")]
+mod checked;
 #[cfg(feature = "alloc")]
-mod alloc;
+pub mod high;
+pub mod low;
+#[cfg(test)]
+pub mod test;
 
-use core::{mem, pin::Pin};
+use core::{mem::size_of, pin::Pin};
 
 use rancor::Strategy;
 
-#[doc(inline)]
-#[cfg(feature = "alloc")]
-pub use self::alloc::*;
+#[cfg(feature = "bytecheck")]
+pub use self::checked::*;
 use crate::{ser::Writer, Archive, Deserialize, Portable, SerializeUnsized};
 
 #[cfg(debug_assertions)]
-fn check_alignment<T: Portable>(ptr: *const u8) {
-    let expect_align = core::mem::align_of::<T>();
+fn sanity_check_buffer<T: Portable>(ptr: *const u8, pos: usize, size: usize) {
+    use core::mem::{align_of, size_of};
+
+    let root_size = size_of::<T>();
+    let min_size = pos + root_size;
+    debug_assert!(
+        min_size <= size,
+        concat!(
+            "buffer too small, expected at least {} bytes but found {} bytes\n",
+            "help: the root type at offset {} requires at least {} bytes",
+        ),
+        min_size,
+        size,
+        pos,
+        root_size,
+    );
+    let expect_align = align_of::<T>();
     let actual_align = (ptr as usize) & (expect_align - 1);
     debug_assert_eq!(
         actual_align,
@@ -32,11 +51,21 @@ fn check_alignment<T: Portable>(ptr: *const u8) {
     );
 }
 
+/// Returns the position of the root within a buffer of `length` bytes.
+///
+/// If the buffer size is too small to accomodate a root of the given type, then
+/// the root position will be zero.
+///
+/// This is called by [`access_unchecked`] to calculate the root position.
+pub fn root_position<T: Portable>(size: usize) -> usize {
+    size.saturating_sub(size_of::<T>())
+}
+
 /// Accesses an archived value from the given byte slice at the given position.
 ///
 /// This function does not check that the data at the given position is valid.
-/// Use [`access_pos`](crate::validation::buffer::access_pos) to validate the
-/// data instead.
+/// Use [`access_pos`](crate::api::access_pos_with_context) to validate the data
+/// instead.
 ///
 /// # Safety
 ///
@@ -46,7 +75,7 @@ pub unsafe fn access_pos_unchecked<T: Portable>(
     pos: usize,
 ) -> &T {
     #[cfg(debug_assertions)]
-    check_alignment::<T>(bytes.as_ptr());
+    sanity_check_buffer::<T>(bytes.as_ptr(), pos, bytes.len());
 
     // SAFETY: The caller has guaranteed that a valid `T` is located at `pos` in
     // the byte slice.
@@ -57,8 +86,8 @@ pub unsafe fn access_pos_unchecked<T: Portable>(
 /// position.
 ///
 /// This function does not check that the data at the given position is valid.
-/// Use [`access_pos_mut`](crate::validation::buffer::access_pos_mut) to
-/// validate the data instead.
+/// Use [`access_pos_mut`](crate::api::access_pos_with_context) to validate
+/// the data instead.
 ///
 /// # Safety
 ///
@@ -68,7 +97,7 @@ pub unsafe fn access_pos_unchecked_mut<T: Portable>(
     pos: usize,
 ) -> Pin<&mut T> {
     #[cfg(debug_assertions)]
-    check_alignment::<T>(bytes.as_ptr());
+    sanity_check_buffer::<T>(bytes.as_ptr(), pos, bytes.len());
 
     // SAFETY: The caller has guaranteed that a valid `T` is located at `pos` in
     // the byte slice. WARNING: This is a technically incorrect use of the
@@ -94,9 +123,7 @@ pub unsafe fn access_pos_unchecked_mut<T: Portable>(
 pub unsafe fn access_unchecked<T: Portable>(bytes: &[u8]) -> &T {
     // SAFETY: The caller has guaranteed that a valid `T` is located at the root
     // position in the byte slice.
-    unsafe {
-        access_pos_unchecked::<T>(bytes, bytes.len() - mem::size_of::<T>())
-    }
+    unsafe { access_pos_unchecked::<T>(bytes, root_position::<T>(bytes.len())) }
 }
 
 /// Accesses a mutable archived value from the given byte slice by calculating
@@ -116,27 +143,15 @@ pub unsafe fn access_unchecked<T: Portable>(bytes: &[u8]) -> &T {
 pub unsafe fn access_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
 ) -> Pin<&mut T> {
-    let pos = bytes.len() - mem::size_of::<T>();
     // SAFETY: The caller has guaranteed that a valid `T` is located at the root
     // position in the byte slice.
-    unsafe { access_pos_unchecked_mut::<T>(bytes, pos) }
-}
-
-/// Serializes the given value into the given serializer and then returns the
-/// serializer.
-pub fn serialize_into<S, E>(
-    value: &impl SerializeUnsized<Strategy<S, E>>,
-    mut serializer: S,
-) -> Result<S, E>
-where
-    S: Writer<E>,
-{
-    serialize(value, &mut serializer)?;
-    Ok(serializer)
+    unsafe {
+        access_pos_unchecked_mut::<T>(bytes, root_position::<T>(bytes.len()))
+    }
 }
 
 /// Serializes the given value into the given serializer.
-pub fn serialize<S, E>(
+pub fn serialize_with<S, E>(
     value: &impl SerializeUnsized<Strategy<S, E>>,
     serializer: &mut S,
 ) -> Result<usize, E>
@@ -148,7 +163,7 @@ where
 
 /// Deserializes a value from the given archived value using the provided
 /// deserializer.
-pub fn deserialize<T, D, E>(
+pub fn deserialize_with<T, D, E>(
     value: &T::Archived,
     deserializer: &mut D,
 ) -> Result<T, E>

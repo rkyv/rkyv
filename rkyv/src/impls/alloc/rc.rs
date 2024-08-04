@@ -306,9 +306,11 @@ mod tests {
             string::{String, ToString},
             vec,
         },
+        api::{
+            deserialize_with,
+            test::{roundtrip, to_archived},
+        },
         de::Pool,
-        deserialize,
-        test::{roundtrip, to_archived},
         to_bytes, Archive, Archived, Deserialize, Serialize,
     };
 
@@ -355,9 +357,11 @@ mod tests {
             assert_eq!(*archived.b, 17);
 
             let mut deserializer = Pool::new();
-            let deserialized =
-                deserialize::<Test, _, Panic>(&*archived, &mut deserializer)
-                    .unwrap();
+            let deserialized = deserialize_with::<Test, _, Panic>(
+                &*archived,
+                &mut deserializer,
+            )
+            .unwrap();
 
             assert_eq!(*deserialized.a, 17);
             assert_eq!(*deserialized.b, 17);
@@ -504,7 +508,8 @@ mod tests {
 
         let mut deserializer = Pool::new();
         let deserialized =
-            deserialize::<Test, _, Panic>(archived, &mut deserializer).unwrap();
+            deserialize_with::<Test, _, Panic>(archived, &mut deserializer)
+                .unwrap();
 
         assert_eq!(*deserialized.a, 17);
         assert!(deserialized.b.upgrade().is_some());

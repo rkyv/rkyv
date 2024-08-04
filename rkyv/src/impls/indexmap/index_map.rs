@@ -83,7 +83,7 @@ mod tests {
     use indexmap::IndexMap;
 
     use crate::{
-        alloc::string::String, hash::FxHasher64, test::roundtrip_with,
+        alloc::string::String, api::test::roundtrip_with, hash::FxHasher64,
     };
 
     #[test]

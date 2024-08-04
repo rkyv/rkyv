@@ -43,9 +43,9 @@ mod core_tests {
     use rancor::{Fallible, Source};
 
     use crate::{
+        api::test::{roundtrip, to_archived},
         option::ArchivedOption,
         primitive::{ArchivedI32, ArchivedU32},
-        test::{roundtrip, to_archived},
         Archive, Deserialize, Place, Portable, Serialize,
     };
 
@@ -689,9 +689,9 @@ mod alloc_tests {
             vec,
             vec::Vec,
         },
+        api::test::{roundtrip, to_archived},
         primitive::ArchivedI32,
         ser::Writer,
-        test::{roundtrip, to_archived},
         Archive, Deserialize, Serialize,
     };
 

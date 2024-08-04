@@ -47,7 +47,7 @@ where
 mod tests {
     use bytes::Bytes;
 
-    use crate::{alloc::vec, test::roundtrip};
+    use crate::{alloc::vec, api::test::roundtrip};
 
     #[test]
     fn roundtrip_bytes() {

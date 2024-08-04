@@ -84,7 +84,7 @@ mod tests {
     use std::collections::VecDeque;
 
     use crate::{
-        access_unchecked, deserialize, rancor::Error, to_bytes,
+        access_unchecked, api::test::deserialize, rancor::Error, to_bytes,
         vec::ArchivedVec, Archived,
     };
 
@@ -109,9 +109,7 @@ mod tests {
                 };
                 assert!(archived.iter().copied().eq(0..n));
 
-                let deserialized =
-                    deserialize::<VecDeque<i32>, _, Error>(archived, &mut ())
-                        .unwrap();
+                let deserialized = deserialize::<VecDeque<i32>>(archived);
                 assert_eq!(deque, deserialized);
             }
         }

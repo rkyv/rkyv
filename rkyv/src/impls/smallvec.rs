@@ -56,7 +56,7 @@ where
 mod tests {
     use smallvec::{smallvec, SmallVec};
 
-    use crate::test::roundtrip_with;
+    use crate::api::test::roundtrip_with;
 
     #[test]
     fn roundtrip_small_vec() {

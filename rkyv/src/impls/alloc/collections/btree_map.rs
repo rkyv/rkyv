@@ -104,8 +104,8 @@ mod tests {
             vec,
             vec::Vec,
         },
+        api::test::{roundtrip, to_archived},
         primitive::ArchivedI32,
-        test::{roundtrip, to_archived},
         Archive, Deserialize, Serialize,
     };
 

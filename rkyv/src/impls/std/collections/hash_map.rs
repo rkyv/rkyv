@@ -108,7 +108,7 @@ mod tests {
     use ahash::RandomState;
 
     use crate::{
-        test::{roundtrip, roundtrip_with, to_archived},
+        api::test::{roundtrip, roundtrip_with, to_archived},
         Archive, Archived, Deserialize, Serialize,
     };
 

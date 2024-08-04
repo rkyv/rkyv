@@ -136,7 +136,7 @@ where
 mod tests {
     use tinyvec::{array_vec, Array, SliceVec};
 
-    use crate::test::{roundtrip_with, to_archived};
+    use crate::api::test::{roundtrip_with, to_archived};
 
     #[test]
     fn roundtrip_array_vec() {

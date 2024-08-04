@@ -151,7 +151,7 @@ impl PartialEq<ArchivedCString> for CString {
 mod tests {
     use std::ffi::CString;
 
-    use crate::test::roundtrip;
+    use crate::api::test::roundtrip;
 
     #[test]
     fn roundtrip_c_string() {

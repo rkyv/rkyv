@@ -89,7 +89,7 @@ impl<K, AK: PartialEq<K>> PartialEq<BTreeSet<K>> for ArchivedBTreeSet<AK> {
 mod tests {
     use crate::{
         alloc::{collections::BTreeSet, string::ToString},
-        test::roundtrip,
+        api::test::roundtrip,
     };
 
     #[test]

@@ -463,7 +463,7 @@ mod tests {
     };
 
     use crate::{
-        test::roundtrip_with,
+        api::test::roundtrip_with,
         with::{AsString, Lock, Unsafe},
         Archive, Deserialize, Serialize,
     };

@@ -421,7 +421,7 @@ where
 mod tests {
     use core::ops::Bound;
 
-    use crate::test::roundtrip;
+    use crate::api::test::roundtrip;
 
     #[test]
     fn roundtrip_ranges() {

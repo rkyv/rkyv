@@ -95,7 +95,7 @@ where
 mod tests {
     use crate::{
         alloc::{boxed::Box, string::ToString, vec, vec::Vec},
-        test::roundtrip,
+        api::test::roundtrip,
     };
 
     #[test]

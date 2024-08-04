@@ -45,7 +45,7 @@ impl PartialEq<SmolStr> for ArchivedString {
 mod tests {
     use smol_str::SmolStr;
 
-    use crate::test::roundtrip;
+    use crate::api::test::roundtrip;
 
     #[test]
     fn roundtrip_smol_str() {

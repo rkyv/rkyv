@@ -19,7 +19,7 @@ macro_rules! bench_dataset {
                 buffer.clear();
 
                 bytes = $crate::divan::black_box(
-                    rkyv::buffer::to_bytes_in::<_, rkyv::rancor::Panic>(
+                    rkyv::api::high::to_bytes_in::<_, rkyv::rancor::Panic>(
                         $crate::divan::black_box(&data),
                         $crate::divan::black_box(buffer),
                     )
@@ -30,11 +30,9 @@ macro_rules! bench_dataset {
 
         #[$crate::divan::bench(min_time = std::time::Duration::from_secs(3))]
         pub fn deserialize(bencher: $crate::divan::Bencher) {
-            let bytes = rkyv::buffer::to_bytes_in::<_, rkyv::rancor::Panic>(
-                &$generate,
-                rkyv::util::AlignedVec::<16>::new(),
-            )
-            .unwrap();
+            let bytes =
+                rkyv::api::high::to_bytes::<rkyv::rancor::Panic>(&$generate)
+                    .unwrap();
 
             bencher.bench_local(|| {
                 rkyv::from_bytes::<$ty, rkyv::rancor::Panic>(
@@ -46,11 +44,9 @@ macro_rules! bench_dataset {
 
         #[$crate::divan::bench(min_time = std::time::Duration::from_secs(3))]
         pub fn check_bytes(bencher: $crate::divan::Bencher) {
-            let bytes = rkyv::buffer::to_bytes_in::<_, rkyv::rancor::Panic>(
-                &$generate,
-                rkyv::util::AlignedVec::<16>::new(),
-            )
-            .unwrap();
+            let bytes =
+                rkyv::api::high::to_bytes::<rkyv::rancor::Panic>(&$generate)
+                    .unwrap();
 
             bencher.bench_local(|| {
                 rkyv::access::<rkyv::Archived<$ty>, rkyv::rancor::Panic>(

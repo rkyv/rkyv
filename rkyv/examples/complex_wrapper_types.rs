@@ -187,8 +187,8 @@ fn main() {
     println!("encoded: {:?}", archived_program.opcodes);
     assert_eq!(archived_program.opcodes.len(), 23);
 
-    let deserialized_program: Program =
-        deserialize::<Program, _, Error>(archived_program, &mut ()).unwrap();
+    let deserialized_program =
+        deserialize::<Program, Error>(archived_program).unwrap();
 
     println!("deserialized opcodes: {:?}", deserialized_program.opcodes);
     assert_eq!(program, deserialized_program);

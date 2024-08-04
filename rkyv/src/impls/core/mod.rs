@@ -458,7 +458,7 @@ mod tests {
     use core::mem::ManuallyDrop;
 
     use crate::{
-        test::{roundtrip, roundtrip_with},
+        api::test::{roundtrip, roundtrip_with},
         tuple::ArchivedTuple3,
     };
 

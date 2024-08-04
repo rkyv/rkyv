@@ -92,7 +92,7 @@ impl<K: Hash + Eq + Borrow<AK>, AK: Hash + Eq, S: BuildHasher>
 mod tests {
     use std::collections::HashSet;
 
-    use crate::test::{roundtrip, roundtrip_with};
+    use crate::api::test::{roundtrip, roundtrip_with};
 
     #[test]
     fn roundtrip_hash_set() {

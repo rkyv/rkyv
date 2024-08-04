@@ -1,4 +1,6 @@
-//! Functions for accessing and deserializing buffers safely.
+//! High-level checked APIs.
+//!
+//! These APIs support shared pointers.
 
 use core::pin::Pin;
 
@@ -6,43 +8,47 @@ use bytecheck::CheckBytes;
 use rancor::{Source, Strategy};
 
 use crate::{
-    buffer::access_pos_unchecked_mut,
+    api::{
+        access_pos_unchecked_mut, access_pos_with_context, access_with_context,
+        check_pos_with_context, deserialize_with, root_position,
+    },
     de::pooling::Pool,
-    deserialize,
     validation::{
-        buffer::{
-            access_pos_with_context, access_with_context,
-            check_pos_with_context, root_position,
-        },
-        validators::DefaultValidator,
+        archive::ArchiveValidator, shared::SharedValidator, Validator,
     },
     Archive, Deserialize, Portable,
 };
+
+/// A high-level validator.
+///
+/// This is part of the [high-level API](crate::api::high).
+pub type HighValidator<'a, E> =
+    Strategy<Validator<ArchiveValidator<'a>, SharedValidator>, E>;
+
+fn validator(bytes: &[u8]) -> Validator<ArchiveValidator<'_>, SharedValidator> {
+    Validator::new(ArchiveValidator::new(bytes), SharedValidator::new())
+}
 
 /// Accesses an archived value from the given byte slice at the given position
 /// after checking its validity.
 ///
 /// This is a safe alternative to
-/// [`access_pos_unchecked`](crate::validation::buffer::access_pos_unchecked).
+/// [`access_pos_unchecked`](crate::api::access_pos_unchecked) and is part of
+/// the [high-level API](crate::api::high).
 pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T, E>
 where
-    T: Portable + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>,
+    T: Portable + for<'a> CheckBytes<HighValidator<'a, E>>,
     E: Source,
 {
-    let mut validator = DefaultValidator::new(bytes);
-    access_pos_with_context::<T, DefaultValidator, E>(
-        bytes,
-        pos,
-        &mut validator,
-    )
+    access_pos_with_context::<_, _, E>(bytes, pos, &mut validator(bytes))
 }
 
 /// Accesses an archived value from the given byte slice by calculating the root
 /// position after checking its validity.
 ///
-/// This is a safe alternative to [`access_unchecked`][unsafe_version].
-///
-/// [unsafe_version]: crate::access_unchecked
+/// This is a safe alternative to
+/// [`access_unchecked`](crate::api::access_unchecked) and is part of the
+/// [high-level API](crate::api::high).
 ///
 /// # Examples
 /// ```
@@ -71,11 +77,10 @@ where
 /// ```
 pub fn access<T, E>(bytes: &[u8]) -> Result<&T, E>
 where
-    T: Portable + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>,
+    T: Portable + for<'a> CheckBytes<HighValidator<'a, E>>,
     E: Source,
 {
-    let mut validator = DefaultValidator::new(bytes);
-    access_with_context::<T, DefaultValidator, E>(bytes, &mut validator)
+    access_with_context::<_, _, E>(bytes, &mut validator(bytes))
 }
 
 // TODO(#516): `Pin` is not technically correct for the return type. `Pin`
@@ -90,16 +95,17 @@ where
 /// position after checking its validity.
 ///
 /// This is a safe alternative to
-/// [`access_pos_unchecked`](crate::validation::buffer::access_pos_unchecked).
+/// [`access_pos_unchecked`](crate::api::access_pos_unchecked) and is part of
+/// the [high-level API](crate::api::high).
 pub fn access_pos_mut<T, E>(
     bytes: &mut [u8],
     pos: usize,
 ) -> Result<Pin<&mut T>, E>
 where
-    T: Portable + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>,
+    T: Portable + for<'a> CheckBytes<HighValidator<'a, E>>,
     E: Source,
 {
-    let mut context = DefaultValidator::new(bytes);
+    let mut context = validator(bytes);
     check_pos_with_context::<T, _, E>(bytes, pos, &mut context)?;
     unsafe { Ok(access_pos_unchecked_mut::<T>(bytes, pos)) }
 }
@@ -107,16 +113,16 @@ where
 /// Mutably accesses an archived value from the given byte slice by calculating
 /// the root position after checking its validity.
 ///
-/// This is a safe alternative to [`access_unchecked`][unsafe_version].
-///
-/// [unsafe_version]: crate::access_unchecked
+/// This is a safe alternative to
+/// [`access_unchecked`](crate::api::access_unchecked) and is part of the
+/// [high-level API](crate::api::high).
 pub fn access_mut<T, E>(bytes: &mut [u8]) -> Result<Pin<&mut T>, E>
 where
-    T: Portable + for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>,
+    T: Portable + for<'a> CheckBytes<HighValidator<'a, E>>,
     E: Source,
 {
-    let mut context = DefaultValidator::new(bytes);
-    let pos = root_position::<T>(bytes);
+    let mut context = validator(bytes);
+    let pos = root_position::<T>(bytes.len());
     check_pos_with_context::<T, _, E>(bytes, pos, &mut context)?;
     unsafe { Ok(access_pos_unchecked_mut::<T>(bytes, pos)) }
 }
@@ -129,9 +135,9 @@ where
 /// environments, the deserializer should be customized for the specific
 /// situation.
 ///
-/// This is a safe alternative to [`from_bytes_unchecked`][unsafe_version].
-///
-/// [unsafe_version]: crate::from_bytes_unchecked
+/// This is a safe alternative to
+/// [`from_bytes_unchecked`](crate::api::high::from_bytes_unchecked) and is part
+/// of the [high-level API](crate::api::high).
 ///
 /// # Examples
 /// ```
@@ -149,10 +155,10 @@ where
 pub fn from_bytes<T, E>(bytes: &[u8]) -> Result<T, E>
 where
     T: Archive,
-    T::Archived: for<'a> CheckBytes<Strategy<DefaultValidator<'a>, E>>
+    T::Archived: for<'a> CheckBytes<HighValidator<'a, E>>
         + Deserialize<T, Strategy<Pool, E>>,
     E: Source,
 {
     let mut deserializer = Pool::default();
-    deserialize(access::<T::Archived, E>(bytes)?, &mut deserializer)
+    deserialize_with(access::<T::Archived, E>(bytes)?, &mut deserializer)
 }

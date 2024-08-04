@@ -1,7 +1,4 @@
-use rkyv::{
-    buffer::serialize_into, deserialize, rancor::Error, Archive, Deserialize,
-    Serialize,
-};
+use rkyv::{deserialize, rancor::Error, Archive, Deserialize, Serialize};
 
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 #[rkyv(
@@ -31,20 +28,13 @@ fn main() {
     // Serializing is as easy as a single function call
     let _bytes = rkyv::to_bytes::<Error>(&value).unwrap();
 
-    // Or you can customize your serialization for better performance
-    // and compatibility with #![no_std] environments
-    use rkyv::{
-        ser::{allocator::Arena, sharing::Share, Serializer},
-        util::AlignedVec,
-    };
+    // Or you can customize your serialization for better performance or control
+    // over resource usage
+    use rkyv::{api::high::to_bytes_with_alloc, ser::allocator::Arena};
 
     let mut arena = Arena::new();
-    let serializer = serialize_into::<_, Error>(
-        &value,
-        Serializer::new(AlignedVec::<16>::new(), arena.acquire(), Share::new()),
-    )
-    .unwrap();
-    let bytes = serializer.into_writer();
+    let bytes =
+        to_bytes_with_alloc::<_, Error>(&value, arena.acquire()).unwrap();
 
     // You can use the safe API for fast zero-copy deserialization
     let archived = rkyv::access::<ArchivedTest, Error>(&bytes[..]).unwrap();
@@ -56,7 +46,6 @@ fn main() {
     assert_eq!(archived, &value);
 
     // And you can always deserialize back to the original type
-    let deserialized =
-        deserialize::<Test, _, Error>(archived, &mut ()).unwrap();
+    let deserialized = deserialize::<Test, Error>(archived).unwrap();
     assert_eq!(deserialized, value);
 }
