@@ -117,7 +117,12 @@ unsafe_impl_initialized_and_portable! {
     rend::unaligned::u128_ule,
 }
 
+// SAFETY: `[T; N]` is a `T` array and so is portable as long as `T` is also
+// `Portable`. It doesn't have any interior mutability.
 unsafe impl<T: Portable, const N: usize> Portable for [T; N] {}
+
+// SAFETY: `[T]` is a `T` slice and so is portable as long as `T` is also
+// `Portable`. It doesn't have any interior mutability.
 unsafe impl<T: Portable> Portable for [T] {}
 
 macro_rules! impl_serialize_noop {
@@ -243,6 +248,9 @@ impl_multibyte_primitives! {
 
 // PhantomData
 
+// SAFETY: `PhantomData` always a size of 0 and align of 1, and so has a stable,
+// well-defined layout that is the same on all targets. It doesn't have any
+// interior mutability (because there is no interior to mutate).
 unsafe impl<T: ?Sized> Portable for PhantomData<T> {}
 
 impl<T: ?Sized> Archive for PhantomData<T> {
@@ -448,39 +456,6 @@ where
         Ok(unsafe { NonZeroIsize::new_unchecked(self.get() as isize) })
     }
 }
-
-// Atomics
-
-#[cfg(target_has_atomic = "8")]
-unsafe_impl_initialized_and_portable!(
-    core::sync::atomic::AtomicBool,
-    core::sync::atomic::AtomicI8,
-    core::sync::atomic::AtomicU8,
-);
-
-#[cfg(target_has_atomic = "16")]
-unsafe_impl_initialized_and_portable!(
-    rend::AtomicI16_be,
-    rend::AtomicI16_le,
-    rend::AtomicU16_be,
-    rend::AtomicU16_le,
-);
-
-#[cfg(target_has_atomic = "32")]
-unsafe_impl_initialized_and_portable!(
-    rend::AtomicI32_be,
-    rend::AtomicI32_le,
-    rend::AtomicU32_be,
-    rend::AtomicU32_le,
-);
-
-#[cfg(target_has_atomic = "64")]
-unsafe_impl_initialized_and_portable!(
-    rend::AtomicI64_be,
-    rend::AtomicI64_le,
-    rend::AtomicU64_be,
-    rend::AtomicU64_le,
-);
 
 #[cfg(test)]
 mod tests {

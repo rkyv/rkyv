@@ -365,7 +365,7 @@ impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<&F, S> for Inline {
 // Unsafe
 
 impl<F: Archive> ArchiveWith<UnsafeCell<F>> for Unsafe {
-    type Archived = UnsafeCell<F::Archived>;
+    type Archived = F::Archived;
     type Resolver = F::Resolver;
 
     fn resolve_with(
@@ -374,7 +374,6 @@ impl<F: Archive> ArchiveWith<UnsafeCell<F>> for Unsafe {
         out: Place<Self::Archived>,
     ) {
         let value = unsafe { &*field.get() };
-        let out = unsafe { out.cast_unchecked() };
         F::resolve(value, resolver, out);
     }
 }
@@ -392,26 +391,22 @@ where
     }
 }
 
-impl<F, D> DeserializeWith<UnsafeCell<F::Archived>, UnsafeCell<F>, D> for Unsafe
+impl<F, D> DeserializeWith<F::Archived, UnsafeCell<F>, D> for Unsafe
 where
     F: Archive,
     F::Archived: Deserialize<F, D>,
     D: Fallible + ?Sized,
 {
     fn deserialize_with(
-        field: &UnsafeCell<F::Archived>,
+        field: &F::Archived,
         deserializer: &mut D,
     ) -> Result<UnsafeCell<F>, D::Error> {
-        unsafe {
-            (*field.get())
-                .deserialize(deserializer)
-                .map(|x| UnsafeCell::new(x))
-        }
+        field.deserialize(deserializer).map(|x| UnsafeCell::new(x))
     }
 }
 
 impl<F: Archive> ArchiveWith<Cell<F>> for Unsafe {
-    type Archived = Cell<F::Archived>;
+    type Archived = F::Archived;
     type Resolver = F::Resolver;
 
     fn resolve_with(
@@ -420,7 +415,6 @@ impl<F: Archive> ArchiveWith<Cell<F>> for Unsafe {
         out: Place<Self::Archived>,
     ) {
         let value = unsafe { &*field.as_ptr() };
-        let out = unsafe { out.cast_unchecked() };
         F::resolve(value, resolver, out);
     }
 }
@@ -438,21 +432,17 @@ where
     }
 }
 
-impl<F, D> DeserializeWith<Cell<F::Archived>, Cell<F>, D> for Unsafe
+impl<F, D> DeserializeWith<F::Archived, Cell<F>, D> for Unsafe
 where
     F: Archive,
     F::Archived: Deserialize<F, D>,
     D: Fallible + ?Sized,
 {
     fn deserialize_with(
-        field: &Cell<F::Archived>,
+        field: &F::Archived,
         deserializer: &mut D,
     ) -> Result<Cell<F>, D::Error> {
-        unsafe {
-            (*field.as_ptr())
-                .deserialize(deserializer)
-                .map(|x| Cell::new(x))
-        }
+        field.deserialize(deserializer).map(|x| Cell::new(x))
     }
 }
 
@@ -479,16 +469,13 @@ impl<F: Default, D: Fallible + ?Sized> DeserializeWith<(), F, D> for Skip {
 
 #[cfg(test)]
 mod tests {
-    use core::sync::atomic::{AtomicU32, AtomicU8, Ordering};
-
     use crate::{
-        api::test::{deserialize, roundtrip, roundtrip_with, to_archived},
-        primitive::ArchivedU32,
+        api::test::{roundtrip, roundtrip_with, to_archived},
         rancor::Fallible,
         ser::Writer,
         with::{
-            ArchiveWith, AsAtomic, AsBox, AtomicLoad, DeserializeWith, Inline,
-            InlineAsBox, Niche, Relaxed, SerializeWith, Unsafe,
+            ArchiveWith, AsBox, DeserializeWith, Inline, InlineAsBox, Niche,
+            SerializeWith, Unsafe,
         },
         Archive, Archived, Deserialize, Place, Serialize,
     };
@@ -599,51 +586,6 @@ mod tests {
             } else {
                 panic!("expected variant B");
             }
-        });
-    }
-
-    #[test]
-    fn with_atomic_load() {
-        #[derive(Archive, Debug, Deserialize, Serialize)]
-        #[rkyv(crate, check_bytes, derive(Debug))]
-        struct Test {
-            #[with(AtomicLoad<Relaxed>)]
-            a: AtomicU32,
-        }
-
-        impl PartialEq for Test {
-            fn eq(&self, other: &Self) -> bool {
-                self.a.load(Ordering::Relaxed)
-                    == other.a.load(Ordering::Relaxed)
-            }
-        }
-
-        impl PartialEq<Test> for ArchivedTest {
-            fn eq(&self, other: &Test) -> bool {
-                self.a == other.a.load(Ordering::Relaxed)
-            }
-        }
-
-        let value = Test {
-            a: AtomicU32::new(42),
-        };
-        roundtrip(&value);
-    }
-
-    #[test]
-    fn with_as_atomic() {
-        #[derive(Archive, Debug, Deserialize, Serialize)]
-        #[rkyv(crate, check_bytes)]
-        struct Test {
-            #[with(AsAtomic<Relaxed, Relaxed>)]
-            value: AtomicU8,
-        }
-
-        let value = Test {
-            value: AtomicU8::new(42),
-        };
-        to_archived(&value, |archived| {
-            assert_eq!(archived.value.load(Ordering::Relaxed), 42);
         });
     }
 
@@ -779,32 +721,24 @@ mod tests {
 
     #[test]
     fn with_unsafe() {
-        use core::cell::UnsafeCell;
+        use core::cell::Cell;
 
-        #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[derive(Archive, Debug, Deserialize, Serialize, PartialEq)]
+        #[rkyv(crate, check_bytes, derive(Debug))]
         struct Test {
             #[with(Unsafe)]
-            inner: UnsafeCell<u32>,
+            inner: Cell<u32>,
+        }
+
+        impl PartialEq<Test> for ArchivedTest {
+            fn eq(&self, other: &Test) -> bool {
+                self.inner == other.inner.get()
+            }
         }
 
         let value = Test {
-            inner: UnsafeCell::new(100),
+            inner: Cell::new(100),
         };
-        to_archived(&value, |archived| {
-            unsafe {
-                assert_eq!(*archived.inner.get(), 100);
-                *archived.inner.get() = ArchivedU32::from_native(42u32);
-                assert_eq!(*archived.inner.get(), 42);
-            }
-
-            let deserialized = deserialize::<Test>(&*archived);
-
-            unsafe {
-                assert_eq!(*deserialized.inner.get(), 42);
-                *deserialized.inner.get() = 88;
-                assert_eq!(*deserialized.inner.get(), 88);
-            }
-        });
+        roundtrip(&value);
     }
 }

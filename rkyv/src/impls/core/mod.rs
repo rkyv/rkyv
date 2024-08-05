@@ -1,6 +1,5 @@
 use core::{
     alloc::{Layout, LayoutError},
-    cell::{Cell, UnsafeCell},
     mem::ManuallyDrop,
     ptr::{self, addr_of_mut},
     str,
@@ -347,6 +346,8 @@ where
 
 /// `str`
 
+// SAFETY: `str` is a byte slice and so has a stable, well-defined layout that
+// is the same on all targets. It doesn't have any interior mutability.
 unsafe impl Portable for str {}
 
 impl ArchiveUnsized for str {
@@ -406,6 +407,9 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for str {
 
 // `ManuallyDrop`
 
+// SAFETY: `ManuallyDrop<T>` is guaranteed to have the same layout and bit
+// validity as `T`, so it is `Portable` when `T` is `Portable`. It doesn't add
+// any interior mutability.
 unsafe impl<T: Portable> Portable for ManuallyDrop<T> {}
 
 impl<T: Archive> Archive for ManuallyDrop<T> {
@@ -444,14 +448,6 @@ where
         T::Archived::deserialize(self, deserializer).map(ManuallyDrop::new)
     }
 }
-
-// `Cell`
-
-unsafe impl<T: Portable + ?Sized> Portable for Cell<T> {}
-
-// `UnsafeCell`
-
-unsafe impl<T: Portable + ?Sized> Portable for UnsafeCell<T> {}
 
 #[cfg(test)]
 mod tests {

@@ -83,14 +83,6 @@ where
     access_with_context::<_, _, E>(bytes, &mut validator(bytes))
 }
 
-// TODO(#516): `Pin` is not technically correct for the return type. `Pin`
-// requires the pinned value to be dropped before its memory can be reused, but
-// archived types explicitly do not require that. It just wants immovable types.
-
-// TODO: `bytes` may no longer be a fully-initialized `[u8]` after it's accessed
-// (due to mutable access and cells). We really need some kind of opaque byte
-// container for these operations.
-
 /// Mutably accesses an archived value from the given byte slice at the given
 /// position after checking its validity.
 ///

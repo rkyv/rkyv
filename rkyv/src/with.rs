@@ -171,8 +171,6 @@ pub struct SeqCst;
 /// When serializing, the specified ordering will be used to load the value from
 /// the source atomic. The underlying archived type is still a non-atomic value.
 ///
-/// See [`AsAtomic`] for an unsafe alternative which archives as an atomic.
-///
 /// # Example
 ///
 /// ```
@@ -194,41 +192,6 @@ pub struct SeqCst;
 #[derive(Debug)]
 pub struct AtomicLoad<SO> {
     _phantom: PhantomData<SO>,
-}
-
-/// A wrapper that archives an atomic with an underlying atomic.
-///
-/// When serializing and deserializing, the specified ordering will be used to
-/// load the value from the source atomic.
-///
-/// See [`AtomicLoad`] for a safe alternative.
-///
-/// # Safety
-///
-/// This wrapper is only safe to use when the backing memory for wrapped types
-/// is mutable.
-///
-/// # Example
-///
-/// ```
-/// # #[cfg(target_has_atomic = "32")]
-/// use core::sync::atomic::AtomicU32;
-///
-/// use rkyv::{
-///     with::{AsAtomic, Relaxed},
-///     Archive,
-/// };
-///
-/// # #[cfg(target_has_atomic = "32")]
-/// #[derive(Archive)]
-/// struct Example {
-///     #[with(AsAtomic<Relaxed, Relaxed>)]
-///     a: AtomicU32,
-/// }
-/// ```
-#[derive(Debug)]
-pub struct AsAtomic<SO, DO> {
-    _phantom: PhantomData<(SO, DO)>,
 }
 
 /// A wrapper that serializes a reference inline.

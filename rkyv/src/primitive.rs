@@ -1,13 +1,6 @@
 //! Definitions of archived primitives and type aliases based on enabled
 //! features.
 
-#[macro_use]
-mod _macros;
-#[cfg(not(feature = "unaligned"))]
-mod atomic;
-
-#[cfg(not(feature = "unaligned"))]
-pub use self::atomic::*;
 // Unaligned big-endian
 #[cfg(all(feature = "unaligned", feature = "big_endian"))]
 use crate::rend::unaligned::{
@@ -38,6 +31,27 @@ use crate::rend::{
     u32_le, u64_le, NonZeroI128_le, NonZeroI16_le, NonZeroI32_le,
     NonZeroI64_le, NonZeroU128_le, NonZeroU16_le, NonZeroU32_le, NonZeroU64_le,
 };
+
+#[rustfmt::skip]
+macro_rules! define_archived_type_alias {
+    ($archived:ident: $name:ident, $ty:ty) => {
+        #[doc = concat!(
+            "The archived version of `",
+            stringify!($name),
+            "`.",
+        )]
+        pub type $archived = $ty;
+    };
+}
+
+macro_rules! define_archived_primitive {
+    ($archived:ident: $name:ident, $le:ty, $be:ty) => {
+        #[cfg(not(feature = "big_endian"))]
+        define_archived_type_alias!($archived: $name, $le);
+        #[cfg(feature = "big_endian")]
+        define_archived_type_alias!($archived: $name, $be);
+    }
+}
 
 macro_rules! define_multibyte_primitive {
     ($archived:ident: $name:ident, $le:ty, $ule:ty, $be:ty, $ube:ty) => {

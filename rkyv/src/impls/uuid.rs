@@ -5,7 +5,9 @@ use crate::{
     traits::CopyOptimization, Archive, Deserialize, Place, Portable, Serialize,
 };
 
-unsafe impl Portable for Uuid {}
+// SAFETY: `Uuid` has the same ABI has `Bytes`, and so is `Portable` when
+// `Bytes` is. It doesn't have any interior mutability.
+unsafe impl Portable for Uuid where uuid::Bytes: Portable {}
 
 impl Archive for Uuid {
     const COPY_OPTIMIZATION: CopyOptimization<Self> =

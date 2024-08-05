@@ -10,8 +10,7 @@ use rancor::Fallible;
 
 use crate::{
     with::{
-        Acquire, ArchiveWith, AsAtomic, AtomicLoad, DeserializeWith, Relaxed,
-        SeqCst,
+        Acquire, ArchiveWith, AtomicLoad, DeserializeWith, Relaxed, SeqCst,
     },
     Place,
 };
@@ -47,24 +46,7 @@ macro_rules! impl_single_byte_atomic {
             }
         }
 
-        impl<SO, DO> ArchiveWith<$atomic> for AsAtomic<SO, DO>
-        where
-            SO: LoadOrdering,
-        {
-            type Archived = $atomic;
-            type Resolver = ();
-
-            fn resolve_with(
-                field: &$atomic,
-                _: Self::Resolver,
-                out: Place<Self::Archived>,
-            ) {
-                out.write(<$atomic>::new(field.load(SO::ORDERING)))
-            }
-        }
-
         impl_serialize_with_atomic_load!($atomic);
-        impl_serialize_with_as_atomic!($atomic);
 
         impl<D, SO> DeserializeWith<$non_atomic, $atomic, D> for AtomicLoad<SO>
         where
@@ -75,20 +57,6 @@ macro_rules! impl_single_byte_atomic {
                 _: &mut D,
             ) -> Result<$atomic, D::Error> {
                 Ok(<$atomic>::new(*field))
-            }
-        }
-
-        impl<D, SO, DO> DeserializeWith<$atomic, $atomic, D>
-            for AsAtomic<SO, DO>
-        where
-            D: Fallible + ?Sized,
-            DO: LoadOrdering,
-        {
-            fn deserialize_with(
-                field: &$atomic,
-                _: &mut D,
-            ) -> Result<$atomic, D::Error> {
-                Ok(<$atomic>::new(field.load(DO::ORDERING)))
             }
         }
     };

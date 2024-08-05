@@ -30,6 +30,8 @@ impl LayoutRaw for CStr {
     }
 }
 
+// SAFETY: `CStr` is a byte slice and so has a stable, well-defined layout that
+// is the same on all targets. It doesn't have any interior mutability.
 unsafe impl Portable for CStr {}
 
 impl ArchiveUnsized for CStr {
