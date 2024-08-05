@@ -5,8 +5,9 @@ use rancor::{Fallible, ResultExt as _, Source};
 use crate::{
     alloc::{alloc::alloc, boxed::Box, vec::Vec},
     ser::{Allocator, Writer},
+    traits::LayoutRaw,
     vec::{ArchivedVec, VecResolver},
-    Archive, Deserialize, DeserializeUnsized, LayoutRaw, Place, Serialize,
+    Archive, Deserialize, DeserializeUnsized, Place, Serialize,
 };
 
 impl<T: Archive> Archive for Vec<T> {

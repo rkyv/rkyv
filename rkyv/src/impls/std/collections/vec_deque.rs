@@ -4,8 +4,9 @@ use rancor::{Fallible, ResultExt, Source};
 
 use crate::{
     ser::{Allocator, Writer},
+    traits::LayoutRaw,
     vec::{ArchivedVec, VecResolver},
-    Archive, Deserialize, DeserializeUnsized, LayoutRaw, Place, Serialize,
+    Archive, Deserialize, DeserializeUnsized, Place, Serialize,
 };
 
 impl<T: Archive> Archive for VecDeque<T> {

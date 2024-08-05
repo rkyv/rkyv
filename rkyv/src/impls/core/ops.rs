@@ -15,7 +15,8 @@ use crate::{
         ArchivedRangeInclusive, ArchivedRangeTo, ArchivedRangeToInclusive,
     },
     place::Initialized,
-    Archive, CopyOptimization, Deserialize, Place, Serialize,
+    traits::CopyOptimization,
+    Archive, Deserialize, Place, Serialize,
 };
 
 // RangeFull

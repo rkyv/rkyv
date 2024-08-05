@@ -31,18 +31,18 @@ build.
 Builds:
 
 ```sh
-cargo test --tests --no-default-features --features "little_endian pointer_width_16" >> results.txt
-cargo test --tests --no-default-features --features "big_endian pointer_width_16" >> results.txt
-cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_16" >> results.txt
-cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_16" >> results.txt
-cargo test --tests --no-default-features --features "little_endian pointer_width_32" >> results.txt
-cargo test --tests --no-default-features --features "big_endian pointer_width_32" >> results.txt
-cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_32" >> results.txt
-cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_32" >> results.txt
-cargo test --tests --no-default-features --features "little_endian pointer_width_64" >> results.txt
-cargo test --tests --no-default-features --features "big_endian pointer_width_64" >> results.txt
-cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_64" >> results.txt
-cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_64" >> results.txt
+cargo test --tests --no-default-features --features "little_endian pointer_width_16" >> results.txt~
+cargo test --tests --no-default-features --features "big_endian pointer_width_16" >> results.txt~
+cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_16" >> results.txt~
+cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_16" >> results.txt~
+cargo test --tests --no-default-features --features "little_endian pointer_width_32" >> results.txt~
+cargo test --tests --no-default-features --features "big_endian pointer_width_32" >> results.txt~
+cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_32" >> results.txt~
+cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_32" >> results.txt~
+cargo test --tests --no-default-features --features "little_endian pointer_width_64" >> results.txt~
+cargo test --tests --no-default-features --features "big_endian pointer_width_64" >> results.txt~
+cargo test --tests --no-default-features --features "little_endian unaligned pointer_width_64" >> results.txt~
+cargo test --tests --no-default-features --features "big_endian unaligned pointer_width_64" >> results.txt~
 ```
 
 ## Features
@@ -65,18 +65,18 @@ cargo test --tests --no-default-features --features "big_endian unaligned pointe
 Builds:
 
 ```sh
-cargo test --tests --no-default-features >> results.txt
-cargo test --tests --no-default-features --features "alloc" >> results.txt
-cargo test --tests --no-default-features --features "std" >> results.txt
-cargo test --tests --no-default-features --features "bytecheck" >> results.txt
-cargo test --tests --no-default-features --features "bytecheck alloc" >> results.txt
-cargo test --tests --no-default-features --features "bytecheck std" >> results.txt
-cargo test --tests --no-default-features --features "bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt
-cargo test --tests --no-default-features --features "alloc bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt
-cargo test --tests --no-default-features --features "std bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt
-cargo test --tests --no-default-features --features "bytecheck bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt
-cargo test --tests --no-default-features --features "bytecheck alloc bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt
-cargo test --tests --no-default-features --features "bytecheck std bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt
+cargo test --tests --no-default-features >> results.txt~
+cargo test --tests --no-default-features --features "alloc" >> results.txt~
+cargo test --tests --no-default-features --features "std" >> results.txt~
+cargo test --tests --no-default-features --features "bytecheck" >> results.txt~
+cargo test --tests --no-default-features --features "bytecheck alloc" >> results.txt~
+cargo test --tests --no-default-features --features "bytecheck std" >> results.txt~
+cargo test --tests --no-default-features --features "bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
+cargo test --tests --no-default-features --features "alloc bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
+cargo test --tests --no-default-features --features "std bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
+cargo test --tests --no-default-features --features "bytecheck bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
+cargo test --tests --no-default-features --features "bytecheck alloc bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
+cargo test --tests --no-default-features --features "bytecheck std bitvec hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
 ```
 
 # Testing through MIRI

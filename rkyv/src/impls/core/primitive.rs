@@ -19,7 +19,8 @@ use crate::{
         ArchivedNonZeroU32, ArchivedNonZeroU64, ArchivedNonZeroUsize,
         ArchivedU128, ArchivedU16, ArchivedU32, ArchivedU64, ArchivedUsize,
     },
-    Archive, CopyOptimization, Deserialize, Place, Portable, Serialize,
+    traits::CopyOptimization,
+    Archive, Deserialize, Place, Portable, Serialize,
 };
 
 macro_rules! unsafe_impl_initialized_and_portable {

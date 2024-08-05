@@ -12,10 +12,10 @@ use rancor::Fallible;
 use crate::{
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt as _},
+    traits::{ArchivePointee, CopyOptimization, LayoutRaw},
     tuple::*,
-    Archive, ArchivePointee, ArchiveUnsized, ArchivedMetadata,
-    CopyOptimization, Deserialize, DeserializeUnsized, LayoutRaw, Place,
-    Portable, Serialize, SerializeUnsized,
+    Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
+    Place, Portable, Serialize, SerializeUnsized,
 };
 
 mod net;

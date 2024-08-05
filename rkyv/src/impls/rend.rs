@@ -1,7 +1,7 @@
 use rancor::Fallible;
 
 use crate::{
-    rend::*, Archive, CopyOptimization, Deserialize, Place, Serialize,
+    rend::*, traits::CopyOptimization, Archive, Deserialize, Place, Serialize,
 };
 
 macro_rules! impl_rend_primitive {

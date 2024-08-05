@@ -301,8 +301,10 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     primitive::ArchivedUsize,
 ///     rancor::{Error, Fallible},
 ///     ser::{Positional, Writer, WriterExt as _},
-///     to_bytes, Archive, ArchivePointee, ArchiveUnsized, Archived,
-///     ArchivedMetadata, Portable, RelPtr, Serialize, SerializeUnsized,
+///     to_bytes,
+///     traits::ArchivePointee,
+///     Archive, ArchiveUnsized, Archived, ArchivedMetadata, Portable, RelPtr,
+///     Serialize, SerializeUnsized,
 /// };
 ///
 /// // We're going to be dealing mostly with blocks that have a trailing slice

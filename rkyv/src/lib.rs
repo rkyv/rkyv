@@ -1,112 +1,130 @@
-//! # rkyv
+//! rkyv is a zero-copy deserialization framework for Rust.
 //!
-//! rkyv (*archive*) is a zero-copy deserialization framework for Rust.
+//! ## Overview
 //!
-//! It's similar to other zero-copy deserialization frameworks such as
-//! [Cap'n Proto](https://capnproto.org) and
-//! [FlatBuffers](https://google.github.io/flatbuffers). However, while the
-//! former have external schemas and heavily restricted data types, rkyv allows
-//! all serialized types to be defined in code and can serialize a wide variety
-//! of types that the others cannot. Additionally, rkyv is designed to have
-//! little to no overhead, and in most cases will perform exactly the same as
-//! native types.
+//! rkyv uses Rust's powerful trait system to serialize data without reflection.
+//! Many zero-copy deserialization frameworks use external schemas and heavily
+//! restrict the available data types. By contrast, rkyv allows all serialized
+//! types to be defined in code and can serialize a wide variety of types that
+//! other frameworks cannot.
 //!
-//! ## Design
+//! rkyv scales to highly-capable as well as highly-restricted environments. Not
+//! only does rkyv support "no-std" builds for targets without a standard
+//! library implementation, it also supports "no-alloc" builds for targets where
+//! allocations cannot be made.
 //!
-//! Like [serde](https://serde.rs), rkyv uses Rust's powerful trait system to
-//! serialize data without the need for reflection. Despite having a wide array
-//! of features, you also only pay for what you use. If your data checks out,
-//! the serialization process can be as simple as a `memcpy`! Like serde, this
-//! allows rkyv to perform at speeds similar to handwritten serializers.
+//! rkyv supports limited in-place data mutation, and so can access and update
+//! data without ever deserializing back to native types. When rkyv's in-place
+//! mutation is too limited, rkyv also provides ergonomic and performant
+//! deserialization back into native types.
 //!
-//! Unlike serde, rkyv produces data that is guaranteed deserialization free. If
-//! you wrote your data to disk, you can just `mmap` your file into memory, cast
-//! a pointer, and your data is ready to use. This makes it ideal for
-//! high-performance and IO-bound applications.
+//! rkyv prioritizes performance, and is one of the fastest serialization
+//! frameworks available. All of rkyv's features can be individually enabled and
+//! disabled, so you only pay for what you use. Additionally, all of rkyv's
+//! zero-copy types are designed to have little to no overhead. In most cases,
+//! rkyv's types will have exactly the same performance as native types.
 //!
-//! Limited data mutation is supported through `Pin` APIs, and archived values
-//! can be truly deserialized with [`Deserialize`] if full mutation capabilities
-//! are needed.
+//! See the [rkyv book] for guide-level documentation and usage examples.
 //!
-//! [The book](https://rkyv.org) has more details on the design and capabilities
-//! of rkyv.
+//! [rkyv book]: https://rkyv.org
 //!
-//! ## Type support
+//! ## Components
 //!
-//! rkyv has a hashmap implementation that is built for zero-copy
-//! deserialization, so you can serialize your hashmaps with abandon. The
-//! implementation performs perfect hashing with the compress, hash and displace
-//! algorithm to use as little memory as possible while still performing
-//! fast lookups.
+//! rkyv has [a hash map implementation] that is built for zero-copy
+//! deserialization, with the same lookup and iteration performance as the
+//! standard library hash maps. The hash map implementation is based on
+//! [Swiss Tables] and uses a target-independent version of FxHash to ensure
+//! that all targets compute the same hashes.
 //!
-//! It also comes with a B+ tree implementation that is built for maximum
-//! performance by splitting data into easily-pageable 4KB segments. This makes
-//! it perfect for building immutable databases and structures for bulk data.
+//! It also has [a B-tree implementation] that has the same performance
+//! characteristics as the standard library B-tree maps. Its compact
+//! representation and localized data storage is best-suited for very large
+//! amounts of data.
 //!
-//! rkyv also has support for contextual serialization, deserialization, and
-//! validation. It can properly serialize and deserialize shared pointers like
-//! `Rc` and `Arc`, and can be extended to support custom contextual types.
+//! rkyv supports [shared pointers] by default, and is able to serialize and
+//! deserialize them without duplicating the underlying data. Shared pointers
+//! which point to the same data when serialized will still point to the same
+//! data when deserialized.
 //!
-//! Finally, rkyv makes it possible to serialize trait objects and use them *as
-//! trait objects* without deserialization. See the `rkyv_dyn` crate for more
-//! details.
+//! Alongside its [unchecked API], rkyv also provides optional [validation] so
+//! you can ensure safety and data integrity at the cost of some overhead.
+//! Because checking serialized data can generally be done without allocations,
+//! the cost of checking and zero-copy access can be much lower than that of
+//! traditional deserialization.
 //!
-//! ## Tradeoffs
+//! rkyv is trait-oriented from top to bottom, and is made to be extended with
+//! custom and specialized types. Serialization, deserialization, and
+//! validation traits all accept generic context types, making it easy to add
+//! new capabilities without degrading ergonomics.
 //!
-//! While rkyv is a great format for final data, it lacks a full schema system
-//! and isn't well equipped for data migration and schema upgrades. If your use
-//! case requires these capabilities, you may need additional libraries the
-//! build these features on top of rkyv. You can use other serialization
-//! frameworks like serde with the same types as rkyv conflict-free.
+//! [a hash map implementation]: collections::swiss_table::ArchivedHashMap
+//! [Swiss Tables]: https://abseil.io/about/design/swisstables
+//! [a B-tree implementation]: collections::btree_map::ArchivedBTreeMap
+//! [shared pointers]: rc
+//! [unchecked API]: access_unchecked
+//! [validation]: access
 //!
 //! ## Features
 //!
-//! - `alloc`: Enables types that require the `alloc` crate. Enabled by default.
-//! - `little_endian`: Forces archives into a little-endian format. This
-//!   guarantees cross-endian compatibility optimized for little-endian
-//!   architectures.
-//! - `big_endian`: Forces archives into a big-endian format. This guarantees
-//!   cross-endian compatibility optimized for big-endian architectures.
-//! - `size_16`: Archives integral `*size` types as 16-bit integers. This is
-//!   intended to be used only for small archives and may not handle large, more
-//!   general data.
-//! - `size_32`: Archives integral `*size` types as 32-bit integers. Enabled by
-//!   default.
-//! - `size_64`: Archives integral `*size` types as 64-bit integers. This is
-//!   intended to be used only for very large archives and may cause unnecessary
-//!   data bloat.
-//! - `std`: Enables standard library support. Enabled by default.
-//! - `bytecheck`: Enables validation support through `bytecheck`.
+//! rkyv has several feature flags which can be used to modify its behavior.
+//! Some feature flags change rkyv's serialized format, which can cause
+//! previously-serialized data to become unreadable.
 //!
-//! ## Crate support
+//! By default, rkyv enables the `std`, `alloc`, and `bytecheck` features.
 //!
-//! Some common crates need to be supported by rkyv before an official
-//! integration has been made. Support is provided by rkyv for these crates, but
-//! in the future crates should depend on rkyv and provide their own
-//! implementations. The crates that already have support provided by rkyv
-//! should work toward integrating the implementations into themselves.
+//! ### Format
 //!
-//! Crates supported by rkyv:
+//! These features control how rkyv formats its serialized data. Enabling and
+//! disabling these features may change rkyv's serialized format, and can cause
+//! previously-serialized data to become unreadable.
 //!
+//! If an endianness feature is not enabled, rkyv will use little-endian byte
+//! ordering. If a pointer width feature is not enabled, rkyv will serialize
+//! `isize` and `usize` as 32-bit integers.
+//!
+//! - `little_endian`: Forces data serialization to use little-endian byte
+//!   ordering. This optimizes serialized data for little-endian architectures.
+//! - `big_endian`: Forces data serialization to use big-endian byte ordering.
+//!   This optimizes serialized data for big-endian architectures.
+//! - `unaligned`: Forces data serialization to use unaligned primitives. This
+//!   removes alignment requirements for accessing data and allows rkyv to work
+//!   with unaligned data more easily.
+//! - `pointer_width_16`: Serializes `isize` and `usize` as 16-bit integers.
+//!   This is intended to be used only for small data sizes and may not handle
+//!   large amounts of data.
+//! - `pointer_width_32`: Serializes `isize` and `usize` as 32-bit integers.
+//!   This is a good choice for most data, and balances the storage overhead
+//!   with support for large data sizes.
+//! - `pointer_width_64`: Serializes `isize` and `usize` as 64-bit integers.
+//!   This is intended to be used only for extremely large data sizes and may
+//!   cause unnecessary data bloat for smaller amounts of data.
+//!
+//! ### Functionality
+//!
+//! These features enable more built-in functionality and provide more powerful
+//! and ergonomic APIs. Enabling and disabling these features does not change
+//! rkyv's serialized format.
+//!
+//! - `alloc`: Enables support for the `alloc` crate.
+//! - `std`: Enables standard library support.
+//! - `bytecheck`: Enables data validation through `bytecheck`.
+//!
+//! ### Crates
+//!
+//! rkyv provides integrations for some common crates by default. In the future,
+//! crates should depend on rkyv and provide their own integration. Enabling and
+//! disabling these features does not change rkyv's serialized format.
+//!
+//! - [`arrayvec`](https://docs.rs/arrayvec)
+//! - [`bitvec`](https://docs.rs/bitvec)
+//! - [`bytes`](https://docs.rs/bytes)
+//! - [`hashbrown`](https://docs.rs/hashbrown)
 //! - [`indexmap`](https://docs.rs/indexmap)
-//! - [`rend`](https://docs.rs/rend) *Enabled automatically when using
-//!   endian-specific archive features.*
+//! - [`smallvec`](https://docs.rs/smallvec)
+//! - [`smol_str`](https://docs.rs/smol_str)
 //! - [`tinyvec`](https://docs.rs/tinyvec)
+//! - [`triomphe`](https://docs.rs/triomphe)
 //! - [`uuid`](https://docs.rs/uuid)
-//!
-//! Support for each of these crates can be enabled with a feature of the same
-//! name. Additionally, the following external crate features are available:
-//!
-//! - `uuid_std`: Enables the `std` feature in `uuid`.
-//!
-//! ## Examples
-//!
-//! - See [`Archive`] for examples of how to use rkyv through the derive macro
-//!   and manual implementation.
-//! - For more details on the derive macro and its capabilities, see
-//!   [`Archive`](macro@Archive).
-//! - Fully worked examples using rkyv are available in the source repository's
-//!   [`examples` directory](https://github.com/rkyv/rkyv/tree/master/examples).
 
 // Crate attributes
 
@@ -203,7 +221,10 @@ pub use crate::{
     alias::*,
     api::{access_unchecked, access_unchecked_mut},
     place::Place,
-    traits::*,
+    traits::{
+        Archive, ArchiveUnsized, Deserialize, DeserializeUnsized, Portable,
+        Serialize, SerializeUnsized,
+    },
 };
 
 // Check endianness feature flag settings

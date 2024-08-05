@@ -6,7 +6,8 @@ use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    ArchivePointee, ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
+    traits::ArchivePointee, ArchiveUnsized, Place, Portable, RelPtr,
+    SerializeUnsized,
 };
 
 /// An archived [`Box`].
@@ -168,8 +169,8 @@ mod verify {
 
     use crate::{
         boxed::ArchivedBox,
+        traits::{ArchivePointee, LayoutRaw},
         validation::{ArchiveContext, ArchiveContextExt},
-        ArchivePointee, LayoutRaw,
     };
 
     unsafe impl<T, C> Verify<C> for ArchivedBox<T>

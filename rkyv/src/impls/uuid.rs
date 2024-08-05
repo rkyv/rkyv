@@ -2,13 +2,13 @@ use rancor::Fallible;
 use uuid::Uuid;
 
 use crate::{
-    Archive, CopyOptimization, Deserialize, Place, Portable, Serialize,
+    traits::CopyOptimization, Archive, Deserialize, Place, Portable, Serialize,
 };
 
 unsafe impl Portable for Uuid {}
 
 impl Archive for Uuid {
-    const COPY_OPTIMIZATION: crate::CopyOptimization<Self> =
+    const COPY_OPTIMIZATION: CopyOptimization<Self> =
         unsafe { CopyOptimization::enable() };
 
     type Archived = Uuid;

@@ -8,7 +8,7 @@ use bytecheck::rancor::{Fallible, Source, Strategy};
 use rancor::ResultExt as _;
 
 pub use self::validator::*;
-use crate::LayoutRaw;
+use crate::traits::LayoutRaw;
 
 /// A context that can validate nonlocal archive memory.
 ///

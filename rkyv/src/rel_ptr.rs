@@ -16,7 +16,8 @@ use crate::{
         ArchivedI16, ArchivedI32, ArchivedI64, ArchivedU16, ArchivedU32,
         ArchivedU64,
     },
-    ArchivePointee, Place, Portable,
+    traits::ArchivePointee,
+    Place, Portable,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

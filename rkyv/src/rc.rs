@@ -10,7 +10,8 @@ use rancor::Fallible;
 use crate::{
     place::Initialized,
     ser::{Sharing, SharingExt, Writer, WriterExt as _},
-    ArchivePointee, ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
+    traits::ArchivePointee,
+    ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
 
 /// The flavor type for [`Rc`](std::rc::Rc).
@@ -296,8 +297,8 @@ mod verify {
 
     use super::ArchivedRc;
     use crate::{
+        traits::{ArchivePointee, LayoutRaw},
         validation::{ArchiveContext, ArchiveContextExt, SharedContext},
-        ArchivePointee, LayoutRaw,
     };
 
     unsafe impl<T, F, C> Verify<C> for ArchivedRc<T, F>

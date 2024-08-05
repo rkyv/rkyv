@@ -4,7 +4,7 @@ use core::{mem::size_of, ptr::NonNull};
 
 use munge::{Borrow, Destructure, Restructure};
 
-use crate::LayoutRaw;
+use crate::traits::LayoutRaw;
 
 /// A place to write a `T` paired with its position in the output buffer.
 pub struct Place<T: ?Sized> {

@@ -1,5 +1,6 @@
 use crate::{
-    primitive::ArchivedIsize, rel_ptr, Archive, ArchivePointee, ArchiveUnsized,
+    primitive::ArchivedIsize, rel_ptr, traits::ArchivePointee, Archive,
+    ArchiveUnsized,
 };
 
 /// The default raw relative pointer.

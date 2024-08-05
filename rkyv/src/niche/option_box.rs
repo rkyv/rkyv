@@ -11,7 +11,8 @@ use rancor::Fallible;
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     ser::Writer,
-    ArchivePointee, ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
+    traits::ArchivePointee,
+    ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
 
 /// A niched archived `Option<Box<T>>`.
@@ -44,8 +45,8 @@ const _: () = {
     use crate::{
         bytecheck::{CheckBytes, Verify},
         rancor::Source,
+        traits::LayoutRaw,
         validation::ArchiveContext,
-        LayoutRaw,
     };
 
     unsafe impl<T, C> CheckBytes<C> for Repr<T>

@@ -14,9 +14,9 @@ use crate::{
     ffi::{ArchivedCString, CStringResolver},
     primitive::ArchivedUsize,
     ser::Writer,
-    Archive, ArchivePointee, ArchiveUnsized, ArchivedMetadata, Deserialize,
-    DeserializeUnsized, LayoutRaw, Place, Portable, Serialize,
-    SerializeUnsized,
+    traits::{ArchivePointee, LayoutRaw},
+    Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
+    Place, Portable, Serialize, SerializeUnsized,
 };
 
 // CStr

@@ -11,7 +11,7 @@ use rancor::{Fallible, ResultExt as _, Source, Strategy};
 #[cfg(feature = "alloc")]
 pub use self::alloc::*;
 pub use self::core::*;
-use crate::{ArchiveUnsized, DeserializeUnsized, LayoutRaw};
+use crate::{traits::LayoutRaw, ArchiveUnsized, DeserializeUnsized};
 
 /// Type-erased pointer metadata.
 #[derive(Clone, Copy)]

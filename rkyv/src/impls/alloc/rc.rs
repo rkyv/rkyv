@@ -11,8 +11,9 @@ use crate::{
         RcWeakResolver,
     },
     ser::{Sharing, Writer},
-    Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized,
-    LayoutRaw, Place, Serialize, SerializeUnsized,
+    traits::{ArchivePointee, LayoutRaw},
+    Archive, ArchiveUnsized, Deserialize, DeserializeUnsized, Place, Serialize,
+    SerializeUnsized,
 };
 
 // Rc

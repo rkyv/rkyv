@@ -6,8 +6,9 @@ use crate::{
     alloc::{alloc::alloc, boxed::Box},
     boxed::{ArchivedBox, BoxResolver},
     niche::option_box::ArchivedOptionBox,
-    Archive, ArchivePointee, ArchiveUnsized, Deserialize, DeserializeUnsized,
-    LayoutRaw, Place, Serialize, SerializeUnsized,
+    traits::{ArchivePointee, LayoutRaw},
+    Archive, ArchiveUnsized, Deserialize, DeserializeUnsized, Place, Serialize,
+    SerializeUnsized,
 };
 
 impl<T: ArchiveUnsized + ?Sized> Archive for Box<T> {

@@ -16,13 +16,14 @@ use crate::{
     niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
     ser::{Allocator, Writer},
     string::{ArchivedString, StringResolver},
+    traits::LayoutRaw,
     vec::{ArchivedVec, VecResolver},
     with::{
         ArchiveWith, AsOwned, AsVec, DeserializeWith, Map, Niche,
         SerializeWith, Unshare,
     },
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
-    LayoutRaw, Place, Serialize, SerializeUnsized,
+    Place, Serialize, SerializeUnsized,
 };
 
 // Map

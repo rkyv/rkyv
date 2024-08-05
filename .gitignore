@@ -1,5 +1,15 @@
-book
+# Ignore build artifacts, backup files, and lockfiles
+
+target/
+**.*.rs.bk
 Cargo.lock
-/target
-/.vscode
-/tmp
+
+# Changes to VS Code configs are ignored by default. We intentionally check in
+# some settings when they're useful defaults.
+
+.vscode
+
+# Files ending in tildes are almost always temporary and not intended for
+# checkin.
+
+*~
