@@ -1,2 +1,4 @@
 [build]
 rustdocflags = ["--cfg", "docsrs"]
+
+[env]
