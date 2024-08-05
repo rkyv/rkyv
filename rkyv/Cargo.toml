@@ -30,7 +30,6 @@ rkyv_derive.workspace = true
 # in the crate instead.
 
 arrayvec = { version = "0.7", optional = true, default-features = false }
-bitvec = { version = "1.0", optional = true, default-features = false }
 bytes = { version = "1.4.0", optional = true, default-features = false }
 # hashbrown
 indexmap = { version = "2.2", optional = true, default-features = false }
@@ -49,7 +48,7 @@ unaligned = []
 pointer_width_16 = []
 pointer_width_32 = []
 pointer_width_64 = []
-alloc = ["dep:hashbrown", "bitvec?/alloc", "tinyvec?/alloc"]
+alloc = ["dep:hashbrown", "tinyvec?/alloc"]
 std = ["alloc", "bytecheck?/std", "bytes?/std", "indexmap?/std", "ptr_meta/std", "uuid?/std"]
 bytecheck = ["dep:bytecheck", "rend/bytecheck", "rkyv_derive/bytecheck"]
 

@@ -116,7 +116,6 @@
 //! disabling these features does not change rkyv's serialized format.
 //!
 //! - [`arrayvec`](https://docs.rs/arrayvec)
-//! - [`bitvec`](https://docs.rs/bitvec)
 //! - [`bytes`](https://docs.rs/bytes)
 //! - [`hashbrown`](https://docs.rs/hashbrown)
 //! - [`indexmap`](https://docs.rs/indexmap)
@@ -172,8 +171,6 @@ mod alias;
 #[macro_use]
 mod _macros;
 pub mod api;
-#[cfg(feature = "bitvec")]
-pub mod bitvec;
 pub mod boxed;
 pub mod collections;
 pub mod de;
