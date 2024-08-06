@@ -152,6 +152,23 @@ pub struct Map<T> {
 
 /// A generic wrapper that allows wrapping a `HashMap<K, V>` or
 /// `BTreeMap<K, V>`.
+///
+/// # Example
+/// ```
+/// use std::collections::HashMap;
+///
+/// use rkyv::{
+///     with::{InlineAsBox, MapKV},
+///     Archive
+/// };
+///
+/// #[derive(Archive)]
+/// struct Example<'a> {
+///     #[with(MapKV<InlineAsBox, InlineAsBox>)]
+///     test: HashMap<&'a u32, &'a i32>
+/// }
+///
+/// ```
 pub struct MapKV<K, V> {
     _phantom: PhantomData<(K, V)>,
 }
