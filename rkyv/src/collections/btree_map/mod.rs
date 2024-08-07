@@ -12,16 +12,12 @@ use core::{
     slice,
 };
 
+
 use munge::munge;
 use rancor::{fail, Fallible, Source};
 
 use crate::{
-    collections::util::IteratorLengthMismatch,
-    place::Initialized,
-    primitive::{ArchivedUsize, FixedUsize},
-    ser::{Allocator, Writer, WriterExt as _},
-    util::{InlineVec, SerVec},
-    Place, Portable, RawRelPtr, Serialize,
+    collections::util::IteratorLengthMismatch, place::Initialized, primitive::{ArchivedUsize, FixedUsize}, ser::{Allocator, Writer, WriterExt as _}, util::{InlineVec, SerVec}, with::SerializeWith, Place, Portable, RawRelPtr, Serialize
 };
 
 // TODO(#515): Get Iterator APIs working without the `alloc` feature enabled
@@ -166,6 +162,11 @@ pub struct ArchivedBTreeMap<K, V, const E: usize = 5> {
     len: ArchivedUsize,
     _phantom: PhantomData<(K, V)>,
 }
+
+
+
+
+
 
 impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
     /// Returns whether the B-tree map contains the given key.
@@ -358,6 +359,13 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         out_len.write(ArchivedUsize::from_native(len as FixedUsize));
     }
 
+
+
+
+
+    
+    
+   
     /// Serializes an `ArchivedBTreeMap` from the given iterator and serializer.
     pub fn serialize_from_ordered_iter<I, BKU, BVU, KU, VU, S>(
         mut iter: I,
@@ -372,6 +380,8 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         S: Fallible + Allocator + Writer + ?Sized,
         S::Error: Source,
     {
+
+
         let len = iter.len();
 
         if len == 0 {
@@ -384,6 +394,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
             }
             return Ok(BTreeMapResolver { root_node_pos: 0 });
         }
+
 
         let height = entries_to_height::<E>(len);
         let ll_entries = ll_entries::<E>(height, len);

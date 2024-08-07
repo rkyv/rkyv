@@ -36,6 +36,7 @@ pub struct EntryResolver<K, V> {
     pub value: V,
 }
 
+<<<<<<< HEAD
 impl<BK, BV, K, V> Archive for EntryAdapter<BK, BV, K, V>
 where
     BK: Borrow<K>,
@@ -43,6 +44,30 @@ where
     K: Archive,
     V: Archive,
 {
+=======
+/// Stub
+pub struct EntryAdapterWith<'a, K, V, A, B> {
+    /// stub
+    pub key: &'a K,
+    /// stub
+    pub value: &'a V,
+    /// stub
+    pub _keyser: PhantomData<A>,
+    /// stub
+    pub _valser: PhantomData<B>
+} 
+/// Stub
+pub struct EntryResolverWith<K, V, A, B> {
+    /// stub
+    pub key: K,
+    /// stub
+    pub value: V,
+    /// stub
+    _keyser: PhantomData<A>,
+    /// stub
+    _valser: PhantomData<B>
+}
+>>>>>>> 7185e28 (latest)
 
     type Archived = Entry<K::Archived, V::Archived>;
     type Resolver = EntryResolver<K::Resolver, V::Resolver>;
