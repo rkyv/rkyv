@@ -44,6 +44,7 @@ uuid = { version = "1.3", optional = true, default-features = false }
 default = ["std", "bytecheck"]
 little_endian = []
 big_endian = []
+aligned = []
 unaligned = []
 pointer_width_16 = []
 pointer_width_32 = []

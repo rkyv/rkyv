@@ -66,29 +66,54 @@
 //!
 //! ## Features
 //!
-//! rkyv has several feature flags which can be used to modify its behavior.
-//! Some feature flags change rkyv's serialized format, which can cause
-//! previously-serialized data to become unreadable.
+//! rkyv has several feature flags which can be used to modify its behavior. By
+//! default, rkyv enables the `std`, `alloc`, and `bytecheck` features.
 //!
-//! By default, rkyv enables the `std`, `alloc`, and `bytecheck` features.
-//!
-//! ### Format
+//! ### Format control
 //!
 //! These features control how rkyv formats its serialized data. Enabling and
-//! disabling these features may change rkyv's serialized format, and can cause
-//! previously-serialized data to become unreadable.
+//! disabling these features may change rkyv's serialized format, and as such
+//! can cause previously-serialized data to become unreadable. Enabling format
+//! control features that are not the default should be considered a breaking
+//! change to rkyv's serialized format.
+//!
+//! Binaries should consider explicitly choosing format control options from the
+//! start, even though doing so is not required. This ensures that developers
+//! stay informed about the specific choices being made, and prevents any
+//! unexpected compatibility issues with libraries they depend on.
+//!
+//! Libraries should avoid enabling format control features unless they intend
+//! to only support rkyv when those specific format control features are
+//! enabled. In general, libraries should be able to support all format control
+//! options if they use rkyv's exported types and aliases.
+//!
+//! #### Endianness
 //!
 //! If an endianness feature is not enabled, rkyv will use little-endian byte
-//! ordering. If a pointer width feature is not enabled, rkyv will serialize
-//! `isize` and `usize` as 32-bit integers.
+//! ordering by default.
 //!
 //! - `little_endian`: Forces data serialization to use little-endian byte
 //!   ordering. This optimizes serialized data for little-endian architectures.
 //! - `big_endian`: Forces data serialization to use big-endian byte ordering.
 //!   This optimizes serialized data for big-endian architectures.
+//!
+//! #### Alignment
+//!
+//! If an alignment feature is not enabled, rkyv will use aligned primitives by
+//! default.
+//!
+//! - `aligned`: Forces data serialization to use aligned primitives. This adds
+//!   alignment requirements for accessing data and prevents rkyv from working
+//!   with unaligned data.
 //! - `unaligned`: Forces data serialization to use unaligned primitives. This
 //!   removes alignment requirements for accessing data and allows rkyv to work
 //!   with unaligned data more easily.
+//!
+//! #### Pointer width
+//!
+//! If a pointer width feature is not enabled, rkyv will serialize `isize` and
+//! `usize` as 32-bit integers by default.
+//!
 //! - `pointer_width_16`: Serializes `isize` and `usize` as 16-bit integers.
 //!   This is intended to be used only for small data sizes and may not handle
 //!   large amounts of data.
@@ -230,6 +255,15 @@ pub use crate::{
 core::compiler_error!(
     "\"little_endian\" and \"big_endian\" are mutually-exclusive features. \
      You may need to set `default-features = false` or compile with \
+     `--no-default-features`."
+);
+
+// Check alignment feature flag settings
+
+#[cfg(all(feature = "aligned", feature = "unaligned"))]
+core::compiler_error!(
+    "\"aligned\" and \"unaligned\" are mutually-exclusive features. You may \
+     need to set `default-features = false` or compile with \
      `--no-default-features`."
 );
 
