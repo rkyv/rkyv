@@ -19,6 +19,7 @@
 
 use core::{
     alloc::Layout,
+    borrow::Borrow,
     fmt,
     marker::PhantomData,
     mem::size_of,
@@ -288,7 +289,7 @@ impl<T> ArchivedHashTable<T> {
     }
 
     /// Serializes an iterator of items as a hash table.
-    pub fn serialize_from_iter<I, H, S>(
+    pub fn serialize_from_iter<I, U, H, S>(
         items: I,
         hashes: H,
         load_factor: (usize, usize),
@@ -296,7 +297,8 @@ impl<T> ArchivedHashTable<T> {
     ) -> Result<HashTableResolver, S::Error>
     where
         I: Clone + ExactSizeIterator,
-        I::Item: Serialize<S, Archived = T>,
+        I::Item: Borrow<U>,
+        U: Serialize<S, Archived = T>,
         H: ExactSizeIterator<Item = u64>,
         S: Fallible + Writer + Allocator + ?Sized,
         S::Error: Source,
@@ -355,7 +357,7 @@ impl<T> ArchivedHashTable<T> {
                     });
                 }
 
-                resolvers.push(i.serialize(serializer)?);
+                resolvers.push(i.borrow().serialize(serializer)?);
             }
 
             // Allocate scratch space for the hash table storage
@@ -421,7 +423,7 @@ impl<T> ArchivedHashTable<T> {
                                         .cast::<T>(),
                                 )
                             };
-                            i.resolve(resolver, out);
+                            i.borrow().resolve(resolver, out);
 
                             break 'insert;
                         }

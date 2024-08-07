@@ -254,7 +254,9 @@ where
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
         ArchivedVec::serialize_from_iter(
-            field.iter().map(|(key, value)| EntryAdapter { key, value }),
+            field.iter().map(|(key, value)| {
+                EntryAdapter::<_, _, K, V>::new(key, value)
+            }),
             serializer,
         )
     }

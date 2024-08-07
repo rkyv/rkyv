@@ -28,7 +28,7 @@ where
         &self,
         serializer: &mut S,
     ) -> Result<IndexSetResolver, S::Error> {
-        ArchivedIndexSet::<K::Archived>::serialize_from_iter(
+        ArchivedIndexSet::<K::Archived>::serialize_from_iter::<_, K, _>(
             self.iter(),
             (7, 8),
             serializer,

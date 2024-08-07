@@ -74,23 +74,27 @@ impl<K, H: Hasher + Default> ArchivedHashSet<K, H> {
     }
 
     /// Serializes an iterator of keys as a hash set.
-    pub fn serialize_from_iter<'a, KU, S, I>(
+    pub fn serialize_from_iter<I, KU, S>(
         iter: I,
         load_factor: (usize, usize),
         serializer: &mut S,
     ) -> Result<HashSetResolver, S::Error>
     where
-        KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
+        I: Clone + ExactSizeIterator,
+        I::Item: Borrow<KU>,
+        KU: Serialize<S, Archived = K> + Hash + Eq,
         S: Fallible + Writer + Allocator + ?Sized,
         S::Error: Source,
-        I: Clone + ExactSizeIterator<Item = &'a KU>,
     {
         Ok(HashSetResolver(
-            ArchivedHashMap::<K, (), H>::serialize_from_iter(
-                iter.map(|x| (x, &())),
-                load_factor,
-                serializer,
-            )?,
+            ArchivedHashMap::<K, (), H>::serialize_from_iter::<
+                _,
+                _,
+                (),
+                _,
+                _,
+                _,
+            >(iter.map(|x| (x, ())), load_factor, serializer)?,
         ))
     }
 }

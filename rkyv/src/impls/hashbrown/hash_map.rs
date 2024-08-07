@@ -37,11 +37,14 @@ where
         &self,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        ArchivedHashMap::<K::Archived, V::Archived>::serialize_from_iter(
-            self.iter(),
-            (7, 8),
-            serializer,
-        )
+        ArchivedHashMap::<K::Archived, V::Archived>::serialize_from_iter::<
+            _,
+            _,
+            _,
+            K,
+            V,
+            _,
+        >(self.iter(), (7, 8), serializer)
     }
 }
 

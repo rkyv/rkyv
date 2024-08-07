@@ -202,21 +202,24 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
     }
 
     /// Serializes an iterator of key-value pairs as a hash map.
-    pub fn serialize_from_iter<'a, I, KU, VU, S>(
+    pub fn serialize_from_iter<I, BKU, BVU, KU, VU, S>(
         iter: I,
         load_factor: (usize, usize),
         serializer: &mut S,
     ) -> Result<HashMapResolver, S::Error>
     where
-        I: Clone + ExactSizeIterator<Item = (&'a KU, &'a VU)>,
-        KU: 'a + Serialize<S, Archived = K> + Hash + Eq,
-        VU: 'a + Serialize<S, Archived = V>,
+        I: Clone + ExactSizeIterator<Item = (BKU, BVU)>,
+        BKU: Borrow<KU>,
+        BVU: Borrow<VU>,
+        KU: Serialize<S, Archived = K> + Hash + Eq,
+        VU: Serialize<S, Archived = V>,
         S: Fallible + Writer + Allocator + ?Sized,
         S::Error: Source,
     {
         ArchivedHashTable::<Entry<K, V>>::serialize_from_iter(
-            iter.clone().map(|(key, value)| EntryAdapter { key, value }),
-            iter.map(|(key, _)| hash_value::<KU, H>(key)),
+            iter.clone()
+                .map(|(key, value)| EntryAdapter::new(key, value)),
+            iter.map(|(key, _)| hash_value::<KU, H>(key.borrow())),
             load_factor,
             serializer,
         )

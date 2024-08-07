@@ -29,11 +29,14 @@ where
         &self,
         serializer: &mut S,
     ) -> Result<IndexMapResolver, S::Error> {
-        ArchivedIndexMap::<K::Archived, V::Archived>::serialize_from_iter(
-            self.iter(),
-            (7, 8),
-            serializer,
-        )
+        ArchivedIndexMap::<K::Archived, V::Archived>::serialize_from_iter::<
+            _,
+            _,
+            _,
+            K,
+            V,
+            _,
+        >(self.iter(), (7, 8), serializer)
     }
 }
 

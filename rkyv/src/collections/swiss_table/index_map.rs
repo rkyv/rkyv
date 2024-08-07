@@ -301,15 +301,17 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
     }
 
     /// Serializes an iterator of key-value pairs as an index map.
-    pub fn serialize_from_iter<'a, I, UK, UV, S>(
+    pub fn serialize_from_iter<I, BKU, BVU, KU, VU, S>(
         iter: I,
         load_factor: (usize, usize),
         serializer: &mut S,
     ) -> Result<IndexMapResolver, S::Error>
     where
-        I: Clone + ExactSizeIterator<Item = (&'a UK, &'a UV)>,
-        UK: 'a + Serialize<S, Archived = K> + Hash + Eq,
-        UV: 'a + Serialize<S, Archived = V>,
+        I: Clone + ExactSizeIterator<Item = (BKU, BVU)>,
+        BKU: Borrow<KU>,
+        BVU: Borrow<VU>,
+        KU: Serialize<S, Archived = K> + Hash + Eq,
+        VU: Serialize<S, Archived = V>,
         S: Fallible + Writer + Allocator + ?Sized,
         S::Error: Source,
     {
@@ -319,7 +321,8 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
         let table_resolver =
             ArchivedHashTable::<ArchivedUsize>::serialize_from_iter(
                 0..iter.len(),
-                iter.clone().map(|(key, _)| hash_value::<UK, H>(key)),
+                iter.clone()
+                    .map(|(key, _)| hash_value::<KU, H>(key.borrow())),
                 load_factor,
                 serializer,
             )?;
@@ -331,8 +334,8 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
             |resolvers, serializer| {
                 for (key, value) in iter.clone() {
                     resolvers.push(EntryResolver {
-                        key: key.serialize(serializer)?,
-                        value: value.serialize(serializer)?,
+                        key: key.borrow().serialize(serializer)?,
+                        value: value.borrow().serialize(serializer)?,
                     });
                 }
 
@@ -342,7 +345,7 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
                 {
                     unsafe {
                         serializer.resolve_aligned(
-                            &EntryAdapter { key, value },
+                            &EntryAdapter::new(key, value),
                             resolver,
                         )?;
                     }

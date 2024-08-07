@@ -359,14 +359,16 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
     }
 
     /// Serializes an `ArchivedBTreeMap` from the given iterator and serializer.
-    pub fn serialize_from_ordered_iter<'a, I, UK, UV, S>(
+    pub fn serialize_from_ordered_iter<I, BKU, BVU, KU, VU, S>(
         mut iter: I,
         serializer: &mut S,
     ) -> Result<BTreeMapResolver, S::Error>
     where
-        I: ExactSizeIterator<Item = (&'a UK, &'a UV)>,
-        UK: 'a + Serialize<S, Archived = K>,
-        UV: 'a + Serialize<S, Archived = V>,
+        I: ExactSizeIterator<Item = (BKU, BVU)>,
+        BKU: Borrow<KU>,
+        BVU: Borrow<VU>,
+        KU: Serialize<S, Archived = K>,
+        VU: Serialize<S, Archived = V>,
         S: Fallible + Allocator + Writer + ?Sized,
         S::Error: Source,
     {
@@ -391,13 +393,11 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
             height as usize - 1,
             |open_inners, serializer| {
                 for _ in 0..height - 1 {
-                    open_inners.push(InlineVec::<
-                        (&'a UK, &'a UV, Option<usize>),
-                        E,
-                    >::new());
+                    open_inners
+                        .push(InlineVec::<(BKU, BVU, Option<usize>), E>::new());
                 }
 
-                let mut open_leaf = InlineVec::<(&'a UK, &'a UV), E>::new();
+                let mut open_leaf = InlineVec::<(BKU, BVU), E>::new();
 
                 let mut child_node_pos = None;
                 let mut leaf_entries = 0;
@@ -492,20 +492,22 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         )?
     }
 
-    fn close_leaf<UK, UV, S>(
-        items: &[(&UK, &UV)],
+    fn close_leaf<BKU, BVU, KU, VU, S>(
+        items: &[(BKU, BVU)],
         serializer: &mut S,
     ) -> Result<usize, S::Error>
     where
-        UK: Serialize<S, Archived = K>,
-        UV: Serialize<S, Archived = V>,
+        BKU: Borrow<KU>,
+        BVU: Borrow<VU>,
+        KU: Serialize<S, Archived = K>,
+        VU: Serialize<S, Archived = V>,
         S: Writer + Fallible + ?Sized,
     {
-        let mut resolvers = InlineVec::<(UK::Resolver, UV::Resolver), E>::new();
+        let mut resolvers = InlineVec::<(KU::Resolver, VU::Resolver), E>::new();
         for (key, value) in items {
             resolvers.push((
-                key.serialize(serializer)?,
-                value.serialize(serializer)?,
+                key.borrow().serialize(serializer)?,
+                value.borrow().serialize(serializer)?,
             ));
         }
 
@@ -531,9 +533,9 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
             items.iter().zip(resolvers.drain()).enumerate()
         {
             let out_key = unsafe { keys.index(i).cast_unchecked() };
-            k.resolve(kr, out_key);
+            k.borrow().resolve(kr, out_key);
             let out_value = unsafe { values.index(i).cast_unchecked() };
-            v.resolve(vr, out_value);
+            v.borrow().resolve(vr, out_value);
         }
 
         let bytes = unsafe {
@@ -547,23 +549,25 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         Ok(pos)
     }
 
-    fn close_inner<UK, UV, S>(
-        items: &[(&UK, &UV, Option<usize>)],
+    fn close_inner<BKU, BVU, KU, VU, S>(
+        items: &[(BKU, BVU, Option<usize>)],
         greater_node_pos: Option<usize>,
         serializer: &mut S,
     ) -> Result<usize, S::Error>
     where
-        UK: Serialize<S, Archived = K>,
-        UV: Serialize<S, Archived = V>,
+        BKU: Borrow<KU>,
+        BVU: Borrow<VU>,
+        KU: Serialize<S, Archived = K>,
+        VU: Serialize<S, Archived = V>,
         S: Writer + Fallible + ?Sized,
     {
         debug_assert_eq!(items.len(), E);
 
-        let mut resolvers = InlineVec::<(UK::Resolver, UV::Resolver), E>::new();
+        let mut resolvers = InlineVec::<(KU::Resolver, VU::Resolver), E>::new();
         for (key, value, _) in items {
             resolvers.push((
-                key.serialize(serializer)?,
-                value.serialize(serializer)?,
+                key.borrow().serialize(serializer)?,
+                value.borrow().serialize(serializer)?,
             ));
         }
 
@@ -590,9 +594,9 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
             items.iter().zip(resolvers.drain()).enumerate()
         {
             let out_key = unsafe { keys.index(i).cast_unchecked() };
-            k.resolve(kr, out_key);
+            k.borrow().resolve(kr, out_key);
             let out_value = unsafe { values.index(i).cast_unchecked() };
-            v.resolve(vr, out_value);
+            v.borrow().resolve(vr, out_value);
 
             let out_lesser_node = unsafe { lesser_nodes.index(i) };
             if let Some(lesser_node) = l {

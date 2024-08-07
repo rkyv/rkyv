@@ -65,20 +65,25 @@ impl<K, const E: usize> ArchivedBTreeSet<K, E> {
     }
 
     /// Serializes an `ArchivedBTreeSet` from the given iterator and serializer.
-    pub fn serialize_from_ordered_iter<'a, I, UK, S>(
+    pub fn serialize_from_ordered_iter<I, KU, S>(
         iter: I,
         serializer: &mut S,
     ) -> Result<BTreeSetResolver, S::Error>
     where
-        I: ExactSizeIterator<Item = &'a UK>,
-        UK: 'a + Serialize<S, Archived = K>,
+        I: ExactSizeIterator,
+        I::Item: Borrow<KU>,
+        KU: Serialize<S, Archived = K>,
         S: Fallible + Allocator + Writer + ?Sized,
         S::Error: Source,
     {
-        ArchivedBTreeMap::<K, (), E>::serialize_from_ordered_iter(
-            iter.map(|k| (k, &())),
-            serializer,
-        )
+        ArchivedBTreeMap::<K, (), E>::serialize_from_ordered_iter::<
+            _,
+            _,
+            _,
+            _,
+            (),
+            _,
+        >(iter.map(|k| (k, &())), serializer)
         .map(BTreeSetResolver)
     }
 

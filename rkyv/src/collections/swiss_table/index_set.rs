@@ -99,23 +99,27 @@ impl<K, H: Default + Hasher> ArchivedIndexSet<K, H> {
     }
 
     /// Serializes an iterator of keys as an index set.
-    pub fn serialize_from_iter<'a, I, UK, S>(
+    pub fn serialize_from_iter<I, UK, S>(
         iter: I,
         load_factor: (usize, usize),
         serializer: &mut S,
     ) -> Result<IndexSetResolver, S::Error>
     where
-        I: Clone + ExactSizeIterator<Item = &'a UK>,
-        UK: 'a + Serialize<S, Archived = K> + Hash + Eq,
+        I: Clone + ExactSizeIterator,
+        I::Item: Borrow<UK>,
+        UK: Serialize<S, Archived = K> + Hash + Eq,
         S: Fallible + Writer + Allocator + ?Sized,
         S::Error: Source,
     {
         Ok(IndexSetResolver(
-            ArchivedIndexMap::<K, (), H>::serialize_from_iter(
-                iter.map(|x| (x, &())),
-                load_factor,
-                serializer,
-            )?,
+            ArchivedIndexMap::<K, (), H>::serialize_from_iter::<
+                _,
+                _,
+                (),
+                _,
+                _,
+                _,
+            >(iter.map(|x| (x, ())), load_factor, serializer)?,
         ))
     }
 }

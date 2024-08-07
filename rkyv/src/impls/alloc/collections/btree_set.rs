@@ -36,7 +36,10 @@ where
         &self,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        Self::Archived::serialize_from_ordered_iter(self.iter(), serializer)
+        Self::Archived::serialize_from_ordered_iter::<_, K, _>(
+            self.iter(),
+            serializer,
+        )
     }
 }
 

@@ -1,6 +1,6 @@
 //! Utilities for archived collections.
 
-use core::fmt;
+use core::{borrow::Borrow, fmt, marker::PhantomData};
 
 use munge::munge;
 use rancor::Fallible;
@@ -8,11 +8,24 @@ use rancor::Fallible;
 use crate::{Archive, Place, Portable, Serialize};
 
 /// An adapter which serializes and resolves its key and value references.
-pub struct EntryAdapter<'a, K, V> {
+pub struct EntryAdapter<BK, BV, K, V> {
     /// The key to serialize and resolve.
-    pub key: &'a K,
+    pub key: BK,
     /// The value to serialize and resolve.
-    pub value: &'a V,
+    pub value: BV,
+
+    _phantom: PhantomData<(K, V)>,
+}
+
+impl<BK, BV, K, V> EntryAdapter<BK, BV, K, V> {
+    /// Returns a new `EntryAdapter` for the given key and value.
+    pub fn new(key: BK, value: BV) -> Self {
+        Self {
+            key,
+            value,
+            _phantom: PhantomData,
+        }
+    }
 }
 
 /// A resolver for a key-value pair.
@@ -23,20 +36,28 @@ pub struct EntryResolver<K, V> {
     pub value: V,
 }
 
-impl<K: Archive, V: Archive> Archive for EntryAdapter<'_, K, V> {
+impl<BK, BV, K, V> Archive for EntryAdapter<BK, BV, K, V>
+where
+    BK: Borrow<K>,
+    BV: Borrow<V>,
+    K: Archive,
+    V: Archive,
+{
     type Archived = Entry<K::Archived, V::Archived>;
     type Resolver = EntryResolver<K::Resolver, V::Resolver>;
 
     fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
         munge!(let Entry { key, value } = out);
-        K::resolve(self.key, resolver.key, key);
-        V::resolve(self.value, resolver.value, value);
+        K::resolve(self.key.borrow(), resolver.key, key);
+        V::resolve(self.value.borrow(), resolver.value, value);
     }
 }
 
-impl<S, K, V> Serialize<S> for EntryAdapter<'_, K, V>
+impl<S, BK, BV, K, V> Serialize<S> for EntryAdapter<BK, BV, K, V>
 where
     S: Fallible + ?Sized,
+    BK: Borrow<K>,
+    BV: Borrow<V>,
     K: Serialize<S>,
     V: Serialize<S>,
 {
@@ -45,8 +66,8 @@ where
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
         Ok(EntryResolver {
-            key: self.key.serialize(serializer)?,
-            value: self.value.serialize(serializer)?,
+            key: self.key.borrow().serialize(serializer)?,
+            value: self.value.borrow().serialize(serializer)?,
         })
     }
 }
