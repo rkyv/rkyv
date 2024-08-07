@@ -21,6 +21,11 @@ use crate::{Place, Portable};
 /// the implementations for the wrapper type and the given field instead of the
 /// implementation for the type itself.
 ///
+/// # Reason
+/// We cannot write more than a single implementation of [`Archive`](crate::Archive) for
+/// a given type, so ArchiveWith allows us to use the `#[with]` macro to give the developer
+/// a more flexible interface for archival.
+///
 /// # Example
 ///
 /// ```
@@ -111,6 +116,8 @@ pub trait ArchiveWith<F: ?Sized> {
 }
 
 /// A variant of `Serialize` that works with `With` wrappers.
+///
+/// To see the reason for the existence of this trait, see [ArchiveWith].
 pub trait SerializeWith<F: ?Sized, S: Fallible + ?Sized>:
     ArchiveWith<F>
 {
@@ -122,13 +129,16 @@ pub trait SerializeWith<F: ?Sized, S: Fallible + ?Sized>:
 }
 
 /// A variant of `Deserialize` that works with `With` wrappers.
+///
+/// To see the reason for the existence of this trait, see [ArchiveWith]
 pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
     /// Deserializes the field type `F` using the given deserializer.
     fn deserialize_with(field: &F, deserializer: &mut D)
         -> Result<T, D::Error>;
 }
 
-/// A generic wrapper that allows wrapping an `Option<T>`.
+/// A wrapper that allows us to project insider of objects
+/// that can be mapped to vectors, such as `Vec<_>` and `Option<_>`.
 ///
 /// # Example
 ///
@@ -150,7 +160,7 @@ pub struct Map<T> {
     _phantom: PhantomData<T>,
 }
 
-/// A generic wrapper that allows wrapping a `HashMap<K, V>` or
+/// A generic wrapper that allows projecting into `HashMap<K, V>` or
 /// `BTreeMap<K, V>`.
 ///
 /// # Example

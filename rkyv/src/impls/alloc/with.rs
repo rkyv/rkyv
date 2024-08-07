@@ -23,9 +23,6 @@ use crate::{
 // Implementations for `MapKV`
 impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V> ArchiveWith<BTreeMap<K, V>> for MapKV<A, B>
 {
-//    type Archived = ArchivedVec<Entry<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>>;
-//    type Resolver = VecResolver;
-
     type Archived = ArchivedBTreeMap<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>;
     type Resolver = BTreeMapResolver;
 
@@ -165,31 +162,31 @@ where
 // Wrapper for O so that we have an Archive and Serialize implementation
         // and ArchivedVec::serialize_from_* is happy about the bound
         // constraints
-        struct RefWrapper<'o, A, O>(&'o O, PhantomData<A>);
 
-        impl<A: ArchiveWith<O>, O> Archive for RefWrapper<'_, A, O> {
-            type Archived = <A as ArchiveWith<O>>::Archived;
-            type Resolver = <A as ArchiveWith<O>>::Resolver;
+struct RefWrapper<'o, A, O>(&'o O, PhantomData<A>);
 
-            fn resolve(
-                &self,
-                resolver: Self::Resolver,
-                out: Place<Self::Archived>,
-            ) {
-                A::resolve_with(self.0, resolver, out)
-            }
-        }
+impl<A: ArchiveWith<O>, O> Archive for RefWrapper<'_, A, O> {
+    type Archived = <A as ArchiveWith<O>>::Archived;
+    type Resolver = <A as ArchiveWith<O>>::Resolver;
 
-        impl<A, O, S> Serialize<S> for RefWrapper<'_, A, O>
-        where
-            A: ArchiveWith<O> + SerializeWith<O, S>,
-            S: Fallible + Writer + ?Sized,
-        {
-            fn serialize(&self, s: &mut S) -> Result<Self::Resolver, S::Error> {
-                A::serialize_with(self.0, s)
-            }
-        }
+    fn resolve(
+        &self,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        A::resolve_with(self.0, resolver, out)
+    }
+}
 
+impl<A, O, S> Serialize<S> for RefWrapper<'_, A, O>
+where
+    A: ArchiveWith<O> + SerializeWith<O, S>,
+    S: Fallible + Writer + ?Sized,
+{
+    fn serialize(&self, s: &mut S) -> Result<Self::Resolver, S::Error> {
+        A::serialize_with(self.0, s)
+    }
+}
 
 // Implementations for `Map`
 impl<A, O> ArchiveWith<Vec<O>> for Map<A>

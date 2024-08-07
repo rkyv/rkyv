@@ -24,40 +24,6 @@ pub struct EntryResolver<K, V> {
     pub value: V,
 }
 
-/// Stub
-pub struct EntryAdapterWith<'a, K, V, A, B> {
-    /// stub
-    pub key: &'a K,
-    /// stub
-    pub value: &'a V,
-    /// stub
-    pub _keyser: PhantomData<A>,
-    /// stub
-    pub _valser: PhantomData<B>
-} 
-/// Stub
-pub struct EntryResolverWith<K, V, A, B> {
-    /// stub
-    pub key: K,
-    /// stub
-    pub value: V,
-    /// stub
-    _keyser: PhantomData<A>,
-    /// stub
-    _valser: PhantomData<B>
-}
-
-impl<K, V, A: ArchiveWith<K>, B: ArchiveWith<V>> Archive for EntryAdapterWith<'_, K, V, A, B> {
-
-    type Archived = Entry<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>;
-    type Resolver = EntryResolver<<A as ArchiveWith<K>>::Resolver, <B as ArchiveWith<V>>::Resolver>;
-
-    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
-        munge!(let Entry { key, value } = out);
-        A::resolve_with(self.key, resolver.key, key);
-        B::resolve_with(self.value, resolver.value, value);
-    }
-}
 
 
 
@@ -73,26 +39,6 @@ impl<K: Archive, V: Archive> Archive for EntryAdapter<'_, K, V> {
     }
 }
 
-impl<S, K, V, A, B> Serialize<S> for EntryAdapterWith<'_, K, V, A, B>
-where 
-    S: Fallible + ?Sized,
-    //K: Serialize<S>,
-    //V: Serialize<S>,
-    A: ArchiveWith<K> + SerializeWith<K, S>,
-    B: ArchiveWith<V> + SerializeWith<V, S>
-{
-    fn serialize(&self, serializer: &mut S)
-            -> Result<Self::Resolver, <S as Fallible>::Error> {
-        Ok(EntryResolver {
-            key: A::serialize_with(self.key, serializer)?,
-            value: B::serialize_with(self.value, serializer)?,
-            //key: self.key.serialize(serializer)?,
-            //value: self.value.serialize(serializer)?,
-            //_valser: PhantomData,
-            //_keyser: PhantomData
-        })
-    }
-}
 
 impl<S, K, V> Serialize<S> for EntryAdapter<'_, K, V>
 where
