@@ -43,6 +43,7 @@ where
     K: Archive,
     V: Archive,
 {
+
     type Archived = Entry<K::Archived, V::Archived>;
     type Resolver = EntryResolver<K::Resolver, V::Resolver>;
 
