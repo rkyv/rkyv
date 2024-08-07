@@ -12,16 +12,12 @@ use core::{
     slice,
 };
 
+
 use munge::munge;
 use rancor::{fail, Fallible, Source};
 
 use crate::{
-    collections::util::IteratorLengthMismatch,
-    place::Initialized,
-    primitive::{ArchivedUsize, FixedUsize},
-    ser::{Allocator, Writer, WriterExt as _},
-    util::{InlineVec, SerVec},
-    Place, Portable, RawRelPtr, Serialize,
+    collections::util::IteratorLengthMismatch, place::Initialized, primitive::{ArchivedUsize, FixedUsize}, ser::{Allocator, Writer, WriterExt as _}, util::{InlineVec, SerVec}, with::SerializeWith, Place, Portable, RawRelPtr, Serialize
 };
 
 // TODO(#515): Get Iterator APIs working without the `alloc` feature enabled
@@ -166,6 +162,11 @@ pub struct ArchivedBTreeMap<K, V, const E: usize = 5> {
     len: ArchivedUsize,
     _phantom: PhantomData<(K, V)>,
 }
+
+
+
+
+
 
 impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
     /// Returns whether the B-tree map contains the given key.
@@ -358,18 +359,29 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         out_len.write(ArchivedUsize::from_native(len as FixedUsize));
     }
 
+
+
+
+
+    
+    
+   
     /// Serializes an `ArchivedBTreeMap` from the given iterator and serializer.
-    pub fn serialize_from_ordered_iter<'a, I, UK, UV, S>(
+    pub fn serialize_from_ordered_iter<'a, I, UK, UV, BUK, BUV, S>(
         mut iter: I,
         serializer: &mut S,
     ) -> Result<BTreeMapResolver, S::Error>
     where
-        I: ExactSizeIterator<Item = (&'a UK, &'a UV)>,
+        I: ExactSizeIterator<Item = (BUK, BUV)>,
+        BUK: Borrow<UK> + Sized,
+        BUV: Borrow<UV> + Sized,
         UK: 'a + Serialize<S, Archived = K>,
         UV: 'a + Serialize<S, Archived = V>,
         S: Fallible + Allocator + Writer + ?Sized,
         S::Error: Source,
     {
+
+
         let len = iter.len();
 
         if len == 0 {
@@ -383,6 +395,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
             return Ok(BTreeMapResolver { root_node_pos: 0 });
         }
 
+
         let height = entries_to_height::<E>(len);
         let ll_entries = ll_entries::<E>(height, len);
 
@@ -392,12 +405,12 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
             |open_inners, serializer| {
                 for _ in 0..height - 1 {
                     open_inners.push(InlineVec::<
-                        (&'a UK, &'a UV, Option<usize>),
+                        (BUK, BUV, Option<usize>),
                         E,
                     >::new());
                 }
 
-                let mut open_leaf = InlineVec::<(&'a UK, &'a UV), E>::new();
+                let mut open_leaf = InlineVec::<(BUK, BUV), E>::new();
 
                 let mut child_node_pos = None;
                 let mut leaf_entries = 0;
@@ -492,13 +505,15 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         )?
     }
 
-    fn close_leaf<UK, UV, S>(
-        items: &[(&UK, &UV)],
+    fn close_leaf<UK, UV, BUK, BUV, S>(
+        items: &[(UK, UV)],
         serializer: &mut S,
     ) -> Result<usize, S::Error>
     where
         UK: Serialize<S, Archived = K>,
         UV: Serialize<S, Archived = V>,
+        BUK: Borrow<UK> + Serialize<S, Archived = K>,
+        BUV: Borrow<UV> + Serialize<S, Archived = V>,
         S: Writer + Fallible + ?Sized,
     {
         let mut resolvers = InlineVec::<(UK::Resolver, UV::Resolver), E>::new();
@@ -547,14 +562,16 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         Ok(pos)
     }
 
-    fn close_inner<UK, UV, S>(
-        items: &[(&UK, &UV, Option<usize>)],
+    fn close_inner<UK, UV, BUK, BUV, S>(
+        items: &[(BUK, BUV, Option<usize>)],
         greater_node_pos: Option<usize>,
         serializer: &mut S,
     ) -> Result<usize, S::Error>
     where
         UK: Serialize<S, Archived = K>,
         UV: Serialize<S, Archived = V>,
+        BUK: Borrow<UK>,
+        BUV: Borrow<UV>,
         S: Writer + Fallible + ?Sized,
     {
         debug_assert_eq!(items.len(), E);

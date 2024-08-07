@@ -34,7 +34,7 @@ pub struct EntryAdapterWith<'a, K, V, A, B> {
     pub _keyser: PhantomData<A>,
     /// stub
     pub _valser: PhantomData<B>
-}
+} 
 /// Stub
 pub struct EntryResolverWith<K, V, A, B> {
     /// stub
