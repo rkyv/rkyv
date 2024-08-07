@@ -1,4 +1,5 @@
-use core::{iter, marker::PhantomData};
+use core::{hash::{BuildHasher, Hash}, iter, marker::PhantomData};
+use std::ops::ControlFlow;
 
 use ptr_meta::Pointee;
 use rancor::{Fallible, Source};
@@ -11,16 +12,53 @@ use crate::{
         rc::Rc,
         sync::Arc,
         vec::Vec,
-    }, collections::{btree_map::{ArchivedBTreeMap, BTreeMapResolver}, util::{Entry, EntryAdapter, EntryAdapterWith, EntryResolver}}, niche::option_box::{ArchivedOptionBox, OptionBoxResolver}, ser::{Allocator, Writer}, string::{ArchivedString, StringResolver}, traits::LayoutRaw, util::AlignedVec, vec::{ArchivedVec, VecResolver}, with::{
+    }, collections::{btree_map::{ArchivedBTreeMap, BTreeMapResolver}, swiss_table::{ArchivedHashMap, HashMapResolver}, util::{Entry, EntryAdapter, EntryAdapterWith, EntryResolver}}, niche::option_box::{ArchivedOptionBox, OptionBoxResolver}, ser::{Allocator, Writer}, string::{ArchivedString, StringResolver}, traits::LayoutRaw, util::AlignedVec, vec::{ArchivedVec, VecResolver}, with::{
         ArchiveWith, AsOwned, AsVec, DeserializeWith, Map, MapKV, Niche, SerializeWith, Unshare
     }, Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized, Place, Serialize, SerializeUnsized
 };
 
 
 
-
+use crate::alloc::collections::HashMap;
 
 // Implementations for `MapKV`
+impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V> ArchiveWith<HashMap<K, V>> for MapKV<A, B>
+{
+    type Archived = ArchivedHashMap<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>;
+    type Resolver = HashMapResolver;
+
+    fn resolve_with(
+            field: &HashMap<K, V>,
+            resolver: Self::Resolver,
+            out: Place<Self::Archived>,
+        ) {
+        ArchivedHashMap::resolve_from_len(field.len(), (7, 8), resolver, out)
+    }
+}
+
+impl<A, B, K, V, D, S> DeserializeWith<ArchivedHashMap<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>, HashMap<K, V, S>, D> for MapKV<A, B>
+where
+    A: ArchiveWith<K> + DeserializeWith<<A as ArchiveWith<K>>::Archived, K, D>,
+    B: ArchiveWith<V> + DeserializeWith<<B as ArchiveWith<V>>::Archived, V, D>,
+    K: Ord + Hash + Eq,
+    D: Fallible + ?Sized,
+    S: Default + BuildHasher
+{
+
+    fn deserialize_with(field: &ArchivedHashMap<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>, deserializer: &mut D)
+            -> Result<HashMap<K, V, S>, <D as Fallible>::Error> {
+        let mut result = HashMap::with_capacity_and_hasher(field.len(), S::default());
+        for (k, v) in field.iter() {
+            result.insert(
+                A::deserialize_with(k, deserializer)?,
+                B::deserialize_with(v, deserializer)?
+            );
+        }
+        Ok(result)
+
+    }
+
+}
 impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V> ArchiveWith<BTreeMap<K, V>> for MapKV<A, B>
 {
     type Archived = ArchivedBTreeMap<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>;
@@ -31,9 +69,7 @@ impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V> ArchiveWith<BTreeMap<K, V>> for
             resolver: Self::Resolver,
             out: Place<Self::Archived>,
         ) {
-
         ArchivedBTreeMap::resolve_from_len(field.len(), resolver, out)
-        //ArchivedVec::resolve_from_len(field.len(), resolver, out);
     }
 }
 
@@ -134,7 +170,38 @@ where
     }
 }
 
+impl<A, B, K, V, D> DeserializeWith<ArchivedBTreeMap<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>, BTreeMap<K, V>, D> for MapKV<A, B>
+where
+    A: ArchiveWith<K> + DeserializeWith<<A as ArchiveWith<K>>::Archived, K, D>,
+    B: ArchiveWith<V> + DeserializeWith<<B as ArchiveWith<V>>::Archived, V, D>,
+    K: Ord,
+    D: Fallible + ?Sized
+{
+   
+    fn deserialize_with(field: &ArchivedBTreeMap<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>, deserializer: &mut D)
+            -> Result<BTreeMap<K, V>, <D as Fallible>::Error> {
+        let mut result = BTreeMap::new();
+        let r = field.visit(|ak, av| {
+            let k = match A::deserialize_with(ak, deserializer) {
+                Ok(k) => k,
+                Err(e) => return ControlFlow::Break(e)
+            };
+            let v = match B::deserialize_with(av, deserializer) {
+                Ok(v) => v,
+                Err(e) => return ControlFlow::Break(e)
+            };
+            result.insert(k, v);
+            ControlFlow::Continue(())
+        });
+        match r {
+            Some(e) => Err(e),
+            None => Ok(result)
+        }
+    }
 
+}
+
+/*
 impl<A, B, K, V, D> DeserializeWith<
     ArchivedVec<Entry<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>>, BTreeMap<K, V>, D
 > for MapKV<A, B>
@@ -157,6 +224,7 @@ where
     }
     
 }
+*/
 
 
 // Wrapper for O so that we have an Archive and Serialize implementation
