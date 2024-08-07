@@ -139,7 +139,12 @@ pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
 
 /// A wrapper that allows us to project insider of objects
 /// that can be mapped to vectors, such as `Vec<_>` and `Option<_>`.
+/// 
+/// For instance, suppose we have `Option<A>` and we apply `Map<B>`. Then `A`
+/// will be serialized by method `B`.
 ///
+/// To see more about the motivation for this, read [ArchiveWith].
+/// 
 /// # Example
 ///
 /// ```
@@ -162,6 +167,10 @@ pub struct Map<T> {
 
 /// A generic wrapper that allows projecting into `HashMap<K, V>` or
 /// `BTreeMap<K, V>`.
+///
+/// For instance, `MapKV<A, B>` on a `BTreeMap<K, V>` would use `A` to serialize
+/// `K` and `B` to serialize `V`. This gives us the ability to customize serialization.
+/// For more information, see [ArchiveWith].
 ///
 /// # Example
 /// ```
