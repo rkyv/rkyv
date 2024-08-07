@@ -68,7 +68,48 @@ where
     }
 }
 
+impl<A, B, K, V, D> DeserializeWith<
+    ArchivedVec<Entry<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>>, BTreeMap<K, V>, D
+> for MapKV<A, B>
+where 
+    A: ArchiveWith<K> + DeserializeWith<<A as ArchiveWith<K>>::Archived, K, D>,
+    B: ArchiveWith<V> + DeserializeWith<<B as ArchiveWith<V>>::Archived, V, D>,
+    K: Ord,
+    D: Fallible + ?Sized
+{
+    fn deserialize_with(field: &ArchivedVec<Entry<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>>, deserializer: &mut D)
+            -> Result<BTreeMap<K, V>, <D as Fallible>::Error> {
+        let mut result = BTreeMap::new();
+        for entry in field.iter() {
+            result.insert(
+                A::deserialize_with(&entry.key, deserializer)?,
+                B::deserialize_with(&entry.value, deserializer)?
+            );
+        } 
+        Ok(result)
+    }
+    
+}
 
+/*
+impl<A, O, D>
+    DeserializeWith<ArchivedVec<<A as ArchiveWith<O>>::Archived>, Vec<O>, D>
+    for Map<A>
+where
+    A: ArchiveWith<O> + DeserializeWith<<A as ArchiveWith<O>>::Archived, O, D>,
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(
+        field: &ArchivedVec<<A as ArchiveWith<O>>::Archived>,
+        d: &mut D,
+    ) -> Result<Vec<O>, D::Error> {
+        field
+            .iter()
+            .map(|value| A::deserialize_with(value, d))
+            .collect()
+    }
+}
+*/
 
 // Implementations for `Map`
 impl<A, O> ArchiveWith<Vec<O>> for Map<A>

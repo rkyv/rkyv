@@ -24,17 +24,26 @@ pub struct EntryResolver<K, V> {
     pub value: V,
 }
 
+/// Stub
 pub struct EntryAdapterWith<'a, K, V, A, B> {
+    /// stub
     pub key: &'a K,
+    /// stub
     pub value: &'a V,
+    /// stub
     pub _keyser: PhantomData<A>,
+    /// stub
     pub _valser: PhantomData<B>
 }
-
+/// Stub
 pub struct EntryResolverWith<K, V, A, B> {
+    /// stub
     pub key: K,
+    /// stub
     pub value: V,
+    /// stub
     _keyser: PhantomData<A>,
+    /// stub
     _valser: PhantomData<B>
 }
 
