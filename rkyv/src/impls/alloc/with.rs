@@ -1,4 +1,4 @@
-use core::marker::PhantomData;
+use core::{iter, marker::PhantomData};
 
 use ptr_meta::Pointee;
 use rancor::{Fallible, Source};
@@ -10,23 +10,66 @@ use crate::{
         collections::{BTreeMap, BTreeSet},
         rc::Rc,
         vec::Vec,
-    },
-    collections::util::{Entry, EntryAdapter},
-    niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
-    ser::{Allocator, Writer},
-    string::{ArchivedString, StringResolver},
-    traits::LayoutRaw,
-    vec::{ArchivedVec, VecResolver},
-    with::{
-        ArchiveWith, AsOwned, AsVec, DeserializeWith, Map, Niche,
-        SerializeWith, Unshare,
-    },
-    Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
-    Place, Serialize, SerializeUnsized,
+    }, collections::util::{Entry, EntryAdapter, EntryAdapterWith, EntryResolver}, niche::option_box::{ArchivedOptionBox, OptionBoxResolver}, ser::{Allocator, Writer}, string::{ArchivedString, StringResolver}, traits::LayoutRaw, util::AlignedVec, vec::{ArchivedVec, VecResolver}, with::{
+        ArchiveWith, AsOwned, AsVec, DeserializeWith, Map, MapKV, Niche, SerializeWith, Unshare
+    }, Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized, Place, Serialize, SerializeUnsized
 };
 
-// Map
 
+
+
+// Implementations for `MapKV`
+impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V> ArchiveWith<BTreeMap<K, V>> for MapKV<A, B>
+{
+    type Archived = ArchivedVec<Entry<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>>;
+    type Resolver = VecResolver;
+
+    fn resolve_with(
+            field: &BTreeMap<K, V>,
+            resolver: Self::Resolver,
+            out: Place<Self::Archived>,
+        ) {
+        ArchivedVec::resolve_from_len(field.len(), resolver, out);
+    }
+}
+
+impl<A, B, K, V, S> SerializeWith<BTreeMap<K, V>, S> for MapKV<A, B>
+where
+    A: ArchiveWith<K> + SerializeWith<K, S>,
+    B: ArchiveWith<V> + SerializeWith<V, S>,
+   // K: Serialize + Archive,
+    //V: Serialize + Archive,
+    S: Fallible + Allocator + Writer + ?Sized,
+{
+    fn serialize_with(
+            field: &BTreeMap<K, V>,
+            serializer: &mut S,
+        ) -> Result<Self::Resolver, <S as Fallible>::Error> {
+
+       
+        ArchivedVec::serialize_from_iter(field.iter()
+            .map(|(key, value)| {
+                /*
+                EntryAdapter {
+                    key: &A::serialize_with(key, serializer)?,
+                    value: &B::serialize_with(value, serializer)?
+                }
+                */
+
+                EntryAdapterWith {
+                    key,
+                    value,
+                    _keyser: PhantomData::<A>,
+                    _valser: PhantomData::<B>
+                }
+            })
+        , serializer)
+    }
+}
+
+
+
+// Implementations for `Map`
 impl<A, O> ArchiveWith<Vec<O>> for Map<A>
 where
     A: ArchiveWith<O>,
@@ -477,10 +520,7 @@ mod tests {
             boxed::Box,
             collections::{BTreeMap, BTreeSet},
             string::{String, ToString},
-        },
-        api::test::{roundtrip, to_archived},
-        with::{AsOwned, AsVec, Niche},
-        Archive, Deserialize, Serialize,
+        }, api::test::{roundtrip, to_archived}, boxed::ArchivedBox, option::ArchivedOption, string::ArchivedString, with::{AsOwned, AsVec, Inline, InlineAsBox, Map, MapKV, Niche}, Archive, Deserialize, Serialize
     };
 
     #[derive(Debug, Archive, Deserialize, Serialize, PartialEq)]
@@ -539,6 +579,59 @@ mod tests {
             assert_eq!(archived.b, [1, 2, 3, 4, 5, 6]);
             assert_eq!(archived.c, "hello world");
         });
+    }
+
+   
+    #[test]
+    fn with_as_map() {
+        
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate, check_bytes)]
+        struct Test<'a> {
+            #[with(Map<InlineAsBox>)]
+            a: Option<&'a str>,
+            #[with(Map<InlineAsBox>)]
+            b: Option<&'a str>,
+        }
+
+        let value = Test {
+            a: Some("foo"),
+            b: None
+        };
+
+
+        to_archived(&value, |archived| {
+            assert!(archived.a.is_some());
+            assert!(archived.b.is_none());
+        });
+
+    }
+
+    #[test]
+    fn with_as_mapkv() {
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate, check_bytes)]
+        struct Test<'a> {
+            //#[with(MapKV<InlineAsBox, InlineAsBox>)]
+            #[with(MapKV<InlineAsBox, InlineAsBox>)]
+            a: BTreeMap<&'a str, &'a str>
+        }
+
+
+        let mut a = BTreeMap::new();
+        a.insert("foo", "bar");
+
+        let value = Test {
+          a,   
+            //   a: Some("foo")
+        };
+
+
+
+        to_archived(&value, |archived| {
+          //  assert_eq!(archived.a.len(), 1);
+        });
+
     }
 
     #[test]

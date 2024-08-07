@@ -5,7 +5,7 @@ use core::{borrow::Borrow, fmt, marker::PhantomData};
 use munge::munge;
 use rancor::Fallible;
 
-use crate::{Archive, Place, Portable, Serialize};
+use crate::{with::{ArchiveWith, SerializeWith}, Archive, Place, Portable, Serialize};
 
 /// An adapter which serializes and resolves its key and value references.
 pub struct EntryAdapter<BK, BV, K, V> {
