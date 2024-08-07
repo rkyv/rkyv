@@ -1,11 +1,12 @@
 //! Utilities for archived collections.
 
 use core::fmt;
+use std::marker::PhantomData;
 
 use munge::munge;
 use rancor::Fallible;
 
-use crate::{Archive, Place, Portable, Serialize};
+use crate::{with::{ArchiveWith, SerializeWith}, Archive, Place, Portable, Serialize};
 
 /// An adapter which serializes and resolves its key and value references.
 pub struct EntryAdapter<'a, K, V> {
@@ -23,6 +24,35 @@ pub struct EntryResolver<K, V> {
     pub value: V,
 }
 
+pub struct EntryAdapterWith<'a, K, V, A, B> {
+    pub key: &'a K,
+    pub value: &'a V,
+    pub _keyser: PhantomData<A>,
+    pub _valser: PhantomData<B>
+}
+
+pub struct EntryResolverWith<K, V, A, B> {
+    pub key: K,
+    pub value: V,
+    _keyser: PhantomData<A>,
+    _valser: PhantomData<B>
+}
+
+impl<K, V, A: ArchiveWith<K>, B: ArchiveWith<V>> Archive for EntryAdapterWith<'_, K, V, A, B> {
+
+    type Archived = Entry<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>;
+    type Resolver = EntryResolver<<A as ArchiveWith<K>>::Resolver, <B as ArchiveWith<V>>::Resolver>;
+
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
+        munge!(let Entry { key, value } = out);
+        A::resolve_with(self.key, resolver.key, key);
+        B::resolve_with(self.value, resolver.value, value);
+    }
+}
+
+
+
+
 impl<K: Archive, V: Archive> Archive for EntryAdapter<'_, K, V> {
     type Archived = Entry<K::Archived, V::Archived>;
     type Resolver = EntryResolver<K::Resolver, V::Resolver>;
@@ -31,6 +61,27 @@ impl<K: Archive, V: Archive> Archive for EntryAdapter<'_, K, V> {
         munge!(let Entry { key, value } = out);
         K::resolve(self.key, resolver.key, key);
         V::resolve(self.value, resolver.value, value);
+    }
+}
+
+impl<S, K, V, A, B> Serialize<S> for EntryAdapterWith<'_, K, V, A, B>
+where 
+    S: Fallible + ?Sized,
+    //K: Serialize<S>,
+    //V: Serialize<S>,
+    A: ArchiveWith<K> + SerializeWith<K, S>,
+    B: ArchiveWith<V> + SerializeWith<V, S>
+{
+    fn serialize(&self, serializer: &mut S)
+            -> Result<Self::Resolver, <S as Fallible>::Error> {
+        Ok(EntryResolver {
+            key: A::serialize_with(self.key, serializer)?,
+            value: B::serialize_with(self.value, serializer)?,
+            //key: self.key.serialize(serializer)?,
+            //value: self.value.serialize(serializer)?,
+            //_valser: PhantomData,
+            //_keyser: PhantomData
+        })
     }
 }
 

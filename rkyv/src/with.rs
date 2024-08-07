@@ -165,9 +165,8 @@ pub struct Map<T> {
 /// #[derive(Archive)]
 /// struct Example<'a> {
 ///     #[with(MapKV<InlineAsBox, InlineAsBox>)]
-///     test: HashMap<&'a u32, &'a i32>
+///     test: HashMap<&'a str, &'a str>
 /// }
-///
 /// ```
 pub struct MapKV<K, V> {
     _phantom: PhantomData<(K, V)>,
