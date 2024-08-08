@@ -1,4 +1,4 @@
-use core::{marker::PhantomData};
+use core::marker::PhantomData;
 
 use ptr_meta::Pointee;
 use rancor::{Fallible, Source};
@@ -10,13 +10,20 @@ use crate::{
         collections::{BTreeMap, BTreeSet},
         rc::Rc,
         vec::Vec,
-    }, collections::{util::{Entry, EntryAdapter}}, niche::option_box::{ArchivedOptionBox, OptionBoxResolver}, ser::{Allocator, Writer}, string::{ArchivedString, StringResolver}, traits::LayoutRaw, vec::{ArchivedVec, VecResolver}, with::{
-        ArchiveWith, AsOwned, AsVec, DeserializeWith, Map, Niche, SerializeWith, Unshare
-    }, Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized, Place, Serialize, SerializeUnsized
+    },
+    collections::util::{Entry, EntryAdapter},
+    niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
+    ser::{Allocator, Writer},
+    string::{ArchivedString, StringResolver},
+    traits::LayoutRaw,
+    vec::{ArchivedVec, VecResolver},
+    with::{
+        ArchiveWith, AsOwned, AsVec, DeserializeWith, Map, Niche,
+        SerializeWith, Unshare,
+    },
+    Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
+    Place, Serialize, SerializeUnsized,
 };
-
-
-
 
 // Implementations for `Map`
 impl<A, O> ArchiveWith<Vec<O>> for Map<A>
@@ -469,7 +476,13 @@ mod tests {
             boxed::Box,
             collections::{BTreeMap, BTreeSet},
             string::{String, ToString},
-        }, api::test::{roundtrip, to_archived}, boxed::ArchivedBox, option::ArchivedOption, string::ArchivedString, with::{AsOwned, AsVec, Inline, InlineAsBox, Map, MapKV, Niche}, Archive, Deserialize, Serialize
+        },
+        api::test::{roundtrip, to_archived},
+        boxed::ArchivedBox,
+        option::ArchivedOption,
+        string::ArchivedString,
+        with::{AsOwned, AsVec, Inline, InlineAsBox, Map, MapKV, Niche},
+        Archive, Deserialize, Serialize,
     };
 
     #[derive(Debug, Archive, Deserialize, Serialize, PartialEq)]
@@ -530,10 +543,8 @@ mod tests {
         });
     }
 
-   
     #[test]
     fn with_as_map() {
-        
         #[derive(Archive, Serialize, Deserialize)]
         #[rkyv(crate, check_bytes)]
         struct Test<'a> {
@@ -545,17 +556,14 @@ mod tests {
 
         let value = Test {
             a: Some("foo"),
-            b: None
+            b: None,
         };
-
 
         to_archived(&value, |archived| {
             assert!(archived.a.is_some());
             assert!(archived.b.is_none());
         });
-
     }
-
 
     #[test]
     fn with_as_mapkv() {
@@ -566,24 +574,17 @@ mod tests {
             a: BTreeMap<&'a str, &'a str>,
         }
 
-
         let mut a = BTreeMap::new();
         a.insert("foo", "bar");
         a.insert("woo", "roo");
 
-
-        let value = Test {
-          a,  
-        };
-
-
+        let value = Test { a };
 
         to_archived(&value, |archived| {
             assert_eq!(archived.a.len(), 2);
             assert!(archived.a.contains_key("foo"));
             assert_eq!(**archived.a.get("woo").unwrap(), *"roo");
         });
-
     }
 
     #[test]

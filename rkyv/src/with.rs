@@ -22,9 +22,10 @@ use crate::{Place, Portable};
 /// implementation for the type itself.
 ///
 /// # Reason
-/// We cannot write more than a single implementation of [`Archive`](crate::Archive) for
-/// a given type, so ArchiveWith allows us to use the `#[with]` macro to give the developer
-/// a more flexible interface for archival.
+/// We cannot write more than a single implementation of
+/// [`Archive`](crate::Archive) for a given type, so ArchiveWith allows us to
+/// use the `#[with]` macro to give the developer a more flexible interface for
+/// archival.
 ///
 /// # Example
 ///
@@ -139,12 +140,12 @@ pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
 
 /// A wrapper that allows us to project insider of objects
 /// that can be mapped to vectors, such as `Vec<_>` and `Option<_>`.
-/// 
+///
 /// For instance, suppose we have `Option<A>` and we apply `Map<B>`. Then `A`
 /// will be serialized by method `B`.
 ///
 /// To see more about the motivation for this, read [ArchiveWith].
-/// 
+///
 /// # Example
 ///
 /// ```
@@ -169,8 +170,8 @@ pub struct Map<T> {
 /// `BTreeMap<K, V>`.
 ///
 /// For instance, `MapKV<A, B>` on a `BTreeMap<K, V>` would use `A` to serialize
-/// `K` and `B` to serialize `V`. This gives us the ability to customize serialization.
-/// For more information, see [ArchiveWith].
+/// `K` and `B` to serialize `V`. This gives us the ability to customize
+/// serialization. For more information, see [ArchiveWith].
 ///
 /// # Example
 /// ```
@@ -178,13 +179,13 @@ pub struct Map<T> {
 ///
 /// use rkyv::{
 ///     with::{InlineAsBox, MapKV},
-///     Archive
+///     Archive,
 /// };
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
 ///     #[with(MapKV<InlineAsBox, InlineAsBox>)]
-///     test: HashMap<&'a str, &'a str>
+///     test: HashMap<&'a str, &'a str>,
 /// }
 /// ```
 pub struct MapKV<K, V> {

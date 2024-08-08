@@ -7,33 +7,37 @@
 mod atomic;
 
 use core::{
-    cell::{Cell, UnsafeCell}, hash::Hash, hint::unreachable_unchecked, num::{
+    cell::{Cell, UnsafeCell},
+    hint::unreachable_unchecked,
+    num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
         NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
         NonZeroU8, NonZeroUsize,
-    }
+    },
 };
-use std::marker::PhantomData;
 
 use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    boxed::{ArchivedBox, BoxResolver}, niche::option_nonzero::{
+    boxed::{ArchivedBox, BoxResolver},
+    niche::option_nonzero::{
         ArchivedOptionNonZeroI128, ArchivedOptionNonZeroI16,
         ArchivedOptionNonZeroI32, ArchivedOptionNonZeroI64,
         ArchivedOptionNonZeroI8, ArchivedOptionNonZeroIsize,
         ArchivedOptionNonZeroU128, ArchivedOptionNonZeroU16,
         ArchivedOptionNonZeroU32, ArchivedOptionNonZeroU64,
         ArchivedOptionNonZeroU8, ArchivedOptionNonZeroUsize,
-    }, option::ArchivedOption, place::Initialized, primitive::{FixedNonZeroIsize, FixedNonZeroUsize}, ser::Writer, with::{
+    },
+    option::ArchivedOption,
+    place::Initialized,
+    primitive::{FixedNonZeroIsize, FixedNonZeroUsize},
+    with::{
         ArchiveWith, AsBox, DeserializeWith, Inline, InlineAsBox, Map, Niche,
         SerializeWith, Skip, Unsafe,
-    }, Archive, ArchiveUnsized, Deserialize, Place, Serialize, SerializeUnsized
+    },
+    Archive, ArchiveUnsized, Deserialize, Place, Serialize, SerializeUnsized,
 };
-
-
-
 
 // InlineAsBox
 
