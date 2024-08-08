@@ -14,6 +14,8 @@ use core::{
         NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
         NonZeroU8, NonZeroUsize,
     },
+    marker::PhantomData,
+    hash::{Hash, Hasher}
 };
 
 use munge::munge;
@@ -38,6 +40,45 @@ use crate::{
     },
     Archive, ArchiveUnsized, Deserialize, Place, Serialize, SerializeUnsized,
 };
+
+// Wrapper for O so that we have an Archive and Serialize implementation
+// and ArchivedVec::serialize_from_* is happy about the bound
+// constraints
+pub struct RefWrapper<'o, A, O>(pub &'o O, pub PhantomData<A>);
+
+impl<A: ArchiveWith<O>, O> Archive for RefWrapper<'_, A, O> {
+    type Archived = <A as ArchiveWith<O>>::Archived;
+    type Resolver = <A as ArchiveWith<O>>::Resolver;
+
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
+        A::resolve_with(self.0, resolver, out)
+    }
+}
+
+impl<A, O, S> Serialize<S> for RefWrapper<'_, A, O>
+where
+    A: ArchiveWith<O> + SerializeWith<O, S>,
+    S: Fallible + ?Sized,
+{
+    fn serialize(&self, s: &mut S) -> Result<Self::Resolver, S::Error> {
+        A::serialize_with(self.0, s)
+    }
+}
+
+impl<A, O: Hash> Hash for RefWrapper<'_, A, O> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
+}
+
+impl<A, O: PartialEq> PartialEq for RefWrapper<'_, A, O> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<A, O: Eq> Eq for RefWrapper<'_, A, O> {}
+
 
 // InlineAsBox
 

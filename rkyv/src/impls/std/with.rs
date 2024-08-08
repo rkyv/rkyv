@@ -1,11 +1,10 @@
 use core::{fmt, hash::BuildHasher};
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     ffi::{CStr, OsString},
     hash::Hash,
     marker::PhantomData,
-    ops::ControlFlow,
     path::{Path, PathBuf},
     str::FromStr,
     sync::{Mutex, RwLock},
@@ -16,151 +15,17 @@ use rancor::{Fallible, OptionExt, ResultExt, Source};
 
 use crate::{
     collections::{
-        btree_map::{ArchivedBTreeMap, BTreeMapResolver},
         swiss_table::{ArchivedHashMap, HashMapResolver},
         util::{Entry, EntryAdapter},
-    },
-    ffi::{ArchivedCString, CStringResolver},
-    hash::FxHasher64,
-    ser::{Allocator, Writer},
-    string::{ArchivedString, StringResolver},
-    time::ArchivedDuration,
-    vec::{ArchivedVec, VecResolver},
-    with::{
+    }, ffi::{ArchivedCString, CStringResolver}, hash::FxHasher64, impls::core::with::RefWrapper, ser::{Allocator, Writer}, string::{ArchivedString, StringResolver}, time::ArchivedDuration, vec::{ArchivedVec, VecResolver}, with::{
         ArchiveWith, AsOwned, AsString, AsUnixTime, AsVec, DeserializeWith,
         Lock, MapKV, SerializeWith, Unsafe,
-    },
-    Archive, Deserialize, Place, Serialize, SerializeUnsized,
+    }, Archive, Deserialize, Place, Serialize, SerializeUnsized
 };
 
-// Wrapper for O so that we have an Archive and Serialize implementation
-// and ArchivedVec::serialize_from_* is happy about the bound
-// constraints
-struct RefWrapper<'o, A, O>(&'o O, PhantomData<A>);
 
-impl<A: ArchiveWith<O>, O> Archive for RefWrapper<'_, A, O> {
-    type Archived = <A as ArchiveWith<O>>::Archived;
-    type Resolver = <A as ArchiveWith<O>>::Resolver;
-
-    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
-        A::resolve_with(self.0, resolver, out)
-    }
-}
-
-impl<A, O, S> Serialize<S> for RefWrapper<'_, A, O>
-where
-    A: ArchiveWith<O> + SerializeWith<O, S>,
-    S: Fallible + Writer + ?Sized,
-{
-    fn serialize(&self, s: &mut S) -> Result<Self::Resolver, S::Error> {
-        A::serialize_with(self.0, s)
-    }
-}
-
-impl<A, O: Hash> Hash for RefWrapper<'_, A, O> {
-    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
-    }
-}
-
-impl<A, O: PartialEq> PartialEq for RefWrapper<'_, A, O> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl<A, O: Eq> Eq for RefWrapper<'_, A, O> {}
 
 // MapKV
-
-impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V> ArchiveWith<BTreeMap<K, V>>
-    for MapKV<A, B>
-{
-    type Archived = ArchivedBTreeMap<
-        <A as ArchiveWith<K>>::Archived,
-        <B as ArchiveWith<V>>::Archived,
-    >;
-    type Resolver = BTreeMapResolver;
-
-    fn resolve_with(
-        field: &BTreeMap<K, V>,
-        resolver: Self::Resolver,
-        out: Place<Self::Archived>,
-    ) {
-        ArchivedBTreeMap::resolve_from_len(field.len(), resolver, out)
-    }
-}
-
-impl<A, B, K, V, S> SerializeWith<BTreeMap<K, V>, S> for MapKV<A, B>
-where
-    A: ArchiveWith<K> + SerializeWith<K, S>,
-    B: ArchiveWith<V> + SerializeWith<V, S>,
-    <A as ArchiveWith<K>>::Archived: Ord,
-    S: Fallible + Allocator + Writer + ?Sized,
-    S::Error: Source,
-{
-    fn serialize_with(
-        field: &BTreeMap<K, V>,
-        serializer: &mut S,
-    ) -> Result<Self::Resolver, <S as Fallible>::Error> {
-        ArchivedBTreeMap::<_, _, 5>::serialize_from_ordered_iter(
-            field.iter().map(|(k, v)| {
-                (
-                    RefWrapper::<'_, A, K>(k, PhantomData::<A>),
-                    RefWrapper::<'_, B, V>(v, PhantomData::<B>),
-                )
-            }),
-            serializer,
-        )
-    }
-}
-
-/// NOTE: The implementation for this method was really just taken from the
-/// Deserialize method of the BTreeMap. This shows a common pattern: We are
-/// really only replacing the code to serialize directly by calling
-/// `deserialize_with`.
-impl<A, B, K, V, D>
-    DeserializeWith<
-        ArchivedBTreeMap<
-            <A as ArchiveWith<K>>::Archived,
-            <B as ArchiveWith<V>>::Archived,
-        >,
-        BTreeMap<K, V>,
-        D,
-    > for MapKV<A, B>
-where
-    A: ArchiveWith<K> + DeserializeWith<<A as ArchiveWith<K>>::Archived, K, D>,
-    B: ArchiveWith<V> + DeserializeWith<<B as ArchiveWith<V>>::Archived, V, D>,
-    K: Ord,
-    D: Fallible + ?Sized,
-{
-    fn deserialize_with(
-        field: &ArchivedBTreeMap<
-            <A as ArchiveWith<K>>::Archived,
-            <B as ArchiveWith<V>>::Archived,
-        >,
-        deserializer: &mut D,
-    ) -> Result<BTreeMap<K, V>, <D as Fallible>::Error> {
-        let mut result = BTreeMap::new();
-        let r = field.visit(|ak, av| {
-            let k = match A::deserialize_with(ak, deserializer) {
-                Ok(k) => k,
-                Err(e) => return ControlFlow::Break(e),
-            };
-            let v = match B::deserialize_with(av, deserializer) {
-                Ok(v) => v,
-                Err(e) => return ControlFlow::Break(e),
-            };
-            result.insert(k, v);
-            ControlFlow::Continue(())
-        });
-        match r {
-            Some(e) => Err(e),
-            None => Ok(result),
-        }
-    }
-}
-
 impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V> ArchiveWith<HashMap<K, V>>
     for MapKV<A, B>
 {
