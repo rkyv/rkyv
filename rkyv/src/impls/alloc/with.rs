@@ -11,7 +11,7 @@ use crate::{
         collections::{BTreeMap, BTreeSet},
         rc::Rc,
         vec::Vec,
-    }, collections::{btree_map::{ArchivedBTreeMap, BTreeMapResolver}, swiss_table::{ArchivedHashMap, HashMapResolver}, util::{Entry, EntryAdapter, EntryAdapterWith, EntryResolver}}, niche::option_box::{ArchivedOptionBox, OptionBoxResolver}, ser::{Allocator, Writer}, string::{ArchivedString, StringResolver}, traits::LayoutRaw, util::AlignedVec, vec::{ArchivedVec, VecResolver}, with::{
+    }, collections::{btree_map::{ArchivedBTreeMap, BTreeMapResolver}, swiss_table::{ArchivedHashMap, HashMapResolver}, util::{Entry, EntryAdapter, EntryResolver}}, niche::option_box::{ArchivedOptionBox, OptionBoxResolver}, ser::{Allocator, Writer}, string::{ArchivedString, StringResolver}, traits::LayoutRaw, util::AlignedVec, vec::{ArchivedVec, VecResolver}, with::{
         ArchiveWith, AsOwned, AsVec, DeserializeWith, Map, MapKV, Niche, SerializeWith, Unshare
     }, Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized, Place, Serialize, SerializeUnsized
 };
@@ -88,87 +88,18 @@ where
             serializer: &mut S,
         ) -> Result<Self::Resolver, <S as Fallible>::Error> {
 
-      
-        /*
-        struct RefWrapper<'o, I, O>(&'o O, PhantomData<I>);
-
-        impl<I: ArchiveWith<O>, O> Archive for RefWrapper<'_, I, O> {
-            type Archived = <I as ArchiveWith<O>>::Archived;
-            type Resolver = <I as ArchiveWith<O>>::Resolver;
-
-            fn resolve(
-                &self,
-                resolver: Self::Resolver,
-                out: Place<Self::Archived>,
-            ) {
-                I::resolve_with(self.0, resolver, out)
-            }
-        }
-
-        impl<I, O, S> Serialize<S> for RefWrapper<'_, I, O>
-        where
-            I: ArchiveWith<O> + SerializeWith<O, S>,
-            S: Fallible + Writer + ?Sized,
-        {
-            fn serialize(&self, s: &mut S) -> Result<Self::Resolver, S::Error> {
-                I::serialize_with(self.0, s)
-            }
-        }
-        */
-
-
-    //    let mut vecoir = vec![];
-      //  for (key, value) in field.iter() {
-//            vecoir.push((&A::serialize_with(key, serializer)?, &B::serialize_with(value, serializer)?));
-  //      }
-  //
-  //
-      
-
-        /*
-        let mut map = Vec::with_capacity(field.len());
-        for (k, v) in field.iter() {
-            map.push((RefWrapper::<'_, A, K>(k, PhantomData::<A>), RefWrapper::<'_, B, V>(v, PhantomData::<B>)));
-        }
-        */
-
-        //ArchivedVec::serialize_from_iter(iter, serializer)
-
-        
-
-        ArchivedBTreeMap::<_, _, 5>::serialize_from_ordered_iter(field
+                 ArchivedBTreeMap::<_, _, 5>::serialize_from_ordered_iter(field
             .iter().map(|(k,v)| {
                 (RefWrapper::<'_, A, K>(k, PhantomData::<A>), RefWrapper::<'_, B, V>(v, PhantomData::<B>))
             })
-            //.into_iter()
-//            .map(|(k, v)| (&k, &v))
-          //  .map(|(k, v)| (&k, &v))
-            //.map(|(k, v)| 
-//            .map(|(k, v)| 
-
             , serializer)
-/*
-        ArchivedVec::serialize_from_iter(field.iter()
-            .map(|(key, value)| {
-                /*
-                EntryAdapter {
-                    key: &A::serialize_with(key, serializer)?,
-                    value: &B::serialize_with(value, serializer)?
-                }
-                */
-
-                EntryAdapterWith {
-                    key,
-                    value,
-                    _keyser: PhantomData::<A>,
-                    _valser: PhantomData::<B>
-                }
-            })
-        , serializer)
-*/
     }
 }
 
+
+/// NOTE: The implementation for this method was really just taken from the Deserialize
+/// method of the BTreeMap. This shows a common pattern: We are really only replacing the 
+/// code to serialize directly by calling `deserialize_with`.
 impl<A, B, K, V, D> DeserializeWith<ArchivedBTreeMap<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>, BTreeMap<K, V>, D> for MapKV<A, B>
 where
     A: ArchiveWith<K> + DeserializeWith<<A as ArchiveWith<K>>::Archived, K, D>,
@@ -200,36 +131,10 @@ where
 
 }
 
-/*
-impl<A, B, K, V, D> DeserializeWith<
-    ArchivedVec<Entry<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>>, BTreeMap<K, V>, D
-> for MapKV<A, B>
-where 
-    A: ArchiveWith<K> + DeserializeWith<<A as ArchiveWith<K>>::Archived, K, D>,
-    B: ArchiveWith<V> + DeserializeWith<<B as ArchiveWith<V>>::Archived, V, D>,
-    K: Ord,
-    D: Fallible + ?Sized
-{
-    fn deserialize_with(field: &ArchivedVec<Entry<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>>, deserializer: &mut D)
-            -> Result<BTreeMap<K, V>, <D as Fallible>::Error> {
-        let mut result = BTreeMap::new();
-        for entry in field.iter() {
-            result.insert(
-                A::deserialize_with(&entry.key, deserializer)?,
-                B::deserialize_with(&entry.value, deserializer)?
-            );
-        } 
-        Ok(result)
-    }
-    
-}
-*/
-
 
 // Wrapper for O so that we have an Archive and Serialize implementation
-        // and ArchivedVec::serialize_from_* is happy about the bound
-        // constraints
-
+// and ArchivedVec::serialize_from_* is happy about the bound
+// constraints
 struct RefWrapper<'o, A, O>(&'o O, PhantomData<A>);
 
 impl<A: ArchiveWith<O>, O> Archive for RefWrapper<'_, A, O> {
@@ -815,8 +720,9 @@ mod tests {
 
         to_archived(&value, |archived| {
             assert_eq!(archived.a.len(), 2);
-            assert!(archived.a.iter().any(|e| *e.key == *"foo" && *e.value == *"bar"));
-            assert!(archived.a.iter().any(|e| *e.key == *"woo" && *e.value == *"roo"));
+            assert!(archived.a.contains_key("foo"));
+            assert_eq!(**archived.a.get("woo").unwrap(), *"roo")
+            //assert!(archived.a.iter().any(|e| *e.key == *"woo" && *e.value == *"roo"));
         });
 
     }
