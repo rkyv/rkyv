@@ -17,8 +17,9 @@ mod std;
 mod arrayvec;
 #[cfg(feature = "bytes")]
 mod bytes;
-#[cfg(feature = "hashbrown")]
+
 mod hashbrown;
+
 #[cfg(feature = "indexmap")]
 mod indexmap;
 #[cfg(feature = "smallvec")]

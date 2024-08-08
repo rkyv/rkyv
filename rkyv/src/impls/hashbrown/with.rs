@@ -1,8 +1,17 @@
+use core::{hash::{BuildHasher, Hash}, marker::PhantomData};
+
+use hashbrown::{HashMap};
+use rancor::{Fallible, Source};
+
+use crate::{collections::swiss_table::{ArchivedHashMap, HashMapResolver}, impls::core::with::RefWrapper, ser::{Allocator, Writer}, with::{ArchiveWith, DeserializeWith, MapKV, SerializeWith}, Place};
 
 
-
-impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V>
-    ArchiveWith<hashbrown::HashMap<K, V>> for MapKV<A, B>
+impl<A, B, K, V, H>
+    ArchiveWith<HashMap<K, V, H>> for MapKV<A, B>
+where 
+    A: ArchiveWith<K>,
+    B: ArchiveWith<V>,
+    H: Default + BuildHasher
 {
     type Archived = ArchivedHashMap<
         <A as ArchiveWith<K>>::Archived,
@@ -11,7 +20,7 @@ impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V>
     type Resolver = HashMapResolver;
 
     fn resolve_with(
-        field: &hashbrown::HashMap<K, V>,
+        field: &hashbrown::HashMap<K, V, H>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
@@ -19,25 +28,28 @@ impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V>
     }
 }
 
-impl<A, B, K, V, S> SerializeWith<hashbrown::HashMap<K, V>, S> for MapKV<A, B>
+impl<A, B, K, V, H, S> SerializeWith<hashbrown::HashMap<K, V, H>, S> for MapKV<A, B>
 where
     A: ArchiveWith<K> + SerializeWith<K, S>,
     B: ArchiveWith<V> + SerializeWith<V, S>,
     K: Hash + Eq,
     <A as ArchiveWith<K>>::Archived: Eq + Hash,
-    S: Fallible + Allocator + Writer + ?Sized,
+    S: Fallible + Writer + Allocator + ?Sized,
     S::Error: Source,
+    H: Default + BuildHasher,
+    H::Hasher: Default
 {
     fn serialize_with(
-        field: &hashbrown::HashMap<K, V>,
+        field: &hashbrown::HashMap<K, V, H>,
         serializer: &mut S,
     ) -> Result<Self::Resolver, <S as Fallible>::Error> {
-        ArchivedHashMap::<_, _, FxHasher64>::serialize_from_iter(
+        ArchivedHashMap::<_, _, H::Hasher>::serialize_from_iter(
             field.iter().map(|(k, v)| {
                 (
                     RefWrapper::<'_, A, K>(k, PhantomData::<A>),
                     RefWrapper::<'_, B, V>(v, PhantomData::<B>),
                 )
+                    
             }),
             (7, 8),
             serializer,
@@ -79,5 +91,44 @@ where
             );
         }
         Ok(result)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    
+
+
+    use core::hash::BuildHasherDefault;
+
+    use rkyv_derive::{Archive, Deserialize, Serialize};
+    use crate::{api::test::to_archived, hash::FxHasher64, with::{InlineAsBox, MapKV}};
+    use hashbrown::{hash_map::DefaultHashBuilder, HashMap};
+
+    #[test]
+    fn with_as_mapkv() {
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate, check_bytes)]
+        struct Test<'a> {
+            #[with(MapKV<InlineAsBox, InlineAsBox>)]
+            a: HashMap<&'a str, &'a str, BuildHasherDefault<FxHasher64>>,
+        }
+
+
+        let mut a =
+            HashMap::with_hasher(BuildHasherDefault::<FxHasher64>::default());
+        //let mut a = HashMap::default();
+        a.insert("foo", "bar");
+        a.insert("woo", "roo");
+
+        let value = Test { a };
+
+        to_archived(&value, |archived| {
+            assert_eq!(archived.a.len(), 2);
+            assert!(archived.a.contains_key("foo"));
+            assert_eq!(**archived.a.get("woo").unwrap(), *"roo");
+        });
     }
 }
