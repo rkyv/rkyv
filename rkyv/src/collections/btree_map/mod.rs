@@ -17,7 +17,7 @@ use munge::munge;
 use rancor::{fail, Fallible, Source};
 
 use crate::{
-    collections::util::IteratorLengthMismatch, place::Initialized, primitive::{ArchivedUsize, FixedUsize}, ser::{Allocator, Writer, WriterExt as _}, util::{InlineVec, SerVec}, with::SerializeWith, Place, Portable, RawRelPtr, Serialize
+    collections::util::IteratorLengthMismatch, place::Initialized, primitive::{ArchivedUsize, FixedUsize}, ser::{Allocator, Writer, WriterExt as _}, util::{InlineVec, SerVec}, Place, Portable, RawRelPtr, Serialize
 };
 
 // TODO(#515): Get Iterator APIs working without the `alloc` feature enabled

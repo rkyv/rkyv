@@ -1,5 +1,4 @@
-use core::{hash::{BuildHasher, Hash, Hasher}, iter, marker::PhantomData};
-use std::ops::ControlFlow;
+use core::{marker::PhantomData};
 
 use ptr_meta::Pointee;
 use rancor::{Fallible, Source};
@@ -11,8 +10,8 @@ use crate::{
         collections::{BTreeMap, BTreeSet},
         rc::Rc,
         vec::Vec,
-    }, collections::{btree_map::{ArchivedBTreeMap, BTreeMapResolver}, util::{Entry, EntryAdapter}}, niche::option_box::{ArchivedOptionBox, OptionBoxResolver}, ser::{Allocator, Writer}, string::{ArchivedString, StringResolver}, traits::LayoutRaw, vec::{ArchivedVec, VecResolver}, with::{
-        ArchiveWith, AsOwned, AsVec, DeserializeWith, Map, MapKV, Niche, SerializeWith, Unshare
+    }, collections::{util::{Entry, EntryAdapter}}, niche::option_box::{ArchivedOptionBox, OptionBoxResolver}, ser::{Allocator, Writer}, string::{ArchivedString, StringResolver}, traits::LayoutRaw, vec::{ArchivedVec, VecResolver}, with::{
+        ArchiveWith, AsOwned, AsVec, DeserializeWith, Map, Niche, SerializeWith, Unshare
     }, Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized, Place, Serialize, SerializeUnsized
 };
 
