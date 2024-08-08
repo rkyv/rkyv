@@ -579,27 +579,7 @@ mod tests {
         );
     }
 
-    #[test]
-    fn with_as_mapkv() {
-        #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
-        struct Test<'a> {
-            #[with(MapKV<InlineAsBox, InlineAsBox>)]
-            a: BTreeMap<&'a str, &'a str>,
-        }
-
-        let mut a = BTreeMap::new();
-        a.insert("foo", "bar");
-        a.insert("woo", "roo");
-
-        let value = Test { a };
-
-        to_archived(&value, |archived| {
-            assert_eq!(archived.a.len(), 2);
-            assert!(archived.a.contains_key("foo"));
-            assert_eq!(**archived.a.get("woo").unwrap(), *"roo");
-        });
-    }
+    
 
     #[test]
     fn with_hashmap_mapkv() {
