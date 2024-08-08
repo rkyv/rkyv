@@ -1,4 +1,4 @@
-use core::{hash::{BuildHasher, Hash}, iter, marker::PhantomData};
+use core::{hash::{BuildHasher, Hash, Hasher}, iter, marker::PhantomData};
 use std::ops::ControlFlow;
 
 use ptr_meta::Pointee;
@@ -11,7 +11,7 @@ use crate::{
         collections::{BTreeMap, BTreeSet},
         rc::Rc,
         vec::Vec,
-    }, collections::{btree_map::{ArchivedBTreeMap, BTreeMapResolver}, swiss_table::{ArchivedHashMap, HashMapResolver}, util::{Entry, EntryAdapter, EntryResolver}}, niche::option_box::{ArchivedOptionBox, OptionBoxResolver}, ser::{Allocator, Writer}, string::{ArchivedString, StringResolver}, traits::LayoutRaw, util::AlignedVec, vec::{ArchivedVec, VecResolver}, with::{
+    }, collections::{btree_map::{ArchivedBTreeMap, BTreeMapResolver}, swiss_table::{ArchivedHashMap, HashMapResolver}, util::{Entry, EntryAdapter, EntryResolver}}, hash::FxHasher64, niche::option_box::{ArchivedOptionBox, OptionBoxResolver}, ser::{Allocator, Writer}, string::{ArchivedString, StringResolver}, traits::LayoutRaw, util::AlignedVec, vec::{ArchivedVec, VecResolver}, with::{
         ArchiveWith, AsOwned, AsVec, DeserializeWith, Map, MapKV, Niche, SerializeWith, Unshare
     }, Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized, Place, Serialize, SerializeUnsized
 };
@@ -34,6 +34,30 @@ impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V> ArchiveWith<HashMap<K, V>> for 
         ArchivedHashMap::resolve_from_len(field.len(), (7, 8), resolver, out)
     }
 }
+
+impl<A, B, K, V, S> SerializeWith<HashMap<K, V>, S> for MapKV<A, B>
+where
+    A: ArchiveWith<K> + SerializeWith<K, S>,
+    B: ArchiveWith<V> + SerializeWith<V, S>,
+    K: Hash + Eq,
+    <A as ArchiveWith<K>>::Archived: Eq + Hash,
+    S: Fallible + Allocator + Writer + ?Sized,
+    S::Error: Source
+{
+
+    fn serialize_with(
+            field: &HashMap<K, V>,
+            serializer: &mut S,
+        ) -> Result<Self::Resolver, <S as Fallible>::Error> {
+        ArchivedHashMap::<_, _, FxHasher64>::serialize_from_iter(field.iter()
+            .map(|(k, v)| {
+                (RefWrapper::<'_, A, K>(k, PhantomData::<A>), RefWrapper::<'_, B, V>(v, PhantomData::<B>))
+            })
+            , (7, 8), serializer)
+    } 
+}
+
+
 
 impl<A, B, K, V, D, S> DeserializeWith<ArchivedHashMap<<A as ArchiveWith<K>>::Archived, <B as ArchiveWith<V>>::Archived>, HashMap<K, V, S>, D> for MapKV<A, B>
 where
@@ -72,14 +96,11 @@ impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V> ArchiveWith<BTreeMap<K, V>> for
     }
 }
 
-impl<'a, A, B, K, V, S> SerializeWith<BTreeMap<K, V>, S> for MapKV<A, B>
+impl<A, B, K, V, S> SerializeWith<BTreeMap<K, V>, S> for MapKV<A, B>
 where
     A: ArchiveWith<K> + SerializeWith<K, S>,
     B: ArchiveWith<V> + SerializeWith<V, S>,
     <A as ArchiveWith<K>>::Archived: Ord,
-
-   // K: Serialize + Archive,
-    //V: Serialize + Archive,
     S: Fallible + Allocator + Writer + ?Sized,
     S::Error: Source
 {
@@ -88,7 +109,7 @@ where
             serializer: &mut S,
         ) -> Result<Self::Resolver, <S as Fallible>::Error> {
 
-                 ArchivedBTreeMap::<_, _, 5>::serialize_from_ordered_iter(field
+        ArchivedBTreeMap::<_, _, 5>::serialize_from_ordered_iter(field
             .iter().map(|(k,v)| {
                 (RefWrapper::<'_, A, K>(k, PhantomData::<A>), RefWrapper::<'_, B, V>(v, PhantomData::<B>))
             })
@@ -159,6 +180,22 @@ where
         A::serialize_with(self.0, s)
     }
 }
+
+impl<A, O: Hash> Hash for RefWrapper<'_, A, O> {
+
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
+}
+
+impl<A, O: PartialEq> PartialEq for RefWrapper<'_, A, O> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}   
+
+impl<A, O: Eq> Eq for RefWrapper<'_, A, O> {}
+
 
 // Implementations for `Map`
 impl<A, O> ArchiveWith<Vec<O>> for Map<A>
@@ -698,13 +735,17 @@ mod tests {
 
     }
 
+    use crate::alloc::collections::HashMap;
+
     #[test]
     fn with_as_mapkv() {
         #[derive(Archive, Serialize, Deserialize)]
         #[rkyv(crate, check_bytes)]
         struct Test<'a> {
             #[with(MapKV<InlineAsBox, InlineAsBox>)]
-            a: BTreeMap<&'a str, &'a str>
+            a: BTreeMap<&'a str, &'a str>,
+            #[with(MapKV<InlineAsBox, InlineAsBox>)]
+            b: HashMap<&'a str, &'a str>
         }
 
 
@@ -712,8 +753,12 @@ mod tests {
         a.insert("foo", "bar");
         a.insert("woo", "roo");
 
+        let mut b = HashMap::new();
+        b.insert("cat", "hat");
+
         let value = Test {
-          a,   
+          a,  
+          b
         };
 
 
@@ -721,7 +766,10 @@ mod tests {
         to_archived(&value, |archived| {
             assert_eq!(archived.a.len(), 2);
             assert!(archived.a.contains_key("foo"));
-            assert_eq!(**archived.a.get("woo").unwrap(), *"roo")
+            assert_eq!(**archived.a.get("woo").unwrap(), *"roo");
+
+
+            assert_eq!(**archived.b.get("cat").unwrap(), *"hat");
             //assert!(archived.a.iter().any(|e| *e.key == *"woo" && *e.value == *"roo"));
         });
 
