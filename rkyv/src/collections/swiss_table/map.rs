@@ -197,7 +197,7 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
-    {
+    {       
         self.get(key).is_some()
     }
 

@@ -7,37 +7,78 @@
 mod atomic;
 
 use core::{
-    cell::{Cell, UnsafeCell},
-    hint::unreachable_unchecked,
-    num::{
+    cell::{Cell, UnsafeCell}, hash::Hash, hint::unreachable_unchecked, num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
         NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
         NonZeroU8, NonZeroUsize,
-    },
+    }
 };
+use std::marker::PhantomData;
 
 use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    boxed::{ArchivedBox, BoxResolver},
-    niche::option_nonzero::{
+    boxed::{ArchivedBox, BoxResolver}, niche::option_nonzero::{
         ArchivedOptionNonZeroI128, ArchivedOptionNonZeroI16,
         ArchivedOptionNonZeroI32, ArchivedOptionNonZeroI64,
         ArchivedOptionNonZeroI8, ArchivedOptionNonZeroIsize,
         ArchivedOptionNonZeroU128, ArchivedOptionNonZeroU16,
         ArchivedOptionNonZeroU32, ArchivedOptionNonZeroU64,
         ArchivedOptionNonZeroU8, ArchivedOptionNonZeroUsize,
-    },
-    option::ArchivedOption,
-    place::Initialized,
-    primitive::{FixedNonZeroIsize, FixedNonZeroUsize},
-    with::{
+    }, option::ArchivedOption, place::Initialized, primitive::{FixedNonZeroIsize, FixedNonZeroUsize}, ser::Writer, with::{
         ArchiveWith, AsBox, DeserializeWith, Inline, InlineAsBox, Map, Niche,
         SerializeWith, Skip, Unsafe,
-    },
-    Archive, ArchiveUnsized, Deserialize, Place, Serialize, SerializeUnsized,
+    }, Archive, ArchiveUnsized, Deserialize, Place, Serialize, SerializeUnsized
 };
+
+
+
+// Wrapper for O so that we have an Archive and Serialize implementation
+// and ArchivedVec::serialize_from_* is happy about the bound
+// constraints
+struct RefWrapper<'o, A, O>(&'o O, PhantomData<A>);
+
+impl<A: ArchiveWith<O>, O> Archive for RefWrapper<'_, A, O> {
+    type Archived = <A as ArchiveWith<O>>::Archived;
+    type Resolver = <A as ArchiveWith<O>>::Resolver;
+
+    fn resolve(
+        &self,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        A::resolve_with(self.0, resolver, out)
+    }
+}
+
+impl<A, O, S> Serialize<S> for RefWrapper<'_, A, O>
+where
+    A: ArchiveWith<O> + SerializeWith<O, S>,
+    S: Fallible + Writer + ?Sized,
+{
+    fn serialize(&self, s: &mut S) -> Result<Self::Resolver, S::Error> {
+        A::serialize_with(self.0, s)
+    }
+}
+
+impl<A, O: Hash> Hash for RefWrapper<'_, A, O> {
+
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
+}
+
+impl<A, O: PartialEq> PartialEq for RefWrapper<'_, A, O> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}   
+
+impl<A, O: Eq> Eq for RefWrapper<'_, A, O> {}
+
+
+
 
 // InlineAsBox
 
