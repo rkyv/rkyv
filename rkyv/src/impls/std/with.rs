@@ -26,8 +26,12 @@ use crate::{
 
 
 // MapKV
-impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V> ArchiveWith<HashMap<K, V>>
+impl<A, B, K, V, H> ArchiveWith<HashMap<K, V, H>>
     for MapKV<A, B>
+where 
+    A: ArchiveWith<K>,
+    B: ArchiveWith<V>,
+    H: Default + BuildHasher
 {
     type Archived = ArchivedHashMap<
         <A as ArchiveWith<K>>::Archived,
@@ -36,7 +40,7 @@ impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V> ArchiveWith<HashMap<K, V>>
     type Resolver = HashMapResolver;
 
     fn resolve_with(
-        field: &HashMap<K, V>,
+        field: &HashMap<K, V, H>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
@@ -44,7 +48,7 @@ impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V> ArchiveWith<HashMap<K, V>>
     }
 }
 
-impl<A, B, K, V, S> SerializeWith<HashMap<K, V>, S> for MapKV<A, B>
+impl<A, B, K, V, S, H> SerializeWith<HashMap<K, V, H>, S> for MapKV<A, B>
 where
     A: ArchiveWith<K> + SerializeWith<K, S>,
     B: ArchiveWith<V> + SerializeWith<V, S>,
@@ -52,9 +56,11 @@ where
     <A as ArchiveWith<K>>::Archived: Eq + Hash,
     S: Fallible + Allocator + Writer + ?Sized,
     S::Error: Source,
+    H: Default + BuildHasher,
+    H::Hasher: Default
 {
     fn serialize_with(
-        field: &HashMap<K, V>,
+        field: &HashMap<K, V, H>,
         serializer: &mut S,
     ) -> Result<Self::Resolver, <S as Fallible>::Error> {
         ArchivedHashMap::<_, _, FxHasher64>::serialize_from_iter(

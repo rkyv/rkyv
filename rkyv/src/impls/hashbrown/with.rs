@@ -119,7 +119,6 @@ mod tests {
 
         let mut a =
             HashMap::with_hasher(BuildHasherDefault::<FxHasher64>::default());
-        //let mut a = HashMap::default();
         a.insert("foo", "bar");
         a.insert("woo", "roo");
 
