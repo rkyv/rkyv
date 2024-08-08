@@ -8,14 +8,14 @@ mod atomic;
 
 use core::{
     cell::{Cell, UnsafeCell},
+    hash::{Hash, Hasher},
     hint::unreachable_unchecked,
+    marker::PhantomData,
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
         NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
         NonZeroU8, NonZeroUsize,
     },
-    marker::PhantomData,
-    hash::{Hash, Hasher}
 };
 
 use munge::munge;
@@ -78,7 +78,6 @@ impl<A, O: PartialEq> PartialEq for RefWrapper<'_, A, O> {
 }
 
 impl<A, O: Eq> Eq for RefWrapper<'_, A, O> {}
-
 
 // InlineAsBox
 

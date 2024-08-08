@@ -1,5 +1,4 @@
-use core::marker::PhantomData;
-use core::ops::ControlFlow;
+use core::{marker::PhantomData, ops::ControlFlow};
 
 use ptr_meta::Pointee;
 use rancor::{Fallible, Source};
@@ -11,9 +10,23 @@ use crate::{
         collections::{BTreeMap, BTreeSet},
         rc::Rc,
         vec::Vec,
-    }, collections::{btree_map::{ArchivedBTreeMap, BTreeMapResolver}, util::{Entry, EntryAdapter}}, impls::core::with::RefWrapper, niche::option_box::{ArchivedOptionBox, OptionBoxResolver}, ser::{Allocator, Writer}, string::{ArchivedString, StringResolver}, traits::LayoutRaw, vec::{ArchivedVec, VecResolver}, with::{
-        ArchiveWith, AsOwned, AsVec, DeserializeWith, Map, MapKV, Niche, SerializeWith, Unshare
-    }, Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized, Place, Serialize, SerializeUnsized
+    },
+    collections::{
+        btree_map::{ArchivedBTreeMap, BTreeMapResolver},
+        util::{Entry, EntryAdapter},
+    },
+    impls::core::with::RefWrapper,
+    niche::option_box::{ArchivedOptionBox, OptionBoxResolver},
+    ser::{Allocator, Writer},
+    string::{ArchivedString, StringResolver},
+    traits::LayoutRaw,
+    vec::{ArchivedVec, VecResolver},
+    with::{
+        ArchiveWith, AsOwned, AsVec, DeserializeWith, Map, MapKV, Niche,
+        SerializeWith, Unshare,
+    },
+    Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
+    Place, Serialize, SerializeUnsized,
 };
 
 // Implementation for `MapKV`
@@ -105,8 +118,6 @@ where
         }
     }
 }
-
-
 
 // Implementations for `Map`
 impl<A, O> ArchiveWith<Vec<O>> for Map<A>
@@ -583,8 +594,6 @@ mod tests {
         });
     }
 
-   
-
     #[test]
     fn ambiguous_niched_archived_box() {
         #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
@@ -655,7 +664,6 @@ mod tests {
             #[with(MapKV<InlineAsBox, InlineAsBox>)]
             a: BTreeMap<&'a str, &'a str>,
         }
-
 
         let mut a = BTreeMap::new();
         a.insert("foo", "bar");

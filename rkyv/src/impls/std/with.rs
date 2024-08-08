@@ -17,21 +17,27 @@ use crate::{
     collections::{
         swiss_table::{ArchivedHashMap, HashMapResolver},
         util::{Entry, EntryAdapter},
-    }, ffi::{ArchivedCString, CStringResolver}, hash::FxHasher64, impls::core::with::RefWrapper, ser::{Allocator, Writer}, string::{ArchivedString, StringResolver}, time::ArchivedDuration, vec::{ArchivedVec, VecResolver}, with::{
+    },
+    ffi::{ArchivedCString, CStringResolver},
+    hash::FxHasher64,
+    impls::core::with::RefWrapper,
+    ser::{Allocator, Writer},
+    string::{ArchivedString, StringResolver},
+    time::ArchivedDuration,
+    vec::{ArchivedVec, VecResolver},
+    with::{
         ArchiveWith, AsOwned, AsString, AsUnixTime, AsVec, DeserializeWith,
         Lock, MapKV, SerializeWith, Unsafe,
-    }, Archive, Deserialize, Place, Serialize, SerializeUnsized
+    },
+    Archive, Deserialize, Place, Serialize, SerializeUnsized,
 };
 
-
-
 // MapKV
-impl<A, B, K, V, H> ArchiveWith<HashMap<K, V, H>>
-    for MapKV<A, B>
-where 
+impl<A, B, K, V, H> ArchiveWith<HashMap<K, V, H>> for MapKV<A, B>
+where
     A: ArchiveWith<K>,
     B: ArchiveWith<V>,
-    H: Default + BuildHasher
+    H: Default + BuildHasher,
 {
     type Archived = ArchivedHashMap<
         <A as ArchiveWith<K>>::Archived,
@@ -57,7 +63,7 @@ where
     S: Fallible + Allocator + Writer + ?Sized,
     S::Error: Source,
     H: Default + BuildHasher,
-    H::Hasher: Default
+    H::Hasher: Default,
 {
     fn serialize_with(
         field: &HashMap<K, V, H>,
@@ -584,8 +590,6 @@ mod tests {
             },
         );
     }
-
-    
 
     #[test]
     fn with_hashmap_mapkv() {
