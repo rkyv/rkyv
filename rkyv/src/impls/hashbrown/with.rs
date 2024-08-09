@@ -103,10 +103,9 @@ where
 
 #[cfg(test)]
 mod tests {
-
     use core::hash::BuildHasherDefault;
 
-    use hashbrown::{hash_map::DefaultHashBuilder, HashMap};
+    use hashbrown::HashMap;
     use rkyv_derive::{Archive, Deserialize, Serialize};
 
     use crate::{

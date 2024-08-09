@@ -21,11 +21,11 @@ use crate::{Place, Portable};
 /// the implementations for the wrapper type and the given field instead of the
 /// implementation for the type itself.
 ///
-/// # Reason
-/// We cannot write more than a single implementation of
-/// [`Archive`](crate::Archive) for a given type, so ArchiveWith allows us to
-/// use the `#[with]` macro to give the developer a more flexible interface for
-/// archival.
+/// Only a single implementation of [`Archive`](crate::Archive) may be written
+/// for each type, but multiple implementations of ArchiveWith can be written
+/// for the same type because it is parametric over the wrapper type. This is
+/// used with the `#[with]` macro attribute to provide a more flexible interface
+/// for serialization.
 ///
 /// # Example
 ///
@@ -118,7 +118,7 @@ pub trait ArchiveWith<F: ?Sized> {
 
 /// A variant of `Serialize` that works with `With` wrappers.
 ///
-/// To see the reason for the existence of this trait, see [ArchiveWith].
+/// See [ArchiveWith] for more details.
 pub trait SerializeWith<F: ?Sized, S: Fallible + ?Sized>:
     ArchiveWith<F>
 {
@@ -131,20 +131,18 @@ pub trait SerializeWith<F: ?Sized, S: Fallible + ?Sized>:
 
 /// A variant of `Deserialize` that works with `With` wrappers.
 ///
-/// To see the reason for the existence of this trait, see [ArchiveWith]
+/// See [ArchiveWith] for more details.
 pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
     /// Deserializes the field type `F` using the given deserializer.
     fn deserialize_with(field: &F, deserializer: &mut D)
         -> Result<T, D::Error>;
 }
 
-/// A wrapper that allows us to project insider of objects
-/// that can be mapped to vectors, such as `Vec<_>` and `Option<_>`.
+/// A wrapper that applies another wrapper to the values contained in a type.
+/// This can be applied to a vector to map each element, or an option to map any
+/// contained value.
 ///
-/// For instance, suppose we have `Option<A>` and we apply `Map<B>`. Then `A`
-/// will be serialized by method `B`.
-///
-/// To see more about the motivation for this, read [ArchiveWith].
+/// See [ArchiveWith] for more details.
 ///
 /// # Example
 ///
@@ -156,8 +154,10 @@ pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
+///     // This will apply `InlineAsBox` to the `&i32` contained in this option
 ///     #[with(Map<InlineAsBox>)]
 ///     option: Option<&'a i32>,
+///     // This will apply `InlineAsBox` to each `&i32` contained in this vector
 ///     #[with(Map<InlineAsBox>)]
 ///     vec: Vec<&'a i32>,
 /// }
@@ -166,26 +166,25 @@ pub struct Map<T> {
     _phantom: PhantomData<T>,
 }
 
-/// A generic wrapper that allows projecting into `HashMap<K, V>` or
-/// `BTreeMap<K, V>`.
-///
-/// For instance, `MapKV<A, B>` on a `BTreeMap<K, V>` would use `A` to serialize
-/// `K` and `B` to serialize `V`. This gives us the ability to customize
-/// serialization. For more information, see [ArchiveWith].
+/// A wrapper that applies key and value wrappers to the key-value pairs
+/// contained in a type. This can be applied to a hash map or B-tree map to map
+/// the key-value pairs.
 ///
 /// # Example
 /// ```
 /// use std::collections::HashMap;
 ///
 /// use rkyv::{
-///     with::{InlineAsBox, MapKV},
+///     with::{Inline, InlineAsBox, MapKV},
 ///     Archive,
 /// };
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
-///     #[with(MapKV<InlineAsBox, InlineAsBox>)]
-///     test: HashMap<&'a str, &'a str>,
+///     // This will apply `InlineAsBox` to the `&str` key, and `Inline` to the
+///     // `&str` value.
+///     #[with(MapKV<InlineAsBox, Inline>)]
+///     hash_map: HashMap<&'a str, &'a str>,
 /// }
 /// ```
 pub struct MapKV<K, V> {

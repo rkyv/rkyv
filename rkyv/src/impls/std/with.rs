@@ -592,21 +592,40 @@ mod tests {
     }
 
     #[test]
-    fn with_hashmap_mapkv() {
+    fn with_hash_map_mapkv() {
         #[derive(Archive, Serialize, Deserialize)]
         #[rkyv(crate, check_bytes)]
         struct Test<'a> {
             #[with(MapKV<InlineAsBox, InlineAsBox>)]
-            a: HashMap<&'a str, &'a str>,
+            inner: HashMap<&'a str, &'a str>,
         }
 
-        let mut a = HashMap::new();
-        a.insert("cat", "hat");
+        let mut inner = HashMap::new();
+        inner.insert("cat", "hat");
 
-        let value = Test { a };
+        let value = Test { inner };
 
         to_archived(&value, |archived| {
-            assert_eq!(**archived.a.get("cat").unwrap(), *"hat");
+            assert_eq!(&**archived.inner.get("cat").unwrap(), "hat");
+        });
+    }
+
+    #[test]
+    fn with_btree_map_mapkv() {
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate, check_bytes)]
+        struct Test<'a> {
+            #[with(MapKV<InlineAsBox, InlineAsBox>)]
+            inner: BTreeMap<&'a str, &'a str>,
+        }
+
+        let mut inner = BTreeMap::new();
+        inner.insert("cat", "hat");
+
+        let value = Test { inner };
+
+        to_archived(&value, |archived| {
+            assert_eq!(&**archived.inner.get("cat").unwrap(), "hat");
         });
     }
 

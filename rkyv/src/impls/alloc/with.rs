@@ -31,8 +31,10 @@ use crate::{
 
 // Implementation for `MapKV`
 
-impl<A: ArchiveWith<K>, B: ArchiveWith<V>, K, V> ArchiveWith<BTreeMap<K, V>>
-    for MapKV<A, B>
+impl<A, B, K, V> ArchiveWith<BTreeMap<K, V>> for MapKV<A, B>
+where
+    A: ArchiveWith<K>,
+    B: ArchiveWith<V>,
 {
     type Archived = ArchivedBTreeMap<
         <A as ArchiveWith<K>>::Archived,
@@ -73,10 +75,6 @@ where
     }
 }
 
-/// NOTE: The implementation for this method was really just taken from the
-/// Deserialize method of the BTreeMap. This shows a common pattern: We are
-/// really only replacing the code to serialize directly by calling
-/// `deserialize_with`.
 impl<A, B, K, V, D>
     DeserializeWith<
         ArchivedBTreeMap<
