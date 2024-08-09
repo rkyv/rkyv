@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 10 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  format_control:
+    name: Format control / ${{ matrix.endianness }} ${{ matrix.alignment }} ${{ matrix.pointer_width }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        endianness:
+          - little_endian
+          - big_endian
+        alignment:
+          - aligned
+          - unaligned
+        pointer_width:
+          - pointer_width_16
+          - pointer_width_32
+          - pointer_width_64
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --verbose --tests --no-default-features --features "${{ matrix.endianness }} ${{ matrix.alignment }} ${{ matrix.pointer_width }}"
+
+  features:
+    name: Features / ${{ matrix.std }} ${{ matrix.validation }} ${{ matrix.external }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        std:
+          - ''
+          - alloc
+          - std
+        validation:
+          - ''
+          - bytecheck
+        external:
+          - ''
+          - hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --verbose --tests --no-default-features --features "${{ matrix.std }} ${{ matrix.validation }} ${{ matrix.external }}"
+
+  toolchain:
+    name: Toolchain / ${{ matrix.toolchain }} ${{ matrix.opt }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain:
+          - stable
+          - beta
+          - nightly
+        opt:
+          - ''
+          - --release
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - run: cargo test --verbose ${{ matrix.opt }}
+
+  miri:
+    name: Miri / ${{ matrix.opt }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        opt:
+          - ''
+          - --release
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@miri
+      - run: cargo miri setup
+      - run: cargo miri test ${{ matrix.opt }} --verbose
+        env:
+          MIRIFLAGS: -Zmiri-disable-stacked-borrows -Zmiri-tree-borrows
+
+  test:
+    name: Test / ${{ matrix.target }} ${{ matrix.opt }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        opt:
+          - ''
+          - --release
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test ${{ matrix.opt }}
+
+  cross:
+    name: Cross / ${{ matrix.target }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - i686-unknown-linux-gnu
+          - i586-unknown-linux-gnu
+          - armv7-unknown-linux-gnueabihf
+          - aarch64-unknown-linux-gnu
+          - thumbv6m-none-eabi
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install cross
+      - run: cross build --no-default-features --features "alloc bytecheck" --target ${{ matrix.target }} --verbose
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+      - run: cargo fmt --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
+      - run: cargo clippy
+
+  doc:
+    name: Doc
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo doc

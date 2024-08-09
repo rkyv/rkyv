@@ -25,7 +25,7 @@ build.
 ## Primitives
 
 - `little_endian`, `big_endian`
-- none, `unaligned`
+- `aligned`, `unaligned`
 - `pointer_width_16`, `pointer_width_32`, `pointer_width_64`
 
 Builds:

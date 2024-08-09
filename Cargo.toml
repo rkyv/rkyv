@@ -7,6 +7,10 @@ members = [
     # "rkyv_dyn_derive",
     # "rkyv_dyn_test",
 ]
+default-members = [
+    "rkyv",
+    "rkyv_derive",
+]
 resolver = "2"
 
 [workspace.package]

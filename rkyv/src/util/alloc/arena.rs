@@ -34,7 +34,7 @@ mod detail {
     }
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(all(not(feature = "std"), target_has_atomic = "ptr",))]
 mod detail {
     use core::{
         ptr::{self, NonNull},
@@ -88,11 +88,30 @@ mod detail {
     }
 }
 
+#[cfg(all(not(feature = "std"), not(target_has_atomic = "ptr"),))]
+mod detail {
+    use core::{
+        ptr::{self, NonNull},
+        sync::atomic::{AtomicPtr, Ordering},
+    };
+
+    use crate::ser::allocator::Arena;
+
+    pub fn with_arena<T>(f: impl FnOnce(&mut Arena) -> T) -> T {
+        let mut arena = Arena::new();
+        f(&mut arena)
+    }
+
+    #[inline]
+    pub fn clear_arena() {}
+}
+
 /// Calls the given function with the builtin arena allocator.
 ///
 /// When the `std` feature is enabled, the builtin arena allocator is a
-/// thread-local variable, with one allocator per thread. Otherwise, it is a
-/// global static and all threads share the same arena.
+/// thread-local variable, with one allocator per thread. When atomic pointers
+/// are supported, it is a global static and all threads share the same arena.
+/// Otherwise, this will create and drop a new arena each time it is called.
 pub fn with_arena<T>(f: impl FnOnce(&mut Arena) -> T) -> T {
     detail::with_arena(f)
 }
@@ -100,7 +119,8 @@ pub fn with_arena<T>(f: impl FnOnce(&mut Arena) -> T) -> T {
 /// Clears the builtin arena allocator.
 ///
 /// When the `std` feature is enabled, this only clears the allocator for the
-/// current thread.
+/// current thread. When atomic pointers are supported, this will clear the
+/// allocator for all threads. Otherwise, this function does nothing.
 #[inline]
 pub fn clear_arena() {
     detail::clear_arena()

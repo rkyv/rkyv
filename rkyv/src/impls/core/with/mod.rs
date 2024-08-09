@@ -1,3 +1,9 @@
+#[cfg(any(
+    target_has_atomic = "8",
+    target_has_atomic = "16",
+    target_has_atomic = "32",
+    target_has_atomic = "64",
+))]
 mod atomic;
 
 use core::{

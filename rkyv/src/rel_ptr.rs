@@ -89,15 +89,11 @@ macro_rules! impl_offset_multi_byte {
 }
 
 impl_offset_multi_byte!(i16, ArchivedI16);
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
 impl_offset_multi_byte!(i32, ArchivedI32);
-#[cfg(target_pointer_width = "64")]
 impl_offset_multi_byte!(i64, ArchivedI64);
 
 impl_offset_multi_byte!(u16, ArchivedU16);
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
 impl_offset_multi_byte!(u32, ArchivedU32);
-#[cfg(target_pointer_width = "64")]
 impl_offset_multi_byte!(u64, ArchivedU64);
 
 /// An untyped pointer which resolves relative to its position in memory.
@@ -364,10 +360,8 @@ pub type RawRelPtrI8 = RawRelPtr<i8>;
 /// A raw relative pointer that uses an archived `i16` as the underlying offset.
 pub type RawRelPtrI16 = RawRelPtr<ArchivedI16>;
 /// A raw relative pointer that uses an archived `i32` as the underlying offset.
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
 pub type RawRelPtrI32 = RawRelPtr<ArchivedI32>;
 /// A raw relative pointer that uses an archived `i64` as the underlying offset.
-#[cfg(target_pointer_width = "64")]
 pub type RawRelPtrI64 = RawRelPtr<ArchivedI64>;
 
 /// A raw relative pointer that uses an archived `u8` as the underlying offset.
@@ -375,10 +369,8 @@ pub type RawRelPtrU8 = RawRelPtr<u8>;
 /// A raw relative pointer that uses an archived `u16` as the underlying offset.
 pub type RawRelPtrU16 = RawRelPtr<ArchivedU16>;
 /// A raw relative pointer that uses an archived `u32` as the underlying offset.
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
 pub type RawRelPtrU32 = RawRelPtr<ArchivedU32>;
 /// A raw relative pointer that uses an archived `u64` as the underlying offset.
-#[cfg(target_pointer_width = "64")]
 pub type RawRelPtrU64 = RawRelPtr<ArchivedU64>;
 
 /// A pointer which resolves to relative to its position in memory.

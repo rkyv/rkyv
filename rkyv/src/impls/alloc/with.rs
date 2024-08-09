@@ -9,7 +9,6 @@ use crate::{
         boxed::Box,
         collections::{BTreeMap, BTreeSet},
         rc::Rc,
-        sync::Arc,
         vec::Vec,
     },
     collections::util::{Entry, EntryAdapter},
@@ -392,12 +391,13 @@ where
 
 // Unshare
 
-impl<T: Archive> ArchiveWith<Arc<T>> for Unshare {
+#[cfg(target_has_atomic = "ptr")]
+impl<T: Archive> ArchiveWith<crate::alloc::sync::Arc<T>> for Unshare {
     type Archived = T::Archived;
     type Resolver = T::Resolver;
 
     fn resolve_with(
-        x: &Arc<T>,
+        x: &crate::alloc::sync::Arc<T>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
@@ -405,26 +405,31 @@ impl<T: Archive> ArchiveWith<Arc<T>> for Unshare {
     }
 }
 
-impl<T, S> SerializeWith<Arc<T>, S> for Unshare
+#[cfg(target_has_atomic = "ptr")]
+impl<T, S> SerializeWith<crate::alloc::sync::Arc<T>, S> for Unshare
 where
     T: Serialize<S>,
     S: Fallible + ?Sized,
 {
     fn serialize_with(
-        x: &Arc<T>,
+        x: &crate::alloc::sync::Arc<T>,
         s: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
         x.as_ref().serialize(s)
     }
 }
 
-impl<A, T, D> DeserializeWith<A, Arc<T>, D> for Unshare
+#[cfg(target_has_atomic = "ptr")]
+impl<A, T, D> DeserializeWith<A, crate::alloc::sync::Arc<T>, D> for Unshare
 where
     A: Deserialize<T, D>,
     D: Fallible + ?Sized,
 {
-    fn deserialize_with(x: &A, d: &mut D) -> Result<Arc<T>, D::Error> {
-        Ok(Arc::new(A::deserialize(x, d)?))
+    fn deserialize_with(
+        x: &A,
+        d: &mut D,
+    ) -> Result<crate::alloc::sync::Arc<T>, D::Error> {
+        Ok(crate::alloc::sync::Arc::new(A::deserialize(x, d)?))
     }
 }
 

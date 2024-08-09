@@ -1,5 +1,10 @@
 #[macro_use]
 mod _macros;
+#[cfg(any(
+    target_has_atomic = "16",
+    target_has_atomic = "32",
+    target_has_atomic = "64",
+))]
 mod multibyte;
 
 use core::sync::atomic::Ordering;
