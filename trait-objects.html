@@ -205,10 +205,10 @@ to talk it through.</p>
 <a href="https://docs.rs/rkyv_dyn/latest/rkyv_dyn/attr.archive_dyn.html"><code>archive_dyn</code></a> macro to implement
 the new traits and set everything up correctly.</p>
 <p>Using <code>archive_dyn</code> on a trait definition creates another trait definition with supertraits of your
-trait and <code>SerializeDyn</code>. This &quot;shim&quot; trait is blanket implemented for all types that implement your
+trait and <code>SerializeDyn</code>. This "shim" trait is blanket implemented for all types that implement your
 trait and <code>SerializeDyn</code>, so you should only ever have to implement your trait to use it.</p>
 <p>The shim trait should be used everywhere that you have a trait object of your trait that you want to
-serialize. By default, it will be named &quot;Serialize&quot; + your trait name. A different approach that
+serialize. By default, it will be named "Serialize" + your trait name. A different approach that
 similar libraries take is directly adding <code>SerializeDyn</code> as a supertrait of your trait. While more
 ergonomic, this approach does not allow the implementation of the trait on types that cannot or
 should not implement <code>SerializeDyn</code>, so the shim trait approach was favored for <code>rkyv_dyn</code>.</p>

@@ -180,6 +180,7 @@
 <p>Types which derive <code>Archive</code> generate an archived version of the type where:</p>
 <ul>
 <li>Member types are replaced with their archived counterparts</li>
+<li>Structs are <code>#[repr(C)]</code>.</li>
 <li>Enums have <code>#[repr(N)]</code> where N is <code>u8</code>, <code>u16</code>, <code>u32</code>, <code>u64</code>, or <code>u128</code>, choosing the smallest
 possible type that can represent all of the variants.</li>
 </ul>
@@ -195,22 +196,18 @@ possible type that can represent all of the variants.</li>
 <p>Would have the archived counterpart:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>struct ArchivedExample {
-    a: u32,
+</span>#[repr(C)]
+struct ArchivedExample {
+    a: u32_le,
     b: ArchivedString,
-    c: ArchivedBox&lt;(u32, ArchivedString)&gt;,
+    c: ArchivedBox&lt;(u32_le, ArchivedString)&gt;,
 }
 <span class="boring">}</span></code></pre></pre>
-<p>With the <code>strict</code> feature, these structs are additionally annotated with <code>#[repr(C)]</code> for guaranteed
-portability and stability.</p>
-<blockquote>
-<p>In most cases, the <code>strict</code> feature will not be necessary and can reduce the space efficiency of
-archived types. Make sure you understand your use case carefully and read the crate documentation
-for details on the <code>strict</code> feature.</p>
-</blockquote>
-<p>rkyv provides <code>Archive</code> implementations for common core and std types by default. In general they
-follow the same format as derived implementations, but may differ in some cases. For example,
-<code>ArchivedString</code> performs a small string optimization which helps reduce memory use.</p>
+<p>With the <code>little_endian</code> feature enabled.</p>
+<p>rkyv provides <code>Archive</code> implementations for common core and std types by
+default. In general they follow the same format as derived implementations, but
+may differ in some cases. For example, <code>ArchivedString</code> performs a small string
+optimization which helps reduce memory use.</p>
 <h2 id="object-order"><a class="header" href="#object-order">Object order</a></h2>
 <p>rkyv lays out subobjects in depth-first order from the leaves to the root. This means that the root
 object is stored at the end of the buffer, not the beginning. For example, this tree:</p>

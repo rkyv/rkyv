@@ -178,7 +178,7 @@
     <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/logo_text_color.svg">
 </p>
 <p><a href="http://github.com/rkyv/rkyv">rkyv</a> (<em>archive</em>) is a zero-copy deserialization framework for
-rust.</p>
+Rust.</p>
 <p>This book covers the motivation, architecture, and major features of rkyv. It is the best way to
 learn and understand rkyv, but won't go as in-depth on specifics as the documentation will. Don't be
 afraid to consult these other resources as you need while you read through.</p>
@@ -229,15 +229,15 @@ read, parse, and reconstruct types from their serialized values.</p>
 <blockquote>
 <p>In JSON for example, strings are encoded by surrounding the contents with double quotes and
 escaping invalid characters inside of them:</p>
-<pre><code>{ &quot;line&quot;: &quot;\&quot;All's well that ends well\&quot;&quot; }
+<pre><code>{ "line": "\"All's well that ends well\"" }
           ^^                          ^ ^
 </code></pre>
 <p>numbers are turned into characters:</p>
-<pre><code>{ &quot;pi&quot;: 3.1415926 }
+<pre><code>{ "pi": 3.1415926 }
         ^^^^^^^^^
 </code></pre>
 <p>and even field names, which could be <em>implicit</em> in most cases, are turned into strings:</p>
-<pre><code>{ &quot;message_size&quot;: 334 }
+<pre><code>{ "message_size": 334 }
   ^^^^^^^^^^^^^^^
 </code></pre>
 <p>All those characters are not only taking up space, they're also taking up time. Every time we read
@@ -254,7 +254,7 @@ data by <em>directly referencing bytes in the serialized form</em>.</p>
 <blockquote>
 <p>This takes advantage of how we have to have some data loaded in memory in order to deserialize it.
 If we had some JSON:</p>
-<pre><code>{ &quot;quote&quot;: &quot;I don't know, I didn't listen.&quot; }
+<pre><code>{ "quote": "I don't know, I didn't listen." }
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 </code></pre>
 <p>Instead of copying those characters into a <code>String</code>, we could just <em>borrow</em> it from the JSON
@@ -404,7 +404,7 @@ original values and resolvers combined, the archived version can be constructed.
 <p>A good example of why resolvers are necessary is when archiving a tuple. Say we have two strings:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>let value = (&quot;hello&quot;.to_string(), &quot;world&quot;.to_string());
+</span>let value = ("hello".to_string(), "world".to_string());
 <span class="boring">}</span></code></pre></pre>
 <p>The archived tuple needs to have both of the strings right next to each other:</p>
 <pre><code>0x0000      AA AA AA AA BB BB BB BB
@@ -413,7 +413,7 @@ original values and resolvers combined, the archived version can be constructed.
 <p>A and B might be the length and pointer for the first string of the tuple, and C and D might be the
 length and pointer for the second string.</p>
 <p>When archiving, we might be tempted to serialize and resolve the first string, then serialize and
-resolve the second one. But this might place the second string's bytes (&quot;world&quot;) between the two!
+resolve the second one. But this might place the second string's bytes ("world") between the two!
 Instead, we need to write out the bytes for both strings, and then finish archiving both of them.
 The tuple doesn't know what information the strings need to finish archiving themselves, so they
 have to provide it to the tuple through their Resolver.</p>
@@ -542,6 +542,7 @@ values if it is not.</p>
 <p>Types which derive <code>Archive</code> generate an archived version of the type where:</p>
 <ul>
 <li>Member types are replaced with their archived counterparts</li>
+<li>Structs are <code>#[repr(C)]</code>.</li>
 <li>Enums have <code>#[repr(N)]</code> where N is <code>u8</code>, <code>u16</code>, <code>u32</code>, <code>u64</code>, or <code>u128</code>, choosing the smallest
 possible type that can represent all of the variants.</li>
 </ul>
@@ -557,22 +558,18 @@ possible type that can represent all of the variants.</li>
 <p>Would have the archived counterpart:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>struct ArchivedExample {
-    a: u32,
+</span>#[repr(C)]
+struct ArchivedExample {
+    a: u32_le,
     b: ArchivedString,
-    c: ArchivedBox&lt;(u32, ArchivedString)&gt;,
+    c: ArchivedBox&lt;(u32_le, ArchivedString)&gt;,
 }
 <span class="boring">}</span></code></pre></pre>
-<p>With the <code>strict</code> feature, these structs are additionally annotated with <code>#[repr(C)]</code> for guaranteed
-portability and stability.</p>
-<blockquote>
-<p>In most cases, the <code>strict</code> feature will not be necessary and can reduce the space efficiency of
-archived types. Make sure you understand your use case carefully and read the crate documentation
-for details on the <code>strict</code> feature.</p>
-</blockquote>
-<p>rkyv provides <code>Archive</code> implementations for common core and std types by default. In general they
-follow the same format as derived implementations, but may differ in some cases. For example,
-<code>ArchivedString</code> performs a small string optimization which helps reduce memory use.</p>
+<p>With the <code>little_endian</code> feature enabled.</p>
+<p>rkyv provides <code>Archive</code> implementations for common core and std types by
+default. In general they follow the same format as derived implementations, but
+may differ in some cases. For example, <code>ArchivedString</code> performs a small string
+optimization which helps reduce memory use.</p>
 <h2 id="object-order"><a class="header" href="#object-order">Object order</a></h2>
 <p>rkyv lays out subobjects in depth-first order from the leaves to the root. This means that the root
 object is stored at the end of the buffer, not the beginning. For example, this tree:</p>
@@ -612,7 +609,7 @@ struct Example {
 }
 </code></pre>
 <p>The <code>Incremented</code> wrapper is wrapping <code>a</code>, and the definition causes that field to be incremented
-in its archived form. </p>
+in its archived form.</p>
 <h2 id="with"><a class="header" href="#with"><code>With</code></a></h2>
 <p>The core type behind wrappers is <a href="https://docs.rs/rkyv/0.7.1/rkyv/with/struct.With.html"><code>With</code></a>.
 This struct is <em>transparent</em>, meaning that it's like another name for the type inside of it. rkyv
@@ -647,7 +644,7 @@ to nothing as soon as the deserializer is dropped.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="unsized-types"><a class="header" href="#unsized-types">Unsized Types</a></h1>
 <p>rkyv supports unsized types out of the box and ships with implementations for the most common
 unsized types (<code>str</code>s and slices). Trait objects can also be supported with <code>rkyv_dyn</code>, see
-<a href="trait-objects.html">&quot;Trait Objects&quot;</a> for more details.</p>
+<a href="trait-objects.html">"Trait Objects"</a> for more details.</p>
 <h2 id="metadata"><a class="header" href="#metadata">Metadata</a></h2>
 <p>The core concept that enables unsized types is metadata. In rust, pointers to types can be different
 sizes, in contrast with languages like C and C++ where all pointers are the same size. This is
@@ -657,8 +654,8 @@ important for the concept of sizing, which you may have encountered through rust
 people think of when they think about pointers; it's the location of the pointed data. The metadata
 for a pointer is some extra data that is needed to work safely with the data at the pointed
 location. It can be almost anything, or nothing at all for <code>Sized</code> types. Pointers with no extra
-metadata are sometimes called &quot;thin&quot; pointers, and pointers <em>with</em> metadata are sometimes called
-&quot;wide&quot; or &quot;fat&quot; pointers.</p>
+metadata are sometimes called "thin" pointers, and pointers <em>with</em> metadata are sometimes called
+"wide" or "fat" pointers.</p>
 <blockquote>
 <p>rkyv uses the <a href="https://docs.rs/ptr_meta"><code>ptr_meta</code></a> crate to perform these conversions safely. In
 the future, these may be incorporated as
@@ -708,10 +705,10 @@ to talk it through.</p>
 <a href="https://docs.rs/rkyv_dyn/latest/rkyv_dyn/attr.archive_dyn.html"><code>archive_dyn</code></a> macro to implement
 the new traits and set everything up correctly.</p>
 <p>Using <code>archive_dyn</code> on a trait definition creates another trait definition with supertraits of your
-trait and <code>SerializeDyn</code>. This &quot;shim&quot; trait is blanket implemented for all types that implement your
+trait and <code>SerializeDyn</code>. This "shim" trait is blanket implemented for all types that implement your
 trait and <code>SerializeDyn</code>, so you should only ever have to implement your trait to use it.</p>
 <p>The shim trait should be used everywhere that you have a trait object of your trait that you want to
-serialize. By default, it will be named &quot;Serialize&quot; + your trait name. A different approach that
+serialize. By default, it will be named "Serialize" + your trait name. A different approach that
 similar libraries take is directly adding <code>SerializeDyn</code> as a supertrait of your trait. While more
 ergonomic, this approach does not allow the implementation of the trait on types that cannot or
 should not implement <code>SerializeDyn</code>, so the shim trait approach was favored for <code>rkyv_dyn</code>.</p>
@@ -728,14 +725,14 @@ type:</p>
 <pre><code class="language-rs">use rkyv::{Archive, Deserialize, Serialize};
 
 #[derive(Archive, Deserialize, Serialize)]
-#[archive(check_bytes)]
+#[rkyv(check_bytes)]
 pub struct Example {
     a: i32,
     b: String,
     c: Vec&lt;bool&gt;,
 }
 </code></pre>
-<p>The <code>#[archive(check_bytes)]</code> attribute derives <code>CheckBytes</code> on the archived type. Finally, you can use
+<p>The <code>#[rkyv(check_bytes)]</code> attribute derives <code>CheckBytes</code> on the archived type. Finally, you can use
 <a href="https://docs.rs/rkyv/0.7.1/rkyv/validation/validators/fn.check_archived_root.html"><code>check_archived_root</code></a> to
 check an archive and get a reference to the archived value if it was successful:</p>
 <pre><code class="language-rs">use rkyv::check_archived_root;
@@ -782,7 +779,7 @@ value as a concrete type (e.g. <code>i32</code>) and a trait object (e.g. <code>
 these use cases. Alternative validation solutions like archive signatures and data hashes may be a
 better approach in these cases.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="feature-comparison"><a class="header" href="#feature-comparison">Feature Comparison</a></h1>
-<p>This is a best-effort feaure comparison between rkyv, FlatBuffers, and Cap'n Proto. This is by no
+<p>This is a best-effort feature comparison between rkyv, FlatBuffers, and Cap'n Proto. This is by no
 means completely comprehensive, and pull requests that improve this are welcomed.</p>
 <h2 id="feature-matrix"><a class="header" href="#feature-matrix">Feature matrix</a></h2>
 <div class="table-wrapper"><table><thead><tr><th>Feature</th><th>rkyv</th><th>Cap'n Proto</th><th>FlatBuffers</th></tr></thead><tbody>

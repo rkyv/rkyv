@@ -198,15 +198,15 @@ read, parse, and reconstruct types from their serialized values.</p>
 <blockquote>
 <p>In JSON for example, strings are encoded by surrounding the contents with double quotes and
 escaping invalid characters inside of them:</p>
-<pre><code>{ &quot;line&quot;: &quot;\&quot;All's well that ends well\&quot;&quot; }
+<pre><code>{ "line": "\"All's well that ends well\"" }
           ^^                          ^ ^
 </code></pre>
 <p>numbers are turned into characters:</p>
-<pre><code>{ &quot;pi&quot;: 3.1415926 }
+<pre><code>{ "pi": 3.1415926 }
         ^^^^^^^^^
 </code></pre>
 <p>and even field names, which could be <em>implicit</em> in most cases, are turned into strings:</p>
-<pre><code>{ &quot;message_size&quot;: 334 }
+<pre><code>{ "message_size": 334 }
   ^^^^^^^^^^^^^^^
 </code></pre>
 <p>All those characters are not only taking up space, they're also taking up time. Every time we read

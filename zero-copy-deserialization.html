@@ -182,7 +182,7 @@ data by <em>directly referencing bytes in the serialized form</em>.</p>
 <blockquote>
 <p>This takes advantage of how we have to have some data loaded in memory in order to deserialize it.
 If we had some JSON:</p>
-<pre><code>{ &quot;quote&quot;: &quot;I don't know, I didn't listen.&quot; }
+<pre><code>{ "quote": "I don't know, I didn't listen." }
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 </code></pre>
 <p>Instead of copying those characters into a <code>String</code>, we could just <em>borrow</em> it from the JSON

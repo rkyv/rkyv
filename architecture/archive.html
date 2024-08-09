@@ -194,7 +194,7 @@ original values and resolvers combined, the archived version can be constructed.
 <p>A good example of why resolvers are necessary is when archiving a tuple. Say we have two strings:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>let value = (&quot;hello&quot;.to_string(), &quot;world&quot;.to_string());
+</span>let value = ("hello".to_string(), "world".to_string());
 <span class="boring">}</span></code></pre></pre>
 <p>The archived tuple needs to have both of the strings right next to each other:</p>
 <pre><code>0x0000      AA AA AA AA BB BB BB BB
@@ -203,7 +203,7 @@ original values and resolvers combined, the archived version can be constructed.
 <p>A and B might be the length and pointer for the first string of the tuple, and C and D might be the
 length and pointer for the second string.</p>
 <p>When archiving, we might be tempted to serialize and resolve the first string, then serialize and
-resolve the second one. But this might place the second string's bytes (&quot;world&quot;) between the two!
+resolve the second one. But this might place the second string's bytes ("world") between the two!
 Instead, we need to write out the bytes for both strings, and then finish archiving both of them.
 The tuple doesn't know what information the strings need to finish archiving themselves, so they
 have to provide it to the tuple through their Resolver.</p>

@@ -179,7 +179,7 @@
                         <h1 id="unsized-types"><a class="header" href="#unsized-types">Unsized Types</a></h1>
 <p>rkyv supports unsized types out of the box and ships with implementations for the most common
 unsized types (<code>str</code>s and slices). Trait objects can also be supported with <code>rkyv_dyn</code>, see
-<a href="trait-objects.html">&quot;Trait Objects&quot;</a> for more details.</p>
+<a href="trait-objects.html">"Trait Objects"</a> for more details.</p>
 <h2 id="metadata"><a class="header" href="#metadata">Metadata</a></h2>
 <p>The core concept that enables unsized types is metadata. In rust, pointers to types can be different
 sizes, in contrast with languages like C and C++ where all pointers are the same size. This is
@@ -189,8 +189,8 @@ important for the concept of sizing, which you may have encountered through rust
 people think of when they think about pointers; it's the location of the pointed data. The metadata
 for a pointer is some extra data that is needed to work safely with the data at the pointed
 location. It can be almost anything, or nothing at all for <code>Sized</code> types. Pointers with no extra
-metadata are sometimes called &quot;thin&quot; pointers, and pointers <em>with</em> metadata are sometimes called
-&quot;wide&quot; or &quot;fat&quot; pointers.</p>
+metadata are sometimes called "thin" pointers, and pointers <em>with</em> metadata are sometimes called
+"wide" or "fat" pointers.</p>
 <blockquote>
 <p>rkyv uses the <a href="https://docs.rs/ptr_meta"><code>ptr_meta</code></a> crate to perform these conversions safely. In
 the future, these may be incorporated as
