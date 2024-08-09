@@ -10,6 +10,9 @@ on:
 permissions:
   contents: read
 
+env:
+  RUSTFLAGS: -Dwarnings
+
 jobs:
   format_control:
     name: Format control / ${{ matrix.endianness }} ${{ matrix.alignment }} ${{ matrix.pointer_width }}

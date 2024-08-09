@@ -90,11 +90,6 @@ mod detail {
 
 #[cfg(all(not(feature = "std"), not(target_has_atomic = "ptr"),))]
 mod detail {
-    use core::{
-        ptr::{self, NonNull},
-        sync::atomic::{AtomicPtr, Ordering},
-    };
-
     use crate::ser::allocator::Arena;
 
     pub fn with_arena<T>(f: impl FnOnce(&mut Arena) -> T) -> T {
