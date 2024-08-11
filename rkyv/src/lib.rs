@@ -150,6 +150,14 @@
 //! - [`tinyvec`](https://docs.rs/tinyvec)
 //! - [`triomphe`](https://docs.rs/triomphe)
 //! - [`uuid`](https://docs.rs/uuid)
+//!
+//! ## Compatibility
+//!
+//! Serialized data can be accessed later as long as:
+//!
+//! - The underlying schema has not changed
+//! - The serialized format has not been changed by format control features
+//! - The data was serialized by a semver-compatible version of rkyv
 
 // Crate attributes
 
