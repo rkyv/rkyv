@@ -114,13 +114,14 @@ where
 
 /// Deserializes a value from the given bytes.
 ///
+/// This function does not check that the data is valid. Use [`from_bytes`] to
+/// validate the data instead.
+///
 /// This is part of the [high-level API](crate::api::high).
 ///
 /// # Safety
 ///
-/// - The byte slice must represent an archived object.
-/// - The root of the object must be stored at the end of the slice (this is the
-///   default behavior).
+/// The given bytes must pass validation when passed to [`from_bytes`].
 ///
 /// # Examples
 /// ```

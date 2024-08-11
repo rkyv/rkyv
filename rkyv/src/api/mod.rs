@@ -43,8 +43,11 @@ fn sanity_check_buffer<T: Portable>(ptr: *const u8, pos: usize, size: usize) {
             "help: rkyv requires byte buffers to be aligned to access the \
              data inside.\n",
             "      Using an AlignedVec or manually aligning your data with \
-             #[align(...)]\n",
-            "      may resolve this issue.",
+             `#[align(...)]` may resolve this issue.\n",
+            "      Alternatively, you may enable the `unaligned` feature to \
+             relax the alignment requirements for your archived data.\n",
+            "      `unaligned` is a format control feature, and enabling it \
+             may change the format of your serialized data)",
         ),
         expect_align,
         1 << actual_align.trailing_zeros()
@@ -64,12 +67,14 @@ pub fn root_position<T: Portable>(size: usize) -> usize {
 /// Accesses an archived value from the given byte slice at the given position.
 ///
 /// This function does not check that the data at the given position is valid.
-/// Use [`access_pos`](crate::api::access_pos_with_context) to validate the data
-/// instead.
+/// Use [`access_pos`] to validate the data instead.
 ///
 /// # Safety
 ///
-/// A valid `T` must be located at the given position in the byte slice.
+/// The given bytes must pass validation at the given position when passed to
+/// [`access_pos`].
+///
+/// [`access_pos`]: crate::api::high::access_pos
 pub unsafe fn access_pos_unchecked<T: Portable>(
     bytes: &[u8],
     pos: usize,
@@ -86,12 +91,14 @@ pub unsafe fn access_pos_unchecked<T: Portable>(
 /// position.
 ///
 /// This function does not check that the data at the given position is valid.
-/// Use [`access_pos_mut`](crate::api::access_pos_with_context) to validate
-/// the data instead.
+/// Use [`access_pos_mut`] to validate the data instead.
 ///
 /// # Safety
 ///
-/// A `T` must be located at the given position in the byte slice.
+/// The given bytes must pass validation at the given position when passed to
+/// [`access_pos_mut`].
+///
+/// [`access_pos_mut`]: crate::api::high::access_pos_mut
 pub unsafe fn access_pos_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
     pos: usize,
@@ -109,6 +116,9 @@ pub unsafe fn access_pos_unchecked_mut<T: Portable>(
 /// Accesses an archived value from the given byte slice by calculating the root
 /// position.
 ///
+/// This function does not check that the data is valid. Use [`access`] to
+/// validate the data instead.
+///
 /// This is a wrapper for [`access_pos_unchecked`] that calculates the position
 /// of the root object using the length of the byte slice. If your byte slice is
 /// not guaranteed to end immediately after the root object, you may need to
@@ -117,9 +127,9 @@ pub unsafe fn access_pos_unchecked_mut<T: Portable>(
 ///
 /// # Safety
 ///
-/// - The byte slice must represent an archived object.
-/// - The root of the object must be stored at the end of the slice (this is the
-///   default behavior).
+/// The given bytes must pass validation when passed to [`access`].
+///
+/// [`access`]: crate::api::high::access
 pub unsafe fn access_unchecked<T: Portable>(bytes: &[u8]) -> &T {
     // SAFETY: The caller has guaranteed that a valid `T` is located at the root
     // position in the byte slice.
@@ -129,6 +139,9 @@ pub unsafe fn access_unchecked<T: Portable>(bytes: &[u8]) -> &T {
 /// Accesses a mutable archived value from the given byte slice by calculating
 /// the root position.
 ///
+/// This function does not check that the data is valid. Use [`access_mut`] to
+/// validate the data instead.
+///
 /// This is a wrapper for [`access_pos_unchecked_mut`] that calculates the
 /// position of the root object using the length of the byte slice. If your byte
 /// slice is not guaranteed to end immediately after the root object, you may
@@ -137,9 +150,9 @@ pub unsafe fn access_unchecked<T: Portable>(bytes: &[u8]) -> &T {
 ///
 /// # Safety
 ///
-/// - The byte slice must represent an archived object.
-/// - The root of the object must be stored at the end of the slice (this is the
-///   default behavior).
+/// The given bytes must pass validation when passed to [`access_mut`].
+///
+/// [`access_mut`]: crate::api::high::access_mut
 pub unsafe fn access_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
 ) -> Pin<&mut T> {
