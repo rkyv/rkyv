@@ -27,7 +27,7 @@ use crate::{
     vec::{ArchivedVec, VecResolver},
     with::{
         ArchiveWith, AsOwned, AsString, AsUnixTime, AsVec, DeserializeWith,
-        Lock, MapKV, SerializeWith, Unsafe,
+        Lock, MapKV, SerializeWith,
     },
     Archive, Deserialize, Place, Serialize, SerializeUnsized,
 };
@@ -243,7 +243,7 @@ impl fmt::Display for LockPoisoned {
 #[cfg(feature = "std")]
 impl std::error::Error for LockPoisoned {}
 
-impl<F: Archive> ArchiveWith<Mutex<F>> for Lock<Unsafe> {
+impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
     type Archived = F::Archived;
     type Resolver = F::Resolver;
 
@@ -252,7 +252,6 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock<Unsafe> {
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
-        let out = unsafe { out.cast_unchecked() };
         // Unfortunately, we have to unwrap here because resolve must be
         // infallible
         //
@@ -267,7 +266,7 @@ impl<F: Archive> ArchiveWith<Mutex<F>> for Lock<Unsafe> {
     }
 }
 
-impl<F, S> SerializeWith<Mutex<F>, S> for Lock<Unsafe>
+impl<F, S> SerializeWith<Mutex<F>, S> for Lock
 where
     F: Serialize<S>,
     S: Fallible + ?Sized,
@@ -285,7 +284,7 @@ where
     }
 }
 
-impl<F, T, D> DeserializeWith<F, Mutex<T>, D> for Lock<Unsafe>
+impl<F, T, D> DeserializeWith<F, Mutex<T>, D> for Lock
 where
     F: Deserialize<T, D>,
     D: Fallible + ?Sized,
@@ -298,7 +297,7 @@ where
     }
 }
 
-impl<F: Archive> ArchiveWith<RwLock<F>> for Lock<Unsafe> {
+impl<F: Archive> ArchiveWith<RwLock<F>> for Lock {
     type Archived = F::Archived;
     type Resolver = F::Resolver;
 
@@ -307,7 +306,6 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock<Unsafe> {
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
-        let out = unsafe { out.cast_unchecked() };
         // Unfortunately, we have to unwrap here because resolve must be
         // infallible
         //
@@ -322,7 +320,7 @@ impl<F: Archive> ArchiveWith<RwLock<F>> for Lock<Unsafe> {
     }
 }
 
-impl<F, S> SerializeWith<RwLock<F>, S> for Lock<Unsafe>
+impl<F, S> SerializeWith<RwLock<F>, S> for Lock
 where
     F: Serialize<S>,
     S: Fallible + ?Sized,
@@ -340,7 +338,7 @@ where
     }
 }
 
-impl<F, T, D> DeserializeWith<F, RwLock<T>, D> for Lock<Unsafe>
+impl<F, T, D> DeserializeWith<F, RwLock<T>, D> for Lock
 where
     F: Deserialize<T, D>,
     D: Fallible + ?Sized,
@@ -559,7 +557,7 @@ mod tests {
     use crate::{
         alloc::collections::HashMap,
         api::test::{roundtrip_with, to_archived},
-        with::{AsString, InlineAsBox, Lock, MapKV, Unsafe},
+        with::{AsString, InlineAsBox, Lock, MapKV},
         Archive, Deserialize, Serialize,
     };
 
@@ -568,7 +566,7 @@ mod tests {
         #[derive(Archive, Serialize, Deserialize, Debug)]
         #[rkyv(crate, check_bytes, derive(Debug, PartialEq))]
         struct Test {
-            #[with(Lock<Unsafe>)]
+            #[with(Lock)]
             value: Mutex<i32>,
         }
 
@@ -634,7 +632,7 @@ mod tests {
         #[derive(Archive, Serialize, Deserialize, Debug)]
         #[rkyv(crate, check_bytes, derive(Debug, PartialEq))]
         struct Test {
-            #[with(Lock<Unsafe>)]
+            #[with(Lock)]
             value: RwLock<i32>,
         }
 

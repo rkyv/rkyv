@@ -325,30 +325,25 @@ pub struct AsString;
 /// 2. Another thread locks the value and panics, poisoning the lock
 /// 3. `resolve_with` is called and gets a poisoned value.
 ///
-/// Unfortunately, it's not possible to work around this issue. If your code
-/// absolutely must not panic under any circumstances, it's recommended that you
-/// lock your values and then serialize them while locked.
+/// Unfortunately, it's not possible to work around this issue internally. Users
+/// must ensure this doesn't happen on their own through manual synchronization
+/// or guaranteeing that panics do not occur while holding locks.
 ///
 /// # Example
 ///
 /// ```
 /// use std::sync::Mutex;
 ///
-/// use rkyv::{
-///     with::{Lock, Unsafe},
-///     Archive,
-/// };
+/// use rkyv::{with::Lock, Archive};
 ///
 /// #[derive(Archive)]
 /// struct Example {
-///     #[with(Lock<Unsafe>)]
+///     #[with(Lock)]
 ///     a: Mutex<i32>,
 /// }
 /// ```
 #[derive(Debug)]
-pub struct Lock<T> {
-    _phantom: PhantomData<T>,
-}
+pub struct Lock;
 
 /// A wrapper that serializes a `Cow` as if it were owned.
 ///
