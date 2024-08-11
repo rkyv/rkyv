@@ -23,7 +23,6 @@ readme = "README.md"
 repository = "https://github.com/rkyv/rkyv"
 
 [workspace.dependencies]
-benchlib = { version = "=0.8.0-alpha.3", default-features = false, path = "benchlib" }
 bytecheck = { version = "=0.8.0-alpha.10", default-features = false, features = ["simdutf8"] }
 divan = { version = "0.1", default-features = false }
 hashbrown = { version = "0.14", default-features = false }

@@ -65,7 +65,7 @@ features = ["bytecheck"]
 
 [dev-dependencies]
 ahash = "0.8"
-benchlib.workspace = true
+benchlib = { path = "../benchlib" }
 divan.workspace = true
 trybuild.workspace = true
 
