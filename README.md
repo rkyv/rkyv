@@ -5,21 +5,10 @@
     rkyv (<em>archive</em>) is a zero-copy deserialization framework for Rust
 </p>
 <p align="center">
-    <a href="https://discord.gg/65F6MdnbQh">
-        <img src="https://img.shields.io/discord/822925794249539645" alt="Discord">
-    </a>
-    <a href="https://docs.rs/rkyv">
-        <img src="https://img.shields.io/docsrs/rkyv.svg" alt="docs.rs">
-    </a>
-    <a href="https://crates.io/crates/rkyv">
-        <img src="https://img.shields.io/crates/v/rkyv.svg" alt="crates.io">
-    </a>
-    <a href="https://github.com/rkyv/rkyv/blob/master/LICENSE">
-        <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license">
-    </a>
-    <a href="https://blog.rust-lang.org/2021/07/29/Rust-1.54.0.html"
-        <img src="https://img.shields.io/badge/rustc-1.54+-lightgray.svg" alt="rustc 1.54+">
-    </a>
+    <a href="https://discord.gg/65F6MdnbQh"><img src="https://img.shields.io/discord/822925794249539645" alt="Discord"></a>
+    <a href="https://crates.io/crates/rkyv"><img src="https://img.shields.io/crates/v/rkyv.svg" alt="crates.io"></a>
+    <a href="https://docs.rs/rkyv"><img src="https://img.shields.io/docsrs/rkyv.svg" alt="docs.rs"></a>
+    <a href="https://github.com/rkyv/rkyv/blob/master/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
 </p>
 
 # Resources

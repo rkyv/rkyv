@@ -154,8 +154,9 @@ impl Attributes {
         }
     }
 
-    pub fn parse(input: &DeriveInput) -> Result<Attributes, Error> {
-        let mut result = Attributes::default();
+    pub fn parse(input: &DeriveInput) -> Result<Self, Error> {
+        let mut result = Self::default();
+
         for attr in input.attrs.iter() {
             if !matches!(attr.style, AttrStyle::Outer) {
                 continue;

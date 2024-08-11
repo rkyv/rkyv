@@ -1,14 +1,15 @@
 [package]
 name = "rkyv"
 description = "Zero-copy deserialization framework for Rust"
-keywords = ["archive", "rkyv", "serialization", "zero-copy", "no_std"]
-categories = ["encoding", "no-std"]
-readme = "crates-io.md"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+readme = "../README.md"
 repository.workspace = true
+keywords = ["archive", "rkyv", "serialization", "zero-copy", "no_std"]
+categories = ["encoding", "no-std", "no-std::no-alloc"]
+documentation = "https://docs.rs/rkyv"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -51,7 +52,7 @@ pointer_width_32 = []
 pointer_width_64 = []
 alloc = ["dep:hashbrown", "tinyvec?/alloc"]
 std = ["alloc", "bytecheck?/std", "bytes?/std", "indexmap?/std", "ptr_meta/std", "uuid?/std"]
-bytecheck = ["dep:bytecheck", "rend/bytecheck", "rkyv_derive/bytecheck"]
+bytecheck = ["dep:bytecheck", "bytecheck/derive", "rend/bytecheck", "rkyv_derive/bytecheck"]
 
 # External crate support
 hashbrown = ["dep:hashbrown"]

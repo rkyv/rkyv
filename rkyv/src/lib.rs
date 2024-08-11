@@ -130,9 +130,10 @@
 //! and ergonomic APIs. Enabling and disabling these features does not change
 //! rkyv's serialized format.
 //!
-//! - `alloc`: Enables support for the `alloc` crate.
-//! - `std`: Enables standard library support.
-//! - `bytecheck`: Enables data validation through `bytecheck`.
+//! - `alloc`: Enables support for the `alloc` crate. Enabled by default.
+//! - `std`: Enables standard library support. Enabled by default.
+//! - `bytecheck`: Enables data validation through `bytecheck`. Enabled by
+//!   default.
 //!
 //! ### Crates
 //!
@@ -153,10 +154,18 @@
 // Crate attributes
 
 #![deny(
-    rustdoc::broken_intra_doc_links,
+    future_incompatible,
     missing_docs,
-    rustdoc::missing_crate_level_docs,
-    unsafe_op_in_unsafe_fn
+    nonstandard_style,
+    unsafe_op_in_unsafe_fn,
+    unused,
+    warnings,
+    clippy::all,
+    clippy::missing_safety_doc,
+    // TODO(#114): re-enable this lint after justifying unsafe blocks
+    // clippy::undocumented_unsafe_blocks,
+    rustdoc::broken_intra_doc_links,
+    rustdoc::missing_crate_level_docs
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(all(docsrs, not(doctest)), feature(doc_cfg, doc_auto_cfg))]

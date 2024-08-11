@@ -3,7 +3,8 @@ name = "rkyv_dyn"
 description = "Trait object support for rkyv"
 keywords = ["archive", "rkyv", "serialization", "zero-copy", "no_std"]
 categories = ["encoding", "no-std"]
-readme = "crates-io.md"
+# TODO: make a new README before publishing
+# readme = "crates-io.md"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

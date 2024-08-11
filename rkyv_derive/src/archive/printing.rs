@@ -1,7 +1,5 @@
-use quote::quote;
 use syn::{
-    parse_quote, spanned::Spanned as _, Attribute, DeriveInput, Error, Ident,
-    LitStr, Meta, Path, Type,
+    parse_quote, Attribute, DeriveInput, Error, Ident, Meta, Path, Type,
 };
 
 use crate::{attributes::Attributes, util::strip_raw};
@@ -65,11 +63,9 @@ impl Printing {
         )?;
 
         let derive_check_bytes = if attributes.bytecheck_enabled() {
-            let path = quote!(#rkyv_path::bytecheck).to_string();
-            let path_lit_str = LitStr::new(&path, rkyv_path.span());
             let mut result = vec![
                 parse_quote! { #[derive(#rkyv_path::bytecheck::CheckBytes)] },
-                parse_quote! { #[check_bytes(crate = #path_lit_str)] },
+                parse_quote! { #[check_bytes(crate = #rkyv_path::bytecheck)] },
             ];
 
             if let Meta::List(check_bytes) =

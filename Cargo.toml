@@ -15,34 +15,36 @@ resolver = "2"
 
 [workspace.package]
 # STOP! RESOLVE ALL TODOS BEFORE PUBLISHING 0.8.0!
-version = "0.8.0-alpha.2"
+version = "0.8.0-alpha.3"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2021"
 license = "MIT"
-documentation = "https://docs.rs/rkyv"
+readme = "README.md"
 repository = "https://github.com/rkyv/rkyv"
 
 [workspace.dependencies]
-benchlib = { version = "=0.8.0-alpha.2", path = "benchlib" }
-bytecheck = { version = "=0.8.0-alpha.9", default-features = false, features = ["simdutf8"] }
-divan = "0.1"
+benchlib = { version = "=0.8.0-alpha.3", default-features = false, path = "benchlib" }
+bytecheck = { version = "=0.8.0-alpha.10", default-features = false, features = ["simdutf8"] }
+divan = { version = "0.1", default-features = false }
 hashbrown = { version = "0.14", default-features = false }
-munge = "0.4"
-proc-macro2 = "1.0"
-ptr_meta = { version = "=0.3.0-alpha.2", default-features = false }
-quote = "1.0"
-rend = { version = "=0.5.0-alpha.7", default-features = false }
-rancor = { version = "=0.1.0-alpha.9", default-features = false }
-rkyv = { version = "=0.8.0-alpha.2", default-features = false, path = "rkyv" }
-rkyv_derive = { version = "=0.8.0-alpha.2", default-features = false, path = "rkyv_derive" }
-rkyv_dyn = { version = "=0.8.0-alpha.2", default-features = false, path = "rkyv_dyn" }
-rkyv_dyn_derive = { version = "=0.8.0-alpha.2", default-features = false, path = "rkyv_dyn_derive" }
-syn = "2.0"
-trybuild = "1.0"
+munge = { version = "0.4", default-features = false }
+proc-macro2 = { version = "1", default-features = false }
+ptr_meta = { version = "=0.3.0-alpha.3", default-features = false }
+quote = { version = "1", default-features = false }
+rend = { version = "=0.5.0-alpha.8", default-features = false }
+rancor = { version = "=0.1.0-alpha.10", default-features = false }
+rkyv = { version = "=0.8.0-alpha.3", default-features = false, path = "rkyv" }
+rkyv_derive = { version = "=0.8.0-alpha.3", default-features = false, path = "rkyv_derive" }
+rkyv_dyn = { version = "=0.8.0-alpha.3", default-features = false, path = "rkyv_dyn" }
+rkyv_dyn_derive = { version = "=0.8.0-alpha.3", default-features = false, path = "rkyv_dyn_derive" }
+syn = { version = "2", default-features = false }
+trybuild = { version = "1", default-features = false }
 
 [patch.crates-io]
 bytecheck = { git = "https://github.com/rkyv/bytecheck" }
+ptr_meta = { git = "https://github.com/rkyv/ptr_meta" }
 rancor = { git = "https://github.com/rkyv/rancor" }
+rend = { git = "https://github.com/rkyv/rend" }
 
 [profile.bench]
 debug = true

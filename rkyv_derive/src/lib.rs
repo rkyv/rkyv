@@ -42,7 +42,7 @@ pub fn derive_portable(
 ///
 /// Additional arguments can be specified using attributes.
 ///
-/// `#[rkyv(...)]` takes the following arguments:
+/// `#[rkyv(...)]` accepts the following arguments:
 ///
 /// - `archived = "..."`: Changes the name of the generated archived type to the
 ///   given value. By default, archived types are named "Archived" + `the name
