@@ -13,10 +13,10 @@ use crate::{
         check_pos_with_context, deserialize_with, root_position,
     },
     de::pooling::Unpool,
+    traits::Freeze,
     validation::{archive::ArchiveValidator, Validator},
     Archive, Deserialize, Portable,
 };
-// use crate::traits::Freeze;
 
 /// A low-level validator.
 ///
@@ -35,8 +35,7 @@ fn validator(bytes: &[u8]) -> Validator<ArchiveValidator<'_>, ()> {
 /// the [low-level API](crate::api::low).
 pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T, E>
 where
-    // T: Portable + Freeze + for<'a> CheckBytes<LowValidator<'a, E>>,
-    T: Portable + for<'a> CheckBytes<LowValidator<'a, E>>,
+    T: Portable + Freeze + for<'a> CheckBytes<LowValidator<'a, E>>,
     E: Source,
 {
     access_pos_with_context::<_, _, E>(bytes, pos, &mut validator(bytes))
@@ -50,8 +49,7 @@ where
 /// [low-level API](crate::api::low).
 pub fn access<T, E>(bytes: &[u8]) -> Result<&T, E>
 where
-    // T: Portable + Freeze + for<'a> CheckBytes<LowValidator<'a, E>>,
-    T: Portable + for<'a> CheckBytes<LowValidator<'a, E>>,
+    T: Portable + Freeze + for<'a> CheckBytes<LowValidator<'a, E>>,
     E: Source,
 {
     access_with_context::<_, _, E>(bytes, &mut validator(bytes))
@@ -101,8 +99,8 @@ where
 pub fn from_bytes<T, E>(bytes: &[u8]) -> Result<T, E>
 where
     T: Archive,
-    // T::Archived: Freeze + for<'a> CheckBytes<LowValidator<'a, E>>
-    T::Archived: for<'a> CheckBytes<LowValidator<'a, E>>
+    T::Archived: Freeze
+        + for<'a> CheckBytes<LowValidator<'a, E>>
         + Deserialize<T, Strategy<Unpool, E>>,
     E: Source,
 {

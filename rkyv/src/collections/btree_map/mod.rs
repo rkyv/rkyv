@@ -20,6 +20,7 @@ use crate::{
     place::Initialized,
     primitive::{ArchivedUsize, FixedUsize},
     ser::{Allocator, Writer, WriterExt as _},
+    traits::Freeze,
     util::{InlineVec, SerVec},
     Place, Portable, RawRelPtr, Serialize,
 };
@@ -108,7 +109,7 @@ const fn ll_entries<const E: usize>(height: u32, n: usize) -> usize {
     n - entries_in_full_tree::<E>(height - 1)
 }
 
-#[derive(Clone, Copy, Portable)]
+#[derive(Clone, Copy, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[rkyv(crate)]
 #[repr(u8)]
@@ -120,7 +121,7 @@ enum NodeKind {
 // SAFETY: `NodeKind` is `repr(u8)` and so is always initialized.
 unsafe impl Initialized for NodeKind {}
 
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 struct Node<K, V, const E: usize> {
@@ -129,7 +130,7 @@ struct Node<K, V, const E: usize> {
     values: [MaybeUninit<V>; E],
 }
 
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 struct LeafNode<K, V, const E: usize> {
@@ -137,7 +138,7 @@ struct LeafNode<K, V, const E: usize> {
     len: ArchivedUsize,
 }
 
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[rkyv(crate)]
 #[repr(C)]
@@ -148,7 +149,7 @@ struct InnerNode<K, V, const E: usize> {
 }
 
 /// An archived [`BTreeMap`](std::collections::BTreeMap).
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),

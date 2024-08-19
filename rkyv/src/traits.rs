@@ -6,6 +6,8 @@ use core::{
     marker::PhantomData,
 };
 
+pub use ::rkyv_derive::{Archive, Deserialize, Freeze, Portable, Serialize};
+
 use crate::{
     place::Initialized, ptr_meta::Pointee, rancor::Fallible, ArchivedMetadata,
     Place,
@@ -126,14 +128,14 @@ impl<T: ?Sized> CopyOptimization<T> {
 ///     ser::Writer,
 ///     to_bytes,
 ///     Archive, ArchiveUnsized, Archived, Portable, RelPtr, Serialize,
-///     SerializeUnsized, munge::munge, Place,
+///     SerializeUnsized, munge::munge, Place, traits::Freeze,
 /// };
 ///
 /// struct OwnedStr {
 ///     inner: &'static str,
 /// }
 ///
-/// #[derive(Portable)]
+/// #[derive(Freeze, Portable)]
 /// #[repr(transparent)]
 /// struct ArchivedOwnedStr {
 ///     // This will be a relative pointer to our string
@@ -304,13 +306,13 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     rancor::{Error, Fallible},
 ///     ser::{Positional, Writer, WriterExt as _},
 ///     to_bytes,
-///     traits::ArchivePointee,
+///     traits::{ArchivePointee, Freeze},
 ///     Archive, ArchiveUnsized, Archived, ArchivedMetadata, Portable, RelPtr,
 ///     Serialize, SerializeUnsized,
 /// };
 ///
 /// // We're going to be dealing mostly with blocks that have a trailing slice
-/// #[derive(Portable)]
+/// #[derive(Freeze, Portable)]
 /// #[repr(C)]
 /// pub struct Block<H, T: ?Sized> {
 ///     head: H,

@@ -8,10 +8,10 @@ use rancor::{Source, Strategy};
 
 use crate::{
     api::{access_pos_unchecked, access_pos_unchecked_mut, root_position},
+    traits::Freeze,
     validation::{ArchiveContext, ArchiveContextExt},
     Portable,
 };
-// use crate::traits::Freeze;
 
 /// Checks a byte slice for a valid instance of the given archived type at the
 /// given position with the given context.
@@ -44,8 +44,7 @@ pub fn access_pos_with_context<'a, T, C, E>(
     context: &mut C,
 ) -> Result<&'a T, E>
 where
-    // T: Portable+Freeze + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
-    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    T: Portable + Freeze + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
     E: Source,
 {
@@ -64,8 +63,7 @@ pub fn access_with_context<'a, T, C, E>(
     context: &mut C,
 ) -> Result<&'a T, E>
 where
-    // T: Portable+Freeze+CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
-    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    T: Portable + Freeze + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
     E: Source,
 {

@@ -205,7 +205,6 @@ pub use ::munge;
 pub use ::ptr_meta;
 pub use ::rancor;
 pub use ::rend;
-pub use ::rkyv_derive::{Archive, Deserialize, Portable, Serialize};
 
 // Modules
 

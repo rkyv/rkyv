@@ -11,7 +11,7 @@ use rancor::Fallible;
 use crate::{
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt as _},
-    traits::{ArchivePointee, CopyOptimization, LayoutRaw},
+    traits::{ArchivePointee, CopyOptimization, Freeze, LayoutRaw},
     tuple::*,
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
     Place, Portable, Serialize, SerializeUnsized,
@@ -407,9 +407,11 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for str {
 
 // `ManuallyDrop`
 
+// SAFETY: `ManuallyDrop<T>` doesn't add any interior mutability.
+unsafe impl<T: Freeze> Freeze for ManuallyDrop<T> {}
+
 // SAFETY: `ManuallyDrop<T>` is guaranteed to have the same layout and bit
-// validity as `T`, so it is `Portable` when `T` is `Portable`. It doesn't add
-// any interior mutability.
+// validity as `T`, so it is `Portable` when `T` is `Portable`.
 unsafe impl<T: Portable> Portable for ManuallyDrop<T> {}
 
 impl<T: Archive> Archive for ManuallyDrop<T> {

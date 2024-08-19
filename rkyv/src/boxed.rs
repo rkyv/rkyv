@@ -6,15 +6,15 @@ use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    traits::ArchivePointee, ArchiveUnsized, Place, Portable, RelPtr,
-    SerializeUnsized,
+    traits::{ArchivePointee, Freeze},
+    ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
 
 /// An archived [`Box`].
 ///
 /// This is a thin `#[repr(transparent)]` wrapper around a [`RelPtr`] to the
 /// archived type.
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[cfg_attr(
     feature = "bytecheck",

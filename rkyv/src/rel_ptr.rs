@@ -16,7 +16,7 @@ use crate::{
         ArchivedI16, ArchivedI32, ArchivedI64, ArchivedU16, ArchivedU32,
         ArchivedU64,
     },
-    traits::ArchivePointee,
+    traits::{ArchivePointee, Freeze},
     Place, Portable,
 };
 
@@ -111,7 +111,7 @@ impl_offset_multi_byte!(u64, ArchivedU64);
 /// with the **pointee** without invalidating the pointer. However, if either
 /// the **pointer** or the **pointee** move independently, the pointer will be
 /// invalidated.
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
@@ -378,23 +378,14 @@ pub type RawRelPtrU64 = RawRelPtr<ArchivedU64>;
 /// This is a strongly-typed version of [`RawRelPtr`].
 ///
 /// See [`Archive`](crate::Archive) for an example of creating one.
+#[derive(Freeze, Portable)]
+#[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
 pub struct RelPtr<T: ArchivePointee + ?Sized, O> {
     raw_ptr: RawRelPtr<O>,
     metadata: T::ArchivedMetadata,
     _phantom: PhantomData<T>,
-}
-
-// SAFETY: `RelPtr<T, O>` is `Portable` when all of its fields are `Portable`.
-// It doesn't have any interior mutability.
-unsafe impl<T, O> Portable for RelPtr<T, O>
-where
-    T: ArchivePointee + ?Sized,
-    RawRelPtr<O>: Portable,
-    T::ArchivedMetadata: Portable,
-    PhantomData<T>: Portable,
-{
 }
 
 impl<T, O: Offset> RelPtr<T, O> {

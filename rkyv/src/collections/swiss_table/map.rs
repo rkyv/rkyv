@@ -20,11 +20,12 @@ use crate::{
     },
     hash::{hash_value, FxHasher64},
     ser::{Allocator, Writer},
+    traits::Freeze,
     Place, Portable, Serialize,
 };
 
 /// An archived SwissTable hash map.
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[repr(transparent)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]

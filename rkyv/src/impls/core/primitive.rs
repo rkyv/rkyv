@@ -19,7 +19,7 @@ use crate::{
         ArchivedNonZeroU32, ArchivedNonZeroU64, ArchivedNonZeroUsize,
         ArchivedU128, ArchivedU16, ArchivedU32, ArchivedU64, ArchivedUsize,
     },
-    traits::CopyOptimization,
+    traits::{CopyOptimization, Freeze},
     Archive, Deserialize, Place, Portable, Serialize,
 };
 
@@ -27,6 +27,7 @@ macro_rules! unsafe_impl_initialized_and_portable {
     ($($ty:ty),* $(,)?) => {
         $(
             unsafe impl Initialized for $ty {}
+            unsafe impl Freeze for $ty {}
             unsafe impl Portable for $ty {}
         )*
     };
@@ -117,12 +118,20 @@ unsafe_impl_initialized_and_portable! {
     rend::unaligned::u128_ule,
 }
 
+// SAFETY: `[T; N]` is a `T` array and so is freeze as long as `T` is also
+// `Freeze`.
+unsafe impl<T: Freeze, const N: usize> Freeze for [T; N] {}
+
 // SAFETY: `[T; N]` is a `T` array and so is portable as long as `T` is also
-// `Portable`. It doesn't have any interior mutability.
+// `Portable`.
 unsafe impl<T: Portable, const N: usize> Portable for [T; N] {}
 
+// SAFETY: `[T]` is a `T` slice and so is freeze as long as `T` is also
+// `Freeze`.
+unsafe impl<T: Freeze> Freeze for [T] {}
+
 // SAFETY: `[T]` is a `T` slice and so is portable as long as `T` is also
-// `Portable`. It doesn't have any interior mutability.
+// `Portable`.
 unsafe impl<T: Portable> Portable for [T] {}
 
 macro_rules! impl_serialize_noop {
@@ -248,9 +257,12 @@ impl_multibyte_primitives! {
 
 // PhantomData
 
+// SAFETY: `PhantomData` never has any interior mutability because it has no
+// data to mutate.
+unsafe impl<T: ?Sized> Freeze for PhantomData<T> {}
+
 // SAFETY: `PhantomData` always a size of 0 and align of 1, and so has a stable,
-// well-defined layout that is the same on all targets. It doesn't have any
-// interior mutability (because there is no interior to mutate).
+// well-defined layout that is the same on all targets.
 unsafe impl<T: ?Sized> Portable for PhantomData<T> {}
 
 impl<T: ?Sized> Archive for PhantomData<T> {

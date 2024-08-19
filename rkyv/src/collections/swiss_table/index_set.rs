@@ -16,11 +16,12 @@ use crate::{
     },
     hash::FxHasher64,
     ser::{Allocator, Writer},
+    traits::Freeze,
     Place, Portable, Serialize,
 };
 
 /// An archived `IndexSet`.
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]

@@ -2,12 +2,23 @@
 
 use crate::{
     primitive::{ArchivedU32, ArchivedU64},
+    traits::Freeze,
     Portable,
 };
 
 /// An archived [`Duration`](core::time::Duration).
 #[derive(
-    Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd, Portable,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd,
+    Portable,
+    Freeze,
 )]
 #[rkyv(crate)]
 #[repr(C)]

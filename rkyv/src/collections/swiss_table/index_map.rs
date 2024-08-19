@@ -22,11 +22,12 @@ use crate::{
     hash::{hash_value, FxHasher64},
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt as _},
+    traits::Freeze,
     Place, Portable, RelPtr, Serialize,
 };
 
 /// An archived `IndexMap`.
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 #[cfg_attr(

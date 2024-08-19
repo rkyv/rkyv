@@ -8,11 +8,12 @@ use munge::munge;
 
 use crate::{
     primitive::{ArchivedU16, ArchivedU32},
+    traits::Freeze,
     Archive, Place, Portable,
 };
 
 /// An archived [`Ipv4Addr`].
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -123,7 +124,7 @@ impl ArchivedIpv4Addr {
 }
 
 /// An archived [`Ipv6Addr`].
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -216,7 +217,7 @@ impl ArchivedIpv6Addr {
 }
 
 /// An archived [`IpAddr`].
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -290,7 +291,7 @@ impl ArchivedIpAddr {
 }
 
 /// An archived [`SocketAddrV4`].
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -329,7 +330,7 @@ impl ArchivedSocketAddrV4 {
 }
 
 /// An archived [`SocketAddrV6`].
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -395,7 +396,7 @@ impl ArchivedSocketAddrV6 {
 }
 
 /// An archived [`SocketAddr`].
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]

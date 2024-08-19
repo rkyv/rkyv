@@ -7,11 +7,11 @@ use core::{
     pin::Pin,
 };
 
-use crate::Portable;
+use crate::{traits::Freeze, Portable};
 
 /// An archived [`Result`] that represents either success
 /// ([`Ok`](ArchivedResult::Ok)) or failure ([`Err`](ArchivedResult::Err)).
-#[derive(Debug, Portable)]
+#[derive(Debug, Freeze, Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(u8)]

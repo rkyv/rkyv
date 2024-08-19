@@ -7,12 +7,13 @@ use rancor::{Panic, ResultExt as _, Source};
 
 use crate::{
     primitive::{ArchivedUsize, FixedIsize},
+    traits::Freeze,
     Place, Portable,
 };
 
 const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
 
-#[derive(Clone, Copy, Portable)]
+#[derive(Clone, Copy, Freeze, Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 struct OutOfLineRepr {
@@ -27,7 +28,7 @@ struct OutOfLineRepr {
 /// The maximum number of bytes that can be inlined.
 pub const INLINE_CAPACITY: usize = mem::size_of::<OutOfLineRepr>() - 1;
 
-#[derive(Clone, Copy, Portable)]
+#[derive(Clone, Copy, Freeze, Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 struct InlineRepr {
@@ -36,7 +37,7 @@ struct InlineRepr {
 }
 
 /// An archived string representation that can inline short strings.
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 pub union ArchivedStringRepr {

@@ -10,6 +10,7 @@ use core::{
 
 use munge::munge;
 use rancor::Fallible;
+use rkyv_derive::Freeze;
 
 use crate::{
     primitive::ArchivedUsize,
@@ -22,7 +23,7 @@ use crate::{
 /// This uses a [`RelPtr`] to a `[T]` under the hood. Unlike
 /// [`ArchivedString`](crate::string::ArchivedString), it does not have an
 /// inline representation.
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 #[cfg_attr(

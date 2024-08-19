@@ -14,9 +14,9 @@ use crate::{
     access_unchecked,
     api::{deserialize_with, serialize_with},
     ser::{Allocator, Serializer, Writer},
+    traits::Freeze,
     Archive, Deserialize, Serialize,
 };
-// use crate::traits::Freeze;
 
 /// A general-purpose serializer suitable for environments where allocations
 /// cannot be made.
@@ -62,8 +62,7 @@ where
 pub unsafe fn from_bytes_unchecked<T, E>(bytes: &[u8]) -> Result<T, E>
 where
     T: Archive,
-    T::Archived: Deserialize<T, LowDeserializer<E>>,
-    // T::Archived: Freeze + Deserialize<T, LowDeserializer<E>>,
+    T::Archived: Freeze + Deserialize<T, LowDeserializer<E>>,
 {
     // SAFETY: The caller has guaranteed that a valid `T` is located at the root
     // position in the byte slice.

@@ -17,7 +17,7 @@ use munge::munge;
 use rancor::Fallible;
 use repr::{ArchivedStringRepr, INLINE_CAPACITY};
 
-use crate::{Place, Portable, SerializeUnsized};
+use crate::{traits::Freeze, Place, Portable, SerializeUnsized};
 
 /// An archived [`String`].
 ///
@@ -30,7 +30,7 @@ use crate::{Place, Portable, SerializeUnsized};
     derive(bytecheck::CheckBytes),
     check_bytes(verify)
 )]
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 pub struct ArchivedString {
     repr: repr::ArchivedStringRepr,

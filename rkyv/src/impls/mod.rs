@@ -46,6 +46,7 @@ mod core_tests {
         api::test::{roundtrip, to_archived},
         option::ArchivedOption,
         primitive::{ArchivedI32, ArchivedU32},
+        traits::Freeze,
         Archive, Deserialize, Place, Portable, Serialize,
     };
 
@@ -333,7 +334,7 @@ mod core_tests {
 
         impl MyTrait for i32 {}
 
-        #[derive(Portable)]
+        #[derive(Freeze, Portable)]
         #[rkyv(crate)]
         #[repr(transparent)]
         struct MyStruct<T> {

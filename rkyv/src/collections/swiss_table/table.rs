@@ -36,12 +36,13 @@ use crate::{
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt},
     simd::{Bitmask, Group, MAX_GROUP_WIDTH},
+    traits::Freeze,
     util::SerVec,
     Archive as _, Place, Portable, RawRelPtr, Serialize,
 };
 
 /// A low-level archived SwissTable hash table with explicit hashing.
-#[derive(Portable)]
+#[derive(Freeze, Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 #[cfg_attr(

@@ -6,10 +6,10 @@ use core::{
     pin::Pin,
 };
 
-use crate::Portable;
+use crate::{traits::Freeze, Portable};
 
 /// An archived [`RangeFull`](::core::ops::RangeFull).
-#[derive(Clone, Copy, Default, PartialEq, Eq, Hash, Portable)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, Hash, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
 #[rkyv(crate)]
@@ -23,7 +23,7 @@ impl fmt::Debug for ArchivedRangeFull {
 }
 
 /// An archived [`Range`](::core::ops::Range).
-#[derive(Clone, Default, PartialEq, Eq, Hash, Portable)]
+#[derive(Clone, Default, PartialEq, Eq, Hash, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
 #[rkyv(crate)]
@@ -75,7 +75,7 @@ impl<T> RangeBounds<T> for ArchivedRange<T> {
 }
 
 /// An archived [`RangeInclusive`](::core::ops::RangeInclusive).
-#[derive(Clone, Default, PartialEq, Eq, Hash, Portable)]
+#[derive(Clone, Default, PartialEq, Eq, Hash, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
 #[rkyv(crate)]
@@ -125,7 +125,7 @@ impl<T> RangeBounds<T> for ArchivedRangeInclusive<T> {
 }
 
 /// An archived [`RangeFrom`](::core::ops::RangeFrom).
-#[derive(Clone, Default, PartialEq, Eq, Hash, Portable)]
+#[derive(Clone, Default, PartialEq, Eq, Hash, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
 #[rkyv(crate)]
@@ -164,7 +164,7 @@ impl<T> RangeBounds<T> for ArchivedRangeFrom<T> {
 }
 
 /// An archived [`RangeTo`](::core::ops::RangeTo).
-#[derive(Clone, Default, PartialEq, Eq, Hash, Portable)]
+#[derive(Clone, Default, PartialEq, Eq, Hash, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
 #[rkyv(crate)]
@@ -203,7 +203,7 @@ impl<T> RangeBounds<T> for ArchivedRangeTo<T> {
 }
 
 /// An archived [`RangeToInclusive`](::core::ops::RangeToInclusive).
-#[derive(Clone, Default, PartialEq, Eq, Hash, Portable)]
+#[derive(Clone, Default, PartialEq, Eq, Hash, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(C)]
 #[rkyv(crate)]
@@ -242,7 +242,7 @@ impl<T> RangeBounds<T> for ArchivedRangeToInclusive<T> {
 }
 
 /// An archived [`Bound`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Portable)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(u8)]
 #[rkyv(crate)]

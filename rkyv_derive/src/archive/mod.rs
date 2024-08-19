@@ -97,8 +97,7 @@ fn derive_archive_impl(
 
     if attributes.as_type.is_none() {
         result.extend(impl_auto_trait(input, &printing, "Portable")?);
-        // let freeze_impl = generate_archived_impl(input, &printing,
-        // "Freeze")?; Some(quote! { #portable_impl #freeze_impl })
+        result.extend(impl_auto_trait(input, &printing, "Freeze")?);
     }
 
     Ok(result)
