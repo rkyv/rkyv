@@ -1,90 +1,82 @@
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{
-    parse_quote, spanned::Spanned as _, Data, DataEnum, DeriveInput, Error,
-    Fields, Ident,
+    parse_quote, spanned::Spanned as _, DataEnum, Error, Field, Fields,
+    Generics, Ident, Index, Member,
 };
 
 use crate::{
     archive::{
-        archived_doc, enum_field_doc, enum_resolver_field_doc,
-        field_archive_attrs, printing::Printing, resolver_doc,
+        archive_field_metas, archived_doc, printing::Printing, resolver_doc,
         resolver_variant_doc, variant_doc,
     },
     attributes::Attributes,
-    util::{
-        archive_bound, archived, is_not_omitted, members_starting_at, resolve,
-        resolver, strip_raw,
-    },
+    util::{archived, is_not_omitted, resolve, resolver, strip_raw},
 };
 
 pub fn impl_enum(
-    input: &mut DeriveInput,
-    attributes: &Attributes,
     printing: &Printing,
-) -> Result<(TokenStream, TokenStream), Error> {
-    let data = match &input.data {
-        Data::Enum(data) => data,
-        _ => unreachable!(),
-    };
+    generics: &Generics,
+    attributes: &Attributes,
+    data: &DataEnum,
+) -> Result<TokenStream, Error> {
+    let Printing {
+        rkyv_path,
+        name,
+        archived_type,
+        resolver_name,
+        ..
+    } = printing;
 
     if data.variants.len() > 256 {
         return Err(Error::new_spanned(
-            &input.ident,
+            &printing.name,
             "enums with more than 256 variants cannot derive Archive",
         ));
     }
 
-    let rkyv_path = &printing.rkyv_path;
+    let mut public = TokenStream::new();
+    let mut private = TokenStream::new();
 
-    let where_clause = input.generics.make_where_clause();
-
-    for field in data
-        .variants
-        .iter()
-        .flat_map(|v| v.fields.iter())
-        .filter(is_not_omitted)
-    {
-        where_clause
-            .predicates
-            .push(archive_bound(rkyv_path, field)?);
+    if attributes.as_type.is_none() {
+        public.extend(generate_archived_type(
+            printing, generics, attributes, data,
+        )?);
     }
 
-    let (impl_generics, ty_generics, where_clause) =
-        input.generics.split_for_impl();
-    let where_clause = where_clause.unwrap();
+    public.extend(generate_resolver_type(printing, generics, data)?);
 
-    let archived_def = attributes
-        .archive_as
-        .is_none()
-        .then(|| generate_archived_def(input, attributes, printing, data))
-        .transpose()?;
-
-    let resolver_def = generate_resolver_def(input, printing, data)?;
-    let resolve_arms = generate_resolve_arms(input, printing, data)?;
-
-    let archived_variant_tags = data.variants.iter().map(|v| {
-        let variant = &v.ident;
-        let discriminant = v
+    let archived_variant_tags = data.variants.iter().map(|variant| {
+        let ident = &variant.ident;
+        let (eq, expr) = variant
             .discriminant
             .as_ref()
-            .map(|(eq, expr)| quote! { #eq #expr });
-        quote! { #variant #discriminant }
+            .map(|(eq, expr)| (eq, expr))
+            .unzip();
+        quote! { #ident #eq #expr }
+    });
+    private.extend(quote! {
+        #[derive(PartialEq, PartialOrd)]
+        #[repr(u8)]
+        enum ArchivedTag {
+            #(#archived_variant_tags,)*
+        }
     });
 
-    let archived_variant_structs =
-        generate_variant_structs(input, printing, data)?;
+    private.extend(generate_variant_structs(printing, generics, data)?);
 
-    let mut partial_eq_impl = None;
-    let mut partial_ord_impl = None;
+    let resolve_arms = generate_resolve_arms(printing, generics, data)?;
+
     if let Some(ref compares) = attributes.compares {
         for compare in compares {
             if compare.is_ident("PartialEq") {
-                partial_eq_impl =
-                    Some(generate_partial_eq_impl(input, data, printing)?);
+                public.extend(generate_partial_eq_impl(
+                    printing, generics, data,
+                )?);
             } else if compare.is_ident("PartialOrd") {
-                partial_ord_impl =
-                    Some(generate_partial_ord_impl(input, data, printing)?);
+                private.extend(generate_partial_ord_impl(
+                    printing, generics, data,
+                )?);
             } else {
                 return Err(Error::new_spanned(
                     compare,
@@ -95,23 +87,13 @@ pub fn impl_enum(
         }
     }
 
-    let name = &input.ident;
-    let archived_type = &printing.archived_type;
-    let resolver_name = &printing.resolver_name;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    Ok((
-        quote! {
-            #archived_def
-            #resolver_def
-        },
-        quote! {
-            #[derive(PartialEq, PartialOrd)]
-            #[repr(u8)]
-            enum ArchivedTag {
-                #(#archived_variant_tags,)*
-            }
+    Ok(quote! {
+        #public
 
-            #(#archived_variant_structs)*
+        const _: () = {
+            #private
 
             impl #impl_generics Archive for #name #ty_generics #where_clause {
                 type Archived = #archived_type;
@@ -126,437 +108,375 @@ pub fn impl_enum(
                     out: #rkyv_path::Place<<Self as Archive>::Archived>,
                 ) {
                     match resolver {
-                        #(#resolve_arms,)*
+                        #resolve_arms
                     }
                 }
             }
-
-            #partial_eq_impl
-            #partial_ord_impl
-        },
-    ))
-}
-
-fn generate_archived_def(
-    input: &DeriveInput,
-    attributes: &Attributes,
-    printing: &Printing,
-    data: &DataEnum,
-) -> Result<TokenStream, Error> {
-    let name = &input.ident;
-    let rkyv_path = &printing.rkyv_path;
-
-    let archived_variants = data
-        .variants
-        .iter()
-        .map(|v| {
-            let variant = &v.ident;
-            let discriminant = v
-                .discriminant
-                .as_ref()
-                .map(|(eq, expr)| quote! { #eq #expr });
-
-            let variant_doc = variant_doc(name, variant);
-
-            match v.fields {
-                Fields::Named(ref fields) => {
-                    let fields = fields
-                        .named
-                        .iter()
-                        .map(|f| {
-                            let field_name = f.ident.as_ref();
-                            let vis = &f.vis;
-                            let field_doc = enum_field_doc(
-                                name,
-                                variant,
-                                field_name.unwrap(),
-                            );
-                            let archive_attrs =
-                                field_archive_attrs(attributes, f);
-                            let archived = archived(rkyv_path, f)?;
-                            Ok(quote! {
-                                #[doc = #field_doc]
-                                #(#[#archive_attrs])*
-                                #vis #field_name: #archived
-                            })
-                        })
-                        .collect::<Result<Vec<_>, Error>>()?;
-
-                    Ok(quote! {
-                        #[doc = #variant_doc]
-                        #[allow(dead_code)]
-                        #variant {
-                            #(#fields,)*
-                        } #discriminant
-                    })
-                }
-                Fields::Unnamed(ref fields) => {
-                    let fields = fields
-                        .unnamed
-                        .iter()
-                        .enumerate()
-                        .map(|(i, f)| {
-                            let vis = &f.vis;
-                            let field_doc = enum_field_doc(name, variant, &i);
-                            let archive_attrs =
-                                field_archive_attrs(attributes, f);
-                            let archived = archived(rkyv_path, f)?;
-                            Ok(quote! {
-                                #[doc = #field_doc]
-                                #(#[#archive_attrs])*
-                                #vis #archived
-                            })
-                        })
-                        .collect::<Result<Vec<_>, Error>>()?;
-
-                    Ok(quote! {
-                        #[doc = #variant_doc]
-                        #[allow(dead_code)]
-                        #variant(#(#fields,)*) #discriminant
-                    })
-                }
-                Fields::Unit => Ok(quote! {
-                    #[doc = #variant_doc]
-                    #[allow(dead_code)]
-                    #variant #discriminant
-                }),
-            }
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    let archived_doc = archived_doc(&input.ident);
-    let archive_attrs = &printing.archive_attrs;
-
-    let vis = &input.vis;
-    let archived_name = &printing.archived_name;
-    let generics = &input.generics;
-    let (impl_generics, ty_generics, where_clause) =
-        input.generics.split_for_impl();
-
-    Ok(quote! {
-        #[automatically_derived]
-        #[doc = #archived_doc]
-        #(#archive_attrs)*
-        #[repr(u8)]
-        #vis enum #archived_name #generics #where_clause {
-            #(#archived_variants,)*
-        }
-
-        // SAFETY: As long as the `Archive` impl holds, the archived type is
-        // guaranteed to be `Portable`.
-        unsafe impl #impl_generics #rkyv_path::Portable
-            for #archived_name #ty_generics
-        #where_clause
-        {}
+        };
     })
 }
 
-fn generate_resolver_def(
-    input: &DeriveInput,
+fn generate_archived_type(
     printing: &Printing,
+    generics: &Generics,
+    attributes: &Attributes,
     data: &DataEnum,
 ) -> Result<TokenStream, Error> {
-    let rkyv_path = &printing.rkyv_path;
-    let name = &input.ident;
+    let Printing {
+        rkyv_path,
+        vis,
+        name,
+        archived_metas,
+        archived_name,
+        ..
+    } = printing;
 
-    let resolver_variants = data
-        .variants
-        .iter()
-        .map(|v| {
-            let variant = &v.ident;
-            let variant_doc = resolver_variant_doc(name, variant);
+    let mut archived_variants = TokenStream::new();
+    for variant in &data.variants {
+        let variant_name = &variant.ident;
+        let (eq, expr) = variant
+            .discriminant
+            .as_ref()
+            .map(|(eq, expr)| (eq, expr))
+            .unzip();
 
-            match v.fields {
-                Fields::Named(ref fields) => {
-                    let fields = fields
-                        .named
-                        .iter()
-                        .map(|f| {
-                            let field_name = f.ident.as_ref().unwrap();
-                            let resolver = resolver(rkyv_path, f)?;
-                            let field_doc = enum_resolver_field_doc(
-                                name, variant, field_name,
-                            );
-                            Ok(quote! {
-                                #[doc = #field_doc]
-                                #field_name: #resolver
-                            })
-                        })
-                        .collect::<Result<Vec<_>, Error>>()?;
+        let variant_doc = variant_doc(name, variant_name);
 
-                    Ok(quote! {
-                        #[doc = #variant_doc]
-                        #[allow(dead_code)]
-                        #variant {
-                            #(#fields,)*
-                        }
-                    })
-                }
-                Fields::Unnamed(ref fields) => {
-                    let fields = fields
-                        .unnamed
-                        .iter()
-                        .enumerate()
-                        .map(|(i, f)| {
-                            let resolver = resolver(rkyv_path, f)?;
-                            let field_doc =
-                                enum_resolver_field_doc(name, variant, &i);
-                            Ok(quote! {
-                                #[doc = #field_doc]
-                                #resolver
-                            })
-                        })
-                        .collect::<Result<Vec<_>, Error>>()?;
+        let mut variant_fields = TokenStream::new();
+        for field in variant.fields.iter() {
+            let Field {
+                vis,
+                ident,
+                colon_token,
+                ..
+            } = field;
+            let field_metas = archive_field_metas(attributes, field);
+            let field_ty = archived(rkyv_path, field)?;
+            variant_fields.extend(quote! {
+                #(#[#field_metas])*
+                #vis #ident #colon_token #field_ty,
+            });
+        }
 
-                    Ok(quote! {
-                        #[doc = #variant_doc]
-                        #[allow(dead_code)]
-                        #variant(#(#fields,)*)
-                    })
-                }
-                Fields::Unit => Ok(quote! {
-                    #[doc = #variant_doc]
-                    #[allow(dead_code)]
-                    #variant
-                }),
-            }
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
+        archived_variants.extend(match variant.fields {
+            Fields::Named(_) => quote! {
+                #[doc = #variant_doc]
+                #[allow(dead_code)]
+                #variant_name {
+                    #variant_fields
+                } #eq #expr,
+            },
+            Fields::Unnamed(_) => quote! {
+                #[doc = #variant_doc]
+                #[allow(dead_code)]
+                #variant_name(#variant_fields) #eq #expr,
+            },
+            Fields::Unit => quote! {
+                #[doc = #variant_doc]
+                #[allow(dead_code)]
+                #variant_name #eq #expr,
+            },
+        });
+    }
 
+    let where_clause = &generics.where_clause;
+    let archived_doc = archived_doc(name);
+    Ok(quote! {
+        #[automatically_derived]
+        #[doc = #archived_doc]
+        #(#[#archived_metas])*
+        #[repr(u8)]
+        #vis enum #archived_name #generics #where_clause {
+            #archived_variants
+        }
+    })
+}
+
+fn generate_resolver_type(
+    printing: &Printing,
+    generics: &Generics,
+    data: &DataEnum,
+) -> Result<TokenStream, Error> {
+    let Printing {
+        rkyv_path,
+        vis,
+        name,
+        resolver_name,
+        ..
+    } = printing;
+
+    let mut resolver_variants = TokenStream::new();
+    for variant in &data.variants {
+        let variant_name = &variant.ident;
+
+        let variant_doc = resolver_variant_doc(name, variant_name);
+
+        let mut variant_fields = TokenStream::new();
+        for field in variant.fields.iter() {
+            let Field {
+                ident, colon_token, ..
+            } = field;
+            let field_ty = resolver(rkyv_path, field)?;
+            variant_fields.extend(quote! {
+                #ident #colon_token #field_ty,
+            });
+        }
+
+        resolver_variants.extend(match variant.fields {
+            Fields::Named(_) => quote! {
+                #[doc = #variant_doc]
+                #[allow(dead_code)]
+                #variant_name {
+                    #variant_fields
+                },
+            },
+            Fields::Unnamed(_) => quote! {
+                #[doc = #variant_doc]
+                #[allow(dead_code)]
+                #variant_name(#variant_fields),
+            },
+            Fields::Unit => quote! {
+                #[doc = #variant_doc]
+                #[allow(dead_code)]
+                #variant_name,
+            },
+        });
+    }
+
+    let where_clause = &generics.where_clause;
     let resolver_doc = resolver_doc(name);
-
-    let vis = &input.vis;
-    let resolver_name = &printing.resolver_name;
-    let generics = &input.generics;
-    let where_clause = generics.where_clause.as_ref().unwrap();
-
     Ok(quote! {
         #[automatically_derived]
         #[doc = #resolver_doc]
         #vis enum #resolver_name #generics #where_clause {
-            #(#resolver_variants,)*
+            #resolver_variants
         }
     })
 }
 
 fn generate_resolve_arms(
-    input: &DeriveInput,
     printing: &Printing,
+    generics: &Generics,
     data: &DataEnum,
-) -> Result<Vec<TokenStream>, Error> {
-    let rkyv_path = &printing.rkyv_path;
-    let name = &input.ident;
-    let resolver_name = &printing.resolver_name;
-    let (_, ty_generics, _) = input.generics.split_for_impl();
+) -> Result<TokenStream, Error> {
+    let Printing {
+        rkyv_path,
+        name,
+        resolver_name,
+        ..
+    } = printing;
+    let (_, ty_generics, _) = generics.split_for_impl();
 
-    data.variants
-        .iter()
-        .map(|v| {
-            let variant = &v.ident;
-            let archived_variant_name = Ident::new(
-                &format!("ArchivedVariant{}", strip_raw(variant)),
-                v.span(),
-            );
+    let mut result = TokenStream::new();
+    for variant in &data.variants {
+        let variant_name = &variant.ident;
+        let archived_variant_name =
+            format_ident!("ArchivedVariant{}", strip_raw(variant_name),);
 
-            let members = members_starting_at(&v.fields, 1)
-                .map(|(m, _)| m)
-                .collect::<Vec<_>>();
+        let members = variant
+            .fields
+            .members()
+            .map(|member| match member {
+                Member::Named(_) => member,
+                Member::Unnamed(index) => Member::Unnamed(Index {
+                    index: index.index + 1,
+                    span: index.span,
+                }),
+            })
+            .collect::<Vec<_>>();
 
-            let (self_bindings, resolver_bindings) = v
-                .fields
-                .iter()
-                .enumerate()
-                .map(|(i, field)| {
-                    (
-                        Ident::new(&format!("self_{}", i), field.span()),
-                        Ident::new(&format!("resolver_{}", i), field.span()),
-                    )
-                })
-                .unzip::<_, _, Vec<_>, Vec<_>>();
+        let (self_bindings, resolver_bindings) = variant
+            .fields
+            .iter()
+            .enumerate()
+            .map(|(i, field)| {
+                (
+                    Ident::new(&format!("self_{}", i), field.span()),
+                    Ident::new(&format!("resolver_{}", i), field.span()),
+                )
+            })
+            .unzip::<_, _, Vec<_>, Vec<_>>();
 
-            let resolves = v
-                .fields
-                .iter()
-                .map(|f| resolve(rkyv_path, f))
-                .collect::<Result<Vec<_>, Error>>()?;
+        let resolves = variant
+            .fields
+            .iter()
+            .map(|f| resolve(rkyv_path, f))
+            .collect::<Result<Vec<_>, Error>>()?;
 
-            match v.fields {
-                Fields::Named(_) => Ok(quote! {
-                    #resolver_name::#variant {
-                        #(#members: #resolver_bindings,)*
-                    } => {
-                        match self {
-                            #name::#variant {
-                                #(#members: #self_bindings,)*
-                            } => {
-                                let out = unsafe {
-                                    out.cast_unchecked::<
-                                        #archived_variant_name #ty_generics
-                                    >()
-                                };
-                                let tag_ptr = unsafe {
+        match variant.fields {
+            Fields::Named(_) => result.extend(quote! {
+                #resolver_name::#variant_name {
+                    #(#members: #resolver_bindings,)*
+                } => {
+                    match self {
+                        #name::#variant_name {
+                            #(#members: #self_bindings,)*
+                        } => {
+                            let out = unsafe {
+                                out.cast_unchecked::<
+                                    #archived_variant_name #ty_generics
+                                >()
+                            };
+                            let tag_ptr = unsafe {
+                                ::core::ptr::addr_of_mut!(
+                                    (*out.ptr()).__tag
+                                )
+                            };
+                            unsafe {
+                                tag_ptr.write(ArchivedTag::#variant_name);
+                            }
+                            #(
+                                let field_ptr = unsafe {
                                     ::core::ptr::addr_of_mut!(
-                                        (*out.ptr()).__tag
+                                        (*out.ptr()).#members
                                     )
                                 };
-                                unsafe {
-                                    tag_ptr.write(ArchivedTag::#variant);
-                                }
-                                #(
-                                    let field_ptr = unsafe {
-                                        ::core::ptr::addr_of_mut!(
-                                            (*out.ptr()).#members
-                                        )
-                                    };
-                                    let out_field = unsafe {
-                                        #rkyv_path::Place::from_field_unchecked(
-                                            out,
-                                            field_ptr,
-                                        )
-                                    };
-                                    #resolves(
-                                        #self_bindings,
-                                        #resolver_bindings,
-                                        out_field,
-                                    );
-                                )*
-                            },
-                            #[allow(unreachable_patterns)]
-                            _ => unsafe {
-                                ::core::hint::unreachable_unchecked()
-                            },
-                        }
-                    }
-                }),
-                Fields::Unnamed(_) => Ok(quote! {
-                    #resolver_name::#variant( #(#resolver_bindings,)* ) => {
-                        match self {
-                            #name::#variant(#(#self_bindings,)*) => {
-                                let out = unsafe {
-                                    out.cast_unchecked::<
-                                        #archived_variant_name #ty_generics
-                                    >()
+                                let out_field = unsafe {
+                                    #rkyv_path::Place::from_field_unchecked(
+                                        out,
+                                        field_ptr,
+                                    )
                                 };
-                                let tag_ptr = unsafe {
-                                    ::core::ptr::addr_of_mut!((*out.ptr()).0)
+                                #resolves(
+                                    #self_bindings,
+                                    #resolver_bindings,
+                                    out_field,
+                                );
+                            )*
+                        },
+                        #[allow(unreachable_patterns)]
+                        _ => unsafe {
+                            ::core::hint::unreachable_unchecked()
+                        },
+                    }
+                }
+            }),
+            Fields::Unnamed(_) => result.extend(quote! {
+                #resolver_name::#variant_name( #(#resolver_bindings,)* ) => {
+                    match self {
+                        #name::#variant_name(#(#self_bindings,)*) => {
+                            let out = unsafe {
+                                out.cast_unchecked::<
+                                    #archived_variant_name #ty_generics
+                                >()
+                            };
+                            let tag_ptr = unsafe {
+                                ::core::ptr::addr_of_mut!((*out.ptr()).0)
+                            };
+                            unsafe {
+                                tag_ptr.write(ArchivedTag::#variant_name);
+                            }
+                            #(
+                                let field_ptr = unsafe {
+                                    ::core::ptr::addr_of_mut!(
+                                        (*out.ptr()).#members
+                                    )
                                 };
-                                unsafe {
-                                    tag_ptr.write(ArchivedTag::#variant);
-                                }
-                                #(
-                                    let field_ptr = unsafe {
-                                        ::core::ptr::addr_of_mut!(
-                                            (*out.ptr()).#members
-                                        )
-                                    };
-                                    let out_field = unsafe {
-                                        #rkyv_path::Place::from_field_unchecked(
-                                            out,
-                                            field_ptr,
-                                        )
-                                    };
-                                    #resolves(
-                                        #self_bindings,
-                                        #resolver_bindings,
-                                        out_field,
-                                    );
-                                )*
-                            },
-                            #[allow(unreachable_patterns)]
-                            _ => unsafe {
-                                ::core::hint::unreachable_unchecked()
-                            },
-                        }
+                                let out_field = unsafe {
+                                    #rkyv_path::Place::from_field_unchecked(
+                                        out,
+                                        field_ptr,
+                                    )
+                                };
+                                #resolves(
+                                    #self_bindings,
+                                    #resolver_bindings,
+                                    out_field,
+                                );
+                            )*
+                        },
+                        #[allow(unreachable_patterns)]
+                        _ => unsafe {
+                            ::core::hint::unreachable_unchecked()
+                        },
                     }
-                }),
-                Fields::Unit => Ok(quote! {
-                    #resolver_name::#variant => {
-                        let out = unsafe {
-                            out.cast_unchecked::<ArchivedTag>()
-                        };
-                        // SAFETY: `ArchivedTag` is `repr(u8)` and so is always
-                        // initialized.
-                        unsafe {
-                            out.write_unchecked(ArchivedTag::#variant);
-                        }
+                }
+            }),
+            Fields::Unit => result.extend(quote! {
+                #resolver_name::#variant_name => {
+                    let out = unsafe {
+                        out.cast_unchecked::<ArchivedTag>()
+                    };
+                    // SAFETY: `ArchivedTag` is `repr(u8)` and so is always
+                    // initialized.
+                    unsafe {
+                        out.write_unchecked(ArchivedTag::#variant_name);
                     }
-                }),
-            }
-        })
-        .collect()
+                }
+            }),
+        }
+    }
+
+    Ok(result)
 }
 
 fn generate_variant_structs(
-    input: &DeriveInput,
     printing: &Printing,
+    generics: &Generics,
     data: &DataEnum,
-) -> Result<Vec<TokenStream>, Error> {
-    let rkyv_path = &printing.rkyv_path;
-    let name = &input.ident;
-    let generics = &input.generics;
-    let where_clause = generics.where_clause.as_ref().unwrap();
-    let (_, ty_generics, _) = input.generics.split_for_impl();
+) -> Result<TokenStream, Error> {
+    let Printing {
+        rkyv_path, name, ..
+    } = printing;
+    let (_, ty_generics, _) = generics.split_for_impl();
+    let where_clause = &generics.where_clause;
 
-    data.variants
-        .iter()
-        .map(|v| {
-            let variant = &v.ident;
-            let archived_variant_name = Ident::new(
-                &format!("ArchivedVariant{}", strip_raw(variant)),
-                v.span(),
-            );
+    let mut result = TokenStream::new();
+    for variant in &data.variants {
+        let archived_variant_name =
+            format_ident!("ArchivedVariant{}", strip_raw(&variant.ident),);
 
-            match v.fields {
-                Fields::Named(ref fields) => {
-                    let fields = fields
-                        .named
-                        .iter()
-                        .map(|f| {
-                            let name = &f.ident;
-                            let archived = archived(rkyv_path, f)?;
-                            Ok(quote! { #name: #archived })
-                        })
-                        .collect::<Result<Vec<_>, Error>>()?;
-                    Ok(quote! {
-                        #[repr(C)]
-                        struct #archived_variant_name #generics #where_clause {
-                            __tag: ArchivedTag,
-                            #(#fields,)*
-                            __phantom: PhantomData<#name #ty_generics>,
-                        }
-                    })
+        let mut archived_fields = TokenStream::new();
+        for field in variant.fields.iter() {
+            let Field {
+                ident, colon_token, ..
+            } = field;
+            let archived = archived(rkyv_path, field)?;
+
+            archived_fields.extend(quote! {
+                #ident #colon_token #archived,
+            });
+        }
+
+        match variant.fields {
+            Fields::Named(_) => result.extend(quote! {
+                #[repr(C)]
+                struct #archived_variant_name #generics #where_clause {
+                    __tag: ArchivedTag,
+                    #archived_fields
+                    __phantom: ::core::marker::PhantomData<
+                        #name #ty_generics
+                    >,
                 }
-                Fields::Unnamed(ref fields) => {
-                    let fields = fields
-                        .unnamed
-                        .iter()
-                        .map(|f| {
-                            let archived = archived(rkyv_path, f)?;
-                            Ok(quote! { #archived })
-                        })
-                        .collect::<Result<Vec<_>, Error>>()?;
-                    Ok(quote! {
-                        #[repr(C)]
-                        struct #archived_variant_name #generics (
-                            ArchivedTag,
-                            #(#fields,)*
-                            PhantomData<#name #ty_generics>,
-                        ) #where_clause;
-                    })
-                }
-                Fields::Unit => Ok(quote! {}),
-            }
-        })
-        .collect()
+            }),
+            Fields::Unnamed(_) => result.extend(quote! {
+                #[repr(C)]
+                struct #archived_variant_name #generics (
+                    ArchivedTag,
+                    #archived_fields
+                    ::core::marker::PhantomData<#name #ty_generics>,
+                ) #where_clause;
+            }),
+            Fields::Unit => (),
+        }
+    }
+
+    Ok(result)
 }
 
 fn generate_partial_eq_impl(
-    input: &DeriveInput,
-    data: &DataEnum,
     printing: &Printing,
+    generics: &Generics,
+    data: &DataEnum,
 ) -> Result<TokenStream, Error> {
-    let mut partial_eq_where =
-        input.generics.where_clause.as_ref().unwrap().clone();
+    let Printing {
+        archived_name,
+        archived_type,
+        name,
+        ..
+    } = printing;
+    let (impl_generics, ty_generics, _) = generics.split_for_impl();
+    let mut where_clause = generics.where_clause.clone().unwrap();
 
     for field in data
         .variants
@@ -566,15 +486,10 @@ fn generate_partial_eq_impl(
     {
         let ty = &field.ty;
         let archived = archived(&printing.rkyv_path, field)?;
-        partial_eq_where
+        where_clause
             .predicates
             .push(parse_quote! { #archived: PartialEq<#ty> });
     }
-
-    let archived_name = &printing.archived_name;
-    let archived_type = &printing.archived_type;
-    let name = &input.ident;
-    let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
 
     let variant_impls = data.variants.iter().map(|v| {
         let variant = &v.ident;
@@ -631,7 +546,7 @@ fn generate_partial_eq_impl(
 
     Ok(quote! {
         impl #impl_generics PartialEq<#archived_type> for #name #ty_generics
-        #partial_eq_where
+        #where_clause
         {
             fn eq(&self, other: &#archived_type) -> bool {
                 match self {
@@ -641,7 +556,7 @@ fn generate_partial_eq_impl(
         }
 
         impl #impl_generics PartialEq<#name #ty_generics> for #archived_type
-        #partial_eq_where
+        #where_clause
         {
             fn eq(&self, other: &#name #ty_generics) -> bool {
                 other.eq(self)
@@ -651,12 +566,18 @@ fn generate_partial_eq_impl(
 }
 
 fn generate_partial_ord_impl(
-    input: &DeriveInput,
-    data: &DataEnum,
     printing: &Printing,
+    generics: &Generics,
+    data: &DataEnum,
 ) -> Result<TokenStream, Error> {
-    let mut partial_ord_where =
-        input.generics.where_clause.as_ref().unwrap().clone();
+    let Printing {
+        archived_name,
+        archived_type,
+        name,
+        ..
+    } = printing;
+    let (impl_generics, ty_generics, _) = generics.split_for_impl();
+    let mut where_clause = generics.where_clause.clone().unwrap();
 
     for field in data
         .variants
@@ -666,15 +587,10 @@ fn generate_partial_ord_impl(
     {
         let ty = &field.ty;
         let archived = archived(&printing.rkyv_path, field)?;
-        partial_ord_where
+        where_clause
             .predicates
             .push(parse_quote! { #archived: PartialOrd<#ty> });
     }
-
-    let archived_name = &printing.archived_name;
-    let archived_type = &printing.archived_type;
-    let name = &input.ident;
-    let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
 
     let self_disc = data.variants.iter().map(|v| {
         let variant = &v.ident;
@@ -780,7 +696,7 @@ fn generate_partial_ord_impl(
 
     Ok(quote! {
         impl #impl_generics PartialOrd<#archived_type> for #name #ty_generics
-        #partial_ord_where
+        #where_clause
         {
             fn partial_cmp(
                 &self,
@@ -799,7 +715,7 @@ fn generate_partial_ord_impl(
         }
 
         impl #impl_generics PartialOrd<#name #ty_generics> for #archived_type
-        #partial_ord_where
+        #where_clause
         {
             fn partial_cmp(
                 &self,

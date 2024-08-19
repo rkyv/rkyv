@@ -388,12 +388,9 @@ pub struct RelPtr<T: ArchivePointee + ?Sized, O> {
 
 // SAFETY: `RelPtr<T, O>` is `Portable` when all of its fields are `Portable`.
 // It doesn't have any interior mutability.
-//
-// It's technically not required that the target type also be portable, but this
-// is a conservative impl which helps protect against accidental misuse.
 unsafe impl<T, O> Portable for RelPtr<T, O>
 where
-    T: ArchivePointee + Portable + ?Sized,
+    T: ArchivePointee + ?Sized,
     RawRelPtr<O>: Portable,
     T::ArchivedMetadata: Portable,
     PhantomData<T>: Portable,

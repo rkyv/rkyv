@@ -15,6 +15,7 @@ use rancor::Strategy;
 #[cfg(feature = "bytecheck")]
 pub use self::checked::*;
 use crate::{ser::Writer, Archive, Deserialize, Portable, SerializeUnsized};
+// use crate::traits::Freeze;
 
 #[cfg(debug_assertions)]
 fn sanity_check_buffer<T: Portable>(ptr: *const u8, pos: usize, size: usize) {
@@ -75,6 +76,7 @@ pub fn root_position<T: Portable>(size: usize) -> usize {
 /// [`access_pos`].
 ///
 /// [`access_pos`]: crate::api::high::access_pos
+// pub unsafe fn access_pos_unchecked<T: Portable + Freeze>(
 pub unsafe fn access_pos_unchecked<T: Portable>(
     bytes: &[u8],
     pos: usize,
@@ -130,6 +132,7 @@ pub unsafe fn access_pos_unchecked_mut<T: Portable>(
 /// The given bytes must pass validation when passed to [`access`].
 ///
 /// [`access`]: crate::api::high::access
+// pub unsafe fn access_unchecked<T: Portable + Freeze>(bytes: &[u8]) -> &T {
 pub unsafe fn access_unchecked<T: Portable>(bytes: &[u8]) -> &T {
     // SAFETY: The caller has guaranteed that a valid `T` is located at the root
     // position in the byte slice.

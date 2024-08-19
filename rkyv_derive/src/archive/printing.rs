@@ -1,15 +1,18 @@
+use quote::format_ident;
 use syn::{
-    parse_quote, Attribute, DeriveInput, Error, Ident, Meta, Path, Type,
+    parse_quote, DeriveInput, Error, Ident, Meta, Path, Type, Visibility,
 };
 
 use crate::{attributes::Attributes, util::strip_raw};
 
 pub struct Printing {
     pub rkyv_path: Path,
+    pub vis: Visibility,
+    pub name: Ident,
     pub archived_name: Ident,
     pub archived_type: Type,
     pub resolver_name: Ident,
-    pub archive_attrs: Vec<Attribute>,
+    pub archived_metas: Vec<Meta>,
 }
 
 impl Printing {
@@ -17,84 +20,50 @@ impl Printing {
         input: &DeriveInput,
         attributes: &Attributes,
     ) -> Result<Self, Error> {
-        let name = &input.ident;
+        let name = input.ident.clone();
+        let (_, ty_generics, _) = input.generics.split_for_impl();
 
         let rkyv_path = attributes
             .crate_path
             .clone()
             .unwrap_or_else(|| parse_quote! { ::rkyv });
 
-        if let Some(ref archive_as) = attributes.archive_as {
-            if let Some(ref ident) = attributes.archived {
-                return Err(Error::new_spanned(
-                    ident,
-                    "archived = \"...\" may not be used with as = \"...\" \
-                     because no type is generated",
-                ));
-            }
-            if let Some(first) = attributes.attrs.first() {
-                return Err(Error::new_spanned(
-                    first,
-                    format!(
-                        "attributes may not be used with as = \"...\"\nplace \
-                         any attributes on the archived type ({}) instead",
-                        archive_as.value(),
-                    ),
-                ));
+        let base_name = strip_raw(&name);
+        let archived_name = attributes
+            .archived
+            .clone()
+            .unwrap_or_else(|| format_ident!("Archived{}", base_name));
+        let archived_type = attributes
+            .as_type
+            .clone()
+            .unwrap_or_else(|| parse_quote! { #archived_name #ty_generics });
+        let resolver_name = attributes
+            .resolver
+            .clone()
+            .unwrap_or_else(|| format_ident!("{}Resolver", base_name));
+
+        let mut archived_metas = attributes.metas.clone();
+
+        if let Some(check_bytes) = &attributes.check_bytes {
+            archived_metas.push(parse_quote! {
+                derive(#rkyv_path::bytecheck::CheckBytes)
+            });
+            archived_metas.push(parse_quote! {
+                check_bytes(crate = #rkyv_path::bytecheck)
+            });
+            if !matches!(check_bytes, Meta::Path(_)) {
+                archived_metas.push(parse_quote! { #check_bytes });
             }
         }
 
-        let archived_name = attributes.archived.as_ref().map_or_else(
-            || Ident::new(&format!("Archived{}", strip_raw(name)), name.span()),
-            |value| value.clone(),
-        );
-
-        let resolver_name = attributes.resolver.as_ref().map_or_else(
-            || Ident::new(&format!("{}Resolver", strip_raw(name)), name.span()),
-            |value| value.clone(),
-        );
-
-        let archived_type = attributes.archive_as.as_ref().map_or_else(
-            || {
-                let (_, ty_generics, _) = input.generics.split_for_impl();
-                Ok(parse_quote! { #archived_name #ty_generics })
-            },
-            |lit| lit.parse::<Type>(),
-        )?;
-
-        let derive_check_bytes = if attributes.bytecheck_enabled() {
-            let mut result = vec![
-                parse_quote! { #[derive(#rkyv_path::bytecheck::CheckBytes)] },
-                parse_quote! { #[check_bytes(crate = #rkyv_path::bytecheck)] },
-            ];
-
-            if let Meta::List(check_bytes) =
-                attributes.check_bytes.as_ref().unwrap()
-            {
-                result.push(parse_quote! { #[#check_bytes] });
-            }
-
-            result
-        } else {
-            Vec::new()
-        };
-
-        let archive_attrs = derive_check_bytes
-            .into_iter()
-            .chain(
-                attributes
-                    .attrs
-                    .iter()
-                    .map::<Attribute, _>(|d| parse_quote! { #[#d] }),
-            )
-            .collect();
-
         Ok(Self {
             rkyv_path,
+            vis: input.vis.clone(),
+            name,
             archived_name,
             archived_type,
             resolver_name,
-            archive_attrs,
+            archived_metas,
         })
     }
 }

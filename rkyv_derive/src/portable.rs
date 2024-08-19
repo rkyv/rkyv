@@ -1,24 +1,18 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse_quote, Data, DeriveInput, Error, Field, Fields};
+use syn::{parse_quote, Data, DeriveInput, Error};
 
-use crate::{attributes::Attributes, repr::Repr};
+use crate::{attributes::Attributes, repr::Repr, util::iter_fields};
 
 pub fn derive(mut input: DeriveInput) -> Result<TokenStream, Error> {
-    let attributes = Attributes::parse(&input)?;
-    let rkyv_path = attributes.crate_path();
-
-    let where_clause = input.generics.make_where_clause();
-
     let repr = Repr::from_attrs(&input.attrs)?;
-
     match &input.data {
-        Data::Struct(_) => {
+        Data::Struct(_) | Data::Union(_) => {
             if !repr.is_struct_well_defined() {
                 return Err(Error::new_spanned(
                     &input.ident,
-                    "struct must be `repr(C)` or `repr(transparent)` to \
-                     implement `Portable`",
+                    "structs and unions must be `repr(C)` or \
+                     `repr(transparent)` to implement `Portable`",
                 ));
             }
         }
@@ -26,28 +20,24 @@ pub fn derive(mut input: DeriveInput) -> Result<TokenStream, Error> {
             if !repr.is_enum_well_defined() {
                 return Err(Error::new_spanned(
                     &input.ident,
-                    "enum must be `repr(u8/i8)` or `repr(C, u8/i8)` to \
-                     implement `Portable`",
-                ));
-            }
-        }
-        Data::Union(_) => {
-            if !repr.is_struct_well_defined() {
-                return Err(Error::new_spanned(
-                    &input.ident,
-                    "union must be `repr(C)` or `repr(transparent)` to \
+                    "enums must be `repr(u8/i8)` or `repr(C, u8/i8)` to \
                      implement `Portable`",
                 ));
             }
         }
     }
 
-    iter_fields(&input.data, |f| {
-        let ty = &f.ty;
+    let attributes = Attributes::parse(&input)?;
+    let rkyv_path = attributes.crate_path();
+
+    let where_clause = input.generics.make_where_clause();
+
+    for field in iter_fields(&input.data) {
+        let ty = &field.ty;
         where_clause.predicates.push(parse_quote! {
             #ty: #rkyv_path::Portable
         });
-    });
+    }
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) =
@@ -58,24 +48,4 @@ pub fn derive(mut input: DeriveInput) -> Result<TokenStream, Error> {
         #where_clause
         {}
     })
-}
-
-fn iter_fields_inner(fields: &Fields, f: impl FnMut(&Field)) {
-    match fields {
-        Fields::Named(fields) => fields.named.iter().for_each(f),
-        Fields::Unnamed(fields) => fields.unnamed.iter().for_each(f),
-        Fields::Unit => (),
-    }
-}
-
-fn iter_fields(data: &Data, mut f: impl FnMut(&Field)) {
-    match data {
-        Data::Struct(data) => iter_fields_inner(&data.fields, f),
-        Data::Enum(data) => {
-            for variant in &data.variants {
-                iter_fields_inner(&variant.fields, &mut f);
-            }
-        }
-        Data::Union(data) => data.fields.named.iter().for_each(f),
-    }
 }

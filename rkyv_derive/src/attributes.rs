@@ -3,7 +3,7 @@ use quote::ToTokens;
 use syn::{
     meta::ParseNestedMeta, parenthesized, parse::Parse, parse_quote,
     punctuated::Punctuated, token, AttrStyle, DeriveInput, Error, Ident,
-    LitStr, MacroDelimiter, Meta, MetaList, Path, Token, WherePredicate,
+    MacroDelimiter, Meta, MetaList, Path, Token, Type, WherePredicate,
 };
 
 fn try_set_attribute<T: ToTokens>(
@@ -24,10 +24,10 @@ fn try_set_attribute<T: ToTokens>(
 
 #[derive(Default)]
 pub struct Attributes {
-    pub archive_as: Option<LitStr>,
+    pub as_type: Option<Type>,
     pub archived: Option<Ident>,
     pub resolver: Option<Ident>,
-    pub attrs: Vec<Meta>,
+    pub metas: Vec<Meta>,
     pub compares: Option<Punctuated<Path, Token![,]>>,
     pub archive_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
     pub serialize_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
@@ -40,6 +40,7 @@ impl Attributes {
     fn parse_meta(&mut self, meta: ParseNestedMeta<'_>) -> Result<(), Error> {
         if meta.path.is_ident("check_bytes") {
             let meta = if meta.input.peek(token::Paren) {
+                // TODO: destroy this
                 let (delimiter, tokens) = meta.input.step(|cursor| {
                     if let Some((TokenTree::Group(g), rest)) =
                         cursor.token_tree()
@@ -66,7 +67,11 @@ impl Attributes {
                 Meta::Path(meta.path)
             };
 
-            try_set_attribute(&mut self.check_bytes, meta, "check_bytes")
+            if cfg!(feature = "bytecheck") {
+                try_set_attribute(&mut self.check_bytes, meta, "check_bytes")?;
+            }
+
+            Ok(())
         } else if meta.path.is_ident("compare") {
             let traits;
             parenthesized!(traits in meta.input);
@@ -115,9 +120,10 @@ impl Attributes {
                 "resolver",
             )
         } else if meta.path.is_ident("as") {
+            meta.input.parse::<Token![=]>()?;
             try_set_attribute(
-                &mut self.archive_as,
-                meta.value()?.parse()?,
+                &mut self.as_type,
+                meta.input.parse::<Type>()?,
                 "as",
             )
         } else if meta.path.is_ident("crate") {
@@ -136,7 +142,7 @@ impl Attributes {
         } else if meta.path.is_ident("derive") {
             let metas;
             parenthesized!(metas in meta.input);
-            self.attrs.extend(
+            self.metas.extend(
                 metas
                     .parse_terminated(Meta::parse, Token![,])?
                     .into_iter()
@@ -146,7 +152,7 @@ impl Attributes {
         } else if meta.path.is_ident("attr") {
             let metas;
             parenthesized!(metas in meta.input);
-            self.attrs
+            self.metas
                 .extend(metas.parse_terminated(Meta::parse, Token![,])?);
             Ok(())
         } else {
@@ -167,14 +173,14 @@ impl Attributes {
             } else if attr.path().is_ident("archive_attr")
                 || attr.path().is_ident("rkyv_attr")
             {
-                result.attrs.extend(
+                result.metas.extend(
                     attr.parse_args_with(
                         Punctuated::<Meta, Token![,]>::parse_terminated,
                     )?
                     .into_iter(),
                 );
             } else if attr.path().is_ident("rkyv_derive") {
-                result.attrs.extend(
+                result.metas.extend(
                     attr.parse_args_with(
                         Punctuated::<Meta, Token![,]>::parse_terminated,
                     )?
@@ -184,24 +190,38 @@ impl Attributes {
             }
         }
 
-        if result.archive_as.is_some() && result.bytecheck_enabled() {
-            Err(Error::new_spanned(
-                result.check_bytes.unwrap(),
-                "cannot generate a `CheckBytes` impl because `as = \"..\"` \
-                 does not generate an archived type",
-            ))
-        } else {
-            Ok(result)
+        if result.as_type.is_some() {
+            if let Some(ref ident) = result.archived {
+                return Err(Error::new_spanned(
+                    ident,
+                    "archived = \"...\" may not be used with as = \"...\" \
+                     because no type is generated",
+                ));
+            }
+
+            if let Some(first) = result.metas.first() {
+                return Err(Error::new_spanned(
+                    first,
+                    "attributes may not be used with as = \"...\"\nplace
+                    attributes on the archived type instead",
+                ));
+            }
+
+            if result.check_bytes.is_some() {
+                return Err(Error::new_spanned(
+                    result.check_bytes.unwrap(),
+                    "cannot generate a `CheckBytes` impl because `as = \
+                     \"..\"` does not generate an archived type",
+                ));
+            }
         }
+
+        Ok(result)
     }
 
     pub fn crate_path(&self) -> Path {
         self.crate_path
             .clone()
             .unwrap_or_else(|| parse_quote! { ::rkyv })
-    }
-
-    pub fn bytecheck_enabled(&self) -> bool {
-        cfg!(feature = "bytecheck") && self.check_bytes.is_some()
     }
 }

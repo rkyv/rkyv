@@ -18,6 +18,7 @@ use crate::{
     },
     Archive, Deserialize, Portable,
 };
+// use crate::traits::Freeze;
 
 /// A high-level validator.
 ///
@@ -37,6 +38,7 @@ fn validator(bytes: &[u8]) -> Validator<ArchiveValidator<'_>, SharedValidator> {
 /// the [high-level API](crate::api::high).
 pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T, E>
 where
+    // T: Portable + Freeze + for<'a> CheckBytes<HighValidator<'a, E>>,
     T: Portable + for<'a> CheckBytes<HighValidator<'a, E>>,
     E: Source,
 {
@@ -77,6 +79,7 @@ where
 /// ```
 pub fn access<T, E>(bytes: &[u8]) -> Result<&T, E>
 where
+    // T: Portable + Freeze + for<'a> CheckBytes<HighValidator<'a, E>>,
     T: Portable + for<'a> CheckBytes<HighValidator<'a, E>>,
     E: Source,
 {
@@ -147,6 +150,7 @@ where
 pub fn from_bytes<T, E>(bytes: &[u8]) -> Result<T, E>
 where
     T: Archive,
+    // T::Archived: Freeze + for<'a> CheckBytes<HighValidator<'a, E>>
     T::Archived: for<'a> CheckBytes<HighValidator<'a, E>>
         + Deserialize<T, Strategy<Pool, E>>,
     E: Source,

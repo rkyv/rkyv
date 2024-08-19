@@ -11,18 +11,23 @@ use crate::{
     Place,
 };
 
-/// A type with a stable, well-defined layout that is the same on all targets
-/// and has no interior mutability.
+/// A type with a stable, well-defined layout that is the same on all targets.
 ///
 /// # Safety
 ///
-/// - The implementing type must have a stable, well-defined layout that is the
-///   same on all targets. Structs and unions must be `#[repr(transparent)]` or
-///   `#[repr(C)]`. Enums must be `#[repr(C)]`, `#[repr(int)]`, or `#[repr(C,
-///   int)]`.
-/// - The implementing type must not have interior mutability (i.e. no
-///   `UnsafeCell`s directly or indirectly).
+/// The implementing type must have a stable, well-defined layout that is the
+/// same on all targets. Structs and unions must be `#[repr(transparent)]` or
+/// `#[repr(C)]`. Enums must be `#[repr(C)]`, `#[repr(int)]`, or `#[repr(C,
+/// int)]`.
 pub unsafe trait Portable {}
+
+/// A type with no interior mutability.
+///
+/// # Safety
+///
+/// The implementing type must not have interior mutability (i.e. no
+/// `UnsafeCell`s directly or indirectly).
+pub unsafe trait Freeze {}
 
 /// Returns the layout of a type from its metadata.
 pub trait LayoutRaw

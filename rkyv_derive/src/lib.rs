@@ -9,6 +9,7 @@
 mod archive;
 mod attributes;
 mod deserialize;
+mod freeze;
 mod portable;
 mod repr;
 mod serde;
@@ -31,6 +32,23 @@ pub fn derive_portable(
     serde::receiver::replace_receiver(&mut derive_input);
 
     match portable::derive(derive_input) {
+        Ok(result) => result.into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+/// Derives `Freeze` for the labeled type.
+///
+/// This macro also supports the `#[omit_bounds]` attribute. See [`Archive`] for
+/// more information.
+#[proc_macro_derive(Freeze, attributes(archive, rkyv, omit_bounds))]
+pub fn derive_freeze(
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    let mut derive_input = parse_macro_input!(input as DeriveInput);
+    serde::receiver::replace_receiver(&mut derive_input);
+
+    match freeze::derive(derive_input) {
         Ok(result) => result.into(),
         Err(e) => e.to_compile_error().into(),
     }

@@ -553,7 +553,7 @@ mod core_tests {
             Archive, Serialize, Deserialize, Debug, Portable, PartialEq,
         )]
         #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-        #[rkyv(crate, as = "ExampleUnitStruct")]
+        #[rkyv(crate, as = ExampleUnitStruct)]
         #[repr(C)]
         struct ExampleUnitStruct;
 
@@ -564,7 +564,7 @@ mod core_tests {
     fn archive_as_tuple_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, Portable)]
         #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-        #[rkyv(crate, as = "ExampleTupleStruct<T::Archived>")]
+        #[rkyv(crate, as = ExampleTupleStruct<T::Archived>)]
         #[repr(transparent)]
         struct ExampleTupleStruct<T>(T);
 
@@ -583,7 +583,7 @@ mod core_tests {
     fn archive_as_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, Portable)]
         #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-        #[rkyv(crate, as = "ExampleStruct<T::Archived>")]
+        #[rkyv(crate, as = ExampleStruct<T::Archived>)]
         #[repr(transparent)]
         struct ExampleStruct<T> {
             value: T,
@@ -605,7 +605,7 @@ mod core_tests {
     fn archive_as_enum() {
         #[derive(Archive, Serialize, Deserialize, Debug, Portable)]
         #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-        #[rkyv(crate, as = "ExampleEnum<T::Archived>")]
+        #[rkyv(crate, as = ExampleEnum<T::Archived>)]
         #[repr(u8)]
         enum ExampleEnum<T> {
             A(T),

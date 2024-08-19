@@ -1,77 +1,83 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse_quote, punctuated::Punctuated, Data, DeriveInput, Error, Fields,
-    FieldsNamed, FieldsUnnamed,
+    parse_quote, punctuated::Punctuated, Error, Field, Fields, Generics,
 };
 
 use crate::{
     archive::{
-        archived_doc, field_archive_attrs, printing::Printing, resolver_doc,
-        struct_field_doc,
+        archive_field_metas, archived_doc, printing::Printing, resolver_doc,
     },
     attributes::Attributes,
-    util::{
-        archive_bound, archived, is_not_omitted, members, resolve, resolver,
-    },
+    util::{archived, is_not_omitted, resolve, resolver},
 };
 
 pub fn impl_struct(
-    input: &mut DeriveInput,
-    attributes: &Attributes,
     printing: &Printing,
-) -> Result<(TokenStream, TokenStream), Error> {
-    let fields = match &input.data {
-        Data::Struct(data_struct) => &data_struct.fields,
-        _ => unreachable!(),
-    };
+    generics: &Generics,
+    attributes: &Attributes,
+    fields: &Fields,
+) -> Result<TokenStream, Error> {
+    let Printing {
+        rkyv_path,
+        name,
+        archived_type,
+        resolver_name,
+        ..
+    } = &printing;
 
-    let rkyv_path = &printing.rkyv_path;
+    let mut result = TokenStream::new();
 
-    let where_clause = input.generics.make_where_clause();
-
-    for field in fields.iter().filter(is_not_omitted) {
-        where_clause
-            .predicates
-            .push(archive_bound(rkyv_path, field)?);
+    if attributes.as_type.is_none() {
+        result.extend(generate_archived_type(
+            printing, generics, attributes, fields,
+        )?);
     }
 
-    let (impl_generics, ty_generics, where_clause) =
-        input.generics.split_for_impl();
-    let where_clause = where_clause.unwrap();
+    result.extend(generate_resolver_type(printing, generics, fields)?);
 
-    let archived_def = attributes
-        .archive_as
-        .is_none()
-        .then(|| generate_archived_def(input, attributes, printing, fields))
-        .transpose()?;
+    let mut resolve_statements = TokenStream::new();
+    for (field, member) in fields.iter().zip(fields.members()) {
+        let resolves = resolve(rkyv_path, field)?;
+        resolve_statements.extend(quote! {
+            let field_ptr = unsafe {
+                ::core::ptr::addr_of_mut!((*out.ptr()).#member)
+            };
+            let field_out = unsafe {
+                #rkyv_path::Place::from_field_unchecked(out, field_ptr)
+            };
+            #resolves(&self.#member, resolver.#member, field_out);
+        });
+    }
 
-    let resolver_def = generate_resolver_def(input, printing, fields)?;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    result.extend(quote! {
+        impl #impl_generics #rkyv_path::Archive for #name #ty_generics
+        #where_clause
+        {
+            type Archived = #archived_type;
+            type Resolver = #resolver_name #ty_generics;
 
-    let resolve_statements = members(fields)
-        .map(|(member, field)| {
-            let resolves = resolve(rkyv_path, field)?;
-            Ok(quote! {
-                let field_ptr = unsafe {
-                    ::core::ptr::addr_of_mut!((*out.ptr()).#member)
-                };
-                let out_field = unsafe {
-                    #rkyv_path::Place::from_field_unchecked(out, field_ptr)
-                };
-                #resolves(&self.#member, resolver.#member, out_field);
-            })
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
+            // Some resolvers will be (), this allow is to prevent clippy
+            // from complaining.
+            #[allow(clippy::unit_arg)]
+            fn resolve(
+                &self,
+                resolver: Self::Resolver,
+                out: #rkyv_path::Place<Self::Archived>,
+            ) {
+                #resolve_statements
+            }
+        }
+    });
 
-    let mut partial_eq_impl = None;
-    let mut partial_ord_impl = None;
     for compare in attributes.compares.iter().flat_map(Punctuated::iter) {
         if compare.is_ident("PartialEq") {
-            partial_eq_impl =
-                Some(generate_partial_eq_impl(input, fields, printing)?);
+            result
+                .extend(generate_partial_eq_impl(printing, generics, fields)?);
         } else if compare.is_ident("PartialOrd") {
-            partial_ord_impl =
-                Some(generate_partial_ord_impl(input, fields, printing)?);
+            result
+                .extend(generate_partial_ord_impl(printing, generics, fields)?);
         } else {
             return Err(Error::new_spanned(
                 compare,
@@ -81,301 +87,123 @@ pub fn impl_struct(
         }
     }
 
-    let name = &input.ident;
-    let archived_type = &printing.archived_type;
-    let resolver_name = &printing.resolver_name;
-
-    Ok((
-        quote! {
-            #archived_def
-            #resolver_def
-        },
-        quote! {
-            impl #impl_generics #rkyv_path::Archive for #name #ty_generics
-            #where_clause
-            {
-                type Archived = #archived_type;
-                type Resolver = #resolver_name #ty_generics;
-
-                // Some resolvers will be (), this allow is to prevent clippy
-                // from complaining.
-                #[allow(clippy::unit_arg)]
-                fn resolve(
-                    &self,
-                    resolver: Self::Resolver,
-                    out: #rkyv_path::Place<Self::Archived>,
-                ) {
-                    #(#resolve_statements)*
-                }
-            }
-
-            #partial_eq_impl
-            #partial_ord_impl
-        },
-    ))
+    Ok(result)
 }
 
-fn generate_archived_def(
-    input: &DeriveInput,
-    attributes: &Attributes,
+fn generate_archived_type(
     printing: &Printing,
+    generics: &Generics,
+    attributes: &Attributes,
     fields: &Fields,
 ) -> Result<TokenStream, Error> {
-    let archived_def = match fields {
-        Fields::Named(fields) => {
-            generate_archived_def_named(input, attributes, printing, fields)?
-        }
-        Fields::Unnamed(fields) => {
-            generate_archived_def_unnamed(input, attributes, printing, fields)?
-        }
-        Fields::Unit => generate_archived_def_unit(input, printing)?,
+    let Printing {
+        rkyv_path,
+        vis,
+        name,
+        archived_name,
+        archived_metas,
+        ..
+    } = printing;
+
+    let mut archived_fields = TokenStream::new();
+    for field in fields {
+        let Field {
+            vis,
+            ident,
+            colon_token,
+            ..
+        } = field;
+        let metas = archive_field_metas(attributes, field);
+        let ty = archived(rkyv_path, field)?;
+
+        archived_fields.extend(quote! {
+            #(#[#metas])*
+            #vis #ident #colon_token #ty,
+        });
+    }
+
+    let where_clause = &generics.where_clause;
+    let body = match fields {
+        Fields::Named(_) => quote! { #where_clause { #archived_fields } },
+        Fields::Unnamed(_) => quote! { (#archived_fields) #where_clause; },
+        Fields::Unit => quote! { #where_clause; },
     };
 
-    let rkyv_path = &printing.rkyv_path;
-    let archived_name = &printing.archived_name;
-    let (impl_generics, ty_generics, where_clause) =
-        input.generics.split_for_impl();
-
-    Ok(quote! {
-        #archived_def
-
-        // SAFETY: As long as the `Archive` impl holds, the archived
-        // type is guaranteed to be `Portable`.
-        unsafe impl #impl_generics #rkyv_path::Portable
-            for #archived_name #ty_generics
-        #where_clause
-        {}
-    })
-}
-
-fn generate_archived_def_named(
-    input: &DeriveInput,
-    attributes: &Attributes,
-    printing: &Printing,
-    fields: &FieldsNamed,
-) -> Result<TokenStream, Error> {
-    let rkyv_path = &printing.rkyv_path;
-
-    let archived_fields = fields
-        .named
-        .iter()
-        .map(|field| {
-            let field_ty = archived(rkyv_path, field)?;
-            let vis = &field.vis;
-            let archive_attrs = field_archive_attrs(attributes, field);
-
-            let field_name = field.ident.as_ref().unwrap();
-            let field_doc = struct_field_doc(&input.ident, field_name);
-            Ok(quote! {
-                #[doc = #field_doc]
-                #(#[#archive_attrs])*
-                #vis #field_name: #field_ty
-            })
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    let archived_doc = archived_doc(&input.ident);
-    let archive_attrs = &printing.archive_attrs;
-    let vis = &input.vis;
-    let archived_name = &printing.archived_name;
-    let generics = &input.generics;
-    let where_clause = generics.where_clause.as_ref().unwrap();
-
+    let doc_string = archived_doc(name);
     Ok(quote! {
         #[automatically_derived]
-        #[doc = #archived_doc]
-        #(#archive_attrs)*
+        #[doc = #doc_string]
+        #(#[#archived_metas])*
         #[repr(C)]
-        #vis struct #archived_name #generics #where_clause {
-            #(#archived_fields,)*
-        }
+        #vis struct #archived_name #generics #body
     })
 }
 
-fn generate_archived_def_unnamed(
-    input: &DeriveInput,
-    attributes: &Attributes,
+fn generate_resolver_type(
     printing: &Printing,
-    fields: &FieldsUnnamed,
-) -> Result<TokenStream, Error> {
-    let rkyv_path = &printing.rkyv_path;
-
-    let archived_fields = fields
-        .unnamed
-        .iter()
-        .enumerate()
-        .map(|(i, field)| {
-            let field_doc = struct_field_doc(&input.ident, &i);
-            let archive_attrs = field_archive_attrs(attributes, field);
-            let vis = &field.vis;
-            let field_ty = archived(rkyv_path, field)?;
-
-            Ok(quote! {
-                #[doc = #field_doc]
-                #(#[#archive_attrs])*
-                #vis #field_ty
-            })
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    let archived_doc = archived_doc(&input.ident);
-    let archive_attrs = &printing.archive_attrs;
-    let vis = &input.vis;
-    let archived_name = &printing.archived_name;
-    let generics = &input.generics;
-    let where_clause = generics.where_clause.as_ref().unwrap();
-
-    Ok(quote! {
-        #[automatically_derived]
-        #[doc = #archived_doc]
-        #(#archive_attrs)*
-        #[repr(C)]
-        #vis struct #archived_name #generics(
-            #(#archived_fields,)*
-        ) #where_clause;
-    })
-}
-
-fn generate_archived_def_unit(
-    input: &DeriveInput,
-    printing: &Printing,
-) -> Result<TokenStream, Error> {
-    let archived_doc = archived_doc(&input.ident);
-    let archive_attrs = &printing.archive_attrs;
-    let vis = &input.vis;
-    let archived_name = &printing.archived_name;
-    let generics = &input.generics;
-    let where_clause = generics.where_clause.as_ref().unwrap();
-
-    Ok(quote! {
-        #[automatically_derived]
-        #[doc = #archived_doc]
-        #(#archive_attrs)*
-        #[repr(C)]
-        #vis struct #archived_name #generics #where_clause;
-    })
-}
-
-fn generate_resolver_def(
-    input: &DeriveInput,
-    printing: &Printing,
+    generics: &Generics,
     fields: &Fields,
 ) -> Result<TokenStream, Error> {
-    match fields {
-        Fields::Named(fields) => {
-            generate_resolver_def_named(input, printing, fields)
-        }
-        Fields::Unnamed(fields) => {
-            generate_resolver_def_unnamed(input, printing, fields)
-        }
-        Fields::Unit => generate_resolver_def_unit(input, printing),
+    let Printing {
+        rkyv_path,
+        vis,
+        name,
+        resolver_name,
+        ..
+    } = printing;
+
+    let mut resolver_fields = TokenStream::new();
+    for field in fields.iter() {
+        let Field {
+            ident, colon_token, ..
+        } = field;
+        let ty = resolver(rkyv_path, field)?;
+
+        resolver_fields.extend(quote! { #ident #colon_token #ty, });
     }
-}
 
-fn generate_resolver_def_named(
-    input: &DeriveInput,
-    printing: &Printing,
-    fields: &FieldsNamed,
-) -> Result<TokenStream, Error> {
-    let rkyv_path = &printing.rkyv_path;
-    let resolver_name = &printing.resolver_name;
-    let vis = &input.vis;
-    let generics = &input.generics;
-    let where_clause = generics.where_clause.as_ref().unwrap();
-    let resolver_doc = resolver_doc(&input.ident);
+    let where_clause = &generics.where_clause;
+    let body = match fields {
+        Fields::Named(_) => quote! { #where_clause { #resolver_fields } },
+        Fields::Unnamed(_) => quote! { (#resolver_fields) #where_clause; },
+        Fields::Unit => quote! { #where_clause; },
+    };
 
-    let resolver_fields = fields
-        .named
-        .iter()
-        .map(|field| {
-            let field_name = &field.ident;
-            let resolver_ty = resolver(rkyv_path, field)?;
-
-            Ok(quote! { #field_name: #resolver_ty })
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
+    let doc_string = resolver_doc(name);
     Ok(quote! {
         #[automatically_derived]
-        #[doc = #resolver_doc]
-        #vis struct #resolver_name #generics #where_clause {
-            #(#resolver_fields,)*
-        }
-    })
-}
-
-fn generate_resolver_def_unnamed(
-    input: &DeriveInput,
-    printing: &Printing,
-    fields: &FieldsUnnamed,
-) -> Result<TokenStream, Error> {
-    let rkyv_path = &printing.rkyv_path;
-    let resolver_name = &printing.resolver_name;
-    let vis = &input.vis;
-    let generics = &input.generics;
-    let where_clause = generics.where_clause.as_ref().unwrap();
-    let resolver_doc = resolver_doc(&input.ident);
-
-    let resolver_fields = fields
-        .unnamed
-        .iter()
-        .map(|field| {
-            let resolver_ty = resolver(rkyv_path, field)?;
-            Ok(quote! { #resolver_ty })
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    Ok(quote! {
-        #[automatically_derived]
-        #[doc = #resolver_doc]
-        #vis struct #resolver_name #generics (
-            #(#resolver_fields,)*
-        ) #where_clause;
-    })
-}
-
-fn generate_resolver_def_unit(
-    input: &DeriveInput,
-    printing: &Printing,
-) -> Result<TokenStream, Error> {
-    let resolver_name = &printing.resolver_name;
-    let vis = &input.vis;
-    let generics = &input.generics;
-    let where_clause = generics.where_clause.as_ref().unwrap();
-    let resolver_doc = resolver_doc(&input.ident);
-
-    Ok(quote! {
-        #[automatically_derived]
-        #[doc = #resolver_doc]
-        #vis struct #resolver_name #generics #where_clause;
+        #[doc = #doc_string]
+        #vis struct #resolver_name #generics #body
     })
 }
 
 fn generate_partial_eq_impl(
-    input: &DeriveInput,
-    fields: &Fields,
     printing: &Printing,
+    generics: &Generics,
+    fields: &Fields,
 ) -> Result<TokenStream, Error> {
-    let mut partial_eq_where =
-        input.generics.where_clause.as_ref().unwrap().clone();
+    let Printing {
+        rkyv_path,
+        name,
+        archived_type,
+        ..
+    } = printing;
 
+    let mut where_clause = generics.where_clause.clone().unwrap();
     for field in fields.iter().filter(is_not_omitted) {
         let ty = &field.ty;
-        let archived_ty = archived(&printing.rkyv_path, field)?;
-        partial_eq_where
+        let archived_ty = archived(rkyv_path, field)?;
+        where_clause
             .predicates
             .push(parse_quote! { #archived_ty: PartialEq<#ty> });
     }
 
-    let members = members(fields).map(|(member, _)| member);
-
-    let archived_type = &printing.archived_type;
-    let name = &input.ident;
-    let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
+    let members = fields.members();
+    let (impl_generics, ty_generics, _) = generics.split_for_impl();
 
     Ok(quote! {
         impl #impl_generics PartialEq<#archived_type> for #name #ty_generics
-        #partial_eq_where
+        #where_clause
         {
             fn eq(&self, other: &#archived_type) -> bool {
                 true #(&& other.#members.eq(&self.#members))*
@@ -383,7 +211,7 @@ fn generate_partial_eq_impl(
         }
 
         impl #impl_generics PartialEq<#name #ty_generics> for #archived_type
-        #partial_eq_where
+        #where_clause
         {
             fn eq(&self, other: &#name #ty_generics) -> bool {
                 other.eq(self)
@@ -393,30 +221,34 @@ fn generate_partial_eq_impl(
 }
 
 fn generate_partial_ord_impl(
-    input: &DeriveInput,
-    fields: &Fields,
     printing: &Printing,
+    generics: &Generics,
+    fields: &Fields,
 ) -> Result<TokenStream, Error> {
-    let mut partial_ord_where =
-        input.generics.where_clause.as_ref().unwrap().clone();
+    let Printing {
+        rkyv_path,
+        name,
+        archived_type,
+        ..
+    } = printing;
+
+    let mut where_clause = generics.where_clause.as_ref().unwrap().clone();
 
     for field in fields.iter().filter(is_not_omitted) {
         let ty = &field.ty;
-        let archived_ty = archived(&printing.rkyv_path, field)?;
-        partial_ord_where
+        let archived_ty = archived(rkyv_path, field)?;
+        where_clause
             .predicates
             .push(parse_quote! { #archived_ty: PartialOrd<#ty> });
     }
 
-    let members = members(fields).map(|(member, _)| member);
-
-    let archived_type = &printing.archived_type;
-    let name = &input.ident;
-    let (impl_generics, ty_generics, _) = input.generics.split_for_impl();
+    let members = fields.members();
+    let (impl_generics, ty_generics, _) = generics.split_for_impl();
 
     Ok(quote! {
-        impl #impl_generics PartialOrd<#archived_type> for #name #ty_generics
-        #partial_ord_where
+        impl #impl_generics PartialOrd<#archived_type>
+            for #name #ty_generics
+        #where_clause
         {
             fn partial_cmp(
                 &self,
@@ -433,7 +265,7 @@ fn generate_partial_ord_impl(
         }
 
         impl #impl_generics PartialOrd<#name #ty_generics> for #archived_type
-        #partial_ord_where
+        #where_clause
         {
             fn partial_cmp(
                 &self,

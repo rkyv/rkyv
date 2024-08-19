@@ -1,8 +1,10 @@
+use core::iter::FlatMap;
+
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{
-    parse_quote, Error, Field, Fields, Index, Member, Meta, Path, Type,
-    WherePredicate,
+    parse_quote, punctuated::Iter, Data, DataEnum, DataStruct, DataUnion,
+    Error, Field, Meta, Path, Type, Variant, WherePredicate,
 };
 
 pub fn strip_raw(ident: &Ident) -> String {
@@ -13,6 +15,42 @@ pub fn strip_raw(ident: &Ident) -> String {
         .unwrap_or(as_string)
 }
 
+type VariantFieldsFn = fn(&Variant) -> Iter<'_, Field>;
+
+fn variant_fields(variant: &Variant) -> Iter<'_, Field> {
+    variant.fields.iter()
+}
+
+pub enum FieldsIter<'a> {
+    Struct(Iter<'a, Field>),
+    Enum(FlatMap<Iter<'a, Variant>, Iter<'a, Field>, VariantFieldsFn>),
+}
+
+impl<'a> Iterator for FieldsIter<'a> {
+    type Item = &'a Field;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Struct(iter) => iter.next(),
+            Self::Enum(iter) => iter.next(),
+        }
+    }
+}
+
+pub fn iter_fields(data: &Data) -> FieldsIter<'_> {
+    match data {
+        Data::Struct(DataStruct { fields, .. }) => {
+            FieldsIter::Struct(fields.iter())
+        }
+        Data::Enum(DataEnum { variants, .. }) => {
+            FieldsIter::Enum(variants.iter().flat_map(variant_fields))
+        }
+        Data::Union(DataUnion { fields, .. }) => {
+            FieldsIter::Struct(fields.named.iter())
+        }
+    }
+}
+
 pub fn is_not_omitted(f: &&Field) -> bool {
     f.attrs.iter().all(|attr| {
         if let Meta::Path(path) = &attr.meta {
@@ -21,24 +59,6 @@ pub fn is_not_omitted(f: &&Field) -> bool {
             true
         }
     })
-}
-
-pub fn members_starting_at(
-    fields: &Fields,
-    start: usize,
-) -> impl Iterator<Item = (Member, &Field)> {
-    fields.iter().enumerate().map(move |(i, field)| {
-        let member = if let Some(ident) = &field.ident {
-            Member::Named(ident.clone())
-        } else {
-            Member::Unnamed(Index::from(i + start))
-        };
-        (member, field)
-    })
-}
-
-pub fn members(fields: &Fields) -> impl Iterator<Item = (Member, &Field)> {
-    members_starting_at(fields, 0)
 }
 
 pub fn map_with_or_else<T>(
