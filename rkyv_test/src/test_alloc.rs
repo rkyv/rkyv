@@ -50,7 +50,9 @@ mod tests {
     fn archive_option() {
         test_archive(&Some(Box::new(42)));
         test_archive(&Some("hello world".to_string().into_boxed_str()));
+        test_archive(&Some("".to_string().into_boxed_str()));
         test_archive(&Some(vec![1, 2, 3, 4].into_boxed_slice()));
+        test_archive(&Some(Vec::<i32>::new().into_boxed_slice()));
         test_archive(&Some("hello world".to_string()));
         test_archive(&Some(vec![1, 2, 3, 4]));
         test_archive(&Some(Box::new(vec![1, 2, 3, 4])));
