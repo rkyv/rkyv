@@ -2,10 +2,11 @@
 
 use core::{
     borrow::Borrow,
-    cmp, fmt, hash,
+    cmp,
+    ffi::CStr,
+    fmt, hash,
     ops::{Deref, Index, RangeFull},
 };
-use std::ffi::CStr;
 
 use munge::munge;
 use rancor::Fallible;

@@ -215,12 +215,8 @@ pub mod api;
 pub mod boxed;
 pub mod collections;
 pub mod de;
-mod fmt;
-// This is pretty unfortunate. CStr doesn't rely on the rest of std, but it's
-// not in core. If CStr ever gets moved into `core` then this module will no
-// longer need cfg(feature = "std")
-#[cfg(feature = "std")]
 pub mod ffi;
+mod fmt;
 pub mod hash;
 mod impls;
 pub mod net;

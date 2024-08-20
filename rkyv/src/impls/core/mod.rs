@@ -17,6 +17,7 @@ use crate::{
     Place, Portable, Serialize, SerializeUnsized,
 };
 
+mod ffi;
 mod net;
 mod ops;
 mod option;
