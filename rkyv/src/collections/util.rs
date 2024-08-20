@@ -4,6 +4,7 @@ use core::{borrow::Borrow, fmt, marker::PhantomData};
 
 use munge::munge;
 use rancor::Fallible;
+use rkyv_derive::Freeze;
 
 use crate::{Archive, Place, Portable, Serialize};
 
@@ -73,7 +74,7 @@ where
 }
 
 /// A key-value entry.
-#[derive(Debug, Portable, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Freeze, Portable, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rkyv(crate)]
 #[repr(C)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]

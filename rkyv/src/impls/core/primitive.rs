@@ -1,10 +1,6 @@
-use core::{
-    marker::{PhantomData, PhantomPinned},
-    num::{
-        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
-        NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
-        NonZeroU8, NonZeroUsize,
-    },
+use core::num::{
+    NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize,
+    NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
 };
 
 use rancor::Fallible;
@@ -117,22 +113,6 @@ unsafe_impl_initialized_and_portable! {
     rend::unaligned::u128_ube,
     rend::unaligned::u128_ule,
 }
-
-// SAFETY: `[T; N]` is a `T` array and so is freeze as long as `T` is also
-// `Freeze`.
-unsafe impl<T: Freeze, const N: usize> Freeze for [T; N] {}
-
-// SAFETY: `[T; N]` is a `T` array and so is portable as long as `T` is also
-// `Portable`.
-unsafe impl<T: Portable, const N: usize> Portable for [T; N] {}
-
-// SAFETY: `[T]` is a `T` slice and so is freeze as long as `T` is also
-// `Freeze`.
-unsafe impl<T: Freeze> Freeze for [T] {}
-
-// SAFETY: `[T]` is a `T` slice and so is portable as long as `T` is also
-// `Portable`.
-unsafe impl<T: Portable> Portable for [T] {}
 
 macro_rules! impl_serialize_noop {
     ($type:ty) => {
@@ -253,67 +233,6 @@ impl_multibyte_primitives! {
     ArchivedNonZeroU32: NonZeroU32,
     ArchivedNonZeroU64: NonZeroU64,
     ArchivedNonZeroU128: NonZeroU128,
-}
-
-// PhantomData
-
-// SAFETY: `PhantomData` never has any interior mutability because it has no
-// data to mutate.
-unsafe impl<T: ?Sized> Freeze for PhantomData<T> {}
-
-// SAFETY: `PhantomData` always a size of 0 and align of 1, and so has a stable,
-// well-defined layout that is the same on all targets.
-unsafe impl<T: ?Sized> Portable for PhantomData<T> {}
-
-impl<T: ?Sized> Archive for PhantomData<T> {
-    const COPY_OPTIMIZATION: CopyOptimization<Self> =
-        unsafe { CopyOptimization::enable() };
-
-    type Archived = PhantomData<T>;
-    type Resolver = ();
-
-    fn resolve(&self, _: Self::Resolver, _: Place<Self::Archived>) {}
-}
-
-impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
-    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(())
-    }
-}
-
-impl<T: ?Sized, D: Fallible + ?Sized> Deserialize<PhantomData<T>, D>
-    for PhantomData<T>
-{
-    fn deserialize(&self, _: &mut D) -> Result<PhantomData<T>, D::Error> {
-        Ok(PhantomData)
-    }
-}
-
-// PhantomPinned
-
-unsafe_impl_initialized_and_portable!(PhantomPinned);
-
-impl Archive for PhantomPinned {
-    const COPY_OPTIMIZATION: CopyOptimization<Self> =
-        unsafe { CopyOptimization::enable() };
-
-    type Archived = PhantomPinned;
-    type Resolver = ();
-
-    #[inline]
-    fn resolve(&self, _: Self::Resolver, _: Place<Self::Archived>) {}
-}
-
-impl<S: Fallible + ?Sized> Serialize<S> for PhantomPinned {
-    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
-        Ok(())
-    }
-}
-
-impl<D: Fallible + ?Sized> Deserialize<PhantomPinned, D> for PhantomPinned {
-    fn deserialize(&self, _: &mut D) -> Result<PhantomPinned, D::Error> {
-        Ok(PhantomPinned)
-    }
 }
 
 // usize
@@ -471,13 +390,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use core::{
-        marker::{PhantomData, PhantomPinned},
-        num::{
-            NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
-            NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
-            NonZeroU8, NonZeroUsize,
-        },
+    use core::num::{
+        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
+        NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
+        NonZeroU8, NonZeroUsize,
     };
 
     use crate::api::test::{roundtrip, roundtrip_with};
@@ -524,12 +440,6 @@ mod tests {
             &NonZeroU128::new(123456789012345678901234567890123456789u128)
                 .unwrap(),
         );
-    }
-
-    #[test]
-    fn roundtrip_phantoms() {
-        roundtrip(&PhantomData::<&'static u8>);
-        roundtrip(&PhantomPinned);
     }
 
     #[test]

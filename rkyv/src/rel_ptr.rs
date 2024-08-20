@@ -111,8 +111,6 @@ impl_offset_multi_byte!(u64, ArchivedU64);
 /// with the **pointee** without invalidating the pointer. However, if either
 /// the **pointer** or the **pointee** move independently, the pointer will be
 /// invalidated.
-#[derive(Freeze, Portable)]
-#[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
 pub struct RawRelPtr<O> {
@@ -386,6 +384,22 @@ pub struct RelPtr<T: ArchivePointee + ?Sized, O> {
     raw_ptr: RawRelPtr<O>,
     metadata: T::ArchivedMetadata,
     _phantom: PhantomData<T>,
+}
+
+unsafe impl<T, O> Freeze for RelPtr<T, O>
+where
+    T: ArchivePointee + Freeze + ?Sized,
+    T::ArchivedMetadata: Freeze,
+    O: Freeze,
+{
+}
+
+unsafe impl<T, O> Portable for RelPtr<T, O>
+where
+    T: ArchivePointee + Portable + ?Sized,
+    T::ArchivedMetadata: Portable,
+    O: Portable,
+{
 }
 
 impl<T, O: Offset> RelPtr<T, O> {

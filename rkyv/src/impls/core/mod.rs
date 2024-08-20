@@ -1,5 +1,6 @@
 use core::{
     alloc::{Layout, LayoutError},
+    marker::{PhantomData, PhantomPinned},
     mem::ManuallyDrop,
     ptr::{self, addr_of_mut},
     str,
@@ -195,6 +196,16 @@ impl_tuple!(
     T10 10, T11 11, T12 12
 );
 
+// Arrays
+
+// SAFETY: `[T; N]` is a `T` array and so is freeze as long as `T` is also
+// `Freeze`.
+unsafe impl<T: Freeze, const N: usize> Freeze for [T; N] {}
+
+// SAFETY: `[T; N]` is a `T` array and so is portable as long as `T` is also
+// `Portable`.
+unsafe impl<T: Portable, const N: usize> Portable for [T; N] {}
+
 impl<T: Archive, const N: usize> Archive for [T; N] {
     const COPY_OPTIMIZATION: CopyOptimization<Self> = unsafe {
         CopyOptimization::enable_if(T::COPY_OPTIMIZATION.is_enabled())
@@ -248,6 +259,16 @@ where
         unsafe { Ok(result.assume_init()) }
     }
 }
+
+// Slices
+
+// SAFETY: `[T]` is a `T` slice and so is freeze as long as `T` is also
+// `Freeze`.
+unsafe impl<T: Freeze> Freeze for [T] {}
+
+// SAFETY: `[T]` is a `T` slice and so is portable as long as `T` is also
+// `Portable`.
+unsafe impl<T: Portable> Portable for [T] {}
 
 impl<T: Archive> ArchiveUnsized for [T] {
     type Archived = [T::Archived];
@@ -344,12 +365,14 @@ where
         ptr_meta::metadata(self)
     }
 }
-
 /// `str`
 
 // SAFETY: `str` is a byte slice and so has a stable, well-defined layout that
 // is the same on all targets. It doesn't have any interior mutability.
 unsafe impl Portable for str {}
+
+// SAFETY: `str` is a byte slice and so doesn't have any interior mutability.
+unsafe impl Freeze for str {}
 
 impl ArchiveUnsized for str {
     type Archived = str;
@@ -406,6 +429,73 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for str {
     }
 }
 
+// PhantomData
+
+// SAFETY: `PhantomData` never has any interior mutability because it has no
+// data to mutate.
+unsafe impl<T: ?Sized> Freeze for PhantomData<T> {}
+
+// SAFETY: `PhantomData` always a size of 0 and align of 1, and so has a stable,
+// well-defined layout that is the same on all targets.
+unsafe impl<T: ?Sized> Portable for PhantomData<T> {}
+
+impl<T: ?Sized> Archive for PhantomData<T> {
+    const COPY_OPTIMIZATION: CopyOptimization<Self> =
+        unsafe { CopyOptimization::enable() };
+
+    type Archived = PhantomData<T>;
+    type Resolver = ();
+
+    fn resolve(&self, _: Self::Resolver, _: Place<Self::Archived>) {}
+}
+
+impl<T: ?Sized, S: Fallible + ?Sized> Serialize<S> for PhantomData<T> {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
+    }
+}
+
+impl<T: ?Sized, D: Fallible + ?Sized> Deserialize<PhantomData<T>, D>
+    for PhantomData<T>
+{
+    fn deserialize(&self, _: &mut D) -> Result<PhantomData<T>, D::Error> {
+        Ok(PhantomData)
+    }
+}
+
+// PhantomPinned
+
+// SAFETY: `PhantomPinned` never has any interior mutability because it has no
+// data to mutate.
+unsafe impl Freeze for PhantomPinned {}
+
+// SAFETY: `PhantomPinned` always a size of 0 and align of 1, and so has a
+// stable, well-defined layout that is the same on all targets.
+unsafe impl Portable for PhantomPinned {}
+
+impl Archive for PhantomPinned {
+    const COPY_OPTIMIZATION: CopyOptimization<Self> =
+        unsafe { CopyOptimization::enable() };
+
+    type Archived = PhantomPinned;
+    type Resolver = ();
+
+    #[inline]
+    fn resolve(&self, _: Self::Resolver, _: Place<Self::Archived>) {}
+}
+
+impl<S: Fallible + ?Sized> Serialize<S> for PhantomPinned {
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
+    }
+}
+
+impl<D: Fallible + ?Sized> Deserialize<PhantomPinned, D> for PhantomPinned {
+    fn deserialize(&self, _: &mut D) -> Result<PhantomPinned, D::Error> {
+        Ok(PhantomPinned)
+    }
+}
+
 // `ManuallyDrop`
 
 // SAFETY: `ManuallyDrop<T>` doesn't add any interior mutability.
@@ -454,7 +544,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use core::mem::ManuallyDrop;
+    use core::{
+        marker::{PhantomData, PhantomPinned},
+        mem::ManuallyDrop,
+    };
 
     use crate::{
         api::test::{roundtrip, roundtrip_with},
@@ -478,6 +571,12 @@ mod tests {
         roundtrip(&[1, 2, 3, 4, 5, 6]);
         roundtrip(&[(); 0]);
         roundtrip(&[(), (), (), ()]);
+    }
+
+    #[test]
+    fn roundtrip_phantoms() {
+        roundtrip(&PhantomData::<&'static u8>);
+        roundtrip(&PhantomPinned);
     }
 
     #[test]

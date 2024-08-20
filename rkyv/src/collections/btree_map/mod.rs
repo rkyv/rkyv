@@ -138,9 +138,7 @@ struct LeafNode<K, V, const E: usize> {
     len: ArchivedUsize,
 }
 
-#[derive(Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[rkyv(crate)]
 #[repr(C)]
 struct InnerNode<K, V, const E: usize> {
     node: Node<K, V, E>,
@@ -148,14 +146,30 @@ struct InnerNode<K, V, const E: usize> {
     greater_node: RawRelPtr,
 }
 
+// SAFETY: Inner nodes are `#[repr(C)]` and only have pointers to leaf nodes and
+// other inner nodes, both of which are `Portable` when `K` and `V` are.
+unsafe impl<K, V, const E: usize> Portable for InnerNode<K, V, E>
+where
+    K: Portable,
+    V: Portable,
+{
+}
+
+// SAFETY: Inner nodes only have pointers to leaf nodes and other inner nodes,
+// both of which are `Freeze` when `K` and `V` are.
+unsafe impl<K, V, const E: usize> Freeze for InnerNode<K, V, E>
+where
+    K: Freeze,
+    V: Freeze,
+{
+}
+
 /// An archived [`BTreeMap`](std::collections::BTreeMap).
-#[derive(Freeze, Portable)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
     check_bytes(verify)
 )]
-#[rkyv(crate)]
 #[repr(C)]
 pub struct ArchivedBTreeMap<K, V, const E: usize = 5> {
     // The type of the root node is determined at runtime because it may point
@@ -166,6 +180,24 @@ pub struct ArchivedBTreeMap<K, V, const E: usize = 5> {
     root: RawRelPtr,
     len: ArchivedUsize,
     _phantom: PhantomData<(K, V)>,
+}
+
+// SAFETY: `ArchivedBTreeMap` is `#[repr(C)]` and only points to nodes, all of
+// which are `Portable` when `K` and `V` are.
+unsafe impl<K, V, const E: usize> Portable for ArchivedBTreeMap<K, V, E>
+where
+    K: Portable,
+    V: Portable,
+{
+}
+
+// SAFETY: `ArchivedBTreeMap` does not have interior mutability and only points
+// to nodes, all of which are `Freeze` when `K` and `V` are.
+unsafe impl<K, V, const E: usize> Freeze for ArchivedBTreeMap<K, V, E>
+where
+    K: Freeze,
+    V: Freeze,
+{
 }
 
 impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
