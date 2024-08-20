@@ -16,7 +16,7 @@ default-members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.7.44"
+version = "0.7.45"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2021"
 license = "MIT"
