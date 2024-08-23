@@ -7,8 +7,8 @@ macro_rules! impl_tuple {
         #[doc = concat!("An archived tuple with ", stringify!($n), " elements")]
         #[derive(Debug, Freeze, Portable)]
         #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-        #[repr(C)]
         #[rkyv(crate)]
+        #[repr(C)]
         pub struct $name<$($type),*>($(pub $type),*);
     };
 }

@@ -498,7 +498,8 @@ impl<D: Fallible + ?Sized> Deserialize<PhantomPinned, D> for PhantomPinned {
 
 // `ManuallyDrop`
 
-// SAFETY: `ManuallyDrop<T>` doesn't add any interior mutability.
+// SAFETY: `ManuallyDrop<T>` doesn't add any interior mutability and so is
+// `Freeze` when `T` is `Freeze`.
 unsafe impl<T: Freeze> Freeze for ManuallyDrop<T> {}
 
 // SAFETY: `ManuallyDrop<T>` is guaranteed to have the same layout and bit

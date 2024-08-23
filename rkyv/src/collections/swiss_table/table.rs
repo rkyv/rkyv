@@ -42,26 +42,20 @@ use crate::{
 };
 
 /// A low-level archived SwissTable hash table with explicit hashing.
-#[repr(C)]
+#[derive(Freeze, Portable)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
     check_bytes(verify)
 )]
+#[rkyv(crate)]
+#[repr(C)]
 pub struct ArchivedHashTable<T> {
     ptr: RawRelPtr,
     len: ArchivedUsize,
     cap: ArchivedUsize,
     _phantom: PhantomData<T>,
 }
-
-// SAFETY: `ArchivedHashTable` points to h2 hashes and buckets of `T`. The
-// hashes are always `Portable`, and so the table is `Portable` when `T` is.
-unsafe impl<T: Portable> Portable for ArchivedHashTable<T> {}
-
-// SAFETY: `ArchivedHashTable` points to h2 hashes and buckets of `T`. The
-// hashes are always `Freeze`, and so the table is `Freeze` when `T` is.
-unsafe impl<T: Freeze> Freeze for ArchivedHashTable<T> {}
 
 #[inline]
 fn h1(hash: u64) -> usize {

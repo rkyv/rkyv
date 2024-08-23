@@ -11,8 +11,8 @@ use crate::{traits::Freeze, Portable};
 /// An archived [`RangeFull`](::core::ops::RangeFull).
 #[derive(Clone, Copy, Default, PartialEq, Eq, Hash, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[repr(C)]
 #[rkyv(crate)]
+#[repr(C)]
 pub struct ArchivedRangeFull;
 
 impl fmt::Debug for ArchivedRangeFull {
@@ -25,8 +25,8 @@ impl fmt::Debug for ArchivedRangeFull {
 /// An archived [`Range`](::core::ops::Range).
 #[derive(Clone, Default, PartialEq, Eq, Hash, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[repr(C)]
 #[rkyv(crate)]
+#[repr(C)]
 pub struct ArchivedRange<T> {
     /// The lower bound of the range (inclusive).
     pub start: T,
@@ -77,8 +77,8 @@ impl<T> RangeBounds<T> for ArchivedRange<T> {
 /// An archived [`RangeInclusive`](::core::ops::RangeInclusive).
 #[derive(Clone, Default, PartialEq, Eq, Hash, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[repr(C)]
 #[rkyv(crate)]
+#[repr(C)]
 pub struct ArchivedRangeInclusive<T> {
     /// The lower bound of the range (inclusive).
     pub start: T,
@@ -127,8 +127,8 @@ impl<T> RangeBounds<T> for ArchivedRangeInclusive<T> {
 /// An archived [`RangeFrom`](::core::ops::RangeFrom).
 #[derive(Clone, Default, PartialEq, Eq, Hash, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[repr(C)]
 #[rkyv(crate)]
+#[repr(C)]
 pub struct ArchivedRangeFrom<T> {
     /// The lower bound of the range (inclusive).
     pub start: T,
@@ -166,8 +166,8 @@ impl<T> RangeBounds<T> for ArchivedRangeFrom<T> {
 /// An archived [`RangeTo`](::core::ops::RangeTo).
 #[derive(Clone, Default, PartialEq, Eq, Hash, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[repr(C)]
 #[rkyv(crate)]
+#[repr(C)]
 pub struct ArchivedRangeTo<T> {
     /// The upper bound of the range (exclusive).
     pub end: T,
@@ -205,8 +205,8 @@ impl<T> RangeBounds<T> for ArchivedRangeTo<T> {
 /// An archived [`RangeToInclusive`](::core::ops::RangeToInclusive).
 #[derive(Clone, Default, PartialEq, Eq, Hash, Freeze, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[repr(C)]
 #[rkyv(crate)]
+#[repr(C)]
 pub struct ArchivedRangeToInclusive<T> {
     /// The upper bound of the range (inclusive).
     pub end: T,

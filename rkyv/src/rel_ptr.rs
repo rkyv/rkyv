@@ -112,6 +112,8 @@ impl_offset_multi_byte!(u64, ArchivedU64);
 /// the **pointer** or the **pointee** move independently, the pointer will be
 /// invalidated.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
+#[derive(Freeze, Portable)]
+#[rkyv(crate)]
 #[repr(transparent)]
 pub struct RawRelPtr<O> {
     offset: O,
@@ -377,29 +379,13 @@ pub type RawRelPtrU64 = RawRelPtr<ArchivedU64>;
 ///
 /// See [`Archive`](crate::Archive) for an example of creating one.
 #[derive(Freeze, Portable)]
-#[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
+#[rkyv(crate)]
 #[repr(C)]
 pub struct RelPtr<T: ArchivePointee + ?Sized, O> {
     raw_ptr: RawRelPtr<O>,
     metadata: T::ArchivedMetadata,
     _phantom: PhantomData<T>,
-}
-
-unsafe impl<T, O> Freeze for RelPtr<T, O>
-where
-    T: ArchivePointee + Freeze + ?Sized,
-    T::ArchivedMetadata: Freeze,
-    O: Freeze,
-{
-}
-
-unsafe impl<T, O> Portable for RelPtr<T, O>
-where
-    T: ArchivePointee + Portable + ?Sized,
-    T::ArchivedMetadata: Portable,
-    O: Portable,
-{
 }
 
 impl<T, O: Offset> RelPtr<T, O> {
@@ -500,10 +486,10 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// # Safety
     ///
     /// - `this` must be non-null, properly-aligned, and point to a valid
-    ///   `RawRelPtr`.
+    ///   `RelPtr`.
     /// - The offset of this relative pointer, when added to its base, must be
     ///   located in the same allocated object as it.
-    pub unsafe fn as_ptr_raw(this: *mut Self) -> *mut () {
+    pub unsafe fn as_ptr_raw(this: *mut Self) -> *mut T {
         // SAFETY:
         // - `RelPtr` is `#[repr(C)]`, so the `RawRelPtr` member of the `RelPtr`
         //   will have the same address as the `RelPtr`. Because `this` is
@@ -512,7 +498,11 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
         //   and point to a valid `RawRelPtr`.
         // - The base and offset of the `RawRelPtr` are guaranteed to be the
         //   same as the base and offset of the `RelPtr`.
-        unsafe { RawRelPtr::<O>::as_ptr_raw(this.cast()) }
+        let data_address = unsafe { RawRelPtr::<O>::as_ptr_raw(this.cast()) };
+        // SAFETY: The caller has guaranteed that `this` points to a valid
+        // `RelPtr`.
+        let metadata = unsafe { T::pointer_metadata(&(*this).metadata) };
+        ptr_meta::from_raw_parts_mut(data_address, metadata)
     }
 
     /// Calculates the memory address being pointed to by the pointed-to
@@ -523,14 +513,19 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// # Safety
     ///
     /// `this` must be non-null, properly-aligned, and point to a valid
-    /// `RawRelPtr`.
-    pub unsafe fn as_ptr_wrapping_raw(this: *mut Self) -> *mut () {
+    /// `RelPtr`.
+    pub unsafe fn as_ptr_wrapping_raw(this: *mut Self) -> *mut T {
         // SAFETY: `RelPtr` is `#[repr(C)]`, so the `RawRelPtr` member of the
         // `RelPtr` will have the same address as the `RelPtr`. Because `this`
         // is non-null, properly-aligned, and points to a valid `RelPtr`, a
         // pointer to its first field will also be non-null, properly-aligned,
         // and point to a valid `RawRelPtr`.
-        unsafe { RawRelPtr::<O>::as_ptr_wrapping_raw(this.cast()) }
+        let data_address =
+            unsafe { RawRelPtr::<O>::as_ptr_wrapping_raw(this.cast()) };
+        // SAFETY: The caller has guaranteed that `this` points to a valid
+        // `RelPtr`.
+        let metadata = unsafe { T::pointer_metadata(&(*this).metadata) };
+        ptr_meta::from_raw_parts_mut(data_address, metadata)
     }
 
     /// Gets whether the offset of the pointed-to relative pointer is invalid.

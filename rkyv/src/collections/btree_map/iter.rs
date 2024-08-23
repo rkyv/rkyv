@@ -6,7 +6,7 @@ use crate::{
         entries_to_height, ArchivedBTreeMap, InnerNode, LeafNode, Node,
         NodeKind,
     },
-    RawRelPtr,
+    RelPtr,
 };
 
 impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
@@ -158,10 +158,8 @@ impl<K, V, const E: usize> RawIter<K, V, E> {
         let mut stack = Vec::new();
         if remaining != 0 {
             stack.reserve(entries_to_height::<E>(remaining) as usize);
-            let mut current = unsafe {
-                RawRelPtr::as_ptr_raw(addr_of_mut!((*map).root))
-                    .cast::<Node<K, V, E>>()
-            };
+            let mut current =
+                unsafe { RelPtr::as_ptr_raw(addr_of_mut!((*map).root)) };
             loop {
                 stack.push((current, 0));
                 let kind = unsafe { (*current).kind };
@@ -169,10 +167,8 @@ impl<K, V, const E: usize> RawIter<K, V, E> {
                     NodeKind::Inner => {
                         let inner = current.cast::<InnerNode<K, V, E>>();
                         let lesser =
-                            unsafe { addr_of_mut!((*inner).lesser_nodes) };
-                        current = unsafe {
-                            RawRelPtr::as_ptr_raw(lesser.cast()).cast()
-                        };
+                            unsafe { addr_of_mut!((*inner).lesser_nodes[0]) };
+                        current = unsafe { RelPtr::as_ptr_raw(lesser) };
                     }
                     NodeKind::Leaf => break,
                 }
@@ -190,8 +186,8 @@ impl<K, V, const E: usize> Iterator for RawIter<K, V, E> {
         let (current, i) = self.stack.pop()?;
         self.remaining -= 1;
 
-        let k = unsafe { addr_of_mut!((*current).keys).cast::<K>().add(i) };
-        let v = unsafe { addr_of_mut!((*current).values).cast::<V>().add(i) };
+        let k = unsafe { addr_of_mut!((*current).keys[i]).cast::<K>() };
+        let v = unsafe { addr_of_mut!((*current).values[i]).cast::<V>() };
         let next_i = i + 1;
 
         // Advance to the next item
@@ -204,18 +200,13 @@ impl<K, V, const E: usize> Iterator for RawIter<K, V, E> {
                     self.stack.push((current, next_i));
 
                     // Recurse to a lesser if valid
-                    let next_lesser = unsafe {
-                        addr_of_mut!((*inner).lesser_nodes)
-                            .cast::<RawRelPtr>()
-                            .add(next_i)
-                    };
+                    let next_lesser =
+                        unsafe { addr_of_mut!((*inner).lesser_nodes[next_i]) };
                     let next_lesser_is_invalid =
-                        unsafe { RawRelPtr::is_invalid_raw(next_lesser) };
+                        unsafe { RelPtr::is_invalid_raw(next_lesser) };
                     if !next_lesser_is_invalid {
                         self.stack.push((
-                            unsafe {
-                                RawRelPtr::as_ptr_raw(next_lesser).cast()
-                            },
+                            unsafe { RelPtr::as_ptr_raw(next_lesser).cast() },
                             0,
                         ));
                     }
@@ -224,12 +215,10 @@ impl<K, V, const E: usize> Iterator for RawIter<K, V, E> {
                     let next_greater =
                         unsafe { addr_of_mut!((*inner).greater_node) };
                     let next_greater_is_invalid =
-                        unsafe { RawRelPtr::is_invalid_raw(next_greater) };
+                        unsafe { RelPtr::is_invalid_raw(next_greater) };
                     if !next_greater_is_invalid {
                         self.stack.push((
-                            unsafe {
-                                RawRelPtr::as_ptr_raw(next_greater).cast()
-                            },
+                            unsafe { RelPtr::as_ptr_raw(next_greater).cast() },
                             0,
                         ));
                     }

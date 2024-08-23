@@ -24,13 +24,13 @@ use crate::{
 /// [`ArchivedString`](crate::string::ArchivedString), it does not have an
 /// inline representation.
 #[derive(Freeze, Portable)]
-#[rkyv(crate)]
-#[repr(C)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
     check_bytes(verify)
 )]
+#[rkyv(crate)]
+#[repr(C)]
 pub struct ArchivedVec<T> {
     ptr: RelPtr<T>,
     len: ArchivedUsize,

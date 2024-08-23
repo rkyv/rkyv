@@ -19,7 +19,7 @@ use crate::{
     Archive, Deserialize, Place, Portable, Serialize,
 };
 
-macro_rules! unsafe_impl_initialized_and_portable {
+macro_rules! unsafe_impl_primitive {
     ($($ty:ty),* $(,)?) => {
         $(
             unsafe impl Initialized for $ty {}
@@ -29,7 +29,7 @@ macro_rules! unsafe_impl_initialized_and_portable {
     };
 }
 
-unsafe_impl_initialized_and_portable! {
+unsafe_impl_primitive! {
     (),
     bool,
     i8,

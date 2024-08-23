@@ -20,13 +20,13 @@ use crate::{
     Portable,
     Freeze,
 )]
-#[rkyv(crate)]
-#[repr(C)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
     check_bytes(verify)
 )]
+#[rkyv(crate)]
+#[repr(C)]
 pub struct ArchivedDuration {
     secs: ArchivedU64,
     nanos: ArchivedU32,

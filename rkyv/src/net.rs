@@ -291,10 +291,21 @@ impl ArchivedIpAddr {
 }
 
 /// An archived [`SocketAddrV4`].
-#[derive(Freeze, Portable)]
-#[rkyv(crate)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Eq,
+    Freeze,
+    Hash,
+    Ord,
+    PartialEq,
+    Portable,
+    PartialOrd,
+)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[rkyv(crate)]
 #[repr(C)]
 pub struct ArchivedSocketAddrV4 {
     ip: ArchivedIpv4Addr,
@@ -330,10 +341,21 @@ impl ArchivedSocketAddrV4 {
 }
 
 /// An archived [`SocketAddrV6`].
-#[derive(Freeze, Portable)]
-#[rkyv(crate)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Eq,
+    Freeze,
+    Hash,
+    Ord,
+    PartialEq,
+    Portable,
+    PartialOrd,
+)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[rkyv(crate)]
 #[repr(C)]
 pub struct ArchivedSocketAddrV6 {
     ip: ArchivedIpv6Addr,

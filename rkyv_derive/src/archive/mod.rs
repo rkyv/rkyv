@@ -115,13 +115,11 @@ fn impl_auto_trait(
     let trait_ident = Ident::new(trait_name, Span::call_site());
 
     for field in iter_fields(&input.data) {
-        if is_not_omitted(&field) {
-            let archived_field_ty = archived(rkyv_path, field)?;
+        let archived_field_ty = archived(rkyv_path, field)?;
 
-            where_clause.predicates.push(parse_quote! {
-                #archived_field_ty: #rkyv_path::traits::#trait_ident
-            });
-        }
+        where_clause.predicates.push(parse_quote! {
+            #archived_field_ty: #rkyv_path::traits::#trait_ident
+        });
     }
 
     let archived_name = &printing.archived_name;

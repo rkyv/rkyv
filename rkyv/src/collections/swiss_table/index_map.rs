@@ -28,13 +28,13 @@ use crate::{
 
 /// An archived `IndexMap`.
 #[derive(Freeze, Portable)]
-#[rkyv(crate)]
-#[repr(C)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
     check_bytes(verify)
 )]
+#[rkyv(crate)]
+#[repr(C)]
 pub struct ArchivedIndexMap<K, V, H = FxHasher64> {
     table: ArchivedHashTable<ArchivedUsize>,
     entries: RelPtr<Entry<K, V>>,

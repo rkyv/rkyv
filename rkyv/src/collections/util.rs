@@ -75,9 +75,9 @@ where
 
 /// A key-value entry.
 #[derive(Debug, Freeze, Portable, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[rkyv(crate)]
 #[repr(C)]
-#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 pub struct Entry<K, V> {
     /// The entry's key.
     pub key: K,

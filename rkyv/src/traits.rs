@@ -28,7 +28,7 @@ pub unsafe trait Portable {}
 /// # Safety
 ///
 /// The implementing type must not have interior mutability (i.e. no
-/// `UnsafeCell`s directly or indirectly).
+/// `UnsafeCell`s).
 pub unsafe trait Freeze {}
 
 /// Returns the layout of a type from its metadata.
