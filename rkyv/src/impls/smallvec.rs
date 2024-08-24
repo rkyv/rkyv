@@ -52,6 +52,26 @@ where
     }
 }
 
+impl<A, U> PartialEq<ArchivedVec<U>> for SmallVec<A>
+where
+    A: Array,
+    A::Item: PartialEq<U>,
+{
+    fn eq(&self, other: &ArchivedVec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<A, U> PartialEq<SmallVec<A>> for ArchivedVec<U>
+where
+    A: Array,
+    U: PartialEq<A::Item>,
+{
+    fn eq(&self, other: &SmallVec<A>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use smallvec::{smallvec, SmallVec};

@@ -50,6 +50,24 @@ where
     }
 }
 
+impl<T, U> PartialEq<ArchivedVec<U>> for ThinVec<T>
+where
+    T: PartialEq<U>,
+{
+    fn eq(&self, other: &ArchivedVec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T, U> PartialEq<ThinVec<U>> for ArchivedVec<T>
+where
+    T: PartialEq<U>,
+{
+    fn eq(&self, other: &ThinVec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use thin_vec::ThinVec;
@@ -58,9 +76,23 @@ mod tests {
 
     #[test]
     fn roundtrip_thin_vec() {
-        roundtrip_with(
-            &ThinVec::<i32>::from_iter([10, 20, 40, 80].into_iter()),
-            |a, b| assert_eq!(**a, **b),
-        );
+        roundtrip_with(&ThinVec::<i32>::from_iter([10, 20, 40, 80]), |a, b| {
+            assert_eq!(**a, **b)
+        });
+    }
+
+    #[test]
+    fn test_partial_eq() {
+        #[derive(crate::Archive)]
+        #[archive(crate = crate, compare(PartialEq))]
+        struct Inner {
+            a: i32,
+        }
+
+        #[derive(crate::Archive)]
+        #[archive(crate = crate, compare(PartialEq))]
+        struct Outer {
+            a: ThinVec<Inner>,
+        }
     }
 }

@@ -51,6 +51,24 @@ where
     }
 }
 
+impl<T, U, const CAP: usize> PartialEq<ArchivedVec<U>> for ArrayVec<T, CAP>
+where
+    T: PartialEq<U>,
+{
+    fn eq(&self, other: &ArchivedVec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T, U, const CAP: usize> PartialEq<ArrayVec<U, CAP>> for ArchivedVec<T>
+where
+    T: PartialEq<U>,
+{
+    fn eq(&self, other: &ArrayVec<U, CAP>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use arrayvec::ArrayVec;

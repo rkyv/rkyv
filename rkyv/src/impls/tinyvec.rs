@@ -1,3 +1,5 @@
+use core::ops::Deref;
+
 use rancor::Fallible;
 #[cfg(all(feature = "tinyvec", feature = "alloc"))]
 use tinyvec::TinyVec;
@@ -129,6 +131,44 @@ where
             result.push(item.deserialize(deserializer)?);
         }
         Ok(result)
+    }
+}
+
+impl<A, U> PartialEq<ArchivedVec<U>> for ArrayVec<A>
+where
+    A: Array,
+    A::Item: PartialEq<U>,
+{
+    fn eq(&self, other: &ArchivedVec<U>) -> bool {
+        self.deref().eq(other.as_slice())
+    }
+}
+
+impl<T, A> PartialEq<ArrayVec<A>> for ArchivedVec<T>
+where
+    A: Array,
+    T: PartialEq<A::Item>,
+{
+    fn eq(&self, other: &ArrayVec<A>) -> bool {
+        self.as_slice().eq(other.deref())
+    }
+}
+
+impl<T, U> PartialEq<ArchivedVec<U>> for SliceVec<'_, T>
+where
+    T: PartialEq<U>,
+{
+    fn eq(&self, other: &ArchivedVec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T, U> PartialEq<SliceVec<'_, U>> for ArchivedVec<T>
+where
+    T: PartialEq<U>,
+{
+    fn eq(&self, other: &SliceVec<'_, U>) -> bool {
+        self.as_slice().eq(other.as_slice())
     }
 }
 
