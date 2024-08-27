@@ -500,7 +500,8 @@ where
         field: &ArchivedDuration,
         _: &mut D,
     ) -> Result<SystemTime, D::Error> {
-        Ok(UNIX_EPOCH + (*field).into())
+        // `checked_add` forces correct type deduction when multiple `Duration` are present.
+        Ok(UNIX_EPOCH.checked_add((*field).into()).unwrap())
     }
 }
 
