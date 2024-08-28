@@ -95,7 +95,7 @@ pub fn impl_enum(
         const _: () = {
             #private
 
-            impl #impl_generics Archive for #name #ty_generics #where_clause {
+            impl #impl_generics #rkyv_path::Archive for #name #ty_generics #where_clause {
                 type Archived = #archived_type;
                 type Resolver = #resolver_name #ty_generics;
 
@@ -104,8 +104,8 @@ pub fn impl_enum(
                 #[allow(clippy::unit_arg)]
                 fn resolve(
                     &self,
-                    resolver: <Self as Archive>::Resolver,
-                    out: #rkyv_path::Place<<Self as Archive>::Archived>,
+                    resolver: Self::Resolver,
+                    out: #rkyv_path::Place<Self::Archived>,
                 ) {
                     match resolver {
                         #resolve_arms
