@@ -95,7 +95,9 @@ pub fn impl_enum(
         const _: () = {
             #private
 
-            impl #impl_generics #rkyv_path::Archive for #name #ty_generics #where_clause {
+            impl #impl_generics #rkyv_path::Archive for #name #ty_generics
+            #where_clause
+            {
                 type Archived = #archived_type;
                 type Resolver = #resolver_name #ty_generics;
 
