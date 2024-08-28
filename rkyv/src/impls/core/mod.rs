@@ -12,7 +12,7 @@ use rancor::Fallible;
 use crate::{
     primitive::ArchivedUsize,
     ser::{Allocator, Writer, WriterExt as _},
-    traits::{ArchivePointee, CopyOptimization, Freeze, LayoutRaw},
+    traits::{ArchivePointee, CopyOptimization, LayoutRaw, NoUndef},
     tuple::*,
     Archive, ArchiveUnsized, ArchivedMetadata, Deserialize, DeserializeUnsized,
     Place, Portable, Serialize, SerializeUnsized,
@@ -198,10 +198,6 @@ impl_tuple!(
 
 // Arrays
 
-// SAFETY: `[T; N]` is a `T` array and so is freeze as long as `T` is also
-// `Freeze`.
-unsafe impl<T: Freeze, const N: usize> Freeze for [T; N] {}
-
 // SAFETY: `[T; N]` is a `T` array and so is portable as long as `T` is also
 // `Portable`.
 unsafe impl<T: Portable, const N: usize> Portable for [T; N] {}
@@ -261,10 +257,6 @@ where
 }
 
 // Slices
-
-// SAFETY: `[T]` is a `T` slice and so is freeze as long as `T` is also
-// `Freeze`.
-unsafe impl<T: Freeze> Freeze for [T] {}
 
 // SAFETY: `[T]` is a `T` slice and so is portable as long as `T` is also
 // `Portable`.
@@ -371,8 +363,8 @@ where
 // is the same on all targets. It doesn't have any interior mutability.
 unsafe impl Portable for str {}
 
-// SAFETY: `str` is a byte slice and so doesn't have any interior mutability.
-unsafe impl Freeze for str {}
+// SAFETY: `str` is a byte slice and so does not contain any uninit bytes.
+unsafe impl NoUndef for str {}
 
 impl ArchiveUnsized for str {
     type Archived = str;
@@ -431,10 +423,6 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for str {
 
 // PhantomData
 
-// SAFETY: `PhantomData` never has any interior mutability because it has no
-// data to mutate.
-unsafe impl<T: ?Sized> Freeze for PhantomData<T> {}
-
 // SAFETY: `PhantomData` always a size of 0 and align of 1, and so has a stable,
 // well-defined layout that is the same on all targets.
 unsafe impl<T: ?Sized> Portable for PhantomData<T> {}
@@ -465,10 +453,6 @@ impl<T: ?Sized, D: Fallible + ?Sized> Deserialize<PhantomData<T>, D>
 
 // PhantomPinned
 
-// SAFETY: `PhantomPinned` never has any interior mutability because it has no
-// data to mutate.
-unsafe impl Freeze for PhantomPinned {}
-
 // SAFETY: `PhantomPinned` always a size of 0 and align of 1, and so has a
 // stable, well-defined layout that is the same on all targets.
 unsafe impl Portable for PhantomPinned {}
@@ -497,10 +481,6 @@ impl<D: Fallible + ?Sized> Deserialize<PhantomPinned, D> for PhantomPinned {
 }
 
 // `ManuallyDrop`
-
-// SAFETY: `ManuallyDrop<T>` doesn't add any interior mutability and so is
-// `Freeze` when `T` is `Freeze`.
-unsafe impl<T: Freeze> Freeze for ManuallyDrop<T> {}
 
 // SAFETY: `ManuallyDrop<T>` is guaranteed to have the same layout and bit
 // validity as `T`, so it is `Portable` when `T` is `Portable`.

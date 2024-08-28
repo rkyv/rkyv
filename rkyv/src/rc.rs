@@ -1,16 +1,14 @@
 //! Archived versions of shared pointers.
 
-use core::{
-    borrow::Borrow, cmp, fmt, hash, marker::PhantomData, ops::Deref, pin::Pin,
-};
+use core::{borrow::Borrow, cmp, fmt, hash, marker::PhantomData, ops::Deref};
 
 use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    place::Initialized,
+    seal::Seal,
     ser::{Sharing, SharingExt, Writer, WriterExt as _},
-    traits::{ArchivePointee, Freeze},
+    traits::{ArchivePointee, NoUndef},
     ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
 
@@ -26,7 +24,7 @@ pub struct ArcFlavor;
 /// a "flavor" type. Because there may be many varieties of shared pointers and
 /// they may not be used together, the flavor helps check that memory is not
 /// being shared incorrectly during validation.
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[repr(transparent)]
 #[cfg_attr(
@@ -45,15 +43,15 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
         unsafe { &*self.ptr.as_ptr() }
     }
 
-    /// Gets the pinned mutable value of this `ArchivedRc`.
+    /// Gets the sealed value of this `ArchivedRc`.
     ///
     /// # Safety
     ///
-    /// Any other `ArchivedRc` pointers to the same value must not be
-    /// dereferenced for the duration of the returned borrow.
-    pub unsafe fn get_pin_unchecked(self: Pin<&mut Self>) -> Pin<&mut T> {
-        let ptr = unsafe { self.map_unchecked_mut(|s| &mut s.ptr) };
-        unsafe { Pin::new_unchecked(&mut *ptr.as_mut_ptr()) }
+    /// Any other pointers to the same value must not be dereferenced for the
+    /// duration of the returned borrow.
+    pub unsafe fn get_seal_unchecked(this: Seal<'_, Self>) -> Seal<'_, T> {
+        munge!(let Self { ptr, _phantom: _ } = this);
+        Seal::new(unsafe { &mut *RelPtr::as_mut_ptr(ptr) })
     }
 
     /// Resolves an archived `Rc` from a given reference.
@@ -88,52 +86,67 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     }
 }
 
-impl<T: ArchivePointee + ?Sized, F> AsRef<T> for ArchivedRc<T, F> {
+impl<T, F> AsRef<T> for ArchivedRc<T, F>
+where
+    T: ArchivePointee + ?Sized,
+{
     fn as_ref(&self) -> &T {
         self.get()
     }
 }
 
-impl<T: ArchivePointee + ?Sized, F> Borrow<T> for ArchivedRc<T, F> {
+impl<T, F> Borrow<T> for ArchivedRc<T, F>
+where
+    T: ArchivePointee + ?Sized,
+{
     fn borrow(&self) -> &T {
         self.get()
     }
 }
 
-impl<T: ArchivePointee + fmt::Debug + ?Sized, F> fmt::Debug
-    for ArchivedRc<T, F>
+impl<T, F> fmt::Debug for ArchivedRc<T, F>
+where
+    T: ArchivePointee + fmt::Debug + ?Sized,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.get().fmt(f)
     }
 }
 
-impl<T: ArchivePointee + ?Sized, F> Deref for ArchivedRc<T, F> {
+impl<T, F> Deref for ArchivedRc<T, F>
+where
+    T: ArchivePointee + ?Sized,
+{
     type Target = T;
     fn deref(&self) -> &Self::Target {
         self.get()
     }
 }
 
-impl<T: ArchivePointee + fmt::Display + ?Sized, F> fmt::Display
-    for ArchivedRc<T, F>
+impl<T, F> fmt::Display for ArchivedRc<T, F>
+where
+    T: ArchivePointee + fmt::Display + ?Sized,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.get().fmt(f)
     }
 }
 
-impl<T: ArchivePointee + Eq + ?Sized, F> Eq for ArchivedRc<T, F> {}
+impl<T, F> Eq for ArchivedRc<T, F> where T: ArchivePointee + Eq + ?Sized {}
 
-impl<T: ArchivePointee + hash::Hash + ?Sized, F> hash::Hash
-    for ArchivedRc<T, F>
+impl<T, F> hash::Hash for ArchivedRc<T, F>
+where
+    T: ArchivePointee + hash::Hash + ?Sized,
 {
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.get().hash(state)
     }
 }
 
-impl<T: ArchivePointee + Ord + ?Sized, F> Ord for ArchivedRc<T, F> {
+impl<T, F> Ord for ArchivedRc<T, F>
+where
+    T: ArchivePointee + Ord + ?Sized,
+{
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.get().cmp(other.get())
     }
@@ -170,10 +183,12 @@ pub struct RcResolver {
     pos: usize,
 }
 
+// TODO: this can be niched smaller since `RelPtr::null()` is nonzero now
+
 /// An archived `rc::Weak`.
 ///
 /// This is essentially just an optional [`ArchivedRc`].
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[repr(u8)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -195,15 +210,14 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
         }
     }
 
-    /// Attempts to upgrade a pinned mutable weak pointer.
-    pub fn upgrade_pin(
-        self: Pin<&mut Self>,
-    ) -> Option<Pin<&mut ArchivedRc<T, F>>> {
-        unsafe {
-            match self.get_unchecked_mut() {
-                ArchivedRcWeak::None => None,
-                ArchivedRcWeak::Some(r) => Some(Pin::new_unchecked(r)),
-            }
+    /// Attempts to upgrade a sealed weak pointer.
+    pub fn upgrade_seal(
+        this: Seal<'_, Self>,
+    ) -> Option<Seal<'_, ArchivedRc<T, F>>> {
+        let this = unsafe { this.unseal_unchecked() };
+        match this {
+            ArchivedRcWeak::None => None,
+            ArchivedRcWeak::Some(r) => Some(Seal::new(r)),
         }
     }
 
@@ -274,8 +288,9 @@ enum ArchivedRcWeakTag {
     Some,
 }
 
-// SAFETY: `ArchivedRcWeakTag` is `repr(u8)` and so is always initialized.
-unsafe impl Initialized for ArchivedRcWeakTag {}
+// SAFETY: `ArchivedRcWeakTag` is `repr(u8)` and so always consists of a single
+// well-defined byte.
+unsafe impl NoUndef for ArchivedRcWeakTag {}
 
 #[repr(C)]
 struct ArchivedRcWeakVariantNone(ArchivedRcWeakTag);

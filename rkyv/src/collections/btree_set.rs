@@ -8,14 +8,13 @@ use rancor::{Fallible, Source};
 use crate::{
     collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver},
     ser::{Allocator, Writer},
-    traits::Freeze,
     Place, Portable, Serialize,
 };
 
 /// An archived `BTreeSet`. This is a wrapper around a B-tree map with the same
 /// key and a value of `()`.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[repr(transparent)]
 pub struct ArchivedBTreeSet<K, const E: usize = 5>(ArchivedBTreeMap<K, (), E>);

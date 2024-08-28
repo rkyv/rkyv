@@ -98,7 +98,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use core::{ops::ControlFlow, pin::Pin};
+    use core::ops::ControlFlow;
 
     use crate::{
         alloc::{
@@ -108,7 +108,9 @@ mod tests {
             vec::Vec,
         },
         api::test::{roundtrip, to_archived},
+        collections::btree_map::ArchivedBTreeMap,
         primitive::ArchivedI32,
+        seal::Seal,
         Archive, Deserialize, Serialize,
     };
 
@@ -211,20 +213,21 @@ mod tests {
         value.insert("bat".to_string(), 80);
 
         to_archived(&value, |mut archived| {
-            archived
-                .as_mut()
-                .visit_pin(|_, mut v: Pin<&mut ArchivedI32>| {
+            ArchivedBTreeMap::visit_seal(
+                archived.as_mut(),
+                |_, mut v: Seal<'_, ArchivedI32>| {
                     *v = ArchivedI32::from_native(v.to_native() + 10);
                     ControlFlow::<(), ()>::Continue(())
-                });
+                },
+            );
             assert_eq!(archived.get("foo").map(|x| x.to_native()), Some(20));
             assert_eq!(archived.get("bar").map(|x| x.to_native()), Some(30));
             assert_eq!(archived.get("baz").map(|x| x.to_native()), Some(50));
             assert_eq!(archived.get("bat").map(|x| x.to_native()), Some(90));
 
-            *archived.as_mut().get_pin("foo").unwrap() =
+            *ArchivedBTreeMap::get_seal(archived.as_mut(), "foo").unwrap() =
                 ArchivedI32::from_native(123);
-            *archived.as_mut().get_pin("bat").unwrap() =
+            *ArchivedBTreeMap::get_seal(archived.as_mut(), "bat").unwrap() =
                 ArchivedI32::from_native(456);
 
             assert_eq!(archived.get("foo").map(|x| x.to_native()), Some(123));

@@ -8,12 +8,11 @@ use munge::munge;
 
 use crate::{
     primitive::{ArchivedU16, ArchivedU32},
-    traits::Freeze,
     Archive, Place, Portable,
 };
 
 /// An archived [`Ipv4Addr`].
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -124,7 +123,7 @@ impl ArchivedIpv4Addr {
 }
 
 /// An archived [`Ipv6Addr`].
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -217,7 +216,7 @@ impl ArchivedIpv6Addr {
 }
 
 /// An archived [`IpAddr`].
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -292,17 +291,7 @@ impl ArchivedIpAddr {
 
 /// An archived [`SocketAddrV4`].
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Eq,
-    Freeze,
-    Hash,
-    Ord,
-    PartialEq,
-    Portable,
-    PartialOrd,
+    Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, Portable, PartialOrd,
 )]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[rkyv(crate)]
@@ -342,17 +331,7 @@ impl ArchivedSocketAddrV4 {
 
 /// An archived [`SocketAddrV6`].
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Eq,
-    Freeze,
-    Hash,
-    Ord,
-    PartialEq,
-    Portable,
-    PartialOrd,
+    Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, Portable, PartialOrd,
 )]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[rkyv(crate)]
@@ -418,7 +397,7 @@ impl ArchivedSocketAddrV6 {
 }
 
 /// An archived [`SocketAddr`].
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]

@@ -6,7 +6,6 @@ use core::num::{
 use rancor::Fallible;
 
 use crate::{
-    place::Initialized,
     primitive::{
         ArchivedChar, ArchivedF32, ArchivedF64, ArchivedI128, ArchivedI16,
         ArchivedI32, ArchivedI64, ArchivedIsize, ArchivedNonZeroI128,
@@ -15,15 +14,14 @@ use crate::{
         ArchivedNonZeroU32, ArchivedNonZeroU64, ArchivedNonZeroUsize,
         ArchivedU128, ArchivedU16, ArchivedU32, ArchivedU64, ArchivedUsize,
     },
-    traits::{CopyOptimization, Freeze},
+    traits::{CopyOptimization, NoUndef},
     Archive, Deserialize, Place, Portable, Serialize,
 };
 
 macro_rules! unsafe_impl_primitive {
     ($($ty:ty),* $(,)?) => {
         $(
-            unsafe impl Initialized for $ty {}
-            unsafe impl Freeze for $ty {}
+            unsafe impl NoUndef for $ty {}
             unsafe impl Portable for $ty {}
         )*
     };

@@ -2,16 +2,15 @@
 
 use core::{
     cmp::Ordering,
-    hash, mem,
+    hash,
     ops::{Deref, DerefMut},
-    pin::Pin,
 };
 
-use crate::{traits::Freeze, Portable};
+use crate::{seal::Seal, Portable};
 
 /// An archived [`Result`] that represents either success
 /// ([`Ok`](ArchivedResult::Ok)) or failure ([`Err`](ArchivedResult::Err)).
-#[derive(Debug, Freeze, Portable)]
+#[derive(Debug, Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(u8)]
@@ -77,15 +76,13 @@ impl<T, E> ArchivedResult<T, E> {
         }
     }
 
-    /// Converts from `Pin<&mut ArchivedResult<T, E>>` to
-    /// `Result<Pin<&mut T>, Pin<&mut E>>`.
-    pub fn as_pin(self: Pin<&mut Self>) -> Result<Pin<&mut T>, Pin<&mut E>> {
-        let this = unsafe { Pin::into_inner_unchecked(self) };
+    /// Converts from `Seal<'_, ArchivedResult<T, E>>` to
+    /// `Result<Seal<'_, T>, Seal<'_, E>>`.
+    pub fn as_seal(this: Seal<'_, Self>) -> Result<Seal<'_, T>, Seal<'_, E>> {
+        let this = unsafe { Seal::unseal_unchecked(this) };
         match this {
-            ArchivedResult::Ok(value) => {
-                Ok(unsafe { Pin::new_unchecked(value) })
-            }
-            ArchivedResult::Err(err) => Err(unsafe { Pin::new_unchecked(err) }),
+            ArchivedResult::Ok(value) => Ok(Seal::new(value)),
+            ArchivedResult::Err(err) => Err(Seal::new(err)),
         }
     }
 
@@ -93,30 +90,24 @@ impl<T, E> ArchivedResult<T, E> {
     ///
     /// The iterator yields one value if the result is `ArchivedResult::Ok`,
     /// otherwise none.
-    pub fn iter(&self) -> Iter<'_, T> {
-        Iter {
-            inner: self.as_ref().ok(),
-        }
+    pub fn iter(&self) -> Iter<&'_ T> {
+        Iter::new(self.as_ref().ok())
     }
 
     /// Returns an iterator over the mutable possibly-contained value.
     ///
     /// The iterator yields one value if the result is `ArchivedResult::Ok`,
     /// otherwise none.
-    pub fn iter_mut(&mut self) -> IterMut<'_, T> {
-        IterMut {
-            inner: self.as_mut().ok(),
-        }
+    pub fn iter_mut(&mut self) -> Iter<&'_ mut T> {
+        Iter::new(self.as_mut().ok())
     }
 
-    /// Returns an iterator over the pinned mutable possibly-contained value.
+    /// Returns an iterator over the sealed possibly-contained value.
     ///
     /// The iterator yields one value if the result is `ArchivedResult::Ok`,
     /// otherwise none.
-    pub fn iter_pin(self: Pin<&mut Self>) -> IterPin<'_, T> {
-        IterPin {
-            inner: self.as_pin().ok(),
-        }
+    pub fn iter_seal(this: Seal<'_, Self>) -> Iter<Seal<'_, T>> {
+        Iter::new(Self::as_seal(this).ok())
     }
 }
 
@@ -155,77 +146,7 @@ impl<T: DerefMut, E> ArchivedResult<T, E> {
 /// The iterator yields one value if the result is `Ok`, otherwise none.
 ///
 /// Created by [`ArchivedResult::iter`].
-pub struct Iter<'a, T> {
-    inner: Option<&'a T>,
-}
-
-impl<'a, T> Iterator for Iter<'a, T> {
-    type Item = &'a T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut result = None;
-        mem::swap(&mut self.inner, &mut result);
-        result
-    }
-}
-
-impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.next()
-    }
-}
-
-/// An iterator over a mutable reference to the `Ok` variant of an
-/// [`ArchivedResult`].
-///
-/// The iterator yields one value if the result is `Ok`, otherwise none.
-///
-/// Created by [`ArchivedResult::iter_mut`].
-pub struct IterMut<'a, T> {
-    inner: Option<&'a mut T>,
-}
-
-impl<'a, T> Iterator for IterMut<'a, T> {
-    type Item = &'a mut T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut result = None;
-        mem::swap(&mut self.inner, &mut result);
-        result
-    }
-}
-
-impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.next()
-    }
-}
-
-/// An iterator over a pinned mutable reference to the `Ok` variant of an
-/// [`ArchivedResult`].
-///
-/// The iterator yields one value if the result is `Ok`, otherwise none.
-///
-/// Created by [`ArchivedResult::iter_pin`].
-pub struct IterPin<'a, T> {
-    inner: Option<Pin<&'a mut T>>,
-}
-
-impl<'a, T> Iterator for IterPin<'a, T> {
-    type Item = Pin<&'a mut T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut result = None;
-        mem::swap(&mut self.inner, &mut result);
-        result
-    }
-}
-
-impl<'a, T> DoubleEndedIterator for IterPin<'a, T> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.next()
-    }
-}
+pub type Iter<P> = crate::option::Iter<P>;
 
 impl<T: Eq, E: Eq> Eq for ArchivedResult<T, E> {}
 

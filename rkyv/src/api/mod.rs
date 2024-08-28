@@ -8,15 +8,14 @@ pub mod low;
 #[cfg(test)]
 pub mod test;
 
-use core::{mem::size_of, pin::Pin};
+use core::mem::size_of;
 
 use rancor::Strategy;
 
 #[cfg(feature = "bytecheck")]
 pub use self::checked::*;
 use crate::{
-    ser::Writer, traits::Freeze, Archive, Deserialize, Portable,
-    SerializeUnsized,
+    seal::Seal, ser::Writer, Archive, Deserialize, Portable, SerializeUnsized,
 };
 
 #[cfg(debug_assertions)]
@@ -78,7 +77,7 @@ pub fn root_position<T: Portable>(size: usize) -> usize {
 /// [`access_pos`].
 ///
 /// [`access_pos`]: crate::api::high::access_pos
-pub unsafe fn access_pos_unchecked<T: Portable + Freeze>(
+pub unsafe fn access_pos_unchecked<T: Portable>(
     bytes: &[u8],
     pos: usize,
 ) -> &T {
@@ -105,15 +104,13 @@ pub unsafe fn access_pos_unchecked<T: Portable + Freeze>(
 pub unsafe fn access_pos_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
     pos: usize,
-) -> Pin<&mut T> {
+) -> Seal<'_, T> {
     #[cfg(debug_assertions)]
     sanity_check_buffer::<T>(bytes.as_ptr(), pos, bytes.len());
 
-    // SAFETY: The caller has guaranteed that a valid `T` is located at `pos` in
-    // the byte slice. WARNING: This is a technically incorrect use of the
-    // pinning API because we do not guarantee that the destructor for `T` will
-    // run before the backing memory is reused!
-    unsafe { Pin::new_unchecked(&mut *bytes.as_mut_ptr().add(pos).cast()) }
+    // SAFETY: The caller has guaranteed that the data at the given position
+    // passes validation when passed to `access_pos_mut`.
+    unsafe { Seal::new(&mut *bytes.as_mut_ptr().add(pos).cast()) }
 }
 
 /// Accesses an archived value from the given byte slice by calculating the root
@@ -133,7 +130,7 @@ pub unsafe fn access_pos_unchecked_mut<T: Portable>(
 /// The given bytes must pass validation when passed to [`access`].
 ///
 /// [`access`]: crate::api::high::access
-pub unsafe fn access_unchecked<T: Portable + Freeze>(bytes: &[u8]) -> &T {
+pub unsafe fn access_unchecked<T: Portable>(bytes: &[u8]) -> &T {
     // SAFETY: The caller has guaranteed that a valid `T` is located at the root
     // position in the byte slice.
     unsafe { access_pos_unchecked::<T>(bytes, root_position::<T>(bytes.len())) }
@@ -158,9 +155,9 @@ pub unsafe fn access_unchecked<T: Portable + Freeze>(bytes: &[u8]) -> &T {
 /// [`access_mut`]: crate::api::high::access_mut
 pub unsafe fn access_unchecked_mut<T: Portable>(
     bytes: &mut [u8],
-) -> Pin<&mut T> {
-    // SAFETY: The caller has guaranteed that a valid `T` is located at the root
-    // position in the byte slice.
+) -> Seal<'_, T> {
+    // SAFETY: The caller has guaranteed that the given bytes pass validation
+    // when passed to `access_mut`.
     unsafe {
         access_pos_unchecked_mut::<T>(bytes, root_position::<T>(bytes.len()))
     }

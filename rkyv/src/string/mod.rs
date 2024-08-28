@@ -9,7 +9,6 @@ use core::{
         Deref, Index, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo,
         RangeToInclusive,
     },
-    pin::Pin,
     str,
 };
 
@@ -17,7 +16,7 @@ use munge::munge;
 use rancor::Fallible;
 use repr::{ArchivedStringRepr, INLINE_CAPACITY};
 
-use crate::{traits::Freeze, Place, Portable, SerializeUnsized};
+use crate::{seal::Seal, Place, Portable, SerializeUnsized};
 
 /// An archived [`String`].
 ///
@@ -30,10 +29,10 @@ use crate::{traits::Freeze, Place, Portable, SerializeUnsized};
     derive(bytecheck::CheckBytes),
     check_bytes(verify)
 )]
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 pub struct ArchivedString {
-    repr: repr::ArchivedStringRepr,
+    repr: ArchivedStringRepr,
 }
 
 impl ArchivedString {
@@ -43,11 +42,12 @@ impl ArchivedString {
         self.repr.as_str()
     }
 
-    /// Extracts a pinned mutable string slice containing the entire
+    /// Extracts a sealed mutable string slice containing the entire
     /// `ArchivedString`.
     #[inline]
-    pub fn as_pin_str(self: Pin<&mut Self>) -> Pin<&mut str> {
-        unsafe { self.map_unchecked_mut(|s| s.repr.as_mut_str()) }
+    pub fn as_str_seal(this: Seal<'_, Self>) -> Seal<'_, str> {
+        munge!(let Self { repr } = this);
+        ArchivedStringRepr::as_str_seal(repr)
     }
 
     /// Resolves an archived string from a given `str`.

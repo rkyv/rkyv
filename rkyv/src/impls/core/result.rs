@@ -4,7 +4,7 @@ use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    place::Initialized, result::ArchivedResult, Archive, Deserialize, Place,
+    result::ArchivedResult, traits::NoUndef, Archive, Deserialize, Place,
     Serialize,
 };
 
@@ -15,8 +15,9 @@ enum ArchivedResultTag {
     Err,
 }
 
-// SAFETY: `ArchivedResultTag` is `repr(u8)` and so is always initialized.
-unsafe impl Initialized for ArchivedResultTag {}
+// SAFETY: `ArchivedResultTag` is `repr(u8)` and so always consists of a single
+// well-defined byte.
+unsafe impl NoUndef for ArchivedResultTag {}
 
 #[repr(C)]
 struct ArchivedResultVariantOk<T>(ArchivedResultTag, T);

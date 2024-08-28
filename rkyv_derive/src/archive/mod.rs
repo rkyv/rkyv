@@ -97,7 +97,6 @@ fn derive_archive_impl(
 
     if attributes.as_type.is_none() {
         result.extend(impl_auto_trait(input, &printing, "Portable")?);
-        result.extend(impl_auto_trait(input, &printing, "Freeze")?);
     }
 
     Ok(result)

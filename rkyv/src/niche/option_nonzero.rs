@@ -6,17 +6,16 @@ use core::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
         NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8,
     },
-    pin::Pin,
 };
 
 use munge::munge;
 
-use crate::{traits::Freeze, Archived, Place, Portable};
+use crate::{seal::Seal, Archived, Place, Portable};
 
 macro_rules! impl_archived_option_nonzero {
     ($ar:ident, $nz:ty, $ne:ty) => {
         #[doc = concat!("A niched archived `Option<", stringify!($nz), ">`")]
-        #[derive(Freeze, Portable)]
+        #[derive(Portable)]
         #[rkyv(crate)]
         #[repr(transparent)]
         #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -81,21 +80,18 @@ macro_rules! impl_archived_option_nonzero {
 
             #[rustfmt::skip]
             #[doc = concat!(
-                "Converts from `Pin<&mut ArchivedOption",
+                "Converts from `Seal<'_, ArchivedOption",
                 stringify!($nz),
-                ">` to `Option<Pin<&mut Archived<",
+                ">` to `Option<Seal<'_, Archived<",
                 stringify!($nz),
                 ">>>`.",
             )]
             #[inline]
-            pub fn as_pin(
-                self: Pin<&mut Self>,
-            ) -> Option<Pin<&mut Archived<$nz>>> {
-                unsafe {
-                    Pin::get_unchecked_mut(self)
-                        .as_mut()
-                        .map(|x| Pin::new_unchecked(x))
-                }
+            pub fn as_seal(
+                this: Seal<'_, Self>,
+            ) -> Option<Seal<'_, Archived<$nz>>> {
+                let this = unsafe { Seal::unseal_unchecked(this) };
+                this.as_mut().map(Seal::new)
             }
 
             /// Takes the value out of the option, leaving a `None` in its
@@ -116,23 +112,23 @@ macro_rules! impl_archived_option_nonzero {
 
             /// Returns an iterator over the possibly-contained value.
             #[inline]
-            pub fn iter(&self) -> Iter<'_, Archived<$nz>> {
+            pub fn iter(&self) -> Iter<&'_ Archived<$nz>> {
                 Iter::new(self.as_ref())
             }
 
             /// Returns an iterator over the mutable possibly-contained value.
             #[inline]
-            pub fn iter_mut(&mut self) -> IterMut<'_, Archived<$nz>> {
-                IterMut::new(self.as_mut())
+            pub fn iter_mut(&mut self) -> Iter<&'_ mut Archived<$nz>> {
+                Iter::new(self.as_mut())
             }
 
-            /// Returns an iterator over the pinned mutable possibly-contained
+            /// Returns an iterator over the sealed mutable possibly-contained
             /// value.
             #[inline]
-            pub fn iter_pin(
-                self: Pin<&mut Self>,
-            ) -> IterPin<'_, Archived<$nz>> {
-                IterPin::new(self.as_pin())
+            pub fn iter_seal(
+                this: Seal<'_, Self>,
+            ) -> Iter<Seal<'_, Archived<$nz>>> {
+                Iter::new(Self::as_seal(this))
             }
 
             /// Inserts `v` into the option if it is `None`, then returns a
@@ -244,18 +240,4 @@ pub type ArchivedOptionNonZeroUsize = match_pointer_width!(
 ///
 /// This iterator yields one value if the `ArchivedOptionNonZero` integer is a
 /// `Some`, otherwise none.
-pub type Iter<'a, T> = crate::option::Iter<'a, T>;
-
-/// An iterator over a mutable reference to the `Some` variant of an
-/// `ArchivedOptionNonZero` integer.
-///
-/// This iterator yields one value if the `ArchivedOptionNonZero` integer is a
-/// `Some`, otherwise none.
-pub type IterMut<'a, T> = crate::option::IterMut<'a, T>;
-
-/// An iterator over a pinned mutable reference to the `Some` variant of an
-/// `ArchivedOptionNonZero` integer.
-///
-/// This iterator yields one value if the `ArchivedOptionNonZero` integer is a
-/// `Some`, otherwise none.
-pub type IterPin<'a, T> = crate::option::IterPin<'a, T>;
+pub type Iter<P> = crate::option::Iter<P>;

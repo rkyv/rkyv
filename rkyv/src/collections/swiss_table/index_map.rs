@@ -7,7 +7,6 @@ use core::{
     hash::{Hash, Hasher},
     iter::FusedIterator,
     marker::PhantomData,
-    pin::Pin,
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 
@@ -21,13 +20,13 @@ use crate::{
     },
     hash::{hash_value, FxHasher64},
     primitive::ArchivedUsize,
+    seal::Seal,
     ser::{Allocator, Writer, WriterExt as _},
-    traits::Freeze,
     Place, Portable, RelPtr, Serialize,
 };
 
 /// An archived `IndexMap`.
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
@@ -46,12 +45,12 @@ impl<K, V, H> ArchivedIndexMap<K, V, H> {
         unsafe { from_raw_parts(self.entries.as_ptr(), self.len()) }
     }
 
-    fn entries_pin(self: Pin<&mut Self>) -> Pin<&mut [Entry<K, V>]> {
-        let len = self.len();
-        let entries = unsafe { self.map_unchecked_mut(|s| &mut s.entries) };
-        unsafe {
-            Pin::new_unchecked(from_raw_parts_mut(entries.as_mut_ptr(), len))
-        }
+    fn entries_seal(this: Seal<'_, Self>) -> Seal<'_, [Entry<K, V>]> {
+        let len = this.len();
+        munge!(let Self { entries, .. } = this);
+        let slice =
+            unsafe { from_raw_parts_mut(RelPtr::as_mut_ptr(entries), len) };
+        Seal::new(slice)
     }
 
     /// Returns `true` if the map contains no elements.
@@ -159,87 +158,86 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
 
     /// Gets the mutable index, key, and value corresponding to the supplied key
     /// using the given comparison function.
-    pub fn get_full_pin_with<Q, C>(
-        self: Pin<&mut Self>,
+    pub fn get_full_seal_with<'a, Q, C>(
+        this: Seal<'a, Self>,
         key: &Q,
         cmp: C,
-    ) -> Option<(usize, &K, Pin<&mut V>)>
+    ) -> Option<(usize, &'a K, Seal<'a, V>)>
     where
         Q: Hash + Eq + ?Sized,
         C: Fn(&Q, &K) -> bool,
     {
-        let index = self.get_index_of_with(key, cmp)?;
-        let entries = unsafe { Pin::into_inner_unchecked(self.entries_pin()) };
-        let entry = &mut entries[index];
-        let value = unsafe { Pin::new_unchecked(&mut entry.value) };
-        Some((index, &entry.key, value))
+        let index = this.get_index_of_with(key, cmp)?;
+        let entry = Seal::index(Self::entries_seal(this), index);
+        munge!(let Entry { key, value } = entry);
+        Some((index, key.unseal_ref(), value))
     }
 
     /// Gets the mutable index, key, and value corresponding to the supplied
     /// key.
-    pub fn get_full_pin<Q>(
-        self: Pin<&mut Self>,
+    pub fn get_full_seal<'a, Q>(
+        this: Seal<'a, Self>,
         key: &Q,
-    ) -> Option<(usize, &K, Pin<&mut V>)>
+    ) -> Option<(usize, &'a K, Seal<'a, V>)>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        self.get_full_pin_with(key, |q, k| q == k.borrow())
+        Self::get_full_seal_with(this, key, |q, k| q == k.borrow())
     }
 
     /// Returns the mutable key-value pair corresponding to the supplied key
     /// using the given comparison function.
-    pub fn get_key_value_pin_with<Q, C>(
-        self: Pin<&mut Self>,
+    pub fn get_key_value_seal_with<'a, Q, C>(
+        this: Seal<'a, Self>,
         key: &Q,
         cmp: C,
-    ) -> Option<(&K, Pin<&mut V>)>
+    ) -> Option<(&'a K, Seal<'a, V>)>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
         C: Fn(&Q, &K) -> bool,
     {
-        let (_, k, v) = self.get_full_pin_with(key, cmp)?;
+        let (_, k, v) = Self::get_full_seal_with(this, key, cmp)?;
         Some((k, v))
     }
 
     /// Returns the mutable key-value pair corresponding to the supplied key.
-    pub fn get_key_value_pin<Q>(
-        self: Pin<&mut Self>,
+    pub fn get_key_value_seal<'a, Q>(
+        this: Seal<'a, Self>,
         key: &Q,
-    ) -> Option<(&K, Pin<&mut V>)>
+    ) -> Option<(&'a K, Seal<'a, V>)>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        let (_, k, v) = self.get_full_pin(key)?;
+        let (_, k, v) = Self::get_full_seal(this, key)?;
         Some((k, v))
     }
 
     /// Returns a mutable reference to the value corresponding to the supplied
     /// key using the given comparison function.
-    pub fn get_pin_with<Q, C>(
-        self: Pin<&mut Self>,
+    pub fn get_seal_with<'a, Q, C>(
+        this: Seal<'a, Self>,
         key: &Q,
         cmp: C,
-    ) -> Option<Pin<&mut V>>
+    ) -> Option<Seal<'a, V>>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
         C: Fn(&Q, &K) -> bool,
     {
-        Some(self.get_full_pin_with(key, cmp)?.2)
+        Some(Self::get_full_seal_with(this, key, cmp)?.2)
     }
 
     /// Returns a mutable reference to the value corresponding to the supplied
     /// key.
-    pub fn get_pin<Q>(self: Pin<&mut Self>, key: &Q) -> Option<Pin<&mut V>>
+    pub fn get_seal<'a, Q>(this: Seal<'a, Self>, key: &Q) -> Option<Seal<'a, V>>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        Some(self.get_full_pin(key)?.2)
+        Some(Self::get_full_seal(this, key)?.2)
     }
 
     /// Returns whether a key is present in the hash map.

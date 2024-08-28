@@ -4,7 +4,7 @@ use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    option::ArchivedOption, place::Initialized, Archive, Deserialize, Place,
+    option::ArchivedOption, traits::NoUndef, Archive, Deserialize, Place,
     Serialize,
 };
 
@@ -15,8 +15,9 @@ enum ArchivedOptionTag {
     Some,
 }
 
-// SAFETY: `ArchivedOptionTag` is `repr(u8)` and so is always initialized.
-unsafe impl Initialized for ArchivedOptionTag {}
+// SAFETY: `ArchivedOptionTag` is `repr(u8)` and so always consists of a single
+// well-defined byte.
+unsafe impl NoUndef for ArchivedOptionTag {}
 
 #[repr(C)]
 struct ArchivedOptionVariantNone(ArchivedOptionTag);

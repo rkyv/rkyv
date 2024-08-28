@@ -1,4 +1,4 @@
-use core::{marker::PhantomData, pin::Pin, ptr::addr_of_mut};
+use core::{marker::PhantomData, ptr::addr_of_mut};
 
 use crate::{
     alloc::vec::Vec,
@@ -6,6 +6,7 @@ use crate::{
         entries_to_height, ArchivedBTreeMap, InnerNode, LeafNode, Node,
         NodeKind,
     },
+    seal::Seal,
     RelPtr,
 };
 
@@ -20,9 +21,9 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
     }
 
     /// Gets a mutable iterator over the entires of the map, sorted by key.
-    pub fn iter_pin(self: Pin<&mut Self>) -> IterPin<'_, K, V, E> {
-        let this = unsafe { Pin::into_inner_unchecked(self) as *mut Self };
-        IterPin {
+    pub fn iter_seal(this: Seal<'_, Self>) -> IterSeal<'_, K, V, E> {
+        let this = unsafe { Seal::unseal_unchecked(this) as *mut Self };
+        IterSeal {
             inner: unsafe { RawIter::new(this) },
             _phantom: PhantomData,
         }
@@ -47,9 +48,9 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
     }
 
     /// Gets a mutable iterator over the values of the map.
-    pub fn values_pin(self: Pin<&mut Self>) -> ValuesPin<'_, K, V, E> {
-        let this = unsafe { Pin::into_inner_unchecked(self) as *mut Self };
-        ValuesPin {
+    pub fn values_seal(this: Seal<'_, Self>) -> ValuesSeal<'_, K, V, E> {
+        let this = unsafe { Seal::unseal_unchecked(this) as *mut Self };
+        ValuesSeal {
             inner: unsafe { RawIter::new(this) },
             _phantom: PhantomData,
         }
@@ -79,18 +80,18 @@ impl<'a, K, V, const E: usize> Iterator for Iter<'a, K, V, E> {
 ///
 /// This struct is created by the [`iter_pin`](ArchivedBTreeMap::iter_pin)
 /// method on [`ArchivedBTreeMap`]. See its documentation for more.
-pub struct IterPin<'a, K, V, const E: usize> {
+pub struct IterSeal<'a, K, V, const E: usize> {
     inner: RawIter<K, V, E>,
-    _phantom: PhantomData<Pin<&'a mut ArchivedBTreeMap<K, V, E>>>,
+    _phantom: PhantomData<Seal<'a, ArchivedBTreeMap<K, V, E>>>,
 }
 
-impl<'a, K, V, const E: usize> Iterator for IterPin<'a, K, V, E> {
-    type Item = (&'a K, Pin<&'a mut V>);
+impl<'a, K, V, const E: usize> Iterator for IterSeal<'a, K, V, E> {
+    type Item = (&'a K, Seal<'a, V>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner.next().map(|(k, v)| {
-            (unsafe { &*k }, unsafe { Pin::new_unchecked(&mut *v) })
-        })
+        self.inner
+            .next()
+            .map(|(k, v)| (unsafe { &*k }, Seal::new(unsafe { &mut *v })))
     }
 }
 
@@ -132,18 +133,18 @@ impl<'a, K, V, const E: usize> Iterator for Values<'a, K, V, E> {
 ///
 /// This struct is created by the [`values_pin`](ArchivedBTreeMap::keys) method
 /// on [`ArchivedBTreeMap`]. See its documentation for more.
-pub struct ValuesPin<'a, K, V, const E: usize> {
+pub struct ValuesSeal<'a, K, V, const E: usize> {
     inner: RawIter<K, V, E>,
-    _phantom: PhantomData<Pin<&'a mut ArchivedBTreeMap<K, V, E>>>,
+    _phantom: PhantomData<Seal<'a, ArchivedBTreeMap<K, V, E>>>,
 }
 
-impl<'a, K, V, const E: usize> Iterator for ValuesPin<'a, K, V, E> {
-    type Item = Pin<&'a mut V>;
+impl<'a, K, V, const E: usize> Iterator for ValuesSeal<'a, K, V, E> {
+    type Item = Seal<'a, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner
             .next()
-            .map(|(_, v)| unsafe { Pin::new_unchecked(&mut *v) })
+            .map(|(_, v)| Seal::new(unsafe { &mut *v }))
     }
 }
 

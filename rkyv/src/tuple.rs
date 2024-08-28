@@ -1,11 +1,11 @@
 //! Archived versions of tuple types.
 
-use crate::{traits::Freeze, Portable};
+use crate::Portable;
 
 macro_rules! impl_tuple {
     ($name:ident, $n:tt, $($type:ident $index:tt),*) => {
         #[doc = concat!("An archived tuple with ", stringify!($n), " elements")]
-        #[derive(Debug, Freeze, Portable)]
+        #[derive(Debug, Portable)]
         #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
         #[rkyv(crate)]
         #[repr(C)]

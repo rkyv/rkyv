@@ -17,7 +17,6 @@ use crate::{
     ser::{
         allocator::ArenaHandle, sharing::Share, Allocator, Serializer, Writer,
     },
-    traits::Freeze,
     util::{with_arena, AlignedVec},
     Archive, Deserialize, Serialize,
 };
@@ -145,7 +144,7 @@ where
 pub unsafe fn from_bytes_unchecked<T, E>(bytes: &[u8]) -> Result<T, E>
 where
     T: Archive,
-    T::Archived: Freeze + Deserialize<T, HighDeserializer<E>>,
+    T::Archived: Deserialize<T, HighDeserializer<E>>,
 {
     // SAFETY: The caller has guaranteed that a valid `T` is located at the root
     // position in the byte slice.

@@ -3,7 +3,6 @@
 use core::{
     fmt,
     marker::{PhantomData, PhantomPinned},
-    pin::Pin,
     ptr::addr_of_mut,
 };
 
@@ -11,12 +10,12 @@ use munge::munge;
 use rancor::{fail, Panic, ResultExt as _, Source};
 
 use crate::{
-    place::Initialized,
     primitive::{
         ArchivedI16, ArchivedI32, ArchivedI64, ArchivedU16, ArchivedU32,
         ArchivedU64,
     },
-    traits::{ArchivePointee, Freeze},
+    seal::Seal,
+    traits::{ArchivePointee, NoUndef},
     Place, Portable,
 };
 
@@ -33,7 +32,7 @@ impl fmt::Display for IsizeOverflow {
 impl std::error::Error for IsizeOverflow {}
 
 /// A offset that can be used with [`RawRelPtr`].
-pub trait Offset: Copy + Initialized {
+pub trait Offset: Copy + NoUndef {
     /// Creates a new offset between a `from` position and a `to` position.
     fn from_isize<E: Source>(value: isize) -> Result<Self, E>;
 
@@ -112,7 +111,7 @@ impl_offset_multi_byte!(u64, ArchivedU64);
 /// the **pointer** or the **pointee** move independently, the pointer will be
 /// invalidated.
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[repr(transparent)]
 pub struct RawRelPtr<O> {
@@ -259,9 +258,10 @@ impl<O: Offset> RawRelPtr<O> {
     }
 
     /// Gets the mutable base pointer for the relative pointer.
-    pub fn base_mut(self: Pin<&mut Self>) -> *mut u8 {
-        // SAFETY: The value pointed to by `self` is not moved.
-        let this = unsafe { Pin::into_inner_unchecked(self) };
+    pub fn base_mut(this: Seal<'_, Self>) -> *mut u8 {
+        // SAFETY: The value pointed to by `this` is not moved and no bytes are
+        // written through it.
+        let this = unsafe { Seal::unseal_unchecked(this) };
         Self::base_raw(this as *mut Self)
     }
 
@@ -305,9 +305,10 @@ impl<O: Offset> RawRelPtr<O> {
     ///
     /// The offset of this relative pointer, when added to its base, must be
     /// located in the same allocated object as it.
-    pub unsafe fn as_mut_ptr(self: Pin<&mut Self>) -> *mut () {
-        // SAFETY: The value pointed to by `self` is not moved.
-        let this = unsafe { Pin::into_inner_unchecked(self) };
+    pub unsafe fn as_mut_ptr(this: Seal<'_, Self>) -> *mut () {
+        // SAFETY: The value pointed to by `this` is not moved and no bytes are
+        // written through it.
+        let this = unsafe { Seal::unseal_unchecked(this) };
         // SAFETY:
         // - `this` is a reference, so it's guaranteed to be non-null,
         //   properly-aligned, and point to a valid `RawRelPtr`.
@@ -332,9 +333,10 @@ impl<O: Offset> RawRelPtr<O> {
     /// pointer using wrapping methods.
     ///
     /// This method is a safer but potentially slower version of `as_mut_ptr`.
-    pub fn as_mut_ptr_wrapping(self: Pin<&mut Self>) -> *mut () {
-        // SAFETY: The value pointed to by `self` is not moved.
-        let this = unsafe { Pin::into_inner_unchecked(self) };
+    pub fn as_mut_ptr_wrapping(this: Seal<'_, Self>) -> *mut () {
+        // SAFETY: The value pointed to by `this` is not moved and no bytes are
+        // written through it.
+        let this = unsafe { Seal::unseal_unchecked(this) };
         // SAFETY: `this` is a reference, so it's guaranteed to be non-null,
         // properly-aligned, and point to a valid `RawRelPtr`.
         unsafe { Self::as_ptr_wrapping_raw(this as *mut Self) }
@@ -378,7 +380,7 @@ pub type RawRelPtrU64 = RawRelPtr<ArchivedU64>;
 /// This is a strongly-typed version of [`RawRelPtr`].
 ///
 /// See [`Archive`](crate::Archive) for an example of creating one.
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[rkyv(crate)]
 #[repr(C)]
@@ -549,9 +551,9 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     }
 
     /// Gets the mutable base pointer for this relative pointer.
-    pub fn base_mut(self: Pin<&mut Self>) -> *mut u8 {
-        let raw_ptr = unsafe { self.map_unchecked_mut(|s| &mut s.raw_ptr) };
-        raw_ptr.base_mut()
+    pub fn base_mut(this: Seal<'_, Self>) -> *mut u8 {
+        munge!(let Self { raw_ptr, .. } = this);
+        RawRelPtr::base_mut(raw_ptr)
     }
 
     /// Gets the offset of the relative pointer from its base.
@@ -591,15 +593,13 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     ///
     /// The offset of this relative pointer, when added to its base, must be
     /// located in the same allocated object as it.
-    pub unsafe fn as_mut_ptr(self: Pin<&mut Self>) -> *mut T {
-        let metadata = T::pointer_metadata(&self.metadata);
-        // SAFETY: `s.raw_ptr` will not move as long as `s` does not move
-        // because it is one of its fields.
-        let raw_ptr = unsafe { self.map_unchecked_mut(|s| &mut s.raw_ptr) };
+    pub unsafe fn as_mut_ptr(this: Seal<'_, Self>) -> *mut T {
+        munge!(let Self { raw_ptr, metadata, _phantom: _ } = this);
+        let metadata = T::pointer_metadata(&*metadata);
         ptr_meta::from_raw_parts_mut(
             // SAFETY: The safety requirements for `RawRelPtr::as_mut_ptr` are
             // the same as those for `RelPtr::as_mut_ptr``.
-            unsafe { raw_ptr.as_mut_ptr() },
+            unsafe { RawRelPtr::as_mut_ptr(raw_ptr) },
             metadata,
         )
     }
@@ -619,10 +619,13 @@ impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// pointer using wrapping methods.
     ///
     /// This method is a safer but potentially slower version of `as_ptr`.
-    pub fn as_mut_ptr_wrapping(self: Pin<&mut Self>) -> *const T {
-        let metadata = T::pointer_metadata(&self.metadata);
-        let raw_ptr = unsafe { self.map_unchecked_mut(|s| &mut s.raw_ptr) };
-        ptr_meta::from_raw_parts(raw_ptr.as_mut_ptr_wrapping(), metadata)
+    pub fn as_mut_ptr_wrapping(this: Seal<'_, Self>) -> *mut T {
+        munge!(let Self { raw_ptr, metadata, _phantom: _ } = this);
+        let metadata = T::pointer_metadata(&*metadata);
+        ptr_meta::from_raw_parts_mut(
+            RawRelPtr::as_mut_ptr_wrapping(raw_ptr),
+            metadata,
+        )
     }
 }
 

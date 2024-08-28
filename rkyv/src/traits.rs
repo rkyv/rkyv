@@ -6,12 +6,9 @@ use core::{
     marker::PhantomData,
 };
 
-pub use ::rkyv_derive::{Archive, Deserialize, Freeze, Portable, Serialize};
+pub use ::rkyv_derive::{Archive, Deserialize, Portable, Serialize};
 
-use crate::{
-    place::Initialized, ptr_meta::Pointee, rancor::Fallible, ArchivedMetadata,
-    Place,
-};
+use crate::{ptr_meta::Pointee, rancor::Fallible, ArchivedMetadata, Place};
 
 /// A type with a stable, well-defined layout that is the same on all targets.
 ///
@@ -21,15 +18,23 @@ use crate::{
 /// same on all targets. Structs and unions must be `#[repr(transparent)]` or
 /// `#[repr(C)]`. Enums must be `#[repr(C)]`, `#[repr(int)]`, or `#[repr(C,
 /// int)]`.
-pub unsafe trait Portable {}
-
-/// A type with no interior mutability.
-///
-/// # Safety
 ///
 /// The implementing type must not have interior mutability (i.e. no
 /// `UnsafeCell`s).
-pub unsafe trait Freeze {}
+pub unsafe trait Portable {}
+
+/// A type with no undefined bytes.
+///
+/// # Safety
+///
+/// The bytes of types implementing `NoUndef` must always be well-defined. Among
+/// other things, this means that `NoUndef` types may not contain padding or
+/// uninitialized `MaybeUninit`s.
+pub unsafe trait NoUndef {}
+
+// SAFETY: An array of values which are all fully-initialized is also
+// fully-initalized.
+unsafe impl<T: NoUndef, const N: usize> NoUndef for [T; N] {}
 
 /// Returns the layout of a type from its metadata.
 pub trait LayoutRaw
@@ -128,14 +133,14 @@ impl<T: ?Sized> CopyOptimization<T> {
 ///     ser::Writer,
 ///     to_bytes,
 ///     Archive, ArchiveUnsized, Archived, Portable, RelPtr, Serialize,
-///     SerializeUnsized, munge::munge, Place, traits::Freeze,
+///     SerializeUnsized, munge::munge, Place,
 /// };
 ///
 /// struct OwnedStr {
 ///     inner: &'static str,
 /// }
 ///
-/// #[derive(Freeze, Portable)]
+/// #[derive(Portable)]
 /// #[repr(transparent)]
 /// struct ArchivedOwnedStr {
 ///     // This will be a relative pointer to our string
@@ -306,13 +311,13 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     rancor::{Error, Fallible},
 ///     ser::{Positional, Writer, WriterExt as _},
 ///     to_bytes,
-///     traits::{ArchivePointee, Freeze},
+///     traits::ArchivePointee,
 ///     Archive, ArchiveUnsized, Archived, ArchivedMetadata, Portable, RelPtr,
 ///     Serialize, SerializeUnsized,
 /// };
 ///
 /// // We're going to be dealing mostly with blocks that have a trailing slice
-/// #[derive(Freeze, Portable)]
+/// #[derive(Portable)]
 /// #[repr(C)]
 /// pub struct Block<H, T: ?Sized> {
 ///     head: H,
@@ -444,7 +449,7 @@ pub trait ArchivePointee: Pointee {
         + Hash
         + Unpin
         + Portable
-        + Initialized;
+        + NoUndef;
 
     /// Converts some archived metadata to the pointer metadata for itself.
     fn pointer_metadata(

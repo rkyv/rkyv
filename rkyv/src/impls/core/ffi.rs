@@ -10,7 +10,7 @@ use rancor::Fallible;
 use crate::{
     primitive::ArchivedUsize,
     ser::Writer,
-    traits::{ArchivePointee, Freeze, LayoutRaw},
+    traits::{ArchivePointee, LayoutRaw},
     ArchiveUnsized, ArchivedMetadata, DeserializeUnsized, Portable,
     SerializeUnsized,
 };
@@ -29,9 +29,6 @@ impl LayoutRaw for CStr {
 // SAFETY: `CStr` is a byte slice and so has a stable, well-defined layout that
 // is the same on all targets
 unsafe impl Portable for CStr {}
-
-// SAFETY: `CStr` is a byte slice and so never has interior mutability
-unsafe impl Freeze for CStr {}
 
 impl ArchiveUnsized for CStr {
     type Archived = CStr;

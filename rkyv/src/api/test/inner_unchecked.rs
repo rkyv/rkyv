@@ -1,16 +1,17 @@
 #![allow(dead_code)]
 
-use core::{fmt::Debug, pin::Pin};
+use core::fmt::Debug;
 
 use crate::{
     access_unchecked_mut,
     api::test::{deserialize, to_bytes, TestDeserializer, TestSerializer},
+    seal::Seal,
     Deserialize, Serialize,
 };
 
 /// Serializes the given type to bytes, accesses the archived version, and calls
 /// the given function with it.
-pub fn to_archived<T>(value: &T, f: impl FnOnce(Pin<&mut T::Archived>))
+pub fn to_archived<T>(value: &T, f: impl FnOnce(Seal<'_, T::Archived>))
 where
     T: for<'a> Serialize<TestSerializer<'a>>,
 {

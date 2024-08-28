@@ -13,13 +13,12 @@ use crate::{
     collections::swiss_table::map::{ArchivedHashMap, HashMapResolver, Keys},
     hash::FxHasher64,
     ser::{Allocator, Writer},
-    traits::Freeze,
     Place, Portable, Serialize,
 };
 
 /// An archived `HashSet`. This is a wrapper around a hash map with the same key
 /// and unit value.
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]

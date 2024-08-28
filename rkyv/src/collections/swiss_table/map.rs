@@ -7,7 +7,6 @@ use core::{
     iter::FusedIterator,
     marker::PhantomData,
     ops::Index,
-    pin::Pin,
 };
 
 use munge::munge;
@@ -19,13 +18,13 @@ use crate::{
         util::{Entry, EntryAdapter},
     },
     hash::{hash_value, FxHasher64},
+    seal::Seal,
     ser::{Allocator, Writer},
-    traits::Freeze,
     Place, Portable, Serialize,
 };
 
 /// An archived SwissTable hash map.
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[repr(transparent)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -58,11 +57,11 @@ impl<K, V, H> ArchivedHashMap<K, V, H> {
         }
     }
 
-    /// Returns an iterator over the mutable key-value entries in the hash map.
-    pub fn iter_pin(self: Pin<&mut Self>) -> IterMut<'_, K, V, H> {
-        let table = unsafe { self.map_unchecked_mut(|s| &mut s.table) };
+    /// Returns an iterator over the sealed key-value entries in the hash map.
+    pub fn iter_seal(this: Seal<'_, Self>) -> IterMut<'_, K, V, H> {
+        munge!(let Self { table, .. } = this);
         IterMut {
-            raw: table.raw_iter_pin(),
+            raw: ArchivedHashTable::raw_iter_seal(table),
             _phantom: PhantomData,
         }
     }
@@ -84,10 +83,10 @@ impl<K, V, H> ArchivedHashMap<K, V, H> {
     }
 
     /// Returns an iterator over the mutable values in the hash map.
-    pub fn values_pin(self: Pin<&mut Self>) -> ValuesMut<'_, K, V, H> {
-        let table = unsafe { self.map_unchecked_mut(|s| &mut s.table) };
+    pub fn values_seal(this: Seal<'_, Self>) -> ValuesMut<'_, K, V, H> {
+        munge!(let Self { table, .. } = this);
         ValuesMut {
-            raw: table.raw_iter_pin(),
+            raw: ArchivedHashTable::raw_iter_seal(table),
             _phantom: PhantomData,
         }
     }
@@ -137,60 +136,61 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
 
     /// Returns the mutable key-value pair corresponding to the supplied key
     /// using the given comparison function.
-    pub fn get_key_value_pin_with<Q, C>(
-        self: Pin<&mut Self>,
+    pub fn get_key_value_seal_with<'a, Q, C>(
+        this: Seal<'a, Self>,
         key: &Q,
         cmp: C,
-    ) -> Option<(&K, Pin<&mut V>)>
+    ) -> Option<(&'a K, Seal<'a, V>)>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
         C: Fn(&Q, &K) -> bool,
     {
-        let table = unsafe { Pin::map_unchecked_mut(self, |s| &mut s.table) };
-        let entry = table
-            .get_pin_with(hash_value::<Q, H>(key), |e| cmp(key, &e.key))?;
-        let entry = unsafe { Pin::into_inner_unchecked(entry) };
-        let key = &entry.key;
-        let value = unsafe { Pin::new_unchecked(&mut entry.value) };
-        Some((key, value))
+        munge!(let Self { table, .. } = this);
+        let entry = ArchivedHashTable::get_seal_with(
+            table,
+            hash_value::<Q, H>(key),
+            |e| cmp(key, &e.key),
+        )?;
+        munge!(let Entry { key, value } = entry);
+        Some((key.unseal_ref(), value))
     }
 
     /// Returns the mutable key-value pair corresponding to the supplied key.
-    pub fn get_key_value_pin<Q>(
-        self: Pin<&mut Self>,
+    pub fn get_key_value_seal<'a, Q>(
+        this: Seal<'a, Self>,
         key: &Q,
-    ) -> Option<(&K, Pin<&mut V>)>
+    ) -> Option<(&'a K, Seal<'a, V>)>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        self.get_key_value_pin_with(key, |q, k| q == k.borrow())
+        Self::get_key_value_seal_with(this, key, |q, k| q == k.borrow())
     }
 
     /// Returns a mutable reference to the value corresponding to the supplied
     /// key using the given comparison function.
-    pub fn get_pin_with<Q, C>(
-        self: Pin<&mut Self>,
+    pub fn get_seal_with<'a, Q, C>(
+        this: Seal<'a, Self>,
         key: &Q,
         cmp: C,
-    ) -> Option<Pin<&mut V>>
+    ) -> Option<Seal<'a, V>>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
         C: Fn(&Q, &K) -> bool,
     {
-        Some(self.get_key_value_pin_with(key, cmp)?.1)
+        Some(Self::get_key_value_seal_with(this, key, cmp)?.1)
     }
 
     /// Returns a mutable reference to the value corresponding to the supplied
     /// key.
-    pub fn get_pin<Q>(self: Pin<&mut Self>, key: &Q) -> Option<Pin<&mut V>>
+    pub fn get_seal<'a, Q>(this: Seal<'a, Self>, key: &Q) -> Option<Seal<'a, V>>
     where
         K: Borrow<Q>,
         Q: Hash + Eq + ?Sized,
     {
-        Some(self.get_key_value_pin(key)?.1)
+        Some(Self::get_key_value_seal(this, key)?.1)
     }
 
     /// Returns whether the hash map contains the given key.
@@ -327,13 +327,12 @@ pub struct IterMut<'a, K, V, H> {
 }
 
 impl<'a, K, V, H> Iterator for IterMut<'a, K, V, H> {
-    type Item = (&'a K, Pin<&'a mut V>);
+    type Item = (&'a K, Seal<'a, V>);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.raw.next().map(|mut entry| {
             let entry = unsafe { entry.as_mut() };
-            let value = unsafe { Pin::new_unchecked(&mut entry.value) };
-            (&entry.key, value)
+            (&entry.key, Seal::new(&mut entry.value))
         })
     }
 }
@@ -403,12 +402,12 @@ pub struct ValuesMut<'a, K, V, H> {
 }
 
 impl<'a, K, V, H> Iterator for ValuesMut<'a, K, V, H> {
-    type Item = Pin<&'a mut V>;
+    type Item = Seal<'a, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.raw.next().map(|mut entry| {
             let entry = unsafe { entry.as_mut() };
-            unsafe { Pin::new_unchecked(&mut entry.value) }
+            Seal::new(&mut entry.value)
         })
     }
 }

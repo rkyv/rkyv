@@ -2,13 +2,8 @@ use rancor::Fallible;
 use uuid::Uuid;
 
 use crate::{
-    traits::{CopyOptimization, Freeze},
-    Archive, Deserialize, Place, Portable, Serialize,
+    traits::CopyOptimization, Archive, Deserialize, Place, Portable, Serialize,
 };
-
-// SAFETY: `Uuid` has the same ABI has `Bytes`, and so is `Freeze` when `Bytes`
-// is.
-unsafe impl Freeze for Uuid where uuid::Bytes: Freeze {}
 
 // SAFETY: `Uuid` has the same ABI has `Bytes`, and so is `Portable` when
 // `Bytes` is.

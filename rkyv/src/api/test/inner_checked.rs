@@ -1,4 +1,4 @@
-use core::{fmt::Debug, pin::Pin};
+use core::fmt::Debug;
 
 use bytecheck::CheckBytes;
 use rancor::Panic;
@@ -9,12 +9,13 @@ use crate::api::high::{access_mut, HighValidator as TestValidator};
 use crate::api::low::{access_mut, LowValidator as TestValidator};
 use crate::{
     api::test::{deserialize, to_bytes, TestDeserializer, TestSerializer},
+    seal::Seal,
     Deserialize, Serialize,
 };
 
 /// Serializes the given type to bytes, accesses the archived version, and calls
 /// the given function with it.
-pub fn to_archived<T>(value: &T, f: impl FnOnce(Pin<&mut T::Archived>))
+pub fn to_archived<T>(value: &T, f: impl FnOnce(Seal<'_, T::Archived>))
 where
     T: for<'a> Serialize<TestSerializer<'a>>,
     T::Archived: for<'a> CheckBytes<TestValidator<'a, Panic>>,

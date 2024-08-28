@@ -229,6 +229,7 @@ pub mod primitive;
 pub mod rc;
 pub mod rel_ptr;
 pub mod result;
+pub mod seal;
 pub mod ser;
 mod simd;
 pub mod string;

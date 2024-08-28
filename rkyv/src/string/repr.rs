@@ -7,13 +7,13 @@ use rancor::{Panic, ResultExt as _, Source};
 
 use crate::{
     primitive::{ArchivedUsize, FixedIsize},
-    traits::Freeze,
+    seal::Seal,
     Place, Portable,
 };
 
 const OFFSET_BYTES: usize = mem::size_of::<FixedIsize>();
 
-#[derive(Clone, Copy, Freeze, Portable)]
+#[derive(Clone, Copy, Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 struct OutOfLineRepr {
@@ -28,7 +28,7 @@ struct OutOfLineRepr {
 /// The maximum number of bytes that can be inlined.
 pub const INLINE_CAPACITY: usize = mem::size_of::<OutOfLineRepr>() - 1;
 
-#[derive(Clone, Copy, Freeze, Portable)]
+#[derive(Clone, Copy, Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 struct InlineRepr {
@@ -37,7 +37,7 @@ struct InlineRepr {
 }
 
 /// An archived string representation that can inline short strings.
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 pub union ArchivedStringRepr {
@@ -46,6 +46,12 @@ pub union ArchivedStringRepr {
 }
 
 impl ArchivedStringRepr {
+    // TODO: Switch this to the following representation:
+    // First byte:
+    // - 10xxxxxx: out-of-line encoding, top two bits of offset are sign-
+    //   extended to replace the top bits
+    // - else: inline encoding ending at 0xFF byte or end of capacity
+
     /// Returns whether the representation is inline.
     #[inline]
     pub fn is_inline(&self) -> bool {
@@ -82,14 +88,15 @@ impl ArchivedStringRepr {
 
     /// Returns a mutable pointer to the bytes of the string.
     #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut u8 {
-        unsafe {
-            if self.is_inline() {
-                self.inline.bytes.as_mut_ptr()
-            } else {
-                (self as *mut Self)
+    pub fn as_mut_ptr(this: Seal<'_, Self>) -> *mut u8 {
+        let this = unsafe { this.unseal_unchecked() };
+        if this.is_inline() {
+            unsafe { this.inline.bytes.as_mut_ptr() }
+        } else {
+            unsafe {
+                (this as *mut Self)
                     .cast::<u8>()
-                    .offset(self.out_of_line_offset())
+                    .offset(this.out_of_line_offset())
             }
         }
     }
@@ -120,26 +127,31 @@ impl ArchivedStringRepr {
 
     /// Returns a slice of the bytes of the string.
     #[inline]
-    pub fn bytes(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         unsafe { slice::from_raw_parts(self.as_ptr(), self.len()) }
     }
 
     /// Returns a mutable slice of the bytes of the string.
     #[inline]
-    pub fn bytes_mut(&mut self) -> &mut [u8] {
-        unsafe { slice::from_raw_parts_mut(self.as_mut_ptr(), self.len()) }
+    pub fn as_bytes_seal(this: Seal<'_, Self>) -> Seal<'_, [u8]> {
+        let len = this.len();
+        let slice =
+            unsafe { slice::from_raw_parts_mut(Self::as_mut_ptr(this), len) };
+        Seal::new(slice)
     }
 
     /// Returns a reference to the string as a `str`.
     #[inline]
     pub fn as_str(&self) -> &str {
-        unsafe { str::from_utf8_unchecked(self.bytes()) }
+        unsafe { str::from_utf8_unchecked(self.as_bytes()) }
     }
 
     /// Returns a mutable reference to the string as a `str`.
     #[inline]
-    pub fn as_mut_str(&mut self) -> &mut str {
-        unsafe { str::from_utf8_unchecked_mut(self.bytes_mut()) }
+    pub fn as_str_seal(this: Seal<'_, Self>) -> Seal<'_, str> {
+        let bytes =
+            unsafe { Seal::unseal_unchecked(Self::as_bytes_seal(this)) };
+        Seal::new(unsafe { str::from_utf8_unchecked_mut(bytes) })
     }
 
     /// Emplaces a new inline representation for the given `str`.

@@ -23,7 +23,6 @@ use core::{
     fmt,
     marker::PhantomData,
     mem::size_of,
-    pin::Pin,
     ptr::{self, null, NonNull},
     slice,
 };
@@ -34,15 +33,15 @@ use rancor::{fail, Fallible, OptionExt, Panic, ResultExt as _, Source};
 use crate::{
     collections::util::IteratorLengthMismatch,
     primitive::ArchivedUsize,
+    seal::Seal,
     ser::{Allocator, Writer, WriterExt},
     simd::{Bitmask, Group, MAX_GROUP_WIDTH},
-    traits::Freeze,
     util::SerVec,
     Archive as _, Place, Portable, RawRelPtr, Serialize,
 };
 
 /// A low-level archived SwissTable hash table with explicit hashing.
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
@@ -185,16 +184,18 @@ impl<T> ArchivedHashTable<T> {
     }
 
     /// Returns the mutable key-value pair corresponding to the supplied key.
-    pub fn get_pin_with<C>(
-        self: Pin<&mut Self>,
+    pub fn get_seal_with<C>(
+        this: Seal<'_, Self>,
         hash: u64,
         cmp: C,
-    ) -> Option<Pin<&mut T>>
+    ) -> Option<Seal<'_, T>>
     where
         C: Fn(&T) -> bool,
     {
-        let mut ptr = self.get_entry(hash, |e| cmp(e))?;
-        Some(unsafe { Pin::new_unchecked(ptr.as_mut()) })
+        // TODO: test this through MIRI. It looks like this could be asserting
+        // incorrect aliasing via relative pointers.
+        let mut ptr = this.get_entry(hash, |e| cmp(e))?;
+        Some(Seal::new(unsafe { ptr.as_mut() }))
     }
 
     /// Returns whether the hash table is empty.
@@ -238,20 +239,19 @@ impl<T> ArchivedHashTable<T> {
         }
     }
 
-    /// Returns a mutable iterator over the entry pointers in the hash table.
-    pub fn raw_iter_pin(mut self: Pin<&mut Self>) -> RawIter<T> {
-        if self.is_empty() {
+    /// Returns a sealed iterator over the entry pointers in the hash table.
+    pub fn raw_iter_seal(this: Seal<'_, Self>) -> RawIter<T> {
+        if this.is_empty() {
             RawIter::empty()
         } else {
-            // SAFETY: We have checked that `self` is not empty.
-            let controls = unsafe { self.control_iter() };
-            let items_left = self.len();
-            let ptr =
-                unsafe { self.as_mut().map_unchecked_mut(|s| &mut s.ptr) };
+            // SAFETY: We have checked that `this` is not empty.
+            let controls = unsafe { this.control_iter() };
+            let items_left = this.len();
+            munge!(let Self { ptr, .. } = this);
             RawIter {
                 controls,
                 entries: unsafe {
-                    NonNull::new_unchecked(ptr.as_mut_ptr().cast())
+                    NonNull::new_unchecked(RawRelPtr::as_mut_ptr(ptr).cast())
                 },
                 items_left,
             }

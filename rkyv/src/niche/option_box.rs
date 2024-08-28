@@ -2,7 +2,6 @@
 
 use core::{
     cmp, fmt, hash, hint::unreachable_unchecked, mem::ManuallyDrop, ops::Deref,
-    pin::Pin,
 };
 
 use munge::munge;
@@ -10,15 +9,16 @@ use rancor::Fallible;
 
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
+    seal::Seal,
     ser::Writer,
-    traits::{ArchivePointee, Freeze},
+    traits::ArchivePointee,
     ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
 
 /// A niched archived `Option<Box<T>>`.
 ///
 /// It uses less space by storing the `None` variant as a null pointer.
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
@@ -26,7 +26,7 @@ pub struct ArchivedOptionBox<T: ArchivePointee + ?Sized> {
     repr: Repr<T>,
 }
 
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 union Repr<T: ArchivePointee + ?Sized> {
@@ -120,29 +120,26 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
         }
     }
 
-    /// Converts from `Pin<&mut ArchivedOption<T>>` to `Option<Pin<&mut
+    /// Converts from `Seal<'_, ArchivedOption<T>>` to `Option<Seal<'_,
     /// ArchivedBox<T>>>`.
-    pub fn as_pin(self: Pin<&mut Self>) -> Option<Pin<&mut ArchivedBox<T>>> {
-        unsafe {
-            Pin::get_unchecked_mut(self)
-                .as_mut()
-                .map(|x| Pin::new_unchecked(x))
-        }
+    pub fn as_seal(this: Seal<'_, Self>) -> Option<Seal<'_, ArchivedBox<T>>> {
+        let this = unsafe { Seal::unseal_unchecked(this) };
+        this.as_mut().map(Seal::new)
     }
 
     /// Returns an iterator over the possibly-contained value.
-    pub fn iter(&self) -> Iter<'_, ArchivedBox<T>> {
+    pub fn iter(&self) -> Iter<&'_ ArchivedBox<T>> {
         Iter::new(self.as_ref())
     }
 
     /// Returns an iterator over the mutable possibly-contained value.
-    pub fn iter_mut(&mut self) -> IterMut<'_, ArchivedBox<T>> {
-        IterMut::new(self.as_mut())
+    pub fn iter_mut(&mut self) -> Iter<&'_ mut ArchivedBox<T>> {
+        Iter::new(self.as_mut())
     }
 
-    /// Returns an iterator over the pinned mutable possibly-contained value.
-    pub fn iter_pin(self: Pin<&mut Self>) -> IterPin<'_, ArchivedBox<T>> {
-        IterPin::new(self.as_pin())
+    /// Returns an iterator over the sealed possibly-contained value.
+    pub fn iter_seal(this: Seal<'_, Self>) -> Iter<Seal<'_, ArchivedBox<T>>> {
+        Iter::new(Self::as_seal(this))
     }
 
     /// Converts from `&ArchivedOptionBox<T>` to `Option<&T>`.
@@ -251,27 +248,7 @@ impl<T: ArchivePointee + PartialOrd + ?Sized> PartialOrd
 ///
 /// This iterator yields one value if the `ArchivedOptionBox` is a `Some`,
 /// otherwise none.
-///
-/// This `struct` is created by the [`ArchivedOptionBox::iter`] function.
-pub type Iter<'a, T> = crate::option::Iter<'a, T>;
-
-/// An iterator over a mutable reference to the `Some` variant of an
-/// `ArchivedOptionBox`.
-///
-/// This iterator yields one value if the `ArchivedOptionBox` is a `Some`,
-/// otherwise none.
-///
-/// This `struct` is created by the [`ArchivedOptionBox::iter_mut`] function.
-pub type IterMut<'a, T> = crate::option::IterMut<'a, T>;
-
-/// An iterator over a pinned mutable reference to the `Some` variant of an
-/// `ArchivedOptionBox`.
-///
-/// This iterator yields one value if the `ArchivedOptionBox` is a `Some`,
-/// otherwise none.
-///
-/// This `struct` is created by the [`ArchivedOptionBox::iter_pin`] function.
-pub type IterPin<'a, T> = crate::option::IterPin<'a, T>;
+pub type Iter<P> = crate::option::Iter<P>;
 
 /// The resolver for [`ArchivedOptionBox`].
 pub enum OptionBoxResolver {

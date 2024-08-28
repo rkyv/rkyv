@@ -154,8 +154,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use core::pin::Pin;
-
+    use munge::munge;
     use rancor::Panic;
 
     use crate::{
@@ -170,7 +169,8 @@ mod tests {
             test::{roundtrip, to_archived},
         },
         de::Pool,
-        to_bytes, Archive, Archived, Deserialize, Serialize,
+        rc::{ArchivedRc, ArchivedRcWeak},
+        to_bytes, Archive, Deserialize, Serialize,
     };
 
     #[test]
@@ -182,16 +182,6 @@ mod tests {
             b: Rc<u32>,
         }
 
-        impl ArchivedTest {
-            fn a(self: Pin<&mut Self>) -> Pin<&mut Archived<Rc<u32>>> {
-                unsafe { self.map_unchecked_mut(|s| &mut s.a) }
-            }
-
-            fn b(self: Pin<&mut Self>) -> Pin<&mut Archived<Rc<u32>>> {
-                unsafe { self.map_unchecked_mut(|s| &mut s.b) }
-            }
-        }
-
         let shared = Rc::new(10);
         let value = Test {
             a: shared.clone(),
@@ -201,15 +191,17 @@ mod tests {
         to_archived(&value, |mut archived| {
             assert_eq!(*archived, value);
 
+            munge!(let ArchivedTest { a, .. } = archived.as_mut());
             unsafe {
-                *archived.as_mut().a().get_pin_unchecked() = 42u32.into();
+                *ArchivedRc::get_seal_unchecked(a) = 42u32.into();
             }
 
             assert_eq!(*archived.a, 42);
             assert_eq!(*archived.b, 42);
 
+            munge!(let ArchivedTest { b, .. } = archived.as_mut());
             unsafe {
-                *archived.as_mut().b().get_pin_unchecked() = 17u32.into();
+                *ArchivedRc::get_seal_unchecked(b) = 17u32.into();
             }
 
             assert_eq!(*archived.a, 17);
@@ -312,16 +304,6 @@ mod tests {
             b: Weak<u32>,
         }
 
-        impl ArchivedTest {
-            fn a(self: Pin<&mut Self>) -> Pin<&mut Archived<Rc<u32>>> {
-                unsafe { self.map_unchecked_mut(|s| &mut s.a) }
-            }
-
-            fn b(self: Pin<&mut Self>) -> Pin<&mut Archived<Weak<u32>>> {
-                unsafe { self.map_unchecked_mut(|s| &mut s.b) }
-            }
-        }
-
         let shared = Rc::new(10);
         let value = Test {
             a: shared.clone(),
@@ -338,8 +320,10 @@ mod tests {
 
         let mut mutable_archived =
             unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
+
+        munge!(let ArchivedTest { a, .. } = mutable_archived.as_mut());
         unsafe {
-            *mutable_archived.as_mut().a().get_pin_unchecked() = 42u32.into();
+            *ArchivedRc::get_seal_unchecked(a) = 42u32.into();
         }
 
         let archived =
@@ -350,13 +334,11 @@ mod tests {
 
         let mut mutable_archived =
             unsafe { access_unchecked_mut::<ArchivedTest>(buf.as_mut()) };
+        munge!(let ArchivedTest { b, .. } = mutable_archived.as_mut());
         unsafe {
-            *mutable_archived
-                .as_mut()
-                .b()
-                .upgrade_pin()
-                .unwrap()
-                .get_pin_unchecked() = 17u32.into();
+            *ArchivedRc::get_seal_unchecked(
+                ArchivedRcWeak::upgrade_seal(b).unwrap(),
+            ) = 17u32.into();
         }
 
         let archived =

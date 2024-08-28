@@ -2,8 +2,6 @@
 //!
 //! These APIs do not support shared pointers.
 
-use core::pin::Pin;
-
 use bytecheck::CheckBytes;
 use rancor::{Source, Strategy};
 
@@ -13,7 +11,7 @@ use crate::{
         check_pos_with_context, deserialize_with, root_position,
     },
     de::pooling::Unpool,
-    traits::Freeze,
+    seal::Seal,
     validation::{archive::ArchiveValidator, Validator},
     Archive, Deserialize, Portable,
 };
@@ -35,7 +33,7 @@ fn validator(bytes: &[u8]) -> Validator<ArchiveValidator<'_>, ()> {
 /// the [low-level API](crate::api::low).
 pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T, E>
 where
-    T: Portable + Freeze + for<'a> CheckBytes<LowValidator<'a, E>>,
+    T: Portable + for<'a> CheckBytes<LowValidator<'a, E>>,
     E: Source,
 {
     access_pos_with_context::<_, _, E>(bytes, pos, &mut validator(bytes))
@@ -49,7 +47,7 @@ where
 /// [low-level API](crate::api::low).
 pub fn access<T, E>(bytes: &[u8]) -> Result<&T, E>
 where
-    T: Portable + Freeze + for<'a> CheckBytes<LowValidator<'a, E>>,
+    T: Portable + for<'a> CheckBytes<LowValidator<'a, E>>,
     E: Source,
 {
     access_with_context::<_, _, E>(bytes, &mut validator(bytes))
@@ -64,7 +62,7 @@ where
 pub fn access_pos_mut<T, E>(
     bytes: &mut [u8],
     pos: usize,
-) -> Result<Pin<&mut T>, E>
+) -> Result<Seal<'_, T>, E>
 where
     T: Portable + for<'a> CheckBytes<LowValidator<'a, E>>,
     E: Source,
@@ -80,7 +78,7 @@ where
 /// This is a safe alternative to
 /// [`access_unchecked`](crate::api::access_unchecked) and is part of the
 /// [low-level API](crate::api::low).
-pub fn access_mut<T, E>(bytes: &mut [u8]) -> Result<Pin<&mut T>, E>
+pub fn access_mut<T, E>(bytes: &mut [u8]) -> Result<Seal<'_, T>, E>
 where
     T: Portable + for<'a> CheckBytes<LowValidator<'a, E>>,
     E: Source,
@@ -99,8 +97,7 @@ where
 pub fn from_bytes<T, E>(bytes: &[u8]) -> Result<T, E>
 where
     T: Archive,
-    T::Archived: Freeze
-        + for<'a> CheckBytes<LowValidator<'a, E>>
+    T::Archived: for<'a> CheckBytes<LowValidator<'a, E>>
         + Deserialize<T, Strategy<Unpool, E>>,
     E: Source,
 {

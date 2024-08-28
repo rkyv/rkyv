@@ -12,14 +12,13 @@ use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    ser::Writer, traits::Freeze, ArchiveUnsized, Place, Portable, RelPtr,
-    SerializeUnsized,
+    ser::Writer, ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
 
 /// An archived [`CString`](std::ffi::CString).
 ///
 /// Uses a [`RelPtr`] to a `CStr` under the hood.
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(
     feature = "bytecheck",

@@ -3,17 +3,16 @@
 use core::{
     borrow::Borrow,
     cmp, fmt, hash,
-    ops::{Deref, Index, IndexMut},
-    pin::Pin,
+    ops::{Deref, Index},
     slice::SliceIndex,
 };
 
 use munge::munge;
 use rancor::Fallible;
-use rkyv_derive::Freeze;
 
 use crate::{
     primitive::ArchivedUsize,
+    seal::Seal,
     ser::{Allocator, Writer, WriterExt as _},
     Archive, Place, Portable, RelPtr, Serialize, SerializeUnsized,
 };
@@ -23,7 +22,7 @@ use crate::{
 /// This uses a [`RelPtr`] to a `[T]` under the hood. Unlike
 /// [`ArchivedString`](crate::string::ArchivedString), it does not have an
 /// inline representation.
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
@@ -57,31 +56,14 @@ impl<T> ArchivedVec<T> {
         unsafe { core::slice::from_raw_parts(self.as_ptr(), self.len()) }
     }
 
-    /// Gets the elements of the archived vec as a pinned mutable slice.
-    pub fn as_slice_pin(self: Pin<&mut Self>) -> Pin<&mut [T]> {
-        let len = self.len();
-        let ptr = unsafe { self.map_unchecked_mut(|s| &mut s.ptr) };
-        unsafe {
-            Pin::new_unchecked(core::slice::from_raw_parts_mut(
-                ptr.as_mut_ptr(),
-                len,
-            ))
-        }
-    }
-
-    // This method can go away once pinned slices have indexing support
-    // https://github.com/rust-lang/rust/pull/78370
-
-    /// Gets the element at the given index to this archived vec as a pinned
-    /// mutable reference.
-    pub fn index_pin<I>(
-        self: Pin<&mut Self>,
-        index: I,
-    ) -> Pin<&mut <[T] as Index<I>>::Output>
-    where
-        [T]: IndexMut<I>,
-    {
-        unsafe { self.as_slice_pin().map_unchecked_mut(|s| &mut s[index]) }
+    /// Gets the elements of the archived vec as a sealed mutable slice.
+    pub fn as_slice_seal(this: Seal<'_, Self>) -> Seal<'_, [T]> {
+        let len = this.len();
+        munge!(let Self { ptr, .. } = this);
+        let slice = unsafe {
+            core::slice::from_raw_parts_mut(RelPtr::as_mut_ptr(ptr), len)
+        };
+        Seal::new(slice)
     }
 
     /// Resolves an archived `Vec` from a given slice.

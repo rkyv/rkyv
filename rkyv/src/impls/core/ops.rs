@@ -14,8 +14,7 @@ use crate::{
         ArchivedBound, ArchivedRange, ArchivedRangeFrom, ArchivedRangeFull,
         ArchivedRangeInclusive, ArchivedRangeTo, ArchivedRangeToInclusive,
     },
-    place::Initialized,
-    traits::CopyOptimization,
+    traits::{CopyOptimization, NoUndef},
     Archive, Deserialize, Place, Serialize,
 };
 
@@ -300,8 +299,9 @@ enum ArchivedBoundTag {
     Unbounded,
 }
 
-// SAFETY: `ArchivedBoundTag` is `repr(u8)` and so is always initialized.
-unsafe impl Initialized for ArchivedBoundTag {}
+// SAFETY: `ArchivedBoundTag` is `repr(u8)` and so always consists of a single
+// well-defined byte.
+unsafe impl NoUndef for ArchivedBoundTag {}
 
 #[repr(C)]
 struct ArchivedBoundVariantIncluded<T>(ArchivedBoundTag, T);

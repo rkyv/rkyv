@@ -1,20 +1,20 @@
 //! An archived version of `Box`.
 
-use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref, pin::Pin};
+use core::{borrow::Borrow, cmp, fmt, hash, ops::Deref};
 
 use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    traits::{ArchivePointee, Freeze},
-    ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
+    seal::Seal, traits::ArchivePointee, ArchiveUnsized, Place, Portable,
+    RelPtr, SerializeUnsized,
 };
 
 /// An archived [`Box`].
 ///
 /// This is a thin `#[repr(transparent)]` wrapper around a [`RelPtr`] to the
 /// archived type.
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(
     feature = "bytecheck",
@@ -32,10 +32,10 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
         unsafe { &*self.ptr.as_ptr() }
     }
 
-    /// Returns a pinned mutable reference to the value of this archived box
-    pub fn get_pin(self: Pin<&mut Self>) -> Pin<&mut T> {
-        let ptr = unsafe { self.map_unchecked_mut(|s| &mut s.ptr) };
-        unsafe { Pin::new_unchecked(&mut *ptr.as_mut_ptr()) }
+    /// Returns a sealed mutable reference to the value of this archived box.
+    pub fn get_seal(this: Seal<'_, Self>) -> Seal<'_, T> {
+        munge!(let Self { ptr } = this);
+        Seal::new(unsafe { &mut *RelPtr::as_mut_ptr(ptr) })
     }
 
     /// Resolves an archived box from the given value and parameters.

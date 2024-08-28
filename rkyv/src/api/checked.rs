@@ -1,14 +1,12 @@
 //! APIs for producing and using archived data safely.
 
-use core::pin::Pin;
-
 use bytecheck::CheckBytes;
 use ptr_meta::Pointee;
 use rancor::{Source, Strategy};
 
 use crate::{
     api::{access_pos_unchecked, access_pos_unchecked_mut, root_position},
-    traits::Freeze,
+    seal::Seal,
     validation::{ArchiveContext, ArchiveContextExt},
     Portable,
 };
@@ -44,7 +42,7 @@ pub fn access_pos_with_context<'a, T, C, E>(
     context: &mut C,
 ) -> Result<&'a T, E>
 where
-    T: Portable + Freeze + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
     E: Source,
 {
@@ -63,7 +61,7 @@ pub fn access_with_context<'a, T, C, E>(
     context: &mut C,
 ) -> Result<&'a T, E>
 where
-    T: Portable + Freeze + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
+    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
     E: Source,
 {
@@ -74,14 +72,6 @@ where
     )
 }
 
-// TODO(#516): `Pin` is not technically correct for the return type. `Pin`
-// requires the pinned value to be dropped before its memory can be reused, but
-// archived types explicitly do not require that. It just wants immovable types.
-
-// TODO: `bytes` may no longer be a fully-initialized `[u8]` after mutable
-// operations. We really need some kind of opaque byte container for these
-// operations.
-
 /// Mutably accesses an archived value from the given byte slice at the given
 /// position after checking its validity with the given context.
 ///
@@ -90,7 +80,7 @@ pub fn access_pos_with_context_mut<'a, T, C, E>(
     bytes: &'a mut [u8],
     pos: usize,
     context: &mut C,
-) -> Result<Pin<&'a mut T>, E>
+) -> Result<Seal<'a, T>, E>
 where
     T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,
@@ -109,7 +99,7 @@ where
 pub fn access_with_context_mut<'a, T, C, E>(
     bytes: &'a mut [u8],
     context: &mut C,
-) -> Result<Pin<&'a mut T>, E>
+) -> Result<Seal<'a, T>, E>
 where
     T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
     C: ArchiveContext<E> + ?Sized,

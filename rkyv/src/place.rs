@@ -4,7 +4,7 @@ use core::{mem::size_of, ptr::NonNull};
 
 use munge::{Borrow, Destructure, Restructure};
 
-use crate::traits::LayoutRaw;
+use crate::traits::{LayoutRaw, NoUndef};
 
 /// A place to write a `T` paired with its position in the output buffer.
 pub struct Place<T: ?Sized> {
@@ -88,7 +88,7 @@ impl<T: ?Sized> Place<T> {
     /// Writes the provided value to this place.
     pub fn write(&self, value: T)
     where
-        T: Initialized + Sized,
+        T: NoUndef + Sized,
     {
         unsafe {
             self.write_unchecked(value);
@@ -175,19 +175,3 @@ unsafe impl<T: ?Sized, U: ?Sized> Restructure<U> for Place<T> {
         unsafe { Place::from_field_unchecked(*self, ptr) }
     }
 }
-
-/// A marker trait which indicates that all of the bytes of a type are
-/// fully-initialized.
-///
-/// As a result, `Initialized` types may not contain padding.
-///
-/// # Safety
-///
-/// The bytes of types implementing `Initialized` must always be
-/// fully-initialized. Among other things, this means they may not contain
-/// padding.
-pub unsafe trait Initialized {}
-
-// SAFETY: An array of values which are all fully-initialized is also
-// fully-initalized.
-unsafe impl<T: Initialized, const N: usize> Initialized for [T; N] {}

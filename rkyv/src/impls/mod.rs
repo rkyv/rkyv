@@ -38,15 +38,14 @@ mod uuid;
 
 #[cfg(test)]
 mod core_tests {
-    use core::pin::Pin;
-
+    use munge::munge;
     use rancor::{Fallible, Source};
 
     use crate::{
         api::test::{roundtrip, to_archived},
         option::ArchivedOption,
         primitive::{ArchivedI32, ArchivedU32},
-        traits::Freeze,
+        seal::Seal,
         Archive, Deserialize, Place, Portable, Serialize,
     };
 
@@ -269,8 +268,9 @@ mod core_tests {
                 self.0.into()
             }
 
-            fn set(mut self: Pin<&mut Self>, value: i32) {
-                (*self).0 = value.into();
+            fn set(this: Seal<'_, Self>, value: i32) {
+                munge!(let Self(mut inner) = this);
+                *inner = value.into();
             }
         }
 
@@ -280,18 +280,13 @@ mod core_tests {
             a: Opaque,
         }
 
-        impl ArchivedTest {
-            fn a(self: Pin<&mut Self>) -> Pin<&mut ArchivedOpaque> {
-                unsafe { self.map_unchecked_mut(|s| &mut s.a) }
-            }
-        }
-
         let value = Test { a: Opaque(10) };
 
         to_archived(&value, |mut archived| {
             assert_eq!(archived.a.get(), 10);
 
-            archived.as_mut().a().set(50);
+            munge!(let ArchivedTest { a } = archived.as_mut());
+            ArchivedOpaque::set(a, 50);
             assert_eq!(archived.a.get(), 50);
         })
     }
@@ -309,16 +304,17 @@ mod core_tests {
 
         let value = Test::A;
 
-        to_archived(&value, |mut archived| {
+        to_archived(&value, |archived| {
             if let ArchivedTest::A = *archived {
                 ()
             } else {
                 panic!("incorrect enum after archiving");
             }
 
-            *archived = ArchivedTest::C(42.into());
+            let inner = unsafe { archived.unseal_unchecked() };
+            *inner = ArchivedTest::C(42.into());
 
-            if let ArchivedTest::C(i) = *archived {
+            if let ArchivedTest::C(i) = *inner {
                 assert_eq!(i, 42);
             } else {
                 panic!("incorrect enum after mutation");
@@ -334,7 +330,7 @@ mod core_tests {
 
         impl MyTrait for i32 {}
 
-        #[derive(Freeze, Portable)]
+        #[derive(Portable)]
         #[rkyv(crate)]
         #[repr(transparent)]
         struct MyStruct<T> {
@@ -679,8 +675,7 @@ mod core_tests {
 
 #[cfg(all(test, feature = "alloc"))]
 mod alloc_tests {
-    use core::pin::Pin;
-
+    use munge::munge;
     use rancor::Source;
 
     use crate::{
@@ -691,7 +686,6 @@ mod alloc_tests {
             vec::Vec,
         },
         api::test::{roundtrip, to_archived},
-        primitive::ArchivedI32,
         ser::Writer,
         Archive, Deserialize, Serialize,
     };
@@ -709,46 +703,29 @@ mod alloc_tests {
             b: Vec<String>,
         }
 
-        impl ArchivedTest {
-            fn a(self: Pin<&mut Self>) -> Pin<&mut ArchivedBox<ArchivedI32>> {
-                unsafe { self.map_unchecked_mut(|s| &mut s.a) }
-            }
-
-            fn b(
-                self: Pin<&mut Self>,
-            ) -> Pin<&mut ArchivedVec<ArchivedString>> {
-                unsafe { self.map_unchecked_mut(|s| &mut s.b) }
-            }
-        }
-
         let value = Test {
             a: Box::new(10),
             b: vec!["hello".to_string(), "world".to_string()],
         };
 
-        to_archived(&value, |mut archived| {
+        to_archived(&value, |archived| {
             assert_eq!(*archived.a, 10);
             assert_eq!(archived.b.len(), 2);
             assert_eq!(archived.b[0], "hello");
             assert_eq!(archived.b[1], "world");
 
-            *archived.as_mut().a().get_pin() = 50.into();
-            assert_eq!(*archived.a, 50);
+            munge!(let ArchivedTest { mut a, mut b } = archived);
 
-            archived
-                .as_mut()
-                .b()
-                .index_pin(0)
-                .as_pin_str()
+            *ArchivedBox::get_seal(a.as_mut()) = 50.into();
+            assert_eq!(**a, 50);
+
+            let mut slice = ArchivedVec::as_slice_seal(b.as_mut());
+            ArchivedString::as_str_seal(slice.as_mut().index(0))
                 .make_ascii_uppercase();
-            archived
-                .as_mut()
-                .b()
-                .index_pin(1)
-                .as_pin_str()
+            ArchivedString::as_str_seal(slice.as_mut().index(1))
                 .make_ascii_uppercase();
-            assert_eq!(archived.b[0], "HELLO");
-            assert_eq!(archived.b[1], "WORLD");
+            assert_eq!(b[0], "HELLO");
+            assert_eq!(b[1], "WORLD");
         });
     }
 

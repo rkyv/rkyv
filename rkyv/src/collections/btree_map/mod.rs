@@ -7,7 +7,6 @@ use core::{
     marker::PhantomData,
     mem::{size_of, MaybeUninit},
     ops::{ControlFlow, Index},
-    pin::Pin,
     ptr::addr_of_mut,
     slice,
 };
@@ -17,10 +16,10 @@ use rancor::{fail, Fallible, Source};
 
 use crate::{
     collections::util::IteratorLengthMismatch,
-    place::Initialized,
     primitive::{ArchivedUsize, FixedUsize},
+    seal::Seal,
     ser::{Allocator, Writer, WriterExt as _},
-    traits::Freeze,
+    traits::NoUndef,
     util::{InlineVec, SerVec},
     Place, Portable, RelPtr, Serialize,
 };
@@ -109,7 +108,7 @@ const fn ll_entries<const E: usize>(height: u32, n: usize) -> usize {
     n - entries_in_full_tree::<E>(height - 1)
 }
 
-#[derive(Clone, Copy, Freeze, Portable)]
+#[derive(Clone, Copy, Portable)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[rkyv(crate)]
 #[repr(u8)]
@@ -118,10 +117,11 @@ enum NodeKind {
     Inner,
 }
 
-// SAFETY: `NodeKind` is `repr(u8)` and so is always initialized.
-unsafe impl Initialized for NodeKind {}
+// SAFETY: `NodeKind` is `repr(u8)` and so always consists of a single
+// well-defined byte.
+unsafe impl NoUndef for NodeKind {}
 
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 struct Node<K, V, const E: usize> {
@@ -130,7 +130,7 @@ struct Node<K, V, const E: usize> {
     values: [MaybeUninit<V>; E],
 }
 
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 struct LeafNode<K, V, const E: usize> {
@@ -139,7 +139,7 @@ struct LeafNode<K, V, const E: usize> {
 }
 
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 struct InnerNode<K, V, const E: usize> {
@@ -154,7 +154,7 @@ struct InnerNode<K, V, const E: usize> {
     derive(bytecheck::CheckBytes),
     check_bytes(verify)
 )]
-#[derive(Freeze, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 pub struct ArchivedBTreeMap<K, V, const E: usize = 5> {
@@ -185,17 +185,17 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         Q: Ord + ?Sized,
         K: Borrow<Q> + Ord,
     {
-        self.get_key_value(key).map(|(_, value)| value)
+        Some(self.get_key_value(key)?.1)
     }
 
     /// Returns the mutable value associated with the given key, or `None` if
     /// the key is not present in the B-tree map.
-    pub fn get_pin<Q>(self: Pin<&mut Self>, key: &Q) -> Option<Pin<&mut V>>
+    pub fn get_seal<'a, Q>(this: Seal<'a, Self>, key: &Q) -> Option<Seal<'a, V>>
     where
         Q: Ord + ?Sized,
         K: Borrow<Q> + Ord,
     {
-        self.get_key_value_pin(key).map(|(_, value)| value)
+        Some(Self::get_key_value_seal(this, key)?.1)
     }
 
     /// Returns true if the B-tree map contains no entries.
@@ -222,18 +222,17 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
 
     /// Gets the mutable key-value pair associated with the given key, or `None`
     /// if the key is not present in the B-tree map.
-    pub fn get_key_value_pin<Q>(
-        self: Pin<&mut Self>,
+    pub fn get_key_value_seal<'a, Q>(
+        this: Seal<'a, Self>,
         key: &Q,
-    ) -> Option<(&K, Pin<&mut V>)>
+    ) -> Option<(&'a K, Seal<'a, V>)>
     where
         Q: Ord + ?Sized,
         K: Borrow<Q> + Ord,
     {
-        let this = unsafe { Pin::into_inner_unchecked(self) as *mut Self };
-        Self::get_key_value_raw(this, key).map(|(k, v)| {
-            (unsafe { &*k }, unsafe { Pin::new_unchecked(&mut *v) })
-        })
+        let this = unsafe { Seal::unseal_unchecked(this) as *mut Self };
+        Self::get_key_value_raw(this, key)
+            .map(|(k, v)| (unsafe { &*k }, Seal::new(unsafe { &mut *v })))
     }
 
     fn get_key_value_raw<Q>(
@@ -640,18 +639,18 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
     /// If `f` returns `ControlFlow::Break`, `visit` will return `Some` with the
     /// broken value. If `f` returns `Continue` for every pair in the tree,
     /// `visit` will return `None`.
-    pub fn visit_pin<T>(
-        self: Pin<&mut Self>,
-        mut f: impl FnMut(&K, Pin<&mut V>) -> ControlFlow<T>,
+    pub fn visit_seal<T>(
+        this: Seal<'_, Self>,
+        mut f: impl FnMut(&K, Seal<'_, V>) -> ControlFlow<T>,
     ) -> Option<T> {
-        if self.is_empty() {
+        if this.is_empty() {
             None
         } else {
-            let root = unsafe { Pin::map_unchecked_mut(self, |s| &mut s.root) };
-            let root_ptr = unsafe { root.as_mut_ptr().cast::<Node<K, V, E>>() };
-            let mut call_inner = |k: *mut K, v: *mut V| unsafe {
-                f(&*k, Pin::new_unchecked(&mut *v))
-            };
+            munge!(let Self { root, .. } = this);
+            let root_ptr =
+                unsafe { RelPtr::as_mut_ptr(root).cast::<Node<K, V, E>>() };
+            let mut call_inner =
+                |k: *mut K, v: *mut V| unsafe { f(&*k, Seal::new(&mut *v)) };
             match Self::visit_raw(root_ptr, &mut call_inner) {
                 ControlFlow::Continue(()) => None,
                 ControlFlow::Break(x) => Some(x),

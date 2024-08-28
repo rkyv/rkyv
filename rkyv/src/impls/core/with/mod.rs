@@ -32,8 +32,8 @@ use crate::{
         ArchivedOptionNonZeroU8, ArchivedOptionNonZeroUsize,
     },
     option::ArchivedOption,
-    place::Initialized,
     primitive::{FixedNonZeroIsize, FixedNonZeroUsize},
+    traits::NoUndef,
     with::{
         ArchiveWith, AsBox, DeserializeWith, Inline, InlineAsBox, Map, Niche,
         SerializeWith, Skip, Unsafe,
@@ -240,8 +240,9 @@ enum ArchivedOptionTag {
     Some,
 }
 
-// SAFETY: `ArchivedOptionTag` is `repr(u8)` and so is always initialized.
-unsafe impl Initialized for ArchivedOptionTag {}
+// SAFETY: `ArchivedOptionTag` is `repr(u8)` and so always consists of a single
+// well-defined byte.
+unsafe impl NoUndef for ArchivedOptionTag {}
 
 #[repr(C)]
 struct ArchivedOptionVariantNone(ArchivedOptionTag);
