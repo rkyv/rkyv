@@ -1,5 +1,3 @@
-use core::ops::Deref;
-
 use rancor::Fallible;
 #[cfg(all(feature = "tinyvec", feature = "alloc"))]
 use tinyvec::TinyVec;
@@ -140,7 +138,7 @@ where
     T: PartialEq<A::Item>,
 {
     fn eq(&self, other: &ArrayVec<A>) -> bool {
-        self.as_slice().eq(other.deref())
+        self.as_slice().eq(other.as_slice())
     }
 }
 
