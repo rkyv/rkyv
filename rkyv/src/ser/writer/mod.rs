@@ -164,14 +164,15 @@ pub trait WriterExt<E>: Writer<E> {
 
 impl<T, E> WriterExt<E> for T where T: Writer<E> + ?Sized {}
 
-#[cfg(all(test, feature = "alloc"))]
+#[cfg(test)]
 mod tests {
-    use rend::{u16_le, u32_le};
-
-    use crate::{api::high::to_bytes_in, util::AlignedVec};
-
+    #[cfg(feature = "alloc")]
     #[test]
     fn reusable_writer() {
+        use rend::{u16_le, u32_le};
+
+        use crate::{api::high::to_bytes_in, util::AlignedVec};
+
         let mut writer = AlignedVec::<16>::new();
 
         _ = to_bytes_in::<_, rancor::Error>(
