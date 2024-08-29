@@ -49,6 +49,11 @@ impl Share {
             ),
         }
     }
+
+    /// Clears the shared pointer unifier for reuse.
+    pub fn clear(&mut self) {
+        self.shared_address_to_pos.clear();
+    }
 }
 
 impl<E: Source> Sharing<E> for Share {

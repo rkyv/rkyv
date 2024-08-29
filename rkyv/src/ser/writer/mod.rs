@@ -20,6 +20,24 @@ pub trait Positional {
     fn pos(&self) -> usize;
 }
 
+impl<'a, T> Positional for &'a T
+where
+    T: Positional + ?Sized,
+{
+    fn pos(&self) -> usize {
+        T::pos(*self)
+    }
+}
+
+impl<'a, T> Positional for &'a mut T
+where
+    T: Positional + ?Sized,
+{
+    fn pos(&self) -> usize {
+        T::pos(*self)
+    }
+}
+
 impl<T, E> Positional for Strategy<T, E>
 where
     T: Positional + ?Sized,
@@ -41,6 +59,15 @@ where
 pub trait Writer<E = <Self as Fallible>::Error>: Positional {
     /// Attempts to write the given bytes to the serializer.
     fn write(&mut self, bytes: &[u8]) -> Result<(), E>;
+}
+
+impl<'a, T, E> Writer<E> for &'a mut T
+where
+    T: Writer<E> + ?Sized,
+{
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
+        T::write(*self, bytes)
+    }
 }
 
 impl<T, E> Writer<E> for Strategy<T, E>
@@ -136,3 +163,32 @@ pub trait WriterExt<E>: Writer<E> {
 }
 
 impl<T, E> WriterExt<E> for T where T: Writer<E> + ?Sized {}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn reusable_writer() {
+        use rend::{u16_le, u32_le};
+
+        use crate::{api::high::to_bytes_in, util::AlignedVec};
+
+        let mut writer = AlignedVec::<16>::new();
+
+        _ = to_bytes_in::<_, rancor::Error>(
+            &u32_le::from_native(42),
+            &mut writer,
+        );
+        assert_eq!(&writer[..], &[42, 0, 0, 0]);
+        writer.clear(); // keeps capacity of 4
+
+        _ = to_bytes_in::<_, rancor::Error>(
+            &u16_le::from_native(1337),
+            &mut writer,
+        );
+        assert_eq!(&writer[..], &[57, 5]);
+        writer.clear();
+
+        assert_eq!(writer.capacity(), 4);
+    }
+}
