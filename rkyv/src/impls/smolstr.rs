@@ -41,6 +41,12 @@ impl PartialEq<SmolStr> for ArchivedString {
     }
 }
 
+impl PartialOrd<SmolStr> for ArchivedString {
+    fn partial_cmp(&self, other: &SmolStr) -> Option<::core::cmp::Ordering> {
+        Some(self.as_str().cmp(other.as_str()))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use smol_str::SmolStr;

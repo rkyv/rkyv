@@ -1,5 +1,3 @@
-use core::cmp;
-
 use rancor::{Fallible, ResultExt as _, Source};
 
 use crate::{
@@ -63,15 +61,11 @@ impl<T: PartialEq<U>, U> PartialEq<Vec<U>> for ArchivedVec<T> {
 }
 
 impl<T: PartialOrd<U>, U> PartialOrd<Vec<U>> for ArchivedVec<T> {
-    fn partial_cmp(&self, other: &Vec<U>) -> Option<cmp::Ordering> {
-        let min_len = self.len().min(other.len());
-        for i in 0..min_len {
-            match self[i].partial_cmp(&other[i]) {
-                Some(cmp::Ordering::Equal) => continue,
-                result => return result,
-            }
-        }
-        self.len().partial_cmp(&other.len())
+    fn partial_cmp(&self, other: &Vec<U>) -> Option<::core::cmp::Ordering> {
+        crate::impls::lexicographical_partial_ord(
+            self.as_slice(),
+            other.as_slice(),
+        )
     }
 }
 

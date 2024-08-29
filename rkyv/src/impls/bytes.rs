@@ -43,15 +43,6 @@ where
     }
 }
 
-impl<T: Archive> PartialEq<ArchivedVec<T>> for Bytes
-where
-    bytes::Bytes: PartialEq<[T]>,
-{
-    fn eq(&self, other: &ArchivedVec<T>) -> bool {
-        self == other.as_slice()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use bytes::Bytes;

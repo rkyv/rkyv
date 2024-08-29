@@ -52,16 +52,6 @@ where
     }
 }
 
-impl<A, U> PartialEq<ArchivedVec<U>> for SmallVec<A>
-where
-    A: Array,
-    A::Item: PartialEq<U>,
-{
-    fn eq(&self, other: &ArchivedVec<U>) -> bool {
-        self.as_slice().eq(other.as_slice())
-    }
-}
-
 impl<A, U> PartialEq<SmallVec<A>> for ArchivedVec<U>
 where
     A: Array,
@@ -69,6 +59,22 @@ where
 {
     fn eq(&self, other: &SmallVec<A>) -> bool {
         self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T, A> PartialOrd<SmallVec<A>> for ArchivedVec<T>
+where
+    A: Array,
+    T: PartialOrd<A::Item>,
+{
+    fn partial_cmp(
+        &self,
+        other: &SmallVec<A>,
+    ) -> Option<::core::cmp::Ordering> {
+        crate::impls::lexicographical_partial_ord(
+            self.as_slice(),
+            other.as_slice(),
+        )
     }
 }
 
