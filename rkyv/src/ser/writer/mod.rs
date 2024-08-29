@@ -166,8 +166,9 @@ impl<T, E> WriterExt<E> for T where T: Writer<E> + ?Sized {}
 
 #[cfg(all(test, feature = "alloc"))]
 mod tests {
-    use crate::{api::high::to_bytes_in, util::AlignedVec};
     use rend::{u16_le, u32_le};
+
+    use crate::{api::high::to_bytes_in, util::AlignedVec};
 
     #[test]
     fn reusable_writer() {
