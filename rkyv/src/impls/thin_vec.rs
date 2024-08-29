@@ -86,14 +86,16 @@ mod tests {
 
     #[test]
     fn test_partial_eq() {
-        #[derive(crate::Archive)]
-        #[archive(crate = crate, compare(PartialEq))]
+        use crate::Archive;
+
+        #[derive(Archive)]
+        #[rkyv(crate, compare(PartialEq, PartialOrd))]
         struct Inner {
             a: i32,
         }
 
-        #[derive(crate::Archive)]
-        #[archive(crate = crate, compare(PartialEq))]
+        #[derive(Archive)]
+        #[rkyv(crate, compare(PartialEq, PartialOrd))]
         struct Outer {
             a: ThinVec<Inner>,
         }
