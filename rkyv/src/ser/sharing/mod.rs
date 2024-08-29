@@ -24,6 +24,19 @@ pub trait Sharing<E = <Self as Fallible>::Error> {
     fn add_shared_ptr(&mut self, address: usize, pos: usize) -> Result<(), E>;
 }
 
+impl<'a, T, E> Sharing<E> for &'a mut T
+where
+    T: Sharing<E> + ?Sized,
+{
+    fn get_shared_ptr(&self, address: usize) -> Option<usize> {
+        T::get_shared_ptr(*self, address)
+    }
+
+    fn add_shared_ptr(&mut self, address: usize, pos: usize) -> Result<(), E> {
+        T::add_shared_ptr(*self, address, pos)
+    }
+}
+
 impl<T, E> Sharing<E> for Strategy<T, E>
 where
     T: Sharing<E> + ?Sized,
