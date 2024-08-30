@@ -132,6 +132,56 @@ where
     }
 }
 
+impl<T, A> PartialEq<ArrayVec<A>> for ArchivedVec<T>
+where
+    A: Array,
+    T: PartialEq<A::Item>,
+{
+    fn eq(&self, other: &ArrayVec<A>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T, A> PartialOrd<ArrayVec<A>> for ArchivedVec<T>
+where
+    A: Array,
+    T: PartialOrd<A::Item>,
+{
+    fn partial_cmp(
+        &self,
+        other: &ArrayVec<A>,
+    ) -> Option<::core::cmp::Ordering> {
+        crate::impls::lexicographical_partial_ord(
+            self.as_slice(),
+            other.as_slice(),
+        )
+    }
+}
+
+impl<T, U> PartialEq<SliceVec<'_, U>> for ArchivedVec<T>
+where
+    T: PartialEq<U>,
+{
+    fn eq(&self, other: &SliceVec<'_, U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T, U> PartialOrd<SliceVec<'_, U>> for ArchivedVec<T>
+where
+    T: PartialOrd<U>,
+{
+    fn partial_cmp(
+        &self,
+        other: &SliceVec<'_, U>,
+    ) -> Option<::core::cmp::Ordering> {
+        crate::impls::lexicographical_partial_ord(
+            self.as_slice(),
+            other.as_slice(),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use tinyvec::{array_vec, Array, SliceVec};

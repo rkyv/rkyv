@@ -36,6 +36,27 @@ mod triomphe;
 #[cfg(feature = "uuid")]
 mod uuid;
 
+use ::core::cmp::Ordering;
+
+#[allow(dead_code)]
+#[inline]
+pub(crate) fn lexicographical_partial_ord<T, U>(
+    a: &[T],
+    b: &[U],
+) -> Option<Ordering>
+where
+    T: PartialOrd<U>,
+{
+    for (a, b) in a.iter().zip(b.iter()) {
+        match (*a).partial_cmp(b) {
+            Some(Ordering::Equal) => {}
+            ord => return ord,
+        }
+    }
+
+    a.len().partial_cmp(&b.len())
+}
+
 #[cfg(test)]
 mod core_tests {
     use munge::munge;

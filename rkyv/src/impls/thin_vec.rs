@@ -50,6 +50,27 @@ where
     }
 }
 
+impl<T, U> PartialEq<ThinVec<U>> for ArchivedVec<T>
+where
+    T: PartialEq<U>,
+{
+    fn eq(&self, other: &ThinVec<U>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T, U> PartialOrd<ThinVec<U>> for ArchivedVec<T>
+where
+    T: PartialOrd<U>,
+{
+    fn partial_cmp(&self, other: &ThinVec<U>) -> Option<::core::cmp::Ordering> {
+        crate::impls::lexicographical_partial_ord(
+            self.as_slice(),
+            other.as_slice(),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use thin_vec::ThinVec;
@@ -58,9 +79,25 @@ mod tests {
 
     #[test]
     fn roundtrip_thin_vec() {
-        roundtrip_with(
-            &ThinVec::<i32>::from_iter([10, 20, 40, 80].into_iter()),
-            |a, b| assert_eq!(**a, **b),
-        );
+        roundtrip_with(&ThinVec::<i32>::from_iter([10, 20, 40, 80]), |a, b| {
+            assert_eq!(**a, **b)
+        });
+    }
+
+    #[test]
+    fn test_partial_eq() {
+        use crate::Archive;
+
+        #[derive(Archive)]
+        #[rkyv(crate, compare(PartialEq, PartialOrd))]
+        struct Inner {
+            a: i32,
+        }
+
+        #[derive(Archive)]
+        #[rkyv(crate, compare(PartialEq, PartialOrd))]
+        struct Outer {
+            a: ThinVec<Inner>,
+        }
     }
 }

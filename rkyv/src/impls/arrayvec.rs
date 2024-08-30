@@ -51,6 +51,30 @@ where
     }
 }
 
+impl<T, U, const CAP: usize> PartialEq<ArrayVec<U, CAP>> for ArchivedVec<T>
+where
+    T: PartialEq<U>,
+{
+    fn eq(&self, other: &ArrayVec<U, CAP>) -> bool {
+        self.as_slice().eq(other.as_slice())
+    }
+}
+
+impl<T, U, const CAP: usize> PartialOrd<ArrayVec<U, CAP>> for ArchivedVec<T>
+where
+    T: PartialOrd<U>,
+{
+    fn partial_cmp(
+        &self,
+        other: &ArrayVec<U, CAP>,
+    ) -> Option<::core::cmp::Ordering> {
+        crate::impls::lexicographical_partial_ord(
+            self.as_slice(),
+            other.as_slice(),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use arrayvec::ArrayVec;
