@@ -151,10 +151,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
     }
 }
 
-impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T>
-where
-    T::ArchivedMetadata: Default,
-{
+impl<T: ArchivePointee + ?Sized> ArchivedOptionBox<T> {
     /// Resolves an `ArchivedOptionBox<T::Archived>` from an `Option<&T>`.
     pub fn resolve_from_option<U: ArchiveUnsized<Archived = T> + ?Sized>(
         field: Option<&U>,

@@ -143,11 +143,9 @@ where
         &self,
         deserializer: &mut D,
     ) -> Result<rc::Weak<T>, D::Error> {
-        Ok(match self {
-            ArchivedRcWeak::None => rc::Weak::new(),
-            ArchivedRcWeak::Some(r) => {
-                rc::Rc::downgrade(&r.deserialize(deserializer)?)
-            }
+        Ok(match self.upgrade() {
+            None => rc::Weak::new(),
+            Some(r) => rc::Rc::downgrade(&r.deserialize(deserializer)?),
         })
     }
 }

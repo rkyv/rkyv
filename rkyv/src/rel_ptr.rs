@@ -412,10 +412,7 @@ impl<T, O: Offset> RelPtr<T, O> {
     }
 }
 
-impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O>
-where
-    T::ArchivedMetadata: Default,
-{
+impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// Attempts to create an invalid relative pointer with default metadata.
     pub fn try_emplace_invalid<E: Source>(out: Place<Self>) -> Result<(), E> {
         munge!(let RelPtr { raw_ptr, metadata, _phantom: _ } = out);
@@ -433,9 +430,7 @@ where
     pub fn emplace_invalid(out: Place<Self>) {
         Self::try_emplace_invalid::<Panic>(out).always_ok()
     }
-}
 
-impl<T: ArchivePointee + ?Sized, O: Offset> RelPtr<T, O> {
     /// Attempts to create a relative pointer from one position to another.
     pub fn try_emplace_unsized<E: Source>(
         to: usize,

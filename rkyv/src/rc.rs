@@ -8,7 +8,7 @@ use rancor::Fallible;
 use crate::{
     seal::Seal,
     ser::{Sharing, SharingExt, Writer, WriterExt as _},
-    traits::{ArchivePointee, NoUndef},
+    traits::ArchivePointee,
     ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
 
@@ -183,20 +183,20 @@ pub struct RcResolver {
     pos: usize,
 }
 
-// TODO: this can be niched smaller since `RelPtr::null()` is nonzero now
-
 /// An archived `rc::Weak`.
 ///
 /// This is essentially just an optional [`ArchivedRc`].
 #[derive(Portable)]
 #[rkyv(crate)]
-#[repr(u8)]
-#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-pub enum ArchivedRcWeak<T: ArchivePointee + ?Sized, F> {
-    /// A null weak pointer
-    None,
-    /// A weak pointer to some shared pointer
-    Some(ArchivedRc<T, F>),
+#[repr(transparent)]
+#[cfg_attr(
+    feature = "bytecheck",
+    derive(bytecheck::CheckBytes),
+    check_bytes(verify)
+)]
+pub struct ArchivedRcWeak<T: ArchivePointee + ?Sized, F> {
+    ptr: RelPtr<T>,
+    _phantom: PhantomData<F>,
 }
 
 impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
@@ -204,9 +204,10 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     ///
     /// Returns `None` if a null weak pointer was serialized.
     pub fn upgrade(&self) -> Option<&ArchivedRc<T, F>> {
-        match self {
-            ArchivedRcWeak::None => None,
-            ArchivedRcWeak::Some(r) => Some(r),
+        if self.ptr.is_invalid() {
+            None
+        } else {
+            Some(unsafe { &*(self as *const Self).cast() })
         }
     }
 
@@ -215,9 +216,10 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
         this: Seal<'_, Self>,
     ) -> Option<Seal<'_, ArchivedRc<T, F>>> {
         let this = unsafe { this.unseal_unchecked() };
-        match this {
-            ArchivedRcWeak::None => None,
-            ArchivedRcWeak::Some(r) => Some(Seal::new(r)),
+        if this.ptr.is_invalid() {
+            None
+        } else {
+            Some(Seal::new(unsafe { &mut *(this as *mut Self).cast() }))
         }
     }
 
@@ -227,22 +229,14 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
         resolver: RcWeakResolver,
         out: Place<Self>,
     ) {
-        match resolver {
-            RcWeakResolver::None => {
-                let out = unsafe {
-                    out.cast_unchecked::<ArchivedRcWeakVariantNone>()
-                };
-                munge!(let ArchivedRcWeakVariantNone(tag) = out);
-                tag.write(ArchivedRcWeakTag::None);
+        match value {
+            None => {
+                munge!(let ArchivedRcWeak { ptr, _phantom: _ } = out);
+                RelPtr::emplace_invalid(ptr);
             }
-            RcWeakResolver::Some(resolver) => {
-                let out = unsafe {
-                    out.cast_unchecked::<ArchivedRcWeakVariantSome<T, F>>()
-                };
-                munge!(let ArchivedRcWeakVariantSome(tag, rc) = out);
-                tag.write(ArchivedRcWeakTag::Some);
-
-                ArchivedRc::resolve_from_ref(value.unwrap(), resolver, rc);
+            Some(value) => {
+                let out = unsafe { out.cast_unchecked::<ArchivedRc<T, F>>() };
+                ArchivedRc::resolve_from_ref(value, resolver.inner, out);
             }
         }
     }
@@ -257,10 +251,12 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
         S: Fallible + Writer + Sharing + ?Sized,
     {
         Ok(match value {
-            None => RcWeakResolver::None,
-            Some(r) => RcWeakResolver::Some(
-                ArchivedRc::<T, F>::serialize_from_ref(r, serializer)?,
-            ),
+            None => RcWeakResolver {
+                inner: RcResolver { pos: 0 },
+            },
+            Some(r) => RcWeakResolver {
+                inner: ArchivedRc::<T, F>::serialize_from_ref(r, serializer)?,
+            },
         })
     }
 }
@@ -274,32 +270,9 @@ impl<T: ArchivePointee + fmt::Debug + ?Sized, F> fmt::Debug
 }
 
 /// The resolver for `rc::Weak`.
-pub enum RcWeakResolver {
-    /// The weak pointer was null
-    None,
-    /// The weak pointer was to some shared pointer
-    Some(RcResolver),
+pub struct RcWeakResolver {
+    inner: RcResolver,
 }
-
-#[allow(dead_code)]
-#[repr(u8)]
-enum ArchivedRcWeakTag {
-    None,
-    Some,
-}
-
-// SAFETY: `ArchivedRcWeakTag` is `repr(u8)` and so always consists of a single
-// well-defined byte.
-unsafe impl NoUndef for ArchivedRcWeakTag {}
-
-#[repr(C)]
-struct ArchivedRcWeakVariantNone(ArchivedRcWeakTag);
-
-#[repr(C)]
-struct ArchivedRcWeakVariantSome<T: ArchivePointee + ?Sized, F>(
-    ArchivedRcWeakTag,
-    ArchivedRc<T, F>,
-);
 
 #[cfg(feature = "bytecheck")]
 mod verify {
@@ -310,7 +283,7 @@ mod verify {
         CheckBytes, Verify,
     };
 
-    use super::ArchivedRc;
+    use super::{ArchivedRc, ArchivedRcWeak};
     use crate::{
         traits::{ArchivePointee, LayoutRaw},
         validation::{ArchiveContext, ArchiveContextExt, SharedContext},
@@ -337,6 +310,29 @@ mod verify {
             }
 
             Ok(())
+        }
+    }
+
+    unsafe impl<T, F, C> Verify<C> for ArchivedRcWeak<T, F>
+    where
+        T: ArchivePointee + CheckBytes<C> + LayoutRaw + ?Sized + 'static,
+        T::ArchivedMetadata: CheckBytes<C>,
+        F: 'static,
+        C: Fallible + ArchiveContext + SharedContext + ?Sized,
+        C::Error: Source,
+    {
+        fn verify(&self, context: &mut C) -> Result<(), C::Error> {
+            if self.ptr.is_invalid() {
+                Ok(())
+            } else {
+                // SAFETY: `ArchivedRc` and `ArchivedRcWeak` are
+                // `repr(transparent)` and so have the same layout as each
+                // other.
+                let rc = unsafe {
+                    &*(self as *const Self).cast::<ArchivedRc<T, F>>()
+                };
+                rc.verify(context)
+            }
         }
     }
 }

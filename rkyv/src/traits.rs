@@ -449,7 +449,8 @@ pub trait ArchivePointee: Pointee {
         + Hash
         + Unpin
         + Portable
-        + NoUndef;
+        + NoUndef
+        + Default;
 
     /// Converts some archived metadata to the pointer metadata for itself.
     fn pointer_metadata(
