@@ -21,10 +21,6 @@ use crate::{
     Place,
 };
 
-/// A vector of bytes that aligns its memory to 16 bytes.
-///
-/// The alignment also applies to `ArchivedAlignedVec`, which is useful for
-/// aligning opaque bytes inside of an archived data type.
 /// A vector of bytes that aligns its memory to the specified alignment.
 ///
 /// The alignment also applies to `ArchivedAlignedVec`, which is useful for
