@@ -13,7 +13,7 @@ use core::{
 };
 
 use munge::munge;
-use rancor::Fallible;
+use rancor::{fail, Fallible, Source};
 use repr::{ArchivedStringRepr, INLINE_CAPACITY};
 
 use crate::{seal::Seal, Place, Portable, SerializeUnsized};
@@ -79,10 +79,28 @@ impl ArchivedString {
         serializer: &mut S,
     ) -> Result<StringResolver, S::Error>
     where
+        S::Error: Source,
         str: SerializeUnsized<S>,
     {
         if value.len() <= INLINE_CAPACITY {
             Ok(StringResolver { pos: 0 })
+        } else if value.len() > repr::OUT_OF_LINE_CAPACITY {
+            #[derive(Debug)]
+            struct StringTooLongError;
+
+            impl fmt::Display for StringTooLongError {
+                fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                    write!(
+                        f,
+                        "String was too long for the archived representation",
+                    )
+                }
+            }
+
+            #[cfg(feature = "std")]
+            impl std::error::Error for StringTooLongError {}
+
+            fail!(StringTooLongError);
         } else {
             Ok(StringResolver {
                 pos: value.serialize_unsized(serializer)?,

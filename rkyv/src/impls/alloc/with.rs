@@ -297,6 +297,7 @@ impl<'a> ArchiveWith<Cow<'a, str>> for AsOwned {
 impl<'a, S> SerializeWith<Cow<'a, str>, S> for AsOwned
 where
     S: Fallible + Writer + ?Sized,
+    S::Error: Source,
 {
     fn serialize_with(
         field: &Cow<'a, str>,

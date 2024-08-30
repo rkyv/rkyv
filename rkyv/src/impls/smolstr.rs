@@ -1,4 +1,4 @@
-use rancor::Fallible;
+use rancor::{Fallible, Source};
 use smol_str::SmolStr;
 
 use crate::{
@@ -20,6 +20,7 @@ impl Archive for SmolStr {
 impl<S> Serialize<S> for SmolStr
 where
     S: Fallible + Allocator + Writer + ?Sized,
+    S::Error: Source,
 {
     fn serialize(
         &self,

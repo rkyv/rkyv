@@ -1,6 +1,6 @@
 use core::cmp::Ordering;
 
-use rancor::Fallible;
+use rancor::{Fallible, Source};
 
 use crate::{
     alloc::string::{String, ToString},
@@ -21,6 +21,7 @@ impl Archive for String {
 
 impl<S: Fallible + ?Sized> Serialize<S> for String
 where
+    S::Error: Source,
     str: SerializeUnsized<S>,
 {
     fn serialize(
