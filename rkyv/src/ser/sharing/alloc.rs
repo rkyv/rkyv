@@ -1,35 +1,19 @@
-use core::{fmt, hash::BuildHasherDefault, mem::size_of};
+use core::{fmt, hash::BuildHasherDefault};
 
 use hashbrown::hash_map::{Entry, HashMap};
 use rancor::{fail, Source};
 
-use crate::{hash::FxHasher64, ser::Sharing};
-
-#[derive(Debug)]
-struct DuplicateSharedPointer {
-    address: usize,
-}
-
-impl fmt::Display for DuplicateSharedPointer {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "duplicate shared pointer: {:#.*x}",
-            size_of::<usize>() * 2,
-            self.address
-        )
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for DuplicateSharedPointer {}
+use crate::{
+    hash::FxHasher64,
+    ser::{sharing::SharingState, Sharing},
+};
 
 /// A shared pointer strategy that shares serializations of the same shared
 /// pointer.
 #[derive(Debug, Default)]
 pub struct Share {
     shared_address_to_pos:
-        HashMap<usize, usize, BuildHasherDefault<FxHasher64>>,
+        HashMap<usize, Option<usize>, BuildHasherDefault<FxHasher64>>,
 }
 
 impl Share {
@@ -56,19 +40,58 @@ impl Share {
     }
 }
 
+#[derive(Debug)]
+struct NotStarted;
+
+impl fmt::Display for NotStarted {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "shared pointer was not started sharing")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for NotStarted {}
+
+#[derive(Debug)]
+struct AlreadyFinished;
+
+impl fmt::Display for AlreadyFinished {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "shared pointer was already finished sharing")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for AlreadyFinished {}
+
 impl<E: Source> Sharing<E> for Share {
-    fn get_shared_ptr(&self, address: usize) -> Option<usize> {
-        self.shared_address_to_pos.get(&address).copied()
+    fn start_sharing(&mut self, address: usize) -> SharingState {
+        match self.shared_address_to_pos.entry(address) {
+            Entry::Vacant(vacant) => {
+                vacant.insert(None);
+                SharingState::Started
+            }
+            Entry::Occupied(occupied) => {
+                if let Some(pos) = occupied.get() {
+                    SharingState::Finished(*pos)
+                } else {
+                    SharingState::Pending
+                }
+            }
+        }
     }
 
-    fn add_shared_ptr(&mut self, address: usize, pos: usize) -> Result<(), E> {
+    fn finish_sharing(&mut self, address: usize, pos: usize) -> Result<(), E> {
         match self.shared_address_to_pos.entry(address) {
-            Entry::Occupied(_) => {
-                fail!(DuplicateSharedPointer { address });
-            }
-            Entry::Vacant(e) => {
-                e.insert(pos);
-                Ok(())
+            Entry::Vacant(_) => fail!(NotStarted),
+            Entry::Occupied(mut occupied) => {
+                let inner = occupied.get_mut();
+                if inner.is_some() {
+                    fail!(AlreadyFinished);
+                } else {
+                    *inner = Some(pos);
+                    Ok(())
+                }
             }
         }
     }

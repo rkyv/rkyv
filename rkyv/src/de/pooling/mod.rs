@@ -4,9 +4,9 @@
 mod alloc;
 mod core;
 
-use ::core::{alloc::LayoutError, fmt, mem::transmute};
+use ::core::{alloc::LayoutError, fmt, mem::transmute, ptr::NonNull};
 use ptr_meta::{from_raw_parts_mut, metadata, DynMetadata, Pointee};
-use rancor::{Fallible, ResultExt as _, Source, Strategy};
+use rancor::{fail, Fallible, ResultExt as _, Source, Strategy};
 
 #[cfg(feature = "alloc")]
 pub use self::alloc::*;
@@ -74,28 +74,28 @@ impl<T: ?Sized> From<Metadata> for DynMetadata<T> {
 /// A type-erased pointer.
 #[derive(Clone, Copy, Debug)]
 pub struct ErasedPtr {
-    data_address: *mut (),
+    data_address: NonNull<()>,
     metadata: Metadata,
 }
 
 impl ErasedPtr {
     /// Returns an erased pointer corresponding to the given pointer.
     #[inline]
-    pub fn new<T>(ptr: *mut T) -> Self
+    pub fn new<T>(ptr: NonNull<T>) -> Self
     where
         T: Pointee + ?Sized,
         T::Metadata: Into<Metadata>,
     {
         Self {
             data_address: ptr.cast(),
-            metadata: metadata(ptr).into(),
+            metadata: metadata(ptr.as_ptr()).into(),
         }
     }
 
     /// Returns the data address corresponding to this erased pointer.
     #[inline]
     pub fn data_address(&self) -> *mut () {
-        self.data_address
+        self.data_address.as_ptr()
     }
 
     /// # Safety
@@ -107,7 +107,7 @@ impl ErasedPtr {
         T: Pointee + ?Sized,
         Metadata: Into<T::Metadata>,
     {
-        from_raw_parts_mut(self.data_address, self.metadata.into())
+        from_raw_parts_mut(self.data_address.as_ptr(), self.metadata.into())
     }
 }
 
@@ -115,7 +115,7 @@ impl ErasedPtr {
 ///
 /// # Safety
 ///
-/// `alloc` and `from_value` must return pointerw which are non-null, writeable,
+/// `alloc` and `from_value` must return pointers which are non-null, writeable,
 /// and properly aligned for `T`.
 pub unsafe trait SharedPointer<T: Pointee + ?Sized> {
     /// Allocates space for a value with the given metadata.
@@ -138,20 +138,35 @@ pub unsafe trait SharedPointer<T: Pointee + ?Sized> {
     unsafe fn drop(ptr: *mut T);
 }
 
+/// The result of starting to deserialize a shared pointer.
+pub enum PoolingState {
+    /// The caller started pooling this value. They should proceed to
+    /// deserialize the shared value and call `finish_pooling`.
+    Started,
+    /// Another caller started pooling this value, but has not finished yet.
+    /// This can only occur with cyclic shared pointer structures, and so rkyv
+    /// treats this as an error by default.
+    Pending,
+    /// This value has already been pooled. The caller should use the returned
+    /// pointer to pool its value.
+    Finished(ErasedPtr),
+}
+
 /// A shared pointer deserialization strategy.
 ///
 /// This trait is required to deserialize `Rc` and `Arc`.
 pub trait Pooling<E = <Self as Fallible>::Error> {
-    /// Gets the data pointer of a previously-deserialized shared pointer.
-    fn get_shared_ptr(&mut self, address: usize) -> Option<ErasedPtr>;
+    /// Starts pooling the value associated with the given address.
+    fn start_pooling(&mut self, address: usize) -> PoolingState;
 
-    /// Adds the data address of a deserialized shared pointer to the registry.
+    /// Finishes pooling the value associated with the given address.
+    ///
+    /// Returns an error if the given address was not pending.
     ///
     /// # Safety
     ///
-    /// The given `drop` function must be valid to call with the given
-    /// `pointer`.
-    unsafe fn add_shared_ptr(
+    /// The given `drop` function must be valid to call with `ptr`.
+    unsafe fn finish_pooling(
         &mut self,
         address: usize,
         ptr: ErasedPtr,
@@ -163,21 +178,38 @@ impl<T, E> Pooling<E> for Strategy<T, E>
 where
     T: Pooling<E>,
 {
-    fn get_shared_ptr(&mut self, address: usize) -> Option<ErasedPtr> {
-        T::get_shared_ptr(self, address)
+    fn start_pooling(&mut self, address: usize) -> PoolingState {
+        T::start_pooling(self, address)
     }
 
-    unsafe fn add_shared_ptr(
+    unsafe fn finish_pooling(
         &mut self,
         address: usize,
         ptr: ErasedPtr,
         drop: unsafe fn(ErasedPtr),
     ) -> Result<(), E> {
-        // SAFETY: The safety requirements for `add_shared_ptr` are the same as
+        // SAFETY: The safety requirements for `finish_pooling` are the same as
         // the requirements for calling this function.
-        unsafe { T::add_shared_ptr(self, address, ptr, drop) }
+        unsafe { T::finish_pooling(self, address, ptr, drop) }
     }
 }
+
+#[derive(Debug)]
+struct CyclicSharedPointerError;
+
+impl fmt::Display for CyclicSharedPointerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "encountered cyclic shared pointers while deserializing\nhelp: \
+             change your deserialization strategy to `Unpool` or use the \
+             `Unpool` wrapper type to break the cycle",
+        )
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for CyclicSharedPointerError {}
 
 /// Helper methods for [`Pooling`].
 pub trait PoolingExt<E>: Pooling<E> {
@@ -209,22 +241,26 @@ pub trait PoolingExt<E>: Pooling<E> {
         let address = value as *const T::Archived as *const () as usize;
         let metadata = T::Archived::deserialize_metadata(value);
 
-        if let Some(shared_pointer) = self.get_shared_ptr(address) {
-            Ok(from_raw_parts_mut(shared_pointer.data_address, metadata))
-        } else {
-            let out = P::alloc(metadata).into_error()?;
-            unsafe { value.deserialize_unsized(self, out)? };
-            let ptr = unsafe { P::from_value(out) };
+        match self.start_pooling(address) {
+            PoolingState::Started => {
+                let out = P::alloc(metadata).into_error()?;
+                unsafe { value.deserialize_unsized(self, out)? };
+                let ptr = unsafe { NonNull::new_unchecked(P::from_value(out)) };
 
-            unsafe {
-                self.add_shared_ptr(
-                    address,
-                    ErasedPtr::new(ptr),
-                    drop_shared::<T, P>,
-                )?;
+                unsafe {
+                    self.finish_pooling(
+                        address,
+                        ErasedPtr::new(ptr),
+                        drop_shared::<T, P>,
+                    )?;
+                }
+
+                Ok(ptr.as_ptr())
             }
-
-            Ok(ptr)
+            PoolingState::Pending => fail!(CyclicSharedPointerError),
+            PoolingState::Finished(ptr) => {
+                Ok(from_raw_parts_mut(ptr.data_address.as_ptr(), metadata))
+            }
         }
     }
 }

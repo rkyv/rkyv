@@ -1,31 +1,12 @@
-use core::{fmt, hash::BuildHasherDefault, mem::size_of};
+use core::{fmt, hash::BuildHasherDefault};
 
 use hashbrown::hash_map::{Entry, HashMap};
 use rancor::{fail, Source};
 
 use crate::{
-    de::pooling::{ErasedPtr, Pooling},
+    de::pooling::{ErasedPtr, Pooling, PoolingState},
     hash::FxHasher64,
 };
-
-#[derive(Debug)]
-struct DuplicateSharedPointer {
-    address: usize,
-}
-
-impl fmt::Display for DuplicateSharedPointer {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "duplicate shared pointer: {:#.*x}",
-            size_of::<usize>() * 2,
-            self.address
-        )
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for DuplicateSharedPointer {}
 
 #[derive(Debug)]
 struct SharedPointer {
@@ -46,7 +27,7 @@ impl Drop for SharedPointer {
 #[derive(Default)]
 pub struct Pool {
     shared_pointers:
-        HashMap<usize, SharedPointer, BuildHasherDefault<FxHasher64>>,
+        HashMap<usize, Option<SharedPointer>, BuildHasherDefault<FxHasher64>>,
 }
 
 impl Pool {
@@ -74,24 +55,63 @@ impl fmt::Debug for Pool {
     }
 }
 
+#[derive(Debug)]
+struct NotStarted;
+
+impl fmt::Display for NotStarted {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "shared pointer was not started pooling")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for NotStarted {}
+
+#[derive(Debug)]
+struct AlreadyFinished;
+
+impl fmt::Display for AlreadyFinished {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "shared pointer was already finished pooling")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for AlreadyFinished {}
+
 impl<E: Source> Pooling<E> for Pool {
-    fn get_shared_ptr(&mut self, address: usize) -> Option<ErasedPtr> {
-        self.shared_pointers.get(&address).map(|p| p.ptr)
+    fn start_pooling(&mut self, address: usize) -> PoolingState {
+        match self.shared_pointers.entry(address) {
+            Entry::Vacant(vacant) => {
+                vacant.insert(None);
+                PoolingState::Started
+            }
+            Entry::Occupied(occupied) => {
+                if let Some(shared) = occupied.get() {
+                    PoolingState::Finished(shared.ptr)
+                } else {
+                    PoolingState::Pending
+                }
+            }
+        }
     }
 
-    unsafe fn add_shared_ptr(
+    unsafe fn finish_pooling(
         &mut self,
         address: usize,
         ptr: ErasedPtr,
         drop: unsafe fn(ErasedPtr),
     ) -> Result<(), E> {
         match self.shared_pointers.entry(address) {
-            Entry::Occupied(_) => {
-                fail!(DuplicateSharedPointer { address });
-            }
-            Entry::Vacant(e) => {
-                e.insert(SharedPointer { ptr, drop });
-                Ok(())
+            Entry::Vacant(_) => fail!(NotStarted),
+            Entry::Occupied(mut occupied) => {
+                let inner = occupied.get_mut();
+                if inner.is_some() {
+                    fail!(AlreadyFinished)
+                } else {
+                    *inner = Some(SharedPointer { ptr, drop });
+                    Ok(())
+                }
             }
         }
     }

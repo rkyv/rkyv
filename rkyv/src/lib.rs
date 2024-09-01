@@ -44,7 +44,8 @@
 //! rkyv supports [shared pointers] by default, and is able to serialize and
 //! deserialize them without duplicating the underlying data. Shared pointers
 //! which point to the same data when serialized will still point to the same
-//! data when deserialized.
+//! data when deserialized. By default, rkyv only supports non-cyclic data
+//! structures.
 //!
 //! Alongside its [unchecked API], rkyv also provides optional [validation] so
 //! you can ensure safety and data integrity at the cost of some overhead.

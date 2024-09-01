@@ -31,6 +31,7 @@ impl<T, S> Serialize<S> for rc::Rc<T>
 where
     T: SerializeUnsized<S> + ?Sized + 'static,
     S: Fallible + Writer + Sharing + ?Sized,
+    S::Error: Source,
 {
     fn serialize(
         &self,
@@ -113,6 +114,7 @@ impl<T, S> Serialize<S> for rc::Weak<T>
 where
     T: SerializeUnsized<S> + ?Sized + 'static,
     S: Fallible + Writer + Sharing + ?Sized,
+    S::Error: Source,
 {
     fn serialize(
         &self,
@@ -153,7 +155,7 @@ where
 #[cfg(test)]
 mod tests {
     use munge::munge;
-    use rancor::Panic;
+    use rancor::{Failure, Panic};
 
     use crate::{
         access_unchecked, access_unchecked_mut,
@@ -255,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    fn archive_unsized_shared_ptr() {
+    fn roundtrip_unsized_shared_ptr() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
         struct Test {
@@ -275,7 +277,7 @@ mod tests {
     }
 
     #[test]
-    fn archive_unsized_shared_ptr_empty() {
+    fn roundtrip_unsized_shared_ptr_empty() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
         struct Test {
@@ -294,7 +296,7 @@ mod tests {
     }
 
     #[test]
-    fn archive_weak_ptr() {
+    fn roundtrip_weak_ptr() {
         #[derive(Archive, Serialize, Deserialize)]
         #[rkyv(crate, check_bytes)]
         struct Test {
@@ -375,5 +377,44 @@ mod tests {
         assert_eq!(Weak::strong_count(&deserialized.b), 1);
         assert_eq!(Rc::weak_count(&deserialized.a), 1);
         assert_eq!(Weak::weak_count(&deserialized.b), 1);
+    }
+
+    #[test]
+    fn serialize_cyclic_error() {
+        use rancor::{Fallible, Source};
+
+        use crate::{
+            de::Pooling,
+            ser::{Sharing, Writer},
+        };
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(
+            crate,
+            serialize_bounds(
+                __S: Sharing + Writer,
+                <__S as Fallible>::Error: Source,
+            ),
+            deserialize_bounds(
+                __D: Pooling,
+                <__D as Fallible>::Error: Source,
+            )
+        )]
+        struct Inner {
+            #[omit_bounds]
+            weak: Weak<Self>,
+        }
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate)]
+        struct Outer {
+            inner: Rc<Inner>,
+        }
+
+        let value = Outer {
+            inner: Rc::new_cyclic(|weak| Inner { weak: weak.clone() }),
+        };
+
+        assert!(to_bytes::<Failure>(&value).is_err());
     }
 }

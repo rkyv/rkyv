@@ -3,7 +3,7 @@
 use core::{borrow::Borrow, cmp, fmt, hash, marker::PhantomData, ops::Deref};
 
 use munge::munge;
-use rancor::Fallible;
+use rancor::{Fallible, Source};
 
 use crate::{
     seal::Seal,
@@ -72,6 +72,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
     where
         U: SerializeUnsized<S> + ?Sized,
         S: Fallible + Writer + Sharing + ?Sized,
+        S::Error: Source,
     {
         let pos = serializer.serialize_shared(value)?;
 
@@ -249,6 +250,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRcWeak<T, F> {
     where
         U: SerializeUnsized<S, Archived = T> + ?Sized,
         S: Fallible + Writer + Sharing + ?Sized,
+        S::Error: Source,
     {
         Ok(match value {
             None => RcWeakResolver {

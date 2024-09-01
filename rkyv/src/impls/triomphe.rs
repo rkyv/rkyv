@@ -46,6 +46,7 @@ impl<T, S> Serialize<S> for Arc<T>
 where
     T: SerializeUnsized<S> + ?Sized + 'static,
     S: Writer + Sharing + Fallible + ?Sized,
+    S::Error: Source,
 {
     fn serialize(
         &self,

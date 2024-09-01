@@ -4,36 +4,51 @@
 mod alloc;
 mod core;
 
-use rancor::{Fallible, Strategy};
+use ::core::fmt;
+use rancor::{fail, Fallible, Source, Strategy};
 
 #[cfg(feature = "alloc")]
 pub use self::alloc::*;
 pub use self::core::*;
 use crate::SerializeUnsized;
 
+/// The result of starting to serialize a shared pointer.
+pub enum SharingState {
+    /// The caller started sharing this value. They should proceed to serialize
+    /// the shared value and call `finish_sharing`.
+    Started,
+    /// Another caller started sharing this value, but has not finished yet.
+    /// This can only occur with cyclic shared pointer structures, and so rkyv
+    /// treats this as an error by default.
+    Pending,
+    /// This value has already been shared. The caller should use the returned
+    /// address to share its value.
+    Finished(usize),
+}
+
 /// A shared pointer serialization strategy.
 ///
 /// This trait is required to serialize `Rc` and `Arc`.
 pub trait Sharing<E = <Self as Fallible>::Error> {
-    /// Gets the position of a serialized shared pointer by address.
-    ///
-    /// Returns `None` if the pointer has not yet been added.
-    fn get_shared_ptr(&self, address: usize) -> Option<usize>;
+    /// Starts sharing the value associated with the given address.
+    fn start_sharing(&mut self, address: usize) -> SharingState;
 
-    /// Adds the serialized position of a shared pointer.
-    fn add_shared_ptr(&mut self, address: usize, pos: usize) -> Result<(), E>;
+    /// Finishes sharing the value associated with the given address.
+    ///
+    /// Returns an error if the given address was not pending.
+    fn finish_sharing(&mut self, address: usize, pos: usize) -> Result<(), E>;
 }
 
 impl<'a, T, E> Sharing<E> for &'a mut T
 where
     T: Sharing<E> + ?Sized,
 {
-    fn get_shared_ptr(&self, address: usize) -> Option<usize> {
-        T::get_shared_ptr(*self, address)
+    fn start_sharing(&mut self, address: usize) -> SharingState {
+        T::start_sharing(*self, address)
     }
 
-    fn add_shared_ptr(&mut self, address: usize, pos: usize) -> Result<(), E> {
-        T::add_shared_ptr(*self, address, pos)
+    fn finish_sharing(&mut self, address: usize, pos: usize) -> Result<(), E> {
+        T::finish_sharing(*self, address, pos)
     }
 }
 
@@ -41,49 +56,56 @@ impl<T, E> Sharing<E> for Strategy<T, E>
 where
     T: Sharing<E> + ?Sized,
 {
-    fn get_shared_ptr(&self, address: usize) -> Option<usize> {
-        T::get_shared_ptr(self, address)
+    fn start_sharing(&mut self, address: usize) -> SharingState {
+        T::start_sharing(self, address)
     }
 
-    fn add_shared_ptr(&mut self, address: usize, pos: usize) -> Result<(), E> {
-        T::add_shared_ptr(self, address, pos)
+    fn finish_sharing(&mut self, address: usize, pos: usize) -> Result<(), E> {
+        T::finish_sharing(self, address, pos)
     }
 }
 
+#[derive(Debug)]
+struct CyclicSharedPointerError;
+
+impl fmt::Display for CyclicSharedPointerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "encountered cyclic shared pointers while serializing\nhelp: \
+             change your serialization strategy to `Unshare` or use the \
+             `Unshare` wrapper type to break the cycle",
+        )
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for CyclicSharedPointerError {}
+
 /// Helper methods for [`Sharing`].
 pub trait SharingExt<E>: Sharing<E> {
-    /// Gets the position of a previously-added shared value.
-    ///
-    /// Returns `None` if the value has not yet been added.
-    fn get_shared<T: ?Sized>(&self, value: &T) -> Option<usize> {
-        self.get_shared_ptr(value as *const T as *const () as usize)
-    }
-
-    /// Adds the position of a shared value to the registry.
-    fn add_shared<T: ?Sized>(
-        &mut self,
-        value: &T,
-        pos: usize,
-    ) -> Result<(), E> {
-        self.add_shared_ptr(value as *const T as *const () as usize, pos)
-    }
-
-    /// Archives the given shared value and returns its position. If the value
-    /// has already been added then it returns the position of the
+    /// Serializes the given shared value and returns its position. If the value
+    /// has already been serialized then it returns the position of the
     /// previously added value.
+    ///
+    /// Returns an error if cyclic shared pointers are encountered.
     fn serialize_shared<T: SerializeUnsized<Self> + ?Sized>(
         &mut self,
         value: &T,
     ) -> Result<usize, <Self as Fallible>::Error>
     where
         Self: Fallible<Error = E>,
+        E: Source,
     {
-        if let Some(pos) = self.get_shared(value) {
-            Ok(pos)
-        } else {
-            let pos = value.serialize_unsized(self)?;
-            self.add_shared(value, pos)?;
-            Ok(pos)
+        let addr = value as *const T as *const () as usize;
+        match self.start_sharing(addr) {
+            SharingState::Started => {
+                let pos = value.serialize_unsized(self)?;
+                self.finish_sharing(addr, pos)?;
+                Ok(pos)
+            }
+            SharingState::Pending => fail!(CyclicSharedPointerError),
+            SharingState::Finished(pos) => Ok(pos),
         }
     }
 }

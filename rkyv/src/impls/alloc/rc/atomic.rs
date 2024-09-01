@@ -28,6 +28,7 @@ impl<T, S> Serialize<S> for sync::Arc<T>
 where
     T: SerializeUnsized<S> + ?Sized + 'static,
     S: Fallible + Writer + Sharing + ?Sized,
+    S::Error: Source,
 {
     fn serialize(
         &self,
@@ -113,6 +114,7 @@ impl<T, S> Serialize<S> for sync::Weak<T>
 where
     T: SerializeUnsized<S> + ?Sized + 'static,
     S: Fallible + Writer + Sharing + ?Sized,
+    S::Error: Source,
 {
     fn serialize(
         &self,

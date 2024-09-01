@@ -1,4 +1,4 @@
-use super::{ErasedPtr, Pooling};
+use crate::de::pooling::{ErasedPtr, Pooling, PoolingState};
 
 /// A shared pointer strategy that duplicates deserializations of the same
 /// shared pointer.
@@ -6,11 +6,11 @@ use super::{ErasedPtr, Pooling};
 pub struct Unpool;
 
 impl<E> Pooling<E> for Unpool {
-    fn get_shared_ptr(&mut self, _: usize) -> Option<ErasedPtr> {
-        None
+    fn start_pooling(&mut self, _: usize) -> PoolingState {
+        PoolingState::Started
     }
 
-    unsafe fn add_shared_ptr(
+    unsafe fn finish_pooling(
         &mut self,
         _: usize,
         _: ErasedPtr,

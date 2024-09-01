@@ -81,11 +81,11 @@ unsafe impl<W, A: Allocator<E>, S, E> Allocator<E> for Serializer<W, A, S> {
 }
 
 impl<W, A, S: Sharing<E>, E> Sharing<E> for Serializer<W, A, S> {
-    fn get_shared_ptr(&self, address: usize) -> Option<usize> {
-        self.sharing.get_shared_ptr(address)
+    fn start_sharing(&mut self, address: usize) -> sharing::SharingState {
+        self.sharing.start_sharing(address)
     }
 
-    fn add_shared_ptr(&mut self, address: usize, pos: usize) -> Result<(), E> {
-        self.sharing.add_shared_ptr(address, pos)
+    fn finish_sharing(&mut self, address: usize, pos: usize) -> Result<(), E> {
+        self.sharing.finish_sharing(address, pos)
     }
 }
