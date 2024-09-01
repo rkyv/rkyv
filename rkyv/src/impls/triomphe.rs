@@ -9,13 +9,17 @@ use triomphe::Arc;
 
 use crate::{
     de::{Metadata, Pooling, PoolingExt, SharedPointer},
-    rc::{ArchivedRc, RcResolver},
+    rc::{ArchivedRc, Flavor, RcResolver},
     ser::{Sharing, Writer},
     Archive, ArchiveUnsized, Deserialize, DeserializeUnsized, Place, Serialize,
     SerializeUnsized,
 };
 
 pub struct TriompheArcFlavor;
+
+impl Flavor for TriompheArcFlavor {
+    const ALLOW_CYCLES: bool = false;
+}
 
 unsafe impl<T> SharedPointer<T> for Arc<T> {
     fn alloc(_: <T as Pointee>::Metadata) -> Result<*mut T, LayoutError> {

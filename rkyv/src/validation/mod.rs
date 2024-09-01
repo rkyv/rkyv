@@ -61,12 +61,20 @@ impl<A, S, E> SharedContext<E> for Validator<A, S>
 where
     S: SharedContext<E>,
 {
-    fn register_shared_ptr(
+    fn start_shared(
         &mut self,
         address: usize,
         type_id: TypeId,
-    ) -> Result<bool, E> {
-        self.shared.register_shared_ptr(address, type_id)
+    ) -> Result<shared::ValidationState, E> {
+        self.shared.start_shared(address, type_id)
+    }
+
+    fn finish_shared(
+        &mut self,
+        address: usize,
+        type_id: TypeId,
+    ) -> Result<(), E> {
+        self.shared.finish_shared(address, type_id)
     }
 }
 

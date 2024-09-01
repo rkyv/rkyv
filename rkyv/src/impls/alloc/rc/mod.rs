@@ -417,4 +417,43 @@ mod tests {
 
         assert!(to_bytes::<Failure>(&value).is_err());
     }
+
+    #[cfg(all(
+        feature = "bytecheck",
+        not(feature = "big_endian"),
+        not(any(feature = "pointer_width_16", feature = "pointer_width_64")),
+    ))]
+    #[test]
+    fn recursive_stack_overflow() {
+        use rancor::{Fallible, Source};
+
+        use crate::{
+            access,
+            de::Pooling,
+            util::Align,
+            validation::{ArchiveContext, SharedContext},
+        };
+
+        #[derive(Archive, Deserialize)]
+        #[rkyv(
+            crate,
+            check_bytes(bounds(__C: ArchiveContext + SharedContext)),
+            deserialize_bounds(
+                __D: Pooling,
+                <__D as Fallible>::Error: Source,
+            ),
+            derive(Debug),
+        )]
+        enum AllValues {
+            Rc(#[omit_bounds] Rc<AllValues>),
+        }
+
+        let data = Align([
+            0x00, 0x00, 0x00, 0xff, // B: AllValues::Rc
+            0xfc, 0xff, 0xff, 0xff, // RelPtr with offset -4 (B)
+            0x00, 0x00, 0xf6, 0xff, // A: AllValues::Rc
+            0xf4, 0xff, 0xff, 0xff, // RelPtr with offset -12 (B)
+        ]);
+        access::<ArchivedAllValues, Failure>(&*data).unwrap_err();
+    }
 }

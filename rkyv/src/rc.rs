@@ -12,11 +12,27 @@ use crate::{
     ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
 
+/// A type marker for `ArchivedRc`.
+pub trait Flavor: 'static {
+    /// If `true`, cyclic `ArchivedRc`s with this flavor will not fail
+    /// validation. If `false`, cyclic `ArchivedRc`s with this flavor will fail
+    /// validation.
+    const ALLOW_CYCLES: bool;
+}
+
 /// The flavor type for [`Rc`](std::rc::Rc).
 pub struct RcFlavor;
 
+impl Flavor for RcFlavor {
+    const ALLOW_CYCLES: bool = false;
+}
+
 /// The flavor type for [`Arc`](std::sync::Arc).
 pub struct ArcFlavor;
+
+impl Flavor for ArcFlavor {
+    const ALLOW_CYCLES: bool = false;
+}
 
 /// An archived `Rc`.
 ///
@@ -278,24 +294,40 @@ pub struct RcWeakResolver {
 
 #[cfg(feature = "bytecheck")]
 mod verify {
-    use core::any::TypeId;
+    use core::{any::TypeId, fmt};
 
     use bytecheck::{
         rancor::{Fallible, Source},
         CheckBytes, Verify,
     };
+    use rancor::fail;
 
-    use super::{ArchivedRc, ArchivedRcWeak};
     use crate::{
+        rc::{ArchivedRc, ArchivedRcWeak, Flavor},
         traits::{ArchivePointee, LayoutRaw},
-        validation::{ArchiveContext, ArchiveContextExt, SharedContext},
+        validation::{
+            shared::ValidationState, ArchiveContext, ArchiveContextExt,
+            SharedContext,
+        },
     };
+
+    #[derive(Debug)]
+    struct CyclicSharedPointerError;
+
+    impl fmt::Display for CyclicSharedPointerError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "encountered cyclic shared pointers while validating")
+        }
+    }
+
+    #[cfg(feature = "std")]
+    impl std::error::Error for CyclicSharedPointerError {}
 
     unsafe impl<T, F, C> Verify<C> for ArchivedRc<T, F>
     where
         T: ArchivePointee + CheckBytes<C> + LayoutRaw + ?Sized + 'static,
         T::ArchivedMetadata: CheckBytes<C>,
-        F: 'static,
+        F: Flavor,
         C: Fallible + ArchiveContext + SharedContext + ?Sized,
         C::Error: Source,
     {
@@ -303,12 +335,20 @@ mod verify {
             let ptr = self.ptr.as_ptr_wrapping();
             let type_id = TypeId::of::<ArchivedRc<T, F>>();
 
-            let is_new = context
-                .register_shared_ptr(ptr as *const u8 as usize, type_id)?;
-            if is_new {
-                context.in_subtree(ptr, |context| unsafe {
-                    T::check_bytes(ptr, context)
-                })?
+            let addr = ptr as *const u8 as usize;
+            match context.start_shared(addr, type_id)? {
+                ValidationState::Started => {
+                    context.in_subtree(ptr, |context| unsafe {
+                        T::check_bytes(ptr, context)
+                    })?;
+                    context.finish_shared(addr, type_id)?;
+                }
+                ValidationState::Pending => {
+                    if !F::ALLOW_CYCLES {
+                        fail!(CyclicSharedPointerError)
+                    }
+                }
+                ValidationState::Finished => (),
             }
 
             Ok(())
@@ -319,7 +359,7 @@ mod verify {
     where
         T: ArchivePointee + CheckBytes<C> + LayoutRaw + ?Sized + 'static,
         T::ArchivedMetadata: CheckBytes<C>,
-        F: 'static,
+        F: Flavor,
         C: Fallible + ArchiveContext + SharedContext + ?Sized,
         C::Error: Source,
     {
