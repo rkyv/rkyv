@@ -23,6 +23,8 @@ mod hashbrown;
 
 #[cfg(feature = "indexmap")]
 mod indexmap;
+#[cfg(feature = "postgres-types")]
+mod pg_types;
 #[cfg(feature = "smallvec")]
 mod smallvec;
 #[cfg(feature = "smol_str")]
