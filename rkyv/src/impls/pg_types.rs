@@ -1,6 +1,7 @@
+use std::{collections::HashMap, error::Error, hash::Hasher, net::IpAddr};
+
 use bytes::BytesMut;
 use postgres_types::{to_sql_checked, IsNull, ToSql, Type};
-use std::{collections::HashMap, error::Error, hash::Hasher, net::IpAddr};
 
 use crate::{
     boxed::ArchivedBox, collections::swiss_table::ArchivedHashMap,
