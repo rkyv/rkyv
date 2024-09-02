@@ -97,25 +97,33 @@ impl<T> ArchivedHashTable<T> {
 
     /// # Safety
     ///
-    /// `index` must be less than `len()`.
-    unsafe fn control(&self, index: usize) -> *const u8 {
-        debug_assert!(!self.is_empty());
+    /// - `this` must point to a valid `ArchivedHashTable`
+    /// - `index` must be less than `len()`
+    unsafe fn control_raw(this: *mut Self, index: usize) -> *const u8 {
+        debug_assert!(unsafe { !(*this).is_empty() });
 
         // SAFETY: As an invariant of `ArchivedHashTable`, if `self` is not
         // empty then `self.ptr` is a valid relative pointer. Since `index` is
         // at least 0 and strictly less than `len()`, this table must not be
         // empty.
-        let ptr = unsafe { self.ptr.as_ptr() };
+        let ptr =
+            unsafe { RawRelPtr::as_ptr_raw(ptr::addr_of_mut!((*this).ptr)) };
         // SAFETY: The caller has guaranteed that `index` is less than `len()`,
         // and the first `len()` bytes following `ptr` are the control bytes of
         // the hash table.
         unsafe { ptr.cast::<u8>().add(index) }
     }
 
-    unsafe fn bucket(&self, index: usize) -> NonNull<T> {
+    /// # Safety
+    ///
+    /// - `this` must point to a valid `ArchivedHashTable`
+    /// - `index` must be less than `len()`
+    unsafe fn bucket_raw(this: *mut Self, index: usize) -> NonNull<T> {
         unsafe {
             NonNull::new_unchecked(
-                self.ptr.as_ptr().cast::<T>().sub(index + 1).cast_mut(),
+                RawRelPtr::as_ptr_raw(ptr::addr_of_mut!((*this).ptr))
+                    .cast::<T>()
+                    .sub(index + 1),
             )
         }
     }
@@ -124,29 +132,40 @@ impl<T> ArchivedHashTable<T> {
         capacity.checked_next_power_of_two().unwrap() - 1
     }
 
-    fn get_entry<C>(&self, hash: u64, cmp: C) -> Option<NonNull<T>>
+    /// # Safety
+    ///
+    /// `this` must point to a valid `ArchivedHashTable`
+    unsafe fn get_entry_raw<C>(
+        this: *mut Self,
+        hash: u64,
+        cmp: C,
+    ) -> Option<NonNull<T>>
     where
         C: Fn(&T) -> bool,
     {
-        if self.is_empty() {
+        let is_empty = unsafe { (*this).is_empty() };
+        if is_empty {
             return None;
         }
 
-        let h2_hash = h2(hash);
-        let mut probe_seq = Self::probe_seq(hash, self.capacity());
+        let capacity = unsafe { (*this).capacity() };
 
-        let capacity = self.capacity();
+        let h2_hash = h2(hash);
+        let mut probe_seq = Self::probe_seq(hash, capacity);
+
         let bucket_mask = Self::bucket_mask(capacity);
 
         loop {
             let mut any_empty = false;
 
             for _ in 0..MAX_GROUP_WIDTH / Group::WIDTH {
-                let group = unsafe { Group::read(self.control(probe_seq.pos)) };
+                let group = unsafe {
+                    Group::read(Self::control_raw(this, probe_seq.pos))
+                };
 
                 for bit in group.match_byte(h2_hash) {
                     let index = (probe_seq.pos + bit) % capacity;
-                    let bucket_ptr = unsafe { self.bucket(index) };
+                    let bucket_ptr = unsafe { Self::bucket_raw(this, index) };
                     let bucket = unsafe { bucket_ptr.as_ref() };
 
                     // Opt: These can be marked as likely true on nightly.
@@ -167,7 +186,7 @@ impl<T> ArchivedHashTable<T> {
 
             loop {
                 probe_seq.move_next(bucket_mask);
-                if probe_seq.pos < self.capacity() {
+                if probe_seq.pos < capacity {
                     break;
                 }
             }
@@ -179,7 +198,8 @@ impl<T> ArchivedHashTable<T> {
     where
         C: Fn(&T) -> bool,
     {
-        let ptr = self.get_entry(hash, |e| cmp(e))?;
+        let this = (self as *const Self).cast_mut();
+        let ptr = unsafe { Self::get_entry_raw(this, hash, |e| cmp(e))? };
         Some(unsafe { ptr.as_ref() })
     }
 
@@ -192,9 +212,9 @@ impl<T> ArchivedHashTable<T> {
     where
         C: Fn(&T) -> bool,
     {
-        // TODO: test this through MIRI. It looks like this could be asserting
-        // incorrect aliasing via relative pointers.
-        let mut ptr = this.get_entry(hash, |e| cmp(e))?;
+        let mut ptr = unsafe {
+            Self::get_entry_raw(this.unseal_unchecked(), hash, |e| cmp(e))?
+        };
         Some(Seal::new(unsafe { ptr.as_mut() }))
     }
 
@@ -216,10 +236,12 @@ impl<T> ArchivedHashTable<T> {
     /// # Safety
     ///
     /// This hash table must not be empty.
-    unsafe fn control_iter(&self) -> ControlIter {
+    unsafe fn control_iter(this: *mut Self) -> ControlIter {
         ControlIter {
-            current_mask: unsafe { Group::read(self.control(0)).match_full() },
-            next_group: unsafe { self.control(Group::WIDTH) },
+            current_mask: unsafe {
+                Group::read(Self::control_raw(this, 0)).match_full()
+            },
+            next_group: unsafe { Self::control_raw(this, Group::WIDTH) },
         }
     }
 
@@ -228,9 +250,10 @@ impl<T> ArchivedHashTable<T> {
         if self.is_empty() {
             RawIter::empty()
         } else {
+            let this = (self as *const Self).cast_mut();
             RawIter {
                 // SAFETY: We have checked that `self` is not empty.
-                controls: unsafe { self.control_iter() },
+                controls: unsafe { Self::control_iter(this) },
                 entries: unsafe {
                     NonNull::new_unchecked(self.ptr.as_ptr().cast_mut().cast())
                 },
@@ -240,12 +263,13 @@ impl<T> ArchivedHashTable<T> {
     }
 
     /// Returns a sealed iterator over the entry pointers in the hash table.
-    pub fn raw_iter_seal(this: Seal<'_, Self>) -> RawIter<T> {
+    pub fn raw_iter_seal(mut this: Seal<'_, Self>) -> RawIter<T> {
         if this.is_empty() {
             RawIter::empty()
         } else {
             // SAFETY: We have checked that `this` is not empty.
-            let controls = unsafe { this.control_iter() };
+            let controls =
+                unsafe { Self::control_iter(this.as_mut().unseal_unchecked()) };
             let items_left = this.len();
             munge!(let Self { ptr, .. } = this);
             RawIter {
@@ -646,8 +670,9 @@ mod verify {
             context.in_subtree_raw(ptr, layout, |context| {
                 // Check each non-empty bucket
 
+                let this = (self as *const Self).cast_mut();
                 // SAFETY: We have checked that `self` is not empty.
-                let mut controls = unsafe { self.control_iter() };
+                let mut controls = unsafe { Self::control_iter(this) };
                 let mut base_index = 0;
                 'outer: while base_index < cap {
                     while let Some(bit) = controls.next_full() {
@@ -658,7 +683,7 @@ mod verify {
 
                         unsafe {
                             T::check_bytes(
-                                self.bucket(index).as_ptr(),
+                                Self::bucket_raw(this, index).as_ptr(),
                                 context,
                             )?;
                         }
@@ -670,8 +695,8 @@ mod verify {
 
                 // Verify that wrapped bytes are set correctly
                 for i in cap..usize::min(2 * cap, control_count) {
-                    let byte = unsafe { *self.control(i) };
-                    let wrapped = unsafe { *self.control(i % cap) };
+                    let byte = unsafe { *Self::control_raw(this, i) };
+                    let wrapped = unsafe { *Self::control_raw(this, i % cap) };
                     if wrapped != byte {
                         fail!(UnwrappedControlByte { index: i })
                     }

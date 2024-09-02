@@ -112,6 +112,8 @@ mod tests {
 
     use crate::{
         api::test::{roundtrip, roundtrip_with, to_archived},
+        collections::swiss_table::ArchivedHashMap,
+        string::ArchivedString,
         Archive, Archived, Deserialize, Serialize,
     };
 
@@ -222,6 +224,41 @@ mod tests {
                 .unwrap();
 
             assert_eq!(get_with.as_str(), "value");
+        });
+    }
+
+    #[test]
+    fn get_seal() {
+        let mut hash_map: HashMap<_, _, RandomState> = HashMap::default();
+        hash_map.insert("hello".to_string(), "world".to_string());
+        hash_map.insert("foo".to_string(), "bar".to_string());
+        hash_map.insert("baz".to_string(), "bat".to_string());
+
+        to_archived(&hash_map, |archived| {
+            let mut value =
+                ArchivedHashMap::get_seal(archived, "hello").unwrap();
+            assert_eq!("world", &*value);
+            let mut string = ArchivedString::as_str_seal(value.as_mut());
+            string.make_ascii_uppercase();
+            assert_eq!("WORLD", &*value);
+        });
+    }
+
+    #[test]
+    fn iter_seal() {
+        let mut hash_map: HashMap<_, _, RandomState> = HashMap::default();
+        hash_map.insert("hello".to_string(), "world".to_string());
+        hash_map.insert("foo".to_string(), "bar".to_string());
+        hash_map.insert("baz".to_string(), "bat".to_string());
+
+        to_archived(&hash_map, |mut archived| {
+            for value in ArchivedHashMap::values_seal(archived.as_mut()) {
+                let mut string = ArchivedString::as_str_seal(value);
+                string.make_ascii_uppercase();
+            }
+            assert_eq!(archived.get("hello").unwrap(), "WORLD");
+            assert_eq!(archived.get("foo").unwrap(), "BAR");
+            assert_eq!(archived.get("baz").unwrap(), "BAT");
         });
     }
 }
