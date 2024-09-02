@@ -40,7 +40,6 @@ impl Attributes {
     fn parse_meta(&mut self, meta: ParseNestedMeta<'_>) -> Result<(), Error> {
         if meta.path.is_ident("check_bytes") {
             let meta = if meta.input.peek(token::Paren) {
-                // TODO: destroy this
                 let (delimiter, tokens) = meta.input.step(|cursor| {
                     if let Some((TokenTree::Group(g), rest)) =
                         cursor.token_tree()
