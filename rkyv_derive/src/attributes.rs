@@ -193,24 +193,24 @@ impl Attributes {
             if let Some(ref ident) = result.archived {
                 return Err(Error::new_spanned(
                     ident,
-                    "archived = \"...\" may not be used with as = \"...\" \
-                     because no type is generated",
+                    "`archived = ...` may not be used with `as = ...` because \
+                     no type is generated",
                 ));
             }
 
             if let Some(first) = result.metas.first() {
                 return Err(Error::new_spanned(
                     first,
-                    "attributes may not be used with as = \"...\"\nplace
-                    attributes on the archived type instead",
+                    "attributes may not be used with `as = ...`; place \
+                     attributes on the archived type instead",
                 ));
             }
 
             if result.check_bytes.is_some() {
                 return Err(Error::new_spanned(
                     result.check_bytes.unwrap(),
-                    "cannot generate a `CheckBytes` impl because `as = \
-                     \"..\"` does not generate an archived type",
+                    "cannot generate a `CheckBytes` impl because `as = ...` \
+                     does not generate an archived type",
                 ));
             }
         }
