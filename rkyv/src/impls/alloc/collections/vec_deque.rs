@@ -1,8 +1,9 @@
-use std::{alloc, cmp, collections::VecDeque};
+use core::cmp::Ordering;
 
 use rancor::{Fallible, ResultExt, Source};
 
 use crate::{
+    alloc::{alloc::alloc, boxed::Box, collections::VecDeque, vec::Vec},
     ser::{Allocator, Writer},
     traits::LayoutRaw,
     vec::{ArchivedVec, VecResolver},
@@ -55,7 +56,7 @@ where
         let metadata = self.as_slice().deserialize_metadata();
         let layout = <[T] as LayoutRaw>::layout_raw(metadata).into_error()?;
         let data_address = if layout.size() > 0 {
-            unsafe { alloc::alloc(layout) }
+            unsafe { alloc(layout) }
         } else {
             crate::polyfill::dangling(&layout).as_ptr()
         };
@@ -75,18 +76,16 @@ impl<T: PartialEq<U>, U> PartialEq<VecDeque<U>> for ArchivedVec<T> {
 }
 
 impl<T: PartialOrd> PartialOrd<VecDeque<T>> for ArchivedVec<T> {
-    fn partial_cmp(&self, other: &VecDeque<T>) -> Option<cmp::Ordering> {
+    fn partial_cmp(&self, other: &VecDeque<T>) -> Option<Ordering> {
         self.iter().partial_cmp(other.iter())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::VecDeque;
-
     use crate::{
-        access_unchecked, api::test::deserialize, rancor::Error, to_bytes,
-        vec::ArchivedVec, Archived,
+        access_unchecked, alloc::collections::VecDeque, api::test::deserialize,
+        rancor::Error, to_bytes, vec::ArchivedVec, Archived,
     };
 
     #[test]
