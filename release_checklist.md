@@ -85,5 +85,5 @@ pointers even though Rust's memory model does. The experimental tree borrows
 aliasing model supports relative pointers, so we use that instead:
 
 ```sh
-$env:MIRIFLAGS="-Zmiri-disable-stacked-borrows -Zmiri-tree-borrows"
+$env:MIRIFLAGS="-Zmiri-tree-borrows"
 ```

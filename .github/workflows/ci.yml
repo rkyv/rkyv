@@ -79,6 +79,25 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
       - run: cargo test --verbose ${{ matrix.opt }}
 
+  layout:
+    name: Randomize layout / layout-seed=${{ matrix.layout-seed }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Nothing-up-my-sleeve: these are the digits of pi in groups of 19
+        layout-seed:
+          - '3141592653589793238'
+          - '4626433832795028841'
+          - '9716939937510582097'
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: cargo test --verbose
+        env:
+          RUSTFLAGS: -Zrandomize-layout -Z layout-seed=${{ matrix.layout-seed }}
+
   miri:
     name: Miri / ${{ matrix.opt }}
     runs-on: ubuntu-latest
@@ -95,7 +114,7 @@ jobs:
       - run: cargo miri setup
       - run: cargo miri test ${{ matrix.opt }} --verbose
         env:
-          MIRIFLAGS: -Zmiri-disable-stacked-borrows -Zmiri-tree-borrows
+          MIRIFLAGS: -Zmiri-tree-borrows
 
   test:
     name: Test / ${{ matrix.target }} ${{ matrix.opt }}
