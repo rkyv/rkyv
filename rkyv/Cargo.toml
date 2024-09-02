@@ -54,7 +54,7 @@ pointer_width_16 = []
 pointer_width_32 = []
 pointer_width_64 = []
 alloc = ["dep:hashbrown", "tinyvec?/alloc", "rancor/alloc"]
-std = ["alloc", "bytecheck?/std", "bytes?/std", "indexmap?/std", "ptr_meta/std", "uuid?/std"]
+std = ["alloc", "bytecheck?/std", "bytes?/std", "indexmap?/std", "ptr_meta/std", "rancor/std", "uuid?/std"]
 bytecheck = ["dep:bytecheck", "bytecheck/derive", "rend/bytecheck", "rkyv_derive/bytecheck"]
 
 # External crate support
