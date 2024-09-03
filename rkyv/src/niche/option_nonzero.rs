@@ -15,7 +15,7 @@ use crate::{seal::Seal, Archived, Place, Portable};
 macro_rules! impl_archived_option_nonzero {
     ($ar:ident, $nz:ty, $ne:ty) => {
         #[doc = concat!("A niched archived `Option<", stringify!($nz), ">`")]
-        #[derive(Portable)]
+        #[derive(Copy, Clone, Portable)]
         #[rkyv(crate)]
         #[repr(transparent)]
         #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
