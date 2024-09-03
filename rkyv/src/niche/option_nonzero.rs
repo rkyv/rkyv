@@ -15,7 +15,7 @@ use crate::{seal::Seal, Archived, Place, Portable};
 macro_rules! impl_archived_option_nonzero {
     ($ar:ident, $nz:ty, $ne:ty) => {
         #[doc = concat!("A niched archived `Option<", stringify!($nz), ">`")]
-        #[derive(Portable)]
+        #[derive(Copy, Clone, Portable)]
         #[rkyv(crate)]
         #[repr(transparent)]
         #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -171,10 +171,7 @@ macro_rules! impl_archived_option_nonzero {
         impl fmt::Debug for $ar {
             #[inline]
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                match self.as_ref() {
-                    Some(inner) => inner.fmt(f),
-                    None => f.debug_tuple("None").finish(),
-                }
+                self.as_ref().fmt(f)
             }
         }
 
