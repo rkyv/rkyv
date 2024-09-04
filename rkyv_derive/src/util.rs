@@ -1,11 +1,30 @@
 use core::iter::FlatMap;
 
-use proc_macro2::{Ident, Span, TokenStream};
-use quote::quote;
+use proc_macro2::{Delimiter, Span, TokenStream, TokenTree};
+use quote::{quote, ToTokens};
 use syn::{
-    parse_quote, punctuated::Iter, Data, DataEnum, DataStruct, DataUnion,
-    Error, Field, Meta, Path, Type, Variant, WherePredicate,
+    parse::{Parse, ParseStream},
+    parse_quote,
+    punctuated::Iter,
+    token, Data, DataEnum, DataStruct, DataUnion, Error, Field, Ident,
+    MacroDelimiter, Meta, MetaList, Path, Token, Type, Variant, WherePredicate,
 };
+
+pub fn try_set_attribute<T: ToTokens>(
+    attribute: &mut Option<T>,
+    value: T,
+    name: &'static str,
+) -> Result<(), Error> {
+    if attribute.is_none() {
+        *attribute = Some(value);
+        Ok(())
+    } else {
+        Err(Error::new_spanned(
+            value,
+            format!("{} already specified", name),
+        ))
+    }
+}
 
 pub fn strip_raw(ident: &Ident) -> String {
     let as_string = ident.to_string();
@@ -61,20 +80,221 @@ pub fn is_not_omitted(f: &&Field) -> bool {
     })
 }
 
+enum TypeOrMeta {
+    Type(Type),
+    List(MetaList),
+    NamedType(MetaNamedType),
+}
+
+struct MetaNamedType {
+    path: Path,
+    value: Type,
+}
+
+impl TypeOrMeta {
+    fn parse_items<T: Default>(
+        input: ParseStream,
+        mut logic: impl FnMut(&mut T, Self) -> Result<(), Error>,
+    ) -> Result<T, Error> {
+        let mut result = T::default();
+
+        loop {
+            logic(&mut result, input.parse()?)?;
+
+            if input.is_empty() {
+                return Ok(result);
+            }
+
+            input.parse::<Token![,]>()?;
+
+            if input.is_empty() {
+                return Ok(result);
+            }
+        }
+    }
+}
+
+impl Parse for TypeOrMeta {
+    fn parse(input: ParseStream) -> Result<Self, Error> {
+        match input.parse()? {
+            Type::Path(ty_path) if input.peek(token::Paren) => {
+                let (delimiter, tokens) = input.step(|cursor| {
+                    if let Some((TokenTree::Group(g), rest)) =
+                        cursor.token_tree()
+                    {
+                        let span = g.delim_span();
+
+                        let delimiter = match g.delimiter() {
+                            Delimiter::Parenthesis => {
+                                MacroDelimiter::Paren(token::Paren(span))
+                            }
+                            _ => {
+                                return Err(cursor.error("expected parentheses"))
+                            }
+                        };
+
+                        Ok(((delimiter, g.stream()), rest))
+                    } else {
+                        Err(cursor.error("expected delimiter"))
+                    }
+                })?;
+
+                return Ok(Self::List(MetaList {
+                    path: ty_path.path,
+                    delimiter,
+                    tokens,
+                }));
+            }
+            Type::Path(ty_path) if input.peek(Token![=]) => {
+                input.parse::<Token![=]>()?;
+
+                Ok(Self::NamedType(MetaNamedType {
+                    path: ty_path.path,
+                    value: input.parse()?,
+                }))
+            }
+            ty => Ok(Self::Type(ty)),
+        }
+    }
+}
+
+impl ToTokens for TypeOrMeta {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            TypeOrMeta::Type(ty) => ty.to_tokens(tokens),
+            TypeOrMeta::List(meta) => meta.path.to_tokens(tokens),
+            TypeOrMeta::NamedType(meta) => meta.path.to_tokens(tokens),
+        }
+    }
+}
+
+#[derive(Default)]
+struct With {
+    ty: Option<Type>,
+    remote: Option<Remote>,
+}
+
+impl With {
+    fn from_field(field: &Field) -> Result<Self, Error> {
+        let with_attr = field
+            .attrs
+            .iter()
+            .find(|attr| attr.meta.path().is_ident("with"));
+
+        if let Some(with) = with_attr {
+            with.parse_args()
+        } else {
+            Ok(Self::default())
+        }
+    }
+
+    fn parse_type_or_meta(
+        &mut self,
+        type_or_meta: TypeOrMeta,
+    ) -> Result<(), Error> {
+        match type_or_meta {
+            TypeOrMeta::Type(ty) => {
+                try_set_attribute(&mut self.ty, ty, "with-wrapper type")
+            }
+            TypeOrMeta::List(meta) if meta.path.is_ident("remote") => {
+                let raw = meta.parse_args()?;
+                let remote = Remote::from_raw(meta.path, raw);
+                try_set_attribute(&mut self.remote, remote, "remote")
+            }
+            _ => Err(Error::new_spanned(
+                type_or_meta,
+                "unrecognized `with` argument",
+            )),
+        }
+    }
+}
+
+impl Parse for With {
+    fn parse(input: ParseStream) -> Result<Self, Error> {
+        TypeOrMeta::parse_items(input, Self::parse_type_or_meta)
+    }
+}
+
+struct Remote {
+    path: Path,
+    field: Option<Type>,
+    with: Option<Path>,
+    getter: Option<Path>,
+}
+
+impl Remote {
+    fn from_raw(path: Path, raw: RemoteRaw) -> Self {
+        Self {
+            path,
+            field: raw.field,
+            with: raw.with,
+            getter: raw.getter,
+        }
+    }
+}
+
+impl ToTokens for Remote {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.path.to_tokens(tokens);
+    }
+}
+
+#[derive(Default)]
+struct RemoteRaw {
+    field: Option<Type>,
+    with: Option<Path>,
+    getter: Option<Path>,
+}
+
+impl RemoteRaw {
+    fn parse_type_or_meta(
+        &mut self,
+        type_or_meta: TypeOrMeta,
+    ) -> Result<(), Error> {
+        match type_or_meta {
+            TypeOrMeta::Type(ty) => {
+                try_set_attribute(&mut self.field, ty, "remote field type")
+            }
+            TypeOrMeta::NamedType(meta) if meta.path.is_ident("with") => {
+                let Type::Path(ty_path) = meta.value else {
+                    return Err(Error::new_spanned(
+                        meta.value,
+                        "expected path",
+                    ));
+                };
+
+                try_set_attribute(&mut self.with, ty_path.path, "with")
+            }
+            TypeOrMeta::NamedType(meta) if meta.path.is_ident("getter") => {
+                let Type::Path(ty_path) = meta.value else {
+                    return Err(Error::new_spanned(
+                        meta.value,
+                        "expected path",
+                    ));
+                };
+
+                try_set_attribute(&mut self.getter, ty_path.path, "getter")
+            }
+            _ => Err(Error::new_spanned(
+                type_or_meta,
+                "unrecognized `remote` argument",
+            )),
+        }
+    }
+}
+
+impl Parse for RemoteRaw {
+    fn parse(input: ParseStream) -> Result<Self, Error> {
+        TypeOrMeta::parse_items(input, Self::parse_type_or_meta)
+    }
+}
+
 pub fn map_with_or_else<T>(
     field: &Field,
     f: impl FnOnce(Type) -> T,
     d: impl FnOnce() -> T,
 ) -> Result<T, Error> {
-    let with_attr = field
-        .attrs
-        .iter()
-        .find(|attr| attr.meta.path().is_ident("with"));
-    if let Some(with) = with_attr {
-        Ok(f(with.parse_args::<Type>()?))
-    } else {
-        Ok(d())
-    }
+    Ok(With::from_field(field)?.ty.map_or_else(d, f))
 }
 
 pub fn archive_bound(

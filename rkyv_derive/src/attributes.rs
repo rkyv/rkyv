@@ -1,32 +1,18 @@
 use proc_macro2::TokenTree;
-use quote::ToTokens;
 use syn::{
     meta::ParseNestedMeta, parenthesized, parse::Parse, parse_quote,
     punctuated::Punctuated, token, AttrStyle, DeriveInput, Error, Ident,
     MacroDelimiter, Meta, MetaList, Path, Token, Type, WherePredicate,
 };
 
-fn try_set_attribute<T: ToTokens>(
-    attribute: &mut Option<T>,
-    value: T,
-    name: &'static str,
-) -> Result<(), Error> {
-    if attribute.is_none() {
-        *attribute = Some(value);
-        Ok(())
-    } else {
-        Err(Error::new_spanned(
-            value,
-            format!("{} already specified", name),
-        ))
-    }
-}
+use crate::util::try_set_attribute;
 
 #[derive(Default)]
 pub struct Attributes {
     pub as_type: Option<Type>,
     pub archived: Option<Ident>,
     pub resolver: Option<Ident>,
+    pub remote: Option<Path>,
     pub metas: Vec<Meta>,
     pub compares: Option<Punctuated<Path, Token![,]>>,
     pub archive_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
@@ -154,6 +140,12 @@ impl Attributes {
             self.metas
                 .extend(metas.parse_terminated(Meta::parse, Token![,])?);
             Ok(())
+        } else if meta.path.is_ident("remote") {
+            try_set_attribute(
+                &mut self.remote,
+                meta.value()?.parse()?,
+                "remote",
+            )
         } else {
             Err(meta.error("unrecognized archive argument"))
         }
