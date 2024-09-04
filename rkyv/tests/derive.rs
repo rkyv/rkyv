@@ -2,7 +2,11 @@ use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
 
 use rancor::{Fallible, Panic, ResultExt, Strategy};
 use rkyv::{
-    api::high::HighSerializer, ser::allocator::ArenaHandle, util::AlignedVec, with::{ArchiveWith, AsString, DeserializeWith, Map, SerializeWith}, Archive, Archived, Deserialize, Place, Resolver, Serialize
+    api::high::HighSerializer,
+    ser::allocator::ArenaHandle,
+    util::AlignedVec,
+    with::{ArchiveWith, AsString, DeserializeWith, Map, SerializeWith},
+    Archive, Archived, Deserialize, Place, Resolver, Serialize,
 };
 
 #[cfg(feature = "bytecheck")]
@@ -58,15 +62,14 @@ where
     rkyv::api::high::to_bytes::<Panic>(&wrap).always_ok()
 }
 
-fn access<F, T>(
-    bytes: &[u8],
-) -> &<F as ArchiveWith<T>>::Archived
+fn access<F, T>(bytes: &[u8]) -> &<F as ArchiveWith<T>>::Archived
 where
     F: ArchiveWith<T, Archived: CheckedArchived>,
 {
     #[cfg(feature = "bytecheck")]
     {
-        rkyv::access::<<F as ArchiveWith<T>>::Archived, Panic>(bytes).always_ok()
+        rkyv::access::<<F as ArchiveWith<T>>::Archived, Panic>(bytes)
+            .always_ok()
     }
 
     #[cfg(not(feature = "bytecheck"))]
@@ -79,10 +82,8 @@ fn roundtrip<F, T>(remote: &T)
 where
     F: ArchiveWith<T, Archived: CheckedArchived>
         + for<'a> SerializeWith<T, Serializer<'a>>
-        + DeserializeWith<
-            <F as ArchiveWith<T>>::Archived,
-            T,
-            Strategy<(), Panic>,
+        + DeserializeWith< <F as ArchiveWith<T>>::Archived, T, Strategy<(),
+          Panic>,
         >,
     T: Debug + PartialEq,
 {
@@ -153,6 +154,17 @@ fn named_struct() {
         d: Option<String>,
     }
 
+    impl<A> From<Example<A>> for Remote<A> {
+        fn from(value: Example<A>) -> Self {
+            Remote {
+                a: value.a,
+                b: value.b,
+                c: value.c.map(From::from),
+                d: value.d.map(From::from),
+            }
+        }
+    }
+
     let remote = Remote {
         a: 0,
         b: Vec::new(),
@@ -177,6 +189,17 @@ fn unnamed_struct() {
         #[with(remote(Option<PathBuf>, with = Map<AsString>))] Option<String>,
         #[with(Map<Identity>, remote(Option<PathBuf>, with = Map<AsString>))] Option<String>,
     );
+
+    impl<A> From<Example<A>> for Remote<A> {
+        fn from(value: Example<A>) -> Self {
+            Remote(
+                value.0,
+                value.1,
+                value.2.map(From::from),
+                value.3.map(From::from),
+            )
+        }
+    }
 
     let remote = Remote(0, Vec::new(), Some("2".into()), Some("3".into()));
     roundtrip::<Example<i32>, _>(&remote);
@@ -225,6 +248,20 @@ fn full_enum() {
         },
     }
 
+    impl<A> From<Example<A>> for Remote<A> {
+        fn from(value: Example<A>) -> Self {
+            match value {
+                Example::A => Remote::A,
+                Example::B(value) => Remote::B(value),
+                Example::C { a, b, c } => Remote::C {
+                    a,
+                    b: b.map(From::from),
+                    c: c.map(From::from)
+                },
+            }
+        }
+    }
+
     for remote in [
         Remote::A,
         Remote::B(0),
@@ -241,7 +278,7 @@ fn full_enum() {
 #[test]
 fn named_struct_private() {
     mod remote {
-        #[derive(Copy, Clone, Default)]
+        #[derive(Copy, Clone, Debug, Default, PartialEq)]
         pub struct Remote {
             inner: [u8; 4],
         }
@@ -266,7 +303,7 @@ fn named_struct_private() {
     }
 
     #[derive(Archive, Serialize, Deserialize)]
-    #[rkyv(remote = remote::Remove)]
+    #[rkyv(remote = remote::Remote)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
     struct ExampleByVal {
         #[with(remote(getter = remote::Remote::into_inner))]
@@ -316,7 +353,7 @@ fn named_struct_private() {
 #[test]
 fn unnamed_struct_private() {
     mod remote {
-        #[derive(Copy, Clone, Default)]
+        #[derive(Copy, Clone, Debug, Default, PartialEq)]
         pub struct Remote([u8; 4]);
 
         impl Remote {

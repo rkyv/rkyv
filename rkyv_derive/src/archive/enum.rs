@@ -89,9 +89,11 @@ pub fn impl_enum(
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    Ok(quote! {
-        #public
+    let mut result = TokenStream::new();
 
+    result.extend(quote!(#public));
+
+    result.extend(quote! {
         const _: () = {
             #private
 
@@ -115,7 +117,38 @@ pub fn impl_enum(
                 }
             }
         };
-    })
+    });
+
+    if let Some(ref remote) = attributes.remote {
+        result.extend(quote! {
+            const _: () = {
+                #private
+
+                impl #impl_generics #rkyv_path::with::ArchiveWith<#remote> for #name #ty_generics
+                #where_clause
+                {
+                    type Archived = #archived_type;
+                    type Resolver = #resolver_name #ty_generics;
+
+                    // Some resolvers will be (), this allow is to prevent clippy
+                    // from complaining
+                    #[allow(clippy::unit_arg)]
+                    fn resolve_with(
+                        field: &#remote,
+                        resolver: Self::Resolver,
+                        out: #rkyv_path::Place<Self::Archived>,
+                    ) {
+                        // match resolver {
+                        //     #resolve_arms
+                        // }
+                        todo!()
+                    }
+                }
+            };
+        });
+    }
+
+    Ok(result)
 }
 
 fn generate_archived_type(

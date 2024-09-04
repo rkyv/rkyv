@@ -51,7 +51,7 @@ fn derive_deserialize_impl(
     let (_, ty_generics, where_clause) = input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 
-    let deserialize_impl = match input.data {
+    let (deserialize_impl, deserialize_with_impl) = match input.data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
                 let mut deserialize_where = where_clause.clone();
@@ -76,7 +76,7 @@ fn derive_deserialize_impl(
                     })
                     .collect::<Result<Vec<_>, Error>>()?;
 
-                quote! {
+                let deserialize_impl = quote! {
                     impl #impl_generics
                         #rkyv_path::Deserialize<#name #ty_generics, __D>
                         for #rkyv_path::Archived<#name #ty_generics>
@@ -94,7 +94,38 @@ fn derive_deserialize_impl(
                             })
                         }
                     }
-                }
+                };
+
+                let deserialize_with_impl = if let Some(ref remote) =
+                    attributes.remote
+                {
+                    quote! {
+                        #[automatically_derived]
+                        impl #impl_generics
+                            #rkyv_path::with::DeserializeWith<
+                                #rkyv_path::Archived<#name #ty_generics>,
+                                #remote,
+                                __D,
+                            >
+                            for #name #ty_generics
+                        #deserialize_where
+                        {
+                            fn deserialize_with(
+                                field: &#rkyv_path::Archived<#name #ty_generics>,
+                                deserializer: &mut __D,
+                            ) -> ::core::result::Result<
+                                #remote,
+                                <__D as #rkyv_path::rancor::Fallible>::Error,
+                            > {
+                                field.deserialize(deserializer).map(From::from)
+                            }
+                        }
+                    }
+                } else {
+                    TokenStream::new()
+                };
+
+                (deserialize_impl, deserialize_with_impl)
             }
             Fields::Unnamed(ref fields) => {
                 let mut deserialize_where = where_clause.clone();
@@ -123,7 +154,7 @@ fn derive_deserialize_impl(
                     })
                     .collect::<Result<Vec<_>, Error>>()?;
 
-                quote! {
+                let deserialize_impl = quote! {
                     impl #impl_generics
                         #rkyv_path::Deserialize<#name #ty_generics, __D>
                         for #rkyv_path::Archived<#name #ty_generics>
@@ -141,25 +172,87 @@ fn derive_deserialize_impl(
                             ))
                         }
                     }
-                }
+                };
+
+                let deserialize_with_impl =
+                    if let Some(ref remote) = attributes.remote {
+                        quote! {
+                            #[automatically_derived]
+                            impl #impl_generics
+                                #rkyv_path::with::DeserializeWith<
+                                    #rkyv_path::Archived<#name #ty_generics>,
+                                    #remote,
+                                    __D,
+                                >
+                                for #name #ty_generics
+                            #deserialize_where
+                            {
+                                fn deserialize_with(
+                                    field: &#rkyv_path::Archived<#name #ty_generics>,
+                                    deserializer: &mut __D,
+                                ) -> ::core::result::Result<
+                                    #remote,
+                                    <__D as #rkyv_path::rancor::Fallible>::Error,
+                                > {
+                                    field.deserialize(deserializer).map(From::from)
+                                }
+                            }
+                        }
+                    } else {
+                        TokenStream::new()
+                    };
+
+                (deserialize_impl, deserialize_with_impl)
             }
-            Fields::Unit => quote! {
-                impl #impl_generics
-                    #rkyv_path::Deserialize<#name #ty_generics, __D>
-                    for #rkyv_path::Archived<#name #ty_generics>
-                #where_clause
-                {
-                    fn deserialize(
-                        &self,
-                        _: &mut __D,
-                    ) -> ::core::result::Result<
-                        #name #ty_generics,
-                        <__D as #rkyv_path::rancor::Fallible>::Error,
-                    > {
-                        ::core::result::Result::Ok(#name)
+            Fields::Unit => {
+                let deserialize_impl = quote! {
+                    impl #impl_generics
+                        #rkyv_path::Deserialize<#name #ty_generics, __D>
+                        for #rkyv_path::Archived<#name #ty_generics>
+                    #where_clause
+                    {
+                        fn deserialize(
+                            &self,
+                            _: &mut __D,
+                        ) -> ::core::result::Result<
+                            #name #ty_generics,
+                            <__D as #rkyv_path::rancor::Fallible>::Error,
+                        > {
+                            ::core::result::Result::Ok(#name)
+                        }
                     }
-                }
-            },
+                };
+
+                let deserialize_with_impl =
+                    if let Some(ref remote) = attributes.remote {
+                        quote! {
+                            #[automatically_derived]
+                            impl #impl_generics
+                                #rkyv_path::with::DeserializeWith<
+                                    #rkyv_path::Archived<#name #ty_generics>,
+                                    #remote,
+                                    __D,
+                                >
+                                for #name #ty_generics
+                            #where_clause
+                            {
+                                fn deserialize_with(
+                                    field: &#rkyv_path::Archived<#name #ty_generics>,
+                                    _: &mut __D,
+                                ) -> ::core::result::Result<
+                                    #remote,
+                                    <__D as #rkyv_path::rancor::Fallible>::Error,
+                                > {
+                                    Ok(#remote)
+                                }
+                            }
+                        }
+                    } else {
+                        TokenStream::new()
+                    };
+
+                (deserialize_impl, deserialize_with_impl)
+            }
         },
         Data::Enum(ref data) => {
             let mut deserialize_where = where_clause.clone();
@@ -263,7 +356,7 @@ fn derive_deserialize_impl(
                 })
                 .collect::<Result<Vec<_>, Error>>()?;
 
-            quote! {
+            let deserialize_impl = quote! {
                 impl #impl_generics
                     #rkyv_path::Deserialize<#name #ty_generics, __D>
                     for #rkyv_path::Archived<#name #ty_generics>
@@ -281,7 +374,33 @@ fn derive_deserialize_impl(
                         })
                     }
                 }
-            }
+            };
+
+            let deserialize_with_impl =
+                if let Some(ref remote) = attributes.remote {
+                    quote! {
+                        #[automatically_derived]
+                        impl #impl_generics
+                            #rkyv_path::with::DeserializeWith<#rkyv_path::Archived<#name #ty_generics>, #remote, __D>
+                            for #name #ty_generics
+                        #deserialize_where
+                        {
+                            fn deserialize_with(
+                                field: &#rkyv_path::Archived<#name #ty_generics>,
+                                deserializer: &mut __D,
+                            ) -> ::core::result::Result<
+                                #remote,
+                                <__D as #rkyv_path::rancor::Fallible>::Error,
+                            > {
+                                field.deserialize(deserializer).map(From::from)
+                            }
+                        }
+                    }
+                } else {
+                    TokenStream::new()
+                };
+
+            (deserialize_impl, deserialize_with_impl)
         }
         Data::Union(_) => {
             return Err(Error::new_spanned(
@@ -294,5 +413,7 @@ fn derive_deserialize_impl(
     Ok(quote! {
         #[automatically_derived]
         #deserialize_impl
+
+        #deserialize_with_impl
     })
 }

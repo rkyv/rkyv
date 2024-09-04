@@ -87,6 +87,29 @@ pub fn impl_struct(
         }
     }
 
+    if let Some(ref remote) = attributes.remote {
+        result.extend(quote! {
+            impl #impl_generics #rkyv_path::with::ArchiveWith<#remote> for #name #ty_generics
+            #where_clause
+            {
+                type Archived = #archived_type;
+                type Resolver = #resolver_name #ty_generics;
+
+                // Some resolvers will be (), this allow is to prevent clippy
+                // from complaining.
+                #[allow(clippy::unit_arg)]
+                fn resolve_with(
+                    field: &#remote,
+                    resolver: Self::Resolver,
+                    out: #rkyv_path::Place<Self::Archived>,
+                ) {
+                    // #resolve_statements
+                    todo!()
+                }
+            }
+        });
+    }
+
     Ok(result)
 }
 
