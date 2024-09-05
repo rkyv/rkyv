@@ -20,9 +20,6 @@ extern crate proc_macro;
 use syn::{parse_macro_input, DeriveInput};
 
 /// Derives `Portable` for the labeled type.
-///
-/// This macro also supports the `#[omit_bounds]` attribute. See [`Archive`] for
-/// more information.
 #[proc_macro_derive(Portable, attributes(archive, rkyv, omit_bounds))]
 pub fn derive_portable(
     input: proc_macro::TokenStream,
@@ -40,33 +37,29 @@ pub fn derive_portable(
 ///
 /// # Attributes
 ///
-/// Additional arguments can be specified using attributes.
+/// Additional arguments can be specified using `#[rkyv(...)]`, which accepts
+/// the following arguments:
 ///
-/// `#[rkyv(...)]` accepts the following arguments:
-///
-/// - `archived = ...`: Changes the name of the generated archived type to the
-///   given value. By default, archived types are named "Archived" + `the name
-///   of the type`.
-/// - `resolver = ...`: Changes the name of the generated resolver type to the
-///   given value. By default, resolver types are named `the name of the type` +
-///   "Resolver".
-/// - `attr(...)`: Passes along attributes to the generated archived type such
-///   as `repr(...)`.
+/// - `archived = ...`: Changes the name of the generated archived type. By
+///   default, archived types are named "Archived" + `the name of the type`.
+/// - `resolver = ...`: Changes the name of the generated resolver type. By
+///   default, resolver types are named `the name of the type` + "Resolver".
+/// - `attr(...)`: Passes along attributes to the generated archived type.
 /// - `derive(...)`: Adds the derives passed as arguments to the generated type.
+///   This is equivalent to `#[rkyv(attr(derive(...)))]`.
 /// - `compare(...)`: Implements common comparison operators between the
 ///   original and archived types. Supported comparisons are `PartialEq` and
 ///   `PartialOrd` (i.e. `#[rkyv(compare(PartialEq, PartialOrd))]`).
 /// - `{archive, serialize, deserialize}_bounds(...)`: Adds additional bounds to
-///   trait implementations. This can be especially useful when dealing with
-///   recursive structures, where bounds may need to be omitted to prevent
-///   recursive type definitions.
-/// - `check_bytes`: Derive `CheckBytes` on the archived type, in order to
-///   enable safe deserialization. Requires `bytecheck` feature. Not compatible
-///   with `as = ...`. In that case, use `#[derive(CheckBytes)]` and
-///   `#[check_bytes(crate = rkyv::bytecheck)]` on the archived type.
-/// - `as = ...`: Instead of generating a separate archived type, this type will
-///   archive as the named type. This is useful for types which are generic over
-///   their parameters.
+///   trait implementations. This can be useful for recursive types, where
+///   bounds may need to be omitted to prevent recursive trait impls.
+/// - `check_bytes`: Derives `CheckBytes` for the archived type. This enables
+///   safe accessing and deserialization. Ignored if the `bytecheck` feature is
+///   not enabled. Not compatible with `as = ...` (use `#[derive(CheckBytes)]`
+///   and `#[check_bytes(crate = rkyv::bytecheck)]` on the archived type).
+/// - `as = ...`: Uses the given archived type instead of generating a new one.
+///   This is useful for types which are `Portable` and/or generic over their
+///   parameters.
 /// - `crate = ...`: Chooses an alternative crate path to import rkyv from.
 ///
 /// There are also shorthand attributes:
@@ -90,7 +83,7 @@ pub fn derive_portable(
 /// Wrappers transparently customize archived types by providing different
 /// implementations of core traits. For example, references cannot be archived,
 /// but the `Inline` wrapper serializes a reference as if it were a field of the
-/// struct. Wrappers can be applied to fields using the `#[with(...)]`
+/// struct. Wrappers can be applied to fields using the `#[rkyv_with(...)]`
 /// attribute.
 #[proc_macro_derive(
     Archive,
