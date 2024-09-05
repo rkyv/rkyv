@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
     parse_quote, spanned::Spanned as _, DataEnum, Error, Field, Fields,
-    Generics, Ident, Index, Member,
+    Generics, Ident, Index, Member, Path,
 };
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
         resolver_variant_doc, variant_doc,
     },
     attributes::Attributes,
-    util::{archived, is_not_omitted, resolve, resolver, strip_raw},
+    util::{archived, is_not_omitted, resolve, resolve_remote, resolver, strip_raw},
 };
 
 pub fn impl_enum(
@@ -65,7 +65,13 @@ pub fn impl_enum(
 
     private.extend(generate_variant_structs(printing, generics, data)?);
 
-    let resolve_arms = generate_resolve_arms(printing, generics, data)?;
+    let resolve_arms = generate_resolve_arms(
+        printing,
+        generics,
+        data,
+        &parse_quote!(#name),
+        resolve
+    )?;
 
     if let Some(ref compares) = attributes.compares {
         for compare in compares {
@@ -111,6 +117,7 @@ pub fn impl_enum(
                     resolver: Self::Resolver,
                     out: #rkyv_path::Place<Self::Archived>,
                 ) {
+                    let __this = self;
                     match resolver {
                         #resolve_arms
                     }
@@ -120,6 +127,14 @@ pub fn impl_enum(
     });
 
     if let Some(ref remote) = attributes.remote {
+        let resolve_arms = generate_resolve_arms(
+            printing,
+            generics,
+            data,
+            remote,
+            resolve_remote
+        )?;
+
         result.extend(quote! {
             const _: () = {
                 #private
@@ -138,10 +153,10 @@ pub fn impl_enum(
                         resolver: Self::Resolver,
                         out: #rkyv_path::Place<Self::Archived>,
                     ) {
-                        // match resolver {
-                        //     #resolve_arms
-                        // }
-                        todo!()
+                        let __this = field;
+                        match resolver {
+                            #resolve_arms
+                        }
                     }
                 }
             };
@@ -293,10 +308,11 @@ fn generate_resolve_arms(
     printing: &Printing,
     generics: &Generics,
     data: &DataEnum,
+    name: &Path,
+    resolve_fn: fn(&Path, &Field) -> Result<TokenStream, Error>,
 ) -> Result<TokenStream, Error> {
     let Printing {
         rkyv_path,
-        name,
         resolver_name,
         ..
     } = printing;
@@ -335,7 +351,7 @@ fn generate_resolve_arms(
         let resolves = variant
             .fields
             .iter()
-            .map(|f| resolve(rkyv_path, f))
+            .map(|f| resolve_fn(rkyv_path, f))
             .collect::<Result<Vec<_>, Error>>()?;
 
         match variant.fields {
@@ -343,7 +359,7 @@ fn generate_resolve_arms(
                 #resolver_name::#variant_name {
                     #(#members: #resolver_bindings,)*
                 } => {
-                    match self {
+                    match __this {
                         #name::#variant_name {
                             #(#members: #self_bindings,)*
                         } => {
@@ -388,7 +404,7 @@ fn generate_resolve_arms(
             }),
             Fields::Unnamed(_) => result.extend(quote! {
                 #resolver_name::#variant_name( #(#resolver_bindings,)* ) => {
-                    match self {
+                    match __this {
                         #name::#variant_name(#(#self_bindings,)*) => {
                             let out = unsafe {
                                 out.cast_unchecked::<
