@@ -324,10 +324,6 @@ fn named_struct_private() {
                 Self { inner }
             }
 
-            pub fn into_inner(self) -> [u8; 4] {
-                self.inner
-            }
-
             pub fn to_inner(&self) -> [u8; 4] {
                 self.inner
             }
@@ -335,20 +331,6 @@ fn named_struct_private() {
             pub fn as_inner(&self) -> &[u8; 4] {
                 &self.inner
             }
-        }
-    }
-
-    #[derive(Archive, Serialize, Deserialize)]
-    #[rkyv(remote = remote::Remote)]
-    #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
-    struct ExampleByVal {
-        #[with(remote(getter = remote::Remote::into_inner))]
-        inner: [u8; 4],
-    }
-
-    impl From<ExampleByVal> for remote::Remote {
-        fn from(value: ExampleByVal) -> Self {
-            remote::Remote::new(value.inner)
         }
     }
 
@@ -382,7 +364,6 @@ fn named_struct_private() {
 
     let remote = remote::Remote::default();
     roundtrip::<ExampleByRef, _>(&remote);
-    roundtrip::<ExampleByRef, _>(&remote);
     roundtrip::<ExampleThroughRef, _>(&remote);
 }
 
@@ -397,12 +378,12 @@ fn unnamed_struct_private() {
                 Self(inner)
             }
 
-            pub fn into_inner(self) -> [u8; 4] {
+            pub fn to_inner(&self) -> [u8; 4] {
                 self.0
             }
 
-            pub fn as_inner(&self) -> [u8; 4] {
-                self.0
+            pub fn as_inner(&self) -> &[u8; 4] {
+                &self.0
             }
         }
     }
@@ -410,7 +391,7 @@ fn unnamed_struct_private() {
     #[derive(Archive, Serialize, Deserialize)]
     #[rkyv(remote = remote::Remote)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
-    struct ExampleByRef(#[with(remote(getter = remote::Remote::as_inner))] [u8; 4]);
+    struct ExampleByRef(#[with(remote(getter = remote::Remote::to_inner))] [u8; 4]);
 
     impl From<ExampleByRef> for remote::Remote {
         fn from(value: ExampleByRef) -> Self {
@@ -421,17 +402,17 @@ fn unnamed_struct_private() {
     #[derive(Archive, Serialize, Deserialize)]
     #[rkyv(remote = remote::Remote)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
-    struct ExampleByVal(
-        #[with(remote(getter = remote::Remote::into_inner))] [u8; 4],
+    struct ExampleThroughRef(
+        #[with(remote(getter = remote::Remote::as_inner))] [u8; 4],
     );
 
-    impl From<ExampleByVal> for remote::Remote {
-        fn from(value: ExampleByVal) -> Self {
+    impl From<ExampleThroughRef> for remote::Remote {
+        fn from(value: ExampleThroughRef) -> Self {
             remote::Remote::new(value.0)
         }
     }
 
     let remote = remote::Remote::default();
     roundtrip::<ExampleByRef, _>(&remote);
-    roundtrip::<ExampleByVal, _>(&remote);
+    roundtrip::<ExampleThroughRef, _>(&remote);
 }
