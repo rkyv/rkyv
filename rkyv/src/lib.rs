@@ -151,8 +151,6 @@
 //! - [`tinyvec`](https://docs.rs/tinyvec)
 //! - [`triomphe`](https://docs.rs/triomphe)
 //! - [`uuid`](https://docs.rs/uuid)
-//! - [`postgres-types`](https://docs.rs/postgres-types) (`ToSql` implentations
-//!   on rkyv types)
 //!
 //! ## Compatibility
 //!
