@@ -1,25 +1,22 @@
-use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
+use std::{fmt::Debug, marker::PhantomData, mem::MaybeUninit};
 
-use rancor::{Fallible, Panic, ResultExt, Strategy};
+use rancor::{Fallible, Panic, ResultExt, Source, Strategy};
 use rkyv::{
-    api::high::HighSerializer,
-    ser::allocator::ArenaHandle,
-    util::AlignedVec,
-    with::{ArchiveWith, AsString, DeserializeWith, Map, SerializeWith},
-    Archive, Archived, Deserialize, Place, Resolver, Serialize,
+    api::low::LowSerializer, ser::{allocator::SubAllocator, writer::Buffer, Writer}, with::{ArchiveWith, DeserializeWith, Map, SerializeWith}, Archive, Archived, Deserialize, Place, Resolver, Serialize
 };
 
 fn roundtrip<F, T>(remote: &T)
 where
     F: ArchiveWith<T, Archived: CheckedArchived>
-        + for<'a> SerializeWith<T, Serializer<'a>>
+        + for<'a, 'b> SerializeWith<T, Serializer<'a, 'b>>
         + DeserializeWith< <F as ArchiveWith<T>>::Archived, T, Strategy<(),
           Panic>,
         >,
     T: Debug + PartialEq,
 {
-    let bytes = serialize::<F, T>(remote);
-    let archived = access::<F, T>(&bytes);
+    let mut bytes = [0_u8; 256];
+    let buf = serialize::<F, T>(remote, &mut bytes);
+    let archived = access::<F, T>(&buf);
     let deserialized: T =
         F::deserialize_with(archived, Strategy::wrap(&mut ())).always_ok();
 
@@ -32,8 +29,8 @@ fn named_struct() {
     struct Remote<'a, A> {
         a: u8,
         b: PhantomData<&'a A>,
-        c: Option<PathBuf>,
-        d: Option<PathBuf>,
+        c: Option<Foo>,
+        d: Option<Foo>,
     }
 
     #[derive(Archive, Serialize, Deserialize)]
@@ -43,10 +40,10 @@ fn named_struct() {
         a: u8,
         #[with(Identity, remote(with = Identity2))]
         b: PhantomData<&'a A>,
-        #[with(remote(Option<PathBuf>, with = Map<AsString>))]
-        c: Option<String>,
-        #[with(Map<Identity>, remote(Option<PathBuf>, with = Map<AsString>))]
-        d: Option<String>,
+        #[with(remote(Option<Foo>, with = Map<FooWrap>))]
+        c: Option<[u8; 4]>,
+        #[with(Map<Identity>, remote(Option<Foo>, with = Map<FooWrap>))]
+        d: Option<[u8; 4]>,
     }
 
     impl<'a, A> From<Example<'a, A>> for Remote<'a, A> {
@@ -63,8 +60,8 @@ fn named_struct() {
     let remote = Remote {
         a: 0,
         b: PhantomData,
-        c: Some("c".into()),
-        d: Some("d".into())
+        c: Some(Foo::default()),
+        d: Some(Foo::default()),
     };
 
     roundtrip::<Example<i32>, _>(&remote);
@@ -73,7 +70,7 @@ fn named_struct() {
 #[test]
 fn unnamed_struct() {
     #[derive(Debug, PartialEq)]
-    struct Remote<'a, A>(u8, PhantomData<&'a A>, Option<PathBuf>, Option<PathBuf>);
+    struct Remote<'a, A>(u8, PhantomData<&'a A>, Option<Foo>, Option<Foo>);
 
     #[derive(Archive, Serialize, Deserialize)]
     #[rkyv(remote = Remote::<'a, A>)]
@@ -81,12 +78,12 @@ fn unnamed_struct() {
     struct Example<'a, A>(
         u8,
         #[with(Identity, remote(with = Identity2))] PhantomData<&'a A>,
-        #[with(remote(Option<PathBuf>, with = Map<AsString>))] Option<String>,
+        #[with(remote(Option<Foo>, with = Map<FooWrap>))] Option<[u8; 4]>,
         #[with(
             Map<Identity>,
-            remote(Option<PathBuf>, with = Map<AsString>)
+            remote(Option<Foo>, with = Map<FooWrap>)
         )]
-        Option<String>,
+        Option<[u8; 4]>,
     );
 
     impl<'a, A> From<Example<'a, A>> for Remote<'a, A> {
@@ -100,7 +97,12 @@ fn unnamed_struct() {
         }
     }
 
-    let remote = Remote(0, PhantomData, Some("2".into()), Some("3".into()));
+    let remote = Remote(
+        0,
+        PhantomData,
+        Some(Foo::default()),
+        Some(Foo::default()),
+    );
     roundtrip::<Example<i32>, _>(&remote);
 }
 
@@ -126,8 +128,8 @@ fn full_enum() {
         B(u8),
         C {
             a: PhantomData<&'a A>,
-            b: Option<PathBuf>,
-            c: Option<PathBuf>,
+            b: Option<Foo>,
+            c: Option<Foo>,
         },
     }
 
@@ -140,13 +142,13 @@ fn full_enum() {
         C {
             #[with(Identity, remote(with = Identity2))]
             a: PhantomData<&'a A>,
-            #[with(remote(Option<PathBuf>, with = Map<AsString>))]
-            b: Option<String>,
+            #[with(remote(Option<Foo>, with = Map<FooWrap>))]
+            b: Option<[u8; 4]>,
             #[with(
                 Map<Identity>,
-                remote(Option<PathBuf>, with = Map<AsString>)
+                remote(Option<Foo>, with = Map<FooWrap>)
             )]
-            c: Option<String>,
+            c: Option<[u8; 4]>,
         },
     }
 
@@ -169,8 +171,8 @@ fn full_enum() {
         Remote::B(0),
         Remote::C {
             a: PhantomData,
-            b: Some("b".into()),
-            c: Some("c".into()),
+            b: Some(Foo::default()),
+            c: Some(Foo::default()),
         },
     ] {
         roundtrip::<Example<i32>, _>(&remote);
@@ -289,15 +291,13 @@ fn unnamed_struct_private() {
 #[cfg(feature = "bytecheck")]
 pub trait CheckedArchived:
     for<'a> rkyv::bytecheck::CheckBytes<
-        rkyv::api::high::HighValidator<'a, Panic>
+        rkyv::api::low::LowValidator<'a, Panic>
     >
 {}
 
 #[cfg(feature = "bytecheck")]
 impl<Archived:
-    for<'a> rkyv::bytecheck::CheckBytes<
-        rkyv::api::high::HighValidator<'a, Panic>
-    >
+    for<'a> rkyv::bytecheck::CheckBytes<rkyv::api::low::LowValidator<'a, Panic>>
 >
 CheckedArchived for Archived {}
 
@@ -307,11 +307,11 @@ pub trait CheckedArchived {}
 #[cfg(not(feature = "bytecheck"))]
 impl<Archived> CheckedArchived for Archived {}
 
-type Serializer<'a> = HighSerializer<'a, AlignedVec, ArenaHandle<'a>, Panic>;
+type Serializer<'a, 'b> = LowSerializer<'a, Buffer<'b>, SubAllocator<'a>, Panic>;
 
-fn serialize<F, T>(remote: &T) -> AlignedVec
+fn serialize<'buf, F, T>(remote: &T, buf: &'buf mut [u8; 256]) -> Buffer<'buf>
 where
-    F: for<'a> SerializeWith<T, Serializer<'a>>,
+    F: for<'a, 'b> SerializeWith<T, Serializer<'a, 'b>>,
 {
     struct Wrap<'a, F, T>(&'a T, PhantomData<F>);
 
@@ -331,21 +331,25 @@ where
         }
     }
 
-    impl<'a, F, T> Serialize<Serializer<'a>> for Wrap<'_, F, T>
+    impl<'a, 'b, F, T> Serialize<Serializer<'a, 'b>> for Wrap<'_, F, T>
     where
-        F: SerializeWith<T, Serializer<'a>>,
+        F: SerializeWith<T, Serializer<'a, 'b>>,
     {
         fn serialize(
             &self,
-            serializer: &mut Serializer<'a>,
+            serializer: &mut Serializer<'a, 'b>,
         ) -> Result<Self::Resolver, Panic> {
             F::serialize_with(self.0, serializer)
         }
     }
 
     let wrap = Wrap(remote, PhantomData::<F>);
+    let writer = Buffer::from(buf);
+    let mut scratch = [MaybeUninit::uninit(); 128];
+    let alloc = SubAllocator::new(&mut scratch);
 
-    rkyv::api::high::to_bytes::<Panic>(&wrap).always_ok()
+    rkyv::api::low::to_bytes_in_with_alloc::<_, _, Panic>(&wrap, writer, alloc)
+        .always_ok()
 }
 
 fn access<F, T>(bytes: &[u8]) -> &<F as ArchiveWith<T>>::Archived
@@ -354,13 +358,64 @@ where
 {
     #[cfg(feature = "bytecheck")]
     {
-        rkyv::access::<<F as ArchiveWith<T>>::Archived, Panic>(bytes)
+        rkyv::api::low::access::<<F as ArchiveWith<T>>::Archived, Panic>(bytes)
             .always_ok()
     }
 
     #[cfg(not(feature = "bytecheck"))]
     unsafe {
         rkyv::access_unchecked::<<F as ArchiveWith<T>>::Archived>(bytes)
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct Foo([u8; 4]);
+
+impl Default for Foo {
+    fn default() -> Self {
+        Self([2, 3, 5, 7])
+    }
+}
+
+impl From<[u8; 4]> for Foo {
+    fn from(array: [u8; 4]) -> Self {
+        Self(array)
+    }
+}
+
+struct FooWrap;
+
+impl ArchiveWith<Foo> for FooWrap {
+    type Archived = Archived<[u8; 4]>;
+    type Resolver = Resolver<[u8; 4]>;
+
+    fn resolve_with(
+        field: &Foo,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        field.0.resolve(resolver, out);
+    }
+}
+
+impl<S> SerializeWith<Foo, S> for FooWrap
+where
+    S: Fallible<Error: Source> + Writer + ?Sized,
+{
+    fn serialize_with(
+        field: &Foo,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        field.0.serialize(serializer)
+    }
+}
+
+impl<D: Fallible + ?Sized> DeserializeWith<Archived<[u8; 4]>, Foo, D> for FooWrap {
+    fn deserialize_with(
+        archived: &Archived<[u8; 4]>,
+        deserializer: &mut D
+    ) -> Result<Foo, D::Error> {
+            archived.deserialize(deserializer).map(Foo)
     }
 }
 
