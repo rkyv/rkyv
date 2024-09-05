@@ -10,10 +10,19 @@ use rkyv::{
 };
 
 #[cfg(feature = "bytecheck")]
-pub trait CheckedArchived: for<'a> rkyv::bytecheck::CheckBytes<rkyv::api::high::HighValidator<'a, Panic>> {}
+pub trait CheckedArchived: 
+    for<'a> rkyv::bytecheck::CheckBytes<
+        rkyv::api::high::HighValidator<'a, Panic>
+    >
+{}
 
 #[cfg(feature = "bytecheck")]
-impl<Archived: for<'a> rkyv::bytecheck::CheckBytes<rkyv::api::high::HighValidator<'a, Panic>>> CheckedArchived for Archived {}
+impl<Archived:
+    for<'a> rkyv::bytecheck::CheckBytes<
+        rkyv::api::high::HighValidator<'a, Panic>
+    >
+>
+CheckedArchived for Archived {}
 
 #[cfg(not(feature = "bytecheck"))]
 pub trait CheckedArchived {}
@@ -223,7 +232,11 @@ fn unnamed_struct() {
         u8,
         #[with(Identity, remote(with = Identity2))] Vec<A>,
         #[with(remote(Option<PathBuf>, with = Map<AsString>))] Option<String>,
-        #[with(Map<Identity>, remote(Option<PathBuf>, with = Map<AsString>))] Option<String>,
+        #[with(
+            Map<Identity>,
+            remote(Option<PathBuf>, with = Map<AsString>)
+        )]
+        Option<String>,
     );
 
     impl<A> From<Example<A>> for Remote<A> {
@@ -279,7 +292,10 @@ fn full_enum() {
             a: Vec<A>,
             #[with(remote(Option<PathBuf>, with = Map<AsString>))]
             b: Option<String>,
-            #[with(Map<Identity>, remote(Option<PathBuf>, with = Map<AsString>))]
+            #[with(
+                Map<Identity>,
+                remote(Option<PathBuf>, with = Map<AsString>)
+            )]
             c: Option<String>,
         },
     }
@@ -391,7 +407,10 @@ fn unnamed_struct_private() {
     #[derive(Archive, Serialize, Deserialize)]
     #[rkyv(remote = remote::Remote)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
-    struct ExampleByRef(#[with(remote(getter = remote::Remote::inner))] [u8; 4]);
+    struct ExampleByRef(
+        #[with(remote(getter = remote::Remote::inner))]
+        [u8; 4]
+    );
 
     impl From<ExampleByRef> for remote::Remote {
         fn from(value: ExampleByRef) -> Self {

@@ -9,7 +9,10 @@ use crate::{
         archive_field_metas, archived_doc, printing::Printing, resolver_doc,
     },
     attributes::Attributes,
-    util::{archived, is_not_omitted, remote_field_access, resolve, resolve_remote, resolver},
+    util::{
+        archived, is_not_omitted, remote_field_access, resolve, resolve_remote,
+        resolver,
+    },
 };
 
 pub fn impl_struct(
@@ -104,7 +107,9 @@ pub fn impl_struct(
         }
 
         result.extend(quote! {
-            impl #impl_generics #rkyv_path::with::ArchiveWith<#remote> for #name #ty_generics
+            impl #impl_generics
+                #rkyv_path::with::ArchiveWith<#remote>
+                for #name #ty_generics
             #where_clause
             {
                 type Archived = #archived_type;

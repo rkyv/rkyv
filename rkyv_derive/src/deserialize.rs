@@ -405,7 +405,11 @@ fn derive_deserialize_impl(
                     quote! {
                         #[automatically_derived]
                         impl #impl_generics
-                            #rkyv_path::with::DeserializeWith<#rkyv_path::Archived<#name #ty_generics>, #remote, __D>
+                            #rkyv_path::with::DeserializeWith<
+                                #rkyv_path::Archived<#name #ty_generics>,
+                                #remote,
+                                __D,
+                            >
                             for #name #ty_generics
                         #deserialize_where
                         {
