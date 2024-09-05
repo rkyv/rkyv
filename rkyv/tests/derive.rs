@@ -194,7 +194,7 @@ fn named_struct_private() {
                 self.inner
             }
 
-            pub fn as_inner(&self) -> &[u8; 4] {
+            pub fn inner_ref(&self) -> &[u8; 4] {
                 &self.inner
             }
         }
@@ -218,7 +218,7 @@ fn named_struct_private() {
     #[rkyv(remote = remote::Remote)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
     struct ExampleThroughRef {
-        #[with(remote(getter = remote::Remote::as_inner))]
+        #[with(remote(getter = remote::Remote::inner_ref))]
         inner: [u8; 4],
     }
 
@@ -248,7 +248,7 @@ fn unnamed_struct_private() {
                 self.0
             }
 
-            pub fn as_inner(&self) -> &[u8; 4] {
+            pub fn inner_ref(&self) -> &[u8; 4] {
                 &self.0
             }
         }
@@ -272,7 +272,7 @@ fn unnamed_struct_private() {
     #[rkyv(remote = remote::Remote)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
     struct ExampleThroughRef(
-        #[with(remote(getter = remote::Remote::as_inner))] [u8; 4],
+        #[with(remote(getter = remote::Remote::inner_ref))] [u8; 4],
     );
 
     impl From<ExampleThroughRef> for remote::Remote {
