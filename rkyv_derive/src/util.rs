@@ -3,11 +3,7 @@ use core::iter::FlatMap;
 use proc_macro2::{Delimiter, Span, TokenStream, TokenTree};
 use quote::{quote, ToTokens};
 use syn::{
-    parse::{Parse, ParseStream},
-    parse_quote,
-    punctuated::Iter,
-    token, Data, DataEnum, DataStruct, DataUnion, Error, Field, Ident,
-    MacroDelimiter, Meta, MetaList, Path, Token, Type, Variant, WherePredicate,
+    parse::{Parse, ParseStream}, parse_quote, punctuated::Iter, token, Data, DataEnum, DataStruct, DataUnion, Error, Field, Ident, MacroDelimiter, Member, Meta, MetaList, Path, Token, Type, Variant, WherePredicate
 };
 
 pub fn try_set_attribute<T: ToTokens>(
@@ -559,4 +555,16 @@ pub fn deserialize(
             }
         },
     )
+}
+
+pub fn remote_field_access(field: &Field, member: &Member) -> Result<TokenStream, Error> {
+    let with = With::from_field(field)?;
+
+    if let Some(remote) = with.remote {
+        if let Some(getter) = remote.getter {
+            return Ok(quote!(&#getter(field)));
+        }
+    }
+
+    Ok(quote!(&field.#member))
 }

@@ -229,8 +229,7 @@ fn derive_serialize_impl(
                                 Self::Resolver,
                                 <__S as #rkyv_path::rancor::Fallible>::Error,
                             > {
-                                // Ok(#resolver)
-                                todo!()
+                                Ok(#resolver)
                             }
                         }
                     }
