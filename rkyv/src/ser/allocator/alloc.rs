@@ -73,6 +73,9 @@ pub struct Arena {
     head_ptr: NonNull<Block>,
 }
 
+// SAFETY: Arena is safe to send to other threads
+unsafe impl Send for Arena {}
+
 impl Drop for Arena {
     fn drop(&mut self) {
         self.shrink();
@@ -203,6 +206,9 @@ pub struct ArenaHandle<'a> {
     used: usize,
     _phantom: PhantomData<&'a mut Arena>,
 }
+
+// SAFETY: ArenaHandle is safe to send to other threads
+unsafe impl Send for ArenaHandle<'_> {}
 
 unsafe impl<E> Allocator<E> for ArenaHandle<'_> {
     unsafe fn push_alloc(
