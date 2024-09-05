@@ -3,7 +3,7 @@ use core::iter::FlatMap;
 use proc_macro2::{Delimiter, Span, TokenStream, TokenTree};
 use quote::{quote, ToTokens};
 use syn::{
-    parse::{Parse, ParseStream}, parse_quote, punctuated::Iter, token, Data, DataEnum, DataStruct, DataUnion, Error, Field, Ident, MacroDelimiter, Member, Meta, MetaList, Path, Token, Type, Variant, WherePredicate
+    parse::{Parse, ParseStream}, parse_quote, punctuated::Iter, token, Data, DataEnum, DataStruct, DataUnion, Error, Field, Ident, MacroDelimiter, Meta, MetaList, Path, Token, Type, Variant, WherePredicate
 };
 
 pub fn try_set_attribute<T: ToTokens>(
@@ -474,7 +474,9 @@ fn archive_remote_item(
         |_with_ty, remote_ty, remote_with_ty| {
             let ident = Ident::new(with_name, Span::call_site());
             quote! {
-                <#remote_with_ty as #rkyv_path::with::ArchiveWith<#remote_ty>>::#ident
+                <
+                    #remote_with_ty as #rkyv_path::with::ArchiveWith<#remote_ty>
+                >::#ident
             }
         },
         || {
@@ -528,6 +530,29 @@ pub fn serialize(
     )
 }
 
+pub fn serialize_remote(
+    rkyv_path: &Path,
+    field: &Field,
+) -> Result<TokenStream, Error> {
+    let ty = &field.ty;
+
+    map_with_remote_or_else(
+        field,
+        |_with_ty, remote_ty, remote_with_ty| {
+            quote! {
+                <
+                    #remote_with_ty as #rkyv_path::with::SerializeWith<#remote_ty, __S>
+                >::serialize_with
+            }
+        },
+        || {
+            quote! {
+                <#ty as #rkyv_path::Serialize<__S>>::serialize
+            }
+        },
+    )
+}
+
 pub fn deserialize(
     rkyv_path: &Path,
     field: &Field,
@@ -557,7 +582,7 @@ pub fn deserialize(
     )
 }
 
-pub fn remote_field_access(field: &Field, member: &Member) -> Result<TokenStream, Error> {
+pub fn remote_field_access(field: &Field, member: &impl ToTokens) -> Result<TokenStream, Error> {
     let with = With::from_field(field)?;
 
     if let Some(remote) = with.remote {

@@ -1,13 +1,12 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput,
-    Error, Fields, Generics, Ident, Index,
+    parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DataEnum, DeriveInput, Error, Field, Fields, Generics, Ident, Index, Path
 };
 
 use crate::{
     attributes::Attributes,
-    util::{is_not_omitted, serialize, serialize_bound, serialize_remote_bound, strip_raw},
+    util::{is_not_omitted, remote_field_access, serialize, serialize_bound, serialize_remote, serialize_remote_bound, strip_raw},
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -98,6 +97,13 @@ fn derive_serialize_impl(
                 };
 
                 let serialize_with_impl = if let Some(ref remote) = attributes.remote {
+                    let resolver_values = fields.named.iter().map(|field| {
+                        let name = &field.ident;
+                        let serialize = serialize_remote(&rkyv_path, field)?;
+                        let field_access = remote_field_access(field, &field.ident)?;
+                        Ok(quote! { #name: #serialize(#field_access, serializer)? })
+                    }).collect::<Result<Vec<_>, Error>>()?;
+
                     quote! {
                         #[automatically_derived]
                         impl #impl_generics #rkyv_path::with::SerializeWith<#remote, __S>
@@ -111,10 +117,9 @@ fn derive_serialize_impl(
                                 Self::Resolver,
                                 <__S as #rkyv_path::rancor::Fallible>::Error,
                             > {
-                                // ::core::result::Result::Ok(#resolver {
-                                //     #(#resolver_values,)*
-                                // })
-                                todo!()
+                                ::core::result::Result::Ok(#resolver {
+                                    #(#resolver_values,)*
+                                })
                             }
                         }
                     }
@@ -169,6 +174,18 @@ fn derive_serialize_impl(
                 };
 
                 let serialize_with_impl = if let Some(ref remote) = attributes.remote {
+                    let resolver_values = fields
+                        .unnamed
+                        .iter()
+                        .enumerate()
+                        .map(|(i, field)| {
+                            let index = Index::from(i);
+                            let serialize = serialize_remote(&rkyv_path, field)?;
+                            let field_access = remote_field_access(field, &index)?;
+                            Ok(quote! { #serialize(#field_access, serializer)? })
+                        })
+                        .collect::<Result<Vec<_>, Error>>()?;
+
                     quote! {
                         #[automatically_derived]
                         impl #impl_generics #rkyv_path::with::SerializeWith<#remote, __S>
@@ -182,10 +199,9 @@ fn derive_serialize_impl(
                                 Self::Resolver,
                                 <__S as #rkyv_path::rancor::Fallible>::Error,
                             > {
-                                // Ok(#resolver(
-                                //     #(#resolver_values,)*
-                                // ))
-                                todo!()
+                                Ok(#resolver(
+                                    #(#resolver_values,)*
+                                ))
                             }
                         }
                     }
@@ -277,71 +293,13 @@ fn derive_serialize_impl(
                 }
             }
 
-            let serialize_arms = data
-                .variants
-                .iter()
-                .map(|v| {
-                    let variant = &v.ident;
-                    match v.fields {
-                        Fields::Named(ref fields) => {
-                            let bindings =
-                                fields.named.iter().map(|f| &f.ident);
-                            let fields = fields
-                                .named
-                                .iter()
-                                .map(|field| {
-                                    let name = &field.ident;
-                                    let serialize =
-                                        serialize(&rkyv_path, field)?;
-                                    Ok(quote! {
-                                        #name: #serialize(#name, serializer)?
-                                    })
-                                })
-                                .collect::<Result<Vec<_>, Error>>()?;
-                            Ok(quote! {
-                                Self::#variant {
-                                    #(#bindings,)*
-                                } => #resolver::#variant {
-                                    #(#fields,)*
-                                }
-                            })
-                        }
-                        Fields::Unnamed(ref fields) => {
-                            let bindings =
-                                fields.unnamed.iter().enumerate().map(
-                                    |(i, f)| {
-                                        Ident::new(&format!("_{}", i), f.span())
-                                    },
-                                );
-
-                            let fields = fields
-                                .unnamed
-                                .iter()
-                                .enumerate()
-                                .map(|(i, field)| {
-                                    let binding = Ident::new(
-                                        &format!("_{}", i),
-                                        field.span(),
-                                    );
-                                    let serialize =
-                                        serialize(&rkyv_path, field)?;
-                                    Ok(quote! {
-                                        #serialize(#binding, serializer)?
-                                    })
-                                })
-                                .collect::<Result<Vec<_>, Error>>()?;
-                            Ok(quote! {
-                                Self::#variant(
-                                    #(#bindings,)*
-                                ) => #resolver::#variant(#(#fields,)*)
-                            })
-                        }
-                        Fields::Unit => {
-                            Ok(quote! { Self::#variant => #resolver::#variant })
-                        }
-                    }
-                })
-                .collect::<Result<Vec<_>, Error>>()?;
+            let serialize_arms = generate_serialize_arms(
+                data,
+                &rkyv_path,
+                &resolver,
+                &parse_quote!(Self),
+                serialize
+            )?;
 
             let serialize_impl = quote! {
                 impl #impl_generics #rkyv_path::Serialize<__S>
@@ -363,6 +321,14 @@ fn derive_serialize_impl(
             };
 
             let serialize_with_impl = if let Some(ref remote) = attributes.remote {
+                let serialize_arms = generate_serialize_arms(
+                    data,
+                    &rkyv_path,
+                    &resolver,
+                    remote,
+                    serialize_remote
+                )?;
+
                 quote! {
                     #[automatically_derived]
                     impl #impl_generics #rkyv_path::with::SerializeWith<#remote, __S>
@@ -376,10 +342,9 @@ fn derive_serialize_impl(
                             <Self as #rkyv_path::Archive>::Resolver,
                             <__S as #rkyv_path::rancor::Fallible>::Error,
                         > {
-                            // ::core::result::Result::Ok(match self {
-                            //     #(#serialize_arms,)*
-                            // })
-                            todo!()
+                            ::core::result::Result::Ok(match field {
+                                #(#serialize_arms,)*
+                            })
                         }
                     }
                 }
@@ -403,4 +368,78 @@ fn derive_serialize_impl(
 
         #serialize_with_impl
     })
+}
+
+fn generate_serialize_arms(
+    data: &DataEnum,
+    rkyv_path: &Path,
+    resolver: &Ident,
+    name: &Path,
+    serialize_fn: fn(&Path, &Field) -> Result<TokenStream, Error>,
+) -> Result<Vec<TokenStream>, Error> {
+    data
+        .variants
+        .iter()
+        .map(|v| {
+            let variant = &v.ident;
+            match v.fields {
+                Fields::Named(ref fields) => {
+                    let bindings =
+                        fields.named.iter().map(|f| &f.ident);
+                    let fields = fields
+                        .named
+                        .iter()
+                        .map(|field| {
+                            let name = &field.ident;
+                            let serialize =
+                                serialize_fn(rkyv_path, field)?;
+                            Ok(quote! {
+                                #name: #serialize(#name, serializer)?
+                            })
+                        })
+                        .collect::<Result<Vec<_>, Error>>()?;
+                    Ok(quote! {
+                        #name::#variant {
+                            #(#bindings,)*
+                        } => #resolver::#variant {
+                            #(#fields,)*
+                        }
+                    })
+                }
+                Fields::Unnamed(ref fields) => {
+                    let bindings =
+                        fields.unnamed.iter().enumerate().map(
+                            |(i, f)| {
+                                Ident::new(&format!("_{}", i), f.span())
+                            },
+                        );
+
+                    let fields = fields
+                        .unnamed
+                        .iter()
+                        .enumerate()
+                        .map(|(i, field)| {
+                            let binding = Ident::new(
+                                &format!("_{}", i),
+                                field.span(),
+                            );
+                            let serialize =
+                                serialize_fn(rkyv_path, field)?;
+                            Ok(quote! {
+                                #serialize(#binding, serializer)?
+                            })
+                        })
+                        .collect::<Result<Vec<_>, Error>>()?;
+                    Ok(quote! {
+                        #name::#variant(
+                            #(#bindings,)*
+                        ) => #resolver::#variant(#(#fields,)*)
+                    })
+                }
+                Fields::Unit => {
+                    Ok(quote! { #name::#variant => #resolver::#variant })
+                }
+            }
+        })
+        .collect()
 }
