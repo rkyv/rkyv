@@ -42,9 +42,6 @@ tinyvec = { version = "1.5", optional = true, default-features = false }
 triomphe = { version = "0.1", optional = true, default-features = false }
 uuid = { version = "1.3", optional = true, default-features = false }
 
-postgres-types = { version = "0.2", optional = true, default-features = false }
-postgres-protocol = { version = "0.6.7", optional = true, default-features = false }
-
 [features]
 default = ["std", "bytecheck"]
 little_endian = []
@@ -63,7 +60,6 @@ hashbrown = ["dep:hashbrown"]
 indexmap = ["dep:indexmap", "alloc"]
 triomphe = ["dep:triomphe", "alloc"]
 uuid = ["dep:uuid", "bytecheck?/uuid"]
-postgres-types = ["std", "dep:postgres-types", "bytes", "dep:postgres-protocol"]
 
 [package.metadata.docs.rs]
 features = ["bytecheck"]
