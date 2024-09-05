@@ -131,6 +131,42 @@ where
     }
 }
 
+struct Identity2;
+
+impl<T: Archive> ArchiveWith<T> for Identity2 {
+    type Archived = Archived<T>;
+    type Resolver = Resolver<T>;
+
+    fn resolve_with(
+        this: &T,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        this.resolve(resolver, out);
+    }
+}
+
+impl<S: Fallible + ?Sized, T: Serialize<S>> SerializeWith<T, S> for Identity2 {
+    fn serialize_with(
+        this: &T,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, <S as Fallible>::Error> {
+        this.serialize(serializer)
+    }
+}
+
+impl<D, T> DeserializeWith<Archived<T>, T, D> for Identity2
+where
+    D: Fallible + ?Sized,
+    T: Archive,
+    Archived<T>: Deserialize<T, D>
+{
+    fn deserialize_with(archived: &Archived<T>, deserializer: &mut D)
+        -> Result<T, <D as Fallible>::Error> {
+            archived.deserialize(deserializer)
+    }
+}
+
 #[test]
 fn named_struct() {
     #[derive(Debug, PartialEq)]
@@ -146,7 +182,7 @@ fn named_struct() {
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
     struct Example<A> {
         a: u8,
-        #[with(Identity)]
+        #[with(Identity, remote(with = Identity2))]
         b: Vec<A>,
         #[with(remote(Option<PathBuf>, with = Map<AsString>))]
         c: Option<String>,
@@ -185,7 +221,7 @@ fn unnamed_struct() {
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
     struct Example<A>(
         u8,
-        #[with(Identity)] Vec<A>,
+        #[with(Identity, remote(with = Identity2))] Vec<A>,
         #[with(remote(Option<PathBuf>, with = Map<AsString>))] Option<String>,
         #[with(Map<Identity>, remote(Option<PathBuf>, with = Map<AsString>))] Option<String>,
     );
@@ -239,7 +275,7 @@ fn full_enum() {
         A,
         B(u8),
         C {
-            #[with(Identity)]
+            #[with(Identity, remote(with = Identity2))]
             a: Vec<A>,
             #[with(remote(Option<PathBuf>, with = Map<AsString>))]
             b: Option<String>,

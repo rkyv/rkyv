@@ -7,7 +7,7 @@ use syn::{
 
 use crate::{
     attributes::Attributes,
-    util::{is_not_omitted, serialize, serialize_bound, strip_raw},
+    util::{is_not_omitted, serialize, serialize_bound, serialize_remote_bound, strip_raw},
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -64,6 +64,12 @@ fn derive_serialize_impl(
                     serialize_where
                         .predicates
                         .push(serialize_bound(&rkyv_path, field)?);
+
+                    if let Some(remote_clause) =
+                        serialize_remote_bound(&rkyv_path, field)?
+                    {
+                        serialize_where.predicates.push(remote_clause);
+                    }
                 }
 
                 let resolver_values = fields.named.iter().map(|field| {
@@ -124,6 +130,12 @@ fn derive_serialize_impl(
                     serialize_where
                         .predicates
                         .push(serialize_bound(&rkyv_path, field)?);
+
+                    if let Some(remote_clause) =
+                        serialize_remote_bound(&rkyv_path, field)?
+                    {
+                        serialize_where.predicates.push(remote_clause);
+                    }
                 }
 
                 let resolver_values = fields
@@ -239,6 +251,12 @@ fn derive_serialize_impl(
                             serialize_where
                                 .predicates
                                 .push(serialize_bound(&rkyv_path, field)?);
+
+                            if let Some(remote_clause) =
+                                serialize_remote_bound(&rkyv_path, field)?
+                            {
+                                serialize_where.predicates.push(remote_clause);
+                            }
                         }
                     }
                     Fields::Unnamed(ref fields) => {
@@ -248,6 +266,12 @@ fn derive_serialize_impl(
                             serialize_where
                                 .predicates
                                 .push(serialize_bound(&rkyv_path, field)?);
+
+                            if let Some(remote_clause) =
+                                serialize_remote_bound(&rkyv_path, field)?
+                            {
+                                serialize_where.predicates.push(remote_clause);
+                            }
                         }
                     }
                     Fields::Unit => (),

@@ -7,7 +7,7 @@ use syn::{
 
 use crate::{
     attributes::Attributes,
-    util::{archive_bound, deserialize, deserialize_bound, is_not_omitted},
+    util::{archive_bound, archive_remote_bound, deserialize, deserialize_bound, is_not_omitted},
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -62,6 +62,12 @@ fn derive_deserialize_impl(
                     deserialize_where
                         .predicates
                         .push(deserialize_bound(&rkyv_path, field)?);
+
+                    if let Some(remote_clause) =
+                        archive_remote_bound(&rkyv_path, field)?
+                    {
+                        deserialize_where.predicates.push(remote_clause);
+                    }
                 }
 
                 let deserialize_fields = fields
@@ -136,6 +142,12 @@ fn derive_deserialize_impl(
                     deserialize_where
                         .predicates
                         .push(deserialize_bound(&rkyv_path, field)?);
+
+                    if let Some(remote_clause) =
+                        archive_remote_bound(&rkyv_path, field)?
+                    {
+                        deserialize_where.predicates.push(remote_clause);
+                    }
                 }
 
                 let deserialize_fields = fields
@@ -267,6 +279,12 @@ fn derive_deserialize_impl(
                             deserialize_where
                                 .predicates
                                 .push(deserialize_bound(&rkyv_path, field)?);
+
+                            if let Some(remote_clause) =
+                                archive_remote_bound(&rkyv_path, field)?
+                            {
+                                deserialize_where.predicates.push(remote_clause);
+                            }
                         }
                     }
                     Fields::Unnamed(ref fields) => {
@@ -279,6 +297,12 @@ fn derive_deserialize_impl(
                             deserialize_where
                                 .predicates
                                 .push(deserialize_bound(&rkyv_path, field)?);
+
+                            if let Some(remote_clause) =
+                                archive_remote_bound(&rkyv_path, field)?
+                            {
+                                deserialize_where.predicates.push(remote_clause);
+                            }
                         }
                     }
                     Fields::Unit => (),

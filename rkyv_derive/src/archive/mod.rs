@@ -11,7 +11,10 @@ use syn::{
 use crate::{
     archive::printing::Printing,
     attributes::Attributes,
-    util::{archive_bound, archived, is_not_omitted, iter_fields},
+    util::{
+        archive_bound, archive_remote_bound, archived, is_not_omitted,
+        iter_fields,
+    },
 };
 
 pub fn derive(input: &mut DeriveInput) -> Result<TokenStream, Error> {
@@ -75,6 +78,12 @@ fn derive_archive_impl(
         where_clause
             .predicates
             .push(archive_bound(&printing.rkyv_path, field)?);
+
+        if let Some(remote_clause) =
+            archive_remote_bound(&printing.rkyv_path, field)?
+        {
+            where_clause.predicates.push(remote_clause);
+        }
     }
 
     let mut result = match &input.data {

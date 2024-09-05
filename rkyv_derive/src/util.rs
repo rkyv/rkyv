@@ -218,7 +218,7 @@ impl Parse for With {
 struct Remote {
     path: Path,
     field: Option<Type>,
-    with: Option<Path>,
+    with: Option<Type>,
     getter: Option<Path>,
 }
 
@@ -242,7 +242,7 @@ impl ToTokens for Remote {
 #[derive(Default)]
 struct RemoteRaw {
     field: Option<Type>,
-    with: Option<Path>,
+    with: Option<Type>,
     getter: Option<Path>,
 }
 
@@ -256,14 +256,7 @@ impl RemoteRaw {
                 try_set_attribute(&mut self.field, ty, "remote field type")
             }
             TypeOrMeta::NamedType(meta) if meta.path.is_ident("with") => {
-                let Type::Path(ty_path) = meta.value else {
-                    return Err(Error::new_spanned(
-                        meta.value,
-                        "expected path",
-                    ));
-                };
-
-                try_set_attribute(&mut self.with, ty_path.path, "with")
+                try_set_attribute(&mut self.with, meta.value, "with")
             }
             TypeOrMeta::NamedType(meta) if meta.path.is_ident("getter") => {
                 let Type::Path(ty_path) = meta.value else {
@@ -297,6 +290,27 @@ pub fn map_with_or_else<T>(
     Ok(With::from_field(field)?.ty.map_or_else(d, f))
 }
 
+pub fn map_with_remote_or_else<T>(
+    field: &Field,
+    f: impl FnOnce(Option<&Type>, &Type, Type) -> T,
+    d: impl FnOnce() -> T,
+) -> Result<T, Error> {
+    let with = With::from_field(field)?;
+
+    if let Some(remote) = with.remote {
+        let field_ty = &field.ty;
+        let remote_ty = remote.field.as_ref().unwrap_or(field_ty);
+
+        if let Some(remote_with) = remote.with {
+            let with_ty = with.ty.as_ref();
+
+            return Ok(f(with_ty, remote_ty, remote_with));
+        }
+    }
+
+    Ok(d())
+}
+
 pub fn archive_bound(
     rkyv_path: &Path,
     field: &Field,
@@ -318,6 +332,37 @@ pub fn archive_bound(
     )
 }
 
+pub fn archive_remote_bound(
+    rkyv_path: &Path,
+    field: &Field,
+) -> Result<Option<WherePredicate>, Error> {
+    let ty = &field.ty;
+
+    map_with_remote_or_else(
+        field,
+        |with_ty, remote_ty, remote_with_ty| {
+            Some(if let Some(with_ty) = with_ty {
+                parse_quote! {
+                    #remote_with_ty: #rkyv_path::with::ArchiveWith<
+                        #remote_ty,
+                        Archived = <#with_ty as #rkyv_path::with::ArchiveWith<#ty>>::Archived,
+                        Resolver = <#with_ty as #rkyv_path::with::ArchiveWith<#ty>>::Resolver,
+                    >
+                }
+            } else {
+                parse_quote! {
+                    #remote_with_ty: #rkyv_path::with::ArchiveWith<
+                        #remote_ty,
+                        Archived = <#ty as Archive>::Archived,
+                        Resolver = <#ty as Archive>::Resolver,
+                    >
+                }
+            })
+        },
+        || None,
+    )
+}
+
 pub fn serialize_bound(
     rkyv_path: &Path,
     field: &Field,
@@ -336,6 +381,39 @@ pub fn serialize_bound(
                 #ty: #rkyv_path::Serialize<__S>
             }
         },
+    )
+}
+
+pub fn serialize_remote_bound(
+    rkyv_path: &Path,
+    field: &Field,
+) -> Result<Option<WherePredicate>, Error> {
+    let ty = &field.ty;
+
+    map_with_remote_or_else(
+        field,
+        |with_ty, remote_ty, remote_with_ty| {
+            Some(if let Some(with_ty) = with_ty {
+                parse_quote! {
+                    #remote_with_ty: #rkyv_path::with::SerializeWith<
+                        #remote_ty,
+                        __S,
+                        Archived = <#with_ty as #rkyv_path::with::ArchiveWith<#ty>>::Archived,
+                        Resolver = <#with_ty as #rkyv_path::with::ArchiveWith<#ty>>::Resolver,
+                    >
+                }
+            } else {
+                parse_quote! {
+                    #remote_with_ty: #rkyv_path::with::SerializeWith<
+                        #remote_ty,
+                        __S,
+                        Archived = <#ty as Archive>::Archived,
+                        Resolver = <#ty as Archive>::Resolver,
+                    >
+                }
+            })
+        },
+        || None,
     )
 }
 
@@ -387,6 +465,31 @@ fn archive_item(
     )
 }
 
+fn archive_remote_item(
+    rkyv_path: &Path,
+    field: &Field,
+    name: &str,
+    with_name: &str,
+) -> Result<TokenStream, Error> {
+    let ty = &field.ty;
+
+    map_with_remote_or_else(
+        field,
+        |_with_ty, remote_ty, remote_with_ty| {
+            let ident = Ident::new(with_name, Span::call_site());
+            quote! {
+                <#remote_with_ty as #rkyv_path::with::ArchiveWith<#remote_ty>>::#ident
+            }
+        },
+        || {
+            let ident = Ident::new(name, Span::call_site());
+            quote! {
+                <#ty as #rkyv_path::Archive>::#ident
+            }
+        },
+    )
+}
+
 pub fn archived(rkyv_path: &Path, field: &Field) -> Result<TokenStream, Error> {
     archive_item(rkyv_path, field, "Archived", "Archived")
 }
@@ -397,6 +500,13 @@ pub fn resolver(rkyv_path: &Path, field: &Field) -> Result<TokenStream, Error> {
 
 pub fn resolve(rkyv_path: &Path, field: &Field) -> Result<TokenStream, Error> {
     archive_item(rkyv_path, field, "resolve", "resolve_with")
+}
+
+pub fn resolve_remote(
+    rkyv_path: &Path,
+    field: &Field,
+) -> Result<TokenStream, Error> {
+    archive_remote_item(rkyv_path, field, "resolve", "resolve_with")
 }
 
 pub fn serialize(

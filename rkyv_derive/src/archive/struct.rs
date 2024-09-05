@@ -9,7 +9,7 @@ use crate::{
         archive_field_metas, archived_doc, printing::Printing, resolver_doc,
     },
     attributes::Attributes,
-    util::{archived, is_not_omitted, resolve, resolver},
+    util::{archived, is_not_omitted, resolve, resolve_remote, resolver},
 };
 
 pub fn impl_struct(
@@ -88,6 +88,20 @@ pub fn impl_struct(
     }
 
     if let Some(ref remote) = attributes.remote {
+        let mut resolve_with_statements = TokenStream::new();
+        for (field, member) in fields.iter().zip(fields.members()) {
+            let resolves = resolve_remote(rkyv_path, field)?;
+            resolve_with_statements.extend(quote! {
+                let field_ptr = unsafe {
+                    ::core::ptr::addr_of_mut!((*out.ptr()).#member)
+                };
+                let field_out = unsafe {
+                    #rkyv_path::Place::from_field_unchecked(out, field_ptr)
+                };
+                #resolves(&field.#member, resolver.#member, field_out);
+            });
+        }
+
         result.extend(quote! {
             impl #impl_generics #rkyv_path::with::ArchiveWith<#remote> for #name #ty_generics
             #where_clause
@@ -103,8 +117,7 @@ pub fn impl_struct(
                     resolver: Self::Resolver,
                     out: #rkyv_path::Place<Self::Archived>,
                 ) {
-                    // #resolve_statements
-                    todo!()
+                    #resolve_with_statements
                 }
             }
         });
