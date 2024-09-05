@@ -179,28 +179,28 @@ where
 #[test]
 fn named_struct() {
     #[derive(Debug, PartialEq)]
-    struct Remote<A> {
+    struct Remote<'a, A> {
         a: u8,
-        b: Vec<A>,
+        b: PhantomData<&'a A>,
         c: Option<PathBuf>,
         d: Option<PathBuf>,
     }
 
     #[derive(Archive, Serialize, Deserialize)]
-    #[rkyv(remote = Remote::<A>)]
+    #[rkyv(remote = Remote::<'a, A>)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
-    struct Example<A> {
+    struct Example<'a, A> {
         a: u8,
         #[with(Identity, remote(with = Identity2))]
-        b: Vec<A>,
+        b: PhantomData<&'a A>,
         #[with(remote(Option<PathBuf>, with = Map<AsString>))]
         c: Option<String>,
         #[with(Map<Identity>, remote(Option<PathBuf>, with = Map<AsString>))]
         d: Option<String>,
     }
 
-    impl<A> From<Example<A>> for Remote<A> {
-        fn from(value: Example<A>) -> Self {
+    impl<'a, A> From<Example<'a, A>> for Remote<'a, A> {
+        fn from(value: Example<'a, A>) -> Self {
             Remote {
                 a: value.a,
                 b: value.b,
@@ -212,7 +212,7 @@ fn named_struct() {
 
     let remote = Remote {
         a: 0,
-        b: Vec::new(),
+        b: PhantomData,
         c: Some("c".into()),
         d: Some("d".into())
     };
@@ -223,14 +223,14 @@ fn named_struct() {
 #[test]
 fn unnamed_struct() {
     #[derive(Debug, PartialEq)]
-    struct Remote<A>(u8, Vec<A>, Option<PathBuf>, Option<PathBuf>);
+    struct Remote<'a, A>(u8, PhantomData<&'a A>, Option<PathBuf>, Option<PathBuf>);
 
     #[derive(Archive, Serialize, Deserialize)]
-    #[rkyv(remote = Remote::<A>)]
+    #[rkyv(remote = Remote::<'a, A>)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
-    struct Example<A>(
+    struct Example<'a, A>(
         u8,
-        #[with(Identity, remote(with = Identity2))] Vec<A>,
+        #[with(Identity, remote(with = Identity2))] PhantomData<&'a A>,
         #[with(remote(Option<PathBuf>, with = Map<AsString>))] Option<String>,
         #[with(
             Map<Identity>,
@@ -239,8 +239,8 @@ fn unnamed_struct() {
         Option<String>,
     );
 
-    impl<A> From<Example<A>> for Remote<A> {
-        fn from(value: Example<A>) -> Self {
+    impl<'a, A> From<Example<'a, A>> for Remote<'a, A> {
+        fn from(value: Example<'a, A>) -> Self {
             Remote(
                 value.0,
                 value.1,
@@ -250,7 +250,7 @@ fn unnamed_struct() {
         }
     }
 
-    let remote = Remote(0, Vec::new(), Some("2".into()), Some("3".into()));
+    let remote = Remote(0, PhantomData, Some("2".into()), Some("3".into()));
     roundtrip::<Example<i32>, _>(&remote);
 }
 
@@ -271,25 +271,25 @@ fn unit_struct() {
 #[test]
 fn full_enum() {
     #[derive(Debug, PartialEq)]
-    enum Remote<A> {
+    enum Remote<'a, A> {
         A,
         B(u8),
         C {
-            a: Vec<A>,
+            a: PhantomData<&'a A>,
             b: Option<PathBuf>,
             c: Option<PathBuf>,
         },
     }
 
     #[derive(Archive, Serialize, Deserialize)]
-    #[rkyv(remote = Remote::<A>)]
+    #[rkyv(remote = Remote::<'a, A>)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
-    enum Example<A> {
+    enum Example<'a, A> {
         A,
         B(u8),
         C {
             #[with(Identity, remote(with = Identity2))]
-            a: Vec<A>,
+            a: PhantomData<&'a A>,
             #[with(remote(Option<PathBuf>, with = Map<AsString>))]
             b: Option<String>,
             #[with(
@@ -300,8 +300,8 @@ fn full_enum() {
         },
     }
 
-    impl<A> From<Example<A>> for Remote<A> {
-        fn from(value: Example<A>) -> Self {
+    impl<'a, A> From<Example<'a, A>> for Remote<'a, A> {
+        fn from(value: Example<'a, A>) -> Self {
             match value {
                 Example::A => Remote::A,
                 Example::B(value) => Remote::B(value),
@@ -318,7 +318,7 @@ fn full_enum() {
         Remote::A,
         Remote::B(0),
         Remote::C {
-            a: Vec::new(),
+            a: PhantomData,
             b: Some("b".into()),
             c: Some("c".into()),
         },
