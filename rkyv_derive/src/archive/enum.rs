@@ -11,7 +11,7 @@ use crate::{
         resolver_variant_doc, variant_doc,
     },
     attributes::Attributes,
-    util::{archived, is_not_omitted, resolve, resolve_remote, resolver, strip_raw},
+    util::{archived, is_not_omitted, resolve, resolve_remote, resolver, strip_generics_from_path, strip_raw},
 };
 
 pub fn impl_enum(
@@ -131,7 +131,7 @@ pub fn impl_enum(
             printing,
             generics,
             data,
-            remote,
+            &strip_generics_from_path(remote.clone()),
             resolve_remote
         )?;
 

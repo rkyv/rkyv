@@ -7,7 +7,8 @@ use syn::{
     parse_quote,
     punctuated::Iter,
     token, Data, DataEnum, DataStruct, DataUnion, Error, Field, Ident,
-    MacroDelimiter, Meta, MetaList, Path, Token, Type, Variant, WherePredicate,
+    MacroDelimiter, Meta, MetaList, Path, PathArguments, Token, Type, Variant,
+    WherePredicate,
 };
 
 pub fn try_set_attribute<T: ToTokens>(
@@ -616,4 +617,12 @@ pub fn remote_field_access(
     }
 
     Ok(quote!(&field.#member))
+}
+
+pub fn strip_generics_from_path(mut path: Path) -> Path {
+    for segment in path.segments.iter_mut() {
+        segment.arguments = PathArguments::None;
+    }
+
+    path
 }

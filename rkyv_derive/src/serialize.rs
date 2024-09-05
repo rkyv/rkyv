@@ -6,7 +6,7 @@ use syn::{
 
 use crate::{
     attributes::Attributes,
-    util::{is_not_omitted, remote_field_access, serialize, serialize_bound, serialize_remote, serialize_remote_bound, strip_raw},
+    util::{is_not_omitted, remote_field_access, serialize, serialize_bound, serialize_remote, serialize_remote_bound, strip_generics_from_path, strip_raw},
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -325,7 +325,7 @@ fn derive_serialize_impl(
                     data,
                     &rkyv_path,
                     &resolver,
-                    remote,
+                    &strip_generics_from_path(remote.clone()),
                     serialize_remote
                 )?;
 
