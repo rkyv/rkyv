@@ -148,7 +148,7 @@ struct InnerNode<K, V, const E: usize> {
     greater_node: RelPtr<Node<K, V, E>>,
 }
 
-/// An archived [`BTreeMap`](std::collections::BTreeMap).
+/// An archived [`BTreeMap`](crate::alloc::collections::BTreeMap).
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
@@ -784,7 +784,7 @@ pub struct BTreeMapResolver {
 
 #[cfg(feature = "bytecheck")]
 mod verify {
-    use core::{alloc::Layout, fmt, ptr::addr_of};
+    use core::{alloc::Layout, error::Error, fmt, ptr::addr_of};
 
     use bytecheck::{CheckBytes, Verify};
     use rancor::{fail, Fallible, Source};
@@ -813,8 +813,7 @@ mod verify {
         }
     }
 
-    #[cfg(feature = "std")]
-    impl std::error::Error for InvalidLength {}
+    impl Error for InvalidLength {}
 
     unsafe impl<C, K, V, const E: usize> Verify<C> for ArchivedBTreeMap<K, V, E>
     where

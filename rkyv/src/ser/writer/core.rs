@@ -1,4 +1,5 @@
 use core::{
+    error::Error,
     fmt,
     marker::PhantomData,
     mem::MaybeUninit,
@@ -29,12 +30,7 @@ impl fmt::Display for BufferOverflow {
     }
 }
 
-#[cfg(feature = "std")]
-const _: () = {
-    use std::error::Error;
-
-    impl Error for BufferOverflow {}
-};
+impl Error for BufferOverflow {}
 
 /// Wraps a byte buffer and equips it with [`Writer`].
 ///

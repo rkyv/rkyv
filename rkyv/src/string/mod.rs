@@ -4,7 +4,9 @@ pub mod repr;
 
 use core::{
     borrow::Borrow,
-    cmp, fmt, hash,
+    cmp,
+    error::Error,
+    fmt, hash,
     ops::{
         Deref, Index, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo,
         RangeToInclusive,
@@ -97,8 +99,7 @@ impl ArchivedString {
                 }
             }
 
-            #[cfg(feature = "std")]
-            impl std::error::Error for StringTooLongError {}
+            impl Error for StringTooLongError {}
 
             fail!(StringTooLongError);
         } else {

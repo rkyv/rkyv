@@ -1,6 +1,7 @@
 //! Relative pointer implementations and options.
 
 use core::{
+    error::Error,
     fmt,
     marker::{PhantomData, PhantomPinned},
     ptr::addr_of_mut,
@@ -28,8 +29,7 @@ impl fmt::Display for IsizeOverflow {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for IsizeOverflow {}
+impl Error for IsizeOverflow {}
 
 /// A offset that can be used with [`RawRelPtr`].
 pub trait Offset: Copy + NoUndef {

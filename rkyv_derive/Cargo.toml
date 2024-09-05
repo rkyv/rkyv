@@ -3,6 +3,7 @@ name = "rkyv_derive"
 description = "Derive macro for rkyv"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 readme = "../README.md"

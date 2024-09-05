@@ -1,5 +1,6 @@
 use core::{
-    alloc::Layout, fmt, marker::PhantomData, num::NonZeroUsize, ops::Range,
+    alloc::Layout, error::Error, fmt, marker::PhantomData, num::NonZeroUsize,
+    ops::Range,
 };
 
 use rancor::{fail, OptionExt, Source};
@@ -23,8 +24,7 @@ impl fmt::Display for UnalignedPointer {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for UnalignedPointer {}
+impl Error for UnalignedPointer {}
 
 #[derive(Debug)]
 struct InvalidSubtreePointer {
@@ -46,8 +46,7 @@ impl fmt::Display for InvalidSubtreePointer {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for InvalidSubtreePointer {}
+impl Error for InvalidSubtreePointer {}
 
 #[derive(Debug)]
 struct ExceededMaximumSubtreeDepth;
@@ -61,8 +60,7 @@ impl fmt::Display for ExceededMaximumSubtreeDepth {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for ExceededMaximumSubtreeDepth {}
+impl Error for ExceededMaximumSubtreeDepth {}
 
 #[derive(Debug)]
 struct RangePoppedTooManyTimes;
@@ -73,8 +71,7 @@ impl fmt::Display for RangePoppedTooManyTimes {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for RangePoppedTooManyTimes {}
+impl Error for RangePoppedTooManyTimes {}
 
 #[derive(Debug)]
 struct RangePoppedOutOfOrder;
@@ -85,8 +82,7 @@ impl fmt::Display for RangePoppedOutOfOrder {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for RangePoppedOutOfOrder {}
+impl Error for RangePoppedOutOfOrder {}
 
 /// A validator that can verify archives with nonlocal memory.
 #[derive(Debug)]

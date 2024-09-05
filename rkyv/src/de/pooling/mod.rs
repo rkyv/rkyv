@@ -4,7 +4,9 @@
 mod alloc;
 mod core;
 
-use ::core::{alloc::LayoutError, fmt, mem::transmute, ptr::NonNull};
+use ::core::{
+    alloc::LayoutError, error::Error, fmt, mem::transmute, ptr::NonNull,
+};
 use ptr_meta::{from_raw_parts_mut, metadata, DynMetadata, Pointee};
 use rancor::{fail, Fallible, ResultExt as _, Source, Strategy};
 
@@ -208,8 +210,7 @@ impl fmt::Display for CyclicSharedPointerError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for CyclicSharedPointerError {}
+impl Error for CyclicSharedPointerError {}
 
 /// Helper methods for [`Pooling`].
 pub trait PoolingExt<E>: Pooling<E> {

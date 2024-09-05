@@ -4,7 +4,7 @@
 mod alloc;
 mod core;
 
-use ::core::fmt;
+use ::core::{error::Error, fmt};
 use rancor::{fail, Fallible, Source, Strategy};
 
 #[cfg(feature = "alloc")]
@@ -79,8 +79,7 @@ impl fmt::Display for CyclicSharedPointerError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for CyclicSharedPointerError {}
+impl Error for CyclicSharedPointerError {}
 
 /// Helper methods for [`Sharing`].
 pub trait SharingExt<E>: Sharing<E> {

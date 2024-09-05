@@ -242,7 +242,7 @@ impl ArchivedStringRepr {
 
 #[cfg(feature = "bytecheck")]
 const _: () = {
-    use core::fmt;
+    use core::{error::Error, fmt};
 
     use bytecheck::{rancor::Fallible, CheckBytes};
     use rancor::fail;
@@ -264,8 +264,7 @@ const _: () = {
         }
     }
 
-    #[cfg(feature = "std")]
-    impl std::error::Error for CheckStringReprError {}
+    impl Error for CheckStringReprError {}
 
     unsafe impl<C> CheckBytes<C> for ArchivedStringRepr
     where

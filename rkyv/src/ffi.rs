@@ -15,7 +15,7 @@ use crate::{
     ser::Writer, ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
 
-/// An archived [`CString`](std::ffi::CString).
+/// An archived [`CString`](crate::alloc::ffi::CString).
 ///
 /// Uses a [`RelPtr`] to a `CStr` under the hood.
 #[derive(Portable)]

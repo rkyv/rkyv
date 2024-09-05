@@ -20,14 +20,14 @@ pub trait Flavor: 'static {
     const ALLOW_CYCLES: bool;
 }
 
-/// The flavor type for [`Rc`](std::rc::Rc).
+/// The flavor type for [`Rc`](crate::alloc::rc::Rc).
 pub struct RcFlavor;
 
 impl Flavor for RcFlavor {
     const ALLOW_CYCLES: bool = false;
 }
 
-/// The flavor type for [`Arc`](std::sync::Arc).
+/// The flavor type for [`Arc`](crate::alloc::sync::Arc).
 pub struct ArcFlavor;
 
 impl Flavor for ArcFlavor {
@@ -294,7 +294,7 @@ pub struct RcWeakResolver {
 
 #[cfg(feature = "bytecheck")]
 mod verify {
-    use core::{any::TypeId, fmt};
+    use core::{any::TypeId, error::Error, fmt};
 
     use bytecheck::{
         rancor::{Fallible, Source},
@@ -320,8 +320,7 @@ mod verify {
         }
     }
 
-    #[cfg(feature = "std")]
-    impl std::error::Error for CyclicSharedPointerError {}
+    impl Error for CyclicSharedPointerError {}
 
     unsafe impl<T, F, C> Verify<C> for ArchivedRc<T, F>
     where

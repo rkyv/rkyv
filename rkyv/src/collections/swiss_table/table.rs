@@ -20,6 +20,7 @@
 use core::{
     alloc::Layout,
     borrow::Borrow,
+    error::Error,
     fmt,
     marker::PhantomData,
     mem::size_of,
@@ -345,8 +346,7 @@ impl<T> ArchivedHashTable<T> {
             }
         }
 
-        #[cfg(feature = "std")]
-        impl std::error::Error for InvalidLoadFactor {}
+        impl Error for InvalidLoadFactor {}
 
         if load_factor.0 == 0
             || load_factor.1 == 0
@@ -594,7 +594,7 @@ impl<T> ExactSizeIterator for RawIter<T> {
 
 #[cfg(feature = "bytecheck")]
 mod verify {
-    use core::fmt;
+    use core::{error::Error, fmt};
 
     use bytecheck::{CheckBytes, Verify};
     use rancor::{fail, Fallible, Source};
@@ -622,8 +622,7 @@ mod verify {
         }
     }
 
-    #[cfg(feature = "std")]
-    impl std::error::Error for InvalidLength {}
+    impl Error for InvalidLength {}
 
     #[derive(Debug)]
     struct UnwrappedControlByte {
@@ -636,8 +635,7 @@ mod verify {
         }
     }
 
-    #[cfg(feature = "std")]
-    impl std::error::Error for UnwrappedControlByte {}
+    impl Error for UnwrappedControlByte {}
 
     unsafe impl<C, T> Verify<C> for ArchivedHashTable<T>
     where

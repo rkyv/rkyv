@@ -1,6 +1,6 @@
 //! Utilities for archived collections.
 
-use core::{borrow::Borrow, fmt, marker::PhantomData};
+use core::{borrow::Borrow, error::Error, fmt, marker::PhantomData};
 
 use munge::munge;
 use rancor::Fallible;
@@ -105,5 +105,4 @@ impl fmt::Display for IteratorLengthMismatch {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for IteratorLengthMismatch {}
+impl Error for IteratorLengthMismatch {}

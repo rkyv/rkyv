@@ -143,7 +143,7 @@ impl ArchivedDuration {
 
 #[cfg(feature = "bytecheck")]
 mod verify {
-    use core::fmt;
+    use core::{error::Error, fmt};
 
     use bytecheck::{
         rancor::{Fallible, Source},
@@ -171,8 +171,7 @@ mod verify {
         }
     }
 
-    #[cfg(feature = "std")]
-    impl std::error::Error for DurationError {}
+    impl Error for DurationError {}
 
     unsafe impl<C> Verify<C> for ArchivedDuration
     where

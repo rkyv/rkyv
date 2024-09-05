@@ -1,4 +1,4 @@
-use core::{fmt, hash::BuildHasherDefault};
+use core::{error::Error, fmt, hash::BuildHasherDefault};
 
 use hashbrown::hash_map::{Entry, HashMap};
 use rancor::{fail, Source};
@@ -64,8 +64,7 @@ impl fmt::Display for NotStarted {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for NotStarted {}
+impl Error for NotStarted {}
 
 #[derive(Debug)]
 struct AlreadyFinished;
@@ -76,8 +75,7 @@ impl fmt::Display for AlreadyFinished {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for AlreadyFinished {}
+impl Error for AlreadyFinished {}
 
 impl<E: Source> Pooling<E> for Pool {
     fn start_pooling(&mut self, address: usize) -> PoolingState {

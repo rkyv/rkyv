@@ -1,5 +1,6 @@
 use core::{
     alloc::Layout,
+    error::Error,
     fmt,
     marker::PhantomData,
     mem::MaybeUninit,
@@ -26,8 +27,7 @@ impl fmt::Display for OutOfSpaceError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for OutOfSpaceError {}
+impl Error for OutOfSpaceError {}
 
 /// An allocator that sub-allocates a fixed-size memory space.
 #[derive(Debug)]

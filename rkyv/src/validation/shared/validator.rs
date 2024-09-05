@@ -1,7 +1,7 @@
 //! Validators add validation capabilities by wrapping and extending basic
 //! validators.
 
-use core::{any::TypeId, fmt, hash::BuildHasherDefault};
+use core::{any::TypeId, error::Error, fmt, hash::BuildHasherDefault};
 #[cfg(feature = "std")]
 use std::collections::hash_map;
 
@@ -60,8 +60,7 @@ impl fmt::Display for TypeMismatch {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for TypeMismatch {}
+impl Error for TypeMismatch {}
 
 #[derive(Debug)]
 struct NotStarted;
@@ -72,8 +71,7 @@ impl fmt::Display for NotStarted {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for NotStarted {}
+impl Error for NotStarted {}
 
 #[derive(Debug)]
 struct AlreadyFinished;
@@ -84,8 +82,7 @@ impl fmt::Display for AlreadyFinished {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for AlreadyFinished {}
+impl Error for AlreadyFinished {}
 
 impl<E: Source> SharedContext<E> for SharedValidator {
     fn start_shared(

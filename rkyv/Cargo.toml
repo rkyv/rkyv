@@ -3,6 +3,7 @@ name = "rkyv"
 description = "Zero-copy deserialization framework for Rust"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 readme = "../README.md"
@@ -54,8 +55,8 @@ pointer_width_16 = []
 pointer_width_32 = []
 pointer_width_64 = []
 alloc = ["dep:hashbrown", "tinyvec?/alloc", "rancor/alloc"]
-std = ["alloc", "bytecheck?/std", "bytes?/std", "indexmap?/std", "ptr_meta/std", "rancor/std", "uuid?/std"]
-bytecheck = ["dep:bytecheck", "bytecheck/derive", "rend/bytecheck", "rkyv_derive/bytecheck"]
+std = ["alloc", "bytes?/std", "indexmap?/std", "ptr_meta/std", "uuid?/std"]
+bytecheck = ["dep:bytecheck", "rend/bytecheck", "rkyv_derive/bytecheck"]
 
 # External crate support
 hashbrown = ["dep:hashbrown"]

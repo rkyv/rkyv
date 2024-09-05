@@ -1,4 +1,4 @@
-use core::{fmt, hash::BuildHasher};
+use core::{error::Error, fmt, hash::BuildHasher};
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -128,8 +128,7 @@ impl fmt::Display for InvalidUtf8 {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for InvalidUtf8 {}
+impl Error for InvalidUtf8 {}
 
 impl ArchiveWith<OsString> for AsString {
     type Archived = ArchivedString;
@@ -240,8 +239,7 @@ impl fmt::Display for LockPoisoned {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for LockPoisoned {}
+impl Error for LockPoisoned {}
 
 impl<F: Archive> ArchiveWith<Mutex<F>> for Lock {
     type Archived = F::Archived;

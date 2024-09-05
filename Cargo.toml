@@ -17,6 +17,7 @@ resolver = "2"
 version = "0.8.0-rc.1"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2021"
+rust-version = "1.81"
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/rkyv/rkyv"
