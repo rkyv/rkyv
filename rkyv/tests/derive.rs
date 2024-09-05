@@ -324,7 +324,7 @@ fn named_struct_private() {
                 Self { inner }
             }
 
-            pub fn to_inner(&self) -> [u8; 4] {
+            pub fn inner(&self) -> [u8; 4] {
                 self.inner
             }
 
@@ -338,7 +338,7 @@ fn named_struct_private() {
     #[rkyv(remote = remote::Remote)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
     struct ExampleByRef {
-        #[with(remote(getter = remote::Remote::to_inner))]
+        #[with(remote(getter = remote::Remote::inner))]
         inner: [u8; 4],
     }
 
@@ -378,7 +378,7 @@ fn unnamed_struct_private() {
                 Self(inner)
             }
 
-            pub fn to_inner(&self) -> [u8; 4] {
+            pub fn inner(&self) -> [u8; 4] {
                 self.0
             }
 
@@ -391,7 +391,7 @@ fn unnamed_struct_private() {
     #[derive(Archive, Serialize, Deserialize)]
     #[rkyv(remote = remote::Remote)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
-    struct ExampleByRef(#[with(remote(getter = remote::Remote::to_inner))] [u8; 4]);
+    struct ExampleByRef(#[with(remote(getter = remote::Remote::inner))] [u8; 4]);
 
     impl From<ExampleByRef> for remote::Remote {
         fn from(value: ExampleByRef) -> Self {

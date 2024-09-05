@@ -135,11 +135,11 @@ impl Parse for TypeOrMeta {
                     }
                 })?;
 
-                return Ok(Self::List(MetaList {
+                Ok(Self::List(MetaList {
                     path: ty_path.path,
                     delimiter,
                     tokens,
-                }));
+                }))
             }
             Type::Path(ty_path) if input.peek(Token![=]) => {
                 input.parse::<Token![=]>()?;
