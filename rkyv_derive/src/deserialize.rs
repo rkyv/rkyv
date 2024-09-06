@@ -89,7 +89,7 @@ fn derive_deserialize_impl(
                             #name #ty_generics,
                             <__D as #rkyv_path::rancor::Fallible>::Error,
                         > {
-                            Ok(#name {
+                            ::core::result::Result::Ok(#name {
                                 #(#deserialize_fields,)*
                             })
                         }
@@ -136,7 +136,7 @@ fn derive_deserialize_impl(
                             #name #ty_generics,
                             <__D as #rkyv_path::rancor::Fallible>::Error,
                         > {
-                            Ok(#name(
+                            ::core::result::Result::Ok(#name(
                                 #(#deserialize_fields,)*
                             ))
                         }
@@ -156,7 +156,7 @@ fn derive_deserialize_impl(
                         #name #ty_generics,
                         <__D as #rkyv_path::rancor::Fallible>::Error,
                     > {
-                        Ok(#name)
+                        ::core::result::Result::Ok(#name)
                     }
                 }
             },
@@ -276,7 +276,7 @@ fn derive_deserialize_impl(
                         #name #ty_generics,
                         <__D as #rkyv_path::rancor::Fallible>::Error,
                     > {
-                        Ok(match self {
+                        ::core::result::Result::Ok(match self {
                             #(#deserialize_variants,)*
                         })
                     }

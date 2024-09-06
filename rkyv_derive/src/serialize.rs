@@ -85,7 +85,7 @@ fn derive_serialize_impl(
                                 Self::Resolver,
                                 <__S as #rkyv_path::rancor::Fallible>::Error,
                             > {
-                                Ok(#resolver {
+                                ::core::result::Result::Ok(#resolver {
                                     #(#resolver_values,)*
                                 })
                             }
@@ -123,7 +123,7 @@ fn derive_serialize_impl(
                                 Self::Resolver,
                                 <__S as #rkyv_path::rancor::Fallible>::Error,
                             > {
-                                Ok(#resolver(
+                                ::core::result::Result::Ok(#resolver(
                                     #(#resolver_values,)*
                                 ))
                             }
@@ -143,7 +143,7 @@ fn derive_serialize_impl(
                                 Self::Resolver,
                                 <__S as #rkyv_path::rancor::Fallible>::Error,
                             > {
-                                Ok(#resolver)
+                                ::core::result::Result::Ok(#resolver)
                             }
                         }
                     }
@@ -241,7 +241,7 @@ fn derive_serialize_impl(
                             <Self as #rkyv_path::Archive>::Resolver,
                             <__S as #rkyv_path::rancor::Fallible>::Error,
                         > {
-                            Ok(match self {
+                            ::core::result::Result::Ok(match self {
                                 #(#serialize_arms,)*
                             })
                         }
