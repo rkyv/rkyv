@@ -2,16 +2,19 @@ use std::{fmt::Debug, marker::PhantomData, mem::MaybeUninit};
 
 use rancor::{Fallible, Panic, ResultExt, Source, Strategy};
 use rkyv::{
-    api::low::LowSerializer, ser::{allocator::SubAllocator, writer::Buffer, Writer}, with::{ArchiveWith, DeserializeWith, Map, SerializeWith}, Archive, Archived, Deserialize, Place, Resolver, Serialize
+    api::low::LowSerializer,
+    ser::{allocator::SubAllocator, writer::Buffer, Writer},
+    with::{ArchiveWith, DeserializeWith, Map, SerializeWith},
+    Archive, Archived, Deserialize, Place, Resolver, Serialize,
 };
+
+type ArchivedWith<F, T> = <F as ArchiveWith<T>>::Archived;
 
 fn roundtrip<F, T>(remote: &T)
 where
     F: ArchiveWith<T, Archived: CheckedArchived>
         + for<'a, 'b> SerializeWith<T, Serializer<'a, 'b>>
-        + DeserializeWith< <F as ArchiveWith<T>>::Archived, T, Strategy<(),
-          Panic>,
-        >,
+        + DeserializeWith<ArchivedWith<F, T>, T, Strategy<(), Panic>>,
     T: Debug + PartialEq,
 {
     let mut bytes = [0_u8; 256];
@@ -152,12 +155,8 @@ fn unnamed_struct() {
         }
     }
 
-    let remote = Remote(
-        42,
-        PhantomData,
-        Some(Foo::default()),
-        Some(Foo::default()),
-    );
+    let remote =
+        Remote(42, PhantomData, Some(Foo::default()), Some(Foo::default()));
 
     roundtrip::<Example<i32>, _>(&remote);
     roundtrip_partial::<Partial<i32>, _>(&remote);
@@ -217,7 +216,7 @@ fn full_enum() {
                 Example::C { a, b, c } => Remote::C {
                     a,
                     b: b.map(From::from),
-                    c: c.map(From::from)
+                    c: c.map(From::from),
                 },
             }
         }
@@ -250,7 +249,7 @@ fn full_enum() {
                     a: *a,
                     b: b.as_ref().copied().map(From::from),
                     c: Some(Foo::default()),
-                }
+                },
             }
         }
     }
@@ -350,8 +349,7 @@ fn unnamed_struct_private() {
     #[rkyv(remote = remote::Remote)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
     struct ExampleByRef(
-        #[with(remote(getter = remote::Remote::inner))]
-        [u8; 4]
+        #[with(remote(getter = remote::Remote::inner))] [u8; 4],
     );
 
     impl From<ExampleByRef> for remote::Remote {
@@ -380,16 +378,18 @@ fn unnamed_struct_private() {
 
 #[cfg(feature = "bytecheck")]
 pub trait CheckedArchived:
-    for<'a> rkyv::bytecheck::CheckBytes<
-        rkyv::api::low::LowValidator<'a, Panic>
-    >
-{}
+    for<'a> rkyv::bytecheck::CheckBytes<rkyv::api::low::LowValidator<'a, Panic>>
+{
+}
 
 #[cfg(feature = "bytecheck")]
-impl<Archived:
-    for<'a> rkyv::bytecheck::CheckBytes<rkyv::api::low::LowValidator<'a, Panic>>
->
-CheckedArchived for Archived {}
+impl<
+        Archived: for<'a> rkyv::bytecheck::CheckBytes<
+            rkyv::api::low::LowValidator<'a, Panic>,
+        >,
+    > CheckedArchived for Archived
+{
+}
 
 #[cfg(not(feature = "bytecheck"))]
 pub trait CheckedArchived {}
@@ -397,7 +397,8 @@ pub trait CheckedArchived {}
 #[cfg(not(feature = "bytecheck"))]
 impl<Archived> CheckedArchived for Archived {}
 
-type Serializer<'a, 'b> = LowSerializer<'a, Buffer<'b>, SubAllocator<'a>, Panic>;
+type Serializer<'a, 'b> =
+    LowSerializer<'a, Buffer<'b>, SubAllocator<'a>, Panic>;
 
 fn serialize<'buf, F, T>(remote: &T, buf: &'buf mut [u8; 256]) -> Buffer<'buf>
 where
@@ -539,11 +540,13 @@ impl<D, T> DeserializeWith<Archived<T>, T, D> for Identity
 where
     D: Fallible + ?Sized,
     T: Archive,
-    Archived<T>: Deserialize<T, D>
+    Archived<T>: Deserialize<T, D>,
 {
-    fn deserialize_with(archived: &Archived<T>, deserializer: &mut D)
-        -> Result<T, <D as Fallible>::Error> {
-            archived.deserialize(deserializer)
+    fn deserialize_with(
+        archived: &Archived<T>,
+        deserializer: &mut D,
+    ) -> Result<T, <D as Fallible>::Error> {
+        archived.deserialize(deserializer)
     }
 }
 
@@ -575,10 +578,12 @@ impl<D, T> DeserializeWith<Archived<T>, T, D> for Identity2
 where
     D: Fallible + ?Sized,
     T: Archive,
-    Archived<T>: Deserialize<T, D>
+    Archived<T>: Deserialize<T, D>,
 {
-    fn deserialize_with(archived: &Archived<T>, deserializer: &mut D)
-        -> Result<T, <D as Fallible>::Error> {
-            archived.deserialize(deserializer)
+    fn deserialize_with(
+        archived: &Archived<T>,
+        deserializer: &mut D,
+    ) -> Result<T, <D as Fallible>::Error> {
+        archived.deserialize(deserializer)
     }
 }

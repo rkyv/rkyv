@@ -7,7 +7,10 @@ use syn::{
 
 use crate::{
     attributes::Attributes,
-    util::{archive_bound, archive_remote_bound, deserialize, deserialize_bound, is_not_omitted},
+    util::{
+        archive_bound, archive_remote_bound, deserialize, deserialize_bound,
+        is_not_omitted,
+    },
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -117,7 +120,9 @@ fn derive_deserialize_impl(
                         #deserialize_where
                         {
                             fn deserialize_with(
-                                field: &#rkyv_path::Archived<#name #ty_generics>,
+                                field: &#rkyv_path::Archived<
+                                    #name #ty_generics
+                                >,
                                 deserializer: &mut __D,
                             ) -> ::core::result::Result<
                                 #remote,
@@ -200,13 +205,18 @@ fn derive_deserialize_impl(
                             #deserialize_where
                             {
                                 fn deserialize_with(
-                                    field: &#rkyv_path::Archived<#name #ty_generics>,
+                                    field: &#rkyv_path::Archived<
+                                        #name #ty_generics
+                                    >,
                                     deserializer: &mut __D,
                                 ) -> ::core::result::Result<
                                     #remote,
-                                    <__D as #rkyv_path::rancor::Fallible>::Error,
+                                    <
+                                        __D as #rkyv_path::rancor::Fallible
+                                    >::Error,
                                 > {
-                                    field.deserialize(deserializer).map(From::from)
+                                    field.deserialize(deserializer)
+                                        .map(From::from)
                                 }
                             }
                         }
@@ -249,11 +259,15 @@ fn derive_deserialize_impl(
                             #where_clause
                             {
                                 fn deserialize_with(
-                                    field: &#rkyv_path::Archived<#name #ty_generics>,
+                                    field: &#rkyv_path::Archived<
+                                        #name #ty_generics
+                                    >,
                                     _: &mut __D,
                                 ) -> ::core::result::Result<
                                     #remote,
-                                    <__D as #rkyv_path::rancor::Fallible>::Error,
+                                    <
+                                        __D as #rkyv_path::rancor::Fallible
+                                    >::Error,
                                 > {
                                     Ok(#remote)
                                 }
@@ -283,7 +297,9 @@ fn derive_deserialize_impl(
                             if let Some(remote_clause) =
                                 archive_remote_bound(&rkyv_path, field)?
                             {
-                                deserialize_where.predicates.push(remote_clause);
+                                deserialize_where
+                                    .predicates
+                                    .push(remote_clause);
                             }
                         }
                     }
@@ -301,7 +317,9 @@ fn derive_deserialize_impl(
                             if let Some(remote_clause) =
                                 archive_remote_bound(&rkyv_path, field)?
                             {
-                                deserialize_where.predicates.push(remote_clause);
+                                deserialize_where
+                                    .predicates
+                                    .push(remote_clause);
                             }
                         }
                     }
@@ -414,7 +432,9 @@ fn derive_deserialize_impl(
                         #deserialize_where
                         {
                             fn deserialize_with(
-                                field: &#rkyv_path::Archived<#name #ty_generics>,
+                                field: &#rkyv_path::Archived<
+                                    #name #ty_generics
+                                >,
                                 deserializer: &mut __D,
                             ) -> ::core::result::Result<
                                 #remote,
