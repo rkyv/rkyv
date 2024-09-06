@@ -26,19 +26,6 @@ where
     assert_eq!(remote, &deserialized);
 }
 
-fn roundtrip_partial<F, T>(remote: &T)
-where
-    F: ArchiveWith<T, Archived: CheckedArchived>
-        + for<'a, 'b> SerializeWith<T, Serializer<'a, 'b>>,
-    T: Debug + PartialEq + for<'a> From<&'a <F as ArchiveWith<T>>::Archived>,
-{
-    let mut bytes = [0_u8; 256];
-    let buf = serialize::<F, T>(remote, &mut bytes);
-    let archived = access::<F, T>(&buf);
-
-    assert_eq!(remote, &T::from(archived));
-}
-
 #[test]
 fn named_struct() {
     #[derive(Debug, PartialEq)]
@@ -67,13 +54,13 @@ fn named_struct() {
             Remote {
                 a: value.a,
                 b: value.b,
-                c: value.c.map(From::from),
-                d: value.d.map(From::from),
+                c: value.c.map(Foo),
+                d: value.d.map(Foo),
             }
         }
     }
 
-    #[derive(Archive, Serialize)]
+    #[derive(Archive, Serialize, Deserialize)]
     #[rkyv(remote = Remote<'a, A>)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
     struct Partial<'a, A> {
@@ -82,12 +69,12 @@ fn named_struct() {
         c: Option<[u8; 4]>,
     }
 
-    impl<'a, 'b, A> From<&'b ArchivedPartial<'a, A>> for Remote<'a, A> {
-        fn from(archived: &'b ArchivedPartial<'a, A>) -> Self {
+    impl<'a, A> From<Partial<'a, A>> for Remote<'a, A> {
+        fn from(archived: Partial<'a, A>) -> Self {
             Self {
                 a: 42,
                 b: archived.b,
-                c: archived.c.as_ref().copied().map(From::from),
+                c: archived.c.map(Foo),
                 d: Some(Foo::default()),
             }
         }
@@ -101,7 +88,7 @@ fn named_struct() {
     };
 
     roundtrip::<Example<i32>, _>(&remote);
-    roundtrip_partial::<Partial<i32>, _>(&remote);
+    roundtrip::<Partial<i32>, _>(&remote);
 }
 
 #[test]
@@ -125,16 +112,11 @@ fn unnamed_struct() {
 
     impl<'a, A> From<Example<'a, A>> for Remote<'a, A> {
         fn from(value: Example<'a, A>) -> Self {
-            Remote(
-                value.0,
-                value.1,
-                value.2.map(From::from),
-                value.3.map(From::from),
-            )
+            Remote(value.0, value.1, value.2.map(Foo), value.3.map(Foo))
         }
     }
 
-    #[derive(Archive, Serialize)]
+    #[derive(Archive, Serialize, Deserialize)]
     #[rkyv(remote = Remote::<'a, A>)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
     struct Partial<'a, A>(
@@ -144,12 +126,12 @@ fn unnamed_struct() {
         // Only trailing fields may be omitted for unnamed structs
     );
 
-    impl<'a, 'b, A> From<&'b ArchivedPartial<'a, A>> for Remote<'a, A> {
-        fn from(archived: &'b ArchivedPartial<'a, A>) -> Self {
+    impl<'a, A> From<Partial<'a, A>> for Remote<'a, A> {
+        fn from(archived: Partial<'a, A>) -> Self {
             Remote(
-                archived.0.into(),
+                archived.0,
                 archived.1,
-                archived.2.as_ref().copied().map(From::from),
+                archived.2.map(Foo),
                 Some(Foo::default()),
             )
         }
@@ -159,7 +141,7 @@ fn unnamed_struct() {
         Remote(42, PhantomData, Some(Foo::default()), Some(Foo::default()));
 
     roundtrip::<Example<i32>, _>(&remote);
-    roundtrip_partial::<Partial<i32>, _>(&remote);
+    roundtrip::<Partial<i32>, _>(&remote);
 }
 
 #[test]
@@ -215,24 +197,20 @@ fn full_enum() {
                 Example::B(value) => Remote::B(value),
                 Example::C { a, b, c } => Remote::C {
                     a,
-                    b: b.map(From::from),
-                    c: c.map(From::from),
+                    b: b.map(Foo),
+                    c: c.map(Foo),
                 },
             }
         }
     }
 
-    #[derive(Archive, Serialize)]
+    #[derive(Archive, Serialize, Deserialize)]
     #[rkyv(remote = Remote::<'a, A>)]
     #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
     // Variant fields may be omitted but no variants themselves
     enum Partial<'a, A> {
-        // We don't deserialize so these variants are never constructed
-        #[expect(unused)]
         A,
-        #[expect(unused)]
         B(),
-        #[expect(unused)]
         C {
             a: PhantomData<&'a A>,
             #[with(remote(Option<Foo>, with = Map<FooWrap>))]
@@ -240,14 +218,14 @@ fn full_enum() {
         },
     }
 
-    impl<'a, 'b, A> From<&'b ArchivedPartial<'a, A>> for Remote<'a, A> {
-        fn from(archived: &'b ArchivedPartial<'a, A>) -> Self {
+    impl<'a, A> From<Partial<'a, A>> for Remote<'a, A> {
+        fn from(archived: Partial<'a, A>) -> Self {
             match archived {
-                ArchivedPartial::A => Remote::A,
-                ArchivedPartial::B() => Remote::B(42),
-                ArchivedPartial::C { a, b } => Remote::C {
-                    a: *a,
-                    b: b.as_ref().copied().map(From::from),
+                Partial::A => Remote::A,
+                Partial::B() => Remote::B(42),
+                Partial::C { a, b } => Remote::C {
+                    a,
+                    b: b.map(Foo),
                     c: Some(Foo::default()),
                 },
             }
@@ -264,7 +242,7 @@ fn full_enum() {
         },
     ] {
         roundtrip::<Example<i32>, _>(&remote);
-        roundtrip_partial::<Partial<i32>, _>(&remote);
+        roundtrip::<Partial<i32>, _>(&remote);
     }
 }
 
@@ -465,12 +443,6 @@ struct Foo([u8; 4]);
 impl Default for Foo {
     fn default() -> Self {
         Self([2, 3, 5, 7])
-    }
-}
-
-impl From<[u8; 4]> for Foo {
-    fn from(array: [u8; 4]) -> Self {
-        Self(array)
     }
 }
 
