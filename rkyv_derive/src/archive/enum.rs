@@ -361,7 +361,7 @@ fn generate_resolve_arms(
                 } => {
                     match __this {
                         #name::#variant_name {
-                            #(#members: #self_bindings,)*
+                            #(#members: #self_bindings,)* ..
                         } => {
                             let out = unsafe {
                                 out.cast_unchecked::<
@@ -405,7 +405,7 @@ fn generate_resolve_arms(
             Fields::Unnamed(_) => result.extend(quote! {
                 #resolver_name::#variant_name( #(#resolver_bindings,)* ) => {
                     match __this {
-                        #name::#variant_name(#(#self_bindings,)*) => {
+                        #name::#variant_name(#(#self_bindings,)* ..) => {
                             let out = unsafe {
                                 out.cast_unchecked::<
                                     #archived_variant_name #ty_generics

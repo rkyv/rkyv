@@ -400,7 +400,7 @@ fn generate_serialize_arms(
                         .collect::<Result<Vec<_>, Error>>()?;
                     Ok(quote! {
                         #name::#variant {
-                            #(#bindings,)*
+                            #(#bindings,)* ..
                         } => #resolver::#variant {
                             #(#fields,)*
                         }
@@ -432,7 +432,7 @@ fn generate_serialize_arms(
                         .collect::<Result<Vec<_>, Error>>()?;
                     Ok(quote! {
                         #name::#variant(
-                            #(#bindings,)*
+                            #(#bindings,)* ..
                         ) => #resolver::#variant(#(#fields,)*)
                     })
                 }

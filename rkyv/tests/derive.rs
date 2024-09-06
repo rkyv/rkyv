@@ -23,6 +23,19 @@ where
     assert_eq!(remote, &deserialized);
 }
 
+fn roundtrip_partial<F, T>(remote: &T)
+where
+    F: ArchiveWith<T, Archived: CheckedArchived>
+        + for<'a, 'b> SerializeWith<T, Serializer<'a, 'b>>,
+    T: Debug + PartialEq + for<'a> From<&'a <F as ArchiveWith<T>>::Archived>,
+{
+    let mut bytes = [0_u8; 256];
+    let buf = serialize::<F, T>(remote, &mut bytes);
+    let archived = access::<F, T>(&buf);
+
+    assert_eq!(remote, &T::from(archived));
+}
+
 #[test]
 fn named_struct() {
     #[derive(Debug, PartialEq)]
@@ -57,14 +70,35 @@ fn named_struct() {
         }
     }
 
+    #[derive(Archive, Serialize)]
+    #[rkyv(remote = Remote<'a, A>)]
+    #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
+    struct Partial<'a, A> {
+        b: PhantomData<&'a A>,
+        #[with(remote(Option<Foo>, with = Map<FooWrap>))]
+        c: Option<[u8; 4]>,
+    }
+
+    impl<'a, 'b, A> From<&'b ArchivedPartial<'a, A>> for Remote<'a, A> {
+        fn from(archived: &'b ArchivedPartial<'a, A>) -> Self {
+            Self {
+                a: 42,
+                b: archived.b,
+                c: archived.c.as_ref().copied().map(From::from),
+                d: Some(Foo::default()),
+            }
+        }
+    }
+
     let remote = Remote {
-        a: 0,
+        a: 42,
         b: PhantomData,
         c: Some(Foo::default()),
         d: Some(Foo::default()),
     };
 
     roundtrip::<Example<i32>, _>(&remote);
+    roundtrip_partial::<Partial<i32>, _>(&remote);
 }
 
 #[test]
@@ -97,13 +131,36 @@ fn unnamed_struct() {
         }
     }
 
+    #[derive(Archive, Serialize)]
+    #[rkyv(remote = Remote::<'a, A>)]
+    #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
+    struct Partial<'a, A>(
+        u8,
+        #[with(Identity, remote(with = Identity2))] PhantomData<&'a A>,
+        #[with(remote(Option<Foo>, with = Map<FooWrap>))] Option<[u8; 4]>,
+        // Only trailing fields may be omitted for unnamed structs
+    );
+
+    impl<'a, 'b, A> From<&'b ArchivedPartial<'a, A>> for Remote<'a, A> {
+        fn from(archived: &'b ArchivedPartial<'a, A>) -> Self {
+            Remote(
+                archived.0.into(),
+                archived.1,
+                archived.2.as_ref().copied().map(From::from),
+                Some(Foo::default()),
+            )
+        }
+    }
+
     let remote = Remote(
-        0,
+        42,
         PhantomData,
         Some(Foo::default()),
         Some(Foo::default()),
     );
+
     roundtrip::<Example<i32>, _>(&remote);
+    roundtrip_partial::<Partial<i32>, _>(&remote);
 }
 
 #[test]
@@ -166,9 +223,41 @@ fn full_enum() {
         }
     }
 
+    #[derive(Archive, Serialize)]
+    #[rkyv(remote = Remote::<'a, A>)]
+    #[cfg_attr(feature = "bytecheck", rkyv(check_bytes))]
+    // Variant fields may be omitted but no variants themselves
+    enum Partial<'a, A> {
+        // We don't deserialize so these variants are never constructed
+        #[expect(unused)]
+        A,
+        #[expect(unused)]
+        B(),
+        #[expect(unused)]
+        C {
+            a: PhantomData<&'a A>,
+            #[with(remote(Option<Foo>, with = Map<FooWrap>))]
+            b: Option<[u8; 4]>,
+        },
+    }
+
+    impl<'a, 'b, A> From<&'b ArchivedPartial<'a, A>> for Remote<'a, A> {
+        fn from(archived: &'b ArchivedPartial<'a, A>) -> Self {
+            match archived {
+                ArchivedPartial::A => Remote::A,
+                ArchivedPartial::B() => Remote::B(42),
+                ArchivedPartial::C { a, b } => Remote::C {
+                    a: *a,
+                    b: b.as_ref().copied().map(From::from),
+                    c: Some(Foo::default()),
+                }
+            }
+        }
+    }
+
     for remote in [
         Remote::A,
-        Remote::B(0),
+        Remote::B(42),
         Remote::C {
             a: PhantomData,
             b: Some(Foo::default()),
@@ -176,6 +265,7 @@ fn full_enum() {
         },
     ] {
         roundtrip::<Example<i32>, _>(&remote);
+        roundtrip_partial::<Partial<i32>, _>(&remote);
     }
 }
 
@@ -410,12 +500,14 @@ where
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeWith<Archived<[u8; 4]>, Foo, D> for FooWrap {
+impl<D: Fallible + ?Sized> DeserializeWith<Archived<[u8; 4]>, Foo, D>
+    for FooWrap
+{
     fn deserialize_with(
         archived: &Archived<[u8; 4]>,
-        deserializer: &mut D
+        deserializer: &mut D,
     ) -> Result<Foo, D::Error> {
-            archived.deserialize(deserializer).map(Foo)
+        archived.deserialize(deserializer).map(Foo)
     }
 }
 
