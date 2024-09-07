@@ -1,7 +1,7 @@
 use rancor::Fallible;
-#[cfg(all(feature = "tinyvec", feature = "alloc"))]
-use tinyvec::TinyVec;
-use tinyvec::{Array, ArrayVec, SliceVec};
+#[cfg(feature = "alloc")]
+use tinyvec_1::TinyVec;
+use tinyvec_1::{Array, ArrayVec, SliceVec};
 
 use crate::{
     ser::{Allocator, Writer},
@@ -84,7 +84,7 @@ where
 
 // TinyVec
 
-#[cfg(all(feature = "tinyvec", feature = "alloc"))]
+#[cfg(feature = "alloc")]
 impl<A: Array> Archive for TinyVec<A>
 where
     A::Item: Archive,
@@ -97,7 +97,7 @@ where
     }
 }
 
-#[cfg(all(feature = "tinyvec", feature = "alloc"))]
+#[cfg(feature = "alloc")]
 impl<A, S> Serialize<S> for TinyVec<A>
 where
     A: Array,
@@ -112,7 +112,7 @@ where
     }
 }
 
-#[cfg(all(feature = "tinyvec", feature = "alloc"))]
+#[cfg(feature = "alloc")]
 impl<A, D> Deserialize<TinyVec<A>, D> for ArchivedVec<Archived<A::Item>>
 where
     A: Array,
@@ -184,7 +184,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use tinyvec::{array_vec, Array, SliceVec};
+    use tinyvec_1::{array_vec, Array, SliceVec};
 
     use crate::api::test::{roundtrip_with, to_archived};
 
@@ -209,10 +209,10 @@ mod tests {
         });
     }
 
-    #[cfg(all(feature = "tinyvec", feature = "alloc"))]
+    #[cfg(feature = "alloc")]
     #[test]
     fn roundtrip_tiny_vec() {
-        use tinyvec::tiny_vec;
+        use tinyvec_1::tiny_vec;
 
         use crate::alloc::vec;
 

@@ -1,6 +1,6 @@
 use core::hash::{BuildHasher, Hash};
 
-use indexmap::IndexSet;
+use indexmap_2::IndexSet;
 use rancor::{Fallible, Source};
 
 use crate::{
@@ -68,7 +68,7 @@ impl<UK, K: PartialEq<UK>, S: BuildHasher> PartialEq<IndexSet<UK, S>>
 mod tests {
     use core::hash::BuildHasherDefault;
 
-    use indexmap::IndexSet;
+    use indexmap_2::IndexSet;
 
     use crate::{
         alloc::string::String, api::test::roundtrip_with, hash::FxHasher64,

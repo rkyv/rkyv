@@ -1,4 +1,4 @@
-use bytes::{Bytes, BytesMut};
+use bytes_1::{Bytes, BytesMut};
 use rancor::Fallible;
 
 use crate::{
@@ -36,7 +36,7 @@ impl<D: Fallible + ?Sized> Deserialize<Bytes, D> for ArchivedVec<Archived<u8>> {
 
 impl<T: Archive> PartialEq<Bytes> for ArchivedVec<T>
 where
-    bytes::Bytes: PartialEq<[T]>,
+    Bytes: PartialEq<[T]>,
 {
     fn eq(&self, other: &Bytes) -> bool {
         other == self.as_slice()
@@ -45,8 +45,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use bytes::Bytes;
-
+    use super::Bytes;
     use crate::{alloc::vec, api::test::roundtrip};
 
     #[test]

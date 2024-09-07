@@ -142,16 +142,16 @@
 //! crates should depend on rkyv and provide their own integration. Enabling and
 //! disabling these features does not change rkyv's serialized format.
 //!
-//! - [`arrayvec`](https://docs.rs/arrayvec)
-//! - [`bytes`](https://docs.rs/bytes)
-//! - [`hashbrown`](https://docs.rs/hashbrown)
-//! - [`indexmap`](https://docs.rs/indexmap)
-//! - [`smallvec`](https://docs.rs/smallvec)
-//! - [`smol_str_02`](https://docs.rs/smol_str/0.2/smol_str/index.html)
-//! - [`smol_str_03`](https://docs.rs/smol_str/0.3/smol_str/index.html)
-//! - [`tinyvec`](https://docs.rs/tinyvec)
-//! - [`triomphe`](https://docs.rs/triomphe)
-//! - [`uuid`](https://docs.rs/uuid)
+//! - [`arrayvec-0_7`](https://docs.rs/arrayvec/0.7)
+//! - [`bytes-1`](https://docs.rs/bytes/1)
+//! - [`hashbrown-0_14`](https://docs.rs/hashbrown/0.14)
+//! - [`indexmap-2`](https://docs.rs/indexmap/2)
+//! - [`smallvec-1`](https://docs.rs/smallvec/1)
+//! - [`smol_str-0_2`](https://docs.rs/smol_str/0.2)
+//! - [`smol_str-0_3`](https://docs.rs/smol_str/0.3)
+//! - [`tinyvec-1`](https://docs.rs/tinyvec/1)
+//! - [`triomphe-0_1`](https://docs.rs/triomphe/0.1)
+//! - [`uuid-1`](https://docs.rs/uuid/1)
 //!
 //! ## Compatibility
 //!

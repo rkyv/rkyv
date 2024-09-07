@@ -5,7 +5,7 @@ use core::{
 
 use ptr_meta::Pointee;
 use rancor::{Fallible, Source};
-use triomphe::Arc;
+use triomphe_0_1::Arc;
 
 use crate::{
     de::{Metadata, Pooling, PoolingExt, SharedPointer},
@@ -83,7 +83,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use triomphe::Arc;
+    use triomphe_0_1::Arc;
 
     use crate::api::test::roundtrip_with;
 
