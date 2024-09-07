@@ -25,8 +25,10 @@ mod hashbrown;
 mod indexmap;
 #[cfg(feature = "smallvec")]
 mod smallvec;
-#[cfg(feature = "smol_str")]
-mod smolstr;
+#[cfg(feature = "smol_str_02")]
+mod smolstr_02;
+#[cfg(feature = "smol_str_03")]
+mod smolstr_03;
 #[cfg(feature = "thin-vec")]
 mod thin_vec;
 #[cfg(feature = "tinyvec")]
