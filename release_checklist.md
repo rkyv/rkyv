@@ -50,17 +50,17 @@ cargo test --tests --no-default-features --features "big_endian unaligned pointe
 - none, `alloc`, `std`
 - none, `bytecheck`
 - none, all external crates
-  - `hashbrown`
-  - `indexmap`
-  - `smallvec`
-  - `smol_str_02`
-  - `smol_str_03`
-  - `arrayvec`
-  - `tinyvec`
-  - `uuid`
-  - `bytes`
-  - `thin-vec`
-  - `triomphe`
+  - `hashbrown-0_14`
+  - `indexmap-2`
+  - `smallvec-1`
+  - `smol_str-0_2`
+  - `smol_str-0_3`
+  - `arrayvec-0_7`
+  - `tinyvec-1`
+  - `uuid-1`
+  - `bytes-1`
+  - `thin-vec-0_2`
+  - `triomphe-0_1`
 
 Builds:
 
@@ -71,12 +71,12 @@ cargo test --tests --no-default-features --features "std" >> results.txt~
 cargo test --tests --no-default-features --features "bytecheck" >> results.txt~
 cargo test --tests --no-default-features --features "bytecheck alloc" >> results.txt~
 cargo test --tests --no-default-features --features "bytecheck std" >> results.txt~
-cargo test --tests --no-default-features --features "hashbrown indexmap smallvec smol_str_02 smol_str_03 arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
-cargo test --tests --no-default-features --features "alloc hashbrown indexmap smallvec smol_str_02 smol_str_03 arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
-cargo test --tests --no-default-features --features "std hashbrown indexmap smallvec smol_str_02 smol_str_03 arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
-cargo test --tests --no-default-features --features "bytecheck hashbrown indexmap smallvec smol_str_02 smol_str_03 arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
-cargo test --tests --no-default-features --features "bytecheck alloc hashbrown indexmap smallvec smol_str_02 smol_str_03 arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
-cargo test --tests --no-default-features --features "bytecheck std hashbrown indexmap smallvec smol_str_02 smol_str_03 arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
+cargo test --tests --no-default-features --features "hashbrown-0_14 indexmap-2 smallvec-1 smol_str-0_2 smol_str-0_3 arrayvec-0_7 tinyvec-1 uuid-1 bytes-1 thin-vec-0_2 triomphe-0_1" >> results.txt~
+cargo test --tests --no-default-features --features "alloc hashbrown-0_14 indexmap-2 smallvec-1 smol_str-0_2 smol_str-0_3 arrayvec-0_7 tinyvec-1 uuid-1 bytes-1 thin-vec-0_2 triomphe-0_1" >> results.txt~
+cargo test --tests --no-default-features --features "std hashbrown-0_14 indexmap-2 smallvec-1 smol_str-0_2 smol_str-0_3 arrayvec-0_7 tinyvec-1 uuid-1 bytes-1 thin-vec-0_2 triomphe-0_1" >> results.txt~
+cargo test --tests --no-default-features --features "bytecheck hashbrown-0_14 indexmap-2 smallvec-1 smol_str-0_2 smol_str-0_3 arrayvec-0_7 tinyvec-1 uuid-1 bytes-1 thin-vec-0_2 triomphe-0_1" >> results.txt~
+cargo test --tests --no-default-features --features "bytecheck alloc hashbrown-0_14 indexmap-2 smallvec-1 smol_str-0_2 smol_str-0_3 arrayvec-0_7 tinyvec-1 uuid-1 bytes-1 thin-vec-0_2 triomphe-0_1" >> results.txt~
+cargo test --tests --no-default-features --features "bytecheck std hashbrown-0_14 indexmap-2 smallvec-1 smol_str-0_2 smol_str-0_3 arrayvec-0_7 tinyvec-1 uuid-1 bytes-1 thin-vec-0_2 triomphe-0_1" >> results.txt~
 ```
 
 # Testing through MIRI

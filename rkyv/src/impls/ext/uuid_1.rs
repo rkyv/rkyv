@@ -1,5 +1,5 @@
 use rancor::Fallible;
-use uuid::Uuid;
+use uuid_1::Uuid;
 
 use crate::{
     traits::CopyOptimization, Archive, Deserialize, Place, Portable, Serialize,
@@ -7,7 +7,7 @@ use crate::{
 
 // SAFETY: `Uuid` has the same ABI has `Bytes`, and so is `Portable` when
 // `Bytes` is.
-unsafe impl Portable for Uuid where uuid::Bytes: Portable {}
+unsafe impl Portable for Uuid where uuid_1::Bytes: Portable {}
 
 impl Archive for Uuid {
     const COPY_OPTIMIZATION: CopyOptimization<Self> =
@@ -39,8 +39,7 @@ impl<D: Fallible + ?Sized> Deserialize<Uuid, D> for Uuid {
 
 #[cfg(test)]
 mod tests {
-    use uuid::Uuid;
-
+    use super::Uuid;
     use crate::api::test::roundtrip;
 
     #[test]

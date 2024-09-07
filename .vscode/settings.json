@@ -1,15 +1,15 @@
 {
   "rust-analyzer.cargo.features": [
-    "hashbrown",
-    "indexmap",
-    "smallvec",
-    "smol_str_02",
-    "smol_str_03",
-    "arrayvec",
-    "tinyvec",
-    "uuid",
-    "bytes",
-    "thin-vec",
-    "triomphe",
+    "arrayvec-0_7",
+    "bytes-1",
+    "hashbrown-0_14",
+    "indexmap-2",
+    "smallvec-1",
+    "smol_str-0_2",
+    "smol_str-0_3",
+    "thin-vec-0_2",
+    "tinyvec-1",
+    "triomphe-0_1",
+    "uuid-1"
   ]
 }

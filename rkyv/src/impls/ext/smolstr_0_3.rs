@@ -1,5 +1,5 @@
 use rancor::{Fallible, Source};
-use smol_str_02::SmolStr;
+use smol_str_0_3::SmolStr;
 
 use crate::{
     ser::{Allocator, Writer},

@@ -1,6 +1,6 @@
 use core::hash::{BuildHasher, Hash};
 
-use indexmap::IndexMap;
+use indexmap_2::IndexMap;
 use rancor::{Fallible, Source};
 
 use crate::{
@@ -83,7 +83,7 @@ where
 mod tests {
     use core::hash::BuildHasherDefault;
 
-    use indexmap::IndexMap;
+    use indexmap_2::IndexMap;
 
     use crate::{
         alloc::string::String, api::test::roundtrip_with, hash::FxHasher64,

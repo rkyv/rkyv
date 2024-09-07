@@ -1,5 +1,5 @@
 use rancor::Fallible;
-use smallvec::{Array, SmallVec};
+use smallvec_1::{Array, SmallVec};
 
 use crate::{
     ser::{Allocator, Writer},
@@ -80,7 +80,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use smallvec::{smallvec, SmallVec};
+    use smallvec_1::{smallvec, SmallVec};
 
     use crate::api::test::roundtrip_with;
 

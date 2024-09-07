@@ -5,38 +5,7 @@ mod rend;
 #[cfg(feature = "std")]
 mod std;
 
-// Support for various common crates. These are primarily to get users off the
-// ground and build some momentum.
-
-// These are NOT PLANNED to remain in rkyv for the final release. Much like
-// serde, these implementations should be moved into their respective crates
-// over time. Before adding support for another crate, please consider getting
-// rkyv support in the crate instead.
-
-#[cfg(feature = "arrayvec")]
-mod arrayvec;
-#[cfg(feature = "bytes")]
-mod bytes;
-
-#[cfg(feature = "hashbrown")]
-mod hashbrown;
-
-#[cfg(feature = "indexmap")]
-mod indexmap;
-#[cfg(feature = "smallvec")]
-mod smallvec;
-#[cfg(feature = "smol_str_02")]
-mod smolstr_02;
-#[cfg(feature = "smol_str_03")]
-mod smolstr_03;
-#[cfg(feature = "thin-vec")]
-mod thin_vec;
-#[cfg(feature = "tinyvec")]
-mod tinyvec;
-#[cfg(feature = "triomphe")]
-mod triomphe;
-#[cfg(feature = "uuid")]
-mod uuid;
+mod ext;
 
 use ::core::cmp::Ordering;
 
