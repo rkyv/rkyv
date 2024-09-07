@@ -51,8 +51,7 @@ where
 pub struct CopyOptimization<T: ?Sized>(bool, PhantomData<T>);
 
 impl<T: ?Sized> CopyOptimization<T> {
-    /// Returns a `TriviallyCopyable` hint with the optimization enabled for
-    /// `T`.
+    /// Returns a `CopyOptimization` hint with the optimization enabled for `T`.
     ///
     /// # Safety
     ///
@@ -61,17 +60,17 @@ impl<T: ?Sized> CopyOptimization<T> {
         Self(true, PhantomData)
     }
 
-    /// Returns a `TriviallyCopyable` hint with the optimization enabled for
-    /// `T` if `value` is `true`.
+    /// Returns a `CopyOptimization` hint with the optimization enabled for `T`
+    /// if `value` is `true`.
     ///
     /// # Safety
     ///
-    /// `T` must not have any uninit bytes (e.g. padding) if `value` is true.
+    /// `T` must not have any uninit bytes (e.g. padding) if `value` is `true`.
     pub const unsafe fn enable_if(value: bool) -> Self {
         Self(value, PhantomData)
     }
 
-    /// Returns a `TriviallyCopyable` hint with the optimization disabled for
+    /// Returns a `CopyOptimization` hint with the optimization disabled for
     /// `T`.
     pub const fn disable() -> Self {
         Self(false, PhantomData)
