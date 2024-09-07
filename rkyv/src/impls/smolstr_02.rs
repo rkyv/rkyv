@@ -1,5 +1,5 @@
 use rancor::{Fallible, Source};
-use smol_str::SmolStr;
+use smol_str_02::SmolStr;
 
 use crate::{
     ser::{Allocator, Writer},
@@ -50,8 +50,7 @@ impl PartialOrd<SmolStr> for ArchivedString {
 
 #[cfg(test)]
 mod tests {
-    use smol_str::SmolStr;
-
+    use super::SmolStr;
     use crate::api::test::roundtrip;
 
     #[test]

@@ -53,7 +53,8 @@ cargo test --tests --no-default-features --features "big_endian unaligned pointe
   - `hashbrown`
   - `indexmap`
   - `smallvec`
-  - `smol_str`
+  - `smol_str_02`
+  - `smol_str_03`
   - `arrayvec`
   - `tinyvec`
   - `uuid`
@@ -70,12 +71,12 @@ cargo test --tests --no-default-features --features "std" >> results.txt~
 cargo test --tests --no-default-features --features "bytecheck" >> results.txt~
 cargo test --tests --no-default-features --features "bytecheck alloc" >> results.txt~
 cargo test --tests --no-default-features --features "bytecheck std" >> results.txt~
-cargo test --tests --no-default-features --features "hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
-cargo test --tests --no-default-features --features "alloc hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
-cargo test --tests --no-default-features --features "std hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
-cargo test --tests --no-default-features --features "bytecheck hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
-cargo test --tests --no-default-features --features "bytecheck alloc hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
-cargo test --tests --no-default-features --features "bytecheck std hashbrown indexmap smallvec smol_str arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
+cargo test --tests --no-default-features --features "hashbrown indexmap smallvec smol_str_02 smol_str_03 arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
+cargo test --tests --no-default-features --features "alloc hashbrown indexmap smallvec smol_str_02 smol_str_03 arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
+cargo test --tests --no-default-features --features "std hashbrown indexmap smallvec smol_str_02 smol_str_03 arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
+cargo test --tests --no-default-features --features "bytecheck hashbrown indexmap smallvec smol_str_02 smol_str_03 arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
+cargo test --tests --no-default-features --features "bytecheck alloc hashbrown indexmap smallvec smol_str_02 smol_str_03 arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
+cargo test --tests --no-default-features --features "bytecheck std hashbrown indexmap smallvec smol_str_02 smol_str_03 arrayvec tinyvec uuid bytes thin-vec triomphe" >> results.txt~
 ```
 
 # Testing through MIRI
