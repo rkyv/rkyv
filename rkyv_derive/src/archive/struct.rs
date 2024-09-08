@@ -5,9 +5,7 @@ use syn::{
 };
 
 use crate::{
-    archive::{
-        archive_field_metas, archived_doc, printing::Printing, resolver_doc,
-    },
+    archive::{archived_doc, printing::Printing, resolver_doc},
     attributes::{Attributes, FieldAttributes},
 };
 
@@ -28,9 +26,7 @@ pub fn impl_struct(
     let mut result = TokenStream::new();
 
     if attributes.as_type.is_none() {
-        result.extend(generate_archived_type(
-            printing, generics, attributes, fields,
-        )?);
+        result.extend(generate_archived_type(printing, generics, fields)?);
     }
 
     result.extend(generate_resolver_type(printing, generics, fields)?);
@@ -140,7 +136,6 @@ fn generate_resolve_statements(
 fn generate_archived_type(
     printing: &Printing,
     generics: &Generics,
-    attributes: &Attributes,
     fields: &Fields,
 ) -> Result<TokenStream, Error> {
     let Printing {
@@ -162,7 +157,7 @@ fn generate_archived_type(
         } = field;
 
         let field_attrs = FieldAttributes::parse(field)?;
-        let field_metas = archive_field_metas(attributes, field)?;
+        let field_metas = field_attrs.metas();
         let ty = field_attrs.archived(rkyv_path, field);
 
         archived_fields.extend(quote! {

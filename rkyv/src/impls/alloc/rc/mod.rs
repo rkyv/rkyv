@@ -400,6 +400,14 @@ mod tests {
                 <__D as Fallible>::Error: Source,
             )
         )]
+        #[cfg_attr(
+            feature = "bytecheck",
+            rkyv(bytecheck(bounds(
+                __C: crate::validation::ArchiveContext
+                    + crate::validation::SharedContext,
+                <__C as Fallible>::Error: Source,
+            ))),
+        )]
         struct Inner {
             #[rkyv(omit_bounds)]
             weak: Weak<Self>,

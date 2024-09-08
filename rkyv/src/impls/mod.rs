@@ -323,6 +323,7 @@ mod core_tests {
         impl MyTrait for i32 {}
 
         #[derive(Portable)]
+        #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
         #[rkyv(crate)]
         #[repr(transparent)]
         struct MyStruct<T> {

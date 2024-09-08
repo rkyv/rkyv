@@ -7,8 +7,8 @@ use syn::{
 
 use crate::{
     archive::{
-        archive_field_metas, archived_doc, printing::Printing, resolver_doc,
-        resolver_variant_doc, variant_doc,
+        archived_doc, printing::Printing, resolver_doc, resolver_variant_doc,
+        variant_doc,
     },
     attributes::{Attributes, FieldAttributes},
     util::{strip_generics_from_path, strip_raw},
@@ -39,9 +39,7 @@ pub fn impl_enum(
     let mut private = TokenStream::new();
 
     if attributes.as_type.is_none() {
-        public.extend(generate_archived_type(
-            printing, generics, attributes, data,
-        )?);
+        public.extend(generate_archived_type(printing, generics, data)?);
     }
 
     public.extend(generate_resolver_type(printing, generics, data)?);
@@ -164,7 +162,6 @@ pub fn impl_enum(
 fn generate_archived_type(
     printing: &Printing,
     generics: &Generics,
-    attributes: &Attributes,
     data: &DataEnum,
 ) -> Result<TokenStream, Error> {
     let Printing {
@@ -197,8 +194,8 @@ fn generate_archived_type(
             } = field;
             let field_attrs = FieldAttributes::parse(field)?;
 
-            let field_metas = archive_field_metas(attributes, field)?;
             let field_ty = field_attrs.archived(rkyv_path, field);
+            let field_metas = field_attrs.metas();
             variant_fields.extend(quote! {
                 #field_metas
                 #vis #ident #colon_token #field_ty,

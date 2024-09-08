@@ -382,4 +382,19 @@ impl FieldAttributes {
             quote! { &#this.#member }
         }
     }
+
+    pub fn metas(&self) -> TokenStream {
+        let mut result = TokenStream::new();
+
+        #[cfg(feature = "bytecheck")]
+        if self.omit_bounds.is_some() {
+            result.extend(quote! { #[bytecheck(omit_bounds)] });
+        }
+
+        for attr in self.attrs.iter() {
+            result.extend(quote! { #[#attr] });
+        }
+
+        result
+    }
 }

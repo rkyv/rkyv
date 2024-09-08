@@ -4,10 +4,7 @@ mod r#struct;
 
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::{
-    parse_quote, Data, DataStruct, DeriveInput, Error, Field, Ident, Meta,
-    Path, Token, Type,
-};
+use syn::{parse_quote, Data, DataStruct, DeriveInput, Error, Ident};
 
 use crate::{
     archive::printing::Printing,
@@ -18,48 +15,6 @@ use crate::{
 pub fn derive(input: &mut DeriveInput) -> Result<TokenStream, Error> {
     let attributes = Attributes::parse(input)?;
     derive_archive_impl(input, &attributes)
-}
-
-// TODO: clean up
-fn archive_field_metas<'a>(
-    attributes: &'a Attributes,
-    field: &'a Field,
-) -> Result<TokenStream, Error> {
-    let mut result = TokenStream::new();
-
-    for attr in field
-        .attrs
-        .iter()
-        .filter(|attr| attr.path().is_ident("rkyv"))
-    {
-        attr.parse_nested_meta(|meta| {
-            if meta.path.is_ident("omit_bounds") {
-                if attributes.bytecheck.is_some() {
-                    result.extend(quote! { #[bytecheck(omit_bounds)] });
-                }
-                Ok(())
-            } else if meta.path.is_ident("attr") {
-                let meta = meta.input.parse::<Meta>()?;
-                result.extend(quote! { #[#meta] });
-                Ok(())
-            } else if meta.path.is_ident("with") {
-                meta.input.parse::<Token![=]>()?;
-                meta.input.parse::<Type>()?;
-                Ok(())
-            } else if meta.path.is_ident("getter") {
-                meta.input.parse::<Token![=]>()?;
-                meta.input.parse::<Path>()?;
-                Ok(())
-            } else {
-                Err(meta.error(
-                    "unrecognized argument; expected `omit_bounds`, `attr`, \
-                     or `getter`",
-                ))
-            }
-        })?;
-    }
-
-    Ok(result)
 }
 
 fn archived_doc(name: &Ident) -> String {
