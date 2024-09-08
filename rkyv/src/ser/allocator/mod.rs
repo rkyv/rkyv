@@ -179,7 +179,7 @@ mod tests {
     use rancor::{Panic, Strategy};
 
     use crate::{
-        api::serialize_with,
+        api::serialize_using,
         ser::{
             allocator::{AllocationStats, AllocationTracker, SubAllocator},
             sharing::Unshare,
@@ -207,7 +207,7 @@ mod tests {
             AllocationTracker::new(SubAllocator::new(&mut scratch)),
             Unshare,
         );
-        serialize_with(value, &mut serializer).unwrap();
+        serialize_using(value, &mut serializer).unwrap();
         serializer.into_raw_parts().1.into_stats()
     }
 

@@ -173,7 +173,7 @@ mod tests {
     use rancor::Panic;
 
     use crate::{
-        api::serialize_with,
+        api::serialize_using,
         ser::{writer::Buffer, Serializer},
     };
 
@@ -192,7 +192,7 @@ mod tests {
 
         let mut bytes = [MaybeUninit::<u8>::new(0xcc); 256];
         let mut serializer = Serializer::new(Buffer::from(&mut bytes), (), ());
-        serialize_with::<_, Panic>(
+        serialize_using::<_, Panic>(
             &PaddedExample { a: 0u8, b: 0u64 },
             &mut serializer,
         )

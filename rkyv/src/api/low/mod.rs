@@ -12,7 +12,7 @@ use rancor::Strategy;
 pub use self::checked::*;
 use crate::{
     access_unchecked,
-    api::{deserialize_with, serialize_with},
+    api::{deserialize_using, serialize_using},
     ser::{Allocator, Serializer, Writer},
     Archive, Deserialize, Serialize,
 };
@@ -44,7 +44,7 @@ where
     E: rancor::Source,
 {
     let mut serializer = Serializer::new(writer, alloc, ());
-    serialize_with(value, &mut serializer)?;
+    serialize_using(value, &mut serializer)?;
     Ok(serializer.into_writer())
 }
 
@@ -77,5 +77,5 @@ where
     T: Archive,
     T::Archived: Deserialize<T, LowDeserializer<E>>,
 {
-    deserialize_with(value, &mut ())
+    deserialize_using(value, &mut ())
 }

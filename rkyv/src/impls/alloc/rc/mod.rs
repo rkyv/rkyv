@@ -165,7 +165,7 @@ mod tests {
             vec,
         },
         api::{
-            deserialize_with,
+            deserialize_using,
             test::{roundtrip, to_archived},
         },
         de::Pool,
@@ -208,7 +208,7 @@ mod tests {
             assert_eq!(*archived.b, 17);
 
             let mut deserializer = Pool::new();
-            let deserialized = deserialize_with::<Test, _, Panic>(
+            let deserialized = deserialize_using::<Test, _, Panic>(
                 &*archived,
                 &mut deserializer,
             )
@@ -349,7 +349,7 @@ mod tests {
 
         let mut deserializer = Pool::new();
         let deserialized =
-            deserialize_with::<Test, _, Panic>(archived, &mut deserializer)
+            deserialize_using::<Test, _, Panic>(archived, &mut deserializer)
                 .unwrap();
 
         assert_eq!(*deserialized.a, 17);

@@ -8,7 +8,7 @@ use rancor::{Source, Strategy};
 use crate::{
     api::{
         access_pos_unchecked_mut, access_pos_with_context, access_with_context,
-        check_pos_with_context, deserialize_with, root_position,
+        check_pos_with_context, deserialize_using, root_position,
     },
     de::pooling::Unpool,
     seal::Seal,
@@ -101,5 +101,5 @@ where
         + Deserialize<T, Strategy<Unpool, E>>,
     E: Source,
 {
-    deserialize_with(access::<T::Archived, E>(bytes)?, &mut Unpool)
+    deserialize_using(access::<T::Archived, E>(bytes)?, &mut Unpool)
 }

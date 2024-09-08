@@ -66,7 +66,7 @@ mod tests {
     use rancor::Failure;
 
     use crate::{
-        api::serialize_with, ser::writer::IoWriter, util::Align, Archive,
+        api::serialize_using, ser::writer::IoWriter, util::Align, Archive,
         Serialize,
     };
 
@@ -81,7 +81,7 @@ mod tests {
         let mut buf = Align([0u8; 3]);
         let mut ser = IoWriter::new(&mut buf[..]);
         let foo = Example { x: 100 };
-        serialize_with::<_, Failure>(&foo, &mut ser)
+        serialize_using::<_, Failure>(&foo, &mut ser)
             .expect_err("serialized to an undersized buffer must fail");
     }
 }

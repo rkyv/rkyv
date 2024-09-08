@@ -31,6 +31,6 @@ where
     T: Archive,
     T::Archived: Deserialize<T, TestDeserializer>,
 {
-    crate::api::deserialize_with::<T, _, Panic>(value, &mut Pool::new())
+    crate::api::deserialize_using::<T, _, Panic>(value, &mut Pool::new())
         .expect("failed to deserialize value")
 }

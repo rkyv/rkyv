@@ -163,8 +163,8 @@ pub unsafe fn access_unchecked_mut<T: Portable>(
     }
 }
 
-/// Serializes the given value into the given serializer.
-pub fn serialize_with<S, E>(
+/// Serializes the given value using the given serializer.
+pub fn serialize_using<S, E>(
     value: &impl SerializeUnsized<Strategy<S, E>>,
     serializer: &mut S,
 ) -> Result<usize, E>
@@ -176,7 +176,7 @@ where
 
 /// Deserializes a value from the given archived value using the provided
 /// deserializer.
-pub fn deserialize_with<T, D, E>(
+pub fn deserialize_using<T, D, E>(
     value: &T::Archived,
     deserializer: &mut D,
 ) -> Result<T, E>
