@@ -1,12 +1,12 @@
 mod r#enum;
-mod printing;
+pub mod printing;
 mod r#struct;
 
 use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
     parse_quote, Data, DataStruct, DeriveInput, Error, Field, Ident, Meta,
-    Token, Type,
+    Path, Token, Type,
 };
 
 use crate::{
@@ -46,9 +46,14 @@ fn archive_field_metas<'a>(
                 meta.input.parse::<Token![=]>()?;
                 meta.input.parse::<Type>()?;
                 Ok(())
+            } else if meta.path.is_ident("getter") {
+                meta.input.parse::<Token![=]>()?;
+                meta.input.parse::<Path>()?;
+                Ok(())
             } else {
                 Err(meta.error(
-                    "unrecognized argument; expected `omit_bounds` or `attr`",
+                    "unrecognized argument; expected `omit_bounds`, `attr`, \
+                     or `getter`",
                 ))
             }
         })?;

@@ -1,4 +1,4 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{
     parse_quote, punctuated::Punctuated, Error, Field, Fields, Generics,
@@ -35,41 +35,64 @@ pub fn impl_struct(
 
     result.extend(generate_resolver_type(printing, generics, fields)?);
 
-    let mut resolve_statements = TokenStream::new();
-    for (field, member) in fields.iter().zip(fields.members()) {
-        let field_attrs = FieldAttributes::parse(field)?;
-        let resolves = field_attrs.resolve(rkyv_path, field);
-        resolve_statements.extend(quote! {
-            let field_ptr = unsafe {
-                ::core::ptr::addr_of_mut!((*out.ptr()).#member)
-            };
-            let field_out = unsafe {
-                #rkyv_path::Place::from_field_unchecked(out, field_ptr)
-            };
-            #resolves(&self.#member, resolver.#member, field_out);
-        });
-    }
-
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    result.extend(quote! {
-        impl #impl_generics #rkyv_path::Archive for #name #ty_generics
-        #where_clause
-        {
-            type Archived = #archived_type;
-            type Resolver = #resolver_name #ty_generics;
 
-            // Some resolvers will be (), this allow is to prevent clippy
-            // from complaining.
-            #[allow(clippy::unit_arg)]
-            fn resolve(
-                &self,
-                resolver: Self::Resolver,
-                out: #rkyv_path::Place<Self::Archived>,
-            ) {
-                #resolve_statements
+    let archive_impl = if let Some(ref remote) = attributes.remote {
+        let resolve_statements = generate_resolve_statements(
+            printing,
+            fields,
+            Ident::new("field", Span::call_site()),
+        )?;
+
+        quote! {
+            impl #impl_generics #rkyv_path::with::ArchiveWith<#remote>
+                for #name #ty_generics
+            #where_clause
+            {
+                type Archived = #archived_type;
+                type Resolver = #resolver_name #ty_generics;
+
+                // Some resolvers will be (), this allow is to prevent clippy
+                // from complaining.
+                #[allow(clippy::unit_arg)]
+                fn resolve_with(
+                    field: &#remote,
+                    resolver: Self::Resolver,
+                    out: #rkyv_path::Place<Self::Archived>,
+                ) {
+                    #resolve_statements
+                }
             }
         }
-    });
+    } else {
+        let resolve_statements = generate_resolve_statements(
+            printing,
+            fields,
+            Ident::new("self", Span::call_site()),
+        )?;
+
+        quote! {
+            impl #impl_generics #rkyv_path::Archive for #name #ty_generics
+            #where_clause
+            {
+                type Archived = #archived_type;
+                type Resolver = #resolver_name #ty_generics;
+
+                // Some resolvers will be (), this allow is to prevent clippy
+                // from complaining.
+                #[allow(clippy::unit_arg)]
+                fn resolve(
+                    &self,
+                    resolver: Self::Resolver,
+                    out: #rkyv_path::Place<Self::Archived>,
+                ) {
+                    #resolve_statements
+                }
+            }
+        }
+    };
+
+    result.extend(archive_impl);
 
     for compare in attributes.compares.iter().flat_map(Punctuated::iter) {
         if compare.is_ident("PartialEq") {
@@ -88,6 +111,30 @@ pub fn impl_struct(
     }
 
     Ok(result)
+}
+
+fn generate_resolve_statements(
+    printing: &Printing,
+    fields: &Fields,
+    this: Ident,
+) -> Result<TokenStream, Error> {
+    let rkyv_path = &printing.rkyv_path;
+    let mut resolve_statements = TokenStream::new();
+    for (field, member) in fields.iter().zip(fields.members()) {
+        let field_attrs = FieldAttributes::parse(field)?;
+        let resolves = field_attrs.resolve(rkyv_path, field);
+        let access_field = field_attrs.access_field(&this, &member);
+        resolve_statements.extend(quote! {
+            let field_ptr = unsafe {
+                ::core::ptr::addr_of_mut!((*out.ptr()).#member)
+            };
+            let field_out = unsafe {
+                #rkyv_path::Place::from_field_unchecked(out, field_ptr)
+            };
+            #resolves(#access_field, resolver.#member, field_out);
+        });
+    }
+    Ok(resolve_statements)
 }
 
 fn generate_archived_type(
