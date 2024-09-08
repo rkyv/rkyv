@@ -1,9 +1,9 @@
-use proc_macro2::TokenTree;
-use quote::ToTokens;
+use proc_macro2::{Span, TokenStream, TokenTree};
+use quote::{quote, ToTokens};
 use syn::{
     meta::ParseNestedMeta, parenthesized, parse::Parse, parse_quote,
-    punctuated::Punctuated, token, AttrStyle, DeriveInput, Error, Ident,
-    MacroDelimiter, Meta, MetaList, Path, Token, Type, WherePredicate,
+    punctuated::Punctuated, DeriveInput, Error, Field, Ident, Meta, Path,
+    Token, Type, WherePredicate,
 };
 
 fn try_set_attribute<T: ToTokens>(
@@ -32,42 +32,25 @@ pub struct Attributes {
     pub archive_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
     pub serialize_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
     pub deserialize_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
-    pub check_bytes: Option<Meta>,
+    pub bytecheck: Option<TokenStream>,
     pub crate_path: Option<Path>,
 }
 
 impl Attributes {
     fn parse_meta(&mut self, meta: ParseNestedMeta<'_>) -> Result<(), Error> {
-        if meta.path.is_ident("check_bytes") {
-            let meta = if meta.input.peek(token::Paren) {
-                let (delimiter, tokens) = meta.input.step(|cursor| {
-                    if let Some((TokenTree::Group(g), rest)) =
-                        cursor.token_tree()
-                    {
-                        Ok((
-                            (
-                                MacroDelimiter::Paren(token::Paren(
-                                    g.delim_span(),
-                                )),
-                                g.stream(),
-                            ),
-                            rest,
-                        ))
-                    } else {
-                        Err(cursor.error("expected delimiter"))
-                    }
-                })?;
-                Meta::List(MetaList {
-                    path: meta.path,
-                    delimiter,
-                    tokens,
-                })
-            } else {
-                Meta::Path(meta.path)
-            };
+        if meta.path.is_ident("bytecheck") {
+            let tokens = meta.input.step(|cursor| {
+                if let Some((TokenTree::Group(group), rest)) =
+                    cursor.token_tree()
+                {
+                    Ok((group.stream(), rest))
+                } else {
+                    Err(cursor.error("expected bytecheck attributes"))
+                }
+            })?;
 
             if cfg!(feature = "bytecheck") {
-                try_set_attribute(&mut self.check_bytes, meta, "check_bytes")?;
+                try_set_attribute(&mut self.bytecheck, tokens, "bytecheck")?;
             }
 
             Ok(())
@@ -155,7 +138,7 @@ impl Attributes {
                 .extend(metas.parse_terminated(Meta::parse, Token![,])?);
             Ok(())
         } else {
-            Err(meta.error("unrecognized archive argument"))
+            Err(meta.error("unrecognized rkyv argument"))
         }
     }
 
@@ -163,29 +146,8 @@ impl Attributes {
         let mut result = Self::default();
 
         for attr in input.attrs.iter() {
-            if !matches!(attr.style, AttrStyle::Outer) {
-                continue;
-            }
-
-            if attr.path().is_ident("archive") || attr.path().is_ident("rkyv") {
+            if attr.path().is_ident("rkyv") {
                 attr.parse_nested_meta(|meta| result.parse_meta(meta))?;
-            } else if attr.path().is_ident("archive_attr")
-                || attr.path().is_ident("rkyv_attr")
-            {
-                result.metas.extend(
-                    attr.parse_args_with(
-                        Punctuated::<Meta, Token![,]>::parse_terminated,
-                    )?
-                    .into_iter(),
-                );
-            } else if attr.path().is_ident("rkyv_derive") {
-                result.metas.extend(
-                    attr.parse_args_with(
-                        Punctuated::<Meta, Token![,]>::parse_terminated,
-                    )?
-                    .into_iter()
-                    .map(|meta| parse_quote! { derive(#meta) }),
-                );
             }
         }
 
@@ -206,9 +168,9 @@ impl Attributes {
                 ));
             }
 
-            if result.check_bytes.is_some() {
+            if result.bytecheck.is_some() {
                 return Err(Error::new_spanned(
-                    result.check_bytes.unwrap(),
+                    result.bytecheck.unwrap(),
                     "cannot generate a `CheckBytes` impl because `as = ...` \
                      does not generate an archived type",
                 ));
@@ -222,5 +184,178 @@ impl Attributes {
         self.crate_path
             .clone()
             .unwrap_or_else(|| parse_quote! { ::rkyv })
+    }
+}
+
+#[derive(Default)]
+pub struct FieldAttributes {
+    pub attrs: Punctuated<Meta, Token![,]>,
+    pub omit_bounds: Option<Path>,
+    pub with: Option<Type>,
+}
+
+impl FieldAttributes {
+    fn parse_meta(&mut self, meta: ParseNestedMeta<'_>) -> Result<(), Error> {
+        if meta.path.is_ident("attr") {
+            let content;
+            parenthesized!(content in meta.input);
+            self.attrs = content.parse_terminated(Meta::parse, Token![,])?;
+            Ok(())
+        } else if meta.path.is_ident("omit_bounds") {
+            self.omit_bounds = Some(meta.path);
+            Ok(())
+        } else if meta.path.is_ident("with") {
+            meta.input.parse::<Token![=]>()?;
+            self.with = Some(meta.input.parse::<Type>()?);
+            Ok(())
+        } else {
+            Err(meta.error("unrecognized rkyv arguments"))
+        }
+    }
+
+    pub fn parse(input: &Field) -> Result<Self, Error> {
+        let mut result = Self::default();
+
+        for attr in input.attrs.iter() {
+            if attr.path().is_ident("rkyv") {
+                attr.parse_nested_meta(|meta| result.parse_meta(meta))?;
+            }
+        }
+
+        Ok(result)
+    }
+
+    pub fn archive_bound(
+        &self,
+        rkyv_path: &Path,
+        field: &Field,
+    ) -> Option<WherePredicate> {
+        if self.omit_bounds.is_some() {
+            return None;
+        }
+
+        let ty = &field.ty;
+        if let Some(with) = &self.with {
+            Some(parse_quote! {
+                #with: #rkyv_path::with::ArchiveWith<#ty>
+            })
+        } else {
+            Some(parse_quote! {
+                #ty: #rkyv_path::Archive
+            })
+        }
+    }
+
+    pub fn serialize_bound(
+        &self,
+        rkyv_path: &Path,
+        field: &Field,
+    ) -> Option<WherePredicate> {
+        if self.omit_bounds.is_some() {
+            return None;
+        }
+
+        let ty = &field.ty;
+        if let Some(with) = &self.with {
+            Some(parse_quote! {
+                #with: #rkyv_path::with::SerializeWith<#ty, __S>
+            })
+        } else {
+            Some(parse_quote! {
+                #ty: #rkyv_path::Serialize<__S>
+            })
+        }
+    }
+
+    pub fn deserialize_bound(
+        &self,
+        rkyv_path: &Path,
+        field: &Field,
+    ) -> Option<WherePredicate> {
+        if self.omit_bounds.is_some() {
+            return None;
+        }
+
+        let archived = self.archived(rkyv_path, field);
+
+        let ty = &field.ty;
+        if let Some(with) = &self.with {
+            Some(parse_quote! {
+                #with: #rkyv_path::with::DeserializeWith<#archived, #ty, __D>
+            })
+        } else {
+            Some(parse_quote! {
+                #archived: #rkyv_path::Deserialize<#ty, __D>
+            })
+        }
+    }
+
+    fn archive_item(
+        &self,
+        rkyv_path: &Path,
+        field: &Field,
+        name: &str,
+        with_name: &str,
+    ) -> TokenStream {
+        let ty = &field.ty;
+        if let Some(with) = &self.with {
+            let ident = Ident::new(with_name, Span::call_site());
+            quote! {
+                <#with as #rkyv_path::with::ArchiveWith<#ty>>::#ident
+            }
+        } else {
+            let ident = Ident::new(name, Span::call_site());
+            quote! {
+                <#ty as #rkyv_path::Archive>::#ident
+            }
+        }
+    }
+
+    pub fn archived(&self, rkyv_path: &Path, field: &Field) -> TokenStream {
+        self.archive_item(rkyv_path, field, "Archived", "Archived")
+    }
+
+    pub fn resolver(&self, rkyv_path: &Path, field: &Field) -> TokenStream {
+        self.archive_item(rkyv_path, field, "Resolver", "Resolver")
+    }
+
+    pub fn resolve(&self, rkyv_path: &Path, field: &Field) -> TokenStream {
+        self.archive_item(rkyv_path, field, "resolve", "resolve_with")
+    }
+
+    pub fn serialize(&self, rkyv_path: &Path, field: &Field) -> TokenStream {
+        let ty = &field.ty;
+        if let Some(with) = &self.with {
+            quote! {
+                <
+                    #with as #rkyv_path::with::SerializeWith<#ty, __S>
+                >::serialize_with
+            }
+        } else {
+            quote! {
+                <#ty as #rkyv_path::Serialize<__S>>::serialize
+            }
+        }
+    }
+
+    pub fn deserialize(&self, rkyv_path: &Path, field: &Field) -> TokenStream {
+        let ty = &field.ty;
+        let archived = self.archived(rkyv_path, field);
+
+        if let Some(with) = &self.with {
+            quote! {
+                <
+                    #with as #rkyv_path::with::DeserializeWith<
+                        #archived,
+                        #ty,
+                        __D,
+                    >
+                >::deserialize_with
+            }
+        } else {
+            quote! {
+                <#archived as #rkyv_path::Deserialize<#ty, __D>>::deserialize
+            }
+        }
     }
 }

@@ -569,9 +569,9 @@ mod tests {
     #[test]
     fn with_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, derive(Debug))]
+        #[rkyv(crate, derive(Debug))]
         struct Test {
-            #[with(AsFloat)]
+            #[rkyv(with = AsFloat)]
             value: i32,
             other: i32,
         }
@@ -589,8 +589,8 @@ mod tests {
     #[test]
     fn with_tuple_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, derive(Debug))]
-        struct Test(#[with(AsFloat)] i32, i32);
+        #[rkyv(crate, derive(Debug))]
+        struct Test(#[rkyv(with = AsFloat)] i32, i32);
 
         let value = Test(10, 10);
         roundtrip_with(&value, |_, archived| {
@@ -602,14 +602,14 @@ mod tests {
     #[test]
     fn with_enum() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, derive(Debug))]
+        #[rkyv(crate, derive(Debug))]
         enum Test {
             A {
-                #[with(AsFloat)]
+                #[rkyv(with = AsFloat)]
                 value: i32,
                 other: i32,
             },
-            B(#[with(AsFloat)] i32, i32),
+            B(#[rkyv(with = AsFloat)] i32, i32),
         }
 
         let value = Test::A {
@@ -639,9 +639,9 @@ mod tests {
     #[test]
     fn with_inline() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test<'a> {
-            #[with(Inline)]
+            #[rkyv(with = Inline)]
             value: &'a i32,
         }
 
@@ -655,9 +655,9 @@ mod tests {
     #[test]
     fn with_boxed() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test {
-            #[with(AsBox)]
+            #[rkyv(with = AsBox)]
             value: i32,
         }
 
@@ -670,9 +670,9 @@ mod tests {
     #[test]
     fn with_boxed_inline() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test<'a> {
-            #[with(InlineAsBox)]
+            #[rkyv(with = InlineAsBox)]
             value: &'a str,
         }
 
@@ -694,24 +694,24 @@ mod tests {
         };
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test {
-            #[with(Niche)]
+            #[rkyv(with = Niche)]
             a: Option<NonZeroI8>,
-            #[with(Niche)]
+            #[rkyv(with = Niche)]
             b: Option<NonZeroI32>,
-            #[with(Niche)]
+            #[rkyv(with = Niche)]
             c: Option<NonZeroIsize>,
-            #[with(Niche)]
+            #[rkyv(with = Niche)]
             d: Option<NonZeroU8>,
-            #[with(Niche)]
+            #[rkyv(with = Niche)]
             e: Option<NonZeroU32>,
-            #[with(Niche)]
+            #[rkyv(with = Niche)]
             f: Option<NonZeroUsize>,
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct TestNoNiching {
             a: Option<NonZeroI8>,
             b: Option<NonZeroI32>,
@@ -771,9 +771,9 @@ mod tests {
         use core::cell::Cell;
 
         #[derive(Archive, Debug, Deserialize, Serialize, PartialEq)]
-        #[rkyv(crate, check_bytes, derive(Debug))]
+        #[rkyv(crate, derive(Debug))]
         struct Test {
-            #[with(Unsafe)]
+            #[rkyv(with = Unsafe)]
             inner: Cell<u32>,
         }
 

@@ -5,10 +5,7 @@ use syn::{
     Error, Fields, Generics, Ident, Index,
 };
 
-use crate::{
-    attributes::Attributes,
-    util::{archive_bound, deserialize, deserialize_bound, is_not_omitted},
-};
+use crate::attributes::{Attributes, FieldAttributes};
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
     let attributes = Attributes::parse(&input)?;
@@ -51,69 +48,53 @@ fn derive_deserialize_impl(
     let (_, ty_generics, where_clause) = input.generics.split_for_impl();
     let where_clause = where_clause.unwrap();
 
-    let deserialize_impl = match input.data {
+    let mut deserialize_where = where_clause.clone();
+
+    let body = match input.data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
-                let mut deserialize_where = where_clause.clone();
-                for field in fields.named.iter().filter(is_not_omitted) {
-                    deserialize_where
-                        .predicates
-                        .push(archive_bound(&rkyv_path, field)?);
-                    deserialize_where
-                        .predicates
-                        .push(deserialize_bound(&rkyv_path, field)?);
-                }
-
                 let deserialize_fields = fields
                     .named
                     .iter()
                     .map(|field| {
+                        let field_attrs = FieldAttributes::parse(field)?;
+
+                        deserialize_where.predicates.extend(
+                            field_attrs.archive_bound(&rkyv_path, field),
+                        );
+                        deserialize_where.predicates.extend(
+                            field_attrs.deserialize_bound(&rkyv_path, field),
+                        );
+
                         let name = &field.ident;
-                        let deserialize = deserialize(&rkyv_path, field)?;
+                        let deserialize =
+                            field_attrs.deserialize(&rkyv_path, field);
                         Ok(quote! {
                             #name: #deserialize(&self.#name, deserializer)?
                         })
                     })
                     .collect::<Result<Vec<_>, Error>>()?;
 
-                quote! {
-                    impl #impl_generics
-                        #rkyv_path::Deserialize<#name #ty_generics, __D>
-                        for #rkyv_path::Archived<#name #ty_generics>
-                    #deserialize_where
-                    {
-                        fn deserialize(
-                            &self,
-                            deserializer: &mut __D,
-                        ) -> ::core::result::Result<
-                            #name #ty_generics,
-                            <__D as #rkyv_path::rancor::Fallible>::Error,
-                        > {
-                            ::core::result::Result::Ok(#name {
-                                #(#deserialize_fields,)*
-                            })
-                        }
-                    }
-                }
+                quote! { #name { #(#deserialize_fields,)* } }
             }
             Fields::Unnamed(ref fields) => {
-                let mut deserialize_where = where_clause.clone();
-                for field in fields.unnamed.iter().filter(is_not_omitted) {
-                    deserialize_where
-                        .predicates
-                        .push(archive_bound(&rkyv_path, field)?);
-                    deserialize_where
-                        .predicates
-                        .push(deserialize_bound(&rkyv_path, field)?);
-                }
-
                 let deserialize_fields = fields
                     .unnamed
                     .iter()
                     .enumerate()
                     .map(|(i, field)| {
+                        let field_attrs = FieldAttributes::parse(field)?;
+
+                        deserialize_where.predicates.extend(
+                            field_attrs.archive_bound(&rkyv_path, field),
+                        );
+                        deserialize_where.predicates.extend(
+                            field_attrs.deserialize_bound(&rkyv_path, field),
+                        );
+
                         let index = Index::from(i);
-                        let deserialize = deserialize(&rkyv_path, field)?;
+                        let deserialize =
+                            field_attrs.deserialize(&rkyv_path, field);
                         Ok(quote! {
                             #deserialize(
                                 &self.#index,
@@ -123,75 +104,11 @@ fn derive_deserialize_impl(
                     })
                     .collect::<Result<Vec<_>, Error>>()?;
 
-                quote! {
-                    impl #impl_generics
-                        #rkyv_path::Deserialize<#name #ty_generics, __D>
-                        for #rkyv_path::Archived<#name #ty_generics>
-                    #deserialize_where
-                    {
-                        fn deserialize(
-                            &self,
-                            deserializer: &mut __D,
-                        ) -> ::core::result::Result<
-                            #name #ty_generics,
-                            <__D as #rkyv_path::rancor::Fallible>::Error,
-                        > {
-                            ::core::result::Result::Ok(#name(
-                                #(#deserialize_fields,)*
-                            ))
-                        }
-                    }
-                }
+                quote! { #name(#(#deserialize_fields,)*) }
             }
-            Fields::Unit => quote! {
-                impl #impl_generics
-                    #rkyv_path::Deserialize<#name #ty_generics, __D>
-                    for #rkyv_path::Archived<#name #ty_generics>
-                #where_clause
-                {
-                    fn deserialize(
-                        &self,
-                        _: &mut __D,
-                    ) -> ::core::result::Result<
-                        #name #ty_generics,
-                        <__D as #rkyv_path::rancor::Fallible>::Error,
-                    > {
-                        ::core::result::Result::Ok(#name)
-                    }
-                }
-            },
+            Fields::Unit => quote! { #name },
         },
         Data::Enum(ref data) => {
-            let mut deserialize_where = where_clause.clone();
-            for variant in data.variants.iter() {
-                match variant.fields {
-                    Fields::Named(ref fields) => {
-                        for field in fields.named.iter().filter(is_not_omitted)
-                        {
-                            deserialize_where
-                                .predicates
-                                .push(archive_bound(&rkyv_path, field)?);
-                            deserialize_where
-                                .predicates
-                                .push(deserialize_bound(&rkyv_path, field)?);
-                        }
-                    }
-                    Fields::Unnamed(ref fields) => {
-                        for field in
-                            fields.unnamed.iter().filter(is_not_omitted)
-                        {
-                            deserialize_where
-                                .predicates
-                                .push(archive_bound(&rkyv_path, field)?);
-                            deserialize_where
-                                .predicates
-                                .push(deserialize_bound(&rkyv_path, field)?);
-                        }
-                    }
-                    Fields::Unit => (),
-                }
-            }
-
             let deserialize_variants = data
                 .variants
                 .iter()
@@ -207,9 +124,22 @@ fn derive_deserialize_impl(
                                 .named
                                 .iter()
                                 .map(|field| {
+                                    let field_attrs =
+                                        FieldAttributes::parse(field)?;
+
+                                    deserialize_where.predicates.extend(
+                                        field_attrs
+                                            .archive_bound(&rkyv_path, field),
+                                    );
+                                    deserialize_where.predicates.extend(
+                                        field_attrs.deserialize_bound(
+                                            &rkyv_path, field,
+                                        ),
+                                    );
+
                                     let name = &field.ident;
-                                    let deserialize =
-                                        deserialize(&rkyv_path, field)?;
+                                    let deserialize = field_attrs
+                                        .deserialize(&rkyv_path, field);
                                     Ok(quote! {
                                         #name: #deserialize(
                                             #name,
@@ -236,12 +166,25 @@ fn derive_deserialize_impl(
                                 .iter()
                                 .enumerate()
                                 .map(|(i, field)| {
+                                    let field_attrs =
+                                        FieldAttributes::parse(field)?;
+
+                                    deserialize_where.predicates.extend(
+                                        field_attrs
+                                            .archive_bound(&rkyv_path, field),
+                                    );
+                                    deserialize_where.predicates.extend(
+                                        field_attrs.deserialize_bound(
+                                            &rkyv_path, field,
+                                        ),
+                                    );
+
                                     let binding = Ident::new(
                                         &format!("_{}", i),
                                         field.span(),
                                     );
-                                    let deserialize =
-                                        deserialize(&rkyv_path, field)?;
+                                    let deserialize = field_attrs
+                                        .deserialize(&rkyv_path, field);
                                     Ok(quote! {
                                         #deserialize(
                                             #binding,
@@ -264,22 +207,8 @@ fn derive_deserialize_impl(
                 .collect::<Result<Vec<_>, Error>>()?;
 
             quote! {
-                impl #impl_generics
-                    #rkyv_path::Deserialize<#name #ty_generics, __D>
-                    for #rkyv_path::Archived<#name #ty_generics>
-                #deserialize_where
-                {
-                    fn deserialize(
-                        &self,
-                        deserializer: &mut __D,
-                    ) -> ::core::result::Result<
-                        #name #ty_generics,
-                        <__D as #rkyv_path::rancor::Fallible>::Error,
-                    > {
-                        ::core::result::Result::Ok(match self {
-                            #(#deserialize_variants,)*
-                        })
-                    }
+                match self {
+                    #(#deserialize_variants,)*
                 }
             }
         }
@@ -293,6 +222,19 @@ fn derive_deserialize_impl(
 
     Ok(quote! {
         #[automatically_derived]
-        #deserialize_impl
+        impl #impl_generics #rkyv_path::Deserialize<#name #ty_generics, __D>
+            for #rkyv_path::Archived<#name #ty_generics>
+        #deserialize_where
+        {
+            fn deserialize(
+                &self,
+                deserializer: &mut __D,
+            ) -> ::core::result::Result<
+                #name #ty_generics,
+                <__D as #rkyv_path::rancor::Fallible>::Error,
+            > {
+                ::core::result::Result::Ok(#body)
+            }
+        }
     })
 }

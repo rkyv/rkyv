@@ -5,10 +5,6 @@ use rkyv::{deserialize, rancor::Error, Archive, Deserialize, Serialize};
     // This will generate a PartialEq impl between our unarchived
     // and archived types
     compare(PartialEq),
-    // bytecheck can be used to validate your data if you want. To
-    // use the safe API, you have to derive CheckBytes for the
-    // archived type
-    check_bytes,
     // Derives can be passed through to the generated type:
     derive(Debug),
 )]

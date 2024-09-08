@@ -23,7 +23,7 @@ use crate::{
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
-    check_bytes(verify)
+    bytecheck(verify)
 )]
 #[repr(transparent)]
 pub struct ArchivedCString {

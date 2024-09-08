@@ -3,15 +3,16 @@ mod printing;
 mod r#struct;
 
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens};
+use quote::quote;
 use syn::{
     parse_quote, Data, DataStruct, DeriveInput, Error, Field, Ident, Meta,
+    Token, Type,
 };
 
 use crate::{
     archive::printing::Printing,
-    attributes::Attributes,
-    util::{archive_bound, archived, is_not_omitted, iter_fields},
+    attributes::{Attributes, FieldAttributes},
+    util::iter_fields,
 };
 
 pub fn derive(input: &mut DeriveInput) -> Result<TokenStream, Error> {
@@ -19,30 +20,41 @@ pub fn derive(input: &mut DeriveInput) -> Result<TokenStream, Error> {
     derive_archive_impl(input, &attributes)
 }
 
+// TODO: clean up
 fn archive_field_metas<'a>(
     attributes: &'a Attributes,
     field: &'a Field,
-) -> impl 'a + Iterator<Item = &'a dyn ToTokens> {
-    field.attrs.iter().filter_map(|attr| match &attr.meta {
-        Meta::Path(path) => {
-            if attributes.check_bytes.is_some() && path.is_ident("omit_bounds")
-            {
-                Some(path as _)
+) -> Result<TokenStream, Error> {
+    let mut result = TokenStream::new();
+
+    for attr in field
+        .attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("rkyv"))
+    {
+        attr.parse_nested_meta(|meta| {
+            if meta.path.is_ident("omit_bounds") {
+                if attributes.bytecheck.is_some() {
+                    result.extend(quote! { #[bytecheck(omit_bounds)] });
+                }
+                Ok(())
+            } else if meta.path.is_ident("attr") {
+                let meta = meta.input.parse::<Meta>()?;
+                result.extend(quote! { #[#meta] });
+                Ok(())
+            } else if meta.path.is_ident("with") {
+                meta.input.parse::<Token![=]>()?;
+                meta.input.parse::<Type>()?;
+                Ok(())
             } else {
-                None
+                Err(meta.error(
+                    "unrecognized argument; expected `omit_bounds` or `attr`",
+                ))
             }
-        }
-        Meta::List(list) => {
-            if list.path.is_ident("archive_attr")
-                || list.path.is_ident("rkyv_attr")
-            {
-                Some(&list.tokens as _)
-            } else {
-                None
-            }
-        }
-        Meta::NameValue(_) => None,
-    })
+        })?;
+    }
+
+    Ok(result)
 }
 
 fn archived_doc(name: &Ident) -> String {
@@ -71,10 +83,11 @@ fn derive_archive_impl(
     if let Some(ref bounds) = attributes.archive_bounds {
         where_clause.predicates.extend(bounds.iter().cloned());
     }
-    for field in iter_fields(&input.data).filter(is_not_omitted) {
+    for field in iter_fields(&input.data) {
+        let field_attrs = FieldAttributes::parse(field)?;
         where_clause
             .predicates
-            .push(archive_bound(&printing.rkyv_path, field)?);
+            .extend(field_attrs.archive_bound(&printing.rkyv_path, field));
     }
 
     let mut result = match &input.data {
@@ -114,7 +127,8 @@ fn impl_auto_trait(
     let trait_ident = Ident::new(trait_name, Span::call_site());
 
     for field in iter_fields(&input.data) {
-        let archived_field_ty = archived(rkyv_path, field)?;
+        let field_attrs = FieldAttributes::parse(field)?;
+        let archived_field_ty = field_attrs.archived(rkyv_path, field);
 
         where_clause.predicates.push(parse_quote! {
             #archived_field_ty: #rkyv_path::traits::#trait_ident

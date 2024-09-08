@@ -30,23 +30,14 @@ use rkyv::{access, rancor::Error, Archive, Deserialize, Serialize};
     __S::Error: rkyv::rancor::Source,
 ))]
 #[rkyv(deserialize_bounds(__D::Error: rkyv::rancor::Source))]
-// We'll also add support for validating our archived type. Validation will
-// allow us to check an arbitrary buffer of bytes before accessing it so we can
-// avoid using any unsafe code.
+// We need to manually add the appropriate non-recursive bounds to our
+// `CheckBytes` derive. In our case, we need to bound
+// `__C: rkyv::validation::ArchiveContext`. This will make sure that our `Vec`
+// and `HashMap` have the `ArchiveContext` trait implemented on the validator.
+// This is a necessary requirement for containers to check their bytes.
 //
-// To validate our archived type, we also need to derive `CheckBytes` on it. To
-// derive `CheckBytes` for our archived type, we simply add
-// `#[rkyv(check_bytes)]` to our type.
-//
-// We also need to manually add the appropriate non-recursive bounds to our
-// type. In our case, we need to bound `__C: rkyv::validation::ArchiveContext`.
-// This will make sure that our `Vec` and `HashMap` have the `ArchiveContext`
-// trait implemented on the validator. This is a necessary requirement for
-// containers to check their bytes.
-//
-// With those two changes, our recursive type can be validated with
-// `check_archived_root`!
-#[rkyv(check_bytes(
+// With those two changes, our recursive type can be validated with `access`!
+#[rkyv(bytecheck(
     bounds(
         __C: rkyv::validation::ArchiveContext,
     )
@@ -56,8 +47,8 @@ pub enum JsonValue {
     Bool(bool),
     Number(JsonNumber),
     String(String),
-    Array(#[omit_bounds] Vec<JsonValue>),
-    Object(#[omit_bounds] HashMap<String, JsonValue>),
+    Array(#[rkyv(omit_bounds)] Vec<JsonValue>),
+    Object(#[rkyv(omit_bounds)] HashMap<String, JsonValue>),
 }
 
 impl fmt::Display for ArchivedJsonValue {
@@ -93,7 +84,6 @@ impl fmt::Display for ArchivedJsonValue {
 }
 
 #[derive(Archive, Debug, Deserialize, Serialize)]
-#[rkyv(check_bytes)]
 pub enum JsonNumber {
     PosInt(u64),
     NegInt(i64),

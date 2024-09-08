@@ -8,8 +8,7 @@ use crate::{
     archive::{
         archive_field_metas, archived_doc, printing::Printing, resolver_doc,
     },
-    attributes::Attributes,
-    util::{archived, is_not_omitted, resolve, resolver},
+    attributes::{Attributes, FieldAttributes},
 };
 
 pub fn impl_struct(
@@ -38,7 +37,8 @@ pub fn impl_struct(
 
     let mut resolve_statements = TokenStream::new();
     for (field, member) in fields.iter().zip(fields.members()) {
-        let resolves = resolve(rkyv_path, field)?;
+        let field_attrs = FieldAttributes::parse(field)?;
+        let resolves = field_attrs.resolve(rkyv_path, field);
         resolve_statements.extend(quote! {
             let field_ptr = unsafe {
                 ::core::ptr::addr_of_mut!((*out.ptr()).#member)
@@ -113,11 +113,13 @@ fn generate_archived_type(
             colon_token,
             ..
         } = field;
-        let metas = archive_field_metas(attributes, field);
-        let ty = archived(rkyv_path, field)?;
+
+        let field_attrs = FieldAttributes::parse(field)?;
+        let field_metas = archive_field_metas(attributes, field)?;
+        let ty = field_attrs.archived(rkyv_path, field);
 
         archived_fields.extend(quote! {
-            #(#[#metas])*
+            #field_metas
             #vis #ident #colon_token #ty,
         });
     }
@@ -157,7 +159,9 @@ fn generate_resolver_type(
         let Field {
             ident, colon_token, ..
         } = field;
-        let ty = resolver(rkyv_path, field)?;
+        let field_attrs = FieldAttributes::parse(field)?;
+
+        let ty = field_attrs.resolver(rkyv_path, field);
 
         resolver_fields.extend(quote! { #ident #colon_token #ty, });
     }
@@ -190,12 +194,17 @@ fn generate_partial_eq_impl(
     } = printing;
 
     let mut where_clause = generics.where_clause.clone().unwrap();
-    for field in fields.iter().filter(is_not_omitted) {
-        let ty = &field.ty;
-        let archived_ty = archived(rkyv_path, field)?;
-        where_clause
-            .predicates
-            .push(parse_quote! { #archived_ty: PartialEq<#ty> });
+    for field in fields.iter() {
+        let field_attrs = FieldAttributes::parse(field)?;
+        if field_attrs.omit_bounds.is_none() {
+            let field_attrs = FieldAttributes::parse(field)?;
+
+            let ty = &field.ty;
+            let archived_ty = field_attrs.archived(rkyv_path, field);
+            where_clause
+                .predicates
+                .push(parse_quote! { #archived_ty: PartialEq<#ty> });
+        }
     }
 
     let members = fields.members();
@@ -234,12 +243,17 @@ fn generate_partial_ord_impl(
 
     let mut where_clause = generics.where_clause.as_ref().unwrap().clone();
 
-    for field in fields.iter().filter(is_not_omitted) {
-        let ty = &field.ty;
-        let archived_ty = archived(rkyv_path, field)?;
-        where_clause
-            .predicates
-            .push(parse_quote! { #archived_ty: PartialOrd<#ty> });
+    for field in fields.iter() {
+        let field_attrs = FieldAttributes::parse(field)?;
+        if field_attrs.omit_bounds.is_none() {
+            let field_attrs = FieldAttributes::parse(field)?;
+
+            let ty = &field.ty;
+            let archived_ty = field_attrs.archived(rkyv_path, field);
+            where_clause
+                .predicates
+                .push(parse_quote! { #archived_ty: PartialOrd<#ty> });
+        }
     }
 
     let members = fields.members();

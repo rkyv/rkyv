@@ -44,7 +44,7 @@ mod core_tests {
     #[test]
     fn roundtrip_unit_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
+        #[rkyv(crate, compare(PartialEq), derive(Debug))]
         struct Test;
 
         roundtrip(&Test);
@@ -54,7 +54,7 @@ mod core_tests {
     #[test]
     fn roundtrip_tuple_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
+        #[rkyv(crate, compare(PartialEq), derive(Debug))]
         struct Test((), i32, Option<i32>);
 
         roundtrip(&Test((), 42, Some(42)));
@@ -64,7 +64,7 @@ mod core_tests {
     #[test]
     fn roundtrip_struct() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
+        #[rkyv(crate, compare(PartialEq), derive(Debug))]
         struct Test {
             a: (),
             b: i32,
@@ -103,7 +103,7 @@ mod core_tests {
         }
 
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq))]
+        #[rkyv(crate, compare(PartialEq))]
         struct Test<T: TestTrait> {
             a: (),
             b: <T as TestTrait>::Associated,
@@ -159,7 +159,7 @@ mod core_tests {
     #[test]
     fn roundtrip_enum() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
+        #[rkyv(crate, compare(PartialEq), derive(Debug))]
         enum Test {
             A,
             B(i32),
@@ -185,7 +185,7 @@ mod core_tests {
         }
 
         #[derive(Archive, Serialize, Deserialize, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq))]
+        #[rkyv(crate, compare(PartialEq))]
         enum Test<T: TestTrait> {
             A,
             B(<T as TestTrait>::Associated),
@@ -252,7 +252,7 @@ mod core_tests {
     #[test]
     fn struct_mutable_refs() {
         #[derive(Archive, Serialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Opaque(i32);
 
         impl ArchivedOpaque {
@@ -267,7 +267,7 @@ mod core_tests {
         }
 
         #[derive(Archive, Serialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test {
             a: Opaque,
         }
@@ -287,7 +287,7 @@ mod core_tests {
     fn enum_mutable_ref() {
         #[allow(dead_code)]
         #[derive(Archive, Serialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         enum Test {
             A,
             B(char),
@@ -369,7 +369,7 @@ mod core_tests {
             Nil,
             Cons {
                 value: T,
-                #[omit_bounds]
+                #[rkyv(omit_bounds)]
                 next: MyStruct<Self>,
             },
         }
@@ -384,7 +384,6 @@ mod core_tests {
             crate,
             archived = ATest,
             resolver = RTest,
-            check_bytes,
             compare(PartialEq),
             derive(Debug),
         )]
@@ -478,7 +477,7 @@ mod core_tests {
     #[test]
     fn const_generics() {
         #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
+        #[rkyv(crate, compare(PartialEq), derive(Debug))]
         pub struct Const<const N: usize>;
 
         roundtrip(&Const::<1>);
@@ -632,7 +631,7 @@ mod core_tests {
         #[derive(Archive, Deserialize, Serialize)]
         #[rkyv(crate = alt_path)]
         struct Test<'a> {
-            #[with(alt_path::with::InlineAsBox)]
+            #[rkyv(with = alt_path::with::InlineAsBox)]
             value: &'a str,
             other: i32,
         }
@@ -689,7 +688,7 @@ mod alloc_tests {
         };
 
         #[derive(Archive, Serialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test {
             a: Box<i32>,
             b: Vec<String>,
@@ -726,7 +725,7 @@ mod alloc_tests {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(
             crate,
-            check_bytes(bounds(__C: crate::validation::ArchiveContext)),
+            bytecheck(bounds(__C: crate::validation::ArchiveContext)),
             // The derive macros don't apply the right bounds from Box so we
             // have to manually specify what bounds to apply
             serialize_bounds(__S: Writer),
@@ -736,7 +735,7 @@ mod alloc_tests {
         )]
         enum Node {
             Nil,
-            Cons(#[omit_bounds] Box<Node>),
+            Cons(#[rkyv(omit_bounds)] Box<Node>),
         }
 
         roundtrip(&Node::Cons(Box::new(Node::Cons(Box::new(Node::Nil)))));
@@ -747,7 +746,7 @@ mod alloc_tests {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(
             crate,
-            check_bytes(bounds(__C: crate::validation::ArchiveContext)),
+            bytecheck(bounds(__C: crate::validation::ArchiveContext)),
             archive_bounds(T::Archived: core::fmt::Debug),
             // The derive macros don't apply the right bounds from Box so we
             // have to manually specify what bounds to apply
@@ -760,7 +759,7 @@ mod alloc_tests {
             Empty,
             Node {
                 val: T,
-                #[omit_bounds]
+                #[rkyv(omit_bounds)]
                 next: Box<Self>,
             },
         }

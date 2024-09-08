@@ -230,7 +230,7 @@ pub trait DeserializeDyn<T: Pointee + ?Sized, E> {
 #[cfg_attr(
     feature = "bytecheck",
     derive(::bytecheck::CheckBytes),
-    check_bytes(verify)
+    bytecheck(verify)
 )]
 #[repr(transparent)]
 pub struct ArchivedDynMetadata<T: ?Sized> {

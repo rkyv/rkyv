@@ -42,19 +42,22 @@ impl Printing {
             .clone()
             .unwrap_or_else(|| format_ident!("{}Resolver", base_name));
 
-        let mut archived_metas = attributes.metas.clone();
-
-        if let Some(check_bytes) = &attributes.check_bytes {
-            archived_metas.push(parse_quote! {
+        #[cfg(not(feature = "bytecheck"))]
+        let archived_metas = attributes.metas.clone();
+        #[cfg(feature = "bytecheck")]
+        let archived_metas = {
+            let mut result = attributes.metas.clone();
+            result.push(parse_quote! {
                 derive(#rkyv_path::bytecheck::CheckBytes)
             });
-            archived_metas.push(parse_quote! {
-                check_bytes(crate = #rkyv_path::bytecheck)
+            result.push(parse_quote! {
+                bytecheck(crate = #rkyv_path::bytecheck)
             });
-            if !matches!(check_bytes, Meta::Path(_)) {
-                archived_metas.push(parse_quote! { #check_bytes });
+            if let Some(attrs) = &attributes.bytecheck {
+                result.push(parse_quote! { bytecheck(#attrs) });
             }
-        }
+            result
+        };
 
         Ok(Self {
             rkyv_path,

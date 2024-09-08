@@ -2,7 +2,6 @@ use benchlib::{bench_dataset, generate_vec, Generate, Rng};
 use rkyv::{Archive, Deserialize, Serialize};
 
 #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
-#[rkyv(check_bytes)]
 pub struct Vector3 {
     pub x: f32,
     pub y: f32,
@@ -20,7 +19,6 @@ impl Generate for Vector3 {
 }
 
 #[derive(Archive, Serialize, Deserialize, Clone, Copy, PartialEq)]
-#[rkyv(check_bytes)]
 pub struct Triangle {
     pub v0: Vector3,
     pub v1: Vector3,
@@ -42,7 +40,6 @@ impl Generate for Triangle {
 #[derive(
     rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, PartialEq,
 )]
-#[rkyv(check_bytes)]
 pub struct Mesh {
     pub triangles: Vec<Triangle>,
 }

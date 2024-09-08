@@ -1,6 +1,6 @@
 //! Wrapper type support and commonly used wrappers.
 //!
-//! Wrappers can be applied with the `#[with(...)]` attribute in the
+//! Wrappers can be applied with the `#[rkyv(with = ..)]` attribute in the
 //! [`Archive`](macro@crate::Archive) macro.
 
 // mod impls;
@@ -24,8 +24,8 @@ use crate::{Place, Portable};
 /// Only a single implementation of [`Archive`](crate::Archive) may be written
 /// for each type, but multiple implementations of ArchiveWith can be written
 /// for the same type because it is parametric over the wrapper type. This is
-/// used with the `#[with]` macro attribute to provide a more flexible interface
-/// for serialization.
+/// used with the `#[rkyv(with = ..)]` macro attribute to provide a more
+/// flexible interface for serialization.
 ///
 /// # Example
 ///
@@ -79,7 +79,7 @@ use crate::{Place, Portable};
 ///
 /// #[derive(Archive, Deserialize, Serialize)]
 /// struct Example {
-///     #[with(Incremented)]
+///     #[rkyv(with = Incremented)]
 ///     a: i32,
 ///     // Another i32 field, but not incremented this time
 ///     b: i32,
@@ -155,10 +155,10 @@ pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
 /// #[derive(Archive)]
 /// struct Example<'a> {
 ///     // This will apply `InlineAsBox` to the `&i32` contained in this option
-///     #[with(Map<InlineAsBox>)]
+///     #[rkyv(with = Map<InlineAsBox>)]
 ///     option: Option<&'a i32>,
 ///     // This will apply `InlineAsBox` to each `&i32` contained in this vector
-///     #[with(Map<InlineAsBox>)]
+///     #[rkyv(with = Map<InlineAsBox>)]
 ///     vec: Vec<&'a i32>,
 /// }
 /// ```
@@ -183,7 +183,7 @@ pub struct Map<T> {
 /// struct Example<'a> {
 ///     // This will apply `InlineAsBox` to the `&str` key, and `Inline` to the
 ///     // `&str` value.
-///     #[with(MapKV<InlineAsBox, Inline>)]
+///     #[rkyv(with = MapKV<InlineAsBox, Inline>)]
 ///     hash_map: HashMap<&'a str, &'a str>,
 /// }
 /// ```
@@ -220,7 +220,7 @@ pub struct SeqCst;
 /// # #[cfg(target_has_atomic = "32")]
 /// #[derive(Archive)]
 /// struct Example {
-///     #[with(AtomicLoad<Relaxed>)]
+///     #[rkyv(with = AtomicLoad<Relaxed>)]
 ///     a: AtomicU32,
 /// }
 /// ```
@@ -241,7 +241,7 @@ pub struct AtomicLoad<SO> {
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
-///     #[with(Inline)]
+///     #[rkyv(with = Inline)]
 ///     a: &'a i32,
 /// }
 /// ```
@@ -260,9 +260,9 @@ pub struct Inline;
 ///
 /// #[derive(Archive)]
 /// struct Example {
-///     #[with(AsBox)]
+///     #[rkyv(with = AsBox)]
 ///     a: i32,
-///     #[with(AsBox)]
+///     #[rkyv(with = AsBox)]
 ///     b: str,
 /// }
 /// ```
@@ -283,9 +283,9 @@ pub struct AsBox;
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
-///     #[with(InlineAsBox)]
+///     #[rkyv(with = InlineAsBox)]
 ///     a: &'a i32,
-///     #[with(InlineAsBox)]
+///     #[rkyv(with = InlineAsBox)]
 ///     b: &'a str,
 /// }
 /// ```
@@ -307,9 +307,9 @@ pub struct InlineAsBox;
 ///
 /// #[derive(Archive)]
 /// struct Example {
-///     #[with(AsString)]
+///     #[rkyv(with = AsString)]
 ///     os_string: OsString,
-///     #[with(AsString)]
+///     #[rkyv(with = AsString)]
 ///     path: PathBuf,
 /// }
 /// ```
@@ -338,7 +338,7 @@ pub struct AsString;
 ///
 /// #[derive(Archive)]
 /// struct Example {
-///     #[with(Lock)]
+///     #[rkyv(with = Lock)]
 ///     a: Mutex<i32>,
 /// }
 /// ```
@@ -356,7 +356,7 @@ pub struct Lock;
 ///
 /// #[derive(Archive)]
 /// struct Example<'a> {
-///     #[with(AsOwned)]
+///     #[rkyv(with = AsOwned)]
 ///     a: Cow<'a, str>,
 /// }
 /// ```
@@ -379,7 +379,7 @@ pub struct AsOwned;
 ///
 /// #[derive(Archive)]
 /// struct Example {
-///     #[with(AsVec)]
+///     #[rkyv(with = AsVec)]
 ///     values: HashMap<String, u32>,
 /// }
 /// ```
@@ -405,7 +405,7 @@ pub struct AsVec;
 ///
 /// #[derive(Archive)]
 /// struct NichedExample {
-///     #[with(Niche)]
+///     #[rkyv(with = Niche)]
 ///     value: Option<Box<str>>,
 /// }
 ///
@@ -434,7 +434,7 @@ pub struct Niche;
 ///
 /// #[derive(Archive)]
 /// struct Example {
-///     #[with(AsUnixTime)]
+///     #[rkyv(with = AsUnixTime)]
 ///     time: SystemTime,
 /// }
 #[derive(Debug)]
@@ -465,9 +465,9 @@ pub struct AsUnixTime;
 ///
 /// #[derive(Archive)]
 /// struct Example {
-///     #[with(Unsafe)]
+///     #[rkyv(with = Unsafe)]
 ///     cell: Cell<String>,
-///     #[with(Unsafe)]
+///     #[rkyv(with = Unsafe)]
 ///     unsafe_cell: UnsafeCell<String>,
 /// }
 /// ```
@@ -485,7 +485,7 @@ pub struct Unsafe;
 ///
 /// #[derive(Archive)]
 /// struct Example {
-///     #[with(Skip)]
+///     #[rkyv(with = Skip)]
 ///     a: u32,
 /// }
 /// ```

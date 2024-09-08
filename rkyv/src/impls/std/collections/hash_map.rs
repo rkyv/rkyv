@@ -203,7 +203,7 @@ mod tests {
     #[test]
     fn get_with() {
         #[derive(Archive, Serialize, Deserialize, Eq, Hash, PartialEq)]
-        #[rkyv(crate, check_bytes, derive(Eq, Hash, PartialEq))]
+        #[rkyv(crate, derive(Eq, Hash, PartialEq))]
         pub struct Pair(String, String);
 
         let mut hash_map = HashMap::new();

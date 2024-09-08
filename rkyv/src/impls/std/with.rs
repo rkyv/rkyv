@@ -564,9 +564,9 @@ mod tests {
     #[test]
     fn roundtrip_mutex() {
         #[derive(Archive, Serialize, Deserialize, Debug)]
-        #[rkyv(crate, check_bytes, derive(Debug, PartialEq))]
+        #[rkyv(crate, derive(Debug, PartialEq))]
         struct Test {
-            #[with(Lock)]
+            #[rkyv(with = Lock)]
             value: Mutex<i32>,
         }
 
@@ -592,9 +592,9 @@ mod tests {
     #[test]
     fn with_hash_map_mapkv() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test<'a> {
-            #[with(MapKV<InlineAsBox, InlineAsBox>)]
+            #[rkyv(with = MapKV<InlineAsBox, InlineAsBox>)]
             inner: HashMap<&'a str, &'a str>,
         }
 
@@ -611,9 +611,9 @@ mod tests {
     #[test]
     fn with_btree_map_mapkv() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test<'a> {
-            #[with(MapKV<InlineAsBox, InlineAsBox>)]
+            #[rkyv(with = MapKV<InlineAsBox, InlineAsBox>)]
             inner: BTreeMap<&'a str, &'a str>,
         }
 
@@ -630,9 +630,9 @@ mod tests {
     #[test]
     fn roundtrip_rwlock() {
         #[derive(Archive, Serialize, Deserialize, Debug)]
-        #[rkyv(crate, check_bytes, derive(Debug, PartialEq))]
+        #[rkyv(crate, derive(Debug, PartialEq))]
         struct Test {
-            #[with(Lock)]
+            #[rkyv(with = Lock)]
             value: RwLock<i32>,
         }
 
@@ -658,9 +658,9 @@ mod tests {
     #[test]
     fn roundtrip_os_string() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, derive(Debug, PartialEq))]
+        #[rkyv(crate, derive(Debug, PartialEq))]
         struct Test {
-            #[with(AsString)]
+            #[rkyv(with = AsString)]
             value: OsString,
         }
 
@@ -677,9 +677,9 @@ mod tests {
     #[test]
     fn roundtrip_path_buf() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, derive(Debug, PartialEq))]
+        #[rkyv(crate, derive(Debug, PartialEq))]
         struct Test {
-            #[with(AsString)]
+            #[rkyv(with = AsString)]
             value: PathBuf,
         }
 

@@ -4,7 +4,7 @@ Validation can be enabled with the `bytecheck` feature. Validation leverages the
 [`bytecheck`](https://docs.rs/bytecheck) crate to perform archive validation, and allows the
 consumption of untrusted and malicious data.
 
-To validate an archive, you first have to derive
+If the `bytecheck` feature is enabled, then rkyv will automatically derive
 [`CheckBytes`](https://docs.rs/bytecheck/latest/bytecheck/trait.CheckBytes.html) for your archived
 type:
 
@@ -12,7 +12,6 @@ type:
 use rkyv::{Archive, Deserialize, Serialize};
 
 #[derive(Archive, Deserialize, Serialize)]
-#[rkyv(check_bytes)]
 pub struct Example {
     a: i32,
     b: String,
@@ -20,7 +19,8 @@ pub struct Example {
 }
 ```
 
-The `#[rkyv(check_bytes)]` attribute derives `CheckBytes` on the archived type. Finally, you can use
+The `#[rkyv(bytecheck(..))]` attribute passes its arguments through to the underlying `CheckBytes`
+derive on the archived type. Finally, you can use
 [`check_archived_root`](https://docs.rs/rkyv/0.7.1/rkyv/validation/validators/fn.check_archived_root.html) to
 check an archive and get a reference to the archived value if it was successful:
 

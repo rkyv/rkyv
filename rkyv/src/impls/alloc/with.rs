@@ -576,7 +576,7 @@ mod tests {
     };
 
     #[derive(Debug, Archive, Deserialize, Serialize, PartialEq)]
-    #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
+    #[rkyv(crate, compare(PartialEq), derive(Debug))]
     struct Test {
         value: Option<Box<u128>>,
     }
@@ -596,9 +596,9 @@ mod tests {
     #[test]
     fn ambiguous_niched_archived_box() {
         #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
+        #[rkyv(crate, compare(PartialEq), derive(Debug))]
         struct HasNiche {
-            #[with(Niche)]
+            #[rkyv(with = Niche)]
             inner: Option<Box<[u32]>>,
         }
 
@@ -611,13 +611,13 @@ mod tests {
     #[test]
     fn with_as_owned() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test<'a> {
-            #[with(AsOwned)]
+            #[rkyv(with = AsOwned)]
             a: Cow<'a, u32>,
-            #[with(AsOwned)]
+            #[rkyv(with = AsOwned)]
             b: Cow<'a, [u32]>,
-            #[with(AsOwned)]
+            #[rkyv(with = AsOwned)]
             c: Cow<'a, str>,
         }
 
@@ -636,11 +636,11 @@ mod tests {
     #[test]
     fn with_as_map() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test<'a> {
-            #[with(Map<InlineAsBox>)]
+            #[rkyv(with = Map<InlineAsBox>)]
             a: Option<&'a str>,
-            #[with(Map<InlineAsBox>)]
+            #[rkyv(with = Map<InlineAsBox>)]
             b: Option<&'a str>,
         }
 
@@ -658,9 +658,9 @@ mod tests {
     #[test]
     fn with_as_mapkv() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test<'a> {
-            #[with(MapKV<InlineAsBox, InlineAsBox>)]
+            #[rkyv(with = MapKV<InlineAsBox, InlineAsBox>)]
             a: BTreeMap<&'a str, &'a str>,
         }
 
@@ -680,13 +680,13 @@ mod tests {
     #[test]
     fn with_as_vec() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test {
-            #[with(AsVec)]
+            #[rkyv(with = AsVec)]
             a: BTreeMap<String, String>,
-            #[with(AsVec)]
+            #[rkyv(with = AsVec)]
             b: BTreeSet<String>,
-            #[with(AsVec)]
+            #[rkyv(with = AsVec)]
             c: BTreeMap<String, String>,
         }
 
@@ -735,14 +735,14 @@ mod tests {
     #[test]
     fn with_niche_box() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test {
-            #[with(Niche)]
+            #[rkyv(with = Niche)]
             inner: Option<Box<String>>,
         }
 
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct TestNoNiching {
             inner: Option<Box<String>>,
         }

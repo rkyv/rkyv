@@ -117,9 +117,9 @@ mod tests {
     #[test]
     fn with_as_mapkv() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test<'a> {
-            #[with(MapKV<InlineAsBox, InlineAsBox>)]
+            #[rkyv(with = MapKV<InlineAsBox, InlineAsBox>)]
             a: HashMap<&'a str, &'a str, BuildHasherDefault<FxHasher64>>,
         }
 

@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn roundtrip_rc() {
         #[derive(Debug, Eq, PartialEq, Archive, Deserialize, Serialize)]
-        #[rkyv(crate, compare(PartialEq), derive(Debug), check_bytes)]
+        #[rkyv(crate, compare(PartialEq), derive(Debug))]
         struct Test {
             a: Rc<u32>,
             b: Rc<u32>,
@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn roundtrip_rc_zst() {
         #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
+        #[rkyv(crate, compare(PartialEq), derive(Debug))]
         struct TestRcZST {
             a: Rc<()>,
             b: Rc<()>,
@@ -259,7 +259,7 @@ mod tests {
     #[test]
     fn roundtrip_unsized_shared_ptr() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
+        #[rkyv(crate, compare(PartialEq), derive(Debug))]
         struct Test {
             a: Rc<[String]>,
             b: Rc<[String]>,
@@ -279,7 +279,7 @@ mod tests {
     #[test]
     fn roundtrip_unsized_shared_ptr_empty() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-        #[rkyv(crate, check_bytes, compare(PartialEq), derive(Debug))]
+        #[rkyv(crate, compare(PartialEq), derive(Debug))]
         struct Test {
             a: Rc<[u32]>,
             b: Rc<[u32]>,
@@ -298,7 +298,7 @@ mod tests {
     #[test]
     fn roundtrip_weak_ptr() {
         #[derive(Archive, Serialize, Deserialize)]
-        #[rkyv(crate, check_bytes)]
+        #[rkyv(crate)]
         struct Test {
             a: Rc<u32>,
             b: Weak<u32>,
@@ -401,7 +401,7 @@ mod tests {
             )
         )]
         struct Inner {
-            #[omit_bounds]
+            #[rkyv(omit_bounds)]
             weak: Weak<Self>,
         }
 
@@ -437,7 +437,7 @@ mod tests {
         #[derive(Archive, Deserialize)]
         #[rkyv(
             crate,
-            check_bytes(bounds(__C: ArchiveContext + SharedContext)),
+            bytecheck(bounds(__C: ArchiveContext + SharedContext)),
             deserialize_bounds(
                 __D: Pooling,
                 <__D as Fallible>::Error: Source,
@@ -445,7 +445,7 @@ mod tests {
             derive(Debug),
         )]
         enum AllValues {
-            Rc(#[omit_bounds] Rc<AllValues>),
+            Rc(#[rkyv(omit_bounds)] Rc<AllValues>),
         }
 
         let data = Align([

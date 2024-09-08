@@ -29,7 +29,7 @@ use crate::{seal::Seal, Place, Portable, SerializeUnsized};
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
-    check_bytes(verify)
+    bytecheck(verify)
 )]
 #[derive(Portable)]
 #[rkyv(crate)]

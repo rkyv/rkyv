@@ -152,7 +152,7 @@ struct InnerNode<K, V, const E: usize> {
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
-    check_bytes(verify)
+    bytecheck(verify)
 )]
 #[derive(Portable)]
 #[rkyv(crate)]

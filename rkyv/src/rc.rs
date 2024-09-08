@@ -46,7 +46,7 @@ impl Flavor for ArcFlavor {
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
-    check_bytes(verify)
+    bytecheck(verify)
 )]
 pub struct ArchivedRc<T: ArchivePointee + ?Sized, F> {
     ptr: RelPtr<T>,
@@ -209,7 +209,7 @@ pub struct RcResolver {
 #[cfg_attr(
     feature = "bytecheck",
     derive(bytecheck::CheckBytes),
-    check_bytes(verify)
+    bytecheck(verify)
 )]
 pub struct ArchivedRcWeak<T: ArchivePointee + ?Sized, F> {
     ptr: RelPtr<T>,

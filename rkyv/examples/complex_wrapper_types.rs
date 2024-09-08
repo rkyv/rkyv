@@ -164,7 +164,7 @@ where
 
 #[derive(Archive, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Program {
-    #[with(EncodeOpcodes)]
+    #[rkyv(with = EncodeOpcodes)]
     opcodes: Vec<Opcode>,
 }
 

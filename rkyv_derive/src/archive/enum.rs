@@ -10,8 +10,8 @@ use crate::{
         archive_field_metas, archived_doc, printing::Printing, resolver_doc,
         resolver_variant_doc, variant_doc,
     },
-    attributes::Attributes,
-    util::{archived, is_not_omitted, resolve, resolver, strip_raw},
+    attributes::{Attributes, FieldAttributes},
+    util::strip_raw,
 };
 
 pub fn impl_enum(
@@ -152,10 +152,12 @@ fn generate_archived_type(
                 colon_token,
                 ..
             } = field;
-            let field_metas = archive_field_metas(attributes, field);
-            let field_ty = archived(rkyv_path, field)?;
+            let field_attrs = FieldAttributes::parse(field)?;
+
+            let field_metas = archive_field_metas(attributes, field)?;
+            let field_ty = field_attrs.archived(rkyv_path, field);
             variant_fields.extend(quote! {
-                #(#[#field_metas])*
+                #field_metas
                 #vis #ident #colon_token #field_ty,
             });
         }
@@ -218,7 +220,9 @@ fn generate_resolver_type(
             let Field {
                 ident, colon_token, ..
             } = field;
-            let field_ty = resolver(rkyv_path, field)?;
+            let field_attrs = FieldAttributes::parse(field)?;
+
+            let field_ty = field_attrs.resolver(rkyv_path, field);
             variant_fields.extend(quote! {
                 #ident #colon_token #field_ty,
             });
@@ -302,7 +306,10 @@ fn generate_resolve_arms(
         let resolves = variant
             .fields
             .iter()
-            .map(|f| resolve(rkyv_path, f))
+            .map(|f| {
+                let field_attrs = FieldAttributes::parse(f)?;
+                Ok(field_attrs.resolve(rkyv_path, f))
+            })
             .collect::<Result<Vec<_>, Error>>()?;
 
         match variant.fields {
@@ -430,10 +437,12 @@ fn generate_variant_structs(
 
         let mut archived_fields = TokenStream::new();
         for field in variant.fields.iter() {
+            let field_attrs = FieldAttributes::parse(field)?;
+            let archived = field_attrs.archived(rkyv_path, field);
+
             let Field {
                 ident, colon_token, ..
             } = field;
-            let archived = archived(rkyv_path, field)?;
 
             archived_fields.extend(quote! {
                 #ident #colon_token #archived,
@@ -480,17 +489,16 @@ fn generate_partial_eq_impl(
     let (impl_generics, ty_generics, _) = generics.split_for_impl();
     let mut where_clause = generics.where_clause.clone().unwrap();
 
-    for field in data
-        .variants
-        .iter()
-        .flat_map(|v| v.fields.iter())
-        .filter(is_not_omitted)
-    {
-        let ty = &field.ty;
-        let archived = archived(&printing.rkyv_path, field)?;
-        where_clause
-            .predicates
-            .push(parse_quote! { #archived: PartialEq<#ty> });
+    for field in data.variants.iter().flat_map(|v| v.fields.iter()) {
+        let field_attrs = FieldAttributes::parse(field)?;
+        if field_attrs.omit_bounds.is_none() {
+            let field_attrs = FieldAttributes::parse(field)?;
+            let ty = &field.ty;
+            let archived = field_attrs.archived(&printing.rkyv_path, field);
+            where_clause
+                .predicates
+                .push(parse_quote! { #archived: PartialEq<#ty> });
+        }
     }
 
     let variant_impls = data.variants.iter().map(|v| {
@@ -581,17 +589,16 @@ fn generate_partial_ord_impl(
     let (impl_generics, ty_generics, _) = generics.split_for_impl();
     let mut where_clause = generics.where_clause.clone().unwrap();
 
-    for field in data
-        .variants
-        .iter()
-        .flat_map(|v| v.fields.iter())
-        .filter(is_not_omitted)
-    {
-        let ty = &field.ty;
-        let archived = archived(&printing.rkyv_path, field)?;
-        where_clause
-            .predicates
-            .push(parse_quote! { #archived: PartialOrd<#ty> });
+    for field in data.variants.iter().flat_map(|v| v.fields.iter()) {
+        let field_attrs = FieldAttributes::parse(field)?;
+        if field_attrs.omit_bounds.is_none() {
+            let field_attrs = FieldAttributes::parse(field)?;
+            let ty = &field.ty;
+            let archived = field_attrs.archived(&printing.rkyv_path, field);
+            where_clause
+                .predicates
+                .push(parse_quote! { #archived: PartialOrd<#ty> });
+        }
     }
 
     let self_disc = data.variants.iter().map(|v| {
