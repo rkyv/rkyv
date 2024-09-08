@@ -370,4 +370,16 @@ impl FieldAttributes {
             }
         }
     }
+
+    pub fn access_field(
+        &self,
+        this: &Ident,
+        member: &impl ToTokens,
+    ) -> TokenStream {
+        if let Some(ref getter) = self.getter {
+            quote! { &#getter(&#this) }
+        } else {
+            quote! { &#this.#member }
+        }
+    }
 }

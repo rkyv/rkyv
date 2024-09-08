@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
     parse_quote, spanned::Spanned as _, DataEnum, Error, Field, Fields,
-    Generics, Ident, Index, Member,
+    Generics, Ident, Index, Member, Path,
 };
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
         resolver_variant_doc, variant_doc,
     },
     attributes::{Attributes, FieldAttributes},
-    util::strip_raw,
+    util::{strip_generics_from_path, strip_raw},
 };
 
 pub fn impl_enum(
@@ -65,8 +65,6 @@ pub fn impl_enum(
 
     private.extend(generate_variant_structs(printing, generics, data)?);
 
-    let resolve_arms = generate_resolve_arms(printing, generics, data)?;
-
     if let Some(ref compares) = attributes.compares {
         for compare in compares {
             if compare.is_ident("PartialEq") {
@@ -89,12 +87,46 @@ pub fn impl_enum(
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    Ok(quote! {
-        #public
+    let archive_impl = if let Some(ref remote) = attributes.remote {
+        let resolve_arms = generate_resolve_arms(
+            printing,
+            generics,
+            data,
+            &strip_generics_from_path(remote.clone()),
+        )?;
 
-        const _: () = {
-            #private
+        quote! {
+            impl #impl_generics #rkyv_path::with::ArchiveWith<#remote>
+                for #name #ty_generics
+            #where_clause
+            {
+                type Archived = #archived_type;
+                type Resolver = #resolver_name #ty_generics;
 
+                // Some resolvers will be (), this allow is to prevent clippy
+                // from complaining
+                #[allow(clippy::unit_arg)]
+                fn resolve_with(
+                    field: &#remote,
+                    resolver: Self::Resolver,
+                    out: #rkyv_path::Place<Self::Archived>,
+                ) {
+                    let __this = field;
+                    match resolver {
+                        #resolve_arms
+                    }
+                }
+            }
+        }
+    } else {
+        let resolve_arms = generate_resolve_arms(
+            printing,
+            generics,
+            data,
+            &parse_quote!(#name),
+        )?;
+
+        quote! {
             impl #impl_generics #rkyv_path::Archive for #name #ty_generics
             #where_clause
             {
@@ -109,11 +141,22 @@ pub fn impl_enum(
                     resolver: Self::Resolver,
                     out: #rkyv_path::Place<Self::Archived>,
                 ) {
+                    let __this = self;
                     match resolver {
                         #resolve_arms
                     }
                 }
             }
+        }
+    };
+
+    Ok(quote! {
+        #public
+
+        const _: () = {
+            #private
+
+            #archive_impl
         };
     })
 }
@@ -264,10 +307,10 @@ fn generate_resolve_arms(
     printing: &Printing,
     generics: &Generics,
     data: &DataEnum,
+    name: &Path,
 ) -> Result<TokenStream, Error> {
     let Printing {
         rkyv_path,
-        name,
         resolver_name,
         ..
     } = printing;
@@ -317,9 +360,9 @@ fn generate_resolve_arms(
                 #resolver_name::#variant_name {
                     #(#members: #resolver_bindings,)*
                 } => {
-                    match self {
+                    match __this {
                         #name::#variant_name {
-                            #(#members: #self_bindings,)*
+                            #(#members: #self_bindings,)*..
                         } => {
                             let out = unsafe {
                                 out.cast_unchecked::<
@@ -362,8 +405,8 @@ fn generate_resolve_arms(
             }),
             Fields::Unnamed(_) => result.extend(quote! {
                 #resolver_name::#variant_name( #(#resolver_bindings,)* ) => {
-                    match self {
-                        #name::#variant_name(#(#self_bindings,)*) => {
+                    match __this {
+                        #name::#variant_name(#(#self_bindings,)* ..) => {
                             let out = unsafe {
                                 out.cast_unchecked::<
                                     #archived_variant_name #ty_generics

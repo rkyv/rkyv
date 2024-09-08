@@ -2,7 +2,8 @@ use core::iter::FlatMap;
 
 use proc_macro2::Ident;
 use syn::{
-    punctuated::Iter, Data, DataEnum, DataStruct, DataUnion, Field, Variant,
+    punctuated::Iter, Data, DataEnum, DataStruct, DataUnion, Field, Path,
+    PathArguments, Variant,
 };
 
 pub fn strip_raw(ident: &Ident) -> String {
@@ -47,4 +48,12 @@ pub fn iter_fields(data: &Data) -> FieldsIter<'_> {
             FieldsIter::Struct(fields.named.iter())
         }
     }
+}
+
+pub fn strip_generics_from_path(mut path: Path) -> Path {
+    for segment in path.segments.iter_mut() {
+        segment.arguments = PathArguments::None;
+    }
+
+    path
 }
