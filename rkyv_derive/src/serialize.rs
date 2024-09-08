@@ -1,13 +1,13 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
     parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput,
-    Error, Fields, Generics, Ident, Index,
+    Error, Fields, Generics, Ident, Index, Path, WhereClause,
 };
 
 use crate::{
     attributes::{Attributes, FieldAttributes},
-    util::strip_raw,
+    util::{strip_generics_from_path, strip_raw},
 };
 
 pub fn derive(input: DeriveInput) -> Result<TokenStream, Error> {
@@ -57,6 +57,72 @@ fn derive_serialize_impl(
     );
 
     let mut serialize_where = where_clause.clone();
+
+    if let Some(ref remote) = attributes.remote {
+        let body = generate_serialize_body(
+            &input,
+            &mut serialize_where,
+            &rkyv_path,
+            resolver,
+            strip_generics_from_path(remote.clone()),
+        )?;
+
+        Ok(quote! {
+            #[automatically_derived]
+            impl #impl_generics #rkyv_path::with::SerializeWith<#remote, __S>
+                for #name #ty_generics
+            #serialize_where
+            {
+                fn serialize_with(
+                    field: &#remote,
+                    serializer: &mut __S,
+                ) -> ::core::result::Result<
+                    <Self as #rkyv_path::with::ArchiveWith<#remote>>::Resolver,
+                    <__S as #rkyv_path::rancor::Fallible>::Error,
+                > {
+                    let __this = field;
+                    #body
+                }
+            }
+        })
+    } else {
+        let body = generate_serialize_body(
+            &input,
+            &mut serialize_where,
+            &rkyv_path,
+            resolver,
+            parse_quote!(#name),
+        )?;
+
+        Ok(quote! {
+            #[automatically_derived]
+            impl #impl_generics #rkyv_path::Serialize<__S>
+                for #name #ty_generics
+            #serialize_where
+            {
+                fn serialize(
+                    &self,
+                    serializer: &mut __S,
+                ) -> ::core::result::Result<
+                    <Self as #rkyv_path::Archive>::Resolver,
+                    <__S as #rkyv_path::rancor::Fallible>::Error,
+                > {
+                    let __this = self;
+                    #body
+                }
+            }
+        })
+    }
+}
+
+fn generate_serialize_body(
+    input: &DeriveInput,
+    serialize_where: &mut WhereClause,
+    rkyv_path: &Path,
+    resolver: Ident,
+    name: Path,
+) -> Result<TokenStream, Error> {
+    let this = Ident::new("__this", Span::call_site());
     let body = match input.data {
         Data::Struct(ref data) => match data.fields {
             Fields::Named(ref fields) => {
@@ -71,10 +137,12 @@ fn derive_serialize_impl(
                         );
 
                         let name = &field.ident;
+                        let access_field =
+                            field_attrs.access_field(&this, name);
                         let serialize =
                             field_attrs.serialize(&rkyv_path, field);
                         Ok(quote! {
-                            #name: #serialize(&self.#name, serializer)?
+                            #name: #serialize(#access_field, serializer)?
                         })
                     })
                     .collect::<Result<Vec<_>, Error>>()?;
@@ -94,9 +162,11 @@ fn derive_serialize_impl(
                         );
 
                         let index = Index::from(i);
+                        let access_field =
+                            field_attrs.access_field(&this, &index);
                         let serialize =
                             field_attrs.serialize(&rkyv_path, field);
-                        Ok(quote! { #serialize(&self.#index, serializer)? })
+                        Ok(quote! { #serialize(#access_field, serializer)? })
                     })
                     .collect::<Result<Vec<_>, Error>>()?;
 
@@ -136,8 +206,8 @@ fn derive_serialize_impl(
                                 })
                                 .collect::<Result<Vec<_>, Error>>()?;
                             Ok(quote! {
-                                Self::#variant {
-                                    #(#bindings,)*
+                                #name::#variant {
+                                    #(#bindings,)*..
                                 } => #resolver::#variant {
                                     #(#fields,)*
                                 }
@@ -177,20 +247,20 @@ fn derive_serialize_impl(
                                 })
                                 .collect::<Result<Vec<_>, Error>>()?;
                             Ok(quote! {
-                                Self::#variant(
-                                    #(#bindings,)*
+                                #name::#variant(
+                                    #(#bindings,)*..
                                 ) => #resolver::#variant(#(#fields,)*)
                             })
                         }
-                        Fields::Unit => {
-                            Ok(quote! { Self::#variant => #resolver::#variant })
-                        }
+                        Fields::Unit => Ok(
+                            quote! { #name::#variant => #resolver::#variant },
+                        ),
                     }
                 })
                 .collect::<Result<Vec<_>, Error>>()?;
 
             quote! {
-                match self {
+                match __this {
                     #(#serialize_arms,)*
                 }
             }
@@ -203,21 +273,5 @@ fn derive_serialize_impl(
         }
     };
 
-    Ok(quote! {
-        #[automatically_derived]
-        impl #impl_generics #rkyv_path::Serialize<__S>
-            for #name #ty_generics
-        #serialize_where
-        {
-            fn serialize(
-                &self,
-                serializer: &mut __S,
-            ) -> ::core::result::Result<
-                Self::Resolver,
-                <__S as #rkyv_path::rancor::Fallible>::Error,
-            > {
-                ::core::result::Result::Ok(#body)
-            }
-        }
-    })
+    Ok(quote! { ::core::result::Result::Ok(#body) })
 }
