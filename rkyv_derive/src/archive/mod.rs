@@ -1,5 +1,5 @@
 mod r#enum;
-mod printing;
+pub mod printing;
 mod r#struct;
 
 use proc_macro2::{Span, TokenStream};

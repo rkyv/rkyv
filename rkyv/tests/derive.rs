@@ -131,6 +131,12 @@ fn unit_struct() {
     #[rkyv(remote = Remote)]
     struct Example;
 
+    impl From<Example> for Remote {
+        fn from(_: Example) -> Self {
+            Self
+        }
+    }
+
     let remote = Remote;
     roundtrip::<Example, _>(&remote);
 }
