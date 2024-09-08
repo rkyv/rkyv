@@ -180,20 +180,20 @@
 <p>Validation can be enabled with the <code>bytecheck</code> feature. Validation leverages the
 <a href="https://docs.rs/bytecheck"><code>bytecheck</code></a> crate to perform archive validation, and allows the
 consumption of untrusted and malicious data.</p>
-<p>To validate an archive, you first have to derive
+<p>If the <code>bytecheck</code> feature is enabled, then rkyv will automatically derive
 <a href="https://docs.rs/bytecheck/latest/bytecheck/trait.CheckBytes.html"><code>CheckBytes</code></a> for your archived
 type:</p>
 <pre><code class="language-rs">use rkyv::{Archive, Deserialize, Serialize};
 
 #[derive(Archive, Deserialize, Serialize)]
-#[rkyv(check_bytes)]
 pub struct Example {
     a: i32,
     b: String,
     c: Vec&lt;bool&gt;,
 }
 </code></pre>
-<p>The <code>#[rkyv(check_bytes)]</code> attribute derives <code>CheckBytes</code> on the archived type. Finally, you can use
+<p>The <code>#[rkyv(bytecheck(..))]</code> attribute passes its arguments through to the underlying <code>CheckBytes</code>
+derive on the archived type. Finally, you can use
 <a href="https://docs.rs/rkyv/0.7.1/rkyv/validation/validators/fn.check_archived_root.html"><code>check_archived_root</code></a> to
 check an archive and get a reference to the archived value if it was successful:</p>
 <pre><code class="language-rs">use rkyv::check_archived_root;

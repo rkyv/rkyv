@@ -596,13 +596,13 @@ cases. As long as your buffer ends right at the end of your root object, you can
 <p>Wrapper types make it easy to customize the way that fields of types are archived. They make it
 easier to adapt rkyv to existing data models, and make serializing and deserializing idiomatic for
 even complicated types.</p>
-<p>Annotating a field with <code>#[with(...)]</code> will <em>wrap</em> that field with the given types when the struct
-is serialized or deserialized. There's no performance penalty to actually wrap types, but doing more
-or less work during serialization and deserialization can affect performance. This excerpt is from
-the documentation for <a href="https://docs.rs/rkyv/0.7.1/rkyv/with/trait.ArchiveWith.html"><code>ArchiveWith</code></a>:</p>
+<p>Annotating a field with <code>#[rkyv(with = ..)]</code> will <em>wrap</em> that field with the given types when the
+struct is serialized or deserialized. There's no performance penalty to actually wrap types, but
+doing more or less work during serialization and deserialization can affect performance. This
+excerpt is from the documentation for <a href="https://docs.rs/rkyv/0.7.1/rkyv/with/trait.ArchiveWith.html"><code>ArchiveWith</code></a></p>
 <pre><code class="language-rs">#[derive(Archive, Deserialize, Serialize)]
 struct Example {
-    #[with(Incremented)]
+    #[rkyv(with = Incremented)]
     a: i32,
     // Another i32 field, but not incremented this time
     b: i32,
@@ -610,13 +610,6 @@ struct Example {
 </code></pre>
 <p>The <code>Incremented</code> wrapper is wrapping <code>a</code>, and the definition causes that field to be incremented
 in its archived form.</p>
-<h2 id="with"><a class="header" href="#with"><code>With</code></a></h2>
-<p>The core type behind wrappers is <a href="https://docs.rs/rkyv/0.7.1/rkyv/with/struct.With.html"><code>With</code></a>.
-This struct is <em>transparent</em>, meaning that it's like another name for the type inside of it. rkyv
-uses <code>With</code> to wrap your fields when serializing and deserializing, and when you write your own
-wrappers they will be used with <code>With</code> as well.</p>
-<p>See <a href="https://docs.rs/rkyv/0.7.1/rkyv/with/trait.ArchiveWith.html"><code>ArchiveWith</code></a> for an example of how
-to write your own wrapper types.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="shared-pointers"><a class="header" href="#shared-pointers">Shared Pointers</a></h1>
 <p>The implementation details of shared pointers may be of interest to those using them. Specifically,
 the rules surrounding how and when shared and weak pointers are serialized and pooled may affect how
@@ -719,20 +712,20 @@ types must be known ahead of time, which is when we use <code>archive_dyn</code>
 <p>Validation can be enabled with the <code>bytecheck</code> feature. Validation leverages the
 <a href="https://docs.rs/bytecheck"><code>bytecheck</code></a> crate to perform archive validation, and allows the
 consumption of untrusted and malicious data.</p>
-<p>To validate an archive, you first have to derive
+<p>If the <code>bytecheck</code> feature is enabled, then rkyv will automatically derive
 <a href="https://docs.rs/bytecheck/latest/bytecheck/trait.CheckBytes.html"><code>CheckBytes</code></a> for your archived
 type:</p>
 <pre><code class="language-rs">use rkyv::{Archive, Deserialize, Serialize};
 
 #[derive(Archive, Deserialize, Serialize)]
-#[rkyv(check_bytes)]
 pub struct Example {
     a: i32,
     b: String,
     c: Vec&lt;bool&gt;,
 }
 </code></pre>
-<p>The <code>#[rkyv(check_bytes)]</code> attribute derives <code>CheckBytes</code> on the archived type. Finally, you can use
+<p>The <code>#[rkyv(bytecheck(..))]</code> attribute passes its arguments through to the underlying <code>CheckBytes</code>
+derive on the archived type. Finally, you can use
 <a href="https://docs.rs/rkyv/0.7.1/rkyv/validation/validators/fn.check_archived_root.html"><code>check_archived_root</code></a> to
 check an archive and get a reference to the archived value if it was successful:</p>
 <pre><code class="language-rs">use rkyv::check_archived_root;
