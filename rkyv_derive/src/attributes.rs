@@ -27,6 +27,7 @@ pub struct Attributes {
     pub as_type: Option<Type>,
     pub archived: Option<Ident>,
     pub resolver: Option<Ident>,
+    pub remote: Option<Path>,
     pub metas: Vec<Meta>,
     pub compares: Option<Punctuated<Path, Token![,]>>,
     pub archive_bounds: Option<Punctuated<WherePredicate, Token![,]>>,
@@ -137,6 +138,12 @@ impl Attributes {
             self.metas
                 .extend(metas.parse_terminated(Meta::parse, Token![,])?);
             Ok(())
+        } else if meta.path.is_ident("remote") {
+            try_set_attribute(
+                &mut self.remote,
+                meta.value()?.parse()?,
+                "remote",
+            )
         } else {
             Err(meta.error("unrecognized rkyv argument"))
         }
@@ -192,6 +199,7 @@ pub struct FieldAttributes {
     pub attrs: Punctuated<Meta, Token![,]>,
     pub omit_bounds: Option<Path>,
     pub with: Option<Type>,
+    pub getter: Option<Path>,
 }
 
 impl FieldAttributes {
@@ -207,6 +215,10 @@ impl FieldAttributes {
         } else if meta.path.is_ident("with") {
             meta.input.parse::<Token![=]>()?;
             self.with = Some(meta.input.parse::<Type>()?);
+            Ok(())
+        } else if meta.path.is_ident("getter") {
+            meta.input.parse::<Token![=]>()?;
+            self.getter = Some(meta.input.parse::<Path>()?);
             Ok(())
         } else {
             Err(meta.error("unrecognized rkyv arguments"))
