@@ -277,9 +277,9 @@ fn generate_deserialize_body(
                                 ) => #return_type::#variant(#(#fields,)*)
                             })
                         }
-                        Fields::Unit => Ok(
-                            quote! { #self_type::#variant => #return_type::#variant },
-                        ),
+                        Fields::Unit => Ok(quote! {
+                            #self_type::#variant => #return_type::#variant
+                        }),
                     }
                 })
                 .collect::<Result<Vec<_>, Error>>()?;
