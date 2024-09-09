@@ -149,6 +149,7 @@
 //! - [`smallvec-1`](https://docs.rs/smallvec/1)
 //! - [`smol_str-0_2`](https://docs.rs/smol_str/0.2)
 //! - [`smol_str-0_3`](https://docs.rs/smol_str/0.3)
+//! - [`thin-vec-0_2`](https://docs.rs/thin-vec/0.2)
 //! - [`tinyvec-1`](https://docs.rs/tinyvec/1)
 //! - [`triomphe-0_1`](https://docs.rs/triomphe/0.1)
 //! - [`uuid-1`](https://docs.rs/uuid/1)

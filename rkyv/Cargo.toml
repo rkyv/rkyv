@@ -61,7 +61,7 @@ bytecheck = ["dep:bytecheck", "rend/bytecheck", "rkyv_derive/bytecheck"]
 hashbrown-0_14 = ["dep:hashbrown"]
 indexmap-2 = ["dep:indexmap-2", "alloc"]
 triomphe-0_1 = ["dep:triomphe-0_1", "alloc"]
-uuid-1 = ["dep:uuid-1", "bytecheck?/uuid"]
+uuid-1 = ["dep:uuid-1", "bytecheck?/uuid-1"]
 
 [package.metadata.docs.rs]
 features = ["bytecheck"]
