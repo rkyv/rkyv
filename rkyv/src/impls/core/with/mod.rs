@@ -517,12 +517,12 @@ impl<F: Default, D: Fallible + ?Sized> DeserializeWith<(), F, D> for Skip {
 #[cfg(test)]
 mod tests {
     use crate::{
-        api::test::{roundtrip, roundtrip_with, to_archived},
+        api::test::{deserialize, roundtrip, roundtrip_with, to_archived},
         rancor::Fallible,
         ser::Writer,
         with::{
             ArchiveWith, AsBox, DeserializeWith, Inline, InlineAsBox, Niche,
-            SerializeWith, Unsafe,
+            SerializeWith, Unsafe, With,
         },
         Archive, Archived, Deserialize, Place, Serialize,
     };
@@ -633,6 +633,15 @@ mod tests {
             } else {
                 panic!("expected variant B");
             }
+        });
+    }
+
+    #[test]
+    fn with_wrapper() {
+        to_archived(With::<_, AsFloat>::cast(&10), |archived| {
+            assert_eq!(archived.to_native(), 10.0);
+            let original = deserialize(With::<_, AsFloat>::cast(&*archived));
+            assert_eq!(original, 10);
         });
     }
 

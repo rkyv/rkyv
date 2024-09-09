@@ -5,7 +5,7 @@ use crate::{
     de::Pool,
     ser::allocator::ArenaHandle,
     util::AlignedVec,
-    Archive, Deserialize, Serialize,
+    Deserialize, Serialize,
 };
 
 /// The serializer type for tests.
@@ -26,11 +26,7 @@ where
 }
 
 /// Deserializes the given value using the test deserializer.
-pub fn deserialize<T>(value: &T::Archived) -> T
-where
-    T: Archive,
-    T::Archived: Deserialize<T, TestDeserializer>,
-{
+pub fn deserialize<T>(value: &impl Deserialize<T, TestDeserializer>) -> T {
     crate::api::deserialize_using::<T, _, Panic>(value, &mut Pool::new())
         .expect("failed to deserialize value")
 }

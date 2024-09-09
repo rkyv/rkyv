@@ -6,7 +6,7 @@ use crate::{
     api::low::{to_bytes_in_with_alloc, LowDeserializer, LowSerializer},
     ser::{allocator::SubAllocator, writer::Buffer},
     util::Align,
-    Archive, Deserialize, Serialize,
+    Deserialize, Serialize,
 };
 
 /// The serializer type for tests.
@@ -35,11 +35,7 @@ where
 }
 
 /// Deserializes the given value using the test deserializer.
-pub fn deserialize<T>(value: &T::Archived) -> T
-where
-    T: Archive,
-    T::Archived: Deserialize<T, TestDeserializer>,
-{
+pub fn deserialize<T>(value: &impl Deserialize<T, TestDeserializer>) -> T {
     crate::api::deserialize_using::<T, _, Panic>(value, &mut ())
         .expect("failed to deserialize value")
 }

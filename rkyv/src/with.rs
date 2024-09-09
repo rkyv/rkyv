@@ -9,9 +9,9 @@ use core::marker::PhantomData;
 
 use rancor::Fallible;
 
-use crate::{Place, Portable};
+use crate::{Archive, Deserialize, Place, Portable, Serialize};
 
-/// A variant of [`Archive`](crate::Archive) that works with wrappers.
+/// A variant of [`Archive`] that works with wrappers.
 ///
 /// Creating a wrapper allows users to customize how fields are archived easily
 /// without changing the unarchived type.
@@ -21,7 +21,7 @@ use crate::{Place, Portable};
 /// the implementations for the wrapper type and the given field instead of the
 /// implementation for the type itself.
 ///
-/// Only a single implementation of [`Archive`](crate::Archive) may be written
+/// Only a single implementation of [`Archive`] may be written
 /// for each type, but multiple implementations of ArchiveWith can be written
 /// for the same type because it is parametric over the wrapper type. This is
 /// used with the `#[rkyv(with = ..)]` macro attribute to provide a more
@@ -116,7 +116,7 @@ pub trait ArchiveWith<F: ?Sized> {
     );
 }
 
-/// A variant of `Serialize` that works with `With` wrappers.
+/// A variant of `Serialize` for "with" types.
 ///
 /// See [ArchiveWith] for more details.
 pub trait SerializeWith<F: ?Sized, S: Fallible + ?Sized>:
@@ -129,13 +129,69 @@ pub trait SerializeWith<F: ?Sized, S: Fallible + ?Sized>:
     ) -> Result<Self::Resolver, S::Error>;
 }
 
-/// A variant of `Deserialize` that works with `With` wrappers.
+/// A variant of `Deserialize` for "with" types.
 ///
 /// See [ArchiveWith] for more details.
 pub trait DeserializeWith<F: ?Sized, T, D: Fallible + ?Sized> {
     /// Deserializes the field type `F` using the given deserializer.
     fn deserialize_with(field: &F, deserializer: &mut D)
         -> Result<T, D::Error>;
+}
+
+/// A transparent wrapper which applies a "with" type.
+///
+/// `With` wraps a reference to a type and applies the specified wrapper type
+/// when serializing and deserializing.
+#[repr(transparent)]
+pub struct With<F: ?Sized, W> {
+    _phantom: PhantomData<W>,
+    field: F,
+}
+
+impl<F: ?Sized, W> With<F, W> {
+    /// Casts a `With` reference from a reference to the underlying field.
+    pub fn cast(field: &F) -> &Self {
+        // SAFETY: `With` is `repr(transparent)` and so a reference to `F` can
+        // always be transmuted into a reference to `With<F, W>`.
+        unsafe { ::core::mem::transmute::<&F, &Self>(field) }
+    }
+}
+
+impl<F: ?Sized, W: ArchiveWith<F>> Archive for With<F, W> {
+    type Archived = <W as ArchiveWith<F>>::Archived;
+    type Resolver = <W as ArchiveWith<F>>::Resolver;
+
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>) {
+        W::resolve_with(&self.field, resolver, out);
+    }
+}
+
+impl<S, F, W> Serialize<S> for With<F, W>
+where
+    S: Fallible + ?Sized,
+    F: ?Sized,
+    W: SerializeWith<F, S>,
+{
+    fn serialize(
+        &self,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, <S as Fallible>::Error> {
+        W::serialize_with(&self.field, serializer)
+    }
+}
+
+impl<T, D, F, W> Deserialize<T, D> for With<F, W>
+where
+    D: Fallible + ?Sized,
+    F: ?Sized,
+    W: DeserializeWith<F, T, D>,
+{
+    fn deserialize(
+        &self,
+        deserializer: &mut D,
+    ) -> Result<T, <D as Fallible>::Error> {
+        W::deserialize_with(&self.field, deserializer)
+    }
 }
 
 /// A wrapper that applies another wrapper to the values contained in a type.

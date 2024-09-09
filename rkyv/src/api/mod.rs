@@ -14,9 +14,7 @@ use rancor::Strategy;
 
 #[cfg(feature = "bytecheck")]
 pub use self::checked::*;
-use crate::{
-    seal::Seal, ser::Writer, Archive, Deserialize, Portable, SerializeUnsized,
-};
+use crate::{seal::Seal, ser::Writer, Deserialize, Portable, SerializeUnsized};
 
 #[cfg(debug_assertions)]
 fn sanity_check_buffer<T: Portable>(ptr: *const u8, pos: usize, size: usize) {
@@ -177,12 +175,8 @@ where
 /// Deserializes a value from the given archived value using the provided
 /// deserializer.
 pub fn deserialize_using<T, D, E>(
-    value: &T::Archived,
+    value: &impl Deserialize<T, Strategy<D, E>>,
     deserializer: &mut D,
-) -> Result<T, E>
-where
-    T: Archive,
-    T::Archived: Deserialize<T, Strategy<D, E>>,
-{
+) -> Result<T, E> {
     value.deserialize(Strategy::wrap(deserializer))
 }

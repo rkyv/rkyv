@@ -298,10 +298,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// correctly.
 ///
 /// ```
-/// use core::{
-///     mem::transmute,
-///     ops::{Deref, DerefMut},
-/// };
+/// use core::ops::{Deref, DerefMut};
 ///
 /// use ptr_meta::Pointee;
 /// use rkyv::{

@@ -155,11 +155,9 @@ where
 /// Deserializes a value from the given archived value.
 ///
 /// This is part of the [high-level API](crate::api::high).
-pub fn deserialize<T, E>(value: &T::Archived) -> Result<T, E>
-where
-    T: Archive,
-    T::Archived: Deserialize<T, HighDeserializer<E>>,
-{
+pub fn deserialize<T, E>(
+    value: &impl Deserialize<T, HighDeserializer<E>>,
+) -> Result<T, E> {
     deserialize_using(value, &mut Pool::new())
 }
 
