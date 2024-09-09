@@ -377,7 +377,7 @@ impl FieldAttributes {
         member: &impl ToTokens,
     ) -> TokenStream {
         if let Some(ref getter) = self.getter {
-            quote! { &#getter(&#this) }
+            quote! { ::core::borrow::Borrow::borrow(&#getter(#this)) }
         } else {
             quote! { &#this.#member }
         }
