@@ -61,6 +61,7 @@ fn derive_serialize_impl(
     if let Some(ref remote) = attributes.remote {
         let body = generate_serialize_body(
             &input,
+            attributes,
             &mut serialize_where,
             &rkyv_path,
             resolver,
@@ -88,6 +89,7 @@ fn derive_serialize_impl(
     } else {
         let body = generate_serialize_body(
             &input,
+            attributes,
             &mut serialize_where,
             &rkyv_path,
             resolver,
@@ -117,6 +119,7 @@ fn derive_serialize_impl(
 
 fn generate_serialize_body(
     input: &DeriveInput,
+    attributes: &Attributes,
     serialize_where: &mut WhereClause,
     rkyv_path: &Path,
     resolver: Ident,
@@ -130,7 +133,8 @@ fn generate_serialize_body(
                     .named
                     .iter()
                     .map(|field| {
-                        let field_attrs = FieldAttributes::parse(field)?;
+                        let field_attrs =
+                            FieldAttributes::parse(attributes, field)?;
 
                         serialize_where.predicates.extend(
                             field_attrs.serialize_bound(rkyv_path, field),
@@ -154,7 +158,8 @@ fn generate_serialize_body(
                     .iter()
                     .enumerate()
                     .map(|(i, field)| {
-                        let field_attrs = FieldAttributes::parse(field)?;
+                        let field_attrs =
+                            FieldAttributes::parse(attributes, field)?;
 
                         serialize_where.predicates.extend(
                             field_attrs.serialize_bound(rkyv_path, field),
@@ -186,8 +191,9 @@ fn generate_serialize_body(
                                 .named
                                 .iter()
                                 .map(|field| {
-                                    let field_attrs =
-                                        FieldAttributes::parse(field)?;
+                                    let field_attrs = FieldAttributes::parse(
+                                        attributes, field,
+                                    )?;
 
                                     serialize_where.predicates.extend(
                                         field_attrs
@@ -223,8 +229,9 @@ fn generate_serialize_body(
                                 .iter()
                                 .enumerate()
                                 .map(|(i, field)| {
-                                    let field_attrs =
-                                        FieldAttributes::parse(field)?;
+                                    let field_attrs = FieldAttributes::parse(
+                                        attributes, field,
+                                    )?;
 
                                     serialize_where.predicates.extend(
                                         field_attrs

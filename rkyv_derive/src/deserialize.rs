@@ -58,6 +58,7 @@ fn derive_deserialize_impl(
 
         let body = generate_deserialize_body(
             &input,
+            attributes,
             &mut deserialize_where,
             &rkyv_path,
             printing.archived_name,
@@ -96,6 +97,7 @@ fn derive_deserialize_impl(
     } else {
         let body = generate_deserialize_body(
             &input,
+            attributes,
             &mut deserialize_where,
             &rkyv_path,
             Ident::new("Self", Span::call_site()),
@@ -125,6 +127,7 @@ fn derive_deserialize_impl(
 
 fn generate_deserialize_body(
     input: &DeriveInput,
+    attributes: &Attributes,
     deserialize_where: &mut WhereClause,
     rkyv_path: &Path,
     self_type: Ident,
@@ -138,7 +141,8 @@ fn generate_deserialize_body(
                     .named
                     .iter()
                     .map(|field| {
-                        let field_attrs = FieldAttributes::parse(field)?;
+                        let field_attrs =
+                            FieldAttributes::parse(attributes, field)?;
 
                         deserialize_where.predicates.extend(
                             field_attrs.archive_bound(rkyv_path, field),
@@ -164,7 +168,8 @@ fn generate_deserialize_body(
                     .iter()
                     .enumerate()
                     .map(|(i, field)| {
-                        let field_attrs = FieldAttributes::parse(field)?;
+                        let field_attrs =
+                            FieldAttributes::parse(attributes, field)?;
 
                         deserialize_where.predicates.extend(
                             field_attrs.archive_bound(rkyv_path, field),
@@ -202,8 +207,9 @@ fn generate_deserialize_body(
                                 .named
                                 .iter()
                                 .map(|field| {
-                                    let field_attrs =
-                                        FieldAttributes::parse(field)?;
+                                    let field_attrs = FieldAttributes::parse(
+                                        attributes, field,
+                                    )?;
 
                                     deserialize_where.predicates.extend(
                                         field_attrs
@@ -244,8 +250,9 @@ fn generate_deserialize_body(
                                 .iter()
                                 .enumerate()
                                 .map(|(i, field)| {
-                                    let field_attrs =
-                                        FieldAttributes::parse(field)?;
+                                    let field_attrs = FieldAttributes::parse(
+                                        attributes, field,
+                                    )?;
 
                                     deserialize_where.predicates.extend(
                                         field_attrs

@@ -39,10 +39,14 @@ pub fn impl_enum(
     let mut private = TokenStream::new();
 
     if attributes.as_type.is_none() {
-        public.extend(generate_archived_type(printing, generics, data)?);
+        public.extend(generate_archived_type(
+            printing, attributes, generics, data,
+        )?);
     }
 
-    public.extend(generate_resolver_type(printing, generics, data)?);
+    public.extend(generate_resolver_type(
+        printing, attributes, generics, data,
+    )?);
 
     let archived_variant_tags = data.variants.iter().map(|variant| {
         let ident = &variant.ident;
@@ -61,17 +65,19 @@ pub fn impl_enum(
         }
     });
 
-    private.extend(generate_variant_structs(printing, generics, data)?);
+    private.extend(generate_variant_structs(
+        printing, attributes, generics, data,
+    )?);
 
     if let Some(ref compares) = attributes.compares {
         for compare in compares {
             if compare.is_ident("PartialEq") {
                 public.extend(generate_partial_eq_impl(
-                    printing, generics, data,
+                    printing, attributes, generics, data,
                 )?);
             } else if compare.is_ident("PartialOrd") {
                 private.extend(generate_partial_ord_impl(
-                    printing, generics, data,
+                    printing, attributes, generics, data,
                 )?);
             } else {
                 return Err(Error::new_spanned(
@@ -88,6 +94,7 @@ pub fn impl_enum(
     let archive_impl = if let Some(ref remote) = attributes.remote {
         let resolve_arms = generate_resolve_arms(
             printing,
+            attributes,
             generics,
             data,
             &strip_generics_from_path(remote.clone()),
@@ -119,6 +126,7 @@ pub fn impl_enum(
     } else {
         let resolve_arms = generate_resolve_arms(
             printing,
+            attributes,
             generics,
             data,
             &parse_quote!(#name),
@@ -161,6 +169,7 @@ pub fn impl_enum(
 
 fn generate_archived_type(
     printing: &Printing,
+    attributes: &Attributes,
     generics: &Generics,
     data: &DataEnum,
 ) -> Result<TokenStream, Error> {
@@ -192,7 +201,7 @@ fn generate_archived_type(
                 colon_token,
                 ..
             } = field;
-            let field_attrs = FieldAttributes::parse(field)?;
+            let field_attrs = FieldAttributes::parse(attributes, field)?;
 
             let field_ty = field_attrs.archived(rkyv_path, field);
             let field_metas = field_attrs.metas();
@@ -238,6 +247,7 @@ fn generate_archived_type(
 
 fn generate_resolver_type(
     printing: &Printing,
+    attributes: &Attributes,
     generics: &Generics,
     data: &DataEnum,
 ) -> Result<TokenStream, Error> {
@@ -260,7 +270,7 @@ fn generate_resolver_type(
             let Field {
                 ident, colon_token, ..
             } = field;
-            let field_attrs = FieldAttributes::parse(field)?;
+            let field_attrs = FieldAttributes::parse(attributes, field)?;
 
             let field_ty = field_attrs.resolver(rkyv_path, field);
             variant_fields.extend(quote! {
@@ -302,6 +312,7 @@ fn generate_resolver_type(
 
 fn generate_resolve_arms(
     printing: &Printing,
+    attributes: &Attributes,
     generics: &Generics,
     data: &DataEnum,
     name: &Path,
@@ -347,7 +358,7 @@ fn generate_resolve_arms(
             .fields
             .iter()
             .map(|f| {
-                let field_attrs = FieldAttributes::parse(f)?;
+                let field_attrs = FieldAttributes::parse(attributes, f)?;
                 Ok(field_attrs.resolve(rkyv_path, f))
             })
             .collect::<Result<Vec<_>, Error>>()?;
@@ -461,6 +472,7 @@ fn generate_resolve_arms(
 
 fn generate_variant_structs(
     printing: &Printing,
+    attributes: &Attributes,
     generics: &Generics,
     data: &DataEnum,
 ) -> Result<TokenStream, Error> {
@@ -477,7 +489,7 @@ fn generate_variant_structs(
 
         let mut archived_fields = TokenStream::new();
         for field in variant.fields.iter() {
-            let field_attrs = FieldAttributes::parse(field)?;
+            let field_attrs = FieldAttributes::parse(attributes, field)?;
             let archived = field_attrs.archived(rkyv_path, field);
 
             let Field {
@@ -517,6 +529,7 @@ fn generate_variant_structs(
 
 fn generate_partial_eq_impl(
     printing: &Printing,
+    attributes: &Attributes,
     generics: &Generics,
     data: &DataEnum,
 ) -> Result<TokenStream, Error> {
@@ -530,9 +543,9 @@ fn generate_partial_eq_impl(
     let mut where_clause = generics.where_clause.clone().unwrap();
 
     for field in data.variants.iter().flat_map(|v| v.fields.iter()) {
-        let field_attrs = FieldAttributes::parse(field)?;
+        let field_attrs = FieldAttributes::parse(attributes, field)?;
         if field_attrs.omit_bounds.is_none() {
-            let field_attrs = FieldAttributes::parse(field)?;
+            let field_attrs = FieldAttributes::parse(attributes, field)?;
             let ty = &field.ty;
             let archived = field_attrs.archived(&printing.rkyv_path, field);
             where_clause
@@ -617,6 +630,7 @@ fn generate_partial_eq_impl(
 
 fn generate_partial_ord_impl(
     printing: &Printing,
+    attributes: &Attributes,
     generics: &Generics,
     data: &DataEnum,
 ) -> Result<TokenStream, Error> {
@@ -630,9 +644,8 @@ fn generate_partial_ord_impl(
     let mut where_clause = generics.where_clause.clone().unwrap();
 
     for field in data.variants.iter().flat_map(|v| v.fields.iter()) {
-        let field_attrs = FieldAttributes::parse(field)?;
+        let field_attrs = FieldAttributes::parse(attributes, field)?;
         if field_attrs.omit_bounds.is_none() {
-            let field_attrs = FieldAttributes::parse(field)?;
             let ty = &field.ty;
             let archived = field_attrs.archived(&printing.rkyv_path, field);
             where_clause

@@ -44,7 +44,7 @@ fn derive_archive_impl(
         where_clause.predicates.extend(bounds.iter().cloned());
     }
     for field in iter_fields(&input.data) {
-        let field_attrs = FieldAttributes::parse(field)?;
+        let field_attrs = FieldAttributes::parse(attributes, field)?;
         where_clause
             .predicates
             .extend(field_attrs.archive_bound(&printing.rkyv_path, field));
@@ -69,7 +69,8 @@ fn derive_archive_impl(
     };
 
     if attributes.as_type.is_none() {
-        result.extend(impl_auto_trait(input, &printing, "Portable")?);
+        result
+            .extend(impl_auto_trait(input, &printing, attributes, "Portable")?);
     }
 
     Ok(result)
@@ -78,6 +79,7 @@ fn derive_archive_impl(
 fn impl_auto_trait(
     input: &DeriveInput,
     printing: &Printing,
+    attributes: &Attributes,
     trait_name: &str,
 ) -> Result<TokenStream, Error> {
     let mut generics = input.generics.clone();
@@ -87,7 +89,7 @@ fn impl_auto_trait(
     let trait_ident = Ident::new(trait_name, Span::call_site());
 
     for field in iter_fields(&input.data) {
-        let field_attrs = FieldAttributes::parse(field)?;
+        let field_attrs = FieldAttributes::parse(attributes, field)?;
         let archived_field_ty = field_attrs.archived(rkyv_path, field);
 
         where_clause.predicates.push(parse_quote! {

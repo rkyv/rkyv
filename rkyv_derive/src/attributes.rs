@@ -225,13 +225,23 @@ impl FieldAttributes {
         }
     }
 
-    pub fn parse(input: &Field) -> Result<Self, Error> {
+    pub fn parse(
+        attributes: &Attributes,
+        input: &Field,
+    ) -> Result<Self, Error> {
         let mut result = Self::default();
 
         for attr in input.attrs.iter() {
             if attr.path().is_ident("rkyv") {
                 attr.parse_nested_meta(|meta| result.parse_meta(meta))?;
             }
+        }
+
+        if result.getter.is_some() && attributes.remote.is_none() {
+            return Err(Error::new_spanned(
+                result.getter,
+                "getters may only be used with remote derive",
+            ));
         }
 
         Ok(result)

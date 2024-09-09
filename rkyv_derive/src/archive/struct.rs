@@ -26,16 +26,21 @@ pub fn impl_struct(
     let mut result = TokenStream::new();
 
     if attributes.as_type.is_none() {
-        result.extend(generate_archived_type(printing, generics, fields)?);
+        result.extend(generate_archived_type(
+            printing, generics, attributes, fields,
+        )?);
     }
 
-    result.extend(generate_resolver_type(printing, generics, fields)?);
+    result.extend(generate_resolver_type(
+        printing, generics, attributes, fields,
+    )?);
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let archive_impl = if let Some(ref remote) = attributes.remote {
         let resolve_statements = generate_resolve_statements(
             printing,
+            attributes,
             fields,
             Ident::new("field", Span::call_site()),
         )?;
@@ -63,6 +68,7 @@ pub fn impl_struct(
     } else {
         let resolve_statements = generate_resolve_statements(
             printing,
+            attributes,
             fields,
             Ident::new("self", Span::call_site()),
         )?;
@@ -92,11 +98,13 @@ pub fn impl_struct(
 
     for compare in attributes.compares.iter().flat_map(Punctuated::iter) {
         if compare.is_ident("PartialEq") {
-            result
-                .extend(generate_partial_eq_impl(printing, generics, fields)?);
+            result.extend(generate_partial_eq_impl(
+                printing, generics, attributes, fields,
+            )?);
         } else if compare.is_ident("PartialOrd") {
-            result
-                .extend(generate_partial_ord_impl(printing, generics, fields)?);
+            result.extend(generate_partial_ord_impl(
+                printing, generics, attributes, fields,
+            )?);
         } else {
             return Err(Error::new_spanned(
                 compare,
@@ -111,13 +119,14 @@ pub fn impl_struct(
 
 fn generate_resolve_statements(
     printing: &Printing,
+    attributes: &Attributes,
     fields: &Fields,
     this: Ident,
 ) -> Result<TokenStream, Error> {
     let rkyv_path = &printing.rkyv_path;
     let mut resolve_statements = TokenStream::new();
     for (field, member) in fields.iter().zip(fields.members()) {
-        let field_attrs = FieldAttributes::parse(field)?;
+        let field_attrs = FieldAttributes::parse(attributes, field)?;
         let resolves = field_attrs.resolve(rkyv_path, field);
         let access_field = field_attrs.access_field(&this, &member);
         resolve_statements.extend(quote! {
@@ -136,6 +145,7 @@ fn generate_resolve_statements(
 fn generate_archived_type(
     printing: &Printing,
     generics: &Generics,
+    attributes: &Attributes,
     fields: &Fields,
 ) -> Result<TokenStream, Error> {
     let Printing {
@@ -156,7 +166,7 @@ fn generate_archived_type(
             ..
         } = field;
 
-        let field_attrs = FieldAttributes::parse(field)?;
+        let field_attrs = FieldAttributes::parse(attributes, field)?;
         let field_metas = field_attrs.metas();
         let ty = field_attrs.archived(rkyv_path, field);
 
@@ -186,6 +196,7 @@ fn generate_archived_type(
 fn generate_resolver_type(
     printing: &Printing,
     generics: &Generics,
+    attributes: &Attributes,
     fields: &Fields,
 ) -> Result<TokenStream, Error> {
     let Printing {
@@ -201,7 +212,7 @@ fn generate_resolver_type(
         let Field {
             ident, colon_token, ..
         } = field;
-        let field_attrs = FieldAttributes::parse(field)?;
+        let field_attrs = FieldAttributes::parse(attributes, field)?;
 
         let ty = field_attrs.resolver(rkyv_path, field);
 
@@ -226,6 +237,7 @@ fn generate_resolver_type(
 fn generate_partial_eq_impl(
     printing: &Printing,
     generics: &Generics,
+    attributes: &Attributes,
     fields: &Fields,
 ) -> Result<TokenStream, Error> {
     let Printing {
@@ -237,10 +249,8 @@ fn generate_partial_eq_impl(
 
     let mut where_clause = generics.where_clause.clone().unwrap();
     for field in fields.iter() {
-        let field_attrs = FieldAttributes::parse(field)?;
+        let field_attrs = FieldAttributes::parse(attributes, field)?;
         if field_attrs.omit_bounds.is_none() {
-            let field_attrs = FieldAttributes::parse(field)?;
-
             let ty = &field.ty;
             let archived_ty = field_attrs.archived(rkyv_path, field);
             where_clause
@@ -274,6 +284,7 @@ fn generate_partial_eq_impl(
 fn generate_partial_ord_impl(
     printing: &Printing,
     generics: &Generics,
+    attributes: &Attributes,
     fields: &Fields,
 ) -> Result<TokenStream, Error> {
     let Printing {
@@ -286,10 +297,8 @@ fn generate_partial_ord_impl(
     let mut where_clause = generics.where_clause.as_ref().unwrap().clone();
 
     for field in fields.iter() {
-        let field_attrs = FieldAttributes::parse(field)?;
+        let field_attrs = FieldAttributes::parse(attributes, field)?;
         if field_attrs.omit_bounds.is_none() {
-            let field_attrs = FieldAttributes::parse(field)?;
-
             let ty = &field.ty;
             let archived_ty = field_attrs.archived(rkyv_path, field);
             where_clause
