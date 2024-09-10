@@ -10,7 +10,7 @@ use core::{
 
 use munge::munge;
 
-use crate::{seal::Seal, Archived, Place, Portable};
+use crate::{seal::Seal, traits::NoUndef, Archived, Place, Portable};
 
 macro_rules! impl_archived_option_nonzero {
     ($ar:ident, $nz:ty, $ne:ty) => {
@@ -203,6 +203,8 @@ macro_rules! impl_archived_option_nonzero {
                 Some(self.cmp(other))
             }
         }
+
+        unsafe impl NoUndef for $ar {}
     };
 }
 
