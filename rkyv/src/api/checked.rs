@@ -1,18 +1,54 @@
-//! APIs for producing and using archived data safely.
-
 use bytecheck::CheckBytes;
 use ptr_meta::Pointee;
 use rancor::{Source, Strategy};
 
 use crate::{
-    api::{access_pos_unchecked, access_pos_unchecked_mut, root_position},
-    seal::Seal,
+    api::{access_pos_unchecked, root_position},
     validation::{ArchiveContext, ArchiveContextExt},
     Portable,
 };
 
-/// Checks a byte slice for a valid instance of the given archived type at the
-/// given position with the given context.
+/// Check a byte slice with a given root position and context.
+///
+/// Most of the time, `access` is a more ergonomic way to check and access a
+/// byte slice.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{
+///     api::{check_pos_with_context, root_position},
+///     rancor::Error,
+///     to_bytes,
+///     validation::{
+///         archive::ArchiveValidator, shared::SharedValidator, Validator,
+///     },
+///     Archive, Deserialize, Serialize,
+/// };
+///
+/// #[derive(Archive, Serialize, Deserialize)]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// let bytes = to_bytes::<Error>(&value).unwrap();
+///
+/// check_pos_with_context::<ArchivedExample, _, Error>(
+///     &*bytes,
+///     root_position::<ArchivedExample>(bytes.len()),
+///     &mut Validator::new(
+///         ArchiveValidator::new(&*bytes),
+///         SharedValidator::new(),
+///     ),
+/// )
+/// .unwrap();
+/// ```
 pub fn check_pos_with_context<T, C, E>(
     bytes: &[u8],
     pos: usize,
@@ -32,10 +68,52 @@ where
     })
 }
 
-/// Accesses an archived value from the given byte slice at the given position
-/// after checking its validity with the given context.
+/// Access a byte slice with a given root position and context.
 ///
 /// This is a safe alternative to [`access_pos_unchecked`].
+///
+/// Most of the time, the context should be newly-created and not reused. Prefer
+/// `access_pos` whenever possible.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{
+///     api::{access_pos_with_context, root_position},
+///     rancor::Error,
+///     to_bytes,
+///     validation::{
+///         archive::ArchiveValidator, shared::SharedValidator, Validator,
+///     },
+///     Archive, Deserialize, Serialize,
+/// };
+///
+/// #[derive(Archive, Serialize, Deserialize)]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// let bytes = to_bytes::<Error>(&value).unwrap();
+///
+/// let archived = access_pos_with_context::<ArchivedExample, _, Error>(
+///     &*bytes,
+///     root_position::<ArchivedExample>(bytes.len()),
+///     &mut Validator::new(
+///         ArchiveValidator::new(&*bytes),
+///         SharedValidator::new(),
+///     ),
+/// )
+/// .unwrap();
+///
+/// assert_eq!(archived.name.as_str(), "pi");
+/// assert_eq!(archived.value.to_native(), 31415926);
+/// ```
 pub fn access_pos_with_context<'a, T, C, E>(
     bytes: &'a [u8],
     pos: usize,
@@ -50,12 +128,53 @@ where
     unsafe { Ok(access_pos_unchecked::<T>(bytes, pos)) }
 }
 
-/// Accesses an archived value from the given byte slice by calculating the root
-/// position after checking its validity with the given context.
+/// Access a byte slice with a given context.
 ///
-/// This is a safe alternative to [`access_unchecked`][unsafe_version].
+/// This is a safe alternative to [`access_unchecked`].
 ///
-/// [unsafe_version]: crate::access_unchecked
+/// Most of the time, the context should be newly-created and not reused. Prefer
+/// `access` whenever possible.
+///
+/// [`access_unchecked`]: crate::api::access_unchecked
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{
+///     api::{access_with_context, root_position},
+///     rancor::Error,
+///     to_bytes,
+///     validation::{
+///         archive::ArchiveValidator, shared::SharedValidator, Validator,
+///     },
+///     Archive, Deserialize, Serialize,
+/// };
+///
+/// #[derive(Archive, Serialize, Deserialize)]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// let bytes = to_bytes::<Error>(&value).unwrap();
+///
+/// let archived = access_with_context::<ArchivedExample, _, Error>(
+///     &*bytes,
+///     &mut Validator::new(
+///         ArchiveValidator::new(&*bytes),
+///         SharedValidator::new(),
+///     ),
+/// )
+/// .unwrap();
+///
+/// assert_eq!(archived.name.as_str(), "pi");
+/// assert_eq!(archived.value.to_native(), 31415926);
+/// ```
 pub fn access_with_context<'a, T, C, E>(
     bytes: &'a [u8],
     context: &mut C,
@@ -66,46 +185,6 @@ where
     E: Source,
 {
     access_pos_with_context::<T, C, E>(
-        bytes,
-        root_position::<T>(bytes.len()),
-        context,
-    )
-}
-
-/// Mutably accesses an archived value from the given byte slice at the given
-/// position after checking its validity with the given context.
-///
-/// This is a safe alternative to [`access_pos_unchecked_mut`].
-pub fn access_pos_with_context_mut<'a, T, C, E>(
-    bytes: &'a mut [u8],
-    pos: usize,
-    context: &mut C,
-) -> Result<Seal<'a, T>, E>
-where
-    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
-    C: ArchiveContext<E> + ?Sized,
-    E: Source,
-{
-    check_pos_with_context::<T, C, E>(bytes, pos, context)?;
-    unsafe { Ok(access_pos_unchecked_mut::<T>(bytes, pos)) }
-}
-
-/// Mutably accesses an archived value from the given byte slice by calculating
-/// the root position after checking its validity with the given context.
-///
-/// This is a safe alternative to [`access_unchecked_mut`][unsafe_version].
-///
-/// [unsafe_version]: crate::access_unchecked_mut
-pub fn access_with_context_mut<'a, T, C, E>(
-    bytes: &'a mut [u8],
-    context: &mut C,
-) -> Result<Seal<'a, T>, E>
-where
-    T: Portable + CheckBytes<Strategy<C, E>> + Pointee<Metadata = ()>,
-    C: ArchiveContext<E> + ?Sized,
-    E: Source,
-{
-    access_pos_with_context_mut::<T, C, E>(
         bytes,
         root_position::<T>(bytes.len()),
         context,

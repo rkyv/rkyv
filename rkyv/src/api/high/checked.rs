@@ -1,6 +1,7 @@
 //! High-level checked APIs.
 //!
-//! These APIs support shared pointers.
+//! These APIs have default writers, automatically manage allocators, and
+//! support shared pointers.
 
 use bytecheck::CheckBytes;
 use rancor::{Source, Strategy};
@@ -28,12 +29,44 @@ fn validator(bytes: &[u8]) -> Validator<ArchiveValidator<'_>, SharedValidator> {
     Validator::new(ArchiveValidator::new(bytes), SharedValidator::new())
 }
 
-/// Accesses an archived value from the given byte slice at the given position
-/// after checking its validity.
+/// Access a byte slice with a given root position.
 ///
-/// This is a safe alternative to
-/// [`access_pos_unchecked`](crate::api::access_pos_unchecked) and is part of
-/// the [high-level API](crate::api::high).
+/// This is a safe alternative to [`access_pos_unchecked`] and is part of the
+/// [high-level API](crate::api::high).
+///
+/// [`access_pos_unchecked`]: crate::api::access_pos_unchecked
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{
+///     api::{high::access_pos, root_position},
+///     bytecheck::CheckBytes,
+///     rancor::Error,
+///     to_bytes, Archive, Archived, Serialize,
+/// };
+///
+/// #[derive(Archive, Serialize)]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// let bytes = to_bytes::<Error>(&value).unwrap();
+/// let archived = access_pos::<ArchivedExample, Error>(
+///     &bytes,
+///     root_position::<ArchivedExample>(bytes.len()),
+/// )
+/// .unwrap();
+///
+/// assert_eq!(archived.name, "pi");
+/// assert_eq!(archived.value, 31415926);
+/// ```
 pub fn access_pos<T, E>(bytes: &[u8], pos: usize) -> Result<&T, E>
 where
     T: Portable + for<'a> CheckBytes<HighValidator<'a, E>>,
@@ -42,14 +75,15 @@ where
     access_pos_with_context::<_, _, E>(bytes, pos, &mut validator(bytes))
 }
 
-/// Accesses an archived value from the given byte slice by calculating the root
-/// position after checking its validity.
+/// Access a byte slice.
 ///
-/// This is a safe alternative to
-/// [`access_unchecked`](crate::api::access_unchecked) and is part of the
+/// This is a safe alternative to [`access_unchecked`] and is part of the
 /// [high-level API](crate::api::high).
 ///
-/// # Examples
+/// [`access_unchecked`]: crate::access_unchecked
+///
+/// # Example
+///
 /// ```
 /// use rkyv::{
 ///     access, bytecheck::CheckBytes, rancor::Error, to_bytes, Archive,
@@ -68,7 +102,7 @@ where
 /// };
 ///
 /// let bytes = to_bytes::<Error>(&value).unwrap();
-/// let archived = access::<Archived<Example>, Error>(&bytes).unwrap();
+/// let archived = access::<ArchivedExample, Error>(&bytes).unwrap();
 ///
 /// assert_eq!(archived.name, "pi");
 /// assert_eq!(archived.value, 31415926);
@@ -81,12 +115,44 @@ where
     access_with_context::<_, _, E>(bytes, &mut validator(bytes))
 }
 
-/// Mutably accesses an archived value from the given byte slice at the given
-/// position after checking its validity.
+/// Mutably access a byte slice with a given root position.
 ///
-/// This is a safe alternative to
-/// [`access_pos_unchecked`](crate::api::access_pos_unchecked) and is part of
+/// This is a safe alternative to [`access_pos_unchecked_mut`] and is part of
 /// the [high-level API](crate::api::high).
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{
+///     api::{high::access_pos_mut, root_position},
+///     bytecheck::CheckBytes,
+///     rancor::Error, munge::munge,
+///     to_bytes, Archive, Archived, Serialize,
+/// };
+///
+/// #[derive(Archive, Serialize)]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// let mut bytes = to_bytes::<Error>(&value).unwrap();
+/// let root_pos = root_position::<ArchivedExample>(bytes.len());
+///
+/// let mut archived =
+///     access_pos_mut::<ArchivedExample, Error>(&mut bytes, root_pos).unwrap();
+///
+/// // Because the access is mutable, we can mutate the archived data
+/// munge!(let ArchivedExample { mut value, .. } = archived);
+/// assert_eq!(*value, 31415926);
+/// *value = 12345.into();
+/// assert_eq!(*value, 12345);
+/// ```
 pub fn access_pos_mut<T, E>(
     bytes: &mut [u8],
     pos: usize,
@@ -100,12 +166,45 @@ where
     unsafe { Ok(access_pos_unchecked_mut::<T>(bytes, pos)) }
 }
 
-/// Mutably accesses an archived value from the given byte slice by calculating
-/// the root position after checking its validity.
+/// Mutably access a byte slice.
 ///
-/// This is a safe alternative to
-/// [`access_unchecked`](crate::api::access_unchecked) and is part of the
+/// This is a safe alternative to [`access_unchecked_mut`] and is part of the
 /// [high-level API](crate::api::high).
+///
+/// [`access_unchecked_mut`]: crate::api::access_unchecked_mut
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{
+///     access_mut,
+///     bytecheck::CheckBytes,
+///     rancor::Error, munge::munge,
+///     to_bytes, Archive, Archived, Serialize,
+/// };
+///
+/// #[derive(Archive, Serialize)]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// let mut bytes = to_bytes::<Error>(&value).unwrap();
+///
+/// let mut archived = access_mut::<ArchivedExample, Error>(&mut bytes)
+///     .unwrap();
+///
+/// // Because the access is mutable, we can mutate the archived data
+/// munge!(let ArchivedExample { mut value, .. } = archived);
+/// assert_eq!(*value, 31415926);
+/// *value = 12345.into();
+/// assert_eq!(*value, 12345);
+/// ```
 pub fn access_mut<T, E>(bytes: &mut [u8]) -> Result<Seal<'_, T>, E>
 where
     T: Portable + for<'a> CheckBytes<HighValidator<'a, E>>,
@@ -117,28 +216,33 @@ where
     unsafe { Ok(access_pos_unchecked_mut::<T>(bytes, pos)) }
 }
 
-/// Checks and deserializes a value from the given bytes.
+/// Deserialize a value from the given bytes.
 ///
-/// This function is only available with the `alloc` and `validation` features
-/// because it uses a general-purpose deserializer and performs validation on
-/// the data before deserializing. In no-alloc and high-performance
-/// environments, the deserializer should be customized for the specific
-/// situation.
+/// This is a safe alternative to [`from_bytes_unchecked`] and is part of the
+/// [high-level API](crate::api::high).
 ///
-/// This is a safe alternative to
-/// [`from_bytes_unchecked`](crate::api::high::from_bytes_unchecked) and is part
-/// of the [high-level API](crate::api::high).
+/// [`from_bytes_unchecked`]: crate::api::high::from_bytes_unchecked
 ///
-/// # Examples
+/// # Example
+///
 /// ```
-/// use rkyv::rancor::Error;
+/// use rkyv::{
+///     from_bytes, rancor::Error, to_bytes, Archive, Deserialize, Serialize,
+/// };
 ///
-/// let value = vec![1, 2, 3, 4];
+/// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
 ///
-/// let bytes =
-///     rkyv::to_bytes::<Error>(&value).expect("failed to serialize vec");
-/// let deserialized = rkyv::from_bytes::<Vec<i32>, Error>(&bytes)
-///     .expect("failed to deserialize vec");
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// let bytes = to_bytes::<Error>(&value).unwrap();
+/// let deserialized = from_bytes::<Example, Error>(&bytes).unwrap();
 ///
 /// assert_eq!(deserialized, value);
 /// ```

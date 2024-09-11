@@ -31,26 +31,32 @@ pub type HighSerializer<'a, W, A, E> = Strategy<Serializer<W, A, Share>, E>;
 /// This is part of the [high-level API](crate::api::high).
 pub type HighDeserializer<E> = Strategy<Pool, E>;
 
-/// Serializes the given value and returns the resulting bytes in an
-/// [`AlignedVec`].
+/// Serialize a value to bytes.
+///
+/// Returns the serialized bytes in an [`AlignedVec`].
 ///
 /// This is part of the [high-level API](crate::api::high).
 ///
-/// # Examples
+/// # Example
+///
 /// ```
-/// use rkyv::rancor::Error;
-///
-/// let value = vec![1, 2, 3, 4];
-///
-/// let bytes =
-///     rkyv::to_bytes::<Error>(&value).expect("failed to serialize vec");
-/// // SAFETY:
-/// // - The byte slice represents an archived object
-/// // - The root of the object is stored at the end of the slice
-/// let deserialized = unsafe {
-///     rkyv::from_bytes_unchecked::<Vec<i32>, Error>(&bytes)
-///         .expect("failed to deserialize vec")
+/// use rkyv::{
+///     from_bytes, rancor::Error, to_bytes, Archive, Deserialize, Serialize,
 /// };
+///
+/// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// let bytes = to_bytes::<Error>(&value).unwrap();
+/// let deserialized = from_bytes::<Example, Error>(&bytes).unwrap();
 ///
 /// assert_eq!(deserialized, value);
 /// ```
@@ -65,9 +71,35 @@ where
     to_bytes_in(value, AlignedVec::new())
 }
 
-/// Serializes the given value and writes the bytes to the given `writer`.
+/// Serialize a value and write the bytes to the given writer.
 ///
 /// This is part of the [high-level API](crate::api::high).
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{
+///     api::high::to_bytes_in, from_bytes, rancor::Error, util::AlignedVec,
+///     Archive, Deserialize, Serialize,
+/// };
+///
+/// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// let bytes =
+///     to_bytes_in::<_, Error>(&value, AlignedVec::<8>::new()).unwrap();
+/// let deserialized = from_bytes::<Example, Error>(&bytes).unwrap();
+///
+/// assert_eq!(deserialized, value);
+/// ```
 pub fn to_bytes_in<W, E>(
     value: &impl for<'a> Serialize<HighSerializer<'a, W, ArenaHandle<'a>, E>>,
     writer: W,
@@ -79,9 +111,38 @@ where
     with_arena(|arena| to_bytes_in_with_alloc(value, writer, arena.acquire()))
 }
 
-/// Serializes the given value using the given allocator.
+/// Serialize a value using the given allocator.
 ///
 /// This is part of the [high-level API](crate::api::high).
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{
+///     api::high::to_bytes_with_alloc, from_bytes, rancor::Error,
+///     util::with_arena, Archive, Deserialize, Serialize,
+/// };
+///
+/// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// with_arena(|arena| {
+///     let bytes =
+///         to_bytes_with_alloc::<'_, _, Error>(&value, arena.acquire())
+///             .unwrap();
+///     let deserialized = from_bytes::<Example, Error>(&bytes).unwrap();
+///
+///     assert_eq!(deserialized, value);
+/// });
+/// ```
 pub fn to_bytes_with_alloc<'a, A, E>(
     value: &impl Serialize<HighSerializer<'a, AlignedVec, A, E>>,
     alloc: A,
@@ -93,10 +154,47 @@ where
     to_bytes_in_with_alloc(value, AlignedVec::new(), alloc)
 }
 
-/// Serializes the given value and writes the bytes to the given `writer`, using
-/// the given allocator.
+/// Serialize a value using the given allocator and write the bytes to the given
+/// writer.
 ///
 /// This is part of the [high-level API](crate::api::high).
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{
+///     api::high::to_bytes_in_with_alloc,
+///     from_bytes,
+///     rancor::Error,
+///     util::{with_arena, AlignedVec},
+///     Archive, Deserialize, Serialize,
+/// };
+///
+/// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// with_arena(|arena| {
+///     let bytes = to_bytes_in_with_alloc::<_, _, Error>(
+///         &value,
+///         AlignedVec::<8>::new(),
+///         arena.acquire(),
+///     )
+///     .expect("failed to serialize vec");
+///
+///     let deserialized = from_bytes::<Example, Error>(&bytes)
+///         .expect("failed to deserialize vec");
+///
+///     assert_eq!(deserialized, value);
+/// });
+/// ```
 pub fn to_bytes_in_with_alloc<'a, W, A, E>(
     value: &impl Serialize<HighSerializer<'a, W, A, E>>,
     writer: W,
@@ -112,7 +210,7 @@ where
     Ok(serializer.into_writer())
 }
 
-/// Deserializes a value from the given bytes.
+/// Deserialize a value from the given bytes.
 ///
 /// This function does not check that the data is valid. Use [`from_bytes`] to
 /// validate the data instead.
@@ -121,23 +219,32 @@ where
 ///
 /// # Safety
 ///
-/// The given bytes must pass validation when passed to [`from_bytes`].
+/// The byte slice must represent a valid archived type when accessed at the
+/// default root position. See the [module docs](crate::api) for more
+/// information.
 ///
-/// # Examples
+/// # Example
+///
 /// ```
-/// use rkyv::rancor::Error;
-///
-/// let value = vec![1, 2, 3, 4];
-///
-/// let bytes =
-///     rkyv::to_bytes::<Error>(&value).expect("failed to serialize vec");
-/// // SAFETY:
-/// // - The byte slice represents an archived object
-/// // - The root of the object is stored at the end of the slice
-/// let deserialized = unsafe {
-///     rkyv::from_bytes_unchecked::<Vec<i32>, Error>(&bytes)
-///         .expect("failed to deserialize vec")
+/// use rkyv::{
+///     from_bytes_unchecked, rancor::Error, to_bytes, Archive, Deserialize,
+///     Serialize,
 /// };
+///
+/// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// let bytes = to_bytes::<Error>(&value).unwrap();
+/// let deserialized =
+///     unsafe { from_bytes_unchecked::<Example, Error>(&bytes).unwrap() };
 ///
 /// assert_eq!(deserialized, value);
 /// ```
@@ -152,9 +259,35 @@ where
     deserialize(archived)
 }
 
-/// Deserializes a value from the given archived value.
+/// Deserialize a value from the given archived value.
 ///
 /// This is part of the [high-level API](crate::api::high).
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{
+///     access, deserialize, rancor::Error, to_bytes, Archive, Deserialize,
+///     Serialize,
+/// };
+///
+/// #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+/// struct Example {
+///     name: String,
+///     value: i32,
+/// }
+///
+/// let value = Example {
+///     name: "pi".to_string(),
+///     value: 31415926,
+/// };
+///
+/// let bytes = to_bytes::<Error>(&value).unwrap();
+/// let archived = access::<ArchivedExample, Error>(&*bytes).unwrap();
+/// let deserialized = deserialize::<Example, Error>(archived).unwrap();
+///
+/// assert_eq!(deserialized, value);
+/// ```
 pub fn deserialize<T, E>(
     value: &impl Deserialize<T, HighDeserializer<E>>,
 ) -> Result<T, E> {
