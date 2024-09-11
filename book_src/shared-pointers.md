@@ -1,8 +1,8 @@
 # Shared Pointers
 
-The implementation details of shared pointers may be of interest to those using them. Specifically,
-the rules surrounding how and when shared and weak pointers are serialized and pooled may affect how
-you choose to use them.
+The implementation details of shared pointers may be of interest to those using them. The rules
+surrounding how and when shared and weak pointers are serialized and pooled may affect how you
+choose to use them.
 
 ## Serialization
 

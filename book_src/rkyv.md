@@ -31,6 +31,7 @@ afraid to consult these other resources as you need while you read through.
 
 ## Sister Crates
 
-- [bytecheck](https://github.com/rkyv/bytecheck), which rkyv uses for validation
-- [ptr_meta](https://github.com/rkyv/ptr_meta), which rkyv uses for pointer manipulation
 - [rend](https://github.com/rkyv/rend), which rkyv uses for endian-agnostic features
+- [bytecheck](https://github.com/rkyv/bytecheck), which rkyv uses for validation
+- [rancor](https://github.com/rkyv/rancor), which rkyv uses for error handling
+- [ptr_meta](https://github.com/rkyv/ptr_meta), which rkyv uses for pointer manipulation

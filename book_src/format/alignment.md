@@ -38,20 +38,16 @@ that the references it creates are properly _aligned_ for the type.
 
 rkyv provides two main utilities for aligning byte buffers:
 
-- [`AlignedVec`](https://docs.rs/rkyv/latest/rkyv/util/struct.AlignedVec.html) is a drop-in
-  replacement for `Vec<u8>`
-- [`AlignedBytes`](https://docs.rs/rkyv/latest/rkyv/util/struct.AlignedBytes.html) is a wrapper
-  around `[u8; N]`
+- `AlignedVec`, a higher-aligned drop-in replacement for `Vec<u8>`
+- `Align`, a wrapper type which aligns its field to a 16-byte boundary
 
-Both of these types align the bytes inside to 16-byte boundaries. This should be enough for almost
-all use cases, but if your particular situation requires even higher alignment then you may need to
-manually align your bytes.
+For most use cases, 16-aligned memory should be sufficient.
 
 ## In practice
 
-rkyv has a very basic unaligned data check built in that may not catch every case. If you also
-[validate](../validation.md) your data, then it will always make sure that your data is properly
-aligned.
+rkyv's unchecked APIs have very basic alignment checks which always run in debug builds. These may
+not catch every case, but using [validation](../validation.md) will always make sure that your data
+is properly aligned.
 
 ### Common pitfalls
 
@@ -60,6 +56,5 @@ If this extra data misaligns the following data, then the buffer will have to ha
 data removed before accessing it.
 
 In other cases, your archived data may not be tight to the end of the buffer. Functions like
-[`archived_root`](https://docs.rs/rkyv/latest/rkyv/util/fn.archived_root.html) rely on the end of
-the buffer being tight to the end of the data, and may miscalculate the positions of the contained
-values if it is not.
+`access` rely on the end of the buffer being tight to the end of the data, and may miscalculate the
+position of the archived data if it is not.

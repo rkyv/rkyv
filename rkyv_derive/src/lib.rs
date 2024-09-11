@@ -64,6 +64,8 @@ pub fn derive_portable(
 ///   default, archived types are named "Archived" + `the name of the type`.
 /// - `resolver = ..`: Changes the name of the generated resolver type. By
 ///   default, resolver types are named `the name of the type` + "Resolver".
+/// - `remote = ..`: Generate a remote derive for the annotated type instead of
+///   a regular derive.
 ///
 /// ## Fields only
 ///

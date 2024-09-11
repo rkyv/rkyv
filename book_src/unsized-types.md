@@ -2,7 +2,7 @@
 
 rkyv supports unsized types out of the box and ships with implementations for the most common
 unsized types (`str`s and slices). Trait objects can also be supported with `rkyv_dyn`, see
-["Trait Objects"](trait-objects.html) for more details.
+[Trait Objects](trait-objects.html) for more details.
 
 ## Metadata
 
@@ -12,11 +12,11 @@ important for the concept of sizing, which you may have encountered through rust
 [Sized](https://doc.rust-lang.org/std/marker/trait.Sized.html) trait.
 
 Pointers are composed of two pieces: a data address and some metadata. The data address is what most
-people think of when they think about pointers; it's the location of the pointed data. The metadata
-for a pointer is some extra data that is needed to work safely with the data at the pointed
+people think of when they think about pointers; it's the location of the pointed-to data. The
+metadata for a pointer is extra data that's needed to work safely with the data at the pointed-to
 location. It can be almost anything, or nothing at all for `Sized` types. Pointers with no extra
-metadata are sometimes called "thin" pointers, and pointers _with_ metadata are sometimes called
-"wide" or "fat" pointers.
+metadata are sometimes called "narrow" pointers, and pointers _with_ metadata are sometimes called
+"wide" pointers.
 
 > rkyv uses the [`ptr_meta`](https://docs.rs/ptr_meta) crate to perform these conversions safely. In
 > the future, these may be incorporated as
@@ -35,6 +35,5 @@ use cases. This does complicate things somewhat, but for most people the metadat
 will end up as just filling out a few functions and returning `()`.
 
 > This is definitely one of the more complicated parts of the library, and can be difficult to wrap
-> your head around. Reading the documentation for
-> [`ArchiveUnsized`](https://docs.rs/rkyv/0.7.1/rkyv/trait.ArchiveUnsized.html) may help you
-> understand how the system works by working through an example.
+> your head around. Reading the documentation for `ArchiveUnsized`] may help you understand how the
+> system works by working through an example.

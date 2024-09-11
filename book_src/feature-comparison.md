@@ -9,23 +9,24 @@ means completely comprehensive, and pull requests that improve this are welcomed
 |-----------------------------------|---------------|---------------|---------------|
 | Open type system                  | yes           | no            | no            |
 | Scalars                           | yes           | no            | yes           |
-| Tables                            | no*           | yes           | yes           |
-| Schema evolution                  | no*           | yes           | yes           |
+| Tables                            | no            | yes           | yes           |
+| Schema evolution                  | no            | yes           | yes           |
 | Zero-copy                         | yes           | yes           | yes           |
 | Random-access reads               | yes           | yes           | yes           |
-| Validation                        | upfront*      | on-demand     | yes           |
-| Reflection                        | no*           | yes           | yes           |
+| Validation                        | upfront       | on-demand     | yes           |
+| Reflection                        | no            | yes           | yes           |
 | Object order                      | bottom-up     | either        | bottom-up     |
 | Schema language                   | derive        | custom        | custom        |
-| Usable as mutable state           | yes           | limited       | limited       |
-| Padding takes space on wire?      | yes*          | optional      | no            |
+| Usable as mutable state           | limited       | limited       | limited       |
+| Padding takes space on wire?      | optional      | optional      | no            |
 | Unset fields take space on wire?  | yes           | yes           | no            |
 | Pointers take space on wire?      | yes           | yes           | yes           |
 | Cross-language                    | no            | yes           | yes           |
 | Hash maps and B-trees             | yes           | no            | no            |
 | Shared pointers                   | yes           | no            | no            |
 
-\* *rkyv's open type system allows extension types that provide these capabilities*
+Although these features aren't supported out-of-the-box, rkyv's open type system allows extensions
+which provide many of these capabilities.
 
 ## Open type system
 

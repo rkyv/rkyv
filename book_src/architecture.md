@@ -1,15 +1,9 @@
 # Architecture
 
-The core of rkyv is built around
-[relative pointers](https://docs.rs/rkyv/0.7.1/rkyv/rel_ptr/struct.RelPtr.html) and three core
-traits:
-[`Archive`](https://docs.rs/rkyv/0.7.1/rkyv/trait.Archive.html),
-[`Serialize`](https://docs.rs/rkyv/0.7.1/rkyv/trait.Serialize.html), and
-[`Deserialize`](https://docs.rs/rkyv/0.7.1/rkyv/trait.Deserialize.html). Each of these traits has a
-corresponding variant that supports unsized types:
-[`ArchiveUnsized`](https://docs.rs/rkyv/0.7.1/rkyv/trait.ArchiveUnsized.html),
-[`SerializeUnsized`](https://docs.rs/rkyv/0.7.1/rkyv/trait.SerializeUnsized.html), and
-[`DeserializeUnsized`](https://docs.rs/rkyv/0.7.1/rkyv/trait.DeserializeUnsized.html).
+The core of rkyv is built around relative pointers and three core
+traits: `Archive`, `Serialize`, and `Deserialize`. Each of these traits has a
+corresponding variant that supports unsized types: `ArchiveUnsized`,
+`SerializeUnsized`, and `DeserializeUnsized`.
 
 > A good way to think about it is that sized types are the *foundation* that unsized types are built
 > on. That's not a fluke either, rkyv is built precisely so that you can build more complex
