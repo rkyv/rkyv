@@ -35,8 +35,8 @@ use crate::{
     primitive::{FixedNonZeroIsize, FixedNonZeroUsize},
     traits::NoUndef,
     with::{
-        ArchiveWith, AsBox, DeserializeWith, Inline, InlineAsBox, Map, Niche,
-        SerializeWith, Skip, Unsafe,
+        ArchiveWith, AsBox, DeserializeWith, Identity, Inline, InlineAsBox,
+        Map, Niche, SerializeWith, Skip, Unsafe,
     },
     Archive, ArchiveUnsized, Deserialize, Place, Serialize, SerializeUnsized,
 };
@@ -514,6 +514,43 @@ impl<F: Default, D: Fallible + ?Sized> DeserializeWith<(), F, D> for Skip {
     }
 }
 
+// Identity
+
+impl<F: Archive> ArchiveWith<F> for Identity {
+    type Archived = F::Archived;
+    type Resolver = F::Resolver;
+
+    fn resolve_with(
+        field: &F,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        field.resolve(resolver, out)
+    }
+}
+
+impl<F: Serialize<S>, S: Fallible + ?Sized> SerializeWith<F, S> for Identity {
+    fn serialize_with(
+        field: &F,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        field.serialize(serializer)
+    }
+}
+
+impl<F, T, D> DeserializeWith<F, T, D> for Identity
+where
+    F: Deserialize<T, D>,
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(
+        field: &F,
+        deserializer: &mut D,
+    ) -> Result<T, <D as Fallible>::Error> {
+        field.deserialize(deserializer)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -521,8 +558,8 @@ mod tests {
         rancor::Fallible,
         ser::Writer,
         with::{
-            ArchiveWith, AsBox, DeserializeWith, Inline, InlineAsBox, Niche,
-            SerializeWith, Unsafe, With,
+            ArchiveWith, AsBox, DeserializeWith, Identity, Inline, InlineAsBox,
+            Niche, SerializeWith, Unsafe, With,
         },
         Archive, Archived, Deserialize, Place, Serialize,
     };
@@ -796,5 +833,25 @@ mod tests {
             inner: Cell::new(100),
         };
         roundtrip(&value);
+    }
+
+    #[test]
+    fn with_identity() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Test {
+            #[rkyv(with = Identity)]
+            value: i32,
+            other: i32,
+        }
+
+        let value = Test {
+            value: 10,
+            other: 10,
+        };
+        roundtrip_with(&value, |_, archived| {
+            assert_eq!(archived.value, 10);
+            assert_eq!(archived.other, 10);
+        });
     }
 }

@@ -551,3 +551,27 @@ pub struct Skip;
 /// A wrapper that clones the contents of `Arc` and `Rc` pointers.
 #[derive(Debug)]
 pub struct Unshare;
+
+/// A no-op wrapper which uses the default impls for the type.
+///
+/// This is most useful for wrappers like [`MapKV`] when you only want to apply
+/// a wrapper to either the key or the value.
+///
+/// # Example
+///
+/// ```
+/// use std::collections::HashMap;
+///
+/// use rkyv::{
+///     with::{Identity, Inline, MapKV},
+///     Archive,
+/// };
+///
+/// #[derive(Archive)]
+/// struct Example<'a> {
+///     #[rkyv(with = MapKV<Identity, Inline>)]
+///     a: HashMap<u32, &'a u32>,
+/// }
+/// ```
+#[derive(Debug)]
+pub struct Identity;
