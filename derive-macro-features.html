@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Deserialize - rkyv</title>
+        <title>Derive macro features - rkyv</title>
 
 
         <!-- Custom HTML head -->
@@ -12,21 +12,21 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
-        <link rel="icon" href="../favicon.svg">
-        <link rel="shortcut icon" href="../favicon.png">
-        <link rel="stylesheet" href="../css/variables.css">
-        <link rel="stylesheet" href="../css/general.css">
-        <link rel="stylesheet" href="../css/chrome.css">
-        <link rel="stylesheet" href="../css/print.css" media="print">
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="../fonts/fonts.css">
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="../highlight.css">
-        <link rel="stylesheet" href="../tomorrow-night.css">
-        <link rel="stylesheet" href="../ayu-highlight.css">
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
 
@@ -35,7 +35,7 @@
     <div id="body-container">
         <!-- Provide site root to javascript -->
         <script>
-            var path_to_root = "../";
+            var path_to_root = "";
             var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
@@ -88,7 +88,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../rkyv.html">rkyv</a></li><li class="chapter-item expanded affix "><li class="part-title">Foundations</li><li class="chapter-item expanded "><a href="../motivation.html"><strong aria-hidden="true">1.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="../zero-copy-deserialization.html"><strong aria-hidden="true">2.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="../architecture.html"><strong aria-hidden="true">3.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../architecture/relative-pointers.html"><strong aria-hidden="true">3.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="../architecture/archive.html"><strong aria-hidden="true">3.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="../architecture/serialize.html"><strong aria-hidden="true">3.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="../architecture/deserialize.html" class="active"><strong aria-hidden="true">3.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="../format.html"><strong aria-hidden="true">4.</strong> Format</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../format/alignment.html"><strong aria-hidden="true">4.1.</strong> Alignment</a></li></ol></li><li class="chapter-item expanded "><a href="../derive-macro-features.html"><strong aria-hidden="true">5.</strong> Derive macro features</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../wrapper-types.html"><strong aria-hidden="true">5.1.</strong> Wrapper types</a></li><li class="chapter-item expanded "><a href="../derive-macro-features/remote-derive.html"><strong aria-hidden="true">5.2.</strong> Remote derive</a></li></ol></li><li class="chapter-item expanded "><a href="../shared-pointers.html"><strong aria-hidden="true">6.</strong> Shared pointers</a></li><li class="chapter-item expanded "><a href="../unsized-types.html"><strong aria-hidden="true">7.</strong> Unsized types</a></li><li class="chapter-item expanded "><a href="../trait-objects.html"><strong aria-hidden="true">8.</strong> Trait objects</a></li><li class="chapter-item expanded "><a href="../validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="../allocation-tracking.html"><strong aria-hidden="true">10.</strong> Allocation tracking</a></li><li class="chapter-item expanded "><a href="../feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature comparison</a></li><li class="chapter-item expanded "><a href="../faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li><li class="chapter-item expanded affix "><a href="../contributors.html">Contributors</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="rkyv.html">rkyv</a></li><li class="chapter-item expanded affix "><li class="part-title">Foundations</li><li class="chapter-item expanded "><a href="motivation.html"><strong aria-hidden="true">1.</strong> Motivation</a></li><li class="chapter-item expanded "><a href="zero-copy-deserialization.html"><strong aria-hidden="true">2.</strong> Zero-copy deserialization</a></li><li class="chapter-item expanded "><a href="architecture.html"><strong aria-hidden="true">3.</strong> Architecture</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="architecture/relative-pointers.html"><strong aria-hidden="true">3.1.</strong> Relative pointers</a></li><li class="chapter-item expanded "><a href="architecture/archive.html"><strong aria-hidden="true">3.2.</strong> Archive</a></li><li class="chapter-item expanded "><a href="architecture/serialize.html"><strong aria-hidden="true">3.3.</strong> Serialize</a></li><li class="chapter-item expanded "><a href="architecture/deserialize.html"><strong aria-hidden="true">3.4.</strong> Deserialize</a></li></ol></li><li class="chapter-item expanded "><a href="format.html"><strong aria-hidden="true">4.</strong> Format</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="format/alignment.html"><strong aria-hidden="true">4.1.</strong> Alignment</a></li></ol></li><li class="chapter-item expanded "><a href="derive-macro-features.html" class="active"><strong aria-hidden="true">5.</strong> Derive macro features</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="wrapper-types.html"><strong aria-hidden="true">5.1.</strong> Wrapper types</a></li><li class="chapter-item expanded "><a href="derive-macro-features/remote-derive.html"><strong aria-hidden="true">5.2.</strong> Remote derive</a></li></ol></li><li class="chapter-item expanded "><a href="shared-pointers.html"><strong aria-hidden="true">6.</strong> Shared pointers</a></li><li class="chapter-item expanded "><a href="unsized-types.html"><strong aria-hidden="true">7.</strong> Unsized types</a></li><li class="chapter-item expanded "><a href="trait-objects.html"><strong aria-hidden="true">8.</strong> Trait objects</a></li><li class="chapter-item expanded "><a href="validation.html"><strong aria-hidden="true">9.</strong> Validation</a></li><li class="chapter-item expanded "><a href="allocation-tracking.html"><strong aria-hidden="true">10.</strong> Allocation tracking</a></li><li class="chapter-item expanded "><a href="feature-comparison.html"><strong aria-hidden="true">11.</strong> Feature comparison</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">12.</strong> FAQ</a></li><li class="chapter-item expanded affix "><a href="contributors.html">Contributors</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -144,10 +144,10 @@
                     <h1 class="menu-title">rkyv</h1>
 
                     <div class="right-buttons">
-                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
-                        <a href="https://github.com/rkyv/rkyv/edit/master/book_src/architecture/deserialize.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/rkyv/rkyv/edit/master/book_src/derive-macro-features.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -176,47 +176,47 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="deserialize"><a class="header" href="#deserialize">Deserialize</a></h1>
-<p>Similarly to <code>Serialize</code>, <code>Deserialize</code> parameterizes over a deserializer, and converts a type from
-its archived form back to its original one. Unlike serialization, deserialization occurs in a single
-step and doesn't have an equivalent of a resolver.</p>
-<blockquote>
-<p><code>Deserialize</code> also parameterizes over the type that is being deserialized into. This allows the
-same archived type to deserialize into multiple different unarchived types depending on what's
-being asked for. This helps enable lots of very powerful abstractions, but might require you to
-use a turbofish or annotate types when deserializing.</p>
-</blockquote>
-<p>This provides a more or less traditional deserialization with the added benefit of being sped up
-by having very compiler-friendly representations. It also incurs both the memory and performance
-penalties of traditional deserialization, so make sure that it's what you need before you use it.
-Deserialization is not required to access archived data as long as you can do so through the
-archived versions.</p>
-<blockquote>
-<p>Even the highest-performance serialization frameworks will hit a deserialization speed limit
-because of the amount of memory allocation that needs to be performed.</p>
-</blockquote>
-<p>A good use for <code>Deserialize</code> is deserializing small portions of archives. You can easily traverse
-the archived data to locate some subobject, then deserialize just that piece instead of the archive
-as a whole. This granular approach provides the benefits of both zero-copy deserialization as well
-as traditional deserialization.</p>
-<h2 id="pooling"><a class="header" href="#pooling">Pooling</a></h2>
-<p>Deserializers, like serializers, provide capabilities to objects during deserialization. Most types
-don't need to bound their deserializers, but some like <code>Rc</code> require special traits in order to
-deserialize properly.</p>
-<p>The <code>Pooling</code> trait controls how pointers which were serialized shared are deserialized. Much like
-<code>Sharing</code>, <code>Pooling</code> holds some mutable state on the deserializer to allow shared pointers to the
-same data to coordinate with each other. Using the <code>Pool</code> implementation pools these deserialized
-shared pointers together, whereas <code>Unpool</code> clones them for each instance of the shared pointer.</p>
+                        <h1 id="derive-macro-features"><a class="header" href="#derive-macro-features">Derive macro features</a></h1>
+<p>rkyv's derive macro supports a number of attributes and configurable options. All of rkyv's macro
+attributes are documented on the <code>Archive</code> proc-macro. Some of the most important ones to know are:</p>
+<h2 id="omit_bounds"><a class="header" href="#omit_bounds"><code>omit_bounds</code></a></h2>
+<p>rkyv's derive macro performs a "perfect derive" by default. This means that when it generates trait
+impls, it adds where clauses requiring each field type to also implement that trait. This can cause
+trouble in two primary situations:</p>
+<ol>
+<li>Recursive type definitions (using e.g. <code>Box</code>) cause an overflow and never finish evaluating</li>
+<li>Private types may be exposed by these derive bounds.</li>
+</ol>
+<p>Both of these situations can be fixed by adding <code>#[rkyv(omit_bounds)]</code> on the field. This prevents
+rkyv from adding the "perfect derive" bounds for that field.</p>
+<p>When you do omit the bounds for a particular field, it can lead to insufficient bounds being added
+to the generated impl. To add custom bounds back, you can use:</p>
+<ul>
+<li><code>#[rkyv(archive_bounds(..))]</code> to add predicates to all generated impls</li>
+<li><code>#[rkyv(serialize_bounds(..))]</code> to add predicates to just the <code>Serialize</code> impl</li>
+<li><code>#[rkyv(deserialize_bounds(..))]</code> to add predicates to just the <code>Deserialize</code> impl</li>
+</ul>
+<p>See <code>rkyv/examples/json_like_schema.rs</code> for a fully-commented example of using <code>omit_bounds</code>.</p>
+<h2 id="with--"><a class="header" href="#with--"><code>with = ..</code></a></h2>
+<p>This customizes the serialization of a field by applying a
+<a href="derive-macro-features/wrapper-types.html">wrapper type</a>.</p>
+<h2 id="remote--"><a class="header" href="#remote--"><code>remote = ..</code></a></h2>
+<p>This performs a <a href="derive-macro-features/remote-derive.html">remote derive</a> for supporting external
+types.</p>
+<h2 id="attr-and-derive"><a class="header" href="#attr-and-derive"><code>attr(..)</code> and <code>derive(..)</code></a></h2>
+<p><code>#[rkyv(attr(..))]</code> is a general-purpose attribute which allows you to pass attributes down to the
+generated archived type. This can be especially useful in combination with <code>#[rkyv(derive(..))]</code>,
+which may be used on types and is sugar for <code>#[rkyv(attr(derive(..)))]</code>.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../architecture/serialize.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="format/alignment.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../format.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="wrapper-types.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -226,11 +226,11 @@ shared pointers together, whereas <code>Unpool</code> clones them for each insta
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../architecture/serialize.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="format/alignment.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../format.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="wrapper-types.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
@@ -245,13 +245,13 @@ shared pointers together, whereas <code>Unpool</code> clones them for each insta
         </script>
 
 
-        <script src="../elasticlunr.min.js"></script>
-        <script src="../mark.min.js"></script>
-        <script src="../searcher.js"></script>
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
 
-        <script src="../clipboard.min.js"></script>
-        <script src="../highlight.js"></script>
-        <script src="../book.js"></script>
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
 
         <!-- Custom JS scripts -->
 
