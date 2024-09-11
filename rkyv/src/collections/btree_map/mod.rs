@@ -501,7 +501,12 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         }
 
         let pos = serializer.align_for::<LeafNode<K, V, E>>()?;
-        let mut node = MaybeUninit::<LeafNode<K, V, E>>::zeroed();
+        let mut node = MaybeUninit::<LeafNode<K, V, E>>::uninit();
+        // SAFETY: `node` is properly aligned and valid for writes of
+        // `size_of::<LeafNode<K, V, E>>()` bytes.
+        unsafe {
+            node.as_mut_ptr().write_bytes(0, 1);
+        }
 
         let node_place =
             unsafe { Place::new_unchecked(pos, node.as_mut_ptr()) };
@@ -561,7 +566,12 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         }
 
         let pos = serializer.align_for::<InnerNode<K, V, E>>()?;
-        let mut node = MaybeUninit::<InnerNode<K, V, E>>::zeroed();
+        let mut node = MaybeUninit::<InnerNode<K, V, E>>::uninit();
+        // SAFETY: `node` is properly aligned and valid for writes of
+        // `size_of::<InnerNode<K, V, E>>()` bytes.
+        unsafe {
+            node.as_mut_ptr().write_bytes(0, 1);
+        }
 
         let node_place =
             unsafe { Place::new_unchecked(pos, node.as_mut_ptr()) };

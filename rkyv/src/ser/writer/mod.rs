@@ -121,7 +121,12 @@ pub trait WriterExt<E>: Writer<E> {
         let pos = self.pos();
         debug_assert_eq!(pos & (mem::align_of::<T::Archived>() - 1), 0);
 
-        let mut resolved = mem::MaybeUninit::<T::Archived>::zeroed();
+        let mut resolved = mem::MaybeUninit::<T::Archived>::uninit();
+        // SAFETY: `resolved` is properly aligned and valid for writes of
+        // `size_of::<T::Archived>()` bytes.
+        unsafe {
+            resolved.as_mut_ptr().write_bytes(0, 1);
+        }
         // SAFETY: `resolved.as_mut_ptr()` points to a local zeroed
         // `MaybeUninit`, and so is properly aligned, dereferenceable, and all
         // of its bytes are initialized.
@@ -150,7 +155,12 @@ pub trait WriterExt<E>: Writer<E> {
             0
         );
 
-        let mut resolved = mem::MaybeUninit::<RelPtr<T::Archived>>::zeroed();
+        let mut resolved = mem::MaybeUninit::<RelPtr<T::Archived>>::uninit();
+        // SAFETY: `resolved` is properly aligned and valid for writes of
+        // `size_of::<RelPtr<T::Archived>>()` bytes.
+        unsafe {
+            resolved.as_mut_ptr().write_bytes(0, 1);
+        }
         // SAFETY: `resolved.as_mut_ptr()` points to a local zeroed
         // `MaybeUninit`, and so is properly aligned, dereferenceable, and all
         // of its bytes are initialized.
