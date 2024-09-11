@@ -33,19 +33,20 @@
 
 ## Sister Crates
 
-- [bytecheck](https://github.com/rkyv/bytecheck), which rkyv uses for validation
-- [ptr_meta](https://github.com/rkyv/ptr_meta), which rkyv uses for pointer manipulation
 - [rend](https://github.com/rkyv/rend), which rkyv uses for endian-agnostic features
+- [bytecheck](https://github.com/rkyv/bytecheck), which rkyv uses for validation
+- [rancor](https://github.com/rkyv/rancor), which rkyv uses for error handling
+- [ptr_meta](https://github.com/rkyv/ptr_meta), which rkyv uses for pointer manipulation
 
 # Example
 
 ```rust
-use rkyv::{Archive, Deserialize, Serialize, rancor::Error};
+use rkyv::{deserialize, rancor::Error, Archive, Deserialize, Serialize};
 
 #[derive(Archive, Deserialize, Serialize, Debug, PartialEq)]
 #[rkyv(
-    // This will generate a PartialEq impl between our unarchived and archived
-    // types:
+    // This will generate a PartialEq impl between our unarchived
+    // and archived types
     compare(PartialEq),
     // Derives can be passed through to the generated type:
     derive(Debug),
@@ -56,34 +57,37 @@ struct Test {
     option: Option<Vec<i32>>,
 }
 
-let value = Test {
-    int: 42,
-    string: "hello world".to_string(),
-    option: Some(vec![1, 2, 3, 4]),
-};
+fn main() {
+    let value = Test {
+        int: 42,
+        string: "hello world".to_string(),
+        option: Some(vec![1, 2, 3, 4]),
+    };
 
-// Serializing is as easy as a single function call
-let bytes = rkyv::to_bytes::<Error>(&value).unwrap();
+    // Serializing is as easy as a single function call
+    let _bytes = rkyv::to_bytes::<Error>(&value).unwrap();
 
-// Or you can customize your serialization for better performance
-// and compatibility with #![no_std] environments
-use rkyv::ser::{Serializer, serializers::AllocSerializer};
+    // Or you can customize your serialization for better performance or control
+    // over resource usage
+    use rkyv::{api::high::to_bytes_with_alloc, ser::allocator::Arena};
 
-let mut serializer = AllocSerializer::<0>::default();
-serializer.serialize_value(&value).unwrap();
-let bytes = serializer.into_serializer().into_inner();
+    let mut arena = Arena::new();
+    let bytes =
+        to_bytes_with_alloc::<_, Error>(&value, arena.acquire()).unwrap();
 
-// You can use the safe API for fast zero-copy deserialization
-let archived = rkyv::check_archived_root::<Test>(&bytes[..]).unwrap();
-assert_eq!(archived, &value);
+    // You can use the safe API for fast zero-copy deserialization
+    let archived = rkyv::access::<ArchivedTest, Error>(&bytes[..]).unwrap();
+    assert_eq!(archived, &value);
 
-// Or you can use the unsafe API for maximum performance
-let archived = unsafe { rkyv::archived_root::<Test>(&bytes[..]) };
-assert_eq!(archived, &value);
+    // Or you can use the unsafe API for maximum performance
+    let archived =
+        unsafe { rkyv::access_unchecked::<ArchivedTest>(&bytes[..]) };
+    assert_eq!(archived, &value);
 
-// And you can always deserialize back to the original type
-let deserialized: Test = archived.deserialize(&mut rkyv::Infallible).unwrap();
-assert_eq!(deserialized, value);
+    // And you can always deserialize back to the original type
+    let deserialized = deserialize::<Test, Error>(archived).unwrap();
+    assert_eq!(deserialized, value);
+}
 ```
 
 _Note: the safe API requires the `bytecheck` feature (enabled by default)_
