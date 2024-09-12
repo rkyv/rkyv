@@ -261,4 +261,13 @@ mod tests {
             assert_eq!(archived.get("baz").unwrap(), "BAT");
         });
     }
+
+    #[test]
+    fn large_hash_map() {
+        let mut map = std::collections::HashMap::new();
+        for i in 0..100 {
+            map.insert(i.to_string(), i);
+        }
+        roundtrip_with(&map, assert_equal);
+    }
 }

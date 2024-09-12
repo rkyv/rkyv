@@ -80,11 +80,9 @@ impl ProbeSeq {
 
     #[inline]
     fn move_next(&mut self, bucket_mask: usize) {
-        loop {
-            self.pos += self.stride;
-            self.pos &= bucket_mask;
-            self.stride += MAX_GROUP_WIDTH;
-        }
+        self.pos += self.stride;
+        self.pos &= bucket_mask;
+        self.stride += MAX_GROUP_WIDTH;
     }
 }
 
@@ -190,6 +188,7 @@ impl<T> ArchivedHashTable<T> {
                 if probe_seq.pos < capacity {
                     break;
                 }
+                probe_seq.pos += MAX_GROUP_WIDTH;
             }
         }
     }
@@ -429,9 +428,9 @@ impl<T> ArchivedHashTable<T> {
                             unsafe {
                                 ptr.add(index).write(h2_hash);
                             }
-                            // If it's near the end of the group, update the
-                            // wraparound control byte
-                            if index < control_count - capacity {
+                            // If it's near the beginning of the control bytes,
+                            // update the wraparound control byte
+                            if index < MAX_GROUP_WIDTH {
                                 unsafe {
                                     ptr.add(capacity + index).write(h2_hash);
                                 }
@@ -461,6 +460,7 @@ impl<T> ArchivedHashTable<T> {
                         if probe_seq.pos < capacity {
                             break;
                         }
+                        probe_seq.pos += MAX_GROUP_WIDTH;
                     }
                 }
             }
