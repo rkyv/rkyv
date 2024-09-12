@@ -351,12 +351,12 @@ where
 
 // AsVec
 
-impl<K: Archive, V: Archive> ArchiveWith<HashMap<K, V>> for AsVec {
+impl<K: Archive, V: Archive, H> ArchiveWith<HashMap<K, V, H>> for AsVec {
     type Archived = ArchivedVec<Entry<K::Archived, V::Archived>>;
     type Resolver = VecResolver;
 
     fn resolve_with(
-        field: &HashMap<K, V>,
+        field: &HashMap<K, V, H>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
@@ -364,14 +364,14 @@ impl<K: Archive, V: Archive> ArchiveWith<HashMap<K, V>> for AsVec {
     }
 }
 
-impl<K, V, S> SerializeWith<HashMap<K, V>, S> for AsVec
+impl<K, V, H, S> SerializeWith<HashMap<K, V, H>, S> for AsVec
 where
     K: Serialize<S>,
     V: Serialize<S>,
     S: Fallible + Allocator + Writer + ?Sized,
 {
     fn serialize_with(
-        field: &HashMap<K, V>,
+        field: &HashMap<K, V, H>,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
         ArchivedVec::serialize_from_iter(
@@ -383,10 +383,10 @@ where
     }
 }
 
-impl<K, V, D>
+impl<K, V, H, D>
     DeserializeWith<
         ArchivedVec<Entry<K::Archived, V::Archived>>,
-        HashMap<K, V>,
+        HashMap<K, V, H>,
         D,
     > for AsVec
 where
@@ -394,13 +394,15 @@ where
     V: Archive,
     K::Archived: Deserialize<K, D>,
     V::Archived: Deserialize<V, D>,
+    H: BuildHasher + Default,
     D: Fallible + ?Sized,
 {
     fn deserialize_with(
         field: &ArchivedVec<Entry<K::Archived, V::Archived>>,
         deserializer: &mut D,
-    ) -> Result<HashMap<K, V>, D::Error> {
-        let mut result = HashMap::with_capacity(field.len());
+    ) -> Result<HashMap<K, V, H>, D::Error> {
+        let mut result =
+            HashMap::with_capacity_and_hasher(field.len(), H::default());
         for entry in field.iter() {
             result.insert(
                 entry.key.deserialize(deserializer)?,
@@ -411,12 +413,12 @@ where
     }
 }
 
-impl<T: Archive> ArchiveWith<HashSet<T>> for AsVec {
+impl<T: Archive, H> ArchiveWith<HashSet<T, H>> for AsVec {
     type Archived = ArchivedVec<T::Archived>;
     type Resolver = VecResolver;
 
     fn resolve_with(
-        field: &HashSet<T>,
+        field: &HashSet<T, H>,
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
@@ -424,13 +426,13 @@ impl<T: Archive> ArchiveWith<HashSet<T>> for AsVec {
     }
 }
 
-impl<T, S> SerializeWith<HashSet<T>, S> for AsVec
+impl<T, H, S> SerializeWith<HashSet<T, H>, S> for AsVec
 where
     T: Serialize<S>,
     S: Fallible + Allocator + Writer + ?Sized,
 {
     fn serialize_with(
-        field: &HashSet<T>,
+        field: &HashSet<T, H>,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
         ArchivedVec::<T::Archived>::serialize_from_iter::<T, _, _>(
@@ -440,17 +442,20 @@ where
     }
 }
 
-impl<T, D> DeserializeWith<ArchivedVec<T::Archived>, HashSet<T>, D> for AsVec
+impl<T, H, D> DeserializeWith<ArchivedVec<T::Archived>, HashSet<T, H>, D>
+    for AsVec
 where
     T: Archive + Hash + Eq,
     T::Archived: Deserialize<T, D>,
+    H: BuildHasher + Default,
     D: Fallible + ?Sized,
 {
     fn deserialize_with(
         field: &ArchivedVec<T::Archived>,
         deserializer: &mut D,
-    ) -> Result<HashSet<T>, D::Error> {
-        let mut result = HashSet::with_capacity(field.len());
+    ) -> Result<HashSet<T, H>, D::Error> {
+        let mut result =
+            HashSet::with_capacity_and_hasher(field.len(), H::default());
         for key in field.iter() {
             result.insert(key.deserialize(deserializer)?);
         }
