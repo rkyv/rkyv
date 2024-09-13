@@ -25,7 +25,6 @@ use core::{
     marker::PhantomData,
     mem::size_of,
     ptr::{self, null, NonNull},
-    slice,
 };
 
 use munge::munge;
@@ -304,6 +303,7 @@ impl<T> ArchivedHashTable<T> {
         )
     }
 
+    #[allow(dead_code)]
     fn memory_layout<E: Source>(
         capacity: usize,
         control_count: usize,
@@ -371,113 +371,120 @@ impl<T> ArchivedHashTable<T> {
             return Ok(HashTableResolver { pos: 0 });
         }
 
-        // Serialize all items
-        SerVec::with_capacity(serializer, len, |resolvers, serializer| {
-            for i in items.clone() {
-                if resolvers.len() == len {
-                    fail!(IteratorLengthMismatch {
-                        expected: len,
-                        actual: len + items.count(),
-                    });
+        let capacity = Self::capacity_from_len(len, load_factor)?;
+        let control_count = Self::control_count(capacity)?;
+
+        // Determine hash locations for all items
+        SerVec::with_capacity(
+            serializer,
+            capacity,
+            |ordered_items, serializer| {
+                for _ in 0..capacity {
+                    unsafe {
+                        ordered_items.push_unchecked(None);
+                    }
                 }
 
-                resolvers.push(i.borrow().serialize(serializer)?);
-            }
+                SerVec::<u8>::with_capacity(
+                    serializer,
+                    control_count,
+                    |control_bytes, serializer| {
+                        // Initialize all control bytes to EMPTY (0xFF)
+                        unsafe {
+                            control_bytes
+                                .as_mut_ptr()
+                                .write_bytes(0xff, control_bytes.capacity());
+                            control_bytes.set_len(control_bytes.capacity());
+                        }
 
-            // Allocate scratch space for the hash table storage
-            let capacity = Self::capacity_from_len(len, load_factor)?;
-            let control_count = Self::control_count(capacity)?;
+                        let bucket_mask = Self::bucket_mask(capacity);
 
-            let (layout, control_offset) =
-                Self::memory_layout(capacity, control_count)?;
+                        for (item, hash) in items.zip(hashes) {
+                            let h2_hash = h2(hash);
+                            let mut probe_seq = Self::probe_seq(hash, capacity);
 
-            let alloc = unsafe { serializer.push_alloc(layout)?.cast::<u8>() };
+                            'insert: loop {
+                                for _ in 0..MAX_GROUP_WIDTH / Group::WIDTH {
+                                    let group = unsafe {
+                                        Group::read(
+                                            control_bytes
+                                                .as_ptr()
+                                                .add(probe_seq.pos),
+                                        )
+                                    };
 
-            // Initialize all non-control bytes to zero
-            unsafe {
-                ptr::write_bytes(alloc.as_ptr(), 0, control_offset);
-            }
+                                    if let Some(bit) =
+                                        group.match_empty().lowest_set_bit()
+                                    {
+                                        let index =
+                                            (probe_seq.pos + bit) % capacity;
 
-            let ptr = unsafe { alloc.as_ptr().add(control_offset) };
+                                        // Update control byte
+                                        control_bytes[index] = h2_hash;
+                                        // If it's near the beginning of the
+                                        // control bytes,
+                                        // update the wraparound control byte
+                                        if index < MAX_GROUP_WIDTH - 1 {
+                                            control_bytes[capacity + index] =
+                                                h2_hash;
+                                        }
 
-            // Initialize all control bytes to EMPTY (0xFF)
-            unsafe {
-                ptr::write_bytes(ptr, 0xff, control_count);
-            }
+                                        ordered_items[index] = Some(item);
+                                        break 'insert;
+                                    }
 
-            let bucket_mask = Self::bucket_mask(capacity);
+                                    probe_seq.next_group();
+                                }
 
-            let pos = serializer.align(layout.align())?;
-
-            for ((i, resolver), hash) in
-                items.zip(resolvers.drain()).zip(hashes)
-            {
-                let h2_hash = h2(hash);
-                let mut probe_seq = Self::probe_seq(hash, capacity);
-
-                'insert: loop {
-                    for _ in 0..MAX_GROUP_WIDTH / Group::WIDTH {
-                        let group =
-                            unsafe { Group::read(ptr.add(probe_seq.pos)) };
-
-                        if let Some(bit) = group.match_empty().lowest_set_bit()
-                        {
-                            let index = (probe_seq.pos + bit) % capacity;
-
-                            // Update control byte
-                            unsafe {
-                                ptr.add(index).write(h2_hash);
-                            }
-                            // If it's near the beginning of the control bytes,
-                            // update the wraparound control byte
-                            if index < MAX_GROUP_WIDTH {
-                                unsafe {
-                                    ptr.add(capacity + index).write(h2_hash);
+                                loop {
+                                    probe_seq.move_next(bucket_mask);
+                                    if probe_seq.pos < capacity {
+                                        break;
+                                    }
+                                    probe_seq.pos += MAX_GROUP_WIDTH;
                                 }
                             }
-
-                            let entry_offset =
-                                control_offset - (index + 1) * size_of::<T>();
-                            let out = unsafe {
-                                Place::new_unchecked(
-                                    pos + entry_offset,
-                                    alloc
-                                        .as_ptr()
-                                        .add(entry_offset)
-                                        .cast::<T>(),
-                                )
-                            };
-                            i.borrow().resolve(resolver, out);
-
-                            break 'insert;
                         }
 
-                        probe_seq.next_group();
-                    }
+                        SerVec::with_capacity(
+                            serializer,
+                            len,
+                            |resolvers, serializer| {
+                                for item in ordered_items
+                                    .iter()
+                                    .filter_map(|x| x.as_ref())
+                                {
+                                    resolvers.push(
+                                        item.borrow().serialize(serializer)?,
+                                    );
+                                }
 
-                    loop {
-                        probe_seq.move_next(bucket_mask);
-                        if probe_seq.pos < capacity {
-                            break;
-                        }
-                        probe_seq.pos += MAX_GROUP_WIDTH;
-                    }
-                }
-            }
+                                serializer.align_for::<T>()?;
 
-            // Write out-of-line data
-            let slice =
-                unsafe { slice::from_raw_parts(alloc.as_ptr(), layout.size()) };
-            serializer.write(slice)?;
+                                let mut resolvers = resolvers.drain().rev();
+                                for item in ordered_items.iter().rev() {
+                                    if let Some(item) = item {
+                                        unsafe {
+                                            serializer.resolve_aligned(
+                                                item.borrow(),
+                                                resolvers.next().unwrap(),
+                                            )?;
+                                        }
+                                    } else {
+                                        serializer.pad(size_of::<T>())?;
+                                    }
+                                }
 
-            unsafe {
-                serializer.pop_alloc(alloc, layout)?;
-            }
+                                let pos = serializer.pos();
+                                serializer.write(control_bytes)?;
 
-            Ok(HashTableResolver {
-                pos: pos + control_offset,
-            })
-        })?
+                                Ok(HashTableResolver { pos })
+                            },
+                        )?
+                    },
+                )?
+            },
+        )?
     }
 
     /// Resolves an archived hash table from a given length and parameters.

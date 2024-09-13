@@ -270,4 +270,33 @@ mod tests {
         }
         roundtrip_with(&map, assert_equal);
     }
+
+    #[cfg(feature = "bytecheck")]
+    #[test]
+    fn nested_hash_map() {
+        use rancor::{Error, Panic};
+
+        use crate::{access, to_bytes};
+
+        #[derive(
+            Hash, PartialEq, Eq, Archive, Serialize, Deserialize, Debug,
+        )]
+        #[rkyv(crate, derive(Hash, PartialEq, Eq, Debug))]
+        struct Key(u8, u8);
+
+        let mut nested_map = std::collections::HashMap::new();
+        nested_map.insert(1337u16, 42u16);
+
+        type MyHashMap = HashMap<Key, HashMap<u16, u16>>;
+        let mut map: MyHashMap = std::collections::HashMap::new();
+        map.insert(Key(1, 2), nested_map.clone());
+        map.insert(Key(3, 4), nested_map.clone());
+
+        let encoded = to_bytes::<Error>(&map).unwrap();
+
+        eprintln!("{encoded:?}");
+
+        // This .unwrap() fails!
+        let _decoded = access::<Archived<MyHashMap>, Panic>(&encoded).unwrap();
+    }
 }
