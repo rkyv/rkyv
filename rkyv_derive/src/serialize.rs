@@ -186,7 +186,8 @@ fn generate_serialize_body(
                     if let Some(ref other) = other {
                         return Err(Error::new_spanned(
                             other,
-                            "Only the very last variant may be denoted with `#[rkyv(other)]`",
+                            "Only the very last variant may be denoted with \
+                             `#[rkyv(other)]`",
                         ));
                     }
                     let variant_attrs =
@@ -269,7 +270,9 @@ fn generate_serialize_body(
                                 other = variant_attrs.other;
                                 Ok(quote! { _ => #resolver::#variant })
                             } else {
-                                Ok(quote! { #name::#variant => #resolver::#variant })
+                                Ok(quote! {
+                                    #name::#variant => #resolver::#variant
+                                })
                             }
                         }
                     }
