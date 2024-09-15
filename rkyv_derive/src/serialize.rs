@@ -6,7 +6,7 @@ use syn::{
 };
 
 use crate::{
-    attributes::{Attributes, FieldAttributes},
+    attributes::{Attributes, FieldAttributes, VariantAttributes},
     util::{strip_generics_from_path, strip_raw},
 };
 
@@ -178,10 +178,19 @@ fn generate_serialize_body(
             Fields::Unit => quote! { #resolver },
         },
         Data::Enum(ref data) => {
+            let mut other: Option<Path> = None;
             let serialize_arms = data
                 .variants
                 .iter()
                 .map(|v| {
+                    if let Some(ref other) = other {
+                        return Err(Error::new_spanned(
+                            other,
+                            "Only the very last variant may be denoted with `#[rkyv(other)]`",
+                        ));
+                    }
+                    let variant_attrs =
+                        VariantAttributes::parse(attributes, v)?;
                     let variant = &v.ident;
                     match v.fields {
                         Fields::Named(ref fields) => {
@@ -255,9 +264,14 @@ fn generate_serialize_body(
                                 ) => #resolver::#variant(#(#fields,)*)
                             })
                         }
-                        Fields::Unit => Ok(
-                            quote! { #name::#variant => #resolver::#variant },
-                        ),
+                        Fields::Unit => {
+                            if variant_attrs.other.is_some() {
+                                other = variant_attrs.other;
+                                Ok(quote! { _ => #resolver::#variant })
+                            } else {
+                                Ok(quote! { #name::#variant => #resolver::#variant })
+                            }
+                        }
                     }
                 })
                 .collect::<Result<Vec<_>, Error>>()?;
