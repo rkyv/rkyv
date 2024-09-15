@@ -116,3 +116,32 @@ fn main() -> Result<(), Failure> {
 
     Ok(())
 }
+
+#[allow(unused)]
+mod another_remote {
+    // Another remote type, this time an enum.
+    #[non_exhaustive] // <- notice this inconvenience too
+    pub enum Qux {
+        Unit,
+        Tuple(i32),
+        Struct { value: bool },
+    }
+}
+
+#[allow(unused)]
+// Enums work similarly
+#[derive(Archive, Serialize)]
+#[rkyv(remote = another_remote::Qux)]
+enum QuxDef {
+    // Variants must have the same name and type, e.g. a remote *tuple*
+    // variant requires a local *tuple* variant.
+    Unit,
+    // Same as for actual structs - fields of struct variants may be omitted.
+    Struct {},
+    // If `Serialize` should be derived and either the remote enum is
+    // `#[non_exhaustive]` or any of its variants were omitted (notice the
+    // `Tuple(i32)` variant is missing), then the last variant *must* be a
+    // unit variant with the `#[rkyv(other)]` attribute.
+    #[rkyv(other)]
+    Unknown,
+}
