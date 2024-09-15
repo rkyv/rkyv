@@ -23,9 +23,6 @@ use crate::{
 
 /// A vector of bytes that aligns its memory to the specified alignment.
 ///
-/// The alignment also applies to `ArchivedAlignedVec`, which is useful for
-/// aligning opaque bytes inside of an archived data type.
-///
 /// ```
 /// # use rkyv::util::AlignedVec;
 /// let bytes = AlignedVec::<4096>::with_capacity(1);
