@@ -1,4 +1,5 @@
 [build]
+rustflags = ["-C", "target-cpu=native"]
 rustdocflags = ["--cfg", "docsrs"]
 
 [env]

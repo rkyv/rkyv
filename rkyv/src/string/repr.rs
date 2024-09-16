@@ -1,6 +1,11 @@
 //! An archived string representation that supports inlining short strings.
 
-use core::{marker::PhantomPinned, mem, ptr, slice, str};
+use core::{
+    marker::PhantomPinned,
+    mem,
+    ptr::{self, copy_nonoverlapping, write_bytes},
+    slice, str,
+};
 
 use munge::munge;
 use rancor::{Panic, ResultExt as _, Source};
@@ -175,12 +180,12 @@ impl ArchivedStringRepr {
         // valid pointer to bytes because it is a subfield of `out` which the
         // caller has guaranteed points to a valid location.
         unsafe {
-            for i in 0..value.len() {
-                out_bytes.cast::<u8>().add(i).write(value.as_bytes()[i]);
-            }
-            for i in value.len()..INLINE_CAPACITY {
-                out_bytes.cast::<u8>().add(i).write(0xff);
-            }
+            write_bytes(out_bytes, 0xff, 1);
+            copy_nonoverlapping(
+                value.as_bytes().as_ptr(),
+                out_bytes.cast(),
+                value.len(),
+            );
         }
     }
 

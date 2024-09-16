@@ -564,17 +564,15 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// assert_eq!(vec.as_slice(), &[1, 2, 3, 4]);
     /// ```
     pub fn extend_from_slice(&mut self, other: &[u8]) {
-        if !other.is_empty() {
-            self.reserve(other.len());
-            unsafe {
-                core::ptr::copy_nonoverlapping(
-                    other.as_ptr(),
-                    self.as_mut_ptr().add(self.len()),
-                    other.len(),
-                );
-            }
-            self.len += other.len();
+        self.reserve(other.len());
+        unsafe {
+            core::ptr::copy_nonoverlapping(
+                other.as_ptr(),
+                self.as_mut_ptr().add(self.len()),
+                other.len(),
+            );
         }
+        self.len += other.len();
     }
 
     /// Removes the last element from a vector and returns it, or `None` if it

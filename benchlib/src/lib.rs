@@ -10,7 +10,7 @@ pub use self::generate::*;
 macro_rules! bench_dataset {
     ($ty:ty = $generate:expr) => {
         #[$crate::divan::bench(min_time = std::time::Duration::from_secs(3))]
-        pub fn serialize(bencher: $crate::divan::Bencher) {
+        pub fn ser(bencher: $crate::divan::Bencher) {
             let data = $generate;
             let mut bytes = rkyv::util::AlignedVec::<16>::new();
 
@@ -19,7 +19,7 @@ macro_rules! bench_dataset {
                 buffer.clear();
 
                 bytes = $crate::divan::black_box(
-                    rkyv::api::high::to_bytes_in::<_, rkyv::rancor::Panic>(
+                    rkyv::api::high::to_bytes_in::<_, rkyv::rancor::Failure>(
                         $crate::divan::black_box(&data),
                         $crate::divan::black_box(buffer),
                     )
@@ -29,13 +29,13 @@ macro_rules! bench_dataset {
         }
 
         #[$crate::divan::bench(min_time = std::time::Duration::from_secs(3))]
-        pub fn deserialize(bencher: $crate::divan::Bencher) {
+        pub fn de(bencher: $crate::divan::Bencher) {
             let bytes =
-                rkyv::api::high::to_bytes::<rkyv::rancor::Panic>(&$generate)
+                rkyv::api::high::to_bytes::<rkyv::rancor::Failure>(&$generate)
                     .unwrap();
 
             bencher.bench_local(|| {
-                rkyv::from_bytes::<$ty, rkyv::rancor::Panic>(
+                rkyv::from_bytes::<$ty, rkyv::rancor::Failure>(
                     $crate::divan::black_box(&bytes),
                 )
                 .unwrap()
@@ -43,13 +43,13 @@ macro_rules! bench_dataset {
         }
 
         #[$crate::divan::bench(min_time = std::time::Duration::from_secs(3))]
-        pub fn check_bytes(bencher: $crate::divan::Bencher) {
+        pub fn check(bencher: $crate::divan::Bencher) {
             let bytes =
-                rkyv::api::high::to_bytes::<rkyv::rancor::Panic>(&$generate)
+                rkyv::api::high::to_bytes::<rkyv::rancor::Failure>(&$generate)
                     .unwrap();
 
             bencher.bench_local(|| {
-                rkyv::access::<rkyv::Archived<$ty>, rkyv::rancor::Panic>(
+                rkyv::access::<rkyv::Archived<$ty>, rkyv::rancor::Failure>(
                     $crate::divan::black_box(&bytes),
                 )
             })
