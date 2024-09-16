@@ -21,7 +21,7 @@ pub fn impl_struct(
         archived_type,
         resolver_name,
         ..
-    } = &printing;
+    } = printing;
 
     let mut result = TokenStream::new();
 
@@ -73,12 +73,17 @@ pub fn impl_struct(
             Ident::new("self", Span::call_site()),
         )?;
 
+        let copy_optimization =
+            generate_copy_optimization(printing, generics, attributes, fields)?;
+
         quote! {
             impl #impl_generics #rkyv_path::Archive for #name #ty_generics
             #where_clause
             {
                 type Archived = #archived_type;
                 type Resolver = #resolver_name #ty_generics;
+
+                #copy_optimization
 
                 // Some resolvers will be (), this allow is to prevent clippy
                 // from complaining.
@@ -340,4 +345,58 @@ fn generate_partial_ord_impl(
             }
         }
     })
+}
+
+fn generate_copy_optimization(
+    printing: &Printing,
+    generics: &Generics,
+    attributes: &Attributes,
+    fields: &Fields,
+) -> Result<Option<TokenStream>, Error> {
+    if !generics.params.is_empty() {
+        return Ok(None);
+    }
+
+    for f in fields.iter() {
+        if FieldAttributes::parse(attributes, f)?.with.is_some() {
+            return Ok(None);
+        }
+    }
+
+    let Printing {
+        rkyv_path,
+        name,
+        archived_name,
+        ..
+    } = printing;
+
+    let field_sizes = fields.iter().map(|f| {
+        let ty = &f.ty;
+
+        quote! {
+            ::core::mem::size_of::<#ty>()
+        }
+    });
+    let padding_check = quote! {
+        0 #(+ #field_sizes)* == ::core::mem::size_of::<#name>()
+    };
+
+    let field_checks = fields.iter().zip(fields.members()).map(|(f, m)| {
+        let ty = &f.ty;
+
+        quote! {
+            <#ty as #rkyv_path::Archive>::COPY_OPTIMIZATION.is_enabled()
+            && ::core::mem::offset_of!(#name, #m)
+                == ::core::mem::offset_of!(#archived_name, #m)
+        }
+    });
+
+    Ok(Some(quote! {
+        const COPY_OPTIMIZATION: #rkyv_path::traits::CopyOptimization<Self> =
+            unsafe {
+                #rkyv_path::traits::CopyOptimization::enable_if(
+                    #padding_check #(&& #field_checks)*
+                )
+            };
+    }))
 }
