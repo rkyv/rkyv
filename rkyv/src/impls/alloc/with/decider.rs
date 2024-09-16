@@ -3,6 +3,7 @@ use core::mem::ManuallyDrop;
 use rkyv_derive::Portable;
 
 use crate::{
+    alloc::boxed::Box,
     boxed::{ArchivedBox, BoxResolver},
     niche::decider::{Decider, Null},
     traits::ArchivePointee,
