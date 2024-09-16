@@ -178,22 +178,26 @@ fn full_enum() {
 
     #[derive(Archive, Serialize, Deserialize)]
     #[rkyv(remote = Remote::<'a, A>)]
-    // Variant fields may be omitted but no variants themselves
+    // If a variant is missing (or the remote type is `#[non_exhaustive]`), one
+    // *unit* variant must be denoted with `#[rkyv(other)]`.
     enum Partial<'a, A> {
         A,
-        B(),
-        C { a: PhantomData<&'a A> },
+        C {
+            a: PhantomData<&'a A>,
+        },
+        #[rkyv(other)]
+        Other,
     }
 
     impl<'a, A> From<Partial<'a, A>> for Remote<'a, A> {
         fn from(archived: Partial<'a, A>) -> Self {
             match archived {
                 Partial::A => Remote::A,
-                Partial::B() => Remote::B(42),
                 Partial::C { a } => Remote::C {
                     a,
                     b: Some(Foo::default()),
                 },
+                Partial::Other => Remote::B(42),
             }
         }
     }

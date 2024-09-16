@@ -2,8 +2,8 @@ use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::{quote, ToTokens};
 use syn::{
     meta::ParseNestedMeta, parenthesized, parse::Parse, parse_quote,
-    punctuated::Punctuated, DeriveInput, Error, Field, Ident, Meta, Path,
-    Token, Type, WherePredicate,
+    punctuated::Punctuated, DeriveInput, Error, Field, Fields, Ident, Meta,
+    Path, Token, Type, Variant, WherePredicate,
 };
 
 fn try_set_attribute<T: ToTokens>(
@@ -406,5 +406,50 @@ impl FieldAttributes {
         }
 
         result
+    }
+}
+
+#[derive(Default)]
+pub struct VariantAttributes {
+    pub other: Option<Path>,
+}
+
+impl VariantAttributes {
+    fn parse_meta(&mut self, meta: ParseNestedMeta<'_>) -> Result<(), Error> {
+        if meta.path.is_ident("other") {
+            self.other = Some(meta.path);
+            Ok(())
+        } else {
+            Err(meta.error("unrecognized rkyv arguments"))
+        }
+    }
+
+    pub fn parse(
+        attributes: &Attributes,
+        input: &Variant,
+    ) -> Result<Self, Error> {
+        let mut result = Self::default();
+
+        for attr in input.attrs.iter() {
+            if attr.path().is_ident("rkyv") {
+                attr.parse_nested_meta(|meta| result.parse_meta(meta))?;
+            }
+        }
+
+        if result.other.is_some() {
+            if attributes.remote.is_none() {
+                return Err(Error::new_spanned(
+                    result.other,
+                    "`#[rkyv(other)]` may only be used with remote derive",
+                ));
+            } else if !matches!(input.fields, Fields::Unit) {
+                return Err(Error::new_spanned(
+                    result.other,
+                    "`#[rkyv(other)]` may only be used on unit variants",
+                ));
+            }
+        }
+
+        Ok(result)
     }
 }
