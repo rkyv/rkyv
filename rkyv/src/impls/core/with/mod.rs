@@ -5,6 +5,7 @@
     target_has_atomic = "64",
 ))]
 mod atomic;
+mod decider;
 
 use core::{
     cell::{Cell, UnsafeCell},
@@ -23,20 +24,24 @@ use rancor::Fallible;
 
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
-    niche::option_nonzero::{
-        ArchivedOptionNonZeroI128, ArchivedOptionNonZeroI16,
-        ArchivedOptionNonZeroI32, ArchivedOptionNonZeroI64,
-        ArchivedOptionNonZeroI8, ArchivedOptionNonZeroIsize,
-        ArchivedOptionNonZeroU128, ArchivedOptionNonZeroU16,
-        ArchivedOptionNonZeroU32, ArchivedOptionNonZeroU64,
-        ArchivedOptionNonZeroU8, ArchivedOptionNonZeroUsize,
+    niche::{
+        decider::Decider,
+        niched_option::NichedOption,
+        option_nonzero::{
+            ArchivedOptionNonZeroI128, ArchivedOptionNonZeroI16,
+            ArchivedOptionNonZeroI32, ArchivedOptionNonZeroI64,
+            ArchivedOptionNonZeroI8, ArchivedOptionNonZeroIsize,
+            ArchivedOptionNonZeroU128, ArchivedOptionNonZeroU16,
+            ArchivedOptionNonZeroU32, ArchivedOptionNonZeroU64,
+            ArchivedOptionNonZeroU8, ArchivedOptionNonZeroUsize,
+        },
     },
     option::ArchivedOption,
     primitive::{FixedNonZeroIsize, FixedNonZeroUsize},
     traits::NoUndef,
     with::{
         ArchiveWith, AsBox, DeserializeWith, Identity, Inline, InlineAsBox,
-        Map, Niche, SerializeWith, Skip, Unsafe,
+        Map, Niche, Nicher, SerializeWith, Skip, Unsafe,
     },
     Archive, ArchiveUnsized, Deserialize, Place, Serialize, SerializeUnsized,
 };
@@ -385,6 +390,71 @@ where
     }
 }
 
+// Nicher
+
+impl<T, D> ArchiveWith<Option<T>> for Nicher<D>
+where
+    T: Archive,
+    D: Decider<T>,
+{
+    type Archived = NichedOption<T, D>;
+    type Resolver = Option<T::Resolver>;
+
+    fn resolve_with(
+        field: &Option<T>,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        NichedOption::<T, D>::resolve_from_option(
+            field.as_ref(),
+            resolver,
+            out,
+        );
+    }
+}
+
+impl<T, D, S> SerializeWith<Option<T>, S> for Nicher<D>
+where
+    T: Serialize<S>,
+    D: Decider<T>,
+    S: Fallible + ?Sized,
+{
+    fn serialize_with(
+        field: &Option<T>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        NichedOption::<T, D>::serialize_from_option(field.as_ref(), serializer)
+    }
+}
+
+impl<T, N, D> DeserializeWith<NichedOption<T, N>, Option<T>, D> for Nicher<N>
+where
+    T: Archive<Archived: Deserialize<T, D>>,
+    N: Decider<T>,
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(
+        field: &NichedOption<T, N>,
+        deserializer: &mut D,
+    ) -> Result<Option<T>, D::Error> {
+        Deserialize::deserialize(field, deserializer)
+    }
+}
+
+impl<T, N, D> Deserialize<Option<T>, D> for NichedOption<T, N>
+where
+    T: Archive<Archived: Deserialize<T, D>>,
+    N: Decider<T>,
+    D: Fallible + ?Sized,
+{
+    fn deserialize(&self, deserializer: &mut D) -> Result<Option<T>, D::Error> {
+        match self.as_ref() {
+            Some(value) => value.deserialize(deserializer).map(Some),
+            None => Ok(None),
+        }
+    }
+}
+
 // Inline
 
 impl<F: Archive> ArchiveWith<&F> for Inline {
@@ -553,13 +623,16 @@ where
 
 #[cfg(test)]
 mod tests {
+    use core::f32;
+
     use crate::{
         api::test::{deserialize, roundtrip, roundtrip_with, to_archived},
+        niche::decider::NaN,
         rancor::Fallible,
         ser::Writer,
         with::{
             ArchiveWith, AsBox, DeserializeWith, Identity, Inline, InlineAsBox,
-            Niche, SerializeWith, Unsafe, With,
+            Niche, Nicher, SerializeWith, Unsafe, With,
         },
         Archive, Archived, Deserialize, Place, Serialize,
     };
@@ -805,6 +878,55 @@ mod tests {
             assert!(archived.d.is_none());
             assert!(archived.e.is_none());
             assert!(archived.f.is_none());
+        });
+
+        assert!(
+            size_of::<Archived<Test>>() < size_of::<Archived<TestNoNiching>>()
+        );
+    }
+
+    #[test]
+    fn with_niche_float_nan() {
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate)]
+        struct Test {
+            #[rkyv(with = Nicher<NaN>)]
+            a: Option<f32>,
+            #[rkyv(with = Nicher<NaN>)]
+            b: Option<f64>,
+        }
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate)]
+        struct TestNoNiching {
+            a: Option<f32>,
+            b: Option<f64>,
+        }
+
+        let value = Test {
+            a: Some(123.45),
+            b: Some(123.45),
+        };
+        to_archived(&value, |archived| {
+            assert!(archived.a.is_some());
+            assert_eq!(archived.a.as_ref().unwrap().to_native(), 123.45);
+            assert!(archived.b.is_some());
+            assert_eq!(archived.b.as_ref().unwrap().to_native(), 123.45);
+        });
+
+        let value = Test {
+            a: Some(f32::NAN),
+            b: Some(f64::NAN),
+        };
+        to_archived(&value, |archived| {
+            assert!(archived.a.is_none());
+            assert!(archived.b.is_none());
+        });
+
+        let value = Test { a: None, b: None };
+        to_archived(&value, |archived| {
+            assert!(archived.a.is_none());
+            assert!(archived.b.is_none());
         });
 
         assert!(

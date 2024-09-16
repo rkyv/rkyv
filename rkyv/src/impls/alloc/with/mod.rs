@@ -1,3 +1,5 @@
+mod decider;
+
 use core::{marker::PhantomData, ops::ControlFlow};
 
 use ptr_meta::Pointee;
@@ -571,7 +573,8 @@ mod tests {
             string::{String, ToString},
         },
         api::test::{roundtrip, to_archived},
-        with::{AsOwned, AsVec, InlineAsBox, Map, MapKV, Niche},
+        niche::decider::Null,
+        with::{AsOwned, AsVec, InlineAsBox, Map, MapKV, Niche, Nicher},
         Archive, Deserialize, Serialize,
     };
 
@@ -736,8 +739,15 @@ mod tests {
     fn with_niche_box() {
         #[derive(Archive, Serialize, Deserialize)]
         #[rkyv(crate)]
-        struct Test {
+        struct TestNiche {
             #[rkyv(with = Niche)]
+            inner: Option<Box<String>>,
+        }
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate)]
+        struct TestNullNicher {
+            #[rkyv(with = Nicher<Null>)]
             inner: Option<Box<String>>,
         }
 
@@ -747,7 +757,7 @@ mod tests {
             inner: Option<Box<String>>,
         }
 
-        let value = Test {
+        let value = TestNiche {
             inner: Some(Box::new("hello world".to_string())),
         };
         to_archived(&value, |archived| {
@@ -756,11 +766,32 @@ mod tests {
             assert_eq!(archived.inner, value.inner);
         });
 
-        let value = Test { inner: None };
+        let value = TestNiche { inner: None };
         to_archived(&value, |archived| {
             assert!(archived.inner.is_none());
             assert_eq!(archived.inner, value.inner);
         });
-        assert!(size_of::<ArchivedTest>() < size_of::<ArchivedTestNoNiching>());
+        assert!(
+            size_of::<ArchivedTestNiche>() < size_of::<ArchivedTestNoNiching>()
+        );
+
+        let value = TestNullNicher {
+            inner: Some(Box::new("hello world".to_string())),
+        };
+        to_archived(&value, |archived| {
+            assert!(archived.inner.is_some());
+            assert_eq!(&**archived.inner.as_ref().unwrap(), "hello world");
+            assert_eq!(archived.inner, value.inner);
+        });
+
+        let value = TestNullNicher { inner: None };
+        to_archived(&value, |archived| {
+            assert!(archived.inner.is_none());
+            assert_eq!(archived.inner, value.inner);
+        });
+        assert!(
+            size_of::<ArchivedTestNullNicher>()
+                < size_of::<ArchivedTestNoNiching>()
+        );
     }
 }

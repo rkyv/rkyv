@@ -473,6 +473,14 @@ pub struct AsVec;
 #[derive(Debug)]
 pub struct Niche;
 
+/// A wrapper that niches based on a generic [`Decider`].
+///
+/// [`Decider`]: crate::niche::decider::Decider
+#[derive(Debug)]
+pub struct Nicher<D> {
+    _phantom: PhantomData<D>,
+}
+
 /// A wrapper that converts a [`SystemTime`](std::time::SystemTime) to a
 /// [`Duration`](std::time::Duration) since
 /// [`UNIX_EPOCH`](std::time::UNIX_EPOCH).
