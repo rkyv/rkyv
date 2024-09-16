@@ -6,6 +6,7 @@ use munge::munge;
 use rancor::{Fallible, Source};
 
 use crate::{
+    primitive::FixedUsize,
     seal::Seal,
     ser::{Sharing, SharingExt, Writer, WriterExt as _},
     traits::ArchivePointee,
@@ -77,7 +78,11 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
         out: Place<Self>,
     ) {
         munge!(let ArchivedRc { ptr, .. } = out);
-        RelPtr::emplace_unsized(resolver.pos, value.archived_metadata(), ptr);
+        RelPtr::emplace_unsized(
+            resolver.pos as usize,
+            value.archived_metadata(),
+            ptr,
+        );
     }
 
     /// Serializes an archived `Rc` from a given reference.
@@ -99,7 +104,9 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
             serializer.pad(1)?;
         }
 
-        Ok(RcResolver { pos })
+        Ok(RcResolver {
+            pos: pos as FixedUsize,
+        })
     }
 }
 
@@ -197,7 +204,7 @@ impl<T, F> fmt::Pointer for ArchivedRc<T, F> {
 
 /// The resolver for `Rc`.
 pub struct RcResolver {
-    pos: usize,
+    pos: FixedUsize,
 }
 
 /// An archived `rc::Weak`.

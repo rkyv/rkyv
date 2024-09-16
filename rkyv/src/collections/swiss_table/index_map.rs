@@ -19,7 +19,7 @@ use crate::{
         util::{Entry, EntryAdapter, EntryResolver},
     },
     hash::{hash_value, FxHasher64},
-    primitive::ArchivedUsize,
+    primitive::{ArchivedUsize, FixedUsize},
     seal::Seal,
     ser::{Allocator, Writer, WriterExt as _},
     Place, Portable, RelPtr, Serialize,
@@ -296,7 +296,7 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
             resolver.table_resolver,
             table,
         );
-        RelPtr::emplace(resolver.entries_pos, entries);
+        RelPtr::emplace(resolver.entries_pos as usize, entries);
     }
 
     /// Serializes an iterator of key-value pairs as an index map.
@@ -352,7 +352,7 @@ impl<K, V, H: Hasher + Default> ArchivedIndexMap<K, V, H> {
 
                 Ok(IndexMapResolver {
                     table_resolver,
-                    entries_pos,
+                    entries_pos: entries_pos as FixedUsize,
                 })
             },
         )?
@@ -488,7 +488,7 @@ impl<K, V> FusedIterator for Values<'_, K, V> {}
 /// The resolver for an `IndexMap`.
 pub struct IndexMapResolver {
     table_resolver: HashTableResolver,
-    entries_pos: usize,
+    entries_pos: FixedUsize,
 }
 
 #[cfg(feature = "bytecheck")]

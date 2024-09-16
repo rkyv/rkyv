@@ -33,7 +33,7 @@ use rancor::{fail, Fallible, OptionExt, Panic, ResultExt as _, Source};
 
 use crate::{
     collections::util::IteratorLengthMismatch,
-    primitive::ArchivedUsize,
+    primitive::{ArchivedUsize, FixedUsize},
     seal::Seal,
     ser::{Allocator, Writer, WriterExt},
     simd::{Bitmask, Group, MAX_GROUP_WIDTH},
@@ -489,7 +489,9 @@ impl<T> ArchivedHashTable<T> {
                                 let pos = serializer.pos();
                                 serializer.write(control_bytes)?;
 
-                                Ok(HashTableResolver { pos })
+                                Ok(HashTableResolver {
+                                    pos: pos as FixedUsize,
+                                })
                             },
                         )?
                     },
@@ -510,7 +512,7 @@ impl<T> ArchivedHashTable<T> {
         if len == 0 {
             RawRelPtr::emplace_invalid(ptr);
         } else {
-            RawRelPtr::emplace(resolver.pos, ptr);
+            RawRelPtr::emplace(resolver.pos as usize, ptr);
         }
 
         len.resolve((), out_len);
@@ -525,7 +527,7 @@ impl<T> ArchivedHashTable<T> {
 
 /// The resolver for [`ArchivedHashTable`].
 pub struct HashTableResolver {
-    pos: usize,
+    pos: FixedUsize,
 }
 
 struct ControlIter {

@@ -11,7 +11,7 @@ use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    primitive::ArchivedUsize,
+    primitive::{ArchivedUsize, FixedUsize},
     seal::Seal,
     ser::{Allocator, Writer, WriterExt as _},
     Archive, Place, Portable, RelPtr, Serialize, SerializeUnsized,
@@ -82,7 +82,7 @@ impl<T> ArchivedVec<T> {
         out: Place<Self>,
     ) {
         munge!(let ArchivedVec { ptr, len: out_len } = out);
-        RelPtr::emplace(resolver.pos, ptr);
+        RelPtr::emplace(resolver.pos as usize, ptr);
         usize::resolve(&len, (), out_len);
     }
 
@@ -95,7 +95,7 @@ impl<T> ArchivedVec<T> {
         serializer: &mut S,
     ) -> Result<VecResolver, S::Error> {
         Ok(VecResolver {
-            pos: slice.serialize_unsized(serializer)?,
+            pos: slice.serialize_unsized(serializer)? as FixedUsize,
         })
     }
 
@@ -132,7 +132,9 @@ impl<T> ArchivedVec<T> {
                     }
                 }
 
-                Ok(VecResolver { pos })
+                Ok(VecResolver {
+                    pos: pos as FixedUsize,
+                })
             },
         )?
     }
@@ -163,7 +165,9 @@ impl<T> ArchivedVec<T> {
                 serializer.resolve_aligned(value.borrow(), resolver)?;
             }
 
-            Ok(VecResolver { pos })
+            Ok(VecResolver {
+                pos: pos as FixedUsize,
+            })
         }
     }
 }
@@ -266,14 +270,16 @@ impl<T: PartialOrd> PartialOrd<ArchivedVec<T>> for [T] {
 
 /// The resolver for [`ArchivedVec`].
 pub struct VecResolver {
-    pos: usize,
+    pos: FixedUsize,
 }
 
 impl VecResolver {
     /// Creates a new `VecResolver` from a position in the output buffer where
     /// the elements of the archived vector are stored.
     pub fn from_pos(pos: usize) -> Self {
-        Self { pos }
+        Self {
+            pos: pos as FixedUsize,
+        }
     }
 }
 

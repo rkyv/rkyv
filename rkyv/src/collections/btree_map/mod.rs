@@ -341,7 +341,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         if len == 0 {
             RelPtr::emplace_invalid(root);
         } else {
-            RelPtr::emplace(resolver.root_node_pos, root);
+            RelPtr::emplace(resolver.root_node_pos as usize, root);
         }
 
         out_len.write(ArchivedUsize::from_native(len as FixedUsize));
@@ -475,7 +475,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
                 }
 
                 Ok(BTreeMapResolver {
-                    root_node_pos: child_node_pos.unwrap(),
+                    root_node_pos: child_node_pos.unwrap() as FixedUsize,
                 })
             },
         )?
@@ -789,7 +789,7 @@ where
 
 /// The resolver for [`ArchivedBTreeMap`].
 pub struct BTreeMapResolver {
-    root_node_pos: usize,
+    root_node_pos: FixedUsize,
 }
 
 #[cfg(feature = "bytecheck")]

@@ -12,7 +12,8 @@ use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    ser::Writer, ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
+    primitive::FixedUsize, ser::Writer, ArchiveUnsized, Place, Portable,
+    RelPtr, SerializeUnsized,
 };
 
 /// An archived [`CString`](crate::alloc::ffi::CString).
@@ -63,7 +64,11 @@ impl ArchivedCString {
         out: Place<Self>,
     ) {
         munge!(let ArchivedCString { ptr } = out);
-        RelPtr::emplace_unsized(resolver.pos, c_str.archived_metadata(), ptr);
+        RelPtr::emplace_unsized(
+            resolver.pos as usize,
+            c_str.archived_metadata(),
+            ptr,
+        );
     }
 
     /// Serializes a C string.
@@ -72,7 +77,7 @@ impl ArchivedCString {
         serializer: &mut S,
     ) -> Result<CStringResolver, S::Error> {
         Ok(CStringResolver {
-            pos: c_str.serialize_unsized(serializer)?,
+            pos: c_str.serialize_unsized(serializer)? as FixedUsize,
         })
     }
 }
@@ -160,7 +165,7 @@ impl PartialOrd for ArchivedCString {
 
 /// The resolver for `CString`.
 pub struct CStringResolver {
-    pos: usize,
+    pos: FixedUsize,
 }
 
 #[cfg(feature = "bytecheck")]

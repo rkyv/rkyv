@@ -6,8 +6,8 @@ use munge::munge;
 use rancor::Fallible;
 
 use crate::{
-    seal::Seal, traits::ArchivePointee, ArchiveUnsized, Place, Portable,
-    RelPtr, SerializeUnsized,
+    primitive::FixedUsize, seal::Seal, traits::ArchivePointee, ArchiveUnsized,
+    Place, Portable, RelPtr, SerializeUnsized,
 };
 
 /// An archived [`Box`].
@@ -57,7 +57,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
         S: Fallible + ?Sized,
     {
         Ok(BoxResolver {
-            pos: value.serialize_unsized(serializer)?,
+            pos: value.serialize_unsized(serializer)? as FixedUsize,
         })
     }
 
@@ -69,7 +69,7 @@ impl<T: ArchivePointee + ?Sized> ArchivedBox<T> {
         out: Place<Self>,
     ) {
         munge!(let ArchivedBox { ptr } = out);
-        RelPtr::emplace_unsized(resolver.pos, metadata, ptr);
+        RelPtr::emplace_unsized(resolver.pos as usize, metadata, ptr);
     }
 }
 
@@ -147,7 +147,7 @@ impl<T: ArchivePointee + ?Sized> fmt::Pointer for ArchivedBox<T> {
 
 /// The resolver for `Box`.
 pub struct BoxResolver {
-    pos: usize,
+    pos: FixedUsize,
 }
 
 impl BoxResolver {
@@ -156,7 +156,9 @@ impl BoxResolver {
     /// In most cases, you won't need to create a [`BoxResolver`] yourself and
     /// can instead obtain it through [`ArchivedBox::serialize_from_ref`].
     pub fn from_pos(pos: usize) -> Self {
-        Self { pos }
+        Self {
+            pos: pos as FixedUsize,
+        }
     }
 }
 

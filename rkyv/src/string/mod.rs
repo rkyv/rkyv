@@ -18,7 +18,9 @@ use munge::munge;
 use rancor::{fail, Fallible, Source};
 use repr::{ArchivedStringRepr, INLINE_CAPACITY};
 
-use crate::{seal::Seal, Place, Portable, SerializeUnsized};
+use crate::{
+    primitive::FixedUsize, seal::Seal, Place, Portable, SerializeUnsized,
+};
 
 /// An archived [`String`].
 ///
@@ -68,7 +70,7 @@ impl ArchivedString {
             unsafe {
                 ArchivedStringRepr::emplace_out_of_line(
                     value,
-                    resolver.pos,
+                    resolver.pos as usize,
                     repr,
                 );
             }
@@ -104,7 +106,7 @@ impl ArchivedString {
             fail!(StringTooLongError);
         } else {
             Ok(StringResolver {
-                pos: value.serialize_unsized(serializer)?,
+                pos: value.serialize_unsized(serializer)? as FixedUsize,
             })
         }
     }
@@ -254,7 +256,7 @@ impl PartialOrd<ArchivedString> for str {
 
 /// The resolver for `String`.
 pub struct StringResolver {
-    pos: usize,
+    pos: FixedUsize,
 }
 
 #[cfg(feature = "bytecheck")]
