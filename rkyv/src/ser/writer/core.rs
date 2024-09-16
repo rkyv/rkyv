@@ -178,7 +178,7 @@ mod tests {
     };
 
     #[test]
-    fn zeroes_padding() {
+    fn zeros_padding() {
         use core::mem::size_of;
 
         use crate::{Archive, Serialize};

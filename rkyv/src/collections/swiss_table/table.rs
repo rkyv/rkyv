@@ -23,8 +23,9 @@ use core::{
     error::Error,
     fmt,
     marker::PhantomData,
-    mem::size_of,
+    mem::{size_of, MaybeUninit},
     ptr::{self, null, NonNull},
+    slice::from_raw_parts,
 };
 
 use munge::munge;
@@ -446,6 +447,16 @@ impl<T> ArchivedHashTable<T> {
                             }
                         }
 
+                        let mut zeros = MaybeUninit::<T>::uninit();
+                        unsafe {
+                            zeros.as_mut_ptr().write_bytes(0, 1);
+                        }
+                        let zeros = unsafe {
+                            from_raw_parts(
+                                zeros.as_ptr().cast::<u8>(),
+                                size_of::<T>(),
+                            )
+                        };
                         SerVec::with_capacity(
                             serializer,
                             len,
@@ -471,7 +482,7 @@ impl<T> ArchivedHashTable<T> {
                                             )?;
                                         }
                                     } else {
-                                        serializer.pad(size_of::<T>())?;
+                                        serializer.write(zeros)?;
                                     }
                                 }
 

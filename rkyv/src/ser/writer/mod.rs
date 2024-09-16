@@ -83,11 +83,11 @@ where
 pub trait WriterExt<E>: Writer<E> {
     /// Advances the given number of bytes as padding.
     fn pad(&mut self, padding: usize) -> Result<(), E> {
-        const MAX_ZEROES: usize = 32;
-        const ZEROES: [u8; MAX_ZEROES] = [0; MAX_ZEROES];
-        debug_assert!(padding < MAX_ZEROES);
+        const MAX_ZEROS: usize = 32;
+        const ZEROS: [u8; MAX_ZEROS] = [0; MAX_ZEROS];
+        debug_assert!(padding < MAX_ZEROS);
 
-        self.write(&ZEROES[0..padding])
+        self.write(&ZEROS[0..padding])
     }
 
     /// Aligns the position of the serializer to the given alignment.
