@@ -1,9 +1,6 @@
 use crate::{
     alloc::boxed::Box,
-    niche::{
-        decider::{Decider, Null},
-        niched_option::NichedOption,
-    },
+    niche::decider::{Decider, Null},
     ArchiveUnsized, Place, RelPtr,
 };
 
@@ -13,8 +10,8 @@ where
 {
     type Niched = RelPtr<T::Archived>;
 
-    fn is_none(option: &NichedOption<Box<T>, Self>) -> bool {
-        unsafe { &option.niche }.is_invalid()
+    fn is_none(niched: &Self::Niched) -> bool {
+        niched.is_invalid()
     }
 
     fn resolve_niche(out: Place<Self::Niched>) {

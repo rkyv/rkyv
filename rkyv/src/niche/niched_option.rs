@@ -1,4 +1,4 @@
-//! A niched archived `Option<T>` that uses less space based on a niching
+//! A niched archived `Option<T>` that may use less space based on a niching
 //! [`Decider`].
 
 use core::{cmp, fmt, mem::ManuallyDrop};
@@ -13,37 +13,51 @@ use crate::{Archive, Archived, Place, Portable, Serialize};
 ///
 /// Depending on `D`, it may use less space by storing the `None` variant in a
 /// custom way.
-#[repr(C)]
 #[derive(Portable)]
 #[rkyv(crate)]
-pub union NichedOption<T, D>
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
+#[repr(transparent)]
+pub struct NichedOption<T, D>
 where
     T: Archive,
     D: Decider<T> + ?Sized,
 {
-    /// The archived representation of a `Some` value.
-    pub some: ManuallyDrop<<T as Archive>::Archived>,
-    /// The archived representation of a `None` value.
-    pub niche: ManuallyDrop<<D as Decider<T>>::Niched>,
+    repr: Repr<T, D>,
+}
+
+#[repr(C)]
+#[derive(Portable)]
+#[rkyv(crate)]
+union Repr<T, D>
+where
+    T: Archive,
+    D: Decider<T> + ?Sized,
+{
+    some: ManuallyDrop<<T as Archive>::Archived>,
+    niche: ManuallyDrop<<D as Decider<T>>::Niched>,
 }
 
 #[cfg(feature = "bytecheck")]
 const _: () = {
-    use crate::{bytecheck::CheckBytes, rancor::Source};
+    use crate::bytecheck::CheckBytes;
 
-    unsafe impl<T, D, C> CheckBytes<C> for NichedOption<T, D>
+    unsafe impl<T, D, C> CheckBytes<C> for Repr<T, D>
     where
         T: Archive<Archived: CheckBytes<C>>,
         D: Decider<T, Niched: CheckBytes<C>> + ?Sized,
-        C: Fallible<Error: Source> + ?Sized,
+        C: Fallible + ?Sized,
     {
         unsafe fn check_bytes(
-            _value: *const Self,
-            _context: &mut C,
+            value: *const Self,
+            context: &mut C,
         ) -> Result<(), C::Error> {
-            // TODO
+            unsafe { <D::Niched>::check_bytes(&*(*value).niche, context)? };
 
-            Ok(())
+            if D::is_none(unsafe { &*(*value).niche }) {
+                return Ok(());
+            }
+
+            unsafe { <T::Archived>::check_bytes(&*(*value).some, context) }
         }
     }
 };
@@ -55,25 +69,25 @@ where
 {
     /// Converts to an `Option<&Archived<T>>`.
     pub fn as_ref(&self) -> Option<&Archived<T>> {
-        if D::is_none(self) {
+        if self.is_none() {
             None
         } else {
-            Some(unsafe { &*self.some })
+            Some(unsafe { &*self.repr.some })
         }
     }
 
     /// Converts to an `Option<&mut Archived<T>>`.
     pub fn as_mut(&mut self) -> Option<&mut Archived<T>> {
-        if D::is_none(self) {
+        if self.is_none() {
             None
         } else {
-            Some(unsafe { &mut *self.some })
+            Some(unsafe { &mut *self.repr.some })
         }
     }
 
     /// Returns `true` if the option is a `None` value.
     pub fn is_none(&self) -> bool {
-        D::is_none(self)
+        D::is_none(unsafe { &*self.repr.niche })
     }
 
     /// Returns `true` if the option is a `Some` value.
@@ -90,13 +104,13 @@ where
         match option {
             Some(value) => {
                 let resolver = resolver.expect("non-niched resolver");
-                munge!(let Self { some } = out);
+                munge!(let Self { repr: Repr { some } } = out);
                 value.resolve(resolver, unsafe {
                     some.cast_unchecked::<T::Archived>()
                 });
             }
             None => {
-                munge!(let Self { niche } = out);
+                munge!(let Self { repr: Repr { niche } } = out);
                 D::resolve_niche(unsafe {
                     niche.cast_unchecked::<D::Niched>()
                 });
