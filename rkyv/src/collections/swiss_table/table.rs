@@ -29,7 +29,7 @@ use core::{
 };
 
 use munge::munge;
-use rancor::{fail, Fallible, OptionExt, Panic, ResultExt as _, Source};
+use rancor::{fail, Fallible, ResultExt as _, Source};
 
 use crate::{
     collections::util::IteratorLengthMismatch,
@@ -74,15 +74,10 @@ struct ProbeSeq {
 
 impl ProbeSeq {
     #[inline]
-    fn next_group(&mut self) {
-        self.pos += Group::WIDTH;
-    }
-
-    #[inline]
     fn move_next(&mut self, bucket_mask: usize) {
+        self.stride += MAX_GROUP_WIDTH;
         self.pos += self.stride;
         self.pos &= bucket_mask;
-        self.stride += MAX_GROUP_WIDTH;
     }
 }
 
@@ -148,22 +143,25 @@ impl<T> ArchivedHashTable<T> {
         }
 
         let capacity = unsafe { (*this).capacity() };
+        let probe_cap = Self::probe_cap(capacity);
+        let control_count = Self::control_count(probe_cap);
 
         let h2_hash = h2(hash);
         let mut probe_seq = Self::probe_seq(hash, capacity);
 
-        let bucket_mask = Self::bucket_mask(capacity);
+        let bucket_mask = Self::bucket_mask(control_count);
 
         loop {
             let mut any_empty = false;
 
-            for _ in 0..MAX_GROUP_WIDTH / Group::WIDTH {
-                let group = unsafe {
-                    Group::read(Self::control_raw(this, probe_seq.pos))
-                };
+            for i in 0..MAX_GROUP_WIDTH / Group::WIDTH {
+                let pos = probe_seq.pos + i * Group::WIDTH;
+
+                let group =
+                    unsafe { Group::read(Self::control_raw(this, pos)) };
 
                 for bit in group.match_byte(h2_hash) {
-                    let index = (probe_seq.pos + bit) % capacity;
+                    let index = (pos + bit) % capacity;
                     let bucket_ptr = unsafe { Self::bucket_raw(this, index) };
                     let bucket = unsafe { bucket_ptr.as_ref() };
 
@@ -175,8 +173,6 @@ impl<T> ArchivedHashTable<T> {
 
                 // Opt: These can be marked as likely true on nightly.
                 any_empty = any_empty || group.match_empty().any_bit_set();
-
-                probe_seq.next_group();
             }
 
             if any_empty {
@@ -185,10 +181,9 @@ impl<T> ArchivedHashTable<T> {
 
             loop {
                 probe_seq.move_next(bucket_mask);
-                if probe_seq.pos < capacity {
+                if probe_seq.pos < probe_cap {
                     break;
                 }
-                probe_seq.pos += MAX_GROUP_WIDTH;
             }
         }
     }
@@ -282,26 +277,20 @@ impl<T> ArchivedHashTable<T> {
         }
     }
 
-    fn capacity_from_len<E: Source>(
-        len: usize,
-        load_factor: (usize, usize),
-    ) -> Result<usize, E> {
+    fn capacity_from_len(len: usize, load_factor: (usize, usize)) -> usize {
         if len == 0 {
-            Ok(0)
+            0
         } else {
-            Ok(usize::max(
-                len.checked_mul(load_factor.1)
-                    .into_trace("overflow while adjusting capacity")?
-                    / load_factor.0,
-                len + 1,
-            ))
+            usize::max(len * load_factor.1 / load_factor.0, len + 1)
         }
     }
 
-    fn control_count<E: Source>(capacity: usize) -> Result<usize, E> {
-        capacity.checked_add(MAX_GROUP_WIDTH - 1).into_trace(
-            "overflow while calculating buckets from adjusted capacity",
-        )
+    fn probe_cap(capacity: usize) -> usize {
+        capacity.next_multiple_of(MAX_GROUP_WIDTH)
+    }
+
+    fn control_count(probe_cap: usize) -> usize {
+        probe_cap + MAX_GROUP_WIDTH - 1
     }
 
     #[allow(dead_code)]
@@ -372,8 +361,9 @@ impl<T> ArchivedHashTable<T> {
             return Ok(HashTableResolver { pos: 0 });
         }
 
-        let capacity = Self::capacity_from_len(len, load_factor)?;
-        let control_count = Self::control_count(capacity)?;
+        let capacity = Self::capacity_from_len(len, load_factor);
+        let probe_cap = Self::probe_cap(capacity);
+        let control_count = Self::control_count(probe_cap);
 
         // Determine hash locations for all items
         SerVec::with_capacity(
@@ -398,34 +388,32 @@ impl<T> ArchivedHashTable<T> {
                             control_bytes.set_len(control_bytes.capacity());
                         }
 
-                        let bucket_mask = Self::bucket_mask(capacity);
+                        let bucket_mask = Self::bucket_mask(control_count);
 
                         for (item, hash) in items.zip(hashes) {
                             let h2_hash = h2(hash);
                             let mut probe_seq = Self::probe_seq(hash, capacity);
 
                             'insert: loop {
-                                for _ in 0..MAX_GROUP_WIDTH / Group::WIDTH {
+                                for i in 0..MAX_GROUP_WIDTH / Group::WIDTH {
+                                    let pos = probe_seq.pos + i * Group::WIDTH;
                                     let group = unsafe {
                                         Group::read(
-                                            control_bytes
-                                                .as_ptr()
-                                                .add(probe_seq.pos),
+                                            control_bytes.as_ptr().add(pos),
                                         )
                                     };
 
                                     if let Some(bit) =
                                         group.match_empty().lowest_set_bit()
                                     {
-                                        let index =
-                                            (probe_seq.pos + bit) % capacity;
+                                        let index = (pos + bit) % capacity;
 
                                         // Update control byte
                                         control_bytes[index] = h2_hash;
                                         // If it's near the beginning of the
                                         // control bytes,
                                         // update the wraparound control byte
-                                        if index < MAX_GROUP_WIDTH - 1 {
+                                        if index < (control_count - capacity) {
                                             control_bytes[capacity + index] =
                                                 h2_hash;
                                         }
@@ -433,16 +421,13 @@ impl<T> ArchivedHashTable<T> {
                                         ordered_items[index] = Some(item);
                                         break 'insert;
                                     }
-
-                                    probe_seq.next_group();
                                 }
 
                                 loop {
                                     probe_seq.move_next(bucket_mask);
-                                    if probe_seq.pos < capacity {
+                                    if probe_seq.pos < probe_cap {
                                         break;
                                     }
-                                    probe_seq.pos += MAX_GROUP_WIDTH;
                                 }
                             }
                         }
@@ -517,8 +502,7 @@ impl<T> ArchivedHashTable<T> {
 
         len.resolve((), out_len);
 
-        let capacity =
-            Self::capacity_from_len::<Panic>(len, load_factor).always_ok();
+        let capacity = Self::capacity_from_len(len, load_factor);
         capacity.resolve((), cap);
 
         // PhantomData doesn't need to be initialized
@@ -676,7 +660,8 @@ mod verify {
             }
 
             // Check memory allocation
-            let control_count = Self::control_count(cap)?;
+            let probe_cap = Self::probe_cap(cap);
+            let control_count = Self::control_count(probe_cap);
             let (layout, control_offset) =
                 Self::memory_layout(cap, control_count)?;
             let ptr = self
@@ -712,7 +697,7 @@ mod verify {
                 }
 
                 // Verify that wrapped bytes are set correctly
-                for i in cap..usize::min(2 * cap, control_count) {
+                for i in cap..usize::min(2 * cap, control_count - cap) {
                     let byte = unsafe { *Self::control_raw(this, i) };
                     let wrapped = unsafe { *Self::control_raw(this, i % cap) };
                     if wrapped != byte {
