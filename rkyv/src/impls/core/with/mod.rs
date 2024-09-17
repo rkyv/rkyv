@@ -627,7 +627,7 @@ mod tests {
 
     use crate::{
         api::test::{deserialize, roundtrip, roundtrip_with, to_archived},
-        niche::decider::NaN,
+        niche::decider::{NaN, Zero},
         rancor::Fallible,
         ser::Writer,
         with::{
@@ -814,7 +814,7 @@ mod tests {
 
         #[derive(Archive, Serialize, Deserialize)]
         #[rkyv(crate)]
-        struct Test {
+        struct TestNiche {
             #[rkyv(with = Niche)]
             a: Option<NonZeroI8>,
             #[rkyv(with = Niche)]
@@ -831,6 +831,23 @@ mod tests {
 
         #[derive(Archive, Serialize, Deserialize)]
         #[rkyv(crate)]
+        struct TestZeroNicher {
+            #[rkyv(with = Nicher<Zero>)]
+            a: Option<NonZeroI8>,
+            #[rkyv(with = Nicher<Zero>)]
+            b: Option<NonZeroI32>,
+            #[rkyv(with = Nicher<Zero>)]
+            c: Option<NonZeroIsize>,
+            #[rkyv(with = Nicher<Zero>)]
+            d: Option<NonZeroU8>,
+            #[rkyv(with = Nicher<Zero>)]
+            e: Option<NonZeroU32>,
+            #[rkyv(with = Nicher<Zero>)]
+            f: Option<NonZeroUsize>,
+        }
+
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate)]
         struct TestNoNiching {
             a: Option<NonZeroI8>,
             b: Option<NonZeroI32>,
@@ -840,7 +857,7 @@ mod tests {
             f: Option<NonZeroUsize>,
         }
 
-        let value = Test {
+        let value = TestNiche {
             a: Some(NonZeroI8::new(10).unwrap()),
             b: Some(NonZeroI32::new(10).unwrap()),
             c: Some(NonZeroIsize::new(10).unwrap()),
@@ -863,7 +880,7 @@ mod tests {
             assert_eq!(archived.f.as_ref().unwrap().get(), 10);
         });
 
-        let value = Test {
+        let value = TestNiche {
             a: None,
             b: None,
             c: None,
@@ -881,7 +898,53 @@ mod tests {
         });
 
         assert!(
-            size_of::<Archived<Test>>() < size_of::<Archived<TestNoNiching>>()
+            size_of::<Archived<TestNiche>>()
+                < size_of::<Archived<TestNoNiching>>()
+        );
+
+        let value = TestZeroNicher {
+            a: Some(NonZeroI8::new(10).unwrap()),
+            b: Some(NonZeroI32::new(10).unwrap()),
+            c: Some(NonZeroIsize::new(10).unwrap()),
+            d: Some(NonZeroU8::new(10).unwrap()),
+            e: Some(NonZeroU32::new(10).unwrap()),
+            f: Some(NonZeroUsize::new(10).unwrap()),
+        };
+        to_archived(&value, |archived| {
+            assert!(archived.a.is_some());
+            assert_eq!(archived.a.as_ref().unwrap().get(), 10);
+            assert!(archived.b.is_some());
+            assert_eq!(archived.b.as_ref().unwrap().get(), 10);
+            assert!(archived.c.is_some());
+            assert_eq!(archived.c.as_ref().unwrap().get(), 10);
+            assert!(archived.d.is_some());
+            assert_eq!(archived.d.as_ref().unwrap().get(), 10);
+            assert!(archived.e.is_some());
+            assert_eq!(archived.e.as_ref().unwrap().get(), 10);
+            assert!(archived.f.is_some());
+            assert_eq!(archived.f.as_ref().unwrap().get(), 10);
+        });
+
+        let value = TestZeroNicher {
+            a: None,
+            b: None,
+            c: None,
+            d: None,
+            e: None,
+            f: None,
+        };
+        to_archived(&value, |archived| {
+            assert!(archived.a.is_none());
+            assert!(archived.b.is_none());
+            assert!(archived.c.is_none());
+            assert!(archived.d.is_none());
+            assert!(archived.e.is_none());
+            assert!(archived.f.is_none());
+        });
+
+        assert!(
+            size_of::<Archived<TestZeroNicher>>()
+                < size_of::<Archived<TestNoNiching>>()
         );
     }
 

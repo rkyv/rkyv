@@ -23,6 +23,9 @@ pub trait Decider<T: Archive> {
     );
 }
 
+/// [`Decider`] for zero-niched values.
+pub struct Zero;
+
 /// [`Decider`] for NaN-niched values.
 pub struct NaN;
 

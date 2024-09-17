@@ -9,14 +9,14 @@ use rancor::Fallible;
 use super::decider::Decider;
 use crate::{Archive, Archived, Place, Portable, Serialize};
 
-#[repr(transparent)]
-#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
-#[derive(Portable)]
-#[rkyv(crate)]
 /// A niched archived `Option<T>`.
 ///
 /// Depending on `D`, it may use less space by storing the `None` variant in a
 /// custom way.
+#[repr(transparent)]
+#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
+#[derive(Portable)]
+#[rkyv(crate)]
 pub struct NichedOption<T, D>
 where
     T: Archive,
@@ -45,7 +45,7 @@ where
         self.as_ref().is_some()
     }
 
-    /// Resolves a [`NichedOption<T, D>`] from an `Option<&T>`.
+    /// Resolves a `NichedOption<T, D>` from an `Option<&T>`.
     pub fn resolve_from_option(
         option: Option<&T>,
         resolver: Option<T::Resolver>,
