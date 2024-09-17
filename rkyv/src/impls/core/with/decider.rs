@@ -1,49 +1,27 @@
-use core::{
-    num::{
-        NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8,
-        NonZeroIsize, NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64,
-        NonZeroU8, NonZeroUsize,
-    },
-    ptr,
+use core::num::{
+    NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize,
+    NonZeroU128, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
 };
 
 use crate::{
-    niche::decider::{Decider, NaN, Zero},
-    Archive, Archived, Place, Resolver,
+    niche::{
+        decider::{Decider, NaN, Zero},
+        niched_option::NichedOption,
+    },
+    Archive, Archived, Place,
 };
 
 macro_rules! impl_nonzero_zero_decider {
     ($nz:ty, $ar:ty) => {
         impl Decider<$nz> for Zero {
-            type Archived = Archived<$ar>;
+            type Niched = Archived<$ar>;
 
-            fn as_option(archived: &Self::Archived) -> Option<&Archived<$nz>> {
-                if *archived == 0 {
-                    None
-                } else {
-                    // SAFETY: NonZero types have the same memory layout and
-                    // bit patterns as their integer counterparts,
-                    // regardless of endianness.
-                    let as_nonzero = unsafe {
-                        &*(ptr::from_ref(archived).cast::<Archived<$nz>>())
-                    };
-
-                    Some(as_nonzero)
-                }
+            fn is_none(option: &NichedOption<$nz, Self>) -> bool {
+                unsafe { *option.niche == 0 }
             }
 
-            fn resolve_from_option(
-                option: Option<&$nz>,
-                resolver: Option<Resolver<$nz>>,
-                out: Place<Self::Archived>,
-            ) {
-                match option {
-                    Some(value) => {
-                        let resolver = resolver.expect("non-niched resolver");
-                        value.get().resolve(resolver, out);
-                    }
-                    None => <$ar>::resolve(&0, (), out),
-                }
+            fn resolve_niche(out: Place<Self::Niched>) {
+                <$ar>::resolve(&0, (), out)
             }
         }
     };
@@ -66,28 +44,14 @@ impl_nonzero_zero_decider!(NonZeroIsize, isize);
 macro_rules! impl_float_nan_decider {
     ($fl:ty) => {
         impl Decider<$fl> for NaN {
-            type Archived = Archived<$fl>;
+            type Niched = Archived<$fl>;
 
-            fn as_option(archived: &Self::Archived) -> Option<&Archived<$fl>> {
-                if archived.to_native().is_nan() {
-                    None
-                } else {
-                    Some(archived)
-                }
+            fn is_none(option: &NichedOption<$fl, Self>) -> bool {
+                unsafe { option.niche }.to_native().is_nan()
             }
 
-            fn resolve_from_option(
-                option: Option<&$fl>,
-                resolver: Option<Resolver<$fl>>,
-                out: Place<Self::Archived>,
-            ) {
-                match option {
-                    Some(value) => {
-                        let resolver = resolver.expect("non-niched resolver");
-                        value.resolve(resolver, out);
-                    }
-                    None => <$fl>::resolve(&<$fl>::NAN, (), out),
-                }
+            fn resolve_niche(out: Place<Self::Niched>) {
+                <$fl>::resolve(&<$fl>::NAN, (), out)
             }
         }
     };

@@ -1,7 +1,7 @@
 //! A niched archived `Option<T>` that uses less space based on a niching
 //! [`Decider`].
 
-use core::{cmp, fmt};
+use core::{cmp, fmt, mem::ManuallyDrop};
 
 use munge::munge;
 use rancor::Fallible;
@@ -13,17 +13,40 @@ use crate::{Archive, Archived, Place, Portable, Serialize};
 ///
 /// Depending on `D`, it may use less space by storing the `None` variant in a
 /// custom way.
-#[repr(transparent)]
-#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
+#[repr(C)]
 #[derive(Portable)]
 #[rkyv(crate)]
-pub struct NichedOption<T, D>
+pub union NichedOption<T, D>
 where
     T: Archive,
-    D: Decider<T>,
+    D: Decider<T> + ?Sized,
 {
-    repr: <D as Decider<T>>::Archived,
+    /// The archived representation of a `Some` value.
+    pub some: ManuallyDrop<<T as Archive>::Archived>,
+    /// The archived representation of a `None` value.
+    pub niche: ManuallyDrop<<D as Decider<T>>::Niched>,
 }
+
+#[cfg(feature = "bytecheck")]
+const _: () = {
+    use crate::{bytecheck::CheckBytes, rancor::Source};
+
+    unsafe impl<T, D, C> CheckBytes<C> for NichedOption<T, D>
+    where
+        T: Archive<Archived: CheckBytes<C>>,
+        D: Decider<T, Niched: CheckBytes<C>> + ?Sized,
+        C: Fallible<Error: Source> + ?Sized,
+    {
+        unsafe fn check_bytes(
+            _value: *const Self,
+            _context: &mut C,
+        ) -> Result<(), C::Error> {
+            // TODO
+
+            Ok(())
+        }
+    }
+};
 
 impl<T, D> NichedOption<T, D>
 where
@@ -32,7 +55,20 @@ where
 {
     /// Converts to an `Option<&Archived<T>>`.
     pub fn as_ref(&self) -> Option<&Archived<T>> {
-        D::as_option(&self.repr)
+        if D::is_none(self) {
+            None
+        } else {
+            Some(unsafe { &*self.some })
+        }
+    }
+
+    /// Converts to an `Option<&mut Archived<T>>`.
+    pub fn as_mut(&mut self) -> Option<&mut Archived<T>> {
+        if D::is_none(self) {
+            None
+        } else {
+            Some(unsafe { &mut *self.some })
+        }
     }
 
     /// Returns `true` if the option is a `None` value.
@@ -51,8 +87,21 @@ where
         resolver: Option<T::Resolver>,
         out: Place<Self>,
     ) {
-        munge!(let Self { repr } = out);
-        D::resolve_from_option(option, resolver, repr);
+        match option {
+            Some(value) => {
+                let resolver = resolver.expect("non-niched resolver");
+                munge!(let Self { some } = out);
+                value.resolve(resolver, unsafe {
+                    some.cast_unchecked::<T::Archived>()
+                });
+            }
+            None => {
+                munge!(let Self { niche } = out);
+                D::resolve_niche(unsafe {
+                    niche.cast_unchecked::<D::Niched>()
+                });
+            }
+        }
     }
 
     /// Serializes a `NichedOption<T, D>` from an `Option<&T>`.

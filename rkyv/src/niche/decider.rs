@@ -2,25 +2,21 @@
 //!
 //! [`Nicher`]: crate::with::Nicher
 
-use crate::{Archive, Archived, Place, Portable};
+use super::niched_option::NichedOption;
+use crate::{Archive, Place, Portable};
 
 /// A type that can be used to niche a value with [`Nicher`].
 ///
 /// [`Nicher`]: crate::with::Nicher
 pub trait Decider<T: Archive> {
-    /// The archived representation of both niched and non-niched values.
-    type Archived: Portable;
+    /// The archived representation of a niched value.
+    type Niched: Portable;
 
-    /// Converts a niched archive to `None`; otherwise `Some(_)`.
-    fn as_option(archived: &Self::Archived) -> Option<&Archived<T>>;
+    /// Whether the given `NichedOption` represents a niched value or not.
+    fn is_none(option: &NichedOption<T, Self>) -> bool;
 
-    /// Creates a `Self::Archived` from an `Option<&T>` and writes it to the
-    /// given output.
-    fn resolve_from_option(
-        option: Option<&T>,
-        resolver: Option<T::Resolver>,
-        out: Place<Self::Archived>,
-    );
+    /// Creates a `Self::Niched` and writes it to the given output.
+    fn resolve_niche(out: Place<Self::Niched>);
 }
 
 /// [`Decider`] for zero-niched values.

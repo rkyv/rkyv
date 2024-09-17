@@ -1,37 +1,23 @@
-use core::ops::Deref;
-
 use crate::{
     alloc::boxed::Box,
-    boxed::BoxResolver,
     niche::{
         decider::{Decider, Null},
-        option_box::{ArchivedOptionBox, OptionBoxResolver},
+        niched_option::NichedOption,
     },
-    ArchiveUnsized, Archived, Place,
+    ArchiveUnsized, Place, RelPtr,
 };
 
 impl<T> Decider<Box<T>> for Null
 where
     T: ArchiveUnsized + ?Sized,
 {
-    type Archived = ArchivedOptionBox<T::Archived>;
+    type Niched = RelPtr<T::Archived>;
 
-    fn as_option(archived: &Self::Archived) -> Option<&Archived<Box<T>>> {
-        archived.as_ref()
+    fn is_none(option: &NichedOption<Box<T>, Self>) -> bool {
+        unsafe { &option.niche }.is_invalid()
     }
 
-    fn resolve_from_option(
-        option: Option<&Box<T>>,
-        resolver: Option<BoxResolver>,
-        out: Place<Self::Archived>,
-    ) {
-        let resolver =
-            resolver.map_or(OptionBoxResolver::None, OptionBoxResolver::Some);
-
-        ArchivedOptionBox::resolve_from_option(
-            option.map(Box::deref),
-            resolver,
-            out,
-        );
+    fn resolve_niche(out: Place<Self::Niched>) {
+        RelPtr::emplace_invalid(out);
     }
 }
