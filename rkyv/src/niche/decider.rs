@@ -7,8 +7,14 @@ use crate::{Archive, Place, Portable};
 
 /// A type that can be used to niche a value with [`Nicher`].
 ///
+/// # Safety
+///
+/// If the method `is_none` returns `true`, it must be safe to access the field
+/// [`NichedOption::niche`]. Similarly, if `is_none` returns `false`, it must be
+/// safe to access the field [`NichedOption::some`].
+///
 /// [`Nicher`]: crate::with::Nicher
-pub trait Decider<T: Archive> {
+pub unsafe trait Decider<T: Archive> {
     /// The archived representation of a niched value.
     type Niched: Portable;
 

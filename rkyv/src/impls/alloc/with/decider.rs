@@ -7,7 +7,7 @@ use crate::{
     ArchiveUnsized, Place, RelPtr,
 };
 
-impl<T> Decider<Box<T>> for Null
+unsafe impl<T> Decider<Box<T>> for Null
 where
     T: ArchiveUnsized + ?Sized,
 {

@@ -13,7 +13,7 @@ use crate::{
 
 macro_rules! impl_nonzero_zero_decider {
     ($nz:ty, $ar:ty) => {
-        impl Decider<$nz> for Zero {
+        unsafe impl Decider<$nz> for Zero {
             type Niched = Archived<$ar>;
 
             fn is_none(option: &NichedOption<$nz, Self>) -> bool {
@@ -43,7 +43,7 @@ impl_nonzero_zero_decider!(NonZeroIsize, isize);
 
 macro_rules! impl_float_nan_decider {
     ($fl:ty) => {
-        impl Decider<$fl> for NaN {
+        unsafe impl Decider<$fl> for NaN {
             type Niched = Archived<$fl>;
 
             fn is_none(option: &NichedOption<$fl, Self>) -> bool {
