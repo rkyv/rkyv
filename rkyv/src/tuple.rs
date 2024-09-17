@@ -5,7 +5,16 @@ use crate::Portable;
 macro_rules! impl_tuple {
     ($name:ident, $n:tt, $($type:ident $index:tt),*) => {
         #[doc = concat!("An archived tuple with ", stringify!($n), " elements")]
-        #[derive(Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd, Portable)]
+        #[derive(
+            Debug,
+            Default,
+            Eq,
+            Hash,
+            Ord,
+            PartialEq,
+            PartialOrd,
+            Portable,
+        )]
         #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
         #[rkyv(crate)]
         #[repr(C)]
