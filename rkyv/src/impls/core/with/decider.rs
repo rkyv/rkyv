@@ -24,8 +24,6 @@ macro_rules! impl_float_nan_decider {
                 match option {
                     Some(value) => {
                         let resolver = resolver.expect("non-niched resolver");
-                        let out =
-                            unsafe { out.cast_unchecked::<Archived<$fl>>() };
                         value.resolve(resolver, out);
                     }
                     None => <$fl>::resolve(&<$fl>::NAN, (), out),
