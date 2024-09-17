@@ -5,7 +5,7 @@
 
 // mod impls;
 
-use core::marker::PhantomData;
+use core::{fmt, marker::PhantomData};
 
 use rancor::Fallible;
 
@@ -476,9 +476,18 @@ pub struct Niche;
 /// A wrapper that niches based on a generic [`Decider`].
 ///
 /// [`Decider`]: crate::niche::decider::Decider
-#[derive(Debug)]
-pub struct Nicher<D: ?Sized> {
-    _phantom: PhantomData<D>,
+pub struct Nicher<D: ?Sized>(PhantomData<D>);
+
+impl<D: ?Sized> Default for Nicher<D> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<D: ?Sized> fmt::Debug for Nicher<D> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Nicher")
+    }
 }
 
 /// A wrapper that converts a [`SystemTime`](std::time::SystemTime) to a
