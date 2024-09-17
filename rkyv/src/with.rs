@@ -477,7 +477,7 @@ pub struct Niche;
 ///
 /// [`Decider`]: crate::niche::decider::Decider
 #[derive(Debug)]
-pub struct Nicher<D> {
+pub struct Nicher<D: ?Sized> {
     _phantom: PhantomData<D>,
 }
 

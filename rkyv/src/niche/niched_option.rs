@@ -51,7 +51,7 @@ const _: () = {
 impl<T, D> NichedOption<T, D>
 where
     T: Archive,
-    D: Decider<T>,
+    D: Decider<T> + ?Sized,
 {
     /// Converts to an `Option<&Archived<T>>`.
     pub fn as_ref(&self) -> Option<&Archived<T>> {
@@ -123,7 +123,7 @@ where
 impl<T, D> fmt::Debug for NichedOption<T, D>
 where
     T: Archive<Archived: fmt::Debug>,
-    D: Decider<T>,
+    D: Decider<T> + ?Sized,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_ref().fmt(f)
@@ -133,14 +133,14 @@ where
 impl<T, D> Eq for NichedOption<T, D>
 where
     T: Archive<Archived: Eq>,
-    D: Decider<T>,
+    D: Decider<T> + ?Sized,
 {
 }
 
 impl<T, D> PartialEq for NichedOption<T, D>
 where
     T: Archive<Archived: PartialEq>,
-    D: Decider<T>,
+    D: Decider<T> + ?Sized,
 {
     fn eq(&self, other: &Self) -> bool {
         self.as_ref().eq(&other.as_ref())
@@ -150,7 +150,7 @@ where
 impl<T, D, Rhs> PartialEq<Option<Rhs>> for NichedOption<T, D>
 where
     T: Archive<Archived: PartialEq<Rhs>>,
-    D: Decider<T>,
+    D: Decider<T> + ?Sized,
 {
     fn eq(&self, other: &Option<Rhs>) -> bool {
         match (self.as_ref(), other) {
@@ -164,7 +164,7 @@ where
 impl<T, D> Ord for NichedOption<T, D>
 where
     T: Archive<Archived: Ord>,
-    D: Decider<T>,
+    D: Decider<T> + ?Sized,
 {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.as_ref().cmp(&other.as_ref())
@@ -174,7 +174,7 @@ where
 impl<T, D> PartialOrd for NichedOption<T, D>
 where
     T: Archive<Archived: PartialOrd>,
-    D: Decider<T>,
+    D: Decider<T> + ?Sized,
 {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.as_ref().partial_cmp(&other.as_ref())
