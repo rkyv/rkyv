@@ -73,12 +73,12 @@ where
 
     /// Returns `true` if the option is a `None` value.
     pub fn is_none(&self) -> bool {
-        self.as_ref().is_none()
+        D::is_none(self)
     }
 
     /// Returns `true` if the option is a `Some` value.
     pub fn is_some(&self) -> bool {
-        self.as_ref().is_some()
+        !self.is_none()
     }
 
     /// Resolves a `NichedOption<T, D>` from an `Option<&T>`.
