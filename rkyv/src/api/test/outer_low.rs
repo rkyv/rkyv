@@ -11,7 +11,7 @@ use crate::{
 
 /// The serializer type for tests.
 pub type TestSerializer<'a> =
-    LowSerializer<'a, Buffer<'a>, SubAllocator<'a>, Panic>;
+    LowSerializer<Buffer<'a>, SubAllocator<'a>, Panic>;
 /// The deserializer type for tests.
 pub type TestDeserializer = LowDeserializer<Panic>;
 

@@ -21,7 +21,7 @@ use crate::{
 /// cannot be made.
 ///
 /// This is part of the [low-level API](crate::api::low).
-pub type LowSerializer<'a, W, A, E> = Strategy<Serializer<W, A, ()>, E>;
+pub type LowSerializer<W, A, E> = Strategy<Serializer<W, A, ()>, E>;
 
 /// A general-purpose deserializer suitable for environments where allocations
 /// cannot be made.
@@ -71,8 +71,8 @@ pub type LowDeserializer<E> = Strategy<(), E>;
 /// let archived = unsafe { access_unchecked::<ArchivedExample<'_>>(&*bytes) };
 /// assert_eq!(*archived.inner, 42);
 /// ```
-pub fn to_bytes_in_with_alloc<'a, W, A, E>(
-    value: &impl Serialize<LowSerializer<'a, W, A, E>>,
+pub fn to_bytes_in_with_alloc<W, A, E>(
+    value: &impl Serialize<LowSerializer<W, A, E>>,
     writer: W,
     alloc: A,
 ) -> Result<W, E>

@@ -24,7 +24,7 @@ use crate::{
 /// A high-level serializer.
 ///
 /// This is part of the [high-level API](crate::api::high).
-pub type HighSerializer<'a, W, A, E> = Strategy<Serializer<W, A, Share>, E>;
+pub type HighSerializer<W, A, E> = Strategy<Serializer<W, A, Share>, E>;
 
 /// A high-level deserializer.
 ///
@@ -61,8 +61,10 @@ pub type HighDeserializer<E> = Strategy<Pool, E>;
 /// assert_eq!(deserialized, value);
 /// ```
 pub fn to_bytes<E>(
-    value: &impl for<'a> Serialize<
-        HighSerializer<'a, AlignedVec, ArenaHandle<'a>, E>,
+    // rustfmt insists on inlining this parameter even though it exceeds the
+    // max line length
+    #[rustfmt::skip] value: &impl for<'a> Serialize<
+        HighSerializer<AlignedVec, ArenaHandle<'a>, E>,
     >,
 ) -> Result<AlignedVec, E>
 where
@@ -101,7 +103,7 @@ where
 /// assert_eq!(deserialized, value);
 /// ```
 pub fn to_bytes_in<W, E>(
-    value: &impl for<'a> Serialize<HighSerializer<'a, W, ArenaHandle<'a>, E>>,
+    value: &impl for<'a> Serialize<HighSerializer<W, ArenaHandle<'a>, E>>,
     writer: W,
 ) -> Result<W, E>
 where
@@ -136,15 +138,14 @@ where
 ///
 /// with_arena(|arena| {
 ///     let bytes =
-///         to_bytes_with_alloc::<'_, _, Error>(&value, arena.acquire())
-///             .unwrap();
+///         to_bytes_with_alloc::<_, Error>(&value, arena.acquire()).unwrap();
 ///     let deserialized = from_bytes::<Example, Error>(&bytes).unwrap();
 ///
 ///     assert_eq!(deserialized, value);
 /// });
 /// ```
-pub fn to_bytes_with_alloc<'a, A, E>(
-    value: &impl Serialize<HighSerializer<'a, AlignedVec, A, E>>,
+pub fn to_bytes_with_alloc<A, E>(
+    value: &impl Serialize<HighSerializer<AlignedVec, A, E>>,
     alloc: A,
 ) -> Result<AlignedVec, E>
 where
@@ -195,8 +196,8 @@ where
 ///     assert_eq!(deserialized, value);
 /// });
 /// ```
-pub fn to_bytes_in_with_alloc<'a, W, A, E>(
-    value: &impl Serialize<HighSerializer<'a, W, A, E>>,
+pub fn to_bytes_in_with_alloc<W, A, E>(
+    value: &impl Serialize<HighSerializer<W, A, E>>,
     writer: W,
     alloc: A,
 ) -> Result<W, E>

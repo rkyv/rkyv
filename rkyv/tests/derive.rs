@@ -338,8 +338,7 @@ pub trait CheckedArchived {}
 #[cfg(not(feature = "bytecheck"))]
 impl<Archived> CheckedArchived for Archived {}
 
-type Serializer<'a, 'b> =
-    LowSerializer<'a, Buffer<'b>, SubAllocator<'a>, Panic>;
+type Serializer<'a, 'b> = LowSerializer<Buffer<'b>, SubAllocator<'a>, Panic>;
 
 fn serialize<'buf, F, T>(remote: &T, buf: &'buf mut [u8; 128]) -> Buffer<'buf>
 where

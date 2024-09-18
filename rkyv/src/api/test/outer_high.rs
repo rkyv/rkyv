@@ -10,7 +10,7 @@ use crate::{
 
 /// The serializer type for tests.
 pub type TestSerializer<'a> =
-    HighSerializer<'a, AlignedVec, ArenaHandle<'a>, Panic>;
+    HighSerializer<AlignedVec, ArenaHandle<'a>, Panic>;
 /// The deserializer type for tests.
 pub type TestDeserializer = HighDeserializer<Panic>;
 
