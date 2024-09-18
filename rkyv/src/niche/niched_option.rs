@@ -115,6 +115,7 @@ where
 {
     /// Returns `true` if the option is a `None` value.
     pub fn is_none(&self) -> bool {
+        #[allow(clippy::let_unit_value)]
         let _ = Repr::<T, D>::NICHE_SIZE_CHECK;
         D::is_niched(unsafe { &*self.repr.niche })
     }
@@ -170,6 +171,7 @@ where
         resolver: Option<T::Resolver>,
         out: Place<Self>,
     ) {
+        #[allow(clippy::let_unit_value)]
         let _ = Repr::<T, D>::NICHE_SIZE_CHECK;
         match option {
             Some(value) => {
