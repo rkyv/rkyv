@@ -475,6 +475,40 @@ pub struct Niche;
 
 /// A wrapper that niches based on a generic [`Decider`].
 ///
+/// A common type combination is `Option<Box<T>>`. By using a null pointer, the
+/// archived version can save some space on-disk.
+///
+/// # Example
+///
+/// ```
+/// use core::mem::size_of;
+///
+/// use rkyv::{
+///     niche::decider::{NaN, Null},
+///     with::Nicher,
+///     Archive, Archived,
+/// };
+///
+/// #[derive(Archive)]
+/// struct BasicExample {
+///     maybe_box: Option<Box<str>>,
+///     maybe_non_nan: Option<f32>,
+/// }
+///
+/// #[derive(Archive)]
+/// struct NichedExample {
+///     #[rkyv(with = Nicher<Null>)]
+///     maybe_box: Option<Box<str>>,
+///     #[rkyv(with = Nicher<NaN>)]
+///     maybe_non_nan: Option<f32>,
+/// }
+///
+/// assert!(
+///     size_of::<Archived<BasicExample>>()
+///         > size_of::<Archived<NichedExample>>()
+/// );
+/// ```
+///
 /// [`Decider`]: crate::niche::decider::Decider
 pub struct Nicher<D: ?Sized>(PhantomData<D>);
 
