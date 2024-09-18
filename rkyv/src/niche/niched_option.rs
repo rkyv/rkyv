@@ -53,7 +53,7 @@ const _: () = {
         ) -> Result<(), C::Error> {
             unsafe { <D::Niched>::check_bytes(&*(*value).niche, context)? };
 
-            if D::is_none(unsafe { &*(*value).niche }) {
+            if D::is_niched(unsafe { &*(*value).niche }) {
                 return Ok(());
             }
 
@@ -69,7 +69,7 @@ where
 {
     /// Returns `true` if the option is a `None` value.
     pub fn is_none(&self) -> bool {
-        D::is_none(unsafe { &*self.repr.niche })
+        D::is_niched(unsafe { &*self.repr.niche })
     }
 
     /// Returns `true` if the option is a `Some` value.

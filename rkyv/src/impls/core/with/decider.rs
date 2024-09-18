@@ -13,7 +13,7 @@ macro_rules! impl_nonzero_zero_decider {
         unsafe impl Decider<$nz> for Zero {
             type Niched = Archived<$ar>;
 
-            fn is_none(niched: &Self::Niched) -> bool {
+            fn is_niched(niched: &Self::Niched) -> bool {
                 *niched == 0
             }
 
@@ -43,7 +43,7 @@ macro_rules! impl_float_nan_decider {
         unsafe impl Decider<$fl> for NaN {
             type Niched = Archived<$fl>;
 
-            fn is_none(niched: &Self::Niched) -> bool {
+            fn is_niched(niched: &Self::Niched) -> bool {
                 niched.to_native().is_nan()
             }
 

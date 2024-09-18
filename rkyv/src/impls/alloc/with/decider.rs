@@ -10,7 +10,7 @@ where
 {
     type Niched = RelPtr<T::Archived>;
 
-    fn is_none(niched: &Self::Niched) -> bool {
+    fn is_niched(niched: &Self::Niched) -> bool {
         niched.is_invalid()
     }
 
