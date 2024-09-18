@@ -1,4 +1,4 @@
-//! A niched archived `Option<T>` that may use less space based on a niching
+//! A niched archived `Option<T>` that uses less space based on a niching
 //! [`Decider`].
 
 use core::{cmp, fmt, mem::ManuallyDrop, ops::Deref};
@@ -11,8 +11,8 @@ use crate::{seal::Seal, Archive, Archived, Place, Portable, Serialize};
 
 /// A niched archived `Option<T>`.
 ///
-/// Depending on `D`, it may use less space by storing the `None` variant in a
-/// custom way.
+/// It uses less space by storing the `None` variant in a custom way based on
+/// `D`.
 #[derive(Portable)]
 #[rkyv(crate)]
 #[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
@@ -35,6 +35,52 @@ where
 {
     some: ManuallyDrop<<T as Archive>::Archived>,
     niche: ManuallyDrop<<D as Decider<T>>::Niched>,
+}
+
+impl<T, D> Repr<T, D>
+where
+    T: Archive,
+    D: Decider<T> + ?Sized,
+{
+    /// Compile-time check to make sure that the niched type is not greater than
+    /// the archived type.
+    ///
+    /// ```compile_fail
+    /// use rkyv::{
+    ///     niche::{decider::Decider, niched_option::NichedOption},
+    ///     Archived, Place,
+    /// };
+    ///
+    /// type T = u16;
+    /// type N = u32;
+    ///
+    /// struct UselessDecider;
+    ///
+    /// unsafe impl Decider<T> for UselessDecider {
+    ///     type Niched = Archived<N>;
+    ///
+    ///     fn is_niched(_: &Archived<N>) -> bool {
+    ///         false
+    ///     }
+    ///
+    ///     fn resolve_niche(_: Place<Self::Niched>) {}
+    /// }
+    ///
+    /// let archived: Archived<N> = 456.into();
+    /// let niched: &NichedOption<T, UselessDecider> =
+    ///     unsafe { std::mem::transmute(&archived) };
+    /// let _ = niched.is_none(); // <- size check = compile error
+    /// ```
+    const NICHE_SIZE_CHECK: () = {
+        if size_of::<<D as Decider<T>>::Niched>()
+            > size_of::<<T as Archive>::Archived>()
+        {
+            panic!(
+                "`D::Niched` is greater than `T::Archived` and thus useless \
+                 for niching"
+            );
+        }
+    };
 }
 
 #[cfg(feature = "bytecheck")]
@@ -69,6 +115,7 @@ where
 {
     /// Returns `true` if the option is a `None` value.
     pub fn is_none(&self) -> bool {
+        let _ = Repr::<T, D>::NICHE_SIZE_CHECK;
         D::is_niched(unsafe { &*self.repr.niche })
     }
 
@@ -123,6 +170,7 @@ where
         resolver: Option<T::Resolver>,
         out: Place<Self>,
     ) {
+        let _ = Repr::<T, D>::NICHE_SIZE_CHECK;
         match option {
             Some(value) => {
                 let resolver = resolver.expect("non-niched resolver");
