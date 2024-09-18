@@ -366,7 +366,7 @@ fn generate_copy_optimization(
     let Printing {
         rkyv_path,
         name,
-        archived_name,
+        archived_type,
         ..
     } = printing;
 
@@ -387,7 +387,7 @@ fn generate_copy_optimization(
         quote! {
             <#ty as #rkyv_path::Archive>::COPY_OPTIMIZATION.is_enabled()
             && ::core::mem::offset_of!(#name, #m)
-                == ::core::mem::offset_of!(#archived_name, #m)
+                == ::core::mem::offset_of!(#archived_type, #m)
         }
     });
 

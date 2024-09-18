@@ -626,6 +626,37 @@ mod core_tests {
     }
 
     #[test]
+    fn archive_as_self() {
+        #[derive(
+            Clone, Debug, Default, Archive, Deserialize, Portable, Serialize,
+        )]
+        #[rkyv(crate, as = Self)]
+        #[repr(C)]
+        struct Example {
+            inner: bool,
+        }
+    }
+
+    #[test]
+    fn archive_as_generic() {
+        #[derive(Portable)]
+        #[rkyv(crate)]
+        #[repr(C)]
+        struct Wrapper<T> {
+            inner: T,
+        }
+
+        #[derive(
+            Clone, Debug, Default, Archive, Deserialize, Portable, Serialize,
+        )]
+        #[rkyv(crate, as = Wrapper<bool>)]
+        #[repr(C)]
+        struct Example {
+            inner: bool,
+        }
+    }
+
+    #[test]
     fn archive_crate_path() {
         use crate as alt_path;
 
