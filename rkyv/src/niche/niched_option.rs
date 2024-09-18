@@ -1,13 +1,13 @@
 //! A niched archived `Option<T>` that may use less space based on a niching
 //! [`Decider`].
 
-use core::{cmp, fmt, mem::ManuallyDrop};
+use core::{cmp, fmt, mem::ManuallyDrop, ops::Deref};
 
 use munge::munge;
 use rancor::Fallible;
 
 use super::decider::Decider;
-use crate::{Archive, Archived, Place, Portable, Serialize};
+use crate::{seal::Seal, Archive, Archived, Place, Portable, Serialize};
 
 /// A niched archived `Option<T>`.
 ///
@@ -67,6 +67,16 @@ where
     T: Archive,
     D: Decider<T> + ?Sized,
 {
+    /// Returns `true` if the option is a `None` value.
+    pub fn is_none(&self) -> bool {
+        D::is_none(unsafe { &*self.repr.niche })
+    }
+
+    /// Returns `true` if the option is a `Some` value.
+    pub fn is_some(&self) -> bool {
+        !self.is_none()
+    }
+
     /// Converts to an `Option<&Archived<T>>`.
     pub fn as_ref(&self) -> Option<&Archived<T>> {
         if self.is_none() {
@@ -85,14 +95,26 @@ where
         }
     }
 
-    /// Returns `true` if the option is a `None` value.
-    pub fn is_none(&self) -> bool {
-        D::is_none(unsafe { &*self.repr.niche })
+    /// Converts from `Seal<'_, NichedOption<T, D>>` to `Option<Seal<'_,
+    /// Archived<T>>>`.
+    pub fn as_seal(this: Seal<'_, Self>) -> Option<Seal<'_, Archived<T>>> {
+        let this = unsafe { Seal::unseal_unchecked(this) };
+        this.as_mut().map(Seal::new)
     }
 
-    /// Returns `true` if the option is a `Some` value.
-    pub fn is_some(&self) -> bool {
-        !self.is_none()
+    /// Returns an iterator over the possibly-contained value.
+    pub fn iter(&self) -> Iter<&'_ Archived<T>> {
+        Iter::new(self.as_ref())
+    }
+
+    /// Returns an iterator over the mutable possibly-contained value.
+    pub fn iter_mut(&mut self) -> Iter<&'_ mut Archived<T>> {
+        Iter::new(self.as_mut())
+    }
+
+    /// Returns an iterator over the sealed possibly-contained value.
+    pub fn iter_seal(this: Seal<'_, Self>) -> Iter<Seal<'_, Archived<T>>> {
+        Iter::new(Self::as_seal(this))
     }
 
     /// Resolves a `NichedOption<T, D>` from an `Option<&T>`.
@@ -131,6 +153,17 @@ where
             Some(value) => value.serialize(serializer).map(Some),
             None => Ok(None),
         }
+    }
+}
+
+impl<T, D> NichedOption<T, D>
+where
+    T: Archive<Archived: Deref>,
+    D: Decider<T> + ?Sized,
+{
+    /// Converts from `&NichedOption<T, D>` to `Option<&Archived<T>::Target>`.
+    pub fn as_deref(&self) -> Option<&<Archived<T> as Deref>::Target> {
+        self.as_ref().map(Deref::deref)
     }
 }
 
@@ -194,3 +227,9 @@ where
         self.as_ref().partial_cmp(&other.as_ref())
     }
 }
+
+/// An iterator over a reference to the `Some` variant of a `NichedOption`.
+///
+/// This iterator yields one value if the `NichedOption` is a `Some`, otherwise
+/// none.
+pub type Iter<P> = crate::option::Iter<P>;
