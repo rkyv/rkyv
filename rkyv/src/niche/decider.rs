@@ -50,20 +50,12 @@ use crate::{Archive, Place, Portable};
 /// # fn main() -> Result<(), rkyv::rancor::Error> {
 /// assert!(size_of::<ArchivedNiched>() < size_of::<ArchivedBasic>());
 ///
-/// # #[cfg(feature = "alloc")] {
 /// let values = [Niched(Some(1)), Niched(Some(42)), Niched(None)];
 /// let bytes = rkyv::to_bytes(&values)?;
-/// # #[cfg(feature = "bytecheck")]
-/// let mut iter = rkyv::access::<[ArchivedNiched; 3], _>(&bytes)?.iter();
-/// # #[cfg(not(feature = "bytecheck"))]
-/// # let mut iter = unsafe {
-/// #     rkyv::access_unchecked::<[ArchivedNiched; 3]>(&bytes)
-/// # }.iter();
-/// assert_eq!(iter.next().unwrap().0.as_ref(), None);
-/// assert_eq!(iter.next().unwrap().0.as_ref(), Some(&42.into()));
-/// assert_eq!(iter.next().unwrap().0.as_ref(), None);
-/// assert!(iter.next().is_none());
-/// # }
+/// let archived = rkyv::access::<[ArchivedNiched; 3], _>(&bytes)?;
+/// assert_eq!(archived[0].0.as_ref(), None);
+/// assert_eq!(archived[1].0.as_ref(), Some(&42.into()));
+/// assert_eq!(archived[2].0.as_ref(), None);
 /// # Ok(()) }
 /// ```
 ///
