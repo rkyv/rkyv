@@ -1,11 +1,11 @@
 use crate::{
     boxed::ArchivedBox,
-    niche::decider::{Decider, Null},
+    niche::niching::{Niching, Null},
     traits::ArchivePointee,
     Place, Portable, RelPtr,
 };
 
-unsafe impl<T> Decider<ArchivedBox<T>> for Null
+unsafe impl<T> Niching<ArchivedBox<T>> for Null
 where
     T: ArchivePointee + Portable + ?Sized,
 {

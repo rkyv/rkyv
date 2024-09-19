@@ -473,7 +473,7 @@ pub struct AsVec;
 #[derive(Debug)]
 pub struct Niche;
 
-/// A wrapper that niches based on a generic [`Decider`].
+/// A wrapper that niches based on a generic [`Niching`].
 ///
 /// A common type combination is `Option<Box<T>>`. By using a null pointer, the
 /// archived version can save some space on-disk.
@@ -484,7 +484,7 @@ pub struct Niche;
 /// use core::mem::size_of;
 ///
 /// use rkyv::{
-///     niche::decider::{NaN, Null},
+///     niche::niching::{NaN, Null},
 ///     with::Nicher,
 ///     Archive, Archived,
 /// };
@@ -509,7 +509,7 @@ pub struct Niche;
 /// );
 /// ```
 ///
-/// [`Decider`]: crate::niche::decider::Decider
+/// [`Niching`]: crate::niche::niching::Niching
 pub struct Nicher<D: ?Sized>(PhantomData<D>);
 
 impl<D: ?Sized> Default for Nicher<D> {

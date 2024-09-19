@@ -1,4 +1,4 @@
-//! Deciders for niching values with [`Nicher`].
+//! [`Niching`] implementors for [`Nicher`].
 //!
 //! [`Nicher`]: crate::with::Nicher
 
@@ -18,17 +18,17 @@ use crate::{Place, Portable};
 ///
 /// ```
 /// use rkyv::{
-///     niche::decider::Decider, with::Nicher, Archive, Archived, Place,
+///     niche::niching::Niching, with::Nicher, Archive, Archived, Place,
 ///     Serialize,
 /// };
 ///
-/// // Let's define a decider to niche `Some(1)` into `None`.
+/// // Let's make it so that `Some(1)` is niched into `None`.
 /// struct One;
 ///
 /// // SAFETY: `Self::Niched` is the same as `T` so it's always valid to access
 /// // it within a union of the two. Furthermore, we can be sure that the `T`
 /// // field is safe to access if `is_niched` returns `false`.
-/// unsafe impl Decider<Archived<u32>> for One {
+/// unsafe impl Niching<Archived<u32>> for One {
 ///     type Niched = Archived<u32>;
 ///
 ///     fn is_niched(niched: &Self::Niched) -> bool {
@@ -59,8 +59,8 @@ use crate::{Place, Portable};
 /// ```
 ///
 /// [`Nicher`]: crate::with::Nicher
-/// [`is_niched`]: Decider::is_niched
-pub unsafe trait Decider<T> {
+/// [`is_niched`]: Niching::is_niched
+pub unsafe trait Niching<T> {
     /// The archived representation of a niched value.
     type Niched: Portable;
 
@@ -71,11 +71,11 @@ pub unsafe trait Decider<T> {
     fn resolve_niche(out: Place<Self::Niched>);
 }
 
-/// [`Decider`] for zero-niched values.
+/// [`Niching`] for zero-niched values.
 pub struct Zero;
 
-/// [`Decider`] for NaN-niched values.
+/// [`Niching`] for NaN-niched values.
 pub struct NaN;
 
-/// [`Decider`] for null-pointer-niched values.
+/// [`Niching`] for null-pointer-niched values.
 pub struct Null;

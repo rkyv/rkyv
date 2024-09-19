@@ -4,13 +4,13 @@ use core::num::{
 };
 
 use crate::{
-    niche::decider::{Decider, NaN, Zero},
+    niche::niching::{NaN, Niching, Zero},
     Archive, Archived, Place,
 };
 
-macro_rules! impl_nonzero_zero_decider {
+macro_rules! impl_nonzero_zero_niching {
     ($nz:ty, $ar:ty) => {
-        unsafe impl Decider<Archived<$nz>> for Zero {
+        unsafe impl Niching<Archived<$nz>> for Zero {
             type Niched = Archived<$ar>;
 
             fn is_niched(niched: &Self::Niched) -> bool {
@@ -24,21 +24,21 @@ macro_rules! impl_nonzero_zero_decider {
     };
 }
 
-impl_nonzero_zero_decider!(NonZeroU8, u8);
-impl_nonzero_zero_decider!(NonZeroU16, u16);
-impl_nonzero_zero_decider!(NonZeroU32, u32);
-impl_nonzero_zero_decider!(NonZeroU64, u64);
-impl_nonzero_zero_decider!(NonZeroU128, u128);
+impl_nonzero_zero_niching!(NonZeroU8, u8);
+impl_nonzero_zero_niching!(NonZeroU16, u16);
+impl_nonzero_zero_niching!(NonZeroU32, u32);
+impl_nonzero_zero_niching!(NonZeroU64, u64);
+impl_nonzero_zero_niching!(NonZeroU128, u128);
 
-impl_nonzero_zero_decider!(NonZeroI8, i8);
-impl_nonzero_zero_decider!(NonZeroI16, i16);
-impl_nonzero_zero_decider!(NonZeroI32, i32);
-impl_nonzero_zero_decider!(NonZeroI64, i64);
-impl_nonzero_zero_decider!(NonZeroI128, i128);
+impl_nonzero_zero_niching!(NonZeroI8, i8);
+impl_nonzero_zero_niching!(NonZeroI16, i16);
+impl_nonzero_zero_niching!(NonZeroI32, i32);
+impl_nonzero_zero_niching!(NonZeroI64, i64);
+impl_nonzero_zero_niching!(NonZeroI128, i128);
 
-macro_rules! impl_float_nan_decider {
+macro_rules! impl_float_nan_niching {
     ($fl:ty) => {
-        unsafe impl Decider<Archived<$fl>> for NaN {
+        unsafe impl Niching<Archived<$fl>> for NaN {
             type Niched = Archived<$fl>;
 
             fn is_niched(niched: &Self::Niched) -> bool {
@@ -52,5 +52,5 @@ macro_rules! impl_float_nan_decider {
     };
 }
 
-impl_float_nan_decider!(f32);
-impl_float_nan_decider!(f64);
+impl_float_nan_niching!(f32);
+impl_float_nan_niching!(f64);

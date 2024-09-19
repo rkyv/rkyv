@@ -5,7 +5,7 @@
     target_has_atomic = "64",
 ))]
 mod atomic;
-mod decider;
+mod niching;
 
 use core::{
     cell::{Cell, UnsafeCell},
@@ -25,8 +25,8 @@ use rancor::Fallible;
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     niche::{
-        decider::Decider,
         niched_option::NichedOption,
+        niching::Niching,
         option_nonzero::{
             ArchivedOptionNonZeroI128, ArchivedOptionNonZeroI16,
             ArchivedOptionNonZeroI32, ArchivedOptionNonZeroI64,
@@ -392,12 +392,12 @@ where
 
 // Nicher
 
-impl<T, D> ArchiveWith<Option<T>> for Nicher<D>
+impl<T, N> ArchiveWith<Option<T>> for Nicher<N>
 where
     T: Archive,
-    D: Decider<T::Archived> + ?Sized,
+    N: Niching<T::Archived> + ?Sized,
 {
-    type Archived = NichedOption<T, D>;
+    type Archived = NichedOption<T, N>;
     type Resolver = Option<T::Resolver>;
 
     fn resolve_with(
@@ -405,7 +405,7 @@ where
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
-        NichedOption::<T, D>::resolve_from_option(
+        NichedOption::<T, N>::resolve_from_option(
             field.as_ref(),
             resolver,
             out,
@@ -413,24 +413,24 @@ where
     }
 }
 
-impl<T, D, S> SerializeWith<Option<T>, S> for Nicher<D>
+impl<T, N, S> SerializeWith<Option<T>, S> for Nicher<N>
 where
     T: Serialize<S>,
-    D: Decider<T::Archived> + ?Sized,
+    N: Niching<T::Archived> + ?Sized,
     S: Fallible + ?Sized,
 {
     fn serialize_with(
         field: &Option<T>,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        NichedOption::<T, D>::serialize_from_option(field.as_ref(), serializer)
+        NichedOption::<T, N>::serialize_from_option(field.as_ref(), serializer)
     }
 }
 
 impl<T, N, D> DeserializeWith<NichedOption<T, N>, Option<T>, D> for Nicher<N>
 where
     T: Archive<Archived: Deserialize<T, D>>,
-    N: Decider<T::Archived> + ?Sized,
+    N: Niching<T::Archived> + ?Sized,
     D: Fallible + ?Sized,
 {
     fn deserialize_with(
@@ -444,7 +444,7 @@ where
 impl<T, N, D> Deserialize<Option<T>, D> for NichedOption<T, N>
 where
     T: Archive<Archived: Deserialize<T, D>>,
-    N: Decider<T::Archived> + ?Sized,
+    N: Niching<T::Archived> + ?Sized,
     D: Fallible + ?Sized,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<Option<T>, D::Error> {
@@ -627,7 +627,7 @@ mod tests {
 
     use crate::{
         api::test::{deserialize, roundtrip, roundtrip_with, to_archived},
-        niche::decider::{NaN, Zero},
+        niche::niching::{NaN, Zero},
         rancor::Fallible,
         ser::Writer,
         with::{

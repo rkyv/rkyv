@@ -1,4 +1,4 @@
-mod decider;
+mod niching;
 
 use core::{marker::PhantomData, ops::ControlFlow};
 
@@ -573,7 +573,7 @@ mod tests {
             string::{String, ToString},
         },
         api::test::{roundtrip, to_archived},
-        niche::decider::Null,
+        niche::niching::Null,
         with::{AsOwned, AsVec, InlineAsBox, Map, MapKV, Niche, Nicher},
         Archive, Deserialize, Serialize,
     };
