@@ -475,8 +475,8 @@ pub struct Niche;
 
 /// A wrapper that niches based on a generic [`Niching`].
 ///
-/// A common type combination is `Option<Box<T>>`. By using a null pointer, the
-/// archived version can save some space on-disk.
+/// A common type combination is `Option<Box<T>>`. By niching `None` into the
+/// null pointer, the archived version can save some space on-disk.
 ///
 /// # Example
 ///
