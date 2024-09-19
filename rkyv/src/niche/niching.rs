@@ -35,7 +35,7 @@ use crate::{Place, Portable};
 ///         *niched == 1
 ///     }
 ///
-///     fn resolve_niche(out: Place<Self::Niched>) {
+///     fn resolve_niched(out: Place<Self::Niched>) {
 ///         u32::resolve(&1, (), out);
 ///     }
 /// }
@@ -68,7 +68,7 @@ pub unsafe trait Niching<T> {
     fn is_niched(niched: &Self::Niched) -> bool;
 
     /// Creates a `Self::Niched` and writes it to the given output.
-    fn resolve_niche(out: Place<Self::Niched>);
+    fn resolve_niched(out: Place<Self::Niched>);
 }
 
 /// [`Niching`] for zero-niched values.

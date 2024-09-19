@@ -15,7 +15,7 @@ where
         niched.is_invalid()
     }
 
-    fn resolve_niche(out: Place<Self::Niched>) {
+    fn resolve_niched(out: Place<Self::Niched>) {
         RelPtr::emplace_invalid(out);
     }
 }

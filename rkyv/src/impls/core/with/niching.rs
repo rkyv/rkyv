@@ -17,7 +17,7 @@ macro_rules! impl_nonzero_zero_niching {
                 *niched == 0
             }
 
-            fn resolve_niche(out: Place<Self::Niched>) {
+            fn resolve_niched(out: Place<Self::Niched>) {
                 <$ar>::resolve(&0, (), out)
             }
         }
@@ -45,7 +45,7 @@ macro_rules! impl_float_nan_niching {
                 niched.to_native().is_nan()
             }
 
-            fn resolve_niche(out: Place<Self::Niched>) {
+            fn resolve_niched(out: Place<Self::Niched>) {
                 <$fl>::resolve(&<$fl>::NAN, (), out)
             }
         }

@@ -54,7 +54,7 @@ impl<T, N: Niching<T> + ?Sized> Repr<T, N> {
     ///         false
     ///     }
     ///
-    ///     fn resolve_niche(_: Place<Self::Niched>) {}
+    ///     fn resolve_niched(_: Place<Self::Niched>) {}
     /// }
     ///
     /// let archived: Archived<N> = 456.into();
@@ -171,7 +171,7 @@ where
             }
             None => {
                 munge!(let Self { repr: Repr { niche } } = out);
-                N::resolve_niche(unsafe {
+                N::resolve_niched(unsafe {
                     niche.cast_unchecked::<N::Niched>()
                 });
             }
