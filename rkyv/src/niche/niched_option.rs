@@ -20,28 +20,20 @@ use crate::{seal::Seal, Archive, Archived, Place, Portable, Serialize};
 pub struct NichedOption<T, D>
 where
     T: Archive,
-    D: Decider<T> + ?Sized,
+    D: Decider<T::Archived> + ?Sized,
 {
-    repr: Repr<T, D>,
+    repr: Repr<T::Archived, D>,
 }
 
 #[repr(C)]
 #[derive(Portable)]
 #[rkyv(crate)]
-union Repr<T, D>
-where
-    T: Archive,
-    D: Decider<T> + ?Sized,
-{
-    some: ManuallyDrop<<T as Archive>::Archived>,
+union Repr<T, D: Decider<T> + ?Sized> {
+    some: ManuallyDrop<T>,
     niche: ManuallyDrop<<D as Decider<T>>::Niched>,
 }
 
-impl<T, D> Repr<T, D>
-where
-    T: Archive,
-    D: Decider<T> + ?Sized,
-{
+impl<T, D: Decider<T> + ?Sized> Repr<T, D> {
     /// Compile-time check to make sure that the niched type is not greater than
     /// the archived type.
     ///
@@ -56,7 +48,7 @@ where
     ///
     /// struct UselessDecider;
     ///
-    /// unsafe impl Decider<T> for UselessDecider {
+    /// unsafe impl Decider<Archived<T>> for UselessDecider {
     ///     type Niched = Archived<N>;
     ///
     ///     fn is_niched(_: &Archived<N>) -> bool {
@@ -72,12 +64,9 @@ where
     /// let _ = niched.is_none(); // <- size check = compile error
     /// ```
     const NICHE_SIZE_CHECK: () = {
-        if size_of::<<D as Decider<T>>::Niched>()
-            > size_of::<<T as Archive>::Archived>()
-        {
+        if size_of::<<D as Decider<T>>::Niched>() > size_of::<T>() {
             panic!(
-                "`D::Niched` is greater than `T::Archived` and thus useless \
-                 for niching"
+                "`D::Niched` is greater than `T` and thus useless for niching"
             );
         }
     };
@@ -89,7 +78,7 @@ const _: () = {
 
     unsafe impl<T, D, C> CheckBytes<C> for Repr<T, D>
     where
-        T: Archive<Archived: CheckBytes<C>>,
+        T: CheckBytes<C>,
         D: Decider<T, Niched: CheckBytes<C>> + ?Sized,
         C: Fallible + ?Sized,
     {
@@ -103,7 +92,7 @@ const _: () = {
                 return Ok(());
             }
 
-            unsafe { <T::Archived>::check_bytes(&*(*value).some, context) }
+            unsafe { T::check_bytes(&*(*value).some, context) }
         }
     }
 };
@@ -111,12 +100,12 @@ const _: () = {
 impl<T, D> NichedOption<T, D>
 where
     T: Archive,
-    D: Decider<T> + ?Sized,
+    D: Decider<T::Archived> + ?Sized,
 {
     /// Returns `true` if the option is a `None` value.
     pub fn is_none(&self) -> bool {
         #[allow(clippy::let_unit_value)]
-        let _ = Repr::<T, D>::NICHE_SIZE_CHECK;
+        let _ = Repr::<T::Archived, D>::NICHE_SIZE_CHECK;
         D::is_niched(unsafe { &*self.repr.niche })
     }
 
@@ -172,7 +161,7 @@ where
         out: Place<Self>,
     ) {
         #[allow(clippy::let_unit_value)]
-        let _ = Repr::<T, D>::NICHE_SIZE_CHECK;
+        let _ = Repr::<T::Archived, D>::NICHE_SIZE_CHECK;
         match option {
             Some(value) => {
                 let resolver = resolver.expect("non-niched resolver");
@@ -209,7 +198,7 @@ where
 impl<T, D> NichedOption<T, D>
 where
     T: Archive<Archived: Deref>,
-    D: Decider<T> + ?Sized,
+    D: Decider<T::Archived> + ?Sized,
 {
     /// Converts from `&NichedOption<T, D>` to `Option<&Archived<T>::Target>`.
     pub fn as_deref(&self) -> Option<&<Archived<T> as Deref>::Target> {
@@ -220,7 +209,7 @@ where
 impl<T, D> fmt::Debug for NichedOption<T, D>
 where
     T: Archive<Archived: fmt::Debug>,
-    D: Decider<T> + ?Sized,
+    D: Decider<T::Archived> + ?Sized,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_ref().fmt(f)
@@ -230,14 +219,14 @@ where
 impl<T, D> Eq for NichedOption<T, D>
 where
     T: Archive<Archived: Eq>,
-    D: Decider<T> + ?Sized,
+    D: Decider<T::Archived> + ?Sized,
 {
 }
 
 impl<T, D> PartialEq for NichedOption<T, D>
 where
     T: Archive<Archived: PartialEq>,
-    D: Decider<T> + ?Sized,
+    D: Decider<T::Archived> + ?Sized,
 {
     fn eq(&self, other: &Self) -> bool {
         self.as_ref().eq(&other.as_ref())
@@ -247,7 +236,7 @@ where
 impl<T, D, Rhs> PartialEq<Option<Rhs>> for NichedOption<T, D>
 where
     T: Archive<Archived: PartialEq<Rhs>>,
-    D: Decider<T> + ?Sized,
+    D: Decider<T::Archived> + ?Sized,
 {
     fn eq(&self, other: &Option<Rhs>) -> bool {
         match (self.as_ref(), other) {
@@ -261,7 +250,7 @@ where
 impl<T, D> Ord for NichedOption<T, D>
 where
     T: Archive<Archived: Ord>,
-    D: Decider<T> + ?Sized,
+    D: Decider<T::Archived> + ?Sized,
 {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.as_ref().cmp(&other.as_ref())
@@ -271,7 +260,7 @@ where
 impl<T, D> PartialOrd for NichedOption<T, D>
 where
     T: Archive<Archived: PartialOrd>,
-    D: Decider<T> + ?Sized,
+    D: Decider<T::Archived> + ?Sized,
 {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.as_ref().partial_cmp(&other.as_ref())

@@ -2,18 +2,17 @@
 //!
 //! [`Nicher`]: crate::with::Nicher
 
-use crate::{Archive, Place, Portable};
+use crate::{Place, Portable};
 
 /// A type that can be used to niche a value with [`Nicher`].
 ///
 /// # Safety
 ///
-/// For a union with two fields of type `Self::Niched` and `T::Archived`, it
-/// must always be safe to access the `Self::Niched` field.
+/// For a union with two fields of type `Self::Niched` and `T`, it must always
+/// be safe to access the `Self::Niched` field.
 ///
 /// Additionally, if [`is_niched`] returns `false` when being passed such a
-/// union's `Self::Niched` field, it must be safe to access the `T::Archived`
-/// field.
+/// union's `Self::Niched` field, it must be safe to access the `T` field.
 ///
 /// # Example
 ///
@@ -26,10 +25,10 @@ use crate::{Archive, Place, Portable};
 /// // Let's define a decider to niche `Some(1)` into `None`.
 /// struct One;
 ///
-/// // SAFETY: `Self::Niched` is the same as `T::Archived` so it's always valid
-/// // to access it within a union of the two. Furthermore, we can be sure that
-/// // the `T::Archived` field is safe to access if `is_niched` returns `false`.
-/// unsafe impl Decider<u32> for One {
+/// // SAFETY: `Self::Niched` is the same as `T` so it's always valid to access
+/// // it within a union of the two. Furthermore, we can be sure that the `T`
+/// // field is safe to access if `is_niched` returns `false`.
+/// unsafe impl Decider<Archived<u32>> for One {
 ///     type Niched = Archived<u32>;
 ///
 ///     fn is_niched(niched: &Self::Niched) -> bool {
@@ -61,7 +60,7 @@ use crate::{Archive, Place, Portable};
 ///
 /// [`Nicher`]: crate::with::Nicher
 /// [`is_niched`]: Decider::is_niched
-pub unsafe trait Decider<T: Archive> {
+pub unsafe trait Decider<T> {
     /// The archived representation of a niched value.
     type Niched: Portable;
 

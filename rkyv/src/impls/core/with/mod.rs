@@ -395,7 +395,7 @@ where
 impl<T, D> ArchiveWith<Option<T>> for Nicher<D>
 where
     T: Archive,
-    D: Decider<T> + ?Sized,
+    D: Decider<T::Archived> + ?Sized,
 {
     type Archived = NichedOption<T, D>;
     type Resolver = Option<T::Resolver>;
@@ -416,7 +416,7 @@ where
 impl<T, D, S> SerializeWith<Option<T>, S> for Nicher<D>
 where
     T: Serialize<S>,
-    D: Decider<T> + ?Sized,
+    D: Decider<T::Archived> + ?Sized,
     S: Fallible + ?Sized,
 {
     fn serialize_with(
@@ -430,7 +430,7 @@ where
 impl<T, N, D> DeserializeWith<NichedOption<T, N>, Option<T>, D> for Nicher<N>
 where
     T: Archive<Archived: Deserialize<T, D>>,
-    N: Decider<T> + ?Sized,
+    N: Decider<T::Archived> + ?Sized,
     D: Fallible + ?Sized,
 {
     fn deserialize_with(
@@ -444,7 +444,7 @@ where
 impl<T, N, D> Deserialize<Option<T>, D> for NichedOption<T, N>
 where
     T: Archive<Archived: Deserialize<T, D>>,
-    N: Decider<T> + ?Sized,
+    N: Decider<T::Archived> + ?Sized,
     D: Fallible + ?Sized,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<Option<T>, D::Error> {

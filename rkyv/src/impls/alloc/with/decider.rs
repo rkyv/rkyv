@@ -1,14 +1,15 @@
 use crate::{
-    alloc::boxed::Box,
+    boxed::ArchivedBox,
     niche::decider::{Decider, Null},
-    ArchiveUnsized, Place, RelPtr,
+    traits::ArchivePointee,
+    Place, Portable, RelPtr,
 };
 
-unsafe impl<T> Decider<Box<T>> for Null
+unsafe impl<T> Decider<ArchivedBox<T>> for Null
 where
-    T: ArchiveUnsized + ?Sized,
+    T: ArchivePointee + Portable + ?Sized,
 {
-    type Niched = RelPtr<T::Archived>;
+    type Niched = RelPtr<T>;
 
     fn is_niched(niched: &Self::Niched) -> bool {
         niched.is_invalid()
