@@ -5,7 +5,7 @@
 
 // mod impls;
 
-use core::marker::PhantomData;
+use core::{fmt, marker::PhantomData};
 
 use rancor::Fallible;
 
@@ -472,6 +472,57 @@ pub struct AsVec;
 /// ```
 #[derive(Debug)]
 pub struct Niche;
+
+/// A wrapper that niches based on a generic [`Niching`].
+///
+/// A common type combination is `Option<Box<T>>`. By niching `None` into the
+/// null pointer, the archived version can save some space on-disk.
+///
+/// # Example
+///
+/// ```
+/// use core::mem::size_of;
+///
+/// use rkyv::{
+///     niche::niching::{NaN, Null},
+///     with::Nicher,
+///     Archive, Archived,
+/// };
+///
+/// #[derive(Archive)]
+/// struct BasicExample {
+///     maybe_box: Option<Box<str>>,
+///     maybe_non_nan: Option<f32>,
+/// }
+///
+/// #[derive(Archive)]
+/// struct NichedExample {
+///     #[rkyv(with = Nicher<Null>)]
+///     maybe_box: Option<Box<str>>,
+///     #[rkyv(with = Nicher<NaN>)]
+///     maybe_non_nan: Option<f32>,
+/// }
+///
+/// assert!(
+///     size_of::<Archived<BasicExample>>()
+///         > size_of::<Archived<NichedExample>>()
+/// );
+/// ```
+///
+/// [`Niching`]: crate::niche::niching::Niching
+pub struct Nicher<D: ?Sized>(PhantomData<D>);
+
+impl<D: ?Sized> Default for Nicher<D> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<D: ?Sized> fmt::Debug for Nicher<D> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Nicher")
+    }
+}
 
 /// A wrapper that converts a [`SystemTime`](std::time::SystemTime) to a
 /// [`Duration`](std::time::Duration) since
