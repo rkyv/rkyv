@@ -73,7 +73,14 @@ impl Group {
     pub unsafe fn read(ptr: *const u8) -> Self {
         // SAFETY: The caller has guaranteed that `ptr` is valid for reads and
         // points to enough bytes for a `Word`.
-        unsafe { Self(core::ptr::read_unaligned(ptr.cast())) }
+        #[cfg(target_endian = "little")]
+        unsafe {
+            Self(core::ptr::read_unaligned(ptr.cast()))
+        }
+        #[cfg(target_endian = "big")]
+        unsafe {
+            Self(core::ptr::read_unaligned(ptr.cast::<Word>()).swap_bytes())
+        }
     }
 
     #[inline]
