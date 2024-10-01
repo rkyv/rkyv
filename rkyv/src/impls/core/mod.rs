@@ -357,7 +357,8 @@ where
         ptr_meta::metadata(self)
     }
 }
-/// `str`
+
+// `str`
 
 // SAFETY: `str` is a byte slice and so has a stable, well-defined layout that
 // is the same on all targets. It doesn't have any interior mutability.

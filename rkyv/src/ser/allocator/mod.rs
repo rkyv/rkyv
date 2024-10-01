@@ -95,8 +95,6 @@ impl AllocationStats {
     }
 }
 
-/// Returns the maximum error term for the minimum buffer size calculation.
-
 impl AllocationStats {
     #[inline]
     fn push(&mut self, layout: Layout) {
