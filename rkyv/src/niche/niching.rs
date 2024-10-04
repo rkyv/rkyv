@@ -19,6 +19,7 @@ use crate::{Archive, Archived};
 /// # Example
 ///
 /// ```
+/// # use std::num::NonZeroU16;
 /// use rkyv::{
 ///     niche::niching::Niching, with::Nicher, Archive, Archived, Serialize,
 /// };
@@ -86,7 +87,10 @@ use crate::{Archive, Archived};
 /// ];
 /// let bytes = rkyv::to_bytes(&values)?;
 /// let archived = rkyv::access::<[ArchivedWithNiching; 2], _>(&bytes)?;
-/// assert_eq!(archived[0].field.as_ref(), Some(&Archived<789>));
+/// assert_eq!(
+///     archived[0].field.as_ref().map(|field| field.other),
+///     Some(789.into())
+/// );
 /// assert!(archived[1].field.is_none());
 /// # Ok(()) }
 /// ```
