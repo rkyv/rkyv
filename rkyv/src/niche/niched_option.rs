@@ -6,7 +6,9 @@ use munge::munge;
 use rancor::Fallible;
 
 use super::niching::Niching;
-use crate::{seal::Seal, Archive, Archived, Place, Portable, Serialize};
+use crate::{
+    seal::Seal, Archive, Archived, Place, Portable, Resolver, Serialize,
+};
 
 /// A niched archived `Option<T>`.
 ///
@@ -19,20 +21,20 @@ use crate::{seal::Seal, Archive, Archived, Place, Portable, Serialize};
 pub struct NichedOption<T, N>
 where
     T: Archive,
-    N: Niching<T::Archived> + ?Sized,
+    N: Niching<T> + ?Sized,
 {
-    repr: Repr<T::Archived, N>,
+    repr: Repr<T, N>,
 }
 
 #[repr(C)]
 #[derive(Portable)]
 #[rkyv(crate)]
-union Repr<T, N: Niching<T> + ?Sized> {
-    some: ManuallyDrop<T>,
-    niche: ManuallyDrop<<N as Niching<T>>::Niched>,
+union Repr<T: Archive, N: Niching<T> + ?Sized> {
+    some: ManuallyDrop<Archived<T>>,
+    niche: ManuallyDrop<Archived<<N as Niching<T>>::Niched>>,
 }
 
-impl<T, N: Niching<T> + ?Sized> Repr<T, N> {
+impl<T: Archive, N: Niching<T> + ?Sized> Repr<T, N> {
     /// Compile-time check to make sure that the niched type is not greater than
     /// the archived type.
     ///
@@ -42,30 +44,32 @@ impl<T, N: Niching<T> + ?Sized> Repr<T, N> {
     ///     Archived, Place,
     /// };
     ///
-    /// type T = u16;
-    /// type N = u32;
-    ///
     /// struct UselessNiching;
     ///
-    /// unsafe impl Niching<Archived<T>> for UselessNiching {
-    ///     type Niched = Archived<N>;
+    /// unsafe impl Niching<u16> for UselessNiching {
+    ///     type Niched = u32;
     ///
-    ///     fn is_niched(_: &Archived<N>) -> bool {
-    ///         false
+    ///     fn niched() -> Self::Niched {
+    ///         unimplemented!()
     ///     }
     ///
-    ///     fn resolve_niched(_: Place<Self::Niched>) {}
+    ///     fn is_niched(_: &Archived<Self::Niched>) -> bool {
+    ///         unimplemented!()
+    ///     }
     /// }
     ///
-    /// let archived: Archived<N> = 456.into();
-    /// let niched: &NichedOption<T, UselessNiching> =
+    /// let archived: Archived<u32> = 456.into();
+    /// let niched: &NichedOption<u16, UselessNiching> =
     ///     unsafe { std::mem::transmute(&archived) };
     /// let _ = niched.is_none(); // <- size check = compile error
     /// ```
     const NICHE_SIZE_CHECK: () = {
-        if size_of::<<N as Niching<T>>::Niched>() > size_of::<T>() {
+        if size_of::<Archived<<N as Niching<T>>::Niched>>()
+            > size_of::<Archived<T>>()
+        {
             panic!(
-                "`N::Niched` is greater than `T` and thus useless for niching"
+                "`Archived<N::Niched>` is greater than `Archived<T>` and thus \
+                 useless for niching"
             );
         }
     };
@@ -77,21 +81,24 @@ const _: () = {
 
     unsafe impl<T, N, C> CheckBytes<C> for Repr<T, N>
     where
-        T: CheckBytes<C>,
-        N: Niching<T, Niched: CheckBytes<C>> + ?Sized,
+        T: Archive<Archived: CheckBytes<C>>,
+        N: Niching<T> + ?Sized,
+        <N::Niched as Archive>::Archived: CheckBytes<C>,
         C: Fallible + ?Sized,
     {
         unsafe fn check_bytes(
             value: *const Self,
             context: &mut C,
         ) -> Result<(), C::Error> {
-            unsafe { <N::Niched>::check_bytes(&*(*value).niche, context)? };
+            unsafe {
+                <Archived<N::Niched>>::check_bytes(&*(*value).niche, context)?
+            };
 
             if N::is_niched(unsafe { &*(*value).niche }) {
                 return Ok(());
             }
 
-            unsafe { T::check_bytes(&*(*value).some, context) }
+            unsafe { <Archived<T>>::check_bytes(&*(*value).some, context) }
         }
     }
 };
@@ -99,12 +106,12 @@ const _: () = {
 impl<T, N> NichedOption<T, N>
 where
     T: Archive,
-    N: Niching<T::Archived> + ?Sized,
+    N: Niching<T> + ?Sized,
 {
     /// Returns `true` if the option is a `None` value.
     pub fn is_none(&self) -> bool {
         #[allow(clippy::let_unit_value)]
-        let _ = Repr::<T::Archived, N>::NICHE_SIZE_CHECK;
+        let _ = Repr::<T, N>::NICHE_SIZE_CHECK;
         N::is_niched(unsafe { &*self.repr.niche })
     }
 
@@ -156,24 +163,28 @@ where
     /// Resolves a `NichedOption<T, N>` from an `Option<&T>`.
     pub fn resolve_from_option(
         option: Option<&T>,
-        resolver: Option<T::Resolver>,
+        resolver: NichedOptionResolver<T, N>,
         out: Place<Self>,
     ) {
         #[allow(clippy::let_unit_value)]
-        let _ = Repr::<T::Archived, N>::NICHE_SIZE_CHECK;
+        let _ = Repr::<T, N>::NICHE_SIZE_CHECK;
         match option {
             Some(value) => {
-                let resolver = resolver.expect("non-niched resolver");
+                let NichedOptionResolver::Some(resolver) = resolver else {
+                    panic!("expected non-niche resolver");
+                };
                 munge!(let Self { repr: Repr { some } } = out);
-                value.resolve(resolver, unsafe {
-                    some.cast_unchecked::<T::Archived>()
-                });
+                let out = unsafe { some.cast_unchecked::<Archived<T>>() };
+                value.resolve(resolver, out);
             }
             None => {
+                let NichedOptionResolver::Niched(resolver) = resolver else {
+                    panic!("expected niche resolver");
+                };
                 munge!(let Self { repr: Repr { niche } } = out);
-                N::resolve_niched(unsafe {
-                    niche.cast_unchecked::<N::Niched>()
-                });
+                let out =
+                    unsafe { niche.cast_unchecked::<Archived<N::Niched>>() };
+                N::niched().resolve(resolver, out);
             }
         }
     }
@@ -182,14 +193,19 @@ where
     pub fn serialize_from_option<S>(
         option: Option<&T>,
         serializer: &mut S,
-    ) -> Result<Option<T::Resolver>, S::Error>
+    ) -> Result<NichedOptionResolver<T, N>, S::Error>
     where
         S: Fallible + ?Sized,
         T: Serialize<S>,
+        N::Niched: Serialize<S>,
     {
         match option {
-            Some(value) => value.serialize(serializer).map(Some),
-            None => Ok(None),
+            Some(value) => {
+                value.serialize(serializer).map(NichedOptionResolver::Some)
+            }
+            None => N::niched()
+                .serialize(serializer)
+                .map(NichedOptionResolver::Niched),
         }
     }
 }
@@ -197,7 +213,7 @@ where
 impl<T, N> NichedOption<T, N>
 where
     T: Archive<Archived: Deref>,
-    N: Niching<T::Archived> + ?Sized,
+    N: Niching<T> + ?Sized,
 {
     /// Converts from `&NichedOption<T, N>` to `Option<&Archived<T>::Target>`.
     pub fn as_deref(&self) -> Option<&<Archived<T> as Deref>::Target> {
@@ -208,7 +224,7 @@ where
 impl<T, N> fmt::Debug for NichedOption<T, N>
 where
     T: Archive<Archived: fmt::Debug>,
-    N: Niching<T::Archived> + ?Sized,
+    N: Niching<T> + ?Sized,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_ref().fmt(f)
@@ -218,14 +234,14 @@ where
 impl<T, N> Eq for NichedOption<T, N>
 where
     T: Archive<Archived: Eq>,
-    N: Niching<T::Archived> + ?Sized,
+    N: Niching<T> + ?Sized,
 {
 }
 
 impl<T, N> PartialEq for NichedOption<T, N>
 where
     T: Archive<Archived: PartialEq>,
-    N: Niching<T::Archived> + ?Sized,
+    N: Niching<T> + ?Sized,
 {
     fn eq(&self, other: &Self) -> bool {
         self.as_ref().eq(&other.as_ref())
@@ -235,7 +251,7 @@ where
 impl<T, N, Rhs> PartialEq<Option<Rhs>> for NichedOption<T, N>
 where
     T: Archive<Archived: PartialEq<Rhs>>,
-    N: Niching<T::Archived> + ?Sized,
+    N: Niching<T> + ?Sized,
 {
     fn eq(&self, other: &Option<Rhs>) -> bool {
         match (self.as_ref(), other) {
@@ -249,7 +265,7 @@ where
 impl<T, N> Ord for NichedOption<T, N>
 where
     T: Archive<Archived: Ord>,
-    N: Niching<T::Archived> + ?Sized,
+    N: Niching<T> + ?Sized,
 {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.as_ref().cmp(&other.as_ref())
@@ -259,7 +275,7 @@ where
 impl<T, N> PartialOrd for NichedOption<T, N>
 where
     T: Archive<Archived: PartialOrd>,
-    N: Niching<T::Archived> + ?Sized,
+    N: Niching<T> + ?Sized,
 {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
         self.as_ref().partial_cmp(&other.as_ref())
@@ -271,3 +287,11 @@ where
 /// This iterator yields one value if the `NichedOption` is a `Some`, otherwise
 /// none.
 pub type Iter<P> = crate::option::Iter<P>;
+
+/// A resolver for `Option<T>` when niched by `N`.
+pub enum NichedOptionResolver<T: Archive, N: Niching<T> + ?Sized> {
+    /// A resolver for `T`.
+    Some(Resolver<T>),
+    /// A resolver for `N::Niched`.
+    Niched(Resolver<N::Niched>),
+}

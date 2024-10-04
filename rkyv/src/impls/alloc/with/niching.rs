@@ -1,21 +1,42 @@
+use core::marker::PhantomData;
+
+use rancor::Fallible;
+
 use crate::{
-    boxed::ArchivedBox,
     niche::niching::{Niching, Null},
     traits::ArchivePointee,
-    Place, Portable, RelPtr,
+    Archive, ArchiveUnsized, Archived, Place, RelPtr, Serialize,
 };
 
-unsafe impl<T> Niching<ArchivedBox<T>> for Null
-where
-    T: ArchivePointee + Portable + ?Sized,
-{
-    type Niched = RelPtr<T>;
+pub struct NichedBox<T: ?Sized>(PhantomData<T>);
 
-    fn is_niched(niched: &Self::Niched) -> bool {
-        niched.is_invalid()
+impl<T: ArchivePointee + ?Sized> Archive for NichedBox<T> {
+    type Archived = RelPtr<T>;
+    type Resolver = ();
+
+    fn resolve(&self, _: Self::Resolver, out: Place<Self::Archived>) {
+        RelPtr::emplace_invalid(out);
+    }
+}
+
+impl<T, S> Serialize<S> for NichedBox<T>
+where
+    T: ArchivePointee + ?Sized,
+    S: Fallible + ?Sized,
+{
+    fn serialize(&self, _: &mut S) -> Result<Self::Resolver, S::Error> {
+        Ok(())
+    }
+}
+
+unsafe impl<T: ArchiveUnsized + ?Sized> Niching<Box<T>> for Null {
+    type Niched = NichedBox<T::Archived>;
+
+    fn niched() -> Self::Niched {
+        NichedBox(PhantomData)
     }
 
-    fn resolve_niched(out: Place<Self::Niched>) {
-        RelPtr::emplace_invalid(out);
+    fn is_niched(niched: &Archived<Self::Niched>) -> bool {
+        niched.is_invalid()
     }
 }

@@ -25,7 +25,7 @@ use rancor::Fallible;
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
     niche::{
-        niched_option::NichedOption,
+        niched_option::{NichedOption, NichedOptionResolver},
         niching::Niching,
         option_nonzero::{
             ArchivedOptionNonZeroI128, ArchivedOptionNonZeroI16,
@@ -395,10 +395,10 @@ where
 impl<T, N> ArchiveWith<Option<T>> for Nicher<N>
 where
     T: Archive,
-    N: Niching<T::Archived> + ?Sized,
+    N: Niching<T> + ?Sized,
 {
     type Archived = NichedOption<T, N>;
-    type Resolver = Option<T::Resolver>;
+    type Resolver = NichedOptionResolver<T, N>;
 
     fn resolve_with(
         field: &Option<T>,
@@ -416,7 +416,7 @@ where
 impl<T, N, S> SerializeWith<Option<T>, S> for Nicher<N>
 where
     T: Serialize<S>,
-    N: Niching<T::Archived> + ?Sized,
+    N: Niching<T, Niched: Serialize<S>> + ?Sized,
     S: Fallible + ?Sized,
 {
     fn serialize_with(
@@ -430,7 +430,7 @@ where
 impl<T, N, D> DeserializeWith<NichedOption<T, N>, Option<T>, D> for Nicher<N>
 where
     T: Archive<Archived: Deserialize<T, D>>,
-    N: Niching<T::Archived> + ?Sized,
+    N: Niching<T> + ?Sized,
     D: Fallible + ?Sized,
 {
     fn deserialize_with(
@@ -444,7 +444,7 @@ where
 impl<T, N, D> Deserialize<Option<T>, D> for NichedOption<T, N>
 where
     T: Archive<Archived: Deserialize<T, D>>,
-    N: Niching<T::Archived> + ?Sized,
+    N: Niching<T> + ?Sized,
     D: Fallible + ?Sized,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<Option<T>, D::Error> {
