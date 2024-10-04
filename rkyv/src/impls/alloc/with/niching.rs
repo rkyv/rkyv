@@ -3,6 +3,7 @@ use core::marker::PhantomData;
 use rancor::Fallible;
 
 use crate::{
+    alloc::boxed::Box,
     niche::niching::{Niching, Null},
     traits::ArchivePointee,
     Archive, ArchiveUnsized, Archived, Place, RelPtr, Serialize,
