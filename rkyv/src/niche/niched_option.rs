@@ -1,6 +1,6 @@
 //! A niched archived `Option<T>` that uses less space based on a [`Niching`].
 
-use core::{cmp, fmt, mem::ManuallyDrop, ops::Deref};
+use core::{cmp, fmt, marker::PhantomData, mem::MaybeUninit, ops::Deref};
 
 use munge::munge;
 use rancor::Fallible;
@@ -12,86 +12,45 @@ use crate::{seal::Seal, Archive, Archived, Place, Portable, Serialize};
 ///
 /// It uses less space by storing the `None` variant in a custom way based on
 /// `N`.
-#[derive(Portable)]
-#[rkyv(crate)]
-#[cfg_attr(feature = "bytecheck", derive(bytecheck::CheckBytes))]
 #[repr(transparent)]
-pub struct NichedOption<T, N>
+pub struct NichedOption<T: Archive, N: ?Sized> {
+    repr: MaybeUninit<T::Archived>,
+    _niching: PhantomData<N>,
+}
+
+// SAFETY: The safety invariant of `Niching<T::Archived>` requires its
+// implementor to ensure that the contained `MaybeUninit<T::Archived>` is
+// portable and thus guarantees this safety.
+unsafe impl<T, N> Portable for NichedOption<T, N>
 where
     T: Archive,
     N: Niching<T::Archived> + ?Sized,
 {
-    repr: Repr<T::Archived, N>,
-}
-
-#[repr(C)]
-#[derive(Portable)]
-#[rkyv(crate)]
-union Repr<T, N: Niching<T> + ?Sized> {
-    some: ManuallyDrop<T>,
-    niche: ManuallyDrop<<N as Niching<T>>::Niched>,
-}
-
-impl<T, N: Niching<T> + ?Sized> Repr<T, N> {
-    /// Compile-time check to make sure that the niched type is not greater than
-    /// the archived type.
-    ///
-    /// ```compile_fail
-    /// use rkyv::{
-    ///     niche::{niching::Niching, niched_option::NichedOption},
-    ///     Archived, Place,
-    /// };
-    ///
-    /// type T = u16;
-    /// type N = u32;
-    ///
-    /// struct UselessNiching;
-    ///
-    /// unsafe impl Niching<Archived<T>> for UselessNiching {
-    ///     type Niched = Archived<N>;
-    ///
-    ///     fn is_niched(_: &Archived<N>) -> bool {
-    ///         false
-    ///     }
-    ///
-    ///     fn resolve_niched(_: Place<Self::Niched>) {}
-    /// }
-    ///
-    /// let archived: Archived<N> = 456.into();
-    /// let niched: &NichedOption<T, UselessNiching> =
-    ///     unsafe { std::mem::transmute(&archived) };
-    /// let _ = niched.is_none(); // <- size check = compile error
-    /// ```
-    const NICHE_SIZE_CHECK: () = {
-        if size_of::<<N as Niching<T>>::Niched>() > size_of::<T>() {
-            panic!(
-                "`N::Niched` is greater than `T` and thus useless for niching"
-            );
-        }
-    };
 }
 
 #[cfg(feature = "bytecheck")]
 const _: () = {
+    use core::ptr::addr_of;
+
     use crate::bytecheck::CheckBytes;
 
-    unsafe impl<T, N, C> CheckBytes<C> for Repr<T, N>
+    unsafe impl<T, N, C> CheckBytes<C> for NichedOption<T, N>
     where
-        T: CheckBytes<C>,
-        N: Niching<T, Niched: CheckBytes<C>> + ?Sized,
+        T: Archive<Archived: CheckBytes<C>>,
+        N: Niching<T::Archived, Niched: CheckBytes<C>> + ?Sized,
         C: Fallible + ?Sized,
     {
         unsafe fn check_bytes(
             value: *const Self,
             context: &mut C,
         ) -> Result<(), C::Error> {
-            unsafe { <N::Niched>::check_bytes(&*(*value).niche, context)? };
+            let ptr = unsafe { addr_of!((*value).repr).cast::<T::Archived>() };
 
-            if N::is_niched(unsafe { &*(*value).niche }) {
-                return Ok(());
+            if unsafe { N::checked_is_niched(ptr, context)? } {
+                Ok(())
+            } else {
+                unsafe { <T::Archived>::check_bytes(ptr, context) }
             }
-
-            unsafe { T::check_bytes(&*(*value).some, context) }
         }
     }
 };
@@ -103,9 +62,7 @@ where
 {
     /// Returns `true` if the option is a `None` value.
     pub fn is_none(&self) -> bool {
-        #[allow(clippy::let_unit_value)]
-        let _ = Repr::<T::Archived, N>::NICHE_SIZE_CHECK;
-        N::is_niched(unsafe { &*self.repr.niche })
+        N::is_niched(self.repr.as_ptr())
     }
 
     /// Returns `true` if the option is a `Some` value.
@@ -113,21 +70,21 @@ where
         !self.is_none()
     }
 
-    /// Converts to an `Option<&Archived<T>>`.
-    pub fn as_ref(&self) -> Option<&Archived<T>> {
+    /// Converts to an `Option<&T::Archived>`.
+    pub fn as_ref(&self) -> Option<&T::Archived> {
         if self.is_none() {
             None
         } else {
-            Some(unsafe { &*self.repr.some })
+            Some(unsafe { self.repr.assume_init_ref() })
         }
     }
 
-    /// Converts to an `Option<&mut Archived<T>>`.
-    pub fn as_mut(&mut self) -> Option<&mut Archived<T>> {
+    /// Converts to an `Option<&mut T::Archived>`.
+    pub fn as_mut(&mut self) -> Option<&mut T::Archived> {
         if self.is_none() {
             None
         } else {
-            Some(unsafe { &mut *self.repr.some })
+            Some(unsafe { self.repr.assume_init_mut() })
         }
     }
 
@@ -159,21 +116,17 @@ where
         resolver: Option<T::Resolver>,
         out: Place<Self>,
     ) {
-        #[allow(clippy::let_unit_value)]
-        let _ = Repr::<T::Archived, N>::NICHE_SIZE_CHECK;
         match option {
             Some(value) => {
                 let resolver = resolver.expect("non-niched resolver");
-                munge!(let Self { repr: Repr { some } } = out);
-                value.resolve(resolver, unsafe {
-                    some.cast_unchecked::<T::Archived>()
-                });
+                munge!(let Self { repr, .. } = out);
+                let out = unsafe { repr.cast_unchecked::<T::Archived>() };
+                value.resolve(resolver, out);
             }
             None => {
-                munge!(let Self { repr: Repr { niche } } = out);
-                N::resolve_niched(unsafe {
-                    niche.cast_unchecked::<N::Niched>()
-                });
+                munge!(let Self { repr, .. } = out);
+                let out = unsafe { repr.cast_unchecked::<T::Archived>() };
+                N::resolve_niched(unsafe { out.ptr() });
             }
         }
     }
