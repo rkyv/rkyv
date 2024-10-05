@@ -13,31 +13,16 @@ macro_rules! impl_nonzero_zero_niching {
         unsafe impl Niching<Archived<$nz>> for Zero {
             type Niched = Archived<$ar>;
 
+            fn niched_ptr(ptr: *const Archived<$nz>) -> *const Self::Niched {
+                ptr.cast()
+            }
+
             fn is_niched(niched: *const Archived<$nz>) -> bool {
-                unsafe { *niched.cast::<Self::Niched>() == 0 }
+                unsafe { *Self::niched_ptr(niched) == 0 }
             }
 
             fn resolve_niched(out: *mut Archived<$nz>) {
                 unsafe { out.cast::<Self::Niched>().write(0.into()) };
-            }
-
-            #[cfg(feature = "bytecheck")]
-            unsafe fn checked_is_niched<C>(
-                niched: *const Archived<$nz>,
-                context: &mut C,
-            ) -> Result<bool, C::Error>
-            where
-                C: rancor::Fallible + ?Sized,
-                Self::Niched: bytecheck::CheckBytes<C>,
-            {
-                unsafe {
-                    <Archived<$ar> as bytecheck::CheckBytes<C>>::check_bytes(
-                        niched.cast::<Self::Niched>(),
-                        context,
-                    )?
-                };
-
-                Ok(Self::is_niched(niched))
             }
         }
     };
@@ -60,31 +45,16 @@ macro_rules! impl_float_nan_niching {
         unsafe impl Niching<Archived<$fl>> for NaN {
             type Niched = Archived<$fl>;
 
+            fn niched_ptr(ptr: *const Archived<$fl>) -> *const Self::Niched {
+                ptr
+            }
+
             fn is_niched(niched: *const Archived<$fl>) -> bool {
-                unsafe { *niched }.to_native().is_nan()
+                unsafe { (*niched).to_native().is_nan() }
             }
 
             fn resolve_niched(out: *mut Archived<$fl>) {
                 unsafe { out.write(<$fl>::NAN.into()) };
-            }
-
-            #[cfg(feature = "bytecheck")]
-            unsafe fn checked_is_niched<C>(
-                niched: *const Archived<$fl>,
-                context: &mut C,
-            ) -> Result<bool, C::Error>
-            where
-                C: rancor::Fallible + ?Sized,
-                Self::Niched: bytecheck::CheckBytes<C>,
-            {
-                unsafe {
-                    <Archived<$fl> as bytecheck::CheckBytes<C>>::check_bytes(
-                        niched.cast::<Self::Niched>(),
-                        context,
-                    )?
-                };
-
-                Ok(Self::is_niched(niched))
             }
         }
     };

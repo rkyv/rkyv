@@ -6,9 +6,15 @@
 ///
 /// # Safety
 ///
-/// Assuming `T` implements [`Portable`], it must be safe for a
-/// [`MaybeUninit<T>`] that's either initialized or niched by [`resolve_niched`]
-/// to implement [`Portable`].
+/// - Assuming `T` implements [`Portable`], it must be safe for a
+///   [`MaybeUninit<T>`] that is either initialized or niched by
+///   [`resolve_niched`] to implement [`Portable`].
+/// - For a [`MaybeUninit<T>`] that is either initialized or niched by
+///   [`resolve_niched`], if [`is_niched`] returns true, it must be safe to
+///   assume the `MaybeUninit` to be initialized.
+/// - [`resolve_niched`] may not write uninitialized bytes to the returned
+///   pointer.
+/// - The returned pointer of [`niched_ptr`] must lay within `T`.
 ///
 /// # Example
 ///
@@ -16,10 +22,16 @@
 ///
 /// [`Nicher`]: crate::with::Nicher
 /// [`Portable`]: crate::traits::Portable
+/// [`is_niched`]: Niching::is_niched
 /// [`resolve_niched`]: Niching::resolve_niched
+/// [`niched_ptr`]: Niching::niched_ptr
 pub unsafe trait Niching<T> {
     /// The type that is leveraged for niching.
     type Niched;
+
+    /// Returns the pointer within `T` to the value that is being used for
+    /// niching.
+    fn niched_ptr(ptr: *const T) -> *const Self::Niched;
 
     /// Whether the given value has been niched or not.
     ///
@@ -31,25 +43,6 @@ pub unsafe trait Niching<T> {
 
     /// Writes a niched instance of `T` to the given output.
     fn resolve_niched(out: *mut T);
-
-    /// First checks whether the given pointer points to a value that has been
-    /// niched correctly, and then checks if it has been niched at all.
-    ///
-    /// # Safety
-    ///
-    /// The niched value within the given pointer's value must be aligned and
-    /// sufficiently initialized to represent the niched type.
-    #[cfg(feature = "bytecheck")]
-    unsafe fn checked_is_niched<C>(
-        niched: *const T,
-        _context: &mut C,
-    ) -> Result<bool, C::Error>
-    where
-        C: rancor::Fallible + ?Sized,
-        Self::Niched: bytecheck::CheckBytes<C>,
-    {
-        Ok(Self::is_niched(niched))
-    }
 }
 
 /// [`Niching`] for zero-niched values.

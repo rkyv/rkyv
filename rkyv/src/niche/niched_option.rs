@@ -46,7 +46,9 @@ const _: () = {
         ) -> Result<(), C::Error> {
             let ptr = unsafe { addr_of!((*value).repr).cast::<T::Archived>() };
 
-            if unsafe { N::checked_is_niched(ptr, context)? } {
+            unsafe { <N::Niched>::check_bytes(N::niched_ptr(ptr), context)? };
+
+            if N::is_niched(ptr) {
                 Ok(())
             } else {
                 unsafe { <T::Archived>::check_bytes(ptr, context) }
