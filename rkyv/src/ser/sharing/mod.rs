@@ -39,7 +39,7 @@ pub trait Sharing<E = <Self as Fallible>::Error> {
     fn finish_sharing(&mut self, address: usize, pos: usize) -> Result<(), E>;
 }
 
-impl<'a, T, E> Sharing<E> for &'a mut T
+impl<T, E> Sharing<E> for &mut T
 where
     T: Sharing<E> + ?Sized,
 {

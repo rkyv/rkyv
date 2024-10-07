@@ -20,7 +20,7 @@ pub trait Positional {
     fn pos(&self) -> usize;
 }
 
-impl<'a, T> Positional for &'a T
+impl<T> Positional for &T
 where
     T: Positional + ?Sized,
 {
@@ -29,7 +29,7 @@ where
     }
 }
 
-impl<'a, T> Positional for &'a mut T
+impl<T> Positional for &mut T
 where
     T: Positional + ?Sized,
 {
@@ -61,7 +61,7 @@ pub trait Writer<E = <Self as Fallible>::Error>: Positional {
     fn write(&mut self, bytes: &[u8]) -> Result<(), E>;
 }
 
-impl<'a, T, E> Writer<E> for &'a mut T
+impl<T, E> Writer<E> for &mut T
 where
     T: Writer<E> + ?Sized,
 {

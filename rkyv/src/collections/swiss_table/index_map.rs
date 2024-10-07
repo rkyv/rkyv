@@ -387,7 +387,7 @@ struct RawIter<'a, K, V> {
     _phantom: PhantomData<(&'a K, &'a V)>,
 }
 
-impl<'a, K, V> RawIter<'a, K, V> {
+impl<K, V> RawIter<'_, K, V> {
     fn new(pairs: *const Entry<K, V>, len: usize) -> Self {
         Self {
             current: pairs,
@@ -419,8 +419,8 @@ impl<'a, K, V> Iterator for RawIter<'a, K, V> {
     }
 }
 
-impl<'a, K, V> ExactSizeIterator for RawIter<'a, K, V> {}
-impl<'a, K, V> FusedIterator for RawIter<'a, K, V> {}
+impl<K, V> ExactSizeIterator for RawIter<'_, K, V> {}
+impl<K, V> FusedIterator for RawIter<'_, K, V> {}
 
 /// An iterator over the key-value pairs of an index map.
 #[repr(transparent)]
