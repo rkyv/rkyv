@@ -3,6 +3,7 @@
     "arrayvec-0_7",
     "bytes-1",
     "hashbrown-0_14",
+    "hashbrown-0_15",
     "indexmap-2",
     "smallvec-1",
     "smol_str-0_2",

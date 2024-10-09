@@ -3,7 +3,7 @@ use core::{
     hash::{BuildHasher, Hash},
 };
 
-use hashbrown_0_14::HashSet;
+use hashbrown::HashSet;
 use rancor::{Fallible, Source};
 
 use crate::{

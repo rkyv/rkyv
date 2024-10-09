@@ -3,7 +3,7 @@ use core::{
     marker::PhantomData,
 };
 
-use hashbrown_0_14::HashMap;
+use hashbrown::HashMap;
 use rancor::{Fallible, Source};
 
 use crate::{
