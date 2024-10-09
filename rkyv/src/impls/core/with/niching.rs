@@ -1,7 +1,6 @@
 use core::num::{NonZeroI8, NonZeroU8};
 
 use crate::{
-    Archived,
     niche::{
         niched_option::NichedOption,
         niching::{NaN, Niching, SharedNiching, Zero},
@@ -11,6 +10,7 @@ use crate::{
         ArchivedNonZeroI32, ArchivedNonZeroI64, ArchivedNonZeroU128,
         ArchivedNonZeroU16, ArchivedNonZeroU32, ArchivedNonZeroU64,
     },
+    Archive, Archived, Place,
 };
 
 // Zero
@@ -28,8 +28,8 @@ macro_rules! impl_nonzero_zero_niching {
                 unsafe { *Self::niched_ptr(niched) == 0 }
             }
 
-            fn resolve_niched(out: *mut Archived<$nz>) {
-                unsafe { out.cast::<Self::Niched>().write(0.into()) };
+            fn resolve_niched(out: Place<$nz>) {
+                unsafe { out.cast_unchecked::<Self::Niched>() }.write(0.into());
             }
         }
     };
@@ -62,8 +62,8 @@ macro_rules! impl_float_nan_niching {
                 unsafe { (*niched).to_native().is_nan() }
             }
 
-            fn resolve_niched(out: *mut Archived<$fl>) {
-                unsafe { out.write(<$fl>::NAN.into()) };
+            fn resolve_niched(out: Place<$ar>) {
+                out.write(<$fl>::NAN.into());
             }
         }
     };

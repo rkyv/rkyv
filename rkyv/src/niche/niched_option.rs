@@ -20,7 +20,7 @@ pub struct NichedOption<T: Archive, N: ?Sized> {
 
 // SAFETY: The safety invariant of `Niching<T::Archived>` requires its
 // implementor to ensure that the contained `MaybeUninit<T::Archived>` is
-// portable and thus guarantees this safety.
+// portable and thus implies this safety.
 unsafe impl<T, N> Portable for NichedOption<T, N>
 where
     T: Archive,
@@ -118,18 +118,14 @@ where
         resolver: Option<T::Resolver>,
         out: Place<Self>,
     ) {
+        munge!(let Self { repr, .. } = out);
+        let out = unsafe { repr.cast_unchecked::<T::Archived>() };
         match option {
             Some(value) => {
                 let resolver = resolver.expect("non-niched resolver");
-                munge!(let Self { repr, .. } = out);
-                let out = unsafe { repr.cast_unchecked::<T::Archived>() };
                 value.resolve(resolver, out);
             }
-            None => {
-                munge!(let Self { repr, .. } = out);
-                let out = unsafe { repr.cast_unchecked::<T::Archived>() };
-                N::resolve_niched(unsafe { out.ptr() });
-            }
+            None => N::resolve_niched(out),
         }
     }
 

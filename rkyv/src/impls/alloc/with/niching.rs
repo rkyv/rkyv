@@ -19,8 +19,8 @@ where
         unsafe { (*Self::niched_ptr(niched)).is_invalid() }
     }
 
-    fn resolve_niched(out: *mut ArchivedBox<T>) {
-        let out = unsafe { Place::new_unchecked(0, out.cast::<RelPtr<T>>()) };
+    fn resolve_niched(out: Place<ArchivedBox<T>>) {
+        let out = unsafe { out.cast_unchecked::<Self::Niched>() };
         RelPtr::emplace_invalid(out);
     }
 }

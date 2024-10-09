@@ -2,6 +2,8 @@
 //!
 //! [`Nicher`]: crate::with::Nicher
 
+use crate::Place;
+
 /// A type that can be used to niche a value with [`Nicher`].
 ///
 /// # Safety
@@ -10,16 +12,15 @@
 ///   [`MaybeUninit<T>`] that is either initialized or niched by
 ///   [`resolve_niched`] to implement [`Portable`].
 /// - For a [`MaybeUninit<T>`] that is either initialized or niched by
-///   [`resolve_niched`], if [`is_niched`] returns true, it must be safe to
+///   [`resolve_niched`], if [`is_niched`] returns `false`, it must be safe to
 ///   assume the `MaybeUninit` to be initialized.
-/// - [`resolve_niched`] may not write uninitialized bytes to the returned
-///   pointer.
 /// - The returned pointer of [`niched_ptr`] must lay within `T`.
 ///
 /// # Example
 ///
 /// TODO
 ///
+/// [`MaybeUninit<T>`]: core::mem::MaybeUninit
 /// [`Nicher`]: crate::with::Nicher
 /// [`Portable`]: crate::traits::Portable
 /// [`is_niched`]: Niching::is_niched
@@ -42,7 +43,7 @@ pub unsafe trait Niching<T> {
     fn is_niched(niched: *const T) -> bool;
 
     /// Writes a niched instance of `T` to the given output.
-    fn resolve_niched(out: *mut T);
+    fn resolve_niched(out: Place<T>);
 }
 
 /// Trait to allow `NichedOption<Self, N1>` to be niched further by `N2`.
