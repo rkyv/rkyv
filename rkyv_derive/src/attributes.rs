@@ -200,6 +200,7 @@ pub struct FieldAttributes {
     pub omit_bounds: Option<Path>,
     pub with: Option<Type>,
     pub getter: Option<Path>,
+    pub niches: Vec<Type>,
 }
 
 impl FieldAttributes {
@@ -219,6 +220,10 @@ impl FieldAttributes {
         } else if meta.path.is_ident("getter") {
             meta.input.parse::<Token![=]>()?;
             self.getter = Some(meta.input.parse::<Path>()?);
+            Ok(())
+        } else if meta.path.is_ident("niche") {
+            meta.input.parse::<Token![=]>()?;
+            self.niches.push(meta.input.parse::<Type>()?);
             Ok(())
         } else {
             Err(meta.error("unrecognized rkyv arguments"))

@@ -45,6 +45,14 @@ pub unsafe trait Niching<T> {
     fn resolve_niched(out: *mut T);
 }
 
+/// Trait to allow `NichedOption<Self, N1>` to be niched further by `N2`.
+///
+/// # Safety
+///
+/// Implementors must ensure that the memory regions within `Self` that are used
+/// for [`Niching`] impls of `N1` and `N2` are mutually exclusive.
+pub unsafe trait SharedNiching<N1, N2> {}
+
 /// [`Niching`] for zero-niched values.
 pub struct Zero;
 

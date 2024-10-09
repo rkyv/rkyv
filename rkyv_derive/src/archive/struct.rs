@@ -1,12 +1,14 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{
-    parse_quote, punctuated::Punctuated, Error, Field, Fields, Generics,
+    parse_quote, punctuated::Punctuated, Error, Field, Fields, Generics, Index,
+    Member,
 };
 
 use crate::{
     archive::{archived_doc, printing::Printing, resolver_doc},
     attributes::{Attributes, FieldAttributes},
+    util::get_type_ident,
 };
 
 pub fn impl_struct(
@@ -27,6 +29,10 @@ pub fn impl_struct(
 
     if attributes.as_type.is_none() {
         result.extend(generate_archived_type(
+            printing, generics, attributes, fields,
+        )?);
+
+        result.extend(generate_niching_impls(
             printing, generics, attributes, fields,
         )?);
     }
@@ -399,4 +405,112 @@ fn generate_copy_optimization(
                 )
             };
     }))
+}
+
+fn generate_niching_impls(
+    printing: &Printing,
+    generics: &Generics,
+    attributes: &Attributes,
+    fields: &Fields,
+) -> Result<TokenStream, Error> {
+    let Printing {
+        rkyv_path,
+        archived_type,
+        ..
+    } = printing;
+
+    let (impl_generics, ..) = generics.split_for_impl();
+
+    let mut result = TokenStream::new();
+
+    let mut niches = Vec::new();
+
+    for (i, field) in fields.iter().enumerate() {
+        let field_attrs = FieldAttributes::parse(attributes, field)?;
+        let archived_field = field_attrs.archived(rkyv_path, field);
+
+        for niche in field_attrs.niches {
+            // Best-effort attempt at improving the error message if the same
+            // `Niching` implementor type is being used multiple times.
+            // Otherwise, the compiler will inform about conflicting impls which
+            // are not entirely unreasonable but may appear slightly cryptic.
+            if let Some(niche_ident) = get_type_ident(&niche) {
+                if niches
+                    .iter()
+                    .filter_map(get_type_ident)
+                    .any(|n| n == niche_ident)
+                {
+                    return Err(Error::new_spanned(
+                        niche,
+                        "each niching type may be used at most once",
+                    ));
+                }
+            }
+
+            let field_member = if let Some(ref name) = field.ident {
+                Member::Named(name.clone())
+            } else {
+                Member::Unnamed(Index::from(i))
+            };
+
+            let field_nicher = quote! {
+                <#niche as #rkyv_path::niche::niching::Niching<#archived_field>>
+            };
+
+            result.extend(quote! {
+                unsafe impl #impl_generics
+                    #rkyv_path::niche::niching::Niching<#archived_type>
+                for #niche {
+                    type Niched = #field_nicher::Niched;
+
+                    fn niched_ptr(ptr: *const #archived_type)
+                        -> *const Self::Niched
+                    {
+                        let field = unsafe {
+                            ::core::ptr::addr_of!((*ptr).#field_member)
+                        };
+                        #field_nicher::niched_ptr(field)
+                    }
+
+                    fn is_niched(niched: *const #archived_type) -> bool {
+                        let field = unsafe {
+                            ::core::ptr::addr_of!((*niched).#field_member)
+                        };
+                        #field_nicher::is_niched(field)
+                    }
+
+                    fn resolve_niched(out: #rkyv_path::Place<#archived_type>) {
+                        let out_ptr = unsafe { out.ptr() };
+                        let field_ptr = unsafe {
+                            ::core::ptr::addr_of_mut!((*out_ptr).#field_member)
+                        };
+                        let out_field = unsafe {
+                            #rkyv_path::Place::from_field_unchecked(out, field_ptr)
+                        };
+                        #field_nicher::resolve_niched(out_field);
+                    }
+                }
+            });
+
+            niches.push(niche);
+        }
+    }
+
+    let mut iter = niches.iter();
+
+    while let Some(niche1) = iter.next() {
+        for niche2 in iter.clone() {
+            result.extend(quote! {
+                unsafe impl #impl_generics
+                    #rkyv_path::niche::niching::SharedNiching<#niche1, #niche2>
+                for #archived_type {}
+
+                unsafe impl #impl_generics
+                    #rkyv_path::niche::niching::SharedNiching<#niche2, #niche1>
+                for #archived_type {}
+            });
+        }
+    }
+
+    Ok(result)
 }

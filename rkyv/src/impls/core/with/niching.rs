@@ -4,8 +4,11 @@ use core::num::{
 };
 
 use crate::{
-    niche::niching::{NaN, Niching, Zero},
     Archived,
+    niche::{
+        niched_option::NichedOption,
+        niching::{NaN, Niching, SharedNiching, Zero},
+    },
 };
 
 macro_rules! impl_nonzero_zero_niching {
@@ -62,3 +65,26 @@ macro_rules! impl_float_nan_niching {
 
 impl_float_nan_niching!(f32);
 impl_float_nan_niching!(f64);
+
+unsafe impl<T, N1, N2> Niching<NichedOption<T, N1>> for N2
+where
+    T: Archive<Archived: SharedNiching<N1, N2>>,
+    N1: Niching<T::Archived>,
+    N2: Niching<T::Archived>,
+{
+    type Niched = <Self as Niching<T::Archived>>::Niched;
+
+    fn niched_ptr(ptr: *const NichedOption<T, N1>) -> *const Self::Niched {
+        <Self as Niching<T::Archived>>::niched_ptr(ptr.cast())
+    }
+
+    fn is_niched(niched: *const NichedOption<T, N1>) -> bool {
+        <Self as Niching<T::Archived>>::is_niched(niched.cast())
+    }
+
+    fn resolve_niched(out: Place<NichedOption<T, N1>>) {
+        <Self as Niching<T::Archived>>::resolve_niched(unsafe {
+            out.cast_unchecked()
+        })
+    }
+}

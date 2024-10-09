@@ -3,7 +3,7 @@ use core::iter::FlatMap;
 use proc_macro2::Ident;
 use syn::{
     punctuated::Iter, Data, DataEnum, DataStruct, DataUnion, Field, Path,
-    PathArguments, Variant,
+    PathArguments, Type, Variant,
 };
 
 pub fn strip_raw(ident: &Ident) -> String {
@@ -56,4 +56,12 @@ pub fn strip_generics_from_path(mut path: Path) -> Path {
     }
 
     path
+}
+
+pub fn get_type_ident(ty: &Type) -> Option<&Ident> {
+    if let Type::Path(ty_path) = ty {
+        ty_path.path.get_ident()
+    } else {
+        None
+    }
 }
