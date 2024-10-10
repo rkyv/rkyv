@@ -39,8 +39,13 @@ pub unsafe trait Niching<T> {
     /// Dereferencing `*const T` may cause UB depending on how
     /// [`resolve_niched`] niched it.
     ///
+    /// # Safety
+    ///
+    /// `niched` must either point to a valid `T` or a value that was niched by
+    /// [`resolve_niched`].
+    ///
     /// [`resolve_niched`]: Niching::resolve_niched
-    fn is_niched(niched: *const T) -> bool;
+    unsafe fn is_niched(niched: *const T) -> bool;
 
     /// Writes a niched instance of `T` to the given output.
     fn resolve_niched(out: Place<T>);

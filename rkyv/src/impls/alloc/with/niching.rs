@@ -15,7 +15,7 @@ where
         ptr.cast()
     }
 
-    fn is_niched(niched: *const ArchivedBox<T>) -> bool {
+    unsafe fn is_niched(niched: *const ArchivedBox<T>) -> bool {
         unsafe { (*Self::niched_ptr(niched)).is_invalid() }
     }
 

@@ -48,7 +48,7 @@ const _: () = {
 
             unsafe { <N::Niched>::check_bytes(N::niched_ptr(ptr), context)? };
 
-            if N::is_niched(ptr) {
+            if unsafe { N::is_niched(ptr) } {
                 Ok(())
             } else {
                 unsafe { <T::Archived>::check_bytes(ptr, context) }
@@ -64,7 +64,7 @@ where
 {
     /// Returns `true` if the option is a `None` value.
     pub fn is_none(&self) -> bool {
-        N::is_niched(self.repr.as_ptr())
+        unsafe { N::is_niched(self.repr.as_ptr()) }
     }
 
     /// Returns `true` if the option is a `Some` value.

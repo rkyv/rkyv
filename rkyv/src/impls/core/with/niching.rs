@@ -24,7 +24,7 @@ macro_rules! impl_nonzero_zero_niching {
                 ptr.cast()
             }
 
-            fn is_niched(niched: *const $nz) -> bool {
+            unsafe fn is_niched(niched: *const $nz) -> bool {
                 unsafe { *Self::niched_ptr(niched) == 0 }
             }
 
@@ -58,7 +58,7 @@ macro_rules! impl_float_nan_niching {
                 ptr
             }
 
-            fn is_niched(niched: *const $ar) -> bool {
+            unsafe fn is_niched(niched: *const $ar) -> bool {
                 unsafe { (*niched).to_native().is_nan() }
             }
 
@@ -84,8 +84,8 @@ where
         <Self as Niching<T::Archived>>::niched_ptr(ptr.cast())
     }
 
-    fn is_niched(niched: *const NichedOption<T, N1>) -> bool {
-        <Self as Niching<T::Archived>>::is_niched(niched.cast())
+    unsafe fn is_niched(niched: *const NichedOption<T, N1>) -> bool {
+        unsafe { <Self as Niching<T::Archived>>::is_niched(niched.cast()) }
     }
 
     fn resolve_niched(out: Place<NichedOption<T, N1>>) {

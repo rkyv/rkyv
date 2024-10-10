@@ -472,7 +472,7 @@ fn generate_niching_impls(
                         #field_nicher::niched_ptr(field)
                     }
 
-                    fn is_niched(niched: *const #archived_type) -> bool {
+                    unsafe fn is_niched(niched: *const #archived_type) -> bool {
                         let field = unsafe {
                             ::core::ptr::addr_of!((*niched).#field_member)
                         };
