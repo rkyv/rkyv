@@ -207,6 +207,18 @@ pub struct RcResolver {
     pos: FixedUsize,
 }
 
+impl RcResolver {
+    /// Creates a new [`RcResolver`] from the position of a serialized value.
+    ///
+    /// In most cases, you won't need to create a [`RcResolver`] yourself and
+    /// can instead obtain it through [`ArchivedRc::serialize_from_ref`].
+    pub fn from_pos(pos: usize) -> Self {
+        Self {
+            pos: pos as FixedUsize,
+        }
+    }
+}
+
 /// An archived `rc::Weak`.
 ///
 /// This is essentially just an optional [`ArchivedRc`].
