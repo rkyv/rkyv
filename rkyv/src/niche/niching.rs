@@ -18,7 +18,60 @@ use crate::Place;
 ///
 /// # Example
 ///
-/// TODO
+/// ```
+/// use rkyv::{
+///     niche::niching::Niching, primitive::ArchivedU32, with::Nicher, Archive,
+///     Archived, Place, Serialize,
+/// };
+///
+/// // Let's niche `Option<u32>` by using odd values
+/// struct NeverOdd;
+///
+/// unsafe impl Niching<ArchivedU32> for NeverOdd {
+///     type Niched = ArchivedU32;
+///
+///     fn niched_ptr(ptr: *const ArchivedU32) -> *const Self::Niched {
+///         // We niche into the same type, no casting required
+///         ptr
+///     }
+///
+///     unsafe fn is_niched(niched: *const ArchivedU32) -> bool {
+///         // Interprete odd values as "niched"
+///         unsafe { *niched % 2 == 1 }
+///     }
+///
+///     fn resolve_niched(out: Place<ArchivedU32>) {
+///         // To niche, we use the value `1`
+///         out.write(ArchivedU32::from_native(1))
+///     }
+/// }
+///
+/// #[derive(Archive)]
+/// struct Basic {
+///     field: Option<u32>,
+/// }
+///
+/// #[derive(Archive, Serialize)]
+/// struct Niched {
+///     #[rkyv(with = Nicher<NeverOdd>)]
+///     field: Option<u32>,
+/// }
+///
+/// # fn _main() -> Result<(), rkyv::rancor::Error> {
+/// // Indeed, we have a smaller archived representation
+/// assert!(size_of::<ArchivedNiched>() < size_of::<ArchivedBasic>());
+///
+/// let values: Vec<Niched> =
+///     (0..4).map(|n| Niched { field: Some(n) }).collect();
+///
+/// let bytes = rkyv::to_bytes(&values)?;
+/// let archived = rkyv::access::<Archived<Vec<Niched>>, _>(&bytes)?;
+/// assert_eq!(archived[0].field.as_ref(), Some(&0.into()));
+/// assert_eq!(archived[1].field.as_ref(), None);
+/// assert_eq!(archived[2].field.as_ref(), Some(&2.into()));
+/// assert_eq!(archived[3].field.as_ref(), None);
+/// # Ok(()) }
+/// ```
 ///
 /// [`MaybeUninit<T>`]: core::mem::MaybeUninit
 /// [`Nicher`]: crate::with::Nicher
