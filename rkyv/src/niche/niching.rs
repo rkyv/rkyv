@@ -14,7 +14,8 @@ use crate::Place;
 /// - For a [`MaybeUninit<T>`] that is either initialized or niched by
 ///   [`resolve_niched`], if [`is_niched`] returns `false`, it must be safe to
 ///   assume the `MaybeUninit` to be initialized.
-/// - The returned pointer of [`niched_ptr`] must lay within `T`.
+/// - The returned pointer of [`niched_ptr`] must lay within `T`, be aligned,
+///   and point to enough initialized bytes to represent the type.
 ///
 /// # Example
 ///
