@@ -125,3 +125,6 @@ pub struct NaN;
 
 /// [`Niching`] for null-pointer-niched values.
 pub struct Null;
+
+/// [`Niching`] for booleans.
+pub struct Bool;

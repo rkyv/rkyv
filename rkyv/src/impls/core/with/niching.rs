@@ -3,7 +3,7 @@ use core::num::{NonZeroI8, NonZeroU8};
 use crate::{
     niche::{
         niched_option::NichedOption,
-        niching::{DefaultNicher, NaN, Niching, SharedNiching, Zero},
+        niching::{Bool, DefaultNicher, NaN, Niching, SharedNiching, Zero},
     },
     primitive::{
         ArchivedF32, ArchivedF64, ArchivedNonZeroI128, ArchivedNonZeroI16,
@@ -87,6 +87,40 @@ macro_rules! impl_float_nan_niching {
 
 impl_float_nan_niching!(f32, ArchivedF32);
 impl_float_nan_niching!(f64, ArchivedF64);
+
+// Bool
+
+unsafe impl Niching<bool> for Bool {
+    type Niched = u8;
+
+    fn niched_ptr(ptr: *const bool) -> *const Self::Niched {
+        ptr.cast()
+    }
+
+    unsafe fn is_niched(niched: *const bool) -> bool {
+        unsafe { (*niched.cast::<Self::Niched>()) > 1 }
+    }
+
+    fn resolve_niched(out: Place<bool>) {
+        unsafe { out.cast_unchecked::<Self::Niched>().write(2) };
+    }
+}
+
+unsafe impl Niching<bool> for DefaultNicher {
+    type Niched = <Bool as Niching<bool>>::Niched;
+
+    fn niched_ptr(ptr: *const bool) -> *const Self::Niched {
+        <Bool as Niching<bool>>::niched_ptr(ptr)
+    }
+
+    unsafe fn is_niched(niched: *const bool) -> bool {
+        unsafe { <Bool as Niching<bool>>::is_niched(niched) }
+    }
+
+    fn resolve_niched(out: Place<bool>) {
+        <Bool as Niching<bool>>::resolve_niched(out);
+    }
+}
 
 unsafe impl<T, N1, N2> Niching<NichedOption<T, N1>> for N2
 where
