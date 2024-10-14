@@ -47,24 +47,34 @@ mod tests {
         boxed: Box<i32>,
     }
 
-    #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-    #[rkyv(crate, derive(Debug))]
-    struct Middle {
-        #[rkyv(with = Nicher<Zero>, niche = NaN, niche = Null)]
-        a: Option<Nichable>,
-        #[rkyv(with = Nicher<NaN>, niche = Zero)]
-        b: Option<Nichable>,
-    }
-
-    #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-    #[rkyv(crate, derive(Debug))]
-    struct Outer {
-        #[rkyv(with = Nicher<NaN>)]
-        field: Option<Middle>,
+    impl Nichable {
+        fn create() -> Self {
+            Nichable {
+                not_nan: 123.456,
+                int: unsafe { NonZeroU32::new_unchecked(789) },
+                boxed: Box::new(727),
+            }
+        }
     }
 
     #[test]
     fn with_struct() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Middle {
+            #[rkyv(with = Nicher<Zero>, niche = NaN, niche = Null)]
+            a: Option<Nichable>,
+            #[rkyv(with = Nicher<NaN>, niche = Zero)]
+            b: Option<Nichable>,
+        }
+
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Outer {
+            #[rkyv(with = Nicher<NaN>)]
+            field: Option<Middle>,
+        }
+
         assert_eq!(
             size_of::<ArchivedMiddle>(),
             2 * size_of::<ArchivedNichable>()
@@ -79,11 +89,7 @@ mod tests {
             Outer {
                 field: Some(Middle {
                     a: None,
-                    b: Some(Nichable {
-                        not_nan: 123.456,
-                        int: unsafe { NonZeroU32::new_unchecked(789) },
-                        boxed: Box::new(727),
-                    }),
+                    b: Some(Nichable::create()),
                 }),
             },
         ];

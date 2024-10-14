@@ -485,7 +485,9 @@ fn generate_niching_impls(
                             ::core::ptr::addr_of_mut!((*out_ptr).#field_member)
                         };
                         let out_field = unsafe {
-                            #rkyv_path::Place::from_field_unchecked(out, field_ptr)
+                            #rkyv_path::Place::from_field_unchecked(
+                                out, field_ptr,
+                            )
                         };
                         #field_nicher::resolve_niched(out_field);
                     }
