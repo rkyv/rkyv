@@ -46,10 +46,9 @@ where
 
 #[cfg(test)]
 mod tests {
-
     use crate::{
-        api::test::roundtrip_with, niche::niching::DefaultNicher, Archive,
-        Deserialize, Serialize,
+        alloc::boxed::Box, api::test::roundtrip_with,
+        niche::niching::DefaultNicher, Archive, Deserialize, Serialize,
     };
 
     #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
