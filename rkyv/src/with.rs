@@ -9,6 +9,8 @@ use core::{fmt, marker::PhantomData};
 
 use rancor::Fallible;
 
+#[doc(inline)]
+pub use crate::niche::niching::DefaultNicher;
 use crate::{Archive, Deserialize, Place, Portable, Serialize};
 
 /// A variant of [`Archive`] that works with wrappers.
