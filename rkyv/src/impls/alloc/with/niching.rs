@@ -1,6 +1,6 @@
 use crate::{
     boxed::ArchivedBox,
-    niche::niching::{Niching, Null},
+    niche::niching::{DefaultNicher, Niching, Null},
     traits::ArchivePointee,
     Place, Portable, RelPtr,
 };
@@ -25,13 +25,32 @@ where
     }
 }
 
+unsafe impl<T> Niching<ArchivedBox<T>> for DefaultNicher
+where
+    T: ArchivePointee + Portable + ?Sized,
+{
+    type Niched = <Null as Niching<ArchivedBox<T>>>::Niched;
+
+    fn niched_ptr(ptr: *const ArchivedBox<T>) -> *const Self::Niched {
+        <Null as Niching<ArchivedBox<T>>>::niched_ptr(ptr)
+    }
+
+    unsafe fn is_niched(niched: *const ArchivedBox<T>) -> bool {
+        unsafe { <Null as Niching<ArchivedBox<T>>>::is_niched(niched) }
+    }
+
+    fn resolve_niched(out: Place<ArchivedBox<T>>) {
+        <Null as Niching<ArchivedBox<T>>>::resolve_niched(out);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use core::num::NonZeroU32;
 
     use crate::{
         api::test::roundtrip_with,
-        niche::niching::{NaN, Null, Zero},
+        niche::niching::{DefaultNicher, NaN, Zero},
         with::Nicher,
         Archive, Deserialize, Serialize,
     };
@@ -43,7 +62,7 @@ mod tests {
         not_nan: f32,
         #[rkyv(niche = Zero)]
         int: NonZeroU32,
-        #[rkyv(niche = Null)]
+        #[rkyv(niche)] // Default = Null
         boxed: Box<i32>,
     }
 
@@ -62,7 +81,7 @@ mod tests {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, derive(Debug))]
         struct Middle {
-            #[rkyv(with = Nicher<Zero>, niche = NaN, niche = Null)]
+            #[rkyv(with = Nicher<Zero>, niche = NaN, niche)] // Default = Null
             a: Option<Nichable>,
             #[rkyv(with = Nicher<NaN>, niche = Zero)]
             b: Option<Nichable>,
@@ -71,7 +90,7 @@ mod tests {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, derive(Debug))]
         struct Outer {
-            #[rkyv(with = Nicher<NaN>)]
+            #[rkyv(with = DefaultNicher)]
             field: Option<Middle>,
         }
 

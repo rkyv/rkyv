@@ -8,7 +8,6 @@ use syn::{
 use crate::{
     archive::{archived_doc, printing::Printing, resolver_doc},
     attributes::{Attributes, FieldAttributes},
-    util::get_type_ident,
 };
 
 pub fn impl_struct(
@@ -430,21 +429,17 @@ fn generate_niching_impls(
         let archived_field = field_attrs.archived(rkyv_path, field);
 
         for niche in field_attrs.niches {
+            let niche_tokens = niche.to_tokens(rkyv_path);
+
             // Best-effort attempt at improving the error message if the same
             // `Niching` implementor type is being used multiple times.
             // Otherwise, the compiler will inform about conflicting impls which
             // are not entirely unreasonable but may appear slightly cryptic.
-            if let Some(niche_ident) = get_type_ident(&niche) {
-                if niches
-                    .iter()
-                    .filter_map(get_type_ident)
-                    .any(|n| n == niche_ident)
-                {
-                    return Err(Error::new_spanned(
-                        niche,
-                        "each niching type may be used at most once",
-                    ));
-                }
+            if niches.contains(&niche) {
+                return Err(Error::new_spanned(
+                    niche_tokens,
+                    "each niching type may be used at most once",
+                ));
             }
 
             let field_member = if let Some(ref name) = field.ident {
@@ -454,13 +449,15 @@ fn generate_niching_impls(
             };
 
             let field_nicher = quote! {
-                <#niche as #rkyv_path::niche::niching::Niching<#archived_field>>
+                <#niche_tokens as #rkyv_path::niche::niching::Niching<
+                    #archived_field>
+                >
             };
 
             result.extend(quote! {
                 unsafe impl #impl_generics
                     #rkyv_path::niche::niching::Niching<#archived_type>
-                for #niche {
+                for #niche_tokens {
                     type Niched = #field_nicher::Niched;
 
                     fn niched_ptr(ptr: *const #archived_type)
@@ -501,14 +498,20 @@ fn generate_niching_impls(
     let mut iter = niches.iter();
 
     while let Some(niche1) = iter.next() {
+        let niche1_tokens = niche1.to_tokens(rkyv_path);
         for niche2 in iter.clone() {
+            let niche2_tokens = niche2.to_tokens(rkyv_path);
             result.extend(quote! {
                 unsafe impl #impl_generics
-                    #rkyv_path::niche::niching::SharedNiching<#niche1, #niche2>
+                    #rkyv_path::niche::niching::SharedNiching<
+                        #niche1_tokens, #niche2_tokens
+                    >
                 for #archived_type {}
 
                 unsafe impl #impl_generics
-                    #rkyv_path::niche::niching::SharedNiching<#niche2, #niche1>
+                    #rkyv_path::niche::niching::SharedNiching<
+                        #niche2_tokens, #niche1_tokens
+                    >
                 for #archived_type {}
             });
         }

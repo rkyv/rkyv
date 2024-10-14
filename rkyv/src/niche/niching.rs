@@ -112,6 +112,11 @@ pub unsafe trait Niching<T> {
 /// for [`Niching`] impls of `N1` and `N2` are mutually exclusive.
 pub unsafe trait SharedNiching<N1, N2> {}
 
+/// Default [`Niching`] for various types.
+///
+/// Also serves as with-wrapper by being shorthand for `Nicher<DefaultNicher>`.
+pub struct DefaultNicher;
+
 /// [`Niching`] for zero-niched values.
 pub struct Zero;
 

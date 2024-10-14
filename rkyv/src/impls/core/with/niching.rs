@@ -3,7 +3,7 @@ use core::num::{NonZeroI8, NonZeroU8};
 use crate::{
     niche::{
         niched_option::NichedOption,
-        niching::{NaN, Niching, SharedNiching, Zero},
+        niching::{DefaultNicher, NaN, Niching, SharedNiching, Zero},
     },
     primitive::{
         ArchivedF32, ArchivedF64, ArchivedNonZeroI128, ArchivedNonZeroI16,
@@ -30,6 +30,22 @@ macro_rules! impl_nonzero_zero_niching {
 
             fn resolve_niched(out: Place<$nz>) {
                 unsafe { out.cast_unchecked::<Self::Niched>() }.write(0.into());
+            }
+        }
+
+        unsafe impl Niching<$nz> for DefaultNicher {
+            type Niched = <Zero as Niching<$nz>>::Niched;
+
+            fn niched_ptr(ptr: *const $nz) -> *const Self::Niched {
+                <Zero as Niching<$nz>>::niched_ptr(ptr)
+            }
+
+            unsafe fn is_niched(niched: *const $nz) -> bool {
+                unsafe { <Zero as Niching<$nz>>::is_niched(niched) }
+            }
+
+            fn resolve_niched(out: Place<$nz>) {
+                <Zero as Niching<$nz>>::resolve_niched(out);
             }
         }
     };
