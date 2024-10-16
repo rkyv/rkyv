@@ -1,4 +1,4 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::{
     parse_quote, spanned::Spanned as _, DataEnum, Error, Field, Fields,
@@ -40,6 +40,10 @@ pub fn impl_enum(
 
     if attributes.as_type.is_none() {
         public.extend(generate_archived_type(
+            printing, attributes, generics, data,
+        )?);
+
+        private.extend(generate_niching_impls(
             printing, attributes, generics, data,
         )?);
     }
@@ -795,4 +799,169 @@ fn generate_partial_ord_impl(
             }
         }
     })
+}
+
+fn generate_niching_impls(
+    printing: &Printing,
+    attributes: &Attributes,
+    generics: &Generics,
+    data: &DataEnum,
+) -> Result<TokenStream, Error> {
+    let Printing {
+        rkyv_path,
+        archived_type,
+        ..
+    } = printing;
+
+    let (impl_generics, ty_generics, ..) = generics.split_for_impl();
+
+    let mut result = TokenStream::new();
+
+    let mut niches = Vec::new();
+
+    for variant in data.variants.iter() {
+        let variant_name = &variant.ident;
+        let archived_variant_name =
+            format_ident!("ArchivedVariant{}", strip_raw(variant_name));
+
+        for (i, field) in variant.fields.iter().enumerate() {
+            let field_attrs = FieldAttributes::parse(attributes, field)?;
+            let archived_field = field_attrs.archived(rkyv_path, field);
+
+            for niche in field_attrs.niches {
+                let niche_tokens = niche.to_tokens(rkyv_path);
+
+                // Best-effort attempt at improving the error message if the
+                // same `Niching` implementor type is being used multiple times.
+                // Otherwise, the compiler will inform about conflicting impls
+                // which are not entirely unreasonable but may appear slightly
+                // cryptic.
+                if niches.contains(&niche) {
+                    return Err(Error::new_spanned(
+                        niche_tokens,
+                        "each niching type may be used at most once",
+                    ));
+                }
+
+                let field_member = if let Some(ref name) = field.ident {
+                    Member::Named(name.clone())
+                } else {
+                    Member::Unnamed(Index::from(i + 1))
+                };
+
+                let tag_member = if field.ident.is_some() {
+                    Member::Named(Ident::new("__tag", Span::call_site()))
+                } else {
+                    Member::Unnamed(Index::from(0))
+                };
+
+                let field_nicher = quote! {
+                    <#niche_tokens as #rkyv_path::niche::niching::Niching<
+                        #archived_field>
+                    >
+                };
+
+                result.extend(quote! {
+                    unsafe impl #impl_generics
+                        #rkyv_path::niche::niching::Niching<#archived_type>
+                    for #niche_tokens {
+                        type Niched = #field_nicher::Niched;
+
+                        unsafe fn niched_ptr(ptr: *const #archived_type)
+                            -> Option<*const Self::Niched>
+                        {
+                            let variant = ptr
+                                .cast::<#archived_variant_name #ty_generics>();
+                            let tag_ptr = unsafe {
+                                ::core::ptr::addr_of!((*variant).#tag_member)
+                            };
+                            if unsafe {
+                                *tag_ptr.cast::<u8>()
+                                    != ArchivedTag::#variant_name as u8
+                            } {
+                                return None;
+                            }
+                            let field = unsafe {
+                                ::core::ptr::addr_of!((*variant).#field_member)
+                            };
+                            #field_nicher::niched_ptr(field)
+                        }
+
+                        unsafe fn is_niched(niched: *const #archived_type)
+                            -> bool
+                        {
+                            let variant = niched
+                                .cast::<#archived_variant_name #ty_generics>();
+                            let tag = unsafe {
+                                ::core::ptr::addr_of!((*variant).#tag_member)
+                            };
+                            if unsafe { &*tag != &ArchivedTag::#variant_name } {
+                                return false;
+                            }
+                            let field = unsafe {
+                                ::core::ptr::addr_of!((*variant).#field_member)
+                            };
+                            #field_nicher::is_niched(field)
+                        }
+
+                        fn resolve_niched(
+                            out: #rkyv_path::Place<#archived_type>
+                        ) {
+                            let out = unsafe {
+                                out.cast_unchecked::<
+                                    #archived_variant_name #ty_generics
+                                >()
+                            };
+                            let tag_ptr = unsafe {
+                                ::core::ptr::addr_of_mut!(
+                                    (*out.ptr()).#tag_member
+                                )
+                            };
+                            unsafe {
+                                tag_ptr.write(ArchivedTag::#variant_name);
+                            }
+                            let field_ptr = unsafe {
+                                ::core::ptr::addr_of_mut!(
+                                    (*out.ptr()).#field_member
+                                )
+                            };
+                            let out_field = unsafe {
+                                #rkyv_path::Place::from_field_unchecked(
+                                    out, field_ptr,
+                                )
+                            };
+                            #field_nicher::resolve_niched(out_field);
+
+                        }
+                    }
+                });
+
+                niches.push(niche);
+            }
+        }
+    }
+
+    let mut iter = niches.iter();
+
+    while let Some(niche1) = iter.next() {
+        let niche1_tokens = niche1.to_tokens(rkyv_path);
+        for niche2 in iter.clone() {
+            let niche2_tokens = niche2.to_tokens(rkyv_path);
+            result.extend(quote! {
+                unsafe impl #impl_generics
+                    #rkyv_path::niche::niching::SharedNiching<
+                        #niche1_tokens, #niche2_tokens
+                    >
+                for #archived_type {}
+
+                unsafe impl #impl_generics
+                    #rkyv_path::niche::niching::SharedNiching<
+                        #niche2_tokens, #niche1_tokens
+                    >
+                for #archived_type {}
+            });
+        }
+    }
+
+    Ok(result)
 }

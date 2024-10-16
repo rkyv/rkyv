@@ -2,74 +2,131 @@
 //!
 //! [`Nicher`]: crate::with::Nicher
 
-use crate::{Place, Portable};
+use crate::Place;
 
 /// A type that can be used to niche a value with [`Nicher`].
 ///
 /// # Safety
 ///
-/// For a union with two fields of type `Self::Niched` and `T`, it must always
-/// be safe to access the `Self::Niched` field.
-///
-/// Additionally, if [`is_niched`] returns `false` when being passed such a
-/// union's `Self::Niched` field, it must be safe to access the `T` field.
+/// - Assuming `T` implements [`Portable`], it must be safe for a
+///   [`MaybeUninit<T>`] that is either initialized or niched by
+///   [`resolve_niched`] to implement [`Portable`].
+/// - For a [`MaybeUninit<T>`] that is either initialized or niched by
+///   [`resolve_niched`], if [`is_niched`] returns `false`, it must be safe to
+///   assume the `MaybeUninit` to be initialized.
+/// - The returned pointer of [`niched_ptr`] must lay within `T`, be aligned,
+///   and point to enough initialized bytes to represent the type.
 ///
 /// # Example
 ///
 /// ```
 /// use rkyv::{
-///     niche::niching::Niching, with::Nicher, Archive, Archived, Place,
-///     Serialize,
+///     niche::niching::Niching, primitive::ArchivedU32, with::Nicher, Archive,
+///     Archived, Place, Serialize,
 /// };
 ///
-/// // Let's make it so that `Some(1)` is niched into `None`.
-/// struct One;
+/// // Let's niche `Option<u32>` by using odd values
+/// struct NeverOdd;
 ///
-/// // SAFETY: `Self::Niched` is the same as `T` so it's always valid to access
-/// // it within a union of the two. Furthermore, we can be sure that the `T`
-/// // field is safe to access if `is_niched` returns `false`.
-/// unsafe impl Niching<Archived<u32>> for One {
-///     type Niched = Archived<u32>;
+/// unsafe impl Niching<ArchivedU32> for NeverOdd {
+///     type Niched = ArchivedU32;
 ///
-///     fn is_niched(niched: &Self::Niched) -> bool {
-///         *niched == 1
+///     unsafe fn niched_ptr(
+///         ptr: *const ArchivedU32,
+///     ) -> Option<*const Self::Niched> {
+///         // We niche into the same type, no casting required
+///         Some(ptr)
 ///     }
 ///
-///     fn resolve_niched(out: Place<Self::Niched>) {
-///         u32::resolve(&1, (), out);
+///     unsafe fn is_niched(niched: *const ArchivedU32) -> bool {
+///         // Interprete odd values as "niched"
+///         unsafe { *niched % 2 == 1 }
+///     }
+///
+///     fn resolve_niched(out: Place<ArchivedU32>) {
+///         // To niche, we use the value `1`
+///         out.write(ArchivedU32::from_native(1))
 ///     }
 /// }
 ///
 /// #[derive(Archive)]
-/// struct Basic(Option<u32>);
+/// struct Basic {
+///     field: Option<u32>,
+/// }
 ///
 /// #[derive(Archive, Serialize)]
-/// struct Niched(#[rkyv(with = Nicher<One>)] Option<u32>);
+/// struct Niched {
+///     #[rkyv(with = Nicher<NeverOdd>)]
+///     field: Option<u32>,
+/// }
 ///
 /// # fn main() -> Result<(), rkyv::rancor::Error> {
+/// // Indeed, we have a smaller archived representation
 /// assert!(size_of::<ArchivedNiched>() < size_of::<ArchivedBasic>());
 ///
-/// let values = [Niched(Some(1)), Niched(Some(42)), Niched(None)];
+/// let values: Vec<Niched> =
+///     (0..4).map(|n| Niched { field: Some(n) }).collect();
+///
 /// let bytes = rkyv::to_bytes(&values)?;
-/// let archived = rkyv::access::<[ArchivedNiched; 3], _>(&bytes)?;
-/// assert_eq!(archived[0].0.as_ref(), None);
-/// assert_eq!(archived[1].0.as_ref(), Some(&42.into()));
-/// assert_eq!(archived[2].0.as_ref(), None);
+/// let archived = rkyv::access::<Archived<Vec<Niched>>, _>(&bytes)?;
+/// assert_eq!(archived[0].field.as_ref(), Some(&0.into()));
+/// assert_eq!(archived[1].field.as_ref(), None);
+/// assert_eq!(archived[2].field.as_ref(), Some(&2.into()));
+/// assert_eq!(archived[3].field.as_ref(), None);
 /// # Ok(()) }
 /// ```
 ///
+/// [`MaybeUninit<T>`]: core::mem::MaybeUninit
 /// [`Nicher`]: crate::with::Nicher
+/// [`Portable`]: crate::traits::Portable
 /// [`is_niched`]: Niching::is_niched
+/// [`resolve_niched`]: Niching::resolve_niched
+/// [`niched_ptr`]: Niching::niched_ptr
 pub unsafe trait Niching<T> {
-    /// The archived representation of a niched value.
-    type Niched: Portable;
+    /// The type that is leveraged for niching.
+    type Niched;
 
-    /// Whether the given archived value has been niched or not.
-    fn is_niched(niched: &Self::Niched) -> bool;
+    /// Returns the pointer within `T` to the value that is being used for
+    /// niching or `None` if the value is inaccessible.
+    ///
+    /// The latter can happen when `T` is an enum but the given instance does
+    /// not consist of the variant that corresponds to the niched field.
+    ///
+    /// # Safety
+    ///
+    /// The passed pointer must be aligned and point to enough initialized bytes
+    /// to represent the type.
+    unsafe fn niched_ptr(ptr: *const T) -> Option<*const Self::Niched>;
 
-    /// Creates a `Self::Niched` and writes it to the given output.
-    fn resolve_niched(out: Place<Self::Niched>);
+    /// Whether the given value has been niched or not.
+    ///
+    /// Dereferencing `*const T` may cause UB depending on how
+    /// [`resolve_niched`] niched it.
+    ///
+    /// # Safety
+    ///
+    /// `niched` must either point to a valid `T` or a value that was niched by
+    /// [`resolve_niched`].
+    ///
+    /// [`resolve_niched`]: Niching::resolve_niched
+    unsafe fn is_niched(niched: *const T) -> bool;
+
+    /// Writes a niched instance of `T` to the given output.
+    fn resolve_niched(out: Place<T>);
 }
+
+/// Trait to allow `NichedOption<Self, N1>` to be niched further by `N2`.
+///
+/// # Safety
+///
+/// Implementors must ensure that the memory regions within `Self` that are used
+/// for [`Niching`] impls of `N1` and `N2` are mutually exclusive.
+pub unsafe trait SharedNiching<N1, N2> {}
+
+/// Default [`Niching`] for various types.
+///
+/// Also serves as with-wrapper by being shorthand for `Nicher<DefaultNicher>`.
+pub struct DefaultNicher;
 
 /// [`Niching`] for zero-niched values.
 pub struct Zero;
@@ -79,3 +136,6 @@ pub struct NaN;
 
 /// [`Niching`] for null-pointer-niched values.
 pub struct Null;
+
+/// [`Niching`] for booleans.
+pub struct Bool;

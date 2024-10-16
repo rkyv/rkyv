@@ -200,6 +200,7 @@ pub struct FieldAttributes {
     pub omit_bounds: Option<Path>,
     pub with: Option<Type>,
     pub getter: Option<Path>,
+    pub niches: Vec<Niche>,
 }
 
 impl FieldAttributes {
@@ -219,6 +220,18 @@ impl FieldAttributes {
         } else if meta.path.is_ident("getter") {
             meta.input.parse::<Token![=]>()?;
             self.getter = Some(meta.input.parse::<Path>()?);
+            Ok(())
+        } else if meta.path.is_ident("niche") {
+            let niche = if meta.input.is_empty() {
+                Niche::Default
+            } else {
+                meta.input.parse::<Token![=]>()?;
+
+                Niche::Type(meta.input.parse::<Type>()?)
+            };
+
+            self.niches.push(niche);
+
             Ok(())
         } else {
             Err(meta.error("unrecognized rkyv arguments"))
@@ -451,5 +464,42 @@ impl VariantAttributes {
         }
 
         Ok(result)
+    }
+}
+
+pub enum Niche {
+    Type(Type),
+    Default,
+}
+
+impl Niche {
+    pub fn to_tokens(&self, rkyv_path: &Path) -> TokenStream {
+        match self {
+            Niche::Type(ty) => quote!(#ty),
+            Niche::Default => quote! {
+                #rkyv_path::niche::niching::DefaultNicher
+            },
+        }
+    }
+}
+
+impl PartialEq for Niche {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Niche::Type(Type::Path(ty1)), Niche::Type(Type::Path(ty2))) => {
+                ty1.path.get_ident() == ty2.path.get_ident()
+            }
+            (Niche::Type(_), Niche::Type(_)) => false,
+            (Niche::Type(Type::Path(ty)), Niche::Default)
+            | (Niche::Default, Niche::Type(Type::Path(ty))) => {
+                match ty.path.get_ident() {
+                    Some(ident) => ident == "DefaultNicher",
+                    None => false,
+                }
+            }
+            (Niche::Type(_), Niche::Default)
+            | (Niche::Default, Niche::Type(_)) => false,
+            (Niche::Default, Niche::Default) => true,
+        }
     }
 }

@@ -26,7 +26,7 @@ use crate::{
     boxed::{ArchivedBox, BoxResolver},
     niche::{
         niched_option::NichedOption,
-        niching::Niching,
+        niching::{DefaultNicher, Niching},
         option_nonzero::{
             ArchivedOptionNonZeroI128, ArchivedOptionNonZeroI16,
             ArchivedOptionNonZeroI32, ArchivedOptionNonZeroI64,
@@ -397,7 +397,7 @@ where
     T: Archive,
     N: Niching<T::Archived> + ?Sized,
 {
-    type Archived = NichedOption<T, N>;
+    type Archived = NichedOption<T::Archived, N>;
     type Resolver = Option<T::Resolver>;
 
     fn resolve_with(
@@ -405,7 +405,7 @@ where
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
-        NichedOption::<T, N>::resolve_from_option(
+        NichedOption::<T::Archived, N>::resolve_from_option(
             field.as_ref(),
             resolver,
             out,
@@ -423,25 +423,29 @@ where
         field: &Option<T>,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        NichedOption::<T, N>::serialize_from_option(field.as_ref(), serializer)
+        NichedOption::<T::Archived, N>::serialize_from_option(
+            field.as_ref(),
+            serializer,
+        )
     }
 }
 
-impl<T, N, D> DeserializeWith<NichedOption<T, N>, Option<T>, D> for Nicher<N>
+impl<T, N, D> DeserializeWith<NichedOption<T::Archived, N>, Option<T>, D>
+    for Nicher<N>
 where
     T: Archive<Archived: Deserialize<T, D>>,
     N: Niching<T::Archived> + ?Sized,
     D: Fallible + ?Sized,
 {
     fn deserialize_with(
-        field: &NichedOption<T, N>,
+        field: &NichedOption<T::Archived, N>,
         deserializer: &mut D,
     ) -> Result<Option<T>, D::Error> {
         Deserialize::deserialize(field, deserializer)
     }
 }
 
-impl<T, N, D> Deserialize<Option<T>, D> for NichedOption<T, N>
+impl<T, N, D> Deserialize<Option<T>, D> for NichedOption<T::Archived, N>
 where
     T: Archive<Archived: Deserialize<T, D>>,
     N: Niching<T::Archived> + ?Sized,
@@ -452,6 +456,54 @@ where
             Some(value) => value.deserialize(deserializer).map(Some),
             None => Ok(None),
         }
+    }
+}
+
+// DefaultNicher
+
+impl<T> ArchiveWith<Option<T>> for DefaultNicher
+where
+    T: Archive,
+    Self: Niching<T::Archived>,
+{
+    type Archived = NichedOption<T::Archived, Self>;
+    type Resolver = Option<T::Resolver>;
+
+    fn resolve_with(
+        field: &Option<T>,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        Nicher::<Self>::resolve_with(field, resolver, out);
+    }
+}
+
+impl<T, S> SerializeWith<Option<T>, S> for DefaultNicher
+where
+    T: Serialize<S>,
+    Self: Niching<T::Archived>,
+    S: Fallible + ?Sized,
+{
+    fn serialize_with(
+        field: &Option<T>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        Nicher::<Self>::serialize_with(field, serializer)
+    }
+}
+
+impl<T, D> DeserializeWith<NichedOption<T::Archived, Self>, Option<T>, D>
+    for DefaultNicher
+where
+    T: Archive<Archived: Deserialize<T, D>>,
+    Self: Niching<T::Archived>,
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(
+        field: &NichedOption<T::Archived, Self>,
+        deserializer: &mut D,
+    ) -> Result<Option<T>, D::Error> {
+        Nicher::<Self>::deserialize_with(field, deserializer)
     }
 }
 
