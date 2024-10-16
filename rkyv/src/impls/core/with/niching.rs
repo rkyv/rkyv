@@ -10,7 +10,7 @@ use crate::{
         ArchivedNonZeroI32, ArchivedNonZeroI64, ArchivedNonZeroU128,
         ArchivedNonZeroU16, ArchivedNonZeroU32, ArchivedNonZeroU64,
     },
-    Archive, Archived, Place,
+    Archived, Place,
 };
 
 // Zero
@@ -132,26 +132,24 @@ unsafe impl Niching<bool> for DefaultNicher {
 
 unsafe impl<T, N1, N2> Niching<NichedOption<T, N1>> for N2
 where
-    T: Archive<Archived: SharedNiching<N1, N2>>,
-    N1: Niching<T::Archived>,
-    N2: Niching<T::Archived>,
+    T: SharedNiching<N1, N2>,
+    N1: Niching<T>,
+    N2: Niching<T>,
 {
-    type Niched = <Self as Niching<T::Archived>>::Niched;
+    type Niched = <Self as Niching<T>>::Niched;
 
     unsafe fn niched_ptr(
         ptr: *const NichedOption<T, N1>,
     ) -> Option<*const Self::Niched> {
-        unsafe { <Self as Niching<T::Archived>>::niched_ptr(ptr.cast()) }
+        unsafe { <Self as Niching<T>>::niched_ptr(ptr.cast()) }
     }
 
     unsafe fn is_niched(niched: *const NichedOption<T, N1>) -> bool {
-        unsafe { <Self as Niching<T::Archived>>::is_niched(niched.cast()) }
+        unsafe { <Self as Niching<T>>::is_niched(niched.cast()) }
     }
 
     fn resolve_niched(out: Place<NichedOption<T, N1>>) {
-        <Self as Niching<T::Archived>>::resolve_niched(unsafe {
-            out.cast_unchecked()
-        })
+        <Self as Niching<T>>::resolve_niched(unsafe { out.cast_unchecked() })
     }
 }
 
