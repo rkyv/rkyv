@@ -31,9 +31,11 @@ use crate::Place;
 /// unsafe impl Niching<ArchivedU32> for NeverOdd {
 ///     type Niched = ArchivedU32;
 ///
-///     fn niched_ptr(ptr: *const ArchivedU32) -> *const Self::Niched {
+///     unsafe fn niched_ptr(
+///         ptr: *const ArchivedU32,
+///     ) -> Option<*const Self::Niched> {
 ///         // We niche into the same type, no casting required
-///         ptr
+///         Some(ptr)
 ///     }
 ///
 ///     unsafe fn is_niched(niched: *const ArchivedU32) -> bool {
@@ -58,7 +60,7 @@ use crate::Place;
 ///     field: Option<u32>,
 /// }
 ///
-/// # fn _main() -> Result<(), rkyv::rancor::Error> {
+/// # fn main() -> Result<(), rkyv::rancor::Error> {
 /// // Indeed, we have a smaller archived representation
 /// assert!(size_of::<ArchivedNiched>() < size_of::<ArchivedBasic>());
 ///
@@ -85,8 +87,16 @@ pub unsafe trait Niching<T> {
     type Niched;
 
     /// Returns the pointer within `T` to the value that is being used for
-    /// niching.
-    fn niched_ptr(ptr: *const T) -> *const Self::Niched;
+    /// niching or `None` if the value is inaccessible.
+    ///
+    /// The latter can happen when `T` is an enum but the given instance does
+    /// not consist of the variant that corresponds to the niched field.
+    ///
+    /// # Safety
+    ///
+    /// The passed pointer must be aligned and point to enough initialized bytes
+    /// to represent the type.
+    unsafe fn niched_ptr(ptr: *const T) -> Option<*const Self::Niched>;
 
     /// Whether the given value has been niched or not.
     ///

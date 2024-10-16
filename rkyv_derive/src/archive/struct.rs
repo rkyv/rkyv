@@ -460,8 +460,8 @@ fn generate_niching_impls(
                 for #niche_tokens {
                     type Niched = #field_nicher::Niched;
 
-                    fn niched_ptr(ptr: *const #archived_type)
-                        -> *const Self::Niched
+                    unsafe fn niched_ptr(ptr: *const #archived_type)
+                        -> ::core::option::Option<*const Self::Niched>
                     {
                         let field = unsafe {
                             ::core::ptr::addr_of!((*ptr).#field_member)
@@ -477,9 +477,10 @@ fn generate_niching_impls(
                     }
 
                     fn resolve_niched(out: #rkyv_path::Place<#archived_type>) {
-                        let out_ptr = unsafe { out.ptr() };
                         let field_ptr = unsafe {
-                            ::core::ptr::addr_of_mut!((*out_ptr).#field_member)
+                            ::core::ptr::addr_of_mut!(
+                                (*out.ptr()).#field_member
+                            )
                         };
                         let out_field = unsafe {
                             #rkyv_path::Place::from_field_unchecked(

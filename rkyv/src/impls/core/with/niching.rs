@@ -20,12 +20,14 @@ macro_rules! impl_nonzero_zero_niching {
         unsafe impl Niching<$nz> for Zero {
             type Niched = Archived<$ar>;
 
-            fn niched_ptr(ptr: *const $nz) -> *const Self::Niched {
-                ptr.cast()
+            unsafe fn niched_ptr(
+                ptr: *const $nz,
+            ) -> Option<*const Self::Niched> {
+                Some(ptr.cast())
             }
 
             unsafe fn is_niched(niched: *const $nz) -> bool {
-                unsafe { *Self::niched_ptr(niched) == 0 }
+                unsafe { *niched.cast::<Self::Niched>() == 0 }
             }
 
             fn resolve_niched(out: Place<$nz>) {
@@ -36,8 +38,10 @@ macro_rules! impl_nonzero_zero_niching {
         unsafe impl Niching<$nz> for DefaultNicher {
             type Niched = <Zero as Niching<$nz>>::Niched;
 
-            fn niched_ptr(ptr: *const $nz) -> *const Self::Niched {
-                <Zero as Niching<$nz>>::niched_ptr(ptr)
+            unsafe fn niched_ptr(
+                ptr: *const $nz,
+            ) -> Option<*const Self::Niched> {
+                unsafe { <Zero as Niching<$nz>>::niched_ptr(ptr) }
             }
 
             unsafe fn is_niched(niched: *const $nz) -> bool {
@@ -70,8 +74,10 @@ macro_rules! impl_float_nan_niching {
         unsafe impl Niching<$ar> for NaN {
             type Niched = $ar;
 
-            fn niched_ptr(ptr: *const $ar) -> *const Self::Niched {
-                ptr
+            unsafe fn niched_ptr(
+                ptr: *const $ar,
+            ) -> Option<*const Self::Niched> {
+                Some(ptr)
             }
 
             unsafe fn is_niched(niched: *const $ar) -> bool {
@@ -93,8 +99,8 @@ impl_float_nan_niching!(f64, ArchivedF64);
 unsafe impl Niching<bool> for Bool {
     type Niched = u8;
 
-    fn niched_ptr(ptr: *const bool) -> *const Self::Niched {
-        ptr.cast()
+    unsafe fn niched_ptr(ptr: *const bool) -> Option<*const Self::Niched> {
+        Some(ptr.cast())
     }
 
     unsafe fn is_niched(niched: *const bool) -> bool {
@@ -109,8 +115,8 @@ unsafe impl Niching<bool> for Bool {
 unsafe impl Niching<bool> for DefaultNicher {
     type Niched = <Bool as Niching<bool>>::Niched;
 
-    fn niched_ptr(ptr: *const bool) -> *const Self::Niched {
-        <Bool as Niching<bool>>::niched_ptr(ptr)
+    unsafe fn niched_ptr(ptr: *const bool) -> Option<*const Self::Niched> {
+        unsafe { <Bool as Niching<bool>>::niched_ptr(ptr) }
     }
 
     unsafe fn is_niched(niched: *const bool) -> bool {
@@ -122,6 +128,8 @@ unsafe impl Niching<bool> for DefaultNicher {
     }
 }
 
+// -------
+
 unsafe impl<T, N1, N2> Niching<NichedOption<T, N1>> for N2
 where
     T: Archive<Archived: SharedNiching<N1, N2>>,
@@ -130,8 +138,10 @@ where
 {
     type Niched = <Self as Niching<T::Archived>>::Niched;
 
-    fn niched_ptr(ptr: *const NichedOption<T, N1>) -> *const Self::Niched {
-        <Self as Niching<T::Archived>>::niched_ptr(ptr.cast())
+    unsafe fn niched_ptr(
+        ptr: *const NichedOption<T, N1>,
+    ) -> Option<*const Self::Niched> {
+        unsafe { <Self as Niching<T::Archived>>::niched_ptr(ptr.cast()) }
     }
 
     unsafe fn is_niched(niched: *const NichedOption<T, N1>) -> bool {
@@ -156,29 +166,29 @@ mod tests {
         Archive, Deserialize, Serialize,
     };
 
-    #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
-    #[rkyv(crate, derive(Debug))]
-    struct Nichable {
-        #[rkyv(niche = NaN)]
-        not_nan: f32,
-        #[rkyv(niche = Zero)]
-        int: NonZeroU32,
-        #[rkyv(niche)] // Default = Bool
-        boolean: bool,
-    }
-
-    impl Nichable {
-        fn create() -> Self {
-            Nichable {
-                not_nan: 123.456,
-                int: unsafe { NonZeroU32::new_unchecked(789) },
-                boolean: true,
-            }
-        }
-    }
-
     #[test]
     fn with_struct() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Nichable {
+            #[rkyv(niche = NaN)]
+            not_nan: f32,
+            #[rkyv(niche = Zero)]
+            int: NonZeroU32,
+            #[rkyv(niche)] // Default = Bool
+            boolean: bool,
+        }
+
+        impl Nichable {
+            fn create() -> Self {
+                Nichable {
+                    not_nan: 123.456,
+                    int: unsafe { NonZeroU32::new_unchecked(789) },
+                    boolean: true,
+                }
+            }
+        }
+
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, derive(Debug))]
         struct Middle {
@@ -229,6 +239,68 @@ mod tests {
             assert_eq!(b.not_nan, 123.456);
             assert_eq!(b.int.get(), 789);
             assert_eq!(b.boolean, true);
+        });
+    }
+
+    #[test]
+    fn with_enum() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        enum Nichable {
+            A(#[rkyv(niche)] bool),
+            B(u8),
+        }
+
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Outer {
+            #[rkyv(with = DefaultNicher)]
+            field: Option<Nichable>,
+        }
+
+        let tag_size = size_of::<u8>().max(align_of::<ArchivedNichable>());
+        assert_eq!(
+            size_of::<ArchivedNichable>(),
+            tag_size + size_of::<bool>().max(size_of::<u8>())
+        );
+        assert_eq!(size_of::<ArchivedOuter>(), size_of::<ArchivedNichable>());
+
+        let values = [
+            Outer { field: None },
+            Outer {
+                field: Some(Nichable::A(true)),
+            },
+            Outer {
+                field: Some(Nichable::B(0)),
+            },
+            Outer {
+                field: Some(Nichable::B(2)),
+            },
+        ];
+
+        roundtrip_with(&values[0], |_, archived| {
+            assert!(archived.field.is_none());
+        });
+        roundtrip_with(&values[1], |_, archived| {
+            let nichable = archived.field.as_ref().unwrap();
+            match nichable {
+                ArchivedNichable::A(b) => assert!(*b),
+                _ => panic!("expected `ArchivedNichable::A`"),
+            }
+        });
+        roundtrip_with(&values[2], |_, archived| {
+            let nichable = archived.field.as_ref().unwrap();
+            match nichable {
+                ArchivedNichable::B(n) => assert_eq!(*n, 0),
+                _ => panic!("expected `ArchivedNichable::B`"),
+            }
+        });
+        roundtrip_with(&values[3], |_, archived| {
+            let nichable = archived.field.as_ref().unwrap();
+            match nichable {
+                ArchivedNichable::B(n) => assert_eq!(*n, 2),
+                _ => panic!("expected `ArchivedNichable::B`"),
+            }
         });
     }
 }

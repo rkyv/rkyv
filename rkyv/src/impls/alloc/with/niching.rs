@@ -11,12 +11,14 @@ where
 {
     type Niched = RelPtr<T>;
 
-    fn niched_ptr(ptr: *const ArchivedBox<T>) -> *const Self::Niched {
-        ptr.cast()
+    unsafe fn niched_ptr(
+        ptr: *const ArchivedBox<T>,
+    ) -> Option<*const Self::Niched> {
+        Some(ptr.cast())
     }
 
     unsafe fn is_niched(niched: *const ArchivedBox<T>) -> bool {
-        unsafe { (*Self::niched_ptr(niched)).is_invalid() }
+        unsafe { (*niched.cast::<Self::Niched>()).is_invalid() }
     }
 
     fn resolve_niched(out: Place<ArchivedBox<T>>) {
@@ -31,8 +33,10 @@ where
 {
     type Niched = <Null as Niching<ArchivedBox<T>>>::Niched;
 
-    fn niched_ptr(ptr: *const ArchivedBox<T>) -> *const Self::Niched {
-        <Null as Niching<ArchivedBox<T>>>::niched_ptr(ptr)
+    unsafe fn niched_ptr(
+        ptr: *const ArchivedBox<T>,
+    ) -> Option<*const Self::Niched> {
+        unsafe { <Null as Niching<ArchivedBox<T>>>::niched_ptr(ptr) }
     }
 
     unsafe fn is_niched(niched: *const ArchivedBox<T>) -> bool {
