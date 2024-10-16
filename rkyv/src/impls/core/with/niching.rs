@@ -158,7 +158,7 @@ mod tests {
     use core::num::NonZeroU32;
 
     use crate::{
-        api::test::roundtrip_with,
+        api::test::{roundtrip_with, to_archived},
         niche::niching::{DefaultNicher, NaN, Zero},
         with::Nicher,
         Archive, Deserialize, Serialize,
@@ -246,33 +246,54 @@ mod tests {
         #[rkyv(crate, derive(Debug))]
         enum Nichable {
             A(#[rkyv(niche)] bool),
-            B(u8),
+            B {
+                #[rkyv(niche = NaN)]
+                float: f32,
+            },
+            C,
+        }
+
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Middle {
+            #[rkyv(with = DefaultNicher, niche = NaN)]
+            nichable: Option<Nichable>,
         }
 
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, derive(Debug))]
         struct Outer {
-            #[rkyv(with = DefaultNicher)]
-            field: Option<Nichable>,
+            #[rkyv(with = Nicher<NaN>)]
+            field: Option<Middle>,
         }
 
-        let tag_size = size_of::<u8>().max(align_of::<ArchivedNichable>());
-        assert_eq!(
-            size_of::<ArchivedNichable>(),
-            tag_size + size_of::<bool>().max(size_of::<u8>())
-        );
-        assert_eq!(size_of::<ArchivedOuter>(), size_of::<ArchivedNichable>());
+        assert_eq!(size_of::<ArchivedNichable>(), size_of::<ArchivedMiddle>());
+        assert_eq!(size_of::<ArchivedOuter>(), size_of::<ArchivedMiddle>());
 
         let values = [
             Outer { field: None },
             Outer {
-                field: Some(Nichable::A(true)),
+                field: Some(Middle { nichable: None }),
             },
             Outer {
-                field: Some(Nichable::B(0)),
+                field: Some(Middle {
+                    nichable: Some(Nichable::A(true)),
+                }),
             },
             Outer {
-                field: Some(Nichable::B(2)),
+                field: Some(Middle {
+                    nichable: Some(Nichable::B { float: f32::NAN }),
+                }),
+            },
+            Outer {
+                field: Some(Middle {
+                    nichable: Some(Nichable::B { float: 123.45 }),
+                }),
+            },
+            Outer {
+                field: Some(Middle {
+                    nichable: Some(Nichable::C),
+                }),
             },
         ];
 
@@ -280,24 +301,37 @@ mod tests {
             assert!(archived.field.is_none());
         });
         roundtrip_with(&values[1], |_, archived| {
-            let nichable = archived.field.as_ref().unwrap();
+            let middle = archived.field.as_ref().unwrap();
+            assert!(middle.nichable.is_none());
+        });
+        roundtrip_with(&values[2], |_, archived| {
+            let middle = archived.field.as_ref().unwrap();
+            let nichable = middle.nichable.as_ref().unwrap();
             match nichable {
                 ArchivedNichable::A(b) => assert!(*b),
                 _ => panic!("expected `ArchivedNichable::A`"),
             }
         });
-        roundtrip_with(&values[2], |_, archived| {
-            let nichable = archived.field.as_ref().unwrap();
+        to_archived(&values[3], |archived| {
+            // no roundtrip; NAN will be interpreted as being niched
+            assert!(archived.field.is_none());
+        });
+        roundtrip_with(&values[4], |_, archived| {
+            let middle = archived.field.as_ref().unwrap();
+            let nichable = middle.nichable.as_ref().unwrap();
             match nichable {
-                ArchivedNichable::B(n) => assert_eq!(*n, 0),
+                ArchivedNichable::B { float } => {
+                    assert_eq!(float.to_native(), 123.45)
+                }
                 _ => panic!("expected `ArchivedNichable::B`"),
             }
         });
-        roundtrip_with(&values[3], |_, archived| {
-            let nichable = archived.field.as_ref().unwrap();
+        roundtrip_with(&values[5], |_, archived| {
+            let middle = archived.field.as_ref().unwrap();
+            let nichable = middle.nichable.as_ref().unwrap();
             match nichable {
-                ArchivedNichable::B(n) => assert_eq!(*n, 2),
-                _ => panic!("expected `ArchivedNichable::B`"),
+                ArchivedNichable::C => {}
+                _ => panic!("expected `ArchivedNichable::C`"),
             }
         });
     }
