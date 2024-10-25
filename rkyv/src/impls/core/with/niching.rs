@@ -157,12 +157,10 @@ where
 mod tests {
     use core::num::NonZeroU32;
 
-    use rancor::Panic;
-
     use crate::{
-        api::{
-            low::access,
-            test::{deserialize, roundtrip_with, to_archived, to_bytes},
+        api::test::{
+            deserialize, roundtrip_with, to_archived, to_archived_from_bytes,
+            to_bytes,
         },
         boxed::ArchivedBox,
         niche::niching::{DefaultNicher, NaN, Zero},
@@ -369,10 +367,11 @@ mod tests {
                 bytes.len(),
                 size_of::<ArchivedBox<ArchivedNotNichable>>()
             );
-            let archived = access::<ArchivedOuter, Panic>(bytes).unwrap();
-            assert!(archived.opt.as_ref().is_none());
-            let deserialized: Outer = deserialize(&*archived);
-            assert_eq!(&values[0], &deserialized);
+            to_archived_from_bytes::<Outer>(bytes, |archived| {
+                assert!(archived.opt.as_ref().is_none());
+                let deserialized: Outer = deserialize(&*archived);
+                assert_eq!(&values[0], &deserialized);
+            });
         });
         roundtrip_with(&values[1], |_, archived| {
             let bar = archived.opt.as_ref().unwrap();

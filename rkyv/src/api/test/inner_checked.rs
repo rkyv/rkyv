@@ -10,7 +10,7 @@ use crate::api::low::{access_mut, LowValidator as TestValidator};
 use crate::{
     api::test::{deserialize, to_bytes, TestDeserializer, TestSerializer},
     seal::Seal,
-    Deserialize, Serialize,
+    Archive, Deserialize, Serialize,
 };
 
 /// Serializes the given type to bytes, accesses the archived version, and calls
@@ -20,10 +20,19 @@ where
     T: for<'a> Serialize<TestSerializer<'a>>,
     T::Archived: for<'a> CheckBytes<TestValidator<'a, Panic>>,
 {
-    to_bytes(value, |bytes| {
-        let archived_value = access_mut::<T::Archived, Panic>(bytes).unwrap();
-        f(archived_value);
-    });
+    to_bytes(value, |bytes| to_archived_from_bytes::<T>(bytes, f));
+}
+
+/// Accesses the archived version and calls the given function with it.
+pub fn to_archived_from_bytes<T>(
+    bytes: &mut [u8],
+    f: impl FnOnce(Seal<'_, T::Archived>),
+) where
+    T: Archive,
+    T::Archived: for<'a> CheckBytes<TestValidator<'a, Panic>>,
+{
+    let archived_value = access_mut::<T::Archived, Panic>(bytes).unwrap();
+    f(archived_value);
 }
 
 /// Serializes and deserializes the given value, checking for equality with the
