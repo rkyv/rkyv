@@ -157,10 +157,16 @@ where
 mod tests {
     use core::num::NonZeroU32;
 
+    use rancor::Panic;
+
     use crate::{
-        api::test::{roundtrip_with, to_archived},
+        api::{
+            low::access,
+            test::{deserialize, roundtrip_with, to_archived, to_bytes},
+        },
+        boxed::ArchivedBox,
         niche::niching::{DefaultNicher, NaN, Zero},
-        with::Nicher,
+        with::{AsBox, Nicher, NicherMap},
         Archive, Deserialize, Serialize,
     };
 
@@ -333,6 +339,44 @@ mod tests {
                 ArchivedNichable::C => {}
                 _ => panic!("expected `ArchivedNichable::C`"),
             }
+        });
+    }
+
+    #[test]
+    fn nicher_map() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Outer {
+            #[rkyv(with = NicherMap<AsBox>)]
+            opt: Option<NotNichable>,
+        }
+
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct NotNichable {
+            int: i64,
+        }
+
+        let values = &[
+            Outer { opt: None },
+            Outer {
+                opt: Some(NotNichable { int: 42 }),
+            },
+        ];
+
+        to_bytes(&values[0], |bytes| {
+            assert_eq!(
+                bytes.len(),
+                size_of::<ArchivedBox<ArchivedNotNichable>>()
+            );
+            let archived = access::<ArchivedOuter, Panic>(bytes).unwrap();
+            assert!(archived.opt.as_ref().is_none());
+            let deserialized: Outer = deserialize(&*archived);
+            assert_eq!(&values[0], &deserialized);
+        });
+        roundtrip_with(&values[1], |_, archived| {
+            let bar = archived.opt.as_ref().unwrap();
+            assert_eq!(bar.int.to_native(), 42);
         });
     }
 }

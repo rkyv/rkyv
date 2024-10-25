@@ -112,8 +112,7 @@ impl<T, N: Niching<T> + ?Sized> NichedOption<T, N> {
     ) where
         U: Archive<Archived = T>,
     {
-        munge!(let Self { repr, .. } = out);
-        let out = unsafe { repr.cast_unchecked::<T>() };
+        let out = Self::munge_place(out);
         match option {
             Some(value) => {
                 let resolver = resolver.expect("non-niched resolver");
@@ -136,6 +135,12 @@ impl<T, N: Niching<T> + ?Sized> NichedOption<T, N> {
             Some(value) => value.serialize(serializer).map(Some),
             None => Ok(None),
         }
+    }
+
+    pub(crate) fn munge_place(out: Place<Self>) -> Place<T> {
+        munge!(let Self { repr, .. } = out);
+
+        unsafe { repr.cast_unchecked::<T>() }
     }
 }
 

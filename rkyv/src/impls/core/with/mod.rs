@@ -41,7 +41,7 @@ use crate::{
     traits::NoUndef,
     with::{
         ArchiveWith, AsBox, DeserializeWith, Identity, Inline, InlineAsBox,
-        Map, Niche, Nicher, SerializeWith, Skip, Unsafe,
+        Map, Niche, Nicher, NicherMap, SerializeWith, Skip, Unsafe,
     },
     Archive, ArchiveUnsized, Deserialize, Place, Serialize, SerializeUnsized,
 };
@@ -456,6 +456,71 @@ where
             Some(value) => value.deserialize(deserializer).map(Some),
             None => Ok(None),
         }
+    }
+}
+
+// NicherMap
+
+impl<T, W, N> ArchiveWith<Option<T>> for NicherMap<W, N>
+where
+    W: ArchiveWith<T> + ?Sized,
+    N: Niching<<W as ArchiveWith<T>>::Archived> + ?Sized,
+{
+    type Archived = NichedOption<<W as ArchiveWith<T>>::Archived, N>;
+    type Resolver = Option<<W as ArchiveWith<T>>::Resolver>;
+
+    fn resolve_with(
+        field: &Option<T>,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        let out = NichedOption::munge_place(out);
+        match field {
+            Some(value) => {
+                let resolver = resolver.expect("non-niched resolver");
+                W::resolve_with(value, resolver, out);
+            }
+            None => N::resolve_niched(out),
+        }
+    }
+}
+
+impl<T, W, N, S> SerializeWith<Option<T>, S> for NicherMap<W, N>
+where
+    W: SerializeWith<T, S> + ?Sized,
+    N: Niching<<W as ArchiveWith<T>>::Archived> + ?Sized,
+    S: Fallible + ?Sized,
+{
+    fn serialize_with(
+        field: &Option<T>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        match field {
+            Some(value) => W::serialize_with(value, serializer).map(Some),
+            None => Ok(None),
+        }
+    }
+}
+
+impl<T, W, N, D>
+    DeserializeWith<
+        NichedOption<<W as ArchiveWith<T>>::Archived, N>,
+        Option<T>,
+        D,
+    > for NicherMap<W, N>
+where
+    W: ArchiveWith<T> + DeserializeWith<<W as ArchiveWith<T>>::Archived, T, D>,
+    N: Niching<<W as ArchiveWith<T>>::Archived> + ?Sized,
+    D: Fallible + ?Sized,
+{
+    fn deserialize_with(
+        field: &NichedOption<<W as ArchiveWith<T>>::Archived, N>,
+        deserializer: &mut D,
+    ) -> Result<Option<T>, D::Error> {
+        field
+            .as_ref()
+            .map(|value| W::deserialize_with(value, deserializer))
+            .transpose()
     }
 }
 

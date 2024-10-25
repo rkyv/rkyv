@@ -512,17 +512,74 @@ pub struct Niche;
 /// ```
 ///
 /// [`Niching`]: crate::niche::niching::Niching
-pub struct Nicher<D: ?Sized>(PhantomData<D>);
+pub struct Nicher<N: ?Sized>(PhantomData<N>);
 
-impl<D: ?Sized> Default for Nicher<D> {
+impl<N: ?Sized> Default for Nicher<N> {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<D: ?Sized> fmt::Debug for Nicher<D> {
+impl<N: ?Sized> fmt::Debug for Nicher<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("Nicher")
+    }
+}
+
+/// A wrapper that first applies another wrapper `W` to the value inside an
+/// `Option` and then niches the result based on the [`Niching`] `N`.
+///
+/// # Example
+///
+/// ```
+/// use rkyv::{
+///     with::{AsBox, NicherMap},
+///     Archive, Serialize,
+/// };
+///
+/// #[derive(Archive, Serialize)]
+/// struct BasicExample {
+///     option: Option<HugeType>,
+/// }
+///
+/// #[derive(Archive, Serialize)]
+/// struct NichedExample {
+///     #[rkyv(with = NicherMap<AsBox>)]
+///     option: Option<HugeType>,
+/// }
+///
+/// #[derive(Archive, Serialize)]
+/// struct HugeType([u8; 1024]);
+///
+/// # fn main() -> Result<(), rkyv::rancor::Error> {
+/// let basic_value = BasicExample { option: None };
+/// let basic_bytes = rkyv::to_bytes(&basic_value)?;
+/// assert_eq!(basic_bytes.len(), 1 + 1024);
+///
+/// let niched_value = NichedExample { option: None };
+/// let niched_bytes = rkyv::to_bytes(&niched_value)?;
+/// assert_eq!(niched_bytes.len(), 4); // size_of::<ArchivedBox<_>>()
+/// # Ok(()) }
+/// ```
+///
+/// [`Niching`]: crate::niche::niching::Niching
+pub struct NicherMap<W: ?Sized, N: ?Sized = DefaultNicher> {
+    _map: PhantomData<W>,
+    _niching: PhantomData<N>,
+}
+
+impl<W: ?Sized, N: ?Sized> Default for NicherMap<W, N> {
+    fn default() -> Self {
+        Self {
+            _map: PhantomData,
+            _niching: PhantomData,
+        }
+    }
+}
+
+impl<W: ?Sized, N: ?Sized> fmt::Debug for NicherMap<W, N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("NicherMap")
     }
 }
 
