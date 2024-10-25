@@ -1,16 +1,20 @@
 use core::num::{NonZeroI8, NonZeroU8};
 
 use crate::{
+    boxed::ArchivedBox,
     niche::{
         niched_option::NichedOption,
-        niching::{Bool, DefaultNicher, NaN, Niching, SharedNiching, Zero},
+        niching::{
+            Bool, DefaultNicher, NaN, Niching, Null, SharedNiching, Zero,
+        },
     },
     primitive::{
         ArchivedF32, ArchivedF64, ArchivedNonZeroI128, ArchivedNonZeroI16,
         ArchivedNonZeroI32, ArchivedNonZeroI64, ArchivedNonZeroU128,
         ArchivedNonZeroU16, ArchivedNonZeroU32, ArchivedNonZeroU64,
     },
-    Archived, Place,
+    traits::ArchivePointee,
+    Archived, Place, Portable, RelPtr,
 };
 
 // Zero
@@ -125,6 +129,51 @@ unsafe impl Niching<bool> for DefaultNicher {
 
     fn resolve_niched(out: Place<bool>) {
         <Bool as Niching<bool>>::resolve_niched(out);
+    }
+}
+
+// Null
+
+unsafe impl<T> Niching<ArchivedBox<T>> for Null
+where
+    T: ArchivePointee + Portable + ?Sized,
+{
+    type Niched = RelPtr<T>;
+
+    unsafe fn niched_ptr(
+        ptr: *const ArchivedBox<T>,
+    ) -> Option<*const Self::Niched> {
+        Some(ptr.cast())
+    }
+
+    unsafe fn is_niched(niched: *const ArchivedBox<T>) -> bool {
+        unsafe { (*niched.cast::<Self::Niched>()).is_invalid() }
+    }
+
+    fn resolve_niched(out: Place<ArchivedBox<T>>) {
+        let out = unsafe { out.cast_unchecked::<Self::Niched>() };
+        RelPtr::emplace_invalid(out);
+    }
+}
+
+unsafe impl<T> Niching<ArchivedBox<T>> for DefaultNicher
+where
+    T: ArchivePointee + Portable + ?Sized,
+{
+    type Niched = <Null as Niching<ArchivedBox<T>>>::Niched;
+
+    unsafe fn niched_ptr(
+        ptr: *const ArchivedBox<T>,
+    ) -> Option<*const Self::Niched> {
+        unsafe { <Null as Niching<ArchivedBox<T>>>::niched_ptr(ptr) }
+    }
+
+    unsafe fn is_niched(niched: *const ArchivedBox<T>) -> bool {
+        unsafe { <Null as Niching<ArchivedBox<T>>>::is_niched(niched) }
+    }
+
+    fn resolve_niched(out: Place<ArchivedBox<T>>) {
+        <Null as Niching<ArchivedBox<T>>>::resolve_niched(out);
     }
 }
 
