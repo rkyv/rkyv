@@ -10,8 +10,8 @@ use crate::{seal::Seal, Archive, Place, Portable, Serialize};
 
 /// A niched `ArchivedOption<T>`.
 ///
-/// It uses less space by storing the `None` variant in a custom way based on
-/// `N`.
+/// It has the same layout as `T`, and thus uses less space by storing the
+/// `None` variant in a custom way based on `N`.
 #[repr(transparent)]
 pub struct NichedOption<T, N: ?Sized> {
     repr: MaybeUninit<T>,
