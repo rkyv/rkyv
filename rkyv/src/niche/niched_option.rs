@@ -21,7 +21,10 @@ pub struct NichedOption<T, N: ?Sized> {
 // SAFETY: The safety invariant of `Niching<T>` requires its
 // implementor to ensure that the contained `MaybeUninit<T>` is
 // portable and thus implies this safety.
-unsafe impl<T, N: Niching<T> + ?Sized> Portable for NichedOption<T, N> {}
+unsafe impl<T: Portable, N: Niching<T> + ?Sized> Portable
+    for NichedOption<T, N>
+{
+}
 
 #[cfg(feature = "bytecheck")]
 const _: () = {
