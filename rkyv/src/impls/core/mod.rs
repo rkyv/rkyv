@@ -1,7 +1,7 @@
 use core::{
     alloc::{Layout, LayoutError},
     marker::{PhantomData, PhantomPinned},
-    mem::ManuallyDrop,
+    mem::{ManuallyDrop, MaybeUninit},
     ptr::{self, addr_of_mut},
     str,
 };
@@ -523,6 +523,12 @@ where
         T::Archived::deserialize(self, deserializer).map(ManuallyDrop::new)
     }
 }
+
+// `MaybeUninit`
+
+// SAFETY: `MaybeUninit` is guaranteed to have the same layout as `T`, and `T`
+// is portable. `MaybeUninit` does not have interior mutability.
+unsafe impl<T: Portable> Portable for MaybeUninit<T> {}
 
 #[cfg(test)]
 mod tests {

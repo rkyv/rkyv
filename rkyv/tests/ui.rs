@@ -1,3 +1,4 @@
+#[rustversion::attr(not(nightly), ignore)]
 #[test]
 #[cfg(not(miri))]
 fn ui() {

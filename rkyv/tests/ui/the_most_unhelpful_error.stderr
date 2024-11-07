@@ -2,7 +2,7 @@ error[E0277]: the trait bound `Strategy<NotSerializer, Failure>: MyTrait` is not
   --> tests/ui/the_most_unhelpful_error.rs:21:26
    |
 21 |     let state = archived.deserialize(Strategy::<_, Failure>::wrap(&mut NotSerializer));
-   |                          ^^^^^^^^^^^ the trait `MyTrait` is not implemented for `Strategy<NotSerializer, Failure>`, which is required by `ArchivedMyStruct: Deserialize<_, _>`
+   |                          ^^^^^^^^^^^ the trait `MyTrait` is not implemented for `Strategy<NotSerializer, Failure>`
    |
    = help: the trait `MyTrait` is implemented for `Serializer`
 note: required for `ArchivedMyStruct` to implement `Deserialize<MyStruct, Strategy<NotSerializer, Failure>>`

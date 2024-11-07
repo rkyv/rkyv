@@ -71,6 +71,7 @@ features = ["bytecheck"]
 ahash = "0.8"
 benchlib = { path = "../benchlib" }
 divan.workspace = true
+rustversion.workspace = true
 trybuild.workspace = true
 
 [[bench]]

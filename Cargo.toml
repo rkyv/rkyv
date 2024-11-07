@@ -33,6 +33,7 @@ rkyv = { version = "0.8", default-features = false, path = "rkyv" }
 rkyv_derive = { version = "=0.8.8", default-features = false, path = "rkyv_derive" }
 # rkyv_dyn = { version = "=0.8.0-rc.1", default-features = false, path = "rkyv_dyn" }
 # rkyv_dyn_derive = { version = "=0.8.0-rc.1", default-features = false, path = "rkyv_dyn_derive" }
+rustversion = { version = "1", default-features = false }
 syn = { version = "2.0.73", default-features = false }
 trybuild = { version = "1", default-features = false }
 
