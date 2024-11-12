@@ -97,12 +97,12 @@ _Read more about [available features](https://docs.rs/rkyv/latest/rkyv/#features
 
 Thanks to all the sponsors that keep development sustainable. Special thanks to the following sponsors for going above and beyond supporting rkyv:
 
-## Platinum Sponsors
+## Bronze Sponsors
 
 <p align="center">
-    <a href="https://dusk.network">
-        <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/sponsors/dusk_network.png" alt="Dusk Network">
+    <a href="https://climatiq.hq">
+        <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/sponsors/climatiq.png" alt="Climatiq">
     </a>
 </p>
 
-> Dusk Network is the first privacy blockchain for financial applications. Our mission is to enable any size enterprise to collaborate at scale, meet compliance requirements, and ensure that transaction data remains confidential.
+> Climatiq provides an embedded carbon intelligence solution that enables developers to automate GHG emission calculations based on verified scientific models. Its suite of products includes the largest dataset of emission factors, and intelligent APIs that integrate with any software platform for real time monitoring of greenhouse gas emissions.
