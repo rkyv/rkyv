@@ -6,7 +6,7 @@ use crate::{
     access_unchecked_mut,
     api::test::{deserialize, to_bytes, TestDeserializer, TestSerializer},
     seal::Seal,
-    Deserialize, Serialize,
+    Archive, Deserialize, Serialize,
 };
 
 /// Serializes the given type to bytes, accesses the archived version, and calls
@@ -15,11 +15,18 @@ pub fn to_archived<T>(value: &T, f: impl FnOnce(Seal<'_, T::Archived>))
 where
     T: for<'a> Serialize<TestSerializer<'a>>,
 {
-    to_bytes(value, |bytes| {
-        let archived_value =
-            unsafe { access_unchecked_mut::<T::Archived>(bytes) };
-        f(archived_value);
-    });
+    to_bytes(value, |bytes| to_archived_from_bytes::<T>(bytes, f));
+}
+
+/// Accesses the archived version and calls the given function with it.
+pub fn to_archived_from_bytes<T>(
+    bytes: &mut [u8],
+    f: impl FnOnce(Seal<'_, T::Archived>),
+) where
+    T: Archive,
+{
+    let archived_value = unsafe { access_unchecked_mut::<T::Archived>(bytes) };
+    f(archived_value);
 }
 
 /// Serializes and deserializes the given value, checking for equality with the

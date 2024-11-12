@@ -1,5 +1,3 @@
-mod niching;
-
 use core::{marker::PhantomData, ops::ControlFlow};
 
 use ptr_meta::Pointee;
@@ -572,9 +570,12 @@ mod tests {
             collections::{BTreeMap, BTreeSet},
             string::{String, ToString},
         },
-        api::test::{roundtrip, to_archived},
+        api::test::{roundtrip, roundtrip_with, to_archived},
         niche::niching::Null,
-        with::{AsOwned, AsVec, InlineAsBox, Map, MapKV, Niche, Nicher},
+        with::{
+            AsOwned, AsVec, DefaultNicher, InlineAsBox, Map, MapKV, Niche,
+            Nicher,
+        },
         Archive, Deserialize, Serialize,
     };
 
@@ -793,5 +794,41 @@ mod tests {
             size_of::<ArchivedTestNullNicher>()
                 < size_of::<ArchivedTestNoNiching>()
         );
+    }
+
+    #[test]
+    fn with_null_niching() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Nichable {
+            #[rkyv(niche)] // Default = Null
+            boxed: Box<i32>,
+        }
+
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Outer {
+            #[rkyv(with = DefaultNicher)]
+            field: Option<Nichable>,
+        }
+
+        assert_eq!(size_of::<ArchivedNichable>(), size_of::<ArchivedOuter>());
+
+        let values = [
+            Outer { field: None },
+            Outer {
+                field: Some(Nichable {
+                    boxed: Box::new(727),
+                }),
+            },
+        ];
+
+        roundtrip_with(&values[0], |_, archived| {
+            assert!(archived.field.is_none());
+        });
+        roundtrip_with(&values[1], |_, archived| {
+            let nichable = archived.field.as_ref().unwrap();
+            assert_eq!(nichable.boxed.as_ref().to_native(), 727);
+        });
     }
 }
