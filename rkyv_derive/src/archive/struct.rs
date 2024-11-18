@@ -448,32 +448,21 @@ fn generate_niching_impls(
                 Member::Unnamed(Index::from(i))
             };
 
-            let field_nicher = quote! {
+            let field_niching = quote! {
                 <#niche_tokens as #rkyv_path::niche::niching::Niching<
                     #archived_field>
                 >
             };
 
             result.extend(quote! {
-                unsafe impl #impl_generics
+                impl #impl_generics
                     #rkyv_path::niche::niching::Niching<#archived_type>
                 for #niche_tokens {
-                    type Niched = #field_nicher::Niched;
-
-                    unsafe fn niched_ptr(ptr: *const #archived_type)
-                        -> ::core::option::Option<*const Self::Niched>
-                    {
-                        let field = unsafe {
-                            ::core::ptr::addr_of!((*ptr).#field_member)
-                        };
-                        #field_nicher::niched_ptr(field)
-                    }
-
                     unsafe fn is_niched(niched: *const #archived_type) -> bool {
                         let field = unsafe {
                             ::core::ptr::addr_of!((*niched).#field_member)
                         };
-                        #field_nicher::is_niched(field)
+                        #field_niching::is_niched(field)
                     }
 
                     fn resolve_niched(out: #rkyv_path::Place<#archived_type>) {
@@ -487,7 +476,7 @@ fn generate_niching_impls(
                                 out, field_ptr,
                             )
                         };
-                        #field_nicher::resolve_niched(out_field);
+                        #field_niching::resolve_niched(out_field);
                     }
                 }
             });

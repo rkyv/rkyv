@@ -5,85 +5,71 @@ use crate::{
     niche::{
         niched_option::NichedOption,
         niching::{
-            Bool, DefaultNicher, NaN, Niching, Null, SharedNiching, Zero,
+            Bool, DefaultNiche, NaN, Niching, Null, SharedNiching, Zero,
         },
     },
     primitive::{
-        ArchivedF32, ArchivedF64, ArchivedNonZeroI128, ArchivedNonZeroI16,
+        ArchivedF32, ArchivedF64, ArchivedI128, ArchivedI16, ArchivedI32,
+        ArchivedI64, ArchivedNonZeroI128, ArchivedNonZeroI16,
         ArchivedNonZeroI32, ArchivedNonZeroI64, ArchivedNonZeroU128,
         ArchivedNonZeroU16, ArchivedNonZeroU32, ArchivedNonZeroU64,
+        ArchivedU128, ArchivedU16, ArchivedU32, ArchivedU64,
     },
     traits::ArchivePointee,
-    Archived, Place, Portable, RelPtr,
+    Place, Portable, RelPtr,
 };
 
-// Zero
-
-macro_rules! impl_nonzero_zero_niching {
-    ($nz:ty, $ar:ty) => {
-        unsafe impl Niching<$nz> for Zero {
-            type Niched = Archived<$ar>;
-
-            unsafe fn niched_ptr(
-                ptr: *const $nz,
-            ) -> Option<*const Self::Niched> {
-                Some(ptr.cast())
+macro_rules! impl_default_niche {
+    ($ty:ty, $niche:ty) => {
+        impl Niching<$ty> for DefaultNiche {
+            unsafe fn is_niched(niched: *const $ty) -> bool {
+                unsafe { <$niche as Niching<$ty>>::is_niched(niched) }
             }
 
-            unsafe fn is_niched(niched: *const $nz) -> bool {
-                unsafe { *niched.cast::<Self::Niched>() == 0 }
-            }
-
-            fn resolve_niched(out: Place<$nz>) {
-                unsafe { out.cast_unchecked::<Self::Niched>() }.write(0.into());
-            }
-        }
-
-        unsafe impl Niching<$nz> for DefaultNicher {
-            type Niched = <Zero as Niching<$nz>>::Niched;
-
-            unsafe fn niched_ptr(
-                ptr: *const $nz,
-            ) -> Option<*const Self::Niched> {
-                unsafe { <Zero as Niching<$nz>>::niched_ptr(ptr) }
-            }
-
-            unsafe fn is_niched(niched: *const $nz) -> bool {
-                unsafe { <Zero as Niching<$nz>>::is_niched(niched) }
-            }
-
-            fn resolve_niched(out: Place<$nz>) {
-                <Zero as Niching<$nz>>::resolve_niched(out);
+            fn resolve_niched(out: Place<$ty>) {
+                <$niche as Niching<$ty>>::resolve_niched(out)
             }
         }
     };
 }
 
+// Zero
+
+macro_rules! impl_nonzero_zero_niching {
+    ($nz:ty, $int:ty) => {
+        impl Niching<$nz> for Zero {
+            unsafe fn is_niched(niched: *const $nz) -> bool {
+                let value = unsafe { &*niched.cast::<$int>() };
+                *value == 0
+            }
+
+            fn resolve_niched(out: Place<$nz>) {
+                let out = unsafe { out.cast_unchecked::<$int>() };
+                out.write(0.into());
+            }
+        }
+
+        impl_default_niche!($nz, Zero);
+    };
+}
+
 impl_nonzero_zero_niching!(NonZeroU8, u8);
-impl_nonzero_zero_niching!(ArchivedNonZeroU16, u16);
-impl_nonzero_zero_niching!(ArchivedNonZeroU32, u32);
-impl_nonzero_zero_niching!(ArchivedNonZeroU64, u64);
-impl_nonzero_zero_niching!(ArchivedNonZeroU128, u128);
+impl_nonzero_zero_niching!(ArchivedNonZeroU16, ArchivedU16);
+impl_nonzero_zero_niching!(ArchivedNonZeroU32, ArchivedU32);
+impl_nonzero_zero_niching!(ArchivedNonZeroU64, ArchivedU64);
+impl_nonzero_zero_niching!(ArchivedNonZeroU128, ArchivedU128);
 
 impl_nonzero_zero_niching!(NonZeroI8, i8);
-impl_nonzero_zero_niching!(ArchivedNonZeroI16, i16);
-impl_nonzero_zero_niching!(ArchivedNonZeroI32, i32);
-impl_nonzero_zero_niching!(ArchivedNonZeroI64, i64);
-impl_nonzero_zero_niching!(ArchivedNonZeroI128, i128);
+impl_nonzero_zero_niching!(ArchivedNonZeroI16, ArchivedI16);
+impl_nonzero_zero_niching!(ArchivedNonZeroI32, ArchivedI32);
+impl_nonzero_zero_niching!(ArchivedNonZeroI64, ArchivedI64);
+impl_nonzero_zero_niching!(ArchivedNonZeroI128, ArchivedI128);
 
 // NaN
 
 macro_rules! impl_float_nan_niching {
     ($fl:ty, $ar:ty) => {
-        unsafe impl Niching<$ar> for NaN {
-            type Niched = $ar;
-
-            unsafe fn niched_ptr(
-                ptr: *const $ar,
-            ) -> Option<*const Self::Niched> {
-                Some(ptr)
-            }
-
+        impl Niching<$ar> for NaN {
             unsafe fn is_niched(niched: *const $ar) -> bool {
                 unsafe { (*niched).to_native().is_nan() }
             }
@@ -100,74 +86,38 @@ impl_float_nan_niching!(f64, ArchivedF64);
 
 // Bool
 
-unsafe impl Niching<bool> for Bool {
-    type Niched = u8;
-
-    unsafe fn niched_ptr(ptr: *const bool) -> Option<*const Self::Niched> {
-        Some(ptr.cast())
-    }
-
+impl Niching<bool> for Bool {
     unsafe fn is_niched(niched: *const bool) -> bool {
-        unsafe { (*niched.cast::<Self::Niched>()) > 1 }
+        unsafe { (*niched.cast::<u8>()) > 1 }
     }
 
     fn resolve_niched(out: Place<bool>) {
-        unsafe { out.cast_unchecked::<Self::Niched>().write(2) };
+        unsafe { out.cast_unchecked::<u8>().write(2) };
     }
 }
 
-unsafe impl Niching<bool> for DefaultNicher {
-    type Niched = <Bool as Niching<bool>>::Niched;
-
-    unsafe fn niched_ptr(ptr: *const bool) -> Option<*const Self::Niched> {
-        unsafe { <Bool as Niching<bool>>::niched_ptr(ptr) }
-    }
-
-    unsafe fn is_niched(niched: *const bool) -> bool {
-        unsafe { <Bool as Niching<bool>>::is_niched(niched) }
-    }
-
-    fn resolve_niched(out: Place<bool>) {
-        <Bool as Niching<bool>>::resolve_niched(out);
-    }
-}
+impl_default_niche!(bool, Bool);
 
 // Null
 
-unsafe impl<T> Niching<ArchivedBox<T>> for Null
+impl<T> Niching<ArchivedBox<T>> for Null
 where
     T: ArchivePointee + Portable + ?Sized,
 {
-    type Niched = RelPtr<T>;
-
-    unsafe fn niched_ptr(
-        ptr: *const ArchivedBox<T>,
-    ) -> Option<*const Self::Niched> {
-        Some(ptr.cast())
-    }
-
     unsafe fn is_niched(niched: *const ArchivedBox<T>) -> bool {
-        unsafe { (*niched.cast::<Self::Niched>()).is_invalid() }
+        unsafe { (*niched.cast::<RelPtr<T>>()).is_invalid() }
     }
 
     fn resolve_niched(out: Place<ArchivedBox<T>>) {
-        let out = unsafe { out.cast_unchecked::<Self::Niched>() };
+        let out = unsafe { out.cast_unchecked::<RelPtr<T>>() };
         RelPtr::emplace_invalid(out);
     }
 }
 
-unsafe impl<T> Niching<ArchivedBox<T>> for DefaultNicher
+impl<T> Niching<ArchivedBox<T>> for DefaultNiche
 where
     T: ArchivePointee + Portable + ?Sized,
 {
-    type Niched = <Null as Niching<ArchivedBox<T>>>::Niched;
-
-    unsafe fn niched_ptr(
-        ptr: *const ArchivedBox<T>,
-    ) -> Option<*const Self::Niched> {
-        unsafe { <Null as Niching<ArchivedBox<T>>>::niched_ptr(ptr) }
-    }
-
     unsafe fn is_niched(niched: *const ArchivedBox<T>) -> bool {
         unsafe { <Null as Niching<ArchivedBox<T>>>::is_niched(niched) }
     }
@@ -177,22 +127,14 @@ where
     }
 }
 
-// -------
+// SharedNiching
 
-unsafe impl<T, N1, N2> Niching<NichedOption<T, N1>> for N2
+impl<T, N1, N2> Niching<NichedOption<T, N1>> for N2
 where
     T: SharedNiching<N1, N2>,
     N1: Niching<T>,
     N2: Niching<T>,
 {
-    type Niched = <Self as Niching<T>>::Niched;
-
-    unsafe fn niched_ptr(
-        ptr: *const NichedOption<T, N1>,
-    ) -> Option<*const Self::Niched> {
-        unsafe { <Self as Niching<T>>::niched_ptr(ptr.cast()) }
-    }
-
     unsafe fn is_niched(niched: *const NichedOption<T, N1>) -> bool {
         unsafe { <Self as Niching<T>>::is_niched(niched.cast()) }
     }
@@ -212,8 +154,8 @@ mod tests {
             to_bytes,
         },
         boxed::ArchivedBox,
-        niche::niching::{DefaultNicher, NaN, Zero},
-        with::{AsBox, Nicher, NicherMap},
+        niche::niching::{DefaultNiche, NaN, Zero},
+        with::{AsBox, MapNiche, NicheInto},
         Archive, Deserialize, Serialize,
     };
 
@@ -243,16 +185,17 @@ mod tests {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, derive(Debug))]
         struct Middle {
-            #[rkyv(with = Nicher<Zero>, niche = NaN, niche)] // Default = Bool
+            #[rkyv(with = NicheInto<Zero>, niche = NaN, niche)]
+            // Default = Bool
             a: Option<Nichable>,
-            #[rkyv(with = Nicher<NaN>, niche = Zero)]
+            #[rkyv(with = NicheInto<NaN>, niche = Zero)]
             b: Option<Nichable>,
         }
 
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, derive(Debug))]
         struct Outer {
-            #[rkyv(with = DefaultNicher)]
+            #[rkyv(with = DefaultNiche)]
             field: Option<Middle>,
         }
 
@@ -309,14 +252,14 @@ mod tests {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, derive(Debug))]
         struct Middle {
-            #[rkyv(with = DefaultNicher, niche = NaN)]
+            #[rkyv(with = DefaultNiche, niche = NaN)]
             nichable: Option<Nichable>,
         }
 
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, derive(Debug))]
         struct Outer {
-            #[rkyv(with = Nicher<NaN>)]
+            #[rkyv(with = NicheInto<NaN>)]
             field: Option<Middle>,
         }
 
@@ -390,11 +333,11 @@ mod tests {
     }
 
     #[test]
-    fn nicher_map() {
+    fn map_niche() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, derive(Debug))]
         struct Outer {
-            #[rkyv(with = NicherMap<AsBox>)]
+            #[rkyv(with = MapNiche<AsBox>)]
             opt: Option<NotNichable>,
         }
 

@@ -477,7 +477,7 @@ impl Niche {
         match self {
             Niche::Type(ty) => quote!(#ty),
             Niche::Default => quote! {
-                #rkyv_path::niche::niching::DefaultNicher
+                #rkyv_path::niche::niching::DefaultNiche
             },
         }
     }
@@ -493,7 +493,7 @@ impl PartialEq for Niche {
             (Niche::Type(Type::Path(ty)), Niche::Default)
             | (Niche::Default, Niche::Type(Type::Path(ty))) => {
                 match ty.path.get_ident() {
-                    Some(ident) => ident == "DefaultNicher",
+                    Some(ident) => ident == "DefaultNiche",
                     None => false,
                 }
             }

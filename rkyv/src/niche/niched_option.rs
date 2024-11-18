@@ -12,18 +12,12 @@ use crate::{seal::Seal, Archive, Place, Portable, Serialize};
 ///
 /// It has the same layout as `T`, and thus uses less space by storing the
 /// `None` variant in a custom way based on `N`.
+#[derive(Portable)]
+#[rkyv(crate)]
 #[repr(transparent)]
 pub struct NichedOption<T, N: ?Sized> {
     repr: MaybeUninit<T>,
     _niching: PhantomData<N>,
-}
-
-// SAFETY: The safety invariant of `Niching<T>` requires its
-// implementor to ensure that the contained `MaybeUninit<T>` is
-// portable and thus implies this safety.
-unsafe impl<T: Portable, N: Niching<T> + ?Sized> Portable
-    for NichedOption<T, N>
-{
 }
 
 #[cfg(feature = "bytecheck")]
@@ -35,7 +29,7 @@ const _: () = {
     unsafe impl<T, N, C> CheckBytes<C> for NichedOption<T, N>
     where
         T: CheckBytes<C>,
-        N: Niching<T, Niched: CheckBytes<C>> + ?Sized,
+        N: Niching<T> + ?Sized,
         C: Fallible + ?Sized,
     {
         unsafe fn check_bytes(
@@ -43,16 +37,14 @@ const _: () = {
             context: &mut C,
         ) -> Result<(), C::Error> {
             let ptr = unsafe { addr_of!((*value).repr).cast::<T>() };
+            let is_niched = unsafe { N::is_niched(ptr) };
 
-            if let Some(niched_ptr) = unsafe { N::niched_ptr(ptr) } {
-                unsafe { <N::Niched>::check_bytes(niched_ptr, context)? };
-
-                if unsafe { N::is_niched(ptr) } {
-                    return Ok(());
+            if !is_niched {
+                unsafe {
+                    T::check_bytes(ptr, context)?;
                 }
             }
-
-            unsafe { T::check_bytes(ptr, context) }
+            Ok(())
         }
     }
 };

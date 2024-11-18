@@ -273,7 +273,7 @@ where
             false
         } else {
             self.iter().all(|(key, value)| {
-                other.get(key).map_or(false, |v| *value == *v)
+                other.get(key).is_some_and(|v| *value == *v)
             })
         }
     }

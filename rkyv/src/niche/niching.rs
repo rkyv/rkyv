@@ -1,43 +1,23 @@
-//! [`Niching`] implementors for [`Nicher`].
+//! [`Niching`] implementors for [`NicheInto`].
 //!
-//! [`Nicher`]: crate::with::Nicher
+//! [`NicheInto`]: crate::with::NicheInto
 
 use crate::Place;
 
-/// A type that can be used to niche a value with [`Nicher`].
-///
-/// # Safety
-///
-/// - Assuming `T` implements [`Portable`], it must be safe for a
-///   [`MaybeUninit<T>`] that is either initialized or niched by
-///   [`resolve_niched`] to implement [`Portable`].
-/// - For a [`MaybeUninit<T>`] that is either initialized or niched by
-///   [`resolve_niched`], if [`is_niched`] returns `false`, it must be safe to
-///   assume the `MaybeUninit` to be initialized.
-/// - The returned pointer of [`niched_ptr`] must lay within `T`, be aligned,
-///   and point to enough initialized bytes to represent the type.
+/// A type that can be used to niche a value with [`NicheInto`].
 ///
 /// # Example
 ///
 /// ```
 /// use rkyv::{
-///     niche::niching::Niching, primitive::ArchivedU32, with::Nicher, Archive,
-///     Archived, Place, Serialize,
+///     niche::niching::Niching, primitive::ArchivedU32, with::NicheInto,
+///     Archive, Archived, Place, Serialize,
 /// };
 ///
 /// // Let's niche `Option<u32>` by using odd values
 /// struct NeverOdd;
 ///
-/// unsafe impl Niching<ArchivedU32> for NeverOdd {
-///     type Niched = ArchivedU32;
-///
-///     unsafe fn niched_ptr(
-///         ptr: *const ArchivedU32,
-///     ) -> Option<*const Self::Niched> {
-///         // We niche into the same type, no casting required
-///         Some(ptr)
-///     }
-///
+/// impl Niching<ArchivedU32> for NeverOdd {
 ///     unsafe fn is_niched(niched: *const ArchivedU32) -> bool {
 ///         // Interprete odd values as "niched"
 ///         unsafe { *niched % 2 == 1 }
@@ -56,7 +36,7 @@ use crate::Place;
 ///
 /// #[derive(Archive, Serialize)]
 /// struct Niched {
-///     #[rkyv(with = Nicher<NeverOdd>)]
+///     #[rkyv(with = NicheInto<NeverOdd>)]
 ///     field: Option<u32>,
 /// }
 ///
@@ -76,42 +56,21 @@ use crate::Place;
 /// # Ok(()) }
 /// ```
 ///
-/// [`MaybeUninit<T>`]: core::mem::MaybeUninit
-/// [`Nicher`]: crate::with::Nicher
-/// [`Portable`]: crate::traits::Portable
-/// [`is_niched`]: Niching::is_niched
-/// [`resolve_niched`]: Niching::resolve_niched
-/// [`niched_ptr`]: Niching::niched_ptr
-pub unsafe trait Niching<T> {
-    /// The type that is leveraged for niching.
-    type Niched;
-
-    /// Returns the pointer within `T` to the value that is being used for
-    /// niching or `None` if the value is inaccessible.
+/// [`NicheInto`]: crate::with::NicheInto
+pub trait Niching<T> {
+    /// Returns whether the given value has been niched.
     ///
-    /// The latter can happen when `T` is an enum but the given instance does
-    /// not consist of the variant that corresponds to the niched field.
+    /// While `niched` is guaranteed to point to bytes which are all valid to
+    /// read, the value it points to is not guaranteed to be a valid instance of
+    /// `T`.
     ///
     /// # Safety
     ///
-    /// The passed pointer must be aligned and point to enough initialized bytes
-    /// to represent the type.
-    unsafe fn niched_ptr(ptr: *const T) -> Option<*const Self::Niched>;
-
-    /// Whether the given value has been niched or not.
-    ///
-    /// Dereferencing `*const T` may cause UB depending on how
-    /// [`resolve_niched`] niched it.
-    ///
-    /// # Safety
-    ///
-    /// `niched` must either point to a valid `T` or a value that was niched by
-    /// [`resolve_niched`].
-    ///
-    /// [`resolve_niched`]: Niching::resolve_niched
+    /// `niched` must be non-null, properly-aligned, and safe for reads. It does
+    /// not have to point to a valid `T`.
     unsafe fn is_niched(niched: *const T) -> bool;
 
-    /// Writes a niched instance of `T` to the given output.
+    /// Writes data to `out` indicating that a `T` is niched.
     fn resolve_niched(out: Place<T>);
 }
 
@@ -125,8 +84,9 @@ pub unsafe trait SharedNiching<N1, N2> {}
 
 /// Default [`Niching`] for various types.
 ///
-/// Also serves as with-wrapper by being shorthand for `Nicher<DefaultNicher>`.
-pub struct DefaultNicher;
+/// Also serves as with-wrapper by being shorthand for
+/// `NicheInto<DefaultNiche>`.
+pub struct DefaultNiche;
 
 /// [`Niching`] for zero-niched values.
 pub struct Zero;

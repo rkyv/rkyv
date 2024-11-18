@@ -573,8 +573,8 @@ mod tests {
         api::test::{roundtrip, roundtrip_with, to_archived},
         niche::niching::Null,
         with::{
-            AsOwned, AsVec, DefaultNicher, InlineAsBox, Map, MapKV, Niche,
-            Nicher,
+            AsOwned, AsVec, DefaultNiche, InlineAsBox, Map, MapKV, Niche,
+            NicheInto,
         },
         Archive, Deserialize, Serialize,
     };
@@ -747,8 +747,8 @@ mod tests {
 
         #[derive(Archive, Serialize, Deserialize)]
         #[rkyv(crate)]
-        struct TestNullNicher {
-            #[rkyv(with = Nicher<Null>)]
+        struct TestNullNiche {
+            #[rkyv(with = NicheInto<Null>)]
             inner: Option<Box<String>>,
         }
 
@@ -776,7 +776,7 @@ mod tests {
             size_of::<ArchivedTestNiche>() < size_of::<ArchivedTestNoNiching>()
         );
 
-        let value = TestNullNicher {
+        let value = TestNullNiche {
             inner: Some(Box::new("hello world".to_string())),
         };
         to_archived(&value, |archived| {
@@ -785,13 +785,13 @@ mod tests {
             assert_eq!(archived.inner, value.inner);
         });
 
-        let value = TestNullNicher { inner: None };
+        let value = TestNullNiche { inner: None };
         to_archived(&value, |archived| {
             assert!(archived.inner.is_none());
             assert_eq!(archived.inner, value.inner);
         });
         assert!(
-            size_of::<ArchivedTestNullNicher>()
+            size_of::<ArchivedTestNullNiche>()
                 < size_of::<ArchivedTestNoNiching>()
         );
     }
@@ -808,7 +808,7 @@ mod tests {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, derive(Debug))]
         struct Outer {
-            #[rkyv(with = DefaultNicher)]
+            #[rkyv(with = DefaultNiche)]
             field: Option<Nichable>,
         }
 

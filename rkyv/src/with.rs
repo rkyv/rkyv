@@ -10,7 +10,7 @@ use core::{fmt, marker::PhantomData};
 use rancor::Fallible;
 
 #[doc(inline)]
-pub use crate::niche::niching::DefaultNicher;
+pub use crate::niche::niching::DefaultNiche;
 use crate::{Archive, Deserialize, Place, Portable, Serialize};
 
 /// A variant of [`Archive`] that works with wrappers.
@@ -487,7 +487,7 @@ pub struct Niche;
 ///
 /// use rkyv::{
 ///     niche::niching::{NaN, Null},
-///     with::Nicher,
+///     with::NicheInto,
 ///     Archive, Archived,
 /// };
 ///
@@ -499,9 +499,9 @@ pub struct Niche;
 ///
 /// #[derive(Archive)]
 /// struct NichedExample {
-///     #[rkyv(with = Nicher<Null>)]
+///     #[rkyv(with = NicheInto<Null>)]
 ///     maybe_box: Option<Box<str>>,
-///     #[rkyv(with = Nicher<NaN>)]
+///     #[rkyv(with = NicheInto<NaN>)]
 ///     maybe_non_nan: Option<f32>,
 /// }
 ///
@@ -512,17 +512,17 @@ pub struct Niche;
 /// ```
 ///
 /// [`Niching`]: crate::niche::niching::Niching
-pub struct Nicher<N: ?Sized>(PhantomData<N>);
+pub struct NicheInto<N: ?Sized>(PhantomData<N>);
 
-impl<N: ?Sized> Default for Nicher<N> {
+impl<N: ?Sized> Default for NicheInto<N> {
     fn default() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<N: ?Sized> fmt::Debug for Nicher<N> {
+impl<N: ?Sized> fmt::Debug for NicheInto<N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("Nicher")
+        f.write_str("NicheInto")
     }
 }
 
@@ -533,7 +533,7 @@ impl<N: ?Sized> fmt::Debug for Nicher<N> {
 ///
 /// ```
 /// use rkyv::{
-///     with::{AsBox, NicherMap},
+///     with::{AsBox, MapNiche},
 ///     Archive, Serialize,
 /// };
 ///
@@ -544,7 +544,7 @@ impl<N: ?Sized> fmt::Debug for Nicher<N> {
 ///
 /// #[derive(Archive, Serialize)]
 /// struct NichedExample {
-///     #[rkyv(with = NicherMap<AsBox>)]
+///     #[rkyv(with = MapNiche<AsBox>)]
 ///     option: Option<HugeType>,
 /// }
 ///
@@ -563,12 +563,12 @@ impl<N: ?Sized> fmt::Debug for Nicher<N> {
 /// ```
 ///
 /// [`Niching`]: crate::niche::niching::Niching
-pub struct NicherMap<W: ?Sized, N: ?Sized = DefaultNicher> {
+pub struct MapNiche<W: ?Sized, N: ?Sized = DefaultNiche> {
     _map: PhantomData<W>,
     _niching: PhantomData<N>,
 }
 
-impl<W: ?Sized, N: ?Sized> Default for NicherMap<W, N> {
+impl<W: ?Sized, N: ?Sized> Default for MapNiche<W, N> {
     fn default() -> Self {
         Self {
             _map: PhantomData,
@@ -577,9 +577,9 @@ impl<W: ?Sized, N: ?Sized> Default for NicherMap<W, N> {
     }
 }
 
-impl<W: ?Sized, N: ?Sized> fmt::Debug for NicherMap<W, N> {
+impl<W: ?Sized, N: ?Sized> fmt::Debug for MapNiche<W, N> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("NicherMap")
+        f.write_str("MapNiche")
     }
 }
 
