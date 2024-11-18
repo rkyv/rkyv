@@ -855,38 +855,16 @@ fn generate_niching_impls(
                     Member::Unnamed(Index::from(0))
                 };
 
-                let field_nicher = quote! {
+                let field_niche = quote! {
                     <#niche_tokens as #rkyv_path::niche::niching::Niching<
                         #archived_field>
                     >
                 };
 
                 result.extend(quote! {
-                    unsafe impl #impl_generics
+                    impl #impl_generics
                         #rkyv_path::niche::niching::Niching<#archived_type>
                     for #niche_tokens {
-                        type Niched = #field_nicher::Niched;
-
-                        unsafe fn niched_ptr(ptr: *const #archived_type)
-                            -> Option<*const Self::Niched>
-                        {
-                            let variant = ptr
-                                .cast::<#archived_variant_name #ty_generics>();
-                            let tag_ptr = unsafe {
-                                ::core::ptr::addr_of!((*variant).#tag_member)
-                            };
-                            if unsafe {
-                                *tag_ptr.cast::<u8>()
-                                    != ArchivedTag::#variant_name as u8
-                            } {
-                                return None;
-                            }
-                            let field = unsafe {
-                                ::core::ptr::addr_of!((*variant).#field_member)
-                            };
-                            #field_nicher::niched_ptr(field)
-                        }
-
                         unsafe fn is_niched(niched: *const #archived_type)
                             -> bool
                         {
@@ -901,7 +879,7 @@ fn generate_niching_impls(
                             let field = unsafe {
                                 ::core::ptr::addr_of!((*variant).#field_member)
                             };
-                            #field_nicher::is_niched(field)
+                            #field_niche::is_niched(field)
                         }
 
                         fn resolve_niched(
@@ -930,7 +908,7 @@ fn generate_niching_impls(
                                     out, field_ptr,
                                 )
                             };
-                            #field_nicher::resolve_niched(out_field);
+                            #field_niche::resolve_niched(out_field);
 
                         }
                     }

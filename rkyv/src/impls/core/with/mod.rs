@@ -26,7 +26,7 @@ use crate::{
     boxed::{ArchivedBox, BoxResolver},
     niche::{
         niched_option::NichedOption,
-        niching::{DefaultNicher, Niching},
+        niching::{DefaultNiche, Niching},
         option_nonzero::{
             ArchivedOptionNonZeroI128, ArchivedOptionNonZeroI16,
             ArchivedOptionNonZeroI32, ArchivedOptionNonZeroI64,
@@ -41,7 +41,7 @@ use crate::{
     traits::NoUndef,
     with::{
         ArchiveWith, AsBox, DeserializeWith, Identity, Inline, InlineAsBox,
-        Map, Niche, Nicher, NicherMap, SerializeWith, Skip, Unsafe,
+        Map, Niche, NicheInto, MapNiche, SerializeWith, Skip, Unsafe,
     },
     Archive, ArchiveUnsized, Deserialize, Place, Serialize, SerializeUnsized,
 };
@@ -390,9 +390,9 @@ where
     }
 }
 
-// Nicher
+// NicheInto
 
-impl<T, N> ArchiveWith<Option<T>> for Nicher<N>
+impl<T, N> ArchiveWith<Option<T>> for NicheInto<N>
 where
     T: Archive,
     N: Niching<T::Archived> + ?Sized,
@@ -413,7 +413,7 @@ where
     }
 }
 
-impl<T, N, S> SerializeWith<Option<T>, S> for Nicher<N>
+impl<T, N, S> SerializeWith<Option<T>, S> for NicheInto<N>
 where
     T: Serialize<S>,
     N: Niching<T::Archived> + ?Sized,
@@ -431,7 +431,7 @@ where
 }
 
 impl<T, N, D> DeserializeWith<NichedOption<T::Archived, N>, Option<T>, D>
-    for Nicher<N>
+    for NicheInto<N>
 where
     T: Archive<Archived: Deserialize<T, D>>,
     N: Niching<T::Archived> + ?Sized,
@@ -459,9 +459,9 @@ where
     }
 }
 
-// NicherMap
+// MapNiche
 
-impl<T, W, N> ArchiveWith<Option<T>> for NicherMap<W, N>
+impl<T, W, N> ArchiveWith<Option<T>> for MapNiche<W, N>
 where
     W: ArchiveWith<T> + ?Sized,
     N: Niching<<W as ArchiveWith<T>>::Archived> + ?Sized,
@@ -485,7 +485,7 @@ where
     }
 }
 
-impl<T, W, N, S> SerializeWith<Option<T>, S> for NicherMap<W, N>
+impl<T, W, N, S> SerializeWith<Option<T>, S> for MapNiche<W, N>
 where
     W: SerializeWith<T, S> + ?Sized,
     N: Niching<<W as ArchiveWith<T>>::Archived> + ?Sized,
@@ -507,7 +507,7 @@ impl<T, W, N, D>
         NichedOption<<W as ArchiveWith<T>>::Archived, N>,
         Option<T>,
         D,
-    > for NicherMap<W, N>
+    > for MapNiche<W, N>
 where
     W: ArchiveWith<T> + DeserializeWith<<W as ArchiveWith<T>>::Archived, T, D>,
     N: Niching<<W as ArchiveWith<T>>::Archived> + ?Sized,
@@ -524,9 +524,9 @@ where
     }
 }
 
-// DefaultNicher
+// DefaultNiche
 
-impl<T> ArchiveWith<Option<T>> for DefaultNicher
+impl<T> ArchiveWith<Option<T>> for DefaultNiche
 where
     T: Archive,
     Self: Niching<T::Archived>,
@@ -539,11 +539,11 @@ where
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
-        Nicher::<Self>::resolve_with(field, resolver, out);
+        NicheInto::<Self>::resolve_with(field, resolver, out);
     }
 }
 
-impl<T, S> SerializeWith<Option<T>, S> for DefaultNicher
+impl<T, S> SerializeWith<Option<T>, S> for DefaultNiche
 where
     T: Serialize<S>,
     Self: Niching<T::Archived>,
@@ -553,12 +553,12 @@ where
         field: &Option<T>,
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
-        Nicher::<Self>::serialize_with(field, serializer)
+        NicheInto::<Self>::serialize_with(field, serializer)
     }
 }
 
 impl<T, D> DeserializeWith<NichedOption<T::Archived, Self>, Option<T>, D>
-    for DefaultNicher
+    for DefaultNiche
 where
     T: Archive<Archived: Deserialize<T, D>>,
     Self: Niching<T::Archived>,
@@ -568,7 +568,7 @@ where
         field: &NichedOption<T::Archived, Self>,
         deserializer: &mut D,
     ) -> Result<Option<T>, D::Error> {
-        Nicher::<Self>::deserialize_with(field, deserializer)
+        NicheInto::<Self>::deserialize_with(field, deserializer)
     }
 }
 
@@ -749,7 +749,7 @@ mod tests {
         ser::Writer,
         with::{
             ArchiveWith, AsBox, DeserializeWith, Identity, Inline, InlineAsBox,
-            Niche, Nicher, SerializeWith, Unsafe, With,
+            Niche, NicheInto, SerializeWith, Unsafe, With,
         },
         Archive, Archived, Deserialize, Place, Serialize,
     };
@@ -948,18 +948,18 @@ mod tests {
 
         #[derive(Archive, Serialize, Deserialize)]
         #[rkyv(crate)]
-        struct TestZeroNicher {
-            #[rkyv(with = Nicher<Zero>)]
+        struct TestZeroNiche {
+            #[rkyv(with = NicheInto<Zero>)]
             a: Option<NonZeroI8>,
-            #[rkyv(with = Nicher<Zero>)]
+            #[rkyv(with = NicheInto<Zero>)]
             b: Option<NonZeroI32>,
-            #[rkyv(with = Nicher<Zero>)]
+            #[rkyv(with = NicheInto<Zero>)]
             c: Option<NonZeroIsize>,
-            #[rkyv(with = Nicher<Zero>)]
+            #[rkyv(with = NicheInto<Zero>)]
             d: Option<NonZeroU8>,
-            #[rkyv(with = Nicher<Zero>)]
+            #[rkyv(with = NicheInto<Zero>)]
             e: Option<NonZeroU32>,
-            #[rkyv(with = Nicher<Zero>)]
+            #[rkyv(with = NicheInto<Zero>)]
             f: Option<NonZeroUsize>,
         }
 
@@ -1019,7 +1019,7 @@ mod tests {
                 < size_of::<Archived<TestNoNiching>>()
         );
 
-        let value = TestZeroNicher {
+        let value = TestZeroNiche {
             a: Some(NonZeroI8::new(10).unwrap()),
             b: Some(NonZeroI32::new(10).unwrap()),
             c: Some(NonZeroIsize::new(10).unwrap()),
@@ -1042,7 +1042,7 @@ mod tests {
             assert_eq!(archived.f.as_ref().unwrap().get(), 10);
         });
 
-        let value = TestZeroNicher {
+        let value = TestZeroNiche {
             a: None,
             b: None,
             c: None,
@@ -1060,7 +1060,7 @@ mod tests {
         });
 
         assert!(
-            size_of::<Archived<TestZeroNicher>>()
+            size_of::<Archived<TestZeroNiche>>()
                 < size_of::<Archived<TestNoNiching>>()
         );
     }
@@ -1070,9 +1070,9 @@ mod tests {
         #[derive(Archive, Serialize, Deserialize)]
         #[rkyv(crate)]
         struct Test {
-            #[rkyv(with = Nicher<NaN>)]
+            #[rkyv(with = NicheInto<NaN>)]
             a: Option<f32>,
-            #[rkyv(with = Nicher<NaN>)]
+            #[rkyv(with = NicheInto<NaN>)]
             b: Option<f64>,
         }
 
