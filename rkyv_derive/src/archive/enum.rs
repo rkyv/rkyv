@@ -862,6 +862,7 @@ fn generate_niching_impls(
                 };
 
                 result.extend(quote! {
+                    #[automatically_derived]
                     impl #impl_generics
                         #rkyv_path::niche::niching::Niching<#archived_type>
                     for #niche_tokens {
@@ -879,7 +880,7 @@ fn generate_niching_impls(
                             let field = unsafe {
                                 ::core::ptr::addr_of!((*variant).#field_member)
                             };
-                            #field_niche::is_niched(field)
+                            unsafe { #field_niche::is_niched(field) }
                         }
 
                         fn resolve_niched(
@@ -909,7 +910,6 @@ fn generate_niching_impls(
                                 )
                             };
                             #field_niche::resolve_niched(out_field);
-
                         }
                     }
                 });
@@ -926,12 +926,14 @@ fn generate_niching_impls(
         for niche2 in iter.clone() {
             let niche2_tokens = niche2.to_tokens(rkyv_path);
             result.extend(quote! {
+                #[automatically_derived]
                 unsafe impl #impl_generics
                     #rkyv_path::niche::niching::SharedNiching<
                         #niche1_tokens, #niche2_tokens
                     >
                 for #archived_type {}
 
+                #[automatically_derived]
                 unsafe impl #impl_generics
                     #rkyv_path::niche::niching::SharedNiching<
                         #niche2_tokens, #niche1_tokens
