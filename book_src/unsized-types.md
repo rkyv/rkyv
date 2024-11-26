@@ -35,5 +35,5 @@ use cases. This does complicate things somewhat, but for most people the metadat
 will end up as just filling out a few functions and returning `()`.
 
 > This is definitely one of the more complicated parts of the library, and can be difficult to wrap
-> your head around. Reading the documentation for `ArchiveUnsized`] may help you understand how the
+> your head around. Reading the documentation for `ArchiveUnsized` may help you understand how the
 > system works by working through an example.
