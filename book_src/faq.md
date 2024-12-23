@@ -19,7 +19,7 @@ you only read smaller parts of it.
 
 ## How does rkyv handle endianness?
 
-rkyv supports little- and big-endian format. You can enable specific endiannesses with the
+rkyv supports little- and big-endian formats. You can enable specific endiannesses with the
 `little_endian` and `big_endian` features, or default to little-endian byte ordering.
 
 ## Is rkyv cross-platform?
