@@ -29,7 +29,7 @@ Deserializers, like serializers, provide capabilities to objects during deserial
 don't need to bound their deserializers, but some like `Rc` require special traits in order to
 deserialize properly.
 
-The `Pooling` trait controls how pointers which were serialized shared are deserialized. Much like
+The `Pooling` trait controls how pointers which were serialized as shared are deserialized. Much like
 `Sharing`, `Pooling` holds some mutable state on the deserializer to allow shared pointers to the
 same data to coordinate with each other. Using the `Pool` implementation pools these deserialized
 shared pointers together, whereas `Unpool` clones them for each instance of the shared pointer.
