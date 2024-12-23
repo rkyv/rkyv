@@ -1,6 +1,6 @@
 # Format
 
-Types which derive `Archive` generate an archived version of the type where:
+Types that derive `Archive` generate an archived version of the type where:
 
 - Member types are replaced with their archived counterparts
 - Structs are `#[repr(C)]`.
