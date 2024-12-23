@@ -100,7 +100,7 @@ Thanks to all the sponsors that keep development sustainable. Special thanks to 
 ## Bronze Sponsors
 
 <p align="center">
-    <a href="https://climatiq.hq">
+    <a href="https://climatiq.io">
         <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/sponsors/climatiq.png" alt="Climatiq">
     </a>
 </p>
