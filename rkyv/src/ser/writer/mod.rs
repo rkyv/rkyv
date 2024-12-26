@@ -50,7 +50,7 @@ where
 /// A type that writes bytes to some output.
 ///
 /// A type that is [`Write`](::std::io::Write) can be wrapped in an [`IoWriter`]
-/// to equip it with `Write`.
+/// to equip it with `Writer`.
 ///
 /// It's important that the memory for archived objects is properly aligned
 /// before attempting to read objects out of it; use an
