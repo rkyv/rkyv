@@ -28,7 +28,7 @@ struct OutOfLineRepr {
 /// The maximum number of bytes that can be inlined.
 pub const INLINE_CAPACITY: usize = mem::size_of::<OutOfLineRepr>();
 /// The maximum number of bytes that can be out-of-line.
-pub const OUT_OF_LINE_CAPACITY: usize = !(0b11 << (FixedUsize::BITS - 2));
+pub const OUT_OF_LINE_CAPACITY: usize = (1 << (FixedUsize::BITS - 2)) - 1;
 
 #[derive(Clone, Copy, Portable)]
 #[rkyv(crate)]
@@ -107,8 +107,10 @@ impl ArchivedStringRepr {
             }
         } else {
             let len = unsafe { self.out_of_line.len.to_native() };
+            // Little-endian: remove the 7th and 8th bits
             #[cfg(not(feature = "big_endian"))]
-            let len = (len & 0b0011_1111) | (len & !0xff) >> 2;
+            let len = (len & 0b0011_1111) | ((len & !0xff) >> 2);
+            // Big-endian: remove the top two bits
             #[cfg(feature = "big_endian")]
             let len = len & (FixedUsize::MAX >> 2);
             len as usize
@@ -207,8 +209,10 @@ impl ArchivedStringRepr {
         }
 
         let l = value.len() as FixedUsize;
+        // Little-endian: insert 10 as the 7th and 8th bits
         #[cfg(not(feature = "big_endian"))]
-        let l = (l & 0x3f) | 0b1000_0000 | (l & !0b0011_1111) << 2;
+        let l = (l & 0b0011_1111) | 0b1000_0000 | ((l & !0b0011_1111) << 2);
+        // Big-endian: set the top two bits to 10
         #[cfg(feature = "big_endian")]
         let l = l & (FixedUsize::MAX >> 2) | (1 << FixedUsize::BITS - 1);
         len.write(ArchivedUsize::from_native(l));
