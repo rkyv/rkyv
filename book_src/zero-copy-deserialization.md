@@ -52,7 +52,7 @@ to the borrowed characters.
 > buffer to find out where everything is.
 
 Partial zero-copy deserialization can considerably improve memory usage and often speed up
-some deserialiation, but with some work we can go further.
+some deserialization, but with some work we can go further.
 
 ## Total zero-copy
 
