@@ -5,7 +5,7 @@ use rancor::{Fallible, Source};
 
 use crate::{
     alloc::{alloc::alloc, boxed::Box, sync},
-    de::{Metadata, Pooling, PoolingExt as _, SharedPointer},
+    de::{FromMetadata, Metadata, Pooling, PoolingExt as _, SharedPointer},
     rc::{ArcFlavor, ArchivedRc, ArchivedRcWeak, RcResolver, RcWeakResolver},
     ser::{Sharing, Writer},
     traits::{ArchivePointee, LayoutRaw},
@@ -67,8 +67,7 @@ impl<T, D> Deserialize<sync::Arc<T>, D> for ArchivedRc<T::Archived, ArcFlavor>
 where
     T: ArchiveUnsized + LayoutRaw + Pointee + ?Sized + 'static,
     T::Archived: DeserializeUnsized<T, D>,
-    T::Metadata: Into<Metadata>,
-    Metadata: Into<T::Metadata>,
+    T::Metadata: Into<Metadata> + FromMetadata,
     D: Fallible + Pooling + ?Sized,
     D::Error: Source,
 {
@@ -139,8 +138,7 @@ where
         + Pointee // + ?Sized
         + 'static,
     T::Archived: DeserializeUnsized<T, D>,
-    T::Metadata: Into<Metadata>,
-    Metadata: Into<T::Metadata>,
+    T::Metadata: Into<Metadata> + FromMetadata,
     D: Fallible + Pooling + ?Sized,
     D::Error: Source,
 {

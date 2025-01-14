@@ -8,7 +8,7 @@ use rancor::{Fallible, Source};
 use triomphe_0_1::Arc;
 
 use crate::{
-    de::{Metadata, Pooling, PoolingExt, SharedPointer},
+    de::{FromMetadata, Metadata, Pooling, PoolingExt, SharedPointer},
     rc::{ArchivedRc, Flavor, RcResolver},
     ser::{Sharing, Writer},
     Archive, ArchiveUnsized, Deserialize, DeserializeUnsized, Place, Serialize,
@@ -66,8 +66,7 @@ where
 impl<T, D> Deserialize<Arc<T>, D> for ArchivedRc<T::Archived, TriompheArcFlavor>
 where
     T: ArchiveUnsized + 'static,
-    T::Metadata: Into<Metadata>,
-    Metadata: Into<T::Metadata>,
+    T::Metadata: Into<Metadata> + FromMetadata,
     T::Archived: DeserializeUnsized<T, D>,
     D: Pooling + Fallible + ?Sized,
     D::Error: Source,

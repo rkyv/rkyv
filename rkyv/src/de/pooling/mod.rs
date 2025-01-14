@@ -51,25 +51,36 @@ impl<T: ?Sized> From<DynMetadata<T>> for Metadata {
     }
 }
 
+/// A type which can be extracted from `Metadata`.
+pub trait FromMetadata {
+    /// Extracts this type from [`Metadata`].
+    ///
+    /// # Safety
+    ///
+    /// The metadata must have been created by calling `Metadata::from` on a
+    /// value of this type.
+    unsafe fn from_metadata(metadata: Metadata) -> Self;
+}
+
 // These impls are sound because `Metadata` has the type-level invariant that
 // `From` will only be called on `Metadata` created from pointers with the
 // corresponding metadata.
 
-impl From<Metadata> for () {
-    fn from(value: Metadata) -> Self {
-        unsafe { value.unit }
+impl FromMetadata for () {
+    unsafe fn from_metadata(metadata: Metadata) -> Self {
+        unsafe { metadata.unit }
     }
 }
 
-impl From<Metadata> for usize {
-    fn from(value: Metadata) -> Self {
-        unsafe { value.usize }
+impl FromMetadata for usize {
+    unsafe fn from_metadata(metadata: Metadata) -> Self {
+        unsafe { metadata.usize }
     }
 }
 
-impl<T: ?Sized> From<Metadata> for DynMetadata<T> {
-    fn from(value: Metadata) -> Self {
-        unsafe { transmute::<DynMetadata<()>, DynMetadata<T>>(value.vtable) }
+impl<T: ?Sized> FromMetadata for DynMetadata<T> {
+    unsafe fn from_metadata(metadata: Metadata) -> Self {
+        unsafe { transmute::<DynMetadata<()>, DynMetadata<T>>(metadata.vtable) }
     }
 }
 
@@ -107,9 +118,11 @@ impl ErasedPtr {
     unsafe fn downcast_unchecked<T>(&self) -> *mut T
     where
         T: Pointee + ?Sized,
-        Metadata: Into<T::Metadata>,
+        T::Metadata: FromMetadata,
     {
-        from_raw_parts_mut(self.data_address.as_ptr(), self.metadata.into())
+        from_raw_parts_mut(self.data_address.as_ptr(), unsafe {
+            T::Metadata::from_metadata(self.metadata)
+        })
     }
 }
 
@@ -223,8 +236,7 @@ pub trait PoolingExt<E>: Pooling<E> {
     ) -> Result<*mut T, Self::Error>
     where
         T: ArchiveUnsized + Pointee + LayoutRaw + ?Sized,
-        T::Metadata: Into<Metadata>,
-        Metadata: Into<T::Metadata>,
+        T::Metadata: Into<Metadata> + FromMetadata,
         T::Archived: DeserializeUnsized<T, Self>,
         P: SharedPointer<T>,
         Self: Fallible<Error = E>,
@@ -233,7 +245,7 @@ pub trait PoolingExt<E>: Pooling<E> {
         unsafe fn drop_shared<T, P>(ptr: ErasedPtr)
         where
             T: Pointee + ?Sized,
-            Metadata: Into<T::Metadata>,
+            T::Metadata: FromMetadata,
             P: SharedPointer<T>,
         {
             unsafe { P::drop(ptr.downcast_unchecked::<T>()) }
