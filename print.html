@@ -276,7 +276,7 @@ borrowed 42 of the buffer's bytes, we missed out on the last 12 and still had to
 buffer to find out where everything is.</p>
 </blockquote>
 <p>Partial zero-copy deserialization can considerably improve memory usage and often speed up
-some deserialiation, but with some work we can go further.</p>
+some deserialization, but with some work we can go further.</p>
 <h2 id="total-zero-copy"><a class="header" href="#total-zero-copy">Total zero-copy</a></h2>
 <p>rkyv implements total zero-copy deserialization, which guarantees that no data is copied during
 deserialization and no work is done to deserialize data. It achieves this by structuring its encoded
@@ -325,7 +325,7 @@ build up to allow trait objects to be serialized and deserialized.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="relative-pointers"><a class="header" href="#relative-pointers">Relative pointers</a></h1>
 <p>Relative pointers are the bread and butter of total zero-copy deserialization, completely replacing
 the use of normal pointers. But why can't we use normal pointers?</p>
-<p>Consider some zero-copy data on disc. Before we can use it, we need to load it into memory. But we
+<p>Consider some zero-copy data on disk. Before we can use it, we need to load it into memory. But we
 can't control <em>where</em> in memory it gets loaded. Every time we load it, it could be located at a
 different address, and therefore the objects inside of it will be located at a different address.</p>
 <blockquote>
