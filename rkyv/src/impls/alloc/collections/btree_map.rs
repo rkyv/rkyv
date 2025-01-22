@@ -272,4 +272,41 @@ mod tests {
             assert_eq!(i.next(), None);
         });
     }
+
+    // MIRI can't run this test quickly enough
+    #[cfg(not(miri))]
+    #[test]
+    fn size_matches_iter_len() {
+        #[derive(Archive, Deserialize, Serialize)]
+        #[rkyv(crate)]
+        struct Container {
+            transforms: BTreeMap<String, String>,
+        }
+
+        impl Container {
+            pub fn fill(count: usize) -> Self {
+                let mut transforms = BTreeMap::new();
+                for i in 0..count {
+                    transforms.insert(i.to_string(), i.to_string());
+                }
+                Container { transforms }
+            }
+
+            pub fn check(&self, expected: usize) {
+                to_archived(self, |archived| {
+                    assert_eq!(archived.transforms.len(), expected);
+                    let mut count = 0;
+                    for (..) in archived.transforms.iter() {
+                        count += 1;
+                    }
+                    assert_eq!(count, expected);
+                });
+            }
+        }
+
+        for expected in 0..=200 {
+            let container = Container::fill(expected);
+            container.check(expected);
+        }
+    }
 }

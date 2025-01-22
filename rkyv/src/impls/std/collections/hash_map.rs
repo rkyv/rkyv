@@ -293,8 +293,6 @@ mod tests {
 
         let encoded = to_bytes::<Error>(&map).unwrap();
 
-        eprintln!("{encoded:?}");
-
         // This .unwrap() fails!
         let _decoded = access::<Archived<MyHashMap>, Panic>(&encoded).unwrap();
     }

@@ -196,32 +196,35 @@ impl<K, V, const E: usize> Iterator for RawIter<K, V, E> {
         match kind {
             NodeKind::Inner => {
                 let inner = current.cast::<InnerNode<K, V, E>>();
-                if next_i < E {
+                let next = if next_i < E {
                     // More values in the current node
                     self.stack.push((current, next_i));
 
-                    // Recurse to a lesser if valid
-                    let next_lesser =
-                        unsafe { addr_of_mut!((*inner).lesser_nodes[next_i]) };
-                    let next_lesser_is_invalid =
-                        unsafe { RelPtr::is_invalid_raw(next_lesser) };
-                    if !next_lesser_is_invalid {
-                        self.stack.push((
-                            unsafe { RelPtr::as_ptr_raw(next_lesser).cast() },
-                            0,
-                        ));
-                    }
+                    // Next is a lesser node
+                    unsafe { addr_of_mut!((*inner).lesser_nodes[next_i]) }
                 } else {
-                    // Recurse to a greater if valid
-                    let next_greater =
-                        unsafe { addr_of_mut!((*inner).greater_node) };
-                    let next_greater_is_invalid =
-                        unsafe { RelPtr::is_invalid_raw(next_greater) };
-                    if !next_greater_is_invalid {
-                        self.stack.push((
-                            unsafe { RelPtr::as_ptr_raw(next_greater).cast() },
-                            0,
-                        ));
+                    // Next is a greater node
+                    unsafe { addr_of_mut!((*inner).greater_node) }
+                };
+
+                let next_is_invalid = unsafe { RelPtr::is_invalid_raw(next) };
+                if !next_is_invalid {
+                    // Recurse left on next node
+                    let mut current = unsafe { RelPtr::as_ptr_raw(next) };
+                    loop {
+                        self.stack.push((current, 0));
+                        let kind = unsafe { (*current).kind };
+                        match kind {
+                            NodeKind::Inner => {
+                                let inner =
+                                    current.cast::<InnerNode<K, V, E>>();
+                                let lesser = unsafe {
+                                    addr_of_mut!((*inner).lesser_nodes[0])
+                                };
+                                current = unsafe { RelPtr::as_ptr_raw(lesser) };
+                            }
+                            NodeKind::Leaf => break,
+                        }
                     }
                 }
             }
