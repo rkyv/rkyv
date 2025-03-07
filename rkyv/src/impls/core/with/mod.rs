@@ -20,7 +20,7 @@ use core::{
 };
 
 use munge::munge;
-use rancor::Fallible;
+use rancor::{Fallible, Source};
 
 use crate::{
     boxed::{ArchivedBox, BoxResolver},
@@ -38,10 +38,14 @@ use crate::{
     },
     option::ArchivedOption,
     primitive::{FixedNonZeroIsize, FixedNonZeroUsize},
+    ser::{Allocator, Writer},
+    string::{ArchivedString, StringResolver},
     traits::NoUndef,
+    vec::{ArchivedVec, VecResolver},
     with::{
-        ArchiveWith, AsBox, DeserializeWith, Identity, Inline, InlineAsBox,
-        Map, MapNiche, Niche, NicheInto, SerializeWith, Skip, Unsafe,
+        ArchiveWith, AsBox, AsString, AsVec, DeserializeWith, Identity, Inline,
+        InlineAsBox, Map, MapNiche, Niche, NicheInto, SerializeWith, Skip,
+        Unsafe,
     },
     Archive, ArchiveUnsized, Deserialize, Place, Serialize, SerializeUnsized,
 };
@@ -109,6 +113,63 @@ where
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
         ArchivedBox::serialize_from_ref(*field, serializer)
+    }
+}
+
+// AsString
+
+impl ArchiveWith<&str> for AsString {
+    type Archived = ArchivedString;
+    type Resolver = StringResolver;
+
+    fn resolve_with(
+        field: &&str,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        ArchivedString::resolve_from_str(field, resolver, out);
+    }
+}
+
+impl<S> SerializeWith<&str, S> for AsString
+where
+    str: SerializeUnsized<S>,
+    S: Fallible + ?Sized,
+    S::Error: Source,
+{
+    fn serialize_with(
+        field: &&str,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedString::serialize_from_str(field, serializer)
+    }
+}
+
+// AsVec
+
+impl<T: Archive> ArchiveWith<&[T]> for AsVec {
+    type Archived = ArchivedVec<T::Archived>;
+    type Resolver = VecResolver;
+
+    fn resolve_with(
+        field: &&[T],
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        ArchivedVec::resolve_from_len(field.len(), resolver, out);
+    }
+}
+
+impl<T, S> SerializeWith<&[T], S> for AsVec
+where
+    T: Serialize<S>,
+    S: Fallible + Allocator + Writer + ?Sized,
+{
+    fn serialize_with(
+        field: &&[T],
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        ArchivedVec::serialize_from_slice(field, serializer)
     }
 }
 
@@ -748,8 +809,8 @@ mod tests {
         rancor::Fallible,
         ser::Writer,
         with::{
-            ArchiveWith, AsBox, DeserializeWith, Identity, Inline, InlineAsBox,
-            Niche, NicheInto, SerializeWith, Unsafe, With,
+            ArchiveWith, AsBox, AsString, AsVec, DeserializeWith, Identity,
+            Inline, InlineAsBox, Niche, NicheInto, SerializeWith, Unsafe, With,
         },
         Archive, Archived, Deserialize, Place, Serialize,
     };
@@ -916,6 +977,38 @@ mod tests {
         let value = Test { value: &a };
         to_archived(&value, |archived| {
             assert_eq!(archived.value.as_ref(), "hello world");
+        });
+    }
+
+    #[test]
+    fn with_str() {
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate)]
+        struct Test<'a> {
+            #[rkyv(with = AsString)]
+            value: &'a str,
+        }
+
+        let a = "hello world";
+        let value = Test { value: a };
+        to_archived(&value, |archived| {
+            assert_eq!(archived.value.as_str(), "hello world");
+        });
+    }
+
+    #[test]
+    fn with_slice() {
+        #[derive(Archive, Serialize, Deserialize)]
+        #[rkyv(crate)]
+        struct Test<'a> {
+            #[rkyv(with = AsVec)]
+            value: &'a [bool],
+        }
+
+        let a: &[bool] = &[true, true, false, true];
+        let value = Test { value: a };
+        to_archived(&value, |archived| {
+            assert_eq!(archived.value.as_slice(), &[true, true, false, true]);
         });
     }
 

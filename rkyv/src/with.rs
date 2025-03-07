@@ -356,6 +356,9 @@ pub struct InlineAsBox;
 /// UTF-8, but they usually are anyway. Using this wrapper will archive them as
 /// if they were regular `String`s.
 ///
+/// It also allows `&str` to be archived like an owned `String`. However, note
+/// that `&str` cannot be *deserialized* this way.
+///
 /// # Example
 ///
 /// ```
@@ -364,11 +367,13 @@ pub struct InlineAsBox;
 /// use rkyv::{with::AsString, Archive};
 ///
 /// #[derive(Archive)]
-/// struct Example {
+/// struct Example<'a> {
 ///     #[rkyv(with = AsString)]
 ///     os_string: OsString,
 ///     #[rkyv(with = AsString)]
 ///     path: PathBuf,
+///     #[rkyv(with = AsString)]
+///     reference: &'a str,
 /// }
 /// ```
 #[derive(Debug)]
@@ -428,6 +433,9 @@ pub struct AsOwned;
 /// `BTreeMap` by serializing the key-value pairs directly instead of building a
 /// data structure in the buffer.
 ///
+/// It also allows `&[T]` to be archived like an owned `Vec`. However, note
+/// that `&[T]` cannot be *deserialized* this way.
+///
 /// # Example
 ///
 /// ```
@@ -436,9 +444,11 @@ pub struct AsOwned;
 /// use rkyv::{with::AsVec, Archive};
 ///
 /// #[derive(Archive)]
-/// struct Example {
+/// struct Example<'a> {
 ///     #[rkyv(with = AsVec)]
 ///     values: HashMap<String, u32>,
+///     #[rkyv(with = AsVec)]
+///     slice: &'a [u32],
 /// }
 /// ```
 #[derive(Debug)]
