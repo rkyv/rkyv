@@ -227,7 +227,7 @@ impl FieldAttributes {
             } else {
                 meta.input.parse::<Token![=]>()?;
 
-                Niche::Type(meta.input.parse::<Type>()?)
+                Niche::Type(Box::new(meta.input.parse::<Type>()?))
             };
 
             self.niches.push(niche);
@@ -468,7 +468,7 @@ impl VariantAttributes {
 }
 
 pub enum Niche {
-    Type(Type),
+    Type(Box<Type>),
     Default,
 }
 
@@ -486,19 +486,24 @@ impl Niche {
 impl PartialEq for Niche {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Niche::Type(Type::Path(ty1)), Niche::Type(Type::Path(ty2))) => {
-                ty1.path.get_ident() == ty2.path.get_ident()
-            }
-            (Niche::Type(_), Niche::Type(_)) => false,
-            (Niche::Type(Type::Path(ty)), Niche::Default)
-            | (Niche::Default, Niche::Type(Type::Path(ty))) => {
-                match ty.path.get_ident() {
-                    Some(ident) => ident == "DefaultNiche",
-                    None => false,
+            (Niche::Type(ty1), Niche::Type(ty2)) => {
+                if let (Type::Path(ty1), Type::Path(ty2)) = (&**ty1, &**ty2) {
+                    ty1.path.get_ident() == ty2.path.get_ident()
+                } else {
+                    false
                 }
             }
-            (Niche::Type(_), Niche::Default)
-            | (Niche::Default, Niche::Type(_)) => false,
+            (Niche::Type(ty), Niche::Default)
+            | (Niche::Default, Niche::Type(ty)) => {
+                if let Type::Path(ty) = &**ty {
+                    match ty.path.get_ident() {
+                        Some(ident) => ident == "DefaultNiche",
+                        None => false,
+                    }
+                } else {
+                    false
+                }
+            }
             (Niche::Default, Niche::Default) => true,
         }
     }
