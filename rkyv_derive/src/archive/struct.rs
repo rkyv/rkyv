@@ -176,11 +176,18 @@ fn generate_archived_type(
             ..
         } = field;
 
+        let field_name = ident.as_ref();
+        let field_doc = format!(
+            "The archived counterpart of [`{}:{}`]",
+            name,
+            field_name.map_or("unnamed".to_string(), |s| s.to_string())
+        );
         let field_attrs = FieldAttributes::parse(attributes, field)?;
         let field_metas = field_attrs.metas();
         let ty = field_attrs.archived(rkyv_path, field);
 
         archived_fields.extend(quote! {
+            #[doc = #field_doc]
             #field_metas
             #vis #ident #colon_token #ty,
         });
