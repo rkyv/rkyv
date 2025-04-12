@@ -72,6 +72,8 @@ pub fn derive_portable(
 /// - `with = ..`: Applies the given wrapper type to the field.
 /// - `omit_bounds`: Omits trait bounds for the annotated field in the generated
 ///   impl.
+/// - `niche` or `niche = ..`: Makes the outer type nichable through the
+///   annotated field using the default niche or a specified one.
 ///
 /// # Recursive types
 ///
