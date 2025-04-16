@@ -178,7 +178,7 @@ fn generate_archived_type(
 
         let field_name = ident.as_ref();
         let field_doc = format!(
-            "The archived counterpart of [`{}:{}`]",
+            "The archived counterpart of [`{}::{}`]",
             name,
             field_name.map_or("unnamed".to_string(), |s| s.to_string())
         );
