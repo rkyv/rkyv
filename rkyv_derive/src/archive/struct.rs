@@ -1,4 +1,5 @@
 use core::fmt::Display;
+
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{
