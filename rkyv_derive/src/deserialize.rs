@@ -242,7 +242,7 @@ fn generate_deserialize_body(
                             let bindings =
                                 fields.unnamed.iter().enumerate().map(
                                     |(i, f)| {
-                                        Ident::new(&format!("_{}", i), f.span())
+                                        Ident::new(&format!("_{i}"), f.span())
                                     },
                                 );
                             let fields = fields
@@ -265,7 +265,7 @@ fn generate_deserialize_body(
                                     );
 
                                     let binding = Ident::new(
-                                        &format!("_{}", i),
+                                        &format!("_{i}"),
                                         field.span(),
                                     );
                                     let deserialize = field_attrs

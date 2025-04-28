@@ -352,8 +352,8 @@ fn generate_resolve_arms(
             .enumerate()
             .map(|(i, field)| {
                 (
-                    Ident::new(&format!("self_{}", i), field.span()),
-                    Ident::new(&format!("resolver_{}", i), field.span()),
+                    Ident::new(&format!("self_{i}"), field.span()),
+                    Ident::new(&format!("resolver_{i}"), field.span()),
                 )
             })
             .unzip::<_, _, Vec<_>, Vec<_>>();
@@ -567,8 +567,8 @@ fn generate_partial_eq_impl(
             .enumerate()
             .map(|(i, f)| {
                 (
-                    Ident::new(&format!("self_{}", i), f.span()),
-                    Ident::new(&format!("other_{}", i), f.span()),
+                    Ident::new(&format!("self_{i}"), f.span()),
+                    Ident::new(&format!("other_{i}"), f.span()),
                 )
             })
             .unzip::<_, _, Vec<_>, Vec<_>>();
@@ -696,8 +696,8 @@ fn generate_partial_ord_impl(
             .enumerate()
             .map(|(i, f)| {
                 (
-                    Ident::new(&format!("self_{}", i), f.span()),
-                    Ident::new(&format!("other_{}", i), f.span()),
+                    Ident::new(&format!("self_{i}"), f.span()),
+                    Ident::new(&format!("other_{i}"), f.span()),
                 )
             })
             .unzip::<_, _, Vec<_>, Vec<_>>();

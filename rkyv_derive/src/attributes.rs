@@ -17,7 +17,7 @@ fn try_set_attribute<T: ToTokens>(
     } else {
         Err(Error::new_spanned(
             value,
-            format!("{} already specified", name),
+            format!("{name} already specified"),
         ))
     }
 }

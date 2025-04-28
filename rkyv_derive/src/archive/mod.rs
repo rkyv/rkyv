@@ -18,19 +18,19 @@ pub fn derive(input: &mut DeriveInput) -> Result<TokenStream, Error> {
 }
 
 fn archived_doc(name: &Ident) -> String {
-    format!("An archived [`{}`]", name)
+    format!("An archived [`{name}`]")
 }
 
 fn resolver_doc(name: &Ident) -> String {
-    format!("The resolver for an archived [`{}`]", name)
+    format!("The resolver for an archived [`{name}`]")
 }
 
 fn variant_doc(name: &Ident, variant_name: &Ident) -> String {
-    format!("The archived counterpart of [`{}::{}`]", name, variant_name)
+    format!("The archived counterpart of [`{name}::{variant_name}`]")
 }
 
 fn resolver_variant_doc(name: &Ident, variant_name: &Ident) -> String {
-    format!("The resolver for [`{}::{}`]", name, variant_name)
+    format!("The resolver for [`{name}::{variant_name}`]")
 }
 
 fn derive_archive_impl(

@@ -230,7 +230,7 @@ fn generate_serialize_body(
                             let bindings =
                                 fields.unnamed.iter().enumerate().map(
                                     |(i, f)| {
-                                        Ident::new(&format!("_{}", i), f.span())
+                                        Ident::new(&format!("_{i}"), f.span())
                                     },
                                 );
 
@@ -249,7 +249,7 @@ fn generate_serialize_body(
                                     );
 
                                     let binding = Ident::new(
-                                        &format!("_{}", i),
+                                        &format!("_{i}"),
                                         field.span(),
                                     );
                                     let serialize =
