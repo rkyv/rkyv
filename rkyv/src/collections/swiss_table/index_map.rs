@@ -58,19 +58,19 @@ impl<K, V, H> ArchivedIndexMap<K, V, H> {
         self.len() == 0
     }
 
-    unsafe fn raw_iter(&self) -> RawIter<K, V> {
+    unsafe fn raw_iter(&self) -> RawIter<'_, K, V> {
         unsafe { RawIter::new(self.entries.as_ptr().cast(), self.len()) }
     }
 
     /// Returns an iterator over the key-value pairs of the map in order
-    pub fn iter(&self) -> Iter<K, V> {
+    pub fn iter(&self) -> Iter<'_, K, V> {
         Iter {
             inner: unsafe { self.raw_iter() },
         }
     }
 
     /// Returns an iterator over the keys of the map in order
-    pub fn keys(&self) -> Keys<K, V> {
+    pub fn keys(&self) -> Keys<'_, K, V> {
         Keys {
             inner: unsafe { self.raw_iter() },
         }
@@ -82,7 +82,7 @@ impl<K, V, H> ArchivedIndexMap<K, V, H> {
     }
 
     /// Returns an iterator over the values of the map in order.
-    pub fn values(&self) -> Values<K, V> {
+    pub fn values(&self) -> Values<'_, K, V> {
         Values {
             inner: unsafe { self.raw_iter() },
         }

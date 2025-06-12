@@ -35,7 +35,7 @@ impl<K, H> ArchivedIndexSet<K, H> {
     }
 
     /// Returns an iterator over the keys of the index set in order.
-    pub fn iter(&self) -> Keys<K, ()> {
+    pub fn iter(&self) -> Keys<'_, K, ()> {
         self.inner.keys()
     }
 

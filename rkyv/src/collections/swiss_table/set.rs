@@ -38,7 +38,7 @@ impl<K, H> ArchivedHashSet<K, H> {
     }
 
     /// Gets an iterator over the keys of the underlying hash map.
-    pub fn iter(&self) -> Keys<K, (), H> {
+    pub fn iter(&self) -> Keys<'_, K, (), H> {
         self.inner.keys()
     }
 }
