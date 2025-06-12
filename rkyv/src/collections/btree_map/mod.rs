@@ -787,6 +787,18 @@ where
     }
 }
 
+impl<K: core::hash::Hash, V: core::hash::Hash, const E: usize> core::hash::Hash
+    for ArchivedBTreeMap<K, V, E>
+{
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.visit(|k, v| {
+            (*k).hash(state);
+            (*v).hash(state);
+            ControlFlow::<()>::Continue(())
+        });
+    }
+}
+
 /// The resolver for [`ArchivedBTreeMap`].
 pub struct BTreeMapResolver {
     root_node_pos: FixedUsize,
@@ -1042,5 +1054,39 @@ mod verify {
 
             Ok(())
         })
+    }
+}
+
+#[cfg(all(test, feature = "alloc"))]
+mod tests {
+    use core::hash::{Hash, Hasher};
+
+    use ahash::AHasher;
+
+    use crate::{
+        alloc::{collections::BTreeMap, string::ToString},
+        api::test::to_archived,
+    };
+
+    #[test]
+    fn test_hash() {
+        let mut map = BTreeMap::new();
+        map.insert("a".to_string(), 1);
+        map.insert("b".to_string(), 2);
+
+        to_archived(&map, |archived_map| {
+            let mut hasher = AHasher::default();
+            archived_map.hash(&mut hasher);
+            let hash_value = hasher.finish();
+
+            let mut expected_hasher = AHasher::default();
+            for (k, v) in &map {
+                k.hash(&mut expected_hasher);
+                v.hash(&mut expected_hasher);
+            }
+            let expected_hash_value = expected_hasher.finish();
+
+            assert_eq!(hash_value, expected_hash_value);
+        });
     }
 }
