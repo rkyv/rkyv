@@ -118,6 +118,8 @@ where
 pub struct BTreeSetResolver(BTreeMapResolver);
 
 mod iter {
+    use core::iter::FusedIterator;
+
     use super::{btree_map, ArchivedBTreeSet};
 
     pub struct Iter<'a, K, const E: usize> {
@@ -131,6 +133,10 @@ mod iter {
             self.inner.next()
         }
     }
+
+    impl<'a, K, const E: usize> ExactSizeIterator for Iter<'a, K, E> {}
+
+    impl<'a, K, const E: usize> FusedIterator for Iter<'a, K, E> {}
 
     impl<K, const E: usize> ArchivedBTreeSet<K, E> {
         /// Returns an iterator over the items of the archived B-tree set.
