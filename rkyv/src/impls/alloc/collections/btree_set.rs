@@ -92,7 +92,7 @@ impl<K, AK: PartialEq<K>> PartialEq<BTreeSet<K>> for ArchivedBTreeSet<AK> {
 mod tests {
     use crate::{
         alloc::{collections::BTreeSet, string::ToString},
-        api::test::roundtrip,
+        api::test::{roundtrip, to_archived},
     };
 
     #[test]
@@ -112,5 +112,23 @@ mod tests {
         value.insert(());
 
         roundtrip(&value);
+    }
+
+    #[test]
+    fn btree_map_iter() {
+        let mut value = BTreeSet::<i32>::new();
+        value.insert(10);
+        value.insert(20);
+        value.insert(40);
+        value.insert(80);
+
+        to_archived(&value, |archived| {
+            let mut i = archived.iter().map(|v| v.to_native());
+            assert_eq!(i.next(), Some(10));
+            assert_eq!(i.next(), Some(20));
+            assert_eq!(i.next(), Some(40));
+            assert_eq!(i.next(), Some(80));
+            assert_eq!(i.next(), None);
+        });
     }
 }

@@ -26,7 +26,7 @@ use crate::{
 
 // TODO(#515): Get Iterator APIs working without the `alloc` feature enabled
 #[cfg(feature = "alloc")]
-mod iter;
+pub(super) mod iter;
 
 // B-trees are typically characterized as having a branching factor of B.
 // However, in this implementation our B-trees are characterized as having a
