@@ -6,7 +6,7 @@ use munge::munge;
 use rancor::{Fallible, Source};
 
 use crate::{
-    collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver},
+    collections::btree_map::{self, ArchivedBTreeMap, BTreeMapResolver},
     ser::{Allocator, Writer},
     Place, Portable, Serialize,
 };
@@ -116,3 +116,28 @@ where
 
 /// The resolver for archived B-tree sets.
 pub struct BTreeSetResolver(BTreeMapResolver);
+
+mod iter {
+    use super::{btree_map, ArchivedBTreeSet};
+
+    pub struct Iter<'a, K, const E: usize> {
+        inner: btree_map::iter::Keys<'a, K, (), E>,
+    }
+
+    impl<'a, K, const E: usize> Iterator for Iter<'a, K, E> {
+        type Item = &'a K;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.inner.next()
+        }
+    }
+
+    impl<K, const E: usize> ArchivedBTreeSet<K, E> {
+        /// Returns an iterator over the items of the archived B-tree set.
+        pub fn iter(&self) -> Iter<'_, K, E> {
+            Iter {
+                inner: self.0.keys(),
+            }
+        }
+    }
+}
