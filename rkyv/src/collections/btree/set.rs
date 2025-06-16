@@ -6,7 +6,7 @@ use munge::munge;
 use rancor::{Fallible, Source};
 
 use crate::{
-    collections::btree_map::{self, ArchivedBTreeMap, BTreeMapResolver},
+    collections::btree_map::{ArchivedBTreeMap, BTreeMapResolver},
     ser::{Allocator, Writer},
     Place, Portable, Serialize,
 };
@@ -117,13 +117,15 @@ where
 /// The resolver for archived B-tree sets.
 pub struct BTreeSetResolver(BTreeMapResolver);
 
+#[cfg(feature = "alloc")]
 mod iter {
     use core::iter::FusedIterator;
 
-    use super::{btree_map, ArchivedBTreeSet};
+    use super::ArchivedBTreeSet;
+    use crate::collections::btree_map;
 
     pub struct Iter<'a, K, const E: usize> {
-        inner: btree_map::iter::Keys<'a, K, (), E>,
+        inner: btree_map::Keys<'a, K, (), E>,
     }
 
     impl<'a, K, const E: usize> Iterator for Iter<'a, K, E> {
