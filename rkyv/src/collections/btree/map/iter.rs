@@ -1,4 +1,4 @@
-use core::{marker::PhantomData, ptr::addr_of_mut, iter::FusedIterator};
+use core::{iter::FusedIterator, marker::PhantomData, ptr::addr_of_mut};
 
 use crate::{
     alloc::vec::Vec,
@@ -60,9 +60,15 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
 macro_rules! impl_iter_traits {
     ($($iter_ty:ident),*) => {
         $(
-            impl<'a, K, V, const E: usize> ExactSizeIterator for $iter_ty<'a, K, V, E> {}
+            impl<'a, K, V, const E: usize> ExactSizeIterator
+                for $iter_ty<'a, K, V, E>
+            {
+            }
 
-            impl<'a, K, V, const E: usize> FusedIterator for $iter_ty<'a, K, V, E> {}
+            impl<'a, K, V, const E: usize> FusedIterator
+                for $iter_ty<'a, K, V, E>
+            {
+            }
         )*
     };
 }
@@ -92,7 +98,7 @@ impl<'a, K, V, const E: usize> Iterator for Iter<'a, K, V, E> {
 
 /// An iterator over the entires of an `ArchivedBTreeMap`.
 ///
-/// This struct is created by the [`iter_pin`](ArchivedBTreeMap::iter_pin)
+/// This struct is created by the [`iter_seal`](ArchivedBTreeMap::iter_seal)
 /// method on [`ArchivedBTreeMap`]. See its documentation for more.
 pub struct IterSeal<'a, K, V, const E: usize> {
     inner: RawIter<K, V, E>,
