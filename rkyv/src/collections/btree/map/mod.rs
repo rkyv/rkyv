@@ -28,6 +28,9 @@ use crate::{
 #[cfg(feature = "alloc")]
 mod iter;
 
+#[cfg(feature = "alloc")]
+pub use self::iter::*;
+
 // B-trees are typically characterized as having a branching factor of B.
 // However, in this implementation our B-trees are characterized as having a
 // number of entries per node E where E = B - 1. This is done because it's

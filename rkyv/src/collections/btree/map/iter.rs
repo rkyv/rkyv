@@ -1,4 +1,4 @@
-use core::{marker::PhantomData, ptr::addr_of_mut};
+use core::{iter::FusedIterator, marker::PhantomData, ptr::addr_of_mut};
 
 use crate::{
     alloc::vec::Vec,
@@ -57,6 +57,22 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
     }
 }
 
+macro_rules! impl_iter_traits {
+    ($($iter_ty:ident),*) => {
+        $(
+            impl<'a, K, V, const E: usize> ExactSizeIterator
+                for $iter_ty<'a, K, V, E>
+            {
+            }
+
+            impl<'a, K, V, const E: usize> FusedIterator
+                for $iter_ty<'a, K, V, E>
+            {
+            }
+        )*
+    };
+}
+
 /// An iterator over the entires of an `ArchivedBTreeMap`.
 ///
 /// This struct is created by the [`iter`](ArchivedBTreeMap::iter) method on
@@ -74,11 +90,15 @@ impl<'a, K, V, const E: usize> Iterator for Iter<'a, K, V, E> {
             .next()
             .map(|(k, v)| (unsafe { &*k }, unsafe { &*v }))
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
 }
 
 /// An iterator over the entires of an `ArchivedBTreeMap`.
 ///
-/// This struct is created by the [`iter_pin`](ArchivedBTreeMap::iter_pin)
+/// This struct is created by the [`iter_seal`](ArchivedBTreeMap::iter_seal)
 /// method on [`ArchivedBTreeMap`]. See its documentation for more.
 pub struct IterSeal<'a, K, V, const E: usize> {
     inner: RawIter<K, V, E>,
@@ -92,6 +112,10 @@ impl<'a, K, V, const E: usize> Iterator for IterSeal<'a, K, V, E> {
         self.inner
             .next()
             .map(|(k, v)| (unsafe { &*k }, Seal::new(unsafe { &mut *v })))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
     }
 }
 
@@ -110,6 +134,10 @@ impl<'a, K, V, const E: usize> Iterator for Keys<'a, K, V, E> {
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|(k, _)| unsafe { &*k })
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
 }
 
 /// An iterator over the values of an `ArchivedBTreeMap`.
@@ -126,6 +154,10 @@ impl<'a, K, V, const E: usize> Iterator for Values<'a, K, V, E> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner.next().map(|(_, v)| unsafe { &*v })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
     }
 }
 
@@ -145,6 +177,10 @@ impl<'a, K, V, const E: usize> Iterator for ValuesSeal<'a, K, V, E> {
         self.inner
             .next()
             .map(|(_, v)| Seal::new(unsafe { &mut *v }))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
     }
 }
 
@@ -239,4 +275,14 @@ impl<K, V, const E: usize> Iterator for RawIter<K, V, E> {
 
         Some((k, v))
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.remaining;
+        (remaining, Some(remaining))
+    }
 }
+
+impl<K, V, const E: usize> ExactSizeIterator for RawIter<K, V, E> {}
+
+impl_iter_traits!(Iter, IterSeal, Keys, Values, ValuesSeal);
