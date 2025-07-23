@@ -1,3 +1,5 @@
+use core::fmt::Display;
+
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::{
@@ -198,7 +200,7 @@ fn generate_archived_type(
         let variant_doc = variant_doc(name, variant_name);
 
         let mut variant_fields = TokenStream::new();
-        for field in variant.fields.iter() {
+        for (i, field) in variant.fields.iter().enumerate() {
             let Field {
                 vis,
                 ident,
@@ -207,9 +209,20 @@ fn generate_archived_type(
             } = field;
             let field_attrs = FieldAttributes::parse(attributes, field)?;
 
+            let field_doc = format!(
+                "The archived counterpart of [`{}::{}::{}`]",
+                name,
+                variant_name,
+                ident.as_ref().map_or_else(
+                    || &i as &dyn Display,
+                    |name| name as &dyn Display
+                )
+            );
+
             let field_ty = field_attrs.archived(rkyv_path, field);
             let field_metas = field_attrs.metas();
             variant_fields.extend(quote! {
+                #[doc = #field_doc]
                 #field_metas
                 #vis #ident #colon_token #field_ty,
             });
