@@ -66,6 +66,7 @@ uuid-1 = ["dep:uuid-1", "bytecheck?/uuid-1"]
 
 [package.metadata.docs.rs]
 features = ["bytecheck"]
+cargo-args = ["-Z", "unstable-options", "-Z", "rustdoc-scrape-examples", "--no-deps"]
 
 [dev-dependencies]
 ahash = "0.8"
@@ -85,3 +86,36 @@ harness = false
 [[bench]]
 name = "minecraft_savedata"
 harness = false
+
+[[example]]
+name = "backwards_compat"
+doc-scrape-examples = true
+
+[[example]]
+name = "complex_wrapper_types"
+doc-scrape-examples = true
+
+[[example]]
+name = "derive_partial_ord"
+doc-scrape-examples = true
+
+[[example]]
+name = "explicit_enum_discriminants"
+doc-scrape-examples = true
+
+[[example]]
+name = "json_like_schema"
+doc-scrape-examples = true
+
+[[example]]
+name = "niching"
+doc-scrape-examples = true
+
+[[example]]
+name = "readme"
+doc-scrape-examples = true
+
+[[example]]
+name = "remote_types"
+doc-scrape-examples = true
+
