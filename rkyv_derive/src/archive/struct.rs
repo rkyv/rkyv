@@ -178,11 +178,10 @@ fn generate_archived_type(
             ..
         } = field;
 
-        let ident_ref = ident.as_ref();
         let field_doc = format!(
             "The archived counterpart of [`{}::{}`]",
             name,
-            ident_ref.map_or_else(
+            ident.as_ref().map_or_else(
                 || &i as &dyn Display,
                 |name| name as &dyn Display
             )
