@@ -21,6 +21,7 @@ struct ContainsNiches {
 }
 
 // Here's the same type but without the niches.
+#[allow(unused)]
 #[derive(Archive)]
 struct WithoutNiches {
     non_zero: Option<NonZeroU64>,
