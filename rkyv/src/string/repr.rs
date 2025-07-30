@@ -202,11 +202,14 @@ impl ArchivedStringRepr {
         target: usize,
         out: Place<Self>,
     ) -> Result<(), E> {
-        munge! {
-            let ArchivedStringRepr {
-                out_of_line: OutOfLineRepr { len, offset, _phantom: _ }
-            } = out;
-        }
+        let (len, offset) = unsafe {
+            munge! {
+                let ArchivedStringRepr {
+                    out_of_line: OutOfLineRepr { len, offset, _phantom: _ }
+                } = out;
+            }
+            (len, offset)
+        };
 
         let l = value.len() as FixedUsize;
         // Little-endian: insert 10 as the 7th and 8th bits
