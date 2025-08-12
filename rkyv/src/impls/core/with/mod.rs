@@ -50,6 +50,11 @@ use crate::{
     Archive, ArchiveUnsized, Deserialize, Place, Serialize, SerializeUnsized,
 };
 
+// This is used by various internal impls, but isn't something we want to make a
+// public API. However, in some build configurations there end up being no uses
+// of this helper at all. So the most straightforward way to solve this is to
+// just allow this code to be unused.
+#[allow(dead_code)]
 // Wrapper for O so that we have an Archive and Serialize implementation
 // and ArchivedVec::serialize_from_* is happy about the bound
 // constraints

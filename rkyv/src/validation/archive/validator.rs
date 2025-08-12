@@ -5,7 +5,17 @@ use core::{
 
 use rancor::{fail, OptionExt, Source};
 
-use crate::{fmt::Pointer, validation::ArchiveContext};
+use crate::validation::ArchiveContext;
+
+const PTR_WIDTH: usize = (usize::BITS / 4 + 2) as usize;
+
+struct Pointer(pub usize);
+
+impl fmt::Display for Pointer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:#0w$x}", self.0, w = PTR_WIDTH)
+    }
+}
 
 #[derive(Debug)]
 struct UnalignedPointer {

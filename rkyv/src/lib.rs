@@ -220,7 +220,6 @@ pub mod boxed;
 pub mod collections;
 pub mod de;
 pub mod ffi;
-mod fmt;
 pub mod hash;
 mod impls;
 pub mod net;
