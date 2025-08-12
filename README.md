@@ -95,14 +95,4 @@ _Read more about [available features](https://docs.rs/rkyv/latest/rkyv/#features
 
 # Thanks
 
-Thanks to all the sponsors that keep development sustainable. Special thanks to the following sponsors for going above and beyond supporting rkyv:
-
-## Bronze Sponsors
-
-<p align="center">
-    <a href="https://climatiq.io">
-        <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/sponsors/climatiq.png" alt="Climatiq">
-    </a>
-</p>
-
-> Climatiq provides an embedded carbon intelligence solution that enables developers to automate GHG emission calculations based on verified scientific models. Its suite of products includes the largest dataset of emission factors, and intelligent APIs that integrate with any software platform for real time monitoring of greenhouse gas emissions.
+Thanks to all the sponsors that keep development sustainable.
