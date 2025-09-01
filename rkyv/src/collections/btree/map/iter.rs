@@ -382,15 +382,14 @@ impl<K, V, const E: usize> RawRangeIter<K, V, E> {
             return Self { stack: Vec::new(), end_key: None, done: true };
         }
 
-        let mut stack = Vec::new();
-        stack.reserve(entries_to_height::<E>(len) as usize);
+        let mut stack = Vec::with_capacity(entries_to_height::<E>(len) as usize);
 
         unsafe { Self::init_stack_for_lower(map, range, &mut stack) };
 
         let end_key = unsafe { Self::find_first_past_upper(map, range) };
 
         let done = stack.is_empty()
-            || end_key.map_or(false, |ek| {
+            || end_key.is_some_and(|ek| {
                 if let Some((node, idx)) = stack.last() {
                     let k = unsafe { addr_of_mut!((*(*node)).keys[*idx]).cast::<K>() };
                     k == ek
