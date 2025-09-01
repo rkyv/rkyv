@@ -1097,7 +1097,7 @@ mod tests {
     fn test_range_str() {
         let mut map = BTreeMap::new();
         for i in 'a'..'z' {
-          map.insert(i.to_string(),i.to_string());
+            map.insert(i.to_string(), i.to_string());
         }
 
         to_archived(&map, |archived_map| {
@@ -1125,7 +1125,7 @@ mod tests {
     fn test_range_u32() {
         let mut map = BTreeMap::new();
         for i in 0..200 {
-          map.insert(i as u32,i as u32);
+            map.insert(i as u32, i as u32);
         }
 
         to_archived(&map, |archived_map| {

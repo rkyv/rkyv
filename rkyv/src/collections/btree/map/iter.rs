@@ -77,7 +77,10 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
     }
 
     /// Gets a mutable iterator over a sub-range of entries, sorted by key.
-    pub fn range_seal<'a, Q, R>(this: Seal<'_, Self>, range: R) -> RangeSeal<'_, K, V, E>
+    pub fn range_seal<'a, Q, R>(
+        this: Seal<'_, Self>,
+        range: R,
+    ) -> RangeSeal<'_, K, V, E>
     where
         Q: Ord + ?Sized + 'a,
         K: Borrow<Q> + Ord,
@@ -371,7 +374,10 @@ struct RawRangeIter<K, V, const E: usize> {
 }
 
 impl<K, V, const E: usize> RawRangeIter<K, V, E> {
-    unsafe fn new<'a, Q, R>(map: *mut ArchivedBTreeMap<K, V, E>, range: &R) -> Self
+    unsafe fn new<'a, Q, R>(
+        map: *mut ArchivedBTreeMap<K, V, E>,
+        range: &R,
+    ) -> Self
     where
         Q: Ord + ?Sized + 'a,
         K: Borrow<Q> + Ord,
@@ -379,10 +385,15 @@ impl<K, V, const E: usize> RawRangeIter<K, V, E> {
     {
         let len = unsafe { (*map).len.to_native() as usize };
         if len == 0 {
-            return Self { stack: Vec::new(), end_key: None, done: true };
+            return Self {
+                stack: Vec::new(),
+                end_key: None,
+                done: true,
+            };
         }
 
-        let mut stack = Vec::with_capacity(entries_to_height::<E>(len) as usize);
+        let mut stack =
+            Vec::with_capacity(entries_to_height::<E>(len) as usize);
 
         unsafe { Self::init_stack_for_lower(map, range, &mut stack) };
 
@@ -391,14 +402,20 @@ impl<K, V, const E: usize> RawRangeIter<K, V, E> {
         let done = stack.is_empty()
             || end_key.is_some_and(|ek| {
                 if let Some((node, idx)) = stack.last() {
-                    let k = unsafe { addr_of_mut!((*(*node)).keys[*idx]).cast::<K>() };
+                    let k = unsafe {
+                        addr_of_mut!((*(*node)).keys[*idx]).cast::<K>()
+                    };
                     k == ek
                 } else {
                     false
                 }
             });
 
-        Self { stack, end_key, done }
+        Self {
+            stack,
+            end_key,
+            done,
+        }
     }
 
     fn key_satisfies_lower<Q>(key: &K, lower: Bound<&Q>) -> bool
@@ -430,14 +447,16 @@ impl<K, V, const E: usize> RawRangeIter<K, V, E> {
         };
 
         if matches!(lower, Unbounded) {
-            let mut current = unsafe { RelPtr::as_ptr_raw(addr_of_mut!((*map).root)) };
+            let mut current =
+                unsafe { RelPtr::as_ptr_raw(addr_of_mut!((*map).root)) };
             loop {
                 stack.push((current, 0));
                 let kind = unsafe { (*current).kind };
                 match kind {
                     NodeKind::Inner => {
                         let inner = current.cast::<InnerNode<K, V, E>>();
-                        let lesser = unsafe { addr_of_mut!((*inner).lesser_nodes[0]) };
+                        let lesser =
+                            unsafe { addr_of_mut!((*inner).lesser_nodes[0]) };
                         if unsafe { RelPtr::is_invalid_raw(lesser) } {
                             break;
                         }
@@ -449,17 +468,22 @@ impl<K, V, const E: usize> RawRangeIter<K, V, E> {
             return;
         }
 
-        let mut current = unsafe { RelPtr::as_ptr_raw(addr_of_mut!((*map).root)) };
+        let mut current =
+            unsafe { RelPtr::as_ptr_raw(addr_of_mut!((*map).root)) };
         'descend: loop {
             match unsafe { (*current).kind } {
                 NodeKind::Inner => {
                     for i in 0..E {
-                        let k_ptr = unsafe { addr_of_mut!((*current).keys[i]).cast::<K>() };
+                        let k_ptr = unsafe {
+                            addr_of_mut!((*current).keys[i]).cast::<K>()
+                        };
                         let k_ref: &K = unsafe { &*k_ptr };
                         if Self::key_satisfies_lower(k_ref, lower) {
                             stack.push((current, i));
                             let inner = current.cast::<InnerNode<K, V, E>>();
-                            let lesser = unsafe { addr_of_mut!((*inner).lesser_nodes[i]) };
+                            let lesser = unsafe {
+                                addr_of_mut!((*inner).lesser_nodes[i])
+                            };
                             if unsafe { RelPtr::is_invalid_raw(lesser) } {
                                 break 'descend;
                             } else {
@@ -469,7 +493,8 @@ impl<K, V, const E: usize> RawRangeIter<K, V, E> {
                         }
                     }
                     let inner = current.cast::<InnerNode<K, V, E>>();
-                    let greater = unsafe { addr_of_mut!((*inner).greater_node) };
+                    let greater =
+                        unsafe { addr_of_mut!((*inner).greater_node) };
                     if unsafe { RelPtr::is_invalid_raw(greater) } {
                         break;
                     } else {
@@ -481,7 +506,9 @@ impl<K, V, const E: usize> RawRangeIter<K, V, E> {
                     let len = unsafe { (*leaf).len.to_native() as usize };
                     let mut found = None;
                     for i in 0..len {
-                        let k_ptr = unsafe { addr_of_mut!((*current).keys[i]).cast::<K>() };
+                        let k_ptr = unsafe {
+                            addr_of_mut!((*current).keys[i]).cast::<K>()
+                        };
                         let k_ref: &K = unsafe { &*k_ptr };
                         if Self::key_satisfies_lower(k_ref, lower) {
                             found = Some(i);
@@ -527,39 +554,53 @@ impl<K, V, const E: usize> RawRangeIter<K, V, E> {
         match upper {
             Unbounded => None,
             Included(_) | Excluded(_) => {
-                let mut current = unsafe { RelPtr::as_ptr_raw(addr_of_mut!((*map).root)) };
+                let mut current =
+                    unsafe { RelPtr::as_ptr_raw(addr_of_mut!((*map).root)) };
                 let mut candidate: Option<*mut K> = None;
                 'search: loop {
                     match unsafe { (*current).kind } {
                         NodeKind::Inner => {
                             for i in 0..E {
-                                let k_ptr = unsafe { addr_of_mut!((*current).keys[i]).cast::<K>() };
+                                let k_ptr = unsafe {
+                                    addr_of_mut!((*current).keys[i]).cast::<K>()
+                                };
                                 let k_ref: &K = unsafe { &*k_ptr };
                                 if Self::key_is_past_upper(k_ref, upper) {
                                     candidate = Some(k_ptr);
-                                    let inner = current.cast::<InnerNode<K, V, E>>();
-                                    let lesser = unsafe { addr_of_mut!((*inner).lesser_nodes[i]) };
-                                    if unsafe { RelPtr::is_invalid_raw(lesser) } {
+                                    let inner =
+                                        current.cast::<InnerNode<K, V, E>>();
+                                    let lesser = unsafe {
+                                        addr_of_mut!((*inner).lesser_nodes[i])
+                                    };
+                                    if unsafe { RelPtr::is_invalid_raw(lesser) }
+                                    {
                                         break 'search;
                                     } else {
-                                        current = unsafe { RelPtr::as_ptr_raw(lesser) };
+                                        current = unsafe {
+                                            RelPtr::as_ptr_raw(lesser)
+                                        };
                                         continue 'search;
                                     }
                                 }
                             }
                             let inner = current.cast::<InnerNode<K, V, E>>();
-                            let greater = unsafe { addr_of_mut!((*inner).greater_node) };
+                            let greater =
+                                unsafe { addr_of_mut!((*inner).greater_node) };
                             if unsafe { RelPtr::is_invalid_raw(greater) } {
                                 break;
                             } else {
-                                current = unsafe { RelPtr::as_ptr_raw(greater) };
+                                current =
+                                    unsafe { RelPtr::as_ptr_raw(greater) };
                             }
                         }
                         NodeKind::Leaf => {
                             let leaf = current.cast::<LeafNode<K, V, E>>();
-                            let len = unsafe { (*leaf).len.to_native() as usize };
+                            let len =
+                                unsafe { (*leaf).len.to_native() as usize };
                             for i in 0..len {
-                                let k_ptr = unsafe { addr_of_mut!((*current).keys[i]).cast::<K>() };
+                                let k_ptr = unsafe {
+                                    addr_of_mut!((*current).keys[i]).cast::<K>()
+                                };
                                 let k_ref: &K = unsafe { &*k_ptr };
                                 if Self::key_is_past_upper(k_ref, upper) {
                                     return Some(k_ptr);
@@ -613,8 +654,11 @@ impl<K, V, const E: usize> Iterator for RawRangeIter<K, V, E> {
                         self.stack.push((current, 0));
                         match unsafe { (*current).kind } {
                             NodeKind::Inner => {
-                                let inner = current.cast::<InnerNode<K, V, E>>();
-                                let lesser = unsafe { addr_of_mut!((*inner).lesser_nodes[0]) };
+                                let inner =
+                                    current.cast::<InnerNode<K, V, E>>();
+                                let lesser = unsafe {
+                                    addr_of_mut!((*inner).lesser_nodes[0])
+                                };
                                 current = unsafe { RelPtr::as_ptr_raw(lesser) };
                             }
                             NodeKind::Leaf => break,
