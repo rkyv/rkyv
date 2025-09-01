@@ -1094,7 +1094,7 @@ mod tests {
     }
 
     #[test]
-    fn test_range() {
+    fn test_range_str() {
         let mut map = BTreeMap::new();
         for i in 'a'..'z' {
           map.insert(i.to_string(),i.to_string());
@@ -1102,8 +1102,8 @@ mod tests {
 
         to_archived(&map, |archived_map| {
             let mut hasher = AHasher::default();
-            let start = String::from("d");
-            let end = String::from("w");
+            let start = "d".to_string();
+            let end = "w".to_string();
             for (k, v) in archived_map.range(start.as_str()..end.as_str()) {
                 k.hash(&mut hasher);
                 v.hash(&mut hasher);
@@ -1112,6 +1112,34 @@ mod tests {
 
             let mut expected_hasher = AHasher::default();
             for (k, v) in map.range(start..end) {
+                k.hash(&mut expected_hasher);
+                v.hash(&mut expected_hasher);
+            }
+            let expected_hash_value = expected_hasher.finish();
+
+            assert_eq!(hash_value, expected_hash_value);
+        });
+    }
+
+    #[test]
+    fn test_range_u32() {
+        let mut map = BTreeMap::new();
+        for i in 0..200 {
+          map.insert(i as u32,i as u32);
+        }
+
+        to_archived(&map, |archived_map| {
+            let mut hasher = AHasher::default();
+            let start: rend::u32_le = 32.into();
+            let end: rend::u32_le = 100.into();
+            for (k, v) in archived_map.range(&start..&end) {
+                k.hash(&mut hasher);
+                v.hash(&mut hasher);
+            }
+            let hash_value = hasher.finish();
+
+            let mut expected_hasher = AHasher::default();
+            for (k, v) in map.range(32..100) {
                 k.hash(&mut expected_hasher);
                 v.hash(&mut expected_hasher);
             }
