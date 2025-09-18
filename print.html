@@ -655,6 +655,23 @@ types.</p>
 generated archived type. This can be especially useful in combination with <code>#[rkyv(derive(..))]</code>,
 which may be used on types and is sugar for <code>#[rkyv(attr(derive(..)))]</code>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="wrapper-types"><a class="header" href="#wrapper-types">Wrapper types</a></h1>
+<p>Wrapper types customize the way that fields of types are archived. In some cases, wrapper types
+merely change the default behavior to a preferred alternative. In other cases, wrapper types allow
+serializing types which do not have support for rkyv by default.</p>
+<p>Annotating a field with <code>#[rkyv(with = ..)]</code> will <em>wrap</em> that field with the given types when the
+struct is serialized or deserialized. There's no performance penalty to wrapping types, but doing
+more or less work during serialization and deserialization can affect performance. This excerpt is
+from the documentation for <code>ArchiveWith</code>:</p>
+<pre><code class="language-rs">#[derive(Archive, Deserialize, Serialize)]
+struct Example {
+    #[rkyv(with = Incremented)]
+    a: i32,
+    // Another i32 field, but not incremented this time
+    b: i32,
+}
+</code></pre>
+<p>The <code>Incremented</code> wrapper is wrapping <code>a</code>, and the definition causes that field to be incremented
+in its archived form.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="remote-derive"><a class="header" href="#remote-derive">Remote derive</a></h1>
 <p>Like serde, rkyv also supports <em>remote derive</em>. This allows you to easily generate wrapper types to
 serialize types from other crates which don't provide rkyv support. Remote derive uses a local
