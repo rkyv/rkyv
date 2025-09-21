@@ -87,12 +87,14 @@ mod tests {
     fn test_partial_eq() {
         use crate::Archive;
 
+        #[allow(unused)]
         #[derive(Archive)]
         #[rkyv(crate, compare(PartialEq, PartialOrd))]
         struct Inner {
             a: i32,
         }
 
+        #[allow(unused)]
         #[derive(Archive)]
         #[rkyv(crate, compare(PartialEq, PartialOrd))]
         struct Outer {
