@@ -218,8 +218,22 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         Q: Ord + ?Sized,
         K: Borrow<Q> + Ord,
     {
+        self.get_key_value_with(key, |q, k| q.cmp(k.borrow()))
+    }
+
+    /// Gets the key-value pair associated with the given key, or `None` if the
+    /// key is not present in the B-tree map.
+    ///
+    /// This method uses the supplied comparison function to compare the key to
+    /// elements.
+    pub fn get_key_value_with<Q, C>(&self, key: &Q, cmp: C) -> Option<(&K, &V)>
+    where
+        Q: Ord + ?Sized,
+        C: Fn(&Q, &K) -> Ordering,
+        K: Ord,
+    {
         let this = (self as *const Self).cast_mut();
-        Self::get_key_value_raw(this, key)
+        Self::get_key_value_raw(this, key, cmp)
             .map(|(k, v)| (unsafe { &*k }, unsafe { &*v }))
     }
 
@@ -233,18 +247,38 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
         Q: Ord + ?Sized,
         K: Borrow<Q> + Ord,
     {
+        Self::get_key_value_seal_with(this, key, |q, k| q.cmp(k.borrow()))
+    }
+
+    /// Gets the mutable key-value pair associated with the given key, or `None`
+    /// if the key is not present in the B-tree map.
+    ///
+    /// This method uses the supplied comparison function to compare the key to
+    /// elements.
+    pub fn get_key_value_seal_with<'a, Q, C>(
+        this: Seal<'a, Self>,
+        key: &Q,
+        cmp: C,
+    ) -> Option<(&'a K, Seal<'a, V>)>
+    where
+        Q: Ord + ?Sized,
+        C: Fn(&Q, &K) -> Ordering,
+        K: Ord,
+    {
         let this = unsafe { Seal::unseal_unchecked(this) as *mut Self };
-        Self::get_key_value_raw(this, key)
+        Self::get_key_value_raw(this, key, cmp)
             .map(|(k, v)| (unsafe { &*k }, Seal::new(unsafe { &mut *v })))
     }
 
-    fn get_key_value_raw<Q>(
+    fn get_key_value_raw<Q, C>(
         this: *mut Self,
         key: &Q,
+        cmp: C,
     ) -> Option<(*mut K, *mut V)>
     where
         Q: Ord + ?Sized,
-        K: Borrow<Q> + Ord,
+        C: Fn(&Q, &K) -> Ordering,
+        K: Ord,
     {
         let len = unsafe { (*this).len.to_native() };
         if len == 0 {
@@ -265,7 +299,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
                         let k = unsafe {
                             addr_of_mut!((*current).keys[i]).cast::<K>()
                         };
-                        let ordering = key.cmp(unsafe { (*k).borrow() });
+                        let ordering = cmp(key, unsafe { &*k });
 
                         match ordering {
                             Ordering::Equal => {
@@ -289,7 +323,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
                         let k = unsafe {
                             addr_of_mut!((*current).keys[i]).cast::<K>()
                         };
-                        let ordering = key.cmp(unsafe { (*k).borrow() });
+                        let ordering = cmp(key, unsafe { &*k });
 
                         match ordering {
                             Ordering::Equal => {
@@ -1069,6 +1103,7 @@ mod tests {
     use crate::{
         alloc::{collections::BTreeMap, string::ToString},
         api::test::to_archived,
+        primitive::ArchivedU32,
     };
 
     #[test]
@@ -1090,6 +1125,95 @@ mod tests {
             let expected_hash_value = expected_hasher.finish();
 
             assert_eq!(hash_value, expected_hash_value);
+        });
+    }
+
+    #[test]
+    fn test_range_empty() {
+        let map = BTreeMap::<char, char>::new();
+        to_archived(&map, |archived_map| {
+            for _ in archived_map.range(..) {
+                panic!("ArchivedBTreeMap should be empty");
+            }
+        });
+    }
+
+    #[test]
+    fn test_range_one() {
+        let mut map = BTreeMap::<i32, i32>::new();
+        map.insert(1, 1);
+        to_archived(&map, |archived_map| {
+            for _ in archived_map.range_with(2.., |q, k| q.cmp(&k.to_native()))
+            {
+                panic!("ArchivedBTreeMap range should be empty");
+            }
+        })
+    }
+
+    #[test]
+    fn test_range_open() {
+        let mut map = BTreeMap::new();
+        for i in 'a'..'z' {
+            map.insert(i, i);
+        }
+
+        to_archived(&map, |archived_map| {
+            for _ in
+                archived_map.range_with(..'a', |q, k| q.cmp(&k.to_native()))
+            {
+                panic!("Range should be empty");
+            }
+            for _ in
+                archived_map.range_with('|'.., |q, k| q.cmp(&k.to_native()))
+            {
+                panic!("Range should be empty");
+            }
+        });
+    }
+
+    #[test]
+    fn test_range_str() {
+        let mut map = BTreeMap::new();
+        for i in 'a'..'z' {
+            map.insert(i.to_string(), i.to_string());
+        }
+
+        to_archived(&map, |archived_map| {
+            let start = 'd';
+            let end = 'w';
+
+            for ((k, v), expected) in archived_map
+                .range_with(start..end, |q, k| {
+                    q.cmp(&k.chars().next().unwrap())
+                })
+                .zip(start..end)
+            {
+                let expected = expected.to_string();
+                assert_eq!(k.as_str(), expected);
+                assert_eq!(v.as_str(), expected);
+            }
+        });
+    }
+
+    #[test]
+    fn test_range_u32() {
+        let mut map = BTreeMap::new();
+        for i in 0..200 {
+            map.insert(i as u32, i as u32);
+        }
+
+        to_archived(&map, |archived_map| {
+            const START: u32 = 32;
+            const END: u32 = 100;
+            let start = ArchivedU32::from_native(START);
+            let end = ArchivedU32::from_native(END);
+
+            for ((k, v), expected) in
+                archived_map.range(start..end).zip(START..END)
+            {
+                assert_eq!(k.to_native(), expected);
+                assert_eq!(v.to_native(), expected);
+            }
         });
     }
 }
