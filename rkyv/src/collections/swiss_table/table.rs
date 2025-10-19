@@ -129,7 +129,7 @@ impl<T> ArchivedHashTable<T> {
     /// # Safety
     ///
     /// `this` must point to a valid `ArchivedHashTable`
-    unsafe fn get_entry_raw<C>(
+    unsafe fn get_entry_ptr<C>(
         this: *mut Self,
         hash: u64,
         cmp: C,
@@ -188,14 +188,22 @@ impl<T> ArchivedHashTable<T> {
         }
     }
 
+    /// Returns a reference to the entry matching the given hash and comparison function.
+    pub(crate) fn get_entry_raw<C>(&self, hash: u64, cmp: C) -> Option<&T>
+    where
+        C: Fn(&T) -> bool,
+    {
+        let this = (self as *const Self).cast_mut();
+        let ptr = unsafe { Self::get_entry_ptr(this, hash, cmp)? };
+        Some(unsafe { ptr.as_ref() })
+    }
+
     /// Returns the key-value pair corresponding to the supplied key.
     pub fn get_with<C>(&self, hash: u64, cmp: C) -> Option<&T>
     where
         C: Fn(&T) -> bool,
     {
-        let this = (self as *const Self).cast_mut();
-        let ptr = unsafe { Self::get_entry_raw(this, hash, |e| cmp(e))? };
-        Some(unsafe { ptr.as_ref() })
+        self.get_entry_raw(hash, cmp)
     }
 
     /// Returns the mutable key-value pair corresponding to the supplied key.
@@ -208,7 +216,7 @@ impl<T> ArchivedHashTable<T> {
         C: Fn(&T) -> bool,
     {
         let mut ptr = unsafe {
-            Self::get_entry_raw(this.unseal_unchecked(), hash, |e| cmp(e))?
+            Self::get_entry_ptr(this.unseal_unchecked(), hash, |e| cmp(e))?
         };
         Some(Seal::new(unsafe { ptr.as_mut() }))
     }

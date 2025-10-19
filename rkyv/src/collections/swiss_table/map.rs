@@ -90,6 +90,14 @@ impl<K, V, H> ArchivedHashMap<K, V, H> {
             _phantom: PhantomData,
         }
     }
+
+    /// Creates a raw entry builder for low-level access to entries.
+    ///
+    /// This allows accessing entries by hash and custom comparison functions,
+    /// similar to `hashbrown::HashMap::raw_entry()`.
+    pub fn raw_entry(&self) -> RawEntryBuilder<'_, K, V, H> {
+        RawEntryBuilder { map: self }
+    }
 }
 
 impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
@@ -221,6 +229,33 @@ impl<K, V, H: Hasher + Default> ArchivedHashMap<K, V, H> {
             iter.clone()
                 .map(|(key, value)| EntryAdapter::new(key, value)),
             iter.map(|(key, _)| hash_value::<KU, H>(key.borrow())),
+            load_factor,
+            serializer,
+        )
+        .map(HashMapResolver)
+    }
+
+    /// Serializes an iterator of key-value pairs as a hash map, using the given iterator of hashes.
+    pub fn serialize_from_iter_with_hashes<I, BKU, BVU, KU, VU, HS, S>(
+        iter: I,
+        hashes: HS,
+        load_factor: (usize, usize),
+        serializer: &mut S,
+    ) -> Result<HashMapResolver, S::Error>
+    where
+        I: Clone + ExactSizeIterator<Item = (BKU, BVU)>,
+        BKU: Borrow<KU>,
+        BVU: Borrow<VU>,
+        KU: Serialize<S, Archived = K> + Hash + Eq,
+        VU: Serialize<S, Archived = V>,
+        HS: ExactSizeIterator<Item = u64>,
+        S: Fallible + Writer + Allocator + ?Sized,
+        S::Error: Source,
+    {
+        ArchivedHashTable::<Entry<K, V>>::serialize_from_iter(
+            iter.clone()
+                .map(|(key, value)| EntryAdapter::new(key, value)),
+            hashes,
             load_factor,
             serializer,
         )
@@ -419,3 +454,43 @@ impl<K, V, H> ExactSizeIterator for ValuesMut<'_, K, V, H> {
 }
 
 impl<K, V, H> FusedIterator for ValuesMut<'_, K, V, H> {}
+
+/// A builder for accessing entries in an [`ArchivedHashMap`] with a custom hash and comparison function.
+///
+/// This is a lower-level API similar to `hashbrown::HashMap::raw_entry()`.
+pub struct RawEntryBuilder<'a, K, V, H> {
+    map: &'a ArchivedHashMap<K, V, H>,
+}
+
+impl<'a, K, V, H: Hasher + Default> RawEntryBuilder<'a, K, V, H> {
+    /// Access an entry by hash and comparison function.
+    ///
+    /// The comparison function takes an `Entry<K, V>` and returns whether it matches.
+    pub fn from_hash<F>(self, hash: u64, is_match: F) -> Option<(&'a K, &'a V)>
+    where
+        F: Fn(&Entry<K, V>) -> bool,
+    {
+        let entry = self.map.table.get_entry_raw(hash, is_match)?;
+        Some((&entry.key, &entry.value))
+    }
+
+    /// Access an entry by key.
+    pub fn from_key<Q>(self, key: &Q) -> Option<(&'a K, &'a V)>
+    where
+        K: Borrow<Q>,
+        Q: Hash + Eq + ?Sized,
+    {
+        let hash = hash_value::<Q, H>(key);
+        self.from_hash(hash, |e| key == e.key.borrow())
+    }
+
+    /// Access an entry by key with a custom comparison function.
+    pub fn from_key_with<Q, C>(self, key: &Q, cmp: C) -> Option<(&'a K, &'a V)>
+    where
+        Q: Hash + ?Sized,
+        C: Fn(&Q, &K) -> bool,
+    {
+        let hash = hash_value::<Q, H>(key);
+        self.from_hash(hash, |e| cmp(key, &e.key))
+    }
+}
