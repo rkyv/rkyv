@@ -4,7 +4,11 @@ error[E0277]: the trait bound `Strategy<NotSerializer, Failure>: MyTrait` is not
 21 |     let state = archived.deserialize(Strategy::<_, Failure>::wrap(&mut NotSerializer));
    |                          ^^^^^^^^^^^ the trait `MyTrait` is not implemented for `Strategy<NotSerializer, Failure>`
    |
-   = help: the trait `MyTrait` is implemented for `Serializer`
+help: the trait `MyTrait` is implemented for `Serializer`
+  --> tests/ui/the_most_unhelpful_error.rs:8:1
+   |
+ 8 | impl MyTrait for Serializer {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: required for `ArchivedMyStruct` to implement `Deserialize<MyStruct, Strategy<NotSerializer, Failure>>`
   --> tests/ui/the_most_unhelpful_error.rs:12:30
    |
