@@ -101,7 +101,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
         // write any data by serializing `value`, pad the serializer by a byte
         // to ensure that our position will be unique.
         if serializer.pos() == pos {
-            serializer.write(&[0])?;
+            serializer.write_padding(1)?;
         }
 
         Ok(RcResolver {

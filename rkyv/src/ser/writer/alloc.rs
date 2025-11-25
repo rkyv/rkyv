@@ -12,8 +12,13 @@ impl Positional for Vec<u8> {
 }
 
 impl<E> Writer<E> for Vec<u8> {
-    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
+    fn write(&mut self, _align: usize, bytes: &[u8]) -> Result<(), E> {
         self.extend_from_slice(bytes);
+        Ok(())
+    }
+
+    fn write_padding(&mut self, n: usize) -> Result<(), E> {
+        self.resize(self.len() + n, 0);
         Ok(())
     }
 }
@@ -26,8 +31,13 @@ impl<const A: usize> Positional for AlignedVec<A> {
 }
 
 impl<E, const A: usize> Writer<E> for AlignedVec<A> {
-    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
+    fn write(&mut self, _align: usize, bytes: &[u8]) -> Result<(), E> {
         self.extend_from_slice(bytes);
+        Ok(())
+    }
+
+    fn write_padding(&mut self, n: usize) -> Result<(), E> {
+        self.resize(self.len() + n, 0);
         Ok(())
     }
 }
