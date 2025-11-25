@@ -59,6 +59,27 @@ where
 pub trait Writer<E = <Self as Fallible>::Error>: Positional {
     /// Attempts to write the given bytes to the serializer.
     fn write(&mut self, bytes: &[u8]) -> Result<(), E>;
+
+    /// Prepares the writer to write data with the given alignment.
+    fn align(&mut self, align: usize) -> Result<usize, E> {
+        let mask = align - 1;
+        debug_assert_eq!(align & mask, 0);
+        let padding = (align - (self.pos() & mask)) & mask;
+
+        // Write padding zeros
+        {
+            const MAX_ZEROS: usize = 32;
+            const ZEROS: [u8; MAX_ZEROS] = [0; MAX_ZEROS];
+            let mut remaining = padding;
+            while remaining > 0 {
+                let to_write = remaining.min(MAX_ZEROS);
+                self.write(&ZEROS[0..to_write])?;
+                remaining -= to_write;
+            }
+        }
+
+        Ok(self.pos())
+    }
 }
 
 impl<T, E> Writer<E> for &mut T
@@ -67,6 +88,10 @@ where
 {
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         T::write(*self, bytes)
+    }
+
+    fn align(&mut self, align: usize) -> Result<usize, E> {
+        T::align(*self, align)
     }
 }
 
@@ -77,28 +102,14 @@ where
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         T::write(self, bytes)
     }
+
+    fn align(&mut self, align: usize) -> Result<usize, E> {
+        T::align(self, align)
+    }
 }
 
 /// Helper methods for [`Writer`].
 pub trait WriterExt<E>: Writer<E> {
-    /// Advances the given number of bytes as padding.
-    fn pad(&mut self, padding: usize) -> Result<(), E> {
-        const MAX_ZEROS: usize = 32;
-        const ZEROS: [u8; MAX_ZEROS] = [0; MAX_ZEROS];
-        debug_assert!(padding < MAX_ZEROS);
-
-        self.write(&ZEROS[0..padding])
-    }
-
-    /// Aligns the position of the serializer to the given alignment.
-    fn align(&mut self, align: usize) -> Result<usize, E> {
-        let mask = align - 1;
-        debug_assert_eq!(align & mask, 0);
-
-        self.pad((align - (self.pos() & mask)) & mask)?;
-        Ok(self.pos())
-    }
-
     /// Aligns the position of the serializer to be suitable to write the given
     /// type.
     fn align_for<T>(&mut self) -> Result<usize, E> {
