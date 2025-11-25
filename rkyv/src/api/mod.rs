@@ -50,7 +50,7 @@ fn sanity_check_buffer<T: Portable>(ptr: *const u8, pos: usize, size: usize) {
         root_size,
     );
     let expect_align = align_of::<T>();
-    let actual_align = (ptr as usize) & (expect_align - 1);
+    let actual_align = (ptr as usize).wrapping_add(pos) & (expect_align - 1);
     debug_assert_eq!(
         actual_align,
         0,
