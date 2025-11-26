@@ -8,7 +8,7 @@ use rancor::{Fallible, Source};
 use crate::{
     primitive::FixedUsize,
     seal::Seal,
-    ser::{Sharing, SharingExt, Writer},
+    ser::{Sharing, SharingExt, Writer, WriterExt as _},
     traits::ArchivePointee,
     ArchiveUnsized, Place, Portable, RelPtr, SerializeUnsized,
 };
@@ -101,7 +101,7 @@ impl<T: ArchivePointee + ?Sized, F> ArchivedRc<T, F> {
         // write any data by serializing `value`, pad the serializer by a byte
         // to ensure that our position will be unique.
         if serializer.pos() == pos {
-            serializer.write_padding(1)?;
+            serializer.pad(1)?;
         }
 
         Ok(RcResolver {
