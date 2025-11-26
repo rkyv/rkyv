@@ -74,7 +74,7 @@ pub trait Writer<E = <Self as Fallible>::Error>: Positional {
     }
 
     /// Aligns the position of the serializer to the given alignment.
-    fn align(&mut self, align: usize) -> Result<usize, E> {
+    fn align_position(&mut self, align: usize) -> Result<usize, E> {
         let mask = align - 1;
         debug_assert_eq!(align & mask, 0);
 
@@ -95,8 +95,8 @@ where
         T::write_padding(*self, n)
     }
 
-    fn align(&mut self, align: usize) -> Result<usize, E> {
-        T::align(*self, align)
+    fn align_position(&mut self, align: usize) -> Result<usize, E> {
+        T::align_position(*self, align)
     }
 }
 
@@ -112,13 +112,23 @@ where
         T::write_padding(self, n)
     }
 
-    fn align(&mut self, align: usize) -> Result<usize, E> {
-        T::align(self, align)
+    fn align_position(&mut self, align: usize) -> Result<usize, E> {
+        T::align_position(self, align)
     }
 }
 
-/// Helper methods for [`Writer`].
+    /// Helper methods for [`Writer`].
 pub trait WriterExt<E>: Writer<E> {
+    /// Advances the given number of bytes as padding.
+    fn pad(&mut self, padding: usize) -> Result<(), E> {
+        self.write_padding(padding)
+    }
+
+    /// Aligns the position of the serializer to the given alignment.
+    fn align(&mut self, align: usize) -> Result<usize, E> {
+        self.align_position(align)
+    }
+
     /// Aligns the position of the serializer to be suitable to write the given
     /// type.
     fn align_for<T>(&mut self) -> Result<usize, E> {

@@ -62,8 +62,8 @@ impl<W: Writer<E>, A, S, E> Writer<E> for Serializer<W, A, S> {
         self.writer.write_padding(padding)
     }
 
-    fn align(&mut self, align: usize) -> Result<usize, E> {
-        self.writer.align(align)
+    fn align_position(&mut self, align: usize) -> Result<usize, E> {
+        self.writer.align_position(align)
     }
 }
 
