@@ -62,11 +62,11 @@ pub trait Writer<E = <Self as Fallible>::Error>: Positional {
 
     /// Attempts to write `n` padding bytes to the serializer.
     fn write_padding(&mut self, n: usize) -> Result<(), E> {
-        const MAX_ZEROS: usize = 32;
-        const ZEROS: [u8; MAX_ZEROS] = [0; MAX_ZEROS];
+        const MAX_BATCH: usize = 32;
+        const ZEROS: [u8; MAX_BATCH] = [0; MAX_BATCH];
         let mut remaining = n;
         while remaining > 0 {
-            let to_write = remaining.min(MAX_ZEROS);
+            let to_write = remaining.min(MAX_BATCH);
             self.write(&ZEROS[0..to_write])?;
             remaining -= to_write;
         }
