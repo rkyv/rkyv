@@ -575,7 +575,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
                 size_of::<LeafNode<K, V, E>>(),
             )
         };
-        serializer.write(align_of::<LeafNode<K, V, E>>(), bytes)?;
+        serializer.write(bytes)?;
 
         Ok(pos)
     }
@@ -654,7 +654,7 @@ impl<K, V, const E: usize> ArchivedBTreeMap<K, V, E> {
                 size_of::<InnerNode<K, V, E>>(),
             )
         };
-        serializer.write(align_of::<InnerNode<K, V, E>>(), bytes)?;
+        serializer.write(bytes)?;
 
         Ok(pos)
     }

@@ -145,7 +145,7 @@ impl Positional for Buffer<'_> {
 }
 
 impl<E: Source> Writer<E> for Buffer<'_> {
-    fn write(&mut self, _align: usize, bytes: &[u8]) -> Result<(), E> {
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         if bytes.len() > self.cap - self.len {
             fail!(BufferOverflow {
                 write_len: bytes.len(),

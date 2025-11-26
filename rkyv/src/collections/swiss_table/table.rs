@@ -467,12 +467,12 @@ impl<T> ArchivedHashTable<T> {
                                             )?;
                                         }
                                     } else {
-                                        serializer.write(align_of::<T>(), zeros)?;
+                                        serializer.write(zeros)?;
                                     }
                                 }
 
                                 let pos = serializer.pos();
-                                serializer.write(1, control_bytes)?;
+                                serializer.write(control_bytes)?;
 
                                 Ok(HashTableResolver {
                                     pos: pos as FixedUsize,

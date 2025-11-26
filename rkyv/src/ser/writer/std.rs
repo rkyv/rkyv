@@ -54,7 +54,7 @@ impl<W> Positional for IoWriter<W> {
 }
 
 impl<W: io::Write, E: Source> Writer<E> for IoWriter<W> {
-    fn write(&mut self, _align: usize, bytes: &[u8]) -> Result<(), E> {
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         self.inner.write_all(bytes).into_error()?;
         self.pos += bytes.len();
         Ok(())

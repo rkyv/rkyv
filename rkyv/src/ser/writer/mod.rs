@@ -58,7 +58,7 @@ where
 /// wrapper as appropriate.
 pub trait Writer<E = <Self as Fallible>::Error>: Positional {
     /// Attempts to write the given bytes to the serializer.
-    fn write(&mut self, align: usize, bytes: &[u8]) -> Result<(), E>;
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E>;
 
     /// Attempts to write `n` padding bytes to the serializer.
     fn write_padding(&mut self, n: usize) -> Result<(), E> {
@@ -67,41 +67,12 @@ pub trait Writer<E = <Self as Fallible>::Error>: Positional {
         let mut remaining = n;
         while remaining > 0 {
             let to_write = remaining.min(MAX_ZEROS);
-            self.write(1, &ZEROS[0..to_write])?;
+            self.write(&ZEROS[0..to_write])?;
             remaining -= to_write;
         }
         Ok(())
     }
-}
 
-impl<T, E> Writer<E> for &mut T
-where
-    T: Writer<E> + ?Sized,
-{
-    fn write(&mut self, align: usize, bytes: &[u8]) -> Result<(), E> {
-        T::write(*self, align, bytes)
-    }
-
-    fn write_padding(&mut self, n: usize) -> Result<(), E> {
-        T::write_padding(*self, n)
-    }
-}
-
-impl<T, E> Writer<E> for Strategy<T, E>
-where
-    T: Writer<E> + ?Sized,
-{
-    fn write(&mut self, align: usize, bytes: &[u8]) -> Result<(), E> {
-        T::write(self, align, bytes)
-    }
-
-    fn write_padding(&mut self, n: usize) -> Result<(), E> {
-        T::write_padding(self, n)
-    }
-}
-
-/// Helper methods for [`Writer`].
-pub trait WriterExt<E>: Writer<E> {
     /// Aligns the position of the serializer to the given alignment.
     fn align(&mut self, align: usize) -> Result<usize, E> {
         let mask = align - 1;
@@ -110,7 +81,44 @@ pub trait WriterExt<E>: Writer<E> {
         self.write_padding((align - (self.pos() & mask)) & mask)?;
         Ok(self.pos())
     }
+}
 
+impl<T, E> Writer<E> for &mut T
+where
+    T: Writer<E> + ?Sized,
+{
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
+        T::write(*self, bytes)
+    }
+
+    fn write_padding(&mut self, n: usize) -> Result<(), E> {
+        T::write_padding(*self, n)
+    }
+
+    fn align(&mut self, align: usize) -> Result<usize, E> {
+        T::align(*self, align)
+    }
+}
+
+impl<T, E> Writer<E> for Strategy<T, E>
+where
+    T: Writer<E> + ?Sized,
+{
+    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
+        T::write(self, bytes)
+    }
+
+    fn write_padding(&mut self, n: usize) -> Result<(), E> {
+        T::write_padding(self, n)
+    }
+
+    fn align(&mut self, align: usize) -> Result<usize, E> {
+        T::align(self, align)
+    }
+}
+
+/// Helper methods for [`Writer`].
+pub trait WriterExt<E>: Writer<E> {
     /// Aligns the position of the serializer to be suitable to write the given
     /// type.
     fn align_for<T>(&mut self) -> Result<usize, E> {
@@ -144,7 +152,7 @@ pub trait WriterExt<E>: Writer<E> {
         // of its bytes are initialized.
         let out = unsafe { Place::new_unchecked(pos, resolved.as_mut_ptr()) };
         value.resolve(resolver, out);
-        self.write(mem::align_of::<T::Archived>(), out.as_slice())?;
+        self.write(out.as_slice())?;
         Ok(pos)
     }
 
@@ -179,7 +187,7 @@ pub trait WriterExt<E>: Writer<E> {
         let out = unsafe { Place::new_unchecked(from, resolved.as_mut_ptr()) };
         RelPtr::emplace_unsized(to, value.archived_metadata(), out);
 
-        self.write(mem::align_of::<RelPtr<T::Archived>>(), out.as_slice())?;
+        self.write(out.as_slice())?;
         Ok(from)
     }
 }
