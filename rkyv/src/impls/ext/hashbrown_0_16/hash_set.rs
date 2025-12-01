@@ -3,7 +3,7 @@ use core::{
     hash::{BuildHasher, Hash},
 };
 
-use hashbrown_0_15::HashSet;
+use hashbrown::HashSet;
 use rancor::{Fallible, Source};
 
 use crate::{
@@ -115,3 +115,4 @@ mod tests {
         });
     }
 }
+

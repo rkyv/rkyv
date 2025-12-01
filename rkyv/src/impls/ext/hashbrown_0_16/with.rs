@@ -3,7 +3,7 @@ use core::{
     marker::PhantomData,
 };
 
-use hashbrown_0_15::HashMap;
+use hashbrown::HashMap;
 use rancor::{Fallible, Source};
 
 use crate::{
@@ -134,3 +134,4 @@ mod tests {
         });
     }
 }
+

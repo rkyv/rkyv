@@ -34,8 +34,9 @@ rkyv_derive.workspace = true
 arrayvec-0_7 = { package = "arrayvec", version = "0.7", optional = true, default-features = false }
 bytes-1 = { package = "bytes", version = "1", optional = true, default-features = false }
 hashbrown-0_14 = { package = "hashbrown", version = "0.14", optional = true, default-features = false }
-# rkyv already depends on hashbrown 0.15, so we can't duplicate this, but we can expose it as a feature below
-# hashbrown-0_15 = { package = "hashbrown", version = "0.15", optional = true, default-features = false }
+hashbrown-0_15 = { package = "hashbrown", version = "0.15", optional = true, default-features = false }
+# rkyv already depends on hashbrown 0.16, so we can't duplicate this, but we can expose it as a feature below
+# hashbrown-0_16 = { package = "hashbrown", version = "0.16", optional = true, default-features = false }
 indexmap-2 = { package = "indexmap", version = "2", optional = true, default-features = false }
 smallvec-1 = { package = "smallvec", version = "1", optional = true, default-features = false }
 smol_str-0_2 = { package = "smol_str", version = "0.2", optional = true, default-features = false }
@@ -59,7 +60,8 @@ std = ["alloc", "bytes-1?/std", "indexmap-2?/std", "ptr_meta/std", "uuid-1?/std"
 bytecheck = ["dep:bytecheck", "rend/bytecheck", "rkyv_derive/bytecheck"]
 
 # External crate support
-hashbrown-0_15 = ["dep:hashbrown"]
+hashbrown-0_15 = ["dep:hashbrown-0_15"]
+hashbrown-0_16 = ["dep:hashbrown"]
 indexmap-2 = ["dep:indexmap-2", "alloc"]
 triomphe-0_1 = ["dep:triomphe-0_1", "alloc"]
 uuid-1 = ["dep:uuid-1", "bytecheck?/uuid-1"]
