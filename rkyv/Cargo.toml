@@ -60,7 +60,6 @@ std = ["alloc", "bytes-1?/std", "indexmap-2?/std", "ptr_meta/std", "uuid-1?/std"
 bytecheck = ["dep:bytecheck", "rend/bytecheck", "rkyv_derive/bytecheck"]
 
 # External crate support
-hashbrown-0_15 = ["dep:hashbrown-0_15"]
 hashbrown-0_16 = ["dep:hashbrown"]
 indexmap-2 = ["dep:indexmap-2", "alloc"]
 triomphe-0_1 = ["dep:triomphe-0_1", "alloc"]
