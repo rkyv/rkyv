@@ -22,7 +22,7 @@ repository = "https://github.com/rkyv/rkyv"
 [workspace.dependencies]
 bytecheck = { version = "0.8", default-features = false, features = ["simdutf8"] }
 divan = { version = "0.1", default-features = false }
-hashbrown = { version = "0.15", default-features = false }
+hashbrown = { version = "0.16", default-features = false }
 munge = { version = "0.4", default-features = false }
 proc-macro2 = { version = "1", default-features = false }
 ptr_meta = { version = "0.3", default-features = false }
