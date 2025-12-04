@@ -175,9 +175,9 @@ impl Attributes {
                 ));
             }
 
-            if result.bytecheck.is_some() {
+            if let Some(bytecheck) = &result.bytecheck {
                 return Err(Error::new_spanned(
-                    result.bytecheck.unwrap(),
+                    bytecheck,
                     "cannot generate a `CheckBytes` impl because `as = ...` \
                      does not generate an archived type",
                 ));
