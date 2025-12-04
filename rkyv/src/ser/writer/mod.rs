@@ -59,6 +59,28 @@ where
 pub trait Writer<E = <Self as Fallible>::Error>: Positional {
     /// Attempts to write the given bytes to the serializer.
     fn write(&mut self, bytes: &[u8]) -> Result<(), E>;
+
+    /// Attempts to write `n` padding bytes to the serializer.
+    fn write_padding(&mut self, n: usize) -> Result<(), E> {
+        const MAX_BATCH: usize = 32;
+        const ZEROS: [u8; MAX_BATCH] = [0; MAX_BATCH];
+        let mut remaining = n;
+        while remaining > 0 {
+            let to_write = remaining.min(MAX_BATCH);
+            self.write(&ZEROS[0..to_write])?;
+            remaining -= to_write;
+        }
+        Ok(())
+    }
+
+    /// Aligns the position of the serializer to the given alignment.
+    fn align_position(&mut self, align: usize) -> Result<usize, E> {
+        let mask = align - 1;
+        debug_assert_eq!(align & mask, 0);
+
+        self.write_padding((align - (self.pos() & mask)) & mask)?;
+        Ok(self.pos())
+    }
 }
 
 impl<T, E> Writer<E> for &mut T
@@ -67,6 +89,14 @@ where
 {
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         T::write(*self, bytes)
+    }
+
+    fn write_padding(&mut self, n: usize) -> Result<(), E> {
+        T::write_padding(*self, n)
+    }
+
+    fn align_position(&mut self, align: usize) -> Result<usize, E> {
+        T::align_position(*self, align)
     }
 }
 
@@ -77,26 +107,26 @@ where
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         T::write(self, bytes)
     }
+
+    fn write_padding(&mut self, n: usize) -> Result<(), E> {
+        T::write_padding(self, n)
+    }
+
+    fn align_position(&mut self, align: usize) -> Result<usize, E> {
+        T::align_position(self, align)
+    }
 }
 
 /// Helper methods for [`Writer`].
 pub trait WriterExt<E>: Writer<E> {
     /// Advances the given number of bytes as padding.
     fn pad(&mut self, padding: usize) -> Result<(), E> {
-        const MAX_ZEROS: usize = 32;
-        const ZEROS: [u8; MAX_ZEROS] = [0; MAX_ZEROS];
-        debug_assert!(padding < MAX_ZEROS);
-
-        self.write(&ZEROS[0..padding])
+        self.write_padding(padding)
     }
 
     /// Aligns the position of the serializer to the given alignment.
     fn align(&mut self, align: usize) -> Result<usize, E> {
-        let mask = align - 1;
-        debug_assert_eq!(align & mask, 0);
-
-        self.pad((align - (self.pos() & mask)) & mask)?;
-        Ok(self.pos())
+        self.align_position(align)
     }
 
     /// Aligns the position of the serializer to be suitable to write the given
