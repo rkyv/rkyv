@@ -13,21 +13,20 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
-        <link rel="icon" href="favicon.svg">
-        <link rel="shortcut icon" href="favicon.png">
-        <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-        <link rel="stylesheet" href="css/print.css" media="print">
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="fonts/fonts.css">
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" id="highlight-css" href="highlight.css">
-        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
-        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
 
         <!-- Custom theme stylesheets -->
 
@@ -37,10 +36,10 @@
             const path_to_root = "";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "searchindex.js";
+            window.path_to_searchindex_js = "searchindex-da69e242.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="toc.js"></script>
+        <script src="toc-506a2ae0.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -54,7 +53,7 @@
             </div>
         </div>
     </div>
-    <div id="body-container">
+    <div id="mdbook-body-container">
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
         <script>
             try {
@@ -83,12 +82,12 @@
             html.classList.add("js");
         </script>
 
-        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
             let sidebar = null;
-            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
             if (document.body.clientWidth >= 1080) {
                 try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
                 sidebar = sidebar || 'visible';
@@ -103,39 +102,39 @@
             }
         </script>
 
-        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
             <!-- populated by js -->
             <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
             <noscript>
                 <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
             </noscript>
-            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
             </div>
         </nav>
 
-        <div id="page-wrapper" class="page-wrapper">
+        <div id="mdbook-page-wrapper" class="page-wrapper">
 
             <div class="page">
-                <div id="menu-bar-hover-placeholder"></div>
-                <div id="menu-bar" class="menu-bar sticky">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
                     <div class="left-buttons">
-                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                            <i class="fa fa-bars"></i>
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
                         </label>
-                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                            <i class="fa fa-paint-brush"></i>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
                         </button>
-                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
                         </ul>
-                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
-                            <i class="fa fa-search"></i>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
                         </button>
                     </div>
 
@@ -143,46 +142,47 @@
 
                     <div class="right-buttons">
                         <a href="print.html" title="Print this book" aria-label="Print this book">
-                            <i id="print-button" class="fa fa-print"></i>
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
                         </a>
 
                     </div>
                 </div>
 
-                <div id="search-wrapper" class="hidden">
-                    <form id="searchbar-outer" class="searchbar-outer">
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
                         <div class="search-wrapper">
-                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
                             <div class="spinner-wrapper">
-                                <i class="fa fa-spinner fa-spin"></i>
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
                             </div>
                         </div>
                     </form>
-                    <div id="searchresults-outer" class="searchresults-outer hidden">
-                        <div id="searchresults-header" class="searchresults-header"></div>
-                        <ul id="searchresults">
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
                         </ul>
                     </div>
                 </div>
 
                 <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
                 <script>
-                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
-                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
-                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
                         link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
                     });
                 </script>
 
-                <div id="content" class="content">
+                <div id="mdbook-content" class="content">
                     <main>
                         <p align="center">
     <img src="https://raw.githubusercontent.com/rkyv/rkyv/master/media/logo_text_color.svg">
 </p>
+
 <p><a href="http://github.com/rkyv/rkyv">rkyv</a> (<em>archive</em>) is a zero-copy deserialization framework for
 Rust.</p>
 <p>This book covers the motivation, architecture, and major features of rkyv. It is the best way to
-learn and understand rkyv, but won't go as in-depth on specifics as the documentation will. Don't be
+learn and understand rkyv, but won’t go as in-depth on specifics as the documentation will. Don’t be
 afraid to consult these other resources as you need while you read through.</p>
 <h1 id="resources"><a class="header" href="#resources">Resources</a></h1>
 <h2 id="learning-materials"><a class="header" href="#learning-materials">Learning Materials</a></h2>
@@ -210,12 +210,13 @@ benchmarks for zero-copy serialization solutions like rkyv.</li>
 <li><a href="https://github.com/rkyv/rancor">rancor</a>, which rkyv uses for error handling</li>
 <li><a href="https://github.com/rkyv/ptr_meta">ptr_meta</a>, which rkyv uses for pointer manipulation</li>
 </ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="motivation"><a class="header" href="#motivation">Motivation</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="motivation"><a class="header" href="#motivation">Motivation</a></h1>
 <p>First and foremost, the motivation behind rkyv is improved performance. The way that it achieves
 that goal can also lead to gains in memory use, correctness, and security along the way.</p>
 <blockquote>
 <p>Familiarity with other serialization frameworks and how traditional serialization works will help,
-but isn't necessary to understand how rkyv works.</p>
+but isn’t necessary to understand how rkyv works.</p>
 </blockquote>
 <p>Most serialization frameworks like <a href="https://serde.rs">serde</a> define an internal data model that
 consists of basic types such as primitives, strings, and byte arrays. This splits the work of
@@ -243,15 +244,16 @@ escaping invalid characters inside of them:</p>
 <pre><code>{ "message_size": 334 }
   ^^^^^^^^^^^^^^^
 </code></pre>
-<p>All those characters are not only taking up space, they're also taking up time. Every time we read
-and parse JSON, we're picking through those characters in order to figure out what the values are
-and reproduce them in memory. An <code>f32</code> is only four bytes of memory, but it's encoded using nine
+<p>All those characters are not only taking up space, they’re also taking up time. Every time we read
+and parse JSON, we’re picking through those characters in order to figure out what the values are
+and reproduce them in memory. An <code>f32</code> is only four bytes of memory, but it’s encoded using nine
 bytes and we still have to turn those nine characters into the right <code>f32</code>!</p>
 </blockquote>
 <p>This deserialization time adds up quickly, and in data-heavy applications such as games and media
 editing it can come to dominate load times. rkyv provides a solution through a serialization
 technique called <em>zero-copy deserialization</em>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="zero-copy-deserialization"><a class="header" href="#zero-copy-deserialization">Zero-copy deserialization</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="zero-copy-deserialization"><a class="header" href="#zero-copy-deserialization">Zero-copy deserialization</a></h1>
 <p>Zero-copy deserialization is a technique that reduces the time and memory required to access and use
 data by <em>directly referencing bytes in the serialized form</em>.</p>
 <blockquote>
@@ -261,17 +263,17 @@ If we had some JSON:</p>
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 </code></pre>
 <p>Instead of copying those characters into a <code>String</code>, we could just <em>borrow</em> it from the JSON
-buffer as a <code>&amp;str</code>. The lifetime of that <code>&amp;str</code> would depend on our buffer and we wouldn't be
+buffer as a <code>&amp;str</code>. The lifetime of that <code>&amp;str</code> would depend on our buffer and we wouldn’t be
 allowed to drop it until we had dropped the string we were using.</p>
 </blockquote>
 <h2 id="partial-zero-copy"><a class="header" href="#partial-zero-copy">Partial zero-copy</a></h2>
 <p>Serde and others have support for partial zero-copy deserialization, where bits and pieces of the
 deserialized data are borrowed from the serialized form. Strings, for example, can borrow their
-bytes directly from the serialized form in encodings like bincode that don't perform any character
+bytes directly from the serialized form in encodings like bincode that don’t perform any character
 escaping. However, a string object must still be created to hold the deserialized length and point
 to the borrowed characters.</p>
 <blockquote>
-<p>A good way to think about this is that even though we're borrowing lots of data from the buffer,
+<p>A good way to think about this is that even though we’re borrowing lots of data from the buffer,
 we still have to parse the <em>structure</em> out:</p>
 <pre><code class="language-rs">struct Example&lt;'a&gt; {
   quote: &amp;'a str,
@@ -293,9 +295,9 @@ we still have to parse the <em>structure</em> out:</p>
   c: char::from_u32(u32::from_le_bytes(&amp;buffer[50..54]))).unwrap(),
 }
 </code></pre>
-<p>And we can't borrow types like <code>u64</code> or <code>char</code> that have alignment requirements since our buffer
+<p>And we can’t borrow types like <code>u64</code> or <code>char</code> that have alignment requirements since our buffer
 might not be properly aligned. We have to immediately parse and store those! Even though we
-borrowed 42 of the buffer's bytes, we missed out on the last 12 and still had to parse through the
+borrowed 42 of the buffer’s bytes, we missed out on the last 12 and still had to parse through the
 buffer to find out where everything is.</p>
 </blockquote>
 <p>Partial zero-copy deserialization can considerably improve memory usage and often speed up
@@ -325,31 +327,33 @@ representation so that it is the same as the in-memory representation of the sou
 out exactly the same as they would be in memory. Our deserialization code can be much simpler:</p>
 <pre><code class="language-rs">unsafe { &amp;*buffer.as_ptr().add(32).cast() }
 </code></pre>
-<p>This operation is almost zero work, and more importantly it doesn't <em>scale</em> with our data. No
-matter how much or how little data we have, it's always just a pointer offset and a cast to access
+<p>This operation is almost zero work, and more importantly it doesn’t <em>scale</em> with our data. No
+matter how much or how little data we have, it’s always just a pointer offset and a cast to access
 our data.</p>
 </blockquote>
 <p>This opens up blazingly-fast data loading and enables data access orders of magnitude more quickly
 than traditional serialization.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="architecture"><a class="header" href="#architecture">Architecture</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="architecture"><a class="header" href="#architecture">Architecture</a></h1>
 <p>The core of rkyv is built around relative pointers and three core
 traits: <code>Archive</code>, <code>Serialize</code>, and <code>Deserialize</code>. Each of these traits has a
 corresponding variant that supports unsized types: <code>ArchiveUnsized</code>,
 <code>SerializeUnsized</code>, and <code>DeserializeUnsized</code>.</p>
 <blockquote>
 <p>A good way to think about it is that sized types are the <em>foundation</em> that unsized types are built
-on. That's not a fluke either, rkyv is built precisely so that you can build more complex
-abstractions out of lower-level machinery in a safe and composable way. It's not much different
+on. That’s not a fluke either, rkyv is built precisely so that you can build more complex
+abstractions out of lower-level machinery in a safe and composable way. It’s not much different
 from what you normally do while programming!</p>
 </blockquote>
 <p>The system is built to be flexible and can be extended beyond the provided types. For example, the
 <code>rkyv_dyn</code> crate adds support for trait objects by introducing new traits and defining how they
 build up to allow trait objects to be serialized and deserialized.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="relative-pointers"><a class="header" href="#relative-pointers">Relative pointers</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="relative-pointers"><a class="header" href="#relative-pointers">Relative pointers</a></h1>
 <p>Relative pointers are the bread and butter of total zero-copy deserialization, completely replacing
-the use of normal pointers. But why can't we use normal pointers?</p>
+the use of normal pointers. But why can’t we use normal pointers?</p>
 <p>Consider some zero-copy data on disk. Before we can use it, we need to load it into memory. But we
-can't control <em>where</em> in memory it gets loaded. Every time we load it, it could be located at a
+can’t control <em>where</em> in memory it gets loaded. Every time we load it, it could be located at a
 different address, and therefore the objects inside of it will be located at a different address.</p>
 <blockquote>
 <p>One of the major reasons for this is actually <em>security</em>. Every time you run your program, it may
@@ -359,30 +363,37 @@ and it helps prevent exploitation of memory corruption vulnerabilities.</p>
 <p>At most, we can only control the <em>alignment</em> of our zero-copy data, so we need to work within
 those constraints.</p>
 </blockquote>
-<p>This means that we can't store any pointers to that data, inside of it or outside of it. As soon as
+<p>This means that we can’t store any pointers to that data, inside of it or outside of it. As soon as
 we reload the data, it might not be at the same address. That would leave our pointers dangling, and
 would almost definitely result in memory access violations. Some other libraries like
 <a href="https://github.com/TimelyDataflow/abomonation">abomonation</a> store some extra data and perform a
 fast fixup step that takes the place of deserialization, but we can do better.</p>
 <blockquote>
 <p>In order to perform that fixup step, abomonation requires that the buffer has a <em>mutable backing</em>.
-This is okay for many use cases, but there are also cases where we won't be able to mutate our
+This is okay for many use cases, but there are also cases where we won’t be able to mutate our
 buffer. One example is if we used
 <a href="https://en.wikipedia.org/wiki/Memory-mapped_file">memory-mapped files</a>.</p>
 </blockquote>
 <p>While normal pointers hold an absolute address in memory, relative pointers hold an offset to an address. This changes how
 the pointer behaves under moves:</p>
-<div class="table-wrapper"><table><thead><tr><th>Pointer</th><th>Self is moved</th><th>Self and target are moved</th></tr></thead><tbody>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Pointer</th><th>Self is moved</th><th>Self and target are moved</th></tr>
+</thead>
+<tbody>
 <tr><td>Absolute</td><td>✅ Target is still at address</td><td>❌ Target no longer at address</td></tr>
 <tr><td>Relative</td><td>❌ Relative distance has changed</td><td>✅ Self and target same relative distance apart</td></tr>
-</tbody></table>
+</tbody>
+</table>
 </div>
 <p>This is exactly the property we need to build data structures with total zero-copy deserialization.
 By using relative pointers, we can load data at any position in memory and still have valid pointers
-inside of it. Relative pointers don't require write access to memory either, so we can memory map
+inside of it. Relative pointers don’t require write access to memory either, so we can memory map
 entire files and instantly have access to their data in a structured manner.</p>
-<p>rkyv's implementation of relative pointers is the <code>RelPtr</code> type.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="archive"><a class="header" href="#archive">Archive</a></h1>
+<p>rkyv’s implementation of relative pointers is the <code>RelPtr</code> type.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="archive"><a class="header" href="#archive">Archive</a></h1>
 <p>Types that implement <code>Archive</code> have an alternate representation that supports zero-copy
 deserialization. The construction of archived types happens in two steps:</p>
 <ol>
@@ -398,10 +409,10 @@ original values and resolvers combined, the archived version can be constructed.
 </ol>
 <h2 id="resolvers"><a class="header" href="#resolvers">Resolvers</a></h2>
 <p>A good example of why resolvers are necessary is when archiving a tuple. Say we have two strings:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>let value = ("hello".to_string(), "world".to_string());
-<span class="boring">}</span></code></pre></pre>
+<span class="boring">}</span></code></pre>
 <p>The archived tuple needs to have both of the strings right next to each other:</p>
 <pre><code>0x0000      AA AA AA AA BB BB BB BB
 0x0008      CC CC CC CC DD DD DD DD
@@ -409,9 +420,9 @@ original values and resolvers combined, the archived version can be constructed.
 <p>A and B might be the length and pointer for the first string of the tuple, and C and D might be the
 length and pointer for the second string.</p>
 <p>When archiving, we might be tempted to serialize and resolve the first string, then serialize and
-resolve the second one. But this might place the second string's bytes ("world") between the two!
+resolve the second one. But this might place the second string’s bytes (“world”) between the two!
 Instead, we need to write out the bytes for both strings, and then finish archiving both of them.
-The tuple doesn't know what information the strings need to finish archiving themselves, so they
+The tuple doesn’t know what information the strings need to finish archiving themselves, so they
 have to provide it to the tuple through their Resolver.</p>
 <p>This way, the tuple can:</p>
 <ol>
@@ -420,25 +431,26 @@ have to provide it to the tuple through their Resolver.</p>
 <li>Resolve the first string with its resolver</li>
 <li>Resolve the second string with its resolver</li>
 </ol>
-<p>And we're guaranteed that the two strings are placed right next to each other like we need.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="serialize"><a class="header" href="#serialize">Serialize</a></h1>
+<p>And we’re guaranteed that the two strings are placed right next to each other like we need.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="serialize"><a class="header" href="#serialize">Serialize</a></h1>
 <p>Types implement <code>Serialize</code> separately from <code>Archive</code>. <code>Serialize</code> creates a resolver for some
 object, then <code>Archive</code> turns the value and that resolver into an archived type. Having a separate
 <code>Serialize</code> trait is necessary because although a type may have only one archived representation,
 it may support many different types of <em>serializers</em> which fulfill its requirements.</p>
 <blockquote>
 <p>The <code>Serialize</code> trait is parameterized over the <em>serializer</em>. The serializer is just a mutable
-object that helps the type serialize itself. The most basic types like <code>u32</code> or <code>char</code> don't
+object that helps the type serialize itself. The most basic types like <code>u32</code> or <code>char</code> don’t
 <em>bound</em> their serializer type because they can serialize themselves with any kind of serializer.
 More complex types like <code>Box</code> and <code>String</code> require a serializer that implements <code>Writer</code>, and even
 more complex types like <code>Rc</code> and <code>Vec</code> require a serializer that additionally implements <code>Sharing</code>
 or <code>Allocator</code>.</p>
 </blockquote>
-<p>Unlike <code>Serialize</code>, <code>Archive</code> doesn't parameterize over the serializer used to make it. It shouldn't
-matter what serializer a resolver was made with, only that it's made correctly.</p>
+<p>Unlike <code>Serialize</code>, <code>Archive</code> doesn’t parameterize over the serializer used to make it. It shouldn’t
+matter what serializer a resolver was made with, only that it’s made correctly.</p>
 <h2 id="serializer"><a class="header" href="#serializer">Serializer</a></h2>
 <p>rkyv provides default serializers which can serialize all standard library types, as well as
-components which can be combined into custom-built serializers. By combining rkyv's provided
+components which can be combined into custom-built serializers. By combining rkyv’s provided
 components, serializers can be customized for high-performance, no-std, and custom allocation.</p>
 <p>When using the high-level API, a <code>HighSerializer</code> provides a good balance of flexibility and
 performance by default. When using the low-level API, a <code>LowSerializer</code> does the same without any
@@ -448,11 +460,11 @@ own from scratch.</p>
 <h3 id="positional"><a class="header" href="#positional">Positional</a></h3>
 <p>This core serializer trait provides positional information during serialization. Because types need
 to know the relative distance between objects, the <code>Positional</code> trait provides the current position
-of the "write head" of the serializer. Resolvers will often store the <em>position</em> of some serialized
+of the “write head” of the serializer. Resolvers will often store the <em>position</em> of some serialized
 data so that a relative pointer can be calculated to it during <code>resolve</code>.</p>
 <h3 id="writer"><a class="header" href="#writer">Writer</a></h3>
-<p><code>Writer</code> accepts byte slices and writes them to some output. It is similar to the standard library's
-<code>Write</code> trait, but rkyv's <code>Writer</code> trait works in no-std contexts. In rkyv, writers are always
+<p><code>Writer</code> accepts byte slices and writes them to some output. It is similar to the standard library’s
+<code>Write</code> trait, but rkyv’s <code>Writer</code> trait works in no-std contexts. In rkyv, writers are always
 <em>write-forward</em> - they never backtrack and rewrite data later. This makes it possible for writers to
 eagerly sink bytes to disk or the network without having to first buffer the entire message.</p>
 <p>Several kinds of <code>Writer</code>s are supported by default:</p>
@@ -476,19 +488,20 @@ The <code>Sharing</code> trait provides some mutable state on the serializer whi
 pointers have been serialized so far, and can instruct repeated shared pointers to point to a
 previously-serialized instance. This also allows rkyv to preserve shared pointers during zero-copy
 access and deserialization.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="deserialize"><a class="header" href="#deserialize">Deserialize</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="deserialize"><a class="header" href="#deserialize">Deserialize</a></h1>
 <p>Similarly to <code>Serialize</code>, <code>Deserialize</code> parameterizes over a deserializer, and converts a type from
 its archived form back to its original one. Unlike serialization, deserialization occurs in a single
-step and doesn't have an equivalent of a resolver.</p>
+step and doesn’t have an equivalent of a resolver.</p>
 <blockquote>
 <p><code>Deserialize</code> also parameterizes over the type that is being deserialized into. This allows the
-same archived type to deserialize into multiple different unarchived types depending on what's
+same archived type to deserialize into multiple different unarchived types depending on what’s
 being asked for. This helps enable lots of very powerful abstractions, but might require you to
 use a turbofish or annotate types when deserializing.</p>
 </blockquote>
 <p>This provides a more or less traditional deserialization with the added benefit of being sped up
 by having very compiler-friendly representations. It also incurs both the memory and performance
-penalties of traditional deserialization, so make sure that it's what you need before you use it.
+penalties of traditional deserialization, so make sure that it’s what you need before you use it.
 Deserialization is not required to access archived data as long as you can do so through the
 archived versions.</p>
 <blockquote>
@@ -501,13 +514,14 @@ as a whole. This granular approach provides the benefits of both zero-copy deser
 as traditional deserialization.</p>
 <h2 id="pooling"><a class="header" href="#pooling">Pooling</a></h2>
 <p>Deserializers, like serializers, provide capabilities to objects during deserialization. Most types
-don't need to bound their deserializers, but some like <code>Rc</code> require special traits in order to
+don’t need to bound their deserializers, but some like <code>Rc</code> require special traits in order to
 deserialize properly.</p>
 <p>The <code>Pooling</code> trait controls how pointers which were serialized shared are deserialized. Much like
 <code>Sharing</code>, <code>Pooling</code> holds some mutable state on the deserializer to allow shared pointers to the
 same data to coordinate with each other. Using the <code>Pool</code> implementation pools these deserialized
 shared pointers together, whereas <code>Unpool</code> clones them for each instance of the shared pointer.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="format"><a class="header" href="#format">Format</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="format"><a class="header" href="#format">Format</a></h1>
 <p>Types which derive <code>Archive</code> generate an archived version of the type where:</p>
 <ul>
 <li>Member types are replaced with their archived counterparts</li>
@@ -517,16 +531,16 @@ possible type that can represent all of the variants.</li>
 <li>All primitives are replaced with versions which have stable, well-defined layouts and byte orders.</li>
 </ul>
 <p>For example, a struct like:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>struct Example {
     a: u32,
     b: String,
     c: Box&lt;(u32, String)&gt;,
 }
-<span class="boring">}</span></code></pre></pre>
+<span class="boring">}</span></code></pre>
 <p>Would have the archived counterpart:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>#[repr(C)]
 struct ArchivedExample {
@@ -534,7 +548,7 @@ struct ArchivedExample {
     b: ArchivedString,
     c: ArchivedBox&lt;ArchivedTuple2&lt;u32_le, ArchivedString&gt;&gt;,
 }
-<span class="boring">}</span></code></pre></pre>
+<span class="boring">}</span></code></pre>
 <p>With the <code>little_endian</code> feature enabled.</p>
 <p>rkyv provides <code>Archive</code> implementations for common standard library types by default. In general,
 they follow the same format as derived implementations but may differ in some cases. For example,
@@ -572,23 +586,24 @@ a -&gt; c -&gt; e
 a -&gt; c
 a
 </code></pre>
-<p>This deterministic layout means that you don't need to store the position of the root object in most
+<p>This deterministic layout means that you don’t need to store the position of the root object in most
 cases. As long as your buffer ends right at the end of your root object, you can use <code>access</code> with
 your buffer.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="alignment"><a class="header" href="#alignment">Alignment</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="alignment"><a class="header" href="#alignment">Alignment</a></h1>
 <p>The <em>alignment</em> of a type restricts where it can be located in memory to optimize hardware loads and
 stores. Because rkyv creates references to values located in your serialized bytes, it has to ensure
 that the references it creates are properly <em>aligned</em> for the type.</p>
 <blockquote>
 <p>In order to perform arithmetic and logical operations on data, modern CPUs need to <em>load</em> that
-data from memory into its registers. However, there's usually a hardware limitation on how the CPU
+data from memory into its registers. However, there’s usually a hardware limitation on how the CPU
 can access that data: it can only access data starting at <em>word boundaries</em>. These words are the
 natural size for the CPU to work with; the word size is 4 bytes for 32-bit machines and 8 bytes
 for 64-bit machines. Imagine we had some data laid out like this:</p>
 <pre><code>0   4   8   C
 AAAABBBBCCCCDDDD
 </code></pre>
-<p>On a 32-bit CPU, accesses could occur at any address that's a multiple of 4 bytes. For example,
+<p>On a 32-bit CPU, accesses could occur at any address that’s a multiple of 4 bytes. For example,
 one could access <code>A</code> by loading 4 bytes from address 0, <code>B</code> by loading 4 bytes from address 4, and
 so on. This works great because our data is <em>aligned</em> to word boundaries. <em>Unaligned</em> data can
 throw a wrench in that:</p>
@@ -613,8 +628,8 @@ impact on our performance across the board, so we require all of our data to be 
 </ul>
 <p>For most use cases, 16-aligned memory should be sufficient.</p>
 <h2 id="in-practice"><a class="header" href="#in-practice">In practice</a></h2>
-<p>rkyv's unchecked APIs have very basic alignment checks which always run in debug builds. These may
-not catch every case, but using <a href="format/../validation.html">validation</a> will always make sure that your data
+<p>rkyv’s unchecked APIs have very basic alignment checks which always run in debug builds. These may
+not catch every case, but using <a href="#validation">validation</a> will always make sure that your data
 is properly aligned.</p>
 <h3 id="common-pitfalls"><a class="header" href="#common-pitfalls">Common pitfalls</a></h3>
 <p>In some cases, your archived data may be prefixed by some extra data like the length of the buffer.
@@ -623,11 +638,12 @@ data removed before accessing it.</p>
 <p>In other cases, your archived data may not be tight to the end of the buffer. Functions like
 <code>access</code> rely on the end of the buffer being tight to the end of the data, and may miscalculate the
 position of the archived data if it is not.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="derive-macro-features"><a class="header" href="#derive-macro-features">Derive macro features</a></h1>
-<p>rkyv's derive macro supports a number of attributes and configurable options. All of rkyv's macro
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="derive-macro-features"><a class="header" href="#derive-macro-features">Derive macro features</a></h1>
+<p>rkyv’s derive macro supports a number of attributes and configurable options. All of rkyv’s macro
 attributes are documented on the <code>Archive</code> proc-macro. Some of the most important ones to know are:</p>
 <h2 id="omit_bounds"><a class="header" href="#omit_bounds"><code>omit_bounds</code></a></h2>
-<p>rkyv's derive macro performs a "perfect derive" by default. This means that when it generates trait
+<p>rkyv’s derive macro performs a “perfect derive” by default. This means that when it generates trait
 impls, it adds where clauses requiring each field type to also implement that trait. This can cause
 trouble in two primary situations:</p>
 <ol>
@@ -635,7 +651,7 @@ trouble in two primary situations:</p>
 <li>Private types may be exposed by these derive bounds.</li>
 </ol>
 <p>Both of these situations can be fixed by adding <code>#[rkyv(omit_bounds)]</code> on the field. This prevents
-rkyv from adding the "perfect derive" bounds for that field.</p>
+rkyv from adding the “perfect derive” bounds for that field.</p>
 <p>When you do omit the bounds for a particular field, it can lead to insufficient bounds being added
 to the generated impl. To add custom bounds back, you can use:</p>
 <ul>
@@ -646,20 +662,21 @@ to the generated impl. To add custom bounds back, you can use:</p>
 <p>See <code>rkyv/examples/json_like_schema.rs</code> for a fully-commented example of using <code>omit_bounds</code>.</p>
 <h2 id="with--"><a class="header" href="#with--"><code>with = ..</code></a></h2>
 <p>This customizes the serialization of a field by applying a
-<a href="derive-macro-features/wrapper-types.html">wrapper type</a>.</p>
+<a href="#wrapper-types">wrapper type</a>.</p>
 <h2 id="remote--"><a class="header" href="#remote--"><code>remote = ..</code></a></h2>
-<p>This performs a <a href="derive-macro-features/remote-derive.html">remote derive</a> for supporting external
+<p>This performs a <a href="#remote-derive">remote derive</a> for supporting external
 types.</p>
 <h2 id="attr-and-derive"><a class="header" href="#attr-and-derive"><code>attr(..)</code> and <code>derive(..)</code></a></h2>
 <p><code>#[rkyv(attr(..))]</code> is a general-purpose attribute which allows you to pass attributes down to the
 generated archived type. This can be especially useful in combination with <code>#[rkyv(derive(..))]</code>,
 which may be used on types and is sugar for <code>#[rkyv(attr(derive(..)))]</code>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="wrapper-types"><a class="header" href="#wrapper-types">Wrapper types</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="wrapper-types"><a class="header" href="#wrapper-types">Wrapper types</a></h1>
 <p>Wrapper types customize the way that fields of types are archived. In some cases, wrapper types
 merely change the default behavior to a preferred alternative. In other cases, wrapper types allow
 serializing types which do not have support for rkyv by default.</p>
 <p>Annotating a field with <code>#[rkyv(with = ..)]</code> will <em>wrap</em> that field with the given types when the
-struct is serialized or deserialized. There's no performance penalty to wrapping types, but doing
+struct is serialized or deserialized. There’s no performance penalty to wrapping types, but doing
 more or less work during serialization and deserialization can affect performance. This excerpt is
 from the documentation for <code>ArchiveWith</code>:</p>
 <pre><code class="language-rs">#[derive(Archive, Deserialize, Serialize)]
@@ -672,14 +689,15 @@ struct Example {
 </code></pre>
 <p>The <code>Incremented</code> wrapper is wrapping <code>a</code>, and the definition causes that field to be incremented
 in its archived form.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="remote-derive"><a class="header" href="#remote-derive">Remote derive</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="remote-derive"><a class="header" href="#remote-derive">Remote derive</a></h1>
 <p>Like serde, rkyv also supports <em>remote derive</em>. This allows you to easily generate wrapper types to
-serialize types from other crates which don't provide rkyv support. Remote derive uses a local
+serialize types from other crates which don’t provide rkyv support. Remote derive uses a local
 definition of the type to serialize, and generates a wrapper type you can use to serialize that
 type.</p>
 <p>Remote derive supports getters, wrapper types, and deserialization back to the original type by
 providing a <code>From</code> impl. This example is from <code>rkyv/examples/remote_types.rs</code>:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>// Let's create a local type that will serve as `with`-wrapper for `Foo`.
 // Fields must have the same name and type but it's not required to define all
@@ -715,24 +733,25 @@ impl From&lt;FooDef&gt; for remote::Foo {
         remote::Foo::new(value.ch, [value.first_byte, 2, 3, 4], 567, value.bar)
     }
 }
-<span class="boring">}</span></code></pre></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="shared-pointers"><a class="header" href="#shared-pointers">Shared Pointers</a></h1>
+<span class="boring">}</span></code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="shared-pointers"><a class="header" href="#shared-pointers">Shared Pointers</a></h1>
 <p>The implementation details of shared pointers may be of interest to those using them. The rules
 surrounding how and when shared and weak pointers are serialized and pooled may affect how you
 choose to use them.</p>
 <h2 id="serialization"><a class="header" href="#serialization">Serialization</a></h2>
-<p>Shared pointers (<code>Rc</code> and <code>Arc</code>) are serialized whenever they're encountered for the first time, and
+<p>Shared pointers (<code>Rc</code> and <code>Arc</code>) are serialized whenever they’re encountered for the first time, and
 the data address is reused when subsequent shared pointers point to the same data. This means that
 you can expect shared pointers to always point to the same value when archived, even if they are
 unsized to different types.</p>
-<p>Weak pointers (<code>rc::Weak</code> and <code>sync::Weak</code>) have serialization attempted as soon as they're
+<p>Weak pointers (<code>rc::Weak</code> and <code>sync::Weak</code>) have serialization attempted as soon as they’re
 encountered. The serialization process upgrades them, and if it succeeds it serializes them like
 shared pointers. Otherwise, it serializes them like <code>None</code>.</p>
 <h2 id="deserialization"><a class="header" href="#deserialization">Deserialization</a></h2>
 <p>Similarly, shared pointers are deserialized on the first encounter and reused afterward. Weak
-pointers do a similar upgrade attempt when they're encountered for the first time.</p>
+pointers do a similar upgrade attempt when they’re encountered for the first time.</p>
 <h2 id="serializers-and-deserializers"><a class="header" href="#serializers-and-deserializers">Serializers and Deserializers</a></h2>
-<p>The serializers for shared pointers hold the location of the serialized data. This means it's safe
+<p>The serializers for shared pointers hold the location of the serialized data. This means it’s safe
 to serialize shared pointers to an archive across multiple <code>serialize</code> calls as long as you use the
 same serializer for each one. Using a new serializer will still do the right thing, but may end up
 duplicating the shared data.</p>
@@ -740,21 +759,22 @@ duplicating the shared data.</p>
 hold them in memory until the deserializer is dropped. This means that if you serialize only weak
 pointers to some shared data, they will point to the correct value when deserialized but will point
 to nothing as soon as the deserializer is dropped.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="unsized-types"><a class="header" href="#unsized-types">Unsized Types</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="unsized-types"><a class="header" href="#unsized-types">Unsized Types</a></h1>
 <p>rkyv supports unsized types out of the box and ships with implementations for the most common
 unsized types (<code>str</code>s and slices). Trait objects can also be supported with <code>rkyv_dyn</code>, see
-<a href="trait-objects.html">Trait Objects</a> for more details.</p>
+<a href="#trait-objects">Trait Objects</a> for more details.</p>
 <h2 id="metadata"><a class="header" href="#metadata">Metadata</a></h2>
 <p>The core concept that enables unsized types is metadata. In rust, pointers to types can be different
 sizes, in contrast with languages like C and C++ where all pointers are the same size. This is
-important for the concept of sizing, which you may have encountered through rust's
+important for the concept of sizing, which you may have encountered through rust’s
 <a href="https://doc.rust-lang.org/std/marker/trait.Sized.html">Sized</a> trait.</p>
 <p>Pointers are composed of two pieces: a data address and some metadata. The data address is what most
-people think of when they think about pointers; it's the location of the pointed-to data. The
-metadata for a pointer is extra data that's needed to work safely with the data at the pointed-to
+people think of when they think about pointers; it’s the location of the pointed-to data. The
+metadata for a pointer is extra data that’s needed to work safely with the data at the pointed-to
 location. It can be almost anything, or nothing at all for <code>Sized</code> types. Pointers with no extra
-metadata are sometimes called "narrow" pointers, and pointers <em>with</em> metadata are sometimes called
-"wide" pointers.</p>
+metadata are sometimes called “narrow” pointers, and pointers <em>with</em> metadata are sometimes called
+“wide” pointers.</p>
 <blockquote>
 <p>rkyv uses the <a href="https://docs.rs/ptr_meta"><code>ptr_meta</code></a> crate to perform these conversions safely. In
 the future, these may be incorporated as
@@ -774,13 +794,14 @@ will end up as just filling out a few functions and returning <code>()</code>.</
 your head around. Reading the documentation for <code>ArchiveUnsized</code> may help you understand how the
 system works by working through an example.</p>
 </blockquote>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="trait-objects"><a class="header" href="#trait-objects">Trait Objects</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="trait-objects"><a class="header" href="#trait-objects">Trait Objects</a></h1>
 <p>Trait object serialization is supported through the <code>rkyv_dyn</code> crate. This crate is maintained as
 part of rkyv, but is separate from the main crate to allow other implementations to be used instead.
 This section will focus primarily on the architecture of <code>rkyv_dyn</code> and how to use it effectively.</p>
 <blockquote>
 <p><code>rkyv_dyn</code> may not work in some exotic environments due to the ✨magic✨ it uses to register
-trait objects. If you want these capabilities but <code>rkyv_dyn</code> doesn't work in your environment,
+trait objects. If you want these capabilities but <code>rkyv_dyn</code> doesn’t work in your environment,
 feel free to file an issue or drop by in the discord to talk it through.</p>
 </blockquote>
 <h2 id="core-traits"><a class="header" href="#core-traits">Core traits</a></h2>
@@ -803,17 +824,18 @@ to talk it through.</p>
 <a href="https://docs.rs/rkyv_dyn/latest/rkyv_dyn/attr.archive_dyn.html"><code>archive_dyn</code></a> macro to implement
 the new traits and set everything up correctly.</p>
 <p>Using <code>archive_dyn</code> on a trait definition creates another trait definition with supertraits of your
-trait and <code>SerializeDyn</code>. This "shim" trait is blanket implemented for all types that implement your
+trait and <code>SerializeDyn</code>. This “shim” trait is blanket implemented for all types that implement your
 trait and <code>SerializeDyn</code>, so you should only ever have to implement your trait to use it.</p>
 <p>The shim trait should be used everywhere that you have a trait object of your trait that you want to
-serialize. By default, it will be named "Serialize" + your trait name. A different approach that
+serialize. By default, it will be named “Serialize” + your trait name. A different approach that
 similar libraries take is directly adding <code>SerializeDyn</code> as a supertrait of your trait. While more
 ergonomic, this approach does not allow the implementation of the trait on types that cannot or
 should not implement <code>SerializeDyn</code>, so the shim trait approach was favored for <code>rkyv_dyn</code>.</p>
 <p>When the shim trait is serialized, it stores the type hash of the underlying type in its metadata so
 it can get the correct vtable for it when accessed. This requires that all vtables for implementing
 types must be known ahead of time, which is when we use <code>archive_dyn</code> for the second time.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="validation"><a class="header" href="#validation">Validation</a></h1>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="validation"><a class="header" href="#validation">Validation</a></h1>
 <p>Validation can be enabled with the <code>bytecheck</code> feature, and leverages the
 <a href="https://docs.rs/bytecheck"><code>bytecheck</code></a> crate to perform archive validation. This allows the
 use of untrusted and malicious data.</p>
@@ -862,11 +884,12 @@ malicious data from validating.</p>
 This can cause issues if you have a shared pointer to the same array, but the pointers are an array
 pointer and a slice pointer. Similarly, it can cause issues if you have shared pointers to the same
 value as a concrete type (e.g. <code>i32</code>) and a trait object (e.g. <code>dyn Any</code>).</p>
-<p>rkyv still supports these use cases, but it's not possible or feasible to ensure data integrity with
+<p>rkyv still supports these use cases, but it’s not possible or feasible to ensure data integrity with
 these use cases. Alternative validation solutions like archive signatures and data hashes may be a
 better approach in these cases.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="allocation-tracking"><a class="header" href="#allocation-tracking">Allocation tracking</a></h1>
-<p>rkyv's provided <code>AllocationTracker</code> struct wraps an <code>Allocator</code> and tracks when memory is allocated
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="allocation-tracking"><a class="header" href="#allocation-tracking">Allocation tracking</a></h1>
+<p>rkyv’s provided <code>AllocationTracker</code> struct wraps an <code>Allocator</code> and tracks when memory is allocated
 and freed during serialization. It can also calculate synthetic metrics, like the minimum amount of
 pre-allocated memory required to serialize a value. And, it can report the maximum alignment of all
 serialized types.</p>
@@ -875,11 +898,17 @@ providing the pieces of your serializer. Normally, the provided allocator would 
 but instead you should provide it an <code>AllocationTracker::new(arena_handle)</code>.</p>
 <p>After serializing your value, the serializer can be decomposed with <code>into_raw_parts</code>. You can then
 retrieve the <code>AllocationStats</code> from the allocator by calling <code>into_stats</code>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="feature-comparison"><a class="header" href="#feature-comparison">Feature Comparison</a></h1>
-<p>This is a best-effort feature comparison between rkyv, FlatBuffers, and Cap'n Proto. This is by no
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="feature-comparison"><a class="header" href="#feature-comparison">Feature Comparison</a></h1>
+<p>This is a best-effort feature comparison between rkyv, FlatBuffers, and Cap’n Proto. This is by no
 means completely comprehensive, and pull requests that improve this are welcomed.</p>
 <h2 id="feature-matrix"><a class="header" href="#feature-matrix">Feature matrix</a></h2>
-<div class="table-wrapper"><table><thead><tr><th>Feature</th><th>rkyv</th><th>Cap'n Proto</th><th>FlatBuffers</th></tr></thead><tbody>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Feature</th><th>rkyv</th><th>Cap’n Proto</th><th>FlatBuffers</th></tr>
+</thead>
+<tbody>
 <tr><td>Open type system</td><td>yes</td><td>no</td><td>no</td></tr>
 <tr><td>Scalars</td><td>yes</td><td>no</td><td>yes</td></tr>
 <tr><td>Tables</td><td>no</td><td>yes</td><td>yes</td></tr>
@@ -897,24 +926,26 @@ means completely comprehensive, and pull requests that improve this are welcomed
 <tr><td>Cross-language</td><td>no</td><td>yes</td><td>yes</td></tr>
 <tr><td>Hash maps and B-trees</td><td>yes</td><td>no</td><td>no</td></tr>
 <tr><td>Shared pointers</td><td>yes</td><td>no</td><td>no</td></tr>
-</tbody></table>
+</tbody>
+</table>
 </div>
-<p>Although these features aren't supported out-of-the-box, rkyv's open type system allows extensions
+<p>Although these features aren’t supported out-of-the-box, rkyv’s open type system allows extensions
 which provide many of these capabilities.</p>
 <h2 id="open-type-system"><a class="header" href="#open-type-system">Open type system</a></h2>
-<p>One of rkyv's primary features is that its type system is <em>open</em>. This means that users can write
+<p>One of rkyv’s primary features is that its type system is <em>open</em>. This means that users can write
 custom types and control their properties very finely. You can think of rkyv as a solid foundation
 to build many other features on top of. In fact, the open type system is already a fundamental part
 of how rkyv works.</p>
 <h3 id="unsized-types-1"><a class="header" href="#unsized-types-1">Unsized types</a></h3>
-<p>Even though they're part of the main library, unsized types are built on top of the core
+<p>Even though they’re part of the main library, unsized types are built on top of the core
 serialization functionality. Types like <code>Box</code> and <code>Rc/Arc</code> that can hold unsized types are entry
 points for unsized types into the sized system.</p>
 <h3 id="trait-objects-1"><a class="header" href="#trait-objects-1">Trait objects</a></h3>
 <p>Trait objects are further built on top of unsized types to make serializing and using trait objects
 easy and safe.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="faq"><a class="header" href="#faq">FAQ</a></h1>
-<p>Because it's so different from traditional serialization systems, a lot of people have questions
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="faq"><a class="header" href="#faq">FAQ</a></h1>
+<p>Because it’s so different from traditional serialization systems, a lot of people have questions
 about rkyv. This is meant to serve as a comprehensive, centralized source for answers.</p>
 <h2 id="how-is-rkyv-zero-copy-it-definitely-copies-the-archive-into-memory"><a class="header" href="#how-is-rkyv-zero-copy-it-definitely-copies-the-archive-into-memory">How is rkyv zero-copy? It definitely copies the archive into memory.</a></h2>
 <p>Traditional serialization works in two steps:</p>
@@ -923,7 +954,7 @@ about rkyv. This is meant to serve as a comprehensive, centralized source for an
 <li>Process the data in the buffer into the deserialized data structure</li>
 </ol>
 <p>The copy happens in the second step, when the data in the buffer ends up duplicated in the final
-data structure. Zero-copy deserialization doesn't deserialize the buffer into a separate structure,
+data structure. Zero-copy deserialization doesn’t deserialize the buffer into a separate structure,
 and thus avoids this copy.</p>
 <p>Advanced techniques like memory-mapped files can also help you avoid copying as much of your data if
 you only read smaller parts of it.</p>
@@ -936,29 +967,30 @@ you only read smaller parts of it.</p>
 <p>Yes, disable the <code>std</code> feature for <code>no_std</code>. You can additionally disable the <code>alloc</code> feature to
 disable all memory allocation capabilities.</p>
 <h1 id="safety"><a class="header" href="#safety">Safety</a></h1>
-<h2 id="isnt-this-very-unsafe-if-you-access-untrusted-data"><a class="header" href="#isnt-this-very-unsafe-if-you-access-untrusted-data">Isn't this very unsafe if you access untrusted data?</a></h2>
+<h2 id="isnt-this-very-unsafe-if-you-access-untrusted-data"><a class="header" href="#isnt-this-very-unsafe-if-you-access-untrusted-data">Isn’t this very unsafe if you access untrusted data?</a></h2>
 <p>If you skip validation, then yes. You can still access untrusted data if you validate the archive
-first with bytecheck. It's an extra step, but it's usually still less than the cost of deserializing
+first with bytecheck. It’s an extra step, but it’s usually still less than the cost of deserializing
 using a traditional format.</p>
-<h2 id="doesnt-that-mean-i-always-have-to-validate"><a class="header" href="#doesnt-that-mean-i-always-have-to-validate">Doesn't that mean I always have to validate?</a></h2>
+<h2 id="doesnt-that-mean-i-always-have-to-validate"><a class="header" href="#doesnt-that-mean-i-always-have-to-validate">Doesn’t that mean I always have to validate?</a></h2>
 <p>No, there are many other ways you can verify your data, for example with checksums and cryptographic
 signatures.</p>
-<h2 id="isnt-it-kind-of-deceptive-to-say-rkyv-is-fast-and-then-require-validation"><a class="header" href="#isnt-it-kind-of-deceptive-to-say-rkyv-is-fast-and-then-require-validation">Isn't it kind of deceptive to say rkyv is fast and then require validation?</a></h2>
-<p>The fastest path to access archived data is marked as <code>unsafe</code>. This doesn't mean that it's
-unusable, it means that it's only safe to call if you can verify its preconditions.</p>
+<h2 id="isnt-it-kind-of-deceptive-to-say-rkyv-is-fast-and-then-require-validation"><a class="header" href="#isnt-it-kind-of-deceptive-to-say-rkyv-is-fast-and-then-require-validation">Isn’t it kind of deceptive to say rkyv is fast and then require validation?</a></h2>
+<p>The fastest path to access archived data is marked as <code>unsafe</code>. This doesn’t mean that it’s
+unusable, it means that it’s only safe to call if you can verify its preconditions.</p>
 <p>As long as you can reasonably uphold those preconditions, then accessing the archive is safe. Not
 every archive needs to be validated, and you can use a variety of different techniques to guarantee
 data integrity and security.</p>
 <p>Even if you do need to always validate your data before accessing it, validation is still faster
 than deserializing with other high-performance formats. A round-trip is still faster, even though
-it's not by the same margins.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="contributors"><a class="header" href="#contributors">Contributors</a></h1>
+it’s not by the same margins.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="contributors"><a class="header" href="#contributors">Contributors</a></h1>
 <p>Thanks to all the contributors who have helped document rkyv:</p>
 <ul>
 <li>David Koloski (<a href="https://github.com/djkoloski">djkoloski</a>)</li>
 <li>Badewanne3 (<a href="https://github.com/MaxOhn">MaxOhn</a>)</li>
 </ul>
-<p>If you feel you're missing from this list, feel free to add yourself in a PR.</p>
+<p>If you feel you’re missing from this list, feel free to add yourself in a PR.</p>
 
                     </main>
 
@@ -977,6 +1009,11 @@ it's not by the same margins.</p>
 
         </div>
 
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
 
 
 
@@ -985,13 +1022,13 @@ it's not by the same margins.</p>
         </script>
 
 
-        <script src="elasticlunr.min.js"></script>
-        <script src="mark.min.js"></script>
-        <script src="searcher.js"></script>
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
 
-        <script src="clipboard.min.js"></script>
-        <script src="highlight.js"></script>
-        <script src="book.js"></script>
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
 
         <!-- Custom JS scripts -->
 
