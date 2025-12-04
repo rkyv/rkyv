@@ -58,8 +58,8 @@ pub struct ArchivedHashTable<T> {
 }
 
 #[inline]
-fn h1(hash: u64) -> usize {
-    hash as usize
+fn h1(hash: u64) -> u64 {
+    hash
 }
 
 #[inline]
@@ -84,7 +84,7 @@ impl ProbeSeq {
 impl<T> ArchivedHashTable<T> {
     fn probe_seq(hash: u64, capacity: usize) -> ProbeSeq {
         ProbeSeq {
-            pos: h1(hash) % capacity,
+            pos: (h1(hash) % capacity as u64) as usize,
             stride: 0,
         }
     }
