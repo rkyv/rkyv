@@ -29,10 +29,16 @@ impl Printing {
             .unwrap_or_else(|| parse_quote! { ::rkyv });
 
         let base_name = strip_raw(&name);
-        let archived_name = attributes
+        let mut archived_name = attributes
             .archived
             .clone()
             .unwrap_or_else(|| format_ident!("Archived{}", base_name));
+
+        // This makes it so when you do "goto definition" on an `ArchivedType`,
+        // it will go to the definition of `Type` instead of going to definition
+        // of the `Archived` derive proc macro
+        archived_name.set_span(name.span());
+
         let archived_type = attributes
             .as_type
             .clone()
