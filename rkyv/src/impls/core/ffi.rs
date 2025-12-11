@@ -53,7 +53,7 @@ impl ArchivePointee for CStr {
 impl<S: Fallible + Writer + ?Sized> SerializeUnsized<S> for CStr {
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         let result = serializer.pos();
-        serializer.write(self.to_bytes_with_nul())?;
+        serializer.write(1, self.to_bytes_with_nul())?;
         Ok(result)
     }
 }
