@@ -321,6 +321,65 @@ struct ArchivedOptionVariantNone(ArchivedOptionTag);
 #[repr(C)]
 struct ArchivedOptionVariantSome<T>(ArchivedOptionTag, T);
 
+// [T; N]
+
+impl<T, U, const N: usize> ArchiveWith<[T; N]> for Map<U>
+where
+    U: ArchiveWith<T>,
+{
+    type Archived = [U::Archived; N];
+    type Resolver = [U::Resolver; N];
+
+    fn resolve_with(
+        field: &[T; N],
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        for (i, (value, resolver)) in field.iter().zip(resolver).enumerate() {
+            U::resolve_with(value, resolver, unsafe { out.index(i) })
+        }
+    }
+}
+
+impl<S, T, U, const N: usize> SerializeWith<[T; N], S> for Map<U>
+where
+    S: Fallible + ?Sized,
+    U: ArchiveWith<T> + SerializeWith<T, S>,
+{
+    fn serialize_with(
+        field: &[T; N],
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
+        let result_ptr = result.as_mut_ptr().cast::<U::Resolver>();
+        for (i, value) in field.iter().enumerate() {
+            let serialized = U::serialize_with(value, serializer)?;
+            unsafe { result_ptr.add(i).write(serialized) };
+        }
+        Ok(unsafe { result.assume_init() })
+    }
+}
+
+impl<D, T, U, const N: usize> DeserializeWith<[U::Archived; N], [T; N], D>
+    for Map<U>
+where
+    D: Fallible + ?Sized,
+    U: ArchiveWith<T> + DeserializeWith<U::Archived, T, D>,
+{
+    fn deserialize_with(
+        field: &[U::Archived; N],
+        deserializer: &mut D,
+    ) -> Result<[T; N], <D as Fallible>::Error> {
+        let mut result = core::mem::MaybeUninit::<[T; N]>::uninit();
+        let result_ptr = result.as_mut_ptr().cast::<T>();
+        for (i, value) in field.iter().enumerate() {
+            let deserialized = U::deserialize_with(value, deserializer)?;
+            unsafe { result_ptr.add(i).write(deserialized) };
+        }
+        Ok(unsafe { result.assume_init() })
+    }
+}
+
 // Niche
 
 macro_rules! impl_nonzero_niche {
