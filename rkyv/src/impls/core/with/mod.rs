@@ -321,6 +321,65 @@ struct ArchivedOptionVariantNone(ArchivedOptionTag);
 #[repr(C)]
 struct ArchivedOptionVariantSome<T>(ArchivedOptionTag, T);
 
+// [O; N]
+
+impl<A, O, const N: usize> ArchiveWith<[O; N]> for Map<A>
+where
+    A: ArchiveWith<O>,
+{
+    type Archived = [A::Archived; N];
+    type Resolver = [A::Resolver; N];
+
+    fn resolve_with(
+        field: &[O; N],
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        for (i, (value, resolver)) in field.iter().zip(resolver).enumerate() {
+            A::resolve_with(value, resolver, unsafe { out.index(i) })
+        }
+    }
+}
+
+impl<A, O, S, const N: usize> SerializeWith<[O; N], S> for Map<A>
+where
+    S: Fallible + ?Sized,
+    A: ArchiveWith<O> + SerializeWith<O, S>,
+{
+    fn serialize_with(
+        field: &[O; N],
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, S::Error> {
+        let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
+        let result_ptr = result.as_mut_ptr().cast::<A::Resolver>();
+        for (i, value) in field.iter().enumerate() {
+            let serialized = A::serialize_with(value, serializer)?;
+            unsafe { result_ptr.add(i).write(serialized) };
+        }
+        Ok(unsafe { result.assume_init() })
+    }
+}
+
+impl<O, A, D, const N: usize> DeserializeWith<[A::Archived; N], [O; N], D>
+    for Map<A>
+where
+    D: Fallible + ?Sized,
+    A: ArchiveWith<O> + DeserializeWith<A::Archived, O, D>,
+{
+    fn deserialize_with(
+        field: &[A::Archived; N],
+        deserializer: &mut D,
+    ) -> Result<[O; N], <D as Fallible>::Error> {
+        let mut result = core::mem::MaybeUninit::<[O; N]>::uninit();
+        let result_ptr = result.as_mut_ptr().cast::<O>();
+        for (i, value) in field.iter().enumerate() {
+            let deserialized = A::deserialize_with(value, deserializer)?;
+            unsafe { result_ptr.add(i).write(deserialized) };
+        }
+        Ok(unsafe { result.assume_init() })
+    }
+}
+
 // Niche
 
 macro_rules! impl_nonzero_niche {
@@ -815,7 +874,8 @@ mod tests {
         ser::Writer,
         with::{
             ArchiveWith, AsBox, AsString, AsVec, DeserializeWith, Identity,
-            Inline, InlineAsBox, Niche, NicheInto, SerializeWith, Unsafe, With,
+            Inline, InlineAsBox, Map, Niche, NicheInto, SerializeWith, Unsafe,
+            With,
         },
         Archive, Archived, Deserialize, Place, Serialize,
     };
@@ -1252,6 +1312,46 @@ mod tests {
         roundtrip_with(&value, |_, archived| {
             assert_eq!(archived.value, 10);
             assert_eq!(archived.other, 10);
+        });
+    }
+
+    #[test]
+    fn with_map_array() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Test {
+            #[rkyv(with = Map<AsFloat>)]
+            value: [i32; 2],
+            other: [i32; 2],
+        }
+
+        let value = Test {
+            value: [1, 2],
+            other: [1, 2],
+        };
+        roundtrip_with(&value, |_, archived| {
+            assert_eq!(archived.value, [1.0, 2.0]);
+            assert_eq!(archived.other, [1, 2]);
+        });
+    }
+
+    #[test]
+    fn with_map_nested_array() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Test {
+            #[rkyv(with = Map<Map<AsFloat>>)]
+            value: [[i32; 2]; 3],
+            other: [[i32; 2]; 3],
+        }
+
+        let value = Test {
+            value: [[1, 2], [3, 4], [5, 6]],
+            other: [[1, 2], [3, 4], [5, 6]],
+        };
+        roundtrip_with(&value, |_, archived| {
+            assert_eq!(archived.value, [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
+            assert_eq!(archived.other, [[1, 2], [3, 4], [5, 6]]);
         });
     }
 }
