@@ -321,59 +321,59 @@ struct ArchivedOptionVariantNone(ArchivedOptionTag);
 #[repr(C)]
 struct ArchivedOptionVariantSome<T>(ArchivedOptionTag, T);
 
-// [T; N]
+// [O; N]
 
-impl<T, U, const N: usize> ArchiveWith<[T; N]> for Map<U>
+impl<A, O, const N: usize> ArchiveWith<[O; N]> for Map<A>
 where
-    U: ArchiveWith<T>,
+    A: ArchiveWith<O>,
 {
-    type Archived = [U::Archived; N];
-    type Resolver = [U::Resolver; N];
+    type Archived = [A::Archived; N];
+    type Resolver = [A::Resolver; N];
 
     fn resolve_with(
-        field: &[T; N],
+        field: &[O; N],
         resolver: Self::Resolver,
         out: Place<Self::Archived>,
     ) {
         for (i, (value, resolver)) in field.iter().zip(resolver).enumerate() {
-            U::resolve_with(value, resolver, unsafe { out.index(i) })
+            A::resolve_with(value, resolver, unsafe { out.index(i) })
         }
     }
 }
 
-impl<S, T, U, const N: usize> SerializeWith<[T; N], S> for Map<U>
+impl<A, O, S, const N: usize> SerializeWith<[O; N], S> for Map<A>
 where
     S: Fallible + ?Sized,
-    U: ArchiveWith<T> + SerializeWith<T, S>,
+    A: ArchiveWith<O> + SerializeWith<O, S>,
 {
     fn serialize_with(
-        field: &[T; N],
+        field: &[O; N],
         serializer: &mut S,
     ) -> Result<Self::Resolver, S::Error> {
         let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
-        let result_ptr = result.as_mut_ptr().cast::<U::Resolver>();
+        let result_ptr = result.as_mut_ptr().cast::<A::Resolver>();
         for (i, value) in field.iter().enumerate() {
-            let serialized = U::serialize_with(value, serializer)?;
+            let serialized = A::serialize_with(value, serializer)?;
             unsafe { result_ptr.add(i).write(serialized) };
         }
         Ok(unsafe { result.assume_init() })
     }
 }
 
-impl<D, T, U, const N: usize> DeserializeWith<[U::Archived; N], [T; N], D>
-    for Map<U>
+impl<O, A, D, const N: usize> DeserializeWith<[A::Archived; N], [O; N], D>
+    for Map<A>
 where
     D: Fallible + ?Sized,
-    U: ArchiveWith<T> + DeserializeWith<U::Archived, T, D>,
+    A: ArchiveWith<O> + DeserializeWith<A::Archived, O, D>,
 {
     fn deserialize_with(
-        field: &[U::Archived; N],
+        field: &[A::Archived; N],
         deserializer: &mut D,
-    ) -> Result<[T; N], <D as Fallible>::Error> {
-        let mut result = core::mem::MaybeUninit::<[T; N]>::uninit();
-        let result_ptr = result.as_mut_ptr().cast::<T>();
+    ) -> Result<[O; N], <D as Fallible>::Error> {
+        let mut result = core::mem::MaybeUninit::<[O; N]>::uninit();
+        let result_ptr = result.as_mut_ptr().cast::<O>();
         for (i, value) in field.iter().enumerate() {
-            let deserialized = U::deserialize_with(value, deserializer)?;
+            let deserialized = A::deserialize_with(value, deserializer)?;
             unsafe { result_ptr.add(i).write(deserialized) };
         }
         Ok(unsafe { result.assume_init() })
