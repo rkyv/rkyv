@@ -874,7 +874,8 @@ mod tests {
         ser::Writer,
         with::{
             ArchiveWith, AsBox, AsString, AsVec, DeserializeWith, Identity,
-            Inline, InlineAsBox, Niche, NicheInto, SerializeWith, Unsafe, With,
+            Inline, InlineAsBox, Map, Niche, NicheInto, SerializeWith, Unsafe,
+            With,
         },
         Archive, Archived, Deserialize, Place, Serialize,
     };
@@ -1311,6 +1312,46 @@ mod tests {
         roundtrip_with(&value, |_, archived| {
             assert_eq!(archived.value, 10);
             assert_eq!(archived.other, 10);
+        });
+    }
+
+    #[test]
+    fn with_map_array() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Test {
+            #[rkyv(with = Map<AsFloat>)]
+            value: [i32; 2],
+            other: [i32; 2],
+        }
+
+        let value = Test {
+            value: [1, 2],
+            other: [1, 2],
+        };
+        roundtrip_with(&value, |_, archived| {
+            assert_eq!(archived.value, [1.0, 2.0]);
+            assert_eq!(archived.other, [1, 2]);
+        });
+    }
+
+    #[test]
+    fn with_map_nested_array() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Test {
+            #[rkyv(with = Map<Map<AsFloat>>)]
+            value: [[i32; 2]; 3],
+            other: [[i32; 2]; 3],
+        }
+
+        let value = Test {
+            value: [[1, 2], [3, 4], [5, 6]],
+            other: [[1, 2], [3, 4], [5, 6]],
+        };
+        roundtrip_with(&value, |_, archived| {
+            assert_eq!(archived.value, [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]]);
+            assert_eq!(archived.other, [[1, 2], [3, 4], [5, 6]]);
         });
     }
 }
