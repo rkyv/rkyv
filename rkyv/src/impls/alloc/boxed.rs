@@ -3,7 +3,10 @@ use core::cmp;
 use rancor::{Fallible, ResultExt as _, Source};
 
 use crate::{
-    alloc::{alloc::alloc, boxed::Box},
+    alloc::{
+        alloc::{alloc, handle_alloc_error},
+        boxed::Box,
+    },
     boxed::{ArchivedBox, BoxResolver},
     niche::option_box::ArchivedOptionBox,
     traits::{ArchivePointee, LayoutRaw},
@@ -44,7 +47,11 @@ where
         let metadata = self.get().deserialize_metadata();
         let layout = T::layout_raw(metadata).into_error()?;
         let data_address = if layout.size() > 0 {
-            unsafe { alloc(layout) }
+            let ptr = unsafe { alloc(layout) };
+            if ptr.is_null() {
+                handle_alloc_error(layout);
+            }
+            ptr
         } else {
             crate::polyfill::dangling(&layout).as_ptr()
         };

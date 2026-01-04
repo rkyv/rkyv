@@ -3,7 +3,11 @@ use core::ffi::CStr;
 use rancor::{Fallible, ResultExt, Source};
 
 use crate::{
-    alloc::{alloc::alloc, boxed::Box, ffi::CString},
+    alloc::{
+        alloc::{alloc, handle_alloc_error},
+        boxed::Box,
+        ffi::CString,
+    },
     ffi::{ArchivedCString, CStringResolver},
     ser::Writer,
     traits::LayoutRaw,
@@ -41,7 +45,11 @@ where
         let metadata = self.as_c_str().deserialize_metadata();
         let layout = <CStr as LayoutRaw>::layout_raw(metadata).into_error()?;
         let data_address = if layout.size() > 0 {
-            unsafe { alloc(layout) }
+            let ptr = unsafe { alloc(layout) };
+            if ptr.is_null() {
+                handle_alloc_error(layout);
+            }
+            ptr
         } else {
             crate::polyfill::dangling(&layout).as_ptr()
         };

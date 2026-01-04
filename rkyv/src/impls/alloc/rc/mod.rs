@@ -7,7 +7,11 @@ use ptr_meta::{from_raw_parts_mut, Pointee};
 use rancor::{Fallible, Source};
 
 use crate::{
-    alloc::{alloc::alloc, boxed::Box, rc},
+    alloc::{
+        alloc::{alloc, handle_alloc_error},
+        boxed::Box,
+        rc,
+    },
     de::{FromMetadata, Metadata, Pooling, PoolingExt as _, SharedPointer},
     rc::{ArchivedRc, ArchivedRcWeak, RcFlavor, RcResolver, RcWeakResolver},
     ser::{Sharing, Writer},
@@ -48,7 +52,11 @@ unsafe impl<T: LayoutRaw + Pointee + ?Sized> SharedPointer<T> for rc::Rc<T> {
     fn alloc(metadata: T::Metadata) -> Result<*mut T, LayoutError> {
         let layout = T::layout_raw(metadata)?;
         let data_address = if layout.size() > 0 {
-            unsafe { alloc(layout) }
+            let ptr = unsafe { alloc(layout) };
+            if ptr.is_null() {
+                handle_alloc_error(layout);
+            }
+            ptr
         } else {
             crate::polyfill::dangling(&layout).as_ptr()
         };
