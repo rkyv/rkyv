@@ -59,7 +59,13 @@ where
         let raw_shared_ptr = deserializer.deserialize_shared(
             self.get(),
             |ptr| rc::Rc::<T>::from(unsafe { Box::from_raw(ptr) }),
-            |layout| unsafe { alloc::alloc(layout) },
+            |layout| {
+                let ptr = unsafe { alloc::alloc(layout) };
+                if ptr.is_null() {
+                    alloc::handle_alloc_error(layout);
+                }
+                ptr
+            },
         )?;
         let shared_ptr = unsafe { rc::Rc::<T>::from_raw(raw_shared_ptr) };
         forget(shared_ptr.clone());
@@ -172,7 +178,13 @@ where
         let raw_shared_ptr = deserializer.deserialize_shared(
             self.get(),
             |ptr| sync::Arc::<T>::from(unsafe { Box::from_raw(ptr) }),
-            |layout| unsafe { alloc::alloc(layout) },
+            |layout| {
+                let ptr = unsafe { alloc::alloc(layout) };
+                if ptr.is_null() {
+                    alloc::handle_alloc_error(layout);
+                }
+                ptr
+            },
         )?;
         let shared_ptr = unsafe { sync::Arc::<T>::from_raw(raw_shared_ptr) };
         forget(shared_ptr.clone());

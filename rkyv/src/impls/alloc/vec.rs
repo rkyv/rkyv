@@ -63,7 +63,13 @@ where
         unsafe {
             let data_address = self
                 .as_slice()
-                .deserialize_unsized(deserializer, |layout| alloc::alloc(layout))?;
+                .deserialize_unsized(deserializer, |layout| {
+                    let ptr = alloc::alloc(layout);
+                    if ptr.is_null() {
+                        alloc::handle_alloc_error(layout);
+                    }
+                    ptr
+                })?;
             let metadata = self.as_slice().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::<[T]>::from_raw(ptr).into())

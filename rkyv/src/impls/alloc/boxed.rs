@@ -35,9 +35,13 @@ where
     #[inline]
     fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {
         unsafe {
-            let data_address = self
-                .get()
-                .deserialize_unsized(deserializer, |layout| alloc::alloc(layout))?;
+            let data_address = self.get().deserialize_unsized(deserializer, |layout| {
+                let ptr = alloc::alloc(layout);
+                if ptr.is_null() {
+                    alloc::handle_alloc_error(layout);
+                }
+                ptr
+            })?;
             let metadata = self.get().deserialize_metadata(deserializer)?;
             let ptr = ptr_meta::from_raw_parts_mut(data_address, metadata);
             Ok(Box::from_raw(ptr))
