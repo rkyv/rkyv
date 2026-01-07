@@ -241,11 +241,7 @@ pub trait Archive {
     /// bytes as uninitialized, but they must remain set to the value they
     /// currently have. This prevents leaking uninitialized memory to
     /// the final archive.
-    fn resolve(
-        &self,
-        resolver: <Self as Archive>::Resolver,
-        out: Place<<Self as Archive>::Archived>,
-    );
+    fn resolve(&self, resolver: Self::Resolver, out: Place<Self::Archived>);
 }
 
 /// Converts a type to its archived form.
