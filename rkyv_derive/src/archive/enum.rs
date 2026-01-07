@@ -150,8 +150,9 @@ pub fn impl_enum(
                 #[allow(clippy::unit_arg)]
                 fn resolve(
                     &self,
-                    resolver: Self::Resolver,
-                    out: #rkyv_path::Place<Self::Archived>,
+                    resolver: <Self as #rkyv_path::Archive>::Resolver,
+                    out: #rkyv_path::Place<
+                        <Self as #rkyv_path::Archive>::Archived>,
                 ) {
                     let __this = self;
                     match resolver {
