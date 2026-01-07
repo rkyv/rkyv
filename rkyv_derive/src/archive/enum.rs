@@ -151,7 +151,7 @@ pub fn impl_enum(
                 fn resolve(
                     &self,
                     resolver: Self::Resolver,
-                    out: #rkyv_path::Place<Self::Archived>,
+                    out: #rkyv_path::Place<<Self as #rkyv_path::Archive>::Archived>,
                 ) {
                     let __this = self;
                     match resolver {
