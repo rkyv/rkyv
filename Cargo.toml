@@ -11,7 +11,7 @@ default-members = ["rkyv", "rkyv_derive"]
 resolver = "2"
 
 [workspace.package]
-version = "0.8.13"
+version = "0.8.14"
 authors = ["David Koloski <djkoloski@gmail.com>"]
 edition = "2021"
 rust-version = "1.81"
@@ -30,7 +30,7 @@ quote = { version = "1", default-features = false }
 rend = { version = "0.5", default-features = false }
 rancor = { version = "0.1", default-features = false }
 rkyv = { version = "0.8", default-features = false, path = "rkyv" }
-rkyv_derive = { version = "=0.8.13", default-features = false, path = "rkyv_derive" }
+rkyv_derive = { version = "=0.8.14", default-features = false, path = "rkyv_derive" }
 # rkyv_dyn = { version = "=0.8.0-rc.1", default-features = false, path = "rkyv_dyn" }
 # rkyv_dyn_derive = { version = "=0.8.0-rc.1", default-features = false, path = "rkyv_dyn_derive" }
 rustversion = { version = "1", default-features = false }
