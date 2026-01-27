@@ -20,7 +20,6 @@ macro_rules! impl_hashbrown {
             impl<K, V: Archive, S> Archive for HashMap<K, V, S>
             where
                 K: Archive + Hash + Eq,
-                K::Archived: Hash + Eq,
             {
                 type Archived = ArchivedHashMap<K::Archived, V::Archived>;
                 type Resolver = HashMapResolver;
