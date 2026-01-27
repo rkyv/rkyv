@@ -5,7 +5,7 @@ use core::{alloc::Layout, ptr::NonNull};
 pub fn dangling(layout: &Layout) -> NonNull<u8> {
     #[cfg(miri)]
     {
-        layout.dangling()
+        layout.dangling_ptr()
     }
     #[cfg(not(miri))]
     unsafe {
