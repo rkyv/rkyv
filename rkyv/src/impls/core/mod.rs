@@ -294,7 +294,7 @@ where
                     core::mem::size_of_val(self),
                 )
             };
-            serializer.write(as_bytes)?;
+            serializer.write(core::mem::align_of::<T::Archived>(), as_bytes)?;
 
             Ok(result)
         } else {
@@ -390,7 +390,7 @@ impl ArchivePointee for str {
 impl<S: Fallible + Writer + ?Sized> SerializeUnsized<S> for str {
     fn serialize_unsized(&self, serializer: &mut S) -> Result<usize, S::Error> {
         let result = serializer.pos();
-        serializer.write(self.as_bytes())?;
+        serializer.write(1, self.as_bytes())?;
         Ok(result)
     }
 }

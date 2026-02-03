@@ -54,8 +54,12 @@ impl<W: Positional, A, S> Positional for Serializer<W, A, S> {
 }
 
 impl<W: Writer<E>, A, S, E> Writer<E> for Serializer<W, A, S> {
-    fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
-        self.writer.write(bytes)
+    fn write(&mut self, align: usize, bytes: &[u8]) -> Result<(), E> {
+        self.writer.write(align, bytes)
+    }
+
+    fn write_padding(&mut self, padding: usize) -> Result<(), E> {
+        self.writer.write_padding(padding)
     }
 }
 
