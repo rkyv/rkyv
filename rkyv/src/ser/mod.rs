@@ -57,6 +57,14 @@ impl<W: Writer<E>, A, S, E> Writer<E> for Serializer<W, A, S> {
     fn write(&mut self, bytes: &[u8]) -> Result<(), E> {
         self.writer.write(bytes)
     }
+
+    fn write_padding(&mut self, padding: usize) -> Result<(), E> {
+        self.writer.write_padding(padding)
+    }
+
+    fn align_position(&mut self, align: usize) -> Result<usize, E> {
+        self.writer.align_position(align)
+    }
 }
 
 unsafe impl<W, A: Allocator<E>, S, E> Allocator<E> for Serializer<W, A, S> {
