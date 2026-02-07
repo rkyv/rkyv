@@ -28,6 +28,7 @@ use crate::{
 /// let bytes = AlignedVec::<4096>::with_capacity(1);
 /// assert_eq!(bytes.as_ptr() as usize % 4096, 0);
 /// ```
+#[repr(C)]
 pub struct AlignedVec<const ALIGNMENT: usize = 16> {
     ptr: NonNull<u8>,
     cap: usize,
