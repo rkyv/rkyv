@@ -2,11 +2,11 @@ use core::{
     alloc::Layout,
     borrow::{Borrow, BorrowMut},
     fmt,
+    mem::ManuallyDrop,
     ops::{Deref, DerefMut, Index, IndexMut},
     ptr::NonNull,
     slice,
 };
-use std::mem::ManuallyDrop;
 
 use rancor::Fallible;
 
