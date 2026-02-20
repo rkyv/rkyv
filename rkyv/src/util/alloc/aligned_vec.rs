@@ -6,6 +6,7 @@ use core::{
     ptr::NonNull,
     slice,
 };
+use std::mem::ManuallyDrop;
 
 use rancor::Fallible;
 
@@ -756,6 +757,66 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// ```
     pub fn into_vec(self) -> Vec<u8> {
         Vec::from(self.as_ref())
+    }
+
+    /// Decompose an [`AlignedVec`] into its raw components: `(NonNull pointer,
+    /// length, capacity)`.
+    ///
+    /// The returned parts can be used to re-assemble the [`AlignedVec`] using
+    /// the [`from_parts`](AlignedVec::from_parts) function.
+    ///
+    /// After calling this function, the caller is responsible for the memory
+    /// previously managed by the [`AlignedVec`]. The only way to do this is
+    /// to convert the [`NonNull`] pointer, the length and the capacity back
+    /// into an [`AlignedVec`] using the [`from_parts`](AlignedVec::from_parts)
+    /// function, allowing the destructor to perform the cleanup.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut v: AlignedVec = AlignedVec::new();
+    /// for i in 1..=5 {
+    ///     v.push(i);
+    /// }
+    ///
+    /// let (ptr, len, cap) = v.into_parts();
+    ///
+    /// let rebuilt = unsafe { AlignedVec::from_parts(ptr, len, cap) };
+    /// assert_eq!(&rebuilt, [1, 2, 3, 4, 5]);
+    /// ```
+    #[must_use = "losing the pointer will leak memory"]
+    pub fn into_parts(self) -> (NonNull<u8>, usize, usize) {
+        let this = ManuallyDrop::new(self);
+        (this.ptr, this.len, this.cap)
+    }
+
+    /// Create an [`AlignedVec`] directly from a [`NonNull`] pointer, a length
+    /// and a capacity.
+    ///
+    /// # Safety
+    ///
+    /// This is method is only safe to use with the parts returned from calling
+    /// [`into_parts`](AlignedVec::into_parts). The ownership of `ptr` is
+    /// transferred to the [`AlignedVec`], which may then de- or reallocate
+    /// the pointer or change the contents of the memory pointed to by the
+    /// pointer at will. Ensure that nothing else uses the pointer after
+    /// calling this function.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut v: AlignedVec = AlignedVec::new();
+    /// for i in 1..=5 {
+    ///     v.push(i);
+    /// }
+    ///
+    /// let (ptr, len, cap) = v.into_parts();
+    ///
+    /// let rebuilt = unsafe { AlignedVec::from_parts(ptr, len, cap) };
+    /// assert_eq!(&rebuilt, [1, 2, 3, 4, 5]);
+    /// ```
+    pub unsafe fn from_parts(ptr: NonNull<u8>, len: usize, cap: usize) -> Self {
+        Self { ptr, len, cap }
     }
 }
 
