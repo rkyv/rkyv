@@ -774,15 +774,18 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// # Example
     ///
     /// ```
-    /// let mut v: AlignedVec = AlignedVec::new();
+    /// use rkyv::util::AlignedVec;
+    ///
+    /// let mut v: AlignedVec<16> = AlignedVec::new();
     /// for i in 1..=5 {
     ///     v.push(i);
     /// }
     ///
     /// let (ptr, len, cap) = v.into_parts();
     ///
-    /// let rebuilt = unsafe { AlignedVec::from_parts(ptr, len, cap) };
-    /// assert_eq!(&rebuilt, [1, 2, 3, 4, 5]);
+    /// let rebuilt: AlignedVec<16> =
+    ///     unsafe { AlignedVec::from_parts(ptr, len, cap) };
+    /// assert_eq!(rebuilt.as_slice(), &[1, 2, 3, 4, 5]);
     /// ```
     #[must_use = "losing the pointer will leak memory"]
     pub fn into_parts(self) -> (NonNull<u8>, usize, usize) {
@@ -805,15 +808,18 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
     /// # Example
     ///
     /// ```
-    /// let mut v: AlignedVec = AlignedVec::new();
+    /// use rkyv::util::AlignedVec;
+    ///
+    /// let mut v: AlignedVec<16> = AlignedVec::new();
     /// for i in 1..=5 {
     ///     v.push(i);
     /// }
     ///
     /// let (ptr, len, cap) = v.into_parts();
     ///
-    /// let rebuilt = unsafe { AlignedVec::from_parts(ptr, len, cap) };
-    /// assert_eq!(&rebuilt, [1, 2, 3, 4, 5]);
+    /// let rebuilt: AlignedVec<16> =
+    ///     unsafe { AlignedVec::from_parts(ptr, len, cap) };
+    /// assert_eq!(rebuilt.as_slice(), &[1, 2, 3, 4, 5]);
     /// ```
     pub unsafe fn from_parts(ptr: NonNull<u8>, len: usize, cap: usize) -> Self {
         Self { ptr, len, cap }
