@@ -28,7 +28,7 @@ struct OutOfLineRepr {
 /// The maximum number of bytes that can be inlined.
 pub const INLINE_CAPACITY: usize = mem::size_of::<OutOfLineRepr>();
 /// The maximum number of bytes that can be out-of-line.
-pub const OUT_OF_LINE_CAPACITY: usize = (1 << (FixedUsize::BITS - 2)) - 1;
+pub const OUT_OF_LINE_CAPACITY: FixedUsize = (1 << (FixedUsize::BITS - 2)) - 1;
 
 #[derive(Clone, Copy, Portable)]
 #[rkyv(crate)]

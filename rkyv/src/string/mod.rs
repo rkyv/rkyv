@@ -88,7 +88,7 @@ impl ArchivedString {
     {
         if value.len() <= INLINE_CAPACITY {
             Ok(StringResolver { pos: 0 })
-        } else if value.len() > repr::OUT_OF_LINE_CAPACITY {
+        } else if value.len() as FixedUsize > repr::OUT_OF_LINE_CAPACITY {
             #[derive(Debug)]
             struct StringTooLongError;
 
