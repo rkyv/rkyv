@@ -158,7 +158,11 @@ impl ArchivedStringRepr {
         Seal::new(unsafe { str::from_utf8_unchecked_mut(bytes) })
     }
 
-    /// Emplaces a new inline representation for the given `str`.
+    /// Emplaces a new inline representation for the given byte slice.
+    ///
+    /// This is the raw version of [`emplace_inline`](Self::emplace_inline)
+    /// that accepts `&[u8]` instead of `&str`, making it suitable for use
+    /// with non-UTF-8 data.
     ///
     /// This function is guaranteed not to write any uninitialized bytes to
     /// `out`.
@@ -170,7 +174,7 @@ impl ArchivedStringRepr {
     /// - `out` must point to a valid location to write the inline
     ///   representation.
     #[inline]
-    pub unsafe fn emplace_inline(value: &str, out: *mut Self) {
+    pub unsafe fn emplace_inline_raw(value: &[u8], out: *mut Self) {
         debug_assert!(value.len() <= INLINE_CAPACITY);
 
         // SAFETY: The caller has guaranteed that `out` points to a
@@ -184,21 +188,44 @@ impl ArchivedStringRepr {
         unsafe {
             write_bytes(out_bytes, 0xff, 1);
             copy_nonoverlapping(
-                value.as_bytes().as_ptr(),
+                value.as_ptr(),
                 out_bytes.cast(),
                 value.len(),
             );
         }
     }
 
-    /// Emplaces a new out-of-line representation for the given `str`.
+    /// Emplaces a new inline representation for the given `str`.
+    ///
+    /// This function is guaranteed not to write any uninitialized bytes to
+    /// `out`.
     ///
     /// # Safety
     ///
-    /// The length of `str` must be greater than [`INLINE_CAPACITY`] and less
-    /// than or equal to [`OUT_OF_LINE_CAPACITY`].
-    pub unsafe fn try_emplace_out_of_line<E: Source>(
-        value: &str,
+    /// - The length of `value` must be less than or equal to
+    ///   [`INLINE_CAPACITY`].
+    /// - `out` must point to a valid location to write the inline
+    ///   representation.
+    #[inline]
+    pub unsafe fn emplace_inline(value: &str, out: *mut Self) {
+        // SAFETY: The caller has guaranteed the same preconditions required
+        // by `emplace_inline_raw`.
+        unsafe { Self::emplace_inline_raw(value.as_bytes(), out) }
+    }
+
+    /// Emplaces a new out-of-line representation for the given byte slice.
+    ///
+    /// This is the raw version of
+    /// [`try_emplace_out_of_line`](Self::try_emplace_out_of_line) that
+    /// accepts `&[u8]` instead of `&str`, making it suitable for use with
+    /// non-UTF-8 data.
+    ///
+    /// # Safety
+    ///
+    /// The length of `value` must be greater than [`INLINE_CAPACITY`] and
+    /// less than or equal to [`OUT_OF_LINE_CAPACITY`].
+    pub unsafe fn try_emplace_out_of_line_raw<E: Source>(
+        value: &[u8],
         target: usize,
         out: Place<Self>,
     ) -> Result<(), E> {
@@ -211,19 +238,68 @@ impl ArchivedStringRepr {
             (len, offset)
         };
 
-        let l = value.len() as FixedUsize;
+        let val_len = value.len() as FixedUsize;
         // Little-endian: insert 10 as the 7th and 8th bits
         #[cfg(not(feature = "big_endian"))]
-        let l = (l & 0b0011_1111) | 0b1000_0000 | ((l & !0b0011_1111) << 2);
+        let val_len = (val_len & 0b0011_1111) | 0b1000_0000 | ((val_len & !0b0011_1111) << 2);
         // Big-endian: set the top two bits to 10
         #[cfg(feature = "big_endian")]
-        let l = l & (FixedUsize::MAX >> 2) | (1 << FixedUsize::BITS - 1);
-        len.write(ArchivedUsize::from_native(l));
+        let val_len = val_len & (FixedUsize::MAX >> 2) | (1 << FixedUsize::BITS - 1);
+        len.write(ArchivedUsize::from_native(val_len));
 
         let off = crate::rel_ptr::signed_offset(out.pos(), target)?;
         offset.write(ArchivedIsize::from_native(off as FixedIsize));
 
         Ok(())
+    }
+
+    /// Emplaces a new out-of-line representation for the given `str`.
+    ///
+    /// # Safety
+    ///
+    /// The length of `value` must be greater than [`INLINE_CAPACITY`] and
+    /// less than or equal to [`OUT_OF_LINE_CAPACITY`].
+    pub unsafe fn try_emplace_out_of_line<E: Source>(
+        value: &str,
+        target: usize,
+        out: Place<Self>,
+    ) -> Result<(), E> {
+        // SAFETY: The caller has guaranteed the same preconditions required
+        // by `try_emplace_out_of_line_raw`.
+        unsafe {
+            Self::try_emplace_out_of_line_raw(value.as_bytes(), target, out)
+        }
+    }
+
+    /// Emplaces a new out-of-line representation for the given byte slice.
+    ///
+    /// This is the raw version of
+    /// [`emplace_out_of_line`](Self::emplace_out_of_line) that accepts
+    /// `&[u8]` instead of `&str`, making it suitable for use with non-UTF-8
+    /// data.
+    ///
+    /// # Panics
+    ///
+    /// - The offset calculated for the repr does not fit in an `isize`
+    /// - The offset calculated for the repr exceeds the offset storage
+    ///
+    /// # Safety
+    ///
+    /// The length of `value` must be greater than [`INLINE_CAPACITY`] and
+    /// less than or equal to [`OUT_OF_LINE_CAPACITY`].
+    #[inline]
+    pub unsafe fn emplace_out_of_line_raw(
+        value: &[u8],
+        target: usize,
+        out: Place<Self>,
+    ) {
+        // SAFETY: The safety conditions for `emplace_out_of_line_raw()` are
+        // the same as the safety conditions for
+        // `try_emplace_out_of_line_raw()`.
+        unsafe {
+            Self::try_emplace_out_of_line_raw::<Panic>(value, target, out)
+                .always_ok()
+        }
     }
 
     /// Emplaces a new out-of-line representation for the given `str`.
