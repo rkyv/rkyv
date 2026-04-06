@@ -36,6 +36,10 @@ pub unsafe trait NoUndef {}
 // fully-initalized.
 unsafe impl<T: NoUndef, const N: usize> NoUndef for [T; N] {}
 
+// SAFETY: An array of values which are all fully-initialized is also
+// fully-initalized.
+unsafe impl<T: NoUndef> NoUndef for [T] {}
+
 /// Returns the layout of a type from its metadata.
 pub trait LayoutRaw
 where
