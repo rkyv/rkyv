@@ -146,6 +146,8 @@
 //! - [`bytes-1`](https://docs.rs/bytes/1)
 //! - [`hashbrown-0_14`](https://docs.rs/hashbrown/0.14)
 //! - [`hashbrown-0_15`](https://docs.rs/hashbrown/0.15)
+//! - [`hashbrown-0_16`](https://docs.rs/hashbrown/0.16)
+//! - [`hashbrown-0_17`](https://docs.rs/hashbrown/0.17)
 //! - [`indexmap-2`](https://docs.rs/indexmap/2)
 //! - [`smallvec-1`](https://docs.rs/smallvec/1)
 //! - [`smol_str-0_2`](https://docs.rs/smol_str/0.2)
