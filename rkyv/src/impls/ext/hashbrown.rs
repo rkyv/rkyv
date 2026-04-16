@@ -441,3 +441,8 @@ mod hashbrown_0_15 {
 mod hashbrown_0_16 {
     impl_hashbrown!(hashbrown);
 }
+
+#[cfg(feature = "hashbrown-0_17")]
+mod hashbrown_0_17 {
+    impl_hashbrown!(hashbrown);
+}
