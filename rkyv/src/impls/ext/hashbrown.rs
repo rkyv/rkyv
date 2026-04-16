@@ -439,7 +439,7 @@ mod hashbrown_0_15 {
 
 #[cfg(feature = "hashbrown-0_16")]
 mod hashbrown_0_16 {
-    impl_hashbrown!(hashbrown);
+    impl_hashbrown!(hashbrown_0_16);
 }
 
 #[cfg(feature = "hashbrown-0_17")]

@@ -53,7 +53,7 @@ jobs:
           - bytecheck
         external:
           - ''
-          - hashbrown-0_14 hashbrown-0_15 indexmap-2 smallvec-1 smol_str-0_2 smol_str-0_3 arrayvec-0_7 tinyvec-1 uuid-1 bytes-1 thin-vec-0_2 triomphe-0_1
+          - arrayvec-0_7 bytes-1 hashbrown-0_14 hashbrown-0_15 hashbrown-0_16 hashbrown-0_17 indexmap-2 smallvec-1 smol_str-0_2 smol_str-0_3 thin-vec-0_2 tinyvec-1 triomphe-0_1 uuid-1
 
     steps:
       - uses: actions/checkout@v4

@@ -4,6 +4,8 @@
     "bytes-1",
     "hashbrown-0_14",
     "hashbrown-0_15",
+    "hashbrown-0_16",
+    "hashbrown-0_17",
     "indexmap-2",
     "smallvec-1",
     "smol_str-0_2",
