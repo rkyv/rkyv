@@ -71,12 +71,14 @@ impl<T> SerVec<T> {
     /// Note that this method has no effect on the allocated capacity of the
     /// vector.
     pub fn clear(&mut self) {
-        for i in 0..self.len {
+        let len = self.len;
+        self.len = 0;
+
+        for i in 0..len {
             unsafe {
                 core::ptr::drop_in_place(self.ptr.as_ptr().add(i));
             }
         }
-        self.len = 0;
     }
 
     /// Returns an unsafe mutable pointer to the vector's buffer.

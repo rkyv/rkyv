@@ -41,12 +41,14 @@ impl<T, const N: usize> InlineVec<T, N> {
 
     /// Clears the vector, removing all values.
     pub fn clear(&mut self) {
-        for i in 0..self.len {
+        let len = self.len;
+        self.len = 0;
+
+        for i in 0..len {
             unsafe {
                 self.elements[i].as_mut_ptr().drop_in_place();
             }
         }
-        self.len = 0;
     }
 
     /// Returns an unsafe mutable pointer to the vector's buffer.
