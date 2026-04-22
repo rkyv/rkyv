@@ -94,7 +94,7 @@ impl<A, B, K, V, D, S>
 where
     A: ArchiveWith<K> + DeserializeWith<<A as ArchiveWith<K>>::Archived, K, D>,
     B: ArchiveWith<V> + DeserializeWith<<B as ArchiveWith<V>>::Archived, V, D>,
-    K: Ord + Hash + Eq,
+    K: Hash + Eq,
     D: Fallible + ?Sized,
     S: Default + BuildHasher,
 {
