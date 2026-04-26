@@ -28,7 +28,7 @@
 //! See [the examples directory] for usage examples.
 //!
 //! [rkyv book]: https://rkyv.org
-//! [the source]: https://github.com/rkyv/rkyv/tree/main/rkyv/examples
+//! [the examples directory]: https://github.com/rkyv/rkyv/tree/main/rkyv/examples
 //!
 //! ## Components
 //!
