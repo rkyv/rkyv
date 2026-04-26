@@ -24,9 +24,11 @@
 //! zero-copy types are designed to have little to no overhead. In most cases,
 //! rkyv's types will have exactly the same performance as native types.
 //!
-//! See the [rkyv book] for guide-level documentation and usage examples.
+//! See the [rkyv book] for guide-level documentation.
+//! See [the examples directory] for usage examples.
 //!
 //! [rkyv book]: https://rkyv.org
+//! [the examples directory]: https://github.com/rkyv/rkyv/tree/main/rkyv/examples
 //!
 //! ## Components
 //!

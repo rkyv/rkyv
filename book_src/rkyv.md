@@ -17,6 +17,7 @@ afraid to consult these other resources as you need while you read through.
   issues and meet other people using rkyv
 - The [rkyv github](https://github.com/rkyv/rkyv) hosts the source and tracks project issues
   and milestones.
+- There are examples of usage in [the repository](https://github.com/rkyv/rkyv/tree/main/rkyv/examples).
 
 ## Documentation
 
