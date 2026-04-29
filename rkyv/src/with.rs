@@ -42,40 +42,50 @@ use crate::{Archive, Deserialize, Place, Portable, Serialize};
 ///
 /// struct Incremented;
 ///
-/// impl ArchiveWith<i32> for Incremented {
-///     type Archived = Archived<i32>;
-///     type Resolver = Resolver<i32>;
+/// // For the archived representation, [u8; 4] is used to illustrate
+/// // how archived types can differ from non-archived types.
+/// // An `i32` could be used here as well (which would be more natural).
+/// type IncBytes = [u8; 4];
 ///
-///     fn resolve_with(field: &i32, _: (), out: Place<Self::Archived>) {
-///         let incremented = field + 1;
-///         incremented.resolve((), out);
+/// impl ArchiveWith<i32> for Incremented {
+///     type Archived = Archived<IncBytes>;
+///     type Resolver = Resolver<IncBytes>;
+///
+///     fn resolve_with(
+///         field: &i32,
+///         resolver: Self::Resolver,
+///         out: Place<Self::Archived>,
+///     ) {
+///         let incremented = (field + 1).to_le_bytes();
+///         incremented.resolve(resolver, out);
 ///     }
 /// }
 ///
 /// impl<S> SerializeWith<i32, S> for Incremented
 /// where
 ///     S: Fallible + ?Sized,
-///     i32: Serialize<S>,
+///     IncBytes: Serialize<S>,
 /// {
 ///     fn serialize_with(
 ///         field: &i32,
 ///         serializer: &mut S,
 ///     ) -> Result<Self::Resolver, S::Error> {
-///         let incremented = field + 1;
+///         let incremented = (field + 1).to_le_bytes();
 ///         incremented.serialize(serializer)
 ///     }
 /// }
 ///
-/// impl<D> DeserializeWith<Archived<i32>, i32, D> for Incremented
+/// impl<D> DeserializeWith<Archived<IncBytes>, i32, D> for Incremented
 /// where
 ///     D: Fallible + ?Sized,
 ///     Archived<i32>: Deserialize<i32, D>,
 /// {
 ///     fn deserialize_with(
-///         field: &Archived<i32>,
+///         field: &Archived<IncBytes>,
 ///         deserializer: &mut D,
 ///     ) -> Result<i32, D::Error> {
-///         Ok(field.deserialize(deserializer)? - 1)
+///         let incremented: IncBytes = field.deserialize(deserializer)?;
+///         Ok(i32::from_le_bytes(incremented) - 1)
 ///     }
 /// }
 ///
@@ -94,7 +104,7 @@ use crate::{Archive, Deserialize, Place, Portable, Serialize};
 /// let archived =
 ///     unsafe { access_unchecked::<Archived<Example>>(buf.as_ref()) };
 /// // The wrapped field has been incremented
-/// assert_eq!(archived.a, 5);
+/// assert_eq!(i32::from_le_bytes(archived.a), 5);
 /// // ... and the unwrapped field has not
 /// assert_eq!(archived.b, 9);
 ///
