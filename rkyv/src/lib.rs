@@ -25,10 +25,10 @@
 //! rkyv's types will have exactly the same performance as native types.
 //!
 //! See the [rkyv book] for guide-level documentation.
-//! See [the examples directory] for usage examples.
+//! See [the examples directory][1] for usage examples.
 //!
 //! [rkyv book]: https://rkyv.org
-//! [the examples directory]: https://github.com/rkyv/rkyv/tree/main/rkyv/examples
+//! [1]: https://github.com/rkyv/rkyv/tree/main/rkyv/examples
 //!
 //! ## Components
 //!
