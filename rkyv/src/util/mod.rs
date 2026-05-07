@@ -16,12 +16,12 @@ pub use self::{inline_vec::InlineVec, ser_vec::SerVec};
 /// A wrapper which aligns its inner value to 16 bytes.
 #[derive(Clone, Copy, Debug)]
 #[repr(C, align(16))]
-pub struct Align<T>(
+pub struct Align<T: ?Sized>(
     /// The inner value.
     pub T,
 );
 
-impl<T> Deref for Align<T> {
+impl<T: ?Sized> Deref for Align<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -29,7 +29,7 @@ impl<T> Deref for Align<T> {
     }
 }
 
-impl<T> DerefMut for Align<T> {
+impl<T: ?Sized> DerefMut for Align<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
