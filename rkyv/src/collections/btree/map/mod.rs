@@ -151,6 +151,8 @@ struct InnerNode<K, V, const E: usize> {
     greater_node: RelPtr<Node<K, V, E>>,
 }
 
+const DEFAULT_ENTRIES_PER_NODE: usize = 5;
+
 /// An archived [`BTreeMap`](crate::alloc::collections::BTreeMap).
 #[cfg_attr(
     feature = "bytecheck",
@@ -160,7 +162,7 @@ struct InnerNode<K, V, const E: usize> {
 #[derive(Portable)]
 #[rkyv(crate)]
 #[repr(C)]
-pub struct ArchivedBTreeMap<K, V, const E: usize = 5> {
+pub struct ArchivedBTreeMap<K, V, const E: usize = DEFAULT_ENTRIES_PER_NODE> {
     // The type of the root node is determined at runtime because it may point
     // to:
     // - Nothing if the length is zero
@@ -874,6 +876,24 @@ mod verify {
 
     impl Error for InvalidLength {}
 
+    #[derive(Debug)]
+    struct EntriesLengthMismatch {
+        entries: usize,
+        len: usize,
+    }
+
+    impl fmt::Display for EntriesLengthMismatch {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(
+                f,
+                "B-tree map claimed to have {} entries, but actually had {}",
+                self.len, self.entries,
+            )
+        }
+    }
+
+    impl Error for EntriesLengthMismatch {}
+
     unsafe impl<C, K, V, const E: usize> Verify<C> for ArchivedBTreeMap<K, V, E>
     where
         C: Fallible + ArchiveContext + ?Sized,
@@ -888,14 +908,20 @@ mod verify {
                 return Ok(());
             }
 
-            check_node_rel_ptr::<C, K, V, E>(&self.root, context)
+            let entries =
+                check_node_rel_ptr::<C, K, V, E>(&self.root, context)?;
+            if entries != len {
+                fail!(EntriesLengthMismatch { entries, len });
+            }
+
+            Ok(())
         }
     }
 
     fn check_node_rel_ptr<C, K, V, const E: usize>(
         node_rel_ptr: &RelPtr<Node<K, V, E>>,
         context: &mut C,
-    ) -> Result<(), C::Error>
+    ) -> Result<usize, C::Error>
     where
         C: Fallible + ArchiveContext + ?Sized,
         C::Error: Source,
@@ -927,7 +953,7 @@ mod verify {
                 // dereferenceable, and contained entirely within `context`'s
                 // buffer by calling `check_subtree_ptr`.
                 unsafe {
-                    check_leaf_node::<C, K, V, E>(node_ptr.cast(), context)?
+                    check_leaf_node::<C, K, V, E>(node_ptr.cast(), context)
                 }
             }
             NodeKind::Inner => {
@@ -935,12 +961,10 @@ mod verify {
                 // We checked to make sure that `node_ptr` is properly aligned
                 // and dereferenceable.
                 unsafe {
-                    check_inner_node::<C, K, V, E>(node_ptr.cast(), context)?
+                    check_inner_node::<C, K, V, E>(node_ptr.cast(), context)
                 }
             }
         }
-
-        Ok(())
     }
 
     /// # Safety
@@ -950,7 +974,7 @@ mod verify {
     unsafe fn check_leaf_node<C, K, V, const E: usize>(
         node_ptr: *const LeafNode<K, V, E>,
         context: &mut C,
-    ) -> Result<(), C::Error>
+    ) -> Result<usize, C::Error>
     where
         C: Fallible + ArchiveContext + ?Sized,
         C::Error: Source,
@@ -987,7 +1011,7 @@ mod verify {
                 check_node_entries(node_ptr, len, context)?;
             }
 
-            Ok(())
+            Ok(len)
         })
     }
 
@@ -1034,7 +1058,7 @@ mod verify {
     unsafe fn check_inner_node<C, K, V, const E: usize>(
         node_ptr: *const InnerNode<K, V, E>,
         context: &mut C,
-    ) -> Result<(), C::Error>
+    ) -> Result<usize, C::Error>
     where
         C: Fallible + ArchiveContext + ?Sized,
         C::Error: Source,
@@ -1042,6 +1066,8 @@ mod verify {
         V: CheckBytes<C>,
     {
         context.in_subtree(node_ptr, |context| {
+            let mut total = E;
+
             for i in 0..E {
                 // SAFETY: `in_subtree` guarantees that `node_ptr` is properly
                 // aligned and dereferenceable.
@@ -1057,7 +1083,8 @@ mod verify {
                 // succeeded, so it's safe to dereference.
                 let lesser_node = unsafe { &*lesser_node_ptr };
                 if !lesser_node.is_invalid() {
-                    check_node_rel_ptr::<C, K, V, E>(lesser_node, context)?;
+                    total +=
+                        check_node_rel_ptr::<C, K, V, E>(lesser_node, context)?;
                 }
             }
             // SAFETY: We checked that `node_ptr` is properly aligned and
@@ -1074,7 +1101,8 @@ mod verify {
             // so it's safe to dereference.
             let greater_node = unsafe { &*greater_node_ptr };
             if !greater_node.is_invalid() {
-                check_node_rel_ptr::<C, K, V, E>(greater_node, context)?;
+                total +=
+                    check_node_rel_ptr::<C, K, V, E>(greater_node, context)?;
             }
 
             // SAFETY: We checked that `node_ptr` is properly aligned and
@@ -1089,21 +1117,26 @@ mod verify {
                 check_node_entries::<C, K, V, E>(node_ptr, E, context)?;
             }
 
-            Ok(())
+            Ok(total)
         })
     }
 }
 
 #[cfg(all(test, feature = "alloc"))]
 mod tests {
-    use core::hash::{Hash, Hasher};
+    use core::{
+        hash::{Hash, Hasher},
+        mem::size_of,
+        num::NonZeroU32,
+    };
 
     use ahash::AHasher;
 
+    use super::{ArchivedBTreeMap, LeafNode, Node, DEFAULT_ENTRIES_PER_NODE};
     use crate::{
         alloc::{collections::BTreeMap, string::ToString},
-        api::test::to_archived,
-        primitive::ArchivedU32,
+        api::test::{to_archived, to_bytes},
+        primitive::{ArchivedNonZeroU32, ArchivedU32},
     };
 
     #[test]
@@ -1125,6 +1158,79 @@ mod tests {
             let expected_hash_value = expected_hasher.finish();
 
             assert_eq!(hash_value, expected_hash_value);
+        });
+    }
+
+    #[cfg(feature = "bytecheck")]
+    #[test]
+    fn iterator_len_mismatch_skips_leaf_entries() {
+        use crate::access;
+
+        fn find_unique_subslice(haystack: &[u8], needle: &[u8]) -> usize {
+            let mut matches = haystack
+                .windows(needle.len())
+                .enumerate()
+                .filter_map(|(i, window)| (window == needle).then_some(i));
+
+            let result = matches.next().unwrap();
+            assert!(matches.next().is_none());
+            result
+        }
+
+        // This test ensures that `ArchivedBTreeMap` checks that the number of
+        // entries matches the number claimed by the top-level structure.
+        let mut map = BTreeMap::new();
+        map.insert(NonZeroU32::new(7).unwrap(), 11u32);
+        to_bytes(&map, |bytes| {
+            #[cfg(feature = "big_endian")]
+            let key_bytes = [0, 0, 0, 7];
+            #[cfg(not(feature = "big_endian"))]
+            let key_bytes = [7, 0, 0, 0];
+
+            let first_key_offset = find_unique_subslice(&bytes, &key_bytes);
+            let first_key_in_leaf = core::mem::offset_of!(
+                LeafNode<
+                    ArchivedNonZeroU32,
+                    ArchivedU32,
+                    DEFAULT_ENTRIES_PER_NODE,
+                >,
+                node
+            ) + core::mem::offset_of!(
+                Node<ArchivedNonZeroU32, ArchivedU32, DEFAULT_ENTRIES_PER_NODE>,
+                keys
+            );
+            let leaf_base = first_key_offset - first_key_in_leaf;
+            let leaf_len_offset = leaf_base
+                + core::mem::offset_of!(
+                    LeafNode<
+                        ArchivedNonZeroU32,
+                        ArchivedU32,
+                        DEFAULT_ENTRIES_PER_NODE,
+                    >,
+                    len
+                );
+
+            #[cfg(feature = "pointer_width_16")]
+            let zero_len_bytes = [0, 0];
+            #[cfg(not(any(
+                feature = "pointer_width_16",
+                feature = "pointer_width_64",
+            )))]
+            let zero_len_bytes = [0, 0, 0, 0];
+            #[cfg(feature = "pointer_width_64")]
+            let zero_len_bytes = [0, 0, 0, 0, 0, 0, 0, 0];
+
+            bytes[leaf_len_offset..leaf_len_offset + zero_len_bytes.len()]
+                .copy_from_slice(&zero_len_bytes);
+            bytes[first_key_offset
+                ..first_key_offset + size_of::<ArchivedNonZeroU32>()]
+                .fill(0);
+
+            access::<
+                ArchivedBTreeMap<ArchivedNonZeroU32, ArchivedU32>,
+                rancor::Error,
+            >(&bytes)
+            .unwrap_err();
         });
     }
 
