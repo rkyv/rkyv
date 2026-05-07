@@ -125,7 +125,10 @@ impl<T, const N: usize> InlineVec<T, N> {
     /// Copies and appends all elements in a slice to the `ScratchVec`.
     ///
     /// The elements of the slice are appended in-order.
-    pub fn extend_from_slice(&mut self, other: &[T]) {
+    pub fn extend_from_slice(&mut self, other: &[T])
+    where
+        T: Copy,
+    {
         if !other.is_empty() {
             self.reserve(other.len());
             unsafe {
@@ -229,7 +232,7 @@ impl<T, const N: usize> InlineVec<MaybeUninit<T>, N> {
     /// It is up to the caller to guarantee that the `MaybeUninit<T>` elements
     /// really are in an initialized state. Calling this when the content is
     /// not yet fully initialized causes undefined behavior.
-    pub fn assume_init(self) -> InlineVec<T, N> {
+    pub unsafe fn assume_init(self) -> InlineVec<T, N> {
         let mut elements = unsafe {
             MaybeUninit::<[MaybeUninit<T>; N]>::uninit().assume_init()
         };
