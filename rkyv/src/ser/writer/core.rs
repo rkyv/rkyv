@@ -4,7 +4,7 @@ use core::{
     marker::PhantomData,
     mem::MaybeUninit,
     ops::{Deref, DerefMut},
-    ptr::{copy_nonoverlapping, NonNull},
+    ptr::{copy_nonoverlapping, write_bytes, NonNull},
     slice,
 };
 
@@ -161,6 +161,23 @@ impl<E: Source> Writer<E> for Buffer<'_> {
                 );
             }
             self.len += bytes.len();
+            Ok(())
+        }
+    }
+
+    fn write_padding(&mut self, n: usize) -> Result<(), E> {
+        if n > self.cap - self.len {
+            fail!(BufferOverflow {
+                write_len: n,
+                cap: self.cap,
+                len: self.len,
+            });
+        } else {
+            unsafe {
+                let dst = self.ptr.as_ptr().add(self.len);
+                write_bytes(dst, 0, n);
+            }
+            self.len += n;
             Ok(())
         }
     }
