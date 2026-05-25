@@ -396,3 +396,50 @@ mod verify {
         }
     }
 }
+
+#[cfg(all(test, miri, feature = "alloc", feature = "bytecheck"))]
+mod tests {
+    use crate::{
+        access,
+        alloc::{rc::Rc, vec},
+        to_bytes, Archive, Serialize,
+    };
+
+    #[test]
+    fn shared_unsized_metadata_can_change_after_first_validation() {
+        #[derive(Archive, Serialize)]
+        #[rkyv(crate)]
+        struct Test {
+            good: Rc<[u32]>,
+            bad: Rc<[u32]>,
+        }
+
+        // Shared pointer validation keys already-validated pointees by data
+        // address and type only. For unsized pointees, metadata is part of the
+        // pointer validity invariant too. After `good` validates the shared
+        // slice with length 1, `bad` can reuse the same data address with a
+        // forged length and skip validating the larger slice. Safe indexing
+        // then trusts the forged metadata and reads outside the allocation.
+        let shared = Rc::<[u32]>::from(vec![123].into_boxed_slice());
+        let value = Test {
+            good: shared.clone(),
+            bad: shared,
+        };
+        let mut bytes = to_bytes::<rancor::Error>(&value).unwrap();
+
+        let bad_metadata_offset = {
+            let archived =
+                access::<ArchivedTest, rancor::Error>(&bytes).unwrap();
+            let metadata = archived.bad.ptr.metadata();
+            metadata as *const _ as usize - bytes.as_ptr() as usize
+        };
+
+        let forged_len_bytes = to_bytes::<rancor::Error>(&1024usize).unwrap();
+        bytes
+            [bad_metadata_offset..bad_metadata_offset + forged_len_bytes.len()]
+            .copy_from_slice(&forged_len_bytes);
+
+        let archived = access::<ArchivedTest, rancor::Error>(&bytes).unwrap();
+        let _ = archived.bad[100].to_native();
+    }
+}
