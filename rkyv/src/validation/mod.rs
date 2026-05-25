@@ -9,6 +9,7 @@ pub use self::{
     archive::{ArchiveContext, ArchiveContextExt},
     shared::SharedContext,
 };
+use crate::traits::NoUndef;
 
 /// The default validator.
 #[derive(Debug)]
@@ -61,20 +62,28 @@ impl<A, S, E> SharedContext<E> for Validator<A, S>
 where
     S: SharedContext<E>,
 {
-    fn start_shared(
+    fn start_shared<M>(
         &mut self,
         address: usize,
         type_id: TypeId,
-    ) -> Result<shared::ValidationState, E> {
-        self.shared.start_shared(address, type_id)
+        metadata: &M,
+    ) -> Result<shared::ValidationState, E>
+    where
+        M: NoUndef,
+    {
+        self.shared.start_shared(address, type_id, metadata)
     }
 
-    fn finish_shared(
+    fn finish_shared<M>(
         &mut self,
         address: usize,
         type_id: TypeId,
-    ) -> Result<(), E> {
-        self.shared.finish_shared(address, type_id)
+        metadata: &M,
+    ) -> Result<(), E>
+    where
+        M: NoUndef,
+    {
+        self.shared.finish_shared(address, type_id, metadata)
     }
 }
 

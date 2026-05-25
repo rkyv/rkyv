@@ -9,6 +9,7 @@ use rancor::{Fallible, Strategy};
 
 #[cfg(feature = "alloc")]
 pub use self::validator::*;
+use crate::traits::NoUndef;
 
 /// The result of starting to validate a shared pointer.
 pub enum ValidationState {
@@ -30,40 +31,56 @@ pub trait SharedContext<E = <Self as Fallible>::Error> {
     /// Starts validating the value associated with the given address.
     ///
     /// Returns an error if the value associated with the given address was
-    /// started with a different type ID.
-    fn start_shared(
+    /// started with a different type ID or pointer metadata.
+    fn start_shared<M>(
         &mut self,
         address: usize,
         type_id: TypeId,
-    ) -> Result<ValidationState, E>;
+        metadata: &M,
+    ) -> Result<ValidationState, E>
+    where
+        M: NoUndef;
 
     /// Finishes validating the value associated with the given address.
     ///
-    /// Returns an error if the given address was not pending.
-    fn finish_shared(
+    /// Returns an error if the given address was not pending, or if the type
+    /// ID or pointer metadata does not match the corresponding `start_shared`
+    /// call.
+    fn finish_shared<M>(
         &mut self,
         address: usize,
         type_id: TypeId,
-    ) -> Result<(), E>;
+        metadata: &M,
+    ) -> Result<(), E>
+    where
+        M: NoUndef;
 }
 
 impl<T, E> SharedContext<E> for Strategy<T, E>
 where
     T: SharedContext<E>,
 {
-    fn start_shared(
+    fn start_shared<M>(
         &mut self,
         address: usize,
         type_id: TypeId,
-    ) -> Result<ValidationState, E> {
-        T::start_shared(self, address, type_id)
+        metadata: &M,
+    ) -> Result<ValidationState, E>
+    where
+        M: NoUndef,
+    {
+        T::start_shared(self, address, type_id, metadata)
     }
 
-    fn finish_shared(
+    fn finish_shared<M>(
         &mut self,
         address: usize,
         type_id: TypeId,
-    ) -> Result<(), E> {
-        T::finish_shared(self, address, type_id)
+        metadata: &M,
+    ) -> Result<(), E>
+    where
+        M: NoUndef,
+    {
+        T::finish_shared(self, address, type_id, metadata)
     }
 }

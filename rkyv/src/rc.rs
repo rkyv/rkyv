@@ -352,14 +352,15 @@ mod verify {
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {
             let ptr = self.ptr.as_ptr_wrapping();
             let type_id = TypeId::of::<ArchivedRc<T, F>>();
+            let metadata = self.ptr.metadata();
 
             let addr = ptr as *const u8 as usize;
-            match context.start_shared(addr, type_id)? {
+            match context.start_shared(addr, type_id, metadata)? {
                 ValidationState::Started => {
                     context.in_subtree(ptr, |context| unsafe {
                         T::check_bytes(ptr, context)
                     })?;
-                    context.finish_shared(addr, type_id)?;
+                    context.finish_shared(addr, type_id, metadata)?;
                 }
                 ValidationState::Pending => {
                     if !F::ALLOW_CYCLES {
@@ -397,29 +398,22 @@ mod verify {
     }
 }
 
-#[cfg(all(test, miri, feature = "alloc", feature = "bytecheck"))]
+#[cfg(all(test, feature = "alloc", feature = "bytecheck"))]
 mod tests {
     use crate::{
         access,
         alloc::{rc::Rc, vec},
-        to_bytes, Archive, Serialize,
+        from_bytes, to_bytes, Archive, Deserialize, Serialize,
     };
 
-    #[test]
-    fn shared_unsized_metadata_can_change_after_first_validation() {
-        #[derive(Archive, Serialize)]
-        #[rkyv(crate)]
-        struct Test {
-            good: Rc<[u32]>,
-            bad: Rc<[u32]>,
-        }
+    #[derive(Archive, Deserialize, Serialize)]
+    #[rkyv(crate)]
+    struct Test {
+        good: Rc<[u32]>,
+        bad: Rc<[u32]>,
+    }
 
-        // Shared pointer validation keys already-validated pointees by data
-        // address and type only. For unsized pointees, metadata is part of the
-        // pointer validity invariant too. After `good` validates the shared
-        // slice with length 1, `bad` can reuse the same data address with a
-        // forged length and skip validating the larger slice. Safe indexing
-        // then trusts the forged metadata and reads outside the allocation.
+    fn mismatched_shared_metadata_bytes() -> crate::util::AlignedVec {
         let shared = Rc::<[u32]>::from(vec![123].into_boxed_slice());
         let value = Test {
             good: shared.clone(),
@@ -439,7 +433,20 @@ mod tests {
             [bad_metadata_offset..bad_metadata_offset + forged_len_bytes.len()]
             .copy_from_slice(&forged_len_bytes);
 
-        let archived = access::<ArchivedTest, rancor::Error>(&bytes).unwrap();
-        let _ = archived.bad[100].to_native();
+        bytes
+    }
+
+    #[test]
+    fn shared_unsized_metadata_can_change_after_first_validation() {
+        let bytes = mismatched_shared_metadata_bytes();
+
+        assert!(access::<ArchivedTest, rancor::Error>(&bytes).is_err());
+    }
+
+    #[test]
+    fn shared_unsized_metadata_rejected_by_checked_deserialization() {
+        let bytes = mismatched_shared_metadata_bytes();
+
+        assert!(from_bytes::<Test, rancor::Error>(&bytes).is_err());
     }
 }
