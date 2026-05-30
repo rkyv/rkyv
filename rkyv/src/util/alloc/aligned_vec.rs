@@ -551,6 +551,41 @@ impl<const ALIGNMENT: usize> AlignedVec<ALIGNMENT> {
         self.len
     }
 
+    /// Consumes and leaks the `AlignedVec`, returning a mutable reference to
+    /// the contents, `&'static mut [u8]`.
+    ///
+    /// This method does not reallocate or shrink the `AlignedVec`, so the
+    /// leaked allocation may include unused capacity that is not part of the
+    /// returned slice.
+    ///
+    /// This function is mainly useful for data that lives for the remainder of
+    /// the program's life. Dropping the returned reference will cause a memory
+    /// leak.
+    ///
+    /// # Examples
+    ///
+    /// Simple usage:
+    ///
+    /// ```
+    /// # use std::alloc::{Layout, dealloc};
+    /// # use rkyv::util::AlignedVec;
+    ///
+    /// let mut x = AlignedVec::<16>::new();
+    /// x.extend_from_slice(&[1, 2, 3]);
+    /// # let layout = Layout::from_size_align(x.capacity(), 16).unwrap();
+    /// let static_ref: &'static mut [u8] = x.leak();
+    /// static_ref[0] += 1;
+    /// assert_eq!(static_ref, &[2, 2, 3]);
+    /// # // Need to manually dealloc to avoid triggering Miri's leak check
+    /// # unsafe {
+    /// #     dealloc(static_ref.as_mut_ptr(), layout);
+    /// # }
+    /// ```
+    pub fn leak(self) -> &'static mut [u8] {
+        let mut me = ManuallyDrop::new(self);
+        unsafe { slice::from_raw_parts_mut(me.as_mut_ptr(), me.len) }
+    }
+
     /// Copies and appends all bytes in a slice to the `AlignedVec`.
     ///
     /// The elements of the slice are appended in-order.
