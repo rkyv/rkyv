@@ -137,6 +137,11 @@
 //! - `std`: Enables standard library support. Enabled by default.
 //! - `bytecheck`: Enables data validation through `bytecheck`. Enabled by
 //!   default.
+//! - `bytemuck`: Enables `bytemuck::Pod` and `Zeroable` impls on rend's
+//!   archived primitive types (passthrough to `rend/bytemuck-1`).
+//! - `zerocopy`: Enables `zerocopy::FromBytes`, `IntoBytes`, `Immutable`,
+//!   and `KnownLayout` impls on rend's archived primitive types
+//!   (passthrough to `rend/zerocopy-0_8`).
 //!
 //! ### Crates
 //!

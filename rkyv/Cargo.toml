@@ -59,6 +59,8 @@ pointer_width_64 = []
 alloc = ["dep:hashbrown", "tinyvec-1?/alloc", "rancor/alloc"]
 std = ["alloc", "bytes-1?/std", "indexmap-2?/std", "ptr_meta/std", "uuid-1?/std"]
 bytecheck = ["dep:bytecheck", "rend/bytecheck", "rkyv_derive/bytecheck"]
+bytemuck = ["rend/bytemuck-1"]
+zerocopy = ["rend/zerocopy-0_8"]
 
 # External crate support
 hashbrown-0_17 = ["dep:hashbrown"]
