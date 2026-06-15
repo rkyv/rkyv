@@ -97,7 +97,10 @@ impl Arena {
 
     /// Creates a new `Arena` with at least the requested capacity.
     pub fn with_capacity(cap: usize) -> Self {
-        let head_size = (cap + size_of::<Block>()).next_power_of_two();
+        let head_size = cap
+            .checked_add(size_of::<Block>())
+            .and_then(|s| s.checked_next_power_of_two())
+            .expect("Arena capacity overflow");
         let head_ptr = Block::alloc(head_size);
         Self { head_ptr }
     }
