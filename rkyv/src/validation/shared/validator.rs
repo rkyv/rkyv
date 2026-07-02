@@ -10,16 +10,24 @@ use hashbrown::hash_map;
 use rancor::{fail, Source};
 
 use crate::{
+    erased::{ErasedPtr, Metadata},
     hash::FxHasher64,
     validation::{shared::ValidationState, SharedContext},
 };
+
+#[derive(Debug)]
+struct SharedValidationState {
+    type_id: TypeId,
+    metadata: Metadata,
+    is_finished: bool,
+}
 
 /// A validator that can verify shared pointers.
 #[derive(Debug, Default)]
 pub struct SharedValidator {
     shared: hash_map::HashMap<
         usize,
-        (TypeId, bool),
+        SharedValidationState,
         BuildHasherDefault<FxHasher64>,
     >,
 }
@@ -63,6 +71,21 @@ impl fmt::Display for TypeMismatch {
 impl Error for TypeMismatch {}
 
 #[derive(Debug)]
+struct MetadataMismatch;
+
+impl fmt::Display for MetadataMismatch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "the same memory region has been claimed as the same type with
+            different pointer metadata (e.g. slice length)",
+        )
+    }
+}
+
+impl Error for MetadataMismatch {}
+
+#[derive(Debug)]
 struct NotStarted;
 
 impl fmt::Display for NotStarted {
@@ -87,22 +110,35 @@ impl Error for AlreadyFinished {}
 impl<E: Source> SharedContext<E> for SharedValidator {
     fn start_shared(
         &mut self,
-        address: usize,
-        type_id: TypeId,
+        shared_type_id: TypeId,
+        ptr: ErasedPtr,
+        metadata_is_eq: unsafe fn(Metadata, Metadata) -> bool,
     ) -> Result<ValidationState, E> {
-        match self.shared.entry(address) {
+        match self.shared.entry(ptr.data_address() as usize) {
             hash_map::Entry::Vacant(vacant) => {
-                vacant.insert((type_id, false));
+                vacant.insert(SharedValidationState {
+                    type_id: shared_type_id,
+                    metadata: ptr.metadata(),
+                    is_finished: false,
+                });
                 Ok(ValidationState::Started)
             }
             hash_map::Entry::Occupied(occupied) => {
-                let (previous_type_id, finished) = occupied.get();
-                if previous_type_id != &type_id {
+                let state = occupied.get();
+                if state.type_id != shared_type_id {
                     fail!(TypeMismatch {
-                        previous: *previous_type_id,
-                        current: type_id,
-                    })
-                } else if !finished {
+                        previous: state.type_id,
+                        current: shared_type_id,
+                    });
+                }
+
+                let is_same_metadata =
+                    unsafe { metadata_is_eq(ptr.metadata(), state.metadata) };
+                if !is_same_metadata {
+                    fail!(MetadataMismatch);
+                }
+
+                if !state.is_finished {
                     Ok(ValidationState::Pending)
                 } else {
                     Ok(ValidationState::Finished)
@@ -113,25 +149,60 @@ impl<E: Source> SharedContext<E> for SharedValidator {
 
     fn finish_shared(
         &mut self,
-        address: usize,
-        type_id: TypeId,
+        _shared_type_id: TypeId,
+        ptr: ErasedPtr,
     ) -> Result<(), E> {
-        match self.shared.entry(address) {
+        match self.shared.entry(ptr.data_address() as usize) {
             hash_map::Entry::Vacant(_) => fail!(NotStarted),
             hash_map::Entry::Occupied(mut occupied) => {
-                let (previous_type_id, finished) = occupied.get_mut();
-                if previous_type_id != &type_id {
-                    fail!(TypeMismatch {
-                        previous: *previous_type_id,
-                        current: type_id,
-                    });
-                } else if *finished {
+                let state = occupied.get_mut();
+
+                if state.is_finished {
                     fail!(AlreadyFinished);
-                } else {
-                    *finished = true;
-                    Ok(())
                 }
+
+                state.is_finished = true;
+                Ok(())
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(not(any(
+        feature = "pointer_width_16",
+        feature = "pointer_width_64"
+    )))]
+    #[test]
+    fn conflicting_metadata() {
+        use rancor::Error;
+
+        use super::*;
+        use crate::{
+            alloc::rc::Rc, api::high::access, util::Align, Archive, Serialize,
+        };
+
+        #[expect(dead_code)]
+        #[derive(Archive, Serialize)]
+        #[rkyv(crate, derive(Debug))]
+        struct Test {
+            a: Rc<[u8]>,
+            b: Rc<[u8]>,
+        }
+
+        // Invalid archive (mismatched metadata)
+        let synthetic_buf = Align([
+            // Shared slice
+            1u8, 2u8, 3u8, 4u8, // First Rc
+            0xfc, 0xff, 0xff, 0xff, // points 4 bytes backward
+            4u8, 0u8, 0u8, 0u8, // slice is 4 bytes long
+            // Second Rc
+            0xf4, 0xff, 0xff, 0xff, // points 12 bytes backward
+            2u8, 0u8, 0u8, 0u8, // slice is 2 bytes long
+        ]);
+
+        let result = access::<ArchivedTest, Error>(&*synthetic_buf);
+        assert_source!(result.unwrap_err(), MetadataMismatch);
     }
 }

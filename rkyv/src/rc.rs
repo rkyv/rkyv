@@ -322,6 +322,7 @@ mod verify {
     use rancor::fail;
 
     use crate::{
+        erased::{ErasedPtr, FromMetadata, Metadata},
         rc::{ArchivedRc, ArchivedRcWeak, Flavor},
         traits::{ArchivePointee, LayoutRaw},
         validation::{
@@ -345,21 +346,28 @@ mod verify {
     where
         T: ArchivePointee + CheckBytes<C> + LayoutRaw + ?Sized + 'static,
         T::ArchivedMetadata: CheckBytes<C>,
+        T::Metadata: Into<Metadata> + FromMetadata,
         F: Flavor,
         C: Fallible + ArchiveContext + SharedContext + ?Sized,
         C::Error: Source,
     {
         fn verify(&self, context: &mut C) -> Result<(), C::Error> {
             let ptr = self.ptr.as_ptr_wrapping();
-            let type_id = TypeId::of::<ArchivedRc<T, F>>();
+            let shared_type_id = TypeId::of::<ArchivedRc<T, F>>();
+            let erased_ptr = ErasedPtr::new(ptr.cast_mut());
 
-            let addr = ptr as *const u8 as usize;
-            match context.start_shared(addr, type_id)? {
+            let result =
+                context.start_shared(shared_type_id, erased_ptr, |a, b| {
+                    let a = unsafe { T::Metadata::from_metadata(a) };
+                    let b = unsafe { T::Metadata::from_metadata(b) };
+                    a == b
+                })?;
+            match result {
                 ValidationState::Started => {
                     context.in_subtree(ptr, |context| unsafe {
                         T::check_bytes(ptr, context)
                     })?;
-                    context.finish_shared(addr, type_id)?;
+                    context.finish_shared(shared_type_id, erased_ptr)?;
                 }
                 ValidationState::Pending => {
                     if !F::ALLOW_CYCLES {
@@ -377,6 +385,7 @@ mod verify {
     where
         T: ArchivePointee + CheckBytes<C> + LayoutRaw + ?Sized + 'static,
         T::ArchivedMetadata: CheckBytes<C>,
+        T::Metadata: Into<Metadata> + FromMetadata,
         F: Flavor,
         C: Fallible + ArchiveContext + SharedContext + ?Sized,
         C::Error: Source,

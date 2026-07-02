@@ -157,7 +157,7 @@ mod verify {
     ///
     /// Durations must have a `nanos` field that is less than one billion.
     #[derive(Debug)]
-    pub struct DurationError {
+    struct DurationError {
         nanos: u32,
     }
 

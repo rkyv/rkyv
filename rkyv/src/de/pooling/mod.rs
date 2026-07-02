@@ -4,127 +4,15 @@
 mod alloc;
 mod core;
 
-use ::core::{
-    alloc::LayoutError, error::Error, fmt, mem::transmute, ptr::NonNull,
-};
-use ptr_meta::{from_raw_parts_mut, metadata, DynMetadata, Pointee};
+use ::core::{alloc::LayoutError, error::Error, fmt, ptr::NonNull};
+use ptr_meta::{from_raw_parts_mut, Pointee};
 use rancor::{fail, Fallible, ResultExt as _, Source, Strategy};
 
 #[cfg(feature = "alloc")]
 pub use self::alloc::*;
 pub use self::core::*;
+pub use crate::erased::{ErasedPtr, FromMetadata, Metadata};
 use crate::{traits::LayoutRaw, ArchiveUnsized, DeserializeUnsized};
-
-/// Type-erased pointer metadata.
-#[derive(Clone, Copy)]
-pub union Metadata {
-    unit: (),
-    usize: usize,
-    vtable: DynMetadata<()>,
-}
-
-impl fmt::Debug for Metadata {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "<metadata>")
-    }
-}
-
-impl From<()> for Metadata {
-    fn from(value: ()) -> Self {
-        Self { unit: value }
-    }
-}
-
-impl From<usize> for Metadata {
-    fn from(value: usize) -> Self {
-        Self { usize: value }
-    }
-}
-
-impl<T: ?Sized> From<DynMetadata<T>> for Metadata {
-    fn from(value: DynMetadata<T>) -> Self {
-        Self {
-            vtable: unsafe {
-                transmute::<DynMetadata<T>, DynMetadata<()>>(value)
-            },
-        }
-    }
-}
-
-/// A type which can be extracted from `Metadata`.
-pub trait FromMetadata {
-    /// Extracts this type from [`Metadata`].
-    ///
-    /// # Safety
-    ///
-    /// The metadata must have been created by calling `Metadata::from` on a
-    /// value of this type.
-    unsafe fn from_metadata(metadata: Metadata) -> Self;
-}
-
-// These impls are sound because `Metadata` has the type-level invariant that
-// `From` will only be called on `Metadata` created from pointers with the
-// corresponding metadata.
-
-impl FromMetadata for () {
-    unsafe fn from_metadata(metadata: Metadata) -> Self {
-        unsafe { metadata.unit }
-    }
-}
-
-impl FromMetadata for usize {
-    unsafe fn from_metadata(metadata: Metadata) -> Self {
-        unsafe { metadata.usize }
-    }
-}
-
-impl<T: ?Sized> FromMetadata for DynMetadata<T> {
-    unsafe fn from_metadata(metadata: Metadata) -> Self {
-        unsafe { transmute::<DynMetadata<()>, DynMetadata<T>>(metadata.vtable) }
-    }
-}
-
-/// A type-erased pointer.
-#[derive(Clone, Copy, Debug)]
-pub struct ErasedPtr {
-    data_address: NonNull<()>,
-    metadata: Metadata,
-}
-
-impl ErasedPtr {
-    /// Returns an erased pointer corresponding to the given pointer.
-    #[inline]
-    pub fn new<T>(ptr: NonNull<T>) -> Self
-    where
-        T: Pointee + ?Sized,
-        T::Metadata: Into<Metadata>,
-    {
-        Self {
-            data_address: ptr.cast(),
-            metadata: metadata(ptr.as_ptr()).into(),
-        }
-    }
-
-    /// Returns the data address corresponding to this erased pointer.
-    #[inline]
-    pub fn data_address(&self) -> *mut () {
-        self.data_address.as_ptr()
-    }
-
-    /// # Safety
-    ///
-    /// `self` must be created from a valid pointer to `T`.
-    #[inline]
-    unsafe fn downcast_unchecked<T>(&self) -> *mut T
-    where
-        T: Pointee + ?Sized,
-        T::Metadata: FromMetadata,
-    {
-        from_raw_parts_mut(self.data_address.as_ptr(), unsafe {
-            T::Metadata::from_metadata(self.metadata)
-        })
-    }
-}
 
 /// A deserializable shared pointer type.
 ///
@@ -263,7 +151,7 @@ pub trait PoolingExt<E>: Pooling<E> {
                 unsafe {
                     self.finish_pooling(
                         address,
-                        ErasedPtr::new(ptr),
+                        ErasedPtr::new(ptr.as_ptr()),
                         drop_shared::<T, P>,
                     )?;
                 }
@@ -272,7 +160,7 @@ pub trait PoolingExt<E>: Pooling<E> {
             }
             PoolingState::Pending => fail!(CyclicSharedPointerError),
             PoolingState::Finished(ptr) => {
-                Ok(from_raw_parts_mut(ptr.data_address.as_ptr(), metadata))
+                Ok(from_raw_parts_mut(ptr.data_address(), metadata))
             }
         }
     }

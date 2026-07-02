@@ -189,3 +189,227 @@ unsafe impl<E: Source> ArchiveContext<E> for ArchiveValidator<'_> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rancor::Error;
+
+    use super::*;
+    use crate::{
+        api::low::{access, access_pos},
+        boxed::ArchivedBox,
+        option::ArchivedOption,
+        util::Align,
+        Archived,
+    };
+
+    #[test]
+    fn basic_functionality() {
+        #[cfg(all(feature = "pointer_width_16", not(feature = "big_endian")))]
+        // Synthetic archive (correct)
+        let synthetic_buf = Align([
+            // "Hello world"
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+            0u8, // padding to 2-alignment
+            1u8, 0u8, // Some + padding
+            0xf2u8, 0xffu8, // points 14 bytes backwards
+            11u8, 0u8, // string is 11 characters long
+        ]);
+
+        #[cfg(all(feature = "pointer_width_16", feature = "big_endian"))]
+        // Synthetic archive (correct)
+        let synthetic_buf = Align([
+            // "Hello world"
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+            0u8, // padding to 2-alignment
+            1u8, 0u8, // Some + padding
+            0xffu8, 0xf2u8, // points 14 bytes backwards
+            0u8, 11u8, // string is 11 characters long
+        ]);
+
+        #[cfg(all(
+            not(any(
+                feature = "pointer_width_16",
+                feature = "pointer_width_64",
+            )),
+            not(feature = "big_endian"),
+        ))]
+        // Synthetic archive (correct)
+        let synthetic_buf = Align([
+            // "Hello world"
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+            0u8, // padding to 4-alignment
+            1u8, 0u8, 0u8, 0u8, // Some + padding
+            0xf0u8, 0xffu8, 0xffu8, 0xffu8, // points 16 bytes backward
+            11u8, 0u8, 0u8, 0u8, // string is 11 characters long
+        ]);
+
+        #[cfg(all(
+            not(any(
+                feature = "pointer_width_16",
+                feature = "pointer_width_64",
+            )),
+            feature = "big_endian",
+        ))]
+        // Synthetic archive (correct)
+        let synthetic_buf = Align([
+            // "Hello world"
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+            0u8, // padding to 4-alignment
+            1u8, 0u8, 0u8, 0u8, // Some + padding
+            0xffu8, 0xffu8, 0xffu8, 0xf0u8, // points 16 bytes backward
+            0u8, 0u8, 0u8, 11u8, // string is 11 characters long
+        ]);
+
+        #[cfg(all(feature = "pointer_width_64", not(feature = "big_endian")))]
+        // Synthetic archive (correct)
+        let synthetic_buf = Align([
+            // "Hello world"
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+            0u8, 0u8, 0u8, 0u8, 0u8, // padding to 8-alignment
+            1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, // Some + padding
+            // points 24 bytes backward
+            0xe8u8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8,
+            11u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+            0u8, // string is 11 characters long
+        ]);
+
+        #[cfg(all(feature = "pointer_width_64", feature = "big_endian"))]
+        // Synthetic archive (correct)
+        let synthetic_buf = Align([
+            // "Hello world!!!!!" because otherwise the string will get inlined
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+            0x21, 0x21, 0x21, 0x21, 0x21, 1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+            0u8, // Some + padding
+            // points 24 bytes backward
+            0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xe8u8, 0u8,
+            0u8, 0u8, 0u8, 0u8, 0u8, 0u8,
+            11u8, // string is 11 characters long
+        ]);
+
+        let result =
+            access::<ArchivedOption<ArchivedBox<[u8]>>, Error>(&*synthetic_buf);
+        result.unwrap();
+
+        // Out of bounds
+        let result =
+            access_pos::<Archived<u32>, Error>(&*Align([0, 1, 2, 3, 4]), 8);
+        assert_source!(
+            result.unwrap_err(),
+            InvalidSubtreePointer { size: 4, .. },
+            "error source should be out-of-bounds",
+        );
+        // Overrun
+        let result =
+            access_pos::<Archived<u32>, Error>(&*Align([0, 1, 2, 3, 4]), 4);
+        assert_source!(
+            result.unwrap_err(),
+            InvalidSubtreePointer { size: 4, .. },
+            "error source should be overrun",
+        );
+        // Unaligned
+        let result =
+            access_pos::<Archived<u32>, Error>(&*Align([0, 1, 2, 3, 4]), 1);
+        assert_source!(
+            result.unwrap_err(),
+            UnalignedPointer { align: 4, .. },
+            "error source should be unaligned",
+        );
+    }
+
+    #[cfg(not(any(
+        feature = "pointer_width_16",
+        feature = "pointer_width_64"
+    )))]
+    #[test]
+    fn invalid_tags() {
+        // Invalid archive (invalid tag)
+        let synthetic_buf = Align([
+            // "Hello world"
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+            0u8, // pad to 4-alignment
+            2u8, 0u8, 0u8, 0u8, // invalid tag + padding
+            0xe8, 0xff, 0xff, 0xff, // points 24 bytes backward
+            11u8, 0u8, 0u8, 0u8, // string is 11 characters long
+        ]);
+
+        let result =
+            access::<Archived<Option<Box<[u8]>>>, Error>(&*synthetic_buf);
+        assert_source!(
+            result.unwrap_err(),
+            bytecheck::InvalidEnumDiscriminantError::<u8> {
+                enum_name: "ArchivedOption",
+                invalid_discriminant: 2,
+            },
+            "error source should be invalid enum discriminant",
+        );
+    }
+
+    #[cfg(not(any(
+        feature = "pointer_width_16",
+        feature = "pointer_width_64"
+    )))]
+    #[test]
+    fn overlapping_claims() {
+        // Invalid archive (overlapping claims)
+        let synthetic_buf = Align([
+            // "Hello world"
+            0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+            0, // pad to 4-alignment
+            // First string
+            0xf0, 0xff, 0xff, 0xff, // points 16 bytes backward
+            11u8, 0u8, 0u8, 0u8, // string is 11 characters long
+            // Second string
+            0xe8, 0xff, 0xff, 0xff, // points 24 bytes forward
+            11u8, 0u8, 0u8, 0u8, // string is 11 characters long
+        ]);
+
+        let result = access::<Archived<[Box<[u8]>; 2]>, Error>(&*synthetic_buf);
+        assert_source!(
+            result.unwrap_err(),
+            InvalidSubtreePointer { size: 11, .. },
+            "error source should be invalid subtree pointer",
+        );
+    }
+
+    #[cfg(not(any(
+        feature = "pointer_width_16",
+        feature = "pointer_width_64"
+    )))]
+    #[test]
+    fn cycle_detection() {
+        use crate::{
+            ser::Writer, validation::ArchiveContext, Archive, Serialize,
+        };
+
+        #[allow(dead_code)]
+        #[derive(Archive, Serialize)]
+        #[rkyv(
+            crate,
+            serialize_bounds(__S: Writer),
+            bytecheck(bounds(__C: ArchiveContext)),
+            derive(Debug),
+        )]
+        enum Node {
+            Nil,
+            Cons(#[rkyv(omit_bounds)] Box<Node>),
+        }
+
+        // Invalid archive (cyclic claims)
+        let synthetic_buf = Align([
+            // First node
+            1u8, 0u8, 0u8, 0u8, // Cons
+            4u8, 0u8, 0u8, 0u8, // Node is 4 bytes forward
+            // Second string
+            1u8, 0u8, 0u8, 0u8, // Cons
+            244u8, 255u8, 255u8, 255u8, // Node is 12 bytes back
+        ]);
+
+        let result = access::<ArchivedNode, Error>(&*synthetic_buf);
+        assert_source!(
+            result.unwrap_err(),
+            InvalidSubtreePointer { .. },
+            "error source should be invalid subtree pointer",
+        );
+    }
+}

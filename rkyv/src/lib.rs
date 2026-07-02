@@ -222,6 +222,7 @@ pub mod api;
 pub mod boxed;
 pub mod collections;
 pub mod de;
+pub mod erased;
 pub mod ffi;
 pub mod hash;
 mod impls;

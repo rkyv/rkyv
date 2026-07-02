@@ -20,3 +20,37 @@ macro_rules! match_pointer_width {
         $s64
     };
 }
+
+#[cfg(test)]
+#[allow(unused)] // This macro is unused in some feature combinations
+macro_rules! assert_source {
+    ($e:expr, $p:pat $(,)?) => {
+        assert_source!($e, $p, "left matches right");
+    };
+    ($e:expr, $p:pat, $msg:expr $(,)?) => {
+        #[allow(unused)]
+        let e = $e;
+        #[cfg(all(debug_assertions, feature = "alloc"))]
+        {
+            let mut e = ::rancor::Error::inner(&e);
+            while let Some(source) = ::core::error::Error::source(e) {
+                e = source;
+            }
+            if let Some(e) = e.downcast_ref() {
+                if !matches!(e, $p) {
+                    panic!(
+                        "assertion `{}` failed\nleft: {e:?}\nright: {}",
+                        $msg,
+                        ::core::stringify!($p),
+                    )
+                }
+            } else {
+                panic!(
+                    "assertion `{}` failed\nleft: {e:?}\nright: {}",
+                    $msg,
+                    ::core::stringify!($p),
+                );
+            }
+        }
+    };
+}

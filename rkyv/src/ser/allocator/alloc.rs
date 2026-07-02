@@ -36,7 +36,7 @@ impl Block {
 
     unsafe fn dealloc(ptr: NonNull<Self>, size: usize) {
         let layout = unsafe {
-            Layout::from_size_align(size, align_of::<Self>()).unwrap_unchecked()
+            Layout::from_size_align_unchecked(size, align_of::<Self>())
         };
         unsafe {
             dealloc(ptr.as_ptr().cast(), layout);
