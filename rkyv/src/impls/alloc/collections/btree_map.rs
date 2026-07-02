@@ -9,10 +9,7 @@ use crate::{
     Archive, Deserialize, Place, Serialize,
 };
 
-impl<K: Archive + Ord, V: Archive> Archive for BTreeMap<K, V>
-where
-    K::Archived: Ord,
-{
+impl<K: Archive + Ord, V: Archive> Archive for BTreeMap<K, V> {
     type Archived = ArchivedBTreeMap<K::Archived, V::Archived>;
     type Resolver = BTreeMapResolver;
 
@@ -24,7 +21,6 @@ where
 impl<K, V, S> Serialize<S> for BTreeMap<K, V>
 where
     K: Serialize<S> + Ord,
-    K::Archived: Ord,
     V: Serialize<S>,
     S: Allocator + Fallible + Writer + ?Sized,
     S::Error: Source,
@@ -44,7 +40,7 @@ impl<K, V, D> Deserialize<BTreeMap<K, V>, D>
     for ArchivedBTreeMap<K::Archived, V::Archived>
 where
     K: Archive + Ord,
-    K::Archived: Deserialize<K, D> + Ord,
+    K::Archived: Deserialize<K, D>,
     V: Archive,
     V::Archived: Deserialize<V, D>,
     D: Fallible + ?Sized,

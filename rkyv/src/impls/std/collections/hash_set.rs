@@ -15,7 +15,6 @@ use crate::{
 impl<K, S> Archive for HashSet<K, S>
 where
     K: Archive + Hash + Eq,
-    K::Archived: Hash + Eq,
 {
     type Archived = ArchivedHashSet<K::Archived>;
     type Resolver = HashSetResolver;
@@ -32,7 +31,6 @@ where
 
 impl<K, S, RS> Serialize<S> for HashSet<K, RS>
 where
-    K::Archived: Hash + Eq,
     K: Serialize<S> + Hash + Eq,
     S: Fallible + Allocator + Writer + ?Sized,
     S::Error: Source,
@@ -52,7 +50,7 @@ where
 impl<K, D, S> Deserialize<HashSet<K, S>, D> for ArchivedHashSet<K::Archived>
 where
     K: Archive + Hash + Eq,
-    K::Archived: Deserialize<K, D> + Hash + Eq,
+    K::Archived: Deserialize<K, D>,
     D: Fallible + ?Sized,
     S: Default + BuildHasher,
 {
