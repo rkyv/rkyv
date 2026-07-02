@@ -1,3 +1,5 @@
+#![cfg(all(feature = "bytecheck", feature = "alloc"))]
+
 use std::{
     rc::{Rc, Weak},
     sync::Arc,
