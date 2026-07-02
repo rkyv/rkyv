@@ -1,5 +1,5 @@
 use proc_macro2::{Span, TokenStream};
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{
     parse_quote, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput,
     Error, Fields, Generics, Ident, Index, Path, WhereClause,
@@ -103,11 +103,20 @@ fn derive_deserialize_impl(
             Ident::new("Self", Span::call_site()),
             name,
         )?;
+        let base_name = crate::util::strip_raw(&name);
+        let archived_name = attributes
+            .archived
+            .clone()
+            .unwrap_or_else(|| format_ident!("Archived{}", base_name));
+        let archived_type = attributes
+            .as_type
+            .clone()
+            .unwrap_or_else(|| parse_quote! { #archived_name #ty_generics });
 
         Ok(quote! {
             #[automatically_derived]
             impl #impl_generics #rkyv_path::Deserialize<#name #ty_generics, __D>
-                for #rkyv_path::Archived<#name #ty_generics>
+                for #archived_type
             #deserialize_where
             {
                 fn deserialize(

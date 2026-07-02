@@ -630,6 +630,7 @@ mod core_tests {
         #[derive(
             Clone, Debug, Default, Archive, Deserialize, Portable, Serialize,
         )]
+        // Self should be handled specifically (we can't `impl ... for Self`)
         #[rkyv(crate, as = Self)]
         #[repr(C)]
         struct Example {
