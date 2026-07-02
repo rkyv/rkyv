@@ -170,9 +170,7 @@ impl ErasedPtr {
         self.metadata
     }
 
-    pub(crate) fn check_shared_pointer_type<T, P, E>(
-        &self,
-    ) -> Result<(), E>
+    pub(crate) fn check_shared_pointer_type<T, P, E>(&self) -> Result<(), E>
     where
         T: ?Sized + 'static,
         P: 'static,

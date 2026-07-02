@@ -131,11 +131,7 @@ fn offset_from_bytes(bytes: &[u8]) -> rkyv::primitive::FixedIsize {
     }
 }
 
-fn point_rel_ptr_at(
-    bytes: &mut [u8],
-    rel_ptr_offset: usize,
-    target: usize,
-) {
+fn point_rel_ptr_at(bytes: &mut [u8], rel_ptr_offset: usize, target: usize) {
     let rel_ptr_addr = bytes.as_ptr() as usize + rel_ptr_offset;
     let offset =
         rkyv::rel_ptr::signed_offset::<rancor::Error>(rel_ptr_addr, target)
@@ -181,19 +177,19 @@ fn checked_rc_deserialization_reuses_pool_entry_as_wrong_type() {
         // This checked access is still looking at the original, valid archive.
         // It is used only to find the byte offsets of the two archived
         // `ArchivedRc<u8, RcFlavor>` fields.
-        let archived = rkyv::access::<ArchivedTest, rancor::Error>(&bytes)
-            .unwrap();
+        let archived =
+            rkyv::access::<ArchivedTest, rancor::Error>(&bytes).unwrap();
 
         // `ArchivedRc` is represented by a relative pointer. For these sized
         // `u8` pointees, the archived field starts with the relative pointer
         // offset itself. So the field address is also the byte offset we need
         // in order to inspect or rewrite that pointer in the backing buffer.
-        let thin_rel_ptr_offset =
-            (&archived.thin as *const _ as *const u8 as usize)
-                - bytes.as_ptr() as usize;
-        let wide_rel_ptr_offset =
-            (&archived.wide as *const _ as *const u8 as usize)
-                - bytes.as_ptr() as usize;
+        let thin_rel_ptr_offset = (&archived.thin as *const _ as *const u8
+            as usize)
+            - bytes.as_ptr() as usize;
+        let wide_rel_ptr_offset = (&archived.wide as *const _ as *const u8
+            as usize)
+            - bytes.as_ptr() as usize;
 
         // Compute where the `thin` relative pointer currently points, then
         // remember where the `wide` relative pointer is stored. We will make
@@ -235,14 +231,14 @@ fn checked_arc_deserialization_reuses_pool_entry_as_wrong_type() {
     let mut bytes = rkyv::to_bytes::<rancor::Error>(&value).unwrap();
 
     let (thin_pointee, wide_rel_ptr_offset) = {
-        let archived = rkyv::access::<ArchivedTest, rancor::Error>(&bytes)
-            .unwrap();
-        let thin_rel_ptr_offset =
-            (&archived.thin as *const _ as *const u8 as usize)
-                - bytes.as_ptr() as usize;
-        let wide_rel_ptr_offset =
-            (&archived.wide as *const _ as *const u8 as usize)
-                - bytes.as_ptr() as usize;
+        let archived =
+            rkyv::access::<ArchivedTest, rancor::Error>(&bytes).unwrap();
+        let thin_rel_ptr_offset = (&archived.thin as *const _ as *const u8
+            as usize)
+            - bytes.as_ptr() as usize;
+        let wide_rel_ptr_offset = (&archived.wide as *const _ as *const u8
+            as usize)
+            - bytes.as_ptr() as usize;
         (
             rel_ptr_target(&bytes, thin_rel_ptr_offset),
             wide_rel_ptr_offset,
@@ -269,14 +265,14 @@ fn checked_weak_deserialization_reuses_pool_entry_as_wrong_type() {
     let mut bytes = rkyv::to_bytes::<rancor::Error>(&value).unwrap();
 
     let (thin_pointee, weak_rel_ptr_offset) = {
-        let archived = rkyv::access::<ArchivedTest, rancor::Error>(&bytes)
-            .unwrap();
-        let thin_rel_ptr_offset =
-            (&archived.thin as *const _ as *const u8 as usize)
-                - bytes.as_ptr() as usize;
-        let weak_rel_ptr_offset =
-            (&archived.weak as *const _ as *const u8 as usize)
-                - bytes.as_ptr() as usize;
+        let archived =
+            rkyv::access::<ArchivedTest, rancor::Error>(&bytes).unwrap();
+        let thin_rel_ptr_offset = (&archived.thin as *const _ as *const u8
+            as usize)
+            - bytes.as_ptr() as usize;
+        let weak_rel_ptr_offset = (&archived.weak as *const _ as *const u8
+            as usize)
+            - bytes.as_ptr() as usize;
         (
             rel_ptr_target(&bytes, thin_rel_ptr_offset),
             weak_rel_ptr_offset,
