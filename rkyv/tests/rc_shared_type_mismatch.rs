@@ -211,10 +211,10 @@ fn checked_rc_deserialization_reuses_pool_entry_as_wrong_type() {
     // This is the call under test. Checked validation accepts the forged
     // archive because both shared pointers have the same archived pointee type
     // (`u8`) and flavor. During deserialization, the shared-pointer pool is
-    // keyed by archived address, so `Rc<Wide>` reuses the allocation that was
-    // created for `Rc<Thin>`. Miri then reports UB inside rkyv/std when
-    // `Rc::<Wide>::increment_strong_count` is called on that mismatched pointer.
-    let _ = rkyv::from_bytes::<Test, rancor::Error>(&bytes).unwrap();
+    // keyed by archived address, so `Rc<Wide>` tries to reuse the allocation
+    // that was created for `Rc<Thin>`. The pool must reject that type mismatch
+    // before `Rc::<Wide>::increment_strong_count` is called.
+    assert!(rkyv::from_bytes::<Test, rancor::Error>(&bytes).is_err());
 }
 
 #[cfg(target_has_atomic = "ptr")]
@@ -248,7 +248,7 @@ fn checked_arc_deserialization_reuses_pool_entry_as_wrong_type() {
     };
     point_rel_ptr_at(&mut bytes, wide_rel_ptr_offset, thin_pointee);
 
-    let _ = rkyv::from_bytes::<Test, rancor::Error>(&bytes).unwrap();
+    assert!(rkyv::from_bytes::<Test, rancor::Error>(&bytes).is_err());
 }
 
 #[test]
@@ -282,5 +282,5 @@ fn checked_weak_deserialization_reuses_pool_entry_as_wrong_type() {
     };
     point_rel_ptr_at(&mut bytes, weak_rel_ptr_offset, thin_pointee);
 
-    let _ = rkyv::from_bytes::<Test, rancor::Error>(&bytes).unwrap();
+    assert!(rkyv::from_bytes::<Test, rancor::Error>(&bytes).is_err());
 }

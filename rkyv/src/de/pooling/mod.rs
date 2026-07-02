@@ -123,18 +123,18 @@ pub trait PoolingExt<E>: Pooling<E> {
         value: &T::Archived,
     ) -> Result<*mut T, Self::Error>
     where
-        T: ArchiveUnsized + Pointee + LayoutRaw + ?Sized,
+        T: ArchiveUnsized + Pointee + LayoutRaw + ?Sized + 'static,
         T::Metadata: Into<Metadata> + FromMetadata,
         T::Archived: DeserializeUnsized<T, Self>,
-        P: SharedPointer<T>,
+        P: SharedPointer<T> + 'static,
         Self: Fallible<Error = E>,
         E: Source,
     {
         unsafe fn drop_shared<T, P>(ptr: ErasedPtr)
         where
-            T: Pointee + ?Sized,
+            T: Pointee + ?Sized + 'static,
             T::Metadata: FromMetadata,
-            P: SharedPointer<T>,
+            P: SharedPointer<T> + 'static,
         {
             unsafe { P::drop(ptr.downcast_unchecked::<T>()) }
         }
@@ -151,7 +151,7 @@ pub trait PoolingExt<E>: Pooling<E> {
                 unsafe {
                     self.finish_pooling(
                         address,
-                        ErasedPtr::new(ptr.as_ptr()),
+                        ErasedPtr::new_shared::<T, P>(ptr.as_ptr()),
                         drop_shared::<T, P>,
                     )?;
                 }
@@ -160,6 +160,7 @@ pub trait PoolingExt<E>: Pooling<E> {
             }
             PoolingState::Pending => fail!(CyclicSharedPointerError),
             PoolingState::Finished(ptr) => {
+                ptr.check_shared_pointer_type::<T, P, Self::Error>()?;
                 Ok(from_raw_parts_mut(ptr.data_address(), metadata))
             }
         }
