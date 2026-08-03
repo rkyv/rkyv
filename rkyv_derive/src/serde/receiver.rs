@@ -95,7 +95,7 @@ impl ReplaceReceiver<'_> {
             self.visit_type_mut_impl(ty);
             return;
         };
-        *ty = self.self_ty(span).into();
+        *ty = Type::Path(self.self_ty(span));
     }
 
     // `Self::Assoc` -> `<Receiver>::Assoc`
@@ -122,7 +122,7 @@ impl ReplaceReceiver<'_> {
                 self.visit_type_mut(&mut ty.elem);
                 self.visit_expr_mut(&mut ty.len);
             }
-            Type::BareFn(ty) => {
+            Type::FnPtr(ty) => {
                 for arg in &mut ty.inputs {
                     self.visit_type_mut(&mut arg.ty);
                 }
@@ -198,7 +198,7 @@ impl ReplaceReceiver<'_> {
             }
             PathArguments::Parenthesized(arguments) => {
                 for argument in &mut arguments.inputs {
-                    self.visit_type_mut(argument);
+                    self.visit_type_mut(&mut argument.ty);
                 }
                 self.visit_return_type_mut(&mut arguments.output);
             }
