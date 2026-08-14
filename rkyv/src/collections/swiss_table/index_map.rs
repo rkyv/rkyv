@@ -493,14 +493,35 @@ pub struct IndexMapResolver {
 
 #[cfg(feature = "bytecheck")]
 mod verify {
+    use core::{error::Error, fmt};
+
     use bytecheck::{CheckBytes, Verify};
-    use rancor::{Fallible, Source};
+    use rancor::{fail, Fallible, Source};
 
     use super::ArchivedIndexMap;
     use crate::{
         collections::util::Entry,
         validation::{ArchiveContext, ArchiveContextExt},
     };
+
+    #[derive(Debug)]
+    struct IndexOutOfBounds {
+        index: usize,
+        len: usize,
+    }
+
+    impl fmt::Display for IndexOutOfBounds {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(
+                f,
+                "index map hash table contained an out-of-bounds entry index \
+                 (index: {}, length: {})",
+                self.index, self.len,
+            )
+        }
+    }
+
+    impl Error for IndexOutOfBounds {}
 
     unsafe impl<C, K, V, H> Verify<C> for ArchivedIndexMap<K, V, H>
     where
@@ -513,16 +534,30 @@ mod verify {
             &self,
             context: &mut C,
         ) -> Result<(), <C as Fallible>::Error> {
+            let len = self.table.len();
             let ptr = core::ptr::slice_from_raw_parts(
                 self.entries.as_ptr_wrapping(),
-                self.table.len(),
+                len,
             );
 
             context.in_subtree(ptr, |context| {
                 // SAFETY: `in_subtree` has checked that `ptr` is aligned and
                 // points to enough bytes to represent its slice.
                 unsafe { <[Entry<K, V>]>::check_bytes(ptr, context) }
-            })
+            })?;
+
+            // The hash table stores indices into `entries`. A corrupted archive
+            // could contain an out-of-bounds index, which would later panic on
+            // lookup. The table's own `Verify` has already validated these
+            // `ArchivedUsize` bytes, so reading them here is sound. (#685)
+            for entry in self.table.raw_iter() {
+                let index = unsafe { entry.as_ref() }.to_native() as usize;
+                if index >= len {
+                    fail!(IndexOutOfBounds { index, len });
+                }
+            }
+
+            Ok(())
         }
     }
 }
