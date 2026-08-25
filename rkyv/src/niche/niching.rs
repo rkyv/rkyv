@@ -94,6 +94,13 @@ pub struct Zero;
 /// [`Niching`] for NaN-niched values.
 pub struct NaN;
 
+/// [`Niching`] for finite floating point values.
+///
+/// Unlike [`NaN`], which only reserves NaN, this reserves the entire
+/// non-finite space (NaN and both infinities), so the niched value must
+/// never be NaN or infinite.
+pub struct Finite;
+
 /// [`Niching`] for null-pointer-niched values.
 pub struct Null;
 

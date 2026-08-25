@@ -5,7 +5,7 @@ use crate::{
     niche::{
         niched_option::NichedOption,
         niching::{
-            Bool, DefaultNiche, NaN, Niching, Null, SharedNiching, Zero,
+            Bool, DefaultNiche, Finite, NaN, Niching, Null, SharedNiching, Zero,
         },
     },
     primitive::{
@@ -84,6 +84,25 @@ macro_rules! impl_float_nan_niching {
 impl_float_nan_niching!(f32, ArchivedF32);
 impl_float_nan_niching!(f64, ArchivedF64);
 
+// Finite
+
+macro_rules! impl_float_finite_niching {
+    ($fl:ty, $ar:ty) => {
+        impl Niching<$ar> for Finite {
+            unsafe fn is_niched(niched: *const $ar) -> bool {
+                unsafe { !(*niched).to_native().is_finite() }
+            }
+
+            fn resolve_niched(out: Place<$ar>) {
+                out.write(<$fl>::INFINITY.into());
+            }
+        }
+    };
+}
+
+impl_float_finite_niching!(f32, ArchivedF32);
+impl_float_finite_niching!(f64, ArchivedF64);
+
 // Bool
 
 impl Niching<bool> for Bool {
@@ -154,10 +173,52 @@ mod tests {
             to_bytes,
         },
         boxed::ArchivedBox,
-        niche::niching::{DefaultNiche, NaN, Zero},
+        niche::niching::{DefaultNiche, Finite, NaN, Zero},
         with::{AsBox, MapNiche, NicheInto},
         Archive, Deserialize, Serialize,
     };
+
+    #[test]
+    fn finite_niche() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Plain {
+            field: Option<f64>,
+        }
+
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, derive(Debug))]
+        struct Niched {
+            #[rkyv(with = NicheInto<Finite>)]
+            field: Option<f64>,
+        }
+
+        // Niching reuses the non-finite space instead of a separate
+        // discriminant, so the archived representation is smaller.
+        assert!(size_of::<ArchivedNiched>() < size_of::<ArchivedPlain>());
+
+        roundtrip_with(&Niched { field: None }, |_, archived| {
+            assert!(archived.field.is_none());
+        });
+        roundtrip_with(
+            &Niched {
+                field: Some(123.456),
+            },
+            |_, archived| {
+                let field = archived.field.as_ref().unwrap();
+                assert_eq!(field.to_native(), 123.456);
+            },
+        );
+        // Infinity lives inside the reserved niche, so it reads back as `None`.
+        to_archived(
+            &Niched {
+                field: Some(f64::INFINITY),
+            },
+            |archived| {
+                assert!(archived.field.is_none());
+            },
+        );
+    }
 
     #[test]
     fn with_struct() {
