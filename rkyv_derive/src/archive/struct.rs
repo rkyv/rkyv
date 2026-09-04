@@ -143,9 +143,20 @@ fn generate_resolve_statements(
         let access_field = field_attrs.access_field(&this, &member);
         resolve_statements.extend(quote! {
             let field_ptr = unsafe {
+                // SAFETY: `out` points to initialized storage for the
+                // archived struct. `addr_of_mut!` only projects a raw pointer
+                // to this field and does not create a reference.
                 ::core::ptr::addr_of_mut!((*out.ptr()).#member)
             };
+            ::core::assert!(
+                field_ptr.is_aligned(),
+                "unaligned archived field",
+            );
             let field_out = unsafe {
+                // SAFETY: `field_ptr` was projected from the corresponding
+                // field of `out`, the assertion above proved that it meets
+                // the field type's alignment, and the field inherits
+                // dereferenceability and initialized bytes from `out`.
                 #rkyv_path::Place::from_field_unchecked(out, field_ptr)
             };
             #resolves(#access_field, resolver.#member, field_out);
@@ -472,18 +483,45 @@ fn generate_niching_impls(
                 for #niche_tokens {
                     unsafe fn is_niched(niched: *const #archived_type) -> bool {
                         let field = unsafe {
+                            // SAFETY: The caller guarantees that `niched` is
+                            // non-null, properly aligned, and safe for reads.
+                            // `addr_of!` only projects a raw field pointer and
+                            // does not create a reference.
                             ::core::ptr::addr_of!((*niched).#field_member)
                         };
+                        ::core::assert!(
+                            field.is_aligned(),
+                            "unaligned archived field",
+                        );
+                        // SAFETY: `field` is a non-null field projection of
+                        // the readable `niched` storage, and the assertion
+                        // above proved that it meets the field type's
+                        // alignment. The `Niching` contract does not require
+                        // the field bytes to represent a valid field value.
                         unsafe { #field_niching::is_niched(field) }
                     }
 
                     fn resolve_niched(out: #rkyv_path::Place<#archived_type>) {
                         let field_ptr = unsafe {
+                            // SAFETY: `out` points to initialized storage for
+                            // the archived struct. `addr_of_mut!` only
+                            // projects a raw pointer to this field and does
+                            // not create a reference.
                             ::core::ptr::addr_of_mut!(
                                 (*out.ptr()).#field_member
                             )
                         };
+                        ::core::assert!(
+                            field_ptr.is_aligned(),
+                            "unaligned archived field",
+                        );
                         let out_field = unsafe {
+                            // SAFETY: `field_ptr` was projected from the
+                            // corresponding field of `out`, the assertion
+                            // above proved that it meets the field type's
+                            // alignment, and the field inherits
+                            // dereferenceability and initialized bytes from
+                            // `out`.
                             #rkyv_path::Place::from_field_unchecked(
                                 out, field_ptr,
                             )
