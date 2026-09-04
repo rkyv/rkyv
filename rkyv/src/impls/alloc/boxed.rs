@@ -44,7 +44,8 @@ where
     D::Error: Source,
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<Box<T>, D::Error> {
-        let metadata = self.get().deserialize_metadata();
+        let value = self.get();
+        let metadata = value.deserialize_metadata();
         let layout = T::layout_raw(metadata).into_error()?;
         let data_address = if layout.size() > 0 {
             let ptr = unsafe { alloc(layout) };
@@ -59,7 +60,7 @@ where
         let out = ptr_meta::from_raw_parts_mut(data_address.cast(), metadata);
 
         unsafe {
-            self.get().deserialize_unsized(deserializer, out)?;
+            value.deserialize_unsized(deserializer, out)?;
         }
         unsafe { Ok(Box::from_raw(out)) }
     }

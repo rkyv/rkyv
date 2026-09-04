@@ -79,7 +79,14 @@ where
     }
 }
 
-impl<T, D> DeserializeUnsized<T, D> for T::Archived
+// SAFETY:
+// - The metadata for sized `T` is always `()`, so repeated metadata calls are
+//   stable.
+// - `Deserialize::deserialize` returns a valid `T` on success, and `write`
+//   initializes the caller's output with that value before returning `Ok(())`.
+// - On error or unwind, `write` has not occurred. The implementation never
+//   reads from, deallocates, or retains access to the output storage.
+unsafe impl<T, D> DeserializeUnsized<T, D> for T::Archived
 where
     T: Archive,
     D: Fallible + ?Sized,
@@ -91,8 +98,9 @@ where
         out: *mut T,
     ) -> Result<(), D::Error> {
         // SAFETY: The caller has guaranteed that `out` is non-null, properly
-        // aligned, valid for writes, and allocated according to the layout of
-        // the deserialized metadata (the unit type for sized types).
+        // aligned, and points to exclusively accessible storage valid for
+        // writing a sized `T` (or is properly aligned and dangling when `T` is
+        // zero-sized).
         unsafe {
             out.write(self.deserialize(deserializer)?);
         }
@@ -327,7 +335,17 @@ where
     }
 }
 
-impl<T, U, D> DeserializeUnsized<[U], D> for [T]
+// SAFETY:
+// - `deserialize_metadata` returns the length fixed in the `self` slice
+//   reference, so repeated calls are stable and `out` contains exactly one
+//   output element for every input element.
+// - Each successful element deserialization returns a valid `U`, which is
+//   written to its corresponding output element. `Ok(())` is returned only
+//   after every output element has been initialized.
+// - On error or unwind, `out` may contain an initialized prefix, as permitted
+//   by the trait contract. The implementation never reads from, deallocates, or
+//   retains access to the output storage.
+unsafe impl<T, U, D> DeserializeUnsized<[U], D> for [T]
 where
     T: Deserialize<U, D>,
     D: Fallible + ?Sized,
@@ -395,18 +413,26 @@ impl<S: Fallible + Writer + ?Sized> SerializeUnsized<S> for str {
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for str {
+// SAFETY:
+// - `deserialize_metadata` returns the byte length fixed in the `self` string
+//   reference, so repeated calls are stable and the caller provides an output
+//   `str` with that length.
+// - `self` is valid UTF-8, and the implementation copies all of its bytes to
+//   `out` before returning `Ok(())`, so the output is also valid UTF-8.
+// - The implementation cannot return an error or unwind. It never reads from,
+//   deallocates, or retains access to the output storage.
+unsafe impl<D: Fallible + ?Sized> DeserializeUnsized<str, D> for str {
     unsafe fn deserialize_unsized(
         &self,
         _: &mut D,
         out: *mut str,
     ) -> Result<(), D::Error> {
         // SAFETY: The caller has guaranteed that `out` is non-null, properly
-        // aligned, valid for writes, and points to memory allocated according
-        // to the layout for the metadata returned from `deserialize_metadata`.
-        // Therefore, `out` points to at least `self.len()` bytes.
-        // `self.as_ptr()` is valid for reads and points to the bytes of `self`
-        // which are also at least `self.len()` bytes.
+        // aligned, and points to exclusively accessible storage valid for
+        // writes of `self.len()` bytes (or is properly aligned and dangling
+        // when that length is zero). The output does not overlap memory
+        // accessible through `self`. `self.as_ptr()` is valid for reads of
+        // `self.len()` bytes.
         unsafe {
             ptr::copy_nonoverlapping(
                 self.as_ptr(),

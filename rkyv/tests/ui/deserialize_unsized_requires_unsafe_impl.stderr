@@ -1,0 +1,11 @@
+error[E0200]: the trait `DeserializeUnsized<Value, D>` requires an `unsafe impl` declaration
+ --> tests/ui/deserialize_unsized_requires_unsafe_impl.rs:6:1
+  |
+6 | impl<D: Fallible + ?Sized> DeserializeUnsized<Value, D> for ArchivedValue {
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the trait `DeserializeUnsized<Value, D>` enforces invariants that the compiler can't check. Review the trait documentation and make sure this implementation upholds those invariants before adding the `unsafe` keyword
+help: add `unsafe` to this trait implementation
+  |
+6 | unsafe impl<D: Fallible + ?Sized> DeserializeUnsized<Value, D> for ArchivedValue {
+  | ++++++

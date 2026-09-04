@@ -467,21 +467,75 @@ pub trait SerializeUnsized<S: Fallible + ?Sized>: ArchiveUnsized {
 }
 
 /// A counterpart of [`Deserialize`] that's suitable for unsized types.
-pub trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>:
+///
+/// # Safety
+///
+/// For every call to [`deserialize_unsized`](Self::deserialize_unsized) that
+/// satisfies its safety requirements, implementations must ensure that:
+///
+/// - If the call returns `Ok(())`, then the storage at `out` is initialized as
+///   one valid value of `T`. Padding bytes may remain uninitialized when the
+///   validity of `T` permits it.
+/// - Every read or write through `out`, including through pointers projected
+///   from it, remains within the storage described by `out`'s metadata.
+/// - On every exit, including errors and unwinding, the implementation does not
+///   deallocate the storage at `out` or retain ownership of, or access to, that
+///   storage which would conflict with the caller reclaiming or taking
+///   ownership of it.
+/// - On success, the original allocation and its provenance remain live, and
+///   `out` remains suitable for the caller to take ownership of as a `T`.
+///
+/// The storage at `out` may be uninitialized when
+/// [`deserialize_unsized`](Self::deserialize_unsized) is called.
+/// Implementations must not read a byte from the storage before that byte has
+/// been initialized, or form a reference to `T` before the storage is
+/// initialized as a valid `T`.
+///
+/// Every value returned by
+/// [`deserialize_metadata`](Self::deserialize_metadata) must describe exactly
+/// the shape and extent of the `T` which the implementation initializes when
+/// that metadata is used to construct `out`. If the layout described by the
+/// metadata cannot be represented, the caller may reject it before
+/// [`deserialize_unsized`](Self::deserialize_unsized) is called.
+///
+/// The metadata conversion must also be stable. All calls which return for the
+/// same unchanged `self` referent must return the same semantic pointer
+/// metadata, regardless of call order, time, thread, or mutable external state.
+/// For example, trait-object metadata must identify the same dynamic type and
+/// vtable; merely describing the same allocation layout is not sufficient.
+/// Safe code may cache an allocation by the archived value's address and later
+/// reconstruct its pointer using a fresh call to
+/// [`deserialize_metadata`](Self::deserialize_metadata).
+pub unsafe trait DeserializeUnsized<T: Pointee + ?Sized, D: Fallible + ?Sized>:
     ArchivePointee
 {
     /// Deserializes a reference to the given value.
     ///
     /// # Safety
     ///
-    /// `out` must be non-null, properly-aligned, and valid for writes. It must
-    /// be allocated according to the layout of the deserialized metadata.
+    /// `out` must be non-null, properly aligned, and valid for writes of all
+    /// bytes of the `T` described by its pointer metadata. Its pointer metadata
+    /// must be a value returned by calling
+    /// [`deserialize_metadata`](Self::deserialize_metadata) on this same
+    /// value. For the layout of a `T` with that metadata, the data-addressed
+    /// storage must remain live and valid for writes of the layout's size for
+    /// the duration of the call, including while code invoked through
+    /// `deserializer` runs. The output region must not overlap memory
+    /// accessible through `self` or `deserializer`. For a zero-size layout,
+    /// `out` may instead be a non-null, properly aligned dangling pointer.
+    ///
+    /// If this function returns `Err` or unwinds, no valid `T` is promised at
+    /// `out`. The storage may contain partially initialized fields or elements,
+    /// and resources owned by those subobjects may be leaked. The caller must
+    /// not read from, drop, or otherwise treat the value at `out` as a `T`
+    /// unless the caller can establish independently that it was initialized
+    /// as a valid `T`.
     unsafe fn deserialize_unsized(
         &self,
         deserializer: &mut D,
         out: *mut T,
     ) -> Result<(), D::Error>;
 
-    /// Deserializes the metadata for the given type.
+    /// Deserializes stable pointer metadata for the given type.
     fn deserialize_metadata(&self) -> T::Metadata;
 }
