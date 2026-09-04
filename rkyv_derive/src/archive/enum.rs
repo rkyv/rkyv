@@ -1004,14 +1004,23 @@ fn generate_niching_impls(
                         unsafe fn is_niched(niched: *const #archived_type)
                             -> bool
                         {
-                            let variant = niched
-                                .cast::<#archived_variant_name #ty_generics>();
+                            // SAFETY: The caller guarantees that `niched`
+                            // points to readable, initialized bytes for the
+                            // archived enum. A `repr(u8)` enum stores its `u8`
+                            // tag at offset zero, and every initialized byte is
+                            // a valid `u8`, so this does not materialize the
+                            // potentially-invalid enum or tag.
                             let tag = unsafe {
-                                ::core::ptr::addr_of!((*variant).#tag_member)
+                                niched.cast::<::core::primitive::u8>().read()
                             };
-                            if unsafe { &*tag != &ArchivedTag::#variant_name } {
+                            if tag != ArchivedTag::#variant_name
+                                as ::core::primitive::u8
+                            {
                                 return false;
                             }
+
+                            let variant = niched
+                                .cast::<#archived_variant_name #ty_generics>();
                             let field = unsafe {
                                 ::core::ptr::addr_of!((*variant).#field_member)
                             };
