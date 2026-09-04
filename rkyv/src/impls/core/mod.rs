@@ -27,7 +27,10 @@ mod result;
 mod time;
 pub(crate) mod with;
 
-impl<T> LayoutRaw for T {
+// SAFETY: The `Pointee` implementation for every sized `T` uses `()` metadata.
+// `Layout::new::<T>()` returns the exact size and alignment of `T`, including
+// any padding.
+unsafe impl<T> LayoutRaw for T {
     fn layout_raw(
         _: <Self as Pointee>::Metadata,
     ) -> Result<Layout, LayoutError> {
@@ -35,7 +38,11 @@ impl<T> LayoutRaw for T {
     }
 }
 
-impl<T> LayoutRaw for [T] {
+// SAFETY: The `Pointee` implementation for `[T]` defines its metadata as its
+// element count. `Layout::array::<T>(metadata)` returns the exact size and
+// alignment of that many consecutive `T` values, including the zero-sized
+// element case, or `LayoutError` if that layout cannot be represented.
+unsafe impl<T> LayoutRaw for [T] {
     fn layout_raw(
         metadata: <Self as Pointee>::Metadata,
     ) -> Result<Layout, LayoutError> {
@@ -43,7 +50,11 @@ impl<T> LayoutRaw for [T] {
     }
 }
 
-impl LayoutRaw for str {
+// SAFETY: The `Pointee` implementation for `str` defines its metadata as its
+// length in bytes. A `str` has the same layout as a `[u8]` of that length, so
+// `Layout::array::<u8>(metadata)` returns its exact layout or `LayoutError` if
+// that layout cannot be represented.
+unsafe impl LayoutRaw for str {
     #[inline]
     fn layout_raw(
         metadata: <Self as Pointee>::Metadata,

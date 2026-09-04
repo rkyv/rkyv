@@ -1,0 +1,11 @@
+error[E0200]: the trait `LayoutRaw` requires an `unsafe impl` declaration
+ --> tests/ui/layout_raw_requires_unsafe.rs:8:1
+  |
+8 | impl LayoutRaw for dyn Example {
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: the trait `LayoutRaw` enforces invariants that the compiler can't check. Review the trait documentation and make sure this implementation upholds those invariants before adding the `unsafe` keyword
+help: add `unsafe` to this trait implementation
+  |
+8 | unsafe impl LayoutRaw for dyn Example {
+  | ++++++

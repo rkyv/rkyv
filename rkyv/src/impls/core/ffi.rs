@@ -17,7 +17,17 @@ use crate::{
 
 // CStr
 
-impl LayoutRaw for CStr {
+// SAFETY: This proof is conditional on two existing, version-scoped TCB
+// premises: `ptr_meta`'s unsafe `Pointee` implementation defines `CStr`
+// metadata as its byte length (including the nul terminator), and the supported
+// Rust standard-library implementations privately represent `CStr`
+// transparently over `[c_char]`. Under those premises,
+// `Layout::array::<c_char>(metadata)` returns the exact layout or `LayoutError`
+// if it cannot be represented. The latter premise is not a public
+// standard-library guarantee; a change to `CStr`'s private representation
+// requires re-auditing this implementation and rkyv's pre-existing unsafe
+// `Portable for CStr` implementation.
+unsafe impl LayoutRaw for CStr {
     #[inline]
     fn layout_raw(
         metadata: <Self as Pointee>::Metadata,

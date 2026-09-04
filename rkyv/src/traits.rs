@@ -40,12 +40,34 @@ unsafe impl<T: NoUndef, const N: usize> NoUndef for [T; N] {}
 // fully-initalized.
 unsafe impl<T: NoUndef> NoUndef for [T] {}
 
-/// Returns the layout of a type from its metadata.
-pub trait LayoutRaw
+/// A type whose complete memory layout can be determined from its pointer
+/// metadata.
+///
+/// # Safety
+///
+/// Implementations must interpret `metadata` according to the [`Pointee`]
+/// implementation for `Self`.
+///
+/// For every metadata value that describes a pointee layout representable by
+/// [`Layout`], [`layout_raw`](LayoutRaw::layout_raw) must return `Ok`
+/// containing that exact layout. The returned layout's size must cover the
+/// complete pointee, including any sized prefix, padding, and trailing
+/// dynamically sized field, and its alignment must equal the pointee's required
+/// alignment.
+///
+/// If no pointee layout is defined for `metadata`, or if that layout cannot be
+/// represented by `Layout`, `layout_raw` must return `Err`. It must not
+/// substitute a different layout. These requirements concern only the
+/// pointee's extent and alignment; they do not require validating its bytes as
+/// a value of `Self`.
+///
+/// Safe code may use the returned layout without further checks to perform
+/// allocation, deallocation, and bounds checks for raw pointers to `Self`.
+pub unsafe trait LayoutRaw
 where
     Self: Pointee,
 {
-    /// Returns the layout of the type.
+    /// Returns the complete layout of `Self` for the given pointer metadata.
     fn layout_raw(
         metadata: <Self as Pointee>::Metadata,
     ) -> Result<Layout, LayoutError>;
