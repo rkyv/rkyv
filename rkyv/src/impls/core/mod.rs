@@ -52,7 +52,10 @@ impl LayoutRaw for str {
     }
 }
 
-impl<T> ArchivePointee for T {
+// SAFETY: The `Pointee` implementation for every sized `T` uses `()` metadata.
+// The archived metadata also has the single value `()`, and this implementation
+// always returns `()` without consulting any other state.
+unsafe impl<T> ArchivePointee for T {
     type ArchivedMetadata = ();
 
     fn pointer_metadata(
@@ -270,7 +273,14 @@ impl<T: Archive> ArchiveUnsized for [T] {
     }
 }
 
-impl<T> ArchivePointee for [T] {
+// SAFETY: The `Pointee` implementation for `[T]` defines every `usize` as valid
+// slice-length metadata. `ArchivedUsize::to_native` followed by conversion to
+// `usize` is a value-only, deterministic conversion and does not depend on its
+// address or any external state. If the archive pointer width is wider than
+// the target pointer width, truncation can map multiple archived values to the
+// same target length; validation and access still deterministically select the
+// same complete slice layout.
+unsafe impl<T> ArchivePointee for [T] {
     type ArchivedMetadata = ArchivedUsize;
 
     fn pointer_metadata(
@@ -376,7 +386,10 @@ impl ArchiveUnsized for str {
     }
 }
 
-impl ArchivePointee for str {
+// SAFETY: `str` pointer metadata is a byte length, the same metadata type used
+// by `[u8]`. Delegating to `[u8]` therefore returns valid byte-length metadata
+// and inherits the slice implementation's value-only stability.
+unsafe impl ArchivePointee for str {
     type ArchivedMetadata = ArchivedUsize;
 
     #[inline]

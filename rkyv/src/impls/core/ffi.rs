@@ -39,7 +39,13 @@ impl ArchiveUnsized for CStr {
     }
 }
 
-impl ArchivePointee for CStr {
+// SAFETY: The `ptr_meta::Pointee` implementation used by rkyv defines `CStr`
+// pointer metadata as a `usize` byte length, including the nul terminator.
+// Delegating to `[u8]` therefore returns a valid value of that metadata type
+// and inherits the slice implementation's value-only stability. This proof is
+// relative to that `Pointee` implementation; it does not assert an independent
+// standard-library layout guarantee for `CStr`.
+unsafe impl ArchivePointee for CStr {
     type ArchivedMetadata = ArchivedUsize;
 
     #[inline]
