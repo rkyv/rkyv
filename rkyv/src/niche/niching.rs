@@ -95,6 +95,10 @@ pub struct Zero;
 pub struct NaN;
 
 /// [`Niching`] for null-pointer-niched values.
+///
+/// For [`ArchivedBox`](crate::boxed::ArchivedBox), this examines only the
+/// relative pointer's offset. Its pointer metadata does not have to be valid
+/// while the niche is being classified.
 pub struct Null;
 
 /// [`Niching`] for booleans.
