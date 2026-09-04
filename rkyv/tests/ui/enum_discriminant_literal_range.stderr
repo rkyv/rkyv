@@ -1,0 +1,8 @@
+error: literal out of range for `u8`
+ --> tests/ui/enum_discriminant_literal_range.rs:4:9
+  |
+4 |     A = 256,
+  |         ^^^
+  |
+  = note: the literal `256` does not fit into the type `u8` whose range is `0..=255`
+  = note: `#[deny(overflowing_literals)]` on by default

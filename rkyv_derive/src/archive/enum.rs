@@ -3,8 +3,8 @@ use core::fmt::Display;
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
 use syn::{
-    parse_quote, spanned::Spanned as _, DataEnum, Error, Field, Fields,
-    Generics, Ident, Index, Member, Path, Type,
+    parse_quote, spanned::Spanned as _, DataEnum, Error, Expr, Field, Fields,
+    Generics, Ident, Index, Lit, Member, Meta, Path, Type,
 };
 
 use crate::{
@@ -37,6 +37,9 @@ pub fn impl_enum(
         ));
     }
 
+    check_archived_enum_attributes(attributes)?;
+    check_discriminants(data)?;
+
     let mut public = TokenStream::new();
     let mut private = TokenStream::new();
 
@@ -66,7 +69,10 @@ pub fn impl_enum(
         quote! { #ident #eq #expr }
     });
     private.extend(quote! {
-        #[derive(PartialEq, PartialOrd)]
+        #[#rkyv_path::__private::derive(
+            #rkyv_path::__private::PartialEq,
+            #rkyv_path::__private::PartialOrd,
+        )]
         #[repr(u8)]
         enum ArchivedTag {
             #(#archived_variant_tags,)*
@@ -176,6 +182,84 @@ pub fn impl_enum(
     })
 }
 
+fn check_discriminants(data: &DataEnum) -> Result<(), Error> {
+    for variant in &data.variants {
+        let Some((_, discriminant)) = &variant.discriminant else {
+            continue;
+        };
+
+        // The discriminant is copied into a private tag enum and, unless the
+        // archived type is `Self`, a public archived enum. When rkyv generates
+        // an archived enum and byte checking is enabled, bytecheck derives a
+        // third tag enum from the public one. An attribute-free integer literal
+        // (possibly under attribute-free group or parenthesis nodes) has no
+        // names to resolve, and each generated occurrence is checked in a `u8`
+        // discriminant context. Identical variant order and literal reset
+        // points also make every implicit successor identical. An arbitrary
+        // constant expression can instead resolve `Self` or other names
+        // differently after it is moved.
+        if !is_integer_literal(discriminant) {
+            return Err(Error::new_spanned(
+                discriminant,
+                "explicit enum discriminants must be non-negative, \
+                 attribute-free integer literals because rkyv cannot safely \
+                 preserve arbitrary constant expressions across generated \
+                 enums",
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn check_archived_enum_attributes(
+    attributes: &Attributes,
+) -> Result<(), Error> {
+    if let Some(attribute) = attributes.metas.iter().find(|attribute| {
+        !matches!(
+            attribute,
+            Meta::List(attribute) if attribute.path.is_ident("derive")
+        )
+    }) {
+        return Err(Error::new_spanned(
+            attribute,
+            "archived enums may only forward `derive` attributes because \
+             other attributes can rewrite the generated enum after its \
+             discriminants are checked",
+        ));
+    }
+
+    Ok(())
+}
+
+fn archived_enum_meta(rkyv_path: &Path, attribute: &Meta) -> TokenStream {
+    if let Meta::List(attribute) = attribute {
+        if attribute.path.is_ident("derive") {
+            let tokens = &attribute.tokens;
+            return quote! {
+                #rkyv_path::__private::derive(#tokens)
+            };
+        }
+    }
+
+    quote! { #attribute }
+}
+
+fn is_integer_literal(expr: &Expr) -> bool {
+    match expr {
+        Expr::Group(expr) => {
+            expr.attrs.is_empty() && is_integer_literal(&expr.expr)
+        }
+        Expr::Lit(expr) => {
+            expr.attrs.is_empty() && matches!(expr.lit, Lit::Int(_))
+        }
+        Expr::Paren(expr) => {
+            expr.attrs.is_empty() && is_integer_literal(&expr.expr)
+        }
+        _ => false,
+    }
+}
+
 fn check_as_self(ty: &Type, name: &Ident) -> Result<(), Error> {
     match ty {
         Type::Group(group) => check_as_self(&group.elem, name),
@@ -214,6 +298,13 @@ fn generate_archived_type(
         archived_name,
         ..
     } = printing;
+
+    // Resolve `derive` through the configured rkyv crate rather than through
+    // the caller's macro or extern prelude. This makes every accepted
+    // forwarded derive use rkyv's re-export of the built-in attribute.
+    let archived_metas = archived_metas
+        .iter()
+        .map(|meta| archived_enum_meta(rkyv_path, meta));
 
     let mut archived_variants = TokenStream::new();
     for variant in &data.variants {

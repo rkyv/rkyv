@@ -1,0 +1,5 @@
+error: archived enums may only forward `derive` attributes because other attributes can rewrite the generated enum after its discriminants are checked
+ --> tests/ui/enum_discriminant_forwarded_attribute.rs:2:13
+  |
+2 | #[rkyv(attr(rustversion::nightly))]
+  |             ^^^^^^^^^^^^^^^^^^^^

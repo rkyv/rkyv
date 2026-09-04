@@ -86,6 +86,15 @@ pub fn derive_portable(
 /// coarse for some types, in which case additional type bounds may be required
 /// with `{archive, serialize, deserialize}_bounds(..)`.
 ///
+/// # Enum discriminants
+///
+/// Explicit enum discriminants must be non-negative, attribute-free integer
+/// literals. Implicit discriminants are supported. Archived enum tags use
+/// `u8`, so rustc's `u8` range and explicit-suffix checks apply to the
+/// generated enum tags. Only `derive` attributes may be forwarded to generated
+/// archived enums; other attributes can transform the generated enum after its
+/// discriminants have been checked.
+///
 /// # Wrappers
 ///
 /// Wrappers transparently customize archived types by providing different

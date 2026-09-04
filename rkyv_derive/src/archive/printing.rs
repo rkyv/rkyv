@@ -54,7 +54,9 @@ impl Printing {
         let archived_metas = {
             let mut result = attributes.metas.clone();
             result.push(parse_quote! {
-                derive(#rkyv_path::bytecheck::CheckBytes)
+                #rkyv_path::__private::derive(
+                    #rkyv_path::bytecheck::CheckBytes
+                )
             });
             result.push(parse_quote! {
                 bytecheck(crate = #rkyv_path::bytecheck)
