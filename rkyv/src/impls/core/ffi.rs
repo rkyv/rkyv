@@ -58,7 +58,16 @@ impl<S: Fallible + Writer + ?Sized> SerializeUnsized<S> for CStr {
     }
 }
 
-impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for CStr {
+// SAFETY:
+// - `deserialize_metadata` returns the byte length fixed in the `self`
+//   reference, including its null terminator, so repeated calls are stable and
+//   the caller provides an output `CStr` with that length.
+// - The implementation copies all bytes of the valid input `CStr`, including
+//   its null terminator, to `out` before returning `Ok(())`, so the output is a
+//   valid `CStr`.
+// - The implementation cannot return an error or unwind. It never reads from,
+//   deallocates, or retains access to the output storage.
+unsafe impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for CStr {
     unsafe fn deserialize_unsized(
         &self,
         _: &mut D,
@@ -66,12 +75,11 @@ impl<D: Fallible + ?Sized> DeserializeUnsized<CStr, D> for CStr {
     ) -> Result<(), D::Error> {
         let slice = self.to_bytes_with_nul();
         // SAFETY: The caller has guaranteed that `out` is non-null, properly
-        // aligned, valid for writes, and points to memory allocated according
-        // to the layout for the metadata returned from `deserialize_metadata`.
-        // Therefore, `out` points to at least `self.len()` bytes.
-        // `self.as_ptr()` is valid for reads and points to the bytes of `self`
-        // which are also at least `self.len()` bytes. Note here that the length
-        // of the `CStr` contains the null terminator.
+        // aligned, and points to exclusively accessible storage valid for
+        // writes of `self.len()` bytes. The output does not overlap memory
+        // accessible through `self`. `self.as_ptr()` is valid for reads of
+        // `self.len()` bytes. Note here that the length of the `CStr` contains
+        // the null terminator.
         unsafe {
             ptr::copy_nonoverlapping(
                 slice.as_ptr(),

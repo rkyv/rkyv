@@ -58,7 +58,8 @@ where
         &self,
         deserializer: &mut D,
     ) -> Result<VecDeque<T>, D::Error> {
-        let metadata = self.as_slice().deserialize_metadata();
+        let value = self.as_slice();
+        let metadata = value.deserialize_metadata();
         let layout = <[T] as LayoutRaw>::layout_raw(metadata).into_error()?;
         let data_address = if layout.size() > 0 {
             let ptr = unsafe { alloc(layout) };
@@ -71,7 +72,7 @@ where
         };
         let out = ptr_meta::from_raw_parts_mut(data_address.cast(), metadata);
         unsafe {
-            self.as_slice().deserialize_unsized(deserializer, out)?;
+            value.deserialize_unsized(deserializer, out)?;
         }
         let boxed = unsafe { Box::<[T]>::from_raw(out) };
         Ok(VecDeque::from(Vec::from(boxed)))
