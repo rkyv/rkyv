@@ -107,4 +107,41 @@ mod tests {
             }
         });
     }
+
+    #[cfg(feature = "bytecheck")]
+    #[test]
+    fn validated_archive_never_looks_up_out_of_bounds() {
+        use rancor::Error;
+
+        use crate::{
+            access, collections::swiss_table::ArchivedIndexMap,
+            primitive::ArchivedU32, to_bytes,
+        };
+
+        let mut value =
+            IndexMap::with_hasher(BuildHasherDefault::<FxHasher64>::default());
+        value.insert(1u32, 10u32);
+        value.insert(2u32, 20u32);
+        value.insert(3u32, 30u32);
+
+        let bytes = to_bytes::<Error>(&value).unwrap();
+
+        // The hash table stores indices into `entries`. Corrupt every byte and
+        // confirm that any archive which still validates is safe to look up.
+        // Before #685, corruption that produced an out-of-bounds index passed
+        // validation and then panicked on lookup.
+        for i in 0..bytes.len() {
+            let mut corrupted = bytes.clone();
+            corrupted[i] = 0xff;
+            if let Ok(map) = access::<
+                ArchivedIndexMap<ArchivedU32, ArchivedU32>,
+                Error,
+            >(&corrupted)
+            {
+                for k in map.keys() {
+                    let _ = map.get(k);
+                }
+            }
+        }
+    }
 }
