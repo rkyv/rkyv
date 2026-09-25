@@ -146,7 +146,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use core::num::NonZeroU32;
+    use core::{
+        mem::{size_of, MaybeUninit},
+        num::NonZeroU32,
+    };
 
     use crate::{
         api::test::{
@@ -154,9 +157,9 @@ mod tests {
             to_bytes,
         },
         boxed::ArchivedBox,
-        niche::niching::{DefaultNiche, NaN, Zero},
+        niche::niching::{DefaultNiche, NaN, Niching, Zero},
         with::{AsBox, MapNiche, NicheInto},
-        Archive, Deserialize, Serialize,
+        Archive, Deserialize, Place, Serialize,
     };
 
     #[test]
@@ -233,6 +236,97 @@ mod tests {
             assert_eq!(b.not_nan, 123.456);
             assert_eq!(b.int.get(), 789);
             assert_eq!(b.boolean, true);
+        });
+    }
+
+    #[test]
+    fn enum_niching_checks_tag_as_u8() {
+        #[derive(Archive)]
+        #[rkyv(crate)]
+        #[repr(u8)]
+        #[allow(dead_code)]
+        enum Nichable {
+            A(#[rkyv(niche)] bool) = 17,
+            B {
+                #[rkyv(niche = NaN)]
+                value: f32,
+            },
+            C = 99,
+        }
+
+        let mut storage = MaybeUninit::<ArchivedNichable>::uninit();
+        // SAFETY: `storage` is allocated for exactly one properly-aligned
+        // `ArchivedNichable`. This writes every byte in that allocation through
+        // a `u8` pointer without reading or materializing an archived enum.
+        unsafe {
+            storage
+                .as_mut_ptr()
+                .cast::<::core::primitive::u8>()
+                .write_bytes(0xff, size_of::<ArchivedNichable>());
+        }
+
+        // SAFETY: `storage.as_ptr()` is non-null, properly aligned, and points
+        // to `size_of::<ArchivedNichable>()` initialized, readable bytes. The
+        // `Niching` contract explicitly does not require those bytes to be a
+        // valid `ArchivedNichable`. Tag 255 is not one of this enum's tags.
+        assert!(!unsafe {
+            <DefaultNiche as Niching<ArchivedNichable>>::is_niched(
+                storage.as_ptr(),
+            )
+        });
+        // SAFETY: The same pointer facts hold for the generated `NaN`
+        // implementation.
+        assert!(!unsafe {
+            <NaN as Niching<ArchivedNichable>>::is_niched(storage.as_ptr())
+        });
+
+        // SAFETY: Every byte of `storage` was initialized above, and its
+        // pointer has the allocation, alignment, and write access
+        // required by `Place`.
+        let out = unsafe { Place::new_unchecked(0, storage.as_mut_ptr()) };
+        <DefaultNiche as Niching<ArchivedNichable>>::resolve_niched(out);
+        // SAFETY: The first byte remains initialized and readable. Reading it
+        // as `u8` does not materialize the enum, whose bool field intentionally
+        // contains the niche representation.
+        assert_eq!(
+            unsafe { storage.as_ptr().cast::<::core::primitive::u8>().read() },
+            17,
+        );
+        // SAFETY: `resolve_niched` preserved the pointer facts required by
+        // `is_niched` and wrote the `DefaultNiche` representation for variant
+        // A.
+        assert!(unsafe {
+            <DefaultNiche as Niching<ArchivedNichable>>::is_niched(
+                storage.as_ptr(),
+            )
+        });
+        // SAFETY: The same pointer facts hold for the generated `NaN`
+        // implementation. Its different tag must reject variant A.
+        assert!(!unsafe {
+            <NaN as Niching<ArchivedNichable>>::is_niched(storage.as_ptr())
+        });
+
+        // SAFETY: The same initialized, aligned allocation remains available
+        // for the generated `NaN` niching implementation.
+        let out = unsafe { Place::new_unchecked(0, storage.as_mut_ptr()) };
+        <NaN as Niching<ArchivedNichable>>::resolve_niched(out);
+        // SAFETY: As above, reading only the initialized tag byte as `u8` does
+        // not materialize the enum or its deliberately niched float field.
+        assert_eq!(
+            unsafe { storage.as_ptr().cast::<::core::primitive::u8>().read() },
+            18,
+        );
+        // SAFETY: `resolve_niched` wrote the `NaN` representation for variant B
+        // while preserving all pointer preconditions.
+        assert!(unsafe {
+            <NaN as Niching<ArchivedNichable>>::is_niched(storage.as_ptr())
+        });
+        // SAFETY: The same pointer facts hold for the generated `DefaultNiche`
+        // implementation. Its different tag must reject variant B.
+        assert!(!unsafe {
+            <DefaultNiche as Niching<ArchivedNichable>>::is_niched(
+                storage.as_ptr(),
+            )
         });
     }
 
