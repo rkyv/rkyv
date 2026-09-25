@@ -34,12 +34,27 @@ mod core_tests {
     use rancor::{Fallible, Source};
 
     use crate::{
-        api::test::{roundtrip, to_archived},
+        api::test::{roundtrip, to_archived, to_bytes},
         option::ArchivedOption,
         primitive::{ArchivedI32, ArchivedU32},
         seal::Seal,
         Archive, Deserialize, Place, Portable, Serialize,
     };
+
+    #[cfg(feature = "std")]
+    fn assert_alignment_panic<T>(result: std::thread::Result<T>) {
+        let payload = match result {
+            Ok(_) => panic!("expected an unaligned archived field panic"),
+            Err(payload) => payload,
+        };
+        let message =
+            payload.downcast_ref::<&'static str>().copied().or_else(|| {
+                payload
+                    .downcast_ref::<std::string::String>()
+                    .map(std::string::String::as_str)
+            });
+        assert_eq!(message, Some("unaligned archived field"));
+    }
 
     #[test]
     fn roundtrip_unit_struct() {
@@ -513,6 +528,114 @@ mod core_tests {
         }
 
         assert_eq!(core::mem::size_of::<ArchivedCPackedRepr2>(), 6);
+    }
+
+    #[test]
+    fn aligned_archived_fields_serialize() {
+        #[derive(Archive, Serialize)]
+        #[rkyv(crate)]
+        struct NaturallyAligned {
+            first: u32,
+            lead: u8,
+            second: u32,
+        }
+
+        to_bytes(
+            &NaturallyAligned {
+                first: 1,
+                lead: 2,
+                second: 3,
+            },
+            |_| {},
+        );
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn packed_archived_fields_panic_before_unaligned_resolve() {
+        if core::mem::align_of::<ArchivedU32>() == 1 {
+            return;
+        }
+
+        #[derive(Archive, Serialize)]
+        #[rkyv(crate, attr(cfg_attr(all(), repr(packed))))]
+        struct Packed {
+            first: u32,
+            lead: u8,
+            second: u32,
+        }
+
+        let result = std::panic::catch_unwind(|| {
+            to_bytes(
+                &Packed {
+                    first: 1,
+                    lead: 2,
+                    second: 3,
+                },
+                |_| {},
+            );
+        });
+        assert_alignment_panic(result);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn packed_archived_niche_projections_panic_before_unaligned_access() {
+        use crate::{
+            niche::niching::{NaN, Niching},
+            primitive::ArchivedF32,
+        };
+
+        if core::mem::align_of::<ArchivedF32>() == 1 {
+            return;
+        }
+
+        #[derive(Archive, Serialize)]
+        #[rkyv(crate, attr(repr(packed)))]
+        #[allow(dead_code)]
+        struct PackedNiche {
+            lead: u8,
+            #[rkyv(niche = NaN)]
+            value: f32,
+        }
+
+        let field_offset = core::mem::offset_of!(ArchivedPackedNiche, value);
+        let mut bytes = [0u8; 64];
+        let base = bytes.as_mut_ptr();
+        let mut archived_ptr = base.cast::<ArchivedPackedNiche>();
+        let field_ptr = base.wrapping_add(field_offset).cast::<ArchivedF32>();
+        if field_ptr.is_aligned() {
+            archived_ptr = base.wrapping_add(1).cast::<ArchivedPackedNiche>();
+        }
+        let field_ptr = archived_ptr
+            .cast::<u8>()
+            .wrapping_add(field_offset)
+            .cast::<ArchivedF32>();
+        assert!(archived_ptr.is_aligned());
+        assert!(!field_ptr.is_aligned());
+
+        // SAFETY: `archived_ptr` points into `bytes`, which has enough space
+        // remaining for an `ArchivedPackedNiche`. The assertion above checks
+        // its (one-byte) alignment, and every byte in `bytes` is initialized.
+        let out = unsafe { Place::new_unchecked(0, archived_ptr) };
+        let resolve_result = std::panic::catch_unwind(|| {
+            <NaN as Niching<ArchivedPackedNiche>>::resolve_niched(out);
+        });
+        assert_alignment_panic(resolve_result);
+
+        let archived_ptr = archived_ptr.cast_const();
+        let read_result = std::panic::catch_unwind(|| {
+            // SAFETY: `archived_ptr` points into the initialized `bytes`
+            // array, which has enough remaining storage for the archived
+            // packed type. The assertion above checks the pointer's alignment
+            // for that type. The generated implementation must check the
+            // stronger alignment of the projected `ArchivedF32` before
+            // delegating to `NaN`; the bytes need not be a valid field value.
+            unsafe {
+                <NaN as Niching<ArchivedPackedNiche>>::is_niched(archived_ptr)
+            }
+        });
+        assert_alignment_panic(read_result);
     }
 
     #[test]
