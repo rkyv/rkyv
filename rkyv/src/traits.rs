@@ -343,7 +343,10 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 /// // to sized types don't need to store any extra information. Because we're
 /// // making an unsized block, we need to define what metadata gets stored with
 /// // our data pointer.
-/// impl<H, T> ArchivePointee for Block<H, [T]> {
+/// // SAFETY: `Block<H, [T]>` uses the same live pointer metadata as its
+/// // trailing `[T]`, so delegating to `[T]` returns valid, stable metadata for
+/// // the complete block layout.
+/// unsafe impl<H, T> ArchivePointee for Block<H, [T]> {
 ///     // This is the extra data that needs to get stored for blocks with
 ///     // trailing slices
 ///     type ArchivedMetadata = <[T] as ArchivePointee>::ArchivedMetadata;
@@ -353,7 +356,7 @@ pub trait Deserialize<T, D: Fallible + ?Sized> {
 ///     fn pointer_metadata(
 ///         metadata: &Self::ArchivedMetadata,
 ///     ) -> <Self as Pointee>::Metadata {
-///         metadata.to_native() as usize
+///         <[T] as ArchivePointee>::pointer_metadata(metadata)
 ///     }
 /// }
 ///
@@ -451,7 +454,31 @@ pub trait ArchiveUnsized: Pointee {
 ///
 /// This is mostly used in the context of smart pointers and unsized types, and
 /// is implemented for all sized types by default.
-pub trait ArchivePointee: Pointee {
+///
+/// # Safety
+///
+/// [`pointer_metadata`](ArchivePointee::pointer_metadata) must return valid
+/// pointer metadata for `Self`. The conversion must be a stable function of
+/// the archived metadata's value: for a given archived value, every successful
+/// call must return equivalent target pointer metadata, including calls made
+/// through copies or at different addresses, times, or threads. Here,
+/// equivalent target metadata means metadata which selects the same referent
+/// extent, alignment, field layout, dynamic type and vtable identity, and
+/// pointer provenance where applicable.
+///
+/// Mutable external state, call order, the address of the archived metadata,
+/// or any other changing condition must not cause calls on the same archived
+/// value to return non-equivalent target metadata.
+///
+/// This contract does not require the conversion to be lossless. In
+/// particular, an archive format whose pointer width is wider than the target
+/// may map multiple archived values to the same target metadata. Such a
+/// mapping is sound as long as every returned target metadata value is valid
+/// and the mapping satisfies the equivalence requirement above.
+///
+/// Safe code may use one call to validate the pointee and a later call to
+/// construct and dereference a pointer without repeating that validation.
+pub unsafe trait ArchivePointee: Pointee {
     /// The archived version of the pointer metadata for this type.
     type ArchivedMetadata: Copy
         + Send
