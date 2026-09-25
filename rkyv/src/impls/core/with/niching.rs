@@ -16,7 +16,7 @@ use crate::{
         ArchivedU128, ArchivedU16, ArchivedU32, ArchivedU64,
     },
     traits::ArchivePointee,
-    Place, Portable, RelPtr,
+    Place, Portable, RawRelPtr, RelPtr,
 };
 
 macro_rules! impl_default_niche {
@@ -105,10 +105,25 @@ where
     T: ArchivePointee + Portable + ?Sized,
 {
     unsafe fn is_niched(niched: *const ArchivedBox<T>) -> bool {
-        unsafe { (*niched.cast::<RelPtr<T>>()).is_invalid() }
+        // SAFETY:
+        // - `ArchivedBox<T>` is transparent over `RelPtr<T>`, and `RelPtr<T>`
+        //   is `repr(C)` with a `RawRelPtr` as its first field. Therefore,
+        //   `niched` has the same address as a `RawRelPtr`, is aligned for it,
+        //   and points to enough bytes for it.
+        // - The caller guarantees that all of those bytes are initialized and
+        //   readable. The default `RawRelPtr` contains only an archived signed
+        //   integer and a zero-sized marker, so every initialized bit pattern
+        //   is a valid `RawRelPtr`.
+        // - Reading only the raw pointer offset does not materialize or inspect
+        //   the potentially-invalid `T::ArchivedMetadata` which follows it.
+        unsafe {
+            RawRelPtr::is_invalid_raw(niched.cast::<RawRelPtr>().cast_mut())
+        }
     }
 
     fn resolve_niched(out: Place<ArchivedBox<T>>) {
+        // SAFETY: `ArchivedBox<T>` is transparent over `RelPtr<T>`, so they
+        // have identical size, alignment, and field positions.
         let out = unsafe { out.cast_unchecked::<RelPtr<T>>() };
         RelPtr::emplace_invalid(out);
     }
@@ -146,18 +161,167 @@ where
 
 #[cfg(test)]
 mod tests {
-    use core::num::NonZeroU32;
+    use core::{mem::MaybeUninit, num::NonZeroU32};
 
+    #[cfg(feature = "bytecheck")]
+    use crate::{
+        api::access_with_context,
+        bytecheck::CheckBytes,
+        niche::niched_option::NichedOption,
+        rancor::{Error, Fallible},
+        traits::LayoutRaw,
+        validation::archive::ArchiveValidator,
+    };
     use crate::{
         api::test::{
             deserialize, roundtrip_with, to_archived, to_archived_from_bytes,
             to_bytes,
         },
         boxed::ArchivedBox,
-        niche::niching::{DefaultNiche, NaN, Zero},
+        niche::niching::{DefaultNiche, NaN, Niching, Null, Zero},
+        primitive::ArchivedIsize,
+        ptr_meta::Pointee,
+        traits::ArchivePointee,
         with::{AsBox, MapNiche, NicheInto},
-        Archive, Deserialize, Serialize,
+        Archive, Deserialize, Portable, Serialize,
     };
+
+    #[repr(transparent)]
+    struct BoolMetadata([u8]);
+
+    // SAFETY: `BoolMetadata` is transparent over `[u8]`, so its pointer
+    // metadata is the slice length.
+    unsafe impl Pointee for BoolMetadata {
+        type Metadata = usize;
+    }
+
+    // SAFETY: `BoolMetadata` is transparent over `[u8]`, which has a stable
+    // layout and no interior mutability.
+    unsafe impl Portable for BoolMetadata {}
+
+    impl ArchivePointee for BoolMetadata {
+        type ArchivedMetadata = bool;
+
+        fn pointer_metadata(
+            archived: &Self::ArchivedMetadata,
+        ) -> Self::Metadata {
+            usize::from(*archived)
+        }
+    }
+
+    #[cfg(feature = "bytecheck")]
+    impl LayoutRaw for BoolMetadata {
+        fn layout_raw(
+            metadata: Self::Metadata,
+        ) -> Result<core::alloc::Layout, core::alloc::LayoutError> {
+            core::alloc::Layout::array::<u8>(metadata)
+        }
+    }
+
+    #[cfg(feature = "bytecheck")]
+    // SAFETY: `BoolMetadata` is transparent over `[u8]`. Once the caller has
+    // provided readable storage of the exact layout, every byte sequence is a
+    // valid value, so no additional checks are required.
+    unsafe impl<C: Fallible + ?Sized> CheckBytes<C> for BoolMetadata {
+        unsafe fn check_bytes(
+            _value: *const Self,
+            _context: &mut C,
+        ) -> Result<(), C::Error> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn null_niche_reads_only_offset() {
+        let mut storage = MaybeUninit::<ArchivedBox<BoolMetadata>>::uninit();
+        let ptr = storage.as_mut_ptr();
+
+        // SAFETY: `ptr` points to the full writable `storage` allocation. This
+        // initializes every byte, including padding, without producing an
+        // `ArchivedBox<BoolMetadata>` value. In particular, the byte used as
+        // the `bool` archived metadata remains `2`, which is not a valid bool.
+        unsafe {
+            ptr.cast::<u8>()
+                .write_bytes(2, size_of::<ArchivedBox<BoolMetadata>>());
+        }
+
+        // SAFETY: `ArchivedBox<T>` is transparent over `RelPtr<T>`, whose first
+        // field is a `RawRelPtr` transparent over `ArchivedIsize`. Therefore,
+        // the start of `storage` is properly aligned and large enough for this
+        // initialized write. The invalid metadata bytes are not accessed.
+        unsafe {
+            ptr.cast::<ArchivedIsize>()
+                .write(ArchivedIsize::from_native(1));
+        }
+
+        // SAFETY: `ptr` is non-null, properly aligned, and points to storage
+        // whose bytes were all initialized above. The `Niching` contract does
+        // not require those bytes to form a valid `ArchivedBox`.
+        assert!(unsafe {
+            <Null as Niching<ArchivedBox<BoolMetadata>>>::is_niched(ptr)
+        });
+        // SAFETY: The same conditions apply to `DefaultNiche`, which delegates
+        // to `Null` for archived boxes.
+        assert!(unsafe {
+            <DefaultNiche as Niching<ArchivedBox<BoolMetadata>>>::is_niched(ptr)
+        });
+
+        #[cfg(feature = "bytecheck")]
+        {
+            type NichedBox = NichedOption<ArchivedBox<BoolMetadata>, Null>;
+
+            // SAFETY: The storage is aligned for `ArchivedBox<BoolMetadata>`,
+            // which has the same layout as the transparent `NichedBox`. Every
+            // byte was initialized above and remains live for this borrow.
+            let bytes = unsafe {
+                core::slice::from_raw_parts(
+                    ptr.cast::<u8>(),
+                    size_of::<NichedBox>(),
+                )
+            };
+            let archived = access_with_context::<NichedBox, _, Error>(
+                bytes,
+                &mut ArchiveValidator::new(bytes),
+            )
+            .unwrap();
+            assert!(archived.is_none());
+        }
+
+        // SAFETY: The layout argument from the previous offset write applies.
+        unsafe {
+            ptr.cast::<ArchivedIsize>()
+                .write(ArchivedIsize::from_native(0));
+        }
+
+        // SAFETY: The allocation and initialization argument from the first
+        // call applies unchanged.
+        assert!(!unsafe {
+            <Null as Niching<ArchivedBox<BoolMetadata>>>::is_niched(ptr)
+        });
+        // SAFETY: The same conditions apply to `DefaultNiche`.
+        assert!(!unsafe {
+            <DefaultNiche as Niching<ArchivedBox<BoolMetadata>>>::is_niched(ptr)
+        });
+
+        #[cfg(feature = "bytecheck")]
+        {
+            type NichedBox = NichedOption<ArchivedBox<BoolMetadata>, Null>;
+
+            // SAFETY: The storage, layout, initialization, and lifetime
+            // argument from the previous byte-slice construction applies.
+            let bytes = unsafe {
+                core::slice::from_raw_parts(
+                    ptr.cast::<u8>(),
+                    size_of::<NichedBox>(),
+                )
+            };
+            assert!(access_with_context::<NichedBox, _, Error>(
+                bytes,
+                &mut ArchiveValidator::new(bytes),
+            )
+            .is_err());
+        }
+    }
 
     #[test]
     fn with_struct() {
