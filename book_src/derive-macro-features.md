@@ -39,3 +39,6 @@ types.
 `#[rkyv(attr(..))]` is a general-purpose attribute which allows you to pass attributes down to the
 generated archived type. This can be especially useful in combination with `#[rkyv(derive(..))]`,
 which may be used on types and is sugar for `#[rkyv(attr(derive(..)))]`.
+
+Generated archived enums only support forwarded `derive` attributes. Other attributes can
+transform the generated enum after rkyv has checked its discriminants and are rejected.

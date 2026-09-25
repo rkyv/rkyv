@@ -1,0 +1,5 @@
+error: explicit enum discriminants must be non-negative, attribute-free integer literals because rkyv cannot safely preserve arbitrary constant expressions across generated enums
+  --> tests/ui/enum_discriminant_expression.rs:13:16
+   |
+13 |     Selected = Self::VALUE,
+   |                ^^^^^^^^^^^

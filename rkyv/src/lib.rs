@@ -206,6 +206,17 @@ extern crate alloc;
 use std as alloc;
 
 // Re-exports
+#[doc(hidden)]
+pub mod __private {
+    // Derive output resolves these through the same rkyv crate path as every
+    // generated trait and type. This prevents names in the caller's macro or
+    // extern prelude from replacing proof-critical built-in derives.
+    pub use ::core::{
+        cmp::{PartialEq, PartialOrd},
+        prelude::v1::derive,
+    };
+}
+
 #[cfg(feature = "bytecheck")]
 pub use ::bytecheck;
 pub use ::munge;
