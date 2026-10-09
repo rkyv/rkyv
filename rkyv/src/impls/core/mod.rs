@@ -1,7 +1,7 @@
 use core::{
     alloc::{Layout, LayoutError},
     marker::{PhantomData, PhantomPinned},
-    mem::{ManuallyDrop, MaybeUninit},
+    mem::{self, ManuallyDrop, MaybeUninit},
     ptr::{self, addr_of_mut},
     str,
 };
@@ -26,6 +26,39 @@ mod primitive;
 mod result;
 mod time;
 pub(crate) mod with;
+
+// An array or caller-owned slice cannot be dropped until every element has
+// been written. On failure, only the prefix already written is valid to drop.
+struct InitializedPrefix<T> {
+    ptr: *mut T,
+    len: usize,
+}
+
+impl<T> InitializedPrefix<T> {
+    fn new(ptr: *mut T) -> Self {
+        Self { ptr, len: 0 }
+    }
+
+    fn initialized_one(&mut self) {
+        self.len += 1;
+    }
+
+    fn disarm(self) {
+        mem::forget(self);
+    }
+}
+
+impl<T> Drop for InitializedPrefix<T> {
+    fn drop(&mut self) {
+        // SAFETY: Exactly `len` values were written in order before this
+        // guard was dropped.
+        unsafe {
+            ptr::drop_in_place(ptr::slice_from_raw_parts_mut(
+                self.ptr, self.len,
+            ))
+        };
+    }
+}
 
 unsafe impl<T> LayoutRaw for T {
     fn layout_raw(
@@ -229,11 +262,14 @@ where
     ) -> Result<Self::Resolver, S::Error> {
         let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T::Resolver>();
+        let mut initialized = InitializedPrefix::new(result_ptr);
         for (i, value) in self.iter().enumerate() {
             unsafe {
                 result_ptr.add(i).write(value.serialize(serializer)?);
             }
+            initialized.initialized_one();
         }
+        initialized.disarm();
         unsafe { Ok(result.assume_init()) }
     }
 }
@@ -247,11 +283,14 @@ where
     fn deserialize(&self, deserializer: &mut D) -> Result<[T; N], D::Error> {
         let mut result = core::mem::MaybeUninit::<[T; N]>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<T>();
+        let mut initialized = InitializedPrefix::new(result_ptr);
         for (i, value) in self.iter().enumerate() {
             unsafe {
                 result_ptr.add(i).write(value.deserialize(deserializer)?);
             }
+            initialized.initialized_one();
         }
+        initialized.disarm();
         unsafe { Ok(result.assume_init()) }
     }
 }
@@ -337,6 +376,7 @@ where
         deserializer: &mut D,
         out: *mut [U],
     ) -> Result<(), D::Error> {
+        let mut initialized = InitializedPrefix::new(out.cast::<U>());
         for (i, item) in self.iter().enumerate() {
             // SAFETY: The caller has guaranteed that `out` points to a slice
             // with a length guaranteed to match the length of `self`. Since `i`
@@ -349,7 +389,10 @@ where
             unsafe {
                 out_ptr.write(item.deserialize(deserializer)?);
             }
+            initialized.initialized_one();
         }
+        // The caller now owns the fully initialized slice.
+        initialized.disarm();
         Ok(())
     }
 

@@ -2,6 +2,7 @@ use core::ffi::CStr;
 
 use rancor::{Fallible, ResultExt, Source};
 
+use super::UninitializedAllocation;
 use crate::{
     alloc::{
         alloc::{alloc, handle_alloc_error},
@@ -54,9 +55,11 @@ where
             crate::polyfill::dangling(&layout).as_ptr()
         };
         let out = ptr_meta::from_raw_parts_mut(data_address.cast(), metadata);
+        let allocation = UninitializedAllocation::new(data_address, layout);
         unsafe {
             self.as_c_str().deserialize_unsized(deserializer, out)?;
         }
+        allocation.disarm();
         let boxed = unsafe { Box::<CStr>::from_raw(out) };
         Ok(CString::from(boxed))
     }

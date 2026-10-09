@@ -4,7 +4,9 @@
 mod alloc;
 mod core;
 
-use ::core::{alloc::LayoutError, error::Error, fmt, ptr::NonNull};
+use ::core::{
+    alloc::LayoutError, error::Error, fmt, marker::PhantomData, ptr::NonNull,
+};
 use ptr_meta::{from_raw_parts_mut, Pointee};
 use rancor::{fail, Fallible, ResultExt as _, Source, Strategy};
 
@@ -24,6 +26,15 @@ pub unsafe trait SharedPointer<T: Pointee + ?Sized> {
     /// Allocates space for a value with the given metadata.
     fn alloc(metadata: T::Metadata) -> Result<*mut T, LayoutError>;
 
+    /// Releases an allocation returned by `alloc` before `from_value` is
+    /// called. The value must not be dropped because it is uninitialized.
+    ///
+    /// # Safety
+    ///
+    /// `ptr` must have been returned by `alloc`, and must be released only
+    /// once. Any initialized prefix must already have been dropped.
+    unsafe fn dealloc_uninit(ptr: *mut T);
+
     /// Creates a new `Self` from a pointer to a valid `T`.
     ///
     /// # Safety
@@ -39,6 +50,34 @@ pub unsafe trait SharedPointer<T: Pointee + ?Sized> {
     /// - `ptr` must have been created using `from_value`.
     /// - `drop` must only be called once per `ptr`.
     unsafe fn drop(ptr: *mut T);
+}
+
+struct UninitializedSharedPointer<T: Pointee + ?Sized, P: SharedPointer<T>> {
+    ptr: *mut T,
+    pointer: PhantomData<P>,
+}
+
+impl<T: Pointee + ?Sized, P: SharedPointer<T>>
+    UninitializedSharedPointer<T, P>
+{
+    fn new(ptr: *mut T) -> Self {
+        Self {
+            ptr,
+            pointer: PhantomData,
+        }
+    }
+
+    fn disarm(self) {
+        ::core::mem::forget(self);
+    }
+}
+
+impl<T: Pointee + ?Sized, P: SharedPointer<T>> Drop
+    for UninitializedSharedPointer<T, P>
+{
+    fn drop(&mut self) {
+        unsafe { P::dealloc_uninit(self.ptr) };
+    }
 }
 
 /// The result of starting to deserialize a shared pointer.
@@ -145,15 +184,20 @@ pub trait PoolingExt<E>: Pooling<E> {
         match self.start_pooling(address) {
             PoolingState::Started => {
                 let out = P::alloc(metadata).into_error()?;
+                let allocation = UninitializedSharedPointer::<T, P>::new(out);
                 unsafe { value.deserialize_unsized(self, out)? };
+                allocation.disarm();
                 let ptr = unsafe { NonNull::new_unchecked(P::from_value(out)) };
 
-                unsafe {
+                if let Err(error) = unsafe {
                     self.finish_pooling(
                         address,
                         ErasedPtr::new(ptr.as_ptr()),
                         drop_shared::<T, P>,
-                    )?;
+                    )
+                } {
+                    unsafe { P::drop(ptr.as_ptr()) };
+                    return Err(error);
                 }
 
                 Ok(ptr.as_ptr())

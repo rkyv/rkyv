@@ -2,6 +2,7 @@ use core::cmp;
 
 use rancor::{Fallible, ResultExt as _, Source};
 
+use super::UninitializedAllocation;
 use crate::{
     alloc::{
         alloc::{alloc, handle_alloc_error},
@@ -58,9 +59,12 @@ where
 
         let out = ptr_meta::from_raw_parts_mut(data_address.cast(), metadata);
 
+        let allocation = UninitializedAllocation::new(data_address, layout);
+
         unsafe {
             self.get().deserialize_unsized(deserializer, out)?;
         }
+        allocation.disarm();
         unsafe { Ok(Box::from_raw(out)) }
     }
 }

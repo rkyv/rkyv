@@ -28,6 +28,10 @@ unsafe impl<T> SharedPointer<T> for Arc<T> {
             .cast_mut())
     }
 
+    unsafe fn dealloc_uninit(ptr: *mut T) {
+        drop(unsafe { Arc::<MaybeUninit<T>>::from_raw(ptr.cast()) });
+    }
+
     unsafe fn from_value(ptr: *mut T) -> *mut T {
         ptr
     }

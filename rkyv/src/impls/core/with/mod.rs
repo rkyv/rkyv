@@ -352,10 +352,13 @@ where
     ) -> Result<Self::Resolver, S::Error> {
         let mut result = core::mem::MaybeUninit::<Self::Resolver>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<A::Resolver>();
+        let mut initialized = super::InitializedPrefix::new(result_ptr);
         for (i, value) in field.iter().enumerate() {
             let serialized = A::serialize_with(value, serializer)?;
             unsafe { result_ptr.add(i).write(serialized) };
+            initialized.initialized_one();
         }
+        initialized.disarm();
         Ok(unsafe { result.assume_init() })
     }
 }
@@ -372,10 +375,13 @@ where
     ) -> Result<[O; N], <D as Fallible>::Error> {
         let mut result = core::mem::MaybeUninit::<[O; N]>::uninit();
         let result_ptr = result.as_mut_ptr().cast::<O>();
+        let mut initialized = super::InitializedPrefix::new(result_ptr);
         for (i, value) in field.iter().enumerate() {
             let deserialized = A::deserialize_with(value, deserializer)?;
             unsafe { result_ptr.add(i).write(deserialized) };
+            initialized.initialized_one();
         }
+        initialized.disarm();
         Ok(unsafe { result.assume_init() })
     }
 }

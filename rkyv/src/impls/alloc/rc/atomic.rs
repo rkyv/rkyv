@@ -5,7 +5,7 @@ use rancor::{Fallible, Source};
 
 use crate::{
     alloc::{
-        alloc::{alloc, handle_alloc_error},
+        alloc::{alloc, dealloc, handle_alloc_error},
         boxed::Box,
         sync,
     },
@@ -59,6 +59,18 @@ unsafe impl<T: LayoutRaw + Pointee + ?Sized> SharedPointer<T> for sync::Arc<T> {
         };
         let ptr = from_raw_parts_mut(data_address.cast(), metadata);
         Ok(ptr)
+    }
+
+    unsafe fn dealloc_uninit(ptr: *mut T) {
+        let layout = match T::layout_raw(ptr_meta::metadata(ptr)) {
+            Ok(layout) => layout,
+            Err(_) => {
+                unreachable!("the same metadata produced a layout in alloc")
+            }
+        };
+        if layout.size() > 0 {
+            unsafe { dealloc(ptr.cast(), layout) };
+        }
     }
 
     unsafe fn from_value(ptr: *mut T) -> *mut T {
@@ -139,8 +151,8 @@ where
 impl<T, D> Deserialize<sync::Weak<T>, D>
     for ArchivedRcWeak<T::Archived, ArcFlavor>
 where
-    // Deserialize can only be implemented for sized types because weak pointers
-    // to unsized types don't have `new` functions.
+    // Deserialize can only be implemented for sized types because weak
+    // pointers to unsized types don't have `new` functions.
     T: ArchiveUnsized
         + LayoutRaw
         + Pointee // + ?Sized
