@@ -23,6 +23,7 @@ bytecheck = { version = "0.8", default-features = false, features = ["simdutf8"]
 divan = { version = "0.1", default-features = false }
 hashbrown = { version = "0.17", default-features = false }
 munge = { version = "0.4", default-features = false }
+proc-macro-crate = { version = "=3.4.0", default-features = false } # 3.5 requires Rust 1.82; keep the MSRV at 1.81
 proc-macro2 = { version = "1", default-features = false }
 ptr_meta = { version = "0.3", default-features = false }
 quote = { version = "1", default-features = false }
