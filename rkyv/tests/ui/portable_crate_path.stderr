@@ -1,0 +1,5 @@
+error: `derive(Portable)` can only implement the `rkyv` trait; use the absolute path `::rkyv` of this crate's `rkyv` dependency
+ --> tests/ui/portable_crate_path.rs:9:16
+  |
+9 | #[rkyv(crate = contract)]
+  |                ^^^^^^^^

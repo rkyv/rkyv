@@ -20,6 +20,10 @@ extern crate proc_macro;
 use syn::{parse_macro_input, DeriveInput};
 
 /// Derives `Portable` for the labeled type.
+///
+/// The generated implementation is `unsafe`, so `crate = ..` must name the
+/// actual `rkyv` crate. It defaults to `::rkyv` and follows the name of a
+/// renamed dependency (e.g. `#[rkyv(crate = ::my_rkyv)]`).
 #[proc_macro_derive(Portable, attributes(rkyv))]
 pub fn derive_portable(
     input: proc_macro::TokenStream,
