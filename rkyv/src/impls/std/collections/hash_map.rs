@@ -15,7 +15,6 @@ use crate::{
 impl<K, V: Archive, S> Archive for HashMap<K, V, S>
 where
     K: Archive + Hash + Eq,
-    K::Archived: Hash + Eq,
 {
     type Archived = ArchivedHashMap<K::Archived, V::Archived>;
     type Resolver = HashMapResolver;
@@ -28,7 +27,6 @@ where
 impl<K, V, S, RandomState> Serialize<S> for HashMap<K, V, RandomState>
 where
     K: Serialize<S> + Hash + Eq,
-    K::Archived: Hash + Eq,
     V: Serialize<S>,
     S: Fallible + Writer + Allocator + ?Sized,
     S::Error: Source,
@@ -52,7 +50,7 @@ impl<K, V, D, S> Deserialize<HashMap<K, V, S>, D>
     for ArchivedHashMap<K::Archived, V::Archived>
 where
     K: Archive + Hash + Eq,
-    K::Archived: Deserialize<K, D> + Hash + Eq,
+    K::Archived: Deserialize<K, D>,
     V: Archive,
     V::Archived: Deserialize<V, D>,
     D: Fallible + ?Sized,
