@@ -2,7 +2,7 @@
 
 use core::{
     marker::PhantomPinned,
-    mem,
+    mem::{self, ManuallyDrop},
     ptr::{self, copy_nonoverlapping, write_bytes},
     slice, str,
 };
@@ -16,12 +16,15 @@ use crate::{
     Place, Portable,
 };
 
-#[derive(Clone, Copy, Portable)]
+#[derive(Portable)]
 #[rkyv(crate)]
 #[repr(C)]
 struct OutOfLineRepr {
     len: ArchivedUsize,
     offset: ArchivedIsize,
+
+    // This stores a relative pointer to the string data, so needs to be `!Unpin`.
+    // Must also not be `Copy` or `Clone`, for the same reason
     _phantom: PhantomPinned,
 }
 
@@ -42,7 +45,7 @@ struct InlineRepr {
 #[rkyv(crate)]
 #[repr(C)]
 pub union ArchivedStringRepr {
-    out_of_line: OutOfLineRepr,
+    out_of_line: ManuallyDrop<OutOfLineRepr>,
     inline: InlineRepr,
 }
 
@@ -205,8 +208,15 @@ impl ArchivedStringRepr {
         let (len, offset) = unsafe {
             munge! {
                 let ArchivedStringRepr {
-                    out_of_line: OutOfLineRepr { len, offset, _phantom: _ }
+                    out_of_line
                 } = out;
+            }
+            let out_of_line: Place<OutOfLineRepr> =
+                out_of_line.cast_unchecked();
+            munge! {
+                let OutOfLineRepr {
+                    len, offset, _phantom
+                } = out_of_line;
             }
             (len, offset)
         };
