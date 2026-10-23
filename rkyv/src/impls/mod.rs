@@ -157,6 +157,22 @@ mod core_tests {
     }
 
     #[test]
+    #[deny(deprecated)]
+    fn roundtrip_struct_with_deprecated_field() {
+        #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
+        #[rkyv(crate, compare(PartialEq), derive(Debug))]
+        struct Test {
+            #[deprecated]
+            a: i32,
+            b: Option<i32>,
+        }
+
+        #[allow(deprecated)]
+        let value = Test { a: 42, b: Some(42) };
+        roundtrip(&value);
+    }
+
+    #[test]
     fn roundtrip_enum() {
         #[derive(Archive, Serialize, Deserialize, Debug, PartialEq)]
         #[rkyv(crate, compare(PartialEq), derive(Debug))]

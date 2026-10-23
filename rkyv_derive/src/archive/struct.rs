@@ -407,7 +407,10 @@ fn generate_copy_optimization(
         }
     });
 
+    // `offset_of!` names every field, so without this a `#[deprecated]` field
+    // would make the derive emit a deprecation warning.
     Ok(Some(quote! {
+        #[allow(deprecated)]
         const COPY_OPTIMIZATION: #rkyv_path::traits::CopyOptimization<Self> =
             unsafe {
                 #rkyv_path::traits::CopyOptimization::enable_if(
