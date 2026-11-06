@@ -4,7 +4,7 @@ use rancor::{Fallible, Panic, ResultExt, Source, Strategy};
 use rkyv::{
     api::low::LowSerializer,
     ser::{allocator::SubAllocator, writer::Buffer, Writer},
-    with::{ArchiveWith, DeserializeWith, Map, SerializeWith},
+    with::{ArchiveWith, DeserializeWith, Map, MapKV, SerializeWith, InlineAsBox,},
     Archive, Archived, Deserialize, Place, Resolver, Serialize,
 };
 
@@ -482,4 +482,30 @@ where
     ) -> Result<T, <D as Fallible>::Error> {
         archived.deserialize(deserializer)
     }
+}
+
+
+#[cfg(feature = "indexmap-2")]
+#[test]
+fn index_map_mapkv() -> Result<(), Box<dyn std::error::Error>> {
+    use indexmap_2::IndexMap;
+    #[derive(Archive,Serialize,Deserialize, Clone,Debug)]
+    struct MyIndexMap<'a> {
+        #[rkyv(with = MapKV<InlineAsBox,InlineAsBox>)]
+        index_map: IndexMap<&'a str, &'a str>
+    }
+    let mut index_map = IndexMap::new();
+    index_map.insert("my_key_str1", "my_value1");
+    index_map.insert("my_key_str2", "my_value2");
+    index_map.insert("my_key_str3", "my_value3");
+
+    let my_index_map = MyIndexMap { index_map };
+    let bytes = rkyv::to_bytes::<rancor::Error>(&my_index_map)?;
+    let archived = rkyv::access::<ArchivedMyIndexMap, rancor::Error>(&bytes)?; //access &str without deserializing
+
+    assert_eq!(archived.index_map.get("my_key_str1").unwrap().as_ref(), "my_value1");
+    assert_eq!(archived.index_map.get("my_key_str2").unwrap().as_ref(), "my_value2");
+    assert_eq!(archived.index_map.get("my_key_str3").unwrap().as_ref(), "my_value3");
+
+    Ok(())
 }
