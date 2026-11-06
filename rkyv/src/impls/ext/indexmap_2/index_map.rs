@@ -1,3 +1,7 @@
+use crate::alloc::marker::PhantomData;
+use crate::impls::core::with::RefWrapper;
+use crate::hash::FxHasher64;
+use crate::with::{MapKV, ArchiveWith, SerializeWith, DeserializeWith,};
 use core::hash::{BuildHasher, Hash};
 
 use indexmap_2::IndexMap;
@@ -76,6 +80,91 @@ where
         self.iter()
             .zip(other.iter())
             .all(|((ak, av), (bk, bv))| ak == bk && av == bv)
+    }
+}
+
+// MapKV for IndexMap
+impl<A, B, K, V, H> ArchiveWith<IndexMap<K, V, H>> for MapKV<A, B>
+where
+    A: ArchiveWith<K>,
+    B: ArchiveWith<V>,
+    H: Default + BuildHasher,
+{
+    type Archived = ArchivedIndexMap<
+        <A as ArchiveWith<K>>::Archived,
+        <B as ArchiveWith<V>>::Archived,
+    >;
+    type Resolver = IndexMapResolver;
+
+    fn resolve_with(
+        field: &IndexMap<K, V, H>,
+        resolver: Self::Resolver,
+        out: Place<Self::Archived>,
+    ) {
+        ArchivedIndexMap::resolve_from_len(field.len(), (7, 8), resolver, out)
+    }
+}
+
+impl<A, B, K, V, S, H> SerializeWith<IndexMap<K, V, H>, S> for MapKV<A, B>
+where
+    A: ArchiveWith<K> + SerializeWith<K, S>,
+    B: ArchiveWith<V> + SerializeWith<V, S>,
+    K: Hash + Eq,
+    <A as ArchiveWith<K>>::Archived: Eq + Hash,
+    S: Fallible + Allocator + Writer + ?Sized,
+    S::Error: Source,
+    H: Default + BuildHasher,
+    H::Hasher: Default,
+{
+    fn serialize_with(
+        field: &IndexMap<K, V, H>,
+        serializer: &mut S,
+    ) -> Result<Self::Resolver, <S as Fallible>::Error> {
+        ArchivedIndexMap::<_, _, FxHasher64>::serialize_from_iter(
+            field.iter().map(|(k, v)| {
+                (
+                    RefWrapper::<'_, A, K>(k, PhantomData::<A>),
+                    RefWrapper::<'_, B, V>(v, PhantomData::<B>),
+                )
+            }),
+            (7, 8),
+            serializer,
+        )
+    }
+}
+
+impl<A, B, K, V, D, S>
+    DeserializeWith<
+        ArchivedIndexMap<
+            <A as ArchiveWith<K>>::Archived,
+            <B as ArchiveWith<V>>::Archived,
+        >,
+        IndexMap<K, V, S>,
+        D,
+    > for MapKV<A, B>
+where
+    A: ArchiveWith<K> + DeserializeWith<<A as ArchiveWith<K>>::Archived, K, D>,
+    B: ArchiveWith<V> + DeserializeWith<<B as ArchiveWith<V>>::Archived, V, D>,
+    K: Hash + Eq,
+    D: Fallible + ?Sized,
+    S: Default + BuildHasher,
+{
+    fn deserialize_with(
+        field: &ArchivedIndexMap<
+            <A as ArchiveWith<K>>::Archived,
+            <B as ArchiveWith<V>>::Archived,
+        >,
+        deserializer: &mut D,
+    ) -> Result<IndexMap<K, V, S>, <D as Fallible>::Error> {
+        let mut result =
+            IndexMap::with_capacity_and_hasher(field.len(), S::default());
+        for (k, v) in field.iter() {
+            result.insert(
+                A::deserialize_with(k, deserializer)?,
+                B::deserialize_with(v, deserializer)?,
+            );
+        }
+        Ok(result)
     }
 }
 
