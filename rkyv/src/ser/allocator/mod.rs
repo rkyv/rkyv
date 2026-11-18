@@ -62,6 +62,25 @@ unsafe impl<T: Allocator<E>, E> Allocator<E> for Strategy<T, E> {
     }
 }
 
+unsafe impl<T, E> Allocator<E> for &mut T where T: Allocator<E> + ?Sized {
+    unsafe fn push_alloc(&mut self, layout: Layout)
+        -> Result<NonNull<[u8]>, E> {
+            // SAFETY: The safety requirements for `push_alloc()` are the same as
+            // the requirements for `T::push_alloc`.
+            unsafe {(*self).push_alloc(layout)}
+    }
+
+    unsafe fn pop_alloc(
+        &mut self,
+        ptr: NonNull<u8>,
+        layout: Layout,
+    ) -> Result<(), E> {
+        // SAFETY: The safety requirements for `pop_alloc()` are the same as
+        // the requirements for `T::pop_alloc`.
+        unsafe {(*self).pop_alloc(ptr, layout)}
+    }
+}
+
 /// Statistics for the allocations which occurred during serialization.
 #[derive(Debug)]
 pub struct AllocationStats {
