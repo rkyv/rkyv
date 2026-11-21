@@ -4,7 +4,14 @@ pub mod owned;
 pub mod validators;
 
 use crate::{Archive, ArchivePointee, CheckBytes, Fallible, RelPtr};
-use core::{alloc::Layout, alloc::LayoutError, any::TypeId, fmt};
+#[cfg(not(feature = "std"))]
+use ::alloc::boxed::Box;
+use core::{
+    alloc::Layout,
+    alloc::LayoutError,
+    any::{Any, TypeId},
+    fmt,
+};
 use ptr_meta::Pointee;
 #[cfg(feature = "std")]
 use std::error::Error;
@@ -266,8 +273,57 @@ pub trait SharedContext: Fallible {
     /// Registers the given `ptr` as a shared pointer with the given type.
     ///
     /// Returns `true` if the pointer was newly-registered and `check_bytes` should be called.
+    ///
+    /// This does not account for pointer metadata, so it is only sufficient for sized pointees.
+    /// Shared pointers to unsized pointees should use
+    /// [`register_shared_ptr_with_metadata`](SharedContext::register_shared_ptr_with_metadata).
     fn register_shared_ptr(&mut self, ptr: *const u8, type_id: TypeId)
         -> Result<bool, Self::Error>;
+
+    /// Registers the given `ptr` as a shared pointer with the given type and pointer metadata
+    /// (e.g. the length of a slice).
+    ///
+    /// Returns `true` if the pointer was newly-registered and `check_bytes` should be called.
+    ///
+    /// If `ptr` was already registered with the same type, implementations must compare the
+    /// previously-registered metadata with `metadata` using `metadata_eq` and return an error if
+    /// they are not equal. Otherwise, a shared pointer could claim a larger unsized pointee than
+    /// the one which was checked.
+    ///
+    /// The default implementation ignores the metadata and calls
+    /// [`register_shared_ptr`](SharedContext::register_shared_ptr) to remain compatible with
+    /// existing implementations. Implementations which validate shared pointers to unsized
+    /// pointees from untrusted sources should override it.
+    #[inline]
+    fn register_shared_ptr_with_metadata(
+        &mut self,
+        ptr: *const u8,
+        type_id: TypeId,
+        metadata: Box<dyn Any + Send + Sync>,
+        metadata_eq: fn(&dyn Any, &dyn Any) -> bool,
+    ) -> Result<bool, Self::Error> {
+        let _ = (metadata, metadata_eq);
+        self.register_shared_ptr(ptr, type_id)
+    }
+
+    /// Registers a shared pointer using borrowed metadata.
+    ///
+    /// The comparison rules and return value match
+    /// [`register_shared_ptr_with_metadata`](SharedContext::register_shared_ptr_with_metadata).
+    /// `box_metadata` must return an owned copy of `metadata`. Implementations can defer calling
+    /// it until they insert a new entry. The default calls it and forwards to
+    /// [`register_shared_ptr_with_metadata`](SharedContext::register_shared_ptr_with_metadata).
+    #[inline]
+    fn register_shared_ptr_with_borrowed_metadata(
+        &mut self,
+        ptr: *const u8,
+        type_id: TypeId,
+        _metadata: &(dyn Any + Send + Sync),
+        metadata_eq: fn(&dyn Any, &dyn Any) -> bool,
+        box_metadata: &dyn Fn() -> Box<dyn Any + Send + Sync>,
+    ) -> Result<bool, Self::Error> {
+        self.register_shared_ptr_with_metadata(ptr, type_id, box_metadata(), metadata_eq)
+    }
 }
 
 /// Errors that can occur when checking an archive.
