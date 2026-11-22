@@ -133,7 +133,8 @@ pub trait DynContext {
 
     /// Registers the given `ptr` as a shared pointer with the given type and pointer metadata.
     ///
-    /// See [`register_shared_ptr_with_metadata`] for more information.
+    /// Implementations must follow the type and metadata checks in
+    /// [`register_shared_ptr_with_metadata`].
     ///
     /// [`register_shared_ptr_with_metadata`]: rkyv::validation::SharedContext::register_shared_ptr_with_metadata
     fn register_shared_ptr_with_metadata_dyn(
@@ -142,10 +143,7 @@ pub trait DynContext {
         type_id: TypeId,
         metadata: Box<dyn Any + Send + Sync>,
         metadata_eq: fn(&dyn Any, &dyn Any) -> bool,
-    ) -> Result<bool, Box<dyn Error>> {
-        let _ = (metadata, metadata_eq);
-        self.register_shared_ptr_dyn(ptr, type_id)
-    }
+    ) -> Result<bool, Box<dyn Error>>;
 
     /// Registers a shared pointer using borrowed metadata.
     /// See [`register_shared_ptr_with_borrowed_metadata`] for more information.

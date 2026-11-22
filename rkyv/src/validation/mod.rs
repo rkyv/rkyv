@@ -283,28 +283,19 @@ pub trait SharedContext: Fallible {
     /// Registers the given `ptr` as a shared pointer with the given type and pointer metadata
     /// (e.g. the length of a slice).
     ///
-    /// Returns `true` if the pointer was newly-registered and `check_bytes` should be called.
+    /// For a new address, store the type and metadata and return `true` so the caller can
+    /// validate the pointee. For an existing address, return an error if the type differs.
+    /// Otherwise, use `metadata_eq` with the stored metadata first and the incoming metadata
+    /// second. Return `false` if they match and an error if they differ.
     ///
-    /// If `ptr` was already registered with the same type, implementations must compare the
-    /// previously-registered metadata with `metadata` using `metadata_eq` and return an error if
-    /// they are not equal. Otherwise, a shared pointer could claim a larger unsized pointee than
-    /// the one which was checked.
-    ///
-    /// The default implementation ignores the metadata and calls
-    /// [`register_shared_ptr`](SharedContext::register_shared_ptr) to remain compatible with
-    /// existing implementations. Implementations which validate shared pointers to unsized
-    /// pointees from untrusted sources should override it.
-    #[inline]
+    /// Custom contexts can delegate to [`SharedValidator`](validators::SharedValidator).
     fn register_shared_ptr_with_metadata(
         &mut self,
         ptr: *const u8,
         type_id: TypeId,
         metadata: Box<dyn Any + Send + Sync>,
         metadata_eq: fn(&dyn Any, &dyn Any) -> bool,
-    ) -> Result<bool, Self::Error> {
-        let _ = (metadata, metadata_eq);
-        self.register_shared_ptr(ptr, type_id)
-    }
+    ) -> Result<bool, Self::Error>;
 
     /// Registers a shared pointer using borrowed metadata.
     ///
