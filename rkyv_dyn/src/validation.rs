@@ -130,6 +130,35 @@ pub trait DynContext {
         ptr: *const u8,
         type_id: TypeId,
     ) -> Result<bool, Box<dyn Error>>;
+
+    /// Registers the given `ptr` as a shared pointer with the given type and pointer metadata.
+    ///
+    /// Implementations must follow the type and metadata checks in
+    /// [`register_shared_ptr_with_metadata`].
+    ///
+    /// [`register_shared_ptr_with_metadata`]: rkyv::validation::SharedContext::register_shared_ptr_with_metadata
+    fn register_shared_ptr_with_metadata_dyn(
+        &mut self,
+        ptr: *const u8,
+        type_id: TypeId,
+        metadata: Box<dyn Any + Send + Sync>,
+        metadata_eq: fn(&dyn Any, &dyn Any) -> bool,
+    ) -> Result<bool, Box<dyn Error>>;
+
+    /// Registers a shared pointer using borrowed metadata.
+    /// See [`register_shared_ptr_with_borrowed_metadata`] for more information.
+    ///
+    /// [`register_shared_ptr_with_borrowed_metadata`]: rkyv::validation::SharedContext::register_shared_ptr_with_borrowed_metadata
+    fn register_shared_ptr_with_borrowed_metadata_dyn(
+        &mut self,
+        ptr: *const u8,
+        type_id: TypeId,
+        _metadata: &(dyn Any + Send + Sync),
+        metadata_eq: fn(&dyn Any, &dyn Any) -> bool,
+        box_metadata: &dyn Fn() -> Box<dyn Any + Send + Sync>,
+    ) -> Result<bool, Box<dyn Error>> {
+        self.register_shared_ptr_with_metadata_dyn(ptr, type_id, box_metadata(), metadata_eq)
+    }
 }
 
 impl<C> DynContext for C
@@ -205,6 +234,35 @@ where
     ) -> Result<bool, Box<dyn Error>> {
         self.register_shared_ptr(ptr, type_id)
             .map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
+
+    fn register_shared_ptr_with_metadata_dyn(
+        &mut self,
+        ptr: *const u8,
+        type_id: TypeId,
+        metadata: Box<dyn Any + Send + Sync>,
+        metadata_eq: fn(&dyn Any, &dyn Any) -> bool,
+    ) -> Result<bool, Box<dyn Error>> {
+        self.register_shared_ptr_with_metadata(ptr, type_id, metadata, metadata_eq)
+            .map_err(|e| Box::new(e) as Box<dyn Error>)
+    }
+
+    fn register_shared_ptr_with_borrowed_metadata_dyn(
+        &mut self,
+        ptr: *const u8,
+        type_id: TypeId,
+        metadata: &(dyn Any + Send + Sync),
+        metadata_eq: fn(&dyn Any, &dyn Any) -> bool,
+        box_metadata: &dyn Fn() -> Box<dyn Any + Send + Sync>,
+    ) -> Result<bool, Box<dyn Error>> {
+        self.register_shared_ptr_with_borrowed_metadata(
+            ptr,
+            type_id,
+            metadata,
+            metadata_eq,
+            box_metadata,
+        )
+        .map_err(|e| Box::new(e) as Box<dyn Error>)
     }
 }
 
@@ -302,6 +360,33 @@ impl ArchiveContext for (dyn DynContext + '_) {
 impl SharedContext for (dyn DynContext + '_) {
     fn register_shared_ptr(&mut self, ptr: *const u8, type_id: TypeId) -> Result<bool, DynError> {
         Ok(self.register_shared_ptr_dyn(ptr, type_id)?)
+    }
+
+    fn register_shared_ptr_with_metadata(
+        &mut self,
+        ptr: *const u8,
+        type_id: TypeId,
+        metadata: Box<dyn Any + Send + Sync>,
+        metadata_eq: fn(&dyn Any, &dyn Any) -> bool,
+    ) -> Result<bool, DynError> {
+        Ok(self.register_shared_ptr_with_metadata_dyn(ptr, type_id, metadata, metadata_eq)?)
+    }
+
+    fn register_shared_ptr_with_borrowed_metadata(
+        &mut self,
+        ptr: *const u8,
+        type_id: TypeId,
+        metadata: &(dyn Any + Send + Sync),
+        metadata_eq: fn(&dyn Any, &dyn Any) -> bool,
+        box_metadata: &dyn Fn() -> Box<dyn Any + Send + Sync>,
+    ) -> Result<bool, DynError> {
+        Ok(self.register_shared_ptr_with_borrowed_metadata_dyn(
+            ptr,
+            type_id,
+            metadata,
+            metadata_eq,
+            box_metadata,
+        )?)
     }
 }
 

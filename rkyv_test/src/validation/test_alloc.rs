@@ -11,8 +11,13 @@ mod tests {
         vec::Vec,
     };
     use rkyv::{
-        check_archived_root, check_archived_value, ser::Serializer, AlignedBytes, Archive,
-        Deserialize, Infallible, Serialize,
+        check_archived_root, check_archived_value,
+        de::deserializers::SharedDeserializeMap,
+        rc::ArchivedRc,
+        ser::serializers::AllocSerializer,
+        ser::Serializer,
+        validation::validators::{DefaultValidator, SharedError},
+        AlignedBytes, AlignedVec, Archive, CheckBytes, Deserialize, Infallible, RelPtr, Serialize,
     };
     #[cfg(feature = "std")]
     use std::{
@@ -403,6 +408,212 @@ mod tests {
         let buf = serializer.into_serializer().into_inner();
 
         check_archived_root::<Test>(buf.as_ref()).unwrap();
+    }
+
+    /// Returns the position of the archived length of a shared slice pointer within `bytes`.
+    fn shared_slice_len_pos<T, F>(bytes: &[u8], ptr: &ArchivedRc<[T], F>) -> usize {
+        // `ArchivedRc` is a `#[repr(transparent)]` wrapper around a `RelPtr`.
+        let rel_ptr = unsafe { &*(ptr as *const ArchivedRc<[T], F>).cast::<RelPtr<[T]>>() };
+        rel_ptr.metadata() as *const _ as usize - bytes.as_ptr() as usize
+    }
+
+    /// Overwrites the bytes at `pos` with the archived representation of `value`.
+    fn overwrite<T: Serialize<AllocSerializer<16>>>(bytes: &mut [u8], pos: usize, value: &T) {
+        let value_bytes = rkyv::to_bytes::<_, 16>(value).unwrap();
+        bytes[pos..pos + value_bytes.len()].copy_from_slice(&value_bytes);
+    }
+
+    fn assert_metadata_mismatch<T, E: ToString>(result: Result<T, E>) {
+        let message = match result {
+            Ok(_) => panic!("conflicting shared pointer metadata was accepted"),
+            Err(e) => e.to_string(),
+        };
+        assert!(
+            message.contains(&SharedError::MetadataMismatch.to_string()),
+            "unexpected error: {}",
+            message
+        );
+    }
+
+    /// Checks that checked access rejects the archive of `value` after changing the archived length
+    /// of the shared slice pointer returned by `bad`, and returns the forged archives.
+    fn check_forged_shared_slice_len<T, U, F>(
+        value: &T,
+        bad: impl Fn(&T::Archived) -> &ArchivedRc<[U], F>,
+    ) -> [AlignedVec; 2]
+    where
+        T: Serialize<AllocSerializer<256>>,
+        T::Archived: for<'a> CheckBytes<DefaultValidator<'a>>,
+    {
+        let bytes = rkyv::to_bytes::<_, 256>(value).unwrap();
+        let archived = check_archived_root::<T>(&bytes).unwrap();
+        let len = bad(archived).len();
+        let len_pos = shared_slice_len_pos(&bytes, bad(archived));
+
+        [len - 1, len + 1].map(|forged_len| {
+            let mut forged = bytes.clone();
+            overwrite(&mut forged, len_pos, &forged_len);
+            assert_metadata_mismatch(check_archived_root::<T>(&forged));
+            forged
+        })
+    }
+
+    /// Like `check_forged_shared_slice_len`, but also checks deserialization through `from_bytes`.
+    fn check_shared_slice_metadata<T, U, F>(
+        value: &T,
+        bad: impl Fn(&T::Archived) -> &ArchivedRc<[U], F>,
+    ) where
+        T: Serialize<AllocSerializer<256>>,
+        T::Archived:
+            for<'a> CheckBytes<DefaultValidator<'a>> + Deserialize<T, SharedDeserializeMap>,
+    {
+        let bytes = rkyv::to_bytes::<_, 256>(value).unwrap();
+        rkyv::from_bytes::<T>(&bytes).map(|_| ()).unwrap();
+
+        for forged in check_forged_shared_slice_len(value, bad) {
+            assert_metadata_mismatch(rkyv::from_bytes::<T>(&forged));
+        }
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_shared_slice_metadata_rc() {
+        #[cfg(not(feature = "std"))]
+        use alloc::rc::Weak;
+        #[cfg(feature = "std")]
+        use std::rc::Weak;
+
+        let shared = Rc::<[u32]>::from(vec![1, 2, 3]);
+        check_shared_slice_metadata(&[shared.clone(), shared.clone()], |a| &a[1]);
+
+        // `Weak<[T]>` can't be deserialized, so only checked access is tested.
+        #[derive(Archive, Serialize)]
+        #[archive(check_bytes)]
+        struct Test {
+            strong: Rc<[u32]>,
+            weak: Weak<[u32]>,
+        }
+
+        let weak = Rc::downgrade(&shared);
+        let value = Test {
+            strong: shared,
+            weak,
+        };
+        check_forged_shared_slice_len(&value, |a| a.weak.upgrade().unwrap());
+    }
+
+    #[test]
+    #[cfg(target_has_atomic = "ptr")]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_shared_slice_metadata_arc() {
+        #[cfg(not(feature = "std"))]
+        use alloc::sync::{Arc, Weak};
+        #[cfg(feature = "std")]
+        use std::sync::{Arc, Weak};
+
+        let shared = Arc::<[u32]>::from(vec![1, 2, 3]);
+        check_shared_slice_metadata(&[shared.clone(), shared.clone()], |a| &a[1]);
+
+        // `Weak<[T]>` can't be deserialized, so only checked access is tested.
+        #[derive(Archive, Serialize)]
+        #[archive(check_bytes)]
+        struct Test {
+            strong: Arc<[u32]>,
+            weak: Weak<[u32]>,
+        }
+
+        let weak = Arc::downgrade(&shared);
+        let value = Test {
+            strong: shared,
+            weak,
+        };
+        check_forged_shared_slice_len(&value, |a| a.weak.upgrade().unwrap());
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn check_shared_slice_metadata_out_of_bounds() {
+        // Adapted from https://github.com/rkyv/rkyv/issues/670. The first pointer claims a shorter
+        // slice so only the first element is checked, and the unchecked second element points far
+        // outside of the archive. If the second pointer reused the first pointer's validation,
+        // accessing `archived[1][1]` would read out of bounds.
+        type Value = [Rc<[Box<u32>]>; 2];
+
+        let shared = Rc::<[Box<u32>]>::from(vec![Box::new(1), Box::new(2)]);
+        let mut bytes = rkyv::to_bytes::<_, 256>(&[shared.clone(), shared]).unwrap();
+        let archived = check_archived_root::<Value>(&bytes).unwrap();
+        let len_pos = shared_slice_len_pos(&bytes, &archived[0]);
+        let element_pos = &archived[1][1] as *const _ as usize - bytes.as_ptr() as usize;
+        overwrite(&mut bytes, len_pos, &1usize);
+        overwrite(&mut bytes, element_pos, &0x4000isize);
+
+        assert_metadata_mismatch(check_archived_root::<Value>(&bytes));
+        assert_metadata_mismatch(rkyv::from_bytes::<Value>(&bytes));
+    }
+
+    #[test]
+    #[cfg_attr(feature = "wasm", wasm_bindgen_test)]
+    fn shared_validator_metadata() {
+        use core::{
+            any::{Any, TypeId},
+            cell::Cell,
+        };
+        use rkyv::validation::{validators::SharedValidator, SharedContext};
+
+        fn usize_eq(a: &dyn Any, b: &dyn Any) -> bool {
+            matches!((a.downcast_ref::<usize>(), b.downcast_ref::<usize>()), (Some(a), Some(b)) if a == b)
+        }
+
+        let data = [0u8; 3];
+        let (sized, unsized_) = (&data[0] as *const u8, &data[1] as *const u8);
+        let mut validator = SharedValidator::new();
+
+        // Sized pointees are unaffected
+        assert!(validator
+            .register_shared_ptr(sized, TypeId::of::<u32>())
+            .unwrap());
+        assert!(!validator
+            .register_shared_ptr(sized, TypeId::of::<u32>())
+            .unwrap());
+        assert!(matches!(
+            validator.register_shared_ptr(sized, TypeId::of::<u64>()),
+            Err(SharedError::TypeMismatch { .. })
+        ));
+
+        let mut register = |len: usize| {
+            validator.register_shared_ptr_with_metadata(
+                unsized_,
+                TypeId::of::<[u8]>(),
+                Box::new(len),
+                usize_eq,
+            )
+        };
+        assert!(register(4).unwrap());
+        assert!(!register(4).unwrap());
+        assert!(matches!(register(5), Err(SharedError::MetadataMismatch)));
+
+        // The legacy method can't prove that the metadata matches
+        assert!(matches!(
+            validator.register_shared_ptr(unsized_, TypeId::of::<[u8]>()),
+            Err(SharedError::MetadataMismatch)
+        ));
+
+        let allocations = Cell::new(0);
+        let mut register_borrowed = |len: usize| {
+            validator.register_shared_ptr_with_borrowed_metadata(
+                &data[2],
+                TypeId::of::<[u8]>(),
+                &len,
+                usize_eq,
+                &|| {
+                    allocations.set(allocations.get() + 1);
+                    Box::new(len)
+                },
+            )
+        };
+        assert!(register_borrowed(4).unwrap());
+        assert!(!register_borrowed(4).unwrap());
+        assert_eq!(allocations.get(), 1);
     }
 
     #[test]

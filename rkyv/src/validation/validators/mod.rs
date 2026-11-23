@@ -11,11 +11,13 @@ use crate::{
     },
     Archive, Fallible,
 };
+#[cfg(not(feature = "std"))]
+use ::alloc::boxed::Box;
 pub use archive::*;
 use bytecheck::CheckBytes;
 use core::{
     alloc::{Layout, LayoutError},
-    any::TypeId,
+    any::{Any, TypeId},
     fmt,
 };
 pub use shared::*;
@@ -179,6 +181,39 @@ impl<'a> SharedContext for DefaultValidator<'a> {
     ) -> Result<bool, Self::Error> {
         self.shared
             .register_shared_ptr(ptr, type_id)
+            .map_err(DefaultValidatorError::SharedError)
+    }
+
+    #[inline]
+    fn register_shared_ptr_with_metadata(
+        &mut self,
+        ptr: *const u8,
+        type_id: TypeId,
+        metadata: Box<dyn Any + Send + Sync>,
+        metadata_eq: fn(&dyn Any, &dyn Any) -> bool,
+    ) -> Result<bool, Self::Error> {
+        self.shared
+            .register_shared_ptr_with_metadata(ptr, type_id, metadata, metadata_eq)
+            .map_err(DefaultValidatorError::SharedError)
+    }
+
+    #[inline]
+    fn register_shared_ptr_with_borrowed_metadata(
+        &mut self,
+        ptr: *const u8,
+        type_id: TypeId,
+        metadata: &(dyn Any + Send + Sync),
+        metadata_eq: fn(&dyn Any, &dyn Any) -> bool,
+        box_metadata: &dyn Fn() -> Box<dyn Any + Send + Sync>,
+    ) -> Result<bool, Self::Error> {
+        self.shared
+            .register_shared_ptr_with_borrowed_metadata(
+                ptr,
+                type_id,
+                metadata,
+                metadata_eq,
+                box_metadata,
+            )
             .map_err(DefaultValidatorError::SharedError)
     }
 }

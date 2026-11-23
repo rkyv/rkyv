@@ -5,8 +5,14 @@ use crate::{
     validation::{ArchiveContext, LayoutRaw, SharedContext},
     ArchivePointee, RelPtr,
 };
+#[cfg(not(feature = "std"))]
+use ::alloc::boxed::Box;
 use bytecheck::{CheckBytes, Error};
-use core::{any::TypeId, convert::Infallible, fmt, ptr};
+use core::{
+    any::{Any, TypeId},
+    convert::Infallible,
+    fmt, ptr,
+};
 use ptr_meta::Pointee;
 
 /// Errors that can occur while checking archived shared pointers.
@@ -100,6 +106,13 @@ impl<T, R, C> From<Infallible> for WeakPointerError<T, R, C> {
     }
 }
 
+fn metadata_eq<M: Eq + 'static>(a: &dyn Any, b: &dyn Any) -> bool {
+    match (a.downcast_ref::<M>(), b.downcast_ref::<M>()) {
+        (Some(a), Some(b)) => a == b,
+        _ => false,
+    }
+}
+
 impl<T, F, C> CheckBytes<C> for ArchivedRc<T, F>
 where
     T: ArchivePointee + CheckBytes<C> + LayoutRaw + Pointee + ?Sized + 'static,
@@ -123,8 +136,17 @@ where
             .map_err(SharedPointerError::ContextError)?;
 
         let type_id = TypeId::of::<Self>();
+        // The metadata must be registered too, or a later pointer to the same address could
+        // claim a larger unsized pointee (e.g. a longer slice) than the one which was checked.
+        let metadata = ptr_meta::metadata(ptr);
         if context
-            .register_shared_ptr(ptr.cast(), type_id)
+            .register_shared_ptr_with_borrowed_metadata(
+                ptr.cast(),
+                type_id,
+                &metadata,
+                metadata_eq::<<T as Pointee>::Metadata>,
+                &|| Box::new(metadata),
+            )
             .map_err(SharedPointerError::ContextError)?
         {
             context
