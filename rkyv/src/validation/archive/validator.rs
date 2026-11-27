@@ -109,8 +109,12 @@ impl<'a> ArchiveValidator<'a> {
         Self::with_max_depth(bytes, None)
     }
 
-    /// Crates a new bounds validator for the given bytes with a maximum
-    /// validation depth.
+    /// Creates a new bounds validator for the given bytes with a maximum
+    /// pointer-container nesting depth.
+    ///
+    /// Only pointer containers (such as `Vec`, `Box`, `Option`, and map
+    /// types) count towards this depth; inline nesting (tuples, arrays,
+    /// structs, and enums) is validated without affecting the counter.
     #[inline]
     pub fn with_max_depth(
         bytes: &'a [u8],
